@@ -84,11 +84,11 @@ class scalene_profiler:
         if self.stats.function_samples_remaining > 1:
             self.stats.function_samples_remaining -= 1
             return
-        print(self.stats.sampling_triggered)
+        print("samples triggered = " + str(self.stats.sampling_triggered))
         self.stats.count += 1
         self.stats.triggered_sum += self.stats.sampling_triggered
         if self.stats.sampling_triggered == 0:
-            self.stats.last_function_sampling_interval *= 1.2
+            self.stats.last_function_sampling_interval *= 1.1
             self.stats.function_samples_remaining = self.stats.last_function_sampling_interval #  np.random.geometric(p = 1 / self.last_function_sampling_interval, size=1)[0]
             return
         if self.stats.sampling_triggered > 0:
@@ -105,10 +105,10 @@ if __name__ == "__main__":
     with open(sys.argv[1], 'rb') as fp:
         code = compile(fp.read(), sys.argv[1], "exec")
     atexit.register(profiler.exit_handler)
-#    sys.setprofiler(profiler.trace_calls)
-#    threading.setprofiler(profiler.trace_calls)
-    sys.settrace(profiler.trace_calls)
-    threading.settrace(profiler.trace_calls)
+    sys.setprofile(profiler.trace_calls)
+    threading.setprofile(profiler.trace_calls)
+#    sys.settrace(profiler.trace_calls)
+#    threading.settrace(profiler.trace_calls)
     
     exec(code)
 
