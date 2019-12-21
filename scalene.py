@@ -18,6 +18,7 @@ class scalene_stats:
     total_samples = 0       # how many samples have been collected.
     signal_interval = 0.5   # seconds
     sampling_triggered = 0  # how many times sampling has been triggered.
+    average_sampling_rate = 1
     count = 0
     triggered_sum = 0
 
@@ -57,12 +58,17 @@ class scalene_profiler:
         # Turn off the profiling signal.
         signal.setitimer(signal.ITIMER_PROF, 0)
         # Turn off tracing.
+        sys.setprofile(None)
+        threading.setprofile(None)
         sys.settrace(None)
-        # Sort the samples in descending order by number of samples.
-        self.stats.samples = { k: v for k, v in sorted(self.stats.samples.items(), key=lambda item: item[1], reverse=True) }
-        for key in self.stats.samples:
-            print(key + " : " + str(self.stats.samples[key] * 100 / self.stats.total_samples) + "%" + " (" + str(self.stats.samples[key]) + " total samples)")
-        print(str(self.stats.triggered_sum / self.stats.count))
+        if self.stats.count > 0:
+            # Sort the samples in descending order by number of samples.
+            self.stats.samples = { k: v for k, v in sorted(self.stats.samples.items(), key=lambda item: item[1], reverse=True) }
+            for key in self.stats.samples:
+                print(key + " : " + str(self.stats.samples[key] * 100 / self.stats.total_samples) + "%" + " (" + str(self.stats.samples[key]) + " total samples)")
+            print(str(self.stats.triggered_sum / self.stats.count))
+        else:
+            print("The program did not run long enough to profile.")
 
     def trace_lines(self, frame, event, arg):
         if event != 'line':
@@ -84,19 +90,33 @@ class scalene_profiler:
         if self.stats.function_samples_remaining > 1:
             self.stats.function_samples_remaining -= 1
             return
-        print("samples triggered = " + str(self.stats.sampling_triggered))
         self.stats.count += 1
         self.stats.triggered_sum += self.stats.sampling_triggered
-        if self.stats.sampling_triggered == 0:
-            self.stats.last_function_sampling_interval *= 1.1
-            self.stats.function_samples_remaining = self.stats.last_function_sampling_interval #  np.random.geometric(p = 1 / self.last_function_sampling_interval, size=1)[0]
-            return
-        if self.stats.sampling_triggered > 0:
-            # Goal is to keep function sampling at the same rate as signals.
-            self.stats.last_function_sampling_interval = .9 * self.stats.last_function_sampling_interval + .1 * (self.stats.last_function_sampling_interval / self.stats.sampling_triggered)
-            self.stats.function_samples_remaining = self.stats.last_function_sampling_interval
-            self.stats.sampling_triggered -= 1
-            return self.trace_lines
+        print("samples triggered = " + str(self.stats.sampling_triggered) + ", exp average = " + str(self.stats.average_sampling_rate) + ", real average = " + str(self.stats.triggered_sum / self.stats.count))
+        # self.stats.average_sampling_rate = 0.2 * self.stats.average_sampling_rate + 0.8 * self.stats.triggered_sum / self.stats.count
+        self.stats.average_sampling_rate = 0.9 * self.stats.average_sampling_rate + 0.1 * self.stats.sampling_triggered
+
+        # Average rate is too high (too many samples per function call) => lower interval
+        if self.stats.average_sampling_rate > 1.1:
+            self.stats.last_function_sampling_interval *= 0.9
+        # Average rate is too low => increase the interval
+        elif self.stats.average_sampling_rate < 0.9:
+            self.stats.last_function_sampling_interval *= 1.2
+        self.stats.sampling_triggered = 0
+        self.stats.function_samples_remaining = self.stats.last_function_sampling_interval
+        return self.trace_lines
+        if False:
+            if self.stats.sampling_triggered == 0:
+                self.stats.last_function_sampling_interval *= 2
+                self.stats.function_samples_remaining = self.stats.last_function_sampling_interval #  np.random.geometric(p = 1 / self.last_function_sampling_interval, size=1)[0]
+                return
+            if self.stats.sampling_triggered > 0:
+                # Goal is to keep function sampling at the same rate as signals.
+                alpha = 0.2
+                self.stats.last_function_sampling_interval = alpha * self.stats.last_function_sampling_interval + (1 - alpha) * (1 / self.stats.sampling_triggered) * self.stats.last_function_sampling_interval
+                self.stats.function_samples_remaining = self.stats.last_function_sampling_interval
+                self.stats.sampling_triggered = 0 # -= 1
+                return self.trace_lines
         
 
 if __name__ == "__main__":
@@ -105,10 +125,10 @@ if __name__ == "__main__":
     with open(sys.argv[1], 'rb') as fp:
         code = compile(fp.read(), sys.argv[1], "exec")
     atexit.register(profiler.exit_handler)
-    sys.setprofile(profiler.trace_calls)
-    threading.setprofile(profiler.trace_calls)
-#    sys.settrace(profiler.trace_calls)
-#    threading.settrace(profiler.trace_calls)
+#    sys.setprofile(profiler.trace_calls)
+#    threading.setprofile(profiler.trace_calls)
+    sys.settrace(profiler.trace_calls)
+    threading.settrace(profiler.trace_calls)
     
     exec(code)
 
