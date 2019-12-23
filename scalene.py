@@ -86,18 +86,22 @@ class scalene_profiler:
             return
         # Trace lines in the function.
         return self.trace_lines
+
+    def start(self):
+        atexit.register(self.exit_handler)
+        sys.setprofile(self.trace_calls)
+        threading.setprofile(self.trace_calls)
+        sys.settrace(self.trace_calls)
+        threading.settrace(self.trace_calls)
         
+       
 
 if __name__ == "__main__":
     assert len(sys.argv) >= 2, "Usage example: python -m scalene test.py"
     profiler = scalene_profiler()
     with open(sys.argv[1], 'rb') as fp:
         code = compile(fp.read(), sys.argv[1], "exec")
-    atexit.register(profiler.exit_handler)
-    sys.setprofile(profiler.trace_calls)
-    threading.setprofile(profiler.trace_calls)
-    sys.settrace(profiler.trace_calls)
-    threading.settrace(profiler.trace_calls)
+    profiler.start()
     
     exec(code)
 
