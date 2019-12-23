@@ -33,6 +33,11 @@ class scalene_profiler:
         # number of times sampling has been triggered. It's the job of
         # the profiler to decrement this count.
         self.stats.sampling_triggered += 1
+        # Increase the signal interval geometrically until we hit once
+        # per second.  This approach means we can successfully profile
+        # even quite short lived programs.
+        if self.stats.signal_interval < 1:
+            self.stats.signal_interval *= 1.2
         return
     
     def exit_handler(self):
