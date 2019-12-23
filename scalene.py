@@ -12,7 +12,7 @@ assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool require
 class scalene_stats:
     samples = {}            # the samples themselves (key = filename+':'+function+':'+lineno)
     total_samples = 0       # how many samples have been collected.
-    signal_interval = 0.01   # seconds
+    signal_interval = 0.01  # seconds
     sampling_triggered = 0  # how many times sampling has been triggered.
 
     def __init__(self):
@@ -23,11 +23,15 @@ class scalene_profiler:
 
     def __init__(self):
         self.stats = scalene_stats()
+        # Set up the signal handler to handle periodic timer interrupts (used for sampling).
         signal.signal(signal.SIGPROF, self.signal_handler)
         signal.setitimer(signal.ITIMER_PROF, self.stats.signal_interval, self.stats.signal_interval)
         pass
     
     def signal_handler(self, sig, frame):
+        # Every time we get a signal, we increase the count of the
+        # number of times sampling has been triggered. It's the job of
+        # the profiler to decrement this count.
         self.stats.sampling_triggered += 1
         return
     
@@ -39,6 +43,7 @@ class scalene_profiler:
         threading.setprofile(None)
         sys.settrace(None)
         threading.settrace(None)
+        # If we've collected any samples, dump them.
         if self.stats.total_samples > 0:
             # Sort the samples in descending order by number of samples.
             self.stats.samples = { k: v for k, v in sorted(self.stats.samples.items(), key=lambda item: item[1], reverse=True) }
@@ -48,7 +53,7 @@ class scalene_profiler:
             print("The program did not run long enough to profile.")
 
     def trace_lines(self, frame, event, arg):
-        # Ignore the line if there has not yet been a sample triggered.
+        # Ignore the line if there has not yet been a sample triggered (the common case).
         if self.stats.sampling_triggered == 0:
             return
         # Only trace lines.
