@@ -53,6 +53,8 @@ class scalene_profiler:
         func_name = co.co_name
         line_no = frame.f_lineno
         filename = co.co_filename
+        if not self.should_trace(filename):
+            return
         key = filename + '\t' + func_name + '\t' + str(line_no)
         if key in self.stats.mem_samples:
             self.stats.mem_samples[key] += 1
@@ -91,6 +93,17 @@ class scalene_profiler:
 #        tracemalloc.start()
         return
 
+
+    @staticmethod
+    def should_trace(filename):
+        if 'scalene.py' in filename:
+            return False
+        # Don't trace Python builtins.
+        if '<frozen importlib._bootstrap>' in filename:
+            return False
+        if '<frozen importlib._bootstrap_external>' in filename:
+            return False
+        return True
         
     def trace_calls(self, frame, event, arg):
         # Only trace Python functions.
@@ -99,12 +112,7 @@ class scalene_profiler:
         # Don't trace the profiler itself.
         co = frame.f_code
         filename = co.co_filename
-        if 'scalene.py' in filename:
-            return
-        # Don't trace Python builtins.
-        if '<frozen importlib._bootstrap>' in filename:
-            return
-        if '<frozen importlib._bootstrap_external>' in filename:
+        if not self.should_trace(filename):
             return
         # Trace lines in the function.
         return self.trace_lines
