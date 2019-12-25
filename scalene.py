@@ -1,9 +1,10 @@
 import sys
 import atexit
 import threading
-import numpy as np
 import signal
 import time
+import os
+import tracemalloc
 
 # time.perf_counter()
 
@@ -23,12 +24,17 @@ class scalene_profiler:
 
     def __init__(self):
         self.stats = scalene_stats()
-        # Set up the signal handler to handle periodic timer interrupts (used for sampling).
-        signal.signal(signal.SIGPROF, self.signal_handler)
+        # Set up the signal handler to handle periodic timer interrupts (for CPU).
+        signal.signal(signal.SIGPROF, self.cpu_signal_handler)
+        # Set up the signal handler to handle malloc interrupts (for memory allocations).
+        # signal.signal(signal.SIGVTALRM, self.malloc_signal_handler)
         signal.setitimer(signal.ITIMER_PROF, self.stats.signal_interval, self.stats.signal_interval)
+        #os.environ["PYTHONMALLOC"] = "malloc"
+        # This is for Mac; fix for UNIX.
+        #os.environ["DYLD_INSERT_LIBRARIES"] = "/Users/emery/git/scalene/libsamplemalloc.dylib"
         pass
-    
-    def signal_handler(self, sig, frame):
+
+    def cpu_signal_handler(self, sig, frame):
         # Every time we get a signal, we increase the count of the
         # number of times sampling has been triggered. It's the job of
         # the profiler to decrement this count.
@@ -39,8 +45,68 @@ class scalene_profiler:
         if self.stats.signal_interval < 1:
             self.stats.signal_interval *= 1.2
         return
+
+    def malloc_signal_handler(self, sig, frame):
+        print("malloc signal!")
+        return
     
+    def trace_lines(self, frame, event, arg):
+        # Ignore the line if there has not yet been a sample triggered (the common case).
+        if self.stats.sampling_triggered == 0:
+            return
+        # Only trace lines.
+        if event != 'line':
+            return
+        (curr, peak) = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        
+        self.stats.sampling_triggered -= 1
+        self.stats.total_samples += 1
+        co = frame.f_code
+        func_name = co.co_name
+        line_no = frame.f_lineno
+        filename = co.co_filename
+        key = filename + '\t' + func_name + '\t' + str(line_no)
+        # print("line = " + key)
+        self.last_line_executed = line_no
+        print("mem so far = curr: " + str(curr) + ", peak: " + str(peak) + " on line " + str(line_no))
+        if key in self.stats.samples:
+            self.stats.samples[key] += 1
+        else:
+            self.stats.samples[key] = 1
+            
+        tracemalloc.start()
+        return
+
+        
+    def trace_calls(self, frame, event, arg):
+        # Only trace Python functions.
+        if event != 'call':
+            return
+        # Don't trace the profiler itself.
+        co = frame.f_code
+        filename = co.co_filename
+        if 'scalene.py' in filename:
+            return
+        # Don't trace Python builtins.
+        if '<frozen importlib._bootstrap>' in filename:
+            return
+        if '<frozen importlib._bootstrap_external>' in filename:
+            return
+        # Trace lines in the function.
+        return self.trace_lines
+
+    def start(self):
+        atexit.register(self.exit_handler)
+        sys.setprofile(self.trace_calls)
+        threading.setprofile(self.trace_calls)
+        sys.settrace(self.trace_calls)
+        threading.settrace(self.trace_calls)
+        tracemalloc.start()
+
     def exit_handler(self):
+        # Turn off malloc tracing.
+        tracemalloc.stop()
         # Turn off the profiling signal.
         signal.setitimer(signal.ITIMER_PROF, 0)
         # Turn off tracing.
@@ -56,48 +122,6 @@ class scalene_profiler:
                 print(key + " : " + str(self.stats.samples[key] * 100 / self.stats.total_samples) + "%" + " (" + str(self.stats.samples[key]) + " total samples)")
         else:
             print("The program did not run long enough to profile.")
-
-    def trace_lines(self, frame, event, arg):
-        # Ignore the line if there has not yet been a sample triggered (the common case).
-        if self.stats.sampling_triggered == 0:
-            return
-        # Only trace lines.
-        if event != 'line':
-            return
-        self.stats.sampling_triggered -= 1
-        self.stats.total_samples += 1
-        co = frame.f_code
-        func_name = co.co_name
-        line_no = frame.f_lineno
-        filename = co.co_filename
-        key = filename + '\t' + func_name + '\t' + str(line_no)
-        # print("line = " + key)
-        self.last_line_executed = line_no
-        if key in self.stats.samples:
-            self.stats.samples[key] += 1
-        else:
-            self.stats.samples[key] = 1
-        return
-
-        
-    def trace_calls(self, frame, event, arg):
-        # Only trace Python functions.
-        if event != 'call':
-            return
-        # Don't trace the profiler itself.
-        co = frame.f_code
-        filename = co.co_filename
-        if 'scalene.py' in filename:
-            return
-        # Trace lines in the function.
-        return self.trace_lines
-
-    def start(self):
-        atexit.register(self.exit_handler)
-        sys.setprofile(self.trace_calls)
-        threading.setprofile(self.trace_calls)
-        sys.settrace(self.trace_calls)
-        threading.settrace(self.trace_calls)
         
        
 
