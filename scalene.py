@@ -4,7 +4,7 @@ import threading
 import signal
 import time
 import os
-import tracemalloc
+# import tracemalloc
 
 # time.perf_counter()
 
@@ -12,7 +12,9 @@ assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool require
 
 class scalene_stats:
     samples = {}            # the samples themselves (key = filename+':'+function+':'+lineno)
+    mem_samples = {}        # same format but for memory usage
     total_samples = 0       # how many samples have been collected.
+    total_mem_samples = 0   # how many memory usage samples have been collected.
     signal_interval = 0.01  # seconds
     sampling_triggered = 0  # how many times sampling has been triggered.
 
@@ -27,7 +29,7 @@ class scalene_profiler:
         # Set up the signal handler to handle periodic timer interrupts (for CPU).
         signal.signal(signal.SIGPROF, self.cpu_signal_handler)
         # Set up the signal handler to handle malloc interrupts (for memory allocations).
-        # signal.signal(signal.SIGVTALRM, self.malloc_signal_handler)
+        signal.signal(signal.SIGVTALRM, self.malloc_signal_handler)
         signal.setitimer(signal.ITIMER_PROF, self.stats.signal_interval, self.stats.signal_interval)
         #os.environ["PYTHONMALLOC"] = "malloc"
         # This is for Mac; fix for UNIX.
@@ -47,7 +49,18 @@ class scalene_profiler:
         return
 
     def malloc_signal_handler(self, sig, frame):
-        print("malloc signal!")
+        co = frame.f_code
+        func_name = co.co_name
+        line_no = frame.f_lineno
+        filename = co.co_filename
+        key = filename + '\t' + func_name + '\t' + str(line_no)
+        if key in self.stats.mem_samples:
+            self.stats.mem_samples[key] += 1
+        else:
+            self.stats.mem_samples[key] =1
+        self.stats.total_mem_samples += 1
+        # print("filename = " + filename + ", line_no = " + str(line_no))
+        # print("malloc signal!")
         return
     
     def trace_lines(self, frame, event, arg):
@@ -57,8 +70,8 @@ class scalene_profiler:
         # Only trace lines.
         if event != 'line':
             return
-        (curr, peak) = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
+#        (curr, peak) = tracemalloc.get_traced_memory()
+#        tracemalloc.stop()
         
         self.stats.sampling_triggered -= 1
         self.stats.total_samples += 1
@@ -69,13 +82,13 @@ class scalene_profiler:
         key = filename + '\t' + func_name + '\t' + str(line_no)
         # print("line = " + key)
         self.last_line_executed = line_no
-        print("mem so far = curr: " + str(curr) + ", peak: " + str(peak) + " on line " + str(line_no))
+#        print("mem so far = curr: " + str(curr) + ", peak: " + str(peak) + " on line " + str(line_no))
         if key in self.stats.samples:
             self.stats.samples[key] += 1
         else:
             self.stats.samples[key] = 1
             
-        tracemalloc.start()
+#        tracemalloc.start()
         return
 
         
@@ -102,12 +115,14 @@ class scalene_profiler:
         threading.setprofile(self.trace_calls)
         sys.settrace(self.trace_calls)
         threading.settrace(self.trace_calls)
-        tracemalloc.start()
+#        tracemalloc.start()
 
     def exit_handler(self):
         # Turn off malloc tracing.
-        tracemalloc.stop()
-        # Turn off the profiling signal.
+#        tracemalloc.stop()
+        # Turn off the profiling signals.
+        signal.signal(signal.ITIMER_PROF, signal.SIG_IGN)
+        signal.signal(signal.SIGVTALRM, signal.SIG_IGN)
         signal.setitimer(signal.ITIMER_PROF, 0)
         # Turn off tracing.
         sys.setprofile(None)
@@ -116,12 +131,23 @@ class scalene_profiler:
         threading.settrace(None)
         # If we've collected any samples, dump them.
         if self.stats.total_samples > 0:
+            print("CPU usage:")
             # Sort the samples in descending order by number of samples.
             self.stats.samples = { k: v for k, v in sorted(self.stats.samples.items(), key=lambda item: item[1], reverse=True) }
             for key in self.stats.samples:
                 print(key + " : " + str(self.stats.samples[key] * 100 / self.stats.total_samples) + "%" + " (" + str(self.stats.samples[key]) + " total samples)")
         else:
             print("The program did not run long enough to profile.")
+        # If we've collected any samples, dump them.
+        print("")
+        if self.stats.total_mem_samples > 0:
+            print("Memory usage:")
+            # Sort the samples in descending order by number of samples.
+            self.stats.mem_samples = { k: v for k, v in sorted(self.stats.mem_samples.items(), key=lambda item: item[1], reverse=True) }
+            for key in self.stats.mem_samples:
+                print(key + " : " + str(self.stats.mem_samples[key] * 100 / self.stats.total_mem_samples) + "%" + " (" + str(self.stats.mem_samples[key]) + " total samples)")
+        else:
+            print("The program did not allocate enough memory to profile.")
         
        
 
