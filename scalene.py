@@ -13,10 +13,10 @@ assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool require
 class scalene_stats:
     samples = {}            # the samples themselves (key = filename+':'+function+':'+lineno)
     mem_samples = {}        # same format but for memory usage
-    total_samples = 0       # how many samples have been collected.
+    total_cpu_samples = 0       # how many samples have been collected.
     total_mem_samples = 0   # how many memory usage samples have been collected.
     signal_interval = 0.01  # seconds
-    sampling_triggered = 0  # how many times sampling has been triggered.
+    cpu_sampling_triggered = 0  # how many times sampling has been triggered.
 
     def __init__(self):
         pass
@@ -40,7 +40,7 @@ class scalene_profiler:
         # Every time we get a signal, we increase the count of the
         # number of times sampling has been triggered. It's the job of
         # the profiler to decrement this count.
-        self.stats.sampling_triggered += 1
+        self.stats.cpu_sampling_triggered += 1
         # Increase the signal interval geometrically until we hit once
         # per second.  This approach means we can successfully profile
         # even quite short lived programs.
@@ -67,7 +67,7 @@ class scalene_profiler:
     
     def trace_lines(self, frame, event, arg):
         # Ignore the line if there has not yet been a sample triggered (the common case).
-        if self.stats.sampling_triggered == 0:
+        if self.stats.cpu_sampling_triggered == 0:
             return
         # Only trace lines.
         if event != 'line':
@@ -75,8 +75,8 @@ class scalene_profiler:
 #        (curr, peak) = tracemalloc.get_traced_memory()
 #        tracemalloc.stop()
         
-        self.stats.sampling_triggered -= 1
-        self.stats.total_samples += 1
+        self.stats.cpu_sampling_triggered -= 1
+        self.stats.total_cpu_samples += 1
         co = frame.f_code
         func_name = co.co_name
         line_no = frame.f_lineno
@@ -96,6 +96,7 @@ class scalene_profiler:
 
     @staticmethod
     def should_trace(filename):
+        # Don't trace the profiler itself.
         if 'scalene.py' in filename:
             return False
         # Don't trace Python builtins.
@@ -109,7 +110,6 @@ class scalene_profiler:
         # Only trace Python functions.
         if event != 'call':
             return
-        # Don't trace the profiler itself.
         co = frame.f_code
         filename = co.co_filename
         if not self.should_trace(filename):
@@ -119,8 +119,8 @@ class scalene_profiler:
 
     def start(self):
         atexit.register(self.exit_handler)
-        sys.setprofile(self.trace_calls)
-        threading.setprofile(self.trace_calls)
+#        sys.setprofile(self.trace_calls)
+#        threading.setprofile(self.trace_calls)
         sys.settrace(self.trace_calls)
         threading.settrace(self.trace_calls)
 #        tracemalloc.start()
@@ -138,12 +138,12 @@ class scalene_profiler:
         sys.settrace(None)
         threading.settrace(None)
         # If we've collected any samples, dump them.
-        if self.stats.total_samples > 0:
+        if self.stats.total_cpu_samples > 0:
             print("CPU usage:")
             # Sort the samples in descending order by number of samples.
             self.stats.samples = { k: v for k, v in sorted(self.stats.samples.items(), key=lambda item: item[1], reverse=True) }
             for key in self.stats.samples:
-                print(key + " : " + str(self.stats.samples[key] * 100 / self.stats.total_samples) + "%" + " (" + str(self.stats.samples[key]) + " total samples)")
+                print(key + " : " + str(self.stats.samples[key] * 100 / self.stats.total_cpu_samples) + "%" + " (" + str(self.stats.samples[key]) + " total samples)")
         else:
             print("The program did not run long enough to profile.")
         # If we've collected any samples, dump them.
