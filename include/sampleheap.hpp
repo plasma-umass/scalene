@@ -3,32 +3,25 @@
 
 #include <signal.h>
 
-template <class SuperHeap, unsigned long Start = 10485760, unsigned long Bytes = 128 * 1024>
+template <class SuperHeap, unsigned long Bytes = 128 * 1024>
 class SampleHeap : public SuperHeap {
 public:
 
   SampleHeap()
-    : _timer (Start),
-      _signalsEnabled (false),
-      _mallocs (0),
+    : _mallocs (0),
       _frees (0)
   {
+    // Ignore the signal until it's been replaced by a client.
+    signal(SIGVTALRM, SIG_IGN);
   }
 
   void * malloc(size_t sz) {
-    if (!_signalsEnabled && (sz < _timer)) {
-      _timer -= sz;
-    } else {
-      _signalsEnabled = true; // next time we will signal.
-    }
     auto ptr = SuperHeap::malloc(sz);
     _mallocs += SuperHeap::getSize(ptr);
     if (_mallocs - _frees > Bytes) {
-      if (_signalsEnabled) {
-	// Raise a signal.
-	//	tprintf::tprintf("freed memory = @\n", SuperHeap::freedMemory());
-	raise(SIGVTALRM);
-      }
+      // Raise a signal.
+      //	tprintf::tprintf("freed memory = @\n", SuperHeap::freedMemory());
+      raise(SIGVTALRM);
       _mallocs = 0;
       _frees = 0;
     }
@@ -42,10 +35,8 @@ public:
   }
   
 private:
-  long _timer;
   unsigned long _mallocs;
   unsigned long _frees;
-  bool _signalsEnabled;
 };
 
 #endif
