@@ -20,15 +20,11 @@ class scalene_profiler:
     cpu_sampling_triggered = 0  # how many times sampling has been triggered.
     
     def __init__(self):
-        # self.stats = scalene_stats()
         # Set up the signal handler to handle periodic timer interrupts (for CPU).
         signal.signal(signal.SIGPROF, self.cpu_signal_handler)
         # Set up the signal handler to handle malloc interrupts (for memory allocations).
         signal.signal(signal.SIGVTALRM, self.malloc_signal_handler)
         signal.setitimer(signal.ITIMER_PROF, self.signal_interval, self.signal_interval)
-        #os.environ["PYTHONMALLOC"] = "malloc"
-        # This is for Mac; fix for UNIX.
-        #os.environ["DYLD_INSERT_LIBRARIES"] = "/Users/emery/git/scalene/libsamplemalloc.dylib"
         pass
 
     @staticmethod
@@ -58,8 +54,6 @@ class scalene_profiler:
         else:
             scalene_profiler.mem_samples[key] =1
         scalene_profiler.total_mem_samples += 1
-        # print("filename = " + filename + ", line_no = " + str(line_no))
-        # print("malloc signal!")
         return
 
     @staticmethod
@@ -70,9 +64,6 @@ class scalene_profiler:
         # Only trace lines.
         if event != 'line':
             return
-#        (curr, peak) = tracemalloc.get_traced_memory()
-#        tracemalloc.stop()
-        
         scalene_profiler.cpu_sampling_triggered -= 1
         scalene_profiler.total_cpu_samples += 1
         co = frame.f_code
@@ -80,15 +71,11 @@ class scalene_profiler:
         line_no = frame.f_lineno
         filename = co.co_filename
         key = filename + '\t' + func_name + '\t' + str(line_no)
-        # print("line = " + key)
         scalene_profiler.last_line_executed = line_no
-#        print("mem so far = curr: " + str(curr) + ", peak: " + str(peak) + " on line " + str(line_no))
         if key in scalene_profiler.samples:
             scalene_profiler.samples[key] += 1
         else:
             scalene_profiler.samples[key] = 1
-            
-#        tracemalloc.start()
         return
 
 
@@ -123,13 +110,10 @@ class scalene_profiler:
         #        threading.setprofile(scalene_profiler.trace_calls)
         sys.settrace(scalene_profiler.trace_calls)
         threading.settrace(scalene_profiler.trace_calls)
-        #        tracemalloc.start()
 
 
     @staticmethod
     def exit_handler():
-        # Turn off malloc tracing.
-#        tracemalloc.stop()
         # Turn off the profiling signals.
         signal.signal(signal.ITIMER_PROF, signal.SIG_IGN)
         signal.signal(signal.SIGVTALRM, signal.SIG_IGN)
@@ -140,24 +124,24 @@ class scalene_profiler:
         sys.settrace(None)
         threading.settrace(None)
         # If we've collected any samples, dump them.
+        print("CPU usage:")
         if scalene_profiler.total_cpu_samples > 0:
-            print("CPU usage:")
             # Sort the samples in descending order by number of samples.
             scalene_profiler.samples = { k: v for k, v in sorted(scalene_profiler.samples.items(), key=lambda item: item[1], reverse=True) }
             for key in scalene_profiler.samples:
                 print(key + " : " + str(scalene_profiler.samples[key] * 100 / scalene_profiler.total_cpu_samples) + "%" + " (" + str(scalene_profiler.samples[key]) + " total samples)")
         else:
-            print("The program did not run long enough to profile.")
+            print("(did not run long enough to profile)")
         # If we've collected any samples, dump them.
         print("")
+        print("Memory usage:")
         if scalene_profiler.total_mem_samples > 0:
-            print("Memory usage:")
             # Sort the samples in descending order by number of samples.
             scalene_profiler.mem_samples = { k: v for k, v in sorted(scalene_profiler.mem_samples.items(), key=lambda item: item[1], reverse=True) }
             for key in scalene_profiler.mem_samples:
                 print(key + " : " + str(scalene_profiler.mem_samples[key] * 100 / scalene_profiler.total_mem_samples) + "%" + " (" + str(scalene_profiler.mem_samples[key]) + " total samples)")
         else:
-            print("The program did not allocate enough memory to profile.")
+            print("(did not allocate enough memory to profile)")
         
        
 
