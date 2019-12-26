@@ -8,7 +8,7 @@
 
 template <unsigned long NumClasses,
 	  unsigned long Size = 1024UL * 1048576UL,
-	  unsigned long Multiple = 16,
+	  unsigned long Multiple = 8,
 	  unsigned long MinSize = 16>
 class CheapHeap {
 public:
@@ -21,10 +21,10 @@ public:
     if (unlikely(sz > NumClasses * Multiple)) {
       tprintf::tprintf("OH SHEET @\n", sz);
     }
-#endif
     if (unlikely(sz < MinSize)) {
       sz = MinSize;
     }
+#endif
     size_t rounded;
     unsigned long sizeClass;
     ClassWarfare<Multiple>::getSizeAndClass(sz, rounded, sizeClass);
@@ -71,8 +71,8 @@ private:
     return _buf.malloc(rounded);
   }
   
-  BufferBump<NumClasses, Size, Multiple> _buf;
   Stack<void *> _arr[NumClasses];
+  BufferBump<NumClasses, Size, Multiple> _buf;
 };
 
 #endif
