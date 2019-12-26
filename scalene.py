@@ -1,13 +1,3 @@
-
-
-import sys
-import atexit
-import signal
-import os
-from collections import defaultdict
-
-assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool requires Python version 3.7 or above."
-
 """
 
   Scalene: a high-performance sampling CPU *and* memory profiler for Python.
@@ -28,6 +18,15 @@ assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool require
          LD_PRELOAD=$PWD/libcheaper.dylib PYTHONMALLOC=malloc python -m scalene test/testme.py
 
 """
+
+import sys
+import atexit
+import signal
+import os
+from collections import defaultdict
+
+assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool requires Python version 3.7 or above."
+
 class scalene_profiler:
 
     # CPU samples (key = filename+':'+function+':'+lineno)
@@ -101,10 +100,6 @@ class scalene_profiler:
     @staticmethod
     def start():
         atexit.register(scalene_profiler.exit_handler)
-        #        sys.setprofile(scalene_profiler.trace_calls)
-        #        threading.setprofile(scalene_profiler.trace_calls)
-#        sys.settrace(scalene_profiler.trace_calls)
-#        threading.settrace(scalene_profiler.trace_calls)
 
 
     @staticmethod
@@ -113,11 +108,6 @@ class scalene_profiler:
         signal.signal(signal.ITIMER_PROF, signal.SIG_IGN)
         signal.signal(signal.SIGVTALRM, signal.SIG_IGN)
         signal.setitimer(signal.ITIMER_PROF, 0)
-        # Turn off tracing.
-#        sys.setprofile(None)
-#        threading.setprofile(None)
-#        sys.settrace(None)
-#        threading.settrace(None)
         # If we've collected any samples, dump them.
         print("CPU usage:")
         if scalene_profiler.total_cpu_samples > 0:
