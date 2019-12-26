@@ -18,7 +18,8 @@ static volatile bool initialized = false;
 class TheCustomHeap;
 static TheCustomHeap * theCustomHeap = nullptr;
 
-class TheCustomHeap : public SampleHeap<CheapHeap<400000, 128UL * 1048576UL>> {
+// class TheCustomHeap : public SampleHeap<CheapHeap<400000, 128UL * 1048576UL>> {
+class TheCustomHeap : public SampleHeap<CheapHeap<4 * 32768, 128UL * 1048576UL>> {
 public:
   TheCustomHeap() {
     theCustomHeap = this;
@@ -32,7 +33,6 @@ TheCustomHeap& getTheCustomHeap() {
 }
 
 extern "C" __attribute__((constructor)) void xxinit() {
-  tprintf::tprintf("xxinit\n");
   theCustomHeap = &getTheCustomHeap();
 }
 
