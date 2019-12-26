@@ -1,6 +1,8 @@
-import numpy as np
+import os
+#import numpy as np
+#import math
 
-from numpy import linalg as LA
+#from numpy import linalg as LA
 
 def doit1(x):
 #    x = [i*i for i in range(1,1000)][0]
@@ -15,9 +17,18 @@ def doit1(x):
     return z
 
 def doit2(x):
-    z = x * x
-    z = z * z
-    z = z * z
+    i = 0
+#    zarr = [math.cos(13) for i in range(1,100000)]
+#    z = zarr[0]
+    while i < 100000:
+#        z = math.cos(13)
+#        z = np.multiply(x,x)
+#        z = np.multiply(z,z)
+#        z = np.multiply(z,z)
+        z = x * x
+        z = z * z
+        z = z * z
+        i += 1
     return z
 
 def doit3(x):
@@ -31,7 +42,7 @@ def doit3(x):
 
 def stuff():
     x = 1.01
-    for i in range(1,2):
+    for i in range(1,10):
         for j in range(1,10):
             #print("WO")
             x = doit1(x)
