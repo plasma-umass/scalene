@@ -1,12 +1,10 @@
-Title         : scalene: a high-performance CPU and memory profiler for Python
-Author        : Emery Berger
-Logo          : True
+# scalene: a high-performance CPU and memory profiler for Python
 
-[TITLE]
+by [Emery Berger](https://emeryberger.com)
 
 ------------
 
-# About Scalene
+## About Scalene
 
 Scalene is a high-performance CPU *and* memory profiler for Python that does a few things that other Python profilers do not and cannot do.
 
@@ -14,7 +12,7 @@ Scalene is a high-performance CPU *and* memory profiler for Python that does a f
 1. Scalene is _precise_. Unlike most other Python profilers, Scalene performs CPU profiling _at the line level_, pointing to the specific lines of code that are responsible for the execution time in your program. This level of detail can be much more useful information than the function-level profiles returned by most profilers.
 1. Scalene _profiles memory usage_. In addition to tracking CPU usage, Scalene also points to the specific lines of code responsible for memory growth. It accomplishes this via an included specialized memory allocator.
 
-# Usage
+## Usage
 
 The following command will run Scalene to only perform line-level CPU profiling on a provided example program.
 
