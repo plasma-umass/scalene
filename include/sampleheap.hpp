@@ -13,17 +13,8 @@ public:
       _mallocs (0),
       _frees (0)
   {
-    //    fprintf(stderr, "HELLO\n");
   }
 
-  void enableSignals() {
-    _signalsEnabled = true;
-  }
-
-  void disableSignals() {
-    _signalsEnabled = false;
-  }
-  
   void * malloc(size_t sz) {
     if (!_signalsEnabled && (sz < _timer)) {
       _timer -= sz;
