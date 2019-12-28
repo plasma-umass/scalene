@@ -21,15 +21,12 @@ public:
     auto ptr = SuperHeap::malloc(sz);
     _mallocs += SuperHeap::getSize(ptr);
     if ((_mallocs - _frees) >= Bytes) {
-      if (_mallocs >= Bytes) {
-	_mallocs -= Bytes;
-      } else {
-	_mallocs = 0;
-      }
       // Raise a signal.
       //      tprintf::tprintf("signal!\n");
       raise(SIGVTALRM);
-#if 1
+      _mallocs = 0;
+      _frees = 0;
+#if 0
       if (_frees >= Bytes) {
 	_frees -= Bytes;
       } else {
