@@ -27,9 +27,9 @@ public:
   }
 
   inline constexpr size_t getSize(void * ptr) {
-    if (ptr == nullptr) {
-      return 0;
-    }
+    //    if (ptr == nullptr) {
+    //      return 0;
+    //    }
     size_t sz = 0;
     auto cl = _buf.getClass(ptr);
 #if 1
@@ -42,9 +42,8 @@ public:
   }
   
 private:
-  void free(void *) {
-    abort();
-  }
+  
+  void free(void *);
 
   Buffer<NumClasses, Size> _buf;
   char * _bump[NumClasses];

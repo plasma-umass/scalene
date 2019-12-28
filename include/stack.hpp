@@ -10,6 +10,7 @@ class Stack {
 public:
   Stack() : _index (0) {}
 
+#if 0
   void mass_push(const TYPE v[BatchSize]) {
     std::memcpy(&_buf[_index], v, sizeof(TYPE) * BatchSize);
     _index += BatchSize;
@@ -21,6 +22,7 @@ public:
       std::memcpy(v, &_buf[_index], sizeof(TYPE) * BatchSize);
     } // Note: we fail silently if there are too few things on the stack.
   }
+#endif
   
   inline void push(const TYPE v) {
     _buf[_index] = v;

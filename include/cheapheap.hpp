@@ -25,24 +25,25 @@ public:
 #endif
     size_t rounded;
     int sizeClass;
+    void * ptr;
     ClassWarfare<Multiple>::getSizeAndClass(sz, rounded, sizeClass);
-    {
-      void * ptr;
-      if (likely(_arr[sizeClass].pop(ptr))) {
-	// auto testSz = _buf.getSize(ptr);
-	//	tprintf::tprintf("CheapHeap::malloc(@) = @\n", rounded, ptr);
-	return ptr;
-      }
+    if (likely(_arr[sizeClass].pop(ptr))) {
+      // auto testSz = _buf.getSize(ptr);
+      //	tprintf::tprintf("CheapHeap::malloc(@) = @\n", rounded, ptr);
+      return ptr;
+    } else {
+      ptr = slowPathMalloc(rounded);
+      //    tprintf::tprintf("CheapHeap::slowPathMalloc(@) = @\n", rounded, ptr);
+      return ptr;
     }
-    void * ptr = slowPathMalloc(rounded);
-    //    tprintf::tprintf("CheapHeap::slowPathMalloc(@) = @\n", rounded, ptr);
-    return ptr;
   }
   
   __attribute__((always_inline)) inline void free(void * ptr) {
+#if 0
     if (unlikely(ptr == nullptr)) {
       return;
     }
+#endif
     //    tprintf::tprintf("CheapHeap::free:");
     auto sz = _buf.getSize(ptr);
     //    tprintf::tprintf("CheapHeap::free(@), sz=@\n", ptr, sz);
@@ -65,7 +66,7 @@ public:
     return totalFreed;
   }
   
-  inline size_t constexpr getSize(void * ptr) {
+  __attribute__((always_inline)) inline size_t constexpr getSize(void * ptr) {
     //    tprintf::tprintf("CheapHeap::getSize(@):", ptr);
     auto sz = _buf.getSize(ptr);
     //    tprintf::tprintf("CheapHeap::getSize(@) = @\n", ptr, sz);
