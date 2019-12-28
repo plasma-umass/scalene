@@ -1,5 +1,4 @@
-// Size class calculator
-// Dynamic arrays
+#include <heaplayers.h>
 
 #include "tprintf.h"
 #include "common.hpp"
@@ -17,7 +16,8 @@
 class TheCustomHeap;
 static TheCustomHeap * theCustomHeap = nullptr;
 
-class TheCustomHeap : public SampleHeap<CheapHeap<32 * 32768, 64UL * 1048576UL>> {
+//class TheCustomHeap : public SampleHeap<CheapHeap<64 + 16, 32UL * 1048576UL>> {
+class TheCustomHeap : public SampleHeap<CheapHeap<32UL * 1048576UL>> {
 public:
   TheCustomHeap() {
     theCustomHeap = this;
@@ -29,12 +29,12 @@ TheCustomHeap& getTheCustomHeap() {
   return thang;
 }
 
-extern "C" __attribute__((constructor)) void xxinit() {
-  theCustomHeap = &getTheCustomHeap();
-}
-
 extern "C" void * xxmalloc(size_t sz) {
-  return getTheCustomHeap().malloc(sz);
+  if (theCustomHeap) {
+    return theCustomHeap->malloc(sz);
+  } else {
+    return getTheCustomHeap().malloc(sz);
+  }
 }
 
 extern "C" void xxfree(void * ptr) {
@@ -43,14 +43,12 @@ extern "C" void xxfree(void * ptr) {
 
 extern "C" void xxfree_sized(void * ptr, size_t sz) {
   // TODO FIXME maybe make a sized-free version?
-  theCustomHeap->free(ptr);
+  getTheCustomHeap().free(ptr);
 }
 
 extern "C" size_t xxmalloc_usable_size(void * ptr) {
   return theCustomHeap->getSize(ptr); // TODO FIXME adjust for ptr offset?
 }
-
-extern "C" bool isMultiThreaded = true;
 
 extern "C" void xxmalloc_lock() {
 }

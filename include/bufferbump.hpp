@@ -18,15 +18,19 @@ public:
   
   __attribute__((noinline)) void * malloc(size_t sz) {
     size_t rounded;
-    unsigned long sizeClass;
+    int sizeClass;
     ClassWarfare<Multiple>::getSizeAndClass(sz, rounded, sizeClass);
     auto ptr = _bump[sizeClass];
     _bump[sizeClass] += rounded;
+    //    tprintf::tprintf("_bump[@] += @\n", sizeClass, rounded);
     return reinterpret_cast<void *>(ptr);
   }
 
-  inline size_t getSize(void * ptr) {
-    size_t sz;
+  inline constexpr size_t getSize(void * ptr) {
+    if (ptr == nullptr) {
+      return 0;
+    }
+    size_t sz = 0;
     auto cl = _buf.getClass(ptr);
 #if 1
     if (unlikely((cl < 0) || (cl >= NumClasses))) {
@@ -38,6 +42,10 @@ public:
   }
   
 private:
+  void free(void *) {
+    abort();
+  }
+
   Buffer<NumClasses, Size> _buf;
   char * _bump[NumClasses];
 };

@@ -6,47 +6,51 @@
 #include "classwarfare.hpp"
 #include "tprintf.h"
 
-template <unsigned long NumClasses,
-	  unsigned long Size = 1024UL * 1048576UL,
+template <unsigned long Size = 1024UL * 1048576UL,
 	  unsigned long Multiple = 8,
 	  unsigned long MinSize = 16>
 class CheapHeap {
 public:
+
+  enum { NumClasses = ClassWarfare<Multiple>::getSizeClass(32*1048576) };
+	  
+  enum { Alignment = 16 }; // Multiple };
   
   __attribute__((always_inline)) inline void * malloc(size_t sz) {
+    //    tprintf::tprintf("CheapHeap::malloc(@):", sz);
 #if 1
-    // TODO - slightly more sophisticated size class foo.
-    // We should have a different set of size classes for larger sizes.
-  
-    if (unlikely(sz > NumClasses * Multiple)) {
-      tprintf::tprintf("OH SHEET @\n", sz);
-    }
     if (unlikely(sz < MinSize)) {
       sz = MinSize;
     }
 #endif
     size_t rounded;
-    unsigned long sizeClass;
+    int sizeClass;
     ClassWarfare<Multiple>::getSizeAndClass(sz, rounded, sizeClass);
     {
       void * ptr;
       if (likely(_arr[sizeClass].pop(ptr))) {
+	// auto testSz = _buf.getSize(ptr);
+	//	tprintf::tprintf("CheapHeap::malloc(@) = @\n", rounded, ptr);
 	return ptr;
       }
     }
-    return slowPathMalloc(rounded);
+    void * ptr = slowPathMalloc(rounded);
+    //    tprintf::tprintf("CheapHeap::slowPathMalloc(@) = @\n", rounded, ptr);
+    return ptr;
   }
   
   __attribute__((always_inline)) inline void free(void * ptr) {
     if (unlikely(ptr == nullptr)) {
       return;
     }
+    //    tprintf::tprintf("CheapHeap::free:");
     auto sz = _buf.getSize(ptr);
+    //    tprintf::tprintf("CheapHeap::free(@), sz=@\n", ptr, sz);
     if (unlikely(sz == 0)) { // check for out of bounds.
       return;
     }
     size_t rounded;
-    unsigned long sizeClass;
+    int sizeClass;
     ClassWarfare<Multiple>::getSizeAndClass(sz, rounded, sizeClass);
     _arr[sizeClass].push(ptr);
   }
@@ -61,8 +65,11 @@ public:
     return totalFreed;
   }
   
-  inline size_t getSize(void * ptr) {
-    return _buf.getSize(ptr);
+  inline size_t constexpr getSize(void * ptr) {
+    //    tprintf::tprintf("CheapHeap::getSize(@):", ptr);
+    auto sz = _buf.getSize(ptr);
+    //    tprintf::tprintf("CheapHeap::getSize(@) = @\n", ptr, sz);
+    return sz;
   }
   
 private:

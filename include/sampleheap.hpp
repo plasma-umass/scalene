@@ -25,13 +25,17 @@ public:
       _mallocs = 0;
       _frees = 0;
     }
+    //    tprintf::tprintf("SampleHeap::malloc(@) = @\n", sz, ptr);
     return ptr;
   }
 
   void free(void * ptr) {
+    //    tprintf::tprintf("SampleHeap::free @\n", ptr);
     auto sz = SuperHeap::getSize(ptr);
-    _frees += sz;
-    SuperHeap::free(ptr);
+    if (sz > 0) {
+      _frees += sz;
+      SuperHeap::free(ptr);
+    }
   }
   
 private:

@@ -21,11 +21,20 @@ public:
   }
 
   void * getBuffer(int i) {
+    if ((i < 0) || (i > NumClasses)) {
+      return nullptr;
+    }      
     auto ptr = &_buf[i * Size];
     return ptr;
   }
 
-  long getClass(void * ptr) {
+  int constexpr getClass(void * ptr) {
+    if (((uintptr_t) ptr < (uintptr_t) _buf) ||
+	((uintptr_t) ptr >= (uintptr_t) _buf + (Size * NumClasses))) {
+      //      tprintf::tprintf("ptr out of bounds = @ (original = @, buf = @, sz = @)\n", ptr, _originalBuf, _buf, Size * NumClasses);
+      //      abort();
+      return -1;
+    }
     return ((uintptr_t) ptr - (uintptr_t) _buf) / Size;
   }
   
