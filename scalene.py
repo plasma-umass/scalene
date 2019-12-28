@@ -22,8 +22,8 @@
 import sys
 import atexit
 import signal
-import os
-import time
+from time import perf_counter
+import json
 from collections import defaultdict
 
 assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool requires Python version 3.7 or above."
@@ -42,6 +42,7 @@ class scalene_profiler:
     elapsed_time      = 0       # measures total elapsed time of client execution.
     
     def __init__(self):
+        atexit.register(scalene_profiler.exit_handler)
         # Set up the signal handler to handle periodic timer interrupts (for CPU).
         signal.signal(signal.SIGPROF, self.cpu_signal_handler)
         # Set up the signal handler to handle malloc interrupts (for memory allocations).
@@ -59,8 +60,15 @@ class scalene_profiler:
         filename = co.co_filename
         if not scalene_profiler.should_trace(filename):
             return None
-        key = filename + '\t' + func_name + '\t' + str(line_no)
+        key = json.dumps({'filename' : filename,
+                          'func_name' : func_name,
+                          'line_no' : line_no })
+        # key = filename + '\t' + func_name + '\t' + str(line_no)
         return key
+
+    @staticmethod
+    def extract_from_key(key):
+        return json.loads(key)
         
     @staticmethod
     def cpu_signal_handler(sig, frame):
@@ -101,13 +109,28 @@ class scalene_profiler:
 
     @staticmethod
     def start():
-        atexit.register(scalene_profiler.exit_handler)
-        scalene_profiler.elapsed_time = time.perf_counter()
+        scalene_profiler.elapsed_time = perf_counter()
 
+    def print_profile(samples, total_samples):
+        print("{}\t{:20}\t{}\t{}" .format("Filename", "Function","Line","Percent"))
+        if total_samples > 0:
+            # Sort the samples in descending order by number of samples.
+            samples = { k: v for k, v in sorted(samples.items(), key=lambda item: item[1], reverse=True) }
+            for key in samples:
+                frac = samples[key] / total_samples
+                if frac < 0.01:
+                    break
+                percent = frac * 100
+                dict = scalene_profiler.extract_from_key(key)
+                print("{}\t{:20}\t{}\t{:6.2f}%" .format(dict['filename'], dict['func_name'], dict['line_no'], percent))
+#                print("{} : {:6.2f}% ({:6.2f}s)" .format(key, percent, frac * scalene_profiler.elapsed_time))
+        else:
+            print("(Not enough samples collected.)")
+        
     @staticmethod
     def exit_handler():
         # Get elapsed time.
-        scalene_profiler.elapsed_time = time.perf_counter() - scalene_profiler.elapsed_time
+        scalene_profiler.elapsed_time = perf_counter() - scalene_profiler.elapsed_time
         
         # Turn off the profiling signals.
         signal.signal(signal.ITIMER_PROF, signal.SIG_IGN)
@@ -115,40 +138,22 @@ class scalene_profiler:
         signal.setitimer(signal.ITIMER_PROF, 0)
         # If we've collected any samples, dump them.
         print("CPU usage:")
-        if scalene_profiler.total_cpu_samples > 0:
-            # Sort the samples in descending order by number of samples.
-            scalene_profiler.cpu_samples = { k: v for k, v in sorted(scalene_profiler.cpu_samples.items(), key=lambda item: item[1], reverse=True) }
-            for key in scalene_profiler.cpu_samples:
-                frac = scalene_profiler.cpu_samples[key] / scalene_profiler.total_cpu_samples
-                if frac < 0.01:
-                    break
-                percent = frac * 100
-                print("{} : {:6.2f}% ({:6.2f}s)" .format(key, percent, frac * scalene_profiler.elapsed_time))
-        else:
-            print("(did not run long enough to profile)")
-        # If we've collected any samples, dump them.
+        scalene_profiler.print_profile(scalene_profiler.cpu_samples, scalene_profiler.total_cpu_samples)
         print("")
         print("Memory usage:")
-        if scalene_profiler.total_mem_samples > 0:
-            # Sort the samples in descending order by number of samples.
-            scalene_profiler.mem_samples = { k: v for k, v in sorted(scalene_profiler.mem_samples.items(), key=lambda item: item[1], reverse=True) }
-            for key in scalene_profiler.mem_samples:
-                frac = scalene_profiler.mem_samples[key] / scalene_profiler.total_mem_samples
-                if frac < 0.01:
-                    break
-                percent = frac * 100
-                print("{} : {:6.2f}%" .format(key, percent))
-        else:
-            print("(did not allocate enough memory to profile)")
+        scalene_profiler.print_profile(scalene_profiler.mem_samples, scalene_profiler.total_mem_samples)
         
        
 
 if __name__ == "__main__":
     assert len(sys.argv) >= 2, "Usage example: python -m scalene test.py"
-    profiler = scalene_profiler()
-    with open(sys.argv[1], 'rb') as fp:
-        code = compile(fp.read(), sys.argv[1], "exec")
-    profiler.start()
-    
-    exec(code)
+    try:
+        with open(sys.argv[1], 'rb') as fp:
+            code = compile(fp.read(), sys.argv[1], "exec")
+            profiler = scalene_profiler()
+            profiler.start()
+            exec(code)
+    except (FileNotFoundError, IOError):
+        print("scalene: could not find input file.")
+        
 
