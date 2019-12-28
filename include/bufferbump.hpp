@@ -21,15 +21,16 @@ public:
     int sizeClass;
     ClassWarfare<Multiple>::getSizeAndClass(sz, rounded, sizeClass);
     auto ptr = _bump[sizeClass];
+    // Might want to check for size allocated here...FIXME
     _bump[sizeClass] += rounded;
     //    tprintf::tprintf("_bump[@] += @\n", sizeClass, rounded);
     return reinterpret_cast<void *>(ptr);
   }
 
   inline constexpr size_t getSize(void * ptr) {
-    //    if (ptr == nullptr) {
-    //      return 0;
-    //    }
+    if (ptr == nullptr) {
+      return 0;
+    }
     size_t sz = 0;
     auto cl = _buf.getClass(ptr);
 #if 1

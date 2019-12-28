@@ -4,7 +4,7 @@
 #include <signal.h>
 #include "common.hpp"
 
-template <class SuperHeap, unsigned long Bytes = 128 * 1024>
+template <class SuperHeap, unsigned long Bytes = 1024 * 1024>
 class SampleHeap : public SuperHeap {
 public:
 
@@ -17,21 +17,33 @@ public:
   }
 
   void * malloc(size_t sz) {
+    //    if (sz == 0) { sz = 1; } // FIXME POSSIBLY NOT NEEDED.
     auto ptr = SuperHeap::malloc(sz);
     _mallocs += SuperHeap::getSize(ptr);
-    if (_mallocs - _frees > Bytes) {
+    if ((_mallocs - _frees) >= Bytes) {
+      if (_mallocs >= Bytes) {
+	_mallocs -= Bytes;
+      } else {
+	_mallocs = 0;
+      }
       // Raise a signal.
-      //	tprintf::tprintf("freed memory = @\n", SuperHeap::freedMemory());
+      //      tprintf::tprintf("signal!\n");
       raise(SIGVTALRM);
-      _mallocs = 0;
-      _frees = 0;
+#if 1
+      if (_frees >= Bytes) {
+	_frees -= Bytes;
+      } else {
+	_frees = 0;
+      }
+#endif
     }
     //    tprintf::tprintf("SampleHeap::malloc(@) = @\n", sz, ptr);
     return ptr;
   }
 
   void free(void * ptr) {
-    //    tprintf::tprintf("SampleHeap::free @\n", ptr);
+    //    if (ptr == nullptr) { return; } // FIXME POSSIBLY NOT NEEDED.
+    //        tprintf::tprintf("SampleHeap::free @\n", ptr);
     auto sz = SuperHeap::getSize(ptr);
     if (sz > 0) {
       _frees += sz;

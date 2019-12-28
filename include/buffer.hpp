@@ -21,7 +21,7 @@ public:
   }
 
   void * getBuffer(int i) {
-#if 0
+#if 1
     if ((i < 0) || (i > NumClasses)) {
       return nullptr;
     }
@@ -31,10 +31,10 @@ public:
   }
 
   int constexpr getClass(void * ptr) {
-#if 0
+#if 1
     if (((uintptr_t) ptr < (uintptr_t) _buf) ||
 	((uintptr_t) ptr >= (uintptr_t) _buf + (Size * NumClasses))) {
-      //      tprintf::tprintf("ptr out of bounds = @ (original = @, buf = @, sz = @)\n", ptr, _originalBuf, _buf, Size * NumClasses);
+      //            tprintf::tprintf("ptr out of bounds = @ (original = @, buf = @, sz = @)\n", ptr, _originalBuf, _buf, Size * NumClasses);
       //      abort();
       return -1;
     }

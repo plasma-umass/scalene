@@ -23,6 +23,7 @@ import sys
 import atexit
 import signal
 import os
+import time
 from collections import defaultdict
 
 assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool requires Python version 3.7 or above."
@@ -37,7 +38,8 @@ class scalene_profiler:
     
     total_cpu_samples = 0       # how many samples have been collected.
     total_mem_samples = 0       # how many memory usage samples have been collected.
-    signal_interval = 0.01      # seconds between interrupts for CPU sampling.
+    signal_interval   = 0.01    # seconds between interrupts for CPU sampling.
+    elapsed_time      = 0       # measures total elapsed time of client execution.
     
     def __init__(self):
         # Set up the signal handler to handle periodic timer interrupts (for CPU).
@@ -55,9 +57,9 @@ class scalene_profiler:
         func_name = co.co_name
         line_no = frame.f_lineno
         filename = co.co_filename
-        key = filename + '\t' + func_name + '\t' + str(line_no)
         if not scalene_profiler.should_trace(filename):
             return None
+        key = filename + '\t' + func_name + '\t' + str(line_no)
         return key
         
     @staticmethod
@@ -65,10 +67,10 @@ class scalene_profiler:
         # Increase the signal interval geometrically until we hit once
         # per second.  This approach means we can successfully profile
         # even quite short lived programs.
-        if scalene_profiler.signal_interval < 1:
-            scalene_profiler.signal_interval *= 1.2
-            # Reset the timer for the new interval.
-            signal.setitimer(signal.ITIMER_PROF, scalene_profiler.signal_interval, scalene_profiler.signal_interval)
+#        if scalene_profiler.signal_interval < 1:
+#            scalene_profiler.signal_interval *= 1.2
+#            # Reset the timer for the new interval.
+#            signal.setitimer(signal.ITIMER_PROF, scalene_profiler.signal_interval, scalene_profiler.signal_interval)
         key = scalene_profiler.make_key(frame)
         if key is None:
             return
@@ -100,10 +102,13 @@ class scalene_profiler:
     @staticmethod
     def start():
         atexit.register(scalene_profiler.exit_handler)
-
+        scalene_profiler.elapsed_time = time.perf_counter()
 
     @staticmethod
     def exit_handler():
+        # Get elapsed time.
+        scalene_profiler.elapsed_time = time.perf_counter() - scalene_profiler.elapsed_time
+        
         # Turn off the profiling signals.
         signal.signal(signal.ITIMER_PROF, signal.SIG_IGN)
         signal.signal(signal.SIGVTALRM, signal.SIG_IGN)
@@ -114,7 +119,11 @@ class scalene_profiler:
             # Sort the samples in descending order by number of samples.
             scalene_profiler.cpu_samples = { k: v for k, v in sorted(scalene_profiler.cpu_samples.items(), key=lambda item: item[1], reverse=True) }
             for key in scalene_profiler.cpu_samples:
-                print(key + " : " + str(scalene_profiler.cpu_samples[key] * 100 / scalene_profiler.total_cpu_samples) + "%" + " (" + str(scalene_profiler.cpu_samples[key]) + " total samples)")
+                frac = scalene_profiler.cpu_samples[key] / scalene_profiler.total_cpu_samples
+                if frac < 0.01:
+                    break
+                percent = frac * 100
+                print("{} : {:6.2f}% ({:6.2f}s)" .format(key, percent, frac * scalene_profiler.elapsed_time))
         else:
             print("(did not run long enough to profile)")
         # If we've collected any samples, dump them.
@@ -124,7 +133,11 @@ class scalene_profiler:
             # Sort the samples in descending order by number of samples.
             scalene_profiler.mem_samples = { k: v for k, v in sorted(scalene_profiler.mem_samples.items(), key=lambda item: item[1], reverse=True) }
             for key in scalene_profiler.mem_samples:
-                print(key + " : " + str(scalene_profiler.mem_samples[key] * 100 / scalene_profiler.total_mem_samples) + "%" + " (" + str(scalene_profiler.mem_samples[key]) + " total samples)")
+                frac = scalene_profiler.mem_samples[key] / scalene_profiler.total_mem_samples
+                if frac < 0.01:
+                    break
+                percent = frac * 100
+                print("{} : {:6.2f}%" .format(key, percent))
         else:
             print("(did not allocate enough memory to profile)")
         

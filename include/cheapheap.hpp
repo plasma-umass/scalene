@@ -12,12 +12,11 @@ template <unsigned long Size = 1024UL * 1048576UL,
 class CheapHeap {
 public:
 
-  enum { NumClasses = ClassWarfare<Multiple>::getSizeClass(32*1048576) };
+  enum { NumClasses = ClassWarfare<Multiple>::getSizeClass(1024*1048576) };
 	  
   enum { Alignment = 16 }; // Multiple };
   
   __attribute__((always_inline)) inline void * malloc(size_t sz) {
-    //    tprintf::tprintf("CheapHeap::malloc(@):", sz);
 #if 1
     if (unlikely(sz < MinSize)) {
       sz = MinSize;
@@ -27,6 +26,9 @@ public:
     int sizeClass;
     void * ptr;
     ClassWarfare<Multiple>::getSizeAndClass(sz, rounded, sizeClass);
+    //    if (sz > 1048576) {
+    //      tprintf::tprintf("CheapHeap::malloc(@) - @\n", sz, rounded);
+    //    }
     if (likely(_arr[sizeClass].pop(ptr))) {
       // auto testSz = _buf.getSize(ptr);
       //	tprintf::tprintf("CheapHeap::malloc(@) = @\n", rounded, ptr);
@@ -39,7 +41,7 @@ public:
   }
   
   __attribute__((always_inline)) inline void free(void * ptr) {
-#if 0
+#if 1
     if (unlikely(ptr == nullptr)) {
       return;
     }
@@ -67,9 +69,9 @@ public:
   }
   
   __attribute__((always_inline)) inline size_t constexpr getSize(void * ptr) {
-    //    tprintf::tprintf("CheapHeap::getSize(@):", ptr);
+    //        tprintf::tprintf("CheapHeap::getSize(@):", ptr);
     auto sz = _buf.getSize(ptr);
-    //    tprintf::tprintf("CheapHeap::getSize(@) = @\n", ptr, sz);
+    //        tprintf::tprintf("CheapHeap::getSize(@) = @\n", ptr, sz);
     return sz;
   }
   
