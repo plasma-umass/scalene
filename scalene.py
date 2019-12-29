@@ -108,7 +108,7 @@ class scalene_profiler:
             # We aren't profiling memory from this file.
             return
         scalene_profiler.mem_samples[key] -= 1
-        scalene_profiler.total_mem_samples -= 1
+        scalene_profiler.total_mem_samples += 1
         # print("FREE {} {}".format(scalene_profiler.mem_samples[key], scalene_profiler.total_mem_samples))
         return
     
@@ -136,20 +136,31 @@ class scalene_profiler:
 
 
     @staticmethod
-    def dump_code(samples, total_samples):
+    def dump_code():
+        print(json.dumps(scalene_profiler.mem_samples))
+        print("{:6s}\t | {:6s}\t |".format("CPU", "Memory"))
         with open(scalene_profiler.program_being_profiled, 'r') as fd:
             contents = fd.readlines()
             line_no = 1
+            total_cpu_samples = scalene_profiler.total_cpu_samples
+            total_mem_samples = scalene_profiler.total_mem_samples
             for line in contents:
                 line = line[:-1] # Strip newline
                 key = (scalene_profiler.program_being_profiled, line_no)
                 key = json.dumps({'filename' : scalene_profiler.program_being_profiled,
                                   'line_no' : line_no })
-                nsamples = samples[key]
-                if nsamples > 1:
-                    print("{:6.2f}%\t | \t{}".format(nsamples * 100 / total_samples, line))
+                n_cpu_samples = scalene_profiler.cpu_samples[key]
+                n_mem_samples = scalene_profiler.mem_samples[key]
+                n_cpu_percent = n_cpu_samples * 100 / total_cpu_samples
+                n_mem_percent = n_mem_samples * 100 / total_mem_samples
+                if n_cpu_samples > 1 and n_mem_samples > 1:
+                    print("{:6.2f}%\t | {:6.2f}%\t | \t{}".format(n_cpu_percent, n_mem_percent, line))
+                elif n_cpu_samples > 1:
+                    print("{:6.2f}%\t | {:6s}\t | \t{}".format(n_cpu_percent, "", line))
+                elif n_mem_samples > 1:
+                    print("{:6s}\t | {:6.2f}%\t | \t{}".format("", n_mem_percent, line))
                 else:
-                    print("{:6s}\t | \t{}".format("", line))
+                    print("{:6s}\t | {:6s}\t | \t{}".format("", "", line))
                 line_no += 1
         
     @staticmethod
@@ -181,18 +192,19 @@ class scalene_profiler:
         signal.signal(signal.SIGXCPU, signal.SIG_IGN)
         signal.setitimer(signal.ITIMER_PROF, 0)
         # If we've collected any samples, dump them.
-        scalene_profiler.dump_code(scalene_profiler.cpu_samples, scalene_profiler.total_cpu_samples)
-        print("CPU usage:")
-        if scalene_profiler.total_cpu_samples > 0:
-            scalene_profiler.print_profile(scalene_profiler.cpu_samples, scalene_profiler.total_cpu_samples)
-        else:
-            print("(Program did not run for long enough to collect samples.)")
-        print("")
-        print("Memory usage:")
-        if scalene_profiler.total_mem_samples > 0:
-            scalene_profiler.print_profile(scalene_profiler.mem_samples, scalene_profiler.total_mem_samples)
-        else:
-            print("(Either the program did not allocate enough memory or the malloc replacement library was not specified.)")
+        scalene_profiler.dump_code()
+        if False:
+            print("CPU usage:")
+            if scalene_profiler.total_cpu_samples > 0:
+                scalene_profiler.print_profile(scalene_profiler.cpu_samples, scalene_profiler.total_cpu_samples)
+            else:
+                print("(Program did not run for long enough to collect samples.)")
+            print("")
+            print("Memory usage:")
+            if scalene_profiler.total_mem_samples > 0:
+                scalene_profiler.print_profile(scalene_profiler.mem_samples, scalene_profiler.total_mem_samples)
+            else:
+                print("(Either the program did not allocate enough memory or the malloc replacement library was not specified.)")
             
        
 
