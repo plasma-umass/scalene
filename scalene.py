@@ -22,26 +22,26 @@
 import sys
 import atexit
 import signal
-from time import perf_counter
 import json
+import linecache
 from collections import defaultdict
+from time import perf_counter
 
 assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool requires Python version 3.7 or above."
 
 class scalene_profiler:
 
-    # CPU samples (key = filename+':'+function+':'+lineno)
-    cpu_samples = defaultdict(lambda: 0)
-    
-    # same format but for memory usage
-    mem_samples = defaultdict(lambda: 0)
-    
-    total_cpu_samples = 0       # how many samples have been collected.
+    cpu_samples = defaultdict(lambda: 0) # Samples for each location in the program.
+    mem_samples = defaultdict(lambda: 0) # Ibid, but for memory samples.
+    total_cpu_samples = 0       # how many CPU samples have been collected.
     total_mem_samples = 0       # how many memory usage samples have been collected.
     signal_interval   = 0.01    # seconds between interrupts for CPU sampling.
     elapsed_time      = 0       # measures total elapsed time of client execution.
+    reporting_threshold = 0.01  # stop reporting profiling below this fraction.
+    program_being_profiled = "" # program being profiled.
     
-    def __init__(self):
+    def __init__(self, program_being_profiled):
+        scalene_profiler.program_being_profiled = program_being_profiled
         atexit.register(scalene_profiler.exit_handler)
         # Set up the signal handler to handle periodic timer interrupts (for CPU).
         signal.signal(signal.SIGPROF, self.cpu_signal_handler)
@@ -53,25 +53,26 @@ class scalene_profiler:
 
     @staticmethod
     def make_key(frame):
-        """Returns a key for tracking where this interrupt came from. Returns None for code we are not tracing."""
+        """Returns a key for tracking where this interrupt came from. Returns None for code we are not tracing. See extract_from_key."""
         co = frame.f_code
-        func_name = co.co_name
-        line_no = frame.f_lineno
         filename = co.co_filename
         if not scalene_profiler.should_trace(filename):
             return None
+        # func_name = co.co_name
+        line_no = frame.f_lineno
         key = json.dumps({'filename' : filename,
-                          'func_name' : func_name,
+                          # 'func_name' : func_name,
                           'line_no' : line_no })
-        # key = filename + '\t' + func_name + '\t' + str(line_no)
         return key
 
     @staticmethod
     def extract_from_key(key):
+        """Get the original payload data structure from the key."""
         return json.loads(key)
         
     @staticmethod
     def cpu_signal_handler(sig, frame):
+        """Handle interrupts for CPU profiling."""
         # Increase the signal interval geometrically until we hit once
         # per second.  This approach means we can successfully profile
         # even quite short lived programs.
@@ -88,8 +89,10 @@ class scalene_profiler:
 
     @staticmethod
     def malloc_signal_handler(sig, frame):
+        """Handle interrupts for memory profiling."""
         key = scalene_profiler.make_key(frame)
         if key is None:
+            # We aren't profiling memory from this file.
             return
         scalene_profiler.mem_samples[key] += 1
         scalene_profiler.total_mem_samples += 1
@@ -97,6 +100,12 @@ class scalene_profiler:
 
     @staticmethod
     def should_trace(filename):
+        """Return true if the filename is one we should trace."""
+        # For now, only profile the program being profiled.
+        if scalene_profiler.program_being_profiled == filename:
+            return True
+        return False
+   
         # Don't trace the profiler itself.
         if 'scalene.py' in filename:
             return False
@@ -111,21 +120,39 @@ class scalene_profiler:
     def start():
         scalene_profiler.elapsed_time = perf_counter()
 
+
+    @staticmethod
+    def dump_code(samples, total_samples):
+        with open(scalene_profiler.program_being_profiled, 'r') as fd:
+            contents = fd.readlines()
+            line_no = 1
+            for line in contents:
+                line = line[:-1] # Strip newline
+                key = (scalene_profiler.program_being_profiled, line_no)
+                key = json.dumps({'filename' : scalene_profiler.program_being_profiled,
+                                  'line_no' : line_no })
+                nsamples = samples[key]
+                if nsamples > 1:
+                    print("{:6.2f}%\t | \t{}".format(nsamples * 100 / total_samples, line))
+                else:
+                    print("{:6s}\t | \t{}".format("", line))
+                line_no += 1
+        
+    @staticmethod
     def print_profile(samples, total_samples):
-        print("{}\t{:20}\t{}\t{}" .format("Filename", "Function","Line","Percent"))
-        if total_samples > 0:
-            # Sort the samples in descending order by number of samples.
-            samples = { k: v for k, v in sorted(samples.items(), key=lambda item: item[1], reverse=True) }
-            for key in samples:
-                frac = samples[key] / total_samples
-                if frac < 0.01:
-                    break
-                percent = frac * 100
-                dict = scalene_profiler.extract_from_key(key)
-                print("{}\t{:20}\t{}\t{:6.2f}%" .format(dict['filename'], dict['func_name'], dict['line_no'], percent))
-#                print("{} : {:6.2f}% ({:6.2f}s)" .format(key, percent, frac * scalene_profiler.elapsed_time))
-        else:
-            print("(Not enough samples collected.)")
+        # print("{}\t{:20}\t{}\t{}" .format("Filename", "Function","Line","Percent"))
+        print("{:20s}\t{:>9s}\t{}" .format("Filename", "Line", "Percent"))
+        # Sort the samples in descending order by number of samples.
+        samples = { k: v for k, v in sorted(samples.items(), key=lambda item: item[1], reverse=True) }
+        for key in samples:
+            frac = samples[key] / total_samples
+            if frac < scalene_profiler.reporting_threshold:
+                break
+            percent = frac * 100
+            dict = scalene_profiler.extract_from_key(key)
+            print("{:20s}\t{:9d}\t{:6.2f}%" .format(dict['filename'], dict['line_no'], percent))
+            # print("{}\t{:20}\t{}\t{:6.2f}%" .format(dict['filename'], dict['func_name'], dict['line_no'], percent))
+            #                print("{} : {:6.2f}% ({:6.2f}s)" .format(key, percent, frac * scalene_profiler.elapsed_time))
         
     @staticmethod
     def exit_handler():
@@ -137,12 +164,19 @@ class scalene_profiler:
         signal.signal(signal.SIGVTALRM, signal.SIG_IGN)
         signal.setitimer(signal.ITIMER_PROF, 0)
         # If we've collected any samples, dump them.
+        scalene_profiler.dump_code(scalene_profiler.cpu_samples, scalene_profiler.total_cpu_samples)
         print("CPU usage:")
-        scalene_profiler.print_profile(scalene_profiler.cpu_samples, scalene_profiler.total_cpu_samples)
+        if scalene_profiler.total_cpu_samples > 0:
+            scalene_profiler.print_profile(scalene_profiler.cpu_samples, scalene_profiler.total_cpu_samples)
+        else:
+            print("(Program did not run for long enough to collect samples.)")
         print("")
         print("Memory usage:")
-        scalene_profiler.print_profile(scalene_profiler.mem_samples, scalene_profiler.total_mem_samples)
-        
+        if scalene_profiler.total_mem_samples > 0:
+            scalene_profiler.print_profile(scalene_profiler.mem_samples, scalene_profiler.total_mem_samples)
+        else:
+            print("(Either the program did not allocate enough memory or the malloc replacement library was not specified.)")
+            
        
 
 if __name__ == "__main__":
@@ -150,7 +184,7 @@ if __name__ == "__main__":
     try:
         with open(sys.argv[1], 'rb') as fp:
             code = compile(fp.read(), sys.argv[1], "exec")
-            profiler = scalene_profiler()
+            profiler = scalene_profiler(sys.argv[1])
             profiler.start()
             exec(code)
     except (FileNotFoundError, IOError):
