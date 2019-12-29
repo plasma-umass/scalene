@@ -4,7 +4,7 @@
 #include <signal.h>
 #include "common.hpp"
 
-template <class SuperHeap, unsigned long Bytes = 1024 * 1024>
+template <class SuperHeap, unsigned long Bytes = 128 * 1024>
 class SampleHeap : public SuperHeap {
 public:
 
