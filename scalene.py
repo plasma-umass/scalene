@@ -151,13 +151,15 @@ class scalene_profiler:
                                   'line_no' : line_no })
                 n_cpu_samples = scalene_profiler.cpu_samples[key]
                 n_mem_samples = scalene_profiler.mem_samples[key]
-                n_cpu_percent = n_cpu_samples * 100 / total_cpu_samples
-                n_mem_percent = n_mem_samples * 100 / total_mem_samples
                 if n_cpu_samples > 1 and n_mem_samples > 1:
+                    n_cpu_percent = n_cpu_samples * 100 / total_cpu_samples
+                    n_mem_percent = n_mem_samples * 100 / total_mem_samples
                     print("{:6.2f}%\t | {:6.2f}%\t | \t{}".format(n_cpu_percent, n_mem_percent, line))
                 elif n_cpu_samples > 1:
+                    n_cpu_percent = n_cpu_samples * 100 / total_cpu_samples
                     print("{:6.2f}%\t | {:6s}\t | \t{}".format(n_cpu_percent, "", line))
                 elif n_mem_samples > 1:
+                    n_mem_percent = n_mem_samples * 100 / total_mem_samples
                     print("{:6s}\t | {:6.2f}%\t | \t{}".format("", n_mem_percent, line))
                 else:
                     print("{:6s}\t | {:6s}\t | \t{}".format("", "", line))
