@@ -47,6 +47,7 @@ class scalene_profiler:
         signal.signal(signal.SIGPROF, self.cpu_signal_handler)
         # Set up the signal handler to handle malloc interrupts (for memory allocations).
         signal.signal(signal.SIGVTALRM, self.malloc_signal_handler)
+        signal.signal(signal.SIGXCPU, self.free_signal_handler)
         # Turn on the timer.
         signal.setitimer(signal.ITIMER_PROF, self.signal_interval, self.signal_interval)
         pass
@@ -89,15 +90,28 @@ class scalene_profiler:
 
     @staticmethod
     def malloc_signal_handler(sig, frame):
-        """Handle interrupts for memory profiling."""
+        """Handle interrupts for memory profiling (mallocs)."""
         key = scalene_profiler.make_key(frame)
         if key is None:
             # We aren't profiling memory from this file.
             return
         scalene_profiler.mem_samples[key] += 1
         scalene_profiler.total_mem_samples += 1
+        # print("MALLOC {} {}".format(scalene_profiler.mem_samples[key], scalene_profiler.total_mem_samples))
         return
 
+    @staticmethod
+    def free_signal_handler(sig, frame):
+        """Handle interrupts for memory profiling (frees)."""
+        key = scalene_profiler.make_key(frame)
+        if key is None:
+            # We aren't profiling memory from this file.
+            return
+        scalene_profiler.mem_samples[key] -= 1
+        scalene_profiler.total_mem_samples -= 1
+        # print("FREE {} {}".format(scalene_profiler.mem_samples[key], scalene_profiler.total_mem_samples))
+        return
+    
     @staticmethod
     def should_trace(filename):
         """Return true if the filename is one we should trace."""
@@ -145,6 +159,8 @@ class scalene_profiler:
         # Sort the samples in descending order by number of samples.
         samples = { k: v for k, v in sorted(samples.items(), key=lambda item: item[1], reverse=True) }
         for key in samples:
+            if samples[key] < 0:
+                continue
             frac = samples[key] / total_samples
             if frac < scalene_profiler.reporting_threshold:
                 break
@@ -162,6 +178,7 @@ class scalene_profiler:
         # Turn off the profiling signals.
         signal.signal(signal.ITIMER_PROF, signal.SIG_IGN)
         signal.signal(signal.SIGVTALRM, signal.SIG_IGN)
+        signal.signal(signal.SIGXCPU, signal.SIG_IGN)
         signal.setitimer(signal.ITIMER_PROF, 0)
         # If we've collected any samples, dump them.
         scalene_profiler.dump_code(scalene_profiler.cpu_samples, scalene_profiler.total_cpu_samples)

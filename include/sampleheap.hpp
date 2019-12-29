@@ -9,10 +9,12 @@ class SampleHeap : public SuperHeap {
 public:
 
   SampleHeap()
-    : _mallocs (0)
+    : _mallocs (0),
+      _frees (0)
   {
     // Ignore the signal until it's been replaced by a client.
     signal(SIGVTALRM, SIG_IGN);
+    signal(SIGXCPU, SIG_IGN);
   }
 
   void * malloc(size_t sz) {
@@ -34,13 +36,19 @@ public:
     //        tprintf::tprintf("SampleHeap::free @\n", ptr);
     auto sz = SuperHeap::getSize(ptr);
     if (sz > 0) {
-      _mallocs -= sz;
+      _frees += sz;
+      // _mallocs -= sz;
+      if (_frees >= Bytes) {
+	raise(SIGXCPU);
+	_frees = 0;
+      }
       SuperHeap::free(ptr);
     }
   }
   
 private:
   unsigned long _mallocs;
+  unsigned long _frees;
 };
 
 #endif
