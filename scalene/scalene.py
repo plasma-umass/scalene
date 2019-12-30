@@ -52,6 +52,7 @@ class scalene(object):
     elapsed_time           = 0           # time spent in program being profiled.
     program_being_profiled = ""          # name of program being profiled.
     memory_sampling_rate   = 128 * 1024  # must be in sync with include/sampleheap.cpp
+    current_footprint      = 0
     
     def __init__(self, program_being_profiled):
         scalene.program_being_profiled = program_being_profiled
@@ -111,7 +112,8 @@ class scalene(object):
             return
         scalene.mem_samples[key] += 1
         scalene.total_mem_samples += 1
-        # print("MALLOC {} {}".format(scalene.mem_samples[key], scalene.total_mem_samples))
+        scalene.current_footprint += scalene.memory_sampling_rate
+        # print("MALLOC: footprint now = {}".format(scalene.current_footprint / (1024*1024)))
         return
 
     @staticmethod
@@ -122,8 +124,8 @@ class scalene(object):
             # We aren't profiling memory from this file.
             return
         scalene.mem_samples[key] -= 1
-        # scalene.total_mem_samples += 1
-        # print("FREE {} {}".format(scalene.mem_samples[key], scalene.total_mem_samples))
+        scalene.current_footprint -= scalene.memory_sampling_rate
+        # print("FREE: footprint now = {}".format(scalene.current_footprint / (1024*1024)))
         return
     
     @staticmethod
@@ -196,7 +198,6 @@ class scalene(object):
             print("Maximum margin of error for CPU measurements: +/-{:6.2f}% (95% confidence).".format(max_moe_cpu * 100))
             print("Maximum margin of error for memory measurements: +/-{:6.2f}% (95% confidence).".format(max_moe_mem * 100))
             print("% of CPU time in program under profile: {:6.2f}% out of {:6.2f}s.".format(100 * total_cpu_samples * scalene.signal_interval / scalene.elapsed_time, scalene.elapsed_time))
-            # print("Total *sampled* memory volume: {:6.2f}.".format(total_mem_samples * 128 * 1024))
        
         
     @staticmethod
