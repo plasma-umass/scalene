@@ -17,7 +17,7 @@ public:
     signal(SIGXCPU, SIG_IGN);
   }
 
-  void * malloc(size_t sz) {
+  __attribute__((always_inline)) inline void * malloc(size_t sz) {
     //    if (sz == 0) { sz = 1; } // FIXME POSSIBLY NOT NEEDED.
     auto ptr = SuperHeap::malloc(sz);
     _mallocs += SuperHeap::getSize(ptr);
@@ -31,18 +31,18 @@ public:
     return ptr;
   }
 
-  void free(void * ptr) {
+  __attribute__((always_inline)) inline void free(void * ptr) {
     //    if (ptr == nullptr) { return; } // FIXME POSSIBLY NOT NEEDED.
     //        tprintf::tprintf("SampleHeap::free @\n", ptr);
     auto sz = SuperHeap::getSize(ptr);
     if (sz > 0) {
       _frees += sz;
       // _mallocs -= sz;
+      SuperHeap::free(ptr);
       if (_frees >= Bytes) {
 	raise(SIGXCPU);
 	_frees = 0;
       }
-      SuperHeap::free(ptr);
     }
   }
   
