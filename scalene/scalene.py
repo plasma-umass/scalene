@@ -194,7 +194,7 @@ class scalene(object):
             print("Maximum margin of error for CPU measurements: +/-{:6.2f}% (95% confidence).".format(max_moe_cpu * 100))
             print("Maximum margin of error for memory measurements: +/-{:6.2f}% (95% confidence).".format(max_moe_mem * 100))
             print("% of CPU time in program under profile: {:6.2f}% out of {:6.2f}s.".format(100 * total_cpu_samples * scalene.signal_interval / scalene.elapsed_time, scalene.elapsed_time))
-            print("Total *sampled* memory volume: {:6.2f}.".format(total_mem_samples * 128 * 1024))
+            # print("Total *sampled* memory volume: {:6.2f}.".format(total_mem_samples * 128 * 1024))
        
         
     @staticmethod
