@@ -25,7 +25,7 @@ public:
       // Raise a signal.
       //      tprintf::tprintf("signal!\n");
       raise(SIGVTALRM);
-      _mallocs = 0;
+      _mallocs -= Bytes;
     }
     //    tprintf::tprintf("SampleHeap::malloc(@) = @\n", sz, ptr);
     return ptr;
@@ -41,7 +41,7 @@ public:
       SuperHeap::free(ptr);
       if (_frees >= Bytes) {
 	raise(SIGXCPU);
-	_frees = 0;
+	_frees -= Bytes;
       }
     }
   }
