@@ -36,6 +36,7 @@ import atexit
 import signal
 import json
 import linecache
+import math
 from collections import defaultdict
 from time import perf_counter
 
@@ -121,7 +122,7 @@ class scalene(object):
             # We aren't profiling memory from this file.
             return
         scalene.mem_samples[key] -= 1
-        scalene.total_mem_samples += 1
+        # scalene.total_mem_samples += 1
         # print("FREE {} {}".format(scalene.mem_samples[key], scalene.total_mem_samples))
         return
     
@@ -147,9 +148,14 @@ class scalene(object):
     def start():
         scalene.elapsed_time = perf_counter()
 
+    @staticmethod
+    def margin_of_error(prop, nsamples):
+        return 1.96 * math.sqrt(prop * (1-prop) / nsamples)
 
     @staticmethod
     def dump_code():
+        max_moe_cpu = 0 # Maximum 95% confidence interval for margin of error (for CPU %).
+        max_moe_mem = 0 # Maximum 95% confidence interval for margin of error (for memory %).
         print("{:6s}\t | {:6s}\t |".format("CPU", "Memory"))
         with open(scalene.program_being_profiled, 'r') as fd:
             contents = fd.readlines()
@@ -166,16 +172,28 @@ class scalene(object):
                 if n_cpu_samples > 1 and n_mem_samples != 0:
                     n_cpu_percent = n_cpu_samples * 100 / total_cpu_samples
                     n_mem_percent = n_mem_samples * 100 / total_mem_samples
+                    moe_cpu = scalene.margin_of_error(n_cpu_samples / total_cpu_samples, total_cpu_samples)
+                    max_moe_cpu = max(moe_cpu, max_moe_cpu)
+                    if n_mem_samples > 0:
+                        moe_mem = scalene.margin_of_error(n_mem_samples / total_mem_samples, total_mem_samples)
+                        max_moe_mem = max(moe_mem, max_moe_mem)
                     print("{:6.2f}%\t | {:6.2f}%\t | \t{}".format(n_cpu_percent, n_mem_percent, line))
                 elif n_cpu_samples > 1:
                     n_cpu_percent = n_cpu_samples * 100 / total_cpu_samples
+                    moe_cpu = scalene.margin_of_error(n_cpu_samples / total_cpu_samples, total_cpu_samples)
+                    max_moe_cpu = max(moe_cpu, max_moe_cpu)
                     print("{:6.2f}%\t | {:6s}\t | \t{}".format(n_cpu_percent, "", line))
                 elif n_mem_samples != 0:
                     n_mem_percent = n_mem_samples * 100 / total_mem_samples
+                    if n_mem_samples > 0:
+                        moe_mem = scalene.margin_of_error(n_mem_samples / total_mem_samples, total_mem_samples)
+                        max_moe_mem = max(moe_mem, max_moe_mem)
                     print("{:6s}\t | {:6.2f}%\t | \t{}".format("", n_mem_percent, line))
                 else:
                     print("{:6s}\t | {:6s}\t | \t{}".format("", "", line))
                 line_no += 1
+            print("Maximum margin of error for CPU measurements: +/-{:6.2f}% (95% confidence).".format(max_moe_cpu * 100))
+            print("Maximum margin of error for memory measurements: +/-{:6.2f}% (95% confidence).".format(max_moe_mem * 100))
         
     @staticmethod
     def print_profile(samples, total_samples):
