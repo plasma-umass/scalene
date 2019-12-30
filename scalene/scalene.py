@@ -1,11 +1,10 @@
-"""
-
-  Scalene: a high-performance sampling CPU *and* memory profiler for Python.
+"""Scalene: a high-performance sampling CPU *and* memory profiler for Python.
 
   Scalene uses interrupt-driven sampling for CPU profiling. For memory
   profiling, it uses a similar mechanism but with interrupts generated
   by a "sampling memory allocator" that produces signals everytime the
-  heap grows by a certain amount. See libcheaper.cpp for details.
+  heap grows or shrinks by a certain amount. See libcheaper.cpp for
+  details.
 
   by Emery Berger
   https://emeryberger.com
@@ -89,13 +88,6 @@ class scalene(object):
     @staticmethod
     def cpu_signal_handler(sig, frame):
         """Handle interrupts for CPU profiling."""
-        # Increase the signal interval geometrically until we hit once
-        # per second.  This approach means we can successfully profile
-        # even quite short lived programs.
-#        if scalene.signal_interval < 1:
-#            scalene.signal_interval *= 1.2
-#            # Reset the timer for the new interval.
-#            signal.setitimer(signal.ITIMER_PROF, scalene.signal_interval, scalene.signal_interval)
         key = scalene.make_key(frame)
         if key is None:
             return
