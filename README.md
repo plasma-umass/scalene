@@ -1,3 +1,5 @@
+![scalene](https://github.com/emeryberger/scalene/raw/master/docs/scalene-image.png)
+
 # scalene: a high-performance CPU and memory profiler for Python
 
 by [Emery Berger](https://emeryberger.com)
