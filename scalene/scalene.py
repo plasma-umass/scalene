@@ -185,7 +185,7 @@ class scalene(object):
                     n_cpu_percent = n_cpu_samples * 100 / total_cpu_samples
                     moe_cpu = scalene.margin_of_error(n_cpu_samples / total_cpu_samples, total_cpu_samples)
                     max_moe_cpu = max(moe_cpu, max_moe_cpu)
-                    print("{:6.2f}%\t | {:6s}\t | \t{}".format(n_cpu_percent, "", line))
+                    print("{:6.2f}%\t | {:6s}\t  {:6s} | \t{}".format(n_cpu_percent, "", "", line))
                 elif n_mem_samples != 0:
                     n_mem_percent = n_mem_samples * 100 / total_mem_samples
                     if n_mem_samples > 0:
