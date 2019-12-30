@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(name='scalene',
-      version='0.2a',
-      description='Scalene: A Profiler for Python',
+      version='0.3',
+      description='Scalene: A high-resolution, low-overhead CPU and memory profiler for Python',
       url='https://github.com/emeryberger/scalene',
       author='Emery Berger',
       author_email='emery@cs.umass.edu',
