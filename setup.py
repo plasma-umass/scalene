@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='scalene',
-      version='0.1',
+      version='0.2a',
       description='Scalene: A Profiler for Python',
       url='https://github.com/emeryberger/scalene',
       author='Emery Berger',
