@@ -7,11 +7,12 @@ verify_ssl = true
 pytest = "*"
 
 [packages]
-numpy = "*"
 sys = "*"
 atexit = "*"
-threading = "*"
 signal = "*"
+json = "*"
+linecache = "*"
+collections = "*"
 pipfile = "*"
 time = "*"
 
