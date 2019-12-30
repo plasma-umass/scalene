@@ -46,12 +46,11 @@ class scalene(object):
 
     cpu_samples = defaultdict(lambda: 0) # Samples for each location in the program.
     mem_samples = defaultdict(lambda: 0) # Ibid, but for memory samples.
-    total_cpu_samples = 0       # how many CPU samples have been collected.
-    total_mem_samples = 0       # how many memory usage samples have been collected.
-    signal_interval   = 0.01    # seconds between interrupts for CPU sampling.
-    elapsed_time      = 0       # measures total elapsed time of client execution.
-    reporting_threshold = 0.01  # stop reporting profiling below this fraction.
-    program_being_profiled = "" # program being profiled.
+    total_cpu_samples      = 0           # how many CPU samples have been collected.
+    total_mem_samples      = 0           # how many memory usage samples have been collected.
+    signal_interval        = 0.01        # seconds between interrupts for CPU sampling.
+    elapsed_time           = 0           # time spent in program being profiled.
+    program_being_profiled = ""          # name of program being profiled.
     
     def __init__(self, program_being_profiled):
         scalene.program_being_profiled = program_being_profiled
@@ -194,24 +193,9 @@ class scalene(object):
                 line_no += 1
             print("Maximum margin of error for CPU measurements: +/-{:6.2f}% (95% confidence).".format(max_moe_cpu * 100))
             print("Maximum margin of error for memory measurements: +/-{:6.2f}% (95% confidence).".format(max_moe_mem * 100))
-        
-    @staticmethod
-    def print_profile(samples, total_samples):
-        # print("{}\t{:20}\t{}\t{}" .format("Filename", "Function","Line","Percent"))
-        print("{:20s}\t{:>9s}\t{}" .format("Filename", "Line", "Percent"))
-        # Sort the samples in descending order by number of samples.
-        samples = { k: v for k, v in sorted(samples.items(), key=lambda item: item[1], reverse=True) }
-        for key in samples:
-            if samples[key] < 0:
-                continue
-            frac = samples[key] / total_samples
-            if frac < scalene.reporting_threshold:
-                break
-            percent = frac * 100
-            dict = scalene.extract_from_key(key)
-            print("{:20s}\t{:9d}\t{:6.2f}%" .format(dict['filename'], dict['line_no'], percent))
-            # print("{}\t{:20}\t{}\t{:6.2f}%" .format(dict['filename'], dict['func_name'], dict['line_no'], percent))
-            #                print("{} : {:6.2f}% ({:6.2f}s)" .format(key, percent, frac * scalene.elapsed_time))
+            print("% of CPU time in program under profile: {:6.2f}% out of {:6.2f}s.".format(100 * total_cpu_samples * scalene.signal_interval / scalene.elapsed_time, scalene.elapsed_time))
+            print("Total *sampled* memory volume: {:6.2f}.".format(total_mem_samples * 128 * 1024))
+       
         
     @staticmethod
     def exit_handler():
@@ -225,18 +209,6 @@ class scalene(object):
         signal.setitimer(signal.ITIMER_PROF, 0)
         # If we've collected any samples, dump them.
         scalene.dump_code()
-        if False:
-            print("CPU usage:")
-            if scalene.total_cpu_samples > 0:
-                scalene.print_profile(scalene.cpu_samples, scalene.total_cpu_samples)
-            else:
-                print("(Program did not run for long enough to collect samples.)")
-            print("")
-            print("Memory usage:")
-            if scalene.total_mem_samples > 0:
-                scalene.print_profile(scalene.mem_samples, scalene.total_mem_samples)
-            else:
-                print("(Either the program did not allocate enough memory or the malloc replacement library was not specified.)")
 
     @staticmethod
     def main():
