@@ -138,7 +138,6 @@ class scalene_profiler:
 
     @staticmethod
     def dump_code():
-        print(json.dumps(scalene_profiler.mem_samples))
         print("{:6s}\t | {:6s}\t |".format("CPU", "Memory"))
         with open(scalene_profiler.program_being_profiled, 'r') as fd:
             contents = fd.readlines()
