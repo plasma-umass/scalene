@@ -18,6 +18,7 @@
 
 """
 
+
 the_globals = {
     '__name__': '__main__',
     '__doc__': None,
@@ -194,16 +195,11 @@ class scalene(object):
         
     @staticmethod
     def exit_handler():
-        # Get elapsed time.
-        scalene.elapsed_time = perf_counter() - scalene.elapsed_time
-        
         # Turn off the profiling signals.
         signal.signal(signal.ITIMER_PROF, signal.SIG_IGN)
         signal.signal(signal.SIGVTALRM, signal.SIG_IGN)
         signal.signal(signal.SIGXCPU, signal.SIG_IGN)
         signal.setitimer(signal.ITIMER_PROF, 0)
-        # If we've collected any samples, dump them.
-        scalene.dump_code()
 
     @staticmethod
     def main():
@@ -214,10 +210,17 @@ class scalene(object):
                 profiler = scalene(sys.argv[1])
                 profiler.start()
                 the_globals["__file__"] = sys.argv[0]
-                exec(code, the_globals, the_globals)
+                try:
+                    exec(code, the_globals)
+                    # Get elapsed time.
+                    scalene.elapsed_time = perf_counter() - scalene.elapsed_time
+                    # If we've collected any samples, dump them.
+                    scalene.dump_code()
+                except:
+                    print("scalene: encountered an unexpected error.")
         except (FileNotFoundError, IOError):
             print("scalene: could not find input file.")
-               
+
 if __name__ == "__main__":
     scalene.main()
     
