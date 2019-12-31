@@ -1,3 +1,1 @@
-from . import scalene
-
-scalene.scalene.main()
+from scalene import scalene
