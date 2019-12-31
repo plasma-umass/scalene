@@ -18,6 +18,7 @@
 
 """
 
+GLOBALS = globals().copy()
 
 the_globals = {
     '__name__': '__main__',
@@ -39,6 +40,9 @@ import linecache
 import math
 from collections import defaultdict
 from time import perf_counter
+
+import os
+import traceback
 
 assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool requires Python version 3.7 or above."
 
@@ -206,22 +210,27 @@ class scalene(object):
         assert len(sys.argv) >= 2, "Usage example: python -m scalene test.py"
         try:
             with open(sys.argv[1], 'rb') as fp:
+                # Read in the code and compile it.
                 code = compile(fp.read(), sys.argv[1], "exec")
-                profiler = scalene(sys.argv[1])
+                # Remove the profiler from the args list.
+                sys.argv.pop(0)
+                # Start the profiler.
+                profiler = scalene(sys.argv[0])
                 profiler.start()
-                the_globals["__file__"] = sys.argv[0]
                 try:
+                    # Run the code being profiled.
                     exec(code, the_globals)
                     # Get elapsed time.
                     scalene.elapsed_time = perf_counter() - scalene.elapsed_time
                     # If we've collected any samples, dump them.
-                    scalene.dump_code()
-                except:
-                    print("scalene: encountered an unexpected error.")
+                    if profiler.total_cpu_samples > 0:
+                        profiler.dump_code()
+                except Exception as ex:
+                    template = "scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
+                    message = template.format(type(ex).__name__, ex.args)
+                    print(message)
+                    print(traceback.format_exc())
         except (FileNotFoundError, IOError):
             print("scalene: could not find input file.")
-
-if __name__ == "__main__":
-    scalene.main()
     
-
+scalene.main()
