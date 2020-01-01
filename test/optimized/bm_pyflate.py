@@ -18,6 +18,7 @@ but ideally the problem would be found...
 
 import hashlib
 import os
+from collections import deque
 
 import pyperf
 import six
@@ -307,7 +308,7 @@ def bwt_transform(L):
 
 
 def bwt_reverse(L, end):
-    out = []
+    out = deque([])
     if len(L):
         T = bwt_transform(L)
 
@@ -342,7 +343,7 @@ def bwt_reverse(L, end):
 def compute_used(b):
     huffman_used_map = b.readbits(16)
     map_mask = 1 << 15
-    used = []
+    used = deque([])
     while map_mask > 0:
         if huffman_used_map & map_mask:
             huffman_used_bitmap = b.readbits(16)
@@ -361,7 +362,7 @@ def compute_used(b):
 def compute_selectors_list(b, huffman_groups):
     selectors_used = b.readbits(15)
     mtf = list(range(huffman_groups))
-    selectors_list = []
+    selectors_list = deque([])
     for i in range(selectors_used):
         # zero-terminated bit runs (0..62) of MTF'ed huffman table
         c = 0
@@ -378,7 +379,7 @@ def compute_selectors_list(b, huffman_groups):
 
 
 def compute_tables(b, huffman_groups, symbols_in_use):
-    groups_lengths = []
+    groups_lengths = deque([])
     for j in range(huffman_groups):
         length = b.readbits(5)
         lengths = []
@@ -390,7 +391,7 @@ def compute_tables(b, huffman_groups, symbols_in_use):
             lengths += [length]
         groups_lengths += [lengths]
 
-    tables = []
+    tables = deque([])
     for g in groups_lengths:
         codes = OrderedHuffmanTable(g)
         codes.populate_huffman_symbols()
@@ -420,7 +421,7 @@ def decode_huffman_block(b, out):
     decoded = 0
     # Main Huffman loop
     repeat = repeat_power = 0
-    buffer = []
+    buffer = deque([])
     t = None
     while True:
         decoded -= 1
@@ -481,7 +482,7 @@ def bzip2_main(input):
     else:
         raise Exception("Unknown (not size '0'-'9') Bzip2 blocksize")
 
-    out = []
+    out = deque([])
     while True:
         blocktype = b.readbits(48)
         b.readbits(32)   # crc
@@ -520,7 +521,7 @@ def gzip_main(field):
     if flags & 0x02:  # header-only GZ_FHCRC checksum
         b.readbits(16)
 
-    out = []
+    out = deque([])
     while True:
         lastbit = b.readbits(1)
         blocktype = b.readbits(2)
