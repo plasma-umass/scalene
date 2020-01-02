@@ -49,15 +49,16 @@ assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool require
 class scalene(object):
 
     cpu_samples = defaultdict(lambda: 0) # Samples for each location in the program.
-    malloc_samples = defaultdict(lambda: 0) # Ibid, but for memory samples.
-    free_samples = defaultdict(lambda: 0) # Ibid, but for memory samples.
+    malloc_samples = defaultdict(lambda: 0) # Ibid, but for malloc.
+    free_samples = defaultdict(lambda: 0)   # Ibid, but for free.
     total_cpu_samples      = 0           # how many CPU samples have been collected.
-    total_mem_samples   = 0           # how many memory usage samples have been collected (mallocs).
+    total_malloc_samples   = 0           # how many malloc samples have been collected.
+    total_free_samples     = 0           # how many free samples have been collected.
     signal_interval        = 0.001       # seconds between interrupts for CPU sampling.
     elapsed_time           = 0           # time spent in program being profiled.
     program_being_profiled = ""          # name of program being profiled.
     memory_sampling_rate   = 128 * 1024  # must be in sync with include/sampleheap.cpp
-    current_footprint      = 0
+    current_footprint      = 0           # current memory footprint
     
     def __init__(self, program_being_profiled):
         scalene.program_being_profiled = program_being_profiled
@@ -109,7 +110,7 @@ class scalene(object):
             # We aren't profiling memory from this file.
             return
         scalene.malloc_samples[key] += 1
-        scalene.total_mem_samples += 1
+        scalene.total_malloc_samples += 1
         scalene.current_footprint += scalene.memory_sampling_rate
         # print("MALLOC: footprint now = {}".format(scalene.current_footprint / (1024*1024)))
         return
@@ -121,7 +122,8 @@ class scalene(object):
         if key is None:
             # We aren't profiling memory from this file.
             return
-        scalene.free_samples[key] -= 1
+        scalene.free_samples[key] += 1
+        scalene.total_free_samples += 1
         scalene.current_footprint -= scalene.memory_sampling_rate
         # print("FREE: footprint now = {}".format(scalene.current_footprint / (1024*1024)))
         return
@@ -159,9 +161,8 @@ class scalene(object):
         mallocs = sum(scalene.malloc_samples.values())
         frees   = sum(scalene.free_samples.values())
         average_footprint_mb = (mallocs - frees) * scalene.memory_sampling_rate / (1024 * 1024)
-        # Some local abbreviations for brevity.
         total_cpu_samples = scalene.total_cpu_samples
-        total_mem_samples = scalene.total_mem_samples
+        total_mem_samples = scalene.total_malloc_samples # use + scalene.total_free_samples for churn.
         if total_cpu_samples + total_mem_samples == 0:
             print("scalene: no samples collected.")
             return
@@ -179,25 +180,30 @@ class scalene(object):
                 key = json.dumps({'filename' : scalene.program_being_profiled,
                                   'line_no' : line_no })
                 n_cpu_samples = scalene.cpu_samples[key]
-                n_mem_samples = scalene.malloc_samples[key] - scalene.free_samples[key]
+                n_mem_samples = scalene.malloc_samples[key] - scalene.free_samples[key] # + for delta, - for churn.
                 n_cpu_percent = 0
                 n_mem_percent = 0
                 # Update margins of error.
-                if total_cpu_samples > 1:
+                if total_cpu_samples != 0 and n_cpu_samples != 0:
                     n_cpu_percent = n_cpu_samples * 100 / total_cpu_samples
                     moe_cpu = scalene.margin_of_error(n_cpu_samples / total_cpu_samples, total_cpu_samples)
                     max_moe_cpu = max(moe_cpu, max_moe_cpu)
-                if total_mem_samples > 1:
+                if total_mem_samples != 0 and n_mem_samples != 0:
                     n_mem_percent = n_mem_samples * 100 / total_mem_samples
-                    moe_mem = scalene.margin_of_error(n_mem_samples / total_mem_samples, total_mem_samples)
+                    moe_mem = scalene.margin_of_error(abs(n_mem_samples) / total_mem_samples, total_mem_samples)
                     max_moe_mem = max(moe_mem, max_moe_mem)
-                if total_mem_samples > 0:
-                    if n_cpu_percent > 0:
+                # Print results.
+                if total_mem_samples != 0:
+                    if n_mem_percent != 0 and n_cpu_percent != 0:
                         print("{:6d}\t | {:6.2f}%\t | {:6.2f}% ({:6.2f}MB)\t | \t{}".format(line_no, n_cpu_percent, n_mem_percent, n_mem_percent / 100 * average_footprint_mb, line))
-                    else:
+                    elif n_mem_percent != 0 and n_cpu_percent == 0:
                         print("{:6d}\t | {:9} \t | {:6.2f}% ({:6.2f}MB)\t | \t{}".format(line_no, "", n_mem_percent, n_mem_percent / 100 * average_footprint_mb, line))
+                    elif n_mem_percent == 0 and n_cpu_percent != 0:
+                        print("{:6d}\t | {:6.2f}% \t | {:9}  {:9}\t | \t{}".format(line_no, n_cpu_percent, "", "", line))
+                    else:
+                        print("{:6d}\t | {:9} \t | {:9}  {:9}\t | \t{}".format(line_no, "", "", "", line))
                 else:
-                    if n_cpu_percent > 0:
+                    if n_cpu_percent != 0:
                         print("{:6d}\t | {:6.2f}%\t | \t{}".format(line_no, n_cpu_percent, line))
                     else:
                         print("{:6d}\t | {:9s}\t | \t{}".format(line_no, "", line))
