@@ -48,16 +48,16 @@ assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool require
 
 class scalene(object):
 
-    cpu_samples = defaultdict(lambda: 0) # Samples for each location in the program.
-    malloc_samples = defaultdict(lambda: 0) # Ibid, but for malloc.
-    free_samples = defaultdict(lambda: 0)   # Ibid, but for free.
+    cpu_samples    = defaultdict(int)    # Samples for each location in the program.
+    malloc_samples = defaultdict(int)    # Ibid, but for malloc.
+    free_samples   = defaultdict(int)    # Ibid, but for free.
     total_cpu_samples      = 0           # how many CPU samples have been collected.
     total_malloc_samples   = 0           # how many malloc samples have been collected.
     total_free_samples     = 0           # how many free samples have been collected.
     signal_interval        = 0.001       # seconds between interrupts for CPU sampling.
     elapsed_time           = 0           # time spent in program being profiled.
     program_being_profiled = ""          # name of program being profiled.
-    memory_sampling_rate   = 128 * 1024  # must be in sync with include/sampleheap.cpp
+    memory_sampling_rate   = 256 * 1024  # must be in sync with include/sampleheap.cpp
     current_footprint      = 0           # current memory footprint
     
     def __init__(self, program_being_profiled):
@@ -160,7 +160,9 @@ class scalene(object):
         max_moe_mem = 0 # Maximum 95% confidence interval for margin of error (for memory %).
         mallocs = sum(scalene.malloc_samples.values())
         frees   = sum(scalene.free_samples.values())
-        average_footprint_mb = (mallocs - frees) * scalene.memory_sampling_rate / (1024 * 1024)
+        
+        average_footprint_mb = (mallocs) * scalene.memory_sampling_rate / (1024 * 1024)
+#        average_footprint_mb = (mallocs - frees) * scalene.memory_sampling_rate / (1024 * 1024)
         total_cpu_samples = scalene.total_cpu_samples
         total_mem_samples = scalene.total_malloc_samples # use + scalene.total_free_samples for churn.
         if total_cpu_samples + total_mem_samples == 0:
