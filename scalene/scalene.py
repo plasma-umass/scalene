@@ -38,7 +38,7 @@ import linecache
 import math
 from collections import defaultdict
 import time
-
+from pathlib import Path
 import os
 import traceback
 
@@ -222,12 +222,18 @@ class scalene(object):
         assert len(sys.argv) >= 2, "Usage example: python -m scalene test.py"
         try:
             with open(sys.argv[1], 'rb') as fp:
+                original_path = os.getcwd()
+                print(original_path)
                 # Read in the code and compile it.
                 code = compile(fp.read(), sys.argv[1], "exec")
                 # Remove the profiler from the args list.
                 sys.argv.pop(0)
                 # Push the program's path.
-                sys.path.insert(0, os.path.dirname(os.path.abspath(sys.argv[0])))
+                program_path = os.path.dirname(os.path.abspath(sys.argv[0]))
+                sys.path.insert(0, program_path)
+                os.chdir(program_path)
+                # Set the file being executed.
+                the_globals['__file__'] = sys.argv[0]
                 # Start the profiler.
                 profiler = scalene(sys.argv[0])
                 profiler.start()
@@ -236,6 +242,8 @@ class scalene(object):
                     exec(code, the_globals)
                     # Get elapsed time.
                     scalene.elapsed_time = time.perf_counter() - scalene.elapsed_time
+                    # Go back home.
+                    os.chdir(original_path)
                     # If we've collected any samples, dump them.
                     if profiler.total_cpu_samples > 0:
                         profiler.dump_code()
