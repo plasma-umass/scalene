@@ -223,7 +223,6 @@ class scalene(object):
         try:
             with open(sys.argv[1], 'rb') as fp:
                 original_path = os.getcwd()
-                print(original_path)
                 # Read in the code and compile it.
                 code = compile(fp.read(), sys.argv[1], "exec")
                 # Remove the profiler from the args list.
