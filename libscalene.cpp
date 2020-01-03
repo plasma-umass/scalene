@@ -12,12 +12,11 @@
 #include "cheapheap.hpp"
 #include "sampleheap.hpp"
 
-
 class TheCustomHeap;
 static TheCustomHeap * theCustomHeap = nullptr;
 
-//class TheCustomHeap : public SampleHeap<CheapHeap<64 + 16, 32UL * 1048576UL>> {
-class TheCustomHeap : public SampleHeap<CheapHeap<256UL * 1048576UL>> {
+//class TheCustomHeap : public SampleHeap<CheapHeap<256UL * 1048576UL>> {
+class TheCustomHeap : public SampleHeap<HL::SizeHeap<CheapHeap<256UL * 1048576UL>>> {
 public:
   TheCustomHeap() {
     theCustomHeap = this;
