@@ -18,8 +18,6 @@
 
 """
 
-GLOBALS = globals().copy()
-
 the_globals = {
     '__name__': '__main__',
     '__doc__': None,
@@ -228,6 +226,8 @@ class scalene(object):
                 code = compile(fp.read(), sys.argv[1], "exec")
                 # Remove the profiler from the args list.
                 sys.argv.pop(0)
+                # Push the program's path.
+                sys.path.insert(0, os.path.dirname(os.path.abspath(sys.argv[0])))
                 # Start the profiler.
                 profiler = scalene(sys.argv[0])
                 profiler.start()
