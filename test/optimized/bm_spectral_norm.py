@@ -36,7 +36,8 @@ def part_A_times_u(i_u):
     for j, u_j in enumerate(u):
         # EDB WAS:
         # partial_sum += eval_A(i, j) * u_j
-        partial_sum += (1.0 / ((i + j) * (i + j + 1) // 2 + i + 1)) * u_j
+        ij = i + j
+        partial_sum += (1.0 / ((ij) * (ij + 1) // 2 + i + 1)) * u_j
     return partial_sum
 
 
@@ -46,7 +47,8 @@ def part_At_times_u(i_u):
     for j, u_j in enumerate(u):
         # EDB WAS:
         #        partial_sum += eval_A(j, i) * u_j
-        partial_sum += (1.0 / ((i + j) * (j + i + 1) // 2 + j + 1)) * u_j
+        ij = i + j
+        partial_sum += (1.0 / ((ij) * (ij + 1) // 2 + j + 1)) * u_j
     return partial_sum
 
 
