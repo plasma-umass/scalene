@@ -42,7 +42,7 @@ from pathlib import Path
 import os
 import traceback
 
-assert sys.version_info[0] == 3 and sys.version_info[1] >= 7, "This tool requires Python version 3.7 or above."
+assert sys.version_info[0] == 3 and sys.version_info[1] >= 6, "This tool requires Python version 3.6 or above."
 
 class scalene(object):
 
