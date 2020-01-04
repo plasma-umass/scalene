@@ -54,7 +54,7 @@ class scalene(object):
     total_free_samples     = 0           # how many free samples have been collected.
     signal_interval        = 0.01        # seconds between interrupts for CPU sampling.
     elapsed_time           = 0           # time spent in program being profiled.
-    memory_sampling_rate   = 256 * 1024  # must be in sync with include/sampleheap.cpp
+    memory_sampling_rate   = 128 * 1024  # must be in sync with include/sampleheap.cpp
     current_footprint      = 0           # current memory footprint
     
     program_being_profiled = ""          # name of program being profiled.
