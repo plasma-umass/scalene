@@ -52,14 +52,17 @@ class scalene(object):
     total_cpu_samples      = 0           # how many CPU samples have been collected.
     total_malloc_samples   = 0           # how many malloc samples have been collected.
     total_free_samples     = 0           # how many free samples have been collected.
-    signal_interval        = 0.001       # seconds between interrupts for CPU sampling.
+    signal_interval        = 0.01        # seconds between interrupts for CPU sampling.
     elapsed_time           = 0           # time spent in program being profiled.
-    program_being_profiled = ""          # name of program being profiled.
     memory_sampling_rate   = 256 * 1024  # must be in sync with include/sampleheap.cpp
     current_footprint      = 0           # current memory footprint
     
+    program_being_profiled = ""          # name of program being profiled.
+    program_path           = ""          # path "    "        "     "
+    
     def __init__(self, program_being_profiled):
         scalene.program_being_profiled = program_being_profiled
+        scalene.program_path = os.path.dirname(program_being_profiled)
         atexit.register(scalene.exit_handler)
         # Set up the signal handler to handle periodic timer interrupts (for CPU).
         signal.signal(signal.SIGPROF, self.cpu_signal_handler)
@@ -129,6 +132,9 @@ class scalene(object):
     @staticmethod
     def should_trace(filename):
         """Return true if the filename is one we should trace."""
+        # Profile anything in the program's path. Currently disabled.
+        #if scalene.program_path in filename:
+        #    return True
         # For now, only profile the program being profiled.
         if scalene.program_being_profiled == filename:
             return True
@@ -166,11 +172,7 @@ class scalene(object):
         if total_cpu_samples + total_mem_samples == 0:
             print("scalene: no samples collected.")
             return
-        if total_mem_samples > 0:
-            # Malloc tracking is on.
-            print("  Line\t | {:9}| {:10s} |  {:6s}".format("CPU", "Memory", ""))
-        else:
-            print("  Line\t | {:9}| {:6s}".format("CPU", ""))
+        print(f"  Line\t | {'CPU %':9}| {'Memory (MB)|' if total_mem_samples != 0 else '':10s}")
         with open(scalene.program_being_profiled, 'r') as fd:
             contents = fd.readlines()
             line_no = 1
@@ -190,20 +192,12 @@ class scalene(object):
                         moe_cpu = scalene.margin_of_error(n_cpu_samples / total_cpu_samples, total_cpu_samples)
                         max_moe_cpu = max(moe_cpu, max_moe_cpu)
                 # Print results.
+                n_cpu_percent_str = "" if n_cpu_percent == 0 else f'{n_cpu_percent:6.2f}%'
+                n_mem_mb_str      = "" if n_mem_mb == 0      else f'{n_mem_mb:>9.2f}'
                 if total_mem_samples != 0:
-                    if n_mem_mb != 0 and n_cpu_percent != 0:
-                        print("{:6d}\t | {:6.2f}%  | {:6.2f}MB\t | \t{}".format(line_no, n_cpu_percent, n_mem_mb, line))
-                    elif n_mem_mb != 0 and n_cpu_percent == 0:
-                        print("{:6d}\t | {:9}| {:6.2f}MB\t | \t{}".format(line_no, "", n_mem_mb, line))
-                    elif n_mem_mb == 0 and n_cpu_percent != 0:
-                        print("{:6d}\t | {:6.2f}%  | {:9}\t | \t{}".format(line_no, n_cpu_percent, "", line))
-                    else:
-                        print("{:6d}\t | {:9}| {:9}\t | \t{}".format(line_no, "", "", line))
+                    print(f"{line_no:6d}\t | {n_cpu_percent_str:9s}| {n_mem_mb_str:8s}\t | \t{line}")
                 else:
-                    if n_cpu_percent != 0:
-                        print("{:6d}\t | {:6.2f}%  | \t{}".format(line_no, n_cpu_percent, line))
-                    else:
-                        print("{:6d}\t | {:9}| \t{}".format(line_no, "", line))
+                    print(f"{line_no:6d}\t | {n_cpu_percent_str:9s}| \t{line}")
                 line_no += 1
             # print("Maximum margin of error for CPU measurements: +/-{:6.2f}% (95% confidence).".format(max_moe_cpu * 100))
             print("% of CPU time in program under profile: {:6.2f}% out of {:6.2f}s.".format(100 * total_cpu_samples * scalene.signal_interval / scalene.elapsed_time, scalene.elapsed_time))
