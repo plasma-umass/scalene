@@ -46,9 +46,9 @@ assert sys.version_info[0] == 3 and sys.version_info[1] >= 6, "This tool require
 
 class scalene(object):
 
-    cpu_samples    = defaultdict(int)    # Samples for each location in the program.
-    malloc_samples = defaultdict(int)    # Ibid, but for malloc.
-    free_samples   = defaultdict(int)    # Ibid, but for free.
+    cpu_samples    = defaultdict(lambda: defaultdict(int))    # Samples for each location in the program.
+    malloc_samples = defaultdict(lambda: defaultdict(int))    # Ibid, but for malloc.
+    free_samples   = defaultdict(lambda: defaultdict(int))    # Ibid, but for free.
     total_cpu_samples      = 0           # how many CPU samples have been collected.
     total_malloc_samples   = 0           # how many malloc samples have been collected.
     total_free_samples     = 0           # how many free samples have been collected.
@@ -73,44 +73,24 @@ class scalene(object):
         signal.setitimer(signal.ITIMER_PROF, self.signal_interval, self.signal_interval)
         pass
 
-    @staticmethod
-    def make_key(frame):
-        """Returns a key for tracking where this interrupt came from. Returns None for code we are not tracing. See extract_from_key."""
-        co = frame.f_code
-        filename = co.co_filename
-        if not scalene.should_trace(filename):
-            return None
-        # func_name = co.co_name
-        line_no = frame.f_lineno
-        key = json.dumps({'filename' : filename,
-                          # 'func_name' : func_name,
-                          'line_no' : line_no })
-        return key
-
    
-    @staticmethod
-    def extract_from_key(key):
-        """Get the original payload data structure from the key."""
-        return json.loads(key)
-        
     @staticmethod
     def cpu_signal_handler(sig, frame):
         """Handle interrupts for CPU profiling."""
-        key = scalene.make_key(frame)
-        if key is None:
+        fname = frame.f_code.co_filename
+        if not scalene.should_trace(fname):
             return
-        scalene.cpu_samples[key] += 1
+        scalene.cpu_samples[fname][frame.f_lineno] += 1
         scalene.total_cpu_samples += 1
         return
 
     @staticmethod
     def malloc_signal_handler(sig, frame):
         """Handle interrupts for memory profiling (mallocs)."""
-        key = scalene.make_key(frame)
-        if key is None:
-            # We aren't profiling memory from this file.
+        fname = frame.f_code.co_filename
+        if not scalene.should_trace(fname):
             return
-        scalene.malloc_samples[key] += 1
+        scalene.malloc_samples[fname][frame.f_lineno] += 1
         scalene.total_malloc_samples += 1
         scalene.current_footprint += scalene.memory_sampling_rate
         # print("MALLOC: footprint now = {}".format(scalene.current_footprint / (1024*1024)))
@@ -119,11 +99,10 @@ class scalene(object):
     @staticmethod
     def free_signal_handler(sig, frame):
         """Handle interrupts for memory profiling (frees)."""
-        key = scalene.make_key(frame)
-        if key is None:
-            # We aren't profiling memory from this file.
+        fname = frame.f_code.co_filename
+        if not scalene.should_trace(fname):
             return
-        scalene.free_samples[key] += 1
+        scalene.free_samples[fname][frame.f_lineno] += 1
         scalene.total_free_samples += 1
         scalene.current_footprint -= scalene.memory_sampling_rate
         # print("FREE: footprint now = {}".format(scalene.current_footprint / (1024*1024)))
@@ -133,11 +112,11 @@ class scalene(object):
     def should_trace(filename):
         """Return true if the filename is one we should trace."""
         # Profile anything in the program's path. Currently disabled.
-        #if scalene.program_path in filename:
-        #    return True
-        # For now, only profile the program being profiled.
-        if scalene.program_being_profiled == filename:
+        if scalene.program_path in filename:
             return True
+        # For now, only profile the program being profiled.
+        #if scalene.program_being_profiled == filename:
+        #    return True
         return False
    
         # Don't trace the profiler itself.
@@ -155,53 +134,42 @@ class scalene(object):
         scalene.elapsed_time = time.perf_counter() # time.process_time() # perf_counter()
 
     @staticmethod
-    def margin_of_error(prop, nsamples):
-        return 1.96 * math.sqrt(prop * (1-prop) / nsamples)
-
-    @staticmethod
     def dump_code():
-        max_moe_cpu = 0 # Maximum 95% confidence interval for margin of error (for CPU %).
-        max_moe_mem = 0 # Maximum 95% confidence interval for margin of error (for memory %).
-        mallocs = sum(scalene.malloc_samples.values())
-        frees   = sum(scalene.free_samples.values())
-        
-#        average_footprint_mb = (mallocs) * scalene.memory_sampling_rate / (1024 * 1024)
-        average_footprint_mb = scalene.memory_sampling_rate / (1024 * 1024) # (mallocs - frees) * scalene.memory_sampling_rate / (1024 * 1024)
-        total_cpu_samples = scalene.total_cpu_samples
+        # average_footprint_mb = scalene.memory_sampling_rate / (1024 * 1024) # (mallocs - frees) * scalene.memory_sampling_rate / (1024 * 1024)
         total_mem_samples = scalene.total_malloc_samples - scalene.total_free_samples # use + scalene.total_free_samples for churn.
-        if total_cpu_samples + total_mem_samples == 0:
+        if len(scalene.cpu_samples) + total_mem_samples == 0:
             print("scalene: no samples collected.")
             return
-        print(f"  Line\t | {'CPU %':9}| {'Memory (MB)|' if total_mem_samples != 0 else '':10s}")
-        with open(scalene.program_being_profiled, 'r') as fd:
-            contents = fd.readlines()
-            line_no = 1
-            for line in contents:
-                line = line[:-1] # Strip newline
-                key = (scalene.program_being_profiled, line_no)
-                key = json.dumps({'filename' : scalene.program_being_profiled,
-                                  'line_no' : line_no })
-                n_cpu_samples = scalene.cpu_samples[key]
-                n_mem_samples = (scalene.malloc_samples[key] - scalene.free_samples[key]) # - for delta, + for churn.
-                n_mem_mb      = n_mem_samples * scalene.memory_sampling_rate / (1024 * 1024)
-                if total_cpu_samples != 0:
-                    n_cpu_percent = n_cpu_samples * 100 / total_cpu_samples
-                # Update margins of error.
-                if False:
-                    if total_cpu_samples != 0 and n_cpu_samples != 0:
-                        moe_cpu = scalene.margin_of_error(n_cpu_samples / total_cpu_samples, total_cpu_samples)
-                        max_moe_cpu = max(moe_cpu, max_moe_cpu)
-                # Print results.
-                n_cpu_percent_str = "" if n_cpu_percent == 0 else f'{n_cpu_percent:6.2f}%'
-                n_mem_mb_str      = "" if n_mem_mb == 0      else f'{n_mem_mb:>9.2f}'
-                if total_mem_samples != 0:
-                    print(f"{line_no:6d}\t | {n_cpu_percent_str:9s}| {n_mem_mb_str:8s}\t | \t{line}")
-                else:
-                    print(f"{line_no:6d}\t | {n_cpu_percent_str:9s}| \t{line}")
-                line_no += 1
-            # print("Maximum margin of error for CPU measurements: +/-{:6.2f}% (95% confidence).".format(max_moe_cpu * 100))
-            print("% of CPU time in program under profile: {:6.2f}% out of {:6.2f}s.".format(100 * total_cpu_samples * scalene.signal_interval / scalene.elapsed_time, scalene.elapsed_time))
-       
+        # Collect all instrumented filenames.
+        all_instrumented_files = list(set(list(scalene.cpu_samples.keys()) + list(scalene.malloc_samples.keys()) + list(scalene.free_samples.keys())))
+        # Calculate total number of CPU samples.
+        total_cpu_samples = scalene.total_cpu_samples
+        for fname in all_instrumented_files:
+            with open(fname, 'r') as fd:
+                this_cpu_samples = sum(scalene.cpu_samples[fname].values())
+                percent_cpu_time = 100 * this_cpu_samples * \
+                    scalene.signal_interval / scalene.elapsed_time
+                print(f"{fname}: % of CPU time = {percent_cpu_time:6.2f}% out of {scalene.elapsed_time:6.2f}s.")
+                print(f"  Line\t | {'CPU %':9}| {'Memory (MB)|' if total_mem_samples != 0 else '':10s} {fname}")
+                contents = fd.readlines()
+                line_no = 1
+                for line in contents:
+                    line = line[:-1] # Strip newline
+                    n_cpu_samples = scalene.cpu_samples[fname][line_no]
+                    n_mem_samples = (scalene.malloc_samples[fname][line_no] - scalene.free_samples[fname][line_no]) # - for delta, + for churn.
+                    n_mem_mb      = n_mem_samples * scalene.memory_sampling_rate / (1024 * 1024)
+                    if total_cpu_samples != 0:
+                        n_cpu_percent = n_cpu_samples * 100 / total_cpu_samples
+                    # Print results.
+                    n_cpu_percent_str = "" if n_cpu_percent == 0 else f'{n_cpu_percent:6.2f}%'
+                    n_mem_mb_str      = "" if n_mem_mb == 0      else f'{n_mem_mb:>9.2f}'
+                    if total_mem_samples != 0:
+                        print(f"{line_no:6d}\t | {n_cpu_percent_str:9s}| {n_mem_mb_str:8s}\t | \t{line}")
+                    else:
+                        print(f"{line_no:6d}\t | {n_cpu_percent_str:9s}| \t{line}")
+                    line_no += 1
+                print("")
+
         
     @staticmethod
     def exit_handler():
