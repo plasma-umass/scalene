@@ -52,7 +52,6 @@ Below is a table comparing various profilers to `scalene`, running on an example
 
 |                            | time (s) | slowdown | granularity    | cpu? | memory? | works on unmodified code?       |
 | :--- | ---: | ---: | :---: | :---: | :---: | :---: |
-|----------------------------|----------|----------|----------------|------|---------|---------------------|
 | _original program_             | _7.76_     | _1.00_     |               |     |        |                    |
 | `cProfile`                   | 11.17    | 1.44     | function-level | yes  | no      | yes                |
 | `Profile`                    | 278.19   | 35.86    | function-level | yes  | no      | yes                |
