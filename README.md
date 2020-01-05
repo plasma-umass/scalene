@@ -65,3 +65,57 @@ Below is a table comparing various profilers to scalene, running on an example P
 | **`scalene`** _(CPU only)_         | 8.31     | **1.07x**     | **line-level**     | **yes**  | **no**      | **yes**               |
 | **`scalene`** _(CPU + memory)_     | 9.11     | **1.17x**     | **line-level**     | **yes**  | **yes**     | **yes**                |
 
+
+## Output
+
+Scalene prints annotated source code for the program being profiled and any modules it uses in the same directory or subdirectories. Here is a snippet from `pystone.py`, just using CPU profiling:
+
+```
+benchmarks/pystone.py: % of CPU time =  88.34% out of   3.46s.
+  Line	 | CPU %    |            benchmarks/pystone.py
+  [... lines omitted ...]
+   137	 |   0.65%  | 	def Proc1(PtrParIn):
+   138	 |   1.96%  | 	    PtrParIn.PtrComp = NextRecord = PtrGlb.copy()
+   139	 |   0.65%  | 	    PtrParIn.IntComp = 5
+   140	 |   2.61%  | 	    NextRecord.IntComp = PtrParIn.IntComp
+   141	 |   0.98%  | 	    NextRecord.PtrComp = PtrParIn.PtrComp
+   142	 |   2.94%  | 	    NextRecord.PtrComp = Proc3(NextRecord.PtrComp)
+   143	 |   0.65%  | 	    if NextRecord.Discr == Ident1:
+   144	 |   0.33%  | 	        NextRecord.IntComp = 6
+   145	 |   3.27%  | 	        NextRecord.EnumComp = Proc6(PtrParIn.EnumComp)
+   146	 |   0.33%  | 	        NextRecord.PtrComp = PtrGlb.PtrComp
+   147	 |   2.29%  | 	        NextRecord.IntComp = Proc7(NextRecord.IntComp, 10)
+   148	 |          | 	    else:
+   149	 |          | 	        PtrParIn = NextRecord.copy()
+   150	 |   0.33%  | 	    NextRecord.PtrComp = None
+   151	 |          | 	    return PtrParIn
+ ```
+
+And here is an example with memory profiling enabled, running the Julia benchmark.
+
+```
+benchmarks/julia1_nopil.py: % of CPU time =  96.23% out of   9.03s.
+  Line	 | CPU %    | Memory (MB)| benchmarks/julia1_nopil.py
+     1	 |          |         	 | 	# Pasted from Chapter 2, High Performance Python - O'Reilly Media;
+     2	 |          |         	 | 	# minor modifications for Python 3 by Emery Berger
+     3	 |          |         	 | 	
+     4	 |          |         	 | 	"""Julia set generator without optional PIL-based image drawing"""
+     5	 |          |         	 | 	import time
+     6	 |          |         	 | 	# area of complex space to investigate
+     7	 |          |         	 | 	x1, x2, y1, y2 = -1.8, 1.8, -1.8, 1.8
+     8	 |          |         	 | 	c_real, c_imag = -0.62772, -.42193
+     9	 |          |         	 | 	
+    10	 |          |         	 | 	#@profile
+    11	 |          |      0.12	 | 	def calculate_z_serial_purepython(maxiter, zs, cs):
+    12	 |          |         	 | 	    """Calculate output list using Julia update rule"""
+    13	 |          |      0.12	 | 	    output = [0] * len(zs)
+    14	 |   0.35%  |     25.00	 | 	    for i in range(len(zs)):
+    15	 |          |         	 | 	        n = 0
+    16	 |   0.23%  |    -24.75	 | 	        z = zs[i]
+    17	 |   0.46%  |    -27.75	 | 	        c = cs[i]
+    18	 |  17.84%  |         	 | 	        while abs(z) < 2 and n < maxiter:
+    19	 |  50.86%  |    998.12	 | 	            z = z * z + c
+    20	 |  23.01%  |   -968.00	 | 	            n += 1
+    21	 |   0.23%  |         	 | 	        output[i] = n
+    22	 |          |         	 | 	    return output
+```
