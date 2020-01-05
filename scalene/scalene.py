@@ -46,38 +46,40 @@ assert sys.version_info[0] == 3 and sys.version_info[1] >= 6, "This tool require
 
 class scalene(object):
 
-    cpu_samples    = defaultdict(lambda: defaultdict(int))    # Samples for each location in the program.
-    malloc_samples = defaultdict(lambda: defaultdict(int))    # Ibid, but for malloc.
-    free_samples   = defaultdict(lambda: defaultdict(int))    # Ibid, but for free.
-    total_cpu_samples      = 0           # how many CPU samples have been collected.
-    total_malloc_samples   = 0           # how many malloc samples have been collected.
-    total_free_samples     = 0           # how many free samples have been collected.
+    cpu_samples    = defaultdict(lambda: defaultdict(int))    # CPU    samples for each location in the program.
+    malloc_samples = defaultdict(lambda: defaultdict(int))    # malloc "       "   "    "        "   "  "
+    free_samples   = defaultdict(lambda: defaultdict(int))    # free   "       "   "    "        "   "  "
+    total_cpu_samples      = 0           # how many CPU    samples have been collected.
+    total_malloc_samples   = 0           # "   "    malloc "       "    "    "
+    total_free_samples     = 0           # "   "    free   "       "    "    "
     signal_interval        = 0.01        # seconds between interrupts for CPU sampling.
-    elapsed_time           = 0           # time spent in program being profiled.
-    memory_sampling_rate   = 128 * 1024  # must be in sync with include/sampleheap.cpp
+    elapsed_time           = 0           # total time spent in program being profiled.
+    memory_sampling_rate = 128 * 1024    # we get signals after this many bytes are allocated/freed. 
+                                         # NB: MUST BE IN SYNC WITH include/sampleheap.cpp!
     current_footprint      = 0           # current memory footprint
-    
     program_being_profiled = ""          # name of program being profiled.
-    program_path           = ""          # path "    "        "     "
+    program_path           = ""          # path "  "       "     "
     
     def __init__(self, program_being_profiled):
+        # Register the exit handler to run when the program terminates or we quit.
+        atexit.register(scalene.exit_handler)
+        # Store relevant names (program, path).
         scalene.program_being_profiled = program_being_profiled
         scalene.program_path = os.path.dirname(program_being_profiled)
-        atexit.register(scalene.exit_handler)
         # Set up the signal handler to handle periodic timer interrupts (for CPU).
         signal.signal(signal.SIGPROF, self.cpu_signal_handler)
         # Set up the signal handler to handle malloc interrupts (for memory allocations).
         signal.signal(signal.SIGVTALRM, self.malloc_signal_handler)
         signal.signal(signal.SIGXCPU, self.free_signal_handler)
-        # Turn on the timer.
+        # Turn on the CPU profiling timer to run every signal_interval seconds.
         signal.setitimer(signal.ITIMER_PROF, self.signal_interval, self.signal_interval)
-        pass
 
    
     @staticmethod
     def cpu_signal_handler(sig, frame):
         """Handle interrupts for CPU profiling."""
         fname = frame.f_code.co_filename
+        # Record samples only if it's for files we care about.
         if not scalene.should_trace(fname):
             return
         scalene.cpu_samples[fname][frame.f_lineno] += 1
@@ -88,6 +90,7 @@ class scalene(object):
     def malloc_signal_handler(sig, frame):
         """Handle interrupts for memory profiling (mallocs)."""
         fname = frame.f_code.co_filename
+        # Record samples only if it's for files we care about.
         if not scalene.should_trace(fname):
             return
         scalene.malloc_samples[fname][frame.f_lineno] += 1
@@ -100,6 +103,7 @@ class scalene(object):
     def free_signal_handler(sig, frame):
         """Handle interrupts for memory profiling (frees)."""
         fname = frame.f_code.co_filename
+        # Record samples only if it's for files we care about.
         if not scalene.should_trace(fname):
             return
         scalene.free_samples[fname][frame.f_lineno] += 1
@@ -111,39 +115,23 @@ class scalene(object):
     @staticmethod
     def should_trace(filename):
         """Return true if the filename is one we should trace."""
-        # Profile anything in the program's path. Currently disabled.
-        if scalene.program_path in filename:
-            return True
-        # For now, only profile the program being profiled.
-        #if scalene.program_being_profiled == filename:
-        #    return True
-        return False
-   
-        # Don't trace the profiler itself.
-        if 'scalene.py' in filename:
-            return False
-        # Don't trace Python builtins.
-        if '<frozen importlib._bootstrap>' in filename:
-            return False
-        if '<frozen importlib._bootstrap_external>' in filename:
-            return False
-        return True
+        # Profile anything in the program's directory or a child directory,
+        # but nothing else.
+        return scalene.program_path in filename
 
     @staticmethod
     def start():
-        scalene.elapsed_time = time.perf_counter() # time.process_time() # perf_counter()
+        scalene.elapsed_time = time.perf_counter()
+    
+    @staticmethod
+    def stop():
+        scalene.elapsed_time = time.perf_counter() - scalene.elapsed_time
 
     @staticmethod
-    def dump_code():
-        # average_footprint_mb = scalene.memory_sampling_rate / (1024 * 1024) # (mallocs - frees) * scalene.memory_sampling_rate / (1024 * 1024)
+    def output_profiles():
         total_mem_samples = scalene.total_malloc_samples - scalene.total_free_samples # use + scalene.total_free_samples for churn.
-        if len(scalene.cpu_samples) + total_mem_samples == 0:
-            print("scalene: no samples collected.")
-            return
         # Collect all instrumented filenames.
         all_instrumented_files = list(set(list(scalene.cpu_samples.keys()) + list(scalene.malloc_samples.keys()) + list(scalene.free_samples.keys())))
-        # Calculate total number of CPU samples.
-        total_cpu_samples = scalene.total_cpu_samples
         for fname in all_instrumented_files:
             with open(fname, 'r') as fd:
                 this_cpu_samples = sum(scalene.cpu_samples[fname].values())
@@ -158,8 +146,8 @@ class scalene(object):
                     n_cpu_samples = scalene.cpu_samples[fname][line_no]
                     n_mem_samples = (scalene.malloc_samples[fname][line_no] - scalene.free_samples[fname][line_no]) # - for delta, + for churn.
                     n_mem_mb      = n_mem_samples * scalene.memory_sampling_rate / (1024 * 1024)
-                    if total_cpu_samples != 0:
-                        n_cpu_percent = n_cpu_samples * 100 / total_cpu_samples
+                    if scalene.total_cpu_samples != 0:
+                        n_cpu_percent = n_cpu_samples * 100 / scalene.total_cpu_samples
                     # Print results.
                     n_cpu_percent_str = "" if n_cpu_percent == 0 else f'{n_cpu_percent:6.2f}%'
                     n_mem_mb_str      = "" if n_mem_mb == 0      else f'{n_mem_mb:>9.2f}'
@@ -197,17 +185,18 @@ class scalene(object):
                 the_globals['__file__'] = sys.argv[0]
                 # Start the profiler.
                 profiler = scalene(sys.argv[0])
-                profiler.start()
                 try:
+                    profiler.start()
                     # Run the code being profiled.
                     exec(code, the_globals)
-                    # Get elapsed time.
-                    scalene.elapsed_time = time.perf_counter() - scalene.elapsed_time
+                    profiler.stop()
                     # Go back home.
                     os.chdir(original_path)
                     # If we've collected any samples, dump them.
                     if profiler.total_cpu_samples > 0:
-                        profiler.dump_code()
+                        profiler.output_profiles()
+                    else:
+                        print("scalene: Program did not run for long enough to profile.")
                 except Exception as ex:
                     template = "scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
                     message = template.format(type(ex).__name__, ex.args)
