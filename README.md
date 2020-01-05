@@ -52,12 +52,14 @@ Below is a table comparing various profilers to scalene, running on an example P
 
 |                            | time (s) | slowdown | granularity    | cpu? | memory? | works on unmodified code?       |
 | :--- | ---: | ---: | :---: | :---: | :---: | :---: |
-| _original program_             | _7.76_     | _1.00_     |               |     |        |                    |
-| `cProfile`                   | 11.17    | 1.44     | function-level | yes  | no      | yes                |
-| `Profile`                    | 278.19   | 35.86    | function-level | yes  | no      | yes                |
-| `yappi`                      | 143.78   | 18.53    | function-level | yes  | no      | yes                |
-| `line_profiler` | 93.27    | 12.02    | line-level     | yes  | no      | no: needs `@profile` decorators |
-| `memory_profiler`            | _aborted after 30 minutes_ | 232.02   | line-level     | no   | yes     | no: needs `@profile` decorators |
-| **`scalene`** _(CPU only)_         | 8.31     | **1.07**     | **line-level**     | **yes**  | **no**      | **yes**               |
-| **`scalene`** _(CPU + memory)_     | 9.11     | **1.17**     | **line-level**     | **yes**  | **yes**     | **yes**                |
+| _original program_             | _7.76_     | _1.00x_     | |  |  |  |  |  |  |
+|               |     |        |                    |
+| `cProfile`                   | 11.17    | 1.44x     | function-level | yes  | no      | yes                |
+| `Profile`                    | 278.19   | 35.86x    | function-level | yes  | no      | yes                |
+| `yappi`                      | 143.78   | 18.53x    | function-level | yes  | no      | yes                |
+| `line_profiler` | 93.27    | 12.02x    | line-level     | yes  | no      | no: needs `@profile` decorators |
+| `memory_profiler`            | _aborted after 30 minutes_ | >232x   | line-level     | no   | yes     | no: needs `@profile` decorators |
+| |  |  |  |  |  |  |
+| **`scalene`** _(CPU only)_         | 8.31     | **1.07x**     | **line-level**     | **yes**  | **no**      | **yes**               |
+| **`scalene`** _(CPU + memory)_     | 9.11     | **1.17x**     | **line-level**     | **yes**  | **yes**     | **yes**                |
 
