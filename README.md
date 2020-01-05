@@ -119,3 +119,10 @@ benchmarks/julia1_nopil.py: % of CPU time =  96.23% out of   9.03s.
     21	 |   0.23%  |         	 | 	        output[i] = n
     22	 |          |         	 | 	    return output
 ```
+
+Positive memory numbers indicate memory consumption in megabytes;
+negative memory numbers indicate memory reclamation. Note that because
+of the way Python's memory management works, frequent allocation and
+de-allocation (as in lines 19-20 above) show up as high positive
+memory on one line followed by an (approximately) corresponding
+negative memory on the following line(s).
