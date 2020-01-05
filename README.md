@@ -52,18 +52,18 @@ Profiling on a Linux system:
 
 Below is a table comparing various profilers to scalene, running on an example Python program (`benchmarks/julia1_nopil.py`) from the book _High Performance Python_, by Gorelick and Ozsvald. All of these were run on a 2016 MacBook Pro. 
 
-|                            | time (s) | slowdown | granularity    | cpu? | memory? | works on unmodified code?       |
+|                            | Time (seconds) | Slowdown | Granularity    | CPU? | Memory? | Unmodified code?       |
 | :--- | ---: | ---: | :---: | :---: | :---: | :---: |
-| _original program_             | _7.76_     | _1.00x_     | |  |  |  |  |  |  |
+| _original program_             | _7.76s_     | _1.00x_     | |  |  |  |  |  |  |
 |               |     |        |                    |
-| `cProfile`                   | 11.17    | 1.44x     | function-level | yes  | no      | yes                |
-| `Profile`                    | 278.19   | 35.86x    | function-level | yes  | no      | yes                |
-| `yappi`                      | 143.78   | 18.53x    | function-level | yes  | no      | yes                |
-| `line_profiler` | 93.27    | 12.02x    | line-level     | yes  | no      | no: needs `@profile` decorators |
+| `cProfile`                   | 11.17s    | 1.44x     | function-level | yes  | no      | yes                |
+| `Profile`                    | 278.19s   | 35.86x    | function-level | yes  | no      | yes                |
+| `yappi`                      | 143.78s   | 18.53x    | function-level | yes  | no      | yes                |
+| `line_profiler` | 93.27s    | 12.02x    | line-level     | yes  | no      | no: needs `@profile` decorators |
 | `memory_profiler`            | _aborted after 30 minutes_ | >232x   | line-level     | no   | yes     | no: needs `@profile` decorators |
 | |  |  |  |  |  |  |
-| **`scalene`** _(CPU only)_         | 8.31     | **1.07x**     | **line-level**     | **yes**  | **no**      | **yes**               |
-| **`scalene`** _(CPU + memory)_     | 9.11     | **1.17x**     | **line-level**     | **yes**  | **yes**     | **yes**                |
+| **`scalene`** _(CPU only)_         | 8.31s     | **1.07x**     | **line-level**     | **yes**  | **no**      | **yes**               |
+| **`scalene`** _(CPU + memory)_     | 9.11s     | **1.17x**     | **line-level**     | **yes**  | **yes**     | **yes**                |
 
 
 ## Output
