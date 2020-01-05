@@ -6,7 +6,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
     
 setup(name='scalene',
-      version='0.5.1',
+      version='0.5.2',
       description='Scalene: A high-resolution, low-overhead CPU and memory profiler for Python',
       long_description=long_description,
       long_description_content_type='text/markdown',
