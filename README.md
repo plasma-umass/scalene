@@ -48,7 +48,7 @@ Profiling on a Linux system:
 ``` 
 # Comparison to Other Profilers
 
-Below is a table comparing various profilers to `scalene`, running on an example Python program (`benchmarks/julia1_nopil.py`) from the book _High Performance Python_, by Gorelick and Ozsvald. All of these were run on a 2016 MacBook Pro. 
+Below is a table comparing various profilers to scalene, running on an example Python program (`benchmarks/julia1_nopil.py`) from the book _High Performance Python_, by Gorelick and Ozsvald. All of these were run on a 2016 MacBook Pro. 
 
 |                            | time (s) | slowdown | granularity    | cpu? | memory? | works on unmodified code?       |
 | :--- | ---: | ---: | :---: | :---: | :---: | :---: |
