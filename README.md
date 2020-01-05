@@ -56,7 +56,7 @@ Below is a table comparing various profilers to scalene, running on an example P
 | :--- | ---: | ---: | :---: | :---: | :---: | :---: |
 | _original program_             | _7.76s_     | _1.00x_     | |  |  |  |  |  |  |
 |               |     |        |                    |
-| `cProfile`                   | 11.17s    | 1.44x     | function-level | - [x]  | - [ ]     | - [x]                |
+| `cProfile`                   | 11.17s    | 1.44x     | function-level | :heavy_check_mark:  | - [ ]     | - [x]                |
 | `Profile`                    | 278.19s   | 35.86x    | function-level | - [x]  | - [ ]     | - [x]                |
 | `yappi`                      | 143.78s   | 18.53x    | function-level | - [x]  | - [ ]     | - [x]                |
 | `line_profiler` | 93.27s    | 12.02x    | line-level     | - [x]  | - [ ]      | - [ ] needs `@profile` decorators |
