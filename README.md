@@ -39,12 +39,12 @@ To perform both line-level CPU and memory profiling, you first need to build the
 
 Profiling on a Mac OS X system:
 ```
-  % DYLD_INSERT_LIBRARIES=$PWD/libcheaper.dylib PYTHONMALLOC=malloc python -m scalene test/testme.py
+  % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene test/testme.py
 ``` 
 
 Profiling on a Linux system:
 ```
-  % LD_PRELOAD=$PWD/libcheaper.so PYTHONMALLOC=malloc python -m scalene test/testme.py
+  % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene test/testme.py
 ``` 
 # Comparison to Other Profilers
 
