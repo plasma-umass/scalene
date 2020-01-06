@@ -126,3 +126,7 @@ of the way Python's memory management works, frequent allocation and
 de-allocation (as in lines 19-20 above) show up as high positive
 memory on one line followed by an (approximately) corresponding
 negative memory on the following line(s).
+
+# Acknowledgements
+
+Logo created by [Sophia Berger](https://www.linkedin.com/in/sophia-berger/).
