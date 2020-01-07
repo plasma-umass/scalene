@@ -2,48 +2,12 @@
 #define REPOMAN_HPP
 
 #include "repo.hpp"
+#include "reposource.hpp"
 #include "heaplayers.h"
 
 #include <new>
 #include <iostream>
 #include <stdlib.h>
-
-//     int posix_memalign(void **memptr, size_t alignment, size_t size);
-
-
-template <int From, int Iterations, template <int, int> class C, int Arg, typename V>
-class StaticForLoop;
-
-template <int From, template <int, int> class C, int Arg, typename V>
-class StaticForLoop<From, 0, C, Arg, V>
-{
-public:
-  static void run (V) {}
-};
-
-template <int From, int Iterations, template <int, int> class C, int Arg, typename V>
-class StaticForLoop {
-public:
-  static void run (V v)
-  {
-    C<From, Arg>::run (v);
-    StaticForLoop<From+1, Iterations-1, C, Arg, V> s;
-    // Silly workaround for Sun.
-    s.run (v);
-  }
-};
-
-template <int index, int Size>
-class RepoManInitializer {
-public:
-  static void run (void * buf) {
-    auto ptr = reinterpret_cast<void *>((char *) buf + Size * index);
-    //    std::cout << "ptr = " << ptr << std::endl;
-    new (ptr) Repo<(index + 1) * 8, Size>();
-    //    std::cout << "initialized " << index << ", repo size = " << repo->getBaseSize() << std::endl;
-  }
-};
- 
 
 
 template <int Size>
@@ -54,63 +18,97 @@ public:
   
   RepoMan()
   {
-    // FIXME need to guarantee alignment.
-    repos = reinterpret_cast<RepoBase<Size> *>(MmapWrapper::map(Size / 8 * Size));
-    //    std::cout << "repos = " << repos << std::endl;
-    
-    //    posix_memalign((void **) &repos, Size, Size/8 * Size);
-    //    std::cout << "repos = " << repos << std::endl;
-    //    StaticForLoop<0, Size/8, RepoManInitializer, void *>::run((void *) repos);
-    StaticForLoop<0, 512/8, RepoManInitializer, Size, void *>::run((void *) repos);
+    // Initialize the repos for each size.
+    for (auto index = 0; index < NUM_REPOS; index++) {
+      repoPointers[index] = _repoSource.get((index + 1) * MULTIPLE);
+      assert(repoPointers[index]->isEmpty());
+    }
   }
 
   void * malloc(size_t sz) {
-    if (sz == 0) { sz = 1; }
-    if (sz <= 512) {
-      int index = sz / 8 - 1;
+    //    tprintf::tprintf("malloc @\n", sz);
+    if (sz < MULTIPLE) { sz = MULTIPLE; }
+    void * ptr;
+    if (sz <= MAX_SIZE) {
+      // Round sz up to next multiple of MULTIPLE.
+      sz = (sz + MULTIPLE - 1) & ~(MULTIPLE - 1);
+      //      tprintf::tprintf("size now = @\n", sz);
+      int index = sz / MULTIPLE - 1;
       //    std::cout << "repos[index] = " << &repos[index] << std::endl;
-      return repos[index].malloc(sz);
+      ptr = nullptr;
+      while (ptr == nullptr) {
+	ptr = repoPointers[index]->malloc(sz);
+	if (ptr == nullptr) {
+	  repoPointers[index] = _repoSource.get(sz);
+	}
+      }
     } else {
       // For now, allocate directly via mmap.
       // Add the space for the header metadata.
+      auto origSize = sz;
       sz = sz + sizeof(RepoHeader);
       // Round sz up to next multiple of Size.
       sz = (sz + Size - 1) & ~(Size - 1);
       //      std::cout << "allocating object of size " << sz << std::endl;
       // FIXME force alignment!
+      tprintf::tprintf("*****big object sz = @\n", sz);
       auto basePtr = MmapWrapper::map(sz);
-      new (basePtr) RepoHeader(sz);
-      void * ptr = reinterpret_cast<char *>(basePtr) + sizeof(RepoHeader);
+      auto bigObjBase = new (basePtr) RepoHeader(origSize);
+      ptr = bigObjBase + 1; // reinterpret_cast<char *>(basePtr) + sizeof(RepoHeader);
       //      std::cout << "object size = " << getSize(ptr) << ", ptr = " << ptr << std::endl;
-      return ptr;
     }
+    //    tprintf::tprintf("malloc @ = @\n", sz, ptr);
+    return ptr;
   }
   
   void free(void * ptr) {
+    //    tprintf::tprintf("free @\n", ptr);
     if (ptr != nullptr) {
-      //      std::cout << "checking " << ptr << std::endl;
-      auto sz = getSize(ptr);
-      if (sz <= 512) {
-	int index = sz / 8 - 1;
-	repos[index].free(ptr);
-      } else {
-	//	std::cout << "freeing obj of size " << sz << std::endl;
-	auto basePtr = reinterpret_cast<char *>(ptr) - sizeof(RepoHeader);
-	MmapWrapper::unmap(reinterpret_cast<RepoHeader *>(basePtr), sz);
+      if (getHeader(ptr)->isValid()) {
+	//      std::cout << "checking " << ptr << std::endl;
+	auto sz = getSize(ptr);
+	if (sz <= MAX_SIZE) {
+	  int index = sz / MULTIPLE - 1;
+	  Repo<Size> * r = reinterpret_cast<Repo<Size> *>(getHeader(ptr));
+	  r->free(ptr);
+	  // If we just freed the whole repo, give it back to the repo source for later reuse.
+	  if (r->isEmpty()) {
+	    _repoSource.put(r);
+	  }
+	} else {
+	  // "Large" object handling.
+	  auto basePtr = reinterpret_cast<RepoHeader *>(ptr) - 1;
+	  MmapWrapper::unmap(basePtr, sz);
+	}
       }
     }
   }
 
-  size_t getSize(void * ptr) {
-    auto headerPtr = (RepoHeader *) ((uintptr_t) ptr & ~(Size-1));
-    //    std::cout << "headerPtr = " << (void *) headerPtr << ", ptr = " << ptr << std::endl;
-    return headerPtr->getBaseSize();
+  static constexpr inline RepoHeader * getHeader(void * ptr) {
+    //    tprintf::tprintf("getHeader @\n", ptr);
+    auto header = (RepoHeader *) ((uintptr_t) ptr & ~(Size-1));
+    return header;
+  }
+  
+  static constexpr inline size_t getSize(void * ptr) {
+    size_t sz = 0;
+    auto headerPtr = getHeader(ptr);
+    if (headerPtr->isValid()) {
+      //    std::cout << "headerPtr = " << (void *) headerPtr << ", ptr = " << ptr << std::endl;
+      sz = headerPtr->getBaseSize();
+    }
+    //    tprintf::tprintf("getSize @ = @\n", ptr, sz);
+    return sz;
   }
   
 private:
-  
-  RepoBase<Size> * repos;
-  
+
+  enum { MULTIPLE = 8 };
+  enum { MAX_SIZE = 512 };
+  enum { NUM_REPOS = MAX_SIZE / MULTIPLE };
+  //  Repo<Size> * repos;
+  Repo<Size> * repoPointers[NUM_REPOS];
+  RepoSource<Size> _repoSource;
 };
 
 #endif
