@@ -79,7 +79,9 @@ public:
   
   void free(void * ptr) {
     if (!inBounds(ptr)) {
-      return;
+      if ((uintptr_t) ptr - (uintptr_t) getHeader(ptr) != sizeof(RepoHeader<Size>)) {
+	return;
+      }
     }
     //    tprintf::tprintf("free @\n", ptr);
     if (ptr != nullptr) {
@@ -101,6 +103,11 @@ public:
 	} else {
 	  // "Large" object handling.
 	  auto basePtr = reinterpret_cast<RepoHeader<Size> *>(ptr) - 1;
+	  auto origSize = sz;
+	  sz = sz + sizeof(RepoHeader<Size>);
+	  // Round sz up to next multiple of Size.
+	  sz = roundUp(sz, Size);
+	  //	  tprintf::tprintf("FREE @ (@)\n", ptr, sz);
 	  MmapWrapper::unmap(basePtr, sz);
 	}
       }
