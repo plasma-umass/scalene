@@ -142,7 +142,7 @@ public:
   
 private:
 
-  enum { MULTIPLE = 8 };
+  enum { MULTIPLE = 16 };
   enum { MAX_SIZE = 512 };
   enum { NUM_REPOS = MAX_SIZE / MULTIPLE };
   //  Repo<Size> * repos;
