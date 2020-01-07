@@ -11,6 +11,7 @@
 //  virtual void run() = 0;
 //};
 
+template <unsigned long Size>
 class RepoHeader {
 private:
 
@@ -20,86 +21,87 @@ public:
   RepoHeader(unsigned long objectSize)
     : _objectSize (objectSize),
       _allocated (0),
-      _magic (MAGIC_NUMBER),
+      _numberOfObjects((Size-sizeof(*this)) / _objectSize),
+      //      _magic (MAGIC_NUMBER),
       _next (nullptr)
   {}
   unsigned long _objectSize;
-  unsigned long _magic;
+  const unsigned long _numberOfObjects;
   unsigned long _allocated;  // total number of objects allocated so far.
   RepoHeader * _next;
   
   size_t getBaseSize() {
-    assert(isValid());
+    //    assert(isValid());
     return _objectSize;
   }
 
   bool isValid() const {
-    return (_magic == MAGIC_NUMBER);
+    return true;
+    //    return (_magic == MAGIC_NUMBER);
   }
   
 };
 
 // The base for all object sizes of repos.
 template <unsigned long Size>
-class Repo : public RepoHeader {
+class Repo : public RepoHeader<Size> {
 public:
   
   Repo(unsigned long objectSize)
-    : RepoHeader(objectSize)
+    : RepoHeader<Size>(objectSize)
   {}
 
   inline constexpr auto getNumberOfObjects() const {
-    return (Size - sizeof(RepoHeader)) / _objectSize;
+    return RepoHeader<Size>::_numberOfObjects;
   }
   
   inline bool isFull() {
-    return (RepoHeader::_allocated == getNumberOfObjects());
+    return (RepoHeader<Size>::_allocated == getNumberOfObjects());
   }
 
   inline bool isEmpty() {
-    return (RepoHeader::_allocated == 0);
+    return (RepoHeader<Size>::_allocated == 0);
   }
 
   inline void * malloc(size_t sz) {
     //    std::cout << "this = " << this << std::endl;
-    assert(RepoHeader::isValid());
-    assert (sz <= RepoHeader::_objectSize);
+    assert(RepoHeader<Size>::isValid());
+    assert (sz <= RepoHeader<Size>::_objectSize);
+    void * ptr;
     if (!isFull()) {
-      auto * ptr = &_buffer[RepoHeader::_allocated * RepoHeader::_objectSize];
+      ptr = &_buffer[RepoHeader<Size>::_allocated * RepoHeader<Size>::_objectSize];
       assert(inBounds(ptr));
-      RepoHeader::_allocated++;
-      return ptr;
+      RepoHeader<Size>::_allocated++;
     } else {
-      //      std::cout << "out of objects: _allocated = " << RepoHeader::_allocated << std::endl;
-      return nullptr;
+      //      std::cout << "out of objects: _allocated = " << RepoHeader<Size>::_allocated << std::endl;
+      ptr = nullptr;
     }
+    //    tprintf::tprintf("malloc @ = @\n", sz, ptr);
+    return ptr;
   }
 
   inline constexpr size_t getSize(void * ptr) {
-    assert(RepoHeader::isValid());
-    return RepoHeader::getBaseSize();
-    if (inBounds(ptr)) {
-      return getBaseSize();
-    }
-    return 0;
+    assert(RepoHeader<Size>::isValid());
+    return RepoHeader<Size>::getBaseSize();
+    //    return 0;
   }
 
   inline constexpr bool inBounds(void * ptr) {
-    assert(RepoHeader::isValid());
+    assert(RepoHeader<Size>::isValid());
     char * cptr = reinterpret_cast<char *>(ptr);
-    return ((cptr >= &_buffer[0]) && (cptr <= &_buffer[(getNumberOfObjects()-1) * RepoHeader::_objectSize]));
+    return ((cptr >= &_buffer[0]) && (cptr <= &_buffer[(getNumberOfObjects()-1) * RepoHeader<Size>::_objectSize]));
   }
   
   inline void free(void * ptr) {
-    assert(RepoHeader::isValid());
+    assert(RepoHeader<Size>::isValid());
     assert(inBounds(ptr));
-    assert(RepoHeader::_allocated > 0);
-    RepoHeader::_allocated--;
-    assert(RepoHeader::_allocated <= getNumberOfObjects());
+    assert(RepoHeader<Size>::_allocated > 0);
+    RepoHeader<Size>::_allocated--;
+    assert(RepoHeader<Size>::_allocated <= getNumberOfObjects());
   }
     
 protected:
-  char _buffer[Size - sizeof(RepoHeader)];
+  char _buffer[Size - sizeof(RepoHeader<Size>)];
 };
 
 

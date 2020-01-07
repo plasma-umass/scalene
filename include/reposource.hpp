@@ -19,20 +19,26 @@ public:
       repo = new (buf) Repo<Size>(sz);
     } else {
       repo = getSource(sz);
-      getSource(sz) = (Repo<Size> *)(((RepoHeader *) getSource(sz))->_next);
+      getSource(sz) = (Repo<Size> *)(((RepoHeader<Size> *) getSource(sz))->_next);
       if (getSource() != nullptr) {
 	assert(getSource()->isValid());
 	assert(getSource()->isEmpty());
       }
     }
+    repo->_next = nullptr;
     assert(repo->isValid());
     assert(repo->isEmpty());
-    tprintf::tprintf("GET @ = @\n", sz, repo);
+    ///    tprintf::tprintf("GET @ = @\n", sz, repo);
     return repo;
   }
 
   void put(Repo<Size> * repo) {
-    tprintf::tprintf("PUT @\n", repo);
+    ///    tprintf::tprintf("PUT @ (sz = @)\n", repo, repo->_objectSize);
+    Repo<Size> * r = getSource();
+    while (r != nullptr) {
+      assert (r != repo);
+      r = (Repo<Size> *) r->_next;
+    }
     assert(repo->isValid());
     assert(repo->isEmpty());
     //    assert(getSource() == nullptr || getSource()->isEmpty());
@@ -42,7 +48,7 @@ public:
   
 private:
 
-  Repo<Size> *& getSource(size_t sz = 0) {
+  static Repo<Size> *& getSource(size_t sz = 0) {
     static Repo<Size> * head = nullptr;
     if (head != nullptr) {
       if (sz > 0) {

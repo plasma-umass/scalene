@@ -20,8 +20,8 @@ public:
   {
     // Initialize the repos for each size.
     for (auto index = 0; index < NUM_REPOS; index++) {
-      repoPointers[index] = _repoSource.get((index + 1) * MULTIPLE);
-      assert(repoPointers[index]->isEmpty());
+      _repoPointers[index] = _repoSource.get((index + 1) * MULTIPLE);
+      assert(_repoPointers[index]->isEmpty());
     }
   }
 
@@ -33,27 +33,28 @@ public:
       // Round sz up to next multiple of MULTIPLE.
       sz = (sz + MULTIPLE - 1) & ~(MULTIPLE - 1);
       //      tprintf::tprintf("size now = @\n", sz);
-      int index = sz / MULTIPLE - 1;
+      auto index = getIndex(sz);
       //    std::cout << "repos[index] = " << &repos[index] << std::endl;
       ptr = nullptr;
       while (ptr == nullptr) {
-	ptr = repoPointers[index]->malloc(sz);
+	ptr = _repoPointers[index]->malloc(sz);
 	if (ptr == nullptr) {
-	  repoPointers[index] = _repoSource.get(sz);
+	  assert(_repoPointers[index]->isFull());
+	  _repoPointers[index] = _repoSource.get(sz);
 	}
       }
     } else {
       // For now, allocate directly via mmap.
       // Add the space for the header metadata.
       auto origSize = sz;
-      sz = sz + sizeof(RepoHeader);
+      sz = sz + sizeof(RepoHeader<Size>);
       // Round sz up to next multiple of Size.
       sz = (sz + Size - 1) & ~(Size - 1);
       //      std::cout << "allocating object of size " << sz << std::endl;
       // FIXME force alignment!
       tprintf::tprintf("*****big object sz = @\n", sz);
       auto basePtr = MmapWrapper::map(sz);
-      auto bigObjBase = new (basePtr) RepoHeader(origSize);
+      auto bigObjBase = new (basePtr) RepoHeader<Size>(origSize);
       ptr = bigObjBase + 1; // reinterpret_cast<char *>(basePtr) + sizeof(RepoHeader);
       //      std::cout << "object size = " << getSize(ptr) << ", ptr = " << ptr << std::endl;
     }
@@ -68,25 +69,33 @@ public:
 	//      std::cout << "checking " << ptr << std::endl;
 	auto sz = getSize(ptr);
 	if (sz <= MAX_SIZE) {
-	  int index = sz / MULTIPLE - 1;
-	  Repo<Size> * r = reinterpret_cast<Repo<Size> *>(getHeader(ptr));
+	  auto index = getIndex(sz);
+	  auto r = reinterpret_cast<Repo<Size> *>(getHeader(ptr));
+	  assert(!r->isEmpty());
 	  r->free(ptr);
 	  // If we just freed the whole repo, give it back to the repo source for later reuse.
 	  if (r->isEmpty()) {
 	    _repoSource.put(r);
+	    if (_repoPointers[index] == r) {
+	      _repoPointers[index] = _repoSource.get(sz);
+	    }
 	  }
 	} else {
 	  // "Large" object handling.
-	  auto basePtr = reinterpret_cast<RepoHeader *>(ptr) - 1;
+	  auto basePtr = reinterpret_cast<RepoHeader<Size> *>(ptr) - 1;
 	  MmapWrapper::unmap(basePtr, sz);
 	}
       }
     }
   }
 
-  static constexpr inline RepoHeader * getHeader(void * ptr) {
+  static constexpr inline int getIndex(size_t sz) {
+    return sz / MULTIPLE - 1;
+  }
+  
+  static constexpr inline RepoHeader<Size> * getHeader(void * ptr) {
     //    tprintf::tprintf("getHeader @\n", ptr);
-    auto header = (RepoHeader *) ((uintptr_t) ptr & ~(Size-1));
+    auto header = (RepoHeader<Size> *) ((uintptr_t) ptr & ~(Size-1));
     return header;
   }
   
@@ -107,7 +116,7 @@ private:
   enum { MAX_SIZE = 512 };
   enum { NUM_REPOS = MAX_SIZE / MULTIPLE };
   //  Repo<Size> * repos;
-  Repo<Size> * repoPointers[NUM_REPOS];
+  Repo<Size> * _repoPointers[NUM_REPOS];
   RepoSource<Size> _repoSource;
 };
 
