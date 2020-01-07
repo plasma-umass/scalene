@@ -5,18 +5,32 @@
 
 template <int Size>
 class RepoSource {
+private:
+
+  char * _buf;
+  size_t _sz;
+  
 public:
 
-  RepoSource()
+  RepoSource(char * buf, size_t sz)
+    : _buf (buf),
+      _sz (sz)
   {}
   
   Repo<Size> * get(size_t sz) {
     Repo<Size> * repo = nullptr;
     if (getSource(sz) == nullptr) {
       // Allocate a new one. FIXME ensure alignment.
-      auto buf = MmapWrapper::map(Size);
-      // Must ensure sz is a proper size.
-      repo = new (buf) Repo<Size>(sz);
+      if (sz < _sz) {
+	auto buf = _buf;
+	_buf += Size;
+	_sz -= Size;
+	//      auto buf = MmapWrapper::map(Size);
+	// Must ensure sz is a proper size.
+	repo = new (buf) Repo<Size>(sz);
+      } else {
+	return nullptr;
+      }
     } else {
       repo = getSource(sz);
       getSource(sz) = (Repo<Size> *)(((RepoHeader<Size> *) getSource(sz))->_next);

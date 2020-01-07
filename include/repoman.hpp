@@ -12,11 +12,17 @@
 
 template <int Size>
 class RepoMan {
+private:
+  enum { MAX_HEAP_SIZE = 1024 * 1024 * 1024 };
+  char * _bufferStart;
+  
 public:
 
   // FIXME static assert that Size is a power of two.
   
   RepoMan()
+    : _bufferStart (reinterpret_cast<char *>(MmapWrapper::map(MAX_HEAP_SIZE))),
+      _repoSource(_bufferStart, MAX_HEAP_SIZE)
   {
     // Initialize the repos for each size.
     for (auto index = 0; index < NUM_REPOS; index++) {
@@ -25,6 +31,11 @@ public:
     }
   }
 
+  inline bool inBounds(void * ptr) const {
+    char * cptr = reinterpret_cast<char *>(ptr);
+    return ((cptr >= _bufferStart) && (cptr < _bufferStart + MAX_HEAP_SIZE));
+  }
+    
   void * malloc(size_t sz) {
     //    tprintf::tprintf("malloc @\n", sz);
     if (sz < MULTIPLE) { sz = MULTIPLE; }
@@ -52,7 +63,10 @@ public:
       sz = (sz + Size - 1) & ~(Size - 1);
       //      std::cout << "allocating object of size " << sz << std::endl;
       // FIXME force alignment!
-      tprintf::tprintf("*****big object sz = @\n", sz);
+      tprintf::tprintf("*****big object orig = @, sz = @\n", origSize, sz);
+      if (origSize >= 19213145040) {
+	abort();
+      }
       auto basePtr = MmapWrapper::map(sz);
       auto bigObjBase = new (basePtr) RepoHeader<Size>(origSize);
       ptr = bigObjBase + 1; // reinterpret_cast<char *>(basePtr) + sizeof(RepoHeader);
@@ -63,6 +77,9 @@ public:
   }
   
   void free(void * ptr) {
+    if (!inBounds(ptr)) {
+      return;
+    }
     //    tprintf::tprintf("free @\n", ptr);
     if (ptr != nullptr) {
       if (getHeader(ptr)->isValid()) {
