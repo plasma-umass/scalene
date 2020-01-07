@@ -66,7 +66,7 @@ public:
       sz = roundUp(sz, Size);
       //      std::cout << "allocating object of size " << sz << std::endl;
       // FIXME force alignment!
-      tprintf::tprintf("*****big object orig = @, sz = @\n", origSize, sz);
+      //      tprintf::tprintf("*****big object orig = @, sz = @\n", origSize, sz);
 
       // FIXME! This is no good. Leaks memory.
       auto basePtr = MmapWrapper::map(sz);

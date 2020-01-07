@@ -19,7 +19,7 @@ public:
   
   Repo<Size> * get(size_t sz) {
     Repo<Size> * repo = nullptr;
-    if (getSource(sz) == nullptr) {
+    if (getSource() == nullptr) {
       // Allocate a new one. FIXME ensure alignment.
       if (sz < _sz) {
 	auto buf = _buf;
@@ -32,7 +32,8 @@ public:
 	return nullptr;
       }
     } else {
-      repo = getSource(sz);
+      repo = getSource();
+      repo = new (repo) Repo<Size>(sz);
       getSource() = (Repo<Size> *)(((RepoHeader<Size> *) getSource()))->getNext();
       if (getSource() != nullptr) {
 	assert(getSource()->isValid());
@@ -49,12 +50,13 @@ public:
   void put(Repo<Size> * repo) {
     ///    tprintf::tprintf("PUT @ (sz = @)\n", repo, repo->_objectSize);
     Repo<Size> * r = getSource();
+    // FIXME integrity check
     while (r != nullptr) {
       assert (r != repo);
       r = (Repo<Size> *) r->getNext();
     }
     assert(repo->isValid());
-    assert(repo->isEmpty());
+    //    assert(repo->isEmpty());
     //    assert(getSource() == nullptr || getSource()->isEmpty());
     repo->setNext(getSource());
     getSource() = repo;
@@ -62,13 +64,8 @@ public:
   
 private:
 
-  static Repo<Size> *& getSource(size_t sz = 0) {
+  static Repo<Size> *& getSource() {
     static Repo<Size> * head = nullptr;
-    if (head != nullptr) {
-      if (sz > 0) {
-	head->setObjectSize(sz);
-      }
-    }
     return head;
   }
   
