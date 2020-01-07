@@ -9,52 +9,91 @@ private:
 
   char * _buf;
   size_t _sz;
+  int _totalAvailable;
   
 public:
 
   RepoSource(char * buf, size_t sz)
     : _buf (buf),
-      _sz (sz)
+      _sz (sz),
+      _totalAvailable (0)
   {}
+
+  inline bool isValid() const {
+#if defined(NDEBUG)
+    return true;
+#else
+    int count = 0;
+    Repo<Size> * repo = getSource();
+    while (repo != nullptr) {
+      count++;
+      repo = repo->getNext();
+      if (count > _totalAvailable + 100000) {
+	tprintf::tprintf("LOOKS LIKE A LOOP.\n");
+	abort();
+      }
+    }
+    if (count != _totalAvailable) {
+      tprintf::tprintf("count = @, totalAvailable = @\n", count, _totalAvailable);
+    }
+    return (count == _totalAvailable);
+#endif
+  }
   
   Repo<Size> * get(size_t sz) {
+    assert(isValid());
     Repo<Size> * repo = nullptr;
     if (getSource() == nullptr) {
+      assert(_totalAvailable == 0);
       // Allocate a new one. FIXME ensure alignment.
       if (sz < _sz) {
+	//	tprintf::tprintf("GET (@) mmapping.\n", sz);
 	auto buf = _buf;
 	_buf += Size;
 	_sz -= Size;
 	//      auto buf = MmapWrapper::map(Size);
 	// Must ensure sz is a proper size.
 	repo = new (buf) Repo<Size>(sz);
+	assert(repo != nullptr);
+	repo->setNext(nullptr); // FIXME? presumably redundant.
+	assert(isValid());
+	return repo;
       } else {
+	tprintf::tprintf("Memory exhausted: sz = @\n", sz);
+	assert(isValid());
 	return nullptr;
       }
     } else {
+      assert(_totalAvailable > 0);
       repo = getSource();
-      repo = new (repo) Repo<Size>(sz);
-      getSource() = (Repo<Size> *)(((RepoHeader<Size> *) getSource()))->getNext();
+      getSource() = getSource()->getNext();
+      new (repo) Repo<Size>(sz);
       if (getSource() != nullptr) {
 	assert(getSource()->isValid());
 	assert(getSource()->isEmpty());
       }
+      _totalAvailable--;
     }
     repo->setNext(nullptr);
     assert(repo->isValid());
     assert(repo->isEmpty());
-    ///    tprintf::tprintf("GET @ = @\n", sz, repo);
+    //    tprintf::tprintf("GET @ = @ [total available = @]\n", sz, repo, _totalAvailable);
+    assert(isValid());
     return repo;
   }
 
   void put(Repo<Size> * repo) {
-    ///    tprintf::tprintf("PUT @ (sz = @)\n", repo, repo->_objectSize);
+    assert(isValid());
+    assert(repo != nullptr);
     Repo<Size> * r = getSource();
     assert(repo->isValid());
     //    assert(repo->isEmpty());
     //    assert(getSource() == nullptr || getSource()->isEmpty());
     repo->setNext(getSource());
     getSource() = repo;
+    _totalAvailable++;
+    assert(isValid());
+    //    tprintf::tprintf("PUT @ (sz = @) [total available = @]\n", repo, repo->getObjectSize(), _totalAvailable);
   }
   
 private:
