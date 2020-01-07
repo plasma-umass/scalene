@@ -18,24 +18,28 @@ private:
   enum { MAGIC_NUMBER = 0xCAFEBABE };
   
 public:
+
+  enum { Alignment = 2 * sizeof(unsigned long) };
+  
   RepoHeader(unsigned long objectSize)
     : _objectSize (objectSize),
+      _numberOfObjects((Size-sizeof(*this)) / objectSize),
       _allocated (0),
-      _numberOfObjects((Size-sizeof(*this)) / _objectSize),
       //      _magic (MAGIC_NUMBER),
       _next (nullptr)
   {}
   unsigned long _objectSize;
   const unsigned long _numberOfObjects;
   unsigned long _allocated;  // total number of objects allocated so far.
+  //  const unsigned long _magic;
   RepoHeader * _next;
   
-  size_t getBaseSize() {
+  inline size_t getBaseSize() {
     //    assert(isValid());
     return _objectSize;
   }
 
-  bool isValid() const {
+  inline bool isValid() const {
     return true;
     //    return (_magic == MAGIC_NUMBER);
   }
@@ -49,7 +53,9 @@ public:
   
   Repo(unsigned long objectSize)
     : RepoHeader<Size>(objectSize)
-  {}
+  {
+    static_assert(sizeof(*this) == Size, "Something has gone terribly wrong.");
+  }
 
   inline constexpr auto getNumberOfObjects() const {
     return RepoHeader<Size>::_numberOfObjects;
