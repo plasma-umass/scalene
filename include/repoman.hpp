@@ -14,7 +14,7 @@
 template <int Size>
 class RepoMan {
 private:
-  enum { MAX_HEAP_SIZE = 1024 * 1024 * 1024 };
+  enum { MAX_HEAP_SIZE = 1 * 1024 * 1024 * 1024 }; // 1GB
   char * _bufferStart;
   
 public:
@@ -26,9 +26,9 @@ public:
     static_assert((Size & ~(Size-1)) == Size, "Size must be a power of two.");
     // Initialize the repos for each size.
     for (auto index = 0; index < NUM_REPOS; index++) {
-      _repoPointers[index] = _repoSource.get((index + 1) * MULTIPLE);
+      _repos[index] = _repoSource.get((index + 1) * MULTIPLE);
       assert(getIndex((index + 1) * MULTIPLE) == index);
-      assert(_repoPointers[index]->isEmpty());
+      assert(_repos[index]->isEmpty());
     }
   }
 
@@ -46,14 +46,13 @@ public:
       sz = roundUp(sz, MULTIPLE);
       //      tprintf::tprintf("size now = @\n", sz);
       auto index = getIndex(sz);
-      //    std::cout << "repos[index] = " << &repos[index] << std::endl;
       ptr = nullptr;
       while (ptr == nullptr) {
-	ptr = _repoPointers[index]->malloc(sz);
+	ptr = _repos[index]->malloc(sz);
 	if (ptr == nullptr) {
-	  assert(_repoPointers[index]->isFull());
-	  _repoPointers[index] = _repoSource.get(sz);
-	  assert(_repoPointers[index]->isEmpty());
+	  assert(_repos[index]->isFull());
+	  _repos[index] = _repoSource.get(sz);
+	  assert(_repos[index]->isEmpty());
 	}
       }
     } else {
@@ -67,7 +66,6 @@ public:
       // FIXME force alignment!
       //      tprintf::tprintf("*****big object orig = @, sz = @\n", origSize, sz);
 
-      // FIXME! This is no good. Leaks memory.
       auto basePtr = MmapWrapper::map(sz);
       auto bigObjBase = new (basePtr) RepoHeader<Size>(origSize);
       ptr = bigObjBase + 1; // reinterpret_cast<char *>(basePtr) + sizeof(RepoHeader);
@@ -96,8 +94,8 @@ public:
 	  // If we just freed the whole repo, give it back to the repo source for later reuse.
 	  if (r->isEmpty()) {
 	    _repoSource.put(r);
-	    if (_repoPointers[index] == r) {
-	      _repoPointers[index] = _repoSource.get(sz);
+	    if (_repos[index] == r) {
+	      _repos[index] = _repoSource.get(sz);
 	    }
 	  }
 	} else {
@@ -124,7 +122,6 @@ public:
   }
   
   static constexpr inline RepoHeader<Size> * getHeader(void * ptr) {
-    //    tprintf::tprintf("getHeader @\n", ptr);
     auto header = (RepoHeader<Size> *) ((uintptr_t) ptr & ~(Size-1));
     return header;
   }
@@ -133,10 +130,8 @@ public:
     size_t sz = 0;
     auto headerPtr = getHeader(ptr);
     if (headerPtr->isValid()) {
-      //    std::cout << "headerPtr = " << (void *) headerPtr << ", ptr = " << ptr << std::endl;
       sz = headerPtr->getBaseSize();
     }
-    //    tprintf::tprintf("getSize @ = @\n", ptr, sz);
     return sz;
   }
   
@@ -145,8 +140,7 @@ private:
   enum { MULTIPLE = 16 };
   enum { MAX_SIZE = 512 };
   enum { NUM_REPOS = MAX_SIZE / MULTIPLE };
-  //  Repo<Size> * repos;
-  Repo<Size> * _repoPointers[NUM_REPOS];
+  Repo<Size> * _repos[NUM_REPOS];
   RepoSource<Size> _repoSource;
 };
 
