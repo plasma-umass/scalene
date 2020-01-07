@@ -50,11 +50,6 @@ public:
   void put(Repo<Size> * repo) {
     ///    tprintf::tprintf("PUT @ (sz = @)\n", repo, repo->_objectSize);
     Repo<Size> * r = getSource();
-    // FIXME integrity check
-    while (r != nullptr) {
-      assert (r != repo);
-      r = (Repo<Size> *) r->getNext();
-    }
     assert(repo->isValid());
     //    assert(repo->isEmpty());
     //    assert(getSource() == nullptr || getSource()->isEmpty());

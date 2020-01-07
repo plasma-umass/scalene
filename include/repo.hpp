@@ -126,7 +126,6 @@ public:
       ptr = &_buffer[RepoHeader<Size>::getAllocated() * RepoHeader<Size>::getObjectSize()];
       assert(inBounds(ptr));
       RepoHeader<Size>::incAllocated();
-      memset(ptr, 'Y', RepoHeader<Size>::getObjectSize()); // FIXME
     } else {
       //      std::cout << "out of objects: _allocated = " << RepoHeader<Size>::_allocated << std::endl;
       ptr = nullptr;
@@ -150,7 +149,6 @@ public:
   inline void free(void * ptr) {
     assert(RepoHeader<Size>::isValid());
     assert(inBounds(ptr));
-    memset(ptr, 'Z', RepoHeader<Size>::getObjectSize()); // FIXME
     RepoHeader<Size>::incFreed();
     assert(RepoHeader<Size>::getAllocated() <= getNumberOfObjects());
   }
