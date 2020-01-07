@@ -5,6 +5,7 @@
 #include "reposource.hpp"
 #include "heaplayers.h"
 
+#include <assert.h>
 #include <new>
 #include <iostream>
 #include <stdlib.h>
@@ -27,13 +28,14 @@ public:
     // Initialize the repos for each size.
     for (auto index = 0; index < NUM_REPOS; index++) {
       _repoPointers[index] = _repoSource.get((index + 1) * MULTIPLE);
+      assert(getIndex((index + 1) * MULTIPLE) == index);
       assert(_repoPointers[index]->isEmpty());
     }
   }
 
   inline bool inBounds(void * ptr) const {
     char * cptr = reinterpret_cast<char *>(ptr);
-    return ((cptr >= _bufferStart) && (cptr < _bufferStart + MAX_HEAP_SIZE));
+    return ((cptr >= _bufferStart) && (cptr < (_bufferStart + MAX_HEAP_SIZE)));
   }
     
   void * malloc(size_t sz) {
@@ -42,7 +44,7 @@ public:
     void * ptr;
     if (sz <= MAX_SIZE) {
       // Round sz up to next multiple of MULTIPLE.
-      sz = (sz + MULTIPLE - 1) & ~(MULTIPLE - 1);
+      sz = roundUp(sz, MULTIPLE);
       //      tprintf::tprintf("size now = @\n", sz);
       auto index = getIndex(sz);
       //    std::cout << "repos[index] = " << &repos[index] << std::endl;
@@ -52,6 +54,7 @@ public:
 	if (ptr == nullptr) {
 	  assert(_repoPointers[index]->isFull());
 	  _repoPointers[index] = _repoSource.get(sz);
+	  assert(_repoPointers[index]->isEmpty());
 	}
       }
     } else {
@@ -60,13 +63,12 @@ public:
       auto origSize = sz;
       sz = sz + sizeof(RepoHeader<Size>);
       // Round sz up to next multiple of Size.
-      sz = (sz + Size - 1) & ~(Size - 1);
+      sz = roundUp(sz, Size);
       //      std::cout << "allocating object of size " << sz << std::endl;
       // FIXME force alignment!
       tprintf::tprintf("*****big object orig = @, sz = @\n", origSize, sz);
-      if (origSize >= 19213145040) {
-	abort();
-      }
+
+      // FIXME! This is no good. Leaks memory.
       auto basePtr = MmapWrapper::map(sz);
       auto bigObjBase = new (basePtr) RepoHeader<Size>(origSize);
       ptr = bigObjBase + 1; // reinterpret_cast<char *>(basePtr) + sizeof(RepoHeader);
@@ -106,6 +108,11 @@ public:
     }
   }
 
+  static constexpr inline size_t roundUp(size_t sz, size_t multiple) {
+    assert((multiple & (multiple - 1)) == 0);
+    return (sz + multiple - 1) & ~(multiple - 1);
+  }
+  
   static constexpr inline int getIndex(size_t sz) {
     return sz / MULTIPLE - 1;
   }

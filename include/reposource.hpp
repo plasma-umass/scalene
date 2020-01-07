@@ -33,13 +33,13 @@ public:
       }
     } else {
       repo = getSource(sz);
-      getSource(sz) = (Repo<Size> *)(((RepoHeader<Size> *) getSource(sz))->_next);
+      getSource() = (Repo<Size> *)(((RepoHeader<Size> *) getSource()))->getNext();
       if (getSource() != nullptr) {
 	assert(getSource()->isValid());
 	assert(getSource()->isEmpty());
       }
     }
-    repo->_next = nullptr;
+    repo->setNext(nullptr);
     assert(repo->isValid());
     assert(repo->isEmpty());
     ///    tprintf::tprintf("GET @ = @\n", sz, repo);
@@ -51,12 +51,12 @@ public:
     Repo<Size> * r = getSource();
     while (r != nullptr) {
       assert (r != repo);
-      r = (Repo<Size> *) r->_next;
+      r = (Repo<Size> *) r->getNext();
     }
     assert(repo->isValid());
     assert(repo->isEmpty());
     //    assert(getSource() == nullptr || getSource()->isEmpty());
-    repo->_next = getSource();
+    repo->setNext(getSource());
     getSource() = repo;
   }
   
@@ -66,7 +66,7 @@ private:
     static Repo<Size> * head = nullptr;
     if (head != nullptr) {
       if (sz > 0) {
-	head->_objectSize = sz;
+	head->setObjectSize(sz);
       }
     }
     return head;
