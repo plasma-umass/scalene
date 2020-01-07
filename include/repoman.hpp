@@ -67,6 +67,7 @@ public:
       //      tprintf::tprintf("*****big object orig = @, sz = @\n", origSize, sz);
 
       auto basePtr = MmapWrapper::map(sz);
+      assert((uintptr_t) basePtr % Size == 0); // verify alignment
       auto bigObjBase = new (basePtr) RepoHeader<Size>(origSize);
       ptr = bigObjBase + 1; // reinterpret_cast<char *>(basePtr) + sizeof(RepoHeader);
       //      std::cout << "object size = " << getSize(ptr) << ", ptr = " << ptr << std::endl;
