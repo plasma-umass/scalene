@@ -5,7 +5,7 @@
 #include "common.hpp"
 #include "tprintf.h"
 
-template <class SuperHeap, unsigned long Bytes = 128 * 1024>
+template <unsigned long SamplingRateBytes, class SuperHeap> 
 class SampleHeap : public SuperHeap {
 public:
 
@@ -19,31 +19,33 @@ public:
   }
 
   __attribute__((always_inline)) inline void * malloc(size_t sz) {
-    if (sz == 0) { sz = 1; } // FIXME POSSIBLY NOT NEEDED.
+    // Need to handle zero-size requests.
+    if (sz == 0) { sz = sizeof(double); }
     auto ptr = SuperHeap::malloc(sz);
     _mallocs += SuperHeap::getSize(ptr);
-    if (_mallocs >= Bytes) {
+    if (_mallocs >= SamplingRateBytes) {
       // Raise a signal.
       //      tprintf::tprintf("signal!\n");
-      ///      tprintf::tprintf("SampleHeap::malloc(@) = @\n", SuperHeap::getSize(ptr), ptr);
+      // tprintf::tprintf("SampleHeap::malloc(@) = @\n", SuperHeap::getSize(ptr), ptr);
       raise(SIGVTALRM);
-      // _mallocs -= Bytes;
-      _mallocs = 0; // -= Bytes;
+      // _mallocs -= SamplingRateBytes;
+      _mallocs = 0; // -= SamplingRateBytes;
     }
     return ptr;
   }
 
   __attribute__((always_inline)) inline void free(void * ptr) {
-    if (ptr == nullptr) { return; } // FIXME POSSIBLY NOT NEEDED.
+    // Need to drop free(0).
+    if (ptr == nullptr) { return; }
     auto sz = SuperHeap::getSize(ptr);
     if (sz > 0) {
       _frees += sz;
       SuperHeap::free(ptr);
-      if (_frees >= Bytes) {
-	///	tprintf::tprintf("SampleHeap::free @\n", ptr);
+      if (_frees >= SamplingRateBytes) {
+	// tprintf::tprintf("SampleHeap::free @ = @\n", ptr, sz);
 	raise(SIGXCPU);
-	// _frees -= Bytes;
-	_frees = 0; // -= Bytes;
+	// _frees -= SamplingRateBytes;
+	_frees = 0; // -= SamplingRateBytes;
       }
     }
   }
