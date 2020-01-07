@@ -19,12 +19,11 @@ private:
   
 public:
 
-  // FIXME static assert that Size is a power of two.
-  
   RepoMan()
     : _bufferStart (reinterpret_cast<char *>(MmapWrapper::map(MAX_HEAP_SIZE))),
       _repoSource(_bufferStart, MAX_HEAP_SIZE)
   {
+    static_assert((Size & ~(Size-1)) == Size, "Size must be a power of two.");
     // Initialize the repos for each size.
     for (auto index = 0; index < NUM_REPOS; index++) {
       _repoPointers[index] = _repoSource.get((index + 1) * MULTIPLE);
