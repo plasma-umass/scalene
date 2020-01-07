@@ -125,6 +125,7 @@ public:
     if (!RepoHeader<Size>::isFull()) {
       ptr = &_buffer[RepoHeader<Size>::getAllocated() * RepoHeader<Size>::getObjectSize()];
       assert(inBounds(ptr));
+      assert((uintptr_t) ptr % RepoHeader<Size>::Alignment == 0);
       RepoHeader<Size>::incAllocated();
     } else {
       //      std::cout << "out of objects: _allocated = " << RepoHeader<Size>::_allocated << std::endl;
