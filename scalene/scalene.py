@@ -54,7 +54,7 @@ class scalene(object):
     total_free_samples     = 0           # "   "    free   "       "    "    "
     signal_interval        = 0.01        # seconds between interrupts for CPU sampling.
     elapsed_time           = 0           # total time spent in program being profiled.
-    memory_sampling_rate = 128 * 1024    # we get signals after this many bytes are allocated/freed. 
+    memory_sampling_rate   = 128 * 1024  # we get signals after this many bytes are allocated/freed. 
                                          # NB: MUST BE IN SYNC WITH include/sampleheap.cpp!
     current_footprint      = 0           # current memory footprint
     program_being_profiled = ""          # name of program being profiled.
@@ -79,7 +79,7 @@ class scalene(object):
     def cpu_signal_handler(sig, frame):
         """Handle interrupts for CPU profiling."""
         fname = frame.f_code.co_filename
-        # Record samples only if it's for files we care about.
+        # Record samples only for files we care about.
         if not scalene.should_trace(fname):
             return
         scalene.cpu_samples[fname][frame.f_lineno] += 1
@@ -90,7 +90,7 @@ class scalene(object):
     def malloc_signal_handler(sig, frame):
         """Handle interrupts for memory profiling (mallocs)."""
         fname = frame.f_code.co_filename
-        # Record samples only if it's for files we care about.
+        # Record samples only for files we care about.
         if not scalene.should_trace(fname):
             return
         scalene.malloc_samples[fname][frame.f_lineno] += 1
