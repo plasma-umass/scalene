@@ -110,6 +110,10 @@ public:
     static_assert(sizeof(*this) == Size, "Something has gone terribly wrong.");
   }
 
+  inline Repo<Size> * getNext() const {
+    return (Repo<Size> *) RepoHeader<Size>::getNext();
+  }
+
   inline constexpr auto getNumberOfObjects() const {
     return RepoHeader<Size>::getNumberOfObjects();
   }
