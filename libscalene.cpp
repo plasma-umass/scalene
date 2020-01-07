@@ -12,14 +12,32 @@
 #include "cheapheap.hpp"
 #include "sampleheap.hpp"
 
+#include "repoman.hpp"
+
 class TheCustomHeap;
 static TheCustomHeap * theCustomHeap = nullptr;
 
-//class TheCustomHeap : public SampleHeap<CheapHeap<256UL * 1048576UL>> {
-class TheCustomHeap : public SampleHeap<HL::SizeHeap<CheapHeap<256UL * 1048576UL>>> {
+const auto SamplingRate = 128 * 1024;
+const auto RepoSize = 4096;
+
+// typedef RepoMan<RepoSize> CustomHeapType;
+typedef SampleHeap<SamplingRate, RepoMan<RepoSize>> CustomHeapType;
+
+class TheCustomHeap : public CustomHeapType { // HL::SizeHeap<CheapHeap<256UL * 1048576UL>>> {
+  typedef CustomHeapType Super;
 public:
   TheCustomHeap() {
     theCustomHeap = this;
+  }
+  inline void * malloc(size_t sz) {
+    //    tprintf::tprintf("sz requested = @\n", sz);
+    auto ptr = Super::malloc(sz);
+    //        tprintf::tprintf("malloc @ = @\n", sz, ptr);
+    return ptr;
+  }
+  inline void free(void * ptr) {
+    //    tprintf::tprintf("free @\n", ptr);
+    Super::free(ptr);
   }
 };
 
