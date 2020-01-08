@@ -40,7 +40,7 @@ public:
     
   inline ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
     //    tprintf::tprintf("malloc @\n", sz);
-    if (unlikely(sz < MULTIPLE)) { sz = MULTIPLE; }
+    if (unlikely(sz == 0)) { sz = MULTIPLE; }
     void * ptr;
     if (likely(sz <= MAX_SIZE)) {
       // Round sz up to next multiple of MULTIPLE.
@@ -63,10 +63,10 @@ public:
     return ptr;
   }
 
-  inline ATTRIBUTE_ALWAYS_INLINE void free(void * ptr) {
+  inline ATTRIBUTE_ALWAYS_INLINE size_t free(void * ptr) {
     if (unlikely(!inBounds(ptr))) {
       if ((uintptr_t) ptr - (uintptr_t) getHeader(ptr) != sizeof(RepoHeader<Size>)) {
-	return;
+	return 0;
       }
     }
     //    tprintf::tprintf("free @\n", ptr);
@@ -89,8 +89,10 @@ public:
 	} else {
 	  freeLarge(ptr, sz);
 	}
+	return sz;
       }
     }
+    return 0;
   }
 
   static ATTRIBUTE_ALWAYS_INLINE constexpr inline size_t roundUp(size_t sz, size_t multiple) {
