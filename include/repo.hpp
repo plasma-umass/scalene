@@ -19,23 +19,18 @@ public:
   RepoHeader(unsigned long objectSize)
     : _allocated (0),
       _freed (0),
-      _magic (MAGIC_NUMBER),
-      _next (nullptr)
+      //      _magic (MAGIC_NUMBER),
+      _next (nullptr),
+      _objectSize (objectSize),
+      _numberOfObjects ((Size-sizeof(*this)) / objectSize)
   {
-    setObjectSize(objectSize);
   }
 
-  inline void setObjectSize(size_t sz) {
-    _objectSize = sz;
-    _numberOfObjects = ((Size-sizeof(*this)) / _objectSize);
-    //    tprintf::tprintf("setting object size to @, numObjects = @\n", sz, _numberOfObjects);
-  }
-
-  inline auto getObjectSize() const {
+  inline ATTRIBUTE_ALWAYS_INLINE auto getObjectSize() const {
     return _objectSize;
   }
 
-  inline auto getNumberOfObjects() const {
+  inline ATTRIBUTE_ALWAYS_INLINE auto getNumberOfObjects() const {
     return _numberOfObjects;
   }
   
@@ -47,37 +42,37 @@ public:
     return _next;
   }
 
-  inline auto getAllocated() const {
+  inline ATTRIBUTE_ALWAYS_INLINE auto getAllocated() const {
     return _allocated;
   }
 
-  inline void incAllocated() {
+  inline ATTRIBUTE_ALWAYS_INLINE void incAllocated() {
     _allocated++;
   }
 
-  inline auto getFreed() const {
+  inline ATTRIBUTE_ALWAYS_INLINE auto getFreed() const {
     return _freed;
   }
 
-  inline void incFreed() {
+  inline ATTRIBUTE_ALWAYS_INLINE void incFreed() {
     _freed++;
   }
 
-  inline bool isFull() {
+  inline ATTRIBUTE_ALWAYS_INLINE bool isFull() const {
     return (_allocated == _numberOfObjects);
   }
 
-  inline bool isEmpty() {
+  inline ATTRIBUTE_ALWAYS_INLINE bool isEmpty() const {
     return ((_freed == _numberOfObjects) || (_allocated == 0));
   }
 
   
 private:
-  unsigned long _objectSize;
-  unsigned long _numberOfObjects;
-  unsigned long _allocated;  // total number of objects allocated so far.
-  unsigned long _freed;      // total number of objects freed so far.
-  const unsigned long _magic;
+  
+  const unsigned int _objectSize;
+  unsigned int _numberOfObjects;
+  unsigned int _allocated;  // total number of objects allocated so far.
+  unsigned int _freed;      // total number of objects freed so far.
   RepoHeader * _next;
 
 public:
@@ -88,8 +83,8 @@ public:
   }
 
   inline bool isValid() const {
-    // return true;
-    return (_magic == MAGIC_NUMBER);
+    return true;
+    //    return (_magic == MAGIC_NUMBER);
   }
   
 };
@@ -109,11 +104,11 @@ public:
     return (Repo<Size> *) RepoHeader<Size>::getNext();
   }
 
-  inline constexpr auto getNumberOfObjects() const {
+  inline ATTRIBUTE_ALWAYS_INLINE constexpr auto getNumberOfObjects() const {
     return RepoHeader<Size>::getNumberOfObjects();
   }
   
-  inline void * malloc(size_t sz) {
+  inline ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
     //    std::cout << "this = " << this << std::endl;
     assert(RepoHeader<Size>::isValid());
     assert (sz <= RepoHeader<Size>::getObjectSize());
@@ -129,19 +124,19 @@ public:
     return ptr;
   }
 
-  inline constexpr size_t getSize(void * ptr) {
+  inline ATTRIBUTE_ALWAYS_INLINE constexpr size_t getSize(void * ptr) {
     assert(RepoHeader<Size>::isValid());
     return RepoHeader<Size>::getBaseSize();
     //    return 0;
   }
 
-  inline constexpr bool inBounds(void * ptr) {
+  inline ATTRIBUTE_ALWAYS_INLINE constexpr bool inBounds(void * ptr) {
     assert(RepoHeader<Size>::isValid());
     char * cptr = reinterpret_cast<char *>(ptr);
     return ((cptr >= &_buffer[0]) && (cptr <= &_buffer[(getNumberOfObjects()-1) * RepoHeader<Size>::getObjectSize()]));
   }
   
-  inline void free(void * ptr) {
+  inline ATTRIBUTE_ALWAYS_INLINE void free(void * ptr) {
     assert(RepoHeader<Size>::isValid());
     assert(inBounds(ptr));
     RepoHeader<Size>::incFreed();

@@ -33,12 +33,12 @@ public:
     }
   }
 
-  inline bool inBounds(void * ptr) const {
+  inline ATTRIBUTE_ALWAYS_INLINE constexpr bool inBounds(void * ptr) const {
     char * cptr = reinterpret_cast<char *>(ptr);
     return ((cptr >= _bufferStart) && (cptr < (_bufferStart + MAX_HEAP_SIZE)));
   }
     
-  void * malloc(size_t sz) {
+  inline ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
     //    tprintf::tprintf("malloc @\n", sz);
     if (unlikely(sz < MULTIPLE)) { sz = MULTIPLE; }
     void * ptr;
@@ -57,27 +57,13 @@ public:
 	}
       }
     } else {
-      // For now, allocate directly via mmap.
-      // Add the space for the header metadata.
-      auto origSize = sz;
-      sz = sz + sizeof(RepoHeader<Size>);
-      // Round sz up to next multiple of Size.
-      sz = roundUp(sz, Size);
-      //      std::cout << "allocating object of size " << sz << std::endl;
-      // FIXME force alignment!
-      //      tprintf::tprintf("*****big object orig = @, sz = @\n", origSize, sz);
-
-      auto basePtr = MmapWrapper::map(sz);
-      assert((uintptr_t) basePtr % Size == 0); // verify alignment
-      auto bigObjBase = new (basePtr) RepoHeader<Size>(origSize);
-      ptr = bigObjBase + 1; // reinterpret_cast<char *>(basePtr) + sizeof(RepoHeader);
-      //      std::cout << "object size = " << getSize(ptr) << ", ptr = " << ptr << std::endl;
+      ptr = allocateLarge(sz);
     }
     //    tprintf::tprintf("malloc @ = @\n", sz, ptr);
     return ptr;
   }
-  
-  void free(void * ptr) {
+
+  inline ATTRIBUTE_ALWAYS_INLINE void free(void * ptr) {
     if (unlikely(!inBounds(ptr))) {
       if ((uintptr_t) ptr - (uintptr_t) getHeader(ptr) != sizeof(RepoHeader<Size>)) {
 	return;
@@ -101,34 +87,27 @@ public:
 	    }
 	  }
 	} else {
-	  // "Large" object handling.
-	  auto basePtr = reinterpret_cast<RepoHeader<Size> *>(ptr) - 1;
-	  auto origSize = sz;
-	  sz = sz + sizeof(RepoHeader<Size>);
-	  // Round sz up to next multiple of Size.
-	  sz = roundUp(sz, Size);
-	  //	  tprintf::tprintf("FREE @ (@)\n", ptr, sz);
-	  MmapWrapper::unmap(basePtr, sz);
+	  freeLarge(ptr, sz);
 	}
       }
     }
   }
 
-  static constexpr inline size_t roundUp(size_t sz, size_t multiple) {
+  static ATTRIBUTE_ALWAYS_INLINE constexpr inline size_t roundUp(size_t sz, size_t multiple) {
     assert((multiple & (multiple - 1)) == 0);
     return (sz + multiple - 1) & ~(multiple - 1);
   }
   
-  static constexpr inline int getIndex(size_t sz) {
+  static ATTRIBUTE_ALWAYS_INLINE constexpr inline int getIndex(size_t sz) {
     return sz / MULTIPLE - 1;
   }
   
-  static constexpr inline RepoHeader<Size> * getHeader(void * ptr) {
+  static ATTRIBUTE_ALWAYS_INLINE constexpr inline RepoHeader<Size> * getHeader(void * ptr) {
     auto header = (RepoHeader<Size> *) ((uintptr_t) ptr & ~(Size-1));
     return header;
   }
   
-  static constexpr inline size_t getSize(void * ptr) {
+  static ATTRIBUTE_ALWAYS_INLINE constexpr inline size_t getSize(void * ptr) {
     size_t sz = 0;
     auto headerPtr = getHeader(ptr);
     if (headerPtr->isValid()) {
@@ -139,6 +118,36 @@ public:
   
 private:
 
+  ATTRIBUTE_NEVER_INLINE void * allocateLarge(size_t sz) {
+    // For now, allocate directly via mmap.
+    // Add the space for the header metadata.
+    auto origSize = sz;
+    sz = sz + sizeof(RepoHeader<Size>);
+    // Round sz up to next multiple of Size.
+    sz = roundUp(sz, Size);
+    //      std::cout << "allocating object of size " << sz << std::endl;
+    // FIXME force alignment!
+    //      tprintf::tprintf("*****big object orig = @, sz = @\n", origSize, sz);
+    
+    auto basePtr = MmapWrapper::map(sz);
+    assert((uintptr_t) basePtr % Size == 0); // verify alignment
+    auto bigObjBase = new (basePtr) RepoHeader<Size>(origSize);
+    auto ptr = bigObjBase + 1; // reinterpret_cast<char *>(basePtr) + sizeof(RepoHeader);
+    //      std::cout << "object size = " << getSize(ptr) << ", ptr = " << ptr << std::endl;
+    return ptr;
+  }
+
+  ATTRIBUTE_NEVER_INLINE void freeLarge(void * ptr, size_t sz) {
+    // "Large" object handling.
+    auto basePtr = reinterpret_cast<RepoHeader<Size> *>(ptr) - 1;
+    auto origSize = sz;
+    sz = sz + sizeof(RepoHeader<Size>);
+    // Round sz up to next multiple of Size.
+    sz = roundUp(sz, Size);
+    //	  tprintf::tprintf("FREE @ (@)\n", ptr, sz);
+    MmapWrapper::unmap(basePtr, sz);
+  }
+  
   enum { MULTIPLE = 16 };
   enum { MAX_SIZE = 512 };
   enum { NUM_REPOS = MAX_SIZE / MULTIPLE };
