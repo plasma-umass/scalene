@@ -1,6 +1,7 @@
 #ifndef REPOMAN_HPP
 #define REPOMAN_HPP
 
+#include "common.hpp"
 #include "repo.hpp"
 #include "reposource.hpp"
 #include "heaplayers.h"
@@ -39,9 +40,9 @@ public:
     
   void * malloc(size_t sz) {
     //    tprintf::tprintf("malloc @\n", sz);
-    if (sz < MULTIPLE) { sz = MULTIPLE; }
+    if (unlikely(sz < MULTIPLE)) { sz = MULTIPLE; }
     void * ptr;
-    if (sz <= MAX_SIZE) {
+    if (likely(sz <= MAX_SIZE)) {
       // Round sz up to next multiple of MULTIPLE.
       sz = roundUp(sz, MULTIPLE);
       //      tprintf::tprintf("size now = @\n", sz);
@@ -77,23 +78,23 @@ public:
   }
   
   void free(void * ptr) {
-    if (!inBounds(ptr)) {
+    if (unlikely(!inBounds(ptr))) {
       if ((uintptr_t) ptr - (uintptr_t) getHeader(ptr) != sizeof(RepoHeader<Size>)) {
 	return;
       }
     }
     //    tprintf::tprintf("free @\n", ptr);
-    if (ptr != nullptr) {
-      if (getHeader(ptr)->isValid()) {
+    if (likely(ptr != nullptr)) {
+      if (likely(getHeader(ptr)->isValid())) {
 	//      std::cout << "checking " << ptr << std::endl;
 	auto sz = getSize(ptr);
-	if (sz <= MAX_SIZE) {
+	if (likely(sz <= MAX_SIZE)) {
 	  auto index = getIndex(sz);
 	  auto r = reinterpret_cast<Repo<Size> *>(getHeader(ptr));
 	  assert(!r->isEmpty());
 	  r->free(ptr);
 	  // If we just freed the whole repo, give it back to the repo source for later reuse.
-	  if (r->isEmpty()) {
+	  if (unlikely(r->isEmpty())) {
 	    _repoSource.put(r);
 	    if (_repos[index] == r) {
 	      _repos[index] = _repoSource.get(sz);

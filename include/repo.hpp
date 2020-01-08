@@ -4,12 +4,7 @@
 #include <assert.h>
 #include <iostream>
 
-
-// Used just to account for the size of vtable pointers.
-//class Vtable {
-//public:
-//  virtual void run() = 0;
-//};
+#include "common.hpp"
 
 template <unsigned long Size>
 class RepoHeader {
@@ -69,11 +64,11 @@ public:
   }
 
   inline bool isFull() {
-    return (_allocated  == getNumberOfObjects());
+    return (_allocated == _numberOfObjects);
   }
 
   inline bool isEmpty() {
-    return ((_freed == getNumberOfObjects()) || (_allocated == 0));
+    return ((_freed == _numberOfObjects) || (_allocated == 0));
   }
 
   
@@ -122,20 +117,15 @@ public:
     //    std::cout << "this = " << this << std::endl;
     assert(RepoHeader<Size>::isValid());
     assert (sz <= RepoHeader<Size>::getObjectSize());
-    if (sz < RepoHeader<Size>::getObjectSize()) {
-      tprintf::tprintf("OK WAT @ should be @\n", sz, RepoHeader<Size>::getObjectSize());
-    }
     void * ptr;
-    if (!RepoHeader<Size>::isFull()) {
+    if (likely(!RepoHeader<Size>::isFull())) {
       ptr = &_buffer[RepoHeader<Size>::getAllocated() * RepoHeader<Size>::getObjectSize()];
       assert(inBounds(ptr));
       assert((uintptr_t) ptr % RepoHeader<Size>::Alignment == 0);
       RepoHeader<Size>::incAllocated();
     } else {
-      //      std::cout << "out of objects: _allocated = " << RepoHeader<Size>::_allocated << std::endl;
       ptr = nullptr;
     }
-    //    tprintf::tprintf("malloc @ = @\n", sz, ptr);
     return ptr;
   }
 

@@ -1,6 +1,7 @@
 #ifndef REPOSOURCE_HPP
 #define REPOSOURCE_HPP
 
+#include "common.hpp"
 #include "repo.hpp"
 
 template <int Size>
@@ -43,10 +44,10 @@ public:
   Repo<Size> * get(size_t sz) {
     assert(isValid());
     Repo<Size> * repo = nullptr;
-    if (getSource() == nullptr) {
+    if (unlikely(getSource() == nullptr)) {
       assert(_totalAvailable == 0);
       // Allocate a new one. FIXME ensure alignment.
-      if (sz < _sz) {
+      if (likely(sz < _sz)) {
 	//	tprintf::tprintf("GET (@) mmapping.\n", sz);
 	auto buf = _buf;
 	_buf += Size;
