@@ -64,8 +64,8 @@ class scalene(object):
         # Register the exit handler to run when the program terminates or we quit.
         atexit.register(scalene.exit_handler)
         # Store relevant names (program, path).
-        scalene.program_being_profiled = program_being_profiled
-        scalene.program_path = os.path.dirname(program_being_profiled)
+        scalene.program_being_profiled = os.path.abspath(program_being_profiled)
+        scalene.program_path = os.path.dirname(scalene.program_being_profiled)
         # Set up the signal handler to handle periodic timer interrupts (for CPU).
         signal.signal(signal.SIGPROF, self.cpu_signal_handler)
         # Set up the signal handler to handle malloc interrupts (for memory allocations).
@@ -117,6 +117,9 @@ class scalene(object):
         """Return true if the filename is one we should trace."""
         # Profile anything in the program's directory or a child directory,
         # but nothing else.
+        if filename[0] == '<':
+            return False
+        filename = os.path.abspath(filename)
         return scalene.program_path in filename
 
     @staticmethod
@@ -135,10 +138,12 @@ class scalene(object):
         for fname in all_instrumented_files:
             with open(fname, 'r') as fd:
                 this_cpu_samples = sum(scalene.cpu_samples[fname].values())
+                if this_cpu_samples == 0:
+                    continue
                 percent_cpu_time = 100 * this_cpu_samples * \
                     scalene.signal_interval / scalene.elapsed_time
                 print(f"{fname}: % of CPU time = {percent_cpu_time:6.2f}% out of {scalene.elapsed_time:6.2f}s.")
-                print(f"  Line\t | {'CPU %':9}| {'Memory (MB)|' if total_mem_samples != 0 else '':10s} {fname}")
+                print(f"  Line\t | {'CPU %':9}| {'Memory (MB)|' if total_mem_samples != 0 else ''}\t[{fname}]")
                 contents = fd.readlines()
                 line_no = 1
                 for line in contents:
@@ -152,9 +157,9 @@ class scalene(object):
                     n_cpu_percent_str = "" if n_cpu_percent == 0 else f'{n_cpu_percent:6.2f}%'
                     n_mem_mb_str      = "" if n_mem_mb == 0      else f'{n_mem_mb:>9.2f}'
                     if total_mem_samples != 0:
-                        print(f"{line_no:6d}\t | {n_cpu_percent_str:9s}| {n_mem_mb_str:8s}\t | \t{line}")
+                        print(f"{line_no:6d}\t | {n_cpu_percent_str:9s}| {n_mem_mb_str:8s}\t |\t{line}")
                     else:
-                        print(f"{line_no:6d}\t | {n_cpu_percent_str:9s}| \t{line}")
+                        print(f"{line_no:6d}\t | {n_cpu_percent_str:9s}|\t{line}")
                     line_no += 1
                 print("")
 
