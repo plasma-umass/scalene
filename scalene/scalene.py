@@ -128,6 +128,7 @@ class scalene(object):
     
     @staticmethod
     def stop():
+        scalene.disable_signals()
         scalene.elapsed_time = time.perf_counter() - scalene.elapsed_time
 
     @staticmethod
@@ -163,14 +164,18 @@ class scalene(object):
                     line_no += 1
                 print("")
 
-        
+
     @staticmethod
-    def exit_handler():
+    def disable_signals():
         # Turn off the profiling signals.
         signal.signal(signal.ITIMER_PROF, signal.SIG_IGN)
         signal.signal(signal.SIGVTALRM, signal.SIG_IGN)
         signal.signal(signal.SIGXCPU, signal.SIG_IGN)
         signal.setitimer(signal.ITIMER_PROF, 0)
+        
+    @staticmethod
+    def exit_handler():
+        scalene.disable_signals()
 
     @staticmethod
     def main():
