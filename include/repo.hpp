@@ -74,6 +74,7 @@ private:
   unsigned int _allocated;  // total number of objects allocated so far.
   unsigned int _freed;      // total number of objects freed so far.
   RepoHeader * _next;
+  unsigned long _dummy;
 
 public:
   
