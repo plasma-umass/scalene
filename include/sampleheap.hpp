@@ -19,25 +19,23 @@ public:
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
-    // Need to handle zero-size requests.
-    //    if (sz == 0) { sz = sizeof(double); }
     auto ptr = SuperHeap::malloc(sz);
-    _mallocs += sz; /// SuperHeap::getSize(ptr);
+    _mallocs += SuperHeap::getSize(ptr);
     if (unlikely(_mallocs >= SamplingRateBytes)) {
       // Raise a signal.
       //      tprintf::tprintf("signal!\n");
-      // tprintf::tprintf("SampleHeap::malloc(@) = @\n", SuperHeap::getSize(ptr), ptr);
+      //       tprintf::tprintf("SampleHeap::malloc(@) = @\n", SuperHeap::getSize(ptr), ptr);
       raise(SIGVTALRM);
       // _mallocs -= SamplingRateBytes;
-      _mallocs = 0; // -= SamplingRateBytes;
+      _mallocs = 0; 
     }
     return ptr;
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void free(void * ptr) {
-    // Need to drop free(0).
-    //    if (ptr == nullptr) { return; }
-    auto sz = SuperHeap::free(ptr); // SuperHeap::getSize(ptr);
+    if (unlikely(ptr == nullptr)) { return; }
+    auto sz = SuperHeap::getSize(ptr); // SuperHeap::free(ptr); // SuperHeap::getSize(ptr);
+    SuperHeap::free(ptr);
     _frees += sz;
     if (unlikely(_frees >= SamplingRateBytes)) {
       // tprintf::tprintf("SampleHeap::free @ = @\n", ptr, sz);
