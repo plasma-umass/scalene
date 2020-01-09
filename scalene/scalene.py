@@ -46,15 +46,15 @@ assert sys.version_info[0] == 3 and sys.version_info[1] >= 6, "This tool require
 
 class scalene(object):
 
-    cpu_samples    = defaultdict(lambda: defaultdict(int))    # CPU    samples for each location in the program.
-    malloc_samples = defaultdict(lambda: defaultdict(int))    # malloc "       "   "    "        "   "  "
-    free_samples   = defaultdict(lambda: defaultdict(int))    # free   "       "   "    "        "   "  "
+    cpu_samples    = defaultdict(lambda: defaultdict(int))        # CPU    samples for each location in the program.
+    malloc_samples = defaultdict(lambda: defaultdict(int))        # malloc "       "   "    "        "   "  "
+    free_samples   = defaultdict(lambda: defaultdict(int))        # free   "       "   "    "        "   "  "
     total_cpu_samples      = 0           # how many CPU    samples have been collected.
     total_malloc_samples   = 0           # "   "    malloc "       "    "    "
     total_free_samples     = 0           # "   "    free   "       "    "    "
     signal_interval        = 0.01        # seconds between interrupts for CPU sampling.
     elapsed_time           = 0           # total time spent in program being profiled.
-    memory_sampling_rate   = 128 * 1024  # we get signals after this many bytes are allocated/freed. 
+    memory_sampling_rate   = 64 * 1024  # we get signals after this many bytes are allocated/freed. 
                                          # NB: MUST BE IN SYNC WITH include/sampleheap.cpp!
     current_footprint      = 0           # current memory footprint
     program_being_profiled = ""          # name of program being profiled.
@@ -95,21 +95,19 @@ class scalene(object):
             return
         scalene.malloc_samples[fname][frame.f_lineno] += 1
         scalene.total_malloc_samples += 1
-        scalene.current_footprint += scalene.memory_sampling_rate
-        # print("MALLOC: footprint now = {}".format(scalene.current_footprint / (1024*1024)))
+        scalene.current_footprint += 1
         return
 
     @staticmethod
     def free_signal_handler(sig, frame):
         """Handle interrupts for memory profiling (frees)."""
         fname = frame.f_code.co_filename
-        # Record samples only if it's for files we care about.
+        # Record samples only for files we care about.
         if not scalene.should_trace(fname):
             return
         scalene.free_samples[fname][frame.f_lineno] += 1
         scalene.total_free_samples += 1
-        scalene.current_footprint -= scalene.memory_sampling_rate
-        # print("FREE: footprint now = {}".format(scalene.current_footprint / (1024*1024)))
+        scalene.current_footprint -= 1
         return
     
     @staticmethod
@@ -118,6 +116,10 @@ class scalene(object):
         # Profile anything in the program's directory or a child directory,
         # but nothing else.
         if filename[0] == '<':
+            # Don't profile Python internals.
+            return False
+        if 'scalene.py' in filename:
+            # Don't profile the profiler.
             return False
         filename = os.path.abspath(filename)
         return scalene.program_path in filename
@@ -133,7 +135,7 @@ class scalene(object):
 
     @staticmethod
     def output_profiles():
-        total_mem_samples = scalene.total_malloc_samples - scalene.total_free_samples # use + scalene.total_free_samples for churn.
+        total_mem_samples = scalene.total_malloc_samples + scalene.total_free_samples # use + scalene.total_free_samples for churn.
         # Collect all instrumented filenames.
         all_instrumented_files = list(set(list(scalene.cpu_samples.keys()) + list(scalene.malloc_samples.keys()) + list(scalene.free_samples.keys())))
         for fname in all_instrumented_files:
@@ -150,8 +152,11 @@ class scalene(object):
                 for line in contents:
                     line = line[:-1] # Strip newline
                     n_cpu_samples = scalene.cpu_samples[fname][line_no]
-                    n_mem_samples = (scalene.malloc_samples[fname][line_no] - scalene.free_samples[fname][line_no]) # - for delta, + for churn.
-                    n_mem_mb      = n_mem_samples * scalene.memory_sampling_rate / (1024 * 1024)
+                    n_mem_mb = 0
+                    n_mem_samples = scalene.malloc_samples[fname][line_no] - scalene.free_samples[fname][line_no]
+                    if n_mem_samples != 0:
+                        r = n_mem_samples * scalene.memory_sampling_rate
+                        n_mem_mb = r / (1024 * 1024)
                     if scalene.total_cpu_samples != 0:
                         n_cpu_percent = n_cpu_samples * 100 / scalene.total_cpu_samples
                     # Print results.
