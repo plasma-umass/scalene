@@ -17,7 +17,7 @@
 class TheCustomHeap;
 static TheCustomHeap * theCustomHeap = nullptr;
 
-const auto SamplingRate = 128 * 1024;
+const auto SamplingRate = 64 * 1024;
 const auto RepoSize = 4096;
 
 // typedef RepoMan<RepoSize> CustomHeapType;
