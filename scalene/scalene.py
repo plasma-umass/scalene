@@ -138,7 +138,7 @@ class scalene(object):
         total_mem_samples = scalene.total_malloc_samples + scalene.total_free_samples # use + scalene.total_free_samples for churn.
         # Collect all instrumented filenames.
         all_instrumented_files = list(set(list(scalene.cpu_samples.keys()) + list(scalene.malloc_samples.keys()) + list(scalene.free_samples.keys())))
-        for fname in all_instrumented_files:
+        for fname in sorted(all_instrumented_files):
             with open(fname, 'r') as fd:
                 this_cpu_samples = sum(scalene.cpu_samples[fname].values())
                 if this_cpu_samples == 0:
@@ -199,7 +199,7 @@ class scalene(object):
                 # Set the file being executed.
                 the_globals['__file__'] = sys.argv[0]
                 # Start the profiler.
-                profiler = scalene(sys.argv[0])
+                profiler = scalene(os.path.join(program_path, os.path.basename(sys.argv[0])))
                 try:
                     profiler.start()
                     # Run the code being profiled.
