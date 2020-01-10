@@ -46,7 +46,8 @@ assert sys.version_info[0] == 3 and sys.version_info[1] >= 6, "This tool require
 
 class scalene(object):
 
-    cpu_samples    = defaultdict(lambda: defaultdict(int))        # CPU    samples for each location in the program.
+    cpu_samples_python    = defaultdict(lambda: defaultdict(int))        # CPU    samples for each location in the program.
+    cpu_samples_c    = defaultdict(lambda: defaultdict(int))        # CPU    samples for each location in the program.
     malloc_samples = defaultdict(lambda: defaultdict(int))        # malloc "       "   "    "        "   "  "
     free_samples   = defaultdict(lambda: defaultdict(int))        # free   "       "   "    "        "   "  "
     total_cpu_samples      = 0           # how many CPU    samples have been collected.
@@ -60,7 +61,9 @@ class scalene(object):
     program_being_profiled = ""          # name of program being profiled.
     program_path           = ""          # path "  "       "     "
 
-    last_signal_time       = 0
+    @staticmethod
+    def gettime():
+        return time.process_time() # time.perf_counter()
     
     def __init__(self, program_being_profiled):
         # Register the exit handler to run when the program terminates or we quit.
@@ -74,22 +77,24 @@ class scalene(object):
         signal.signal(signal.SIGVTALRM, self.malloc_signal_handler)
         signal.signal(signal.SIGXCPU, self.free_signal_handler)
         # Turn on the CPU profiling timer to run every signal_interval seconds.
-        scalene.last_signal_time = time.perf_counter()
         signal.setitimer(signal.ITIMER_PROF, self.signal_interval, self.signal_interval)
+        scalene.last_signal_time = scalene.gettime()
 
    
     @staticmethod
     def cpu_signal_handler(sig, frame):
         """Handle interrupts for CPU profiling."""
-        now = time.perf_counter()
+        now = scalene.gettime()
         elapsed_since_last_signal = now - scalene.last_signal_time
-        scalene.last_signal_time = now
         fname = frame.f_code.co_filename
         # Record samples only for files we care about.
         if not scalene.should_trace(fname):
             return
-        scalene.cpu_samples[fname][frame.f_lineno] += elapsed_since_last_signal / scalene.signal_interval
+        c_time = elapsed_since_last_signal - scalene.signal_interval
+        scalene.cpu_samples_python[fname][frame.f_lineno] += 1
+        scalene.cpu_samples_c[fname][frame.f_lineno] += c_time / scalene.signal_interval
         scalene.total_cpu_samples += elapsed_since_last_signal / scalene.signal_interval
+        scalene.last_signal_time = scalene.gettime()
         return
 
     @staticmethod
@@ -132,46 +137,51 @@ class scalene(object):
 
     @staticmethod
     def start():
-        scalene.elapsed_time = time.perf_counter()
+        scalene.elapsed_time = scalene.gettime()
     
     @staticmethod
     def stop():
         scalene.disable_signals()
-        scalene.elapsed_time = time.perf_counter() - scalene.elapsed_time
+        scalene.elapsed_time = scalene.gettime() - scalene.elapsed_time
 
     @staticmethod
     def output_profiles():
         total_mem_samples = scalene.total_malloc_samples + scalene.total_free_samples # use + scalene.total_free_samples for churn.
         # Collect all instrumented filenames.
-        all_instrumented_files = list(set(list(scalene.cpu_samples.keys()) + list(scalene.malloc_samples.keys()) + list(scalene.free_samples.keys())))
+        all_instrumented_files = list(set(list(scalene.cpu_samples_python.keys()) + list(scalene.malloc_samples.keys()) + list(scalene.free_samples.keys())))
         for fname in sorted(all_instrumented_files):
             with open(fname, 'r') as fd:
-                this_cpu_samples = sum(scalene.cpu_samples[fname].values())
+                this_cpu_samples = sum(scalene.cpu_samples_c[fname].values()) + sum(scalene.cpu_samples_python[fname].values())
                 if this_cpu_samples == 0:
                     continue
                 percent_cpu_time = 100 * this_cpu_samples * \
                     scalene.signal_interval / scalene.elapsed_time
                 print(f"{fname}: % of CPU time = {percent_cpu_time:6.2f}% out of {scalene.elapsed_time:6.2f}s.")
-                print(f"  Line\t | {'CPU %':9}| {'Memory (MB)|' if total_mem_samples != 0 else ''}\t[{fname}]")
+                print(f"  \t | {'CPU %':9}| {'CPU %':9}| {'Memory (MB)|' if total_mem_samples != 0 else ''}")
+                print(f"  Line\t | {'(Python)':9}| {'(C)':9}|\t[{fname}]")
+                print("-" * 80)
                 contents = fd.readlines()
                 line_no = 1
                 for line in contents:
                     line = line[:-1] # Strip newline
-                    n_cpu_samples = scalene.cpu_samples[fname][line_no]
+                    n_cpu_samples_c      = scalene.cpu_samples_c[fname][line_no]
+                    n_cpu_samples_python = scalene.cpu_samples_python[fname][line_no]
                     n_mem_mb = 0
                     n_mem_samples = scalene.malloc_samples[fname][line_no] - scalene.free_samples[fname][line_no]
                     if n_mem_samples != 0:
                         r = n_mem_samples * scalene.memory_sampling_rate
                         n_mem_mb = r / (1024 * 1024)
                     if scalene.total_cpu_samples != 0:
-                        n_cpu_percent = n_cpu_samples * 100 / scalene.total_cpu_samples
+                        n_cpu_percent_c = n_cpu_samples_c * 100 / scalene.total_cpu_samples
+                        n_cpu_percent_python = n_cpu_samples_python * 100 / scalene.total_cpu_samples
                     # Print results.
-                    n_cpu_percent_str = "" if n_cpu_percent == 0 else f'{n_cpu_percent:6.2f}%'
+                    n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 else f'{n_cpu_percent_c:6.2f}%'
+                    n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 else f'{n_cpu_percent_python:6.2f}%'
                     n_mem_mb_str      = "" if n_mem_mb == 0      else f'{n_mem_mb:>9.2f}'
                     if total_mem_samples != 0:
-                        print(f"{line_no:6d}\t | {n_cpu_percent_str:9s}| {n_mem_mb_str:8s}\t |\t{line}")
+                        print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {n_mem_mb_str:8s}\t |\t{line}")
                     else:
-                        print(f"{line_no:6d}\t | {n_cpu_percent_str:9s}|\t{line}")
+                        print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}|\t{line}")
                     line_no += 1
                 print("")
 
