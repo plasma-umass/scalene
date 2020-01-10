@@ -157,8 +157,8 @@ class scalene(object):
                 percent_cpu_time = 100 * this_cpu_samples * \
                     scalene.signal_interval / scalene.elapsed_time
                 print(f"{fname}: % of CPU time = {percent_cpu_time:6.2f}% out of {scalene.elapsed_time:6.2f}s.")
-                print(f"  \t | {'CPU %':9}| {'CPU %':9}| {'Memory (MB)|' if total_mem_samples != 0 else ''}")
-                print(f"  Line\t | {'(Python)':9}| {'(C)':9}|\t[{fname}]")
+                print(f"  \t | {'CPU %':9}| {'CPU %':9}| {'Memory (MB) |' if total_mem_samples != 0 else ''}")
+                print(f"  Line\t | {'(Python)':9}| {'(C)':9}|{'             |' if total_mem_samples != 0 else ''} [{fname}]")
                 print("-" * 80)
                 contents = fd.readlines()
                 line_no = 1
@@ -179,9 +179,9 @@ class scalene(object):
                     n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 else f'{n_cpu_percent_python:6.2f}%'
                     n_mem_mb_str      = "" if n_mem_mb == 0      else f'{n_mem_mb:>9.2f}'
                     if total_mem_samples != 0:
-                        print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {n_mem_mb_str:8s}\t |\t{line}")
+                        print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {n_mem_mb_str:11s} | {line}")
                     else:
-                        print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}|\t{line}")
+                        print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {line}")
                     line_no += 1
                 print("")
 
