@@ -59,6 +59,8 @@ class scalene(object):
     current_footprint      = 0           # current memory footprint
     program_being_profiled = ""          # name of program being profiled.
     program_path           = ""          # path "  "       "     "
+
+    last_signal_time       = 0
     
     def __init__(self, program_being_profiled):
         # Register the exit handler to run when the program terminates or we quit.
@@ -72,18 +74,22 @@ class scalene(object):
         signal.signal(signal.SIGVTALRM, self.malloc_signal_handler)
         signal.signal(signal.SIGXCPU, self.free_signal_handler)
         # Turn on the CPU profiling timer to run every signal_interval seconds.
+        scalene.last_signal_time = time.perf_counter()
         signal.setitimer(signal.ITIMER_PROF, self.signal_interval, self.signal_interval)
 
    
     @staticmethod
     def cpu_signal_handler(sig, frame):
         """Handle interrupts for CPU profiling."""
+        now = time.perf_counter()
+        elapsed_since_last_signal = now - scalene.last_signal_time
+        scalene.last_signal_time = now
         fname = frame.f_code.co_filename
         # Record samples only for files we care about.
         if not scalene.should_trace(fname):
             return
-        scalene.cpu_samples[fname][frame.f_lineno] += 1
-        scalene.total_cpu_samples += 1
+        scalene.cpu_samples[fname][frame.f_lineno] += elapsed_since_last_signal / scalene.signal_interval
+        scalene.total_cpu_samples += elapsed_since_last_signal / scalene.signal_interval
         return
 
     @staticmethod
