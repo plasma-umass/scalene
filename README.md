@@ -17,10 +17,11 @@ Scalene is a high-performance CPU *and* memory profiler for Python that does a f
 
 ## Installation
 
-Scalene is distributed as a `pip` package. You can install it as follows:
+Scalene is distributed as a `pip` package and works on Linux and Mac OS X platforms. You can install it as follows:
 ```
   % pip install scalene
 ```
+
 
 _NOTE_: Currently, installing Scalene in this way does not install its memory profiling library, so you will only be able to use it to perform CPU profiling. To take advantage of its memory profiling capability, you will need to download this repository.
 
