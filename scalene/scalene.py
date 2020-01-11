@@ -41,8 +41,12 @@ import time
 from pathlib import Path
 import os
 import traceback
+import argparse
+from contextlib import contextmanager
 
-assert sys.version_info[0] == 3 and sys.version_info[1] >= 6, "This tool requires Python version 3.6 or above."
+
+
+assert sys.version_info[0] == 3 and sys.version_info[1] >= 6, "Scalene requires Python version 3.6 or above."
 
 # Scalene currently only supports Unix-like operating systems; in particular, Linux and Mac OS X.
 if sys.platform == 'win32':
@@ -138,7 +142,6 @@ class scalene(object):
             return
         scalene.malloc_samples[fname][frame.f_lineno] += 1
         scalene.total_malloc_samples += 1
-        scalene.current_footprint += 1
         return
 
     @staticmethod
@@ -150,7 +153,6 @@ class scalene(object):
             return
         scalene.free_samples[fname][frame.f_lineno] += 1
         scalene.total_free_samples += 1
-        scalene.current_footprint -= 1
         return
     
     @staticmethod
@@ -179,49 +181,60 @@ class scalene(object):
         scalene.elapsed_time = scalene.gettime() - scalene.elapsed_time
 
     @staticmethod
-    def output_profiles():
+    @contextmanager
+    def file_or_stdout(file_name):
+        # from https://stackoverflow.com/questions/9836370/fallback-to-stdout-if-no-file-name-provided
+        if file_name is None:
+            yield sys.stdout
+        else:
+            with open(file_name, 'w') as out_file:
+                yield out_file
+
+    @staticmethod
+    def output_profiles(output_file):
         """Write the profile out (currently to stdout)."""
         total_mem_samples = scalene.total_malloc_samples + scalene.total_free_samples # use + scalene.total_free_samples for churn.
         # Collect all instrumented filenames.
         all_instrumented_files = list(set(list(scalene.cpu_samples_python.keys()) + list(scalene.malloc_samples.keys()) + list(scalene.free_samples.keys())))
-        for fname in sorted(all_instrumented_files):
-            with open(fname, 'r') as fd:
-                this_cpu_samples = sum(scalene.cpu_samples_c[fname].values()) + sum(scalene.cpu_samples_python[fname].values())
-                if this_cpu_samples == 0:
-                    continue
-                percent_cpu_time = 100 * this_cpu_samples * \
-                    scalene.signal_interval / scalene.elapsed_time
-                print(f"{fname}: % of CPU time = {percent_cpu_time:6.2f}% out of {scalene.elapsed_time:6.2f}s.")
-                print(f"  \t | {'CPU %':9}| {'CPU %':9}| {'Memory (MB) |' if total_mem_samples != 0 else ''}")
-                print(f"  Line\t | {'(Python)':9}| {'(C)':9}|{'             |' if total_mem_samples != 0 else ''} [{fname}]")
-                print("-" * 80)
-                contents = fd.readlines()
-                line_no = 1
-                for line in contents:
-                    line = line[:-1] # Strip newline
-                    n_cpu_samples_c      = scalene.cpu_samples_c[fname][line_no]
-                    if n_cpu_samples_c < 0:
-                        # This can happen because of floating point inaccuracies, since we perform subtraction to compute it.
-                        n_cpu_samples_c = 0
-                    n_cpu_samples_python = scalene.cpu_samples_python[fname][line_no]
-                    n_mem_mb = 0
-                    n_mem_samples = scalene.malloc_samples[fname][line_no] - scalene.free_samples[fname][line_no]
-                    if n_mem_samples != 0:
-                        r = n_mem_samples * scalene.memory_sampling_rate
-                        n_mem_mb = r / (1024 * 1024)
-                    if scalene.total_cpu_samples != 0:
-                        n_cpu_percent_c = n_cpu_samples_c * 100 / scalene.total_cpu_samples
-                        n_cpu_percent_python = n_cpu_samples_python * 100 / scalene.total_cpu_samples
-                    # Print results.
-                    n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 else f'{n_cpu_percent_c:6.2f}%'
-                    n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 else f'{n_cpu_percent_python:6.2f}%'
-                    n_mem_mb_str      = "" if n_mem_mb == 0      else f'{n_mem_mb:>9.2f}'
-                    if total_mem_samples != 0:
-                        print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {n_mem_mb_str:11s} | {line}")
-                    else:
-                        print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {line}")
-                    line_no += 1
-                print("")
+        with scalene.file_or_stdout(output_file) as out:
+            for fname in sorted(all_instrumented_files):
+                with open(fname, 'r') as fd:
+                    this_cpu_samples = sum(scalene.cpu_samples_c[fname].values()) + sum(scalene.cpu_samples_python[fname].values())
+                    if this_cpu_samples == 0:
+                        continue
+                    percent_cpu_time = 100 * this_cpu_samples * \
+                        scalene.signal_interval / scalene.elapsed_time
+                    print(f"{fname}: % of CPU time = {percent_cpu_time:6.2f}% out of {scalene.elapsed_time:6.2f}s.", file=out)
+                    print(f"  \t | {'CPU %':9}| {'CPU %':9}| {'Memory (MB) |' if total_mem_samples != 0 else ''}", file=out)
+                    print(f"  Line\t | {'(Python)':9}| {'(C)':9}|{'             |' if total_mem_samples != 0 else ''} [{fname}]", file=out)
+                    print("-" * 80, file=out)
+                    contents = fd.readlines()
+                    line_no = 1
+                    for line in contents:
+                        line = line[:-1] # Strip newline
+                        n_cpu_samples_c      = scalene.cpu_samples_c[fname][line_no]
+                        if n_cpu_samples_c < 0:
+                            # This can happen because of floating point inaccuracies, since we perform subtraction to compute it.
+                            n_cpu_samples_c = 0
+                        n_cpu_samples_python = scalene.cpu_samples_python[fname][line_no]
+                        n_mem_mb = 0
+                        n_mem_samples = scalene.malloc_samples[fname][line_no] - scalene.free_samples[fname][line_no]
+                        if n_mem_samples != 0:
+                            r = n_mem_samples * scalene.memory_sampling_rate
+                            n_mem_mb = r / (1024 * 1024)
+                        if scalene.total_cpu_samples != 0:
+                            n_cpu_percent_c = n_cpu_samples_c * 100 / scalene.total_cpu_samples
+                            n_cpu_percent_python = n_cpu_samples_python * 100 / scalene.total_cpu_samples
+                        # Print results.
+                        n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 else f'{n_cpu_percent_c:6.2f}%'
+                        n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 else f'{n_cpu_percent_python:6.2f}%'
+                        n_mem_mb_str      = "" if n_mem_mb == 0      else f'{n_mem_mb:>9.2f}'
+                        if total_mem_samples != 0:
+                            print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {n_mem_mb_str:11s} | {line}", file=out)
+                        else:
+                            print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {line}", file=out)
+                        line_no += 1
+                    print("", file=out)
 
 
     @staticmethod
@@ -239,22 +252,41 @@ class scalene(object):
 
     @staticmethod
     def main():
-        assert len(sys.argv) >= 2, "Usage example: python -m scalene test.py"
+
+        usage = """Scalene: a high-precision CPU and memory profiler.
+https://github.com/emeryberger/scalene
+
+    for CPU profiling only:
+  % python -m scalene yourprogram.py
+    for CPU and memory profiling (Mac OS X):
+  % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene yourprogram.py
+    for CPU and memory profiling (Linux):
+  % LD_PRELOAD=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene yourprogram.py
+"""
+
+        parser = argparse.ArgumentParser(prog='scalene', description=usage, formatter_class=argparse.RawTextHelpFormatter)
+        parser.add_argument('prog',type=str,help='program to be profiled')
+        parser.add_argument('-o','--outfile',type=str,default=None,help='file to hold profiler output (default: stdout)')
+        args = parser.parse_args()
         try:
-            with open(sys.argv[1], 'rb') as fp:
+            with open(args.prog, 'rb') as fp:
                 original_path = os.getcwd()
                 # Read in the code and compile it.
-                code = compile(fp.read(), sys.argv[1], "exec")
-                # Remove the profiler from the args list.
-                sys.argv.pop(0)
+                code = compile(fp.read(), args.prog, "exec")
+                # Remove the profiler and any of its arguments from the args list.
+                num_args = len(vars(args))
+                while num_args >= 0:
+                    if len(sys.argv) > 0:
+                        sys.argv.pop(0)
+                    num_args -= 1
                 # Push the program's path.
-                program_path = os.path.dirname(os.path.abspath(sys.argv[0]))
+                program_path = os.path.dirname(os.path.abspath(args.prog))
                 sys.path.insert(0, program_path)
                 os.chdir(program_path)
                 # Set the file being executed.
-                the_globals['__file__'] = sys.argv[0]
+                the_globals['__file__'] = args.prog
                 # Start the profiler.
-                profiler = scalene(os.path.join(program_path, os.path.basename(sys.argv[0])))
+                profiler = scalene(os.path.join(program_path, os.path.basename(args.prog)))
                 try:
                     profiler.start()
                     # Run the code being profiled.
@@ -264,7 +296,7 @@ class scalene(object):
                     os.chdir(original_path)
                     # If we've collected any samples, dump them.
                     if profiler.total_cpu_samples > 0:
-                        profiler.output_profiles()
+                        profiler.output_profiles(args.outfile)
                     else:
                         print("scalene: Program did not run for long enough to profile.")
                 except Exception as ex:
