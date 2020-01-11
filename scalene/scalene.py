@@ -61,6 +61,7 @@ class scalene(object):
     total_cpu_samples      = 0           # how many CPU    samples have been collected.
     total_malloc_samples   = 0           # "   "    malloc "       "    "    "
     total_free_samples     = 0           # "   "    free   "       "    "    "
+    current_footprint = 0
     signal_interval        = 0.01        # seconds between interrupts for CPU sampling.
     elapsed_time           = 0           # total time spent in program being profiled.
     memory_sampling_rate   = 64 * 1024   # we get signals after this many bytes are allocated/freed. 
