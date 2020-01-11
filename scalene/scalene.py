@@ -106,6 +106,8 @@ class scalene(object):
         elapsed_since_last_signal = now - scalene.last_signal_time
         fname = frame.f_code.co_filename
         # Record samples only for files we care about.
+        if (len(fname)) == 0:
+            fname = frame.f_back.f_code.co_filename
         if not scalene.should_trace(fname):
             return
         # Here we take advantage of an apparent limitation of Python:
