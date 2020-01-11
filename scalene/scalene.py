@@ -65,6 +65,7 @@ class scalene(object):
     total_cpu_samples      = 0           # how many CPU    samples have been collected.
     total_malloc_samples   = 0           # "   "    malloc "       "    "    "
     total_free_samples     = 0           # "   "    free   "       "    "    "
+    current_footprint = 0
     signal_interval        = 0.01        # seconds between interrupts for CPU sampling.
     elapsed_time           = 0           # total time spent in program being profiled.
     memory_sampling_rate   = 64 * 1024   # we get signals after this many bytes are allocated/freed. 
@@ -109,6 +110,8 @@ class scalene(object):
         elapsed_since_last_signal = now - scalene.last_signal_time
         fname = frame.f_code.co_filename
         # Record samples only for files we care about.
+        if (len(fname)) == 0:
+            fname = frame.f_back.f_code.co_filename
         if not scalene.should_trace(fname):
             return
         # Here we take advantage of an apparent limitation of Python:
