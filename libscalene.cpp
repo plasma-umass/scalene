@@ -21,7 +21,7 @@ const auto SamplingRate = 64 * 1024;
 const auto RepoSize = 4096;
 
 // typedef RepoMan<RepoSize> CustomHeapType;
-typedef SampleHeap<SamplingRate, RepoMan<RepoSize>> CustomHeapType;
+typedef HL::LockedHeap<HL::PosixLock, SampleHeap<SamplingRate, RepoMan<RepoSize>>> CustomHeapType;
 
 class TheCustomHeap : public CustomHeapType { // HL::SizeHeap<CheapHeap<256UL * 1048576UL>>> {
   typedef CustomHeapType Super;
