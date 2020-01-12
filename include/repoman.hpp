@@ -20,6 +20,8 @@ private:
   
 public:
 
+  enum { Alignment = Repo<Size>::Alignment };
+  
   RepoMan()
     : _bufferStart (reinterpret_cast<char *>(MmapWrapper::map(MAX_HEAP_SIZE))),
       _repoSource(_bufferStart, MAX_HEAP_SIZE)
