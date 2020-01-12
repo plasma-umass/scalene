@@ -271,18 +271,15 @@ https://github.com/emeryberger/scalene
         parser = argparse.ArgumentParser(prog='scalene', description=usage, formatter_class=argparse.RawTextHelpFormatter)
         parser.add_argument('prog',type=str,help='program to be profiled')
         parser.add_argument('-o','--outfile',type=str,default=None,help='file to hold profiler output (default: stdout)')
-        args = parser.parse_args()
+        # Parse out all scalene arguments and jam the remaining ones into argv.
+        # See https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
+        args, left = parser.parse_known_args()
+        sys.argv = sys.argv[:1]+left
         try:
             with open(args.prog, 'rb') as fp:
                 original_path = os.getcwd()
                 # Read in the code and compile it.
                 code = compile(fp.read(), args.prog, "exec")
-                # Remove the profiler and any of its arguments from the args list.
-                num_args = len(vars(args))
-                while num_args >= 0:
-                    if len(sys.argv) > 0:
-                        sys.argv.pop(0)
-                    num_args -= 1
                 # Push the program's path.
                 program_path = os.path.dirname(os.path.abspath(args.prog))
                 sys.path.insert(0, program_path)
