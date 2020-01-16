@@ -61,6 +61,7 @@ public:
     } else {
       ptr = allocateLarge(sz);
     }
+    assert((uintptr_t) ptr % Alignment == 0);
     //    tprintf::tprintf("malloc @ = @\n", sz, ptr);
     return ptr;
   }
