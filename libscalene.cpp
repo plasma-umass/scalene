@@ -17,11 +17,11 @@
 class TheCustomHeap;
 static TheCustomHeap * theCustomHeap = nullptr;
 
-const auto MallocSamplingRate = 512 * 1024;
-const auto FreeSamplingRate   = 512 * 1024;
+const auto MallocSamplingRate = 1024 * 1024;
+const auto FreeSamplingRate   = 1024 * 1024;
 const auto RepoSize = 4096;
 
-typedef HL::LockedHeap<HL::SpinLock, SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>>> CustomHeapType;
+typedef SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>> CustomHeapType;
 //typedef SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>> CustomHeapType;
 
 class TheCustomHeap : public CustomHeapType {
