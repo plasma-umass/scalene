@@ -23,6 +23,9 @@ public:
   inline bool isValid() const {
 #if defined(NDEBUG)
     return true;
+#endif
+#if 1 // turn off expensive integrity checks for now.
+    return true;
 #else
     int count = 0;
     Repo<Size> * repo = getSource();
