@@ -235,8 +235,7 @@ class Scalene():
                     print(f"  Line\t | {'(Python)':9}| {'(C)':9}|{'             |' if did_sample_memory else ''} [{fname}]", file=out)
                     print("-" * 80, file=out)
                     contents = source_file.readlines()
-                    line_no = 1
-                    for line in contents:
+                    for line_no, line in enumerate(contents, 1):
                         line = line[:-1] # Strip newline
                         # Prepare output values.
                         n_cpu_samples_c = Scalene.cpu_samples_c[fname][line_no]
@@ -266,7 +265,6 @@ class Scalene():
                             # print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {n_mem_mb_str:11s} | {line}", file=out)
                         else:
                             print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {line}", file=out)
-                        line_no += 1
                     print("", file=out)
 
 
