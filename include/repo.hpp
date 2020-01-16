@@ -6,6 +6,8 @@
 
 #include "common.hpp"
 
+#define USE_MAGIC_NUMBER 1
+
 template <unsigned long Size>
 class RepoHeader {
 private:
@@ -19,7 +21,9 @@ public:
   RepoHeader(unsigned long objectSize)
     : _allocated (0),
       _freed (0),
-      //      _magic (MAGIC_NUMBER),
+#if USE_MAGIC_NUMBER
+      _magic (MAGIC_NUMBER),
+#endif
       _next (nullptr),
       _objectSize (objectSize),
       _numberOfObjects ((Size-sizeof(*this)) / objectSize)
@@ -73,6 +77,10 @@ private:
   unsigned int _numberOfObjects;
   unsigned int _allocated;  // total number of objects allocated so far.
   unsigned int _freed;      // total number of objects freed so far.
+#if USE_MAGIC_NUMBER
+  unsigned long _magic;
+  unsigned long _dummy1;
+#endif
   RepoHeader * _next;
   unsigned long _dummy;
 
@@ -84,8 +92,11 @@ public:
   }
 
   inline bool isValid() const {
+#if USE_MAGIC_NUMBER
+    return (_magic == MAGIC_NUMBER);
+#else
     return true;
-    //    return (_magic == MAGIC_NUMBER);
+#endif
   }
   
 };
@@ -126,9 +137,11 @@ public:
   }
 
   inline ATTRIBUTE_ALWAYS_INLINE constexpr size_t getSize(void * ptr) {
-    assert(RepoHeader<Size>::isValid());
-    return RepoHeader<Size>::getBaseSize();
-    //    return 0;
+    if (RepoHeader<Size>::isValid()) {
+      return RepoHeader<Size>::getBaseSize();
+    } else {
+      return 0;
+    }
   }
 
   inline ATTRIBUTE_ALWAYS_INLINE constexpr bool inBounds(void * ptr) {
