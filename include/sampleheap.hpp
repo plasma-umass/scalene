@@ -5,6 +5,7 @@
 #include <signal.h>
 #include "common.hpp"
 #include "tprintf.h"
+#include "repoman.hpp"
 
 #define USE_ORIGINAL_SIGNALS 1
 
@@ -19,7 +20,7 @@ public:
   
   inline bool registerMalloc(size_t sz) {
     _mallocOps += sz;
-    if (_mallocOps > TimerInterval) {
+    if (unlikely(_mallocOps > TimerInterval)) {
       _mallocOps = 0;
       return true;
     } else {
@@ -51,7 +52,7 @@ public:
   
   inline bool registerFree(size_t sz) {
     _mallocOps += sz;
-    if (_mallocOps > TimerInterval) {
+    if (unlikely(_mallocOps > TimerInterval)) {
       _mallocOps = 0;
       return true;
     } else {
@@ -106,6 +107,12 @@ private:
 #endif
 
 
+#define DISABLE_SIGNALS 0 // For debugging purposes only.
+
+#if DISABLE_SIGNALS
+#define raise(x)
+#endif
+
 
 template <long MallocSamplingRateBytes, long FreeSamplingRateBytes, class SuperHeap> 
 class SampleHeap : public SuperHeap {
@@ -128,8 +135,10 @@ public:
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
+    // auto realSize = SuperHeap::roundUp(sz, SuperHeap::MULTIPLE); // // SuperHeap::getSize(ptr);
+    //    assert((sz < 16) || (realSize <= sz + 15));
     auto ptr = SuperHeap::malloc(sz);
-    if (ptr != nullptr) {
+    if (likely(ptr != nullptr)) {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
