@@ -236,7 +236,7 @@ class Scalene():
                     print("-" * 80, file=out)
                     contents = source_file.readlines()
                     for line_no, line in enumerate(contents, 1):
-                        line = line[:-1] # Strip newline
+                        line = line.rstrip() # Strip newline
                         # Prepare output values.
                         n_cpu_samples_c = Scalene.cpu_samples_c[fname][line_no]
                         # Correct for negative CPU sample counts.
