@@ -58,8 +58,15 @@ public:
     return _freed;
   }
 
-  inline ATTRIBUTE_ALWAYS_INLINE void incFreed() {
+  // Increement the number of freed objects (invoked by free).
+  // Returns true iff this free resulted in the whole repo being free.
+  inline ATTRIBUTE_ALWAYS_INLINE bool incFreed() {
     _freed++;
+    if (unlikely(_freed == _numberOfObjects)) {
+      clear();
+      return true;
+    }
+    return false;
   }
 
   inline ATTRIBUTE_ALWAYS_INLINE bool isFull() const {
@@ -72,6 +79,11 @@ public:
 
   
 private:
+  
+  void clear() {
+    _allocated = 0;
+    _freed = 0;
+  }
   
   const unsigned int _objectSize;
   unsigned int _numberOfObjects;
@@ -149,12 +161,12 @@ public:
     char * cptr = reinterpret_cast<char *>(ptr);
     return ((cptr >= &_buffer[0]) && (cptr <= &_buffer[(getNumberOfObjects()-1) * RepoHeader<Size>::getObjectSize()]));
   }
-  
-  inline ATTRIBUTE_ALWAYS_INLINE void free(void * ptr) {
+
+  // Returns true iff this free caused the repo to become empty (and thus available for reuse for another size).
+  inline ATTRIBUTE_ALWAYS_INLINE bool free(void * ptr) {
     assert(RepoHeader<Size>::isValid());
     assert(inBounds(ptr));
-    RepoHeader<Size>::incFreed();
-    assert(RepoHeader<Size>::getAllocated() <= getNumberOfObjects());
+    return RepoHeader<Size>::incFreed();
   }
     
 protected:

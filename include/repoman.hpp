@@ -35,6 +35,7 @@ public:
     }
   }
 
+  // Check if this pointer came from us (inside the allocation buffer).
   inline ATTRIBUTE_ALWAYS_INLINE constexpr bool inBounds(void * ptr) const {
     char * cptr = reinterpret_cast<char *>(ptr);
     return ((cptr >= _bufferStart) && (cptr < (_bufferStart + MAX_HEAP_SIZE)));
@@ -42,15 +43,22 @@ public:
     
   inline ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
     //    tprintf::tprintf("malloc @\n", sz);
-    if (unlikely(sz == 0)) { sz = MULTIPLE; }
+    if (unlikely(sz <= MULTIPLE)) {
+      sz = MULTIPLE;
+    } else {
+      // Round sz up to next multiple of MULTIPLE.
+      sz = roundUp(sz, MULTIPLE);
+    }
     // assert(sz >= MULTIPLE);
     void * ptr;
     if (likely(sz <= MAX_SIZE)) {
-      // Round sz up to next multiple of MULTIPLE.
-      sz = roundUp(sz, MULTIPLE);
       //      assert (sz == roundUp(sz, MULTIPLE));
       auto index = getIndex(sz);
-      ptr = nullptr;
+      ptr = _repos[index]->malloc(sz);
+      if (likely(ptr != nullptr)) {
+	assert((uintptr_t) ptr % Alignment == 0);
+	return ptr;
+      }
       while (ptr == nullptr) {
 	ptr = _repos[index]->malloc(sz);
 	if (ptr == nullptr) {
@@ -87,15 +95,12 @@ public:
 	  auto index = getIndex(sz);
 	  auto r = reinterpret_cast<Repo<Size> *>(getHeader(ptr));
 	  // assert(!r->isEmpty());
-	  r->free(ptr);
-	  // If we just freed the whole repo and it's not our current repo, give it back to the repo source for later reuse.
-	  if ((r != _repos[index]) && (unlikely(r->isEmpty()))) {
-	    _repoSourceLock.lock();
-	    _repoSource.put(r);
-	    _repoSourceLock.unlock();
-	  } else {
-	    if (unlikely(r->isEmpty())) {
-	      new (r) Repo<Size>(sz);
+	  if (r->free(ptr)) {
+	    // If we just freed the whole repo and it's not our current repo, give it back to the repo source for later reuse.
+	    if (unlikely(r != _repos[index])) {
+	      _repoSourceLock.lock();
+	      _repoSource.put(r);
+	      _repoSourceLock.unlock();
 	    }
 	  }
 	} else {
