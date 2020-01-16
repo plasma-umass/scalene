@@ -10,6 +10,13 @@
 #include "repoman.hpp"
 
 #define USE_ORIGINAL_SIGNALS 1
+#define USE_ATOMICS 0
+
+#if USE_ATOMICS
+typedef std::atomic<long> counterType;
+#else
+typedef long counterType;
+#endif
 
 template <long TimerInterval>
 class MallocTimer {
@@ -34,7 +41,8 @@ public:
   }
   
 private:
-  std::atomic<long> _mallocOps;
+  counterType _mallocOps;
+ 
 };
 
 
@@ -63,7 +71,7 @@ public:
   }
   
 private:
-  std::atomic<long> _mallocOps;
+  counterType _mallocOps;
 };
 
 
