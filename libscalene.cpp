@@ -17,26 +17,23 @@
 class TheCustomHeap;
 static TheCustomHeap * theCustomHeap = nullptr;
 
-const auto SamplingRate = 64 * 1024;
+const auto MallocSamplingRate = 65536; // 65537; // 64 * 1024;
+const auto FreeSamplingRate   = 65536; // 32771; // 64  * 1024;  // choose these so they are relatively prime
 const auto RepoSize = 4096;
 
-// typedef RepoMan<RepoSize> CustomHeapType;
-typedef HL::LockedHeap<HL::PosixLock, SampleHeap<SamplingRate, RepoMan<RepoSize>>> CustomHeapType;
+typedef SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>> CustomHeapType;
 
-class TheCustomHeap : public CustomHeapType { // HL::SizeHeap<CheapHeap<256UL * 1048576UL>>> {
+class TheCustomHeap : public CustomHeapType {
   typedef CustomHeapType Super;
 public:
   TheCustomHeap() {
     theCustomHeap = this;
   }
   inline void * malloc(size_t sz) {
-    //    tprintf::tprintf("sz requested = @\n", sz);
     auto ptr = Super::malloc(sz);
-    //        tprintf::tprintf("malloc @ = @\n", sz, ptr);
     return ptr;
   }
   inline void free(void * ptr) {
-    //    tprintf::tprintf("free @\n", ptr);
     Super::free(ptr);
   }
 };
