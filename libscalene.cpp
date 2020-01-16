@@ -21,7 +21,8 @@ const auto MallocSamplingRate = 65536; // 65537; // 64 * 1024;
 const auto FreeSamplingRate   = 65536; // 32771; // 64  * 1024;  // choose these so they are relatively prime
 const auto RepoSize = 4096;
 
-typedef SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>> CustomHeapType;
+typedef HL::LockedHeap<HL::SpinLock, SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>>> CustomHeapType;
+//typedef SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>> CustomHeapType;
 
 class TheCustomHeap : public CustomHeapType {
   typedef CustomHeapType Super;
