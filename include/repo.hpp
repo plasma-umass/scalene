@@ -135,10 +135,10 @@ public:
   inline ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
     //    std::cout << "this = " << this << std::endl;
     assert(RepoHeader<Size>::isValid());
-    assert (sz <= RepoHeader<Size>::getObjectSize());
     void * ptr;
     if (likely(!RepoHeader<Size>::isFull())) {
-      ptr = &_buffer[RepoHeader<Size>::getAllocated() * RepoHeader<Size>::getObjectSize()];
+      assert (sz == RepoHeader<Size>::getObjectSize());
+      ptr = &_buffer[RepoHeader<Size>::getAllocated() * sz]; // RepoHeader<Size>::getObjectSize()];
       assert(inBounds(ptr));
       assert((uintptr_t) ptr % RepoHeader<Size>::Alignment == 0);
       RepoHeader<Size>::incAllocated();
