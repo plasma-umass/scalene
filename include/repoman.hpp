@@ -43,19 +43,21 @@ public:
   inline ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
     //    tprintf::tprintf("malloc @\n", sz);
     if (unlikely(sz == 0)) { sz = MULTIPLE; }
+    // assert(sz >= MULTIPLE);
     void * ptr;
     if (likely(sz <= MAX_SIZE)) {
       // Round sz up to next multiple of MULTIPLE.
       sz = roundUp(sz, MULTIPLE);
-      //      tprintf::tprintf("size now = @\n", sz);
+      //      assert (sz == roundUp(sz, MULTIPLE));
       auto index = getIndex(sz);
       ptr = nullptr;
       while (ptr == nullptr) {
 	ptr = _repos[index]->malloc(sz);
 	if (ptr == nullptr) {
+	  //	  tprintf::tprintf("exhausted @\n", _repos[index]);
 	  assert(_repos[index]->isFull());
 	  _repos[index] = _repoSource.get(sz);
-	  assert(_repos[index]->isEmpty());
+	  assert((_repos[index] == nullptr) || _repos[index]->isEmpty());
 	}
       }
     } else {
@@ -69,6 +71,7 @@ public:
   inline ATTRIBUTE_ALWAYS_INLINE size_t free(void * ptr) {
     if (unlikely(!inBounds(ptr))) {
       if ((uintptr_t) ptr - (uintptr_t) getHeader(ptr) != sizeof(RepoHeader<Size>)) {
+	//	tprintf::tprintf("out of bounds!\n");
 	return 0;
       }
     }
@@ -77,16 +80,18 @@ public:
       if (likely(getHeader(ptr)->isValid())) {
 	//      std::cout << "checking " << ptr << std::endl;
 	auto sz = getSize(ptr);
+	//	tprintf::tprintf("free sz = @\n", sz);
 	if (likely(sz <= MAX_SIZE)) {
 	  auto index = getIndex(sz);
 	  auto r = reinterpret_cast<Repo<Size> *>(getHeader(ptr));
-	  assert(!r->isEmpty());
+	  // assert(!r->isEmpty());
 	  r->free(ptr);
-	  // If we just freed the whole repo, give it back to the repo source for later reuse.
-	  if (unlikely(r->isEmpty())) {
+	  // If we just freed the whole repo and it's not our current repo, give it back to the repo source for later reuse.
+	  if ((r != _repos[index]) && (unlikely(r->isEmpty()))) {
 	    _repoSource.put(r);
-	    if (_repos[index] == r) {
-	      _repos[index] = _repoSource.get(sz);
+	  } else {
+	    if (unlikely(r->isEmpty())) {
+	      new (r) Repo<Size>(sz);
 	    }
 	  }
 	} else {
@@ -100,6 +105,9 @@ public:
 
   static ATTRIBUTE_ALWAYS_INLINE constexpr inline size_t roundUp(size_t sz, size_t multiple) {
     assert((multiple & (multiple - 1)) == 0);
+    if (unlikely(sz < multiple)) {
+      sz = multiple;
+    }
     return (sz + multiple - 1) & ~(multiple - 1);
   }
   
@@ -120,6 +128,8 @@ public:
     }
     return sz;
   }
+
+  enum { MULTIPLE = 16 };
   
 private:
 
@@ -153,7 +163,6 @@ private:
     MmapWrapper::unmap(basePtr, sz);
   }
   
-  enum { MULTIPLE = 16 };
   enum { MAX_SIZE = 512 };
   enum { NUM_REPOS = MAX_SIZE / MULTIPLE };
   Repo<Size> * _repos[NUM_REPOS];
