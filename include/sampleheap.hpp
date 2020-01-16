@@ -29,7 +29,7 @@ public:
   
   inline bool registerMalloc(size_t sz) {
     _mallocOps += sz;
-    if (unlikely(_mallocOps > TimerInterval)) {
+    if (unlikely(_mallocOps >= TimerInterval)) {
       _mallocOps = 0;
       return true;
     } else {
@@ -62,7 +62,7 @@ public:
   
   inline bool registerFree(size_t sz) {
     _mallocOps += sz;
-    if (unlikely(_mallocOps > TimerInterval)) {
+    if (unlikely(_mallocOps >= TimerInterval)) {
       _mallocOps = 0;
       return true;
     } else {
