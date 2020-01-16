@@ -2,6 +2,8 @@
 #define SAMPLEHEAP_H
 
 #include <random>
+#include <atomic>
+
 #include <signal.h>
 #include "common.hpp"
 #include "tprintf.h"
@@ -32,7 +34,7 @@ public:
   }
   
 private:
-  long _mallocOps;
+  std::atomic<long> _mallocOps;
 };
 
 
@@ -61,7 +63,7 @@ public:
   }
   
 private:
-  long _mallocOps;
+  std::atomic<long> _mallocOps;
 };
 
 
