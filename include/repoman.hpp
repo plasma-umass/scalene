@@ -56,8 +56,10 @@ public:
 	if (ptr == nullptr) {
 	  //	  tprintf::tprintf("exhausted @\n", _repos[index]);
 	  assert(_repos[index]->isFull());
+	  _repoSourceLock.lock();
 	  _repos[index] = _repoSource.get(sz);
 	  assert((_repos[index] == nullptr) || _repos[index]->isEmpty());
+	  _repoSourceLock.unlock();
 	}
       }
     } else {
@@ -88,7 +90,9 @@ public:
 	  r->free(ptr);
 	  // If we just freed the whole repo and it's not our current repo, give it back to the repo source for later reuse.
 	  if ((r != _repos[index]) && (unlikely(r->isEmpty()))) {
+	    _repoSourceLock.lock();
 	    _repoSource.put(r);
+	    _repoSourceLock.unlock();
 	  } else {
 	    if (unlikely(r->isEmpty())) {
 	      new (r) Repo<Size>(sz);
@@ -167,6 +171,7 @@ private:
   enum { NUM_REPOS = MAX_SIZE / MULTIPLE };
   Repo<Size> * _repos[NUM_REPOS];
   RepoSource<Size> _repoSource;
+  HL::SpinLock _repoSourceLock;
 };
 
 #endif
