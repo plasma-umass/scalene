@@ -223,19 +223,20 @@ class Scalene():
         all_instrumented_files = list(set(list(Scalene.cpu_samples_python.keys()) + list(Scalene.memory_free_samples.keys()) + list(Scalene.memory_malloc_samples.keys())))
         with Scalene.file_or_stdout(output_file) as out:
             for fname in sorted(all_instrumented_files):
+
+                this_cpu_samples = sum(Scalene.cpu_samples_c[fname].values()) + sum(Scalene.cpu_samples_python[fname].values())
+                if this_cpu_samples == 0:
+                    percent_cpu_time = 0
+                else:
+                    percent_cpu_time = 100 * this_cpu_samples / Scalene.total_cpu_samples
+                # percent_cpu_time = 100 * this_cpu_samples * Scalene.mean_signal_interval / Scalene.elapsed_time
+                print(f"{fname}: % of CPU time = {percent_cpu_time:6.2f}% out of {Scalene.elapsed_time:6.2f}s.", file=out)
+                print(f"  \t | {'CPU %':9}| {'CPU %':9}| {'Memory (MB) |' if did_sample_memory else ''}", file=out)
+                print(f"  Line\t | {'(Python)':9}| {'(C)':9}|{'             |' if did_sample_memory else ''} [{fname}]", file=out)
+                print("-" * 80, file=out)
+
                 with open(fname, 'r') as source_file:
-                    this_cpu_samples = sum(Scalene.cpu_samples_c[fname].values()) + sum(Scalene.cpu_samples_python[fname].values())
-                    if this_cpu_samples == 0:
-                        percent_cpu_time = 0
-                    else:
-                        percent_cpu_time = 100 * this_cpu_samples / Scalene.total_cpu_samples
-                    # percent_cpu_time = 100 * this_cpu_samples * Scalene.mean_signal_interval / Scalene.elapsed_time
-                    print(f"{fname}: % of CPU time = {percent_cpu_time:6.2f}% out of {Scalene.elapsed_time:6.2f}s.", file=out)
-                    print(f"  \t | {'CPU %':9}| {'CPU %':9}| {'Memory (MB) |' if did_sample_memory else ''}", file=out)
-                    print(f"  Line\t | {'(Python)':9}| {'(C)':9}|{'             |' if did_sample_memory else ''} [{fname}]", file=out)
-                    print("-" * 80, file=out)
-                    contents = source_file.readlines()
-                    for line_no, line in enumerate(contents, 1):
+                    for line_no, line in enumerate(source_file, 1):
                         line = line.rstrip() # Strip newline
                         # Prepare output values.
                         n_cpu_samples_c = Scalene.cpu_samples_c[fname][line_no]
