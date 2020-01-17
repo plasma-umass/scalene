@@ -225,10 +225,12 @@ class Scalene():
             for fname in sorted(all_instrumented_files):
 
                 this_cpu_samples = sum(Scalene.cpu_samples_c[fname].values()) + sum(Scalene.cpu_samples_python[fname].values())
-                if this_cpu_samples == 0:
-                    percent_cpu_time = 0
-                else:
+
+                try:
                     percent_cpu_time = 100 * this_cpu_samples / Scalene.total_cpu_samples
+                except ZeroDivisionError:
+                    percent_cpu_time = 0
+
                 # percent_cpu_time = 100 * this_cpu_samples * Scalene.mean_signal_interval / Scalene.elapsed_time
                 print(f"{fname}: % of CPU time = {percent_cpu_time:6.2f}% out of {Scalene.elapsed_time:6.2f}s.", file=out)
                 print(f"  \t | {'CPU %':9}| {'CPU %':9}| {'Memory (MB) |' if did_sample_memory else ''}", file=out)
