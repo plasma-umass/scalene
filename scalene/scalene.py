@@ -31,6 +31,7 @@ import traceback
 import argparse
 from contextlib import contextmanager
 from functools import lru_cache
+from textwrap import dedent
 
 the_globals = {
     '__name__': '__main__',
@@ -289,16 +290,16 @@ class Scalene():
     @staticmethod
     def main():
         """Invokes the profiler from the command-line."""
-        usage = """Scalene: a high-precision CPU and memory profiler.
-https://github.com/emeryberger/Scalene
+        usage = dedent("""Scalene: a high-precision CPU and memory profiler.
+            https://github.com/emeryberger/Scalene
 
-    for CPU profiling only:
-  % python -m scalene yourprogram.py
-    for CPU and memory profiling (Mac OS X):
-  % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene yourprogram.py
-    for CPU and memory profiling (Linux):
-  % LD_PRELOAD=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene yourprogram.py
-"""
+                for CPU profiling only:
+            % python -m scalene yourprogram.py
+                for CPU and memory profiling (Mac OS X):
+            % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene yourprogram.py
+                for CPU and memory profiling (Linux):
+            % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene yourprogram.py
+            """)
         parser = argparse.ArgumentParser(prog='scalene', description=usage, formatter_class=argparse.RawTextHelpFormatter)
         parser.add_argument('prog', type=str, help='program to be profiled')
         parser.add_argument('-o', '--outfile', type=str, default=None, help='file to hold profiler output (default: stdout)')
