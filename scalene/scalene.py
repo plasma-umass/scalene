@@ -178,7 +178,7 @@ class Scalene():
         return
 
     @staticmethod
-    @lru_cache
+    @lru_cache(128)
     def should_trace(filename):
         """Return true if the filename is one we should trace."""
         # Profile anything in the program's directory or a child directory,
