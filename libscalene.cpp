@@ -30,13 +30,6 @@ public:
   TheCustomHeap() {
     theCustomHeap = this;
   }
-  inline void * malloc(size_t sz) {
-    auto ptr = Super::malloc(sz);
-    return ptr;
-  }
-  inline void free(void * ptr) {
-    Super::free(ptr);
-  }
 };
 
 TheCustomHeap& getTheCustomHeap() {
