@@ -45,7 +45,7 @@ the_globals = {
     '__cached__': None,
 }
 
-assert sys.version_info[0] == 3 and sys.version_info[1] >= 6, "Scalene requires Python version 3.6 or above."
+assert sys.version_info[0] == 3 and sys.version_info[1] >= 5, "Scalene requires Python version 3.5 or above."
 
 # Scalene currently only supports Unix-like operating systems; in particular, Linux and Mac OS X.
 if sys.platform == 'win32':
@@ -233,9 +233,9 @@ class Scalene():
                     percent_cpu_time = 0
 
                 # percent_cpu_time = 100 * this_cpu_samples * Scalene.mean_signal_interval / Scalene.elapsed_time
-                print(f"{fname}: % of CPU time = {percent_cpu_time:6.2f}% out of {Scalene.elapsed_time:6.2f}s.", file=out)
-                print(f"  \t | {'CPU %':9}| {'CPU %':9}| {'Memory (MB) |' if did_sample_memory else ''}", file=out)
-                print(f"  Line\t | {'(Python)':9}| {'(C)':9}|{'             |' if did_sample_memory else ''} [{fname}]", file=out)
+                print("%s: %% of CPU time = %6.2f%% out of %6.2fs." % (fname, percent_cpu_time, Scalene.elapsed_time), file=out)
+                print("  \t | %9s| %9s| %s" % ('CPU %', 'CPU %', 'Memory (MB)' if did_sample_memory else ''), file=out)
+                print("  Line\t | %9s| %9s| %s [%s]" % ('(Python)', '(C)', '            |' if did_sample_memory else '', fname), file=out)
                 print("-" * 80, file=out)
 
                 with open(fname, 'r') as source_file:
@@ -261,14 +261,15 @@ class Scalene():
                         n_malloc_mb -= n_free_mb
 
                         # Finally, print results.
-                        n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 else f'{n_cpu_percent_c:6.2f}%'
-                        n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 else f'{n_cpu_percent_python:6.2f}%'
-                        n_malloc_mb_str  = "" if n_malloc_mb == 0 else f'{n_malloc_mb:>9.2f}'
+                        n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 else '%6.2f%%' % n_cpu_percent_c
+                        n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 else '%6.2f%%' % n_cpu_percent_python
+                        n_malloc_mb_str  = "" if n_malloc_mb == 0 else '%9.2f' % n_malloc_mb
                         if did_sample_memory:
-                            print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {n_malloc_mb_str:11s} | {line}", file=out)
-                            # print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {n_mem_mb_str:11s} | {line}", file=out)
+                            print("%6d\t | %9s| %9s| %11s | %s" %
+                                  (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, n_malloc_mb_str, line), file=out)
                         else:
-                            print(f"{line_no:6d}\t | {n_cpu_percent_python_str:9s}| {n_cpu_percent_c_str:9s}| {line}", file=out)
+                            print("%6d\t | %9s| %9s| %s" %
+                                  (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, line), file=out)
                     print("", file=out)
 
 
