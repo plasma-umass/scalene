@@ -17,8 +17,8 @@
 class TheCustomHeap;
 static TheCustomHeap * theCustomHeap = nullptr;
 
-const auto MallocSamplingRate = 1024 * 1024;
-const auto FreeSamplingRate   = 1024 * 1024;
+const auto MallocSamplingRate = 256 * 1024 * 1024;
+const auto FreeSamplingRate   = 256 * 1024 * 1024;
 const auto RepoSize = 4096;
 
 typedef SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>> CustomHeapType;
@@ -38,11 +38,16 @@ TheCustomHeap& getTheCustomHeap() {
 }
 
 extern "C" void * xxmalloc(size_t sz) {
+  void * ptr = nullptr;
   if (theCustomHeap) {
-    return theCustomHeap->malloc(sz);
+    ptr = theCustomHeap->malloc(sz);
   } else {
-    return getTheCustomHeap().malloc(sz);
+    ptr = getTheCustomHeap().malloc(sz);
   }
+  if (sz >= 128 * 1024) {
+    tprintf::tprintf("malloc(@) = size @\n", sz, theCustomHeap->getSize(ptr));
+  }
+  return ptr;
 }
 
 extern "C" void xxfree(void * ptr) {
