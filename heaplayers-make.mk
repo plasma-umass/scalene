@@ -1,5 +1,4 @@
 CPPFLAGS = -std=c++14 -g -ffast-math -fno-builtin-malloc -O3 -DNDEBUG 
-# CPPFLAGS = -std=c++14 -g -DNDEBUG -O3 -ffast-math -fno-builtin-malloc # -Wall -Wextra -Wshadow -Wconversion -Wuninitialized
 CXX = clang++
 
 INCLUDES = -I. -I./include -IHeap-Layers -IHeap-Layers/utility
