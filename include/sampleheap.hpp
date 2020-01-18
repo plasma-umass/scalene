@@ -92,9 +92,7 @@ public:
   inline bool registerMalloc(size_t sz) {
     _mallocOps += sz;
     if (_mallocOps - _freeOps > _maxOps + _nextInterval) { // TimerInterval) { // _nextInterval) {
-      // auto diff = (_mallocOps - _freeOps) - _maxOps;
       _maxOps = _mallocOps - _freeOps;
-      //      tprintf::tprintf("mallocops = @, freeops = @, new max = @, interval was @\n", _mallocOps, _freeOps, _maxOps, _nextInterval);
       _nextInterval = _uniform_dist(_engine);
       return true;
     }
@@ -153,7 +151,6 @@ public:
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
       if (unlikely(mallocTimer.registerMalloc(realSize))) {
-	//	tprintf::tprintf("[M @]", realSize);
 	raise(MallocSignal);
       }
 #if 0
@@ -172,7 +169,6 @@ public:
       auto sz = SuperHeap::free(ptr);
 #if 0
       if (mallocTimer.registerFree(sz)) {
-	//	tprintf::tprintf("[F @]", sz);
 	raise(MallocSignal);
       }
 #endif
