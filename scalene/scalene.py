@@ -18,7 +18,7 @@
 
 """
 
-import random
+# import random
 import sys
 import atexit
 import signal
@@ -126,8 +126,9 @@ class Scalene():
             fname = frame.f_back.f_code.co_filename
         if not Scalene.should_trace(fname):
             Scalene.last_signal_time = Scalene.gettime()
-            Scalene.last_signal_interval = random.uniform(Scalene.mean_signal_interval / 2, Scalene.mean_signal_interval * 3 / 2)
-            signal.setitimer(Scalene.cpu_timer_signal, Scalene.last_signal_interval, Scalene.last_signal_interval)
+            # Currently disabled: random sampling for CPU timing. Just use the same interval all the time.
+            # Scalene.last_signal_interval = random.uniform(Scalene.mean_signal_interval / 2, Scalene.mean_signal_interval * 3 / 2)
+            # signal.setitimer(Scalene.cpu_timer_signal, Scalene.last_signal_interval, Scalene.last_signal_interval)
             return
         # Here we take advantage of an apparent limitation of Python:
         # it only delivers signals after the interpreter has given up
@@ -151,8 +152,9 @@ class Scalene():
         Scalene.cpu_samples_python[fname][frame.f_lineno] += 1
         Scalene.cpu_samples_c[fname][frame.f_lineno] += c_time / Scalene.last_signal_interval
         Scalene.total_cpu_samples += elapsed_since_last_signal / Scalene.last_signal_interval
-        Scalene.last_signal_interval = random.uniform(Scalene.mean_signal_interval / 2, Scalene.mean_signal_interval * 3 / 2)
-        signal.setitimer(Scalene.cpu_timer_signal, Scalene.last_signal_interval, Scalene.last_signal_interval)
+        # disabled randomness for now
+        # Scalene.last_signal_interval = random.uniform(Scalene.mean_signal_interval / 2, Scalene.mean_signal_interval * 3 / 2)
+        # signal.setitimer(Scalene.cpu_timer_signal, Scalene.last_signal_interval, Scalene.last_signal_interval)
         Scalene.last_signal_time = Scalene.gettime()
         return
 
