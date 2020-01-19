@@ -37,7 +37,7 @@ TheCustomHeap& getTheCustomHeap() {
   return thang;
 }
 
-extern "C" void * xxmalloc(size_t sz) {
+extern "C" ATTRIBUTE_EXPORT void * xxmalloc(size_t sz) {
   void * ptr = nullptr;
   if (theCustomHeap) {
     ptr = theCustomHeap->malloc(sz);
@@ -47,21 +47,21 @@ extern "C" void * xxmalloc(size_t sz) {
   return ptr;
 }
 
-extern "C" void xxfree(void * ptr) {
+extern "C" ATTRIBUTE_EXPORT void xxfree(void * ptr) {
   theCustomHeap->free(ptr);
 }
 
-extern "C" void xxfree_sized(void * ptr, size_t sz) {
+extern "C" ATTRIBUTE_EXPORT void xxfree_sized(void * ptr, size_t sz) {
   // TODO FIXME maybe make a sized-free version?
   getTheCustomHeap().free(ptr);
 }
 
-extern "C" size_t xxmalloc_usable_size(void * ptr) {
+extern "C" ATTRIBUTE_EXPORT size_t xxmalloc_usable_size(void * ptr) {
   return theCustomHeap->getSize(ptr); // TODO FIXME adjust for ptr offset?
 }
 
-extern "C" void xxmalloc_lock() {
+extern "C" ATTRIBUTE_EXPORT void xxmalloc_lock() {
 }
 
-extern "C" void xxmalloc_unlock() {
+extern "C" ATTRIBUTE_EXPORT void xxmalloc_unlock() {
 }
