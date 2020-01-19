@@ -44,9 +44,6 @@ extern "C" void * xxmalloc(size_t sz) {
   } else {
     ptr = getTheCustomHeap().malloc(sz);
   }
-  if (sz >= 128 * 1024) {
-    tprintf::tprintf("malloc(@) = size @\n", sz, theCustomHeap->getSize(ptr));
-  }
   return ptr;
 }
 
