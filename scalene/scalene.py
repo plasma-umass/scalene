@@ -236,8 +236,8 @@ class Scalene():
 
                 # percent_cpu_time = 100 * this_cpu_samples * Scalene.mean_signal_interval / Scalene.elapsed_time
                 print("%s: %% of CPU time = %6.2f%% out of %6.2fs." % (fname, percent_cpu_time, Scalene.elapsed_time), file=out)
-                print("  \t | %9s | %9s | %s %s " % ('CPU %', 'CPU %', 'Memory (MB) |' if did_sample_memory else '', 'Memory (MB) |' if did_sample_memory else ''), file=out)
-                print("  Line\t | %9s | %9s | %s%s [%s]" % ('(Python)', '(C)', '     Growth |' if did_sample_memory else '', '       Usage |' if did_sample_memory else '', fname), file=out)
+                print("  \t | %9s | %9s | %s %s " % ('CPU %', 'CPU %', 'Memory      |' if did_sample_memory else '', 'Memory      |' if did_sample_memory else ''), file=out)
+                print("  Line\t | %9s | %9s | %s%s [%s]" % ('(Python)', '(native)', 'growth (MB) |' if did_sample_memory else '', ' usage (MB)  |' if did_sample_memory else '', fname), file=out)
                 print("-" * 80, file=out)
 
                 with open(fname, 'r') as source_file:
@@ -266,7 +266,7 @@ class Scalene():
                         # Finally, print results.
                         n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 else '%6.2f%%' % n_cpu_percent_c
                         n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 else '%6.2f%%' % n_cpu_percent_python
-                        n_growth_mb_str  = "" if n_growth_mb == 0 else '%9.2f' % n_growth_mb
+                        n_growth_mb_str  = "" if (n_growth_mb == 0 and n_usage_mb == 0) else '%9.2f' % n_growth_mb
                         n_usage_mb_str  = "" if n_usage_mb == 0 else '%9.2f' % n_usage_mb
                         if did_sample_memory:
                             print("%6d\t | %9s | %9s | %11s | %11s | %s" %
