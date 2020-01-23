@@ -54,19 +54,21 @@ Profiling on a Linux system:
 
 Below is a table comparing various profilers to scalene, running on an example Python program (`benchmarks/julia1_nopil.py`) from the book _High Performance Python_, by Gorelick and Ozsvald. All of these were run on a 2016 MacBook Pro.
 
+
 |                            | Time (seconds) | Slowdown | Line-level?    | CPU? | Python vs. C? | Memory? | Unmodified code? |
-| :--- | ---: | ---: | :---: | :---: | :---: | :---: |
-| _original program_ | 6.71s | **1.0x** | | | | | |
+| :--- | :--- | ---: | ---: | :---: | :---: | :---: | :---: |
+| _original program_ | 6.71s | 1.0x | | | | | |
 |               |     |        |                    | |
-| `cProfile` | 11.04s | **1.65x** | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
-| `Profile` | 202.26s | **30.14x** | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
-| `pyinstrument` | 9.83s | **1.46x** | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
-| `line_profiler` | 78.0s | **11.62x** | :heavy_check_mark: | :heavy_check_mark: |  |  | needs `@profile` decorators |
-| `yappi` _(CPU)_ | 127.53s | **19.01x** | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
-| `yappi` _(wallclock)_ | 21.45s | **3.2x** | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
-| |  |  |  |  |  |  | |
+| `cProfile` | 11.04s | 1.65x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
+| `Profile` | 202.26s | 30.14x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
+| `pyinstrument` | 9.83s | 1.46x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
+| `line_profiler` | 78.0s | 11.62x | :heavy_check_mark: | :heavy_check_mark: |  |  | needs `@profile` decorators |
+| `yappi` _(CPU)_ | 127.53s | 19.01x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
+| `yappi` _(wallclock)_ | 21.45s | 3.2x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
+|               |     |        |                    | |
 | `scalene` _(CPU only)_ | 6.98s | **1.04x** | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |  | :heavy_check_mark: |
 | `scalene` _(CPU + memory)_ | 7.68s | **1.14x** | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+
 
 ## Output
 
