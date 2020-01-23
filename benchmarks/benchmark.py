@@ -3,10 +3,11 @@ import sys
 import re
 import subprocess
 import traceback
+import statistics
 
 python = "python3"
 progname = "/Users/emery/git/scalene/benchmarks/julia1_nopil.py"
-number_of_runs = 5 # We take the average of this many runs.
+number_of_runs = 1 # We take the average of this many runs.
 
 # Output timing string from the benchmark.
 result_regexp = re.compile("calculate_z_serial_purepython  took ([0-9]*\.[0-9]+) seconds")
@@ -100,11 +101,11 @@ average_time = {}
 check = ":heavy_check_mark:"
 
 print("|                            | Time (seconds) | Slowdown | Line-level?    | CPU? | Python vs. C? | Memory? | Unmodified code? |")
-print("| :--- | ---: | ---: | :---: | :---: | :---: | :---: |")
+print("| :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: |")
 
 for bench in benchmarks:
-#    print(bench)
-    sum_time = 0
+    # print(bench)
+    times = []
     for i in range(0, number_of_runs):
         my_env = os.environ.copy()
         if bench[1] == "scalene_cpu_memory":
@@ -117,14 +118,19 @@ for bench in benchmarks:
         output = result.stdout.decode('utf-8')
         match = result_regexp.search(output)
         if match is not None:
-            sum_time += float(match.group(1))
-    average_time[bench[1]] = sum_time / (number_of_runs * 1.0)
+            times.append(round(100 * float(match.group(1))) / 100.0)
+    average_time[bench[1]] = statistics.mean(times) # sum_time / (number_of_runs * 1.0)
     if bench[1] == "baseline":
-        print(f"| {bench[2]} | {average_time[bench[1]]}s | **1.0x** | | | | | |")
+        print(f"| {bench[2]} | {average_time[bench[1]]}s | 1.0x | | | | | |")
         print("|               |     |        |                    | |")
     else:
         try:
-            print(f"| {bench[2]} | {average_time[bench[1]]}s | **{average_time[bench[1]] / average_time['baseline']}x** | {check if line_level[bench[1]] else 'function-level'} | {check if cpu_profiler[bench[1]] else ''} | {check if separate_profiler[bench[1]] else ''} | {check if memory_profiler[bench[1]] else ''} | {check if unmodified_code[bench[1]] else 'needs `@profile` decorators'} |")
+            if bench[1].find("scalene") >= 0:
+                if bench[1].find("scalene_cpu") >= 0:
+                    print("|               |     |        |                    | |")
+                print(f"| {bench[2]} | {average_time[bench[1]]}s | **{round(100 * average_time[bench[1]] / average_time['baseline']) / 100}x** | {check if line_level[bench[1]] else 'function-level'} | {check if cpu_profiler[bench[1]] else ''} | {check if separate_profiler[bench[1]] else ''} | {check if memory_profiler[bench[1]] else ''} | {check if unmodified_code[bench[1]] else 'needs `@profile` decorators'} |")
+            else:
+                print(f"| {bench[2]} | {average_time[bench[1]]}s | {round(100 * average_time[bench[1]] / average_time['baseline']) / 100}x | {check if line_level[bench[1]] else 'function-level'} | {check if cpu_profiler[bench[1]] else ''} | {check if separate_profiler[bench[1]] else ''} | {check if memory_profiler[bench[1]] else ''} | {check if unmodified_code[bench[1]] else 'needs `@profile` decorators'} |")
         except Exception as err:
             traceback.print_exc()
             print("err = " + str(err))
