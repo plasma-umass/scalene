@@ -64,6 +64,7 @@ Below is a table comparing various profilers to scalene, running on an example P
 | `line_profiler` | 78.0s | **11.62x** | :heavy_check_mark: | :heavy_check_mark: |  |  | needs `@profile` decorators |
 | `yappi` _(CPU)_ | 127.53s | **19.01x** | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
 | `yappi` _(wallclock)_ | 21.45s | **3.2x** | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
+| |  |  |  |  |  |  | |
 | `scalene` _(CPU only)_ | 6.98s | **1.04x** | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |  | :heavy_check_mark: |
 | `scalene` _(CPU + memory)_ | 7.68s | **1.14x** | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 
