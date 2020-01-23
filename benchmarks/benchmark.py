@@ -101,7 +101,7 @@ average_time = {}
 check = ":heavy_check_mark:"
 
 print("|                            | Time (seconds) | Slowdown | Line-level?    | CPU? | Python vs. C? | Memory? | Unmodified code? |")
-print("| :--- | ---: | ---: | ---: | :---: | :---: | :---: | :---: |")
+print("| :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: |")
 
 for bench in benchmarks:
     # print(bench)

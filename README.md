@@ -56,7 +56,7 @@ Below is a table comparing various profilers to scalene, running on an example P
 
 
 |                            | Time (seconds) | Slowdown | Line-level?    | CPU? | Python vs. C? | Memory? | Unmodified code? |
-| :--- | ---: | ---: | ---: | :---: | :---: | :---: | :---: |
+| :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: |
 | _original program_ | 6.71s | 1.0x | | | | | |
 |               |     |        |                    | |
 | `cProfile` | 11.04s | 1.65x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
