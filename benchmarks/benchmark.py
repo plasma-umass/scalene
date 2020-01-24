@@ -107,7 +107,7 @@ scalene_cpu_memory = f"{python} -m scalene {progname}" # see below for environme
 
 benchmarks = [(baseline, "baseline", "_original program_"), (cprofile, "cProfile", "`cProfile`"), (profile, "Profile", "`Profile`"), (pyinstrument, "pyinstrument", "`pyinstrument`"), (line_profiler, "line_profiler", "`line_profiler`"), (pprofile_deterministic, "pprofile_deterministic", "`pprofile` _(deterministic)_"), (pprofile_statistical, "pprofile_statistical", "`pprofile` _(statistical)_"), (yappi_cputime, "yappi_cputime", "`yappi` _(CPU)_"), (yappi_wallclock, "yappi_wallclock", "`yappi` _(wallclock)_"), (scalene_cpu, "scalene_cpu", "`scalene` _(CPU only)_"), (scalene_cpu_memory, "scalene_cpu_memory", "`scalene` _(CPU + memory)_")]
 
-benchmarks = [(baseline, "baseline", "_original program_"), (pprofile_deterministic, "`pprofile` _(deterministic)_")]
+# benchmarks = [(baseline, "baseline", "_original program_"), (pprofile_deterministic, "`pprofile` _(deterministic)_")]
 # benchmarks = [(baseline, "baseline", "_original program_"), (pprofile_statistical, "pprofile_statistical", "`pprofile` _(statistical)_")]
 
 average_time = {}
