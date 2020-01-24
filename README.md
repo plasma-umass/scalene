@@ -63,6 +63,8 @@ Below is a table comparing various profilers to scalene, running on an example P
 | `Profile` | 202.26s | 30.14x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
 | `pyinstrument` | 9.83s | 1.46x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
 | `line_profiler` | 78.0s | 11.62x | :heavy_check_mark: | :heavy_check_mark: |  |  | needs `@profile` decorators |
+| `pprofile` _(deterministic)_ | 403.67s | 60.16x | :heavy_check_mark: | :heavy_check_mark: |  |  | :heavy_check_mark: |
+| `pprofile` _(statistical)_ | 7.47s | 1.11x | :heavy_check_mark: | :heavy_check_mark: |  |  | :heavy_check_mark: |
 | `yappi` _(CPU)_ | 127.53s | 19.01x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
 | `yappi` _(wallclock)_ | 21.45s | 3.2x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
 |               |     |        |                    | |
