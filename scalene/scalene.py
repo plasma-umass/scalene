@@ -55,17 +55,17 @@ if sys.platform == 'win32':
 class Scalene():
     """The Scalene profiler itself."""
     # Statistics counters.
-    cpu_samples_python            = defaultdict(lambda: defaultdict(int))  # CPU    samples for each location in the program
+    cpu_samples_python            = defaultdict(lambda: defaultdict(float))  # CPU    samples for each location in the program
                                                                            #        spent in the interpreter
-    cpu_samples_c                 = defaultdict(lambda: defaultdict(int))  # CPU    samples for each location in the program
+    cpu_samples_c                 = defaultdict(lambda: defaultdict(float))  # CPU    samples for each location in the program
                                                                            #        spent in C / libraries / system calls
     memory_free_samples           = defaultdict(lambda: defaultdict(int))  # malloc samples for each location in the program
     memory_malloc_samples         = defaultdict(lambda: defaultdict(int))  # free   "       "   "    "        "   "  "
-    total_cpu_samples             = 0              # how many CPU    samples have been collected.
+    total_cpu_samples             = 0.0            # how many CPU    samples have been collected.
     total_memory_free_samples     = 0              # "   "    malloc "       "    "    "
     total_memory_malloc_samples   = 0              # "   "    free   "       "    "    "
-    mean_signal_interval          = 0.001          # mean seconds between interrupts for CPU sampling.
-    last_signal_interval          = 0.001          # last num seconds between interrupts for CPU sampling.
+    mean_signal_interval          = 0.1          # mean seconds between interrupts for CPU sampling.
+    last_signal_interval          = 0.1          # last num seconds between interrupts for CPU sampling.
     elapsed_time                  = 0              # total time spent in program being profiled.
     malloc_sampling_rate          = 256 * 1024 * 1024  # we get signals after this many bytes are allocated.
                                                        # NB: MUST BE IN SYNC WITH include/sampleheap.hpp!
@@ -117,7 +117,6 @@ class Scalene():
         # Record how long it has been since we received a timer
         # before.  See the logic below.
         now = Scalene.gettime()
-        elapsed_since_last_signal = now - Scalene.last_signal_time
         fname = frame.f_code.co_filename
         # Record samples only for files we care about.
         if (len(fname)) == 0:
@@ -148,10 +147,11 @@ class Scalene():
         # account for this time by tracking the elapsed (process) time
         # and compare it to the interval, and add any computed delay
         # (as if it were sampled) to the C counter.
-        c_time = elapsed_since_last_signal - Scalene.last_signal_interval
-        Scalene.cpu_samples_python[fname][frame.f_lineno] += Scalene.last_signal_interval # 1
-        Scalene.cpu_samples_c[fname][frame.f_lineno] += c_time # / Scalene.last_signal_interval
-        Scalene.total_cpu_samples += elapsed_since_last_signal # / Scalene.last_signal_interval
+        python_time = Scalene.last_signal_interval
+        c_time = now - Scalene.last_signal_time - Scalene.last_signal_interval
+        Scalene.cpu_samples_python[fname][frame.f_lineno] += python_time
+        Scalene.cpu_samples_c[fname][frame.f_lineno] += c_time
+        Scalene.total_cpu_samples += python_time + c_time
         # disabled randomness for now
         # Scalene.last_signal_interval = random.uniform(Scalene.mean_signal_interval / 2, Scalene.mean_signal_interval * 3 / 2)
         # signal.setitimer(Scalene.cpu_timer_signal, Scalene.last_signal_interval, Scalene.last_signal_interval)
