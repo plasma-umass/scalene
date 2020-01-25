@@ -4,16 +4,15 @@
 #include <assert.h>
 #include <iostream>
 
+#include "libdivide.h"
 #include "common.hpp"
-
-#define USE_MAGIC_NUMBER 1
 
 template <unsigned long Size>
 class RepoHeader {
 private:
 
   enum { MAGIC_NUMBER = 0xCAFEBABE };
-  
+
 public:
 
   enum { Alignment = 2 * sizeof(unsigned long) };
@@ -21,12 +20,11 @@ public:
   RepoHeader(unsigned long objectSize)
     : _bumped (0),
       _freed (0),
-#if USE_MAGIC_NUMBER
       _magic (MAGIC_NUMBER),
-#endif
       _nextRepo (nullptr),
       _nextObject (nullptr),
       _objectSize (objectSize),
+      _divider (objectSize),
       _numberOfObjects ((Size-sizeof(*this)) / objectSize)
   {
     static_assert(sizeof(RepoHeader) % 16 == 0, "Misaligned.");
@@ -92,9 +90,19 @@ public:
   // Returns true iff this free resulted in the whole repo being free.
   inline ATTRIBUTE_ALWAYS_INLINE bool free(void * ptr) { // incFreed() {
     if (ptr == nullptr) { return false; }
+    
     // Pointer must be in buffer bounds; guaranteed by caller.
+
+    // Align pointer.
+#if 1
+    auto offset = fast_modulo((uintptr_t) ptr - (uintptr_t) (this + 1));
+#else
+    // slow (ordinary) modulo operator, replaced by call to libdivide above.
     auto sz = getBaseSize();
-    assert(((uintptr_t) ptr - (uintptr_t) (this + 1)) % sz == 0);
+    auto offset = ((uintptr_t) ptr - (uintptr_t) (this + 1)) % sz;
+#endif
+    ptr = reinterpret_cast<void *> ((uintptr_t) ptr - offset);
+    
     assert(_freed < _numberOfObjects);
     // Note: a double free could create a cycle.
     // Thread this object onto the freelist.
@@ -103,7 +111,7 @@ public:
       clear();
       return true;
     } else {
-      assert(sizeof(Object) <= sz);
+    assert(sizeof(Object) <= getBaseSize());
       auto obj = new (ptr) Object;
       obj->setNext(_nextObject);
       _nextObject = obj;
@@ -138,30 +146,29 @@ private:
     unsigned long _magic;
   };
   
-  const unsigned int _objectSize;
-  unsigned int _numberOfObjects;
-  unsigned int _bumped;     // total number of objects allocated so far via pointer-bumping.
-  unsigned int _freed;      // total number of objects freed so far.
-#if USE_MAGIC_NUMBER
-  unsigned long _magic;
-  unsigned long _dummy1;
-#endif
+  const uint32_t _objectSize;
+  const libdivide::divider<uint32_t> _divider;
+  uint32_t _numberOfObjects;
+  uint32_t _bumped;     // total number of objects allocated so far via pointer-bumping.
+  uint32_t _freed;      // total number of objects freed so far.
+  uint32_t _magic;
   RepoHeader * _nextRepo;
   Object * _nextObject;
 
 public:
-  
+
+  inline uint32_t fast_modulo(uint32_t v) {
+    auto quotient = v / _divider;
+    return v - (quotient * _objectSize);
+  }
+ 
   inline size_t getBaseSize() {
     assert(isValid());
     return _objectSize;
   }
 
   inline bool isValid() const {
-#if USE_MAGIC_NUMBER
     return (_magic == MAGIC_NUMBER);
-#else
-    return true;
-#endif
   }
   
 };
