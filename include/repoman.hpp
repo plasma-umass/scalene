@@ -15,7 +15,8 @@
 template <int Size>
 class RepoMan {
 private:
-  enum { MAX_HEAP_SIZE = 1 * 1024 * 1024 * 1024 }; // 1GB
+  
+  enum { MAX_HEAP_SIZE = 2UL * 1024 * 1024 * 1024 }; // 2GB
   char * _bufferStart;
   
 public:
@@ -142,8 +143,7 @@ private:
     // Round sz up to next multiple of Size.
     sz = roundUp(sz, Size);
     // FIXME force alignment!
-    //      tprintf::tprintf("*****big object orig = @, sz = @\n", origSize, sz);
-    
+    //    tprintf::tprintf("mapping object of size @\n", sz);
     auto basePtr = MmapWrapper::map(sz);
     // assert((uintptr_t) basePtr % Size == 0); // verify alignment
     auto bigObjBase = new (basePtr) RepoHeader<Size>(origSize);
@@ -158,6 +158,7 @@ private:
     sz = sz + sizeof(RepoHeader<Size>);
     // Round sz up to next multiple of Size.
     sz = roundUp(sz, Size);
+    //    tprintf::tprintf("freeLarge: sz = @\n", sz);
     MmapWrapper::unmap(basePtr, sz);
   }
   
