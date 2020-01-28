@@ -30,7 +30,7 @@ public:
   inline bool registerMalloc(size_t sz) {
     _mallocOps += sz;
     if (unlikely(_mallocOps >= TimerInterval)) {
-      _mallocOps = 0;
+      _mallocOps = 0; // -= TimerInterval;
       return true;
     } else {
       return false;
@@ -63,7 +63,7 @@ public:
   inline bool registerFree(size_t sz) {
     _mallocOps += sz;
     if (unlikely(_mallocOps >= TimerInterval)) {
-      _mallocOps = 0;
+      _mallocOps = 0; // -= TimerInterval;
       return true;
     } else {
       return false;
@@ -91,7 +91,7 @@ public:
   }
   inline bool registerMalloc(size_t sz) {
     _mallocOps += sz;
-    if (_mallocOps - _freeOps > _maxOps + _nextInterval) { // TimerInterval) { // _nextInterval) {
+    if (_mallocOps - _freeOps >= _maxOps + _nextInterval) { // TimerInterval) { // _nextInterval) {
       _maxOps = _mallocOps - _freeOps;
       _nextInterval = _uniform_dist(_engine);
       return true;
@@ -128,7 +128,7 @@ private:
 
   MallocTimer<MallocSamplingRateBytes> mallocTimer;
   FreeTimer<FreeSamplingRateBytes>     freeTimer;
-
+  
 public:
 
   enum { Alignment = SuperHeap::Alignment };
@@ -138,8 +138,8 @@ public:
   SampleHeap()
   {
     // Ignore the signals until they are replaced by a client.
-    signal(FreeSignal, SIG_IGN);
     signal(MallocSignal, SIG_IGN);
+    signal(FreeSignal, SIG_IGN);
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
@@ -153,8 +153,8 @@ public:
       if (unlikely(mallocTimer.registerMalloc(realSize))) {
 	raise(MallocSignal);
       }
-#if 0
-      if (freeTimer.registerMalloc(realSize)) {
+#if 1
+      if (unlikely(freeTimer.registerMalloc(realSize))) {
 	raise(FreeSignal);
       }
 #endif
@@ -167,15 +167,14 @@ public:
     //    auto sz = SuperHeap::getSize(ptr);
     // if (likely(sz > 0)) {
       auto sz = SuperHeap::free(ptr);
-#if 0
-      if (mallocTimer.registerFree(sz)) {
+#if 1
+      if (unlikely(mallocTimer.registerFree(sz))) {
 	raise(MallocSignal);
       }
 #endif
       if (unlikely(freeTimer.registerFree(sz))) {
 	raise(FreeSignal);
       }
-      //    }
   }
 };
 
