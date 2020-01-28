@@ -4,9 +4,11 @@ PYTHON = python3
 include heaplayers-make.mk
 
 upload: # to pypi
-	rm -rf dist/*
-	$(PYTHON) setup.py sdist bdist_wheel
-	$(PYTHON) -m twine upload dist/* 
-
-benchmark:
-	$(PYTHON) benchmarks/benchmark.py 
+	-rm -rf build dist *egg-info
+	@status=$$(git status --porcelain); \
+	if [ -z "$${status}" ]; then \
+		$(PYTHON) setup.py bdist_wheel sdist; \
+		$(PYTHON) twine upload dist/*; \
+	else \
+		echo Working directory is dirty >&2; \
+	fi;
