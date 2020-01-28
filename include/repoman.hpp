@@ -15,16 +15,20 @@
 template <int Size>
 class RepoMan {
 private:
-  enum { MAX_HEAP_SIZE = 1 * 1024 * 1024 * 1024 }; // 1GB
+  
+  enum { MAX_HEAP_SIZE = 2UL * 1024 * 1024 * 1024 }; // 2GB
   char * _bufferStart;
   
 public:
 
+  enum { Alignment = Repo<Size>::Alignment };
+  
   RepoMan()
     : _bufferStart (reinterpret_cast<char *>(MmapWrapper::map(MAX_HEAP_SIZE))),
       _repoSource(_bufferStart, MAX_HEAP_SIZE)
   {
     static_assert((Size & ~(Size-1)) == Size, "Size must be a power of two.");
+    static_assert(Size > MAX_SIZE, "Size must be larger than maximum size.");
     // Initialize the repos for each size.
     for (auto index = 0; index < NUM_REPOS; index++) {
       _repos[index] = _repoSource.get((index + 1) * MULTIPLE);
@@ -33,57 +37,63 @@ public:
     }
   }
 
+  // Check if this pointer came from us (inside the allocation buffer).
   inline ATTRIBUTE_ALWAYS_INLINE constexpr bool inBounds(void * ptr) const {
     char * cptr = reinterpret_cast<char *>(ptr);
     return ((cptr >= _bufferStart) && (cptr < (_bufferStart + MAX_HEAP_SIZE)));
   }
     
   inline ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
-    //    tprintf::tprintf("malloc @\n", sz);
-    if (unlikely(sz == 0)) { sz = MULTIPLE; }
+    // Round sz up to next multiple of MULTIPLE.
+    sz = roundUp(sz, MULTIPLE);
+    // assert(sz >= MULTIPLE);
     void * ptr;
     if (likely(sz <= MAX_SIZE)) {
-      // Round sz up to next multiple of MULTIPLE.
-      sz = roundUp(sz, MULTIPLE);
-      //      tprintf::tprintf("size now = @\n", sz);
+      //      assert (sz == roundUp(sz, MULTIPLE));
       auto index = getIndex(sz);
-      ptr = nullptr;
+      ptr = _repos[index]->malloc(sz);
+      if (likely(ptr != nullptr)) {
+	assert((uintptr_t) ptr % Alignment == 0);
+	return ptr;
+      }
       while (ptr == nullptr) {
 	ptr = _repos[index]->malloc(sz);
 	if (ptr == nullptr) {
-	  assert(_repos[index]->isFull());
+	  _repoSourceLock.lock();
 	  _repos[index] = _repoSource.get(sz);
-	  assert(_repos[index]->isEmpty());
+	  assert((_repos[index] == nullptr) || _repos[index]->isEmpty());
+	  _repoSourceLock.unlock();
 	}
       }
     } else {
       ptr = allocateLarge(sz);
     }
-    //    tprintf::tprintf("malloc @ = @\n", sz, ptr);
+    assert((uintptr_t) ptr % Alignment == 0);
     return ptr;
   }
 
   inline ATTRIBUTE_ALWAYS_INLINE size_t free(void * ptr) {
     if (unlikely(!inBounds(ptr))) {
       if ((uintptr_t) ptr - (uintptr_t) getHeader(ptr) != sizeof(RepoHeader<Size>)) {
+	// Out of bounds.  Not one of our objects.
 	return 0;
       }
     }
-    //    tprintf::tprintf("free @\n", ptr);
+
     if (likely(ptr != nullptr)) {
       if (likely(getHeader(ptr)->isValid())) {
-	//      std::cout << "checking " << ptr << std::endl;
 	auto sz = getSize(ptr);
 	if (likely(sz <= MAX_SIZE)) {
 	  auto index = getIndex(sz);
 	  auto r = reinterpret_cast<Repo<Size> *>(getHeader(ptr));
 	  assert(!r->isEmpty());
-	  r->free(ptr);
-	  // If we just freed the whole repo, give it back to the repo source for later reuse.
-	  if (unlikely(r->isEmpty())) {
-	    _repoSource.put(r);
-	    if (_repos[index] == r) {
-	      _repos[index] = _repoSource.get(sz);
+	  if (unlikely(r->free(ptr))) {
+	    assert(r->isEmpty());
+	    // If we just freed the whole repo and it's not our current repo, give it back to the repo source for later reuse.
+	    if (unlikely(r != _repos[index])) {
+	      _repoSourceLock.lock();
+	      _repoSource.put(r);
+	      _repoSourceLock.unlock();
 	    }
 	  }
 	} else {
@@ -97,6 +107,9 @@ public:
 
   static ATTRIBUTE_ALWAYS_INLINE constexpr inline size_t roundUp(size_t sz, size_t multiple) {
     assert((multiple & (multiple - 1)) == 0);
+    if (unlikely(sz < multiple)) {
+      sz = multiple;
+    }
     return (sz + multiple - 1) & ~(multiple - 1);
   }
   
@@ -117,6 +130,8 @@ public:
     }
     return sz;
   }
+
+  enum { MULTIPLE = 16 };
   
 private:
 
@@ -127,15 +142,12 @@ private:
     sz = sz + sizeof(RepoHeader<Size>);
     // Round sz up to next multiple of Size.
     sz = roundUp(sz, Size);
-    //      std::cout << "allocating object of size " << sz << std::endl;
     // FIXME force alignment!
-    //      tprintf::tprintf("*****big object orig = @, sz = @\n", origSize, sz);
-    
+    //    tprintf::tprintf("mapping object of size @\n", sz);
     auto basePtr = MmapWrapper::map(sz);
-    assert((uintptr_t) basePtr % Size == 0); // verify alignment
+    // assert((uintptr_t) basePtr % Size == 0); // verify alignment
     auto bigObjBase = new (basePtr) RepoHeader<Size>(origSize);
     auto ptr = bigObjBase + 1; // reinterpret_cast<char *>(basePtr) + sizeof(RepoHeader);
-    //      std::cout << "object size = " << getSize(ptr) << ", ptr = " << ptr << std::endl;
     return ptr;
   }
 
@@ -146,15 +158,15 @@ private:
     sz = sz + sizeof(RepoHeader<Size>);
     // Round sz up to next multiple of Size.
     sz = roundUp(sz, Size);
-    //	  tprintf::tprintf("FREE @ (@)\n", ptr, sz);
+    //    tprintf::tprintf("freeLarge: sz = @\n", sz);
     MmapWrapper::unmap(basePtr, sz);
   }
   
-  enum { MULTIPLE = 16 };
   enum { MAX_SIZE = 512 };
   enum { NUM_REPOS = MAX_SIZE / MULTIPLE };
   Repo<Size> * _repos[NUM_REPOS];
   RepoSource<Size> _repoSource;
+  HL::SpinLock _repoSourceLock;
 };
 
 #endif

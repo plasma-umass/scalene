@@ -1,3 +1,20 @@
+# Disable the @profile decorator if none has been declared.
+
+try:
+    # Python 2
+    import __builtin__ as builtins
+except ImportError:
+    # Python 3
+    import builtins
+
+try:
+    builtins.profile
+except AttributeError:
+    # No line profiler, provide a pass-through version
+    def profile(func): return func
+    builtins.profile = profile
+
+    
 # Pasted from Chapter 2, High Performance Python - O'Reilly Media;
 # minor modifications for Python 3 by Emery Berger
 
@@ -7,7 +24,7 @@ import time
 x1, x2, y1, y2 = -1.8, 1.8, -1.8, 1.8
 c_real, c_imag = -0.62772, -.42193
 
-#@profile
+@profile
 def calculate_z_serial_purepython(maxiter, zs, cs):
     """Calculate output list using Julia update rule"""
     output = [0] * len(zs)
@@ -22,7 +39,7 @@ def calculate_z_serial_purepython(maxiter, zs, cs):
     return output
 
 
-#@profile
+@profile
 def calc_pure_python(desired_width, max_iterations):
     """Create a list of complex coordinates (zs) and complex
     parameters (cs), build Julia set, and display"""

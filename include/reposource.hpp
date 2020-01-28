@@ -23,6 +23,9 @@ public:
   inline bool isValid() const {
 #if defined(NDEBUG)
     return true;
+#endif
+#if 1 // turn off expensive integrity checks for now.
+    return true;
 #else
     int count = 0;
     Repo<Size> * repo = getSource();
@@ -60,11 +63,12 @@ public:
 	assert(isValid());
 	return repo;
       } else {
-	tprintf::tprintf("Memory exhausted: sz = @\n", sz);
+	tprintf::tprintf("Scalene: Memory exhausted: sz = @\n", sz);
 	assert(isValid());
 	return nullptr;
       }
     } else {
+      //      tprintf::tprintf("GET (@) popping.\n", sz);
       assert(_totalAvailable > 0);
       repo = getSource();
       getSource() = getSource()->getNext();
@@ -75,7 +79,6 @@ public:
       }
       _totalAvailable--;
     }
-    repo->setNext(nullptr);
     assert(repo->isValid());
     assert(repo->isEmpty());
     //    tprintf::tprintf("GET @ = @ [total available = @]\n", sz, repo, _totalAvailable);
@@ -88,7 +91,7 @@ public:
     assert(repo != nullptr);
     Repo<Size> * r = getSource();
     assert(repo->isValid());
-    //    assert(repo->isEmpty());
+    assert(repo->isEmpty());
     //    assert(getSource() == nullptr || getSource()->isEmpty());
     repo->setNext(getSource());
     getSource() = repo;

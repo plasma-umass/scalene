@@ -11,9 +11,9 @@ by [Emery Berger](https://emeryberger.com)
 Scalene is a high-performance CPU *and* memory profiler for Python that does a few things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
 
 1. Scalene is _fast_. It uses sampling instead of instrumentation or relying on Python's tracing facilities. Its overhead is typically no more than 10-20% (and often less).
-1. Scalene is _precise_. Unlike most other Python profilers, Scalene performs CPU profiling _at the line level_, pointing to the specific lines of code that are responsible for the execution time in your program. This level of detail can be much more useful information than the function-level profiles returned by most profilers.
+1. Scalene is _precise_. Unlike most other Python profilers, Scalene performs CPU profiling _at the line level_, pointing to the specific lines of code that are responsible for the execution time in your program. This level of detail can be much more useful than the function-level profiles returned by most profilers.
+1. Scalene separates out time spent running in Python from time spent in native code (including libraries). Most Python programmers aren't going to optimize the performance of native code (which is usually either in the Python implementation or external libraries), so this helps developers focus their optimization efforts on the code they can actually improve.
 1. Scalene _profiles memory usage_. In addition to tracking CPU usage, Scalene also points to the specific lines of code responsible for memory growth. It accomplishes this via an included specialized memory allocator.
-1.  *NEW: it now also separates out time spent running in Python from time spent in C code (including libraries).*
 
 ## Installation
 
@@ -52,20 +52,24 @@ Profiling on a Linux system:
 
 ## Performance and Features
 
-Below is a table comparing various profilers to scalene, running on an example Python program (`benchmarks/julia1_nopil.py`) from the book _High Performance Python_, by Gorelick and Ozsvald. All of these were run on a 2016 MacBook Pro. 
+Below is a table comparing various profilers to scalene, running on an example Python program (`benchmarks/julia1_nopil.py`) from the book _High Performance Python_, by Gorelick and Ozsvald. All of these were run on a 2016 MacBook Pro.
 
-|                            | Time (seconds) | Slowdown | Line-level?    | CPU? | Memory? | Unmodified code?       |
-| :--- | ---: | ---: | :---: | :---: | :---: | :---: |
-| _original program_             | _7.76s_     | _1.00x_     | |  |  |  |  |  |  |
-|               |     |        |                    |
-| `cProfile`                   | 11.17s    | 1.44x     | function-level | :heavy_check_mark:  |     | :heavy_check_mark:   |
-| `Profile`                    | 278.19s   | 35.86x    | function-level | :heavy_check_mark:  |     | :heavy_check_mark:   |
-| `yappi`                      | 143.78s   | 18.53x    | function-level | :heavy_check_mark:  |     | :heavy_check_mark:   |
-| `line_profiler`              | 93.27s    | 12.02x    | :heavy_check_mark:     | :heavy_check_mark:  |     | needs `@profile` decorators |
-| `memory_profiler`            | _aborted after 30 minutes_ | >232x   | :heavy_check_mark:  |   | :heavy_check_mark: | needs `@profile` decorators |
-| |  |  |  |  |  |  |
-| **`scalene`** _(CPU only)_         | 8.31s     | **1.07x**     | :heavy_check_mark: | :heavy_check_mark: |      | :heavy_check_mark: |
-| **`scalene`** _(CPU + memory)_     | 9.11s     | **1.17x**     | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+
+|                            | Time (seconds) | Slowdown | Line-level?    | CPU? | Separates Python from native? | Memory? | Unmodified code? |
+| :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: |
+| _original program_ | 6.71s | 1.0x | | | | | |
+|               |     |        |                    | |
+| `cProfile` | 11.04s | 1.65x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
+| `Profile` | 202.26s | 30.14x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
+| `pyinstrument` | 9.83s | 1.46x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
+| `line_profiler` | 78.0s | 11.62x | :heavy_check_mark: | :heavy_check_mark: |  |  | needs `@profile` decorators |
+| `pprofile` _(deterministic)_ | 403.67s | 60.16x | :heavy_check_mark: | :heavy_check_mark: |  |  | :heavy_check_mark: |
+| `pprofile` _(statistical)_ | 7.47s | 1.11x | :heavy_check_mark: | :heavy_check_mark: |  |  | :heavy_check_mark: |
+| `yappi` _(CPU)_ | 127.53s | 19.01x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
+| `yappi` _(wallclock)_ | 21.45s | 3.2x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
+|               |     |        |                    | |
+| `scalene` _(CPU only)_ | 6.98s | **1.04x** | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |  | :heavy_check_mark: |
+| `scalene` _(CPU + memory)_ | 7.68s | **1.14x** | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 
 
 ## Output
