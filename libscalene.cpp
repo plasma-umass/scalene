@@ -17,8 +17,8 @@
 class TheCustomHeap;
 static TheCustomHeap * theCustomHeap = nullptr;
 
-const auto MallocSamplingRate = 256 * 1024 * 1024;
-const auto FreeSamplingRate   = 256 * 1024 * 1024;
+const auto MallocSamplingRate = 1 * 1024 * 1024;
+const auto FreeSamplingRate   = 1 * 1024 * 1024;
 const auto RepoSize = 4096;
 
 typedef SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>> CustomHeapType;
