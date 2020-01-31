@@ -22,8 +22,21 @@ Scalene is distributed as a `pip` package and works on Linux and Mac OS X platfo
   % pip install scalene
 ```
 
+or
+```
+  % python -m pip install scalene
+```
 
 _NOTE_: Currently, installing Scalene in this way does not install its memory profiling library, so you will only be able to use it to perform CPU profiling. To take advantage of its memory profiling capability, you will need to download this repository.
+
+**NEW**: You can now install the memory profiling part on Mac OS X using Homebrew.
+
+```
+  % brew tap emeryberger/scalene
+  % brew install --head libscalene
+```
+
+This will install a `scalene` script you can use (see below).
 
 # Usage
 
@@ -33,13 +46,19 @@ The following command will run Scalene to only perform line-level CPU profiling 
   % python -m scalene test/testme.py
 ```
 
-To perform both line-level CPU and memory profiling, you first need to build the specialized memory allocator by running `make`:
+If you have installed the Scalene library with Homebrew, you can just invoke `scalene` to perform both line-level CPU and memory profiling:
+
+```
+  % scalene test/testme.py
+```
+
+Otherwise, you first need to build the specialized memory allocator by running `make`:
 
 ```
   % make
 ```
 
-Profiling on a Mac OS X system:
+Profiling on a Mac OS X system (without using Homebrew):
 ```
   % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene test/testme.py
 ``` 
@@ -48,6 +67,7 @@ Profiling on a Linux system:
 ```
   % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene test/testme.py
 ``` 
+
 # Comparison to Other Profilers
 
 ## Performance and Features
