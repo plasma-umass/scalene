@@ -22,7 +22,6 @@ const auto FreeSamplingRate   = 1 * 1024 * 1024;
 const auto RepoSize = 4096;
 
 typedef SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>> CustomHeapType;
-//typedef SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>> CustomHeapType;
 
 class TheCustomHeap : public CustomHeapType {
   typedef CustomHeapType Super;
