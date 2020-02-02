@@ -5,5 +5,5 @@ include heaplayers-make.mk
 
 upload: # to pypi
 	-rm -rf build dist *egg-info
-	$(PYTHON) setup.py bdist_wheel sdist
+	$(PYTHON) setup.py sdist bdist_wheel
 	$(PYTHON) -m twine upload dist/*
