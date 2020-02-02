@@ -1,6 +1,10 @@
 #ifndef SAMPLEHEAP_H
 #define SAMPLEHEAP_H
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include <random>
 #include <atomic>
 
@@ -9,6 +13,10 @@
 #include "tprintf.h"
 #include "repoman.hpp"
 
+
+const char scalene_malloc_signal_filename[] = "/tmp/scalene-malloc-signal";
+const char scalene_free_signal_filename[]   = "/tmp/scalene-free-signal";
+const auto flags = O_WRONLY | O_CREAT | O_SYNC | O_TRUNC;
 #define DISABLE_SIGNALS 0 // For debugging purposes only.
 
 #if DISABLE_SIGNALS
@@ -34,18 +42,18 @@ public:
   {
   }
   
-  inline bool registerMalloc(size_t sz) {
+  inline int registerMalloc(size_t sz) {
     _mallocOps += sz;
     if (unlikely(_mallocOps >= TimerInterval)) {
-      _mallocOps -= TimerInterval;
-      // _mallocOps = 0; // -= TimerInterval;
-      return true;
+      auto count = (_mallocOps + TimerInterval - 1) / TimerInterval;
+      _mallocOps = 0;
+      return count;
     } else {
-      return false;
+      return 0;
     }
   }
-  inline constexpr bool registerFree(size_t sz) {
-    return false;
+  inline constexpr int registerFree(size_t sz) {
+    return 0;
   }
   
 private:
@@ -64,18 +72,18 @@ public:
   {
   }
   
-  inline constexpr bool registerMalloc(size_t sz) {
-    return false;
+  inline constexpr int registerMalloc(size_t sz) {
+    return 0;
   }
   
-  inline bool registerFree(size_t sz) {
+  inline int registerFree(size_t sz) {
     _freeOps += sz;
     if (unlikely(_freeOps >= TimerInterval)) {
-      _freeOps -= TimerInterval;
-      // _freeOps = 0; // -= TimerInterval;
-      return true;
+      auto count = (_freeOps + TimerInterval - 1) / TimerInterval;
+      _freeOps = 0;
+      return count;
     } else {
-      return false;
+      return 0;
     }
   }
   
@@ -90,7 +98,9 @@ private:
 
   MallocTimer<MallocSamplingRateBytes> mallocTimer;
   FreeTimer<FreeSamplingRateBytes>     freeTimer;
-
+  int mallocFd;
+  int freeFd;
+  
 public:
 
   enum { Alignment = SuperHeap::Alignment };
@@ -104,6 +114,13 @@ public:
     signal(FreeSignal, SIG_IGN);
   }
 
+  ~SampleHeap() {
+    close(mallocFd);
+    close(freeFd);
+    unlink(scalene_malloc_signal_filename);
+    unlink(scalene_free_signal_filename);
+  }
+  
   ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
     // auto realSize = SuperHeap::roundUp(sz, SuperHeap::MULTIPLE); // // SuperHeap::getSize(ptr);
     //    assert((sz < 16) || (realSize <= sz + 15));
@@ -112,7 +129,14 @@ public:
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
-      if (unlikely(mallocTimer.registerMalloc(realSize))) {
+      int count = 0;
+      if (unlikely(count = mallocTimer.registerMalloc(realSize))) {
+	//	tprintf::tprintf("malloc SIG @\n", count);
+	char buf[255];
+	sprintf(buf, "%d\n\n\n", count);
+	mallocFd = open(scalene_malloc_signal_filename, flags, S_IRUSR | S_IWUSR);
+	write(mallocFd, buf, strlen(buf));
+	close(mallocFd);
 	raise(MallocSignal);
       }
 #if 1
@@ -134,7 +158,14 @@ public:
 	raise(MallocSignal);
       }
 #endif
-      if (unlikely(freeTimer.registerFree(sz))) {
+      int count = 0;
+      if (unlikely(count = freeTimer.registerFree(sz))) {
+	// tprintf::tprintf("free SIG @\n", count);
+	char buf[255];
+	sprintf(buf, "%d\n", count);
+	freeFd = open(scalene_free_signal_filename, flags, S_IRUSR | S_IWUSR);
+	write(freeFd, buf, strlen(buf));
+	close(freeFd);
 	raise(FreeSignal);
       }
   }
