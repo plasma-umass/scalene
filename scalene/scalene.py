@@ -210,7 +210,7 @@ class Scalene():
         count = 1
         try:
             with open(Scalene.malloc_signal_filename, "r") as f:
-                count = int(f.read())
+                count = int(f.readline())
         except Exception as e:
             print(e)
             pass
@@ -234,7 +234,7 @@ class Scalene():
         count = 1
         try:
             with open(Scalene.free_signal_filename, "r") as f:
-                count = int(f.read())
+                count = int(f.readline())
         except Exception as e:
             print(e)
             pass
@@ -341,7 +341,7 @@ class Scalene():
                         n_malloc_count = Scalene.memory_malloc_count[fname][line_no]
                         n_avg_malloc_mb = 0 if n_malloc_count == 0 else n_malloc_mb / n_malloc_count
                         
-                        n_growth_mb = 0 if n_malloc_count == 0 else n_avg_malloc_mb - n_avg_free_mb
+                        n_growth_mb = 0 if n_malloc_count == 0 and n_free_count == 0 else n_avg_malloc_mb - n_avg_free_mb
                         n_usage_mb = n_avg_malloc_mb + n_avg_free_mb
 
                         # Finally, print results.
