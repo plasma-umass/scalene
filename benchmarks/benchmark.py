@@ -86,6 +86,28 @@ unmodified_code["memory_profiler"] = False
 unmodified_code["scalene_cpu"] = True
 unmodified_code["scalene_cpu_memory"] = True
 
+# how the profilers measure time
+#   - wall clock only
+#   - virtual (process) time only
+#   - either one
+WallClock = 1
+VirtualTime = 2
+Either = 3
+
+timing["baseline"] = None
+timing["cProfile"] = WallClock
+timing["Profile"]  = VirtualTime
+timing["pyinstrument"] = WallClock
+timing["line_profiler"] = WallClock
+timing["yappi_cputime"] = Either
+timing["yappi_wallclock"] = Either
+timing["pprofile_deterministic"] = WallClock
+timing["pprofile_statistical"] = WallClock
+timing["memory_profiler"] = None
+timing["scalene_cpu"] = Either
+timing["scalene_cpu_memory"] = Either
+
+
 # Command lines for the various tools.
 
 baseline = f"{python} {progname}"
