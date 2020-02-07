@@ -350,7 +350,7 @@ class Scalene():
                         
                         n_growth_mb = 0 if n_malloc_count == 0 and n_free_count == 0 else n_avg_malloc_mb - n_avg_free_mb
                         # n_growth_mb = 0 if n_malloc_count == 0 and n_free_count == 0 else n_malloc_mb # n_avg_malloc_mb # - n_avg_free_mb
-                        n_usage_mb = Scalene.memory_malloc_samples[fname][line_no] / Scalene.total_memory_malloc_samples #  (Scalene.memory_max_samples[fname][line_no] / Scalene.total_max_samples) # * Scalene.malloc_sampling_rate) / (1024 * 1024)
+                        n_usage_mb = 0 if Scalene.total_memory_malloc_samples == 0 else Scalene.memory_malloc_samples[fname][line_no] / Scalene.total_memory_malloc_samples #  (Scalene.memory_max_samples[fname][line_no] / Scalene.total_max_samples) # * Scalene.malloc_sampling_rate) / (1024 * 1024)
                         # n_usage_mb = n_free_mb # n_avg_free_mb
 
                         # Finally, print results.
