@@ -88,7 +88,7 @@ Below is a table comparing various profilers to scalene, running on an example P
 | `yappi` _(CPU)_ | 127.53s | 19.01x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
 | `yappi` _(wallclock)_ | 21.45s | 3.2x | function-level | :heavy_check_mark: |  |  | :heavy_check_mark: |
 | `py-spy` | 7.25s | 1.08x | :heavy_check_mark: | :heavy_check_mark: |  |  | :heavy_check_mark: |
-| `memory_profiler`     | _aborted after 2 hours_ | **>1000x**| line_level |  |  | :heavy_check_mark: | needs `@profile` decorators |
+| `memory_profiler`     | _aborted after 2 hours_ | **>1000x**| :heavy_check_mark: |  |  | :heavy_check_mark: | needs `@profile` decorators |
 |               |     |        |                    | |
 | `scalene` _(CPU only)_ | 6.98s | **1.04x** | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |  | :heavy_check_mark: |
 | `scalene` _(CPU + memory)_ | 7.68s | **1.14x** | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
