@@ -24,6 +24,8 @@
 class TheCustomHeap;
 static TheCustomHeap * theCustomHeap = nullptr;
 
+// We use prime numbers here (near 1MB, for example) to avoid the risk
+// of stride behavior interfering with sampling.
 const auto MallocSamplingRate = 1048583; // 33554467; // 16777259; // 1048583; // 1 * 1024 * 1024;
 const auto FreeSamplingRate   = 1048589; // 16777289; // 1048589; // 1 * 1024 * 1024;
 const auto RepoSize = 4096;
