@@ -17,6 +17,7 @@
 const char scalene_malloc_signal_filename[] = "/tmp/scalene-malloc-signal";
 const char scalene_free_signal_filename[]   = "/tmp/scalene-free-signal";
 const auto flags = O_WRONLY | O_CREAT | O_SYNC | O_APPEND; // O_TRUNC;
+const auto perms = S_IRUSR | S_IWUSR;
 #define DISABLE_SIGNALS 0 // For debugging purposes only.
 
 #if DISABLE_SIGNALS
@@ -130,7 +131,7 @@ public:
       if (unlikely(count = mallocTimer.registerMalloc(realSize))) {
 	char buf[255];
 	sprintf(buf, "%f\n", count);
-	mallocFd = open(scalene_malloc_signal_filename, flags, S_IRUSR | S_IWUSR);
+	mallocFd = open(scalene_malloc_signal_filename, flags, perms);
 	write(mallocFd, buf, strlen(buf));
 	close(mallocFd);
 	raise(MallocSignal);
@@ -149,7 +150,7 @@ public:
       if (unlikely(count = freeTimer.registerFree(realSize))) {
 	char buf[255];
 	sprintf(buf, "%f\n", count);
-	freeFd = open(scalene_free_signal_filename, flags, S_IRUSR | S_IWUSR);
+	freeFd = open(scalene_free_signal_filename, flags, perms);
 	write(freeFd, buf, strlen(buf));
 	close(freeFd);
 	raise(FreeSignal);
