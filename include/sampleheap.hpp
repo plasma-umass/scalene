@@ -95,8 +95,6 @@ private:
 
   MallocTimer<MallocSamplingRateBytes> mallocTimer;
   FreeTimer<FreeSamplingRateBytes>     freeTimer;
-  int mallocFd;
-  int freeFd;
   
 public:
 
@@ -112,15 +110,12 @@ public:
   }
 
   ~SampleHeap() {
-    close(mallocFd);
-    close(freeFd);
+    // Delete the signal log files.
     unlink(scalene_malloc_signal_filename);
     unlink(scalene_free_signal_filename);
   }
   
   ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
-    // auto realSize = SuperHeap::roundUp(sz, SuperHeap::MULTIPLE); // // SuperHeap::getSize(ptr);
-    //    assert((sz < 16) || (realSize <= sz + 15));
     auto ptr = SuperHeap::malloc(sz);
     if (likely(ptr != nullptr)) {
       auto realSize = SuperHeap::getSize(ptr);
@@ -129,11 +124,7 @@ public:
       double count = 0.0;
       
       if (unlikely(count = mallocTimer.registerMalloc(realSize))) {
-	char buf[255];
-	sprintf(buf, "%f\n", count);
-	mallocFd = open(scalene_malloc_signal_filename, flags, perms);
-	write(mallocFd, buf, strlen(buf));
-	close(mallocFd);
+	writeCount(scalene_malloc_signal_filename, count);
 	raise(MallocSignal);
       }
     }
@@ -142,20 +133,25 @@ public:
 
   ATTRIBUTE_ALWAYS_INLINE inline void free(void * ptr) {
     if (unlikely(ptr == nullptr)) { return; }
-    //    auto sz = SuperHeap::getSize(ptr);
-    // if (likely(sz > 0)) {
       auto realSize = SuperHeap::free(ptr);
       
-      double count = 0;
+      double count = 0.0;
       if (unlikely(count = freeTimer.registerFree(realSize))) {
-	char buf[255];
-	sprintf(buf, "%f\n", count);
-	freeFd = open(scalene_free_signal_filename, flags, perms);
-	write(freeFd, buf, strlen(buf));
-	close(freeFd);
+	writeCount(scalene_free_signal_filename, count);
 	raise(FreeSignal);
       }
   }
+
+private:
+
+  void writeCount(const char * fname, double count) {
+    char buf[255];
+    sprintf(buf, "%f\n", count);
+    int fd = open(fname, flags, perms);
+    write(fd, buf, strlen(buf));
+    close(fd);
+  }
+  
 };
 
 #endif
