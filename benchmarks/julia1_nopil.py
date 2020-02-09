@@ -1,3 +1,5 @@
+import sys
+
 # Disable the @profile decorator if none has been declared.
 
 try:
@@ -71,7 +73,11 @@ def calc_pure_python(desired_width, max_iterations):
     output = calculate_z_serial_purepython(max_iterations, zs, cs)
     end_time = time.time()
     secs = end_time - start_time
-    print("calculate_z_serial_purepython " + " took", secs, "seconds")
+    sys.stdout.flush()
+    sys.stderr.flush()
+    output_str = "calculate_z_serial_purepython  took " + str(secs) + " seconds"
+    print(output_str, file=sys.stderr)
+    sys.stderr.flush()
 
     # This sum is expected for a 1000^2 grid with 300 iterations.
     # It catches minor errors we might introduce when we're
@@ -83,4 +89,4 @@ if __name__ == "__main__":
     # Calculate the Julia set using a pure Python solution with
     # reasonable defaults for a laptop
     calc_pure_python(desired_width=1000, max_iterations=300)
- 
+    sys.exit(-1) # To force output from py-spy
