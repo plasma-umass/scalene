@@ -213,14 +213,14 @@ class Scalene():
         if not Scalene.should_trace(fname):
             return
         count = 1.0
+        lineno = frame.f_lineno
+        Scalene.memory_malloc_count[fname][lineno] += 1
         try:
             with open(Scalene.malloc_signal_filename, "r") as f:
                 for l, count_str in enumerate(f, 1):
                     count_str = count_str.rstrip()
                     count = float(count_str)
-                    lineno = frame.f_lineno
                     Scalene.memory_malloc_samples[fname][lineno] += count
-                    Scalene.memory_malloc_count[fname][lineno] += 1
                     # print("SCALENE (" + str(l) + ") : malloc = " + str(count) + ", " + str(Scalene.memory_malloc_samples[fname][lineno]))
                     Scalene.total_memory_malloc_samples += count
                     Scalene.current_footprint += count
@@ -242,14 +242,14 @@ class Scalene():
         if not Scalene.should_trace(fname):
             return
         count = 1.0
+        lineno = frame.f_lineno
+        Scalene.memory_free_count[fname][lineno] += 1
         try:
             with open(Scalene.free_signal_filename, "r") as f:
                 for l, count_str in enumerate(f, 1):
                     count_str = count_str.rstrip()
                     count = float(count_str)
-                    lineno = frame.f_lineno
                     Scalene.memory_free_samples[fname][lineno] += count
-                    Scalene.memory_free_count[fname][lineno] += 1
                     # print("SCALENE (" + str(l) + ") : free = " + str(count) + ", " + str(Scalene.memory_free_samples[fname][lineno]))
                     Scalene.total_memory_free_samples += count
                     Scalene.current_footprint -= count
@@ -359,9 +359,7 @@ class Scalene():
                         n_avg_malloc_mb = 0 if n_malloc_count == 0 else n_malloc_mb / n_malloc_count
                         
                         n_growth_mb = 0 if n_malloc_count == 0 and n_free_count == 0 else n_avg_malloc_mb - n_avg_free_mb
-                        # n_growth_mb = 0 if n_malloc_count == 0 and n_free_count == 0 else n_malloc_mb # n_avg_malloc_mb # - n_avg_free_mb
-                        n_usage_mb = 0 if Scalene.total_memory_malloc_samples == 0 else Scalene.memory_malloc_samples[fname][line_no] / Scalene.total_memory_malloc_samples #  (Scalene.memory_max_samples[fname][line_no] / Scalene.total_max_samples) # * Scalene.malloc_sampling_rate) / (1024 * 1024)
-                        # n_usage_mb = n_free_mb # n_avg_free_mb
+                        n_usage_mb = 0 if Scalene.total_memory_malloc_samples == 0 else Scalene.memory_malloc_samples[fname][line_no] / Scalene.total_memory_malloc_samples
 
                         # Finally, print results.
                         n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 else '%6.2f%%' % n_cpu_percent_c
