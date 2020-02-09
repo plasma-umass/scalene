@@ -57,6 +57,7 @@ public:
 	_sz -= Size;
 	//      auto buf = MmapWrapper::map(Size);
 	// Must ensure sz is a proper size.
+	assert(sz % Alignment == 0);
 	repo = new (buf) Repo<Size>(sz);
 	assert(repo != nullptr);
 	repo->setNext(nullptr); // FIXME? presumably redundant.

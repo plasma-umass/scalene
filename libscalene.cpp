@@ -14,11 +14,18 @@
 
 #include "repoman.hpp"
 
+#include <stdio.h>
+#include <execinfo.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+
 class TheCustomHeap;
 static TheCustomHeap * theCustomHeap = nullptr;
 
-const auto MallocSamplingRate = 16 * 1024 * 1024;
-const auto FreeSamplingRate   = 16 * 1024 * 1024;
+const auto MallocSamplingRate = 1048583; // 33554467; // 16777259; // 1048583; // 1 * 1024 * 1024;
+const auto FreeSamplingRate   = 1048589; // 16777289; // 1048589; // 1 * 1024 * 1024;
 const auto RepoSize = 4096;
 
 typedef SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>> CustomHeapType;
@@ -26,10 +33,12 @@ typedef SampleHeap<MallocSamplingRate, FreeSamplingRate, RepoMan<RepoSize>> Cust
 class TheCustomHeap : public CustomHeapType {
   typedef CustomHeapType Super;
 public:
-  TheCustomHeap() {
+  TheCustomHeap()
+  {
     theCustomHeap = this;
   }
 };
+
 
 TheCustomHeap& getTheCustomHeap() {
   static TheCustomHeap thang;

@@ -16,7 +16,7 @@
 
 const char scalene_malloc_signal_filename[] = "/tmp/scalene-malloc-signal";
 const char scalene_free_signal_filename[]   = "/tmp/scalene-free-signal";
-const auto flags = O_WRONLY | O_CREAT | O_SYNC | O_TRUNC;
+const auto flags = O_WRONLY | O_CREAT | O_SYNC | O_APPEND; // O_TRUNC;
 #define DISABLE_SIGNALS 0 // For debugging purposes only.
 
 #if DISABLE_SIGNALS
@@ -42,19 +42,17 @@ public:
   {
   }
   
-  inline int registerMalloc(size_t sz) {
+  inline double registerMalloc(size_t sz) {
     _mallocOps += sz;
     if (unlikely(_mallocOps >= TimerInterval)) {
-      auto count = (_mallocOps + TimerInterval - 1) / TimerInterval;
+      double count = _mallocOps / (double) TimerInterval;
       _mallocOps = 0;
       return count;
     } else {
       return 0;
     }
   }
-  inline constexpr int registerFree(size_t sz) {
-    return 0;
-  }
+  inline constexpr double registerFree(size_t sz);
   
 private:
   counterType _mallocOps;
@@ -72,14 +70,12 @@ public:
   {
   }
   
-  inline constexpr int registerMalloc(size_t sz) {
-    return 0;
-  }
+  inline constexpr double registerMalloc(size_t sz);
   
-  inline int registerFree(size_t sz) {
+  inline double registerFree(size_t sz) {
     _freeOps += sz;
     if (unlikely(_freeOps >= TimerInterval)) {
-      auto count = (_freeOps + TimerInterval - 1) / TimerInterval;
+      double count = _freeOps / (double) TimerInterval;
       _freeOps = 0;
       return count;
     } else {
@@ -129,21 +125,16 @@ public:
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
-      int count = 0;
+      double count = 0.0;
+      
       if (unlikely(count = mallocTimer.registerMalloc(realSize))) {
-	//	tprintf::tprintf("malloc SIG @\n", count);
 	char buf[255];
-	sprintf(buf, "%d\n\n\n", count);
+	sprintf(buf, "%f\n", count);
 	mallocFd = open(scalene_malloc_signal_filename, flags, S_IRUSR | S_IWUSR);
 	write(mallocFd, buf, strlen(buf));
 	close(mallocFd);
 	raise(MallocSignal);
       }
-#if 1
-      if (unlikely(freeTimer.registerMalloc(realSize))) {
-	raise(FreeSignal);
-      }
-#endif
     }
     return ptr;
   }
@@ -152,17 +143,12 @@ public:
     if (unlikely(ptr == nullptr)) { return; }
     //    auto sz = SuperHeap::getSize(ptr);
     // if (likely(sz > 0)) {
-      auto sz = SuperHeap::free(ptr);
-#if 1
-      if (unlikely(mallocTimer.registerFree(sz))) {
-	raise(MallocSignal);
-      }
-#endif
-      int count = 0;
-      if (unlikely(count = freeTimer.registerFree(sz))) {
-	// tprintf::tprintf("free SIG @\n", count);
+      auto realSize = SuperHeap::free(ptr);
+      
+      double count = 0;
+      if (unlikely(count = freeTimer.registerFree(realSize))) {
 	char buf[255];
-	sprintf(buf, "%d\n", count);
+	sprintf(buf, "%f\n", count);
 	freeFd = open(scalene_free_signal_filename, flags, S_IRUSR | S_IWUSR);
 	write(freeFd, buf, strlen(buf));
 	close(freeFd);
