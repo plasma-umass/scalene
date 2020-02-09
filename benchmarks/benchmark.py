@@ -19,7 +19,7 @@ cpu_profiler = {}
 separate_profiler = {}
 memory_profiler = {}
 unmodified_code = {}
-
+timing = {}
 
 line_level["baseline"] = None
 line_level["cProfile"] = False
@@ -30,6 +30,7 @@ line_level["yappi_cputime"] = False
 line_level["yappi_wallclock"] = False
 line_level["pprofile_deterministic"] = True
 line_level["pprofile_statistical"] = True
+line_level["py_spy"] = True
 line_level["memory_profiler"] = True
 line_level["scalene_cpu"] = True
 line_level["scalene_cpu_memory"] = True
@@ -43,6 +44,7 @@ cpu_profiler["yappi_cputime"] = True
 cpu_profiler["yappi_wallclock"] = True
 cpu_profiler["pprofile_deterministic"] = True
 cpu_profiler["pprofile_statistical"] = True
+cpu_profiler["py_spy"] = True
 cpu_profiler["memory_profiler"] = False
 cpu_profiler["scalene_cpu"] = True
 cpu_profiler["scalene_cpu_memory"] = True
@@ -56,6 +58,7 @@ separate_profiler["yappi_cputime"] = False
 separate_profiler["yappi_wallclock"] = False
 separate_profiler["pprofile_deterministic"] = False
 separate_profiler["pprofile_statistical"] = False
+separate_profiler["py_spy"] = False
 separate_profiler["memory_profiler"] = False
 separate_profiler["scalene_cpu"] = True
 separate_profiler["scalene_cpu_memory"] = True
@@ -69,6 +72,7 @@ memory_profiler["yappi_cputime"] = False
 memory_profiler["yappi_wallclock"] = False
 memory_profiler["pprofile_deterministic"] = False
 memory_profiler["pprofile_statistical"] = False
+memory_profiler["py_spy"] = False
 memory_profiler["memory_profiler"] = True
 memory_profiler["scalene_cpu"] = False
 memory_profiler["scalene_cpu_memory"] = True
@@ -82,6 +86,7 @@ unmodified_code["yappi_cputime"] = True
 unmodified_code["yappi_wallclock"] = True
 unmodified_code["pprofile_deterministic"] = True
 unmodified_code["pprofile_statistical"] = True
+unmodified_code["py_spy"] = True
 unmodified_code["memory_profiler"] = False
 unmodified_code["scalene_cpu"] = True
 unmodified_code["scalene_cpu_memory"] = True
@@ -103,6 +108,7 @@ timing["yappi_cputime"] = Either
 timing["yappi_wallclock"] = Either
 timing["pprofile_deterministic"] = WallClock
 timing["pprofile_statistical"] = WallClock
+timing["py_spy"] = Either
 timing["memory_profiler"] = None
 timing["scalene_cpu"] = Either
 timing["scalene_cpu_memory"] = Either
@@ -119,6 +125,7 @@ pprofile_deterministic = f"pprofile {progname}"
 pprofile_statistical = f"pprofile --statistic 0.001 {progname}" # Same as Scalene
 yappi_cputime = f"yappi {progname}"
 yappi_wallclock = f"yappi -c wall {progname}"
+py_spy = f"py-spy record -f raw -o foo.txt -- python3.7 {progname}"
 scalene_cpu = f"{python} -m scalene {progname}"
 scalene_cpu_memory = f"{python} -m scalene {progname}" # see below for environment variables
 
@@ -126,6 +133,7 @@ benchmarks = [(baseline, "baseline", "_original program_"), (cprofile, "cProfile
 
 # benchmarks = [(baseline, "baseline", "_original program_"), (pprofile_deterministic, "`pprofile` _(deterministic)_")]
 # benchmarks = [(baseline, "baseline", "_original program_"), (pprofile_statistical, "pprofile_statistical", "`pprofile` _(statistical)_")]
+benchmarks = [(baseline, "baseline", "_original program_"), (py_spy, "py_spy", "`py-spy`")]
 
 average_time = {}
 check = ":heavy_check_mark:"
@@ -134,7 +142,7 @@ print("|                            | Time (seconds) | Slowdown | Line-level?   
 print("| :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: |")
 
 for bench in benchmarks:
-    # print(bench)
+    print(bench)
     times = []
     for i in range(0, number_of_runs):
         my_env = os.environ.copy()
@@ -144,8 +152,9 @@ for bench in benchmarks:
                 my_env["DYLD_INSERT_LIBRARIES"] = "./libscalene.dylib"
             if sys.platform == 'linux':
                 my_env["LD_PRELOAD"] = "./libscalene.so"
-        result = subprocess.run(bench[0].split(), env = my_env, stdout = subprocess.PIPE)
+        result = subprocess.run(bench[0].split(), env = my_env, stderr = subprocess.STDOUT, stdout = subprocess.PIPE)
         output = result.stdout.decode('utf-8')
+        print(output)
         match = result_regexp.search(output)
         if match is not None:
             times.append(round(100 * float(match.group(1))) / 100.0)
