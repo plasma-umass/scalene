@@ -16,7 +16,7 @@ template <int Size>
 class RepoMan {
 private:
   
-  enum { MAX_HEAP_SIZE = 2UL * 1024 * 1024 * 1024 }; // 2GB
+  enum { MAX_HEAP_SIZE = 3UL * 1024 * 1024 * 1024 }; // 3GB
   char * _bufferStart;
   
 public:
