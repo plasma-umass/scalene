@@ -138,7 +138,7 @@ benchmarks = [(baseline, "baseline", "_original program_"), (py_spy, "py_spy", "
 average_time = {}
 check = ":heavy_check_mark:"
 
-print("|                            | Time (seconds) | Slowdown | Line-level?    | CPU? | Python vs. C? | Memory? | Unmodified code? |")
+print("|                            | Time | Slowdown | Line-level?    | CPU? | Python vs. C? | Memory? | Unmodified code? |")
 print("| :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: |")
 
 for bench in benchmarks:
