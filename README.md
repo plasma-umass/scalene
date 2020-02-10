@@ -75,18 +75,18 @@ Profiling on a Linux system:
 Below is a table comparing various profilers to scalene, running on an example Python program (`benchmarks/julia1_nopil.py`) from the book _High Performance Python_, by Gorelick and Ozsvald. All of these were run on a 2016 MacBook Pro.
 
 
-|                            | Time | Slowdown | Line-level?    | CPU? | Wall clock vs. virtual time? | Separates Python from native? | Memory? | Unmodified code? |
+|                            | Time | Slowdown | Line-level?    | CPU? | Wall clock vs. CPU time? | Separates Python from native? | Memory? | Unmodified code? |
 | :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | _original program_ | 6.71s | 1.0x | | | | | | |
 |               |     |        |    |                | |
 | `cProfile` | 11.04s | 1.65x | function-level | :heavy_check_mark: | wall clock |  |  | :heavy_check_mark: |
-| `Profile` | 202.26s | 30.14x | function-level | :heavy_check_mark: | virtual time |  |  | :heavy_check_mark: |
+| `Profile` | 202.26s | 30.14x | function-level | :heavy_check_mark: | CPU time |  |  | :heavy_check_mark: |
 | `pyinstrument` | 9.83s | 1.46x | function-level | :heavy_check_mark: | wall clock |  |  | :heavy_check_mark: |
 | `line_profiler` | 78.0s | 11.62x | :heavy_check_mark: | :heavy_check_mark: | wall clock |  |  | needs `@profile` decorators |
 | `pprofile` _(deterministic)_ | 403.67s | 60.16x | :heavy_check_mark: | :heavy_check_mark: | wall clock  |  | :heavy_check_mark: |
 | `pprofile` _(statistical)_ | 7.47s | 1.11x | :heavy_check_mark: | :heavy_check_mark: | wall clock |  |  | :heavy_check_mark: |
-| `yappi` _(CPU)_ | 127.53s | 19.01x | function-level | :heavy_check_mark: | wall clock |  |  | :heavy_check_mark: |
-| `yappi` _(wallclock)_ | 21.45s | 3.2x | function-level | :heavy_check_mark: | virtual time  |   |  | :heavy_check_mark: |
+| `yappi` _(CPU)_ | 127.53s | 19.01x | function-level | :heavy_check_mark: | CPU time |  |  | :heavy_check_mark: |
+| `yappi` _(wallclock)_ | 21.45s | 3.2x | function-level | :heavy_check_mark: | wall clock  |   |  | :heavy_check_mark: |
 | `py-spy` | 7.25s | 1.08x | :heavy_check_mark: | :heavy_check_mark: | **both** |  |  | :heavy_check_mark: |
 | `memory_profiler`     | _aborted after 2 hours_ | **>1000x**| :heavy_check_mark: |  |  |  | :heavy_check_mark: | needs `@profile` decorators |
 |               |     |        |                    | |  |
