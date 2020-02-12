@@ -18,7 +18,7 @@
 
 """
 
-# import random
+import contextlib
 import sys
 import atexit
 import signal
@@ -146,14 +146,13 @@ class Scalene():
         """High-precision timer of time spent running in or on behalf of this process."""
         return time.process_time()
 
-    def __init__(self, program_being_profiled):
+    def __init__(self, program_being_profiled=None):
         # Register the exit handler to run when the program terminates or we quit.
         atexit.register(Scalene.exit_handler)
         # Store relevant names (program, path).
-        Scalene.program_being_profiled = os.path.abspath(program_being_profiled)
-        Scalene.program_path = os.path.dirname(Scalene.program_being_profiled)
-        # Set signal handlers.
-
+        if program_being_profiled:
+            Scalene.program_being_profiled = os.path.abspath(program_being_profiled)
+            Scalene.program_path = os.path.dirname(Scalene.program_being_profiled)
 
     @staticmethod
     def cpu_signal_handler(_, frame):
@@ -286,7 +285,7 @@ class Scalene():
         """Return true if the filename is one we should trace."""
         # Profile anything in the program's directory or a child directory,
         # but nothing else.
-        if filename[0] == '<':
+        if filename[0] == '<' or 'site-packages' in filename or '/usr/lib/python' in filename:
             # Don't profile Python internals.
             return False
         if 'scalene.py' in filename:
@@ -369,10 +368,12 @@ class Scalene():
                         n_free_mb = (Scalene.memory_free_samples[fname][line_no] * Scalene.free_sampling_rate) / (1024 * 1024)
                         n_free_count = Scalene.memory_free_count[fname][line_no]
                         n_avg_free_mb = 0 if n_free_count == 0 else n_free_mb / n_free_count
+                        n_avg_free_mb_str = "" if n_free_count == 0 else '%11.0f' % (-n_avg_free_mb)
                         
                         n_malloc_mb = (Scalene.memory_malloc_samples[fname][line_no] * Scalene.malloc_sampling_rate) / (1024 * 1024)
                         n_malloc_count = Scalene.memory_malloc_count[fname][line_no]
                         n_avg_malloc_mb = 0 if n_malloc_count == 0 else n_malloc_mb / n_malloc_count
+                        n_avg_malloc_mb_str = "" if n_malloc_count == 0 else '%11.0f' % n_avg_malloc_mb
                         
                         n_growth_mb = 0 if n_malloc_count == 0 and n_free_count == 0 else n_avg_malloc_mb - n_avg_free_mb
                         n_usage_mb = 0 if Scalene.total_memory_malloc_samples == 0 else Scalene.memory_malloc_samples[fname][line_no] / Scalene.total_memory_malloc_samples
@@ -383,6 +384,7 @@ class Scalene():
                         n_growth_mb_str  = "" if (n_growth_mb == 0 and n_usage_mb == 0) else '%11.0f' % n_growth_mb
                         n_usage_mb_str  = "" if n_usage_mb == 0 else '%9.2f%%' % (100 * n_usage_mb)
                         if did_sample_memory:
+                            # print("%6d\t | %9s | %9s | %11s | %11s | %s" %
                             print("%6d\t | %9s | %9s | %11s | %11s | %s" %
                                   (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, n_growth_mb_str, n_usage_mb_str, line), file=out)
                         else:
@@ -407,6 +409,14 @@ class Scalene():
     def exit_handler():
         """When we exit, disable all signals."""
         Scalene.disable_signals()
+
+    @contextlib.contextmanager
+    def scalene_profiler(): # TODO add memory stuff
+        profiler = Scalene("")
+        profiler.start()
+        yield
+        profiler.stop()
+        profiler.output_profiles() # though this needs to be constrained
 
     @staticmethod
     def main():
