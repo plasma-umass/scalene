@@ -7,16 +7,7 @@ verify_ssl = true
 pytest = "*"
 
 [packages]
-sys = "*"
-atexit = "*"
-signal = "*"
-json = "*"
-linecache = "*"
-collections = "*"
-pipfile = "*"
-time = "*"
-os = "*"
-traceback = "*"
+numpy = "*"
 
 [requires]
 python_version = "3.6"
