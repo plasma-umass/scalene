@@ -97,7 +97,7 @@ class Scalene():
     #malloc_sampling_rate          = 16777259 # 1048583  # we get signals after this many bytes are allocated.
     #free_sampling_rate            = 16777289 # 1048589  # as above, for frees.
 
-    # NB: the below MUST BE IN SYNC WITH include/sampleheap.hpp!
+    # NB: the below MUST BE IN SYNC WITH libscalene.cpp!
     malloc_sampling_rate          = 1048583 # 33554467 # 16777259 # 1048583  # we get signals after this many bytes are allocated.
     free_sampling_rate            = 1048589 # 33554473 # 16777289 # 1048589  # as above, for frees.
     
@@ -181,11 +181,11 @@ class Scalene():
             # Scalene.last_signal_interval = random.uniform(Scalene.mean_signal_interval / 2, Scalene.mean_signal_interval * 3 / 2)
             # signal.setitimer(Scalene.cpu_timer_signal, Scalene.last_signal_interval, Scalene.last_signal_interval)
             return
-        # Here we take advantage of an apparent limitation of Python:
+        # Here we take advantage of an ostensible limitation of Python:
         # it only delivers signals after the interpreter has given up
         # control. This seems to mean that sampling is limited to code
         # running purely in the interpreter, and in fact, that was a limitation
-        # of the first version of Scalene.
+        # of the first version of Scalene, meaning that native code was entirely ignored.
         #
         # (cf. https://docs.python.org/3.9/library/signal.html#execution-of-python-signal-handlers)
         #
@@ -228,7 +228,7 @@ class Scalene():
                     count_str = count_str.rstrip()
                     count = float(count_str)
                     Scalene.memory_malloc_samples[fname][bytei] += count
-                    # print("SCALENE (" + str(lineno) + ":" + str(frame.f_lasti) + ") : malloc = " + str(count) + ", " + str(Scalene.memory_malloc_samples[fname][lineno]))
+                    # print("SCALENE (" + str(l) + " -- " + str(lineno) + ":" + str(frame.f_lasti) + ") : malloc = " + str(count) + ", " + str(Scalene.memory_malloc_samples[fname][lineno]))
                     Scalene.total_memory_malloc_samples += count
                     Scalene.current_footprint += count
             if Scalene.current_footprint > Scalene.max_footprint:
@@ -237,7 +237,6 @@ class Scalene():
                 Scalene.max_footprint = Scalene.current_footprint
             os.remove(Scalene.malloc_signal_filename)
         except Exception as e:
-            # print(e)
             pass
         if read_something:
             Scalene.memory_malloc_count[fname][bytei] += 1
@@ -261,7 +260,7 @@ class Scalene():
                     count_str = count_str.rstrip()
                     count = float(count_str)
                     Scalene.memory_free_samples[fname][bytei] += count
-                    # print("SCALENE (" + str(lineno) + ") : free = " + str(count) + ", " + str(Scalene.memory_free_samples[fname][lineno]))
+                    # print("SCALENE (" + str(l) + " -- " + str(lineno) + ":" + str(frame.f_lasti) + ") : free = " + str(count) + ", " + str(Scalene.memory_free_samples[fname][lineno]))
                     Scalene.total_memory_free_samples += count
                     Scalene.current_footprint -= count
                     # print("free " + str(count))
@@ -270,7 +269,6 @@ class Scalene():
                 Scalene.current_footprint = 0
             os.remove(Scalene.free_signal_filename)
         except Exception as e:
-            # print(e)
             pass
         if read_something:
             Scalene.memory_free_count[fname][bytei] += 1
@@ -425,6 +423,9 @@ class Scalene():
         try:
             signal.signal(Scalene.cpu_timer_signal, signal.SIG_IGN)
         except Exception as ex:
+            template = "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
+            message = template.format(type(ex).__name__, ex.args)
+            print(message)
             pass
         signal.signal(Scalene.malloc_signal, signal.SIG_IGN)
         signal.signal(Scalene.free_signal, signal.SIG_IGN)
@@ -477,7 +478,7 @@ class Scalene():
                 program_path = os.path.dirname(os.path.abspath(args.prog))
                 sys.path.insert(0, program_path)
                 Scalene.program_path = program_path
-                # os.chdir(program_path)
+                os.chdir(program_path) # FIXME?
                 # Set the file being executed.
                 the_globals['__file__'] = args.prog
                 Scalene.output_file = args.outfile
@@ -486,7 +487,11 @@ class Scalene():
                 try:
                     profiler.start()
                     # Run the code being profiled.
-                    exec(code, the_globals)
+                    try:
+                        exec(code, the_globals)
+                    except BaseException as be:
+                        # Intercept sys.exit.
+                        pass
                     profiler.stop()
                     # Go back home.
                     # os.chdir(Scalene.original_path)
