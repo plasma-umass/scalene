@@ -66,13 +66,13 @@ class Scalene():
     """The Scalene profiler itself."""
     # Statistics counters.
     cpu_samples_python            = defaultdict(lambda: defaultdict(float))  # CPU    samples for each location in the program
-                                                                           #        spent in the interpreter
+                                                                             #        spent in the interpreter
     cpu_samples_c                 = defaultdict(lambda: defaultdict(float))  # CPU    samples for each location in the program
-                                                                           #        spent in C / libraries / system calls
+                                                                             #        spent in C / libraries / system calls
     memory_malloc_samples         = defaultdict(lambda: defaultdict(float))  # free samples for each location in the program
-    memory_malloc_count           = defaultdict(lambda: defaultdict(int))  # number of times samples were added for the above
+    memory_malloc_count           = defaultdict(lambda: defaultdict(int))    # number of times samples were added for the above
     memory_free_samples           = defaultdict(lambda: defaultdict(float))  # malloc samples for each location in the program
-    memory_free_count             = defaultdict(lambda: defaultdict(int))  # number of times samples were added for the above
+    memory_free_count             = defaultdict(lambda: defaultdict(int))    # number of times samples were added for the above
     memory_max_samples            = defaultdict(lambda: defaultdict(float))  # malloc samples for each location in the program
     total_max_samples             = 0
     total_cpu_samples             = 0.0            # how many CPU    samples have been collected.
@@ -88,7 +88,8 @@ class Scalene():
     output_profile_interval       = float("inf")   # how long between outputting stats during execution.
     next_output_time              = float("inf")   # when do we output the next profile.
     elapsed_time                  = 0              # total time spent in program being profiled.
-
+    bytei_map                     = defaultdict(lambda: defaultdict(lambda: set())) # [filename][lineno] -> set(byteindex)
+    
     # Things that need to be in sync with include/sampleheap.hpp:
     
     malloc_signal_filename        = "/tmp/scalene-malloc-signal"             # file to communicate the number of malloc samples
@@ -134,8 +135,8 @@ class Scalene():
         # Set up the signal handler to handle malloc/free interrupts (for memory allocations).
         signal.signal(Scalene.malloc_signal, Scalene.alloc_event_signal_handler)
         signal.signal(Scalene.free_signal, Scalene.alloc_event_signal_handler)
-        #        signal.signal(Scalene.malloc_signal, Scalene.malloc_signal_handler)
-        #        signal.signal(Scalene.free_signal, Scalene.free_signal_handler)
+        #signal.signal(Scalene.malloc_signal, Scalene.malloc_signal_handler)
+        #signal.signal(Scalene.free_signal, Scalene.free_signal_handler)
         # Turn on the CPU profiling timer to run every signal_interval seconds.
         signal.setitimer(Scalene.cpu_timer_signal, Scalene.mean_signal_interval, Scalene.mean_signal_interval)
         Scalene.last_signal_time = Scalene.gettime()
@@ -216,8 +217,9 @@ class Scalene():
         # Record samples only for files we care about.
         if not Scalene.should_trace(fname):
             return
-        count = 1.0
+        count = 0.0
         lineno = frame.f_lineno
+        bytei = frame.f_lasti
         read_something = False
         try:
             with open(Scalene.malloc_signal_filename, "r") as f:
@@ -225,8 +227,8 @@ class Scalene():
                     read_something = True
                     count_str = count_str.rstrip()
                     count = float(count_str)
-                    Scalene.memory_malloc_samples[fname][lineno] += count
-                    # print("SCALENE (" + str(l) + ") : malloc = " + str(count) + ", " + str(Scalene.memory_malloc_samples[fname][lineno]))
+                    Scalene.memory_malloc_samples[fname][bytei] += count
+                    # print("SCALENE (" + str(lineno) + ":" + str(frame.f_lasti) + ") : malloc = " + str(count) + ", " + str(Scalene.memory_malloc_samples[fname][lineno]))
                     Scalene.total_memory_malloc_samples += count
                     Scalene.current_footprint += count
             if Scalene.current_footprint > Scalene.max_footprint:
@@ -238,7 +240,7 @@ class Scalene():
             # print(e)
             pass
         if read_something:
-            Scalene.memory_malloc_count[fname][lineno] += 1
+            Scalene.memory_malloc_count[fname][bytei] += 1
         return
 
     @staticmethod
@@ -248,8 +250,9 @@ class Scalene():
         # Record samples only for files we care about.
         if not Scalene.should_trace(fname):
             return
-        count = 1.0
+        count = 0.0
         lineno = frame.f_lineno
+        bytei = frame.f_lasti
         read_something = False
         try:
             with open(Scalene.free_signal_filename, "r") as f:
@@ -257,8 +260,8 @@ class Scalene():
                     read_something = True
                     count_str = count_str.rstrip()
                     count = float(count_str)
-                    Scalene.memory_free_samples[fname][lineno] += count
-                    # print("SCALENE (" + str(l) + ") : free = " + str(count) + ", " + str(Scalene.memory_free_samples[fname][lineno]))
+                    Scalene.memory_free_samples[fname][bytei] += count
+                    # print("SCALENE (" + str(lineno) + ") : free = " + str(count) + ", " + str(Scalene.memory_free_samples[fname][lineno]))
                     Scalene.total_memory_free_samples += count
                     Scalene.current_footprint -= count
                     # print("free " + str(count))
@@ -270,11 +273,20 @@ class Scalene():
             # print(e)
             pass
         if read_something:
-            Scalene.memory_free_count[fname][lineno] += 1
+            Scalene.memory_free_count[fname][bytei] += 1
         return
 
     @staticmethod
     def alloc_event_signal_handler(_, frame):
+        # Add the byte index to the set.
+        fname = frame.f_code.co_filename
+        lineno = frame.f_lineno
+        bytei = frame.f_lasti
+        # print("HANDLE: " + fname + " " + str(lineno) + " " + str(Scalene.bytei_map[fname][lineno]))
+        if bytei not in Scalene.bytei_map[fname][lineno]:
+            Scalene.bytei_map[fname][lineno].add(bytei)
+            # print(" now = " + str(Scalene.bytei_map[fname][lineno]))
+        # Now trigger both the malloc and free signal handlers.
         Scalene.malloc_signal_handler(True, frame)
         Scalene.free_signal_handler(True, frame)
     
@@ -357,6 +369,7 @@ class Scalene():
                         if n_cpu_samples_c < 0:
                             n_cpu_samples_c = 0
                         n_cpu_samples_python = Scalene.cpu_samples_python[fname][line_no]
+                        
                         # Compute percentages of CPU time.
                         if Scalene.total_cpu_samples != 0:
                             n_cpu_percent_c = n_cpu_samples_c * 100 / Scalene.total_cpu_samples
@@ -364,25 +377,37 @@ class Scalene():
                         else:
                             n_cpu_percent_c = 0
                             n_cpu_percent_python = 0
+                            
                         # Now, memory stats.
-                        n_free_mb = (Scalene.memory_free_samples[fname][line_no] * Scalene.free_sampling_rate) / (1024 * 1024)
-                        n_free_count = Scalene.memory_free_count[fname][line_no]
-                        n_avg_free_mb = 0 if n_free_count == 0 else n_free_mb / n_free_count
-                        n_avg_free_mb_str = "" if n_free_count == 0 else '%11.0f' % (-n_avg_free_mb)
-                        
-                        n_malloc_mb = (Scalene.memory_malloc_samples[fname][line_no] * Scalene.malloc_sampling_rate) / (1024 * 1024)
-                        n_malloc_count = Scalene.memory_malloc_count[fname][line_no]
-                        n_avg_malloc_mb = 0 if n_malloc_count == 0 else n_malloc_mb / n_malloc_count
-                        n_avg_malloc_mb_str = "" if n_malloc_count == 0 else '%11.0f' % n_avg_malloc_mb
-                        
+                        # Accumulate each one from every byte index.
+                        n_malloc_mb = 0
+                        n_free_mb = 0
+                        n_avg_malloc_mb = 0
+                        n_avg_free_mb = 0
+                        n_malloc_count = 0
+                        n_free_count = 0
+                        for index in Scalene.bytei_map[fname][line_no]:
+                            mallocs         = Scalene.memory_malloc_samples[fname][index] * Scalene.malloc_sampling_rate / (1024 * 1024)
+                            n_malloc_mb     += mallocs
+                            n_malloc_count  += Scalene.memory_malloc_count[fname][index]
+                            if mallocs > 0:
+                                n_avg_malloc_mb += mallocs / Scalene.memory_malloc_count[fname][index]
+                            frees           = Scalene.memory_free_samples[fname][index] * Scalene.free_sampling_rate / (1024 * 1024)
+                            n_free_mb       += frees
+                            n_free_count    += Scalene.memory_free_count[fname][index]
+                            if frees > 0:
+                                n_avg_free_mb   += frees / Scalene.memory_free_count[fname][index]
+                            
+                        # n_avg_free_mb_str = "" if n_free_count == 0 else '%11.0f' % (-n_avg_free_mb)
                         n_growth_mb = 0 if n_malloc_count == 0 and n_free_count == 0 else n_avg_malloc_mb - n_avg_free_mb
-                        n_usage_mb = 0 if Scalene.total_memory_malloc_samples == 0 else Scalene.memory_malloc_samples[fname][line_no] / Scalene.total_memory_malloc_samples
+                        n_usage_mb = 0 if Scalene.total_memory_malloc_samples == 0 else n_malloc_mb / (Scalene.total_memory_malloc_samples / Scalene.malloc_sampling_rate * 1024 * 1024)
 
                         # Finally, print results.
                         n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 else '%6.2f%%' % n_cpu_percent_c
                         n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 else '%6.2f%%' % n_cpu_percent_python
                         n_growth_mb_str  = "" if (n_growth_mb == 0 and n_usage_mb == 0) else '%11.0f' % n_growth_mb
                         n_usage_mb_str  = "" if n_usage_mb == 0 else '%9.2f%%' % (100 * n_usage_mb)
+                        # n_usage_mb_str  = n_avg_free_mb_str # "" if n_usage_mb == 0 else '%9.2f%%' % (100 * n_usage_mb)
                         if did_sample_memory:
                             # print("%6d\t | %9s | %9s | %11s | %11s | %s" %
                             print("%6d\t | %9s | %9s | %11s | %11s | %s" %
