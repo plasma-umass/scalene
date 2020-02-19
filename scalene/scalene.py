@@ -72,11 +72,18 @@ class Scalene():
                                                                              #        spent in C / libraries / system calls
 
     in_handler                    = False
-    memory_malloc_samples         = defaultdict(lambda: defaultdict(float))  # free samples for each location in the program
-    memory_malloc_count           = defaultdict(lambda: defaultdict(int))    # number of times samples were added for the above
-    memory_free_samples           = defaultdict(lambda: defaultdict(float))  # malloc samples for each location in the program
-    memory_free_count             = defaultdict(lambda: defaultdict(int))    # number of times samples were added for the above
-    memory_max_samples            = defaultdict(lambda: defaultdict(float))  # malloc samples for each location in the program
+
+    # Below are indexed by [filename][line_no][bytecode_index].
+    # malloc samples for each location in the program
+    memory_malloc_samples         = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    # number of times samples were added for the above
+    memory_malloc_count           = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    # free samples for each location in the program
+    memory_free_samples           = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    # number of times samples were added for the above
+    memory_free_count             = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    # max malloc samples for each location in the program
+    memory_max_samples            = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     total_max_samples             = 0
     total_cpu_samples             = 0.0            # how many CPU    samples have been collected.
     total_memory_malloc_samples   = 0              # "   "    malloc "       "    "    "
@@ -127,7 +134,7 @@ class Scalene():
     @staticmethod
     def sparkline(numbers):
         mn, mx = min(numbers), max(numbers)
-        extent = mx - mn
+        extent = mx - mn + 1
         sparkline = ''.join(Scalene.bar[min([Scalene.barcount - 1,
                                      int((n - mn) / extent * Scalene.barcount)])]
                             for n in numbers)
@@ -259,7 +266,7 @@ class Scalene():
             Scalene.in_handler = False
             return
         count = 0.0
-        lineno = frame.f_lineno
+        line_no = frame.f_lineno
         bytei = frame.f_lasti
         read_something = False
         filename = Scalene.malloc_signal_filename if is_malloc else Scalene.free_signal_filename
@@ -278,7 +285,7 @@ class Scalene():
                     else:
                         count *= Scalene.free_sampling_rate
                     count /= 1024 * 1024
-                    samples[fname][bytei] += count
+                    samples[fname][line_no][bytei] += count
                     # print("s now = " + str(samples[fname][bytei]))
                     # print("SCALENE (" + str(l) + " -- " + str(lineno) + ":" + str(frame.f_lasti) + ") : " + alloc_str + " " + str(count) + ", " + str(samples[fname][lineno]))
                     if is_malloc:
@@ -293,9 +300,10 @@ class Scalene():
                         Scalene.current_footprint -= count
             os.remove(filename)
         except Exception as e:
+            # print(e)
             pass
         if read_something:
-            counter[fname][bytei] += 1
+            counter[fname][line_no][bytei] += 1
         Scalene.in_handler = False
         return
     
@@ -421,25 +429,24 @@ class Scalene():
                         n_malloc_count = 0
                         n_free_count = 0
                         for index in Scalene.bytei_map[fname][line_no]:
-                            mallocs         = Scalene.memory_malloc_samples[fname][index]
+                            mallocs         = Scalene.memory_malloc_samples[fname][line_no][index]
                             n_malloc_mb     += mallocs
-                            n_malloc_count  += Scalene.memory_malloc_count[fname][index]
-                            if Scalene.memory_malloc_count[fname][index] > 0:
+                            n_malloc_count  += Scalene.memory_malloc_count[fname][line_no][index]
+                            if Scalene.memory_malloc_count[fname][line_no][index] > 0:
                                 #print(Scalene.memory_malloc_samples[fname][index])
                                 #print(Scalene.memory_malloc_count[fname][index])
-                                n_avg_malloc_mb += mallocs / Scalene.memory_malloc_count[fname][index]
+                                n_avg_malloc_mb += mallocs / Scalene.memory_malloc_count[fname][line_no][index]
                                 
-                            frees           = Scalene.memory_free_samples[fname][index]
+                            frees           = Scalene.memory_free_samples[fname][line_no][index]
                             n_free_mb       += frees
-                            n_free_count    += Scalene.memory_free_count[fname][index]
-                            if Scalene.memory_free_count[fname][index] > 0:
-                                n_avg_free_mb   += frees / Scalene.memory_free_count[fname][index]
+                            n_free_count    += Scalene.memory_free_count[fname][line_no][index]
+                            if Scalene.memory_free_count[fname][line_no][index] > 0:
+                                n_avg_free_mb   += frees / Scalene.memory_free_count[fname][line_no][index]
                             
                         n_growth_mb = n_avg_malloc_mb - n_avg_free_mb
                         if (n_growth_mb < 0) and (n_growth_mb > -1):
                             # Don't print out "-0".
                             n_growth_mb = 0
-                        # print("usage calc = " + str(n_malloc_mb) + ", " + str(Scalene.total_memory_malloc_samples))
                         n_usage_mb = 0 if Scalene.total_memory_malloc_samples == 0 else n_malloc_mb / Scalene.total_memory_malloc_samples
 
                         # Finally, print results.
