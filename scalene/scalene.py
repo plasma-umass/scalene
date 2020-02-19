@@ -366,6 +366,7 @@ class Scalene():
                     iterations = Scalene.total_memory_samples if Scalene.total_memory_samples < max_samples else max_samples
                     mn, mx, sp = Scalene.sparkline(Scalene.memory_footprint_samples[0:iterations])
                     print("Memory usage over time: " + sp, file=out)
+                    print("min: %6.2fMB, max: %6.2fMB" % (mn, mx), file=out)
                     #for i in range(iterations):
                     #    print(i, Scalene.memory_footprint_samples[i])
             for fname in sorted(all_instrumented_files):
