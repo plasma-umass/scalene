@@ -46,7 +46,7 @@ public:
   inline double registerMalloc(size_t sz) {
     _mallocOps += sz;
     if (unlikely(_mallocOps >= TimerInterval)) {
-      double count = _mallocOps / (double) TimerInterval;
+      double count = _mallocOps; // / (double) TimerInterval;
       _mallocOps = 0;
       return count;
     } else {
@@ -76,7 +76,7 @@ public:
   inline double registerFree(size_t sz) {
     _freeOps += sz;
     if (unlikely(_freeOps >= TimerInterval)) {
-      double count = _freeOps / (double) TimerInterval;
+      double count = _freeOps; // / (double) TimerInterval;
       _freeOps = 0;
       return count;
     } else {
