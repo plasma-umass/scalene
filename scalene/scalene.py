@@ -280,10 +280,10 @@ class Scalene():
                     count_str = count_str.rstrip()
                     count = float(count_str)
                     # Convert count to megabytes.
-                    if is_malloc:
-                        count *= Scalene.malloc_sampling_rate
-                    else:
-                        count *= Scalene.free_sampling_rate
+                    #if is_malloc:
+                    #    count *= Scalene.malloc_sampling_rate
+                    #else:
+                    #    count *= Scalene.free_sampling_rate
                     count /= 1024 * 1024
                     samples[fname][line_no][bytei] += count
                     # print("s now = " + str(samples[fname][bytei]))
@@ -447,12 +447,14 @@ class Scalene():
                         if (n_growth_mb < 0) and (n_growth_mb > -1):
                             # Don't print out "-0".
                             n_growth_mb = 0
+                        # n_usage_mb = 0 if Scalene.total_memory_malloc_samples == 0 else n_avg_free_mb
                         n_usage_mb = 0 if Scalene.total_memory_malloc_samples == 0 else n_malloc_mb / Scalene.total_memory_malloc_samples
 
                         # Finally, print results.
                         n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 else '%6.2f%%' % n_cpu_percent_c
                         n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 else '%6.2f%%' % n_cpu_percent_python
                         n_growth_mb_str  = "" if (n_growth_mb == 0 and n_usage_mb == 0) else '%11.0f' % n_growth_mb
+                        # n_usage_mb_str  = "" if n_usage_mb == 0 else '%11.0f' % n_usage_mb
                         n_usage_mb_str  = "" if n_usage_mb == 0 else '%9.2f%%' % (100 * n_usage_mb)
                         # n_usage_mb_str  = n_avg_free_mb_str # "" if n_usage_mb == 0 else '%9.2f%%' % (100 * n_usage_mb)
                         if did_sample_memory:
