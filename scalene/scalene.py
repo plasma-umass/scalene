@@ -81,7 +81,7 @@ class Scalene():
     total_memory_malloc_samples   = 0              # "   "    free   "       "    "    "
     current_footprint             = 0              # the current memory footprint.
     max_footprint                 = 0              # the peak memory footprint.
-    memory_footprint_samples      = list([0] * 100)
+    memory_footprint_samples      = list([0] * 40)
                                                    # memory footprint samples (using reservoir sampling).
     total_memory_samples          = 0              # total memory samples so far.
     mean_signal_interval          = 0.01           # mean seconds between interrupts for CPU sampling.
@@ -116,7 +116,21 @@ class Scalene():
     program_being_profiled = ""          # the name of the program being profiled.
     program_path           = ""          # the path "  "   "       "     "
 
+    # Sparkline stuff
+    # Unicode: 9601, 9602, 9603, 9604, 9605, 9606, 9607, 9608
+    bar = '▁▂▃▄▅▆▇█'
+    barcount = len(bar)
 
+    # From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
+    @staticmethod
+    def sparkline(numbers):
+        mn, mx = min(numbers), max(numbers)
+        extent = mx - mn
+        sparkline = ''.join(Scalene.bar[min([Scalene.barcount - 1,
+                                     int((n - mn) / extent * Scalene.barcount)])]
+                            for n in numbers)
+        return mn, mx, sparkline
+    
     @staticmethod
     def set_timer_signal(use_wallclock_time = False):
         """Set up timer signals for CPU profiling."""
@@ -345,6 +359,15 @@ class Scalene():
         # Collect all instrumented filenames.
         all_instrumented_files = list(set(list(Scalene.cpu_samples_python.keys()) + list(Scalene.memory_free_samples.keys()) + list(Scalene.memory_malloc_samples.keys())))
         with Scalene.file_or_stdout(Scalene.output_file) as out:
+            if did_sample_memory:
+                if Scalene.total_memory_samples > 0:
+                    # with open('scalene-footprint.dat', 'w') as out_file:
+                    max_samples = len(Scalene.memory_footprint_samples)
+                    iterations = Scalene.total_memory_samples if Scalene.total_memory_samples < max_samples else max_samples
+                    mn, mx, sp = Scalene.sparkline(Scalene.memory_footprint_samples[0:iterations])
+                    print("Memory usage over time: " + sp, file=out)
+                    #for i in range(iterations):
+                    #    print(i, Scalene.memory_footprint_samples[i])
             for fname in sorted(all_instrumented_files):
 
                 this_cpu_samples = sum(Scalene.cpu_samples_c[fname].values()) + sum(Scalene.cpu_samples_python[fname].values())
@@ -356,6 +379,7 @@ class Scalene():
 
                 # percent_cpu_time = 100 * this_cpu_samples * Scalene.mean_signal_interval / Scalene.elapsed_time
                 print("%s: %% of CPU time = %6.2f%% out of %6.2fs." % (fname, percent_cpu_time, Scalene.elapsed_time), file=out)
+                    
                 print("  \t | %9s | %9s | %s %s " % ('CPU %', 'CPU %', 'Avg memory  |' if did_sample_memory else '', 'Memory      |' if did_sample_memory else ''), file=out)
                 print("  Line\t | %9s | %9s | %s%s [%s]" % ('(Python)', '(native)', 'growth (MB) |' if did_sample_memory else '', ' usage (%)   |' if did_sample_memory else '', fname), file=out)
                 print("-" * 80, file=out)
@@ -425,16 +449,7 @@ class Scalene():
                     print("", file=out)
                     return True
 
-
-    @staticmethod
-    def output_memory_samples():
-        if Scalene.total_memory_samples > 0:
-            with open('scalene-footprint.dat', 'w') as out_file:
-                max_samples = len(Scalene.memory_footprint_samples)
-                iterations = Scalene.total_memory_samples if Scalene.total_memory_samples < max_samples else max_samples
-                for i in range(iterations):
-                    print(i, Scalene.memory_footprint_samples[i], file=out_file)
-    
+        
     @staticmethod
     def disable_signals():
         """Turn off the profiling signals."""
@@ -516,7 +531,7 @@ class Scalene():
                     # os.chdir(Scalene.original_path)
                     # If we've collected any samples, dump them.
                     if profiler.output_profiles():
-                        Scalene.output_memory_samples()
+                        pass
                     else:
                         print("Scalene: Program did not run for long enough to profile.")
                 except Exception as ex:
