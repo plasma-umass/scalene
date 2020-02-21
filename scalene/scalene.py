@@ -238,14 +238,21 @@ class Scalene():
         Scalene.cpu_samples_c[fname][frame.f_lineno] += c_time
         Scalene.total_cpu_samples += python_time + c_time
 
+        total_samples_to_record = int(round((now - Scalene.last_signal_time) / Scalene.last_signal_interval, 0))
+        
         # Reservoir sampling to get an even distribution of footprints over time.
         if Scalene.total_memory_samples < len(Scalene.memory_footprint_samples):
-            Scalene.memory_footprint_samples[Scalene.total_memory_samples] = [Scalene.total_memory_samples, Scalene.current_footprint]
+            for i in range(0, total_samples_to_record):
+                Scalene.memory_footprint_samples[Scalene.total_memory_samples] = [now, Scalene.current_footprint]
+                Scalene.total_memory_samples += 1
+                if Scalene.total_memory_samples >= len(Scalene.memory_footprint_samples):
+                    break
         else:
-            replacement_index = random.randint(0, Scalene.total_memory_samples)
-            if replacement_index < len(Scalene.memory_footprint_samples):
-                Scalene.memory_footprint_samples[replacement_index] = [Scalene.total_memory_samples, Scalene.current_footprint]
-        Scalene.total_memory_samples += 1
+            for i in range(0, total_samples_to_record):
+                replacement_index = random.randint(0, Scalene.total_memory_samples)
+                if replacement_index < len(Scalene.memory_footprint_samples):
+                    Scalene.memory_footprint_samples[replacement_index] = [now, Scalene.current_footprint]
+                    Scalene.total_memory_samples += 1
                 
         
         # disabled randomness for now
@@ -370,24 +377,7 @@ class Scalene():
         iterations = Scalene.total_memory_samples if Scalene.total_memory_samples < max_samples else max_samples
         # Sort samples by time.
         Scalene.memory_footprint_samples.sort()
-
-        # Spread the samples evenly over time.
-        new_samples = [] # to hold the reduced set of evenly spread samples
-        # Figure out how much time the samples span.
-        time_span = Scalene.memory_footprint_samples[-1:][0][0] - Scalene.memory_footprint_samples[0][0]
-        # Compute the average interval.
-        interval = time_span / len(Scalene.memory_footprint_samples)
-        # Now, iterate and only add things when the gap between it and the previous element is at least the interval above.
-        index = 0
-        current = Scalene.memory_footprint_samples[index][0]
-        while index < len(Scalene.memory_footprint_samples):
-            sample = Scalene.memory_footprint_samples[index]
-            if sample[0] - current >= interval:
-                # Gap is now large enough. Add the sample and move on to the next item.
-                new_samples.append(sample)
-                current = Scalene.memory_footprint_samples[index][0]
-            index += 1
-        samples = [i for [t, i] in new_samples] # unreduced: was Scalene.memory_footprint_samples
+        samples = [i for [t, i] in Scalene.memory_footprint_samples]
         mn, mx, sp = Scalene.sparkline(samples[0:iterations])
         return mn, mx, sp
         
@@ -569,6 +559,7 @@ class Scalene():
                         exec(code, the_globals)
                     except BaseException as be:
                         # Intercept sys.exit.
+                        print(be)
                         pass
                     profiler.stop()
                     # Go back home.
