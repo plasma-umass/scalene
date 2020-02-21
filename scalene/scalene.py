@@ -94,7 +94,7 @@ class Scalene():
     mean_signal_interval          = 0.01           # mean seconds between interrupts for CPU sampling.
     last_signal_interval          = 0.01           # last num seconds between interrupts for CPU sampling.
 
-    memory_footprint_samples      = list([0] * 80)
+    memory_footprint_samples      = list([0] * 47)
                                                    # memory footprint samples (using reservoir sampling).
     total_memory_samples          = 0              # total memory samples so far.
 
