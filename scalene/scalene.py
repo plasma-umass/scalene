@@ -239,7 +239,7 @@ class Scalene():
         Scalene.total_cpu_samples += python_time + c_time
 
         total_samples_to_record = int(round((now - Scalene.last_signal_time) / Scalene.last_signal_interval, 0))
-        
+
         # Reservoir sampling to get an even distribution of footprints over time.
         if Scalene.total_memory_samples < len(Scalene.memory_footprint_samples):
             for i in range(0, total_samples_to_record):
@@ -262,73 +262,66 @@ class Scalene():
         return
 
     @staticmethod
-    def allocation_handler(frame, is_malloc = True):
-        """Handle interrupts for memory profiling (mallocs and frees)."""
-        if Scalene.in_handler:
-            # This should never happen.
-            return
-        Scalene.in_handler = True
-        # Add the byte index to the set for this line.
-        fname  = frame.f_code.co_filename
-        lineno = frame.f_lineno
-        bytei = frame.f_lasti
-        if bytei not in Scalene.bytei_map[fname][lineno]:
-            Scalene.bytei_map[fname][lineno].add(bytei)
-        # Record samples only for files we care about.
-        if not Scalene.should_trace(fname):
-            Scalene.in_handler = False
-            return
-        count = 0.0
-        line_no = frame.f_lineno
-        bytei = frame.f_lasti
-        read_something = False
+    def alloc_handler_helper(fname, line_no, bytei, is_malloc):
         filename = Scalene.malloc_signal_filename if is_malloc else Scalene.free_signal_filename
-        samples  = Scalene.memory_malloc_samples  if is_malloc else Scalene.memory_free_samples
+        samples  = Scalene.memory_malloc_samples[fname][line_no]  if is_malloc else Scalene.memory_free_samples[fname][line_no]
         counter  = Scalene.memory_malloc_count    if is_malloc else Scalene.memory_free_count
-        alloc_str = "malloc" if is_malloc else "free"
+        # alloc_str = "malloc" if is_malloc else "free"
+        read_something = False
         try:
             with open(filename, "r") as f:
                 for l, count_str in enumerate(f, 1):
                     read_something = True
                     count_str = count_str.rstrip()
-                    count = float(count_str)
-                    # Convert count to megabytes.
-                    count /= 1024 * 1024
-                    samples[fname][line_no][bytei] += count
+                    count = float(count_str) / (1024 * 1024)
+                    samples[bytei] += count
                     # print("s now = " + str(samples[fname][bytei]))
                     # print("SCALENE (" + str(l) + " -- " + str(lineno) + ":" + str(frame.f_lasti) + ") : " + alloc_str + " " + str(count) + ", " + str(samples[fname][lineno]))
                     if is_malloc:
                         Scalene.total_memory_malloc_samples += count
                         Scalene.current_footprint += count
-                        if Scalene.current_footprint > Scalene.max_footprint:
+                        #if Scalene.current_footprint > Scalene.max_footprint:
                             #            Scalene.memory_max_samples[fname][lineno] += count
                             #            Scalene.total_max_samples += count
-                            Scalene.max_footprint = Scalene.current_footprint
+                            # Scalene.max_footprint = Scalene.current_footprint
                     else:
                         Scalene.total_memory_free_samples += count
                         Scalene.current_footprint -= count
             os.remove(filename)
+        except FileNotFoundError:
+            pass
         except Exception as e:
-            # print(e)
+            print(e)
             pass
         if read_something:
             counter[fname][line_no][bytei] += 1
-        Scalene.in_handler = False
+
+        
+    @staticmethod
+    def allocation_handler(frame):
+        """Handle interrupts for memory profiling (mallocs and frees)."""
+        # Add the byte index to the set for this line.
+        fname  = frame.f_code.co_filename
+        # Record samples only for files we care about.
+        if not Scalene.should_trace(fname):
+            return
+        line_no = frame.f_lineno
+        bytei = frame.f_lasti
+        if bytei not in Scalene.bytei_map[fname][line_no]:
+            Scalene.bytei_map[fname][line_no].add(bytei)
+        Scalene.alloc_handler_helper(fname, line_no, bytei, True)
+        Scalene.alloc_handler_helper(fname, line_no, bytei, False)
         return
     
 
     @staticmethod
     def malloc_event_signal_handler(_, frame):
-        # Check both to avoid missing a signal.
-        Scalene.allocation_handler(frame, True)  # for malloc
-        Scalene.allocation_handler(frame, False)  # for free
+        Scalene.allocation_handler(frame)
 
 
     @staticmethod
     def free_event_signal_handler(_, frame):
-        # Check both to avoid missing a signal.
-        Scalene.allocation_handler(frame, True) # for malloc
-        Scalene.allocation_handler(frame, False) # for free
+        Scalene.allocation_handler(frame)
         
 
     @staticmethod
@@ -390,7 +383,7 @@ class Scalene():
             return False
         
         # If I have at least one memory sample, then we are profiling memory.
-        did_sample_memory = (Scalene.total_memory_free_samples + Scalene.total_memory_malloc_samples) > 1
+        did_sample_memory = (Scalene.total_memory_free_samples + Scalene.total_memory_malloc_samples) > 0
         # Collect all instrumented filenames.
         all_instrumented_files = list(set(list(Scalene.cpu_samples_python.keys()) + list(Scalene.memory_free_samples.keys()) + list(Scalene.memory_malloc_samples.keys())))
         with Scalene.file_or_stdout(Scalene.output_file) as out:
@@ -559,7 +552,6 @@ class Scalene():
                         exec(code, the_globals)
                     except BaseException as be:
                         # Intercept sys.exit.
-                        print(be)
                         pass
                     profiler.stop()
                     # Go back home.
