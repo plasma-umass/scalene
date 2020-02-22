@@ -94,8 +94,7 @@ class Scalene():
     mean_signal_interval          = 0.01           # mean seconds between interrupts for CPU sampling.
     last_signal_interval          = 0.01           # last num seconds between interrupts for CPU sampling.
 
-    memory_footprint_samples      = list([0] * 47)
-                                                   # memory footprint samples (using reservoir sampling).
+    memory_footprint_samples      = [[0,0]] * 47   # memory footprint samples (time, footprint), using reservoir sampling.
     total_memory_samples          = 0              # total memory samples so far.
 
     original_path                 = ""             # original working directory.
@@ -243,10 +242,10 @@ class Scalene():
         # Reservoir sampling to get an even distribution of footprints over time.
         if Scalene.total_memory_samples < len(Scalene.memory_footprint_samples):
             for i in range(0, total_samples_to_record):
-                Scalene.memory_footprint_samples[Scalene.total_memory_samples] = [now, Scalene.current_footprint]
-                Scalene.total_memory_samples += 1
                 if Scalene.total_memory_samples >= len(Scalene.memory_footprint_samples):
                     break
+                Scalene.memory_footprint_samples[Scalene.total_memory_samples] = [now, Scalene.current_footprint]
+                Scalene.total_memory_samples += 1
         else:
             for i in range(0, total_samples_to_record):
                 replacement_index = random.randint(0, Scalene.total_memory_samples)
@@ -368,9 +367,15 @@ class Scalene():
     def generate_sparkline():
         max_samples = len(Scalene.memory_footprint_samples)
         iterations = Scalene.total_memory_samples if Scalene.total_memory_samples < max_samples else max_samples
+        # Truncate the array if needed.
+        if Scalene.total_memory_samples < len(Scalene.memory_footprint_samples):
+            Scalene.memory_footprint_samples = Scalene.memory_footprint_samples[:Scalene.total_memory_samples]
         # Sort samples by time.
         Scalene.memory_footprint_samples.sort()
-        samples = [i for [t, i] in Scalene.memory_footprint_samples]
+        # Prevent negative memory output due to sampling error.
+        samples = [i if i > 0 else 0 for [t, i] in Scalene.memory_footprint_samples]
+        # Force the y-axis to start at 0.
+        samples = [0, 0] + samples
         mn, mx, sp = Scalene.sparkline(samples[0:iterations])
         return mn, mx, sp
         
@@ -391,8 +396,8 @@ class Scalene():
                 if Scalene.total_memory_samples > 0:
                     # Output a sparkline as a summary of memory usage over time.
                     mn, mx, sp = Scalene.generate_sparkline()
-                    print("Memory usage: " + sp, file=out)
-                    print("min: %6.2fMB, max: %6.2fMB" % (mn, mx), file=out)
+                    print("Memory usage: " + sp + " (max: %6.2fMB)" % mx, file=out)
+                    # print("min: %6.2fMB, max: %6.2fMB" % (mn, mx), file=out)
                     
             for fname in sorted(all_instrumented_files):
 
