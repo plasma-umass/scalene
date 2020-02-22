@@ -79,7 +79,7 @@ Below is a table comparing various profilers to scalene, running on an example P
 | :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | _original program_ | 6.71s | 1.0x | | | | | | |
 |               |     |        |    |                | |
-| `cProfile` | 11.04s | 1.65x | function-level | :heavy_check_mark: | wall clock |  |  | :heavy_check_mark: |
+| `cProfile` | 11.04s | 1.65x | function-level | ✔ | wall clock |  |  | :heavy_check_mark: |
 | `Profile` | 202.26s | 30.14x | function-level | :heavy_check_mark: | CPU time |  |  | :heavy_check_mark: |
 | `pyinstrument` | 9.83s | 1.46x | function-level | :heavy_check_mark: | wall clock |  |  | :heavy_check_mark: |
 | `line_profiler` | 78.0s | 11.62x | :heavy_check_mark: | :heavy_check_mark: | wall clock |  |  | needs `@profile` decorators |
