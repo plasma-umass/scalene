@@ -33,69 +33,15 @@ typedef std::atomic<long> counterType;
 typedef long counterType;
 #endif
 
-
-template <long TimerInterval>
-class MallocTimer {
+class AllocationTimer {
 public:
-
-  MallocTimer()
-    : _mallocOps(0)
-  {
-  }
-  
-  inline double registerMalloc(size_t sz) {
-    _mallocOps += sz;
-    if (unlikely(_mallocOps >= TimerInterval)) {
-      double count = _mallocOps; // / (double) TimerInterval;
-      _mallocOps = 0;
-      return count;
-    } else {
-      return 0;
-    }
-  }
-  inline constexpr double registerFree(size_t sz);
-  
-private:
-  counterType _mallocOps;
- 
+  // Note: for now, we don't multiply the intervals.
+  static constexpr auto Multiplier = 1;
 };
 
 
-
-template <long TimerInterval>
-class FreeTimer {
-public:
-
-  FreeTimer()
-    : _freeOps(0)
-  {
-  }
-  
-  inline constexpr double registerMalloc(size_t sz);
-  
-  inline double registerFree(size_t sz) {
-    _freeOps += sz;
-    if (unlikely(_freeOps >= TimerInterval)) {
-      double count = _freeOps; // / (double) TimerInterval;
-      _freeOps = 0;
-      return count;
-    } else {
-      return 0;
-    }
-  }
-  
-private:
-  counterType _freeOps;
-};
-
-
-template <long MallocSamplingRateBytes, long FreeSamplingRateBytes, class SuperHeap> 
+template <unsigned long MallocSamplingRateBytes, class SuperHeap> 
 class SampleHeap : public SuperHeap {
-private:
-
-  MallocTimer<MallocSamplingRateBytes> mallocTimer;
-  FreeTimer<FreeSamplingRateBytes>     freeTimer;
-  
 public:
 
   enum { Alignment = SuperHeap::Alignment };
@@ -103,8 +49,13 @@ public:
   enum { FreeSignal = SIGPROF }; // SIGVTALRM };
   
   SampleHeap()
+    : _interval (MallocSamplingRateBytes),
+      _mallocOps (0),
+      _freeOps (0),
+      _mallocTriggered (0),
+      _freeTriggered (0)
   {
-    // Ignore the signals until they are replaced by a client.
+    // Ignore these signals until they are replaced by a client.
     signal(MallocSignal, SIG_IGN);
     signal(FreeSignal, SIG_IGN);
   }
@@ -121,10 +72,14 @@ public:
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
-      double count = 0.0;
-      
-      if (unlikely(count = mallocTimer.registerMalloc(realSize))) {
-	writeCount(scalene_malloc_signal_filename, count);
+      _mallocOps += realSize;
+      if (unlikely(_mallocOps >= _interval)) {
+	writeCount(scalene_malloc_signal_filename, _mallocOps);
+	_mallocTriggered++;
+	_mallocOps = 0;
+	if (_mallocTriggered == _freeTriggered) {
+	  _interval = (unsigned long) (_interval * AllocationTimer::Multiplier);
+	}
 	raise(MallocSignal);
       }
     }
@@ -133,24 +88,35 @@ public:
 
   ATTRIBUTE_ALWAYS_INLINE inline void free(void * ptr) {
     if (unlikely(ptr == nullptr)) { return; }
-      auto realSize = SuperHeap::free(ptr);
-      
-      double count = 0.0;
-      if (unlikely(count = freeTimer.registerFree(realSize))) {
-	writeCount(scalene_free_signal_filename, count);
-	raise(FreeSignal);
+    auto realSize = SuperHeap::free(ptr);
+    
+    _freeOps += realSize;
+    if (unlikely(_freeOps >= _interval)) {
+      writeCount(scalene_free_signal_filename, _freeOps);
+      _freeTriggered++;
+      _freeOps = 0;
+      if (_mallocTriggered == _freeTriggered) {
+	_interval = (unsigned long) (_interval * AllocationTimer::Multiplier);
       }
+      raise(FreeSignal);
+    }
   }
 
 private:
 
-  void writeCount(const char * fname, double count) {
+  void writeCount(const char * fname, unsigned long count) {
     char buf[255];
-    sprintf(buf, "%f\n", count);
+    sprintf(buf, "%lu\n", count);
     int fd = open(fname, flags, perms);
     write(fd, buf, strlen(buf));
     close(fd);
   }
+
+  counterType _mallocOps;
+  counterType _freeOps;
+  unsigned long _mallocTriggered;
+  unsigned long _freeTriggered;
+  unsigned long _interval;
   
 };
 
