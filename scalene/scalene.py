@@ -24,6 +24,7 @@ import atexit
 import signal
 import math
 import random
+import threading
 from collections import defaultdict
 import time
 from pathlib import Path
@@ -65,6 +66,9 @@ if sys.platform == 'win32':
 
 class Scalene():
     """The Scalene profiler itself."""
+
+    original_thread_join          = threading.Thread.join
+    
     # Statistics counters.
     cpu_samples_python            = defaultdict(lambda: defaultdict(float))  # CPU    samples for each location in the program
                                                                              #        spent in the interpreter
@@ -91,8 +95,8 @@ class Scalene():
     current_footprint             = 0              # the current memory footprint.
     max_footprint                 = 0              # the peak memory footprint.
     
-    mean_signal_interval          = 0.001          # mean seconds between interrupts for CPU sampling.
-    last_signal_interval          = 0.001          # last num seconds between interrupts for CPU sampling.
+    mean_signal_interval          = 0.01           # mean seconds between interrupts for CPU sampling.
+    last_signal_interval          = 0.01           # last num seconds between interrupts for CPU sampling.
 
     memory_footprint_samples      = [[0,0]] * 47   # memory footprint samples (time, footprint), using reservoir sampling.
     total_memory_samples          = 0              # total memory samples so far.
@@ -143,6 +147,16 @@ class Scalene():
         # We implement this here to avoid taking a dependence on numpy or similar.
         return math.log(random.random()) / math.log(1.0 - p)
 
+    @staticmethod
+    def thread_join_replacement(self, timeout=None):
+        """We will replace threading.Thread.join with this method which always periodically yields."""
+        start_time = time.perf_counter()
+        while self.is_alive():
+            Scalene.original_thread_join(self, Scalene.last_signal_interval / 2) # Nyquist rate
+            # If a timeout was specified, check to see if it's expired.
+            if timeout:
+                if time.perf_counter() - start_time >= timeout:
+                    return
     
     @staticmethod
     def set_timer_signal(use_wallclock_time = False):
@@ -180,6 +194,9 @@ class Scalene():
         return time.process_time()
 
     def __init__(self, program_being_profiled=None):
+        # Hijack join.
+        threading.Thread.join = Scalene.thread_join_replacement
+        # Build up signal filenames (adding PID to each).
         Scalene.malloc_signal_filename += str(os.getpid());
         Scalene.free_signal_filename += str(os.getpid());
         # Register the exit handler to run when the program terminates or we quit.
@@ -190,7 +207,7 @@ class Scalene():
             Scalene.program_path = os.path.dirname(Scalene.program_being_profiled)
 
     @staticmethod
-    def cpu_signal_handler(_, frame):
+    def cpu_signal_handler(_, this_frame):
         """Handle interrupts for CPU profiling."""
         # Record how long it has been since we received a timer
         # before.  See the logic below.
@@ -203,18 +220,6 @@ class Scalene():
             Scalene.stop()
             Scalene.output_profiles()
             Scalene.start()
-        fname = frame.f_code.co_filename
-        # Record samples only for files we care about.
-        if (len(fname)) == 0:
-            # 'eval/compile' gives no f_code.co_filename.
-            # We have to look back into the outer frame in order to check the co_filename.
-            fname = frame.f_back.f_code.co_filename
-        if not Scalene.should_trace(fname):
-            Scalene.last_signal_time = Scalene.gettime()
-            # Currently disabled: random sampling for CPU timing. Just use the same interval all the time.
-            # Scalene.last_signal_interval = random.uniform(Scalene.mean_signal_interval / 2, Scalene.mean_signal_interval * 3 / 2)
-            # signal.setitimer(Scalene.cpu_timer_signal, Scalene.last_signal_interval, Scalene.last_signal_interval)
-            return
         # Here we take advantage of an ostensible limitation of Python:
         # it only delivers signals after the interpreter has given up
         # control. This seems to mean that sampling is limited to code
@@ -235,8 +240,33 @@ class Scalene():
         # (as if it were sampled) to the C counter.
         python_time = Scalene.last_signal_interval
         c_time = now - Scalene.last_signal_time - Scalene.last_signal_interval
-        Scalene.cpu_samples_python[fname][frame.f_lineno] += python_time
-        Scalene.cpu_samples_c[fname][frame.f_lineno] += c_time
+        if c_time < 0:
+            c_time = 0
+        # Update counters for every running thread.
+        frames = [this_frame]
+        frames += [sys._current_frames().get(t.ident, None) for t in threading.enumerate()]
+        
+        # Process all the frames to remove ones we aren't going to track.
+        new_frames = []
+        for frame in frames:
+            if frame is None:
+                continue
+            fname = frame.f_code.co_filename
+            # Record samples only for files we care about.
+            if (len(fname)) == 0:
+                # 'eval/compile' gives no f_code.co_filename.
+                # We have to look back into the outer frame in order to check the co_filename.
+                fname = frame.f_back.f_code.co_filename
+            if not Scalene.should_trace(fname):
+                continue
+            new_frames.append(frame)
+
+        # Now update counters (weighted) for every frame we are tracking.
+        for frame in new_frames:
+            fname = frame.f_code.co_filename
+            Scalene.cpu_samples_python[fname][frame.f_lineno] += python_time / len(new_frames)
+            Scalene.cpu_samples_c[fname][frame.f_lineno] += c_time / len(new_frames)
+            
         Scalene.total_cpu_samples += python_time + c_time
 
         total_samples_to_record = int(round((now - Scalene.last_signal_time) / Scalene.last_signal_interval, 0))
@@ -559,6 +589,7 @@ class Scalene():
                         exec(code, the_globals)
                     except BaseException as be:
                         # Intercept sys.exit.
+                        # print(be)
                         pass
                     profiler.stop()
                     # Go back home.
