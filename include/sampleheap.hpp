@@ -60,7 +60,7 @@ public:
     // Fill the 0s with the pid.
     auto pid = getpid();
     sprintf(scalene_malloc_signal_filename, "/tmp/scalene-malloc-signal%d", pid);
-    sprintf(scalene_free_signal_filename, "/tmp/scalene-malloc-signal%d", pid);
+    sprintf(scalene_free_signal_filename, "/tmp/scalene-free-signal%d", pid);
   }
 
   ~SampleHeap() {
