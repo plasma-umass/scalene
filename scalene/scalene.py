@@ -152,7 +152,7 @@ class Scalene():
         """We will replace threading.Thread.join with this method which always periodically yields."""
         start_time = time.perf_counter()
         while self.is_alive():
-            Scalene.original_thread_join(self, Scalene.last_signal_interval / 2) # Nyquist rate
+            Scalene.original_thread_join(self, Scalene.last_signal_interval * 100)
             # If a timeout was specified, check to see if it's expired.
             if timeout:
                 if time.perf_counter() - start_time >= timeout:
