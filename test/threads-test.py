@@ -2,6 +2,23 @@ import threading
 import sys
 import numpy as np
 
+# Disable the @profile decorator if none has been declared.
+
+try:
+    # Python 2
+    import __builtin__ as builtins
+except ImportError:
+    # Python 3
+    import builtins
+
+try:
+    builtins.profile
+except AttributeError:
+    # No line profiler, provide a pass-through version
+    def profile(func): return func
+    builtins.profile = profile
+
+
 class MyThread(threading.Thread):
     @profile
     def run(self):
