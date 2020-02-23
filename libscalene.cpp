@@ -27,11 +27,10 @@ static TheCustomHeap * theCustomHeap = nullptr;
 // We use prime numbers here (near 1MB, for example) to avoid the risk
 // of stride behavior interfering with sampling.
 
-//const auto MallocSamplingRate = 1048583; // 33554467; // 16777259; // 1048583; // 1 * 1024 * 1024;
-const auto MallocSamplingRate = 16777259; // 1048583  # we get signals after this many bytes are allocated.
-//const auto MallocSamplingRate = 8388617; // 1048583  # we get signals after this many bytes are allocated.
-//const auto MallocSamplingRate = 4194319; //  8388617; // 1048583  # we get signals after this many bytes are allocated.
-//const auto MallocSamplingRate = 16777259; // 1048583; // 1 * 1024 * 1024;
+//const auto MallocSamplingRate = 1048583;
+//const auto MallocSamplingRate = 4194319;
+//const auto MallocSamplingRate = 8388617;
+const auto MallocSamplingRate = 16777259;
 const auto RepoSize = 4096;
 
 typedef SampleHeap<MallocSamplingRate, RepoMan<RepoSize>> CustomHeapType;
