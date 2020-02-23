@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h> // for getpid()
 
 #include <random>
 #include <atomic>
@@ -13,9 +14,7 @@
 #include "tprintf.h"
 #include "repoman.hpp"
 
-
-const char scalene_malloc_signal_filename[] = "/tmp/scalene-malloc-signal";
-const char scalene_free_signal_filename[]   = "/tmp/scalene-free-signal";
+// Max pid length = 7 digits.
 const auto flags = O_WRONLY | O_CREAT | O_SYNC | O_APPEND; // O_TRUNC;
 const auto perms = S_IRUSR | S_IWUSR;
 #define DISABLE_SIGNALS 0 // For debugging purposes only.
@@ -58,6 +57,10 @@ public:
     // Ignore these signals until they are replaced by a client.
     signal(MallocSignal, SIG_IGN);
     signal(FreeSignal, SIG_IGN);
+    // Fill the 0s with the pid.
+    auto pid = getpid();
+    sprintf(scalene_malloc_signal_filename, "/tmp/scalene-malloc-signal%d", pid);
+    sprintf(scalene_free_signal_filename, "/tmp/scalene-malloc-signal%d", pid);
   }
 
   ~SampleHeap() {
@@ -114,6 +117,8 @@ private:
 
   counterType _mallocOps;
   counterType _freeOps;
+  char scalene_malloc_signal_filename[255];
+  char scalene_free_signal_filename[255];
   unsigned long _mallocTriggered;
   unsigned long _freeTriggered;
   unsigned long _interval;
