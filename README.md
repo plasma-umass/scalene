@@ -72,26 +72,46 @@ Profiling on a Linux system:
 
 ## Performance and Features
 
-Below is a table comparing various profilers to scalene, running on an example Python program (`benchmarks/julia1_nopil.py`) from the book _High Performance Python_, by Gorelick and Ozsvald. All of these were run on a 2016 MacBook Pro.
+Below is a table comparing the **performance** of various profilers to scalene, running on an example Python program (`benchmarks/julia1_nopil.py`) from the book _High Performance Python_, by Gorelick and Ozsvald. All of these were run on a 2016 MacBook Pro.
 
 
-|                            | Time | Slowdown | Line-level?    | CPU? | Wall clock vs. CPU time? | Python vs. native? | Memory? | Unmodified code? | Threads?
-| :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| _original program_ | 6.71s | 1.0x | | | | | | | |
-|               |     |        |    |                | | |
-| `cProfile`      | 11.04s  | 1.65x  |   | ✔ | wall clock |  |  | ✔ |   |
-| `Profile`       | 202.26s | 30.14x |   | ✔ | CPU time   |  |  | ✔ |   |
-| `pyinstrument`  | 9.83s   | 1.46x  |   | ✔ | wall clock |  |  | ✔ |   |
-| `line_profiler` | 78.0s   | 11.62x | ✔ | ✔ | wall clock |  |  |    | |
-| `pprofile` _(deterministic)_ | 403.67s | 60.16x | ✔ | ✔ | wall clock  |  |  | ✔ | ✔ | 
-| `pprofile` _(statistical)_ | 7.47s | 1.11x | ✔ | ✔ | wall clock |  |  | ✔ | ✔ |
-| `yappi` _(CPU)_ | 127.53s | 19.01x |   | ✔ | CPU time   |  |  | ✔ | ✔ |
-| `yappi` _(wallclock)_ | 21.45s | 3.2x |   | ✔ | wall clock  |   |  | ✔ | ✔ |
-| `py-spy` | 7.25s | 1.08x | ✔ | ✔ | **both** |  |  | ✔ | ✔ |
-| `memory_profiler`     | _> 2 hours_ | **>1000x**| ✔ |  |  |  | ✔ |   |  |
+| Profiler                           | Time | Slowdown |
+| :--- | ---: | ---: |
+| _original program_ | 6.71s | 1.0x |
+|                    |     |        |
+| `cProfile`      | 11.04s  | 1.65x  |
+| `Profile`       | 202.26s | 30.14x |
+| `pyinstrument`  | 9.83s   | 1.46x  |
+| `line_profiler` | 78.0s   | 11.62x |
+| `pprofile` _(deterministic)_ | 403.67s | 60.16x |
+| `pprofile` _(statistical)_ | 7.47s | 1.11x |
+| `yappi` _(CPU)_ | 127.53s | 19.01x |
+| `yappi` _(wallclock)_ | 21.45s | 3.2x |
+| `py-spy` | 7.25s | 1.08x |
+| `memory_profiler`     | _> 2 hours_ | **>1000x**|
 |               |     |        |                    | |  | |
-| `scalene` _(CPU only)_     | 6.98s | **1.04x** | ✔ | ✔ | **both** | ✔ |   | ✔ | ✔ |
-| `scalene` _(CPU + memory)_ | 7.68s | **1.14x** | ✔ | ✔ | **both** | ✔ | ✔ | ✔ | ✔ |
+| `scalene` _(CPU only)_     | 6.98s | **1.04x** |
+| `scalene` _(CPU + memory)_ | 7.68s | **1.14x** |
+
+And this table compares the **features** of other profilers vs. Scalene.
+
+| Profiler | Line-level?    | CPU? | Wall clock vs. CPU time? | Python vs. native? | Memory? | Unmodified code? | Threads? |
+| ---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| | | | | | | |
+| | | | | | | |
+| `cProfile`                   |   | ✔ | wall clock  |   |   | ✔ |   |
+| `Profile`                    |   | ✔ | CPU time    |   |   | ✔ |   |
+| `pyinstrument`               |   | ✔ | wall clock  |   |   | ✔ |   |
+| `line_profiler`              | ✔ | ✔ | wall clock  |   |   |   |   |
+| `pprofile` _(deterministic)_ | ✔ | ✔ | wall clock  |   |   | ✔ | ✔ | 
+| `pprofile` _(statistical)_   | ✔ | ✔ | wall clock  |   |   | ✔ | ✔ |
+| `yappi` _(CPU)_              |   | ✔ | CPU time    |   |   | ✔ | ✔ |
+| `yappi` _(wallclock)_        |   | ✔ | wall clock  |   |   | ✔ | ✔ |
+| `py-spy`                     | ✔ | ✔ | **both**    |   |   | ✔ | ✔ |
+| `memory_profiler`            | ✔ |   |             |   | ✔ |   |   |
+|                              |   |   |             |   |   |   |   |
+| `scalene` _(CPU only)_       | ✔ | ✔ | **both**    | ✔ |   | ✔ | ✔ |
+| `scalene` _(CPU + memory)_   | ✔ | ✔ | **both**    | ✔ | ✔ | ✔ | ✔ |
 
 
 ## Output
