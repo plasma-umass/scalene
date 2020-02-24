@@ -79,18 +79,18 @@ Below is a table comparing various profilers to scalene, running on an example P
 | :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | _original program_ | 6.71s | 1.0x | | | | | | | |
 |               |     |        |    |                | | |
-| `cProfile` | 11.04s | 1.65x | function-level | ✔ | wall clock |  |  | ✔ | |
-| `Profile` | 202.26s | 30.14x | function-level | ✔ | CPU time |  |  | ✔ | |
-| `pyinstrument` | 9.83s | 1.46x | function-level | ✔ | wall clock |  |  | ✔ | |
-| `line_profiler` | 78.0s | 11.62x | ✔ | ✔ | wall clock |  |  | needs `@profile` decorators | |
+| `cProfile`      | 11.04s  | 1.65x  |   | ✔ | wall clock |  |  | ✔ |   |
+| `Profile`       | 202.26s | 30.14x |   | ✔ | CPU time   |  |  | ✔ |   |
+| `pyinstrument`  | 9.83s   | 1.46x  |   | ✔ | wall clock |  |  | ✔ |   |
+| `line_profiler` | 78.0s   | 11.62x | ✔ | ✔ | wall clock |  |  | needs `@profile` | |
 | `pprofile` _(deterministic)_ | 403.67s | 60.16x | ✔ | ✔ | wall clock  |  |  | ✔ | ✔ | 
 | `pprofile` _(statistical)_ | 7.47s | 1.11x | ✔ | ✔ | wall clock |  |  | ✔ | ✔ |
-| `yappi` _(CPU)_ | 127.53s | 19.01x | function-level | ✔ | CPU time |  |  | ✔ | ✔ |
-| `yappi` _(wallclock)_ | 21.45s | 3.2x | function-level | ✔ | wall clock  |   |  | ✔ | ✔ |
+| `yappi` _(CPU)_ | 127.53s | 19.01x |   | ✔ | CPU time   |  |  | ✔ | ✔ |
+| `yappi` _(wallclock)_ | 21.45s | 3.2x |   | ✔ | wall clock  |   |  | ✔ | ✔ |
 | `py-spy` | 7.25s | 1.08x | ✔ | ✔ | **both** |  |  | ✔ | ✔ |
-| `memory_profiler`     | _aborted after 2 hours_ | **>1000x**| ✔ |  |  |  | ✔ | needs `@profile` decorators | |
+| `memory_profiler`     | _> 2 hours_ | **>1000x**| ✔ |  |  |  | ✔ | needs `@profile` | |
 |               |     |        |                    | |  | |
-| `scalene` _(CPU only)_ | 6.98s | **1.04x** | ✔ | ✔ | **both**  | ✔ |  | ✔ | ✔ |
+| `scalene` _(CPU only)_     | 6.98s | **1.04x** | ✔ | ✔ | **both** | ✔ |   | ✔ | ✔ |
 | `scalene` _(CPU + memory)_ | 7.68s | **1.14x** | ✔ | ✔ | **both** | ✔ | ✔ | ✔ | ✔ |
 
 
