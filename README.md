@@ -75,7 +75,7 @@ Profiling on a Linux system:
 Below is a table comparing various profilers to scalene, running on an example Python program (`benchmarks/julia1_nopil.py`) from the book _High Performance Python_, by Gorelick and Ozsvald. All of these were run on a 2016 MacBook Pro.
 
 
-|                            | Time | Slowdown | Line-level?    | CPU? | Wall clock vs. CPU time? | Separates Python from native? | Memory? | Unmodified code? | Multiple threads?
+|                            | Time | Slowdown | Line-level?    | CPU? | Wall clock vs. CPU time? | Python vs. native? | Memory? | Unmodified code? | Threads?
 | :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | _original program_ | 6.71s | 1.0x | | | | | | | |
 |               |     |        |    |                | | |
