@@ -68,6 +68,34 @@ Profiling on a Linux system:
   % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene test/testme.py
 ``` 
 
+To see all the options, run with `--help`.
+
+    % python3 -m scalene --help
+    usage: scalene [-h] [-o OUTFILE] [--profile-interval PROFILE_INTERVAL]
+                   [--wallclock]
+                   prog
+    
+    Scalene: a high-precision CPU and memory profiler.
+                https://github.com/emeryberger/Scalene
+    
+                    for CPU profiling only:
+                % python -m scalene yourprogram.py
+                    for CPU and memory profiling (Mac OS X):
+                % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene yourprogram.py
+                    for CPU and memory profiling (Linux):
+                % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene yourprogram.py
+    
+    positional arguments:
+      prog                  program to be profiled
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      -o OUTFILE, --outfile OUTFILE
+                            file to hold profiler output (default: stdout)
+      --profile-interval PROFILE_INTERVAL
+                            output profiles every so many seconds.
+      --wallclock           use wall clock time (default: virtual time)
+
 # Comparison to Other Profilers
 
 ## Performance and Features
