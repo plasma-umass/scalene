@@ -19,6 +19,7 @@
 """
 
 import contextlib
+import traceback
 import sys
 import atexit
 import signal
@@ -29,7 +30,6 @@ from collections import defaultdict
 import time
 from pathlib import Path
 import os
-import traceback
 import argparse
 from contextlib import contextmanager
 from functools import lru_cache
@@ -95,8 +95,8 @@ class Scalene():
     current_footprint             = 0              # the current memory footprint.
     max_footprint                 = 0              # the peak memory footprint.
     
-    mean_signal_interval          = 0.01           # mean seconds between interrupts for CPU sampling.
-    last_signal_interval          = 0.01           # last num seconds between interrupts for CPU sampling.
+    mean_signal_interval          = sys.getswitchinterval() # 0.01           # mean seconds between interrupts for CPU sampling.
+    last_signal_interval          = mean_signal_interval    # last num seconds between interrupts for CPU sampling.
 
     memory_footprint_samples      = [[0,0]] * 47   # memory footprint samples (time, footprint), using reservoir sampling.
     total_memory_samples          = 0              # total memory samples so far.
@@ -151,8 +151,9 @@ class Scalene():
     def thread_join_replacement(self, timeout=None):
         """We will replace threading.Thread.join with this method which always periodically yields."""
         start_time = time.perf_counter()
+        interval   = sys.getswitchinterval()
         while self.is_alive():
-            Scalene.original_thread_join(self, Scalene.last_signal_interval * 100)
+            Scalene.original_thread_join(self, interval) # Scalene.last_signal_interval * 100)
             # If a timeout was specified, check to see if it's expired.
             if timeout:
                 if time.perf_counter() - start_time >= timeout:
