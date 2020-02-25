@@ -512,7 +512,7 @@ class Scalene():
                             print("%6d\t | %9s | %9s | %s" %
                                   (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, line), file=out)
                     print("", file=out)
-                    return True
+            return True
 
         
     @staticmethod
