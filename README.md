@@ -68,30 +68,78 @@ Profiling on a Linux system:
   % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene test/testme.py
 ``` 
 
+To see all the options, run with `--help`.
+
+    % python3 -m scalene --help
+    usage: scalene [-h] [-o OUTFILE] [--profile-interval PROFILE_INTERVAL]
+                   [--wallclock]
+                   prog
+    
+    Scalene: a high-precision CPU and memory profiler.
+                https://github.com/emeryberger/Scalene
+    
+                    for CPU profiling only:
+                % python -m scalene yourprogram.py
+                    for CPU and memory profiling (Mac OS X):
+                % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene yourprogram.py
+                    for CPU and memory profiling (Linux):
+                % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene yourprogram.py
+    
+    positional arguments:
+      prog                  program to be profiled
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      -o OUTFILE, --outfile OUTFILE
+                            file to hold profiler output (default: stdout)
+      --profile-interval PROFILE_INTERVAL
+                            output profiles every so many seconds.
+      --wallclock           use wall clock time (default: virtual time)
+
 # Comparison to Other Profilers
 
 ## Performance and Features
 
-Below is a table comparing various profilers to scalene, running on an example Python program (`benchmarks/julia1_nopil.py`) from the book _High Performance Python_, by Gorelick and Ozsvald. All of these were run on a 2016 MacBook Pro.
+Below is a table comparing the **performance** of various profilers to scalene, running on an example Python program (`benchmarks/julia1_nopil.py`) from the book _High Performance Python_, by Gorelick and Ozsvald. All of these were run on a 2016 MacBook Pro.
 
 
-|                            | Time | Slowdown | Line-level?    | CPU? | Wall clock vs. CPU time? | Separates Python from native? | Memory? | Unmodified code? |
-| :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| _original program_ | 6.71s | 1.0x | | | | | | |
-|               |     |        |    |                | |
-| `cProfile` | 11.04s | 1.65x | function-level | ✔ | wall clock |  |  | ✔ |
-| `Profile` | 202.26s | 30.14x | function-level | ✔ | CPU time |  |  | ✔ |
-| `pyinstrument` | 9.83s | 1.46x | function-level | ✔ | wall clock |  |  | ✔ |
-| `line_profiler` | 78.0s | 11.62x | ✔ | ✔ | wall clock |  |  | needs `@profile` decorators |
-| `pprofile` _(deterministic)_ | 403.67s | 60.16x | ✔ | ✔ | wall clock  |  | ✔ |
-| `pprofile` _(statistical)_ | 7.47s | 1.11x | ✔ | ✔ | wall clock |  |  | ✔ |
-| `yappi` _(CPU)_ | 127.53s | 19.01x | function-level | ✔ | CPU time |  |  | ✔ |
-| `yappi` _(wallclock)_ | 21.45s | 3.2x | function-level | ✔ | wall clock  |   |  | ✔ |
-| `py-spy` | 7.25s | 1.08x | ✔ | ✔ | **both** |  |  | ✔ |
-| `memory_profiler`     | _aborted after 2 hours_ | **>1000x**| ✔ |  |  |  | ✔ | needs `@profile` decorators |
-|               |     |        |                    | |  |
-| `scalene` _(CPU only)_ | 6.98s | **1.04x** | ✔ | ✔ | **both**  | ✔ |  | ✔ |
-| `scalene` _(CPU + memory)_ | 7.68s | **1.14x** | ✔ | ✔ | **both** | ✔ | ✔ | ✔ |
+| Profiler                           | Time | Slowdown |
+| :--- | ---: | ---: |
+| _original program_ | 6.71s | 1.0x |
+|                    |     |        |
+| `cProfile`      | 11.04s  | 1.65x  |
+| `Profile`       | 202.26s | 30.14x |
+| `pyinstrument`  | 9.83s   | 1.46x  |
+| `line_profiler` | 78.0s   | 11.62x |
+| `pprofile` _(deterministic)_ | 403.67s | 60.16x |
+| `pprofile` _(statistical)_ | 7.47s | 1.11x |
+| `yappi` _(CPU)_ | 127.53s | 19.01x |
+| `yappi` _(wallclock)_ | 21.45s | 3.2x |
+| `py-spy` | 7.25s | 1.08x |
+| `memory_profiler`     | _> 2 hours_ | **>1000x**|
+|               |     |        |                    | |  | |
+| `scalene` _(CPU only)_     | 6.98s | **1.04x** |
+| `scalene` _(CPU + memory)_ | 7.68s | **1.14x** |
+
+And this table compares the **features** of other profilers vs. Scalene.
+
+| Profiler | Line-level?    | CPU? | Wall clock vs. CPU time? | Python vs. native? | Memory? | Unmodified code? | Threads? |
+| ---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| | | | | | | |
+| | | | | | | |
+| `cProfile`                   |   | ✔ | wall clock  |   |   | ✔ |   |
+| `Profile`                    |   | ✔ | CPU time    |   |   | ✔ |   |
+| `pyinstrument`               |   | ✔ | wall clock  |   |   | ✔ |   |
+| `line_profiler`              | ✔ | ✔ | wall clock  |   |   |   |   |
+| `pprofile` _(deterministic)_ | ✔ | ✔ | wall clock  |   |   | ✔ | ✔ | 
+| `pprofile` _(statistical)_   | ✔ | ✔ | wall clock  |   |   | ✔ | ✔ |
+| `yappi` _(CPU)_              |   | ✔ | CPU time    |   |   | ✔ | ✔ |
+| `yappi` _(wallclock)_        |   | ✔ | wall clock  |   |   | ✔ | ✔ |
+| `py-spy`                     | ✔ | ✔ | **both**    |   |   | ✔ | ✔ |
+| `memory_profiler`            | ✔ |   |             |   | ✔ |   |   |
+|                              |   |   |             |   |   |   |   |
+| `scalene` _(CPU only)_       | ✔ | ✔ | **both**    | ✔ |   | ✔ | ✔ |
+| `scalene` _(CPU + memory)_   | ✔ | ✔ | **both**    | ✔ | ✔ | ✔ | ✔ |
 
 
 ## Output
