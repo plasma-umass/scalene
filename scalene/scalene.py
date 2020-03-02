@@ -35,6 +35,8 @@ from contextlib import contextmanager
 from functools import lru_cache
 from textwrap import dedent
 
+from . import reservoir
+
 # Logic to ignore @profile decorators.
 import builtins
 try:
@@ -64,6 +66,7 @@ if sys.platform == 'win32':
     print("Scalene currently does not support Windows, but works on Linux and Mac OS X.")
     sys.exit(-1)
 
+    
 class Scalene():
     """The Scalene profiler itself."""
 
@@ -95,11 +98,11 @@ class Scalene():
     current_footprint             = 0              # the current memory footprint.
     max_footprint                 = 0              # the peak memory footprint.
     
-    mean_signal_interval          = sys.getswitchinterval() # 0.01           # mean seconds between interrupts for CPU sampling.
+    mean_signal_interval          = 0.001 # sys.getswitchinterval() # 0.01           # mean seconds between interrupts for CPU sampling.
     last_signal_interval          = mean_signal_interval    # last num seconds between interrupts for CPU sampling.
 
-    memory_footprint_samples      = [[0,0]] * 47   # memory footprint samples (time, footprint), using reservoir sampling.
-    total_memory_samples          = 0              # total memory samples so far.
+    memory_footprint_samples      = reservoir.reservoir(47)  # memory footprint samples (time, footprint), using reservoir sampling.
+    # total_memory_samples          = 0              # total memory samples so far.
 
     original_path                 = ""             # original working directory.
     program_path                  = ""             # path for the program being profiled.
@@ -110,7 +113,7 @@ class Scalene():
     bytei_map                     = defaultdict(lambda: defaultdict(lambda: set())) # [filename][lineno] -> set(byteindex)
     
     # Things that need to be in sync with include/sampleheap.hpp:
-    
+
     malloc_signal_filename        = "/tmp/scalene-malloc-signal"             # file to communicate the number of malloc samples (+ PID)
     free_signal_filename          = "/tmp/scalene-free-signal"               # "    "  "           "   "      "  free   "
     
@@ -142,22 +145,20 @@ class Scalene():
         return mn, mx, sparkline
 
     @staticmethod
-    def exponential_distribution(p):
-        """Returns an exponentially distributed random variable."""
-        # We implement this here to avoid taking a dependence on numpy or similar.
-        return math.log(random.random()) / math.log(1.0 - p)
-
-    @staticmethod
     def thread_join_replacement(self, timeout=None):
         """We will replace threading.Thread.join with this method which always periodically yields."""
-        start_time = time.perf_counter()
+        start_time = Scalene.gettime()
         interval   = sys.getswitchinterval()
         while self.is_alive():
-            Scalene.original_thread_join(self, interval) # Scalene.last_signal_interval * 100)
+            #signal.pthread_sigmask(signal.SIG_BLOCK, [Scalene.cpu_timer_signal])
+            Scalene.original_thread_join(self, interval)
+            #signal.pthread_sigmask(signal.SIG_UNBLOCK, [Scalene.cpu_timer_signal])
             # If a timeout was specified, check to see if it's expired.
             if timeout:
-                if time.perf_counter() - start_time >= timeout:
-                    return
+                end_time = Scalene.gettime()
+                if end_time - start_time >= timeout:
+                    return None
+        return None
     
     @staticmethod
     def set_timer_signal(use_wallclock_time = False):
@@ -239,8 +240,10 @@ class Scalene():
         # account for this time by tracking the elapsed (process) time
         # and compare it to the interval, and add any computed delay
         # (as if it were sampled) to the C counter.
-        python_time = Scalene.last_signal_interval
-        c_time = now - Scalene.last_signal_time - Scalene.last_signal_interval
+        elapsed      = now - Scalene.last_signal_time
+        python_time  = Scalene.last_signal_interval
+        c_time       = elapsed - python_time
+        #print(f"elapsed: {elapsed} + python: {python_time} + c_time: {c_time}")
         if c_time < 0:
             c_time = 0
         # Update counters for every running thread.
@@ -263,29 +266,30 @@ class Scalene():
             new_frames.append(frame)
 
         # Now update counters (weighted) for every frame we are tracking.
+        total_time = python_time + c_time
+        
         for frame in new_frames:
+            # traceback.print_stack(frame)
             fname = frame.f_code.co_filename
-            Scalene.cpu_samples_python[fname][frame.f_lineno] += python_time / len(new_frames)
-            Scalene.cpu_samples_c[fname][frame.f_lineno] += c_time / len(new_frames)
+            if frame == this_frame:
+                Scalene.cpu_samples_python[fname][frame.f_lineno] += python_time / len(new_frames)
+                Scalene.cpu_samples_c[fname][frame.f_lineno]      += c_time / len(new_frames)
+            else:
+                # These are threads. We can't properly separate native
+                # from Python time in threads, sadly (because signals
+                # only interrupt the main thread), so we split the
+                # difference.
+                split_time = total_time / 2
+                Scalene.cpu_samples_python[fname][frame.f_lineno] += split_time / len(new_frames)
+                Scalene.cpu_samples_c[fname][frame.f_lineno]      += split_time / len(new_frames)
             
-        Scalene.total_cpu_samples += python_time + c_time
+        Scalene.total_cpu_samples += total_time
 
-        total_samples_to_record = int(round((now - Scalene.last_signal_time) / Scalene.last_signal_interval, 0))
-
+        total_samples_to_record = int(round(elapsed / Scalene.last_signal_interval, 0))
+        
         # Reservoir sampling to get an even distribution of footprints over time.
-        if Scalene.total_memory_samples < len(Scalene.memory_footprint_samples):
-            for i in range(0, total_samples_to_record):
-                if Scalene.total_memory_samples >= len(Scalene.memory_footprint_samples):
-                    break
-                Scalene.memory_footprint_samples[Scalene.total_memory_samples] = [now, Scalene.current_footprint]
-                Scalene.total_memory_samples += 1
-        else:
-            for i in range(0, total_samples_to_record):
-                replacement_index = random.randint(0, Scalene.total_memory_samples)
-                if replacement_index < len(Scalene.memory_footprint_samples):
-                    Scalene.memory_footprint_samples[replacement_index] = [now, Scalene.current_footprint]
-                    Scalene.total_memory_samples += 1
-                
+        for i in range(0, total_samples_to_record):
+            Scalene.memory_footprint_samples.add([now, Scalene.current_footprint])
         
         # disabled randomness for now
         # Scalene.last_signal_interval = random.uniform(Scalene.mean_signal_interval / 2, Scalene.mean_signal_interval * 3 / 2)
@@ -398,15 +402,11 @@ class Scalene():
 
     @staticmethod
     def generate_sparkline():
-        max_samples = len(Scalene.memory_footprint_samples)
-        iterations = Scalene.total_memory_samples if Scalene.total_memory_samples < max_samples else max_samples
-        # Truncate the array if needed.
-        if Scalene.total_memory_samples < len(Scalene.memory_footprint_samples):
-            Scalene.memory_footprint_samples = Scalene.memory_footprint_samples[:Scalene.total_memory_samples]
+        iterations = len(Scalene.memory_footprint_samples.get())
         # Sort samples by time.
-        Scalene.memory_footprint_samples.sort()
+        Scalene.memory_footprint_samples.get().sort()
         # Prevent negative memory output due to sampling error.
-        samples = [i if i > 0 else 0 for [t, i] in Scalene.memory_footprint_samples]
+        samples = [i if i > 0 else 0 for [t, i] in Scalene.memory_footprint_samples.get()]
         # Force the y-axis to start at 0.
         samples = [0, 0] + samples
         mn, mx, sp = Scalene.sparkline(samples[0:iterations])
@@ -426,7 +426,7 @@ class Scalene():
         all_instrumented_files = list(set(list(Scalene.cpu_samples_python.keys()) + list(Scalene.memory_free_samples.keys()) + list(Scalene.memory_malloc_samples.keys())))
         with Scalene.file_or_stdout(Scalene.output_file) as out:
             if did_sample_memory:
-                if Scalene.total_memory_samples > 0:
+                if len(Scalene.memory_footprint_samples.get()) > 0:
                     # Output a sparkline as a summary of memory usage over time.
                     mn, mx, sp = Scalene.generate_sparkline()
                     print("Memory usage: " + sp + " (max: %6.2fMB)" % mx, file=out)
@@ -518,16 +518,9 @@ class Scalene():
     @staticmethod
     def disable_signals():
         """Turn off the profiling signals."""
-        try:
-            signal.signal(Scalene.cpu_timer_signal, signal.SIG_IGN)
-        except Exception as ex:
-            template = "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
-            message = template.format(type(ex).__name__, ex.args)
-            print(message)
-            pass
+        signal.setitimer(Scalene.cpu_timer_signal, 0)
         signal.signal(Scalene.malloc_signal, signal.SIG_IGN)
         signal.signal(Scalene.free_signal, signal.SIG_IGN)
-        signal.setitimer(Scalene.cpu_timer_signal, 0)
 
     @staticmethod
     def exit_handler():
