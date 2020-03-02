@@ -19,6 +19,7 @@
 """
 
 import contextlib
+import dis
 import traceback
 import sys
 import atexit
@@ -70,6 +71,12 @@ if sys.platform == 'win32':
 class Scalene():
     """The Scalene profiler itself."""
 
+    # We use these in is_call_function to determine whether a particular bytecode is a function call.
+    # We use this to distinguish between Python and native code execution when running in threads.
+    call_functions                = { "CALL_FUNCTION", "CALL_FUNCTION_KW", "CALL_FUNCTION_EX" }
+    call_opcodes                  = { dis.opmap[op_name] for op_name in call_functions }
+
+    # Cache the original thread join function, which we replace with our own version.
     original_thread_join          = threading.Thread.join
     
     # Statistics counters.
@@ -77,8 +84,6 @@ class Scalene():
                                                                              #        spent in the interpreter
     cpu_samples_c                 = defaultdict(lambda: defaultdict(float))  # CPU    samples for each location in the program
                                                                              #        spent in C / libraries / system calls
-
-    in_handler                    = False
 
     # Below are indexed by [filename][line_no][bytecode_index].
     # malloc samples for each location in the program
@@ -144,15 +149,24 @@ class Scalene():
                             for n in numbers)
         return mn, mx, sparkline
 
+
+    @lru_cache(1024)
+    def is_call_function(code, bytei):
+        """Returns true iff the bytecode at the given index is a function call."""
+        for ins in dis.get_instructions(code):
+            if ins.offset == bytei:
+                if ins.opcode in Scalene.call_opcodes:
+                    return True
+        return False
+
+        
     @staticmethod
     def thread_join_replacement(self, timeout=None):
-        """We will replace threading.Thread.join with this method which always periodically yields."""
+        """We replace threading.Thread.join with this method which always periodically yields."""
         start_time = Scalene.gettime()
         interval   = sys.getswitchinterval()
         while self.is_alive():
-            #signal.pthread_sigmask(signal.SIG_BLOCK, [Scalene.cpu_timer_signal])
             Scalene.original_thread_join(self, interval)
-            #signal.pthread_sigmask(signal.SIG_UNBLOCK, [Scalene.cpu_timer_signal])
             # If a timeout was specified, check to see if it's expired.
             if timeout:
                 end_time = Scalene.gettime()
@@ -269,19 +283,23 @@ class Scalene():
         total_time = python_time + c_time
         
         for frame in new_frames:
-            # traceback.print_stack(frame)
             fname = frame.f_code.co_filename
             if frame == this_frame:
+                # Main thread.
                 Scalene.cpu_samples_python[fname][frame.f_lineno] += python_time / len(new_frames)
                 Scalene.cpu_samples_c[fname][frame.f_lineno]      += c_time / len(new_frames)
             else:
-                # These are threads. We can't properly separate native
-                # from Python time in threads, sadly (because signals
-                # only interrupt the main thread), so we split the
-                # difference.
-                split_time = total_time / 2
-                Scalene.cpu_samples_python[fname][frame.f_lineno] += split_time / len(new_frames)
-                Scalene.cpu_samples_c[fname][frame.f_lineno]      += split_time / len(new_frames)
+                # We can't play the same game here of attributing
+                # time, because we are in a thread, and threads don't
+                # get signals in Python. Instead, we check if the
+                # bytecode instruction being executed is a function
+                # call.  If so, we attribute all the time to native.
+                if Scalene.is_call_function(frame.f_code, frame.f_lasti):
+                    # Attribute time to native.
+                    Scalene.cpu_samples_c[fname][frame.f_lineno] += total_time / len(new_frames)
+                else:
+                    # Not in a call function so we attribute the time to Python.
+                    Scalene.cpu_samples_python[fname][frame.f_lineno] += total_time / len(new_frames)
             
         Scalene.total_cpu_samples += total_time
 
@@ -419,11 +437,10 @@ class Scalene():
         if Scalene.total_cpu_samples == 0 and Scalene.total_memory_malloc_samples == 0 and Scalene.total_memory_free_samples == 0:
             # Nothing to output.
             return False
-        
         # If I have at least one memory sample, then we are profiling memory.
         did_sample_memory = (Scalene.total_memory_free_samples + Scalene.total_memory_malloc_samples) > 0
         # Collect all instrumented filenames.
-        all_instrumented_files = list(set(list(Scalene.cpu_samples_python.keys()) + list(Scalene.memory_free_samples.keys()) + list(Scalene.memory_malloc_samples.keys())))
+        all_instrumented_files = list(set(list(Scalene.cpu_samples_python.keys()) + list(Scalene.cpu_samples_c.keys()) + list(Scalene.memory_free_samples.keys()) + list(Scalene.memory_malloc_samples.keys())))
         with Scalene.file_or_stdout(Scalene.output_file) as out:
             if did_sample_memory:
                 if len(Scalene.memory_footprint_samples.get()) > 0:
