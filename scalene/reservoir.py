@@ -2,6 +2,7 @@ import math
 import random
 
 class reservoir():
+    """Implements reservoir sampling to achieve the effect of a uniform random sample."""
 
     sample_array = []
     total_samples = 0
