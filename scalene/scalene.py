@@ -98,7 +98,7 @@ class Scalene():
     current_footprint             = 0              # the current memory footprint.
     max_footprint                 = 0              # the peak memory footprint.
     
-    mean_signal_interval          = 0.001 # sys.getswitchinterval() # 0.01           # mean seconds between interrupts for CPU sampling.
+    mean_signal_interval          = 0.01 # sys.getswitchinterval() # 0.01           # mean seconds between interrupts for CPU sampling.
     last_signal_interval          = mean_signal_interval    # last num seconds between interrupts for CPU sampling.
 
     memory_footprint_samples      = reservoir.reservoir(47)  # memory footprint samples (time, footprint), using reservoir sampling.
