@@ -477,8 +477,8 @@ class Scalene():
                 # percent_cpu_time = 100 * this_cpu_samples * Scalene.mean_signal_interval / Scalene.elapsed_time
                 print("%s: %% of CPU time = %6.2f%% out of %6.2fs." % (fname, percent_cpu_time, Scalene.elapsed_time), file=out)
                     
-                print("       |%9s |%9s | %s %s " % ('CPU %', 'CPU %', 'Avg memory  |' if did_sample_memory else '', 'Memory      |' if did_sample_memory else ''), file=out)
-                print("  Line |%9s |%9s | %s%s [%s]" % ('(Python)', '(native)', 'growth (MB) |' if did_sample_memory else '', ' usage       |' if did_sample_memory else '', fname), file=out)
+                print("       |%9s |%9s | %s %s " % ('CPU %', 'CPU %', 'Net  |' if did_sample_memory else '', 'Memory      |' if did_sample_memory else ''), file=out)
+                print("  Line |%9s |%9s | %s%s [%s]" % ('(Python)', '(native)', '(MB) |' if did_sample_memory else '', ' usage       |' if did_sample_memory else '', fname), file=out)
                 print("-" * 80, file=out)
 
                 with open(fname, 'r') as source_file:
@@ -533,16 +533,16 @@ class Scalene():
                         # Finally, print results.
                         n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 else '%6.2f%%' % n_cpu_percent_c
                         n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 else '%6.2f%%' % n_cpu_percent_python
-                        n_growth_mb_str  = "" if (n_growth_mb == 0 and n_usage_mb == 0) else '%11.0f' % n_growth_mb
+                        n_growth_mb_str  = "" if (n_growth_mb == 0 and n_usage_mb == 0) else '%5.0f' % n_growth_mb
                         # n_usage_mb_str  = "" if n_usage_mb == 0 else '%11.0f' % n_usage_mb
-                        n_usage_mb_str  = "" if n_usage_mb == 0 else '%9.2f%%' % (100 * n_usage_mb)
+                        n_usage_mb_str  = "" if n_usage_mb == 0 else '%4.0f%%' % (100 * n_usage_mb)
                         # n_usage_mb_str  = n_avg_free_mb_str # "" if n_usage_mb == 0 else '%9.2f%%' % (100 * n_usage_mb)
                         if did_sample_memory:
                             # print("%6d\t | %9s | %9s | %11s | %11s | %s" %
                             spark_string = ""
                             if len(Scalene.per_line_footprint_samples[fname][line_no].get()) > 0:
                                 mn, mx, spark_string = Scalene.generate_sparkline(Scalene.per_line_footprint_samples[fname][line_no].get(), 0, Scalene.max_footprint)
-                            print("%6d |%9s |%9s | %11s | %-11s | %s" %
+                            print("%6d |%9s |%9s |%5s | %-11s | %s" %
                                   (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, n_growth_mb_str, spark_string, line), file=out)
                         else:
                             print("%6d |%9s |%9s | %s" %
