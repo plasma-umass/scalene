@@ -107,6 +107,8 @@ class Scalene():
     last_signal_interval          = mean_signal_interval    # last num seconds between interrupts for CPU sampling.
 
     memory_footprint_samples      = reservoir.reservoir(47)  # memory footprint samples (time, footprint), using reservoir sampling.
+    per_line_footprint_samples    = defaultdict(lambda: defaultdict(lambda: reservoir.reservoir(10)))
+    
     # total_memory_samples          = 0              # total memory samples so far.
 
     original_path                 = ""             # original working directory.
@@ -139,11 +141,21 @@ class Scalene():
 
     # From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
     @staticmethod
-    def sparkline(numbers):
-        mn, mx = min(numbers), max(numbers)
+    def sparkline(numbers, fixed_min=-1, fixed_max=-1):
+        if fixed_min == -1:
+            mn = min(numbers)
+        else:
+            mn = fixed_min
+        if fixed_max == -1:
+            mx = max(numbers)
+        else:
+            mx = fixed_max
+        # print(numbers)
+        # mn, mx = min(numbers), max(numbers)
         extent = mx - mn
         if extent == 0:
             extent = 1
+        # print("mn, mx = " + str(mn) + ", " + str(mx) + " extent = " + str(extent))
         sparkline = ''.join(Scalene.bar[min([Scalene.barcount - 1,
                                      int((n - mn) / extent * Scalene.barcount)])]
                             for n in numbers)
@@ -300,7 +312,11 @@ class Scalene():
                 else:
                     # Not in a call function so we attribute the time to Python.
                     Scalene.cpu_samples_python[fname][frame.f_lineno] += total_time / len(new_frames)
-            
+            # Roll memory usage info into the per-line footprint samples (for later printing as sparklines).
+            for index in Scalene.bytei_map[fname][frame.f_lineno]:
+                growth = Scalene.memory_malloc_samples[fname][frame.f_lineno][index] - Scalene.memory_free_samples[fname][frame.f_lineno][index]
+                Scalene.per_line_footprint_samples[fname][frame.f_lineno].add([Scalene.total_cpu_samples, growth])
+
         Scalene.total_cpu_samples += total_time
 
         total_samples_to_record = int(round(elapsed / Scalene.last_signal_interval, 0))
@@ -308,7 +324,6 @@ class Scalene():
         # Reservoir sampling to get an even distribution of footprints over time.
         for i in range(0, total_samples_to_record):
             Scalene.memory_footprint_samples.add([now, Scalene.current_footprint])
-        
         # disabled randomness for now
         # Scalene.last_signal_interval = random.uniform(Scalene.mean_signal_interval / 2, Scalene.mean_signal_interval * 3 / 2)
         # signal.setitimer(Scalene.cpu_timer_signal, Scalene.last_signal_interval, Scalene.last_signal_interval)
@@ -334,10 +349,10 @@ class Scalene():
                     if is_malloc:
                         Scalene.total_memory_malloc_samples += count
                         Scalene.current_footprint += count
-                        #if Scalene.current_footprint > Scalene.max_footprint:
+                        if Scalene.current_footprint > Scalene.max_footprint:
                             #            Scalene.memory_max_samples[fname][lineno] += count
                             #            Scalene.total_max_samples += count
-                            # Scalene.max_footprint = Scalene.current_footprint
+                            Scalene.max_footprint = Scalene.current_footprint
                     else:
                         Scalene.total_memory_free_samples += count
                         Scalene.current_footprint -= count
@@ -348,6 +363,7 @@ class Scalene():
             print(e)
             pass
         if read_something:
+            # Scalene.per_line_footprint_samples[fname][line_no].add([counter[fname][line_no][bytei], Scalene.current_footprint])
             counter[fname][line_no][bytei] += 1
 
         
@@ -419,15 +435,15 @@ class Scalene():
                 yield out_file
 
     @staticmethod
-    def generate_sparkline():
-        iterations = len(Scalene.memory_footprint_samples.get())
+    def generate_sparkline(arr, minimum=-1, maximum=-1):
+        iterations = len(arr)
         # Sort samples by time.
-        Scalene.memory_footprint_samples.get().sort()
+        arr.sort()
         # Prevent negative memory output due to sampling error.
-        samples = [i if i > 0 else 0 for [t, i] in Scalene.memory_footprint_samples.get()]
+        samples = [i if i > 0 else 0 for [t, i] in arr]
         # Force the y-axis to start at 0.
-        samples = [0, 0] + samples
-        mn, mx, sp = Scalene.sparkline(samples[0:iterations])
+        # samples = [0, 0] + samples
+        mn, mx, sp = Scalene.sparkline(samples[0:iterations], minimum, maximum)
         return mn, mx, sp
         
     @staticmethod
@@ -445,7 +461,7 @@ class Scalene():
             if did_sample_memory:
                 if len(Scalene.memory_footprint_samples.get()) > 0:
                     # Output a sparkline as a summary of memory usage over time.
-                    mn, mx, sp = Scalene.generate_sparkline()
+                    mn, mx, sp = Scalene.generate_sparkline(Scalene.memory_footprint_samples.get(), 0, Scalene.max_footprint)
                     print("Memory usage: " + sp + " (max: %6.2fMB)" % mx, file=out)
                     # print("min: %6.2fMB, max: %6.2fMB" % (mn, mx), file=out)
                     
@@ -462,7 +478,7 @@ class Scalene():
                 print("%s: %% of CPU time = %6.2f%% out of %6.2fs." % (fname, percent_cpu_time, Scalene.elapsed_time), file=out)
                     
                 print("  \t | %9s | %9s | %s %s " % ('CPU %', 'CPU %', 'Avg memory  |' if did_sample_memory else '', 'Memory      |' if did_sample_memory else ''), file=out)
-                print("  Line\t | %9s | %9s | %s%s [%s]" % ('(Python)', '(native)', 'growth (MB) |' if did_sample_memory else '', ' usage (%)   |' if did_sample_memory else '', fname), file=out)
+                print("  Line\t | %9s | %9s | %s%s [%s]" % ('(Python)', '(native)', 'growth (MB) |' if did_sample_memory else '', ' usage       |' if did_sample_memory else '', fname), file=out)
                 print("-" * 80, file=out)
 
                 with open(fname, 'r') as source_file:
@@ -523,8 +539,11 @@ class Scalene():
                         # n_usage_mb_str  = n_avg_free_mb_str # "" if n_usage_mb == 0 else '%9.2f%%' % (100 * n_usage_mb)
                         if did_sample_memory:
                             # print("%6d\t | %9s | %9s | %11s | %11s | %s" %
-                            print("%6d\t | %9s | %9s | %11s | %11s | %s" %
-                                  (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, n_growth_mb_str, n_usage_mb_str, line), file=out)
+                            spark_string = ""
+                            if len(Scalene.per_line_footprint_samples[fname][line_no].get()) > 0:
+                                mn, mx, spark_string = Scalene.generate_sparkline(Scalene.per_line_footprint_samples[fname][line_no].get(), 0, Scalene.max_footprint)
+                            print("%6d\t | %9s | %9s | %11s | %-11s | %s" %
+                                  (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, n_growth_mb_str, spark_string, line), file=out)
                         else:
                             print("%6d\t | %9s | %9s | %s" %
                                   (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, line), file=out)
