@@ -162,6 +162,7 @@ class Scalene():
         return mn, mx, sparkline
 
 
+    @staticmethod
     @lru_cache(1024)
     def is_call_function(code, bytei):
         """Returns true iff the bytecode at the given index is a function call."""
