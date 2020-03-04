@@ -607,20 +607,25 @@ class Scalene():
                 sys.path.insert(0, program_path)
                 Scalene.program_path = program_path
                 os.chdir(program_path) # FIXME?
-                # Set the file being executed.
+                # Grab local and global variables.
+                import __main__
+                the_locals = __main__.__dict__
+                the_globals = __main__.__dict__
+                # Splice in the name of the file being executed instead of the profiler.
                 the_globals['__file__'] = args.prog
-                Scalene.output_file = args.outfile
                 # Start the profiler.
+                Scalene.output_file = args.outfile
                 fullname = os.path.join(program_path, os.path.basename(args.prog))
                 profiler = Scalene(fullname)
                 try:
                     profiler.start()
                     # Run the code being profiled.
                     try:
-                        exec(code, the_globals)
+                        exec(code, the_globals, the_locals)
                     except BaseException as be:
                         # Intercept sys.exit.
-                        # print(be)
+                        #print(be)
+                        #print(traceback.format_exc())
                         pass
                     profiler.stop()
                     # Go back home.
