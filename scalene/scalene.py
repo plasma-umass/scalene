@@ -37,6 +37,7 @@ from functools import lru_cache
 from textwrap import dedent
 
 from . import reservoir
+from . import sparkline
 
 # Logic to ignore @profile decorators.
 import builtins
@@ -134,32 +135,6 @@ class Scalene():
     program_being_profiled = ""          # the name of the program being profiled.
     program_path           = ""          # the path "  "   "       "     "
 
-    # Sparkline stuff
-    # Unicode: 9601, 9602, 9603, 9604, 9605, 9606, 9607, 9608
-    bar = '▁▂▃▄▅▆▇█'
-    barcount = len(bar)
-
-    # From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
-    @staticmethod
-    def sparkline(numbers, fixed_min=-1, fixed_max=-1):
-        if fixed_min == -1:
-            mn = min(numbers)
-        else:
-            mn = fixed_min
-        if fixed_max == -1:
-            mx = max(numbers)
-        else:
-            mx = fixed_max
-        # print(numbers)
-        # mn, mx = min(numbers), max(numbers)
-        extent = mx - mn
-        if extent == 0:
-            extent = 1
-        # print("mn, mx = " + str(mn) + ", " + str(mx) + " extent = " + str(extent))
-        sparkline = ''.join(Scalene.bar[min([Scalene.barcount - 1,
-                                     int((n - mn) / extent * Scalene.barcount)])]
-                            for n in numbers)
-        return mn, mx, sparkline
 
 
     @staticmethod
@@ -444,7 +419,7 @@ class Scalene():
         samples = [i if i > 0 else 0 for [t, i] in arr]
         # Force the y-axis to start at 0.
         # samples = [0, 0] + samples
-        mn, mx, sp = Scalene.sparkline(samples[0:iterations], minimum, maximum)
+        mn, mx, sp = sparkline.sparkline(samples[0:iterations], minimum, maximum)
         return mn, mx, sp
         
     @staticmethod
