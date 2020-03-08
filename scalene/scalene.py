@@ -511,11 +511,13 @@ class Scalene():
                             if Scalene.memory_free_count[fname][line_no][index] > 0:
                                 n_avg_free_mb   += frees / Scalene.memory_free_count[fname][line_no][index]
                             
-                        n_growth_mb = n_malloc_mb - n_free_mb
+                        # n_growth_mb = n_malloc_mb - n_free_mb
+                        n_growth_mb = n_avg_malloc_mb - n_avg_free_mb
                         if (n_growth_mb < 0) and (n_growth_mb > -1):
                             # Don't print out "-0".
                             n_growth_mb = 0
                         # n_usage_fraction = 0 if Scalene.total_memory_malloc_samples == 0 else n_avg_free_mb
+                        #n_usage_fraction = 0 if Scalene.total_memory_malloc_samples == 0 else (n_avg_malloc_mb) / (Scalene.total_memory_malloc_samples)
                         n_usage_fraction = 0 if Scalene.total_memory_malloc_samples == 0 else (n_malloc_mb + n_free_mb) / (Scalene.total_memory_malloc_samples + Scalene.total_memory_free_samples)
                         # print(Scalene.total_memory_malloc_samples + Scalene.total_memory_free_samples)
 
