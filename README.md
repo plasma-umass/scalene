@@ -125,8 +125,6 @@ And this table compares the **features** of other profilers vs. Scalene.
 
 | Profiler | Line-level?    | CPU? | Wall clock vs. CPU time? | Python vs. native? | Memory? | Unmodified code? | Threads? |
 | ---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| | | | | | | |
-| | | | | | | |
 | `cProfile`                   |   | ✔ | wall clock  |   |   | ✔ |   |
 | `Profile`                    |   | ✔ | CPU time    |   |   | ✔ |   |
 | `pyinstrument`               |   | ✔ | wall clock  |   |   | ✔ |   |
