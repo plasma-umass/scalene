@@ -500,18 +500,29 @@ class Scalene():
                             mallocs         = Scalene.memory_malloc_samples[fname][line_no][index]
                             n_malloc_mb     += mallocs
                             n_malloc_count  += Scalene.memory_malloc_count[fname][line_no][index]
-                            if Scalene.memory_malloc_count[fname][line_no][index] > 0:
-                                #print(Scalene.memory_malloc_samples[fname][index])
-                                #print(Scalene.memory_malloc_count[fname][index])
-                                n_avg_malloc_mb += mallocs / Scalene.memory_malloc_count[fname][line_no][index]
-                                
+                            total_count     = n_malloc_count + n_free_count
+                            total_count     = 1 if total_count == 0 else total_count
+                               
                             frees           = Scalene.memory_free_samples[fname][line_no][index]
                             n_free_mb       += frees
                             n_free_count    += Scalene.memory_free_count[fname][line_no][index]
-                            if Scalene.memory_free_count[fname][line_no][index] > 0:
-                                n_avg_free_mb   += frees / Scalene.memory_free_count[fname][line_no][index]
                             
-                        # n_growth_mb = n_malloc_mb - n_free_mb
+                            #n_avg_malloc_mb += mallocs / total_count
+                            #n_avg_free_mb   += frees / total_count
+                            if False: # Scalene.memory_malloc_count[fname][line_no][index] > 0:
+                                #print(Scalene.memory_malloc_samples[fname][index])
+                                #print(Scalene.memory_malloc_count[fname][index])
+                                n_avg_malloc_mb += mallocs / Scalene.memory_malloc_count[fname][line_no][index]
+                            if False: # Scalene.memory_free_count[fname][line_no][index] > 0:
+                                n_avg_free_mb   += frees / Scalene.memory_free_count[fname][line_no][index]
+                        n_avg_malloc_mb = n_malloc_mb
+                        n_avg_free_mb =   n_free_mb
+                        if n_malloc_count > 0:
+                            n_avg_malloc_mb /= n_malloc_count # + n_free_count)
+                        if n_free_count > 0:
+                            n_avg_free_mb /= n_free_count
+                            
+                        #n_growth_mb = n_malloc_mb - n_free_mb
                         n_growth_mb = n_avg_malloc_mb - n_avg_free_mb
                         if (n_growth_mb < 0) and (n_growth_mb > -1):
                             # Don't print out "-0".
