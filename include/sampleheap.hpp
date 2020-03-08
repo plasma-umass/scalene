@@ -14,7 +14,6 @@
 #include "tprintf.h"
 #include "repoman.hpp"
 
-// Max pid length = 7 digits.
 const auto flags = O_WRONLY | O_CREAT | O_SYNC | O_APPEND; // O_TRUNC;
 const auto perms = S_IRUSR | S_IWUSR;
 #define DISABLE_SIGNALS 0 // For debugging purposes only.
@@ -44,8 +43,7 @@ class SampleHeap : public SuperHeap {
 public:
 
   enum { Alignment = SuperHeap::Alignment };
-  enum { MallocSignal = SIGXCPU };
-  enum { FreeSignal = SIGPROF }; // SIGVTALRM };
+  enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGPROF };
   
   SampleHeap()
     : _interval (MallocSamplingRateBytes),
@@ -60,13 +58,13 @@ public:
     // Fill the 0s with the pid.
     auto pid = getpid();
     sprintf(scalene_malloc_signal_filename, "/tmp/scalene-malloc-signal%d", pid);
-    sprintf(scalene_free_signal_filename, "/tmp/scalene-free-signal%d", pid);
+    //    sprintf(scalene_free_signal_filename, "/tmp/scalene-free-signal%d", pid);
   }
 
   ~SampleHeap() {
     // Delete the signal log files.
     unlink(scalene_malloc_signal_filename);
-    unlink(scalene_free_signal_filename);
+    //    unlink(scalene_free_signal_filename);
   }
   
   ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
@@ -77,7 +75,7 @@ public:
       assert((sz < 16) || (realSize <= 2 * sz));
       _mallocOps += realSize;
       if (unlikely(_mallocOps >= _interval)) {
-	writeCount(scalene_malloc_signal_filename, _mallocOps);
+	writeCount(MallocSignal, _mallocOps);
 	_mallocTriggered++;
 	_mallocOps = 0;
 	if (_mallocTriggered == _freeTriggered) {
@@ -95,7 +93,7 @@ public:
     
     _freeOps += realSize;
     if (unlikely(_freeOps >= _interval)) {
-      writeCount(scalene_free_signal_filename, _freeOps);
+      writeCount(FreeSignal, _freeOps);
       _freeTriggered++;
       _freeOps = 0;
       if (_mallocTriggered == _freeTriggered) {
@@ -107,10 +105,10 @@ public:
 
 private:
 
-  void writeCount(const char * fname, unsigned long count) {
+  void writeCount(AllocSignal sig, unsigned long count) {
     char buf[255];
-    sprintf(buf, "%lu\n", count);
-    int fd = open(fname, flags, perms);
+    sprintf(buf, "%c,%llu,%lu\n", ((sig == MallocSignal) ? 'M' : 'F'), _mallocTriggered + _freeTriggered, count);
+    int fd = open(scalene_malloc_signal_filename, flags, perms);
     write(fd, buf, strlen(buf));
     close(fd);
   }
@@ -119,8 +117,8 @@ private:
   counterType _freeOps;
   char scalene_malloc_signal_filename[255];
   char scalene_free_signal_filename[255];
-  unsigned long _mallocTriggered;
-  unsigned long _freeTriggered;
+  unsigned long long _mallocTriggered;
+  unsigned long long _freeTriggered;
   unsigned long _interval;
   
 };
