@@ -335,17 +335,17 @@ class Scalene():
             pass
         arr.sort()
         # print("arr = " + str(arr))
+        before = Scalene.current_footprint
+        
         for item in arr:
             alloc_time, action, count = item
-            # print(action, alloc_time, count)
+            # print(fname,line_no,action, alloc_time, count)
             count /= (1024 * 1024)
             is_malloc = action == "M"
-            samples  = Scalene.memory_malloc_samples[fname][line_no]  if is_malloc else Scalene.memory_free_samples[fname][line_no]
-            samples[bytei] += count
-            counter  = Scalene.memory_malloc_count    if is_malloc else Scalene.memory_free_count
-            counter[fname][line_no][bytei] += 1
+            #samples  = Scalene.memory_malloc_samples[fname][line_no]  if is_malloc else Scalene.memory_free_samples[fname][line_no]
+            # counter  = Scalene.memory_malloc_count[fname][line_no]    if is_malloc else Scalene.memory_free_count[fname][line_no]
+            #samples[bytei] += count
             if is_malloc:
-                Scalene.total_memory_malloc_samples += count
                 Scalene.current_footprint += count
                 if Scalene.current_footprint > Scalene.max_footprint:
                     #            Scalene.memory_max_samples[fname][lineno] += count
@@ -353,15 +353,23 @@ class Scalene():
                     Scalene.max_footprint = Scalene.current_footprint
                     # print("NEW MAX = " + str(Scalene.max_footprint))
             else:
-                Scalene.total_memory_free_samples += count
+                # Scalene.total_memory_free_samples += count
                 Scalene.current_footprint -= count
-            
             #Scalene.per_line_footprint_samples[fname][line_no].add([alloc_time, Scalene.current_footprint])
             #Scalene.memory_footprint_samples.add([alloc_time, Scalene.current_footprint])
             # print("footprint now " + str(Scalene.current_footprint))
             Scalene.per_line_footprint_samples[fname][line_no].add(Scalene.current_footprint)
             Scalene.memory_footprint_samples.add(Scalene.current_footprint)
-
+            
+        after = Scalene.current_footprint
+        if after > before:
+            Scalene.memory_malloc_samples[fname][line_no][bytei] += (after - before)
+            Scalene.memory_malloc_count[fname][line_no][bytei] += 1
+            Scalene.total_memory_malloc_samples += (after - before)
+        else:
+            Scalene.memory_free_samples[fname][line_no][bytei] += (before - after)
+            Scalene.memory_free_count[fname][line_no][bytei] += 1
+            Scalene.total_memory_free_samples += (before - after)
         return
     
 
@@ -497,30 +505,18 @@ class Scalene():
                         n_malloc_count = 0
                         n_free_count = 0
                         for index in Scalene.bytei_map[fname][line_no]:
+                            # print(fname,line_no,index)
                             mallocs         = Scalene.memory_malloc_samples[fname][line_no][index]
                             n_malloc_mb     += mallocs
                             n_malloc_count  += Scalene.memory_malloc_count[fname][line_no][index]
-                            total_count     = n_malloc_count + n_free_count
-                            total_count     = 1 if total_count == 0 else total_count
-                               
                             frees           = Scalene.memory_free_samples[fname][line_no][index]
                             n_free_mb       += frees
                             n_free_count    += Scalene.memory_free_count[fname][line_no][index]
-                            
-                            #n_avg_malloc_mb += mallocs / total_count
-                            #n_avg_free_mb   += frees / total_count
-                            if Scalene.memory_malloc_count[fname][line_no][index] > 0:
-                                #print(Scalene.memory_malloc_samples[fname][index])
-                                #print(Scalene.memory_malloc_count[fname][index])
-                                n_avg_malloc_mb += mallocs / Scalene.memory_malloc_count[fname][line_no][index]
-                            if Scalene.memory_free_count[fname][line_no][index] > 0:
-                                n_avg_free_mb   += frees / Scalene.memory_free_count[fname][line_no][index]
-                        #n_avg_malloc_mb = n_malloc_mb
-                        #n_avg_free_mb =   n_free_mb
-                        #if n_malloc_count > 0:
-                        #    n_avg_malloc_mb /= n_malloc_count # + n_free_count)
-                        #if n_free_count > 0:
-                        #    n_avg_free_mb /= n_free_count
+
+                            if n_malloc_count > 0:
+                                n_avg_malloc_mb += mallocs / n_malloc_count
+                            if n_free_count > 0:
+                                n_avg_free_mb   += frees / n_free_count
                             
                         #n_growth_mb = n_malloc_mb - n_free_mb
                         n_growth_mb = n_avg_malloc_mb - n_avg_free_mb
@@ -529,9 +525,7 @@ class Scalene():
                             n_growth_mb = 0
                         # n_usage_fraction = 0 if Scalene.total_memory_malloc_samples == 0 else n_avg_free_mb
                         #n_usage_fraction = 0 if Scalene.total_memory_malloc_samples == 0 else (n_avg_malloc_mb) / (Scalene.total_memory_malloc_samples)
-                        n_usage_fraction = 0 if Scalene.total_memory_malloc_samples == 0 else (n_malloc_mb + n_free_mb) / (Scalene.total_memory_malloc_samples + Scalene.total_memory_free_samples)
-                        # print(Scalene.total_memory_malloc_samples + Scalene.total_memory_free_samples)
-
+                        n_usage_fraction = 0 if Scalene.total_memory_malloc_samples == 0 else n_malloc_mb / Scalene.total_memory_malloc_samples
                         # Finally, print results.
                         n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 else '%6.2f%%' % n_cpu_percent_c
                         n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 else '%6.2f%%' % n_cpu_percent_python
