@@ -309,17 +309,29 @@ class Scalene():
 
         
     @staticmethod
-    def allocation_handler(frame):
+    def allocation_handler(this_frame):
         """Handle interrupts for memory profiling (mallocs and frees)."""
-        # Add the byte index to the set for this line.
-        fname  = frame.f_code.co_filename
-        # Record samples only for files we care about.
-        if not Scalene.should_trace(fname):
+        frames = [this_frame]
+        frames += [sys._current_frames().get(t.ident, None) for t in threading.enumerate()]
+        # Process all the frames to remove ones we aren't going to track.
+        new_frames = []
+        for frame in frames:
+            if frame is None:
+                continue
+            fname = frame.f_code.co_filename
+            # Record samples only for files we care about.
+            if (len(fname)) == 0:
+                # 'eval/compile' gives no f_code.co_filename.
+                # We have to look back into the outer frame in order to check the co_filename.
+                fname = frame.f_back.f_code.co_filename
+            if not Scalene.should_trace(fname):
+                continue
+            new_frames.append(frame)
+
+        if len(new_frames) == 0:
             return
-        line_no = frame.f_lineno
-        bytei = frame.f_lasti
-        if bytei not in Scalene.bytei_map[fname][line_no]:
-            Scalene.bytei_map[fname][line_no].add(bytei)
+
+        # Process the input array.
         arr = []
         try:
             with open(Scalene.malloc_signal_filename, "r") as f:
@@ -334,43 +346,59 @@ class Scalene():
         except FileNotFoundError:
             pass
         arr.sort()
-        # print("arr = " + str(arr))
+
+        # Iterate through the array to compute the new current footprint.
+        # and update the global memory_footprint_samples.
         before = Scalene.current_footprint
-        
         for item in arr:
             alloc_time, action, count = item
             # print(fname,line_no,action, alloc_time, count)
             count /= (1024 * 1024)
             is_malloc = action == "M"
-            #samples  = Scalene.memory_malloc_samples[fname][line_no]  if is_malloc else Scalene.memory_free_samples[fname][line_no]
-            # counter  = Scalene.memory_malloc_count[fname][line_no]    if is_malloc else Scalene.memory_free_count[fname][line_no]
-            #samples[bytei] += count
             if is_malloc:
                 Scalene.current_footprint += count
                 if Scalene.current_footprint > Scalene.max_footprint:
-                    #            Scalene.memory_max_samples[fname][lineno] += count
-                    #            Scalene.total_max_samples += count
                     Scalene.max_footprint = Scalene.current_footprint
-                    # print("NEW MAX = " + str(Scalene.max_footprint))
             else:
-                # Scalene.total_memory_free_samples += count
                 Scalene.current_footprint -= count
-            #Scalene.per_line_footprint_samples[fname][line_no].add([alloc_time, Scalene.current_footprint])
-            #Scalene.memory_footprint_samples.add([alloc_time, Scalene.current_footprint])
-            # print("footprint now " + str(Scalene.current_footprint))
-            Scalene.per_line_footprint_samples[fname][line_no].add(Scalene.current_footprint)
             Scalene.memory_footprint_samples.add(Scalene.current_footprint)
-            
         after = Scalene.current_footprint
-        if after > before:
-            Scalene.memory_malloc_samples[fname][line_no][bytei] += (after - before)
-            Scalene.memory_malloc_count[fname][line_no][bytei] += 1
-            Scalene.total_memory_malloc_samples += (after - before)
-        else:
-            Scalene.memory_free_samples[fname][line_no][bytei] += (before - after)
-            Scalene.memory_free_count[fname][line_no][bytei] += 1
-            Scalene.total_memory_free_samples += (before - after)
-        return
+
+        # Now update the memory footprint for every running frame.
+        # This is a pain, since we don't know to whom to attribute memory,
+        # so we may overcount.
+        num_threads = len(new_frames)
+        
+        for frame in new_frames:
+            fname  = frame.f_code.co_filename
+            line_no = frame.f_lineno
+            bytei = frame.f_lasti
+            # Add the byte index to the set for this line.
+            if bytei not in Scalene.bytei_map[fname][line_no]:
+                Scalene.bytei_map[fname][line_no].add(bytei)
+            curr = before
+            # Go through the array again and add each updated current footprint.
+            for item in arr:
+                alloc_time, action, count = item
+                count /= (1024 * 1024)
+                is_malloc = action == "M"
+                if is_malloc:
+                    curr += count
+                else:
+                    curr -= count
+                Scalene.per_line_footprint_samples[fname][line_no].add(curr)
+            assert curr == after
+            # If there was a net increase in memory, treat it as if it was a malloc; otherwise, treat it as if it was a free.
+            # This is for later reporting of net memory gain / loss per line of code.
+            #print(fname + ":" + str(line_no) + " = " + str(after - before))
+            if after > before:
+                Scalene.memory_malloc_samples[fname][line_no][bytei] += (after - before)# / num_threads
+                Scalene.memory_malloc_count[fname][line_no][bytei] += 1 #/ num_threads
+                Scalene.total_memory_malloc_samples += (after - before)# / num_threads
+            else:
+                Scalene.memory_free_samples[fname][line_no][bytei] += (before - after)# / num_threads
+                Scalene.memory_free_count[fname][line_no][bytei] += 1 #/ num_threads
+                Scalene.total_memory_free_samples += (before - after) #/ num_threads
     
 
     @staticmethod
