@@ -248,9 +248,13 @@ class Scalene():
         if c_time < 0:
             c_time = 0
         # Update counters for every running thread.
+
+    
         frames = [this_frame]
-        frames += [sys._current_frames().get(t.ident, None) for t in threading.enumerate()]
-        
+
+        frames = [sys._current_frames().get(t.ident, None) for t in threading.enumerate()]
+        frames.append(this_frame)
+
         # Process all the frames to remove ones we aren't going to track.
         new_frames = []
         for frame in frames:
@@ -265,7 +269,9 @@ class Scalene():
             if not Scalene.should_trace(fname):
                 continue
             new_frames.append(frame)
-
+            
+        del frames
+    
         # Now update counters (weighted) for every frame we are tracking.
         total_time = python_time + c_time
         
@@ -293,6 +299,8 @@ class Scalene():
             #    memory_delta = Scalene.memory_malloc_samples[fname][frame.f_lineno][index] - Scalene.memory_free_samples[fname][frame.f_lineno][index]
             #    growth += memory_delta
 
+        del new_frames
+        
         Scalene.total_cpu_samples += total_time
 
         # total_samples_to_record = int(round(elapsed / Scalene.last_signal_interval, 0))
