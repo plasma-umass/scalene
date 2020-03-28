@@ -14,8 +14,6 @@
 #include "tprintf.h"
 #include "repoman.hpp"
 
-const auto flags = O_WRONLY | O_CREAT | O_SYNC | O_APPEND; // O_TRUNC;
-const auto perms = S_IRUSR | S_IWUSR;
 #define DISABLE_SIGNALS 0 // For debugging purposes only.
 
 #if DISABLE_SIGNALS
@@ -43,7 +41,7 @@ class SampleHeap : public SuperHeap {
 public:
 
   enum { Alignment = SuperHeap::Alignment };
-  enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGPROF };
+  enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
   
   SampleHeap()
     : _interval (MallocSamplingRateBytes),
@@ -104,6 +102,9 @@ public:
   }
 
 private:
+
+  static constexpr auto flags = O_WRONLY | O_CREAT | O_SYNC | O_APPEND; // O_TRUNC;
+  static constexpr auto perms = S_IRUSR | S_IWUSR;
 
   void writeCount(AllocSignal sig, unsigned long count) {
     char buf[255];
