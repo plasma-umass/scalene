@@ -1,7 +1,7 @@
 CPPFLAGS = -std=c++17 -flto -g -ffast-math -fno-builtin-malloc -O3 -DNDEBUG -fvisibility=hidden
 CXX = clang++
 
-INCLUDES = -I. -I./include -IHeap-Layers -IHeap-Layers/utility
+INCLUDES = -I. -I./include -IHeap-Layers -IHeap-Layers/wrappers -IHeap-Layers/utility
 
 MACOS_SRC = lib$(LIBNAME).cpp Heap-Layers/wrappers/macwrapper.cpp
 MACOS_COMPILE = $(CXX) -ftemplate-depth=1024 -arch x86_64 -pipe $(CPPFLAGS) $(INCLUDES) -D_REENTRANT=1 -compatibility_version 1 -current_version 1 -D'CUSTOM_PREFIX(x)=xx\#\#x' $(MACOS_SRC) -dynamiclib -install_name $(DESTDIR)$(PREFIX)/lib$(LIBNAME).dylib -o lib$(LIBNAME).dylib -ldl -lpthread 
