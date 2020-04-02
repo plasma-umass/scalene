@@ -74,8 +74,7 @@ class Scalene():
 
     # We use these in is_call_function to determine whether a particular bytecode is a function call.
     # We use this to distinguish between Python and native code execution when running in threads.
-    call_functions                = { "CALL_FUNCTION", "CALL_FUNCTION_KW", "CALL_FUNCTION_EX" }
-    call_opcodes                  = { dis.opmap[op_name] for op_name in call_functions }
+    call_opcodes                  = { dis.opmap[op_name] for op_name in dis.opmap if op_name.startswith("CALL_FUNCTION") }
 
     # Cache the original thread join function, which we replace with our own version.
     original_thread_join          = threading.Thread.join
