@@ -19,7 +19,9 @@ Scalene is a high-performance CPU *and* memory profiler for Python that does a n
 
 ## Installation
 
-Scalene is distributed as a `pip` package and works on Linux and Mac OS X platforms. You can install it as follows:
+Scalene is distributed as a `pip` package and works on Mac OS X and Linux platforms (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)).
+
+You can install it as follows:
 ```
   % pip install scalene
 ```
