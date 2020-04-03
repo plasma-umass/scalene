@@ -79,7 +79,7 @@ public:
     signal(MemcpySignal, SIG_IGN);
     auto pid = getpid();
     int i;
-    for (i = 0; i < strlen(fname); i++) {
+    for (i = 0; i < local_strlen(fname); i++) {
       if (fname[i] == 'X') {
 	break;
       }
@@ -88,12 +88,78 @@ public:
     stprintf::stprintf((char *) &scalene_memcpy_signal_filename[i], "@", pid);
   }
 
+  int local_strlen(const char * str) {
+    int len = 0;
+    while (*str != '\0') {
+      len++;
+      str++;
+    }
+    return len;
+  }
+  
   ~MemcpySampler() {
     unlink(scalene_memcpy_signal_filename);
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void * memcpy(void * dst, const void * src, size_t n) {
-    auto result = ::memcpy(dst, src, n);
+    auto result = local_memcpy(dst, src, n);
+    incrementMemoryOps(n);
+    return result; // always dst
+  }
+
+  ATTRIBUTE_ALWAYS_INLINE inline void * memmove(void * dst, const void * src, size_t n) {
+    auto result = local_memmove(dst, src, n);
+    incrementMemoryOps(n);
+    return result; // always dst
+  }
+
+  ATTRIBUTE_ALWAYS_INLINE inline char * strcpy(char * dst, const char * src) {
+    auto n = ::strlen(src);
+    auto result = local_strcpy(dst, src);
+    incrementMemoryOps(n);
+    return result; // always dst
+  }
+  
+private:
+
+  //// local implementations of memcpy and friends.
+  
+  void * local_memcpy(void * dst, const void * src, size_t n) {
+#if defined(__APPLE__)
+    return ::memcpy(dst, src, n);
+#else
+    char * d = (char *) dst;
+    char * s = (char *) src;
+    for (size_t i = 0; i < n; i++) {
+      *d++ = *s++;
+    }
+    return dst;
+#endif
+  }
+
+  void * local_memmove(void * dst, const void * src, size_t n) {
+#if defined(__APPLE__)
+    return ::memmove(dst, src, n);
+#else
+    // TODO: optimize if these areas don't overlap.
+    void * buf = malloc(n);
+    local_memcpy(buf, src, n);
+    local_memcpy(dst, buf, n);
+    free(buf);
+    return dst;
+#endif
+  }
+
+  char * local_strcpy(char * dst, const char * src) {
+    char * orig_dst = dst;
+    while (*src != '\0') {
+      *dst++ = *src++;
+    }
+    *dst = '\0';
+    return orig_dst;
+  }
+  
+  void incrementMemoryOps(int n) {
     _memcpyOps += n;
     if (unlikely(_memcpyOps >= _interval)) {
       writeCount();
@@ -101,10 +167,7 @@ public:
       _memcpyOps = 0;
       raise(MemcpySignal);
     }
-    return result; // always dst
   }
-  
-private:
   
   unsigned long _memcpyOps;
   unsigned long long _memcpyTriggered;
@@ -120,16 +183,38 @@ private:
   }
 };
 
-extern "C" ATTRIBUTE_EXPORT void * xxmemcpy(void * dst, const void * src, size_t n) {
+auto& getSampler() {
   static MemcpySampler<MemcpySamplingRate> msamp;
-  //  tprintf::tprintf("E");
-  auto result = msamp.memcpy(dst, src, n);
-  //  tprintf::tprintf("F\n");
+  return msamp;
+}
+
+#if defined(__APPLE__)
+#define LOCAL_PREFIX(x) xx##x
+#else
+#define LOCAL_PREFIX(x) x
+#endif
+
+extern "C" ATTRIBUTE_EXPORT void * LOCAL_PREFIX(memcpy)(void * dst, const void * src, size_t n) {
+  // tprintf::tprintf("memcpy @ @ (@)\n", dst, src, n);
+  auto result = getSampler().memcpy(dst, src, n);
+  return result;
+}
+
+extern "C" ATTRIBUTE_EXPORT void * LOCAL_PREFIX(memmove)(void * dst, const void * src, size_t n) {
+  auto result = getSampler().memmove(dst, src, n);
+  return result;
+}
+
+extern "C" ATTRIBUTE_EXPORT char * LOCAL_PREFIX(strcpy)(char * dst, const char * src) {
+  // tprintf::tprintf("strcpy @ @ (@)\n", dst, src);
+  auto result = getSampler().strcpy(dst, src);
   return result;
 }
 
 #if defined(__APPLE__)
 MAC_INTERPOSE(xxmemcpy, memcpy);
+MAC_INTERPOSE(xxmemmove, memmove);
+MAC_INTERPOSE(xxstrcpy, strcpy);
 #endif
 
 extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void * xxmalloc(size_t sz) {
