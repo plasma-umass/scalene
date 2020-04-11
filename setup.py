@@ -19,5 +19,10 @@ setup(name='scalene',
          "License :: OSI Approved :: Apache Software License",
          "Operating System :: OS Independent",
      ],
-      packages=find_packages()
+      packages=find_packages(),
+      entry_points = {
+          'console_scripts': [
+              'scalene = scalene.__main__:main' 
+          ]
+      }
 )

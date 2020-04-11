@@ -733,4 +733,6 @@ class Scalene():
         except (FileNotFoundError, IOError):
             print("Scalene: could not find input file.")
 
-Scalene.main()
+
+if __name__ == "__main__":
+    Scalene.main()
