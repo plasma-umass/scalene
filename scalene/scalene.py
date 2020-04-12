@@ -10,11 +10,11 @@
     https://emeryberger.com
 
     usage: # for CPU profiling only
-            python -m Scalene test/testme.py
+            scalene test/testme.py
             # for CPU and memory profiling (Mac OS X)
-            DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene test/testme.py
+            DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene test/testme.py
             # for CPU and memory profiling (Linux)
-            LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene test/testme.py
+            LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python scalene test/testme.py
 
 """
 
