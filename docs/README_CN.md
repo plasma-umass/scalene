@@ -64,17 +64,17 @@ _注意_: 现在这样安装Scalene，是不会安装内存分析的库，所以
 
 在 Mac OS X 系统上进行分析(不使用Homebrew安装)：
 ```
-  % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene test/testme.py
+  % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene test/testme.py
 ``` 
 
 在Linux系统上分析：
 ```
-  % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene test/testme.py
+  % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc scalene test/testme.py
 ``` 
 
 执行时增加 `--help` 来查看全部配置：
 
-    % python3 -m scalene --help
+    % scalene --help
     usage: scalene [-h] [-o OUTFILE] [--profile-interval PROFILE_INTERVAL]
                    [--wallclock]
                    prog
