@@ -10,11 +10,11 @@
     https://emeryberger.com
 
     usage: # for CPU profiling only
-            python -m Scalene test/testme.py
+            scalene test/testme.py
             # for CPU and memory profiling (Mac OS X)
-            DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene test/testme.py
+            DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene test/testme.py
             # for CPU and memory profiling (Linux)
-            LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene test/testme.py
+            LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python scalene test/testme.py
 
 """
 
@@ -530,10 +530,13 @@ class Scalene():
         if Scalene.total_cpu_samples == 0 and Scalene.total_memory_malloc_samples == 0 and Scalene.total_memory_free_samples == 0:
             # Nothing to output.
             return False
-        # If I have at least one memory sample, then we are profiling memory.
-        did_sample_memory = (Scalene.total_memory_free_samples + Scalene.total_memory_malloc_samples) > 0
         # Collect all instrumented filenames.
         all_instrumented_files = list(set(list(Scalene.cpu_samples_python.keys()) + list(Scalene.cpu_samples_c.keys()) + list(Scalene.memory_free_samples.keys()) + list(Scalene.memory_malloc_samples.keys())))
+        if len(all_instrumented_files) == 0:
+            # We didn't collect samples in source files.
+            return False
+        # If I have at least one memory sample, then we are profiling memory.
+        did_sample_memory = (Scalene.total_memory_free_samples + Scalene.total_memory_malloc_samples) > 0
         with Scalene.file_or_stdout(Scalene.output_file) as out:
             if did_sample_memory:
                 if len(Scalene.memory_footprint_samples.get()) > 0:

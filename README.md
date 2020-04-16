@@ -47,7 +47,7 @@ This will install a `scalene` script you can use (see below).
 The following command will run Scalene to only perform line-level CPU profiling on a provided example program.
 
 ```
-  % python -m scalene test/testme.py
+  % scalene test/testme.py
 ```
 
 If you have installed the Scalene library with Homebrew, you can just invoke `scalene` to perform both line-level CPU and memory profiling:
@@ -64,17 +64,17 @@ Otherwise, you first need to build the specialized memory allocator by running `
 
 Profiling on a Mac OS X system (without using Homebrew):
 ```
-  % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene test/testme.py
+  % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene test/testme.py
 ``` 
 
 Profiling on a Linux system:
 ```
-  % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene test/testme.py
+  % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc scalene test/testme.py
 ``` 
 
 To see all the options, run with `--help`.
 
-    % python3 -m scalene --help
+    % scalene --help
     usage: scalene [-h] [-o OUTFILE] [--profile-interval PROFILE_INTERVAL]
                    [--wallclock]
                    prog
@@ -83,11 +83,11 @@ To see all the options, run with `--help`.
                 https://github.com/emeryberger/Scalene
     
                     for CPU profiling only:
-                % python -m scalene yourprogram.py
+                % scalene yourprogram.py
                     for CPU and memory profiling (Mac OS X):
-                % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene yourprogram.py
+                % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene yourprogram.py
                     for CPU and memory profiling (Linux):
-                % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene yourprogram.py
+                % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc scalene yourprogram.py
     
     positional arguments:
       prog                  program to be profiled
