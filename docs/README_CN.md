@@ -47,7 +47,7 @@ _注意_: 现在这样安装Scalene，是不会安装内存分析的库，所以
 下面的命令会让 Scalene 在提供的示例程序上执行 行级别的CPU分析。
 
 ```
-  % python -m scalene test/testme.py
+  % scalene test/testme.py
 ```
 
 如果你使用Homebrew安装 Scalene 库，你只需要执行 `scalene` 就可以执行行级别的CPU和内存分析：
@@ -83,11 +83,11 @@ _注意_: 现在这样安装Scalene，是不会安装内存分析的库，所以
                 https://github.com/emeryberger/Scalene
     
                     for CPU profiling only:
-                % python -m scalene yourprogram.py
+                % scalene yourprogram.py
                     for CPU and memory profiling (Mac OS X):
-                % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene yourprogram.py
+                % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene yourprogram.py
                     for CPU and memory profiling (Linux):
-                % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene yourprogram.py
+                % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc scalene yourprogram.py
     
     positional arguments:
       prog                  program to be profiled
