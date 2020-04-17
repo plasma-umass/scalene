@@ -5,6 +5,7 @@
 by [Emery Berger](https://emeryberger.com)
 
 ------------
+[中文文档(Chinese Document)](docs/README_CN.md)
 
 # About Scalene
 
