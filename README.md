@@ -172,36 +172,31 @@ Scalene prints annotated source code for the program being profiled and any modu
        151	 |           |           |     return PtrParIn
 ```
 
-And here is an example with memory profiling enabled, running the Julia benchmark.
-The top line is a "spark line" summarizing memory consumption over time.
+And here is an example with memory profiling enabled.
+The "sparklines" summarize memory consumption over time (at the top, for the whole program).
 
 ```
-    Memory usage: ▁▁▄▇█▇▇▇█▇█▇█▇█▇█▇▇▇▇█▇▇█▇█▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇█ (max: 105.73MB)
-    benchmarks/julia1_nopil.py: % of CPU time = 100.00% out of   9.11s.
-          	 |     CPU % |     CPU % | Avg memory  | Memory      | 
-      Line	 |  (Python) |  (native) | growth (MB) | usage (%)   | [benchmarks/julia1_nopil.py]
+    Memory usage: ▂▂▁▁▁▁▁▁▁▁▁▅█▅ (max: 1617.98MB)
+    phylliade/test2-2.py: % of CPU time =  40.68% out of   4.60s.
+           |    CPU % |    CPU % |  Net  | Memory usage   | Copy  |
+      Line | (Python) | (native) |  (MB) | over time /  % | (MB/s)| [phylliade/test2-2.py]
     --------------------------------------------------------------------------------
-         1	 |           |           |             |             | import sys
-    [... lines omitted ...]
-        30	 |           |           |             |             | def calculate_z_serial_purepython(maxiter, zs, cs):
-        31	 |           |           |             |             |     """Calculate output list using Julia update rule"""
-        32	 |           |           |          18 |       0.74% |     output = [0] * len(zs)
-        33	 |     0.44% |     0.06% |          16 |       1.32% |     for i in range(len(zs)):
-        34	 |           |           |             |             |         n = 0
-        35	 |     0.22% |     0.04% |         -16 |             |         z = zs[i]
-        36	 |     0.22% |     0.07% |             |             |         c = cs[i]
-        37	 |    26.12% |     5.57% |             |             |         while abs(z) < 2 and n < maxiter:
-        38	 |    36.04% |     7.74% |          16 |      85.09% |             z = z * z + c
-        39	 |    12.01% |     2.70% |         -16 |       3.96% |             n += 1
-        40	 |     0.33% |     0.10% |             |             |         output[i] = n
-        41	 |           |           |             |             |     return output
-        42	 |           |           |             |             | 
+         1 |          |          |       |                |       | import numpy as np
+         2 |          |          |       |                |       | 
+         3 |          |          |       |                |       | @profile
+         4 |          |          |       |                |       | def main():
+         5 |          |          |    92 | ▁▁▁▁▁▁▁▁▁  11% |       |     x = np.array(range(10**7))
+         6 |    0.43% |   40.24% |   762 | ▁▁▄█▄      89% |   168 |     y = np.array(np.random.uniform(0, 100, size=(10**8)))
+         7 |          |          |       |                |       | 
+         8 |          |          |       |                |       | main()
 ```
 
-Positive memory numbers indicate total memory allocation in megabytes;
-negative memory numbers indicate memory reclamation. Memory usage
-means how much of the total memory allocation activity a particular
-line represents.
+Positive net memory numbers indicate total memory allocation in megabytes;
+negative net memory numbers indicate memory reclamation.
+
+The memory usage sparkline and copy volume make it easy to spot
+unnecessary copying in line 6.
+
 
 # Acknowledgements
 
