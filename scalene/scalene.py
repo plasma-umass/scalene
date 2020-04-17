@@ -25,7 +25,7 @@ import sys
 import atexit
 import signal
 #import math
-#import random
+import random
 import threading
 from collections import defaultdict
 import time
@@ -49,20 +49,6 @@ except AttributeError:
         return func
     builtins.profile = profile
 
-
-
-the_globals = {
-    '__name__': '__main__',
-    '__doc__': None,
-    '__package__': None,
-    '__loader__': globals()['__loader__'],
-    '__spec__': None,
-    '__annotations__': {},
-    '__builtins__': globals()['__builtins__'],
-    '__file__': None,
-    '__cached__': None,
-}
-
 assert sys.version_info[0] == 3 and sys.version_info[1] >= 5, \
     "Scalene requires Python version 3.5 or above."
 
@@ -85,7 +71,7 @@ class Scalene():
                     if op_name.startswith("CALL_FUNCTION")}
 
     # Cache the original thread join function, which we replace with our own version.
-    original_thread_join = threading.Thread.join
+    __original_thread_join = threading.Thread.join
 
     # Statistics counters:
     #
@@ -195,7 +181,7 @@ periodically yields."""
         start_time = Scalene.gettime()
         interval = sys.getswitchinterval()
         while self.is_alive():
-            Scalene.original_thread_join(self, interval)
+            Scalene.__original_thread_join(self, interval)
             # If a timeout was specified, check to see if it's expired.
             if timeout:
                 end_time = Scalene.gettime()
@@ -227,8 +213,8 @@ start the timer interrupts."""
         # CPU
         signal.signal(Scalene.cpu_signal, Scalene.cpu_signal_handler)
         # malloc/free interrupts (for memory allocations).
-        signal.signal(Scalene.malloc_signal, Scalene.malloc_event_signal_handler)
-        signal.signal(Scalene.free_signal, Scalene.free_event_signal_handler)
+        signal.signal(Scalene.malloc_signal, Scalene.allocation_handler)
+        signal.signal(Scalene.free_signal, Scalene.allocation_handler)
         signal.signal(Scalene.memcpy_signal, Scalene.memcpy_event_signal_handler)
         # Turn on the CPU profiling timer to run every signal_interval seconds.
         signal.setitimer(Scalene.cpu_timer_signal, Scalene.mean_signal_interval,
@@ -349,13 +335,19 @@ process."""
         Scalene.total_cpu_samples += total_time
 
         # disabled randomness for now
-        # Scalene.last_signal_interval = random.uniform(Scalene.mean_signal_interval / 2, Scalene.mean_signal_interval * 3 / 2)
-        # signal.setitimer(Scalene.cpu_timer_signal, Scalene.last_signal_interval, Scalene.last_signal_interval)
-        Scalene.last_signal_time = Scalene.gettime()
+        if False:
+            # Pick a random interval, uniformly from m/2 to 3m/2 (so the mean is m)
+            mean = Scalene.mean_signal_interval
+            Scalene.last_signal_interval = random.uniform(mean / 2, mean * 3 / 2)
+            signal.setitimer(Scalene.cpu_timer_signal,
+                             Scalene.last_signal_interval,
+                             Scalene.last_signal_interval)
+        else:
+            Scalene.last_signal_time = Scalene.gettime()
 
     @staticmethod
     def compute_frames_to_record(this_frame):
-        """Collects all stack frames that Scalene actually processes (all threads but only for code running in specific files)."""
+        """Collects all stack frames that Scalene actually processes."""
         frames = [this_frame]
         frames += [sys._current_frames().get(t.ident, None) for t in threading.enumerate()]
         # Process all the frames to remove ones we aren't going to track.
@@ -376,7 +368,7 @@ process."""
         return new_frames
 
     @staticmethod
-    def allocation_handler(this_frame):
+    def allocation_handler(_, this_frame):
         """Handle interrupts for memory profiling (mallocs and frees)."""
         new_frames = Scalene.compute_frames_to_record(this_frame)
 
@@ -443,8 +435,6 @@ process."""
             # was a malloc; otherwise, treat it as if it was a
             # free. This is for later reporting of net memory gain /
             # loss per line of code.
-
-            #print(fname + ":" + str(line_no) + " = " + str(after - before))
             if after > before:
                 Scalene.memory_malloc_samples[fname][line_no][bytei] += (after - before)
                 Scalene.memory_malloc_count[fname][line_no][bytei] += 1
@@ -456,16 +446,8 @@ process."""
 
 
     @staticmethod
-    def malloc_event_signal_handler(_, frame):
-        Scalene.allocation_handler(frame)
-
-
-    @staticmethod
-    def free_event_signal_handler(_, frame):
-        Scalene.allocation_handler(frame)
-
-    @staticmethod
     def memcpy_event_signal_handler(_, frame):
+        """Handles memcpy events."""
         new_frames = Scalene.compute_frames_to_record(frame)
         if len(new_frames) == 0:
             return
@@ -488,15 +470,14 @@ process."""
 
         for item in arr:
             memcpy_time, count = item
-            for frame in new_frames:
-                fname = frame.f_code.co_filename
-                line_no = frame.f_lineno
-                bytei = frame.f_lasti
+            for the_frame in new_frames:
+                fname = the_frame.f_code.co_filename
+                line_no = the_frame.f_lineno
+                bytei = the_frame.f_lasti
                 # Add the byte index to the set for this line.
                 if bytei not in Scalene.bytei_map[fname][line_no]:
                     Scalene.bytei_map[fname][line_no].add(bytei)
                 Scalene.memcpy_samples[fname][line_no] += count
-        # Scalene.allocation_handler(frame)
 
 
     @staticmethod
@@ -530,11 +511,11 @@ process."""
         Scalene.elapsed_time = Scalene.gettime() - Scalene.elapsed_time
         os.chdir(Scalene.original_path)
 
+    # from https://stackoverflow.com/questions/9836370/fallback-to-stdout-if-no-file-name-provided
     @staticmethod
     @contextmanager
     def file_or_stdout(file_name):
         """Returns a file handle for writing; if no argument is passed, returns stdout."""
-        # from https://stackoverflow.com/questions/9836370/fallback-to-stdout-if-no-file-name-provided
         if file_name is None:
             yield sys.stdout
         else:
@@ -543,29 +524,28 @@ process."""
 
     @staticmethod
     def generate_sparkline(arr, minimum=-1, maximum=-1):
+        """Produces a sparkline, as in ▁▁▁▁▁▂▃▂▄▅▄▆█▆█▆"""
         iterations = len(arr)
-        # Sort samples by time.
-        # arr.sort()
-        # Prevent negative memory output due to sampling error.
-        # samples = [i if i > 0 else 0 for [t, i] in arr]
         all_zeros = all([i == 0 for i in arr])
         if all_zeros:
             return 0, 0, ""
+        # Prevent negative memory output due to sampling error.
         samples = [i if i > 0 else 0 for i in arr]
-        # Force the y-axis to start at 0.
-        # samples = [0, 0] + samples
         minval, maxval, sp_line = sparkline.sparkline(samples[0:iterations], minimum, maximum)
         return minval, maxval, sp_line
 
     @staticmethod
     def output_profile_line(fname, line_no, line, out):
+        """Print exactly one line of the profile to out."""
         current_max = Scalene.max_footprint
-        did_sample_memory = (Scalene.total_memory_free_samples + Scalene.total_memory_malloc_samples) > 0
+        did_sample_memory = (Scalene.total_memory_free_samples
+                             + Scalene.total_memory_malloc_samples) > 0
         line = line.rstrip() # Strip newline
         # Prepare output values.
         n_cpu_samples_c = Scalene.cpu_samples_c[fname][line_no]
-        # Correct for negative CPU sample counts.
-        # This can happen because of floating point inaccuracies, since we perform subtraction to compute it.
+        # Correct for negative CPU sample counts. This can happen
+        # because of floating point inaccuracies, since we perform
+        # subtraction to compute it.
         if n_cpu_samples_c < 0:
             n_cpu_samples_c = 0
         n_cpu_samples_python = Scalene.cpu_samples_python[fname][line_no]
@@ -600,36 +580,39 @@ process."""
             if n_free_count > 0:
                 n_avg_free_mb += frees / n_free_count
 
-        #n_growth_mb = n_malloc_mb - n_free_mb
-        #print("mallocs " + str(n_malloc_mb))
-        #print("frees " + str(n_free_mb))
         n_growth_mb = n_malloc_mb - n_free_mb
-        if (n_growth_mb < 0) and (n_growth_mb > -1):
+        if -1 < n_growth_mb < 0:
             # Don't print out "-0".
             n_growth_mb = 0
-        n_usage_fraction = 0 if Scalene.total_memory_malloc_samples == 0 else n_malloc_mb / Scalene.total_memory_malloc_samples
+        n_usage_fraction = 0 if Scalene.total_memory_malloc_samples == 0 \
+            else n_malloc_mb / Scalene.total_memory_malloc_samples
 
         # Finally, print results.
-        n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 else '%6.2f%%' % n_cpu_percent_c
-        n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 else '%6.2f%%' % n_cpu_percent_python
-        n_avg_malloc_mb_str = "" if (n_avg_malloc_mb == 0 and n_usage_fraction == 0) else '%5.0f' % n_avg_malloc_mb
-        n_growth_mb_str = "" if (n_growth_mb == 0 and n_usage_fraction == 0) else '%5.0f' % n_growth_mb
-        n_usage_fraction_str = "" if n_usage_fraction == 0 else '%3.0f%%' % (100 * n_usage_fraction)
+        n_cpu_percent_c_str = "" if n_cpu_percent_c == 0 \
+            else '%6.2f%%' % n_cpu_percent_c
+        n_cpu_percent_python_str = "" if n_cpu_percent_python == 0 \
+            else '%6.2f%%' % n_cpu_percent_python
+        n_growth_mb_str = "" if (n_growth_mb == 0 and n_usage_fraction == 0) \
+            else '%5.0f' % n_growth_mb
+        n_usage_fraction_str = "" if n_usage_fraction == 0 \
+            else '%3.0f%%' % (100 * n_usage_fraction)
         n_copy_b = Scalene.memcpy_samples[fname][line_no]
         n_copy_mb_s = n_copy_b / (1024 * 1024 * Scalene.elapsed_time)
         n_copy_mb_s_str = "" if n_copy_mb_s < 1 else '%6.0f' % n_copy_mb_s
 
         if did_sample_memory:
-            spark_string = ""
+            spark_str = ""
             # Scale the sparkline by the usage fraction.
             samples = Scalene.per_line_footprint_samples[fname][line_no]
             for i in range(0, len(samples.get())):
                 samples.get()[i] *= n_usage_fraction
             if len(samples.get()) > 0:
-                _, _, spark_string = Scalene.generate_sparkline(samples.get()[0:samples.len()], 0, current_max)
+                _, _, spark_str = Scalene.generate_sparkline(samples.get()[0:samples.len()],
+                                                             0,
+                                                             current_max)
             print("%6d |%9s |%9s | %5s | %-9s %-4s |%-6s | %s" %
-                  (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, n_growth_mb_str, spark_string,
-                   n_usage_fraction_str, n_copy_mb_s_str, line), file=out)
+                  (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, n_growth_mb_str,
+                   spark_str, n_usage_fraction_str, n_copy_mb_s_str, line), file=out)
         else:
             print("%6d |%9s |%9s | %s" %
                   (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, line), file=out)
@@ -640,27 +623,36 @@ process."""
         """Write the profile out (currently to stdout)."""
         current_max = Scalene.max_footprint
         # If we've collected any samples, dump them.
-        if Scalene.total_cpu_samples == 0 and Scalene.total_memory_malloc_samples == 0 and Scalene.total_memory_free_samples == 0:
+        if Scalene.total_cpu_samples == 0 \
+           and Scalene.total_memory_malloc_samples == 0 \
+           and Scalene.total_memory_free_samples == 0:
             # Nothing to output.
             return False
         # Collect all instrumented filenames.
-        all_instrumented_files = list(set(list(Scalene.cpu_samples_python.keys()) + list(Scalene.cpu_samples_c.keys()) + list(Scalene.memory_free_samples.keys()) + list(Scalene.memory_malloc_samples.keys())))
+        all_instrumented_files = list(set(list(Scalene.cpu_samples_python.keys())
+                                          + list(Scalene.cpu_samples_c.keys())
+                                          + list(Scalene.memory_free_samples.keys())
+                                          + list(Scalene.memory_malloc_samples.keys())))
         if len(all_instrumented_files) == 0:
             # We didn't collect samples in source files.
             return False
         # If I have at least one memory sample, then we are profiling memory.
-        did_sample_memory = (Scalene.total_memory_free_samples + Scalene.total_memory_malloc_samples) > 0
+        did_sample_memory = (Scalene.total_memory_free_samples
+                             + Scalene.total_memory_malloc_samples) > 0
         with Scalene.file_or_stdout(Scalene.output_file) as out:
             if did_sample_memory:
-                if len(Scalene.memory_footprint_samples.get()) > 0:
+                samples = Scalene.memory_footprint_samples
+                if len(samples.get()) > 0:
                     # Output a sparkline as a summary of memory usage over time.
-                    _, _, sp = Scalene.generate_sparkline(Scalene.memory_footprint_samples.get()[0:Scalene.memory_footprint_samples.len()], 0, current_max)
-                    print("Memory usage: " + sp + " (max: %6.2fMB)" % current_max, file=out)
-                    # print("min: %6.2fMB, max: %6.2fMB" % (mn, mx), file=out)
+                    _, _, spark_str = Scalene.generate_sparkline(samples.get()[0:samples.len()],
+                                                                 0,
+                                                                 current_max)
+                    print("Memory usage: " + spark_str + " (max: %6.2fMB)" % current_max, file=out)
 
             for fname in sorted(all_instrumented_files):
 
-                this_cpu_samples = sum(Scalene.cpu_samples_c[fname].values()) + sum(Scalene.cpu_samples_python[fname].values())
+                this_cpu_samples = sum(Scalene.cpu_samples_c[fname].values()) \
+                    + sum(Scalene.cpu_samples_python[fname].values())
 
                 try:
                     percent_cpu_time = 100 * this_cpu_samples / Scalene.total_cpu_samples
@@ -673,7 +665,6 @@ process."""
                     continue
 
                 # Print header.
-                # percent_cpu_time = 100 * this_cpu_samples * Scalene.mean_signal_interval / Scalene.elapsed_time
                 print("%s: %% of CPU time = %6.2f%% out of %6.2fs." %
                       (fname, percent_cpu_time, Scalene.elapsed_time), file=out)
 
@@ -709,6 +700,10 @@ process."""
 
     @contextlib.contextmanager
     def scalene_profiler(): # TODO add memory stuff
+        """A profiler function, work in progress."""
+        # In principle, this would let people use Scalene as follows:
+        # with scalene_profiler:
+        #   ...
         profiler = Scalene("")
         profiler.start()
         yield
@@ -739,7 +734,7 @@ process."""
                             const=True, default=False,
                             help='use wall clock time (default: virtual time)')
         # Parse out all Scalene arguments and jam the remaining ones into argv.
-        # See https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
+        # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
         args, left = parser.parse_known_args()
         sys.argv = sys.argv[:1]+left
         Scalene.set_timer_signal(args.wallclock)
@@ -754,7 +749,9 @@ process."""
                 program_path = os.path.dirname(os.path.abspath(args.prog))
                 sys.path.insert(0, program_path)
                 Scalene.program_path = program_path
-                os.chdir(program_path) # FIXME?
+                # Change the directory into the program's path.
+                # Note that this is not what Python normally does.
+                os.chdir(program_path)
                 # Grab local and global variables.
                 import __main__
                 the_locals = __main__.__dict__
@@ -770,9 +767,9 @@ process."""
                     # Run the code being profiled.
                     try:
                         exec(code, the_globals, the_locals)
-                    except BaseException as be:
+                    except BaseException: # as be
                         # Intercept sys.exit.
-                        #print(traceback.format_exc())
+                        # print(traceback.format_exc())
                         pass
                     profiler.stop()
                     # Go back home.
