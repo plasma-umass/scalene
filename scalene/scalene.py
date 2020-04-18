@@ -156,6 +156,12 @@ class Scalene():
     free_signal = signal.SIGXFSZ
     memcpy_signal = signal.SIGPROF
 
+    # We cache the previous signal handlers so we can play nice with
+    # apps that might already have handlers for these signals.
+    old_malloc_signal_handler = signal.SIG_IGN
+    old_free_signal_handler = signal.SIG_IGN
+    old_memcpy_signal_handler = signal.SIG_IGN
+    
     # Program-specific information:
     #   the name of the program being profiled
     program_being_profiled = ""
@@ -212,10 +218,11 @@ periodically yields."""
 start the timer interrupts."""
         # CPU
         signal.signal(Scalene.cpu_signal, Scalene.cpu_signal_handler)
-        # malloc/free interrupts (for memory allocations).
-        signal.signal(Scalene.malloc_signal, Scalene.allocation_handler)
-        signal.signal(Scalene.free_signal, Scalene.allocation_handler)
-        signal.signal(Scalene.memcpy_signal, Scalene.memcpy_event_signal_handler)
+        # Set signal handlers for memory allocation and memcpy events.
+        # Save the previous signal handlers, if any.
+        Scalene.old_malloc_signal_handler = signal.signal(Scalene.malloc_signal, Scalene.malloc_signal_handler)
+        Scalene.old_free_signal_handler = signal.signal(Scalene.free_signal, Scalene.free_signal_handler)
+        Scalene.old_memcpy_signal_handler = signal.signal(Scalene.memcpy_signal, Scalene.memcpy_event_signal_handler)
         # Turn on the CPU profiling timer to run every signal_interval seconds.
         signal.setitimer(Scalene.cpu_timer_signal, Scalene.mean_signal_interval,
                          Scalene.mean_signal_interval)
@@ -242,7 +249,7 @@ process."""
             Scalene.program_path = os.path.dirname(Scalene.program_being_profiled)
 
     @staticmethod
-    def cpu_signal_handler(_, this_frame):
+    def cpu_signal_handler(_signum, this_frame):
         """Handle interrupts for CPU profiling."""
         # Record how long it has been since we received a timer
         # before.  See the logic below.
@@ -368,6 +375,18 @@ process."""
         return new_frames
 
     @staticmethod
+    def malloc_signal_handler(signum, this_frame):
+        Scalene.allocation_handler(signum, this_frame)
+        if Scalene.old_malloc_signal_handler != signal.SIG_IGN:
+            Scalene.old_malloc_signal_handler(signum, this_frame)
+        
+    @staticmethod
+    def free_signal_handler(signum, this_frame):
+        Scalene.allocation_handler(signum, this_frame)
+        if Scalene.old_free_signal_handler != signal.SIG_IGN:
+            Scalene.old_free_signal_handler(signum, this_frame)
+        
+    @staticmethod
     def allocation_handler(_, this_frame):
         """Handle interrupts for memory profiling (mallocs and frees)."""
         new_frames = Scalene.compute_frames_to_record(this_frame)
@@ -478,7 +497,9 @@ process."""
                 if bytei not in Scalene.bytei_map[fname][line_no]:
                     Scalene.bytei_map[fname][line_no].add(bytei)
                 Scalene.memcpy_samples[fname][line_no] += count
-
+                
+        if Scalene.old_memcpy_signal_handler != signal.SIG_IGN:
+            Scalene.old_memcpy_signal_handler(frame)
 
     @staticmethod
     @lru_cache(128)
@@ -689,9 +710,9 @@ process."""
     def disable_signals():
         """Turn off the profiling signals."""
         signal.setitimer(Scalene.cpu_timer_signal, 0)
-        signal.signal(Scalene.malloc_signal, signal.SIG_IGN)
-        signal.signal(Scalene.free_signal, signal.SIG_IGN)
-        signal.signal(Scalene.memcpy_signal, signal.SIG_IGN)
+        signal.signal(Scalene.malloc_signal, Scalene.old_malloc_signal_handler)
+        signal.signal(Scalene.free_signal, Scalene.old_free_signal_handler)
+        signal.signal(Scalene.memcpy_signal, Scalene.old_memcpy_signal_handler)
 
     @staticmethod
     def exit_handler():
@@ -769,7 +790,7 @@ process."""
                         exec(code, the_globals, the_locals)
                     except BaseException: # as be
                         # Intercept sys.exit.
-                        # print(traceback.format_exc())
+                        print(traceback.format_exc())
                         pass
                     profiler.stop()
                     # Go back home.
