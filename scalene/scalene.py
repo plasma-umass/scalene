@@ -686,6 +686,11 @@ process."""
                     continue
 
                 # Print header.
+                print("ouput time = %30s. \nPython CPU sample counts = %5d ,"
+                      " Native CPU sample counts = %5d ." % 
+                      (time.asctime(time.localtime(time.time())), 
+                       len(Scalene.cpu_samples_python[fname].values()), 
+                       len(Scalene.cpu_samples_c[fname].values())), file=out)
                 print("%s: %% of CPU time = %6.2f%% out of %6.2fs." %
                       (fname, percent_cpu_time, Scalene.elapsed_time), file=out)
 
