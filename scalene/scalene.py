@@ -840,7 +840,7 @@ process."""
                         exec(code, the_globals, the_locals)
                     except BaseException:  # as be
                         # Intercept sys.exit.
-                        print(traceback.format_exc())
+                        # print(traceback.format_exc())
                         pass
                     profiler.stop()
                     # Go back home.
