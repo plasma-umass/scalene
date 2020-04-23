@@ -24,7 +24,6 @@ import traceback
 import sys
 import atexit
 import signal
-#import math
 import random
 import threading
 from collections import defaultdict
@@ -296,7 +295,6 @@ process."""
         elapsed = now - Scalene.last_signal_time
         python_time = Scalene.last_signal_interval
         c_time = elapsed - python_time
-        #print(f"elapsed: {elapsed} + python: {python_time} + c_time: {c_time}")
         if c_time < 0:
             c_time = 0
         # Update counters for every running thread.
@@ -331,9 +329,6 @@ process."""
 
         for frame in new_frames:
             fname = frame.f_code.co_filename
-            #print("--------------")
-            #traceback.print_stack(frame)
-            #print("==============")
             if frame == this_frame:
                 # Main thread.
                 Scalene.cpu_samples_python[fname][
