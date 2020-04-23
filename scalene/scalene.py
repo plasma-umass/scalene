@@ -33,6 +33,7 @@ import argparse
 from contextlib import contextmanager
 from functools import lru_cache
 from textwrap import dedent
+from typing import IO, Dict, Set, Iterator
 
 # Logic to ignore @profile decorators.
 import builtins
@@ -41,14 +42,15 @@ from . import adaptive  # reservoir
 from . import sparkline
 
 try:
-    builtins.profile
+    builtins.profile  # type: ignore
+
 except AttributeError:
 
     def profile(func):
         """No line profiler; we provide a pass-through version."""
         return func
 
-    builtins.profile = profile
+    builtins.profile = profile  # type: ignore
 
 assert (
     sys.version_info[0] == 3 and sys.version_info[1] >= 5
@@ -84,70 +86,84 @@ class Scalene:
     #
     #   CPU samples for each location in the program
     #   spent in the interpreter
-    cpu_samples_python = defaultdict(lambda: defaultdict(float))
+    cpu_samples_python: Dict[str, Dict[int, float]] = defaultdict(
+        lambda: defaultdict(float)
+    )
 
     #   CPU samples for each location in the program
     #   spent in C / libraries / system calls
-    cpu_samples_c = defaultdict(lambda: defaultdict(float))
+    cpu_samples_c: Dict[str, Dict[int, float]] = defaultdict(lambda: defaultdict(float))
 
     # Below are indexed by [filename][line_no][bytecode_index]:
     #
     # malloc samples for each location in the program
-    memory_malloc_samples = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    memory_malloc_samples: Dict[str, Dict[int, Dict[int, float]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(float))
+    )
     # number of times samples were added for the above
-    memory_malloc_count = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    memory_malloc_count: Dict[str, Dict[int, Dict[int, int]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(int))
+    )
     # free samples for each location in the program
-    memory_free_samples = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    memory_free_samples: Dict[str, Dict[int, Dict[int, float]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(float))
+    )
     # number of times samples were added for the above
-    memory_free_count = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    memory_free_count: Dict[str, Dict[int, Dict[int, int]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(int))
+    )
     # memcpy samples for each location in the program
-    memcpy_samples = defaultdict(lambda: defaultdict(int))
+    memcpy_samples: Dict[str, Dict[int, int]] = defaultdict(lambda: defaultdict(int))
     # max malloc samples for each location in the program
-    memory_max_samples = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    memory_max_samples: Dict[str, Dict[int, Dict[int, int]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(int))
+    )
 
-    total_max_samples = 0
+    total_max_samples: int = 0
 
     # how many CPU samples have been collected
-    total_cpu_samples = 0.0
+    total_cpu_samples: float = 0.0
     # "   "    malloc "       "    "    "
-    total_memory_malloc_samples = 0
+    total_memory_malloc_samples: int = 0
     # "   "    free   "       "    "    "
-    total_memory_free_samples = 0
+    total_memory_free_samples: int = 0
     # the current memory footprint
-    current_footprint = 0
+    current_footprint: int = 0
     # the peak memory footprint
-    max_footprint = 0
+    max_footprint: int = 0
 
     # mean seconds between interrupts for CPU sampling.
-    mean_signal_interval = 0.01
+    mean_signal_interval: float = 0.01
     # last num seconds between interrupts for CPU sampling.
-    last_signal_interval = mean_signal_interval
+    last_signal_interval: float = mean_signal_interval
 
     # memory footprint samples (time, footprint), using 'adaptive' sampling.
     memory_footprint_samples = adaptive.adaptive(27)
     # same, but per line
-    per_line_footprint_samples = defaultdict(
+    per_line_footprint_samples: Dict[str, Dict[int, adaptive.adaptive]] = defaultdict(
         lambda: defaultdict(lambda: adaptive.adaptive(9))
     )
 
     # total_memory_samples          = 0              # total memory samples so far.
 
     # original working directory
-    original_path = ""
+    original_path: str = ""
     # path for the program being profiled
-    program_path = ""
+    program_path: str = ""
     # where we write profile info
-    output_file = ""
+    output_file: str = ""
     # how long between outputting stats during execution
-    output_profile_interval = float("inf")
+    output_profile_interval: float = float("inf")
     # when we output the next profile
-    next_output_time = float("inf")
+    next_output_time: float = float("inf")
     # total time spent in program being profiled
-    elapsed_time = 0
+    elapsed_time: float = 0
 
     # maps byte indices to line numbers (collected at runtime)
     # [filename][lineno] -> set(byteindex)
-    bytei_map = defaultdict(lambda: defaultdict(lambda: set()))
+    bytei_map: Dict[str, Dict[int, Set[int]]] = defaultdict(
+        lambda: defaultdict(lambda: set())
+    )
 
     # Things that need to be in sync with include/sampleheap.hpp:
     #
@@ -522,7 +538,7 @@ process."""
 
     @staticmethod
     @lru_cache(128)
-    def should_trace(filename):
+    def should_trace(filename: str) -> bool:
         """Return true if the filename is one we should trace."""
         # Profile anything in the program's directory or a child directory,
         # but nothing else.
@@ -554,7 +570,7 @@ process."""
     # from https://stackoverflow.com/questions/9836370/fallback-to-stdout-if-no-file-name-provided
     @staticmethod
     @contextmanager
-    def file_or_stdout(file_name):
+    def file_or_stdout(file_name: str) -> Iterator[IO[str]]:
         """Returns a file handle for writing; if no argument is passed, returns stdout."""
         if file_name is None:
             yield sys.stdout
@@ -577,7 +593,7 @@ process."""
         return minval, maxval, sp_line
 
     @staticmethod
-    def output_profile_line(fname, line_no, line, out):
+    def output_profile_line(fname: str, line_no: int, line: str, out):
         """Print exactly one line of the profile to out."""
         current_max = Scalene.max_footprint
         did_sample_memory = (
@@ -605,10 +621,10 @@ process."""
 
         # Now, memory stats.
         # Accumulate each one from every byte index.
-        n_malloc_mb = 0
-        n_free_mb = 0
-        n_avg_malloc_mb = 0
-        n_avg_free_mb = 0
+        n_malloc_mb = 0.0
+        n_free_mb = 0.0
+        n_avg_malloc_mb = 0.0
+        n_avg_free_mb = 0.0
         n_malloc_count = 0
         n_free_count = 0
         for index in Scalene.bytei_map[fname][line_no]:
@@ -796,7 +812,7 @@ process."""
         Scalene.disable_signals()
 
     @contextlib.contextmanager
-    def scalene_profiler():  # TODO add memory stuff
+    def scalene_profiler(_):  # TODO add memory stuff
         """A profiler function, work in progress."""
         # In principle, this would let people use Scalene as follows:
         # with scalene_profiler:
@@ -869,7 +885,7 @@ process."""
                 # Note that this is not what Python normally does.
                 os.chdir(program_path)
                 # Grab local and global variables.
-                import __main__
+                import __main__  # type: ignore
 
                 the_locals = __main__.__dict__
                 the_globals = __main__.__dict__

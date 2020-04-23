@@ -1,10 +1,11 @@
 import math
 import random
+from typing import List
 
 class adaptive():
     """Implements sampling to achieve the effect of a uniform random sample."""
 
-    sample_array = []
+    sample_array : List[int] = []
     current_index = 0
     total_samples = 0
     max_samples = 0
