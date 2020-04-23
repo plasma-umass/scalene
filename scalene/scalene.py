@@ -33,7 +33,7 @@ import argparse
 from contextlib import contextmanager
 from functools import lru_cache
 from textwrap import dedent
-from typing import IO, Dict, Set, Iterator
+from typing import IO, Dict, Set, Iterator, List
 
 # Logic to ignore @profile decorators.
 import builtins
@@ -194,7 +194,7 @@ class Scalene:
 
     @staticmethod
     @lru_cache(1024)
-    def is_call_function(code, bytei):
+    def is_call_function(code, bytei: int):
         """Returns true iff the bytecode at the given index is a function call."""
         for ins in dis.get_instructions(code):
             if ins.offset == bytei:
@@ -507,7 +507,7 @@ process."""
             return
 
         # Process the input array.
-        arr = []
+        arr: List[List[int]] = []
         try:
             with open(Scalene.memcpy_signal_filename, "r") as mfile:
                 for _, count_str in enumerate(mfile, 1):
@@ -579,7 +579,7 @@ process."""
                 yield out_file
 
     @staticmethod
-    def generate_sparkline(arr, minimum=-1, maximum=-1):
+    def generate_sparkline(arr: List[int], minimum=-1, maximum=-1):
         """Produces a sparkline, as in ▁▁▁▁▁▂▃▂▄▅▄▆█▆█▆"""
         iterations = len(arr)
         all_zeros = all([i == 0 for i in arr])
@@ -593,10 +593,10 @@ process."""
         return minval, maxval, sp_line
 
     @staticmethod
-    def output_profile_line(fname: str, line_no: int, line: str, out):
+    def output_profile_line(fname: str, line_no: int, line: str, out: IO[str]):
         """Print exactly one line of the profile to out."""
         current_max = Scalene.max_footprint
-        did_sample_memory = (
+        did_sample_memory: bool = (
             Scalene.total_memory_free_samples + Scalene.total_memory_malloc_samples
         ) > 0
         line = line.rstrip()  # Strip newline
@@ -652,26 +652,26 @@ process."""
         )
 
         # Finally, print results.
-        n_cpu_percent_c_str = (
+        n_cpu_percent_c_str: str = (
             "" if n_cpu_percent_c == 0 else "%6.2f%%" % n_cpu_percent_c
         )
-        n_cpu_percent_python_str = (
+        n_cpu_percent_python_str: str = (
             "" if n_cpu_percent_python == 0 else "%6.2f%%" % n_cpu_percent_python
         )
-        n_growth_mb_str = (
+        n_growth_mb_str: str = (
             ""
             if (n_growth_mb == 0 and n_usage_fraction == 0)
             else "%5.0f" % n_growth_mb
         )
-        n_usage_fraction_str = (
+        n_usage_fraction_str: str = (
             "" if n_usage_fraction == 0 else "%3.0f%%" % (100 * n_usage_fraction)
         )
         n_copy_b = Scalene.memcpy_samples[fname][line_no]
         n_copy_mb_s = n_copy_b / (1024 * 1024 * Scalene.elapsed_time)
-        n_copy_mb_s_str = "" if n_copy_mb_s < 1 else "%6.0f" % n_copy_mb_s
+        n_copy_mb_s_str: str = "" if n_copy_mb_s < 1 else "%6.0f" % n_copy_mb_s
 
         if did_sample_memory:
-            spark_str = ""
+            spark_str: str = ""
             # Scale the sparkline by the usage fraction.
             samples = Scalene.per_line_footprint_samples[fname][line_no]
             for i in range(0, len(samples.get())):
@@ -704,7 +704,7 @@ process."""
     @staticmethod
     def output_profiles():
         """Write the profile out (currently to stdout)."""
-        current_max = Scalene.max_footprint
+        current_max: float = Scalene.max_footprint
         # If we've collected any samples, dump them.
         if (
             Scalene.total_cpu_samples == 0
@@ -714,7 +714,7 @@ process."""
             # Nothing to output.
             return False
         # Collect all instrumented filenames.
-        all_instrumented_files = list(
+        all_instrumented_files: List[str] = list(
             set(
                 list(Scalene.cpu_samples_python.keys())
                 + list(Scalene.cpu_samples_c.keys())
@@ -726,7 +726,7 @@ process."""
             # We didn't collect samples in source files.
             return False
         # If I have at least one memory sample, then we are profiling memory.
-        did_sample_memory = (
+        did_sample_memory: bool = (
             Scalene.total_memory_free_samples + Scalene.total_memory_malloc_samples
         ) > 0
         with Scalene.file_or_stdout(Scalene.output_file) as out:
