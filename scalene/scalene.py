@@ -232,8 +232,6 @@ class Scalene:
     # Program-specific information:
     #   the name of the program being profiled
     program_being_profiled = Filename("")
-    #   the path "  "   "       "     "
-    program_path = ""
 
     @staticmethod
     @lru_cache(1024)
@@ -415,7 +413,7 @@ process."""
                 # bytecode instruction being executed is a function
                 # call.  If so, we attribute all the time to native.
                 normalized_time = total_time / len(new_frames)
-                if Scalene.is_call_function(frame.f_code, frame.f_lasti):
+                if Scalene.is_call_function(frame.f_code, ByteCodeIndex(frame.f_lasti)):
                     # Attribute time to native.
                     Scalene.cpu_samples_c[fname][lineno] += normalized_time
                 else:
@@ -969,7 +967,7 @@ process."""
                 # Start the profiler.
                 Scalene.output_file = args.outfile
                 fullname = os.path.join(program_path, os.path.basename(args.prog))
-                profiler = Scalene(fullname)
+                profiler = Scalene(Filename(fullname))
                 try:
                     profiler.start()
                     # Run the code being profiled.
