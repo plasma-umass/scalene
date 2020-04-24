@@ -3,6 +3,8 @@ PYTHON = python3
 
 include heaplayers-make.mk
 
+mypy:
+	mypy --check-untyped-defs scalene/scalene.py
 
 upload: # to pypi
 	-black scalene/scalene.py
