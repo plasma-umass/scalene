@@ -41,13 +41,14 @@ from typing import (
     Iterator,
     List,
     NewType,
+    Optional,
     Set,
     Tuple,
     Union,
     cast,
 )
 from signal import Handlers, Signals
-from types import FrameType
+from types import CodeType, FrameType
 
 # Logic to ignore @profile decorators.
 import builtins
@@ -60,7 +61,7 @@ try:
 
 except AttributeError:
 
-    def profile(func):
+    def profile(func: Any) -> Any:
         """No line profiler; we provide a pass-through version."""
         return func
 
@@ -225,7 +226,7 @@ class Scalene:
 
     @staticmethod
     @lru_cache(1024)
-    def is_call_function(code, bytei: ByteCodeIndex):
+    def is_call_function(code: CodeType, bytei: ByteCodeIndex) -> bool:
         """Returns true iff the bytecode at the given index is a function call."""
         for ins in dis.get_instructions(code):
             if ins.offset == bytei:
@@ -234,7 +235,9 @@ class Scalene:
         return False
 
     @staticmethod
-    def thread_join_replacement(self, timeout=None):
+    def thread_join_replacement(
+        self: threading.Thread, timeout: Optional[float] = None
+    ) -> None:
         """We replace threading.Thread.join with this method which always
 periodically yields."""
         start_time = Scalene.gettime()
@@ -249,7 +252,7 @@ periodically yields."""
         return None
 
     @staticmethod
-    def set_timer_signal(use_wallclock_time=False):
+    def set_timer_signal(use_wallclock_time: bool = False) -> None:
         """Set up timer signals for CPU profiling."""
         if use_wallclock_time:
             Scalene.cpu_timer_signal = signal.ITIMER_REAL
@@ -266,7 +269,7 @@ periodically yields."""
             assert False, "ITIMER_PROF is not currently supported."
 
     @staticmethod
-    def enable_signals():
+    def enable_signals() -> None:
         """Set up the signal handlers to handle interrupts for profiling and
 start the timer interrupts."""
         # CPU
@@ -291,12 +294,12 @@ start the timer interrupts."""
         Scalene.last_signal_time = Scalene.gettime()
 
     @staticmethod
-    def gettime():
+    def gettime() -> float:
         """High-precision timer of time spent running in or on behalf of this
 process."""
         return time.process_time()
 
-    def __init__(self, program_being_profiled=None):
+    def __init__(self, program_being_profiled: Optional[Filename] = None):
         # Hijack join.
         threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
         # Build up signal filenames (adding PID to each).
@@ -310,11 +313,16 @@ process."""
         atexit.register(Scalene.exit_handler)
         # Store relevant names (program, path).
         if program_being_profiled:
-            Scalene.program_being_profiled = os.path.abspath(program_being_profiled)
+            Scalene.program_being_profiled = Filename(
+                os.path.abspath(program_being_profiled)
+            )
             Scalene.program_path = os.path.dirname(Scalene.program_being_profiled)
 
     @staticmethod
-    def cpu_signal_handler(_signum, this_frame):
+    def cpu_signal_handler(
+        _signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        this_frame: FrameType,
+    ) -> None:
         """Handle interrupts for CPU profiling."""
         # Record how long it has been since we received a timer
         # before.  See the logic below.
@@ -353,9 +361,7 @@ process."""
             c_time = 0
         # Update counters for every running thread.
 
-        frames = [this_frame]
-
-        frames = [
+        frames: List[Optional[FrameType]] = [
             sys._current_frames().get(cast(int, t.ident), None)
             for t in threading.enumerate()
         ]
@@ -371,7 +377,8 @@ process."""
             if (len(fname)) == 0:
                 # 'eval/compile' gives no f_code.co_filename.
                 # We have to look back into the outer frame in order to check the co_filename.
-                fname = frame.f_back.f_code.co_filename
+                back = cast(FrameType, frame.f_back)
+                fname = Filename(back.f_code.co_filename)
             if not Scalene.should_trace(fname):
                 continue
             new_frames.append(frame)
@@ -383,12 +390,13 @@ process."""
 
         for frame in new_frames:
             fname = Filename(frame.f_code.co_filename)
+            lineno = LineNumber(frame.f_lineno)
             if frame == this_frame:
                 # Main thread.
-                Scalene.cpu_samples_python[fname][frame.f_lineno] += python_time / len(
+                Scalene.cpu_samples_python[fname][lineno] += python_time / len(
                     new_frames
                 )
-                Scalene.cpu_samples_c[fname][frame.f_lineno] += c_time / len(new_frames)
+                Scalene.cpu_samples_c[fname][lineno] += c_time / len(new_frames)
             else:
                 # We can't play the same game here of attributing
                 # time, because we are in a thread, and threads don't
@@ -398,38 +406,37 @@ process."""
                 normalized_time = total_time / len(new_frames)
                 if Scalene.is_call_function(frame.f_code, frame.f_lasti):
                     # Attribute time to native.
-                    Scalene.cpu_samples_c[fname][frame.f_lineno] += normalized_time
+                    Scalene.cpu_samples_c[fname][lineno] += normalized_time
                 else:
                     # Not in a call function so we attribute the time to Python.
-                    Scalene.cpu_samples_python[fname][frame.f_lineno] += normalized_time
+                    Scalene.cpu_samples_python[fname][lineno] += normalized_time
 
         del new_frames
 
         Scalene.total_cpu_samples += total_time
 
         # disabled randomness for now
-        if False:
-            # Pick a random interval, uniformly from m/2 to 3m/2 (so the mean is m)
-            mean = Scalene.mean_signal_interval
-            Scalene.last_signal_interval = random.uniform(mean / 2, mean * 3 / 2)
-            signal.setitimer(
-                Scalene.cpu_timer_signal,
-                Scalene.last_signal_interval,
-                Scalene.last_signal_interval,
-            )
-        else:
-            Scalene.last_signal_time = Scalene.gettime()
+        # if False:
+        #    # Pick a random interval, uniformly from m/2 to 3m/2 (so the mean is m)
+        #    mean = Scalene.mean_signal_interval
+        #    Scalene.last_signal_interval = random.uniform(mean / 2, mean * 3 / 2)
+        #    signal.setitimer(
+        #        Scalene.cpu_timer_signal,
+        #        Scalene.last_signal_interval,
+        #        Scalene.last_signal_interval,
+        #    )
+        Scalene.last_signal_time = Scalene.gettime()
 
     @staticmethod
-    def compute_frames_to_record(this_frame):
+    def compute_frames_to_record(this_frame: FrameType) -> List[FrameType]:
         """Collects all stack frames that Scalene actually processes."""
-        frames = [this_frame]
+        frames: List[Optional[FrameType]] = [this_frame]
         frames += [
             sys._current_frames().get(cast(int, t.ident), None)
             for t in threading.enumerate()
         ]
         # Process all the frames to remove ones we aren't going to track.
-        new_frames = []
+        new_frames: List[FrameType] = []
         for frame in frames:
             if frame is None:
                 continue
@@ -439,28 +446,38 @@ process."""
                 # 'eval/compile' gives no f_code.co_filename.  We have
                 # to look back into the outer frame in order to check
                 # the co_filename.
-                fname = frame.f_back.f_code.co_filename
+                back = cast(FrameType, frame.f_back)
+                fname = Filename(back.f_code.co_filename)
             if not Scalene.should_trace(fname):
                 continue
             new_frames.append(frame)
         return new_frames
 
     @staticmethod
-    def malloc_signal_handler(signum, this_frame):
+    def malloc_signal_handler(
+        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        this_frame: FrameType,
+    ) -> None:
         """Handle malloc events."""
         Scalene.allocation_handler(signum, this_frame)
         if Scalene.old_malloc_signal_handler != signal.SIG_IGN:
             Scalene.old_malloc_signal_handler(signum, this_frame)  # type: ignore
 
     @staticmethod
-    def free_signal_handler(signum, this_frame):
+    def free_signal_handler(
+        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        this_frame: FrameType,
+    ) -> None:
         """Handle free events."""
         Scalene.allocation_handler(signum, this_frame)
         if Scalene.old_free_signal_handler != signal.SIG_IGN:
             Scalene.old_free_signal_handler(signum, this_frame)  # type: ignore
 
     @staticmethod
-    def allocation_handler(_, this_frame):
+    def allocation_handler(
+        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        this_frame: FrameType,
+    ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
         new_frames = Scalene.compute_frames_to_record(this_frame)
 
@@ -505,9 +522,9 @@ process."""
         # so we may overcount.
 
         for frame in new_frames:
-            fname: Filename = frame.f_code.co_filename
-            line_no: LineNumber = frame.f_lineno
-            bytei: ByteCodeIndex = frame.f_lasti
+            fname = Filename(frame.f_code.co_filename)
+            line_no = LineNumber(frame.f_lineno)
+            bytei = ByteCodeIndex(frame.f_lasti)
             # Add the byte index to the set for this line.
             if bytei not in Scalene.bytei_map[fname][line_no]:
                 Scalene.bytei_map[fname][line_no].add(bytei)
@@ -537,7 +554,10 @@ process."""
                 Scalene.total_memory_free_samples += before - after
 
     @staticmethod
-    def memcpy_event_signal_handler(signum, frame):
+    def memcpy_event_signal_handler(
+        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        frame: FrameType,
+    ) -> None:
         """Handles memcpy events."""
         new_frames = Scalene.compute_frames_to_record(frame)
         if len(new_frames) == 0:
@@ -591,14 +611,14 @@ process."""
         return Scalene.program_path in filename
 
     @staticmethod
-    def start():
+    def start() -> None:
         """Initiate profiling."""
         os.chdir(Scalene.program_path)
         Scalene.enable_signals()
         Scalene.elapsed_time = Scalene.gettime()
 
     @staticmethod
-    def stop():
+    def stop() -> None:
         """Complete profiling."""
         Scalene.disable_signals()
         Scalene.elapsed_time = Scalene.gettime() - Scalene.elapsed_time
@@ -607,7 +627,7 @@ process."""
     # from https://stackoverflow.com/questions/9836370/fallback-to-stdout-if-no-file-name-provided
     @staticmethod
     @contextmanager
-    def file_or_stdout(file_name: str) -> Iterator[IO[str]]:
+    def file_or_stdout(file_name: Optional[str]) -> Iterator[IO[str]]:
         """Returns a file handle for writing; if no argument is passed, returns stdout."""
         if file_name is None:
             yield sys.stdout
@@ -616,7 +636,9 @@ process."""
                 yield out_file
 
     @staticmethod
-    def generate_sparkline(arr: List[int], minimum=-1, maximum=-1):
+    def generate_sparkline(
+        arr: List[float], minimum: float = -1, maximum: float = -1
+    ) -> Tuple[float, float, str]:
         """Produces a sparkline, as in ▁▁▁▁▁▂▃▂▄▅▄▆█▆█▆"""
         iterations = len(arr)
         all_zeros = all([i == 0 for i in arr])
@@ -632,7 +654,7 @@ process."""
     @staticmethod
     def output_profile_line(
         fname: Filename, line_no: LineNumber, line: str, out: IO[str]
-    ):
+    ) -> None:
         """Print exactly one line of the profile to out."""
         current_max = Scalene.max_footprint
         did_sample_memory: bool = (
@@ -741,7 +763,7 @@ process."""
             )
 
     @staticmethod
-    def output_profiles():
+    def output_profiles() -> bool:
         """Write the profile out (currently to stdout)."""
         current_max: float = Scalene.max_footprint
         # If we've collected any samples, dump them.
@@ -841,7 +863,7 @@ process."""
         return True
 
     @staticmethod
-    def disable_signals():
+    def disable_signals() -> None:
         """Turn off the profiling signals."""
         signal.setitimer(Scalene.cpu_timer_signal, 0)
         signal.signal(Scalene.malloc_signal, Scalene.old_malloc_signal_handler)
@@ -849,24 +871,24 @@ process."""
         signal.signal(Scalene.memcpy_signal, Scalene.old_memcpy_signal_handler)
 
     @staticmethod
-    def exit_handler():
+    def exit_handler() -> None:
         """When we exit, disable all signals."""
         Scalene.disable_signals()
 
     @contextlib.contextmanager
-    def scalene_profiler(_):  # TODO add memory stuff
+    def scalene_profiler(_):  # type: ignore  ### TODO add memory stuff
         """A profiler function, work in progress."""
         # In principle, this would let people use Scalene as follows:
         # with scalene_profiler:
         #   ...
-        profiler = Scalene("")
+        profiler = Scalene(None)
         profiler.start()
         yield
         profiler.stop()
         profiler.output_profiles()  # though this needs to be constrained
 
     @staticmethod
-    def main():
+    def main() -> None:
         """Invokes the profiler from the command-line."""
         usage = dedent(
             """Scalene: a high-precision CPU and memory profiler.
@@ -927,7 +949,7 @@ process."""
                 # Note that this is not what Python normally does.
                 os.chdir(program_path)
                 # Grab local and global variables.
-                import __main__  # type: ignore
+                import __main__
 
                 the_locals = __main__.__dict__
                 the_globals = __main__.__dict__
