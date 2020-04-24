@@ -26,7 +26,6 @@ import builtins
 import contextlib
 import dis
 import os
-import random
 import signal
 import sys
 import threading
@@ -93,7 +92,7 @@ class Scalene:
     # particular bytecode is a function call.  We use this to
     # distinguish between Python and native code execution when
     # running in threads.
-    call_opcodes = {
+    call_opcodes : Set[int] = {
         dis.opmap[op_name]
         for op_name in dis.opmap
         if op_name.startswith("CALL_FUNCTION")
@@ -148,8 +147,6 @@ class Scalene:
     memory_max_samples: Dict[
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
     ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
-
-    total_max_samples: int = 0
 
     # how many CPU samples have been collected
     total_cpu_samples: float = 0.0
@@ -370,29 +367,7 @@ process."""
             c_time = 0
         # Update counters for every running thread.
 
-        frames: List[Optional[FrameType]] = [
-            sys._current_frames().get(cast(int, t.ident), None)
-            for t in threading.enumerate()
-        ]
-        frames.append(this_frame)
-
-        # Process all the frames to remove ones we aren't going to track.
-        new_frames = []
-        for frame in frames:
-            if frame is None:
-                continue
-            fname = frame.f_code.co_filename
-            # Record samples only for files we care about.
-            if (len(fname)) == 0:
-                # 'eval/compile' gives no f_code.co_filename.
-                # We have to look back into the outer frame in order to check the co_filename.
-                back = cast(FrameType, frame.f_back)
-                fname = Filename(back.f_code.co_filename)
-            if not Scalene.should_trace(fname):
-                continue
-            new_frames.append(frame)
-
-        del frames
+        new_frames = Scalene.compute_frames_to_record(this_frame)
 
         # Now update counters (weighted) for every frame we are tracking.
         total_time = python_time + c_time
