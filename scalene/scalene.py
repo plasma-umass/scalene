@@ -33,7 +33,19 @@ import argparse
 from contextlib import contextmanager
 from functools import lru_cache
 from textwrap import dedent
-from typing import Any, Callable, Dict, IO, Iterator, List, NewType, Set, Tuple, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    IO,
+    Iterator,
+    List,
+    NewType,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 from signal import Handlers, Signals
 from types import FrameType
 
@@ -68,9 +80,10 @@ if sys.platform == "win32":
     sys.exit(-1)
 
 
-Filename = NewType('Filename', str)
-LineNumber = NewType('LineNumber', int)
-ByteCodeIndex = NewType('ByteCodeIndex', int)
+Filename = NewType("Filename", str)
+LineNumber = NewType("LineNumber", int)
+ByteCodeIndex = NewType("ByteCodeIndex", int)
+
 
 class Scalene:
     """The Scalene profiler itself."""
@@ -98,32 +111,36 @@ class Scalene:
 
     #   CPU samples for each location in the program
     #   spent in C / libraries / system calls
-    cpu_samples_c: Dict[Filename, Dict[LineNumber, float]] = defaultdict(lambda: defaultdict(float))
+    cpu_samples_c: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
+        lambda: defaultdict(float)
+    )
 
     # Below are indexed by [filename][line_no][bytecode_index]:
     #
     # malloc samples for each location in the program
-    memory_malloc_samples: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]] = defaultdict(
-        lambda: defaultdict(lambda: defaultdict(float))
-    )
+    memory_malloc_samples: Dict[
+        Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
+    ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     # number of times samples were added for the above
-    memory_malloc_count: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]] = defaultdict(
-        lambda: defaultdict(lambda: defaultdict(int))
-    )
+    memory_malloc_count: Dict[
+        Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
+    ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     # free samples for each location in the program
-    memory_free_samples: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]] = defaultdict(
-        lambda: defaultdict(lambda: defaultdict(float))
-    )
+    memory_free_samples: Dict[
+        Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
+    ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     # number of times samples were added for the above
-    memory_free_count: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]] = defaultdict(
-        lambda: defaultdict(lambda: defaultdict(int))
-    )
+    memory_free_count: Dict[
+        Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
+    ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     # memcpy samples for each location in the program
-    memcpy_samples: Dict[Filename, Dict[LineNumber, int]] = defaultdict(lambda: defaultdict(int))
-    # max malloc samples for each location in the program
-    memory_max_samples: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]] = defaultdict(
-        lambda: defaultdict(lambda: defaultdict(int))
+    memcpy_samples: Dict[Filename, Dict[LineNumber, int]] = defaultdict(
+        lambda: defaultdict(int)
     )
+    # max malloc samples for each location in the program
+    memory_max_samples: Dict[
+        Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
+    ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
     total_max_samples: int = 0
 
@@ -142,7 +159,7 @@ class Scalene:
     mean_signal_interval: float = 0.01
     # last num seconds between interrupts for CPU sampling.
     last_signal_interval: float = mean_signal_interval
-    last_signal_time : float = 0
+    last_signal_time: float = 0
 
     # memory footprint samples (time, footprint), using 'adaptive' sampling.
     memory_footprint_samples = adaptive.adaptive(27)
@@ -188,12 +205,17 @@ class Scalene:
     free_signal = signal.SIGXFSZ
     memcpy_signal = signal.SIGPROF
 
-
     # We cache the previous signal handlers so we can play nice with
     # apps that might already have handlers for these signals.
-    old_malloc_signal_handler : Union[Callable[[Signals, FrameType], None], int, Handlers, None] = signal.SIG_IGN
-    old_free_signal_handler : Union[Callable[[Signals, FrameType], None], int, Handlers, None] = signal.SIG_IGN
-    old_memcpy_signal_handler : Union[Callable[[Signals, FrameType], None], int, Handlers, None] = signal.SIG_IGN
+    old_malloc_signal_handler: Union[
+        Callable[[Signals, FrameType], None], int, Handlers, None
+    ] = signal.SIG_IGN
+    old_free_signal_handler: Union[
+        Callable[[Signals, FrameType], None], int, Handlers, None
+    ] = signal.SIG_IGN
+    old_memcpy_signal_handler: Union[
+        Callable[[Signals, FrameType], None], int, Handlers, None
+    ] = signal.SIG_IGN
 
     # Program-specific information:
     #   the name of the program being profiled
@@ -276,10 +298,14 @@ process."""
 
     def __init__(self, program_being_profiled=None):
         # Hijack join.
-        threading.Thread.join = Scalene.thread_join_replacement # type: ignore
+        threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
         # Build up signal filenames (adding PID to each).
-        Scalene.malloc_signal_filename = Filename(Scalene.malloc_signal_filename + str(os.getpid()))
-        Scalene.memcpy_signal_filename = Filename(Scalene.memcpy_signal_filename + str(os.getpid()))
+        Scalene.malloc_signal_filename = Filename(
+            Scalene.malloc_signal_filename + str(os.getpid())
+        )
+        Scalene.memcpy_signal_filename = Filename(
+            Scalene.memcpy_signal_filename + str(os.getpid())
+        )
         # Register the exit handler to run when the program terminates or we quit.
         atexit.register(Scalene.exit_handler)
         # Store relevant names (program, path).
@@ -330,7 +356,8 @@ process."""
         frames = [this_frame]
 
         frames = [
-            sys._current_frames().get(cast(int, t.ident), None) for t in threading.enumerate()
+            sys._current_frames().get(cast(int, t.ident), None)
+            for t in threading.enumerate()
         ]
         frames.append(this_frame)
 
@@ -398,7 +425,8 @@ process."""
         """Collects all stack frames that Scalene actually processes."""
         frames = [this_frame]
         frames += [
-            sys._current_frames().get(cast(int, t.ident), None) for t in threading.enumerate()
+            sys._current_frames().get(cast(int, t.ident), None)
+            for t in threading.enumerate()
         ]
         # Process all the frames to remove ones we aren't going to track.
         new_frames = []
@@ -422,14 +450,14 @@ process."""
         """Handle malloc events."""
         Scalene.allocation_handler(signum, this_frame)
         if Scalene.old_malloc_signal_handler != signal.SIG_IGN:
-            Scalene.old_malloc_signal_handler(signum, this_frame) # type: ignore
+            Scalene.old_malloc_signal_handler(signum, this_frame)  # type: ignore
 
     @staticmethod
     def free_signal_handler(signum, this_frame):
         """Handle free events."""
         Scalene.allocation_handler(signum, this_frame)
         if Scalene.old_free_signal_handler != signal.SIG_IGN:
-            Scalene.old_free_signal_handler(signum, this_frame) # type: ignore
+            Scalene.old_free_signal_handler(signum, this_frame)  # type: ignore
 
     @staticmethod
     def allocation_handler(_, this_frame):
@@ -440,7 +468,7 @@ process."""
             return
 
         # Process the input array.
-        arr : List[Tuple[int, str, float]] = []
+        arr: List[Tuple[int, str, float]] = []
         try:
             with open(Scalene.malloc_signal_filename, "r") as mfile:
                 for _, count_str in enumerate(mfile, 1):
@@ -477,9 +505,9 @@ process."""
         # so we may overcount.
 
         for frame in new_frames:
-            fname : Filename = frame.f_code.co_filename
-            line_no : LineNumber = frame.f_lineno
-            bytei : ByteCodeIndex = frame.f_lasti
+            fname: Filename = frame.f_code.co_filename
+            line_no: LineNumber = frame.f_lineno
+            bytei: ByteCodeIndex = frame.f_lasti
             # Add the byte index to the set for this line.
             if bytei not in Scalene.bytei_map[fname][line_no]:
                 Scalene.bytei_map[fname][line_no].add(bytei)
@@ -543,7 +571,7 @@ process."""
                 Scalene.memcpy_samples[fname][line_no] += count
 
         if Scalene.old_memcpy_signal_handler != signal.SIG_IGN:
-            Scalene.old_memcpy_signal_handler(signum, frame) # type: ignore
+            Scalene.old_memcpy_signal_handler(signum, frame)  # type: ignore
 
     @staticmethod
     @lru_cache(128)
@@ -602,7 +630,9 @@ process."""
         return minval, maxval, sp_line
 
     @staticmethod
-    def output_profile_line(fname: Filename, line_no: LineNumber, line: str, out: IO[str]):
+    def output_profile_line(
+        fname: Filename, line_no: LineNumber, line: str, out: IO[str]
+    ):
         """Print exactly one line of the profile to out."""
         current_max = Scalene.max_footprint
         did_sample_memory: bool = (
@@ -804,7 +834,9 @@ process."""
 
                 with open(fname, "r") as source_file:
                     for line_no, line in enumerate(source_file, 1):
-                        Scalene.output_profile_line(fname, LineNumber(line_no), line, out)
+                        Scalene.output_profile_line(
+                            fname, LineNumber(line_no), line, out
+                        )
                     print("", file=out)
         return True
 
