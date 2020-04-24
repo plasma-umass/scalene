@@ -118,26 +118,32 @@ class Scalene:
 
     # Below are indexed by [filename][line_no][bytecode_index]:
     #
+
     # malloc samples for each location in the program
     memory_malloc_samples: Dict[
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
     ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+
     # number of times samples were added for the above
     memory_malloc_count: Dict[
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
     ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+
     # free samples for each location in the program
     memory_free_samples: Dict[
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
     ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+
     # number of times samples were added for the above
     memory_free_count: Dict[
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
     ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+
     # memcpy samples for each location in the program
     memcpy_samples: Dict[Filename, Dict[LineNumber, int]] = defaultdict(
         lambda: defaultdict(int)
     )
+
     # max malloc samples for each location in the program
     memory_max_samples: Dict[
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
@@ -147,17 +153,22 @@ class Scalene:
 
     # how many CPU samples have been collected
     total_cpu_samples: float = 0.0
+
     # "   "    malloc "       "    "    "
     total_memory_malloc_samples: float = 0.0
+
     # "   "    free   "       "    "    "
     total_memory_free_samples: float = 0.0
+
     # the current memory footprint
     current_footprint: float = 0.0
+
     # the peak memory footprint
     max_footprint: float = 0.0
 
     # mean seconds between interrupts for CPU sampling.
     mean_signal_interval: float = 0.01
+
     # last num seconds between interrupts for CPU sampling.
     last_signal_interval: float = mean_signal_interval
     last_signal_time: float = 0
