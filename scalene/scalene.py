@@ -33,7 +33,7 @@ import argparse
 from contextlib import contextmanager
 from functools import lru_cache
 from textwrap import dedent
-from typing import IO, Dict, Set, Iterator, List
+from typing import IO, Dict, Set, Iterator, List, NewType
 
 # Logic to ignore @profile decorators.
 import builtins
@@ -66,6 +66,10 @@ if sys.platform == "win32":
     sys.exit(-1)
 
 
+Filename = NewType('Filename', str)
+LineNumber = NewType('LineNumber', int)
+ByteCodeIndex = NewType('ByteCodeIndex', int)
+
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -86,36 +90,36 @@ class Scalene:
     #
     #   CPU samples for each location in the program
     #   spent in the interpreter
-    cpu_samples_python: Dict[str, Dict[int, float]] = defaultdict(
+    cpu_samples_python: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
         lambda: defaultdict(float)
     )
 
     #   CPU samples for each location in the program
     #   spent in C / libraries / system calls
-    cpu_samples_c: Dict[str, Dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    cpu_samples_c: Dict[Filename, Dict[LineNumber, float]] = defaultdict(lambda: defaultdict(float))
 
     # Below are indexed by [filename][line_no][bytecode_index]:
     #
     # malloc samples for each location in the program
-    memory_malloc_samples: Dict[str, Dict[int, Dict[int, float]]] = defaultdict(
+    memory_malloc_samples: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]] = defaultdict(
         lambda: defaultdict(lambda: defaultdict(float))
     )
     # number of times samples were added for the above
-    memory_malloc_count: Dict[str, Dict[int, Dict[int, int]]] = defaultdict(
+    memory_malloc_count: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]] = defaultdict(
         lambda: defaultdict(lambda: defaultdict(int))
     )
     # free samples for each location in the program
-    memory_free_samples: Dict[str, Dict[int, Dict[int, float]]] = defaultdict(
+    memory_free_samples: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]] = defaultdict(
         lambda: defaultdict(lambda: defaultdict(float))
     )
     # number of times samples were added for the above
-    memory_free_count: Dict[str, Dict[int, Dict[int, int]]] = defaultdict(
+    memory_free_count: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]] = defaultdict(
         lambda: defaultdict(lambda: defaultdict(int))
     )
     # memcpy samples for each location in the program
-    memcpy_samples: Dict[str, Dict[int, int]] = defaultdict(lambda: defaultdict(int))
+    memcpy_samples: Dict[Filename, Dict[LineNumber, int]] = defaultdict(lambda: defaultdict(int))
     # max malloc samples for each location in the program
-    memory_max_samples: Dict[str, Dict[int, Dict[int, int]]] = defaultdict(
+    memory_max_samples: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]] = defaultdict(
         lambda: defaultdict(lambda: defaultdict(int))
     )
 
@@ -161,7 +165,7 @@ class Scalene:
 
     # maps byte indices to line numbers (collected at runtime)
     # [filename][lineno] -> set(byteindex)
-    bytei_map: Dict[str, Dict[int, Set[int]]] = defaultdict(
+    bytei_map: Dict[str, Dict[int, Set[ByteCodeIndex]]] = defaultdict(
         lambda: defaultdict(lambda: set())
     )
 
@@ -431,7 +435,7 @@ process."""
             return
 
         # Process the input array.
-        arr = []
+        arr : List[[int, str, float]] = []
         try:
             with open(Scalene.malloc_signal_filename, "r") as mfile:
                 for _, count_str in enumerate(mfile, 1):
@@ -468,9 +472,9 @@ process."""
         # so we may overcount.
 
         for frame in new_frames:
-            fname = frame.f_code.co_filename
-            line_no = frame.f_lineno
-            bytei = frame.f_lasti
+            fname : Filename = frame.f_code.co_filename
+            line_no : LineNumber = frame.f_lineno
+            bytei : ByteCodeIndex = frame.f_lasti
             # Add the byte index to the set for this line.
             if bytei not in Scalene.bytei_map[fname][line_no]:
                 Scalene.bytei_map[fname][line_no].add(bytei)
@@ -593,7 +597,7 @@ process."""
         return minval, maxval, sp_line
 
     @staticmethod
-    def output_profile_line(fname: str, line_no: int, line: str, out: IO[str]):
+    def output_profile_line(fname: Filename, line_no: LineNumber, line: str, out: IO[str]):
         """Print exactly one line of the profile to out."""
         current_max = Scalene.max_footprint
         did_sample_memory: bool = (
