@@ -21,7 +21,6 @@
 import argparse
 import atexit
 
-# Logic to ignore @profile decorators.
 import builtins
 import contextlib
 import dis
@@ -52,9 +51,10 @@ from typing import (
     cast,
 )
 
-from . import adaptive  # reservoir
+from . import adaptive
 from . import sparkline
 
+# Logic to ignore @profile decorators.
 try:
     builtins.profile  # type: ignore
 
@@ -66,9 +66,11 @@ except AttributeError:
 
     builtins.profile = profile  # type: ignore
 
+
 assert (
     sys.version_info[0] == 3 and sys.version_info[1] >= 5
 ), "Scalene requires Python version 3.5 or above."
+
 
 # Scalene currently only supports Unix-like operating systems; in
 # particular, Linux, Mac OS X, and WSL 2 (Windows Subsystem for Linux 2 = Ubuntu)
@@ -92,7 +94,7 @@ class Scalene:
     # particular bytecode is a function call.  We use this to
     # distinguish between Python and native code execution when
     # running in threads.
-    call_opcodes : Set[int] = {
+    call_opcodes: Set[int] = {
         dis.opmap[op_name]
         for op_name in dis.opmap
         if op_name.startswith("CALL_FUNCTION")
