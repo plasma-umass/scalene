@@ -18,26 +18,31 @@
 
 """
 
+import argparse
+import atexit
+
+# Logic to ignore @profile decorators.
+import builtins
 import contextlib
 import dis
-import traceback
-import sys
-import atexit
-import signal
-import random
-import threading
-from collections import defaultdict
-import time
 import os
-import argparse
+import random
+import signal
+import sys
+import threading
+import time
+import traceback
+from collections import defaultdict
 from contextlib import contextmanager
 from functools import lru_cache
+from signal import Handlers, Signals
 from textwrap import dedent
+from types import CodeType, FrameType
 from typing import (
+    IO,
     Any,
     Callable,
     Dict,
-    IO,
     Iterator,
     List,
     NewType,
@@ -47,11 +52,6 @@ from typing import (
     Union,
     cast,
 )
-from signal import Handlers, Signals
-from types import CodeType, FrameType
-
-# Logic to ignore @profile decorators.
-import builtins
 
 from . import adaptive  # reservoir
 from . import sparkline
