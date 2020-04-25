@@ -216,6 +216,10 @@ class Scalene:
     free_signal = signal.SIGXFSZ
     memcpy_signal = signal.SIGPROF
 
+    in_allocation_handler = False
+    in_cpu_handler = False
+    in_memcpy_handler = False
+
     # We cache the previous signal handlers so we can play nice with
     # apps that might already have handlers for these signals.
     old_malloc_signal_handler: Union[
@@ -334,6 +338,9 @@ process."""
         """Handle interrupts for CPU profiling."""
         # Record how long it has been since we received a timer
         # before.  See the logic below.
+        if Scalene.in_cpu_handler:
+            return
+        Scalene.in_cpu_handler = True
         now = Scalene.gettime()
         # If it's time to print some profiling info, do so.
         if now >= Scalene.next_output_time:
@@ -412,6 +419,7 @@ process."""
         #        Scalene.last_signal_interval,
         #    )
         Scalene.last_signal_time = Scalene.gettime()
+        Scalene.in_cpu_handler = False
 
     @staticmethod
     def compute_frames_to_record(this_frame: FrameType) -> List[FrameType]:
@@ -464,17 +472,23 @@ process."""
         signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
         this_frame: FrameType,
     ) -> None:
+        if Scalene.in_allocation_handler:
+            return
+        Scalene.in_allocation_handler = True
+
         """Handle interrupts for memory profiling (mallocs and frees)."""
         new_frames = Scalene.compute_frames_to_record(this_frame)
 
         if len(new_frames) == 0:
+            Scalene.in_allocation_handler = False
             return
 
         # Process the input array.
         arr: List[Tuple[int, str, float]] = []
         try:
             with open(Scalene.malloc_signal_filename, "r") as mfile:
-                for _, count_str in enumerate(mfile, 1):
+                for count_str in mfile:
+                    # for _, count_str in enumerate(mfile, 1):
                     count_str = count_str.rstrip()
                     (action, alloc_time_str, count_str) = count_str.split(",")
                     arr.append((int(alloc_time_str), action, float(count_str)))
@@ -538,6 +552,7 @@ process."""
                 Scalene.memory_free_samples[fname][line_no][bytei] += before - after
                 Scalene.memory_free_count[fname][line_no][bytei] += 1
                 Scalene.total_memory_free_samples += before - after
+        Scalene.in_allocation_handler = False
 
     @staticmethod
     def memcpy_event_signal_handler(
@@ -545,15 +560,19 @@ process."""
         frame: FrameType,
     ) -> None:
         """Handles memcpy events."""
+        if Scalene.in_memcpy_handler:
+            return
+        Scalene.in_memcpy_handler = True
         new_frames = Scalene.compute_frames_to_record(frame)
         if len(new_frames) == 0:
+            Scalene.in_memcpy_handler = False
             return
 
         # Process the input array.
         arr: List[Tuple[int, int]] = []
         try:
             with open(Scalene.memcpy_signal_filename, "r") as mfile:
-                for _, count_str in enumerate(mfile, 1):
+                for count_str in mfile:
                     count_str = count_str.rstrip()
                     (memcpy_time_str, count_str2) = count_str.split(",")
                     arr.append((int(memcpy_time_str), int(count_str2)))
@@ -578,6 +597,7 @@ process."""
 
         if Scalene.old_memcpy_signal_handler != signal.SIG_IGN:
             Scalene.old_memcpy_signal_handler(signum, frame)  # type: ignore
+        Scalene.in_memcpy_handler = False
 
     @staticmethod
     @lru_cache(128)
