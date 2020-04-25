@@ -216,9 +216,7 @@ class Scalene:
     free_signal = signal.SIGXFSZ
     memcpy_signal = signal.SIGPROF
 
-    in_allocation_handler = False
-    in_cpu_handler = False
-    in_memcpy_handler = False
+    in_signal_handler = 0
 
     # We cache the previous signal handlers so we can play nice with
     # apps that might already have handlers for these signals.
@@ -338,10 +336,9 @@ process."""
         """Handle interrupts for CPU profiling."""
         # Record how long it has been since we received a timer
         # before.  See the logic below.
-        if Scalene.in_cpu_handler:
-            Scalene.in_cpu_handler = False
+        if Scalene.in_signal_handler > 0:
             return
-        Scalene.in_cpu_handler = True
+        Scalene.in_signal_handler += 1
         now = Scalene.gettime()
         # If it's time to print some profiling info, do so.
         if now >= Scalene.next_output_time:
@@ -420,7 +417,7 @@ process."""
         #        Scalene.last_signal_interval,
         #    )
         Scalene.last_signal_time = Scalene.gettime()
-        Scalene.in_cpu_handler = False
+        Scalene.in_signal_handler -= 1
 
     @staticmethod
     def compute_frames_to_record(this_frame: FrameType) -> List[FrameType]:
@@ -473,15 +470,15 @@ process."""
         signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
         this_frame: FrameType,
     ) -> None:
-        if Scalene.in_allocation_handler:
+        if Scalene.in_signal_handler > 0:
             return
-        Scalene.in_allocation_handler = True
+        Scalene.in_signal_handler += 1
 
         """Handle interrupts for memory profiling (mallocs and frees)."""
         new_frames = Scalene.compute_frames_to_record(this_frame)
 
         if len(new_frames) == 0:
-            Scalene.in_allocation_handler = False
+            Scalene.in_signal_handler -= 1
             return
 
         # Process the input array.
@@ -553,7 +550,7 @@ process."""
                 Scalene.memory_free_samples[fname][line_no][bytei] += before - after
                 Scalene.memory_free_count[fname][line_no][bytei] += 1
                 Scalene.total_memory_free_samples += before - after
-        Scalene.in_allocation_handler = False
+        Scalene.in_signal_handler -= 1
 
     @staticmethod
     def memcpy_event_signal_handler(
@@ -561,12 +558,12 @@ process."""
         frame: FrameType,
     ) -> None:
         """Handles memcpy events."""
-        if Scalene.in_memcpy_handler:
+        if Scalene.in_signal_handler > 0:
             return
-        Scalene.in_memcpy_handler = True
+        Scalene.in_signal_handler += 1
         new_frames = Scalene.compute_frames_to_record(frame)
         if len(new_frames) == 0:
-            Scalene.in_memcpy_handler = False
+            Scalene.in_signal_handler -= 1
             return
 
         # Process the input array.
@@ -598,7 +595,7 @@ process."""
 
         if Scalene.old_memcpy_signal_handler != signal.SIG_IGN:
             Scalene.old_memcpy_signal_handler(signum, frame)  # type: ignore
-        Scalene.in_memcpy_handler = False
+        Scalene.in_signal_handler -= 1
 
     @staticmethod
     @lru_cache(128)
