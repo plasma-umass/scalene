@@ -339,6 +339,7 @@ process."""
         # Record how long it has been since we received a timer
         # before.  See the logic below.
         if Scalene.in_cpu_handler:
+            Scalene.in_cpu_handler = False
             return
         Scalene.in_cpu_handler = True
         now = Scalene.gettime()
