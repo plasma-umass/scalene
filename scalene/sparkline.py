@@ -1,8 +1,18 @@
 from typing import List, Tuple
+from os import environ
 
 # Sparkline stuff
-# Unicode: 9601, 9602, 9603, 9604, 9605, 9606, 9607, 9608
-bar = "▁▂▃▄▅▆▇█"
+
+if "WSLENV" in environ:
+    # We are running in the Windows Subsystem for Linux Display a
+    # crappy version of the sparkline because the Windows console
+    # *still* only properly displays IBM Code page 437 by default.
+    bar = "▄▄■■■■▀▀"
+else:
+    # Reasonable system. Use Unicode characters.
+    # Unicode: 9601, 9602, 9603, 9604, 9605, 9606, 9607, 9608
+    bar = "▁▂▃▄▅▆▇█"
+
 barcount = len(bar)
 
 # From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
