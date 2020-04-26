@@ -3,7 +3,10 @@ from os import environ
 
 # Sparkline stuff
 
-if "WSL_DISTRO_NAME" in environ:
+# Check if we are in Windows Subsystem for Linux and *not* using
+# the highly recommended Windows Terminal
+# (https://aka.ms/windowsterminal)
+if "WSL_DISTRO_NAME" in environ and "WT_PROFILE_ID" not in environ:
     # We are running in the Windows Subsystem for Linux Display, a
     # crappy version of the sparkline because the Windows console
     # *still* only properly displays IBM Code page 437 by default.
