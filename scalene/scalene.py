@@ -37,10 +37,10 @@ from signal import Handlers, Signals
 from textwrap import dedent
 from types import CodeType, FrameType
 from typing import (
-    IO,
     Any,
     Callable,
     Dict,
+    IO,
     Iterator,
     List,
     NewType,
