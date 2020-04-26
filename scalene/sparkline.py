@@ -4,14 +4,16 @@ from os import environ
 # Sparkline stuff
 
 if "WSL_DISTRO_NAME" in environ:
-    # We are running in the Windows Subsystem for Linux Display a
+    # We are running in the Windows Subsystem for Linux Display, a
     # crappy version of the sparkline because the Windows console
     # *still* only properly displays IBM Code page 437 by default.
-    bar = "▄▄■■■■▀▀"
+    # ▄▄■■■■▀▀
+    bar = chr(0x2584) * 2 + chr(0x25A0) * 3 + chr(0x2580) * 3
 else:
     # Reasonable system. Use Unicode characters.
     # Unicode: 9601, 9602, 9603, 9604, 9605, 9606, 9607, 9608
-    bar = "▁▂▃▄▅▆▇█"
+    # ▁▂▃▄▅▆▇█
+    bar = "".join([chr(i) for i in range(9601, 9609)])
 
 barcount = len(bar)
 
