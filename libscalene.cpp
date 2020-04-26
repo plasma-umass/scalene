@@ -15,6 +15,8 @@
 
 #include "repoman.hpp"
 
+#include "fastmemcpy.hpp"
+
 #include <stdio.h>
 #include <execinfo.h>
 #include <signal.h>
@@ -125,6 +127,7 @@ private:
   //// local implementations of memcpy and friends.
   
   void * local_memcpy(void * dst, const void * src, size_t n) {
+    return memcpy_fast(dst, src, n);
 #if defined(__APPLE__)
     return ::memcpy(dst, src, n);
 #else
