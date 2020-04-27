@@ -23,4 +23,5 @@ setup(
     ],
     packages=find_packages(),
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
+    python_requires=">=3.5",
 )
