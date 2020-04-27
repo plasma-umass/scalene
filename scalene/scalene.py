@@ -949,16 +949,13 @@ process."""
                 program_path = os.path.dirname(os.path.abspath(args.prog))
                 sys.path.insert(0, program_path)
                 Scalene.program_path = program_path
-                # Change the directory into the program's path.
-                # Note that this is not what Python normally does.
-                os.chdir(program_path)
                 # Grab local and global variables.
                 import __main__
 
                 the_locals = __main__.__dict__
                 the_globals = __main__.__dict__
                 # Splice in the name of the file being executed instead of the profiler.
-                the_globals["__file__"] = args.prog
+                the_globals["__file__"] = os.path.basename(args.prog)
                 # Start the profiler.
                 Scalene.output_file = args.outfile
                 fullname = os.path.join(program_path, os.path.basename(args.prog))
@@ -973,8 +970,6 @@ process."""
                         # print(traceback.format_exc())
                         pass
                     profiler.stop()
-                    # Go back home.
-                    # os.chdir(Scalene.original_path)
                     # If we've collected any samples, dump them.
                     if profiler.output_profiles():
                         pass
