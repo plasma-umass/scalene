@@ -43,6 +43,14 @@ _NOTE_: Currently, installing Scalene in this way does not install its memory pr
 
 This will install a `scalene` script you can use (see below).
 
+For other OSs, build the Scalene library from source by cloning this repository and running `make`.
+
+```
+  % make
+```
+
+
+
 # Usage
 
 The following command will run Scalene to only perform line-level CPU profiling on a provided example program.
@@ -55,12 +63,6 @@ If you have installed the Scalene library with Homebrew, you can just invoke `sc
 
 ```
   % scalene test/testme.py
-```
-
-Otherwise, you first need to build the specialized memory allocator by running `make`:
-
-```
-  % make
 ```
 
 Profiling on a Mac OS X system (without using Homebrew):
