@@ -32,15 +32,12 @@
 class TheCustomHeap;
 static TheCustomHeap * theCustomHeap = nullptr;
 
-// We use prime numbers here (near 1MB, for example) to avoid the risk
+// We use prime numbers here (near 1MB, for example) to reduce the risk
 // of stride behavior interfering with sampling.
 
 const auto MallocSamplingRate = 1048583UL;
 const auto MemcpySamplingRate = MallocSamplingRate * 2;
-//const auto MallocSamplingRate = 4194319;
-//const auto MallocSamplingRate = 8388617;
-//const auto MallocSamplingRate = 16777259;
-const auto RepoSize = 4096;
+const auto RepoSize = 8192; // 4096;
 
 typedef SampleHeap<MallocSamplingRate, RepoMan<RepoSize>> CustomHeapType;
 
@@ -126,20 +123,14 @@ private:
 
   //// local implementations of memcpy and friends.
   
-  void * local_memcpy(void * dst, const void * src, size_t n) {
-    return memcpy_fast(dst, src, n);
+  ATTRIBUTE_ALWAYS_INLINE inline void * local_memcpy(void * dst, const void * src, size_t n) {
 #if defined(__APPLE__)
     return ::memcpy(dst, src, n);
 #else
-    char * d = (char *) dst;
-    char * s = (char *) src;
-    for (size_t i = 0; i < n; i++) {
-      *d++ = *s++;
-    }
-    return dst;
+    return memcpy_fast(dst, src, n);
 #endif
   }
-
+  
   void * local_memmove(void * dst, const void * src, size_t n) {
 #if defined(__APPLE__)
     return ::memmove(dst, src, n);

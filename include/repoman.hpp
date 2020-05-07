@@ -25,10 +25,13 @@ public:
   
   RepoMan()
     : _bufferStart (reinterpret_cast<char *>(MmapWrapper::map(MAX_HEAP_SIZE))),
-      _repoSource(_bufferStart, MAX_HEAP_SIZE)
+      // Below, align the buffer and subtract the part removed by aligning it.
+      _repoSource(reinterpret_cast<char *>(align(_bufferStart)),
+		  MAX_HEAP_SIZE - ((uintptr_t) align(_bufferStart) - (uintptr_t) _bufferStart))
   {
     static_assert((Size & ~(Size-1)) == Size, "Size must be a power of two.");
     static_assert(Size > MAX_SIZE, "Size must be larger than maximum size.");
+    static_assert(NUM_REPOS >= 1, "Number of repos must be at least one.");
     // Initialize the repos for each size.
     for (auto index = 0; index < NUM_REPOS; index++) {
       _repos[index] = _repoSource.get((index + 1) * MULTIPLE);
@@ -49,6 +52,7 @@ public:
     // assert(sz >= MULTIPLE);
     void * ptr;
     if (likely(sz <= MAX_SIZE)) {
+      //      tprintf::tprintf("repoman malloc @\n", sz);
       //      assert (sz == roundUp(sz, MULTIPLE));
       auto index = getIndex(sz);
       ptr = _repos[index]->malloc(sz);
@@ -66,6 +70,7 @@ public:
 	}
       }
     } else {
+      //      tprintf::tprintf("repoman malloc LARGE @\n", sz);
       ptr = allocateLarge(sz);
     }
     assert((uintptr_t) ptr % Alignment == 0);
@@ -128,6 +133,7 @@ public:
     if (headerPtr->isValid()) {
       sz = headerPtr->getBaseSize();
     }
+    ///    tprintf::tprintf("ptr = @, headerPtr = @, sz = @\n", ptr, headerPtr, sz);
     return sz;
   }
 
@@ -135,6 +141,11 @@ public:
   
 private:
 
+  constexpr auto align (void * ptr) {
+    const auto alignedPtr = (void *) (((uintptr_t) ptr + Size - 1) & ~(Size - 1));
+    return alignedPtr;
+  }
+  
   ATTRIBUTE_NEVER_INLINE void * allocateLarge(size_t sz) {
     // For now, allocate directly via mmap.
     // Add the space for the header metadata.
@@ -142,24 +153,79 @@ private:
     sz = sz + sizeof(RepoHeader<Size>);
     // Round sz up to next multiple of Size.
     sz = roundUp(sz, Size);
-    // FIXME force alignment!
-    //    tprintf::tprintf("mapping object of size @\n", sz);
-    auto basePtr = MmapWrapper::map(sz);
-    // assert((uintptr_t) basePtr % Size == 0); // verify alignment
-    auto bigObjBase = new (basePtr) RepoHeader<Size>(origSize);
-    auto ptr = bigObjBase + 1; // reinterpret_cast<char *>(basePtr) + sizeof(RepoHeader);
+    // Ensure that this chunk of memory is appropriately aligned.
+
+    void * alignedPtr = nullptr;
+    
+    if (sz <= Size) {
+
+      // It's small enough: just use a repo.
+      _repoSourceLock.lock();
+      alignedPtr = _repoSource.get(sz);
+      _repoSourceLock.unlock();
+      
+    } else {
+
+      // Map until we find a suitably aligned chunk.
+      // The goal here is to align the start of the next mmap request so it is already suitably aligned.
+      alignedPtr = MmapWrapper::map(sz);
+      while ((uintptr_t) alignedPtr % Size != 0) {
+	// Unmap one page at a time so we don't reuse it in a subsequent map call.
+	MmapWrapper::unmap((void *) ((uintptr_t) alignedPtr + sz - 4096), 4096);
+	alignedPtr = MmapWrapper::map(sz);
+      }
+
+#if 0
+      // Complicated alignment logic, currently disabled.
+      const auto totalRequest = 2 * sz;
+      const auto originalPtr = MmapWrapper::map(totalRequest);
+      const auto alignedPtr = (void *) (((uintptr_t) originalPtr + Size - 1) & ~(Size - 1));
+
+      auto leftSize = 0;
+      auto rightSize = 0;
+    
+      // Unmap the left part.
+      if (originalPtr != alignedPtr) {
+	tprintf::tprintf("UNMAPPING LEFT.\n");
+	tprintf::tprintf("original = @, aligned = @\n", originalPtr, alignedPtr);
+	leftSize = (uintptr_t) alignedPtr - (uintptr_t) originalPtr;
+	MmapWrapper::unmap(originalPtr, leftSize);
+      }
+      // Unmap the right part.
+      rightSize = totalRequest - (leftSize + sz);
+      if (rightSize > 0) {
+	const auto end = ((void *) ((uintptr_t) alignedPtr + sz));
+	tprintf::tprintf("UNMAPPING RIGHT.\n");
+	tprintf::tprintf("end = @, size = @\n", end, rightSize);
+	MmapWrapper::unmap(end, rightSize);
+      }
+#endif
+    }
+
+    assert(align(alignedPtr) == alignedPtr); // Verify alignment.
+    auto bigObjBase = new (alignedPtr) RepoHeader<Size>(origSize);
+    auto ptr = bigObjBase + 1;
     return ptr;
   }
 
   ATTRIBUTE_NEVER_INLINE void freeLarge(void * ptr, size_t sz) {
     // "Large" object handling.
     auto basePtr = reinterpret_cast<RepoHeader<Size> *>(ptr) - 1;
+    assert(align(basePtr) == basePtr);
     auto origSize = sz;
     sz = sz + sizeof(RepoHeader<Size>);
     // Round sz up to next multiple of Size.
     sz = roundUp(sz, Size);
-    //    tprintf::tprintf("freeLarge: sz = @\n", sz);
-    MmapWrapper::unmap(basePtr, sz);
+    if (sz <= Size) {
+      // It was actually a repo. Put it back.
+      //      tprintf::tprintf("returning repo @ of size @\n", basePtr, origSize);
+      _repoSourceLock.lock();
+      _repoSource.put(reinterpret_cast<Repo<Size> *>(basePtr));
+      _repoSourceLock.unlock();
+    } else {
+      // Unmap it.
+      MmapWrapper::unmap(basePtr, sz);
+    }
   }
   
   enum { MAX_SIZE = 512 };
