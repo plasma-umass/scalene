@@ -16,7 +16,7 @@ else:
     # Reasonable system. Use Unicode characters.
     # Unicode: 9601, 9602, 9603, 9604, 9605, 9606, 9607, 9608
     # ▁▂▃▄▅▆▇█
-    bar = "".join([chr(i) for i in range(9601, 9609)])
+    bar = "".join(chr(i) for i in range(9601, 9609))
 
 barcount = len(bar)
 

@@ -1,4 +1,3 @@
-import math
 import random
 
 class reservoir():
@@ -19,7 +18,8 @@ class reservoir():
         if self.total_samples <= self.max_samples:
             self.sample_array.append(value)
         else:
-            assert self.max_samples == len(self.sample_array)
+            if self.max_samples != len(self.sample_array):
+                raise AssertionError
             self.next_random_choice -= 1
             #p = random.randint(0, self.total_samples - 1)
             if self.next_random_choice <= 0: # p < self.max_samples:

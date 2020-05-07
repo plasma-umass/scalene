@@ -645,7 +645,7 @@ process."""
     ) -> Tuple[float, float, str]:
         """Produces a sparkline, as in ▁▁▁▁▁▂▃▂▄▅▄▆█▆█▆"""
         iterations = len(arr)
-        all_zeros = all([i == 0 for i in arr])
+        all_zeros = all(i == 0 for i in arr)
         if all_zeros:
             return 0, 0, ""
         # Prevent negative memory output due to sampling error.
