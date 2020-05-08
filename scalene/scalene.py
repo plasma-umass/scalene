@@ -191,6 +191,8 @@ class Scalene:
     output_profile_interval: float = float("inf")
     # when we output the next profile
     next_output_time: float = float("inf")
+    # when we started 
+    start_time:   float = 0
     # total time spent in program being profiled
     elapsed_time: float = 0
 
@@ -619,13 +621,13 @@ process."""
         """Initiate profiling."""
         os.chdir(Scalene.program_path)
         Scalene.enable_signals()
-        Scalene.elapsed_time = Scalene.gettime()
+        Scalene.start_time = Scalene.gettime()
 
     @staticmethod
     def stop() -> None:
         """Complete profiling."""
         Scalene.disable_signals()
-        Scalene.elapsed_time = Scalene.gettime() - Scalene.elapsed_time
+        Scalene.elapsed_time += Scalene.gettime() - Scalene.start_time
         os.chdir(Scalene.original_path)
 
     # from https://stackoverflow.com/questions/9836370/fallback-to-stdout-if-no-file-name-provided
@@ -645,7 +647,7 @@ process."""
     ) -> Tuple[float, float, str]:
         """Produces a sparkline, as in ▁▁▁▁▁▂▃▂▄▅▄▆█▆█▆"""
         iterations = len(arr)
-        all_zeros = all([i == 0 for i in arr])
+        all_zeros = all(i == 0 for i in arr)
         if all_zeros:
             return 0, 0, ""
         # Prevent negative memory output due to sampling error.
