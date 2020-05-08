@@ -171,7 +171,7 @@ class Scalene:
 
     # memory footprint samples (time, footprint), using 'adaptive' sampling.
     __memory_footprint_samples = adaptive.adaptive(27)
-    
+
     # same, but per line
     __per_line_footprint_samples: Dict[str, Dict[int, adaptive.adaptive]] = defaultdict(
         lambda: defaultdict(lambda: adaptive.adaptive(9))
@@ -187,8 +187,8 @@ class Scalene:
     __output_profile_interval: float = float("inf")
     # when we output the next profile
     __next_output_time: float = float("inf")
-    # when we started 
-    __start_time:   float = 0
+    # when we started
+    __start_time: float = 0
     # total time spent in program being profiled
     __elapsed_time: float = 0
 
@@ -723,9 +723,7 @@ process."""
             "" if not n_cpu_percent_python else "%6.2f%%" % n_cpu_percent_python
         )
         n_growth_mb_str: str = (
-            ""
-            if (not n_growth_mb and not n_usage_fraction)
-            else "%5.0f" % n_growth_mb
+            "" if (not n_growth_mb and not n_usage_fraction) else "%5.0f" % n_growth_mb
         )
         n_usage_fraction_str: str = (
             "" if not n_usage_fraction else "%3.0f%%" % (100 * n_usage_fraction)
@@ -938,7 +936,9 @@ process."""
         sys.argv = sys.argv[:1] + left
         Scalene.set_timer_signal(args.wallclock)
         Scalene.__output_profile_interval = args.profile_interval
-        Scalene.__next_output_time = Scalene.gettime() + Scalene.__output_profile_interval
+        Scalene.__next_output_time = (
+            Scalene.gettime() + Scalene.__output_profile_interval
+        )
         try:
             with open(args.prog, "rb") as prog_being_profiled:
                 Scalene.__original_path = os.getcwd()
