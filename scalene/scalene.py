@@ -618,7 +618,7 @@ process."""
         """Initiate profiling."""
         os.chdir(Scalene.__program_path)
         Scalene.enable_signals()
-        Scalene.start_time = Scalene.gettime()
+        Scalene.__start_time = Scalene.gettime()
 
     @staticmethod
     def stop() -> None:
