@@ -40,6 +40,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    FrozenSet,
     IO,
     Iterator,
     List,
@@ -47,6 +48,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    TypeVar,
     Union,
     cast,
 )
@@ -57,7 +59,6 @@ from . import sparkline
 # Logic to ignore @profile decorators.
 try:
     builtins.profile  # type: ignore
-
 except AttributeError:
 
     def profile(func: Any) -> Any:
@@ -94,14 +95,18 @@ class Scalene:
     # particular bytecode is a function call.  We use this to
     # distinguish between Python and native code execution when
     # running in threads.
-    __call_opcodes: Set[int] = {
-        dis.opmap[op_name]
-        for op_name in dis.opmap
-        if op_name.startswith("CALL_FUNCTION")
-    }
+    __call_opcodes: FrozenSet[int] = frozenset(
+        {
+            dis.opmap[op_name]
+            for op_name in dis.opmap
+            if op_name.startswith("CALL_FUNCTION")
+        }
+    )
 
     # Cache the original thread join function, which we replace with our own version.
-    __original_thread_join = threading.Thread.join
+    __original_thread_join: Callable[
+        [threading.Thread, Union[builtins.float, None]], None
+    ] = threading.Thread.join
 
     # Statistics counters:
     #
@@ -234,13 +239,12 @@ class Scalene:
     __program_being_profiled = Filename("")
 
     @staticmethod
-    @lru_cache(1024)
+    @lru_cache(maxsize=None)
     def is_call_function(code: CodeType, bytei: ByteCodeIndex) -> bool:
         """Returns true iff the bytecode at the given index is a function call."""
         for ins in dis.get_instructions(code):
-            if ins.offset == bytei:
-                if ins.opcode in Scalene.__call_opcodes:
-                    return True
+            if ins.offset == bytei and ins.opcode in Scalene.__call_opcodes:
+                return True
         return False
 
     @staticmethod
@@ -522,9 +526,8 @@ process."""
             fname = Filename(frame.f_code.co_filename)
             line_no = LineNumber(frame.f_lineno)
             bytei = ByteCodeIndex(frame.f_lasti)
-            # Add the byte index to the set for this line.
-            if bytei not in Scalene.__bytei_map[fname][line_no]:
-                Scalene.__bytei_map[fname][line_no].add(bytei)
+            # Add the byte index to the set for this line (if it's not there already).
+            Scalene.__bytei_map[fname][line_no].add(bytei)
             curr = before
             # Go through the array again and add each updated current footprint.
             for item in arr:
@@ -588,8 +591,7 @@ process."""
                 line_no = LineNumber(the_frame.f_lineno)
                 bytei = ByteCodeIndex(the_frame.f_lasti)
                 # Add the byte index to the set for this line.
-                if bytei not in Scalene.__bytei_map[fname][line_no]:
-                    Scalene.__bytei_map[fname][line_no].add(bytei)
+                Scalene.__bytei_map[fname][line_no].add(bytei)
                 Scalene.__memcpy_samples[fname][line_no] += count
 
         if Scalene.__old_memcpy_signal_handler != signal.SIG_IGN:
@@ -597,7 +599,7 @@ process."""
         Scalene.__in_signal_handler -= 1
 
     @staticmethod
-    @lru_cache(128)
+    @lru_cache(None)
     def should_trace(filename: str) -> bool:
         """Return true if the filename is one we should trace."""
         # Profile anything in the program's directory or a child directory,
@@ -738,7 +740,7 @@ process."""
             samples = Scalene.__per_line_footprint_samples[fname][line_no]
             for i in range(0, len(samples.get())):
                 samples.get()[i] *= n_usage_fraction
-            if len(samples.get()) > 0:
+            if samples.get():
                 _, _, spark_str = Scalene.generate_sparkline(
                     samples.get()[0 : samples.len()], 0, current_max
                 )
