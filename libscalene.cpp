@@ -37,7 +37,7 @@ static TheCustomHeap * theCustomHeap = nullptr;
 
 const auto MallocSamplingRate = 1048583UL;
 const auto MemcpySamplingRate = MallocSamplingRate * 2;
-const auto RepoSize = 8192; // 4096;
+const auto RepoSize = 4096; // 65536; // 32768; // 4096;
 
 typedef SampleHeap<MallocSamplingRate, RepoMan<RepoSize>> CustomHeapType;
 
