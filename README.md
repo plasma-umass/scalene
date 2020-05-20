@@ -43,6 +43,12 @@ _NOTE_: Currently, installing Scalene in this way does not install its memory pr
 
 This will install a `scalene` script you can use (see below).
 
+**NEW**: You can now install the full Scalene library and script on Arch Linux via the [AUR
+package](https://aur.archlinux.org/packages/python-scalene-git/). Use your favorite AUR helper, or
+manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that this will place
+`libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
+
+
 For other OSs, build the Scalene library from source by cloning this repository and running `make`.
 
 ```
