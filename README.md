@@ -34,6 +34,8 @@ or
 
 _NOTE_: Currently, installing Scalene in this way does not install its memory profiling library, so you will only be able to use it to perform CPU profiling. To take advantage of its memory profiling capability, you will need to download this repository.
 
+### Homebrew (Mac OS X)
+
 **NEW**: You can now install the memory profiling part on Mac OS X using Homebrew.
 
 ```
@@ -43,11 +45,15 @@ _NOTE_: Currently, installing Scalene in this way does not install its memory pr
 
 This will install a `scalene` script you can use (see below).
 
+### ArchLinux
+
 **NEW**: You can now install the full Scalene library and script on Arch Linux via the [AUR
 package](https://aur.archlinux.org/packages/python-scalene-git/). Use your favorite AUR helper, or
 manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that this will place
 `libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
 
+
+### Other OSs
 
 For other OSs, build the Scalene library from source by cloning this repository and running `make`.
 
