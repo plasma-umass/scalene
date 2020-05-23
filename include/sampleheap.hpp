@@ -12,7 +12,6 @@
 #include <signal.h>
 #include "common.hpp"
 #include "tprintf.h"
-#include "repoman.hpp"
 
 #define DISABLE_SIGNALS 0 // For debugging purposes only.
 
