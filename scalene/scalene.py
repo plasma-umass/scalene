@@ -443,9 +443,16 @@ process."""
                 # the co_filename.
                 back = cast(FrameType, frame.f_back)
                 fname = Filename(back.f_code.co_filename)
-            if not Scalene.should_trace(fname):
-                continue
-            new_frames.append(frame)
+            while not Scalene.should_trace(fname):
+                # Walk the stack backwards until we hit a frame that
+                # IS one we should trace (if there is one).  i.e., if
+                # it's in the code being profiled, and it is just
+                # calling stuff deep in libraries.
+                frame = cast(FrameType, frame.f_back)
+                if frame:
+                    fname = frame.f_code.co_filename
+            if frame:
+                new_frames.append(frame)
         return new_frames
 
     @staticmethod
