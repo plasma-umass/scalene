@@ -22,7 +22,7 @@ Scalene is a high-performance CPU *and* memory profiler for Python that does a n
 
 ### Homebrew (Mac OS X)
 
-You can use Homebrew to install the full version of Scalene. Instead of using `pip` as described below, just do this:
+You can use Homebrew to install the **full** version of Scalene (with memory profiling). Instead of using `pip` as described below, just do this:
 
 ```
   % brew tap emeryberger/scalene
@@ -55,9 +55,9 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 `libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
 
 
-### Linux (all distros) - memory profiling
+### Linux (all distros), with memory profiling
 
-For all other Linux distributions, build the Scalene library from source by cloning this repository and running `make`.
+For all other Linux distributions, you need to build the Scalene library from source by cloning this repository and running `make`.
 
 ```
   % make
