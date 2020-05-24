@@ -425,8 +425,7 @@ process."""
     @staticmethod
     def compute_frames_to_record(this_frame: FrameType) -> List[FrameType]:
         """Collects all stack frames that Scalene actually processes."""
-        frames: List[Optional[FrameType]] = [this_frame]
-        frames += [
+        frames: List[Optional[FrameType]] = [
             sys._current_frames().get(cast(int, t.ident), None)
             for t in threading.enumerate()
         ]
@@ -448,9 +447,10 @@ process."""
                 # IS one we should trace (if there is one).  i.e., if
                 # it's in the code being profiled, and it is just
                 # calling stuff deep in libraries.
-                frame = cast(FrameType, frame.f_back)
                 if frame:
-                    fname = frame.f_code.co_filename
+                    frame = cast(FrameType, frame.f_back)
+                    if frame:
+                        fname = frame.f_code.co_filename
             if frame:
                 new_frames.append(frame)
         return new_frames
@@ -506,6 +506,7 @@ process."""
             os.remove(Scalene.__malloc_signal_filename)
         except FileNotFoundError:
             pass
+        
         arr.sort()
 
         # Iterate through the array to compute the new current footprint.
@@ -975,7 +976,7 @@ process."""
                         exec(code, the_globals, the_locals)
                     except BaseException:  # as be
                         # Intercept sys.exit.
-                        # print(traceback.format_exc())
+                        print(traceback.format_exc())
                         pass
                     profiler.stop()
                     # If we've collected any samples, dump them.
