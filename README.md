@@ -20,7 +20,20 @@ Scalene is a high-performance CPU *and* memory profiler for Python that does a n
 
 ## Installation
 
-Scalene is distributed as a `pip` package and works on Mac OS X and Linux platforms (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)).
+### Homebrew (Mac OS X)
+
+You can use Homebrew to install the full version of Scalene. Instead of using `pip` as described below, just do this:
+
+```
+  % brew tap emeryberger/scalene
+  % brew install --head libscalene
+```
+
+This will install a `scalene` script you can use (see below).
+
+### Mac OS X and Linux, without memory profiling
+
+Scalene is also distributed as a `pip` package and works on Mac OS X and Linux platforms (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)).
 
 You can install it as follows:
 ```
@@ -34,17 +47,6 @@ or
 
 _NOTE_: Currently, installing Scalene in this way does not install its memory profiling library, so you will only be able to use it to perform CPU profiling. To take advantage of its memory profiling capability, you will need to download this repository.
 
-### Homebrew (Mac OS X)
-
-**NEW**: You can now install the memory profiling part on Mac OS X using Homebrew.
-
-```
-  % brew tap emeryberger/scalene
-  % brew install --head libscalene
-```
-
-This will install a `scalene` script you can use (see below).
-
 ### ArchLinux
 
 **NEW**: You can now install the full Scalene library and script on Arch Linux via the [AUR
@@ -53,15 +55,13 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 `libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
 
 
-### Other OSs
+### Linux (all distros) - memory profiling
 
-For other OSs, build the Scalene library from source by cloning this repository and running `make`.
+For all other Linux distributions, build the Scalene library from source by cloning this repository and running `make`.
 
 ```
   % make
 ```
-
-
 
 # Usage
 
