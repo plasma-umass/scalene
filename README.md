@@ -211,6 +211,9 @@ negative net memory numbers indicate memory reclamation.
 The memory usage sparkline and copy volume make it easy to spot
 unnecessary copying in line 6.
 
+# Success Stories
+
+If you use Scalene to debug a performance problem, please [add a comment to this issue](https://github.com/emeryberger/scalene/issues/58)!
 
 # Acknowledgements
 
