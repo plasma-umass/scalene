@@ -43,7 +43,11 @@ public:
   // Check if this pointer came from us (inside the allocation buffer).
   inline ATTRIBUTE_ALWAYS_INLINE constexpr bool inBounds(void * ptr) const {
     char * cptr = reinterpret_cast<char *>(ptr);
-    return ((cptr >= _bufferStart) && (cptr < (_bufferStart + MAX_HEAP_SIZE)));
+    auto in = ((cptr >= _bufferStart) && (cptr < (_bufferStart + MAX_HEAP_SIZE)));
+    if (!in) {
+      //      tprintf::tprintf("Out of bounds: @\n", ptr);
+    }
+    return in;
   }
     
   inline ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
@@ -70,8 +74,8 @@ public:
 	}
       }
     } else {
-      //      tprintf::tprintf("repoman malloc LARGE @\n", sz);
       ptr = allocateLarge(sz);
+      //      tprintf::tprintf("LARGE: @\n", ptr);
     }
     assert((uintptr_t) ptr % Alignment == 0);
     return ptr;
@@ -81,6 +85,7 @@ public:
     if (unlikely(!inBounds(ptr))) {
       if ((uintptr_t) ptr - (uintptr_t) getHeader(ptr) != sizeof(RepoHeader<Size>)) {
 	// Out of bounds.  Not one of our objects.
+	// tprintf::tprintf("NOT ONE OF OUR OBJECTS: @\n", ptr);
 	return 0;
       }
     }
