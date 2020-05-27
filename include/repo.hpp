@@ -86,7 +86,7 @@ public:
     return obj;
   }
   
-  // Increement the number of freed objects (invoked by free).
+  // Increment the number of freed objects (invoked by free).
   // Returns true iff this free resulted in the whole repo being free.
   inline ATTRIBUTE_ALWAYS_INLINE bool free(void * ptr) { // incFreed() {
     if (ptr == nullptr) { return false; }
