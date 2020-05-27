@@ -310,7 +310,12 @@ start the timer interrupts."""
     def gettime() -> float:
         """High-precision timer of time spent running in or on behalf of this
 process."""
-        return time.process_time()
+        if Scalene.__cpu_timer_signal == signal.ITIMER_VIRTUAL:
+            # Using virtual time
+            return time.process_time()
+        else:
+            # Using wall clock time
+            return time.perf_counter()
 
     def __init__(self, program_being_profiled: Optional[Filename] = None):
         # Hijack join.
