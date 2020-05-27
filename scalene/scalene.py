@@ -462,8 +462,6 @@ process."""
     ) -> None:
         """Handle malloc events."""
         Scalene.allocation_handler(signum, this_frame)
-        if Scalene.__old_malloc_signal_handler != signal.SIG_IGN:
-            Scalene.__old_malloc_signal_handler(signum, this_frame)  # type: ignore
 
     @staticmethod
     def free_signal_handler(
@@ -472,8 +470,6 @@ process."""
     ) -> None:
         """Handle free events."""
         Scalene.allocation_handler(signum, this_frame)
-        if Scalene.__old_free_signal_handler != signal.SIG_IGN:
-            Scalene.__old_free_signal_handler(signum, this_frame)  # type: ignore
 
     @staticmethod
     def allocation_handler(
@@ -602,8 +598,6 @@ process."""
                 Scalene.__bytei_map[fname][line_no].add(bytei)
                 Scalene.__memcpy_samples[fname][line_no] += count
 
-        if Scalene.__old_memcpy_signal_handler != signal.SIG_IGN:
-            Scalene.__old_memcpy_signal_handler(signum, frame)  # type: ignore
         Scalene.__in_signal_handler -= 1
 
     @staticmethod
@@ -740,7 +734,7 @@ process."""
         )
         n_copy_b = Scalene.__memcpy_samples[fname][line_no]
         n_copy_mb_s = n_copy_b / (1024 * 1024 * Scalene.__elapsed_time)
-        n_copy_mb_s_str: str = "" if n_copy_mb_s < 1 else "%6.0f" % n_copy_mb_s
+        n_copy_mb_s_str: str = "" if n_copy_mb_s < 0.1 else "%6.0f" % n_copy_mb_s
 
         if did_sample_memory:
             spark_str: str = ""
