@@ -26,6 +26,7 @@ import contextlib
 import dis
 import os
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -108,6 +109,47 @@ class Scalene:
         [threading.Thread, Union[builtins.float, None]], None
     ] = threading.Thread.join
 
+
+    # We hijack os.system, os.popen, and subprocess.Popen so attempts to execute
+    # Python also call Scalene. TBD: integrate profiles across processes.
+    __old_os_system = os.system
+    __old_os_popen = os.popen
+    __old_subprocess_Popen = subprocess.Popen
+
+    # Likely names for the Python interpreter (assuming it's the same version as this one).
+    __alias_python_names = [ 'python', 'python' + str(sys.version_info.major) ]
+    __all_python_names = [ 'python', 'python' + str(sys.version_info.major), 'python' + str(sys.version_info.major) + '.' + str(sys.version_info.minor) ]
+
+    @staticmethod
+    def new_os_system(cmd : str) -> Any:
+        for n in Scalene.__alias_python_names:
+            cmd = "alias " + n + "='scalene'\nexport " + n + "\n" + cmd
+        return Scalene.__old_os_system(cmd)
+
+    @staticmethod
+    def new_os_popen(cmd : str, mode : str, bufsize : int) -> Any:
+        for n in Scalene.__alias_python_names:
+            cmd = "alias " + n + "='scalene'\nexport " + n + "\n" + cmd
+        return Scalene.__old_os_popen(cmd, mode, bufsize)
+
+    @staticmethod
+    def new_subprocess_Popen(args, bufsize=-1, executable=None, stdin=None, stdout=None, stderr=None, preexec_fn=None, close_fds=True, shell=False, cwd=None, env=None, universal_newlines=None, startupinfo=None, creationflags=0, restore_signals=True, start_new_session=False, pass_fds=(), *, encoding=None, errors=None): # type: ignore
+        if shell:
+            for n in Scalene.__alias_python_names:
+                args = "alias " + n + "='scalene'\nexport " + n + "\n" + args
+        else:
+            # Splice out the first element if it's a call to Python.
+            newargs = []
+            for a in args:
+                for n in Scalene.__python_names:
+                    if a == n:
+                        a = "scalene"
+                        break
+                newargs.append(a)
+            args = newargs
+        # TODO: check versions since text= was added in 3.7
+        return Scalene.__old_subprocess_Popen(args, bufsize, executable, stdin, stdout, stderr, preexec_fn, close_fds, shell, cwd, env, universal_newlines, startupinfo, creationflags, restore_signals, start_new_session, pass_fds, encoding=encoding, errors=errors)
+    
     # Statistics counters:
     #
     #   CPU samples for each location in the program
@@ -320,6 +362,10 @@ process."""
     def __init__(self, program_being_profiled: Optional[Filename] = None):
         # Hijack join.
         threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
+        # Hijack system and subprocess calls.
+        os.system = Scalene.new_os_system # type: ignore
+        os.popen = Scalene.new_os_popen # type: ignore
+        subprocess.Popen = Scalene.new_subprocess_Popen # type: ignore
         # Build up signal filenames (adding PID to each).
         Scalene.__malloc_signal_filename = Filename(
             Scalene.__malloc_signal_filename + str(os.getpid())
