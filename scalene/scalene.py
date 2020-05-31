@@ -141,7 +141,7 @@ class Scalene:
             # Splice out the first element if it's a call to Python.
             newargs = []
             for a in args:
-                for n in Scalene.__python_names:
+                for n in Scalene.__all_python_names:
                     if a == n:
                         a = "scalene"
                         break
@@ -489,7 +489,7 @@ process."""
             if t != threading.main_thread()
         ]
         # Put the main thread in the front.
-        frames.insert(0, sys._current_frames().get(threading.main_thread().ident, None))
+        frames.insert(0, sys._current_frames().get(cast(int, threading.main_thread().ident), None))
         # Process all the frames to remove ones we aren't going to track.
         new_frames: List[FrameType] = []
         for frame in frames:
