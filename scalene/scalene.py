@@ -109,10 +109,12 @@ class Scalene:
         [threading.Thread, Union[builtins.float, None]], None
     ] = threading.Thread.join
 
-    __original_lock_acquire = threading.Lock.acquire
-    __original_lock_release = threading.Lock.release
-    # TBD: implement replacements for lock operations that update is_thread_sleeping.
-
+    __original_lock = threading.Lock
+    
+    @staticmethod
+    def get_original_lock():
+        return Scalene.__original_lock()
+    
     # We hijack os.system, os.popen, and subprocess.Popen so attempts to execute
     # Python also call Scalene. TBD: integrate profiles across processes.
     __original_os_system = os.system
@@ -311,6 +313,19 @@ class Scalene:
     __is_thread_sleeping: Dict[int, bool] = defaultdict(bool)  # False by default
 
     @staticmethod
+    def is_thread_sleeping(tid):
+        result = Scalene.__is_thread_sleeping[tid]
+        return result
+
+    @staticmethod
+    def set_thread_sleeping(tid):
+        Scalene.__is_thread_sleeping[tid] = True
+
+    @staticmethod
+    def reset_thread_sleeping(tid):
+        Scalene.__is_thread_sleeping[tid] = False
+        
+    @staticmethod
     @lru_cache(maxsize=None)
     def is_call_function(code: CodeType, bytei: ByteCodeIndex) -> bool:
         """Returns true iff the bytecode at the given index is a function call."""
@@ -391,9 +406,50 @@ process."""
             # Using wall clock time
             return time.perf_counter()
 
+    class ReplacementLock(object):
+        """Replace lock with a version that periodically yields and updates sleeping status."""
+        def __init__(self):
+            self.__lock = Scalene.get_original_lock()
+        def acquire(self, blocking = True, timeout = -1):
+            tident = threading.get_ident()
+            if blocking == 0:
+                blocking = False
+            start_time = Scalene.gettime()
+            if blocking:
+                if timeout < 0:
+                    interval = sys.getswitchinterval()
+                else:
+                    interval = min(timeout, sys.getswitchinterval())
+            else:
+                interval = -1
+            while True:
+                Scalene.set_thread_sleeping(tident)
+                acquired_lock = self.__lock.acquire(blocking, interval)
+                Scalene.reset_thread_sleeping(tident)
+                if acquired_lock:
+                    return True
+                if not blocking:
+                    return False
+                # If a timeout was specified, check to see if it's expired.
+                if timeout != -1:
+                    end_time = Scalene.gettime()
+                    if end_time - start_time >= timeout:
+                        return False
+        def release(self):
+            return self.__lock.release()
+        def locked(self):
+            return self.__lock.locked()
+        def __enter__(self):
+            self.acquire()
+        def __exit__(self, type, value, traceback):
+            self.release()
+
+            
     def __init__(self, program_being_profiled: Optional[Filename] = None):
         # Hijack join.
         threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
+        # Hijack lock.
+        threading.Lock = Scalene.ReplacementLock # type: ignore
         # Hijack system and subprocess calls.
         os.system = Scalene.new_os_system  # type: ignore
         os.popen = Scalene.new_os_popen  # type: ignore
@@ -471,6 +527,8 @@ process."""
         for (frame, tident, orig_frame) in new_frames:
             if not Scalene.__is_thread_sleeping[tident]:
                 total_frames += 1
+        if total_frames == 0:
+            return
         normalized_time = total_time / total_frames
 
         # Now attribute execution time.
