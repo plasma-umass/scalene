@@ -460,26 +460,34 @@ process."""
         # Now update counters (weighted) for every frame we are tracking.
         total_time = python_time + c_time
 
-        for (frame, tident) in new_frames:
+        # First, find out how many frames are not sleeping.  We need
+        # to know this number so we can parcel out time appropriately
+        # (equally to each running thread).
+        total_frames = 0
+        for (frame, tident, orig_frame) in new_frames:
+            if not Scalene.__is_thread_sleeping[tident]:
+                total_frames += 1
+        normalized_time = total_time / total_frames
+                
+        # Now attribute execution time.
+        for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
-            if frame == new_frames[0]:
+            if frame == new_frames[0][0]:
                 # Main thread.
                 if not Scalene.__is_thread_sleeping[tident]:
-                    Scalene.__cpu_samples_python[fname][lineno] += python_time / len(
-                        new_frames
-                    )
-                    Scalene.__cpu_samples_c[fname][lineno] += c_time / len(new_frames)
+                    Scalene.__cpu_samples_python[fname][lineno] += python_time / total_frames
+                    Scalene.__cpu_samples_c[fname][lineno] += c_time / total_frames
             else:
                 # We can't play the same game here of attributing
                 # time, because we are in a thread, and threads don't
                 # get signals in Python. Instead, we check if the
                 # bytecode instruction being executed is a function
                 # call.  If so, we attribute all the time to native.
-                normalized_time = total_time / len(new_frames)
                 if not Scalene.__is_thread_sleeping[tident]:
-                    if Scalene.is_call_function(frame.f_code, ByteCodeIndex(frame.f_lasti)):
-                        # Attribute time to native.
+                    # Check if the original caller is stuck inside a call.
+                    if Scalene.is_call_function(orig_frame.f_code, ByteCodeIndex(orig_frame.f_lasti)):
+                        # It is. Attribute time to native.
                         Scalene.__cpu_samples_c[fname][lineno] += normalized_time
                     else:
                         # Not in a call function so we attribute the time to Python.
@@ -502,8 +510,9 @@ process."""
         Scalene.__last_signal_time = Scalene.gettime()
         Scalene.__in_signal_handler -= 1
 
+    # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
-    def compute_frames_to_record(this_frame: FrameType) -> List[Tuple[FrameType, int]]:
+    def compute_frames_to_record(this_frame: FrameType) -> List[Tuple[FrameType, int, FrameType]]:
         """Collects all stack frames that Scalene actually processes."""
         frames : List[Tuple[FrameType, int]] = [
             (cast(FrameType, sys._current_frames().get(cast(int, t.ident), None)), cast(int, t.ident))
@@ -516,8 +525,9 @@ process."""
                 cast(int, threading.main_thread().ident))
         )
         # Process all the frames to remove ones we aren't going to track.
-        new_frames: List[Tuple[FrameType, int]] = []
+        new_frames: List[Tuple[FrameType, int, FrameType]] = []
         for (frame, tident) in frames:
+            orig_frame = frame
             if not frame:
                 continue
             fname = frame.f_code.co_filename
@@ -538,7 +548,7 @@ process."""
                     if frame:
                         fname = frame.f_code.co_filename
             if frame:
-                new_frames.append((frame, tident))
+                new_frames.append((frame, tident, orig_frame))
         return new_frames
 
     @staticmethod
@@ -612,7 +622,7 @@ process."""
         # This is a pain, since we don't know to whom to attribute memory,
         # so we may overcount.
 
-        for (frame, tident) in new_frames:
+        for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             line_no = LineNumber(frame.f_lineno)
             bytei = ByteCodeIndex(frame.f_lasti)
@@ -676,7 +686,7 @@ process."""
 
         for item in arr:
             memcpy_time, count = item
-            for (the_frame, tident) in new_frames:
+            for (the_frame, tident, orig_frame) in new_frames:
                 fname = Filename(the_frame.f_code.co_filename)
                 line_no = LineNumber(the_frame.f_lineno)
                 bytei = ByteCodeIndex(the_frame.f_lasti)
@@ -1056,7 +1066,7 @@ process."""
                         exec(code, the_globals, the_locals)
                     except BaseException:  # as be
                         # Intercept sys.exit.
-                        # print(traceback.format_exc())
+                        print(traceback.format_exc()) # FIXME
                         pass
                     profiler.stop()
                     # If we've collected any samples, dump them.
