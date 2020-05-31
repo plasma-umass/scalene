@@ -429,14 +429,13 @@ process."""
         # Update counters for every running thread.
 
         new_frames = Scalene.compute_frames_to_record(this_frame)
-
         # Now update counters (weighted) for every frame we are tracking.
         total_time = python_time + c_time
 
         for frame in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
-            if frame == this_frame:
+            if frame == new_frames[0]:
                 # Main thread.
                 Scalene.__cpu_samples_python[fname][lineno] += python_time / len(
                     new_frames
@@ -479,7 +478,10 @@ process."""
         frames: List[Optional[FrameType]] = [
             sys._current_frames().get(cast(int, t.ident), None)
             for t in threading.enumerate()
+            if t != threading.main_thread()
         ]
+        # Put the main thread in the front.
+        frames.insert(0, sys._current_frames().get(threading.main_thread().ident, None))
         # Process all the frames to remove ones we aren't going to track.
         new_frames: List[FrameType] = []
         for frame in frames:
