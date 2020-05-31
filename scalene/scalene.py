@@ -109,11 +109,15 @@ class Scalene:
         [threading.Thread, Union[builtins.float, None]], None
     ] = threading.Thread.join
 
+    __original_lock_acquire = threading.Lock.acquire
+    __original_lock_release = threading.Lock.release
+    # TBD: implement replacements for lock operations that update is_thread_sleeping.
+
     # We hijack os.system, os.popen, and subprocess.Popen so attempts to execute
     # Python also call Scalene. TBD: integrate profiles across processes.
-    __old_os_system = os.system
-    __old_os_popen = os.popen
-    __old_subprocess_Popen = subprocess.Popen
+    __original_os_system = os.system
+    __original_os_popen = os.popen
+    __original_subprocess_Popen = subprocess.Popen
 
     # Likely names for the Python interpreter (assuming it's the same version as this one).
     __alias_python_names = ["python", "python" + str(sys.version_info.major)]
@@ -127,13 +131,13 @@ class Scalene:
     def new_os_system(cmd: str) -> Any:
         for n in Scalene.__alias_python_names:
             cmd = "alias " + n + "='scalene'\nexport " + n + "\n" + cmd
-        return Scalene.__old_os_system(cmd)
+        return Scalene.__original_os_system(cmd)
 
     @staticmethod
     def new_os_popen(cmd: str, mode: str, bufsize: int) -> Any:
         for n in Scalene.__alias_python_names:
             cmd = "alias " + n + "='scalene'\nexport " + n + "\n" + cmd
-        return Scalene.__old_os_popen(cmd, mode, bufsize)
+        return Scalene.__original_os_popen(cmd, mode, bufsize)
 
     @staticmethod
     def new_subprocess_Popen(args, bufsize=-1, executable=None, stdin=None, stdout=None, stderr=None, preexec_fn=None, close_fds=True, shell=False, cwd=None, env=None, universal_newlines=None, startupinfo=None, creationflags=0, restore_signals=True, start_new_session=False, pass_fds=(), *, encoding=None, errors=None):  # type: ignore
@@ -151,7 +155,7 @@ class Scalene:
                 newargs.append(a)
             args = newargs
         # TODO: check versions since text= was added in 3.7
-        return Scalene.__old_subprocess_Popen(
+        return Scalene.__original_subprocess_Popen(
             args,
             bufsize,
             executable,
@@ -289,13 +293,13 @@ class Scalene:
 
     # We cache the previous signal handlers so we can play nice with
     # apps that might already have handlers for these signals.
-    __old_malloc_signal_handler: Union[
+    __original_malloc_signal_handler: Union[
         Callable[[Signals, FrameType], None], int, Handlers, None
     ] = signal.SIG_IGN
-    __old_free_signal_handler: Union[
+    __original_free_signal_handler: Union[
         Callable[[Signals, FrameType], None], int, Handlers, None
     ] = signal.SIG_IGN
-    __old_memcpy_signal_handler: Union[
+    __original_memcpy_signal_handler: Union[
         Callable[[Signals, FrameType], None], int, Handlers, None
     ] = signal.SIG_IGN
 
@@ -304,7 +308,7 @@ class Scalene:
     __program_being_profiled = Filename("")
 
     # Is the thread sleeping? (We use this in to properly attribute CPU time.)
-    __is_thread_sleeping : Dict[int, bool] = defaultdict(bool) # False by default
+    __is_thread_sleeping: Dict[int, bool] = defaultdict(bool)  # False by default
 
     @staticmethod
     @lru_cache(maxsize=None)
@@ -359,13 +363,13 @@ start the timer interrupts."""
         signal.signal(Scalene.__cpu_signal, Scalene.cpu_signal_handler)
         # Set signal handlers for memory allocation and memcpy events.
         # Save the previous signal handlers, if any.
-        Scalene.__old_malloc_signal_handler = signal.signal(
+        Scalene.__original_malloc_signal_handler = signal.signal(
             Scalene.__malloc_signal, Scalene.malloc_signal_handler
         )
-        Scalene.__old_free_signal_handler = signal.signal(
+        Scalene.__original_free_signal_handler = signal.signal(
             Scalene.__free_signal, Scalene.free_signal_handler
         )
-        Scalene.__old_memcpy_signal_handler = signal.signal(
+        Scalene.__original_memcpy_signal_handler = signal.signal(
             Scalene.__memcpy_signal, Scalene.memcpy_event_signal_handler
         )
         # Turn on the CPU profiling timer to run every signal_interval seconds.
@@ -468,7 +472,7 @@ process."""
             if not Scalene.__is_thread_sleeping[tident]:
                 total_frames += 1
         normalized_time = total_time / total_frames
-                
+
         # Now attribute execution time.
         for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
@@ -476,7 +480,9 @@ process."""
             if frame == new_frames[0][0]:
                 # Main thread.
                 if not Scalene.__is_thread_sleeping[tident]:
-                    Scalene.__cpu_samples_python[fname][lineno] += python_time / total_frames
+                    Scalene.__cpu_samples_python[fname][lineno] += (
+                        python_time / total_frames
+                    )
                     Scalene.__cpu_samples_c[fname][lineno] += c_time / total_frames
             else:
                 # We can't play the same game here of attributing
@@ -486,7 +492,9 @@ process."""
                 # call.  If so, we attribute all the time to native.
                 if not Scalene.__is_thread_sleeping[tident]:
                     # Check if the original caller is stuck inside a call.
-                    if Scalene.is_call_function(orig_frame.f_code, ByteCodeIndex(orig_frame.f_lasti)):
+                    if Scalene.is_call_function(
+                        orig_frame.f_code, ByteCodeIndex(orig_frame.f_lasti)
+                    ):
                         # It is. Attribute time to native.
                         Scalene.__cpu_samples_c[fname][lineno] += normalized_time
                     else:
@@ -512,17 +520,27 @@ process."""
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
-    def compute_frames_to_record(this_frame: FrameType) -> List[Tuple[FrameType, int, FrameType]]:
+    def compute_frames_to_record(
+        this_frame: FrameType,
+    ) -> List[Tuple[FrameType, int, FrameType]]:
         """Collects all stack frames that Scalene actually processes."""
-        frames : List[Tuple[FrameType, int]] = [
-            (cast(FrameType, sys._current_frames().get(cast(int, t.ident), None)), cast(int, t.ident))
+        frames: List[Tuple[FrameType, int]] = [
+            (
+                cast(FrameType, sys._current_frames().get(cast(int, t.ident), None)),
+                cast(int, t.ident),
+            )
             for t in threading.enumerate()
             if t != threading.main_thread()
         ]
         # Put the main thread in the front.
         frames.insert(
-            0, (sys._current_frames().get(cast(int, threading.main_thread().ident), None),
-                cast(int, threading.main_thread().ident))
+            0,
+            (
+                sys._current_frames().get(
+                    cast(int, threading.main_thread().ident), None
+                ),
+                cast(int, threading.main_thread().ident),
+            ),
         )
         # Process all the frames to remove ones we aren't going to track.
         new_frames: List[Tuple[FrameType, int, FrameType]] = []
@@ -967,9 +985,9 @@ process."""
     def disable_signals() -> None:
         """Turn off the profiling signals."""
         signal.setitimer(Scalene.__cpu_timer_signal, 0)
-        signal.signal(Scalene.__malloc_signal, Scalene.__old_malloc_signal_handler)
-        signal.signal(Scalene.__free_signal, Scalene.__old_free_signal_handler)
-        signal.signal(Scalene.__memcpy_signal, Scalene.__old_memcpy_signal_handler)
+        signal.signal(Scalene.__malloc_signal, Scalene.__original_malloc_signal_handler)
+        signal.signal(Scalene.__free_signal, Scalene.__original_free_signal_handler)
+        signal.signal(Scalene.__memcpy_signal, Scalene.__original_memcpy_signal_handler)
 
     @staticmethod
     def exit_handler() -> None:
@@ -1066,7 +1084,7 @@ process."""
                         exec(code, the_globals, the_locals)
                     except BaseException:  # as be
                         # Intercept sys.exit.
-                        print(traceback.format_exc()) # FIXME
+                        print(traceback.format_exc())  # FIXME
                         pass
                     profiler.stop()
                     # If we've collected any samples, dump them.
