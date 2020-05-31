@@ -303,9 +303,8 @@ class Scalene:
     #   the name of the program being profiled
     __program_being_profiled = Filename("")
 
-    # Is the main thread sleeping? (We use this in our implementation of join,
-    # to correctly attribute CPU time.)
-    __is_main_thread_sleeping = False
+    # Is the thread sleeping? (We use this in to properly attribute CPU time.)
+    __is_thread_sleeping : Dict[int, bool] = defaultdict(bool) # False by default
 
     @staticmethod
     @lru_cache(maxsize=None)
@@ -325,9 +324,9 @@ periodically yields."""
         start_time = Scalene.gettime()
         interval = sys.getswitchinterval()
         while self.is_alive():
-            Scalene.__is_main_thread_sleeping = True
+            Scalene.__is_thread_sleeping[threading.get_ident()] = True
             Scalene.__original_thread_join(self, interval)
-            Scalene.__is_main_thread_sleeping = False
+            Scalene.__is_thread_sleeping[threading.get_ident()] = False
             # If a timeout was specified, check to see if it's expired.
             if timeout:
                 end_time = Scalene.gettime()
@@ -461,12 +460,12 @@ process."""
         # Now update counters (weighted) for every frame we are tracking.
         total_time = python_time + c_time
 
-        for frame in new_frames:
+        for (frame, tident) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
             if frame == new_frames[0]:
                 # Main thread.
-                if not Scalene.__is_main_thread_sleeping:
+                if not Scalene.__is_thread_sleeping[tident]:
                     Scalene.__cpu_samples_python[fname][lineno] += python_time / len(
                         new_frames
                     )
@@ -478,12 +477,13 @@ process."""
                 # bytecode instruction being executed is a function
                 # call.  If so, we attribute all the time to native.
                 normalized_time = total_time / len(new_frames)
-                if Scalene.is_call_function(frame.f_code, ByteCodeIndex(frame.f_lasti)):
-                    # Attribute time to native.
-                    Scalene.__cpu_samples_c[fname][lineno] += normalized_time
-                else:
-                    # Not in a call function so we attribute the time to Python.
-                    Scalene.__cpu_samples_python[fname][lineno] += normalized_time
+                if not Scalene.__is_thread_sleeping[tident]:
+                    if Scalene.is_call_function(frame.f_code, ByteCodeIndex(frame.f_lasti)):
+                        # Attribute time to native.
+                        Scalene.__cpu_samples_c[fname][lineno] += normalized_time
+                    else:
+                        # Not in a call function so we attribute the time to Python.
+                        Scalene.__cpu_samples_python[fname][lineno] += normalized_time
 
         del new_frames
 
@@ -503,20 +503,21 @@ process."""
         Scalene.__in_signal_handler -= 1
 
     @staticmethod
-    def compute_frames_to_record(this_frame: FrameType) -> List[FrameType]:
+    def compute_frames_to_record(this_frame: FrameType) -> List[Tuple[FrameType, int]]:
         """Collects all stack frames that Scalene actually processes."""
-        frames: List[Optional[FrameType]] = [
-            sys._current_frames().get(cast(int, t.ident), None)
+        frames : List[Tuple[FrameType, int]] = [
+            (cast(FrameType, sys._current_frames().get(cast(int, t.ident), None)), cast(int, t.ident))
             for t in threading.enumerate()
             if t != threading.main_thread()
         ]
         # Put the main thread in the front.
         frames.insert(
-            0, sys._current_frames().get(cast(int, threading.main_thread().ident), None)
+            0, (sys._current_frames().get(cast(int, threading.main_thread().ident), None),
+                cast(int, threading.main_thread().ident))
         )
         # Process all the frames to remove ones we aren't going to track.
-        new_frames: List[FrameType] = []
-        for frame in frames:
+        new_frames: List[Tuple[FrameType, int]] = []
+        for (frame, tident) in frames:
             if not frame:
                 continue
             fname = frame.f_code.co_filename
@@ -537,7 +538,7 @@ process."""
                     if frame:
                         fname = frame.f_code.co_filename
             if frame:
-                new_frames.append(frame)
+                new_frames.append((frame, tident))
         return new_frames
 
     @staticmethod
@@ -611,7 +612,7 @@ process."""
         # This is a pain, since we don't know to whom to attribute memory,
         # so we may overcount.
 
-        for frame in new_frames:
+        for (frame, tident) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             line_no = LineNumber(frame.f_lineno)
             bytei = ByteCodeIndex(frame.f_lasti)
@@ -675,7 +676,7 @@ process."""
 
         for item in arr:
             memcpy_time, count = item
-            for the_frame in new_frames:
+            for (the_frame, tident) in new_frames:
                 fname = Filename(the_frame.f_code.co_filename)
                 line_no = LineNumber(the_frame.f_lineno)
                 bytei = ByteCodeIndex(the_frame.f_lasti)
