@@ -280,6 +280,11 @@ class Scalene:
     #   the name of the program being profiled
     __program_being_profiled = Filename("")
 
+    # Is the main thread sleeping? (We use this in our implementation of join,
+    # to correctly attribute CPU time.)
+    __is_main_thread_sleeping = False
+
+    
     @staticmethod
     @lru_cache(maxsize=None)
     def is_call_function(code: CodeType, bytei: ByteCodeIndex) -> bool:
@@ -298,7 +303,9 @@ periodically yields."""
         start_time = Scalene.gettime()
         interval = sys.getswitchinterval()
         while self.is_alive():
+            Scalene.__is_main_thread_sleeping = True
             Scalene.__original_thread_join(self, interval)
+            Scalene.__is_main_thread_sleeping = False
             # If a timeout was specified, check to see if it's expired.
             if timeout:
                 end_time = Scalene.gettime()
@@ -437,10 +444,11 @@ process."""
             lineno = LineNumber(frame.f_lineno)
             if frame == new_frames[0]:
                 # Main thread.
-                Scalene.__cpu_samples_python[fname][lineno] += python_time / len(
-                    new_frames
-                )
-                Scalene.__cpu_samples_c[fname][lineno] += c_time / len(new_frames)
+                if not Scalene.__is_main_thread_sleeping:
+                    Scalene.__cpu_samples_python[fname][lineno] += python_time / len(
+                        new_frames
+                    )
+                    Scalene.__cpu_samples_c[fname][lineno] += c_time / len(new_frames)
             else:
                 # We can't play the same game here of attributing
                 # time, because we are in a thread, and threads don't
