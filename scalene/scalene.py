@@ -122,11 +122,12 @@ class Scalene:
     __original_subprocess_Popen = subprocess.Popen
 
     # Likely names for the Python interpreter (assuming it's the same version as this one).
-    __alias_python_names = ["python", "python" + str(sys.version_info.major)]
+    __alias_python_names = ["python", "python" + str(sys.version_info.major), os.path.basename(sys.executable)]
     __all_python_names = [
         "python",
         "python" + str(sys.version_info.major),
         "python" + str(sys.version_info.major) + "." + str(sys.version_info.minor),
+        os.path.basename(sys.executable)
     ]
 
     @staticmethod
