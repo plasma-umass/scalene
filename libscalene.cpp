@@ -1,5 +1,11 @@
 #include <heaplayers.h>
 
+#include <stdio.h>
+#include <execinfo.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #include "stprintf.h"
 #include "tprintf.h"
 #include "common.hpp"
@@ -17,11 +23,6 @@
 
 #include "fastmemcpy.hpp"
 
-#include <stdio.h>
-#include <execinfo.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <unistd.h>
 
 
 #if defined(__APPLE__)
@@ -205,12 +206,6 @@ extern "C" ATTRIBUTE_EXPORT char * LOCAL_PREFIX(strcpy)(char * dst, const char *
   return result;
 }
 
-#if defined(__APPLE__)
-MAC_INTERPOSE(xxmemcpy, memcpy);
-MAC_INTERPOSE(xxmemmove, memmove);
-MAC_INTERPOSE(xxstrcpy, strcpy);
-#endif
-
 extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void * xxmalloc(size_t sz) {
   void * ptr = nullptr;
   if (theCustomHeap) {
@@ -239,3 +234,9 @@ extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void xxmalloc_lock() 
 
 extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void xxmalloc_unlock() {
 }
+
+#if defined(__APPLE__)
+MAC_INTERPOSE(xxmemcpy, memcpy);
+MAC_INTERPOSE(xxmemmove, memmove);
+MAC_INTERPOSE(xxstrcpy, strcpy);
+#endif
