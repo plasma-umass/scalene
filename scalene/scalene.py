@@ -110,11 +110,11 @@ class Scalene:
     ] = threading.Thread.join
 
     __original_lock = threading.Lock
-    
+
     @staticmethod
-    def get_original_lock():
+    def get_original_lock() -> threading.Lock:
         return Scalene.__original_lock()
-    
+
     # We hijack os.system, os.popen, and subprocess.Popen so attempts to execute
     # Python also call Scalene. TBD: integrate profiles across processes.
     __original_os_system = os.system
@@ -122,12 +122,16 @@ class Scalene:
     __original_subprocess_Popen = subprocess.Popen
 
     # Likely names for the Python interpreter (assuming it's the same version as this one).
-    __alias_python_names = ["python", "python" + str(sys.version_info.major), os.path.basename(sys.executable)]
+    __alias_python_names = [
+        "python",
+        "python" + str(sys.version_info.major),
+        os.path.basename(sys.executable),
+    ]
     __all_python_names = [
         "python",
         "python" + str(sys.version_info.major),
         "python" + str(sys.version_info.major) + "." + str(sys.version_info.minor),
-        os.path.basename(sys.executable)
+        os.path.basename(sys.executable),
     ]
 
     @staticmethod
@@ -314,18 +318,18 @@ class Scalene:
     __is_thread_sleeping: Dict[int, bool] = defaultdict(bool)  # False by default
 
     @staticmethod
-    def is_thread_sleeping(tid):
+    def is_thread_sleeping(tid: int) -> bool:
         result = Scalene.__is_thread_sleeping[tid]
         return result
 
     @staticmethod
-    def set_thread_sleeping(tid):
+    def set_thread_sleeping(tid: int) -> None:
         Scalene.__is_thread_sleeping[tid] = True
 
     @staticmethod
-    def reset_thread_sleeping(tid):
+    def reset_thread_sleeping(tid: int) -> None:
         Scalene.__is_thread_sleeping[tid] = False
-        
+
     @staticmethod
     @lru_cache(maxsize=None)
     def is_call_function(code: CodeType, bytei: ByteCodeIndex) -> bool:
@@ -409,9 +413,11 @@ process."""
 
     class ReplacementLock(object):
         """Replace lock with a version that periodically yields and updates sleeping status."""
-        def __init__(self):
-            self.__lock = Scalene.get_original_lock()
-        def acquire(self, blocking = True, timeout = -1):
+
+        def __init__(self) -> None:
+            self.__lock: threading.Lock = Scalene.get_original_lock()
+
+        def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
             tident = threading.get_ident()
             if blocking == 0:
                 blocking = False
@@ -436,21 +442,24 @@ process."""
                     end_time = Scalene.gettime()
                     if end_time - start_time >= timeout:
                         return False
-        def release(self):
-            return self.__lock.release()
-        def locked(self):
+
+        def release(self) -> None:
+            self.__lock.release()
+
+        def locked(self) -> bool:
             return self.__lock.locked()
-        def __enter__(self):
+
+        def __enter__(self) -> None:
             self.acquire()
-        def __exit__(self, type, value, traceback):
+
+        def __exit__(self, type: str, value: str, traceback: Any) -> None:
             self.release()
 
-            
     def __init__(self, program_being_profiled: Optional[Filename] = None):
         # Hijack join.
         threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
         # Hijack lock.
-        threading.Lock = Scalene.ReplacementLock # type: ignore
+        threading.Lock = Scalene.ReplacementLock  # type: ignore
         # Hijack system and subprocess calls.
         os.system = Scalene.new_os_system  # type: ignore
         os.popen = Scalene.new_os_popen  # type: ignore
@@ -661,14 +670,26 @@ process."""
             return
 
         # Process the input array.
-        arr: List[Tuple[int, str, float]] = []
+        arr: List[Tuple[int, str, float, float]] = []
         try:
             with open(Scalene.__malloc_signal_filename, "r") as mfile:
                 for count_str in mfile:
                     # for _, count_str in enumerate(mfile, 1):
                     count_str = count_str.rstrip()
-                    (action, alloc_time_str, count_str) = count_str.split(",")
-                    arr.append((int(alloc_time_str), action, float(count_str)))
+                    (
+                        action,
+                        alloc_time_str,
+                        count_str,
+                        python_fraction_str,
+                    ) = count_str.split(",")
+                    arr.append(
+                        (
+                            int(alloc_time_str),
+                            action,
+                            float(count_str),
+                            float(python_fraction_str),
+                        )
+                    )
         except FileNotFoundError:
             pass
         try:
@@ -682,8 +703,8 @@ process."""
         # and update the global __memory_footprint_samples.
         before = Scalene.__current_footprint
         for item in arr:
-            alloc_time, action, count = item
-            # print(fname,line_no,action, alloc_time, count)
+            alloc_time, action, count, python_fraction = item
+            # print(alloc_time, action, count, python_fraction)
             count /= 1024 * 1024
             is_malloc = action == "M"
             if is_malloc:
@@ -708,7 +729,7 @@ process."""
             curr = before
             # Go through the array again and add each updated current footprint.
             for item in arr:
-                alloc_time, action, count = item
+                alloc_time, action, count, python_fraction = item
                 count /= 1024 * 1024
                 is_malloc = action == "M"
                 if is_malloc:
@@ -1143,7 +1164,7 @@ process."""
                         exec(code, the_globals, the_locals)
                     except BaseException:  # as be
                         # Intercept sys.exit.
-                        print(traceback.format_exc())  # FIXME
+                        # print(traceback.format_exc())  # FIXME
                         pass
                     profiler.stop()
                     # If we've collected any samples, dump them.
