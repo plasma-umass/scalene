@@ -206,6 +206,11 @@ class Scalene:
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
     ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
 
+    # mallocs attributable to Python, for each location in the program
+    __memory_python_samples: Dict[
+        Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
+    ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+
     # number of times samples were added for the above
     __memory_malloc_count: Dict[
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
@@ -456,14 +461,15 @@ process."""
             self.release()
 
     def __init__(self, program_being_profiled: Optional[Filename] = None):
-        # Hijack join.
-        threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
-        # Hijack lock.
-        threading.Lock = Scalene.ReplacementLock  # type: ignore
-        # Hijack system and subprocess calls.
-        os.system = Scalene.new_os_system  # type: ignore
-        os.popen = Scalene.new_os_popen  # type: ignore
-        subprocess.Popen = Scalene.new_subprocess_Popen  # type: ignore
+        if True:
+            # Hijack join.
+            threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
+            # Hijack lock.
+            threading.Lock = Scalene.ReplacementLock  # type: ignore
+            # Hijack system and subprocess calls.
+            os.system = Scalene.new_os_system  # type: ignore
+            os.popen = Scalene.new_os_popen  # type: ignore
+            subprocess.Popen = Scalene.new_subprocess_Popen  # type: ignore
         # Build up signal filenames (adding PID to each).
         Scalene.__malloc_signal_filename = Filename(
             Scalene.__malloc_signal_filename + str(os.getpid())
@@ -727,13 +733,17 @@ process."""
             # Add the byte index to the set for this line (if it's not there already).
             Scalene.__bytei_map[fname][line_no].add(bytei)
             curr = before
+            python_frac = 0
+            allocs = 0
             # Go through the array again and add each updated current footprint.
             for item in arr:
                 alloc_time, action, count, python_fraction = item
                 count /= 1024 * 1024
                 is_malloc = action == "M"
                 if is_malloc:
+                    allocs += count
                     curr += count
+                    python_frac += python_fraction * count
                 else:
                     curr -= count
                 Scalene.__per_line_footprint_samples[fname][line_no].add(curr)
@@ -744,6 +754,7 @@ process."""
             # loss per line of code.
             if after > before:
                 Scalene.__memory_malloc_samples[fname][line_no][bytei] += after - before
+                Scalene.__memory_python_samples[fname][line_no][bytei] += (python_frac / allocs) * (after - before)
                 Scalene.__memory_malloc_count[fname][line_no][bytei] += 1
                 Scalene.__total_memory_malloc_samples += after - before
             else:
@@ -805,7 +816,7 @@ process."""
         if "site-packages" in filename or "/usr/lib/python" in filename:
             # Don't profile Python internals.
             return False
-        if "scalene.py" in filename or "adaptive.py" in filename:
+        if "scalene.py" in filename or "adaptive.py" in filename or "sparkline.py" in filename or "scalene/__main__.py" in filename:
             # Don't profile the profiler.
             return False
         filename = os.path.abspath(filename)
@@ -884,6 +895,7 @@ process."""
         # Now, memory stats.
         # Accumulate each one from every byte index.
         n_malloc_mb = 0.0
+        n_python_malloc_mb = 0.0
         n_free_mb = 0.0
         n_avg_malloc_mb = 0.0
         n_avg_free_mb = 0.0
@@ -893,6 +905,7 @@ process."""
             # print(fname,line_no,index)
             mallocs = Scalene.__memory_malloc_samples[fname][line_no][index]
             n_malloc_mb += mallocs
+            n_python_malloc_mb += Scalene.__memory_python_samples[fname][line_no][index]
             n_malloc_count += Scalene.__memory_malloc_count[fname][line_no][index]
             frees = Scalene.__memory_free_samples[fname][line_no][index]
             n_free_mb += frees
@@ -912,19 +925,27 @@ process."""
             if not Scalene.__total_memory_malloc_samples
             else n_malloc_mb / Scalene.__total_memory_malloc_samples
         )
-
+        n_python_fraction = (
+            0
+            if not n_malloc_mb
+            else n_python_malloc_mb / n_malloc_mb
+        )
+        #print(n_python_malloc_mb, n_malloc_mb)
         # Finally, print results.
         n_cpu_percent_c_str: str = (
-            "" if not n_cpu_percent_c else "%6.2f%%" % n_cpu_percent_c
+            "" if not n_cpu_percent_c else "%6.1f%%" % n_cpu_percent_c
         )
         n_cpu_percent_python_str: str = (
-            "" if not n_cpu_percent_python else "%6.2f%%" % n_cpu_percent_python
+            "" if not n_cpu_percent_python else "%6.1f%%" % n_cpu_percent_python
         )
         n_growth_mb_str: str = (
             "" if (not n_growth_mb and not n_usage_fraction) else "%5.0f" % n_growth_mb
         )
         n_usage_fraction_str: str = (
             "" if not n_usage_fraction else "%3.0f%%" % (100 * n_usage_fraction)
+        )
+        n_python_fraction_str : str = (
+            "" if not n_python_fraction else "%3.0f%%" % (100 * n_python_fraction)
         )
         n_copy_b = Scalene.__memcpy_samples[fname][line_no]
         n_copy_mb_s = n_copy_b / (1024 * 1024 * Scalene.__elapsed_time)
@@ -941,11 +962,12 @@ process."""
                     samples.get()[0 : samples.len()], 0, current_max
                 )
             print(
-                "%6d |%9s |%9s | %5s | %-9s %-4s |%-6s | %s"
+                "%6d |%7s |%7s | %5s | %5s | %-9s %-4s |%-6s | %s"
                 % (
                     line_no,
                     n_cpu_percent_python_str,
                     n_cpu_percent_c_str,
+                    n_python_fraction_str,
                     n_growth_mb_str,
                     spark_str,
                     n_usage_fraction_str,
@@ -956,7 +978,7 @@ process."""
             )
         else:
             print(
-                "%6d |%9s |%9s | %s"
+                "%6d |%7s |%7s | %s"
                 % (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, line),
                 file=out,
             )
@@ -1029,10 +1051,11 @@ process."""
                 )
 
                 print(
-                    "       |%9s |%9s | %s %s %s"
+                    "       |%7s |%7s | %s %s %s %s"
                     % (
                         "CPU %",
                         "CPU %",
+                        "Mem % |" if did_sample_memory else "",
                         " Net  |" if did_sample_memory else "",
                         "Memory usage   |" if did_sample_memory else "",
                         "Copy  |" if did_sample_memory else "",
@@ -1040,10 +1063,11 @@ process."""
                     file=out,
                 )
                 print(
-                    "  Line |%9s |%9s | %s %s %s [%s]"
+                    "  Line |%7s |%7s | %s %s %s %s [%s]"
                     % (
-                        "(Python)",
-                        "(native)",
+                        "Python",
+                        "native",
+                        "Python|" if did_sample_memory else "",
                         " (MB) |" if did_sample_memory else "",
                         "over time /  % |" if did_sample_memory else "",
                         "(MB/s)|" if did_sample_memory else "",

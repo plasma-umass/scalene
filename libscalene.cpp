@@ -36,7 +36,7 @@ static TheCustomHeap * theCustomHeap = nullptr;
 // We use prime numbers here (near 1MB, for example) to reduce the risk
 // of stride behavior interfering with sampling.
 
-const auto MallocSamplingRate = 1048583UL;
+const auto MallocSamplingRate = 1UL * 1048583UL;
 const auto MemcpySamplingRate = MallocSamplingRate * 2 + 1;
 const auto RepoSize = 4096; // 65536; // 32768; // 4096;
 

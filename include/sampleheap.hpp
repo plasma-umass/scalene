@@ -42,7 +42,7 @@ public:
   
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
-  enum { CallStackSamplingRate = MallocSamplingRateBytes / 10 };
+  enum { CallStackSamplingRate = MallocSamplingRateBytes / 13 };
   
   SampleHeap()
     : _interval (MallocSamplingRateBytes),
@@ -77,12 +77,15 @@ public:
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
       _mallocOps += realSize;
+#if 1
       if (likely(realSize <= _callStackInterval)) {
+	//	tprintf::tprintf("* @ @\n", realSize, _callStackInterval);
 	_callStackInterval -= realSize;
       } else {
-	recordCallStack();
+	recordCallStack(realSize);
 	_callStackInterval = CallStackSamplingRate;
       }
+#endif
       if (unlikely(_mallocOps >= _interval)) {
 	writeCount(MallocSignal, _mallocOps);
 	_pythonCount = 0;
@@ -127,52 +130,95 @@ private:
   unsigned long _pythonCount;
   unsigned long _cCount;
   
-  void recordCallStack() {
+  void recordCallStack(size_t sz) {
     // Walk the stack to see if this memory was allocated by Python
     // through its object allocation APIs.
-    const auto MAX_FRAMES_TO_CHECK = 3; // enough to skip past the replacement_malloc
+    const auto MAX_FRAMES_TO_CHECK = 8; // enough to skip past the replacement_malloc
     void * callstack[MAX_FRAMES_TO_CHECK];
     auto frames = backtrace(callstack, MAX_FRAMES_TO_CHECK);
+    // tprintf::tprintf("------- @ -------\n", sz);
     for (auto i = 0; i < frames; i++) {
       Dl_info info;
       int r = dladdr(callstack[i], &info);
       if (r) {
 	const char * fn_name = info.dli_sname;
 	if (fn_name) {
-	  if (strlen(fn_name) < 13) { // length of _PyMem_Malloc
+	  // tprintf::tprintf("@\n", fn_name);
+	  if (strlen(fn_name) < 9) { // length of PySet_New
 	    continue;
 	  }
-	  if (!((fn_name[0] == '_') && (fn_name[1] == 'P') && (fn_name[2] == 'y'))) {
+	  // Starts with Py, assume it's Python calling.
+	  if (strstr(fn_name, "Py") == &fn_name[0]) {
+	    //(strstr(fn_name, "PyList_Append") ||
+	    //   strstr(fn_name, "_From") ||
+	    //   strstr(fn_name, "_New") ||
+	    //   strstr(fn_name, "_Copy"))) {
+	    if (strstr(fn_name, "PyArray_")) {
+	      // Make sure we're not in NumPy, which irritatingly exports some functions starting with "Py"...
+	      // tprintf::tprintf("--NO---\n");
+	      goto C_CODE;
+	    }
+#if 0
+	    if (strstr(fn_name, "PyEval") || strstr(fn_name, "PyCompile") || strstr(fn_name, "PyImport")) {
+	      // Ignore allocations due to interpreter internal operations, for now.
+	      goto C_CODE;
+	    }
+#endif
+	    // tprintf::tprintf("P\n");
+	    _pythonCount += sz;
+	    return;
+	  }
+	  if (strstr(fn_name, "_Py") == 0) {
 	    continue;
 	  }
-	  ///	  tprintf::tprintf("@\n", fn_name);
+	  if (strstr(fn_name, "_PyCFunction")) {
+	    goto C_CODE;
+	  }
+#if 1
+	  _pythonCount += sz;
+	  return;
+#else
 	  // TBD: realloc requires special handling.
 	  // * _PyObject_Realloc
 	  // * _PyMem_Realloc
-	  if (strstr(fn_name, "_PyObject_") != 0) {
-	    if ((strstr(fn_name, "_PyObject_GC_Alloc") != 0) ||
-		(strstr(fn_name, "_PyObject_Malloc") != 0) ||
-		(strstr(fn_name, "_PyObject_Calloc") != 0))	      
+	  if (strstr(fn_name, "New")) {
+	    // tprintf::tprintf("P\n");
+	    _pythonCount += sz;
+	    return;
+	  }
+	  if (strstr(fn_name, "_PyObject_") ) {
+	    if ((strstr(fn_name, "GC_Alloc") ) ||
+		(strstr(fn_name, "GC_New") ) ||
+		(strstr(fn_name, "GC_NewVar") ) ||
+		(strstr(fn_name, "GC_Resize") ) ||
+		(strstr(fn_name, "Malloc") ) ||
+		(strstr(fn_name, "Calloc") ))	      
 	      {
-		_pythonCount++;
+		// tprintf::tprintf("P\n");
+		_pythonCount += sz;
 		return;
 	      }
 	  }
-	  if (strstr(fn_name, "_PyMem_") != 0) {
-	    if ((strstr(fn_name, "_PyMem_Malloc") != 0) ||
-		(strstr(fn_name, "_PyMem_Calloc") != 0) ||
-		(strstr(fn_name, "_PyMem_RawMalloc") != 0) ||
-		(strstr(fn_name, "_PyMem_RawCalloc") != 0))
+	  if (strstr(fn_name, "_PyMem_") ) {
+	    if ((strstr(fn_name, "Malloc") ) ||
+		(strstr(fn_name, "Calloc") ) ||
+		(strstr(fn_name, "RawMalloc") ) ||
+		(strstr(fn_name, "RawCalloc") ))
 	      {
-		_pythonCount++;
+		// tprintf::tprintf("p\n");
+		_pythonCount += sz;
 		return;
 	      }
 	  }
+	  tprintf::tprintf("@\n", fn_name);
+#endif	  
 	}
       }
     }
+    
+  C_CODE:
     //    tprintf::tprintf("C");
-    _cCount++;
+    _cCount += sz;
   }
   
   static constexpr auto flags = O_WRONLY | O_CREAT | O_SYNC | O_APPEND; // O_TRUNC;
