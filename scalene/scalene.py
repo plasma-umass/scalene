@@ -1075,7 +1075,7 @@ process."""
                     ),
                     file=out,
                 )
-                print("-" * 80, file=out)
+                print("-" * 119, file=out)
 
                 with open(fname, "r") as source_file:
                     for line_no, line in enumerate(source_file, 1):
