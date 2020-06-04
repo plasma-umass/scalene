@@ -949,7 +949,7 @@ process."""
         )
         n_copy_b = Scalene.__memcpy_samples[fname][line_no]
         n_copy_mb_s = n_copy_b / (1024 * 1024 * Scalene.__elapsed_time)
-        n_copy_mb_s_str: str = "" if n_copy_mb_s < 0.1 else "%6.0f" % n_copy_mb_s
+        n_copy_mb_s_str: str = "" if n_copy_mb_s < 0.5 else "%6.0f" % n_copy_mb_s
 
         if did_sample_memory:
             spark_str: str = ""
