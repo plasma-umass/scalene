@@ -1,4 +1,5 @@
 CPPFLAGS = -std=c++17 -flto -g -ffast-math -fno-builtin-malloc -O3 -DNDEBUG -fvisibility=hidden
+# CPPFLAGS = -std=c++17 -g -fvisibility=hidden
 CXX = clang++
 
 INCLUDES = -I. -I./include -IHeap-Layers -IHeap-Layers/wrappers -IHeap-Layers/utility
@@ -8,6 +9,7 @@ MACOS_COMPILE = $(CXX) -ftemplate-depth=1024 -arch x86_64 -pipe $(CPPFLAGS) $(IN
 
 LINUX_SRC = lib$(LIBNAME).cpp Heap-Layers/wrappers/gnuwrapper.cpp
 LINUX_COMPILE = $(CXX) $(CPPFLAGS) -D'CUSTOM_PREFIX(x)=xx\#\#x' -I/usr/include/nptl -fno-builtin-malloc -pipe -fPIC $(INCLUDES) -D_REENTRANT=1 -shared $(LINUX_SRC) -Bsymbolic -o lib$(LIBNAME).so -ldl -lpthread
+# -Wl,--copy-dt-needed-entries -Wl,--no-as-needed
 
 UNAME_S := $(shell uname -s)
 UNAME_P := $(shell uname -p)

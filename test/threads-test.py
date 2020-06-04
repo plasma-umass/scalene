@@ -31,7 +31,10 @@ class MyThread2(threading.Thread):
     @profile
     def run(self):
         z = 0
+        l = []
         for i in range(50000000 // 2):
+            l.append(i)
+        for i in range(len(l)):
             z += 1
         print("thread2")
             
@@ -42,8 +45,8 @@ use_threads = True
 if use_threads:
     t1 = MyThread()
     t2 = MyThread2()
-    t1.start()
     t2.start()
+    t1.start()
     t1.join()
     t2.join()
 else:
