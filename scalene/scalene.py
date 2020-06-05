@@ -322,6 +322,9 @@ class Scalene:
     # Is the thread sleeping? (We use this in to properly attribute CPU time.)
     __is_thread_sleeping: Dict[int, bool] = defaultdict(bool)  # False by default
 
+    # Threshold for highlighting lines of code in red.
+    __highlight_percentage = 33
+    
     @staticmethod
     def is_thread_sleeping(tid: int) -> bool:
         result = Scalene.__is_thread_sleeping[tid]
@@ -961,6 +964,10 @@ process."""
                 _, _, spark_str = Scalene.generate_sparkline(
                     samples.get()[0 : samples.len()], 0, current_max
                 )
+
+            if n_usage_fraction >= Scalene.__highlight_percentage or (n_cpu_percent_c + n_cpu_percent_python) >= Scalene.__highlight_percentage:
+                print(u"\u001b[31m", end="")
+                
             print(
                 "%6d |%7s |%7s | %5s | %5s | %-9s %-4s |%-6s | %s"
                 % (
@@ -977,11 +984,15 @@ process."""
                 file=out,
             )
         else:
+            if (n_cpu_percent_c + n_cpu_percent_python) >= Scalene.__highlight_percentage:
+                print(u"\u001b[31m", end="")
+                
             print(
                 "%6d |%7s |%7s | %s"
                 % (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, line),
                 file=out,
             )
+        print(u"\u001b[0m", end="")
 
     @staticmethod
     def output_profiles() -> bool:
