@@ -131,7 +131,7 @@ private:
   unsigned long _pythonCount;
   unsigned long _cCount;
 
-  open_addr_hashtable<2048> _table;
+  open_addr_hashtable<65536> _table; // Maps call stack entries to function names.
   
   void recordCallStack(size_t sz) {
     // Walk the stack to see if this memory was allocated by Python
@@ -143,13 +143,22 @@ private:
     // tprintf::tprintf("------- @ -------\n", sz);
     for (auto i = 0; i < frames; i++) {
       fn_name = nullptr;
+
+#define USE_HASHTABLE 1
+#if !USE_HASHTABLE
+      auto v = nullptr;
+#else
       auto v = _table.get(callstack[i]);
+#endif
       if (v == nullptr) {
 	// Not found. Add to table.
 	Dl_info info;
 	int r = dladdr(callstack[i], &info);
 	if (r) {
+#if !USE_HASHTABLE
+#else
 	  _table.put(callstack[i], (void *) info.dli_sname);
+#endif
 	  fn_name = (char *) info.dli_sname;
 	} else {
 	  continue;
@@ -158,79 +167,78 @@ private:
 	// Found it.
 	fn_name = (char *) v;
       }
-      if (fn_name) {
-	if (fn_name) {
-	  // tprintf::tprintf("@\n", fn_name);
-	  if (strlen(fn_name) < 9) { // length of PySet_New
-	    continue;
-	  }
-	  // Starts with Py, assume it's Python calling.
-	  if (strstr(fn_name, "Py") == &fn_name[0]) {
-	    //(strstr(fn_name, "PyList_Append") ||
-	    //   strstr(fn_name, "_From") ||
-	    //   strstr(fn_name, "_New") ||
-	    //   strstr(fn_name, "_Copy"))) {
-	    if (strstr(fn_name, "PyArray_")) {
-	      // Make sure we're not in NumPy, which irritatingly exports some functions starting with "Py"...
-	      // tprintf::tprintf("--NO---\n");
-	      goto C_CODE;
-	    }
-#if 0
-	    if (strstr(fn_name, "PyEval") || strstr(fn_name, "PyCompile") || strstr(fn_name, "PyImport")) {
-	      // Ignore allocations due to interpreter internal operations, for now.
-	      goto C_CODE;
-	    }
-#endif
-	    // tprintf::tprintf("P\n");
-	    _pythonCount += sz;
-	    return;
-	  }
-	  if (strstr(fn_name, "_Py") == 0) {
-	    continue;
-	  }
-	  if (strstr(fn_name, "_PyCFunction")) {
-	    goto C_CODE;
-	  }
-#if 1
-	  _pythonCount += sz;
-	  return;
-#else
-	  // TBD: realloc requires special handling.
-	  // * _PyObject_Realloc
-	  // * _PyMem_Realloc
-	  if (strstr(fn_name, "New")) {
-	    // tprintf::tprintf("P\n");
-	    _pythonCount += sz;
-	    return;
-	  }
-	  if (strstr(fn_name, "_PyObject_") ) {
-	    if ((strstr(fn_name, "GC_Alloc") ) ||
-		(strstr(fn_name, "GC_New") ) ||
-		(strstr(fn_name, "GC_NewVar") ) ||
-		(strstr(fn_name, "GC_Resize") ) ||
-		(strstr(fn_name, "Malloc") ) ||
-		(strstr(fn_name, "Calloc") ))	      
-	      {
-		// tprintf::tprintf("P\n");
-		_pythonCount += sz;
-		return;
-	      }
-	  }
-	  if (strstr(fn_name, "_PyMem_") ) {
-	    if ((strstr(fn_name, "Malloc") ) ||
-		(strstr(fn_name, "Calloc") ) ||
-		(strstr(fn_name, "RawMalloc") ) ||
-		(strstr(fn_name, "RawCalloc") ))
-	      {
-		// tprintf::tprintf("p\n");
-		_pythonCount += sz;
-		return;
-	      }
-	  }
-	  tprintf::tprintf("@\n", fn_name);
-#endif	  
-	}
+      if (!fn_name) {
+	continue;
       }
+      // tprintf::tprintf("@\n", fn_name);
+      if (strlen(fn_name) < 9) { // length of PySet_New
+	continue;
+      }
+      // Starts with Py, assume it's Python calling.
+      if (strstr(fn_name, "Py") == &fn_name[0]) {
+	//(strstr(fn_name, "PyList_Append") ||
+	//   strstr(fn_name, "_From") ||
+	//   strstr(fn_name, "_New") ||
+	//   strstr(fn_name, "_Copy"))) {
+	if (strstr(fn_name, "PyArray_")) {
+	  // Make sure we're not in NumPy, which irritatingly exports some functions starting with "Py"...
+	  // tprintf::tprintf("--NO---\n");
+	  goto C_CODE;
+	}
+#if 0
+	if (strstr(fn_name, "PyEval") || strstr(fn_name, "PyCompile") || strstr(fn_name, "PyImport")) {
+	  // Ignore allocations due to interpreter internal operations, for now.
+	  goto C_CODE;
+	}
+#endif
+	// tprintf::tprintf("P\n");
+	_pythonCount += sz;
+	return;
+      }
+      if (strstr(fn_name, "_Py") == 0) {
+	continue;
+      }
+      if (strstr(fn_name, "_PyCFunction")) {
+	goto C_CODE;
+      }
+#if 1
+      _pythonCount += sz;
+      return;
+#else
+      // TBD: realloc requires special handling.
+      // * _PyObject_Realloc
+      // * _PyMem_Realloc
+      if (strstr(fn_name, "New")) {
+	// tprintf::tprintf("P\n");
+	_pythonCount += sz;
+	return;
+      }
+      if (strstr(fn_name, "_PyObject_") ) {
+	if ((strstr(fn_name, "GC_Alloc") ) ||
+	    (strstr(fn_name, "GC_New") ) ||
+	    (strstr(fn_name, "GC_NewVar") ) ||
+	    (strstr(fn_name, "GC_Resize") ) ||
+	    (strstr(fn_name, "Malloc") ) ||
+	    (strstr(fn_name, "Calloc") ))	      
+	  {
+	    // tprintf::tprintf("P\n");
+	    _pythonCount += sz;
+	    return;
+	  }
+      }
+      if (strstr(fn_name, "_PyMem_") ) {
+	if ((strstr(fn_name, "Malloc") ) ||
+	    (strstr(fn_name, "Calloc") ) ||
+	    (strstr(fn_name, "RawMalloc") ) ||
+	    (strstr(fn_name, "RawCalloc") ))
+	  {
+	    // tprintf::tprintf("p\n");
+	    _pythonCount += sz;
+	    return;
+	  }
+      }
+      tprintf::tprintf("@\n", fn_name);
+#endif	  
     }
     
   C_CODE:
