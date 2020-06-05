@@ -11,6 +11,7 @@
 
 #include <signal.h>
 #include "common.hpp"
+#include "open_addr_hashtable.hpp"
 #include "stprintf.h"
 #include "tprintf.h"
 
@@ -42,7 +43,7 @@ public:
   
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
-  enum { CallStackSamplingRate = MallocSamplingRateBytes / 13 };
+  enum { CallStackSamplingRate = MallocSamplingRateBytes / 13 }; // 13 };
   
   SampleHeap()
     : _interval (MallocSamplingRateBytes),
@@ -129,19 +130,35 @@ private:
   unsigned long _callStackInterval;
   unsigned long _pythonCount;
   unsigned long _cCount;
+
+  open_addr_hashtable<2048> _table;
   
   void recordCallStack(size_t sz) {
     // Walk the stack to see if this memory was allocated by Python
     // through its object allocation APIs.
-    const auto MAX_FRAMES_TO_CHECK = 8; // enough to skip past the replacement_malloc
+    const auto MAX_FRAMES_TO_CHECK = 4; // enough to skip past the replacement_malloc
     void * callstack[MAX_FRAMES_TO_CHECK];
     auto frames = backtrace(callstack, MAX_FRAMES_TO_CHECK);
+    char * fn_name;
     // tprintf::tprintf("------- @ -------\n", sz);
     for (auto i = 0; i < frames; i++) {
-      Dl_info info;
-      int r = dladdr(callstack[i], &info);
-      if (r) {
-	const char * fn_name = info.dli_sname;
+      fn_name = nullptr;
+      auto v = _table.get(callstack[i]);
+      if (v == nullptr) {
+	// Not found. Add to table.
+	Dl_info info;
+	int r = dladdr(callstack[i], &info);
+	if (r) {
+	  _table.put(callstack[i], (void *) info.dli_sname);
+	  fn_name = (char *) info.dli_sname;
+	} else {
+	  continue;
+	}
+      } else {
+	// Found it.
+	fn_name = (char *) v;
+      }
+      if (fn_name) {
 	if (fn_name) {
 	  // tprintf::tprintf("@\n", fn_name);
 	  if (strlen(fn_name) < 9) { // length of PySet_New
