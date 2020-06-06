@@ -324,7 +324,7 @@ class Scalene:
 
     # Threshold for highlighting lines of code in red.
     __highlight_percentage = 33
-    
+
     @staticmethod
     def is_thread_sleeping(tid: int) -> bool:
         result = Scalene.__is_thread_sleeping[tid]
@@ -757,7 +757,9 @@ process."""
             # loss per line of code.
             if after > before:
                 Scalene.__memory_malloc_samples[fname][line_no][bytei] += after - before
-                Scalene.__memory_python_samples[fname][line_no][bytei] += (python_frac / allocs) * (after - before)
+                Scalene.__memory_python_samples[fname][line_no][bytei] += (
+                    python_frac / allocs
+                ) * (after - before)
                 Scalene.__memory_malloc_count[fname][line_no][bytei] += 1
                 Scalene.__total_memory_malloc_samples += after - before
             else:
@@ -819,7 +821,12 @@ process."""
         if "site-packages" in filename or "/usr/lib/python" in filename:
             # Don't profile Python internals.
             return False
-        if "scalene.py" in filename or "adaptive.py" in filename or "sparkline.py" in filename or "scalene/__main__.py" in filename:
+        if (
+            "scalene.py" in filename
+            or "adaptive.py" in filename
+            or "sparkline.py" in filename
+            or "scalene/__main__.py" in filename
+        ):
             # Don't profile the profiler.
             return False
         filename = os.path.abspath(filename)
@@ -928,12 +935,8 @@ process."""
             if not Scalene.__total_memory_malloc_samples
             else n_malloc_mb / Scalene.__total_memory_malloc_samples
         )
-        n_python_fraction = (
-            0
-            if not n_malloc_mb
-            else n_python_malloc_mb / n_malloc_mb
-        )
-        #print(n_python_malloc_mb, n_malloc_mb)
+        n_python_fraction = 0 if not n_malloc_mb else n_python_malloc_mb / n_malloc_mb
+        # print(n_python_malloc_mb, n_malloc_mb)
         # Finally, print results.
         n_cpu_percent_c_str: str = (
             "" if not n_cpu_percent_c else "%6.1f%%" % n_cpu_percent_c
@@ -947,7 +950,7 @@ process."""
         n_usage_fraction_str: str = (
             "" if not n_usage_fraction else "%3.0f%%" % (100 * n_usage_fraction)
         )
-        n_python_fraction_str : str = (
+        n_python_fraction_str: str = (
             "" if not n_python_fraction else "%3.0f%%" % (100 * n_python_fraction)
         )
         n_copy_b = Scalene.__memcpy_samples[fname][line_no]
@@ -965,9 +968,14 @@ process."""
                     samples.get()[0 : samples.len()], 0, current_max
                 )
 
-            if n_usage_fraction >= Scalene.__highlight_percentage or (n_cpu_percent_c + n_cpu_percent_python) >= Scalene.__highlight_percentage:
+            # Red highlight
+            if (
+                n_usage_fraction >= Scalene.__highlight_percentage
+                or (n_cpu_percent_c + n_cpu_percent_python)
+                >= Scalene.__highlight_percentage
+            ):
                 print(u"\u001b[31m", end="")
-                
+
             print(
                 "%6d |%7s |%7s | %5s | %5s | %-9s %-4s |%-6s | %s"
                 % (
@@ -984,14 +992,20 @@ process."""
                 file=out,
             )
         else:
-            if (n_cpu_percent_c + n_cpu_percent_python) >= Scalene.__highlight_percentage:
+
+            # Red highlight
+            if (
+                n_cpu_percent_c + n_cpu_percent_python
+            ) >= Scalene.__highlight_percentage:
                 print(u"\u001b[31m", end="")
-                
+
             print(
                 "%6d |%7s |%7s | %s"
                 % (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, line),
                 file=out,
             )
+
+        # Reset color
         print(u"\u001b[0m", end="")
 
     @staticmethod
