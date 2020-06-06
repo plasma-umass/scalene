@@ -10,6 +10,7 @@ black:
 	-black $(SOURCES)
 
 upload: # to pypi
+	-cp libscalene.so libscalene.dylib scalene/
 	-rm -rf build dist *egg-info
 	$(PYTHON) setup.py sdist bdist_wheel
 	$(PYTHON) -m twine upload dist/*

@@ -1,7 +1,7 @@
 include README.md
 include LICENSE
-include libscalene.so
-include libscalene.dylib
+include scalene/libscalene.so
+include scalene/libscalene.dylib
 include scalene/scalene.py
 include scalene/adaptive.py
 include scalene/sparkline.py
