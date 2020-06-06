@@ -8,7 +8,7 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="scalene",
-    version="0.8.12",
+    version="0.8.13",
     description="Scalene: A high-resolution, low-overhead CPU and memory profiler for Python",
     keywords="performance memory profiler",
     long_description=long_description,
@@ -33,9 +33,7 @@ setup(
         "Operating System :: MacOS :: MacOS X"
     ],
     packages=find_packages(),
-    package_data = {
-        "" : [ "libscalene.dylib", "libscalene.so" ]
-    },
+    include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
     python_requires=">=3.5",
 )
