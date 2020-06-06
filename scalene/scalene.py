@@ -1143,11 +1143,11 @@ process."""
             https://github.com/emeryberger/Scalene
 
                 for CPU profiling only:
-            % python -m scalene yourprogram.py
+            % scalene yourprogram.py
                 for CPU and memory profiling (Mac OS X):
-            % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc python -m scalene yourprogram.py
+            % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene yourprogram.py
                 for CPU and memory profiling (Linux):
-            % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python -m scalene yourprogram.py
+            % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc scalene yourprogram.py
             """
         )
         parser = argparse.ArgumentParser(
