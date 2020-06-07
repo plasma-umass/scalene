@@ -31,6 +31,9 @@ from contextlib import contextmanager
 from functools import lru_cache
 from rich.console import Console
 from rich.syntax import Syntax
+from rich.table import Table
+from rich.text import Text
+from rich import box
 from signal import Handlers, Signals
 from textwrap import dedent
 from types import CodeType, FrameType
@@ -950,10 +953,9 @@ process."""
 
     @staticmethod
     def output_profile_line(
-        fname: Filename, line_no: LineNumber, line: str, out: IO[str]
+            fname: Filename, line_no: LineNumber, line: str, console: any, tbl: any, out: IO[str]
     ) -> None:
         """Print exactly one line of the profile to out."""
-        console = Console(width=64, file=out) # fill to 132 columns.
         current_max = Scalene.__max_footprint
         did_sample_memory: bool = (
             Scalene.__total_memory_free_samples + Scalene.__total_memory_malloc_samples
@@ -1030,7 +1032,7 @@ process."""
             "" if not n_usage_fraction else "%3.0f%%" % (100 * n_usage_fraction)
         )
         n_python_fraction_str: str = (
-            "" if not n_python_fraction else "%3.0f%%" % (100 * n_python_fraction)
+            "" if not n_python_fraction else "%5.0f%%" % (100 * n_python_fraction)
         )
         n_copy_b = Scalene.__memcpy_samples[fname][line_no]
         n_copy_mb_s = n_copy_b / (1024 * 1024 * Scalene.__elapsed_time)
@@ -1053,24 +1055,24 @@ process."""
                 or (n_cpu_percent_c + n_cpu_percent_python)
                 >= Scalene.__highlight_percentage
             ):
-                print(u"\u001b[31m", end="")
+                ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
+                ncpcs = Text.assemble((n_cpu_percent_c_str, "bold red"))
+                nufs = Text.assemble((spark_str + n_usage_fraction_str, "bold red"))
+                # print(u"\u001b[31m", end="")
+            else:
+                ncpps = n_cpu_percent_python_str
+                ncpcs = n_cpu_percent_c_str
+                nufs = spark_str + n_usage_fraction_str
+        
 
-            print(
-                "%6d |%7s |%7s | %5s | %5s | %-9s %-4s |%-6s | "
-                % (
-                    line_no,
-                    n_cpu_percent_python_str,
-                    n_cpu_percent_c_str,
-                    n_python_fraction_str,
-                    n_growth_mb_str,
-                    spark_str,
-                    n_usage_fraction_str,
-                    n_copy_mb_s_str
-                ),
-                end="",
-                file=out
-            )
-            console.print(syntax_highlighted)
+            tbl.add_row(str(line_no),
+                        ncpps, # n_cpu_percent_python_str,
+                        ncpcs, # n_cpu_percent_c_str,
+                        n_python_fraction_str,
+                        n_growth_mb_str,
+                        nufs, # spark_str + n_usage_fraction_str,
+                        n_copy_mb_s_str,
+                        syntax_highlighted)
             
         else:
 
@@ -1078,19 +1080,17 @@ process."""
             if (
                 n_cpu_percent_c + n_cpu_percent_python
             ) >= Scalene.__highlight_percentage:
-                print(u"\u001b[31m", end="")
+                ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
+                ncpcs = Text.assemble((n_cpu_percent_c_str, "bold red"))
+            else:
+                ncpps = n_cpu_percent_python_str
+                ncpcs = n_cpu_percent_c_str
 
-            print(
-                "%6d |%7s |%7s | "
-                % (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str),
-                end="",
-                file=out,
-            )
-            console.print(syntax_highlighted)
+            tbl.add_row(str(line_no),
+                        ncpps, # n_cpu_percent_python_str,
+                        ncpcs, # n_cpu_percent_c_str,
+                        syntax_highlighted)
             
-
-        # Reset color
-        print(u"\u001b[0m", end="")
 
     @staticmethod
     def output_profiles() -> bool:
@@ -1159,39 +1159,28 @@ process."""
                     file=out,
                 )
 
-                print(
-                    "       |%7s |%7s | %s %s %s %s"
-                    % (
-                        "CPU %",
-                        "CPU %",
-                        "Mem % |" if did_sample_memory else "",
-                        " Net  |" if did_sample_memory else "",
-                        "Memory usage   |" if did_sample_memory else "",
-                        "Copy  |" if did_sample_memory else "",
-                    ),
-                    file=out,
-                )
-                print(
-                    "  Line |%7s |%7s | %s %s %s %s [%s]"
-                    % (
-                        "Python",
-                        "native",
-                        "Python|" if did_sample_memory else "",
-                        " (MB) |" if did_sample_memory else "",
-                        "over time /  % |" if did_sample_memory else "",
-                        "(MB/s)|" if did_sample_memory else "",
-                        fname,
-                    ),
-                    file=out,
-                )
-                print("-" * 119, file=out)
+                tbl = Table(box=box.MINIMAL_HEAVY_HEAD)
 
+                tbl.add_column("Line", no_wrap=True)
+                tbl.add_column("CPU %\nPython", no_wrap=True)
+                tbl.add_column("CPU %\nnative", no_wrap=True)
+                if did_sample_memory:
+                    tbl.add_column("Mem %\nPython", no_wrap=True)
+                    tbl.add_column("Net\n(MB)", no_wrap=True)
+                    tbl.add_column("Memory usage\nover time / %", no_wrap=True)
+                    tbl.add_column("Copy\n(MB/s)", no_wrap=True)
+                tbl.add_column("\n" + fname)
+
+                console = Console(width=132, record=True, file=out)
                 with open(fname, "r") as source_file:
                     for line_no, line in enumerate(source_file, 1):
                         Scalene.output_profile_line(
-                            fname, LineNumber(line_no), line, out
+                            fname, LineNumber(line_no), line, console, tbl, out
                         )
-                    print("", file=out)
+                    console.print(tbl)
+                    # print("", file=out)
+                # Potentially print as HTML.
+                # console.save_html("out.html")
         return True
 
     @staticmethod
