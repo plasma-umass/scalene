@@ -83,6 +83,7 @@ To see all the options, run with `--help`.
       --profile-interval PROFILE_INTERVAL
                             output profiles every so many seconds.
       --wallclock           use wall clock time (default: virtual time)
+      --cpu-only            only profile CPU time (default: profile CPU, memory, and copying)
 
 # Comparison to Other Profilers
 
