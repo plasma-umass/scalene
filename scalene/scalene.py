@@ -119,12 +119,13 @@ def parse_args():
         action="store_const",
         const=True,
         default=False,
-        help="only profile CPU time (default: profile CPU, memory, and copying)"
+        help="only profile CPU time (default: profile CPU, memory, and copying)",
     )
     # Parse out all Scalene arguments and jam the remaining ones into argv.
     # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
     args, left = parser.parse_known_args()
     return args, left
+
 
 args, left = parse_args()
 
@@ -133,7 +134,9 @@ if not args.cpuonly:
     # Load the shared object on Linux.
     if sys.platform == "linux":
         if ("LD_PRELOAD" not in os.environ) and ("PYTHONMALLOC" not in os.environ):
-            os.environ["LD_PRELOAD"] = os.path.join(os.path.dirname(__file__), 'libscalene.so')
+            os.environ["LD_PRELOAD"] = os.path.join(
+                os.path.dirname(__file__), "libscalene.so"
+            )
             os.environ["PYTHONMALLOC"] = "malloc"
             args = sys.argv[1:]
             args = [os.path.basename(sys.executable), "-m", "scalene"] + args
@@ -142,14 +145,18 @@ if not args.cpuonly:
 
     # Similar logic, but for Mac OS X.
     if sys.platform == "darwin":
-        if ("DYLD_INSERT_LIBRARIES" not in os.environ) and ("PYTHONMALLOC" not in os.environ):
-            os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(os.path.dirname(__file__), 'libscalene.dylib')
+        if ("DYLD_INSERT_LIBRARIES" not in os.environ) and (
+            "PYTHONMALLOC" not in os.environ
+        ):
+            os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(
+                os.path.dirname(__file__), "libscalene.dylib"
+            )
             os.environ["PYTHONMALLOC"] = "malloc"
             args = sys.argv[1:]
             args = [os.path.basename(sys.executable), "-m", "scalene"] + args
             result = subprocess.run(args)
             sys.exit(result.returncode)
-        
+
 Filename = NewType("Filename", str)
 LineNumber = NewType("LineNumber", int)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
@@ -1204,7 +1211,7 @@ process."""
     @staticmethod
     def main() -> None:
         """Invokes the profiler from the command-line."""
-        args, left = parse_args() # We currently do this twice, but who cares.
+        args, left = parse_args()  # We currently do this twice, but who cares.
         sys.argv = sys.argv[:1] + left
         Scalene.set_timer_signal(args.wallclock)
         Scalene.__output_profile_interval = args.profile_interval
