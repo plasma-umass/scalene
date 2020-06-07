@@ -83,6 +83,17 @@ if sys.platform == "win32":
     )
     sys.exit(-1)
 
+# Load the shared object on Linux.
+if sys.platform == "linux":
+    if ("LD_PRELOAD" not in os.environ) and ("PYTHONMALLOC" not in os.environ):
+        os.environ["LD_PRELOAD"] = os.path.join(os.path.dirname(__file__), 'libscalene.so')
+        os.environ["PYTHONMALLOC"] = "malloc"
+        args = sys.argv[1:]
+        args.insert(0, "scalene")
+        args.insert(0, "-m")
+        args.insert(0, os.path.basename(sys.executable))
+        result = subprocess.run(args)
+        sys.exit(result.returncode)
 
 Filename = NewType("Filename", str)
 LineNumber = NewType("LineNumber", int)
