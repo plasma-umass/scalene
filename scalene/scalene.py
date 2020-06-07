@@ -84,9 +84,7 @@ if sys.platform == "linux":
         os.environ["LD_PRELOAD"] = os.path.join(os.path.dirname(__file__), 'libscalene.so')
         os.environ["PYTHONMALLOC"] = "malloc"
         args = sys.argv[1:]
-        args.insert(0, "scalene")
-        args.insert(0, "-m")
-        args.insert(0, os.path.basename(sys.executable))
+        args = [os.path.basename(sys.executable), "-m", "scalene"] + args
         result = subprocess.run(args)
         sys.exit(result.returncode)
 
@@ -96,9 +94,7 @@ if sys.platform == "darwin":
         os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(os.path.dirname(__file__), 'libscalene.dylib')
         os.environ["PYTHONMALLOC"] = "malloc"
         args = sys.argv[1:]
-        args.insert(0, "scalene")
-        args.insert(0, "-m")
-        args.insert(0, os.path.basename(sys.executable))
+        args = [os.path.basename(sys.executable), "-m", "scalene"] + args
         result = subprocess.run(args)
         sys.exit(result.returncode)
         
