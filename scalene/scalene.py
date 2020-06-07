@@ -79,7 +79,7 @@ if sys.platform == "win32":
     sys.exit(-1)
 
 
-def parse_args():
+def parse_args() -> Tuple[argparse.Namespace, List[str]]:
     usage = dedent(
         """Scalene: a high-precision CPU and memory profiler.
         https://github.com/emeryberger/scalene
@@ -127,10 +127,10 @@ def parse_args():
     return args, left
 
 
-args, left = parse_args()
+arguments, left = parse_args()
 
 # Load shared objects unless the user specifies "--cpu-only" at the command-line.
-if not args.cpuonly:
+if not arguments.cpuonly:
     # Load the shared object on Linux.
     if sys.platform == "linux":
         if ("LD_PRELOAD" not in os.environ) and ("PYTHONMALLOC" not in os.environ):
@@ -809,8 +809,8 @@ process."""
             # Add the byte index to the set for this line (if it's not there already).
             Scalene.__bytei_map[fname][line_no].add(bytei)
             curr = before
-            python_frac = 0
-            allocs = 0
+            python_frac = 0.0
+            allocs = 0.0
             # Go through the array again and add each updated current footprint.
             for item in arr:
                 alloc_time, action, count, python_fraction = item
