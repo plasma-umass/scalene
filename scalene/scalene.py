@@ -953,7 +953,12 @@ process."""
 
     @staticmethod
     def output_profile_line(
-            fname: Filename, line_no: LineNumber, line: str, console: any, tbl: any, out: IO[str]
+        fname: Filename,
+        line_no: LineNumber,
+        line: str,
+        console: any,
+        tbl: any,
+        out: IO[str],
     ) -> None:
         """Print exactly one line of the profile to out."""
         current_max = Scalene.__max_footprint
@@ -1063,17 +1068,18 @@ process."""
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str
                 nufs = spark_str + n_usage_fraction_str
-        
 
-            tbl.add_row(str(line_no),
-                        ncpps, # n_cpu_percent_python_str,
-                        ncpcs, # n_cpu_percent_c_str,
-                        n_python_fraction_str,
-                        n_growth_mb_str,
-                        nufs, # spark_str + n_usage_fraction_str,
-                        n_copy_mb_s_str,
-                        syntax_highlighted)
-            
+            tbl.add_row(
+                str(line_no),
+                ncpps,  # n_cpu_percent_python_str,
+                ncpcs,  # n_cpu_percent_c_str,
+                n_python_fraction_str,
+                n_growth_mb_str,
+                nufs,  # spark_str + n_usage_fraction_str,
+                n_copy_mb_s_str,
+                syntax_highlighted,
+            )
+
         else:
 
             # Red highlight
@@ -1086,11 +1092,12 @@ process."""
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str
 
-            tbl.add_row(str(line_no),
-                        ncpps, # n_cpu_percent_python_str,
-                        ncpcs, # n_cpu_percent_c_str,
-                        syntax_highlighted)
-            
+            tbl.add_row(
+                str(line_no),
+                ncpps,  # n_cpu_percent_python_str,
+                ncpcs,  # n_cpu_percent_c_str,
+                syntax_highlighted,
+            )
 
     @staticmethod
     def output_profiles() -> bool:
@@ -1121,6 +1128,8 @@ process."""
             Scalene.__total_memory_free_samples + Scalene.__total_memory_malloc_samples
         ) > 0
         with Scalene.file_or_stdout(Scalene.__output_file) as out:
+            title = Text()
+            # title.append("scalene\n", style="bold")
             if did_sample_memory:
                 samples = Scalene.__memory_footprint_samples
                 if len(samples.get()) > 0:
@@ -1128,9 +1137,11 @@ process."""
                     _, _, spark_str = Scalene.generate_sparkline(
                         samples.get()[0 : samples.len()], 0, current_max
                     )
-                    print(
-                        "Memory usage: " + spark_str + " (max: %6.2fMB)" % current_max,
-                        file=out,
+                    title.append(
+                        "Memory usage: "
+                        + spark_str
+                        + " (max: %6.2fMB)" % current_max
+                        + "\n"
                     )
 
             for fname in sorted(all_instrumented_files):
@@ -1153,13 +1164,12 @@ process."""
                     continue
 
                 # Print header.
-                print(
+                title.append(
                     "%s: %% of CPU time = %6.2f%% out of %6.2fs."
-                    % (fname, percent_cpu_time, Scalene.__elapsed_time),
-                    file=out,
+                    % (fname, percent_cpu_time, Scalene.__elapsed_time)
                 )
 
-                tbl = Table(box=box.MINIMAL_HEAVY_HEAD)
+                tbl = Table(box=box.MINIMAL_HEAVY_HEAD, title=title)
 
                 tbl.add_column("Line", justify="right", no_wrap=True)
                 tbl.add_column("CPU %\nPython", no_wrap=True)
