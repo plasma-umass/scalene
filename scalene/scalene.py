@@ -1161,7 +1161,7 @@ process."""
 
                 tbl = Table(box=box.MINIMAL_HEAVY_HEAD)
 
-                tbl.add_column("Line", no_wrap=True)
+                tbl.add_column("Line", justify="right", no_wrap=True)
                 tbl.add_column("CPU %\nPython", no_wrap=True)
                 tbl.add_column("CPU %\nnative", no_wrap=True)
                 if did_sample_memory:
