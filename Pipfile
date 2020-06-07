@@ -8,6 +8,7 @@ pytest = "*"
 
 [packages]
 numpy = "*"
+rich = "*"
 
 [requires]
 python_version = "3.6"

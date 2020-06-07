@@ -29,6 +29,8 @@ import traceback
 from collections import defaultdict
 from contextlib import contextmanager
 from functools import lru_cache
+from rich.console import Console
+from rich.syntax import Syntax
 from signal import Handlers, Signals
 from textwrap import dedent
 from types import CodeType, FrameType
@@ -951,11 +953,15 @@ process."""
         fname: Filename, line_no: LineNumber, line: str, out: IO[str]
     ) -> None:
         """Print exactly one line of the profile to out."""
+        console = Console(width=64, file=out) # fill to 132 columns.
         current_max = Scalene.__max_footprint
         did_sample_memory: bool = (
             Scalene.__total_memory_free_samples + Scalene.__total_memory_malloc_samples
         ) > 0
-        line = line.rstrip()  # Strip newline
+        # Strip newline
+        line = line.rstrip()
+        # Generate syntax highlighted version.
+        syntax_highlighted = Syntax(line, "python", theme="vim", line_numbers=False)
         # Prepare output values.
         n_cpu_samples_c = Scalene.__cpu_samples_c[fname][line_no]
         # Correct for negative CPU sample counts. This can happen
@@ -1050,7 +1056,7 @@ process."""
                 print(u"\u001b[31m", end="")
 
             print(
-                "%6d |%7s |%7s | %5s | %5s | %-9s %-4s |%-6s | %s"
+                "%6d |%7s |%7s | %5s | %5s | %-9s %-4s |%-6s | "
                 % (
                     line_no,
                     n_cpu_percent_python_str,
@@ -1059,11 +1065,13 @@ process."""
                     n_growth_mb_str,
                     spark_str,
                     n_usage_fraction_str,
-                    n_copy_mb_s_str,
-                    line,
+                    n_copy_mb_s_str
                 ),
-                file=out,
+                end="",
+                file=out
             )
+            console.print(syntax_highlighted)
+            
         else:
 
             # Red highlight
@@ -1073,10 +1081,13 @@ process."""
                 print(u"\u001b[31m", end="")
 
             print(
-                "%6d |%7s |%7s | %s"
-                % (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str, line),
+                "%6d |%7s |%7s | "
+                % (line_no, n_cpu_percent_python_str, n_cpu_percent_c_str),
+                end="",
                 file=out,
             )
+            console.print(syntax_highlighted)
+            
 
         # Reset color
         print(u"\u001b[0m", end="")
