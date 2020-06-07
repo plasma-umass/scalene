@@ -33,7 +33,7 @@ You can use Homebrew to install the **full** version of Scalene (with memory pro
 
 This will install a `scalene` script you can use (see below).
 
-### Mac OS X and Linux, without memory profiling
+### Linux (Ubuntu and others)
 
 Scalene is also distributed as a `pip` package and works on Mac OS X and Linux platforms (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)).
 
@@ -47,8 +47,6 @@ or
   % python -m pip install scalene
 ```
 
-_NOTE_: Currently, installing Scalene in this way does not install its memory profiling library, so you will only be able to use it to perform CPU profiling. To take advantage of its memory profiling capability, you will need to download this repository.
-
 ### ArchLinux
 
 **NEW**: You can now install the full Scalene library and script on Arch Linux via the [AUR
@@ -57,37 +55,13 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 `libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
 
 
-### Linux (all distros), with memory profiling
-
-For all other Linux distributions, you need to build the Scalene library from source by cloning this repository and running `make`.
-
-```
-  % make
-```
-
 # Usage
 
-The following command will run Scalene to only perform line-level CPU profiling on a provided example program.
+The following command will run Scalene on a provided example program.
 
 ```
   % scalene test/testme.py
 ```
-
-If you have installed the Scalene library with Homebrew, you can just invoke `scalene` to perform both line-level CPU and memory profiling:
-
-```
-  % scalene test/testme.py
-```
-
-Profiling on a Mac OS X system (without using Homebrew):
-```
-  % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene test/testme.py
-``` 
-
-Profiling on a Linux system:
-```
-  % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc scalene test/testme.py
-``` 
 
 To see all the options, run with `--help`.
 
@@ -98,13 +72,6 @@ To see all the options, run with `--help`.
     
     Scalene: a high-precision CPU and memory profiler.
                 https://github.com/emeryberger/Scalene
-    
-                    for CPU profiling only:
-                % scalene yourprogram.py
-                    for CPU and memory profiling (Mac OS X):
-                % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene yourprogram.py
-                    for CPU and memory profiling (Linux):
-                % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc scalene yourprogram.py
     
     positional arguments:
       prog                  program to be profiled
