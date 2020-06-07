@@ -9,12 +9,7 @@
     by Emery Berger
     https://emeryberger.com
 
-    usage: # for CPU profiling only
-            scalene test/testme.py
-            # for CPU and memory profiling (Mac OS X)
-            DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene test/testme.py
-            # for CPU and memory profiling (Linux)
-            LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc python scalene test/testme.py
+    usage: scalene test/testme.py
 
 """
 
@@ -1151,14 +1146,8 @@ process."""
         """Invokes the profiler from the command-line."""
         usage = dedent(
             """Scalene: a high-precision CPU and memory profiler.
-            https://github.com/emeryberger/Scalene
-
-                for CPU profiling only:
+            https://github.com/emeryberger/scalene
             % scalene yourprogram.py
-                for CPU and memory profiling (Mac OS X):
-            % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene yourprogram.py
-                for CPU and memory profiling (Linux):
-            % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc scalene yourprogram.py
             """
         )
         parser = argparse.ArgumentParser(
