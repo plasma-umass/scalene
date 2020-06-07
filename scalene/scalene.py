@@ -90,6 +90,18 @@ if sys.platform == "linux":
         result = subprocess.run(args)
         sys.exit(result.returncode)
 
+# Similar logic, but for Mac OS X.
+if sys.platform == "darwin":
+    if ("DYLD_INSERT_LIBRARIES" not in os.environ) and ("PYTHONMALLOC" not in os.environ):
+        os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(os.path.dirname(__file__), 'libscalene.dylib')
+        os.environ["PYTHONMALLOC"] = "malloc"
+        args = sys.argv[1:]
+        args.insert(0, "scalene")
+        args.insert(0, "-m")
+        args.insert(0, os.path.basename(sys.executable))
+        result = subprocess.run(args)
+        sys.exit(result.returncode)
+        
 Filename = NewType("Filename", str)
 LineNumber = NewType("LineNumber", int)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
