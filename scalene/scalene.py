@@ -105,6 +105,14 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         help="file to hold profiler output (default: stdout)",
     )
     parser.add_argument(
+        "--html",
+        dest="html",
+        action="store_const",
+        const=True,
+        default=False,
+        help="output as HTML (default: text)",
+    )
+    parser.add_argument(
         "--profile-interval",
         type=float,
         default=float("inf"),
@@ -347,6 +355,8 @@ class Scalene:
     __program_path: str = ""
     # where we write profile info
     __output_file: str = ""
+    # if we output HTML or not
+    __html: bool = False
     # how long between outputting stats during execution
     __output_profile_interval: float = float("inf")
     # when we output the next profile
@@ -956,11 +966,10 @@ process."""
         fname: Filename,
         line_no: LineNumber,
         line: str,
-        console: any,
-        tbl: any,
-        out: IO[str],
+        console: Console,
+        tbl: Table,
     ) -> None:
-        """Print exactly one line of the profile to out."""
+        """Print exactly one line of the profile."""
         current_max = Scalene.__max_footprint
         did_sample_memory: bool = (
             Scalene.__total_memory_free_samples + Scalene.__total_memory_malloc_samples
@@ -968,7 +977,10 @@ process."""
         # Strip newline
         line = line.rstrip()
         # Generate syntax highlighted version.
-        syntax_highlighted = Syntax(line, "python", theme="vim", line_numbers=False)
+        if Scalene.__html:
+            syntax_highlighted = Syntax(line, "python", theme="default", line_numbers=False)
+        else:
+            syntax_highlighted = Syntax(line, "python", theme="vim", line_numbers=False)
         # Prepare output values.
         n_cpu_samples_c = Scalene.__cpu_samples_c[fname][line_no]
         # Correct for negative CPU sample counts. This can happen
@@ -1055,6 +1067,9 @@ process."""
                 )
 
             # Red highlight
+            ncpps : Any = ""
+            ncpcs : Any = ""
+            nufs : Any = ""
             if (
                 n_usage_fraction >= Scalene.__highlight_percentage
                 or (n_cpu_percent_c + n_cpu_percent_python)
@@ -1127,70 +1142,78 @@ process."""
         did_sample_memory: bool = (
             Scalene.__total_memory_free_samples + Scalene.__total_memory_malloc_samples
         ) > 0
-        with Scalene.file_or_stdout(Scalene.__output_file) as out:
-            title = Text()
-            # title.append("scalene\n", style="bold")
+        title = Text()
+        # title.append("scalene\n", style="bold")
+        mem_usage_line = ""
+        if did_sample_memory:
+            samples = Scalene.__memory_footprint_samples
+            if len(samples.get()) > 0:
+                # Output a sparkline as a summary of memory usage over time.
+                _, _, spark_str = Scalene.generate_sparkline(
+                    samples.get()[0 : samples.len()], 0, current_max
+                )
+                mem_usage_line = Text.assemble("Memory usage: ", ((spark_str, "blue")),
+                                               (" (max: %6.2fMB)\n" % current_max))
+                title.append(mem_usage_line)
+
+        null = open("/dev/null", "w")
+        console = Console(width=132, record=True, force_terminal=True, file=null)
+        for fname in sorted(all_instrumented_files):
+
+            fname = Filename(fname)
+            this_cpu_samples = sum(Scalene.__cpu_samples_c[fname].values()) + sum(
+                Scalene.__cpu_samples_python[fname].values()
+            )
+
+            try:
+                percent_cpu_time = (
+                    100 * this_cpu_samples / Scalene.__total_cpu_samples
+                )
+            except ZeroDivisionError:
+                percent_cpu_time = 0
+
+            # Ignore files responsible for less than 1% of execution time,
+            # as long as we aren't profiling memory consumption.
+            if not did_sample_memory and percent_cpu_time < 1:
+                continue
+
+            # Print header.
+            new_title = mem_usage_line + ("%s: %% of CPU time = %6.2f%% out of %6.2fs."
+                                 % (fname, percent_cpu_time, Scalene.__elapsed_time))
+            # Only display total memory usage once.
+            mem_usage_line = ""
+
+            tbl = Table(box=box.MINIMAL_HEAVY_HEAD, title=new_title, collapse_padding=True)
+
+            tbl.add_column("Line", justify="right", no_wrap=True)
+            tbl.add_column("CPU %\nPython", no_wrap=True)
+            tbl.add_column("CPU %\nnative", no_wrap=True)
             if did_sample_memory:
-                samples = Scalene.__memory_footprint_samples
-                if len(samples.get()) > 0:
-                    # Output a sparkline as a summary of memory usage over time.
-                    _, _, spark_str = Scalene.generate_sparkline(
-                        samples.get()[0 : samples.len()], 0, current_max
+                tbl.add_column("Mem %\nPython", no_wrap=True)
+                tbl.add_column("Net\n(MB)", no_wrap=True)
+                tbl.add_column("Memory usage\nover time / %", no_wrap=True)
+                tbl.add_column("Copy\n(MB/s)", no_wrap=True)
+            tbl.add_column("\n" + fname)
+
+            with open(fname, "r") as source_file:
+                for line_no, line in enumerate(source_file, 1):
+                    Scalene.output_profile_line(
+                        fname, LineNumber(line_no), line, console, tbl
                     )
-                    title.append(
-                        "Memory usage: "
-                        + spark_str
-                        + " (max: %6.2fMB)" % current_max
-                        + "\n"
-                    )
-
-            for fname in sorted(all_instrumented_files):
-
-                fname = Filename(fname)
-                this_cpu_samples = sum(Scalene.__cpu_samples_c[fname].values()) + sum(
-                    Scalene.__cpu_samples_python[fname].values()
-                )
-
-                try:
-                    percent_cpu_time = (
-                        100 * this_cpu_samples / Scalene.__total_cpu_samples
-                    )
-                except ZeroDivisionError:
-                    percent_cpu_time = 0
-
-                # Ignore files responsible for less than 1% of execution time,
-                # as long as we aren't profiling memory consumption.
-                if not did_sample_memory and percent_cpu_time < 1:
-                    continue
-
-                # Print header.
-                title.append(
-                    "%s: %% of CPU time = %6.2f%% out of %6.2fs."
-                    % (fname, percent_cpu_time, Scalene.__elapsed_time)
-                )
-
-                tbl = Table(box=box.MINIMAL_HEAVY_HEAD, title=title)
-
-                tbl.add_column("Line", justify="right", no_wrap=True)
-                tbl.add_column("CPU %\nPython", no_wrap=True)
-                tbl.add_column("CPU %\nnative", no_wrap=True)
-                if did_sample_memory:
-                    tbl.add_column("Mem %\nPython", no_wrap=True)
-                    tbl.add_column("Net\n(MB)", no_wrap=True)
-                    tbl.add_column("Memory usage\nover time / %", no_wrap=True)
-                    tbl.add_column("Copy\n(MB/s)", no_wrap=True)
-                tbl.add_column("\n" + fname)
-
-                console = Console(width=132, record=True, file=out)
-                with open(fname, "r") as source_file:
-                    for line_no, line in enumerate(source_file, 1):
-                        Scalene.output_profile_line(
-                            fname, LineNumber(line_no), line, console, tbl, out
-                        )
-                    console.print(tbl)
-                    # print("", file=out)
-                # Potentially print as HTML.
-                # console.save_html("out.html")
+            console.print(tbl)
+            
+        if Scalene.__html:
+            # Write HTML file.
+            if not Scalene.__output_file:
+                Scalene.__output_file = "/dev/stdout"
+            console.save_html(Scalene.__output_file, clear=False)
+        else:
+            if not Scalene.__output_file:
+                # No output file specified: write to stdout.
+                console.save_text("/dev/stdout", styles=True)
+            else:
+                # Don't output styles to text file.
+                console.save_text(Scalene.__output_file, styles=False, clear=False)
         return True
 
     @staticmethod
@@ -1228,6 +1251,8 @@ process."""
         Scalene.__next_output_time = (
             Scalene.gettime() + Scalene.__output_profile_interval
         )
+        Scalene.__html = args.html
+        Scalene.__output_file = args.outfile
         try:
             with open(args.prog, "rb") as prog_being_profiled:
                 Scalene.__original_path = os.getcwd()
@@ -1245,7 +1270,6 @@ process."""
                 # Splice in the name of the file being executed instead of the profiler.
                 the_globals["__file__"] = os.path.basename(args.prog)
                 # Start the profiler.
-                Scalene.__output_file = args.outfile
                 fullname = os.path.join(program_path, os.path.basename(args.prog))
                 profiler = Scalene(Filename(fullname))
                 try:
