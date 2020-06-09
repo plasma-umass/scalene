@@ -33,6 +33,9 @@ setup(
         "Operating System :: MacOS :: MacOS X"
     ],
     packages=find_packages(),
+    install_requires=[
+        "rich>=2.0.0"
+    ],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
     python_requires=">=3.5",
