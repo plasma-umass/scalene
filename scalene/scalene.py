@@ -923,7 +923,7 @@ process."""
     @staticmethod
     def start() -> None:
         """Initiate profiling."""
-        os.chdir(Scalene.__program_path)
+        # os.chdir(Scalene.__program_path)
         Scalene.enable_signals()
         Scalene.__start_time = Scalene.gettime()
 
@@ -932,7 +932,7 @@ process."""
         """Complete profiling."""
         Scalene.disable_signals()
         Scalene.__elapsed_time += Scalene.gettime() - Scalene.__start_time
-        os.chdir(Scalene.__original_path)
+        # os.chdir(Scalene.__original_path)
 
     # from https://stackoverflow.com/questions/9836370/fallback-to-stdout-if-no-file-name-provided
     @staticmethod
