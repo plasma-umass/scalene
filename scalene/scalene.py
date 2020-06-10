@@ -22,6 +22,7 @@ import builtins
 import contextlib
 import dis
 import os
+import platform
 import signal
 import subprocess
 import sys
@@ -146,7 +147,13 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
 arguments, left = parse_args()
 
 # Load shared objects unless the user specifies "--cpu-only" at the command-line.
-if not arguments.cpuonly:
+# (x86-64 only for now.)
+
+if not arguments.cpuonly and platform.machine() != 'x86_64':
+    arguments.cpuonly = True
+    print("scalene warning: currently only x86-64 platforms are supported for memory and copy profiling.")
+    
+if not arguments.cpuonly and platform.machine() == 'x86_64':
     # Load the shared object on Linux.
     if sys.platform == "linux":
         if ("LD_PRELOAD" not in os.environ) and ("PYTHONMALLOC" not in os.environ):
