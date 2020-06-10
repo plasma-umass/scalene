@@ -58,8 +58,92 @@ from typing import (
     cast,
 )
 
-from . import adaptive
-from . import sparkline
+# from . import adaptive
+# from . import sparkline
+
+
+class adaptive:
+    """Implements sampling to achieve the effect of a uniform random sample."""
+
+    sample_array: List[float] = []
+    current_index = 0
+    total_samples = 0
+    max_samples = 0
+    count_average = 0
+    sum_average = 0
+    max_average = 1
+
+    def __init__(self, size: int):
+        self.max_samples = size
+        # must be a power of two
+        self.sample_array = [0] * size
+
+    def add(self, value: float) -> None:
+        if self.current_index >= self.max_samples:
+            # Decimate
+            # print("DECIMATION " + str(self.sample_array))
+            new_array = [0.0] * self.max_samples
+            for i in range(0, self.max_samples // 3):
+                arr = [self.sample_array[i * 3 + j] for j in range(0, 3)]
+                arr.sort()
+                new_array[i] = arr[1]  # Median
+            self.current_index = self.max_samples // 3
+            self.sample_array = new_array
+            # print("POST DECIMATION = " + str(self.sample_array))
+            # Update average length
+            self.max_average *= 3
+        self.sample_array[self.current_index] = value
+        self.current_index += 1  # count_average += 1
+
+    def get(self) -> List[float]:
+        return self.sample_array
+
+    def len(self) -> int:
+        return self.current_index
+
+
+# Sparkline stuff
+
+# Check if we are in Windows Subsystem for Linux and *not* using
+# the highly recommended Windows Terminal
+# (https://aka.ms/windowsterminal)
+if "WSL_DISTRO_NAME" in os.environ and "WT_PROFILE_ID" not in os.environ:
+    # We are running in the Windows Subsystem for Linux Display, a
+    # crappy version of the sparkline because the Windows console
+    # *still* only properly displays IBM Code page 437 by default.
+    # ▄▄■■■■▀▀
+    bar = chr(0x2584) * 2 + chr(0x25A0) * 3 + chr(0x2580) * 3
+else:
+    # Reasonable system. Use Unicode characters.
+    # Unicode: 9601, 9602, 9603, 9604, 9605, 9606, 9607, 9608
+    # ▁▂▃▄▅▆▇█
+    bar = "".join([chr(i) for i in range(9601, 9609)])
+
+barcount = len(bar)
+
+# From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
+def sparkline(
+    numbers: List[float], fixed_min: float = -1, fixed_max: float = -1
+) -> Tuple[float, float, str]:
+    if fixed_min == -1:
+        mn = float(min(numbers))
+    else:
+        mn = fixed_min
+    if fixed_max == -1:
+        mx = float(max(numbers))
+    else:
+        mx = fixed_max
+    # print(numbers)
+    # mn, mx = min(numbers), max(numbers)
+    extent = mx - mn
+    if extent == 0:
+        extent = 1
+    # print("mn, mx = " + str(mn) + ", " + str(mx) + " extent = " + str(extent))
+    sparkstr = "".join(
+        bar[min([barcount - 1, int((n - mn) / extent * barcount)])] for n in numbers
+    )
+    return mn, mx, sparkstr
+
 
 # Logic to ignore @profile decorators.
 try:
@@ -354,11 +438,11 @@ class Scalene:
     __last_signal_time: float = 0
 
     # memory footprint samples (time, footprint), using 'adaptive' sampling.
-    __memory_footprint_samples = adaptive.adaptive(27)
+    __memory_footprint_samples = adaptive(27)
 
     # same, but per line
-    __per_line_footprint_samples: Dict[str, Dict[int, adaptive.adaptive]] = defaultdict(
-        lambda: defaultdict(lambda: adaptive.adaptive(9))
+    __per_line_footprint_samples: Dict[str, Dict[int, adaptive]] = defaultdict(
+        lambda: defaultdict(lambda: adaptive(9))
     )
 
     # original working directory
@@ -921,12 +1005,7 @@ process."""
         if "site-packages" in filename or "/usr/lib/python" in filename:
             # Don't profile Python internals.
             return False
-        if (
-            "scalene.py" in filename
-            or "adaptive.py" in filename
-            or "sparkline.py" in filename
-            or "scalene/__main__.py" in filename
-        ):
+        if "scalene.py" in filename or "scalene/__main__.py" in filename:
             # Don't profile the profiler.
             return False
         filename = os.path.abspath(filename)
@@ -968,9 +1047,7 @@ process."""
             return 0, 0, ""
         # Prevent negative memory output due to sampling error.
         samples = [i if i > 0 else 0 for i in arr]
-        minval, maxval, sp_line = sparkline.sparkline(
-            samples[0:iterations], minimum, maximum
-        )
+        minval, maxval, sp_line = sparkline(samples[0:iterations], minimum, maximum)
         return minval, maxval, sp_line
 
     @staticmethod
@@ -1154,7 +1231,7 @@ process."""
         ) > 0
         title = Text()
         # title.append("scalene\n", style="bold")
-        mem_usage_line = ""
+        mem_usage_line: Union[Text, str] = ""
         if did_sample_memory:
             samples = Scalene.__memory_footprint_samples
             if len(samples.get()) > 0:
