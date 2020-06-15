@@ -91,7 +91,6 @@ public:
   void put(Repo<Size> * repo) {
     assert(isValid());
     assert(repo != nullptr);
-    Repo<Size> * r = getSource();
     assert(repo->isValid());
     assert(repo->isEmpty());
     //    assert(getSource() == nullptr || getSource()->isEmpty());
