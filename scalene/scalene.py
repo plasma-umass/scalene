@@ -24,6 +24,7 @@ import dis
 import os
 import platform
 import signal
+import struct
 import subprocess
 import sys
 import threading
@@ -81,7 +82,6 @@ class adaptive:
     def add(self, value: float) -> None:
         if self.current_index >= self.max_samples:
             # Decimate
-            # print("DECIMATION " + str(self.sample_array))
             new_array = [0.0] * self.max_samples
             for i in range(0, self.max_samples // 3):
                 arr = [self.sample_array[i * 3 + j] for j in range(0, 3)]
@@ -89,7 +89,6 @@ class adaptive:
                 new_array[i] = arr[1]  # Median
             self.current_index = self.max_samples // 3
             self.sample_array = new_array
-            # print("POST DECIMATION = " + str(self.sample_array))
             # Update average length
             self.max_average *= 3
         self.sample_array[self.current_index] = value
@@ -183,6 +182,7 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         prog="scalene",
         description=usage,
         formatter_class=argparse.RawTextHelpFormatter,
+        allow_abbrev=False,
     )
     parser.add_argument("prog", type=str, help="program to be profiled")
     parser.add_argument(
@@ -222,6 +222,10 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         default=False,
         help="only profile CPU time (default: profile CPU, memory, and copying)",
     )
+    # the PID of the profiling process (for internal use only)
+    parser.add_argument(
+        "--pid", type=int, default=int(os.getpid()), help=argparse.SUPPRESS
+    )
     # Parse out all Scalene arguments and jam the remaining ones into argv.
     # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
     args, left = parser.parse_known_args()
@@ -233,13 +237,19 @@ arguments, left = parse_args()
 # Load shared objects unless the user specifies "--cpu-only" at the command-line.
 # (x86-64 only for now.)
 
-if not arguments.cpuonly and platform.machine() != "x86_64":
+if not arguments.cpuonly and (
+    platform.machine() != "x86_64" or struct.calcsize("P") * 8 != 64
+):
     arguments.cpuonly = True
     print(
-        "scalene warning: currently only x86-64 platforms are supported for memory and copy profiling."
+        "scalene warning: currently only 64-bit x86-64 platforms are supported for memory and copy profiling."
     )
 
-if not arguments.cpuonly and platform.machine() == "x86_64":
+if (
+    not arguments.cpuonly
+    and platform.machine() == "x86_64"
+    and struct.calcsize("P") * 8 == 64
+):
     # Load the shared object on Linux.
     if sys.platform == "linux":
         if ("LD_PRELOAD" not in os.environ) and ("PYTHONMALLOC" not in os.environ):
@@ -257,13 +267,16 @@ if not arguments.cpuonly and platform.machine() == "x86_64":
         if ("DYLD_INSERT_LIBRARIES" not in os.environ) and (
             "PYTHONMALLOC" not in os.environ
         ):
-            os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(
+            env = os.environ
+            # qenv = {}
+            env["DYLD_INSERT_LIBRARIES"] = os.path.join(
                 os.path.dirname(__file__), "libscalene.dylib"
             )
-            os.environ["PYTHONMALLOC"] = "malloc"
+            env["PYTHONMALLOC"] = "malloc"
             args = sys.argv[1:]
             args = [os.path.basename(sys.executable), "-m", "scalene"] + args
-            result = subprocess.run(args)
+            result = subprocess.Popen(args, restore_signals=True, env=env)
+            result.wait()
             sys.exit(result.returncode)
 
 Filename = NewType("Filename", str)
@@ -896,7 +909,7 @@ process."""
         # and update the global __memory_footprint_samples.
         before = Scalene.__current_footprint
         for item in arr:
-            alloc_time, action, count, python_fraction = item
+            _alloc_time, action, count, python_fraction = item
             # print(alloc_time, action, count, python_fraction)
             count /= 1024 * 1024
             is_malloc = action == "M"
@@ -913,7 +926,7 @@ process."""
         # This is a pain, since we don't know to whom to attribute memory,
         # so we may overcount.
 
-        for (frame, tident, orig_frame) in new_frames:
+        for (frame, _tident, _orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             line_no = LineNumber(frame.f_lineno)
             bytei = ByteCodeIndex(frame.f_lasti)
@@ -924,7 +937,7 @@ process."""
             allocs = 0.0
             # Go through the array again and add each updated current footprint.
             for item in arr:
-                alloc_time, action, count, python_fraction = item
+                _alloc_time, action, count, python_fraction = item
                 count /= 1024 * 1024
                 is_malloc = action == "M"
                 if is_malloc:
@@ -983,8 +996,8 @@ process."""
         arr.sort()
 
         for item in arr:
-            memcpy_time, count = item
-            for (the_frame, tident, orig_frame) in new_frames:
+            _memcpy_time, count = item
+            for (the_frame, _tident, _orig_frame) in new_frames:
                 fname = Filename(the_frame.f_code.co_filename)
                 line_no = LineNumber(the_frame.f_lineno)
                 bytei = ByteCodeIndex(the_frame.f_lasti)
@@ -1326,7 +1339,8 @@ process."""
         Scalene.disable_signals()
 
     @contextlib.contextmanager
-    def scalene_profiler(_):  # type: ignore  ### TODO add memory stuff
+    @staticmethod
+    def scalene_profiler(_):  # type: ignore
         """A profiler function, work in progress."""
         # In principle, this would let people use Scalene as follows:
         # with scalene_profiler:
@@ -1375,7 +1389,7 @@ process."""
                         exec(code, the_globals, the_locals)
                     except BaseException:  # as be
                         # Intercept sys.exit.
-                        # print(traceback.format_exc())  # FIXME
+                        # print(traceback.format_exc())
                         pass
                     profiler.stop()
                     # If we've collected any samples, dump them.
@@ -1393,7 +1407,7 @@ process."""
                     print(message)
                     print(traceback.format_exc())
         except (FileNotFoundError, IOError):
-            print("Scalene: could not find input file.")
+            print("Scalene: could not find input file " + args.prog)
 
 
 if __name__ == "__main__":
