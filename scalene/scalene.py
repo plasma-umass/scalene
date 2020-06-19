@@ -1319,7 +1319,7 @@ process."""
         else:
             if not Scalene.__output_file:
                 # No output file specified: write to stdout.
-                console.save_text("/dev/stdout", styles=True)
+                sys.stdout.write(console.export_text(styles=True))
             else:
                 # Don't output styles to text file.
                 console.save_text(Scalene.__output_file, styles=False, clear=False)
