@@ -274,8 +274,7 @@ if (
             env["PYTHONMALLOC"] = "malloc"
             args = sys.argv[1:]
             args = [os.path.basename(sys.executable), "-m", "scalene"] + args
-            result = subprocess.Popen(args, restore_signals=True, env=env)
-            result.wait()
+            result = subprocess.run(args, env=env, close_fds=True, shell=False)
             sys.exit(result.returncode)
 
 Filename = NewType("Filename", str)
@@ -666,9 +665,10 @@ process."""
             # Hijack lock.
             threading.Lock = Scalene.ReplacementLock  # type: ignore
             # Hijack system and subprocess calls.
-            os.system = Scalene.new_os_system  # type: ignore
-            os.popen = Scalene.new_os_popen  # type: ignore
-            subprocess.Popen = Scalene.new_subprocess_Popen  # type: ignore
+            #os.system = Scalene.new_os_system  # type: ignore
+            #os.popen = Scalene.new_os_popen  # type: ignore
+            #subprocess.Popen = Scalene.new_subprocess_Popen  # type: ignore
+            pass
         # Build up signal filenames (adding PID to each).
         Scalene.__malloc_signal_filename = Filename(
             Scalene.__malloc_signal_filename + str(os.getpid())
