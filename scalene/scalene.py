@@ -186,7 +186,6 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
     )
     parser.add_argument("prog", type=str, help="program to be profiled")
     parser.add_argument(
-        "-o",
         "--outfile",
         type=str,
         default=None,
