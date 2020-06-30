@@ -595,7 +595,7 @@ start the timer interrupts."""
         Scalene.__original_memcpy_signal_handler = signal.signal(
             Scalene.__memcpy_signal, Scalene.memcpy_event_signal_handler
         )
-        # Turn on the CPU profiling timer to run every signal_interval seconds.
+        # Turn on the CPU profiling timer to run every mean_signal_interval seconds.
         signal.setitimer(
             Scalene.__cpu_timer_signal,
             Scalene.__mean_signal_interval,
@@ -685,17 +685,29 @@ process."""
             )
             Scalene.__program_path = os.path.dirname(Scalene.__program_being_profiled)
 
+            
     @staticmethod
     def cpu_signal_handler(
+        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        this_frame: FrameType,
+    ) -> None:
+        try:
+            if Scalene.__in_signal_handler == 0:
+                Scalene.__in_signal_handler = 1
+                Scalene.cpu_signal_handler_helper(signum, this_frame)
+        finally:
+            if Scalene.__in_signal_handler > 0:
+                Scalene.__in_signal_handler = 0
+                
+        
+    @staticmethod
+    def cpu_signal_handler_helper(
         _signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
         this_frame: FrameType,
     ) -> None:
         """Handle interrupts for CPU profiling."""
         # Record how long it has been since we received a timer
         # before.  See the logic below.
-        if Scalene.__in_signal_handler > 0:
-            return
-        Scalene.__in_signal_handler += 1
         now = Scalene.gettime()
         # If it's time to print some profiling info, do so.
         if now >= Scalene.__next_output_time:
@@ -789,7 +801,6 @@ process."""
         #        Scalene.__last_signal_interval,
         #    )
         Scalene.__last_signal_time = Scalene.gettime()
-        Scalene.__in_signal_handler -= 1
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -838,6 +849,7 @@ process."""
                     frame = cast(FrameType, frame.f_back)
                     if frame:
                         fname = frame.f_code.co_filename
+                        continue
             if frame:
                 new_frames.append((frame, tident, orig_frame))
         return new_frames
@@ -848,7 +860,13 @@ process."""
         this_frame: FrameType,
     ) -> None:
         """Handle malloc events."""
-        Scalene.allocation_handler(signum, this_frame)
+        try:
+            if Scalene.__in_signal_handler == 0:
+                Scalene.__in_signal_handler = 1
+                Scalene.allocation_handler(signum, this_frame)
+        finally:
+            if Scalene.__in_signal_handler > 0:
+                Scalene.__in_signal_handler = 0
 
     @staticmethod
     def free_signal_handler(
@@ -856,22 +874,23 @@ process."""
         this_frame: FrameType,
     ) -> None:
         """Handle free events."""
-        Scalene.allocation_handler(signum, this_frame)
+        try:
+            if Scalene.__in_signal_handler == 0:
+                Scalene.__in_signal_handler = 1
+                Scalene.allocation_handler(signum, this_frame)
+        finally:
+            if Scalene.__in_signal_handler > 0:
+                Scalene.__in_signal_handler = 0
 
     @staticmethod
     def allocation_handler(
         signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
         this_frame: FrameType,
     ) -> None:
-        if Scalene.__in_signal_handler > 0:
-            return
-        Scalene.__in_signal_handler += 1
-
         """Handle interrupts for memory profiling (mallocs and frees)."""
         new_frames = Scalene.compute_frames_to_record(this_frame)
 
         if not new_frames:
-            Scalene.__in_signal_handler -= 1
             return
 
         # Process the input array.
@@ -962,7 +981,6 @@ process."""
                 Scalene.__memory_free_samples[fname][line_no][bytei] += before - after
                 Scalene.__memory_free_count[fname][line_no][bytei] += 1
                 Scalene.__total_memory_free_samples += before - after
-        Scalene.__in_signal_handler -= 1
 
     @staticmethod
     def memcpy_event_signal_handler(
