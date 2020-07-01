@@ -496,7 +496,7 @@ class Scalene:
     __memcpy_signal = signal.SIGPROF
 
     # Whether we are in a signal handler or not (to make things properly re-entrant).
-    __in_signal_handler = 0
+    __in_signal_handler = threading.RLock()
 
     # We cache the previous signal handlers so we can play nice with
     # apps that might already have handlers for these signals.
@@ -665,9 +665,9 @@ process."""
             # Hijack lock.
             threading.Lock = Scalene.ReplacementLock  # type: ignore
             # Hijack system and subprocess calls.
-            #os.system = Scalene.new_os_system  # type: ignore
-            #os.popen = Scalene.new_os_popen  # type: ignore
-            #subprocess.Popen = Scalene.new_subprocess_Popen  # type: ignore
+            # os.system = Scalene.new_os_system  # type: ignore
+            # os.popen = Scalene.new_os_popen  # type: ignore
+            # subprocess.Popen = Scalene.new_subprocess_Popen  # type: ignore
             pass
         # Build up signal filenames (adding PID to each).
         Scalene.__malloc_signal_filename = Filename(
@@ -685,21 +685,15 @@ process."""
             )
             Scalene.__program_path = os.path.dirname(Scalene.__program_being_profiled)
 
-            
     @staticmethod
     def cpu_signal_handler(
         signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
         this_frame: FrameType,
     ) -> None:
-        try:
-            if Scalene.__in_signal_handler == 0:
-                Scalene.__in_signal_handler = 1
-                Scalene.cpu_signal_handler_helper(signum, this_frame)
-        finally:
-            if Scalene.__in_signal_handler > 0:
-                Scalene.__in_signal_handler = 0
-                
-        
+        if Scalene.__in_signal_handler.acquire(blocking=False):
+            Scalene.cpu_signal_handler_helper(signum, this_frame)
+            Scalene.__in_signal_handler.release()
+
     @staticmethod
     def cpu_signal_handler_helper(
         _signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
@@ -860,13 +854,9 @@ process."""
         this_frame: FrameType,
     ) -> None:
         """Handle malloc events."""
-        try:
-            if Scalene.__in_signal_handler == 0:
-                Scalene.__in_signal_handler = 1
-                Scalene.allocation_handler(signum, this_frame)
-        finally:
-            if Scalene.__in_signal_handler > 0:
-                Scalene.__in_signal_handler = 0
+        if Scalene.__in_signal_handler.acquire(blocking=False):
+            Scalene.allocation_signal_handler(signum, this_frame)
+            Scalene.__in_signal_handler.release()
 
     @staticmethod
     def free_signal_handler(
@@ -874,16 +864,12 @@ process."""
         this_frame: FrameType,
     ) -> None:
         """Handle free events."""
-        try:
-            if Scalene.__in_signal_handler == 0:
-                Scalene.__in_signal_handler = 1
-                Scalene.allocation_handler(signum, this_frame)
-        finally:
-            if Scalene.__in_signal_handler > 0:
-                Scalene.__in_signal_handler = 0
+        if Scalene.__in_signal_handler.acquire(blocking=False):
+            Scalene.allocation_signal_handler(signum, this_frame)
+            Scalene.__in_signal_handler.release()
 
     @staticmethod
-    def allocation_handler(
+    def allocation_signal_handler(
         signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
         this_frame: FrameType,
     ) -> None:
@@ -988,13 +974,11 @@ process."""
         frame: FrameType,
     ) -> None:
         """Handles memcpy events."""
-        if Scalene.__in_signal_handler > 0:
-            return
-        Scalene.__in_signal_handler += 1
-        new_frames = Scalene.compute_frames_to_record(frame)
-        if not new_frames:
-            Scalene.__in_signal_handler -= 1
-            return
+        if Scalene.__in_signal_handler.acquire(False):
+            new_frames = Scalene.compute_frames_to_record(frame)
+            if not new_frames:
+                Scalene.__in_signal_handler.release()
+                return
 
         # Process the input array.
         arr: List[Tuple[int, int]] = []
@@ -1022,7 +1006,7 @@ process."""
                 Scalene.__bytei_map[fname][line_no].add(bytei)
                 Scalene.__memcpy_samples[fname][line_no] += count
 
-        Scalene.__in_signal_handler -= 1
+        Scalene.__in_signal_handler.release()
 
     @staticmethod
     @lru_cache(None)
@@ -1406,7 +1390,7 @@ process."""
                         exec(code, the_globals, the_locals)
                     except BaseException:  # as be
                         # Intercept sys.exit.
-                        # print(traceback.format_exc())
+                        # print(traceback.format_exc()) # for debugging only
                         pass
                     profiler.stop()
                     # If we've collected any samples, dump them.
