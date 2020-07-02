@@ -1384,12 +1384,16 @@ process."""
                 fullname = os.path.join(program_path, os.path.basename(args.prog))
                 profiler = Scalene(Filename(fullname))
                 try:
+                    # We exit with this status (returning error code as appropriate).
+                    exit_status = 0
                     profiler.start()
                     # Run the code being profiled.
                     try:
                         exec(code, the_globals, the_locals)
-                    except BaseException:  # as be
-                        # Intercept sys.exit.
+                    except SystemExit as se:
+                        # Intercept sys.exit and propagate the error code.
+                        exit_status = se.code
+                    except BaseException:
                         # print(traceback.format_exc()) # for debugging only
                         pass
                     profiler.stop()
@@ -1400,6 +1404,7 @@ process."""
                         print(
                             "Scalene: Program did not run for long enough to profile."
                         )
+                    sys.exit(exit_status)
                 except Exception as ex:
                     template = (
                         "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
