@@ -1414,6 +1414,7 @@ process."""
                     print(traceback.format_exc())
         except (FileNotFoundError, IOError):
             print("Scalene: could not find input file " + args.prog)
+            sys.exit(-1)
 
 
 if __name__ == "__main__":
