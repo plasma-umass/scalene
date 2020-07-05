@@ -47,14 +47,11 @@ from typing import (
     Callable,
     Dict,
     FrozenSet,
-    IO,
-    Iterator,
     List,
     NewType,
     Optional,
     Set,
     Tuple,
-    TypeVar,
     Union,
     cast,
 )
@@ -66,11 +63,7 @@ class adaptive:
 
     sample_array: List[float] = []
     current_index = 0
-    total_samples = 0
     max_samples = 0
-    count_average = 0
-    sum_average = 0
-    max_average = 1
 
     def __init__(self, size: int):
         self.max_samples = size
@@ -87,10 +80,8 @@ class adaptive:
                 new_array[i] = arr[1]  # Median
             self.current_index = self.max_samples // 3
             self.sample_array = new_array
-            # Update average length
-            self.max_average *= 3
         self.sample_array[self.current_index] = value
-        self.current_index += 1  # count_average += 1
+        self.current_index += 1
 
     def get(self) -> List[float]:
         return self.sample_array
@@ -279,6 +270,12 @@ ByteCodeIndex = NewType("ByteCodeIndex", int)
 class Scalene:
     """The Scalene profiler itself."""
 
+    # Debugging flag, for internal use only.
+    __debug = False
+
+    # Hijack OS open calls.
+    __hijack_open_calls = False # disabled for now
+
     # We use these in is_call_function to determine whether a
     # particular bytecode is a function call.  We use this to
     # distinguish between Python and native code execution when
@@ -450,8 +447,6 @@ class Scalene:
         lambda: defaultdict(lambda: adaptive(9))
     )
 
-    # original working directory
-    __original_path: str = ""
     # path for the program being profiled
     __program_path: str = ""
     # where we write profile info
@@ -513,11 +508,6 @@ class Scalene:
 
     # Threshold for highlighting lines of code in red.
     __highlight_percentage = 33
-
-    @staticmethod
-    def is_thread_sleeping(tid: int) -> bool:
-        result = Scalene.__is_thread_sleeping[tid]
-        return result
 
     @staticmethod
     def set_thread_sleeping(tid: int) -> None:
@@ -653,16 +643,15 @@ process."""
             self.release()
 
     def __init__(self, program_being_profiled: Optional[Filename] = None):
-        if True:
-            # Hijack join.
-            threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
-            # Hijack lock.
-            threading.Lock = Scalene.ReplacementLock  # type: ignore
-            # Hijack system and subprocess calls.
-            if False: # Disabled for now.
-                os.system = Scalene.new_os_system  # type: ignore
-                os.popen = Scalene.new_os_popen  # type: ignore
-                subprocess.Popen = Scalene.new_subprocess_Popen  # type: ignore
+        # Hijack join.
+        threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
+        # Hijack lock.
+        threading.Lock = Scalene.ReplacementLock  # type: ignore
+        # Hijack system and subprocess calls.
+        if Scalene.__hijack_open_calls:
+            os.system = Scalene.new_os_system  # type: ignore
+            os.popen = Scalene.new_os_popen  # type: ignore
+            subprocess.Popen = Scalene.new_subprocess_Popen  # type: ignore
         # Build up signal filenames (adding PID to each).
         Scalene.__malloc_signal_filename = Filename(
             Scalene.__malloc_signal_filename + str(os.getpid())
@@ -1021,17 +1010,6 @@ process."""
         Scalene.disable_signals()
         Scalene.__elapsed_time += Scalene.gettime() - Scalene.__start_time
 
-    # from https://stackoverflow.com/questions/9836370/fallback-to-stdout-if-no-file-name-provided
-    @staticmethod
-    @contextmanager
-    def file_or_stdout(file_name: Optional[str]) -> Iterator[IO[str]]:
-        """Returns a file handle for writing; if no argument is passed, returns stdout."""
-        if file_name is None:
-            yield sys.stdout
-        else:
-            with open(file_name, "w") as out_file:
-                yield out_file
-
     @staticmethod
     def generate_sparkline(
         arr: List[float], minimum: float = -1, maximum: float = -1
@@ -1088,23 +1066,12 @@ process."""
         n_malloc_mb = 0.0
         n_python_malloc_mb = 0.0
         n_free_mb = 0.0
-        n_avg_malloc_mb = 0.0
-        n_avg_free_mb = 0.0
-        n_malloc_count = 0
-        n_free_count = 0
         for index in Scalene.__bytei_map[fname][line_no]:
             mallocs = Scalene.__memory_malloc_samples[fname][line_no][index]
             n_malloc_mb += mallocs
             n_python_malloc_mb += Scalene.__memory_python_samples[fname][line_no][index]
-            n_malloc_count += Scalene.__memory_malloc_count[fname][line_no][index]
             frees = Scalene.__memory_free_samples[fname][line_no][index]
             n_free_mb += frees
-            n_free_count += Scalene.__memory_free_count[fname][line_no][index]
-
-            if n_malloc_count > 0:
-                n_avg_malloc_mb += mallocs / n_malloc_count
-            if n_free_count > 0:
-                n_avg_free_mb += frees / n_free_count
 
         n_growth_mb = n_malloc_mb - n_free_mb
         if -1 < n_growth_mb < 0:
@@ -1345,7 +1312,6 @@ process."""
         Scalene.__output_file = args.outfile
         try:
             with open(args.prog, "rb") as prog_being_profiled:
-                Scalene.__original_path = os.getcwd()
                 # Read in the code and compile it.
                 code = compile(prog_being_profiled.read(), args.prog, "exec")
                 # Push the program's path.
@@ -1373,7 +1339,7 @@ process."""
                         # Intercept sys.exit and propagate the error code.
                         exit_status = se.code
                     except BaseException:
-                        if False:
+                        if Scalene.__debug:
                             print(traceback.format_exc()) # for debugging only
                         pass
                     profiler.stop()
