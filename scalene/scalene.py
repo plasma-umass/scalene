@@ -496,7 +496,7 @@ class Scalene:
     __memcpy_signal = signal.SIGPROF
 
     # Whether we are in a signal handler or not (to make things properly re-entrant).
-    __in_signal_handler = threading.RLock()
+    __in_signal_handler = threading.Lock()
 
     # We cache the previous signal handlers so we can play nice with
     # apps that might already have handlers for these signals.
@@ -974,11 +974,13 @@ process."""
         frame: FrameType,
     ) -> None:
         """Handles memcpy events."""
-        if Scalene.__in_signal_handler.acquire(False):
-            new_frames = Scalene.compute_frames_to_record(frame)
-            if not new_frames:
-                Scalene.__in_signal_handler.release()
-                return
+        if not Scalene.__in_signal_handler.acquire(blocking=False):
+            return
+
+        new_frames = Scalene.compute_frames_to_record(frame)
+        if not new_frames:
+            Scalene.__in_signal_handler.release()
+            return
 
         # Process the input array.
         arr: List[Tuple[int, int]] = []
