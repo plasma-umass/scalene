@@ -7,12 +7,12 @@
  **/
 
 
-template <int Size>
+template <unsigned long Size>
 class open_addr_hashtable {
 public:
   open_addr_hashtable()
   {
-    static_assert((Size & (Size - 1)) == 0,
+    static_assert((Size & (Size - 1UL)) == 0,
 		  "Size must be a power of two.");
   }
 
@@ -26,7 +26,7 @@ public:
   }
 
   void put(void * k, void * v) {
-    auto h = hash1(k);
+    auto h = hash1(k) & (Size - 1);
     if (payload[h].key == nullptr) {
       payload[h].key = k;
     }
@@ -35,7 +35,7 @@ public:
       return;
     }
     while (true) {
-      h = (h + hash2((void *) h)) & ~(Size - 1);
+      h = (h + hash2((void *) h)) & (Size - 1UL);
       if (payload[h].key == nullptr) {
 	payload[h].key = k;
       }
@@ -59,7 +59,7 @@ public:
       return true;
     }
     while (true) {
-      h = (h + hash2((void *) h)) & ~(Size - 1);
+      h = (h + hash2((void *) h)) & (Size - 1UL);
       if (payload[h].key == nullptr) {
 	return false;
       }
@@ -74,7 +74,7 @@ public:
 private:
   // Returns -1 if not found.
   int find(void * k) {
-    auto h = hash1(k);
+    unsigned long h = hash1(k) & (Size - 1UL);
     if (payload[h].key == k) {
       return h;
     }
@@ -82,7 +82,7 @@ private:
       return -1;
     }
     while (true) {
-      h = (h + hash2((void *) h)) & ~(Size - 1);
+      h = (h + hash2((void *) h)) & (Size - 1UL);
       if (payload[h].key == k) {
 	return h;
       }
@@ -91,13 +91,15 @@ private:
       }
     }
   }
+  // Ideally, we'd use actual random numbers here,
+  // but these should still do the trick.
   unsigned long hash1(void * addr) {
     auto u = (uintptr_t) addr;
-    return (u ^ 0xcafebabe) & (Size - 1);
+    return (u ^ 0xAFB758AC3E937519);
   }
   unsigned long hash2(void * addr) {
     auto u = (uintptr_t) addr;
-    return (u ^ 0xdeadbeef) & (Size - 1);
+    return (u ^ 0x9493AFE261E39855);
   }
   struct payload_t {
     payload_t()
