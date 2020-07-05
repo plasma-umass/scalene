@@ -8,7 +8,7 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="scalene",
-    version="0.9.12",
+    version="0.9.13",
     description="Scalene: A high-resolution, low-overhead CPU and memory profiler for Python",
     keywords="performance memory profiler",
     long_description=long_description,
