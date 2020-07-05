@@ -41,6 +41,23 @@ const auto RepoSize = 4096; // 65536; // 32768; // 4096;
 
 typedef SampleHeap<MallocSamplingRate, RepoMan<RepoSize>> CustomHeapType;
 
+class InitializeMe {
+public:
+  InitializeMe()
+  {
+#if 1
+    // invoke backtrace so it resolves symbols now
+#if 0 // defined(__linux__)
+    volatile void * dl = dlopen("libgcc_s.so.1", RTLD_NOW | RTLD_GLOBAL);
+#endif
+    void * callstack[4];
+    auto frames = backtrace(callstack, 4);
+#endif
+  }
+};
+
+static volatile InitializeMe initme;
+
 class TheCustomHeap {
 public:
   ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
@@ -68,14 +85,6 @@ public:
   TheCustomHeap()
   {
     initializing = true;
-#if 0
-    // invoke backtrace so it resolves symbols now
-#if 0 // defined(__linux__)
-    volatile void * dl = dlopen("libgcc_s.so.1", RTLD_NOW | RTLD_GLOBAL);
-#endif
-    void * callstack[4];
-    auto frames = backtrace(callstack, 4);
-#endif
     cHeap = new (buf) CustomHeapType;
     initializing = false;
   }
