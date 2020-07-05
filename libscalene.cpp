@@ -31,7 +31,6 @@
 #endif
 
 class TheCustomHeap;
-static TheCustomHeap * theCustomHeap = nullptr;
 
 // We use prime numbers here (near 1MB, for example) to reduce the risk
 // of stride behavior interfering with sampling.
@@ -42,13 +41,52 @@ const auto RepoSize = 4096; // 65536; // 32768; // 4096;
 
 typedef SampleHeap<MallocSamplingRate, RepoMan<RepoSize>> CustomHeapType;
 
-class TheCustomHeap : public CustomHeapType {
-  typedef CustomHeapType Super;
+class TheCustomHeap {
 public:
+  ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
+    if (unlikely(initializing)) {
+      // If we call malloc while we are initializing,
+      // get memory from an internal buffer.
+      void * ptr = initBufferPtr;
+      initBufferPtr += sz;
+      if (initBufferPtr > initBuffer + MAX_LOCAL_BUFFER_SIZE) {
+	abort();
+      }
+      return ptr;
+    }
+    return cHeap->malloc(sz);
+  }
+
+  ATTRIBUTE_ALWAYS_INLINE void free(void * ptr) {
+    cHeap->free(ptr);
+  }
+
+  ATTRIBUTE_ALWAYS_INLINE size_t getSize(void * ptr) {
+    return cHeap->getSize(ptr);
+  }
+  
   TheCustomHeap()
   {
-    theCustomHeap = this;
+    initializing = true;
+#if 0
+    // invoke backtrace so it resolves symbols now
+#if 0 // defined(__linux__)
+    volatile void * dl = dlopen("libgcc_s.so.1", RTLD_NOW | RTLD_GLOBAL);
+#endif
+    void * callstack[4];
+    auto frames = backtrace(callstack, 4);
+#endif
+    cHeap = new (buf) CustomHeapType;
+    initializing = false;
   }
+
+private:
+  bool initializing = true;
+  enum { MAX_LOCAL_BUFFER_SIZE = 256 * 131072 };
+  char initBuffer[MAX_LOCAL_BUFFER_SIZE];
+  char * initBufferPtr = initBuffer;
+  alignas(128) char buf[sizeof(CustomHeapType)];
+  CustomHeapType * cHeap;
 };
 
 
@@ -208,16 +246,12 @@ extern "C" ATTRIBUTE_EXPORT char * LOCAL_PREFIX(strcpy)(char * dst, const char *
 
 extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void * xxmalloc(size_t sz) {
   void * ptr = nullptr;
-  if (theCustomHeap) {
-    ptr = theCustomHeap->malloc(sz);
-  } else {
-    ptr = getTheCustomHeap().malloc(sz);
-  }
+  ptr = getTheCustomHeap().malloc(sz);
   return ptr;
 }
 
 extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void xxfree(void * ptr) {
-  theCustomHeap->free(ptr);
+  getTheCustomHeap().free(ptr);
 }
 
 extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void xxfree_sized(void * ptr, size_t sz) {
@@ -226,7 +260,7 @@ extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void xxfree_sized(voi
 }
 
 extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) size_t xxmalloc_usable_size(void * ptr) {
-  return theCustomHeap->getSize(ptr); // TODO FIXME adjust for ptr offset?
+  return getTheCustomHeap().getSize(ptr); // TODO FIXME adjust for ptr offset?
 }
 
 extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void xxmalloc_lock() {
