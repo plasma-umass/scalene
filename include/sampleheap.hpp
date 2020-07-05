@@ -36,7 +36,6 @@ public:
   static constexpr auto Multiplier = 1;
 };
 
-
 template <unsigned long MallocSamplingRateBytes, class SuperHeap> 
 class SampleHeap : public SuperHeap {
 public:
@@ -73,6 +72,7 @@ public:
   
   ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
     auto ptr = SuperHeap::malloc(sz);
+  
     if (likely(ptr != nullptr)) {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
@@ -80,7 +80,6 @@ public:
       _mallocOps += realSize;
 #if 1
       if (likely(realSize <= _callStackInterval)) {
-	//	tprintf::tprintf("* @ @\n", realSize, _callStackInterval);
 	_callStackInterval -= realSize;
       } else {
 	recordCallStack(realSize);
@@ -134,6 +133,9 @@ private:
   open_addr_hashtable<65536> _table; // Maps call stack entries to function names.
   
   void recordCallStack(size_t sz) {
+#if defined(__linux__)
+    return; // Temporarily disabled
+#endif
     // Walk the stack to see if this memory was allocated by Python
     // through its object allocation APIs.
     const auto MAX_FRAMES_TO_CHECK = 4; // enough to skip past the replacement_malloc
