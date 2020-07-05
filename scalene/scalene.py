@@ -57,7 +57,6 @@ from typing import (
 )
 
 
-
 class adaptive:
     """Implements sampling to achieve the effect of a uniform random sample."""
 
@@ -274,7 +273,7 @@ class Scalene:
     __debug = False
 
     # Hijack OS open calls.
-    __hijack_open_calls = False # disabled for now
+    __hijack_open_calls = False  # disabled for now
 
     # We use these in is_call_function to determine whether a
     # particular bytecode is a function call.  We use this to
@@ -1340,7 +1339,7 @@ process."""
                         exit_status = se.code
                     except BaseException:
                         if Scalene.__debug:
-                            print(traceback.format_exc()) # for debugging only
+                            print(traceback.format_exc())  # for debugging only
                         pass
                     profiler.stop()
                     # If we've collected any samples, dump them.
