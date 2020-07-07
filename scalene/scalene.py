@@ -19,7 +19,6 @@ import argparse
 import atexit
 
 import builtins
-import contextlib
 import dis
 import os
 import platform
@@ -31,7 +30,6 @@ import threading
 import time
 import traceback
 from collections import defaultdict
-from contextlib import contextmanager
 from functools import lru_cache
 from rich.console import Console
 from rich.markdown import Markdown
@@ -1283,19 +1281,6 @@ process."""
     def exit_handler() -> None:
         """When we exit, disable all signals."""
         Scalene.disable_signals()
-
-    @contextlib.contextmanager
-    @staticmethod
-    def scalene_profiler(_):  # type: ignore
-        """A profiler function, work in progress."""
-        # In principle, this would let people use Scalene as follows:
-        # with scalene_profiler:
-        #   ...
-        profiler = Scalene(None)
-        profiler.start()
-        yield
-        profiler.stop()
-        profiler.output_profiles()  # though this needs to be constrained
 
     @staticmethod
     def main() -> None:
