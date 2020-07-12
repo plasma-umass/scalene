@@ -216,6 +216,10 @@ private:
   ATTRIBUTE_NEVER_INLINE void freeLarge(void * ptr, size_t sz) {
     // "Large" object handling.
     auto basePtr = reinterpret_cast<RepoHeader<Size> *>(ptr) - 1;
+    if (align(basePtr) != basePtr) {
+      // Not aligned = not one of our objects.
+      return;
+    }
     assert(align(basePtr) == basePtr);
     auto origSize = sz;
     sz = sz + sizeof(RepoHeader<Size>);
