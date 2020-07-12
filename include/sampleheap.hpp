@@ -25,9 +25,9 @@
 #define USE_ATOMICS 0
 
 #if USE_ATOMICS
-typedef std::atomic<long> counterType;
+typedef std::atomic<uint64_t> counterType;
 #else
-typedef long counterType;
+typedef uint64_t counterType;
 #endif
 
 class AllocationTimer {
@@ -60,14 +60,11 @@ public:
     // Fill the 0s with the pid.
     auto pid = getpid();
     stprintf::stprintf(scalene_malloc_signal_filename, "/tmp/scalene-malloc-signal@", pid);
-    // scalene_malloc_signal_filename, "/tmp/scalene-malloc-signal%d", pid);
-    //    sprintf(scalene_free_signal_filename, "/tmp/scalene-free-signal%d", pid);
   }
 
   ~SampleHeap() {
     // Delete the signal log files.
     unlink(scalene_malloc_signal_filename);
-    //    unlink(scalene_free_signal_filename);
   }
   
   ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
@@ -123,12 +120,12 @@ private:
   counterType _freeOps;
   char scalene_malloc_signal_filename[255];
   char scalene_free_signal_filename[255];
-  unsigned long long _mallocTriggered;
-  unsigned long long _freeTriggered;
-  unsigned long _interval;
-  unsigned long _callStackInterval;
-  unsigned long _pythonCount;
-  unsigned long _cCount;
+  counterType _mallocTriggered;
+  counterType _freeTriggered;
+  counterType _interval;
+  counterType _callStackInterval;
+  counterType _pythonCount;
+  counterType _cCount;
 
   open_addr_hashtable<65536> _table; // Maps call stack entries to function names.
   
