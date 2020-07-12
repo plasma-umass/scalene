@@ -215,9 +215,11 @@ public:
 
   // Returns true iff this free caused the repo to become empty (and thus available for reuse for another size).
   inline ATTRIBUTE_ALWAYS_INLINE bool free(void * ptr) {
-    assert(RepoHeader<Size>::isValid());
-    assert(inBounds(ptr));
-    return RepoHeader<Size>::free(ptr);
+    if (RepoHeader<Size>::isValid() && inBounds(ptr)) {
+      return RepoHeader<Size>::free(ptr);
+    } else {
+      return 0;
+    }
   }
     
 private:
