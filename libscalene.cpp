@@ -39,7 +39,7 @@ const auto MallocSamplingRate = 1UL * 1048583UL;
 const auto MemcpySamplingRate = MallocSamplingRate * 2 + 1;
 const auto RepoSize = 4096; // 65536; // 32768; // 4096;
 
-typedef SampleHeap<MallocSamplingRate, RepoMan<RepoSize>> CustomHeapType;
+typedef HL::LockedHeap<HL::SpinLock, SampleHeap<MallocSamplingRate, RepoMan<RepoSize>>> CustomHeapType;
 
 class InitializeMe {
 public:
@@ -80,6 +80,14 @@ public:
 
   ATTRIBUTE_ALWAYS_INLINE size_t getSize(void * ptr) {
     return cHeap->getSize(ptr);
+  }
+
+  void lock() {
+    cHeap->lock();
+  }
+
+  void unlock() {
+    cHeap->unlock();
   }
   
   TheCustomHeap()
@@ -273,9 +281,11 @@ extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) size_t xxmalloc_usabl
 }
 
 extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void xxmalloc_lock() {
+  getTheCustomHeap().lock();
 }
 
 extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void xxmalloc_unlock() {
+  getTheCustomHeap().unlock();
 }
 
 #if defined(__APPLE__)
