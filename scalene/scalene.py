@@ -204,6 +204,14 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         default=False,
         help="only profile CPU time (default: profile CPU, memory, and copying)",
     )
+    parser.add_argument(
+        "--profile-all",
+        dest="profile_all",
+        action="store_const",
+        const=True,
+        default=False,
+        help="profile all executed code, not just the target program (default: only the target program)",
+    )
     # the PID of the profiling process (for internal use only)
     parser.add_argument(
         "--pid", type=int, default=int(os.getpid()), help=argparse.SUPPRESS
@@ -450,6 +458,8 @@ class Scalene:
     __output_file: str = ""
     # if we output HTML or not
     __html: bool = False
+    # if we profile all code or just target code and code in its child directories
+    __profile_all: bool = False
     # how long between outputting stats during execution
     __output_profile_interval: float = float("inf")
     # when we output the next profile
@@ -982,16 +992,20 @@ process."""
     @lru_cache(None)
     def should_trace(filename: str) -> bool:
         """Return true if the filename is one we should trace."""
-        # Profile anything in the program's directory or a child directory,
-        # but nothing else.
         if filename[0] == "<":
-            return False
-        if "site-packages" in filename or "/usr/lib/python" in filename:
-            # Don't profile Python internals.
+            # Not a real file.
             return False
         if "scalene.py" in filename or "scalene/__main__.py" in filename:
             # Don't profile the profiler.
             return False
+        if Scalene.__profile_all:
+            # Profile everything else.
+            return True
+        if "site-packages" in filename or "/usr/lib/python" in filename:
+            # Don't profile Python internals.
+            return False
+        # Profile anything in the program's directory or a child directory,
+        # but nothing else, unless otherwise specified.
         filename = os.path.abspath(filename)
         return Scalene.__program_path in filename
 
@@ -1219,7 +1233,7 @@ process."""
 
             # Ignore files responsible for less than 1% of execution time,
             # as long as we aren't profiling memory consumption.
-            if not did_sample_memory and percent_cpu_time < 1:
+            if not did_sample_memory and percent_cpu_time < 1.0:
                 continue
 
             # Print header.
@@ -1294,6 +1308,7 @@ process."""
         )
         Scalene.__html = args.html
         Scalene.__output_file = args.outfile
+        Scalene.__profile_all = args.profile_all
         try:
             with open(args.prog, "rb") as prog_being_profiled:
                 # Read in the code and compile it.
