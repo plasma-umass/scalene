@@ -3,11 +3,14 @@
 #ifndef _MWC_H_
 #define _MWC_H_
 
-#include <stdio.h>
+#include <assert.h>
 #include <iostream>
+#include <pthread.h>
+#include <stdio.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "common.hpp"
-#include <assert.h>
 #define d_assert assert
 
 /**
@@ -19,7 +22,12 @@
 
 class MWC {
 public:
-  
+
+  MWC()
+    : MWC ((getpid() + time(nullptr)) | 1, (uint32_t) ((uint64_t) pthread_self() | 1))
+  {
+    srand(time(nullptr));
+  }
   MWC(uint32_t seed1, uint32_t seed2) : z(seed1), w(seed2) {
     d_assert(seed1 != 0);
     d_assert(seed2 != 0);
@@ -44,20 +52,22 @@ public:
   // returns a number between min and max (inclusive)
   inline uint32_t ATTRIBUTE_ALWAYS_INLINE inRange(size_t min, size_t max) {
     size_t range = 1 + max - min;
-    //    return min + next() % range;
+    return min + next() % range;
     // adapted from https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
-    return min + (((uint64_t)(uint32_t)next() * (uint64_t)range) >> 32);
+    //return min + (((uint64_t)(uint32_t)next() * (uint64_t)range) >> 32);
   }
 
   // Returns a float between 0 and 1.
   auto inline nextU() {
-    return (float) inRange(0, UINT32_MAX) / (float) UINT32_MAX;
+    return (float) next() / (float) UINT32_MAX;
   }
 
   // Convert a uniform random number (u) into a geometrically-distributed one with probability p.
-  auto inline ATTRIBUTE_ALWAYS_INLINE geometric(float p) {
+  auto inline ATTRIBUTE_ALWAYS_INLINE geometric(double p) {
     auto u = nextU();
-    return (int) round(log(u) / log(1.0 - p));
+    //    u = (double) rand() / (double) RAND_MAX;
+    auto geom = (int) ceil(log(u) / log(1.0 - p));
+    return geom;
   }
 
 private:
