@@ -1,8 +1,9 @@
 #ifndef REPO_HPP
 #define REPO_HPP
 
-#include <assert.h>
+#include <cassert>
 #include <iostream>
+#include <mutex>
 
 #include "libdivide.h"
 #include "common.hpp"
@@ -39,14 +40,17 @@ public:
   }
   
   inline void setNext(RepoHeader * p) {
+    std::lock_guard lock(_lock);
     _nextRepo = p;
   }
 
-  inline auto getNext() const {
+  inline auto getNext() {
+    std::lock_guard lock(_lock);
     return _nextRepo;
   }
 
-  inline ATTRIBUTE_ALWAYS_INLINE auto getFreed() const {
+  inline ATTRIBUTE_ALWAYS_INLINE auto getFreed() {
+    std::lock_guard lock(_lock);
     return _freed;
   }
 
@@ -58,6 +62,7 @@ public:
   }
   
   inline ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
+    std::lock_guard lock(_lock);
     assert(RepoHeader<Size>::isValid());
     assert(sz == getBaseSize());
     Object * obj = nullptr;
@@ -90,6 +95,7 @@ public:
   // Returns true iff this free resulted in the whole repo being free.
   inline ATTRIBUTE_ALWAYS_INLINE bool free(void * ptr) { // incFreed() {
     if (ptr == nullptr) { return false; }
+    std::lock_guard lock(_lock);
     
     // Pointer must be in buffer bounds; guaranteed by caller.
 
@@ -120,6 +126,7 @@ public:
   }
 
   inline ATTRIBUTE_ALWAYS_INLINE bool isEmpty() const {
+    std::lock_guard lock(_lock);
     return ((_freed == _numberOfObjects) || (_bumped == 0));
   }
 
@@ -154,7 +161,8 @@ private:
   uint32_t _magic;
   RepoHeader * _nextRepo;
   Object * _nextObject;
-
+  alignas(16) HL::SpinLock _lock;
+  
 public:
 
   inline uint32_t fast_modulo(uint32_t v) {
@@ -186,7 +194,7 @@ public:
 
   }
 
-  inline Repo<Size> * getNext() const {
+  inline Repo<Size> * getNext() {
     return (Repo<Size> *) RepoHeader<Size>::getNext();
   }
 
