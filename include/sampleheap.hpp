@@ -10,8 +10,10 @@
 #include <atomic>
 
 #include <signal.h>
+
 #include "common.hpp"
 #include "open_addr_hashtable.hpp"
+#include "sampler.hpp"
 #include "stprintf.h"
 #include "tprintf.h"
 
@@ -42,14 +44,10 @@ public:
   
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
-  enum { CallStackSamplingRate = MallocSamplingRateBytes / 13 }; // 13 };
+  enum { CallStackSamplingRate = MallocSamplingRateBytes / 13 };
   
   SampleHeap()
-    : _interval (MallocSamplingRateBytes),
-      _callStackInterval (CallStackSamplingRate),
-      _mallocOps (0),
-      _freeOps (0),
-      _mallocTriggered (0),
+    : _mallocTriggered (0),
       _freeTriggered (0),
       _pythonCount (0),
       _cCount (0)
@@ -74,24 +72,18 @@ public:
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
-      _mallocOps += realSize;
+      auto sampleMalloc = _mallocSampler.sample(realSize);
+      auto sampleCallStack = _callStackSampler.sample(realSize);
 #if 1
-      if (likely(realSize <= _callStackInterval)) {
-	_callStackInterval -= realSize;
-      } else {
+      if (unlikely(sampleCallStack)) {
 	recordCallStack(realSize);
-	_callStackInterval = CallStackSamplingRate;
       }
 #endif
-      if (unlikely(_mallocOps >= _interval)) {
-	writeCount(MallocSignal, _mallocOps);
+      if (unlikely(sampleMalloc)) {
+	writeCount(MallocSignal, sampleMalloc * MallocSamplingRateBytes);
 	_pythonCount = 0;
 	_cCount = 0;
 	_mallocTriggered++;
-	_mallocOps = 0;
-	if (_mallocTriggered == _freeTriggered) {
-	  _interval = (unsigned long) (_interval * AllocationTimer::Multiplier);
-	}
 	raise(MallocSignal);
       }
     }
@@ -101,29 +93,23 @@ public:
   ATTRIBUTE_ALWAYS_INLINE inline void free(void * ptr) {
     if (unlikely(ptr == nullptr)) { return; }
     auto realSize = SuperHeap::free(ptr);
-    
-    _freeOps += realSize;
-    if (unlikely(_freeOps >= _interval)) {
-      writeCount(FreeSignal, _freeOps);
+    auto sampleFree = _freeSampler.sample(realSize);
+    if (unlikely(sampleFree)) {
+      writeCount(FreeSignal, sampleFree * MallocSamplingRateBytes);
       _freeTriggered++;
-      _freeOps = 0;
-      if (_mallocTriggered == _freeTriggered) {
-	_interval = (unsigned long) (_interval * AllocationTimer::Multiplier);
-      }
       raise(FreeSignal);
     }
   }
 
 private:
 
-  counterType _mallocOps;
-  counterType _freeOps;
+  Sampler<MallocSamplingRateBytes> _mallocSampler;
+  Sampler<MallocSamplingRateBytes> _freeSampler;
+  Sampler<CallStackSamplingRate>   _callStackSampler;
   char scalene_malloc_signal_filename[255];
   char scalene_free_signal_filename[255];
   counterType _mallocTriggered;
   counterType _freeTriggered;
-  counterType _interval;
-  counterType _callStackInterval;
   counterType _pythonCount;
   counterType _cCount;
 
