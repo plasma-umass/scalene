@@ -56,41 +56,44 @@ public:
     auto index = getIndex(sz);
     Repo<Size> * repo = nullptr;
     if (unlikely(getSource(index) == nullptr)) {
-      // Allocate a new one. FIXME ensure alignment.
-      if (likely(sz < _sz)) {
-	auto buf = _buf;
-	_buf += Size;
-	_sz -= Size;
-	// tprintf::tprintf("buf now = @, _sz now = @\n", _buf, _sz);
-	//      auto buf = MmapWrapper::map(Size);
-	// Must ensure sz is a proper size.
-	//assert(sz % Alignment == 0);
-	repo = new (buf) Repo<Size>(sz);
-	// tprintf::tprintf("GET (@) mmapping: @.\n", sz, repo);
-	assert(repo != nullptr);
-	repo->setNext(nullptr); // FIXME? presumably redundant.
-	assert (repo->getState() == RepoHeader<Size>::RepoState::Unattached);
-	assert(isValid());
-	return repo;
-      } else {
-	tprintf::tprintf("Scalene: Memory exhausted: sz = @\n", sz);
-	assert(isValid());
-	return nullptr;
-      }
-    } else {
-      repo = getSource(index);
-      auto oldState = repo->setState(RepoHeader<Size>::RepoState::Unattached);
-      assert (oldState == RepoHeader<Size>::RepoState::RepoSource);
-      // tprintf::tprintf("GET (@) popping @.\n", sz, repo);
-      getSource(index) = getSource(index)->getNext();
-      repo->setNext(nullptr);
-      // new (repo) Repo<Size>(sz);
-      if (getSource(index) != nullptr) {
-	assert(getSource(index)->isValid());
+      // Nothing in this size. Check the empty list.
+      if (getSource(NUM_REPOS) == nullptr) {
+	// No empties. Allocate a new one.
+	if (likely(sz < _sz)) {
+	  auto buf = _buf;
+	  _buf += Size;
+	  _sz -= Size;
+	  repo = new (buf) Repo<Size>(sz);
+	  assert(repo != nullptr);
+	  repo->setNext(nullptr); // FIXME? presumably redundant.
+	  assert (repo->getState() == RepoHeader<Size>::RepoState::Unattached);
+	  assert(isValid());
+	  return repo;
+	} else {
+	  tprintf::tprintf("Scalene: Memory exhausted: sz = @\n", sz);
+	  assert(isValid());
+	  return nullptr;
+	}
       }
     }
+    // If we get here, either there's a repo with the desired size or there's an empty available.
+    repo = getSource(index);
+    if (!repo || (!repo->isEmpty() && getSource(NUM_REPOS) != nullptr)) {
+      // Reformat an empty repo.
+      index = NUM_REPOS;
+      repo = getSource(index);
+      assert(repo->isEmpty());
+      repo = new (repo) Repo<Size>(sz);
+      assert(repo->getObjectSize() == sz);
+    }
+    auto oldState = repo->setState(RepoHeader<Size>::RepoState::Unattached);
+    // tprintf::tprintf("GET (@) popping @.\n", sz, repo);
+    getSource(index) = getSource(index)->getNext();
+    repo->setNext(nullptr);
+    if (getSource(index) != nullptr) {
+      assert(getSource(index)->isValid());
+    }
     assert(repo->isValid());
-    // tprintf::tprintf("reposource: @ - GET @ = @ [empty = @]\n", this, sz, repo, repo->isEmpty());
     assert(isValid());
     assert(repo->getNext() == nullptr);
     return repo;
@@ -101,17 +104,22 @@ public:
     assert(repo != nullptr);
     assert(repo->isValid());
     if (repo->getState() == RepoHeader<Size>::RepoState::RepoSource) {
-      tprintf::tprintf("THIS IS BAD. repo = @\n", repo);
-      abort();
+      // This should never happen.
+      // Fail gracefully.
+      return;
     }
     auto oldState = repo->setState(RepoHeader<Size>::RepoState::RepoSource);
     assert(oldState != RepoHeader<Size>::RepoState::RepoSource);
     assert(repo->getNext() == nullptr);
     auto index = getIndex(repo->getSize(nullptr));
+    if (repo->isEmpty()) {
+      // Put empty repos on the last array.
+      // Temporarily disabled.
+      ///      index = NUM_REPOS;
+    }
     repo->setNext(getSource(index));
     getSource(index) = repo;
     assert(isValid());
-    // tprintf::tprintf("reposource: @ - PUT @ (sz = @) [empty = @]\n", this, repo, repo->getObjectSize(), repo->isEmpty());
   }
   
 private:
@@ -123,14 +131,16 @@ private:
   
   enum { MULTIPLE = 16 };
   enum { MAX_SIZE = 512 };
-  enum { NUM_REPOS = MAX_SIZE / MULTIPLE };
+  enum { NUM_REPOS = Size / MULTIPLE };
   
   static ATTRIBUTE_ALWAYS_INLINE constexpr inline int getIndex(size_t sz) {
     return sz / MULTIPLE - 1;
   }
   
   static Repo<Size> *& getSource(int index) {
-    static Repo<Size> * repos[NUM_REPOS] { nullptr }; // TBD: add one to the end for empty repos.
+    assert(index >= 0);
+    assert(index <= NUM_REPOS);
+    static Repo<Size> * repos[NUM_REPOS + 1] { nullptr }; // One extra at the end for empty repos.
     return repos[index];
   }
   
