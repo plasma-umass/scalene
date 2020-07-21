@@ -17,7 +17,7 @@
 #include "stprintf.h"
 #include "tprintf.h"
 
-#define DISABLE_SIGNALS 0 // FIXME // For debugging purposes only.
+#define DISABLE_SIGNALS 0 // For debugging purposes only.
 
 #if DISABLE_SIGNALS
 #define raise(x)
@@ -31,12 +31,6 @@ typedef std::atomic<uint64_t> counterType;
 #else
 typedef uint64_t counterType;
 #endif
-
-class AllocationTimer {
-public:
-  // Note: for now, we don't multiply the intervals.
-  static constexpr auto Multiplier = 1;
-};
 
 template <unsigned long MallocSamplingRateBytes, class SuperHeap> 
 class SampleHeap : public SuperHeap {
