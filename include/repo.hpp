@@ -17,11 +17,13 @@ private:
 public:
 
   enum { Alignment = 2 * sizeof(unsigned long) };
+  enum RepoState { RepoSource, LocalRepoMan, Unattached };
   
   RepoHeader(unsigned long objectSize)
     : _bumped (0),
       _freed (0),
       _magic (MAGIC_NUMBER),
+      _repoState (RepoState::Unattached),
       _nextRepo (nullptr),
       _nextObject (nullptr),
       _objectSize (objectSize),
@@ -31,6 +33,17 @@ public:
     static_assert(sizeof(RepoHeader) % 16 == 0, "Misaligned.");
   }
 
+  inline RepoState getState() const {
+    return _repoState;
+  }
+
+  inline RepoState setState(RepoState s) {
+    std::lock_guard lock(_lock);
+    auto oldState = _repoState;
+    _repoState = s;
+    return oldState;
+  }
+  
   inline ATTRIBUTE_ALWAYS_INLINE auto getObjectSize() const {
     return _objectSize;
   }
@@ -111,21 +124,21 @@ public:
     
     assert(_freed < _numberOfObjects);
     // Note: a double free could create a cycle.
-    // Thread this object onto the freelist.
     _freed++;
     if (unlikely(_freed == _numberOfObjects)) {
       clear();
       return true;
     } else {
-    assert(sizeof(Object) <= getBaseSize());
+      // Thread this object onto the freelist.
       auto obj = new (ptr) Object;
+      assert(sizeof(Object) <= getBaseSize());
       obj->setNext(_nextObject);
       _nextObject = obj;
       return false;
     }
   }
 
-  inline ATTRIBUTE_ALWAYS_INLINE bool isEmpty() const {
+  inline ATTRIBUTE_ALWAYS_INLINE bool isEmpty() {
     std::lock_guard lock(_lock);
     return ((_freed == _numberOfObjects) || (_bumped == 0));
   }
@@ -159,9 +172,11 @@ private:
   uint32_t _bumped;     // total number of objects allocated so far via pointer-bumping.
   uint32_t _freed;      // total number of objects freed so far.
   uint32_t _magic;
+  RepoState _repoState;
   RepoHeader * _nextRepo;
   Object * _nextObject;
-  alignas(16) HL::SpinLock _lock;
+  HL::SpinLock _lock;
+  double _dummy;
   
 public:
 
@@ -190,8 +205,6 @@ public:
     : RepoHeader<Size>(objectSize)
   {
     static_assert(sizeof(*this) == Size, "Something has gone terribly wrong.");
-    assert((uintptr_t) _buffer - (uintptr_t) this == sizeof(RepoHeader<Size>));
-
   }
 
   inline Repo<Size> * getNext() {
@@ -204,6 +217,9 @@ public:
   
   inline ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
     assert(RepoHeader<Size>::isValid());
+    if (sz != RepoHeader<Size>::getObjectSize()) {
+      tprintf::tprintf("repo.hpp: sz = @, repo obj size = @\n", sz, RepoHeader<Size>::getObjectSize());
+    }
     assert (sz == RepoHeader<Size>::getObjectSize());
     auto ptr = RepoHeader<Size>::malloc(sz);
     if (ptr != nullptr) {

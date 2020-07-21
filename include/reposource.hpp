@@ -7,61 +7,69 @@
 template <int Size>
 class RepoSource {
 private:
+  
+  enum { MAX_HEAP_SIZE = 3UL * 1024 * 1024 * 1024 }; // 3GB
 
+  const char * _bufferStart;
   char * _buf;
   size_t _sz;
-  int _totalAvailable;
+
+  constexpr auto align (void * ptr) {
+    const auto alignedPtr = (void *) (((uintptr_t) ptr + Size - 1) & ~(Size - 1));
+    return alignedPtr;
+  }
   
 public:
 
-  RepoSource(char * buf, size_t sz)
-    : _buf (buf),
-      _sz (sz),
-      _totalAvailable (0)
-  {}
+  RepoSource()
+    : _bufferStart (reinterpret_cast<char *>(MmapWrapper::map(MAX_HEAP_SIZE))),
+      // Below, align the buffer and subtract the part removed by aligning it.
+      _buf(reinterpret_cast<char *>(align((void *) _bufferStart))),
+      _sz (MAX_HEAP_SIZE - ((uintptr_t) align((void *) _bufferStart) - (uintptr_t) _bufferStart))
+  {
+    static int counter = 0;
+    counter++;
+    // Sanity check.
+    if (counter > 1) {
+      abort();
+    }
+  }
 
+  constexpr auto getHeapSize() {
+    return MAX_HEAP_SIZE;
+  }
+  
+  inline const char * getBufferStart() {
+    return _bufferStart;
+  }
+  
   inline bool isValid() const {
 #if defined(NDEBUG)
     return true;
 #endif
-#if 1 // turn off expensive integrity checks for now.
     return true;
-#else
-    int count = 0;
-    Repo<Size> * repo = getSource();
-    while (repo != nullptr) {
-      count++;
-      repo = repo->getNext();
-      if (count > _totalAvailable + 100000) {
-	tprintf::tprintf("LOOKS LIKE A LOOP.\n");
-	abort();
-      }
-    }
-    if (count != _totalAvailable) {
-      tprintf::tprintf("count = @, totalAvailable = @\n", count, _totalAvailable);
-    }
-    return (count == _totalAvailable);
-#endif
   }
   
   Repo<Size> * get(size_t sz) {
-    //    tprintf::tprintf("repo @ get @\n", Size, sz);
+    // tprintf::tprintf("repo: @,  (buf = @), @ get @\n", this, _buf, Size, sz);
     assert(isValid());
+    auto index = getIndex(sz);
     Repo<Size> * repo = nullptr;
-    if (unlikely(getSource() == nullptr)) {
-      assert(_totalAvailable == 0);
+    if (unlikely(getSource(index) == nullptr)) {
       // Allocate a new one. FIXME ensure alignment.
       if (likely(sz < _sz)) {
-	//	tprintf::tprintf("GET (@) mmapping.\n", sz);
 	auto buf = _buf;
 	_buf += Size;
 	_sz -= Size;
+	// tprintf::tprintf("buf now = @, _sz now = @\n", _buf, _sz);
 	//      auto buf = MmapWrapper::map(Size);
 	// Must ensure sz is a proper size.
 	//assert(sz % Alignment == 0);
 	repo = new (buf) Repo<Size>(sz);
+	// tprintf::tprintf("GET (@) mmapping: @.\n", sz, repo);
 	assert(repo != nullptr);
 	repo->setNext(nullptr); // FIXME? presumably redundant.
+	assert (repo->getState() == RepoHeader<Size>::RepoState::Unattached);
 	assert(isValid());
 	return repo;
       } else {
@@ -70,21 +78,21 @@ public:
 	return nullptr;
       }
     } else {
-      //      tprintf::tprintf("GET (@) popping.\n", sz);
-      assert(_totalAvailable > 0);
-      repo = getSource();
-      getSource() = getSource()->getNext();
-      new (repo) Repo<Size>(sz);
-      if (getSource() != nullptr) {
-	assert(getSource()->isValid());
-	assert(getSource()->isEmpty());
+      repo = getSource(index);
+      auto oldState = repo->setState(RepoHeader<Size>::RepoState::Unattached);
+      assert (oldState == RepoHeader<Size>::RepoState::RepoSource);
+      // tprintf::tprintf("GET (@) popping @.\n", sz, repo);
+      getSource(index) = getSource(index)->getNext();
+      repo->setNext(nullptr);
+      // new (repo) Repo<Size>(sz);
+      if (getSource(index) != nullptr) {
+	assert(getSource(index)->isValid());
       }
-      _totalAvailable--;
     }
     assert(repo->isValid());
-    assert(repo->isEmpty());
-    //    tprintf::tprintf("GET @ = @ [total available = @]\n", sz, repo, _totalAvailable);
+    // tprintf::tprintf("reposource: @ - GET @ = @ [empty = @]\n", this, sz, repo, repo->isEmpty());
     assert(isValid());
+    assert(repo->getNext() == nullptr);
     return repo;
   }
 
@@ -92,20 +100,38 @@ public:
     assert(isValid());
     assert(repo != nullptr);
     assert(repo->isValid());
-    assert(repo->isEmpty());
-    //    assert(getSource() == nullptr || getSource()->isEmpty());
-    repo->setNext(getSource());
-    getSource() = repo;
-    _totalAvailable++;
+    if (repo->getState() == RepoHeader<Size>::RepoState::RepoSource) {
+      tprintf::tprintf("THIS IS BAD. repo = @\n", repo);
+      abort();
+    }
+    auto oldState = repo->setState(RepoHeader<Size>::RepoState::RepoSource);
+    assert(oldState != RepoHeader<Size>::RepoState::RepoSource);
+    assert(repo->getNext() == nullptr);
+    auto index = getIndex(repo->getSize(nullptr));
+    repo->setNext(getSource(index));
+    getSource(index) = repo;
     assert(isValid());
-    //    tprintf::tprintf("PUT @ (sz = @) [total available = @]\n", repo, repo->getObjectSize(), _totalAvailable);
+    // tprintf::tprintf("reposource: @ - PUT @ (sz = @) [empty = @]\n", this, repo, repo->getObjectSize(), repo->isEmpty());
   }
   
 private:
 
-  static Repo<Size> *& getSource() {
-    static Repo<Size> * head = nullptr;
-    return head;
+  RepoSource(RepoSource&);
+  RepoSource& operator=(const RepoSource&);
+  
+  // TBD: unify with RepoMan declarations.
+  
+  enum { MULTIPLE = 16 };
+  enum { MAX_SIZE = 512 };
+  enum { NUM_REPOS = MAX_SIZE / MULTIPLE };
+  
+  static ATTRIBUTE_ALWAYS_INLINE constexpr inline int getIndex(size_t sz) {
+    return sz / MULTIPLE - 1;
+  }
+  
+  static Repo<Size> *& getSource(int index) {
+    static Repo<Size> * repos[NUM_REPOS] { nullptr }; // TBD: add one to the end for empty repos.
+    return repos[index];
   }
   
 };

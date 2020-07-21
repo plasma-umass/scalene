@@ -3,7 +3,7 @@
 
 #include "common.hpp"
 #include "repo.hpp"
-#include "reposource.hpp"
+//#include "reposource.hpp"
 #include "heaplayers.h"
 
 #include <assert.h>
@@ -12,22 +12,14 @@
 #include <stdlib.h>
 
 
-template <int Size>
+template <int Size, template <int> class Source>
 class RepoMan {
-private:
-  
-  enum { MAX_HEAP_SIZE = 3UL * 1024 * 1024 * 1024 }; // 3GB
-  char * _bufferStart;
   
 public:
 
   enum { Alignment = Repo<Size>::Alignment };
   
   RepoMan()
-    : _bufferStart (reinterpret_cast<char *>(MmapWrapper::map(MAX_HEAP_SIZE))),
-      // Below, align the buffer and subtract the part removed by aligning it.
-      _repoSource(reinterpret_cast<char *>(align(_bufferStart)),
-		  MAX_HEAP_SIZE - ((uintptr_t) align(_bufferStart) - (uintptr_t) _bufferStart))
   {
     static_assert((Size & ~(Size-1)) == Size, "Size must be a power of two.");
     static_assert(Size > MAX_SIZE, "Size must be larger than maximum size.");
@@ -35,15 +27,28 @@ public:
     // Initialize the repos for each size.
     for (auto index = 0; index < NUM_REPOS; index++) {
       _repos[index] = _repoSource.get((index + 1) * MULTIPLE);
+      auto prevState = _repos[index]->setState(RepoHeader<Size>::RepoState::LocalRepoMan);
+      assert(prevState == RepoHeader<Size>::RepoState::Unattached);
       assert(getIndex((index + 1) * MULTIPLE) == index);
-      assert(_repos[index]->isEmpty());
+      //      assert(_repos[index]->isEmpty());
+    }
+  }
+
+  ~RepoMan()
+  {
+    for (auto index = 0; index < NUM_REPOS; index++) {
+      if (_repos[index]->isEmpty()) {
+	auto prevState = _repos[index]->setState(RepoHeader<Size>::RepoState::Unattached);
+	assert(prevState == RepoHeader<Size>::RepoState::LocalRepoMan);
+	_repoSource.put(_repos[index]);
+      }
     }
   }
 
   // Check if this pointer came from us (inside the allocation buffer).
-  inline ATTRIBUTE_ALWAYS_INLINE constexpr bool inBounds(void * ptr) const {
+  inline ATTRIBUTE_ALWAYS_INLINE constexpr bool inBounds(void * ptr) {
     char * cptr = reinterpret_cast<char *>(ptr);
-    auto in = ((cptr >= _bufferStart) && (cptr < (_bufferStart + MAX_HEAP_SIZE)));
+    auto in = ((cptr >= _repoSource.getBufferStart()) && (cptr < (_repoSource.getBufferStart() + _repoSource.getHeapSize())));
     if (!in) {
       //      tprintf::tprintf("Out of bounds: @\n", ptr);
     }
@@ -67,10 +72,8 @@ public:
       while (ptr == nullptr) {
 	ptr = _repos[index]->malloc(sz);
 	if (ptr == nullptr) {
-	  _repoSourceLock.lock();
 	  _repos[index] = _repoSource.get(sz);
-	  assert((_repos[index] == nullptr) || _repos[index]->isEmpty());
-	  _repoSourceLock.unlock();
+	  assert(_repos[index]->isValid());
 	}
       }
     } else {
@@ -98,12 +101,11 @@ public:
 	  auto r = reinterpret_cast<Repo<Size> *>(getHeader(ptr));
 	  assert(!r->isEmpty());
 	  if (unlikely(r->free(ptr))) {
-	    assert(r->isEmpty());
 	    // If we just freed the whole repo and it's not our current repo, give it back to the repo source for later reuse.
 	    if (unlikely(r != _repos[index])) {
-	      _repoSourceLock.lock();
-	      _repoSource.put(r);
-	      _repoSourceLock.unlock();
+	      if (r->getState() == RepoHeader<Size>::RepoState::Unattached) {
+		_repoSource.put(r);
+	      }
 	    }
 	  }
 	} else {
@@ -165,9 +167,7 @@ private:
     if (sz <= Size) {
 
       // It's small enough: just use a repo.
-      _repoSourceLock.lock();
       alignedPtr = _repoSource.get(sz);
-      _repoSourceLock.unlock();
       
     } else {
 
@@ -228,9 +228,7 @@ private:
     if (sz <= Size) {
       // It was actually a repo. Put it back.
       //      tprintf::tprintf("returning repo @ of size @\n", basePtr, origSize);
-      _repoSourceLock.lock();
       _repoSource.put(reinterpret_cast<Repo<Size> *>(basePtr));
-      _repoSourceLock.unlock();
     } else {
       // Unmap it.
       MmapWrapper::unmap(basePtr, sz);
@@ -240,8 +238,7 @@ private:
   enum { MAX_SIZE = 512 };
   enum { NUM_REPOS = MAX_SIZE / MULTIPLE };
   Repo<Size> * _repos[NUM_REPOS];
-  RepoSource<Size> _repoSource;
-  HL::SpinLock _repoSourceLock;
+  Source<Size> _repoSource;
 };
 
 #endif
