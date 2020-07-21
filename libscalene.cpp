@@ -20,6 +20,7 @@
 #include "sampleheap.hpp"
 
 #include "repoman.hpp"
+#include "reposource.hpp"
 
 #include "fastmemcpy.hpp"
 
@@ -35,11 +36,46 @@ class TheCustomHeap;
 // We use prime numbers here (near 1MB, for example) to reduce the risk
 // of stride behavior interfering with sampling.
 
-const auto MallocSamplingRate = 1UL * 1048583UL;
+const auto MallocSamplingRate = 1048538UL;
 const auto MemcpySamplingRate = MallocSamplingRate * 2 + 1;
 const auto RepoSize = 4096; // 65536; // 32768; // 4096;
 
-typedef HL::LockedHeap<HL::SpinLock, SampleHeap<MallocSamplingRate, RepoMan<RepoSize>>> CustomHeapType;
+template <int Size>
+class OneSource {
+  HL::singleton<RepoSource<Size>> source;
+public:
+  
+  inline bool isValid() { return true; }
+  Repo<Size> * get(size_t sz) {
+    std::lock_guard lock (getLock());
+    return source.getInstance().get(sz);
+  }
+  inline void put(Repo<Size> * repo) {
+    std::lock_guard lock (getLock());
+    source.getInstance().put(repo);
+  }
+  inline auto getBufferStart() {
+    return source.getInstance().getBufferStart();
+  }
+  inline auto getHeapSize() {
+    return source.getInstance().getHeapSize();
+  }
+  
+private:
+
+  static inline auto& getLock() {
+    static HL::SpinLock lock;
+    return lock;
+  }
+};
+
+class S : public SampleHeap<MallocSamplingRate, RepoMan<RepoSize, OneSource>> {};
+//class S : public SampleHeap<MallocSamplingRate, HL::LockedHeap<HL::SpinLock, RepoMan<RepoSize, OneSource>>> {};
+// class S : public SampleHeap<MallocSamplingRate, HL::OneHeap<HL::LockedHeap<HL::SpinLock, RepoMan<RepoSize, OneSource>>>> {};
+// class S : public SampleHeap<MallocSamplingRate, HL::LockedHeap<HL::SpinLock, HL::OneHeap<RepoMan<RepoSize, RepoSource>>>> {};
+
+typedef HL::ThreadSpecificHeap<S> CustomHeapType;
+//typedef S CustomHeapType;
 
 class InitializeMe {
 public:
@@ -53,6 +89,7 @@ public:
     void * callstack[4];
     auto frames = backtrace(callstack, 4);
 #endif
+    //    isInitialized = true;
   }
 };
 
@@ -83,11 +120,11 @@ public:
   }
 
   void lock() {
-    cHeap->lock();
+    //    cHeap->lock();
   }
 
   void unlock() {
-    cHeap->unlock();
+    //    cHeap->unlock();
   }
   
   TheCustomHeap()
