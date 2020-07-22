@@ -168,7 +168,7 @@ private:
   
   const uint32_t _objectSize;
   const libdivide::divider<uint32_t> _divider;
-  uint32_t _numberOfObjects;
+  const uint32_t _numberOfObjects;
   uint32_t _bumped;     // total number of objects allocated so far via pointer-bumping.
   uint32_t _freed;      // total number of objects freed so far.
   uint32_t _magic;
