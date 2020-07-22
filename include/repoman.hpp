@@ -64,6 +64,8 @@ public:
       //      tprintf::tprintf("repoman malloc @\n", sz);
       //      assert (sz == roundUp(sz, MULTIPLE));
       auto index = getIndex(sz);
+      assert(_repos[index]->getObjectSize() == sz);
+      assert(_repos[index]->getState() == RepoHeader<Size>::RepoState::LocalRepoMan);
       ptr = _repos[index]->malloc(sz);
       if (likely(ptr != nullptr)) {
 	assert((uintptr_t) ptr % Alignment == 0);
@@ -73,6 +75,7 @@ public:
 	ptr = _repos[index]->malloc(sz);
 	if (ptr == nullptr) {
 	  _repos[index] = _repoSource.get(sz);
+	  _repos[index]->setState(RepoHeader<Size>::RepoState::LocalRepoMan);
 	  assert(_repos[index]->isValid());
 	}
       }
@@ -98,6 +101,7 @@ public:
 	auto sz = getSize(ptr);
 	if (likely(sz <= MAX_SIZE)) {
 	  auto index = getIndex(sz);
+	  assert(_repos[index]->getObjectSize() == sz);
 	  auto r = reinterpret_cast<Repo<Size> *>(getHeader(ptr));
 	  assert(!r->isEmpty());
 	  if (unlikely(r->free(ptr))) {
@@ -167,7 +171,7 @@ private:
     if (sz <= Size) {
 
       // It's small enough: just use a repo.
-      alignedPtr = _repoSource.get(sz);
+      alignedPtr = _repoSource.get(origSize);
       
     } else {
 
