@@ -211,6 +211,13 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         default=False,
         help="profile all executed code, not just the target program (default: only the target program)",
     )
+    parser.add_argument(
+        "--cpu-percent-threshold",
+        dest="cpu_percent_threshold",
+        type=int,
+        default=1,
+        help="only report profiles with at least this % of CPU time (default: 1%)",
+    )
     # the PID of the profiling process (for internal use only)
     parser.add_argument(
         "--pid", type=int, default=int(os.getpid()), help=argparse.SUPPRESS
@@ -385,6 +392,12 @@ class Scalene:
     __cpu_samples_c: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
         lambda: defaultdict(float)
     )
+
+    # Running count of total CPU samples per file. Used to prune reporting.
+    __cpu_samples: Dict[Filename, float] = defaultdict(float)
+
+    # Running count of malloc samples per file. Used to prune reporting.
+    __malloc_samples: Dict[Filename, float] = defaultdict(float)
 
     # Below are indexed by [filename][line_no][bytecode_index]:
     #
@@ -752,6 +765,9 @@ process."""
                         python_time / total_frames
                     )
                     Scalene.__cpu_samples_c[fname][lineno] += c_time / total_frames
+                    Scalene.__cpu_samples[fname] += (
+                        python_time + c_time
+                    ) / total_frames
             else:
                 # We can't play the same game here of attributing
                 # time, because we are in a thread, and threads don't
@@ -768,6 +784,7 @@ process."""
                     else:
                         # Not in a call function so we attribute the time to Python.
                         Scalene.__cpu_samples_python[fname][lineno] += normalized_time
+                    Scalene.__cpu_samples[fname] += normalized_time
 
         del new_frames
 
@@ -939,6 +956,7 @@ process."""
                     python_frac / allocs
                 ) * (after - before)
                 Scalene.__memory_malloc_count[fname][line_no][bytei] += 1
+                Scalene.__malloc_samples[fname] += 1
                 Scalene.__total_memory_malloc_samples += after - before
             else:
                 Scalene.__memory_free_samples[fname][line_no][bytei] += before - after
@@ -1218,21 +1236,23 @@ process."""
 
         null = open("/dev/null", "w")
         console = Console(width=132, record=True, force_terminal=True, file=null)
+        cpu_percent_threshold = 1
+        if "cpu_percent_threshold" in arguments:
+            cpu_percent_threshold = int(arguments.cpu_percent_threshold)
         for fname in sorted(all_instrumented_files):
-
             fname = Filename(fname)
-            this_cpu_samples = sum(Scalene.__cpu_samples_c[fname].values()) + sum(
-                Scalene.__cpu_samples_python[fname].values()
-            )
-
             try:
-                percent_cpu_time = 100 * this_cpu_samples / Scalene.__total_cpu_samples
+                percent_cpu_time = (
+                    100 * Scalene.__cpu_samples[fname] / Scalene.__total_cpu_samples
+                )
             except ZeroDivisionError:
                 percent_cpu_time = 0
 
-            # Ignore files responsible for less than 1% of execution time,
-            # as long as we aren't profiling memory consumption.
-            if not did_sample_memory and percent_cpu_time < 1.0:
+            # Ignore files responsible for less than some percent of execution time and fewer than 100 mallocs.
+            if (
+                Scalene.__malloc_samples[fname] < 100
+                and percent_cpu_time < cpu_percent_threshold
+            ):
                 continue
 
             # Print header.
