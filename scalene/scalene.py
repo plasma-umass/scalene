@@ -167,7 +167,6 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         formatter_class=argparse.RawTextHelpFormatter,
         allow_abbrev=False,
     )
-    parser.add_argument("prog", type=str, help="program to be profiled")
     parser.add_argument(
         "--outfile",
         type=str,
@@ -1300,7 +1299,7 @@ process."""
     def main() -> None:
         """Invokes the profiler from the command-line."""
         args, left = parse_args()  # We currently do this twice, but who cares.
-        sys.argv = sys.argv[:1] + left
+        sys.argv = left
         Scalene.set_timer_signal(args.wallclock)
         Scalene.__output_profile_interval = args.profile_interval
         Scalene.__next_output_time = (
@@ -1310,11 +1309,11 @@ process."""
         Scalene.__output_file = args.outfile
         Scalene.__profile_all = args.profile_all
         try:
-            with open(args.prog, "rb") as prog_being_profiled:
+            with open(sys.argv[0], "rb") as prog_being_profiled:
                 # Read in the code and compile it.
-                code = compile(prog_being_profiled.read(), args.prog, "exec")
+                code = compile(prog_being_profiled.read(), sys.argv[0], "exec")
                 # Push the program's path.
-                program_path = os.path.dirname(os.path.abspath(args.prog))
+                program_path = os.path.dirname(os.path.abspath(sys.argv[0]))
                 sys.path.insert(0, program_path)
                 Scalene.__program_path = program_path
                 # Grab local and global variables.
@@ -1323,9 +1322,9 @@ process."""
                 the_locals = __main__.__dict__
                 the_globals = __main__.__dict__
                 # Splice in the name of the file being executed instead of the profiler.
-                the_globals["__file__"] = os.path.basename(args.prog)
+                the_globals["__file__"] = os.path.basename(sys.argv[0])
                 # Start the profiler.
-                fullname = os.path.join(program_path, os.path.basename(args.prog))
+                fullname = os.path.join(program_path, os.path.basename(sys.argv[0]))
                 profiler = Scalene(Filename(fullname))
                 try:
                     # We exit with this status (returning error code as appropriate).
@@ -1358,7 +1357,7 @@ process."""
                     print(message)
                     print(traceback.format_exc())
         except (FileNotFoundError, IOError):
-            print("Scalene: could not find input file " + args.prog)
+            print("Scalene: could not find input file " + sys.argv[0])
             sys.exit(-1)
 
 
