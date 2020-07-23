@@ -216,7 +216,7 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         dest="cpu_percent_threshold",
         type=int,
         default=1,
-        help="only report profiles with at least this % of CPU time (default: 1%)",
+        help="only report profiles with at least this percent of CPU time (default: 1%%)",
     )
     # the PID of the profiling process (for internal use only)
     parser.add_argument(
