@@ -24,42 +24,40 @@ Scalene is a high-performance CPU *and* memory profiler for Python that does a n
 
 ## Installation
 
+### pip (Mac OS X, Linux, and Windows WSL2)
+
+Scalene is distributed as a `pip` package and works on Mac OS X and Linux platforms (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)).
+
+You can install it as follows:
+```
+  % pip install -U scalene
+```
+
+or
+```
+  % python3 -m pip install -U scalene
+```
+
 ### Homebrew (Mac OS X)
 
-You can use Homebrew to install the **full** version of Scalene (with memory profiling). Instead of using `pip` as described below, just do this:
+As an alternative to `pip`, you can use Homebrew to install the current version of Scalene from this repository:
 
 ```
   % brew tap emeryberger/scalene
   % brew install --head libscalene
 ```
 
-This will install a `scalene` script you can use (see below).
-
-### Linux (Ubuntu and others)
-
-Scalene is also distributed as a `pip` package and works on Mac OS X and Linux platforms (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)).
-
-You can install it as follows:
-```
-  % pip install scalene
-```
-
-or
-```
-  % python -m pip install scalene
-```
-
 ### ArchLinux
 
-**NEW**: You can now install the full Scalene library and script on Arch Linux via the [AUR
+**NEW**: You can also install Scalene on Arch Linux via the [AUR
 package](https://aur.archlinux.org/packages/python-scalene-git/). Use your favorite AUR helper, or
 manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that this will place
 `libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
 
 
-# Usage
+## Using `scalene`
 
-The following command will run Scalene on a provided example program.
+The following command runs Scalene on a provided example program.
 
 ```
   % scalene test/testme.py
@@ -68,24 +66,27 @@ The following command will run Scalene on a provided example program.
 To see all the options, run with `--help`.
 
     % scalene --help
-    usage: scalene [-h] [-o OUTFILE] [--profile-interval PROFILE_INTERVAL]
-                   [--wallclock]
-                   prog
+    usage: scalene [-h] [--outfile OUTFILE] [--html]
+                   [--profile-interval PROFILE_INTERVAL] [--wallclock]
+                   [--cpu-only] [--profile-all]
+                   [--cpu-percent-threshold CPU_PERCENT_THRESHOLD]
     
     Scalene: a high-precision CPU and memory profiler.
-                https://github.com/emeryberger/Scalene
-    
-    positional arguments:
-      prog                  program to be profiled
+            https://github.com/emeryberger/scalene
+            % scalene yourprogram.py
     
     optional arguments:
       -h, --help            show this help message and exit
-      -o OUTFILE, --outfile OUTFILE
-                            file to hold profiler output (default: stdout)
+      --outfile OUTFILE     file to hold profiler output (default: stdout)
+      --html                output as HTML (default: text)
       --profile-interval PROFILE_INTERVAL
                             output profiles every so many seconds.
       --wallclock           use wall clock time (default: virtual time)
       --cpu-only            only profile CPU time (default: profile CPU, memory, and copying)
+      --profile-all         profile all executed code, not just the target program (default: only the target program)
+      --cpu-percent-threshold CPU_PERCENT_THRESHOLD
+                            only report profiles with at least this percent of CPU time (default: 1%)
+
 
 # Comparison to Other Profilers
 
