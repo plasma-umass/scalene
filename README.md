@@ -184,6 +184,10 @@ negative net memory numbers indicate memory reclamation.
 The memory usage sparkline and copy volume make it easy to spot
 unnecessary copying in line 6.
 
+# Technical Information
+
+For technical details on Scalene, please see the following paper: [Scalene: Scripting-Language Aware Profiling for Python](https://arxiv.org/abs/2006.03879).
+
 # Success Stories
 
 If you use Scalene to successfully debug a performance problem, please [add a comment to this issue](https://github.com/emeryberger/scalene/issues/58)!
