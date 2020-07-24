@@ -4,6 +4,8 @@
 
 by [Emery Berger](https://emeryberger.com)
 
+![downloads per month](https://img.shields.io/pypi/dm/scalene)
+
 ------------
 [中文版本 (Chinese version)](docs/README_CN.md)
 
