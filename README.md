@@ -92,10 +92,19 @@ To see all the options, run with `--help`.
 
 ## Performance and Features
 
-Below is a table comparing the **performance and features** of various profilers to Scalene (green means fast, yellow means slow, and red means very slow).
+Below is a table comparing the **performance and features** of various profilers to Scalene.
 
 ![Performance and feature comparison](https://github.com/emeryberger/scalene/blob/master/images/profiler-comparison.png)
 
+- _Function-granularity_ reports information only for an entire function, while _line-granularity_ reports information for every line
+- **Time** is either real (wall-clock time), CPU-only, or both.
+- **Efficiency**: :green_circle: = fast, :yellow_circle: = slower, :red_circle: = slowest
+- **Mem Cons.**: tracks memory consumption
+- **Unmodified Code**: works on unmodified code
+- **Threads**: works correctly with threads
+- **Python/C**: separately attributes Python/C time and memory consumption
+- **Mem Trend**: shows memory usage trends over time
+- **Copy Vol.**: reports _copy volume_, the amount of megabytes being copied per second
 
 ## Output
 
