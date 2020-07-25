@@ -108,55 +108,38 @@ Below is a table comparing the **performance and features** of various profilers
 
 ## Output
 
-Scalene prints annotated source code for the program being profiled and any modules it uses in the same directory or subdirectories. Here is a snippet from `pystone.py`, just using CPU profiling:
+Scalene prints annotated source code for the program being profiled
+(either as text or as HTML via the `--html` option) and any modules it
+uses in the same directory or subdirectories (you can optionally have
+it `--profile-all` and only include files with at least a
+`--cpu-percent-threshold` of time).  Here is a snippet from
+`pystone.py`. The "sparklines" summarize memory consumption over time (at the top, for the whole program).
+
 
 ```
-    benchmarks/pystone.py: % of CPU time = 100.00% out of   3.66s.
-          	 |     CPU % |     CPU % |   
-      Line	 |  (Python) |  (native) |  [benchmarks/pystone.py]
-    --------------------------------------------------------------------------------
-    [... lines omitted ...]
-       137	 |     0.27% |     0.14% | def Proc1(PtrParIn):
-       138	 |     1.37% |     0.11% |     PtrParIn.PtrComp = NextRecord = PtrGlb.copy()
-       139	 |     0.27% |     0.22% |     PtrParIn.IntComp = 5
-       140	 |     1.37% |     0.77% |     NextRecord.IntComp = PtrParIn.IntComp
-       141	 |     2.47% |     0.93% |     NextRecord.PtrComp = PtrParIn.PtrComp
-       142	 |     1.92% |     0.78% |     NextRecord.PtrComp = Proc3(NextRecord.PtrComp)
-       143	 |     0.27% |     0.17% |     if NextRecord.Discr == Ident1:
-       144	 |     0.82% |     0.30% |         NextRecord.IntComp = 6
-       145	 |     2.19% |     0.79% |         NextRecord.EnumComp = Proc6(PtrParIn.EnumComp)
-       146	 |     1.10% |     0.39% |         NextRecord.PtrComp = PtrGlb.PtrComp
-       147	 |     0.82% |     0.06% |         NextRecord.IntComp = Proc7(NextRecord.IntComp, 10)
-       148	 |           |           |     else:
-       149	 |           |           |         PtrParIn = NextRecord.copy()
-       150	 |     0.82% |     0.32% |     NextRecord.PtrComp = None
-       151	 |           |           |     return PtrParIn
+                                                  Memory usage: ▇▆▆▅▆▇▇███ (max:  20.00MB)                                              
+                                       benchmarks/pystone.py: % of CPU time = 100.00% out of   4.50s.                                   
+                                                                                                                                        
+      Line │CPU %   │CPU %   │Mem %  │Net   │Memory usage  │Copy   │                                                                    
+           │Python  │native  │Python │(MB)  │over time / % │(MB/s) │benchmarks/pystone.py                                               
+     ━━━━━━┿━━━━━━━━┿━━━━━━━━┿━━━━━━━┿━━━━━━┿━━━━━━━━━━━━━━┿━━━━━━━┿━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     [... lines omitted ...]
+       212 │   0.7% │   0.1% │       │      │              │       │def Proc8(Array1Par, Array2Par, IntParI1, IntParI2):                
+       213 │        │        │       │      │              │       │    global IntGlob                                                  
+       214 │        │        │       │      │              │       │                                                                    
+       215 │   0.2% │   0.0% │       │      │              │       │    IntLoc = IntParI1 + 5                                           
+       216 │   0.4% │   0.2% │       │      │              │       │    Array1Par[IntLoc] = IntParI2                                    
+       217 │   0.7% │   0.1% │       │      │              │       │    Array1Par[IntLoc+1] = Array1Par[IntLoc]                         
+       218 │   1.1% │   0.3% │       │      │              │       │    Array1Par[IntLoc+30] = IntLoc                                   
+       219 │   7.6% │   1.5% │   97% │    1 │▂▂▂▂▂ 24%     │       │    for IntIndex in range(IntLoc, IntLoc+2):                        
+       220 │   0.7% │   0.1% │       │      │              │       │        Array2Par[IntLoc][IntIndex] = IntLoc                        
+       221 │   2.9% │   0.8% │   96% │    4 │▁▁▁▁▁▁ 13%    │       │    Array2Par[IntLoc][IntLoc-1] = Array2Par[IntLoc][IntLoc-1] + 1   
+       222 │   2.0% │   0.5% │       │      │              │       │    Array2Par[IntLoc+20][IntLoc] = Array1Par[IntLoc]                
+       223 │        │        │       │      │              │       │    IntGlob = 5                                                     
 ```
-
-And here is an example with memory profiling enabled.
-The "sparklines" summarize memory consumption over time (at the top, for the whole program).
-
-```
-    Memory usage: ▂▂▁▁▁▁▁▁▁▁▁▅█▅ (max: 1617.98MB)
-    phylliade/test2-2.py: % of CPU time =  40.68% out of   4.60s.
-           |    CPU % |    CPU % |  Net  | Memory usage   | Copy  |
-      Line | (Python) | (native) |  (MB) | over time /  % | (MB/s)| [phylliade/test2-2.py]
-    --------------------------------------------------------------------------------
-         1 |          |          |       |                |       | import numpy as np
-         2 |          |          |       |                |       | 
-         3 |          |          |       |                |       | @profile
-         4 |          |          |       |                |       | def main():
-         5 |          |          |    92 | ▁▁▁▁▁▁▁▁▁  11% |       |     x = np.array(range(10**7))
-         6 |    0.43% |   40.24% |   762 | ▁▁▄█▄      89% |   168 |     y = np.array(np.random.uniform(0, 100, size=(10**8)))
-         7 |          |          |       |                |       | 
-         8 |          |          |       |                |       | main()
-```
-
 Positive net memory numbers indicate total memory allocation in megabytes;
 negative net memory numbers indicate memory reclamation.
 
-The memory usage sparkline and copy volume make it easy to spot
-unnecessary copying in line 6.
 
 # Technical Information
 
