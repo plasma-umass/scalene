@@ -96,7 +96,8 @@ Below is a table comparing the **performance and features** of various profilers
 
 ![Performance and feature comparison](https://github.com/emeryberger/scalene/blob/master/images/profiler-comparison.png)
 
-- _Function-granularity_ reports information only for an entire function, while _line-granularity_ reports information for every line
+**Function-granularity profilers** report information only for an entire function, while **line-granularity profilers** (like Scalene) report information for every line
+
 - **Time** is either real (wall-clock time), CPU-only, or both.
 - **Efficiency**: :green_circle: = fast, :yellow_circle: = slower, :red_circle: = slowest
 - **Mem Cons.**: tracks memory consumption
@@ -115,28 +116,8 @@ it `--profile-all` and only include files with at least a
 `--cpu-percent-threshold` of time).  Here is a snippet from
 `pystone.py`. The "sparklines" summarize memory consumption over time (at the top, for the whole program).
 
+![Example profile](https://github.com/emeryberger/scalene/blob/master/images/sample-profile-pystone.png)
 
-```
-                                                  Memory usage: ▇▆▆▅▆▇▇███ (max:  20.00MB)                                              
-                                       benchmarks/pystone.py: % of CPU time = 100.00% out of   4.50s.                                   
-                                                                                                                                        
-      Line │CPU %   │CPU %   │Mem %  │Net   │Memory usage  │Copy   │                                                                    
-           │Python  │native  │Python │(MB)  │over time / % │(MB/s) │benchmarks/pystone.py                                               
-     ━━━━━━┿━━━━━━━━┿━━━━━━━━┿━━━━━━━┿━━━━━━┿━━━━━━━━━━━━━━┿━━━━━━━┿━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     [... lines omitted ...]
-       212 │   0.7% │   0.1% │       │      │              │       │def Proc8(Array1Par, Array2Par, IntParI1, IntParI2):                
-       213 │        │        │       │      │              │       │    global IntGlob                                                  
-       214 │        │        │       │      │              │       │                                                                    
-       215 │   0.2% │   0.0% │       │      │              │       │    IntLoc = IntParI1 + 5                                           
-       216 │   0.4% │   0.2% │       │      │              │       │    Array1Par[IntLoc] = IntParI2                                    
-       217 │   0.7% │   0.1% │       │      │              │       │    Array1Par[IntLoc+1] = Array1Par[IntLoc]                         
-       218 │   1.1% │   0.3% │       │      │              │       │    Array1Par[IntLoc+30] = IntLoc                                   
-       219 │   7.6% │   1.5% │   97% │    1 │▂▂▂▂▂ 24%     │       │    for IntIndex in range(IntLoc, IntLoc+2):                        
-       220 │   0.7% │   0.1% │       │      │              │       │        Array2Par[IntLoc][IntIndex] = IntLoc                        
-       221 │   2.9% │   0.8% │   96% │    4 │▁▁▁▁▁▁ 13%    │       │    Array2Par[IntLoc][IntLoc-1] = Array2Par[IntLoc][IntLoc-1] + 1   
-       222 │   2.0% │   0.5% │       │      │              │       │    Array2Par[IntLoc+20][IntLoc] = Array1Par[IntLoc]                
-       223 │        │        │       │      │              │       │    IntGlob = 5                                                     
-```
 Positive net memory numbers indicate total memory allocation in megabytes;
 negative net memory numbers indicate memory reclamation.
 
