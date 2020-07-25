@@ -11,6 +11,10 @@ by [Emery Berger](https://emeryberger.com)
 
 # About Scalene
 
+```
+  % pip install -U scalene
+```
+
 Scalene is a high-performance CPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
 
 1. Scalene is _fast_. It uses sampling instead of instrumentation or relying on Python's tracing facilities. Its overhead is typically no more than 10-20% (and often less).
