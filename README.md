@@ -22,37 +22,38 @@ Scalene is a high-performance CPU *and* memory profiler for Python that does a n
 1. **NEW!** Scalene now reports the percentage of memory consumed by Python code vs. native code.
 1. **NEW!** Scalene now highlights hotspots (code accounting for significant percentages of CPU time or memory allocation) in red, making them even easier to spot.
 
-## Installation
+# Comparison to Other Profilers
 
-### pip (Mac OS X, Linux, and Windows WSL2)
+## Performance and Features
 
-Scalene is distributed as a `pip` package and works on Mac OS X and Linux platforms (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)).
+Below is a table comparing the **performance and features** of various profilers to Scalene.
 
-You can install it as follows:
-```
-  % pip install -U scalene
-```
+![Performance and feature comparison](https://github.com/emeryberger/scalene/blob/master/images/profiler-comparison.png)
 
-or
-```
-  % python3 -m pip install -U scalene
-```
+**Function-granularity profilers** report information only for an entire function, while **line-granularity profilers** (like Scalene) report information for every line
 
-### Homebrew (Mac OS X)
+- **Time** is either real (wall-clock time), CPU-only, or both.
+- **Efficiency**: :green_circle: = fast, :yellow_circle: = slower, :red_circle: = slowest
+- **Mem Cons.**: tracks memory consumption
+- **Unmodified Code**: works on unmodified code
+- **Threads**: works correctly with threads
+- **Python/C**: separately attributes Python/C time and memory consumption
+- **Mem Trend**: shows memory usage trends over time
+- **Copy Vol.**: reports _copy volume_, the amount of megabytes being copied per second
 
-As an alternative to `pip`, you can use Homebrew to install the current version of Scalene from this repository:
+## Output
 
-```
-  % brew tap emeryberger/scalene
-  % brew install --head libscalene
-```
+Scalene prints annotated source code for the program being profiled
+(either as text or as HTML via the `--html` option) and any modules it
+uses in the same directory or subdirectories (you can optionally have
+it `--profile-all` and only include files with at least a
+`--cpu-percent-threshold` of time).  Here is a snippet from
+`pystone.py`. The "sparklines" summarize memory consumption over time (at the top, for the whole program).
 
-### ArchLinux
+![Example profile](https://github.com/emeryberger/scalene/blob/master/images/sample-profile-pystone.png)
 
-**NEW**: You can also install Scalene on Arch Linux via the [AUR
-package](https://aur.archlinux.org/packages/python-scalene-git/). Use your favorite AUR helper, or
-manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that this will place
-`libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
+Positive net memory numbers indicate total memory allocation in megabytes;
+negative net memory numbers indicate memory reclamation.
 
 
 ## Using `scalene`
@@ -88,38 +89,37 @@ To see all the options, run with `--help`.
                             only report profiles with at least this percent of CPU time (default: 1%)
 
 
-# Comparison to Other Profilers
+## Installation
 
-## Performance and Features
+### pip (Mac OS X, Linux, and Windows WSL2)
 
-Below is a table comparing the **performance and features** of various profilers to Scalene.
+Scalene is distributed as a `pip` package and works on Mac OS X and Linux platforms (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)).
 
-![Performance and feature comparison](https://github.com/emeryberger/scalene/blob/master/images/profiler-comparison.png)
+You can install it as follows:
+```
+  % pip install -U scalene
+```
 
-**Function-granularity profilers** report information only for an entire function, while **line-granularity profilers** (like Scalene) report information for every line
+or
+```
+  % python3 -m pip install -U scalene
+```
 
-- **Time** is either real (wall-clock time), CPU-only, or both.
-- **Efficiency**: :green_circle: = fast, :yellow_circle: = slower, :red_circle: = slowest
-- **Mem Cons.**: tracks memory consumption
-- **Unmodified Code**: works on unmodified code
-- **Threads**: works correctly with threads
-- **Python/C**: separately attributes Python/C time and memory consumption
-- **Mem Trend**: shows memory usage trends over time
-- **Copy Vol.**: reports _copy volume_, the amount of megabytes being copied per second
+### Homebrew (Mac OS X)
 
-## Output
+As an alternative to `pip`, you can use Homebrew to install the current version of Scalene from this repository:
 
-Scalene prints annotated source code for the program being profiled
-(either as text or as HTML via the `--html` option) and any modules it
-uses in the same directory or subdirectories (you can optionally have
-it `--profile-all` and only include files with at least a
-`--cpu-percent-threshold` of time).  Here is a snippet from
-`pystone.py`. The "sparklines" summarize memory consumption over time (at the top, for the whole program).
+```
+  % brew tap emeryberger/scalene
+  % brew install --head libscalene
+```
 
-![Example profile](https://github.com/emeryberger/scalene/blob/master/images/sample-profile-pystone.png)
+### ArchLinux
 
-Positive net memory numbers indicate total memory allocation in megabytes;
-negative net memory numbers indicate memory reclamation.
+**NEW**: You can also install Scalene on Arch Linux via the [AUR
+package](https://aur.archlinux.org/packages/python-scalene-git/). Use your favorite AUR helper, or
+manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that this will place
+`libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
 
 
 # Technical Information
