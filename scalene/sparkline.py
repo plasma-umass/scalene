@@ -7,11 +7,26 @@ class SparkLine:
 
     From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
     """
+
     def __init__(self):
         self.__bars = self._get_bars()
         self.__bar_count = len(self.__bars)
 
-    def create(
+    def generate(
+        self,
+        arr: List[float],
+        minimum: Optional[float] = None,
+        maximum: Optional[float] = None,
+    ) -> Tuple[float, float, str]:
+        all_zeros = all(i == 0 for i in arr)
+        if all_zeros:
+            return 0, 0, ""
+
+        # Prevent negative memory output due to sampling error.
+        samples = [i if i > 0 else 0 for i in arr]
+        return self._create(samples[0:len(arr)], minimum, maximum)
+
+    def _create(
         self,
         numbers: List[float],
         fixed_min: Optional[float] = None,

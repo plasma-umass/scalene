@@ -971,22 +971,6 @@ process."""
         Scalene.__elapsed_time += Scalene.gettime() - Scalene.__start_time
 
     @staticmethod
-    def generate_sparkline(
-        arr: List[float],
-        minimum: Optional[float] = None,
-        maximum: Optional[float] = None
-    ) -> Tuple[float, float, str]:
-        """Produces a sparkline, as in ▁▁▁▁▁▂▃▂▄▅▄▆█▆█▆"""
-        iterations = len(arr)
-        all_zeros = all(i == 0 for i in arr)
-        if all_zeros:
-            return 0, 0, ""
-        # Prevent negative memory output due to sampling error.
-        samples = [i if i > 0 else 0 for i in arr]
-        sl = SparkLine()
-        return sl.create(samples[0:iterations], minimum, maximum)
-
-    @staticmethod
     def output_profile_line(
         fname: Filename, line_no: LineNumber, line: str, console: Console, tbl: Table,
     ) -> None:
@@ -1072,7 +1056,7 @@ process."""
             for i in range(0, len(samples.get())):
                 samples.get()[i] *= n_usage_fraction
             if samples.get():
-                _, _, spark_str = Scalene.generate_sparkline(
+                _, _, spark_str = SparkLine().generate(
                     samples.get()[0 : samples.len()], 0, current_max
                 )
 
@@ -1158,7 +1142,7 @@ process."""
             samples = Scalene.__memory_footprint_samples
             if len(samples.get()) > 0:
                 # Output a sparkline as a summary of memory usage over time.
-                _, _, spark_str = Scalene.generate_sparkline(
+                _, _, spark_str = SparkLine().generate(
                     samples.get()[0 : samples.len()], 0, current_max
                 )
                 mem_usage_line = Text.assemble(
