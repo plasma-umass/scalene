@@ -54,37 +54,7 @@ from typing import (
     cast,
 )
 
-
-class adaptive:
-    """Implements sampling to achieve the effect of a uniform random sample."""
-
-    sample_array: List[float] = []
-    current_index = 0
-    max_samples = 0
-
-    def __init__(self, size: int):
-        self.max_samples = size
-        # must be a power of two
-        self.sample_array = [0] * size
-
-    def add(self, value: float) -> None:
-        if self.current_index >= self.max_samples:
-            # Decimate
-            new_array = [0.0] * self.max_samples
-            for i in range(0, self.max_samples // 3):
-                arr = [self.sample_array[i * 3 + j] for j in range(0, 3)]
-                arr.sort()
-                new_array[i] = arr[1]  # Median
-            self.current_index = self.max_samples // 3
-            self.sample_array = new_array
-        self.sample_array[self.current_index] = value
-        self.current_index += 1
-
-    def get(self) -> List[float]:
-        return self.sample_array
-
-    def len(self) -> int:
-        return self.current_index
+from scalene.adaptive import Adaptive
 
 
 # Sparkline stuff
@@ -104,7 +74,9 @@ else:
     # ▁▂▃▄▅▆▇█
     bar = "".join([chr(i) for i in range(9601, 9609)])
 
+
 barcount = len(bar)
+
 
 # From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
 def sparkline(
@@ -456,12 +428,12 @@ class Scalene:
     # when did we last receive a signal?
     __last_signal_time: float = 0
 
-    # memory footprint samples (time, footprint), using 'adaptive' sampling.
-    __memory_footprint_samples = adaptive(27)
+    # memory footprint samples (time, footprint), using 'Adaptive' sampling.
+    __memory_footprint_samples = Adaptive(27)
 
     # same, but per line
-    __per_line_footprint_samples: Dict[str, Dict[int, adaptive]] = defaultdict(
-        lambda: defaultdict(lambda: adaptive(9))
+    __per_line_footprint_samples: Dict[str, Dict[int, Adaptive]] = defaultdict(
+        lambda: defaultdict(lambda: Adaptive(9))
     )
 
     # path for the program being profiled
