@@ -69,9 +69,9 @@ def calc_pure_python(desired_width, max_iterations):
             cs.append(complex(c_real, c_imag))
     print("Length of x:", len(x))
     print("Total elements:", len(zs))
-    start_time = time.time()
+    start_time = time.process_time()
     output = calculate_z_serial_purepython(max_iterations, zs, cs)
-    end_time = time.time()
+    end_time = time.process_time()
     secs = end_time - start_time
     sys.stdout.flush()
     sys.stderr.flush()

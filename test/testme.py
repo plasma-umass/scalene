@@ -47,6 +47,7 @@ def stuff():
     y = np.random.randint(1, 100, size=5000000)[4999999]
     x = 1.01
     for i in range(1,10):
+        print(i)
         for j in range(1,10):
             x = doit1(x)
             x = doit2(x)
@@ -54,5 +55,8 @@ def stuff():
             x = 1.01
     return x
 
+import sys
+print("TESTME")
+print(sys.argv)
 stuff()
 
