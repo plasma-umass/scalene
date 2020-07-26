@@ -3,12 +3,14 @@ from typing import List, Tuple, Optional
 
 
 class SparkLine:
-    """Produces a sparkline, as in ▁▁▁▁▁▂▃▂▄▅▄▆█▆█▆"""
+    """Produces a sparkline, as in ▁▁▁▁▁▂▃▂▄▅▄▆█▆█▆
+
+    From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
+    """
     def __init__(self):
-        self.__bars = self._get_bar()
+        self.__bars = self._get_bars()
         self.__bar_count = len(self.__bars)
 
-    # From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
     def create(
         self,
         numbers: List[float],
@@ -32,7 +34,7 @@ class SparkLine:
             extent = 1
         return extent
 
-    def _get_bar(self) -> str:
+    def _get_bars(self) -> str:
         if self._in_wsl() and not self._in_windows_terminal():
             # We are running in the Windows Subsystem for Linux Display, a
             # crappy version of the sparkline because the Windows console

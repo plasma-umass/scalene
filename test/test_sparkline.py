@@ -9,14 +9,14 @@ def sparkline() -> SparkLine:
 
 
 def test_get_bar(sl):
-    bar = sl._get_bar()
+    bar = sl._get_bars()
 
     assert bar == "▁▂▃▄▅▆▇█"
 
 
 def test_get_bar___in_wsl(sl, monkeypatch):
     monkeypatch.setenv("WSL_DISTRO_NAME", "Some WSL distro name")
-    bar = sl._get_bar()
+    bar = sl._get_bars()
 
     assert bar == "▄▄■■■▀▀▀"
 
@@ -24,7 +24,7 @@ def test_get_bar___in_wsl(sl, monkeypatch):
 def test_get_bar__in_wsl_and_windows_terminal(sl, monkeypatch):
     monkeypatch.setenv("WSL_DISTRO_NAME", "Some WSL distro name")
     monkeypatch.setenv("WT_PROFILE_ID", "Some Windows Terminal id")
-    bar = sl._get_bar()
+    bar = sl._get_bars()
 
     assert bar == "▁▂▃▄▅▆▇█"
 
