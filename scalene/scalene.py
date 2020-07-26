@@ -55,48 +55,8 @@ from typing import (
 )
 
 from scalene.adaptive import Adaptive
+from scalene.sparkline import SparkLine
 
-
-# Sparkline stuff
-
-# Check if we are in Windows Subsystem for Linux and *not* using
-# the highly recommended Windows Terminal
-# (https://aka.ms/windowsterminal)
-if "WSL_DISTRO_NAME" in os.environ and "WT_PROFILE_ID" not in os.environ:
-    # We are running in the Windows Subsystem for Linux Display, a
-    # crappy version of the sparkline because the Windows console
-    # *still* only properly displays IBM Code page 437 by default.
-    # ▄▄■■■■▀▀
-    bar = chr(0x2584) * 2 + chr(0x25A0) * 3 + chr(0x2580) * 3
-else:
-    # Reasonable system. Use Unicode characters.
-    # Unicode: 9601, 9602, 9603, 9604, 9605, 9606, 9607, 9608
-    # ▁▂▃▄▅▆▇█
-    bar = "".join([chr(i) for i in range(9601, 9609)])
-
-
-barcount = len(bar)
-
-
-# From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
-def sparkline(
-    numbers: List[float], fixed_min: float = -1, fixed_max: float = -1
-) -> Tuple[float, float, str]:
-    if fixed_min == -1:
-        mn = float(min(numbers))
-    else:
-        mn = fixed_min
-    if fixed_max == -1:
-        mx = float(max(numbers))
-    else:
-        mx = fixed_max
-    extent = mx - mn
-    if extent == 0:
-        extent = 1
-    sparkstr = "".join(
-        bar[min([barcount - 1, int((n - mn) / extent * barcount)])] for n in numbers
-    )
-    return mn, mx, sparkstr
 
 
 # Logic to ignore @profile decorators.
@@ -1012,7 +972,9 @@ process."""
 
     @staticmethod
     def generate_sparkline(
-        arr: List[float], minimum: float = -1, maximum: float = -1
+        arr: List[float],
+        minimum: Optional[float] = None,
+        maximum: Optional[float] = None
     ) -> Tuple[float, float, str]:
         """Produces a sparkline, as in ▁▁▁▁▁▂▃▂▄▅▄▆█▆█▆"""
         iterations = len(arr)
@@ -1021,8 +983,8 @@ process."""
             return 0, 0, ""
         # Prevent negative memory output due to sampling error.
         samples = [i if i > 0 else 0 for i in arr]
-        minval, maxval, sp_line = sparkline(samples[0:iterations], minimum, maximum)
-        return minval, maxval, sp_line
+        sl = SparkLine()
+        return sl.create(samples[0:iterations], minimum, maximum)
 
     @staticmethod
     def output_profile_line(
