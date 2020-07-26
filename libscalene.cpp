@@ -11,12 +11,6 @@
 #include "common.hpp"
 
 #include "mmaparray.hpp"
-#include "dynarray.hpp"
-#include "stack.hpp"
-#include "buffer.hpp"
-#include "classwarfare.hpp"
-#include "bufferbump.hpp"
-#include "cheapheap.hpp"
 #include "sampleheap.hpp"
 
 #include "repoman.hpp"
