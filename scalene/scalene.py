@@ -54,77 +54,9 @@ from typing import (
     cast,
 )
 
+from scalene.adaptive import Adaptive
+from scalene.sparkline import SparkLine
 
-class adaptive:
-    """Implements sampling to achieve the effect of a uniform random sample."""
-
-    sample_array: List[float] = []
-    current_index = 0
-    max_samples = 0
-
-    def __init__(self, size: int):
-        self.max_samples = size
-        # must be a power of two
-        self.sample_array = [0] * size
-
-    def add(self, value: float) -> None:
-        if self.current_index >= self.max_samples:
-            # Decimate
-            new_array = [0.0] * self.max_samples
-            for i in range(0, self.max_samples // 3):
-                arr = [self.sample_array[i * 3 + j] for j in range(0, 3)]
-                arr.sort()
-                new_array[i] = arr[1]  # Median
-            self.current_index = self.max_samples // 3
-            self.sample_array = new_array
-        self.sample_array[self.current_index] = value
-        self.current_index += 1
-
-    def get(self) -> List[float]:
-        return self.sample_array
-
-    def len(self) -> int:
-        return self.current_index
-
-
-# Sparkline stuff
-
-# Check if we are in Windows Subsystem for Linux and *not* using
-# the highly recommended Windows Terminal
-# (https://aka.ms/windowsterminal)
-if "WSL_DISTRO_NAME" in os.environ and "WT_PROFILE_ID" not in os.environ:
-    # We are running in the Windows Subsystem for Linux Display, a
-    # crappy version of the sparkline because the Windows console
-    # *still* only properly displays IBM Code page 437 by default.
-    # ▄▄■■■■▀▀
-    bar = chr(0x2584) * 2 + chr(0x25A0) * 3 + chr(0x2580) * 3
-else:
-    # Reasonable system. Use Unicode characters.
-    # Unicode: 9601, 9602, 9603, 9604, 9605, 9606, 9607, 9608
-    # ▁▂▃▄▅▆▇█
-    bar = "".join([chr(i) for i in range(9601, 9609)])
-
-barcount = len(bar)
-
-# From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
-def sparkline(
-    numbers: List[float], fixed_min: float = -1, fixed_max: float = -1
-) -> Tuple[float, float, str]:
-    if fixed_min == -1:
-        mn = float(min(numbers))
-    else:
-        mn = fixed_min
-    if fixed_max == -1:
-        mx = float(max(numbers))
-    else:
-        mx = fixed_max
-    extent = mx - mn
-    if extent == 0:
-        extent = 1
-    sparkstr = "".join(
-        bar[min([barcount - 1, int((n - mn) / extent * barcount)])] for n in numbers
-    )
-    return mn, mx, sparkstr
 
 
 # Logic to ignore @profile decorators.
@@ -456,12 +388,12 @@ class Scalene:
     # when did we last receive a signal?
     __last_signal_time: float = 0
 
-    # memory footprint samples (time, footprint), using 'adaptive' sampling.
-    __memory_footprint_samples = adaptive(27)
+    # memory footprint samples (time, footprint), using 'Adaptive' sampling.
+    __memory_footprint_samples = Adaptive(27)
 
     # same, but per line
-    __per_line_footprint_samples: Dict[str, Dict[int, adaptive]] = defaultdict(
-        lambda: defaultdict(lambda: adaptive(9))
+    __per_line_footprint_samples: Dict[str, Dict[int, Adaptive]] = defaultdict(
+        lambda: defaultdict(lambda: Adaptive(9))
     )
 
     # path for the program being profiled
@@ -1039,20 +971,6 @@ process."""
         Scalene.__elapsed_time += Scalene.gettime() - Scalene.__start_time
 
     @staticmethod
-    def generate_sparkline(
-        arr: List[float], minimum: float = -1, maximum: float = -1
-    ) -> Tuple[float, float, str]:
-        """Produces a sparkline, as in ▁▁▁▁▁▂▃▂▄▅▄▆█▆█▆"""
-        iterations = len(arr)
-        all_zeros = all(i == 0 for i in arr)
-        if all_zeros:
-            return 0, 0, ""
-        # Prevent negative memory output due to sampling error.
-        samples = [i if i > 0 else 0 for i in arr]
-        minval, maxval, sp_line = sparkline(samples[0:iterations], minimum, maximum)
-        return minval, maxval, sp_line
-
-    @staticmethod
     def output_profile_line(
         fname: Filename, line_no: LineNumber, line: str, console: Console, tbl: Table,
     ) -> None:
@@ -1138,7 +1056,7 @@ process."""
             for i in range(0, len(samples.get())):
                 samples.get()[i] *= n_usage_fraction
             if samples.get():
-                _, _, spark_str = Scalene.generate_sparkline(
+                _, _, spark_str = SparkLine().generate(
                     samples.get()[0 : samples.len()], 0, current_max
                 )
 
@@ -1224,7 +1142,7 @@ process."""
             samples = Scalene.__memory_footprint_samples
             if len(samples.get()) > 0:
                 # Output a sparkline as a summary of memory usage over time.
-                _, _, spark_str = Scalene.generate_sparkline(
+                _, _, spark_str = SparkLine().generate(
                     samples.get()[0 : samples.len()], 0, current_max
                 )
                 mem_usage_line = Text.assemble(
