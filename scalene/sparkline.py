@@ -8,7 +8,7 @@ class SparkLine:
     From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.__bars = self._get_bars()
         self.__bar_count = len(self.__bars)
 
@@ -24,7 +24,7 @@ class SparkLine:
 
         # Prevent negative memory output due to sampling error.
         samples = [i if i > 0 else 0 for i in arr]
-        return self._create(samples[0:len(arr)], minimum, maximum)
+        return self._create(samples[0 : len(arr)], minimum, maximum)
 
     def _create(
         self,
@@ -43,7 +43,7 @@ class SparkLine:
         )
         return min_, max_, spark
 
-    def _get_extent(self, max_, min_):
+    def _get_extent(self, max_: float, min_: float) -> float:
         extent = max_ - min_
         if extent == 0:
             extent = 1
