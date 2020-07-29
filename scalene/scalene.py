@@ -163,6 +163,13 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         default=1,
         help="only report profiles with at least this percent of CPU time (default: 1%%)",
     )
+    parser.add_argument(
+        "--malloc-threshold",
+        dest="malloc_threshold",
+        type=int,
+        default=100,
+        help="only report profiles with at least this many allocations (default: 100)",
+    )
     # the PID of the profiling process (for internal use only)
     parser.add_argument("--pid", type=int, default=0, help=argparse.SUPPRESS)
     # Parse out all Scalene arguments and jam the remaining ones into argv.
@@ -558,6 +565,8 @@ process."""
         )
         if "cpu_percent_threshold" in arguments:
             Scalene.__cpu_percent_threshold = int(arguments.cpu_percent_threshold)
+        if "malloc_threshold" in arguments:
+            Scalene.__malloc_threshold = int(arguments.malloc_threshold)
 
         if arguments.pid:
             # Child process.
@@ -1017,10 +1026,10 @@ process."""
         n_python_fraction = 0 if not n_malloc_mb else n_python_malloc_mb / n_malloc_mb
         # Finally, print results.
         n_cpu_percent_c_str: str = (
-            "" if not n_cpu_percent_c else "%6.1f%%" % n_cpu_percent_c
+            "" if not n_cpu_percent_c else "%6.0f%%" % n_cpu_percent_c
         )
         n_cpu_percent_python_str: str = (
-            "" if not n_cpu_percent_python else "%6.1f%%" % n_cpu_percent_python
+            "" if not n_cpu_percent_python else "%6.0f%%" % n_cpu_percent_python
         )
         n_growth_mb_str: str = (
             "" if (not n_growth_mb and not n_usage_fraction) else "%5.0f" % n_growth_mb
@@ -1134,7 +1143,7 @@ process."""
                 value = unpickler.load()
                 Scalene.__max_footprint = max(Scalene.__max_footprint, value[0])
                 Scalene.__elapsed_time = max(Scalene.__elapsed_time, value[1])
-                Scalene.__total_cpu_samples += value[2]
+                # Scalene.__total_cpu_samples += value[2]
                 del value[:3]
                 for dict, index in [
                     (Scalene.__cpu_samples_c, 0),
@@ -1226,6 +1235,7 @@ process."""
             except ZeroDivisionError:
                 percent_cpu_time = 0
 
+            debug_print(Scalene.__cpu_samples[fname])
             # Ignore files responsible for less than some percent of execution time and fewer than a threshold # of mallocs.
             if (
                 Scalene.__malloc_samples[fname] < Scalene.__malloc_threshold
@@ -1261,7 +1271,7 @@ process."""
                 tbl.add_column("Net\n(MB)", no_wrap=True)
                 tbl.add_column("Memory usage\nover time / %", no_wrap=True)
                 tbl.add_column("Copy\n(MB/s)", no_wrap=True)
-            tbl.add_column("\n" + fname)
+            tbl.add_column("\n" + fname, width=66)
 
             with open(fname, "r") as source_file:
                 for line_no, line in enumerate(source_file, 1):
