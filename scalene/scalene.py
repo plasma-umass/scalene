@@ -1235,7 +1235,6 @@ process."""
             except ZeroDivisionError:
                 percent_cpu_time = 0
 
-            debug_print(Scalene.__cpu_samples[fname])
             # Ignore files responsible for less than some percent of execution time and fewer than a threshold # of mallocs.
             if (
                 Scalene.__malloc_samples[fname] < Scalene.__malloc_threshold
