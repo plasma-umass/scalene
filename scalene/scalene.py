@@ -17,15 +17,19 @@
 
 import argparse
 import atexit
-
 import builtins
+import cloudpickle
 import dis
 import os
+import pathlib
+import pickle
 import platform
 import signal
+import stat
 import struct
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -58,7 +62,6 @@ from scalene.adaptive import Adaptive
 from scalene.sparkline import SparkLine
 
 
-
 # Logic to ignore @profile decorators.
 try:
     builtins.profile  # type: ignore
@@ -84,6 +87,16 @@ if sys.platform == "win32":
         + "but works on Windows Subsystem for Linux 2, Linux, Mac OS X."
     )
     sys.exit(-1)
+
+
+def debug_print(message: str) -> None:
+    import sys
+    import inspect
+
+    callerframerecord = inspect.stack()[1]
+    frame = callerframerecord[0]
+    info = inspect.getframeinfo(frame)
+    print(info.filename, "func=%s" % info.function, "line=%s:" % info.lineno, message)
 
 
 def parse_args() -> Tuple[argparse.Namespace, List[str]]:
@@ -151,9 +164,7 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         help="only report profiles with at least this percent of CPU time (default: 1%%)",
     )
     # the PID of the profiling process (for internal use only)
-    parser.add_argument(
-        "--pid", type=int, default=int(os.getpid()), help=argparse.SUPPRESS
-    )
+    parser.add_argument("--pid", type=int, default=0, help=argparse.SUPPRESS)
     # Parse out all Scalene arguments and jam the remaining ones into argv.
     # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
     args, left = parser.parse_known_args()
@@ -216,9 +227,6 @@ class Scalene:
     # Debugging flag, for internal use only.
     __debug = False
 
-    # Hijack OS open calls.
-    __hijack_open_calls = False  # disabled for now
-
     # We use these in is_call_function to determine whether a
     # particular bytecode is a function call.  We use this to
     # distinguish between Python and native code execution when
@@ -242,74 +250,12 @@ class Scalene:
     def get_original_lock() -> threading.Lock:
         return Scalene.__original_lock()
 
-    # We hijack os.system, os.popen, and subprocess.Popen so attempts to execute
-    # Python also call Scalene. TBD: integrate profiles across processes.
-    __original_os_system = os.system
-    __original_os_popen = os.popen
-    __original_subprocess_Popen = subprocess.Popen
-
     # Likely names for the Python interpreter (assuming it's the same version as this one).
-    __alias_python_names = [
-        "python",
-        "python" + str(sys.version_info.major),
-        os.path.basename(sys.executable),
-    ]
     __all_python_names = [
         "python",
         "python" + str(sys.version_info.major),
         "python" + str(sys.version_info.major) + "." + str(sys.version_info.minor),
-        os.path.basename(sys.executable),
     ]
-
-    @staticmethod
-    def new_os_system(cmd: str) -> Any:
-        for n in Scalene.__alias_python_names:
-            cmd = "alias " + n + "='scalene'\nexport " + n + "\n" + cmd
-        return Scalene.__original_os_system(cmd)
-
-    @staticmethod
-    def new_os_popen(cmd: str, mode: str, bufsize: int) -> Any:
-        for n in Scalene.__alias_python_names:
-            cmd = "alias " + n + "='scalene'\nexport " + n + "\n" + cmd
-        return Scalene.__original_os_popen(cmd, mode, bufsize)
-
-    @staticmethod
-    def new_subprocess_Popen(args, bufsize=-1, executable=None, stdin=None, stdout=None, stderr=None, preexec_fn=None, close_fds=True, shell=False, cwd=None, env=None, universal_newlines=None, startupinfo=None, creationflags=0, restore_signals=True, start_new_session=False, pass_fds=(), *, encoding=None, errors=None):  # type: ignore
-        if shell:
-            for n in Scalene.__alias_python_names:
-                args = "alias " + n + "='scalene'\nexport " + n + "\n" + args
-        else:
-            # Splice out the first element if it's a call to Python.
-            newargs = []
-            for a in args:
-                for n in Scalene.__all_python_names:
-                    if a == n:
-                        a = "scalene"
-                        break
-                newargs.append(a)
-            args = newargs
-        # TODO: check versions since text= was added in 3.7
-        return Scalene.__original_subprocess_Popen(
-            args,
-            bufsize,
-            executable,
-            stdin,
-            stdout,
-            stderr,
-            preexec_fn,
-            close_fds,
-            shell,
-            cwd,
-            env,
-            universal_newlines,
-            startupinfo,
-            creationflags,
-            restore_signals,
-            start_new_session,
-            pass_fds,
-            encoding=encoding,
-            errors=errors,
-        )
 
     # Statistics counters:
     #
@@ -343,11 +289,6 @@ class Scalene:
     __memory_python_samples: Dict[
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
     ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
-
-    # number of times samples were added for the above
-    __memory_malloc_count: Dict[
-        Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
-    ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
     # free samples for each location in the program
     __memory_free_samples: Dict[
@@ -398,6 +339,10 @@ class Scalene:
 
     # path for the program being profiled
     __program_path: str = ""
+    # temporary directory to hold aliases to Python
+    __python_alias_dir: Any = tempfile.TemporaryDirectory(prefix="scalene")
+    # and its name
+    __python_alias_dir_name: Any = __python_alias_dir.name
     # where we write profile info
     __output_file: str = ""
     # if we output HTML or not
@@ -459,6 +404,12 @@ class Scalene:
 
     # Threshold for highlighting lines of code in red.
     __highlight_percentage = 33
+
+    # Default threshold for percent of CPU time to report a file.
+    __cpu_percent_threshold = 1
+
+    # Default threshold for number of mallocs to report a file.
+    __malloc_threshold = 100
 
     @staticmethod
     def set_thread_sleeping(tid: int) -> None:
@@ -598,11 +549,6 @@ process."""
         threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
         # Hijack lock.
         threading.Lock = Scalene.ReplacementLock  # type: ignore
-        # Hijack system and subprocess calls.
-        if Scalene.__hijack_open_calls:
-            os.system = Scalene.new_os_system  # type: ignore
-            os.popen = Scalene.new_os_popen  # type: ignore
-            subprocess.Popen = Scalene.new_subprocess_Popen  # type: ignore
         # Build up signal filenames (adding PID to each).
         Scalene.__malloc_signal_filename = Filename(
             Scalene.__malloc_signal_filename + str(os.getpid())
@@ -610,6 +556,48 @@ process."""
         Scalene.__memcpy_signal_filename = Filename(
             Scalene.__memcpy_signal_filename + str(os.getpid())
         )
+        if "cpu_percent_threshold" in arguments:
+            Scalene.__cpu_percent_threshold = int(arguments.cpu_percent_threshold)
+
+        if arguments.pid:
+            # Child process.
+            # We need to use the same directory as the parent.
+            # The parent always puts this directory as the first entry in the PATH.
+            # Extract the alias directory from the path.
+            dirname = os.environ["PATH"].split(os.pathsep)[0]
+            Scalene.__python_alias_dir = None
+            Scalene.__python_alias_dir_name = dirname
+
+        else:
+            # Parent process.
+            # Create a temporary directory to hold aliases to the Python
+            # executable, so scalene can handle multiple proceses; each
+            # one is a shell script that redirects to Scalene.
+            cmdline = ""
+            # Pass along commands from the invoking command line.
+            if arguments.cpuonly:
+                cmdline += " --cpu-only"
+            # Add the --pid field so we can propagate it to the child.
+            cmdline += " --pid=" + str(os.getpid())
+            payload = """#!/bin/bash
+    echo $$
+    %s -m scalene %s $@
+    """ % (
+                sys.executable,
+                cmdline,
+            )
+            # Now create all the files.
+            for name in Scalene.__all_python_names:
+                fname = os.path.join(Scalene.__python_alias_dir_name, name)
+                with open(fname, "w") as file:
+                    file.write(payload)
+                os.chmod(fname, stat.S_IXUSR | stat.S_IRUSR | stat.S_IWUSR)
+            # Finally, insert this directory into the path.
+            sys.path.insert(0, Scalene.__python_alias_dir_name)
+            os.environ["PATH"] = (
+                Scalene.__python_alias_dir_name + ":" + os.environ["PATH"]
+            )
+
         # Register the exit handler to run when the program terminates or we quit.
         atexit.register(Scalene.exit_handler)
         # Store relevant names (program, path).
@@ -811,7 +799,6 @@ process."""
         try:
             with open(Scalene.__malloc_signal_filename, "r") as mfile:
                 for count_str in mfile:
-                    # for _, count_str in enumerate(mfile, 1):
                     count_str = count_str.rstrip()
                     (
                         action,
@@ -887,7 +874,6 @@ process."""
                 Scalene.__memory_python_samples[fname][line_no][bytei] += (
                     python_frac / allocs
                 ) * (after - before)
-                Scalene.__memory_malloc_count[fname][line_no][bytei] += 1
                 Scalene.__malloc_samples[fname] += 1
                 Scalene.__total_memory_malloc_samples += after - before
             else:
@@ -1072,7 +1058,6 @@ process."""
                 ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
                 ncpcs = Text.assemble((n_cpu_percent_c_str, "bold red"))
                 nufs = Text.assemble((spark_str + n_usage_fraction_str, "bold red"))
-                # print(u"\u001b[31m", end="")
             else:
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str
@@ -1109,8 +1094,84 @@ process."""
             )
 
     @staticmethod
+    def output_stats(pid: int) -> None:
+        payload: List[Any] = []
+        payload = [
+            Scalene.__max_footprint,
+            Scalene.__elapsed_time,
+            Scalene.__total_cpu_samples,
+            Scalene.__cpu_samples_c,
+            Scalene.__cpu_samples_python,
+            Scalene.__bytei_map,
+            Scalene.__cpu_samples,
+            Scalene.__memory_malloc_samples,
+            Scalene.__memory_python_samples,
+            Scalene.__memory_free_samples,
+            Scalene.__memcpy_samples,
+            Scalene.__per_line_footprint_samples,
+            Scalene.__total_memory_free_samples,
+            Scalene.__total_memory_malloc_samples,
+        ]
+        # To be added: __malloc_samples
+
+        # Create a file in the Python alias directory with the relevant info.
+        out_fname = os.path.join(
+            Scalene.__python_alias_dir_name,
+            "scalene" + str(pid) + "-" + str(os.getpid()),
+        )
+        with open(out_fname, "wb") as out_file:
+            cloudpickle.dump(payload, out_file)
+
+    @staticmethod
+    def merge_stats() -> None:
+        the_dir = pathlib.Path(Scalene.__python_alias_dir_name)
+        for f in list(the_dir.glob("**/scalene*")):
+            # Skip empty files.
+            if os.path.getsize(f) == 0:
+                continue
+            with open(f, "rb") as file:
+                unpickler = pickle.Unpickler(file)
+                value = unpickler.load()
+                Scalene.__max_footprint = max(Scalene.__max_footprint, value[0])
+                Scalene.__elapsed_time = max(Scalene.__elapsed_time, value[1])
+                Scalene.__total_cpu_samples += value[2]
+                del value[:3]
+                for dict, index in [
+                    (Scalene.__cpu_samples_c, 0),
+                    (Scalene.__cpu_samples_python, 1),
+                    (Scalene.__memcpy_samples, 7),
+                    (Scalene.__per_line_footprint_samples, 8),
+                ]:
+                    for fname in value[index]:
+                        for lineno in value[index][fname]:
+                            v = value[index][fname][lineno]
+                            dict[fname][lineno] += v  # type: ignore
+                for dict, index in [
+                    (Scalene.__memory_malloc_samples, 4),
+                    (Scalene.__memory_python_samples, 5),
+                    (Scalene.__memory_free_samples, 6),
+                ]:
+                    for fname in value[index]:
+                        for lineno in value[index][fname]:
+                            for ind in value[index][fname][lineno]:
+                                dict[fname][lineno][ind] += value[index][fname][lineno][
+                                    ind
+                                ]
+                for fname in value[2]:
+                    for lineno in value[2][fname]:
+                        v = value[2][fname][lineno]
+                        Scalene.__bytei_map[fname][lineno] |= v
+                for fname in value[3]:
+                    Scalene.__cpu_samples[fname] += value[3][fname]
+                Scalene.__total_memory_free_samples += value[9]
+                Scalene.__total_memory_malloc_samples += value[10]
+
+    @staticmethod
     def output_profiles() -> bool:
-        """Write the profile out (currently to stdout)."""
+        """Write the profile out."""
+        # Get the children's stats, if any.
+        if not arguments.pid:
+            Scalene.merge_stats()
         current_max: float = Scalene.__max_footprint
         # If we've collected any samples, dump them.
         if (
@@ -1154,9 +1215,8 @@ process."""
 
         null = open("/dev/null", "w")
         console = Console(width=132, record=True, force_terminal=True, file=null)
-        cpu_percent_threshold = 1
-        if "cpu_percent_threshold" in arguments:
-            cpu_percent_threshold = int(arguments.cpu_percent_threshold)
+        # Build a list of files we will actually report on.
+        report_files = []
         for fname in sorted(all_instrumented_files):
             fname = Filename(fname)
             try:
@@ -1166,13 +1226,21 @@ process."""
             except ZeroDivisionError:
                 percent_cpu_time = 0
 
-            # Ignore files responsible for less than some percent of execution time and fewer than 100 mallocs.
+            # Ignore files responsible for less than some percent of execution time and fewer than a threshold # of mallocs.
             if (
-                Scalene.__malloc_samples[fname] < 100
-                and percent_cpu_time < cpu_percent_threshold
+                Scalene.__malloc_samples[fname] < Scalene.__malloc_threshold
+                and percent_cpu_time < Scalene.__cpu_percent_threshold
             ):
                 continue
+            report_files.append(fname)
 
+        # Don't actually output the profile if we are a child process.
+        # Instead, write info to disk for the main process to collect.
+        if arguments.pid:
+            Scalene.output_stats(arguments.pid)
+            return True
+
+        for fname in report_files:
             # Print header.
             new_title = mem_usage_line + (
                 "%s: %% of CPU time = %6.2f%% out of %6.2fs."
@@ -1232,6 +1300,11 @@ process."""
     def exit_handler() -> None:
         """When we exit, disable all signals."""
         Scalene.disable_signals()
+        # Delete the temporary directory.
+        try:
+            Scalene.__python_alias_dir.cleanup()
+        except BaseException:
+            pass
 
     @staticmethod
     def main() -> None:
