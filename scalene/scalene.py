@@ -1143,7 +1143,7 @@ process."""
                 value = unpickler.load()
                 Scalene.__max_footprint = max(Scalene.__max_footprint, value[0])
                 Scalene.__elapsed_time = max(Scalene.__elapsed_time, value[1])
-                # Scalene.__total_cpu_samples += value[2]
+                Scalene.__total_cpu_samples += value[2]
                 del value[:3]
                 for dict, index in [
                     (Scalene.__cpu_samples_c, 0),
@@ -1174,6 +1174,7 @@ process."""
                     Scalene.__cpu_samples[fname] += value[3][fname]
                 Scalene.__total_memory_free_samples += value[9]
                 Scalene.__total_memory_malloc_samples += value[10]
+            os.remove(f)
 
     @staticmethod
     def output_profiles() -> bool:
@@ -1270,7 +1271,9 @@ process."""
                 tbl.add_column("Net\n(MB)", no_wrap=True)
                 tbl.add_column("Memory usage\nover time / %", no_wrap=True)
                 tbl.add_column("Copy\n(MB/s)", no_wrap=True)
-            tbl.add_column("\n" + fname, width=66)
+                tbl.add_column("\n" + fname, width=66)
+            else:
+                tbl.add_column("\n" + fname, width=96)
 
             with open(fname, "r") as source_file:
                 for line_no, line in enumerate(source_file, 1):
