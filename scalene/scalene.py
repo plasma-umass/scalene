@@ -90,6 +90,7 @@ if sys.platform == "win32":
 
 
 def debug_print(message: str) -> None:
+    """Print a message accompanied by info about the file, line number, and caller."""
     import sys
     import inspect
 
@@ -283,9 +284,6 @@ class Scalene:
 
     # Running count of malloc samples per file. Used to prune reporting.
     __malloc_samples: Dict[Filename, float] = defaultdict(float)
-
-    # Below are indexed by [filename][line_no][bytecode_index]:
-    #
 
     # malloc samples for each location in the program
     __memory_malloc_samples: Dict[
@@ -621,6 +619,7 @@ process."""
         signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
         this_frame: FrameType,
     ) -> None:
+        """Wrapper for CPU signal handlers that locks access to the signal handler itself."""
         if Scalene.__in_signal_handler.acquire(blocking=False):
             Scalene.cpu_signal_handler_helper(signum, this_frame)
             Scalene.__in_signal_handler.release()
