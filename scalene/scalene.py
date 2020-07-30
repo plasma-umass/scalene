@@ -1251,6 +1251,9 @@ process."""
 
         for fname in report_files:
             # Print header.
+            percent_cpu_time = (
+                100 * Scalene.__cpu_samples[fname] / Scalene.__total_cpu_samples
+            )
             new_title = mem_usage_line + (
                 "%s: %% of CPU time = %6.2f%% out of %6.2fs."
                 % (fname, percent_cpu_time, Scalene.__elapsed_time)
