@@ -13,6 +13,12 @@ class Adaptive:
         # must be a power of two
         self.sample_array = [0] * size
 
+    def __add__(self : 'Adaptive', other : 'Adaptive') -> 'Adaptive':
+        n = Adaptive(self.max_samples)
+        for i in range(0, self.max_samples):
+            n.sample_array[i] = self.sample_array[i] + other.sample_array[i]
+        return n
+    
     def add(self, value: float) -> None:
         if self.current_index >= self.max_samples:
             # Decimate
