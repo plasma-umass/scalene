@@ -19,6 +19,11 @@ class Adaptive:
             n.sample_array[i] = self.sample_array[i] + other.sample_array[i]
         return n
     
+    def __iadd__(self : 'Adaptive', other : 'Adaptive') -> 'Adaptive':
+        for i in range(0, self.max_samples):
+            self.sample_array[i] += other.sample_array[i]
+        return self
+    
     def add(self, value: float) -> None:
         if self.current_index >= self.max_samples:
             # Decimate
