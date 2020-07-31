@@ -17,11 +17,13 @@ class Adaptive:
         n = Adaptive(self.max_samples)
         for i in range(0, self.max_samples):
             n.sample_array[i] = self.sample_array[i] + other.sample_array[i]
+        n.current_index = max(self.current_index, other.current_index)
         return n
     
     def __iadd__(self : 'Adaptive', other : 'Adaptive') -> 'Adaptive':
         for i in range(0, self.max_samples):
             self.sample_array[i] += other.sample_array[i]
+        self.current_index = max(self.current_index, other.current_index)
         return self
     
     def add(self, value: float) -> None:
