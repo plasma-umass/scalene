@@ -97,7 +97,13 @@ def debug_print(message: str) -> None:
     callerframerecord = inspect.stack()[1]
     frame = callerframerecord[0]
     info = inspect.getframeinfo(frame)
-    print(info.filename, "func=%s" % info.function, "line=%s:" % info.lineno, message)
+    print(
+        os.getpid(),
+        info.filename,
+        "func=%s" % info.function,
+        "line=%s:" % info.lineno,
+        message,
+    )
 
 
 def parse_args() -> Tuple[argparse.Namespace, List[str]]:
@@ -214,14 +220,13 @@ if (
         if ("DYLD_INSERT_LIBRARIES" not in os.environ) and (
             "PYTHONMALLOC" not in os.environ
         ):
-            env = os.environ
-            env["DYLD_INSERT_LIBRARIES"] = os.path.join(
+            os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(
                 os.path.dirname(__file__), "libscalene.dylib"
             )
-            env["PYTHONMALLOC"] = "malloc"
+            os.environ["PYTHONMALLOC"] = "malloc"
             args = sys.argv[1:]
             args = [os.path.basename(sys.executable), "-m", "scalene"] + args
-            result = subprocess.run(args, env=env, close_fds=True, shell=False)
+            result = subprocess.run(args, close_fds=True, shell=False)
             sys.exit(result.returncode)
 
 Filename = NewType("Filename", str)
@@ -581,15 +586,29 @@ process."""
             # executable, so scalene can handle multiple proceses; each
             # one is a shell script that redirects to Scalene.
             cmdline = ""
+            preface = ""
             # Pass along commands from the invoking command line.
             if arguments.cpuonly:
                 cmdline += " --cpu-only"
+            else:
+                preface = "PYTHONMALLOC=malloc "
+                if sys.platform == "linux":
+                    shared_lib = os.path.join(
+                        os.path.dirname(__file__), "libscalene.so"
+                    )
+                    preface += "LD_PRELOAD=" + shared_lib
+                else:
+                    shared_lib = os.path.join(
+                        os.path.dirname(__file__), "libscalene.dylib"
+                    )
+                    preface += "DYLD_INSERT_LIBRARIES=" + shared_lib
             # Add the --pid field so we can propagate it to the child.
             cmdline += " --pid=" + str(os.getpid())
             payload = """#!/bin/bash
     echo $$
-    %s -m scalene %s $@
+    %s %s -m scalene %s $@
     """ % (
+                preface,
                 sys.executable,
                 cmdline,
             )
@@ -798,7 +817,6 @@ process."""
     ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
         new_frames = Scalene.compute_frames_to_record(this_frame)
-
         if not new_frames:
             return
 
@@ -1119,6 +1137,7 @@ process."""
             Scalene.__per_line_footprint_samples,
             Scalene.__total_memory_free_samples,
             Scalene.__total_memory_malloc_samples,
+            Scalene.__memory_footprint_samples,
         ]
         # To be added: __malloc_samples
 
@@ -1173,6 +1192,7 @@ process."""
                     Scalene.__cpu_samples[fname] += value[3][fname]
                 Scalene.__total_memory_free_samples += value[9]
                 Scalene.__total_memory_malloc_samples += value[10]
+                Scalene.__memory_footprint_samples += value[11]
             os.remove(f)
 
     @staticmethod
