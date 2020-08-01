@@ -1043,19 +1043,19 @@ process."""
         n_python_fraction = 0 if not n_malloc_mb else n_python_malloc_mb / n_malloc_mb
         # Finally, print results.
         n_cpu_percent_c_str: str = (
-            "" if not n_cpu_percent_c else "%6.0f%%" % n_cpu_percent_c
+            "" if n_cpu_percent_c < 0.5 else "%6.0f%%" % n_cpu_percent_c
         )
         n_cpu_percent_python_str: str = (
-            "" if not n_cpu_percent_python else "%6.0f%%" % n_cpu_percent_python
+            "" if n_cpu_percent_python < 0.5 else "%6.0f%%" % n_cpu_percent_python
         )
         n_growth_mb_str: str = (
             "" if (not n_growth_mb and not n_usage_fraction) else "%5.0f" % n_growth_mb
         )
         n_usage_fraction_str: str = (
-            "" if not n_usage_fraction else "%3.0f%%" % (100 * n_usage_fraction)
+            "" if n_usage_fraction < 0.5 else "%3.0f%%" % (100 * n_usage_fraction)
         )
         n_python_fraction_str: str = (
-            "" if not n_python_fraction else "%5.0f%%" % (100 * n_python_fraction)
+            "" if n_python_fraction < 0.5 else "%5.0f%%" % (100 * n_python_fraction)
         )
         n_copy_b = Scalene.__memcpy_samples[fname][line_no]
         n_copy_mb_s = n_copy_b / (1024 * 1024 * Scalene.__elapsed_time)
