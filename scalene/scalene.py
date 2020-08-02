@@ -623,6 +623,8 @@ process."""
             os.environ["PATH"] = (
                 Scalene.__python_alias_dir_name + ":" + os.environ["PATH"]
             )
+            # Force the executable (if anyone invokes it later) to point to one of our aliases.
+            sys.executable = Scalene.__all_python_names[0]
 
         # Register the exit handler to run when the program terminates or we quit.
         atexit.register(Scalene.exit_handler)
