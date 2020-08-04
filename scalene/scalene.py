@@ -1358,7 +1358,11 @@ process."""
         try:
             with open(sys.argv[0], "rb") as prog_being_profiled:
                 # Read in the code and compile it.
-                code = compile(prog_being_profiled.read(), sys.argv[0], "exec")
+                try:
+                    code = compile(prog_being_profiled.read(), sys.argv[0], "exec")
+                except SyntaxError:
+                    traceback.print_exc()
+                    sys.exit(-1)
                 # Push the program's path.
                 program_path = os.path.dirname(os.path.abspath(sys.argv[0]))
                 sys.path.insert(0, program_path)
