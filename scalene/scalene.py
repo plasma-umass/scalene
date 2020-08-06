@@ -61,7 +61,6 @@ from typing import (
 from scalene.adaptive import Adaptive
 from scalene.sparkline import SparkLine
 
-
 # Logic to ignore @profile decorators.
 try:
     builtins.profile  # type: ignore
@@ -75,8 +74,8 @@ except AttributeError:
 
 
 assert (
-    sys.version_info[0] == 3 and sys.version_info[1] >= 5
-), "Scalene requires Python version 3.5 or above."
+    sys.version_info[0] == 3 and sys.version_info[1] >= 6
+), "Scalene requires Python version 3.6 or above."
 
 
 # Scalene currently only supports Unix-like operating systems; in
@@ -238,7 +237,7 @@ class Scalene:
     """The Scalene profiler itself."""
 
     # Debugging flag, for internal use only.
-    __debug = False
+    __debug: bool = False
 
     # We use these in is_call_function to determine whether a
     # particular bytecode is a function call.  We use this to
