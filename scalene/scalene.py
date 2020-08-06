@@ -59,7 +59,7 @@ from typing import (
 )
 
 from scalene.adaptive import Adaptive
-from scalene.sparkline import SparkLine
+from scalene import sparkline
 
 # Logic to ignore @profile decorators.
 try:
@@ -1069,7 +1069,7 @@ process."""
             for i in range(0, len(samples.get())):
                 samples.get()[i] *= n_usage_fraction
             if samples.get():
-                _, _, spark_str = SparkLine().generate(
+                _, _, spark_str = sparkline.generate(
                     samples.get()[0 : samples.len()], 0, current_max
                 )
 
@@ -1233,7 +1233,7 @@ process."""
             samples = Scalene.__memory_footprint_samples
             if len(samples.get()) > 0:
                 # Output a sparkline as a summary of memory usage over time.
-                _, _, spark_str = SparkLine().generate(
+                _, _, spark_str = sparkline.generate(
                     samples.get()[0 : samples.len()], 0, current_max
                 )
                 mem_usage_line = Text.assemble(
