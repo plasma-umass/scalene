@@ -4,13 +4,10 @@ from typing import List
 class Adaptive:
     """Implements sampling to achieve the effect of a uniform random sample."""
 
-    sample_array: List[float] = []
-    current_index = 0
-    max_samples = 0
-
     def __init__(self, size: int):
+        # size must be a power of two
         self.max_samples = size
-        # must be a power of two
+        self.current_index = 0
         self.sample_array = [0] * size
 
     def __add__(self: "Adaptive", other: "Adaptive") -> "Adaptive":
