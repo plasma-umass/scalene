@@ -8,7 +8,7 @@ class Adaptive:
         # size must be a power of two
         self.max_samples = size
         self.current_index = 0
-        self.sample_array = [0] * size
+        self.sample_array = [0.0] * size
 
     def __add__(self: "Adaptive", other: "Adaptive") -> "Adaptive":
         n = Adaptive(self.max_samples)
