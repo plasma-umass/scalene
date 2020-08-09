@@ -753,13 +753,11 @@ start the timer interrupts."""
         # Pick a new random interval, distributed around the mean.
         next_interval = 0.0
         while next_interval <= 0.0:
-            next_interval = random.normalvariate(Scalene.__mean_signal_interval, Scalene.__mean_signal_interval / 3.0)
-        Scalene.__last_signal_interval = next_interval            
-        signal.setitimer(
-            Scalene.__cpu_timer_signal,
-            next_interval,
-            next_interval
-        )
+            next_interval = random.normalvariate(
+                Scalene.__mean_signal_interval, Scalene.__mean_signal_interval / 3.0
+            )
+        Scalene.__last_signal_interval = next_interval
+        signal.setitimer(Scalene.__cpu_timer_signal, next_interval, next_interval)
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
