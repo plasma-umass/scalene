@@ -24,6 +24,7 @@ import os
 import pathlib
 import pickle
 import platform
+import random
 import signal
 import stat
 import struct
@@ -137,14 +138,6 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         type=float,
         default=float("inf"),
         help="output profiles every so many seconds.",
-    )
-    parser.add_argument(
-        "--wallclock",
-        dest="wallclock",
-        action="store_const",
-        const=True,
-        default=False,
-        help="use wall clock time (default: virtual time)",
     )
     parser.add_argument(
         "--cpu-only",
@@ -283,6 +276,16 @@ class Scalene:
         lambda: defaultdict(float)
     )
 
+    # Exponentially-weighted moving average of the fraction of time running on the CPU.
+    __cpu_utilization: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
+        lambda: defaultdict(float)
+    )
+
+    # Number of samples of CPU utilization, for filtering.
+    __cpu_utilization_count: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
+        lambda: defaultdict(int)
+    )
+
     # Running count of total CPU samples per file. Used to prune reporting.
     __cpu_samples: Dict[Filename, float] = defaultdict(float)
 
@@ -336,7 +339,8 @@ class Scalene:
     __last_signal_interval: float = __mean_signal_interval
 
     # when did we last receive a signal?
-    __last_signal_time: float = 0
+    __last_signal_time_virtual: float = 0
+    __last_signal_time_wallclock: float = 0
 
     # memory footprint samples (time, footprint), using 'Adaptive' sampling.
     __memory_footprint_samples = Adaptive(27)
@@ -457,12 +461,9 @@ periodically yields."""
         return None
 
     @staticmethod
-    def set_timer_signal(use_wallclock_time: bool = False) -> None:
+    def set_timer_signal() -> None:
         """Set up timer signals for CPU profiling."""
-        if use_wallclock_time:
-            Scalene.__cpu_timer_signal = signal.ITIMER_REAL
-        else:
-            Scalene.__cpu_timer_signal = signal.ITIMER_VIRTUAL
+        Scalene.__cpu_timer_signal = signal.ITIMER_REAL
 
         # Now set the appropriate timer signal.
         if Scalene.__cpu_timer_signal == signal.ITIMER_REAL:
@@ -470,6 +471,7 @@ periodically yields."""
         elif Scalene.__cpu_timer_signal == signal.ITIMER_VIRTUAL:
             Scalene.__cpu_signal = signal.SIGVTALRM
         elif Scalene.__cpu_timer_signal == signal.ITIMER_PROF:
+            Scalene.__cpu_signal = signal.SIGPROF
             # NOT SUPPORTED
             assert False, "ITIMER_PROF is not currently supported."
 
@@ -496,18 +498,12 @@ start the timer interrupts."""
             Scalene.__mean_signal_interval,
             Scalene.__mean_signal_interval,
         )
-        Scalene.__last_signal_time = Scalene.gettime()
+        Scalene.__last_signal_time_virtual = time.process_time()  # Scalene.gettime()
 
     @staticmethod
     def gettime() -> float:
-        """High-precision timer of time spent running in or on behalf of this
-process."""
-        if Scalene.__cpu_timer_signal == signal.ITIMER_VIRTUAL:
-            # Using virtual time
-            return time.process_time()
-        else:
-            # Using wall clock time
-            return time.perf_counter()
+        """High-precision timer."""
+        return time.perf_counter()
 
     class ReplacementLock(object):
         """Replace lock with a version that periodically yields and updates sleeping status."""
@@ -652,9 +648,10 @@ process."""
         """Handle interrupts for CPU profiling."""
         # Record how long it has been since we received a timer
         # before.  See the logic below.
-        now = Scalene.gettime()
+        now_virtual = time.process_time()
+        now_wallclock = time.perf_counter()
         # If it's time to print some profiling info, do so.
-        if now >= Scalene.__next_output_time:
+        if now_virtual >= Scalene.__next_output_time:
             # Print out the profile. Set the next output time, stop
             # signals, print the profile, and then start signals
             # again.
@@ -680,9 +677,13 @@ process."""
         # account for this time by tracking the elapsed (process) time
         # and compare it to the interval, and add any computed delay
         # (as if it were sampled) to the C counter.
-        elapsed = now - Scalene.__last_signal_time
+        elapsed_virtual = now_virtual - Scalene.__last_signal_time_virtual
+        elapsed_wallclock = now_wallclock - Scalene.__last_signal_time_wallclock
+        cpu_utilization = elapsed_virtual / elapsed_wallclock
+        if cpu_utilization > 1.0:
+            cpu_utilization = 1.0
         python_time = Scalene.__last_signal_interval
-        c_time = elapsed - python_time
+        c_time = elapsed_virtual - python_time
         if c_time < 0:
             c_time = 0
         # Update counters for every running thread.
@@ -716,6 +717,11 @@ process."""
                     Scalene.__cpu_samples[fname] += (
                         python_time + c_time
                     ) / total_frames
+                    Scalene.__cpu_utilization[fname][lineno] = (
+                        Scalene.__cpu_utilization[fname][lineno] * 0.9
+                        + cpu_utilization * 0.1
+                    )
+                    Scalene.__cpu_utilization_count[fname][lineno] += 1
             else:
                 # We can't play the same game here of attributing
                 # time, because we are in a thread, and threads don't
@@ -733,11 +739,27 @@ process."""
                         # Not in a call function so we attribute the time to Python.
                         Scalene.__cpu_samples_python[fname][lineno] += normalized_time
                     Scalene.__cpu_samples[fname] += normalized_time
+                    Scalene.__cpu_utilization[fname][lineno] = (
+                        Scalene.__cpu_utilization[fname][lineno] * 0.9
+                        + cpu_utilization * 0.1
+                    )
+                    Scalene.__cpu_utilization_count[fname][lineno] += 1
 
         del new_frames
 
         Scalene.__total_cpu_samples += total_time
-        Scalene.__last_signal_time = Scalene.gettime()
+        Scalene.__last_signal_time_virtual = time.process_time()
+        Scalene.__last_signal_time_wallclock = time.perf_counter()
+        # Pick a new random interval, distributed around the mean.
+        next_interval = 0.0
+        while next_interval <= 0.0:
+            next_interval = random.normalvariate(Scalene.__mean_signal_interval, Scalene.__mean_signal_interval / 3.0)
+        Scalene.__last_signal_interval = next_interval            
+        signal.setitimer(
+            Scalene.__cpu_timer_signal,
+            next_interval,
+            next_interval
+        )
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -1044,10 +1066,10 @@ process."""
         n_python_fraction = 0 if not n_malloc_mb else n_python_malloc_mb / n_malloc_mb
         # Finally, print results.
         n_cpu_percent_c_str: str = (
-            "" if n_cpu_percent_c < 0.5 else "%6.0f%%" % n_cpu_percent_c
+            "" if n_cpu_percent_c < 0.5 else "%3.0f%%" % n_cpu_percent_c
         )
         n_cpu_percent_python_str: str = (
-            "" if n_cpu_percent_python < 0.5 else "%6.0f%%" % n_cpu_percent_python
+            "" if n_cpu_percent_python < 0.5 else "%3.0f%%" % n_cpu_percent_python
         )
         n_growth_mb_str: str = (
             "" if (not n_growth_mb and not n_usage_fraction) else "%5.0f" % n_growth_mb
@@ -1056,11 +1078,21 @@ process."""
             "" if n_usage_fraction < 0.5 else "%3.0f%%" % (100 * n_usage_fraction)
         )
         n_python_fraction_str: str = (
-            "" if n_python_fraction < 0.5 else "%5.0f%%" % (100 * n_python_fraction)
+            "" if n_python_fraction < 0.5 else "%3.0f%%" % (100 * n_python_fraction)
         )
         n_copy_b = Scalene.__memcpy_samples[fname][line_no]
         n_copy_mb_s = n_copy_b / (1024 * 1024 * Scalene.__elapsed_time)
         n_copy_mb_s_str: str = "" if n_copy_mb_s < 0.5 else "%6.0f" % n_copy_mb_s
+
+        n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
+        # TODO: do an actual statistical test to decide whether to display utilization or not
+        sys_str: str = "" if n_cpu_percent < 0.5 or Scalene.__cpu_utilization[fname][
+            line_no
+        ] > 0.15 or Scalene.__cpu_utilization_count[fname][
+            line_no
+        ] < 15 else "%3.0f%%" % (
+            100.0 * (1.0 - (Scalene.__cpu_utilization[fname][line_no]))
+        )
 
         if did_sample_memory:
             spark_str: str = ""
@@ -1094,6 +1126,7 @@ process."""
                 str(line_no),
                 ncpps,  # n_cpu_percent_python_str,
                 ncpcs,  # n_cpu_percent_c_str,
+                sys_str,
                 n_python_fraction_str,
                 n_growth_mb_str,
                 nufs,  # spark_str + n_usage_fraction_str,
@@ -1117,6 +1150,7 @@ process."""
                 str(line_no),
                 ncpps,  # n_cpu_percent_python_str,
                 ncpcs,  # n_cpu_percent_c_str,
+                sys_str,
                 syntax_highlighted,
             )
 
@@ -1212,7 +1246,7 @@ process."""
             # Nothing to output.
             return False
         # Collect all instrumented filenames.
-        all_instrumented_files: List[str] = list(
+        all_instrumented_files: List[Filename] = list(
             set(
                 list(Scalene.__cpu_samples_python.keys())
                 + list(Scalene.__cpu_samples_c.keys())
@@ -1246,8 +1280,11 @@ process."""
         null = open("/dev/null", "w")
         console = Console(width=132, record=True, force_terminal=True, file=null)
         # Build a list of files we will actually report on.
-        report_files = []
-        for fname in sorted(all_instrumented_files):
+        report_files: List[Filename] = []
+        # Sort in descending order of CPU cycles, and then ascending order by filename
+        for fname in sorted(
+            all_instrumented_files, key=lambda f: (-(Scalene.__cpu_samples[f]), f)
+        ):
             fname = Filename(fname)
             try:
                 percent_cpu_time = (
@@ -1276,7 +1313,7 @@ process."""
                 100 * Scalene.__cpu_samples[fname] / Scalene.__total_cpu_samples
             )
             new_title = mem_usage_line + (
-                "%s: %% of CPU time = %6.2f%% out of %6.2fs."
+                "%s: %% of time = %6.2f%% out of %6.2fs."
                 % (fname, percent_cpu_time, Scalene.__elapsed_time)
             )
             # Only display total memory usage once.
@@ -1289,12 +1326,13 @@ process."""
             tbl.add_column("Line", justify="right", no_wrap=True)
             tbl.add_column("CPU %\nPython", no_wrap=True)
             tbl.add_column("CPU %\nnative", no_wrap=True)
+            tbl.add_column("Sys\n%", no_wrap=True)
             if did_sample_memory:
                 tbl.add_column("Mem %\nPython", no_wrap=True)
                 tbl.add_column("Net\n(MB)", no_wrap=True)
                 tbl.add_column("Memory usage\nover time / %", no_wrap=True)
                 tbl.add_column("Copy\n(MB/s)", no_wrap=True)
-                tbl.add_column("\n" + fname, width=66)
+                tbl.add_column("\n" + fname, width=60)
             else:
                 tbl.add_column("\n" + fname, width=96)
 
@@ -1346,7 +1384,7 @@ process."""
         """Invokes the profiler from the command-line."""
         args, left = parse_args()  # We currently do this twice, but who cares.
         sys.argv = left
-        Scalene.set_timer_signal(args.wallclock)
+        Scalene.set_timer_signal()
         Scalene.__output_profile_interval = args.profile_interval
         Scalene.__next_output_time = (
             Scalene.gettime() + Scalene.__output_profile_interval
