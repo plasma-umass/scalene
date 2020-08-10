@@ -1,6 +1,6 @@
 LIBNAME = scalene
 PYTHON = python3
-SOURCES = scalene/scalene.py scalene/sparkline.py scalene/adaptive.py
+SOURCES = scalene/scalene.py scalene/sparkline.py scalene/adaptive.py scalene/runningstats.py
 include heaplayers-make.mk
 
 mypy:
