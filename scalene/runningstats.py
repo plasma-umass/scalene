@@ -2,18 +2,19 @@
 
 import math
 
+
 class RunningStats:
     """Incrementally compute statistics"""
-    
-    def __init__(self):
+
+    def __init__(self) -> None:
         self.clear()
 
-    def clear(self):
+    def clear(self) -> None:
         """Reset for new samples"""
         self.n = 0
         self.m1 = self.m2 = self.m3 = self.m4 = 0.0
 
-    def push(self, x):
+    def push(self, x: float) -> None:
         """Add a sample"""
         n1 = self.n
         self.n += 1
@@ -22,27 +23,30 @@ class RunningStats:
         delta_n2 = delta_n * delta_n
         term1 = delta * delta_n * n1
         self.m1 += delta_n
-        self.m4 += term1 * delta_n2 * (self.n*self.n - 3*self.n + 3) + 6 * delta_n2 * self.m2 - 4 * delta_n * self.m3
+        self.m4 += (
+            term1 * delta_n2 * (self.n * self.n - 3 * self.n + 3)
+            + 6 * delta_n2 * self.m2
+            - 4 * delta_n * self.m3
+        )
         self.m3 += term1 * delta_n * (self.n - 2) - 3 * delta_n * self.m2
         self.m2 += term1
 
-    def size(self):
+    def size(self) -> int:
         """The number of samples"""
         return self.n
 
-    def mean(self):
+    def mean(self) -> float:
         """Arithmetic mean, a.k.a. average"""
         return self.m1
 
-    def var(self):
+    def var(self) -> float:
         """Variance"""
         return self.m2 / (self.n - 1.0)
 
-    def std(self):
+    def std(self) -> float:
         """Standard deviation"""
         return math.sqrt(self.var())
 
-    def sem(self):
+    def sem(self) -> float:
         """Standard error of the mean"""
         return self.std() / math.sqrt(self.n)
-    

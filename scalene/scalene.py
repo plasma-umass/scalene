@@ -60,6 +60,7 @@ from typing import (
 )
 
 from scalene.adaptive import Adaptive
+from scalene.runningstats import RunningStats
 from scalene import sparkline
 
 # Logic to ignore @profile decorators.
@@ -276,14 +277,9 @@ class Scalene:
         lambda: defaultdict(float)
     )
 
-    # Exponentially-weighted moving average of the fraction of time running on the CPU.
-    __cpu_utilization: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
-        lambda: defaultdict(float)
-    )
-
-    # Number of samples of CPU utilization, for filtering.
-    __cpu_utilization_count: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
-        lambda: defaultdict(int)
+    # Running stats for the fraction of time running on the CPU.
+    __cpu_utilization: Dict[Filename, Dict[LineNumber, RunningStats]] = defaultdict(
+        lambda: defaultdict(RunningStats)
     )
 
     # Running count of total CPU samples per file. Used to prune reporting.
@@ -717,11 +713,7 @@ start the timer interrupts."""
                     Scalene.__cpu_samples[fname] += (
                         python_time + c_time
                     ) / total_frames
-                    Scalene.__cpu_utilization[fname][lineno] = (
-                        Scalene.__cpu_utilization[fname][lineno] * 0.9
-                        + cpu_utilization * 0.1
-                    )
-                    Scalene.__cpu_utilization_count[fname][lineno] += 1
+                    Scalene.__cpu_utilization[fname][lineno].push(cpu_utilization)
             else:
                 # We can't play the same game here of attributing
                 # time, because we are in a thread, and threads don't
@@ -739,11 +731,7 @@ start the timer interrupts."""
                         # Not in a call function so we attribute the time to Python.
                         Scalene.__cpu_samples_python[fname][lineno] += normalized_time
                     Scalene.__cpu_samples[fname] += normalized_time
-                    Scalene.__cpu_utilization[fname][lineno] = (
-                        Scalene.__cpu_utilization[fname][lineno] * 0.9
-                        + cpu_utilization * 0.1
-                    )
-                    Scalene.__cpu_utilization_count[fname][lineno] += 1
+                    Scalene.__cpu_utilization[fname][lineno].push(cpu_utilization)
 
         del new_frames
 
@@ -1083,13 +1071,18 @@ start the timer interrupts."""
         n_copy_mb_s_str: str = "" if n_copy_mb_s < 0.5 else "%6.0f" % n_copy_mb_s
 
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
-        # TODO: do an actual statistical test to decide whether to display utilization or not
+        # Only report utilization where there is more than 1% CPU total usage,
+        # and the standard error of the mean is low (meaning it's an accurate estimate).
         sys_str: str = "" if n_cpu_percent < 0.5 or Scalene.__cpu_utilization[fname][
             line_no
-        ] > 0.15 or Scalene.__cpu_utilization_count[fname][
+        ].size() <= 1 or Scalene.__cpu_utilization[fname][
             line_no
-        ] < 15 else "%3.0f%%" % (
-            100.0 * (1.0 - (Scalene.__cpu_utilization[fname][line_no]))
+        ].sem() > 0.05 or Scalene.__cpu_utilization[
+            fname
+        ][
+            line_no
+        ].mean() > 0.99 else "%3.0f%%" % (
+            100.0 * (1.0 - (Scalene.__cpu_utilization[fname][line_no].mean()))
         )
 
         if did_sample_memory:
