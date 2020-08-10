@@ -1,5 +1,4 @@
 CPPFLAGS = -std=c++17 -g -O3 -flto -DNDEBUG -fno-builtin-malloc -fvisibility=hidden
-# CPPFLAGS = -std=c++17 -g -O3 -fno-builtin-malloc -fvisibility=hidden
 CXX = clang++
 
 INCLUDES = -I. -I./include -IHeap-Layers -IHeap-Layers/wrappers -IHeap-Layers/utility
