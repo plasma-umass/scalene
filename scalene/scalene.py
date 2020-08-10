@@ -678,6 +678,7 @@ start the timer interrupts."""
         cpu_utilization = elapsed_virtual / elapsed_wallclock
         if cpu_utilization > 1.0:
             cpu_utilization = 1.0
+        assert 0 <= cpu_utilization <= 1, "CPU utilization is a percentage."
         python_time = Scalene.__last_signal_interval
         c_time = elapsed_virtual - python_time
         if c_time < 0:
@@ -1077,12 +1078,12 @@ start the timer interrupts."""
             line_no
         ].size() <= 1 or Scalene.__cpu_utilization[fname][
             line_no
-        ].sem() > 0.05 or Scalene.__cpu_utilization[
+        ].sem() > 0.025 or Scalene.__cpu_utilization[
             fname
         ][
             line_no
         ].mean() > 0.99 else "%3.0f%%" % (
-            100.0 * (1.0 - (Scalene.__cpu_utilization[fname][line_no].mean()))
+            n_cpu_percent * (1.0 - (Scalene.__cpu_utilization[fname][line_no].mean()))
         )
 
         if did_sample_memory:
@@ -1315,8 +1316,8 @@ start the timer interrupts."""
             )
 
             tbl.add_column("Line", justify="right", no_wrap=True)
-            tbl.add_column("CPU %\nPython", no_wrap=True)
-            tbl.add_column("CPU %\nnative", no_wrap=True)
+            tbl.add_column("Time %\nPython", no_wrap=True)
+            tbl.add_column("Time %\nnative", no_wrap=True)
             tbl.add_column("Sys\n%", no_wrap=True)
             if did_sample_memory:
                 tbl.add_column("Mem %\nPython", no_wrap=True)
