@@ -675,16 +675,20 @@ start the timer interrupts."""
         # (as if it were sampled) to the C counter.
         elapsed_virtual = now_virtual - Scalene.__last_signal_time_virtual
         elapsed_wallclock = now_wallclock - Scalene.__last_signal_time_wallclock
+        # CPU utilization is the fraction of time spent on the CPU
+        # over the total wallclock time.
         cpu_utilization = elapsed_virtual / elapsed_wallclock
         if cpu_utilization > 1.0:
+            # Sometimes, for some reason, virtual time exceeds
+            # wallclock time, which makes no sense...
             cpu_utilization = 1.0
-        assert 0 <= cpu_utilization <= 1, "CPU utilization is a percentage."
+        assert 0 <= cpu_utilization <= 1, "CPU utilization must be between 0 and 1."
         python_time = Scalene.__last_signal_interval
         c_time = elapsed_virtual - python_time
         if c_time < 0:
             c_time = 0
-        # Update counters for every running thread.
 
+        # Update counters for every running thread.
         new_frames = Scalene.compute_frames_to_record(this_frame)
         # Now update counters (weighted) for every frame we are tracking.
         total_time = python_time + c_time
@@ -737,15 +741,22 @@ start the timer interrupts."""
         del new_frames
 
         Scalene.__total_cpu_samples += total_time
-        Scalene.__last_signal_time_virtual = time.process_time()
-        Scalene.__last_signal_time_wallclock = time.perf_counter()
         # Pick a new random interval, distributed around the mean.
         next_interval = 0.0
         while next_interval <= 0.0:
+            # Choose a normally distributed random number around the
+            # mean for the next interval. By setting the standard
+            # deviation to a fraction of the mean, we know by
+            # properties of the normal distribution that the
+            # likelihood of iterating this loop more than once is
+            # low. For a fraction 1/f, the probability is
+            # p = 1-(math.erf(f/math.sqrt(2)))/2
             next_interval = random.normalvariate(
                 Scalene.__mean_signal_interval, Scalene.__mean_signal_interval / 3.0
             )
         Scalene.__last_signal_interval = next_interval
+        Scalene.__last_signal_time_wallclock = time.perf_counter()
+        Scalene.__last_signal_time_virtual = time.process_time()
         signal.setitimer(Scalene.__cpu_timer_signal, next_interval, next_interval)
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
