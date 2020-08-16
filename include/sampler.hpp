@@ -27,8 +27,7 @@ public:
 #endif
   }
   
-  inline int sample(size_t sz) {
-    auto oldNext = _next;
+  inline ATTRIBUTE_ALWAYS_INLINE int sample(size_t sz) {
     _next -= sz;
     if (unlikely(_next <= 0)) {
 #if SAMPLER_DETERMINISTIC
@@ -37,7 +36,6 @@ public:
       _next = rng.geometric(SAMPLE_PROBABILITY);
 #endif
       if (sz >= SAMPLE_RATE) {
-	// return ((SAMPLE_RATE - oldNext) + sz) / SAMPLE_RATE;
 	return sz / SAMPLE_RATE + 1;
       } else {
 	return 1;
