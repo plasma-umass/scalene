@@ -226,7 +226,6 @@ Filename = NewType("Filename", str)
 LineNumber = NewType("LineNumber", int)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 
-
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -494,6 +493,10 @@ start the timer interrupts."""
             Scalene.__mean_signal_interval,
             Scalene.__mean_signal_interval,
         )
+        signal.siginterrupt(Scalene.__cpu_signal, False)
+        signal.siginterrupt(Scalene.__malloc_signal, False)
+        signal.siginterrupt(Scalene.__free_signal, False)
+        signal.siginterrupt(Scalene.__memcpy_signal, False)
         Scalene.__last_signal_time_virtual = time.process_time()  # Scalene.gettime()
 
     @staticmethod
@@ -974,6 +977,8 @@ start the timer interrupts."""
     @lru_cache(None)
     def should_trace(filename: str) -> bool:
         """Return true if the filename is one we should trace."""
+        if not filename:
+            return False
         if filename[0] == "<":
             # Not a real file.
             return False
@@ -1385,70 +1390,76 @@ start the timer interrupts."""
     @staticmethod
     def main() -> None:
         """Invokes the profiler from the command-line."""
-        args, left = parse_args()  # We currently do this twice, but who cares.
-        sys.argv = left
-        Scalene.set_timer_signal()
-        Scalene.__output_profile_interval = args.profile_interval
-        Scalene.__next_output_time = (
-            Scalene.gettime() + Scalene.__output_profile_interval
-        )
-        Scalene.__html = args.html
-        Scalene.__output_file = args.outfile
-        Scalene.__profile_all = args.profile_all
         try:
-            with open(sys.argv[0], "rb") as prog_being_profiled:
-                # Read in the code and compile it.
-                try:
-                    code = compile(prog_being_profiled.read(), sys.argv[0], "exec")
-                except SyntaxError:
-                    traceback.print_exc()
-                    sys.exit(-1)
-                # Push the program's path.
-                program_path = os.path.dirname(os.path.abspath(sys.argv[0]))
-                sys.path.insert(0, program_path)
-                Scalene.__program_path = program_path
-                # Grab local and global variables.
-                import __main__
-
-                the_locals = __main__.__dict__
-                the_globals = __main__.__dict__
-                # Splice in the name of the file being executed instead of the profiler.
-                the_globals["__file__"] = os.path.basename(sys.argv[0])
-                # Start the profiler.
-                fullname = os.path.join(program_path, os.path.basename(sys.argv[0]))
-                profiler = Scalene(Filename(fullname))
-                try:
-                    # We exit with this status (returning error code as appropriate).
-                    exit_status = 0
-                    profiler.start()
-                    # Run the code being profiled.
+            args, left = parse_args()  # We currently do this twice, but who cares.
+            sys.argv = left
+            Scalene.set_timer_signal()
+            Scalene.__output_profile_interval = args.profile_interval
+            Scalene.__next_output_time = (
+                Scalene.gettime() + Scalene.__output_profile_interval
+            )
+            Scalene.__html = args.html
+            Scalene.__output_file = args.outfile
+            Scalene.__profile_all = args.profile_all
+            try:
+                with open(sys.argv[0], "rb") as prog_being_profiled:
+                    # Read in the code and compile it.
                     try:
-                        exec(code, the_globals, the_locals)
-                    except SystemExit as se:
-                        # Intercept sys.exit and propagate the error code.
-                        exit_status = se.code
-                    except BaseException:
-                        if Scalene.__debug:
-                            print(traceback.format_exc())  # for debugging only
-                        pass
-                    profiler.stop()
-                    # If we've collected any samples, dump them.
-                    if profiler.output_profiles():
-                        pass
-                    else:
-                        print(
-                            "Scalene: Program did not run for long enough to profile."
+                        code = compile(prog_being_profiled.read(), sys.argv[0], "exec")
+                    except SyntaxError:
+                        traceback.print_exc()
+                        sys.exit(-1)
+                    # Push the program's path.
+                    program_path = os.path.dirname(os.path.abspath(sys.argv[0]))
+                    sys.path.insert(0, program_path)
+                    Scalene.__program_path = program_path
+                    # Grab local and global variables.
+                    import __main__
+
+                    the_locals = __main__.__dict__
+                    the_globals = __main__.__dict__
+                    # Splice in the name of the file being executed instead of the profiler.
+                    the_globals["__file__"] = os.path.basename(sys.argv[0])
+                    # Start the profiler.
+                    fullname = os.path.join(program_path, os.path.basename(sys.argv[0]))
+                    profiler = Scalene(Filename(fullname))
+                    try:
+                        # We exit with this status (returning error code as appropriate).
+                        exit_status = 0
+                        profiler.start()
+                        # Run the code being profiled.
+                        try:
+                            exec(code, the_globals, the_locals)
+                        except SystemExit as se:
+                            # Intercept sys.exit and propagate the error code.
+                            exit_status = se.code
+                        except BaseException:
+                            if Scalene.__debug:
+                                print(traceback.format_exc())  # for debugging only
+                            pass
+                        profiler.stop()
+                        # If we've collected any samples, dump them.
+                        if profiler.output_profiles():
+                            pass
+                        else:
+                            print(
+                                "Scalene: Program did not run for long enough to profile."
+                            )
+                        sys.exit(exit_status)
+                    except Exception as ex:
+                        template = (
+                            "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
                         )
-                    sys.exit(exit_status)
-                except Exception as ex:
-                    template = (
-                        "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
-                    )
-                    message = template.format(type(ex).__name__, ex.args)
-                    print(message)
-                    print(traceback.format_exc())
-        except (FileNotFoundError, IOError):
-            print("Scalene: could not find input file " + sys.argv[0])
+                        message = template.format(type(ex).__name__, ex.args)
+                        print(message)
+                        print(traceback.format_exc())
+            except (FileNotFoundError, IOError):
+                print("Scalene: could not find input file " + sys.argv[0])
+                sys.exit(-1)
+        except SystemExit as se:
+            pass
+        except BaseException:
+            print("Scalene failed to initialize.\n" + traceback.format_exc())
             sys.exit(-1)
 
 
