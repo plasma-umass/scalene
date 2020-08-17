@@ -226,6 +226,7 @@ Filename = NewType("Filename", str)
 LineNumber = NewType("LineNumber", int)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 
+
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -1447,9 +1448,7 @@ start the timer interrupts."""
                             )
                         sys.exit(exit_status)
                     except Exception as ex:
-                        template = (
-                            "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
-                        )
+                        template = "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
                         message = template.format(type(ex).__name__, ex.args)
                         print(message)
                         print(traceback.format_exc())
