@@ -1,12 +1,8 @@
-"""Scalene: a high-performance, high-precision CPU *and* memory profiler for Python.
+"""Scalene: a scripting-language aware profiler for Python.
 
     https://github.com/emeryberger/scalene
 
-    Scalene uses interrupt-driven sampling for CPU profiling. For memory
-    profiling, it uses a similar mechanism but with interrupts generated
-    by a "sampling memory allocator" that produces signals everytime the
-    heap grows or shrinks by a certain amount. See libscalene.cpp for
-    details (sampling logic is in include/sampleheap.hpp).
+    See the paper "scalene-paper.pdf" in this repository for details on Scalene's design.
 
     by Emery Berger
     https://emeryberger.com
