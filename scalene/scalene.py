@@ -138,7 +138,7 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
     )
     parser.add_argument(
         "--cpu-only",
-        dest="cpuonly",
+        dest="cpu_only",
         action="store_const",
         const=True,
         default=False,
@@ -151,6 +151,14 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         const=True,
         default=False,
         help="profile all executed code, not just the target program (default: only the target program)",
+    )
+    parser.add_argument(
+        "--use-virtual-time",
+        dest="use_virtual_time",
+        action="store_const",
+        const=True,
+        default=False,
+        help="measure only CPU time, not time spent in I/O or blocking (default: False)",
     )
     parser.add_argument(
         "--cpu-percent-threshold",
@@ -186,16 +194,16 @@ arguments, left = parse_args()
 # Load shared objects unless the user specifies "--cpu-only" at the command-line.
 # (x86-64 only for now.)
 
-if not arguments.cpuonly and (
+if not arguments.cpu_only and (
     platform.machine() != "x86_64" or struct.calcsize("P") * 8 != 64
 ):
-    arguments.cpuonly = True
+    arguments.cpu_only = True
     print(
         "scalene warning: currently only 64-bit x86-64 platforms are supported for memory and copy profiling."
     )
 
 if (
-    not arguments.cpuonly
+    not arguments.cpu_only
     and platform.machine() == "x86_64"
     and struct.calcsize("P") * 8 == 64
 ):
@@ -341,6 +349,9 @@ class Scalene:
     __last_signal_time_virtual: float = 0
     __last_signal_time_wallclock: float = 0
 
+    # do we use wallclock time (capturing system time and blocking) or not?
+    __use_wallclock_time : bool = True
+
     # memory footprint samples (time, footprint), using 'Adaptive' sampling.
     __memory_footprint_samples = Adaptive(27)
 
@@ -460,10 +471,12 @@ periodically yields."""
         return None
 
     @staticmethod
-    def set_timer_signal() -> None:
+    def set_timer_signals() -> None:
         """Set up timer signals for CPU profiling."""
-        Scalene.__cpu_timer_signal = signal.ITIMER_REAL
-        # Scalene.__cpu_timer_signal = signal.ITIMER_VIRTUAL
+        if Scalene.__use_wallclock_time:
+            Scalene.__cpu_timer_signal = signal.ITIMER_REAL
+        else:
+            Scalene.__cpu_timer_signal = signal.ITIMER_VIRTUAL
 
         # Now set the appropriate timer signal.
         if Scalene.__cpu_timer_signal == signal.ITIMER_REAL:
@@ -479,6 +492,7 @@ periodically yields."""
     def enable_signals() -> None:
         """Set up the signal handlers to handle interrupts for profiling and
 start the timer interrupts."""
+        Scalene.set_timer_signals()
         # CPU
         signal.signal(Scalene.__cpu_signal, Scalene.cpu_signal_handler)
         # Set signal handlers for memory allocation and memcpy events.
@@ -577,6 +591,8 @@ start the timer interrupts."""
             Scalene.__malloc_threshold = int(arguments.malloc_threshold)
         if "cpu_sampling_rate" in arguments:
             Scalene.__mean_cpu_sampling_rate = float(arguments.cpu_sampling_rate)
+        if  arguments.use_virtual_time:
+            Scalene.__use_wallclock_time = False
 
         if arguments.pid:
             # Child process.
@@ -595,7 +611,10 @@ start the timer interrupts."""
             cmdline = ""
             preface = ""
             # Pass along commands from the invoking command line.
-            if arguments.cpuonly:
+            cmdline += " --cpu-sampling-rate=" + str(arguments.cpu_sampling_rate)
+            if arguments.use_virtual_time:
+                cmdline += " --use-virtual-time"
+            if arguments.cpu_only:
                 cmdline += " --cpu-only"
             else:
                 preface = "PYTHONMALLOC=malloc "
@@ -1406,7 +1425,6 @@ start the timer interrupts."""
         try:
             args, left = parse_args()  # We currently do this twice, but who cares.
             sys.argv = left
-            Scalene.set_timer_signal()
             Scalene.__output_profile_interval = args.profile_interval
             Scalene.__next_output_time = (
                 Scalene.get_wallclock_time() + Scalene.__output_profile_interval
