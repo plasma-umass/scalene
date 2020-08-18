@@ -350,7 +350,7 @@ class Scalene:
     __last_signal_time_wallclock: float = 0
 
     # do we use wallclock time (capturing system time and blocking) or not?
-    __use_wallclock_time : bool = True
+    __use_wallclock_time: bool = True
 
     # memory footprint samples (time, footprint), using 'Adaptive' sampling.
     __memory_footprint_samples = Adaptive(27)
@@ -591,7 +591,7 @@ start the timer interrupts."""
             Scalene.__malloc_threshold = int(arguments.malloc_threshold)
         if "cpu_sampling_rate" in arguments:
             Scalene.__mean_cpu_sampling_rate = float(arguments.cpu_sampling_rate)
-        if  arguments.use_virtual_time:
+        if arguments.use_virtual_time:
             Scalene.__use_wallclock_time = False
 
         if arguments.pid:
