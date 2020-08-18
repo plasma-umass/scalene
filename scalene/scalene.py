@@ -164,6 +164,13 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         help="only report profiles with at least this percent of CPU time (default: 1%%)",
     )
     parser.add_argument(
+        "--cpu-sampling-rate",
+        dest="cpu_sampling_rate",
+        type=float,
+        default=0.01,
+        help="CPU sampling rate (default: every 0.01s)",
+    )
+    parser.add_argument(
         "--malloc-threshold",
         dest="malloc_threshold",
         type=int,
@@ -329,10 +336,10 @@ class Scalene:
     __max_footprint: float = 0.0
 
     # mean seconds between interrupts for CPU sampling.
-    __mean_signal_interval: float = 0.01
+    __mean_cpu_sampling_rate: float = 0.01
 
     # last num seconds between interrupts for CPU sampling.
-    __last_signal_interval: float = __mean_signal_interval
+    __last_cpu_sampling_rate: float = __mean_cpu_sampling_rate
 
     # when did we last receive a signal?
     __last_signal_time_virtual: float = 0
@@ -443,7 +450,7 @@ class Scalene:
     ) -> None:
         """We replace threading.Thread.join with this method which always
 periodically yields."""
-        start_time = Scalene.gettime()
+        start_time = Scalene.get_wallclock_time()
         interval = sys.getswitchinterval()
         while self.is_alive():
             Scalene.__is_thread_sleeping[threading.get_ident()] = True
@@ -451,7 +458,7 @@ periodically yields."""
             Scalene.__is_thread_sleeping[threading.get_ident()] = False
             # If a timeout was specified, check to see if it's expired.
             if timeout:
-                end_time = Scalene.gettime()
+                end_time = Scalene.get_wallclock_time()
                 if end_time - start_time >= timeout:
                     return None
         return None
@@ -460,6 +467,7 @@ periodically yields."""
     def set_timer_signal() -> None:
         """Set up timer signals for CPU profiling."""
         Scalene.__cpu_timer_signal = signal.ITIMER_REAL
+        # Scalene.__cpu_timer_signal = signal.ITIMER_VIRTUAL
 
         # Now set the appropriate timer signal.
         if Scalene.__cpu_timer_signal == signal.ITIMER_REAL:
@@ -488,21 +496,27 @@ start the timer interrupts."""
         Scalene.__original_memcpy_signal_handler = signal.signal(
             Scalene.__memcpy_signal, Scalene.memcpy_event_signal_handler
         )
-        # Turn on the CPU profiling timer to run every mean_signal_interval seconds.
-        signal.setitimer(
-            Scalene.__cpu_timer_signal,
-            Scalene.__mean_signal_interval,
-            Scalene.__mean_signal_interval,
-        )
+        # Set every signal to restart interrupted system calls.
         signal.siginterrupt(Scalene.__cpu_signal, False)
         signal.siginterrupt(Scalene.__malloc_signal, False)
         signal.siginterrupt(Scalene.__free_signal, False)
         signal.siginterrupt(Scalene.__memcpy_signal, False)
-        Scalene.__last_signal_time_virtual = time.process_time()  # Scalene.gettime()
+        # Turn on the CPU profiling timer to run every mean_cpu_sampling_rate seconds.
+        signal.setitimer(
+            Scalene.__cpu_timer_signal,
+            Scalene.__mean_cpu_sampling_rate,
+            Scalene.__mean_cpu_sampling_rate,
+        )
+        Scalene.__last_signal_time_virtual = Scalene.get_process_time()
 
     @staticmethod
-    def gettime() -> float:
-        """High-precision timer."""
+    def get_process_time() -> float:
+        """Time spent on the CPU."""
+        return time.process_time()
+
+    @staticmethod
+    def get_wallclock_time() -> float:
+        """Wall-clock time."""
         return time.perf_counter()
 
     class ReplacementLock(object):
@@ -515,7 +529,7 @@ start the timer interrupts."""
             tident = threading.get_ident()
             if blocking == 0:
                 blocking = False
-            start_time = Scalene.gettime()
+            start_time = Scalene.get_wallclock_time()
             if blocking:
                 if timeout < 0:
                     interval = sys.getswitchinterval()
@@ -533,7 +547,7 @@ start the timer interrupts."""
                     return False
                 # If a timeout was specified, check to see if it's expired.
                 if timeout != -1:
-                    end_time = Scalene.gettime()
+                    end_time = Scalene.get_wallclock_time()
                     if end_time - start_time >= timeout:
                         return False
 
@@ -565,6 +579,8 @@ start the timer interrupts."""
             Scalene.__cpu_percent_threshold = int(arguments.cpu_percent_threshold)
         if "malloc_threshold" in arguments:
             Scalene.__malloc_threshold = int(arguments.malloc_threshold)
+        if "cpu_sampling_rate" in arguments:
+            Scalene.__mean_cpu_sampling_rate = float(arguments.cpu_sampling_rate)
 
         if arguments.pid:
             # Child process.
@@ -648,8 +664,8 @@ start the timer interrupts."""
         """Handle interrupts for CPU profiling."""
         # Record how long it has been since we received a timer
         # before.  See the logic below.
-        now_virtual = time.process_time()
-        now_wallclock = time.perf_counter()
+        now_virtual = Scalene.get_process_time()
+        now_wallclock = Scalene.get_wallclock_time()
         # If it's time to print some profiling info, do so.
         if now_virtual >= Scalene.__next_output_time:
             # Print out the profile. Set the next output time, stop
@@ -687,7 +703,7 @@ start the timer interrupts."""
             # wallclock time, which makes no sense...
             cpu_utilization = 1.0
         assert 0 <= cpu_utilization <= 1, "CPU utilization must be between 0 and 1."
-        python_time = Scalene.__last_signal_interval
+        python_time = Scalene.__last_cpu_sampling_rate
         c_time = elapsed_virtual - python_time
         if c_time < 0:
             c_time = 0
@@ -756,11 +772,11 @@ start the timer interrupts."""
             # low. For a fraction 1/f, the probability is
             # p = 1-(math.erf(f/math.sqrt(2)))/2
             next_interval = random.normalvariate(
-                Scalene.__mean_signal_interval, Scalene.__mean_signal_interval / 3.0
+                Scalene.__mean_cpu_sampling_rate, Scalene.__mean_cpu_sampling_rate / 3.0
             )
-        Scalene.__last_signal_interval = next_interval
-        Scalene.__last_signal_time_wallclock = time.perf_counter()
-        Scalene.__last_signal_time_virtual = time.process_time()
+        Scalene.__last_cpu_sampling_rate = next_interval
+        Scalene.__last_signal_time_wallclock = Scalene.get_wallclock_time()
+        Scalene.__last_signal_time_virtual = Scalene.get_process_time()
         signal.setitimer(Scalene.__cpu_timer_signal, next_interval, next_interval)
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
@@ -1001,13 +1017,13 @@ start the timer interrupts."""
     def start() -> None:
         """Initiate profiling."""
         Scalene.enable_signals()
-        Scalene.__start_time = Scalene.gettime()
+        Scalene.__start_time = Scalene.get_wallclock_time()
 
     @staticmethod
     def stop() -> None:
         """Complete profiling."""
         Scalene.disable_signals()
-        Scalene.__elapsed_time += Scalene.gettime() - Scalene.__start_time
+        Scalene.__elapsed_time += Scalene.get_wallclock_time() - Scalene.__start_time
 
     @staticmethod
     def output_profile_line(
@@ -1397,7 +1413,7 @@ start the timer interrupts."""
             Scalene.set_timer_signal()
             Scalene.__output_profile_interval = args.profile_interval
             Scalene.__next_output_time = (
-                Scalene.gettime() + Scalene.__output_profile_interval
+                Scalene.get_wallclock_time() + Scalene.__output_profile_interval
             )
             Scalene.__html = args.html
             Scalene.__output_file = args.outfile
