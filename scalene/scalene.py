@@ -131,6 +131,14 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         help="output as HTML (default: text)",
     )
     parser.add_argument(
+        "--reduced-profile",
+        dest="reduced_profile",
+        action="store_const",
+        const=True,
+        default=False,
+        help="generate a reduced profile, with non-zero lines only (default: False).",
+    )
+    parser.add_argument(
         "--profile-interval",
         type=float,
         default=float("inf"),
@@ -1043,8 +1051,8 @@ start the timer interrupts."""
     @staticmethod
     def output_profile_line(
         fname: Filename, line_no: LineNumber, line: str, console: Console, tbl: Table,
-    ) -> None:
-        """Print exactly one line of the profile."""
+    ) -> bool:
+        """Print at most one line of the profile (true == printed one)."""
         current_max = Scalene.__max_footprint
         did_sample_memory: bool = (
             Scalene.__total_memory_free_samples + Scalene.__total_memory_malloc_samples
@@ -1162,17 +1170,21 @@ start the timer interrupts."""
                 ncpcs = n_cpu_percent_c_str
                 nufs = spark_str + n_usage_fraction_str
 
-            tbl.add_row(
-                str(line_no),
-                ncpps,  # n_cpu_percent_python_str,
-                ncpcs,  # n_cpu_percent_c_str,
-                sys_str,
-                n_python_fraction_str,
-                n_growth_mb_str,
-                nufs,  # spark_str + n_usage_fraction_str,
-                n_copy_mb_s_str,
-                syntax_highlighted,
-            )
+            if not arguments.reduced_profile or ncpps + ncpcs + nufs:
+                tbl.add_row(
+                    str(line_no),
+                    ncpps,  # n_cpu_percent_python_str,
+                    ncpcs,  # n_cpu_percent_c_str,
+                    sys_str,
+                    n_python_fraction_str,
+                    n_growth_mb_str,
+                    nufs,  # spark_str + n_usage_fraction_str,
+                    n_copy_mb_s_str,
+                    syntax_highlighted,
+                )
+                return True
+            else:
+                return False
 
         else:
 
@@ -1186,13 +1198,17 @@ start the timer interrupts."""
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str
 
-            tbl.add_row(
-                str(line_no),
-                ncpps,  # n_cpu_percent_python_str,
-                ncpcs,  # n_cpu_percent_c_str,
-                sys_str,
-                syntax_highlighted,
-            )
+            if not arguments.reduced_profile or ncpps + ncpcs:
+                tbl.add_row(
+                    str(line_no),
+                    ncpps,  # n_cpu_percent_python_str,
+                    ncpcs,  # n_cpu_percent_c_str,
+                    sys_str,
+                    syntax_highlighted,
+                )
+                return True
+            else:
+                return False
 
     @staticmethod
     def output_stats(pid: int) -> None:
@@ -1377,10 +1393,16 @@ start the timer interrupts."""
                 tbl.add_column("\n" + fname, width=96)
 
             with open(fname, "r") as source_file:
+                did_print = False
                 for line_no, line in enumerate(source_file, 1):
-                    Scalene.output_profile_line(
+                    old_did_print = did_print
+                    did_print = Scalene.output_profile_line(
                         fname, LineNumber(line_no), line, console, tbl
                     )
+                    if old_did_print and not did_print:
+                        tbl.add_row("...")
+                    old_did_print = did_print
+                    
             console.print(tbl)
 
         if Scalene.__html:
