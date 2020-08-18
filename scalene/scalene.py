@@ -1392,17 +1392,21 @@ start the timer interrupts."""
             else:
                 tbl.add_column("\n" + fname, width=96)
 
+            # Print out the the profile for the source, line by line.
             with open(fname, "r") as source_file:
-                did_print = False
+                # We track whether we should put in ellipsis (for reduced profiles)
+                # or not.
+                did_print = True  # did we print a profile line last time?
                 for line_no, line in enumerate(source_file, 1):
                     old_did_print = did_print
                     did_print = Scalene.output_profile_line(
                         fname, LineNumber(line_no), line, console, tbl
                     )
                     if old_did_print and not did_print:
+                        # We are skipping lines, so add an ellipsis.
                         tbl.add_row("...")
                     old_did_print = did_print
-                    
+
             console.print(tbl)
 
         if Scalene.__html:
