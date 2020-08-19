@@ -113,15 +113,6 @@ public:
     // Pointer must be in buffer bounds; guaranteed by caller.
 
     // Align pointer.
-#if 1
-    auto offset = fast_modulo((uintptr_t) ptr - (uintptr_t) (this + 1));
-#else
-    // slow (ordinary) modulo operator, replaced by call to libdivide above.
-    auto sz = getBaseSize();
-    auto offset = ((uintptr_t) ptr - (uintptr_t) (this + 1)) % sz;
-#endif
-    ptr = reinterpret_cast<void *> ((uintptr_t) ptr - offset);
-    
     assert(_freed < _numberOfObjects);
     // Note: a double free could create a cycle.
     _freed++;
@@ -129,6 +120,15 @@ public:
       clear();
       return true;
     } else {
+#if 1
+      auto offset = fast_modulo((uintptr_t) ptr - (uintptr_t) (this + 1));
+#else
+      // slow (ordinary) modulo operator, replaced by call to libdivide above.
+      auto sz = getBaseSize();
+      auto offset = ((uintptr_t) ptr - (uintptr_t) (this + 1)) % sz;
+#endif
+      ptr = reinterpret_cast<void *> ((uintptr_t) ptr - offset);
+    
       // Thread this object onto the freelist.
       auto obj = new (ptr) Object;
       assert(sizeof(Object) <= getBaseSize());
