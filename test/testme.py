@@ -49,7 +49,7 @@ def stuff():
     for i in range(1,10):
         print(i)
         for j in range(1,10):
-            # x = doit1(x)
+            x = doit1(x)
             x = doit2(x)
             x = doit3(x)
             x = 1.01
