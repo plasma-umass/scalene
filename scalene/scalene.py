@@ -194,6 +194,11 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
     # Parse out all Scalene arguments and jam the remaining ones into argv.
     # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
     args, left = parser.parse_known_args()
+    # If the user did not enter any commands (just `scalene` or `python3 -m scalene`),
+    # print the usage information and bail.
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(-1)
     return args, left
 
 
