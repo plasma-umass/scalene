@@ -6,4 +6,8 @@ include scalene/scalene.py
 include scalene/adaptive.py
 include scalene/sparkline.py
 include test/testme.py
-
+include GNUmakefile
+include heaplayers-make.mk
+include libscalene.cpp
+include include/*.h
+include include/*.hpp
