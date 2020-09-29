@@ -230,6 +230,8 @@ if (
             args = sys.argv[1:]
             args = [os.path.basename(sys.executable), "-m", "scalene"] + args
             result = subprocess.run(args)
+            if result.returncode < 0:
+                print("scalene error: received signal", signal.Signals(-result.returncode).name)
             sys.exit(result.returncode)
 
     # Similar logic, but for Mac OS X.
@@ -244,6 +246,8 @@ if (
             args = sys.argv[1:]
             args = [os.path.basename(sys.executable), "-m", "scalene"] + args
             result = subprocess.run(args, close_fds=True, shell=False)
+            if result.returncode < 0:
+                print("scalene error: received signal", signal.Signals(-result.returncode).name)
             sys.exit(result.returncode)
 
 Filename = NewType("Filename", str)
