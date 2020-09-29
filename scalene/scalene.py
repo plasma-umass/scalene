@@ -619,7 +619,7 @@ start the timer interrupts."""
         else:
             # Parent process.
             # Create a temporary directory to hold aliases to the Python
-            # executable, so scalene can handle multiple proceses; each
+            # executable, so scalene can handle multiple processes; each
             # one is a shell script that redirects to Scalene.
             cmdline = ""
             preface = ""
