@@ -230,6 +230,8 @@ if (
             args = sys.argv[1:]
             args = [os.path.basename(sys.executable), "-m", "scalene"] + args
             result = subprocess.run(args)
+            if result.returncode < 0:
+                print("scalene error: received signal", signal.Signals(-result.returncode).name)
             sys.exit(result.returncode)
 
     # Similar logic, but for Mac OS X.
@@ -244,6 +246,8 @@ if (
             args = sys.argv[1:]
             args = [os.path.basename(sys.executable), "-m", "scalene"] + args
             result = subprocess.run(args, close_fds=True, shell=False)
+            if result.returncode < 0:
+                print("scalene error: received signal", signal.Signals(-result.returncode).name)
             sys.exit(result.returncode)
 
 Filename = NewType("Filename", str)
@@ -619,7 +623,7 @@ start the timer interrupts."""
         else:
             # Parent process.
             # Create a temporary directory to hold aliases to the Python
-            # executable, so scalene can handle multiple proceses; each
+            # executable, so scalene can handle multiple processes; each
             # one is a shell script that redirects to Scalene.
             cmdline = ""
             preface = ""
