@@ -204,7 +204,8 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
 
 arguments, left = parse_args()
 
-# Load shared objects unless the user specifies "--cpu-only" at the command-line.
+# Load shared objects (that is, interpose on malloc, memcpy and friends)
+# unless the user specifies "--cpu-only" at the command-line.
 # (x86-64 only for now.)
 
 if not arguments.cpu_only and (
