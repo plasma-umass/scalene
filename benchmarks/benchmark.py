@@ -6,7 +6,7 @@ import traceback
 import statistics
 
 python = "python3"
-progname = "/Users/emery/git/scalene/benchmarks/julia1_nopil.py"
+progname = os.path.join(os.path.dirname(__file__), "julia1_nopil.py")
 number_of_runs = 1 # We take the average of this many runs.
 
 # Output timing string from the benchmark.
@@ -133,7 +133,7 @@ benchmarks = [(baseline, "baseline", "_original program_"), (cprofile, "cProfile
 
 # benchmarks = [(baseline, "baseline", "_original program_"), (pprofile_deterministic, "`pprofile` _(deterministic)_")]
 # benchmarks = [(baseline, "baseline", "_original program_"), (pprofile_statistical, "pprofile_statistical", "`pprofile` _(statistical)_")]
-benchmarks = [(baseline, "baseline", "_original program_"), (py_spy, "py_spy", "`py-spy`")]
+benchmarks = [(baseline, "baseline", "_original program_"), (py_spy, "py_spy", "`py-spy`"), (scalene_cpu, "scalene_cpu", "`scalene` _(CPU only)_"), (scalene_cpu_memory, "scalene_cpu_memory", "`scalene` _(CPU + memory)_")]
 
 average_time = {}
 check = ":heavy_check_mark:"
