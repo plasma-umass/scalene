@@ -16,6 +16,8 @@ import atexit
 import builtins
 import cloudpickle
 import dis
+import functools
+import inspect
 import os
 import pathlib
 import pickle
@@ -31,7 +33,7 @@ import threading
 import time
 import traceback
 from collections import defaultdict
-from functools import lru_cache
+from functools import lru_cache, wraps
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.syntax import Syntax
@@ -59,16 +61,29 @@ from scalene.adaptive import Adaptive
 from scalene.runningstats import RunningStats
 from scalene import sparkline
 
-# Logic to ignore @profile decorators.
-try:
-    builtins.profile  # type: ignore
-except AttributeError:
+Filename = NewType("Filename", str)
+LineNumber = NewType("LineNumber", int)
+ByteCodeIndex = NewType("ByteCodeIndex", int)
 
-    def profile(func: Any) -> Any:
-        """No line profiler; we provide a pass-through version."""
-        return func
+files_to_profile: Dict[Filename, bool] = defaultdict(bool)
+functions_to_profile: Dict[Filename, Dict[Any, bool]] = defaultdict(lambda: {})
 
-    builtins.profile = profile  # type: ignore
+# Logic to handle @profile decorators.
+def profile(func: Any) -> Any:
+    """Enable reporting *only* for decorated functions."""
+    # Record the file and function name
+    files_to_profile[func.__code__.co_filename] = True
+    functions_to_profile[func.__code__.co_filename][func] = True
+
+    @functools.wraps(func)
+    def wrapper_profile(*args: Any, **kwargs: Any) -> Any:
+        value = func(*args, **kwargs)
+        return value
+
+    return wrapper_profile
+
+
+builtins.profile = profile  # type: ignore
 
 
 assert (
@@ -232,7 +247,10 @@ if (
             args = [os.path.basename(sys.executable), "-m", "scalene"] + args
             result = subprocess.run(args)
             if result.returncode < 0:
-                print("scalene error: received signal", signal.Signals(-result.returncode).name)
+                print(
+                    "scalene error: received signal",
+                    signal.Signals(-result.returncode).name,
+                )
             sys.exit(result.returncode)
 
     # Similar logic, but for Mac OS X.
@@ -248,12 +266,11 @@ if (
             args = [os.path.basename(sys.executable), "-m", "scalene"] + args
             result = subprocess.run(args, close_fds=True, shell=False)
             if result.returncode < 0:
-                print("scalene error: received signal", signal.Signals(-result.returncode).name)
+                print(
+                    "scalene error: received signal",
+                    signal.Signals(-result.returncode).name,
+                )
             sys.exit(result.returncode)
-
-Filename = NewType("Filename", str)
-LineNumber = NewType("LineNumber", int)
-ByteCodeIndex = NewType("ByteCodeIndex", int)
 
 
 class Scalene:
@@ -690,6 +707,21 @@ start the timer interrupts."""
             Scalene.__in_signal_handler.release()
 
     @staticmethod
+    def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
+        """When using @profile, only profile files & lines that have been decorated."""
+        if not files_to_profile:
+            return True
+        if fname not in files_to_profile:
+            return False
+        # Now check to see if it's the right line range.
+        for fn in functions_to_profile[fname]:
+            lines, line_start = inspect.getsourcelines(fn)
+            if lineno >= line_start and lineno < line_start + len(lines):
+                # Yes, it's in range.
+                return True
+        return False
+
+    @staticmethod
     def cpu_signal_handler_helper(
         _signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
         this_frame: FrameType,
@@ -945,10 +977,10 @@ start the timer interrupts."""
 
         for (frame, _tident, _orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
-            line_no = LineNumber(frame.f_lineno)
+            lineno = LineNumber(frame.f_lineno)
             bytei = ByteCodeIndex(frame.f_lasti)
             # Add the byte index to the set for this line (if it's not there already).
-            Scalene.__bytei_map[fname][line_no].add(bytei)
+            Scalene.__bytei_map[fname][lineno].add(bytei)
             curr = before
             python_frac = 0.0
             allocs = 0.0
@@ -963,22 +995,22 @@ start the timer interrupts."""
                     python_frac += python_fraction * count
                 else:
                     curr -= count
-                Scalene.__per_line_footprint_samples[fname][line_no].add(curr)
+                Scalene.__per_line_footprint_samples[fname][lineno].add(curr)
             assert curr == after
             # If there was a net increase in memory, treat it as if it
             # was a malloc; otherwise, treat it as if it was a
             # free. This is for later reporting of net memory gain /
             # loss per line of code.
             if after > before:
-                Scalene.__memory_malloc_samples[fname][line_no][bytei] += after - before
-                Scalene.__memory_python_samples[fname][line_no][bytei] += (
+                Scalene.__memory_malloc_samples[fname][lineno][bytei] += after - before
+                Scalene.__memory_python_samples[fname][lineno][bytei] += (
                     python_frac / allocs
                 ) * (after - before)
                 Scalene.__malloc_samples[fname] += 1
                 Scalene.__total_memory_malloc_samples += after - before
             else:
-                Scalene.__memory_free_samples[fname][line_no][bytei] += before - after
-                Scalene.__memory_free_count[fname][line_no][bytei] += 1
+                Scalene.__memory_free_samples[fname][lineno][bytei] += before - after
+                Scalene.__memory_free_count[fname][lineno][bytei] += 1
                 Scalene.__total_memory_free_samples += before - after
 
     @staticmethod
@@ -1027,6 +1059,11 @@ start the timer interrupts."""
     @lru_cache(None)
     def should_trace(filename: str) -> bool:
         """Return true if the filename is one we should trace."""
+        # If the @profile decorator has been used,
+        # we restrict profiling to files containing decorated functions.
+        if files_to_profile:
+            return filename in files_to_profile
+        # Generic handling follows (when no @profile decorator has been used).
         if not filename:
             return False
         if filename[0] == "<":
@@ -1063,6 +1100,8 @@ start the timer interrupts."""
         fname: Filename, line_no: LineNumber, line: str, console: Console, tbl: Table,
     ) -> bool:
         """Print at most one line of the profile (true == printed one)."""
+        if not Scalene.profile_this_code(fname, line_no):
+            return False
         current_max = Scalene.__max_footprint
         did_sample_memory: bool = (
             Scalene.__total_memory_free_samples + Scalene.__total_memory_malloc_samples
