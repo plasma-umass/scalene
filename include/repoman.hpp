@@ -110,19 +110,16 @@ public:
 	  auto r = reinterpret_cast<Repo<Size> *>(getHeader(ptr));
 	  assert(!r->isEmpty());
 	  if (unlikely(r->free(ptr))) {
-	    // If we just freed the whole repo and it's not our current repo, give it back to the repo source for later reuse.
-	    // (FOR NOW: put on the free list if it's not on one already. We should impose a limit. TBD.)
+	    // If we just freed the whole repo and it's not our
+	    // current repo, give it back to the repo source for later
+	    // reuse.  (FOR NOW: put on the free list if it's not on
+	    // one already. We should impose a limit. TBD.)
 	    if (unlikely(r != _repos[index])) {
 	      if (r->getState() == RepoHeader<Size>::RepoState::Unattached) {
 		r->setNext(_repos[index]);
 		_repos[index] = r;
 		r->setState(RepoHeader<Size>::RepoState::LocalRepoMan);
 	      }
-#if 0
-	      if (r->getState() == RepoHeader<Size>::RepoState::Unattached) {
-		_repoSource.put(r);
-	      }
-#endif
 	    }
 	  }
 	} else {

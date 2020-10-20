@@ -47,17 +47,9 @@ public:
     return _bufferStart;
   }
   
-  inline bool isValid() const {
-#if defined(NDEBUG)
-    return true;
-#endif
-    return true;
-  }
-  
   Repo<Size> * get(size_t sz) {
     std::lock_guard lock (_lock);
-    // tprintf::tprintf("repo: @,  (buf = @), @ get @\n", this, _buf, Size, sz);
-    assert(isValid());
+    //    tprintf::tprintf("repo: @,  (buf = @), @ get @\n", this, _buf, Size, sz);
     auto index = getIndex(sz);
     Repo<Size> * repo = nullptr;
     if (unlikely(getSource(index) == nullptr)) {
@@ -72,11 +64,9 @@ public:
 	  assert(repo != nullptr);
 	  repo->setNext(nullptr); // FIXME? presumably redundant.
 	  assert (repo->getState() == RepoHeader<Size>::RepoState::Unattached);
-	  assert(isValid());
 	  return repo;
 	} else {
 	  tprintf::tprintf("Scalene: Memory exhausted: sz = @\n", sz);
-	  assert(isValid());
 	  return nullptr;
 	}
       }
@@ -107,18 +97,17 @@ public:
       assert(getSource(index)->isValid());
     }
     assert(repo->isValid());
-    assert(isValid());
     assert(repo->getNext() == nullptr);
     return repo;
   }
 
   void put(Repo<Size> * repo) {
     std::lock_guard lock (_lock);
-    assert(isValid());
     assert(repo != nullptr);
     assert(repo->isValid());
     if (repo->getState() == RepoHeader<Size>::RepoState::RepoSource) {
       // This should never happen.
+      assert(0);
       // Fail gracefully.
       return;
     }

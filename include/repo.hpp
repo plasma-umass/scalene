@@ -20,8 +20,7 @@ public:
   enum RepoState { RepoSource, LocalRepoMan, Unattached };
   
   RepoHeader(unsigned long objectSize)
-    : _bumped (0),
-      _freed (0),
+    : _freed (0),
       _magic (MAGIC_NUMBER),
       _repoState (RepoState::Unattached),
       _nextRepo (nullptr),
@@ -31,6 +30,12 @@ public:
       _numberOfObjects ((Size-sizeof(*this)) / objectSize)
   {
     static_assert(sizeof(RepoHeader) % 16 == 0, "Misaligned.");
+    char * cBuf = (char *) (this + 1);
+    for (auto i = 0; i < _numberOfObjects; i++) {
+      auto obj = new (&cBuf[i * _objectSize]) Object;
+      obj->setNext(_nextObject);
+      _nextObject = obj;
+    }
   }
 
   inline RepoState getState() const {
@@ -80,22 +85,11 @@ public:
     assert(sz == getBaseSize());
     Object * obj = nullptr;
     auto * cBuf = reinterpret_cast<char *>(this + 1);
-    assert(_bumped <= _numberOfObjects);
-    if (_bumped == _numberOfObjects) {
-#if 0
-      obj = nullptr;
-#else
-      obj = _nextObject;
-      if (obj != nullptr) {
-	assert(inBounds(obj, cBuf));
-	_nextObject = obj->getNext();
-	_freed--;
-      }
-#endif
-    } else {
-      assert(_bumped < _numberOfObjects);
-      obj = (Object *) &cBuf[_bumped * sz];
-      _bumped++;
+    obj = _nextObject;
+    if (obj != nullptr) {
+      assert(inBounds(obj, cBuf));
+      _nextObject = obj->getNext();
+      _freed--;
     }
     assert((obj == nullptr) || inBounds(obj, cBuf));
     if (obj != nullptr) {
@@ -116,42 +110,29 @@ public:
     assert(_freed < _numberOfObjects);
     // Note: a double free could create a cycle.
     _freed++;
-    if (unlikely(_freed == _numberOfObjects)) {
-      clear();
+    auto offset = fast_modulo((uintptr_t) ptr - (uintptr_t) (this + 1));
+    auto oldptr = ptr;
+    ptr = reinterpret_cast<void *> ((uintptr_t) ptr - offset);
+    // Thread this object onto the freelist.
+    auto obj = new (ptr) Object;
+    assert(sizeof(Object) <= getBaseSize());
+    obj->setNext(_nextObject);
+    _nextObject = obj;
+    if (_freed == _numberOfObjects) {
       return true;
     } else {
-#if 1
-      auto offset = fast_modulo((uintptr_t) ptr - (uintptr_t) (this + 1));
-#else
-      // slow (ordinary) modulo operator, replaced by call to libdivide above.
-      auto sz = getBaseSize();
-      auto offset = ((uintptr_t) ptr - (uintptr_t) (this + 1)) % sz;
-#endif
-      ptr = reinterpret_cast<void *> ((uintptr_t) ptr - offset);
-    
-      // Thread this object onto the freelist.
-      auto obj = new (ptr) Object;
-      assert(sizeof(Object) <= getBaseSize());
-      obj->setNext(_nextObject);
-      _nextObject = obj;
       return false;
     }
   }
 
   inline ATTRIBUTE_ALWAYS_INLINE bool isEmpty() {
     std::lock_guard lock(_lock);
-    return ((_freed == _numberOfObjects) || (_bumped == 0));
+    return ((_freed == _numberOfObjects));
   }
 
   
 private:
   
-  void clear() {
-    _bumped = 0;
-    _freed = 0;
-    _nextObject = nullptr;
-  }
-
   class Object {
   public:
     Object()
@@ -175,7 +156,14 @@ private:
   RepoState _repoState;
   RepoHeader * _nextRepo;
   Object * _nextObject;
-  HL::SpinLock _lock;
+  class NullLock {
+  public:
+    void lock() {}
+    void unlock() {}
+  };
+  
+  NullLock _lock;
+  //  HL::SpinLock _lock;
   double _dummy;
   
 public:
@@ -219,6 +207,7 @@ public:
     assert(RepoHeader<Size>::isValid());
     if (sz != RepoHeader<Size>::getObjectSize()) {
       tprintf::tprintf("repo.hpp: sz = @, repo obj size = @\n", sz, RepoHeader<Size>::getObjectSize());
+      return nullptr;
     }
     assert (sz == RepoHeader<Size>::getObjectSize());
     auto ptr = RepoHeader<Size>::malloc(sz);
