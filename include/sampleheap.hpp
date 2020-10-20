@@ -64,7 +64,7 @@ public:
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
-    auto realSize = sz; // SuperHeap::getSize(ptr);
+    auto realSize = SuperHeap::getSize(ptr);
     assert(realSize >= sz);
     assert((sz < 16) || (realSize <= 2 * sz));
     auto sampleMalloc = _mallocSampler.sample(realSize);
@@ -82,7 +82,8 @@ public:
 
   ATTRIBUTE_ALWAYS_INLINE inline void free(void * ptr) {
     if (unlikely(ptr == nullptr)) { return; }
-    auto realSize = SuperHeap::free(ptr);
+    auto realSize = SuperHeap::getSize(ptr);
+    SuperHeap::free(ptr);
     auto sampleFree = _freeSampler.sample(realSize);
     if (unlikely(sampleFree)) {
       handleFree(sampleFree);
