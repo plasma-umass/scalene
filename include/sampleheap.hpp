@@ -61,25 +61,25 @@ public:
   
   ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
     auto ptr = SuperHeap::malloc(sz);
-  
-    if (likely(ptr != nullptr)) {
-      auto realSize = SuperHeap::getSize(ptr);
-      assert(realSize >= sz);
-      assert((sz < 16) || (realSize <= 2 * sz));
-      auto sampleMalloc = _mallocSampler.sample(realSize);
-      auto sampleCallStack = _callStackSampler.sample(realSize);
+    if (unlikely(ptr == nullptr)) {
+      return nullptr;
+    }
+    auto realSize = sz; // SuperHeap::getSize(ptr);
+    assert(realSize >= sz);
+    assert((sz < 16) || (realSize <= 2 * sz));
+    auto sampleMalloc = _mallocSampler.sample(realSize);
+    auto sampleCallStack = _callStackSampler.sample(realSize);
 #if 1
-      if (unlikely(sampleCallStack)) {
-	recordCallStack(realSize);
-      }
+    if (unlikely(sampleCallStack)) {
+      recordCallStack(realSize);
+    }
 #endif
-      if (unlikely(sampleMalloc)) {
-	writeCount(MallocSignal, sampleMalloc * MallocSamplingRateBytes);
-	_pythonCount = 0;
-	_cCount = 0;
-	_mallocTriggered++;
-	raise(MallocSignal);
-      }
+    if (unlikely(sampleMalloc)) {
+      writeCount(MallocSignal, sampleMalloc * MallocSamplingRateBytes);
+      _pythonCount = 0;
+      _cCount = 0;
+      _mallocTriggered++;
+      raise(MallocSignal);
     }
     return ptr;
   }
