@@ -35,7 +35,9 @@ const auto MemcpySamplingRate = 2097131UL; // next prime after MallocSamplingRat
 
 #include "nextheap.hpp"
 
-class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, NextHeap>> {
+//class CustomHeapType : public NextHeap {
+//class CustomHeapType : public HL::ThreadSpecificHeap<NextHeap> {
+class CustomHeapType : public HL::ANSIWrapper<HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, NextHeap>>> {
 public:
   void lock() {}
   void unlock() {}

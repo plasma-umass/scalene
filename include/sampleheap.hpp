@@ -38,7 +38,7 @@ public:
   
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
-  enum { CallStackSamplingRate = MallocSamplingRateBytes / 13 };
+  enum { CallStackSamplingRate = MallocSamplingRateBytes * 10 };
   
   SampleHeap()
     : _mallocTriggered (0),
@@ -75,11 +75,7 @@ public:
     }
 #endif
     if (unlikely(sampleMalloc)) {
-      writeCount(MallocSignal, sampleMalloc * MallocSamplingRateBytes);
-      _pythonCount = 0;
-      _cCount = 0;
-      _mallocTriggered++;
-      raise(MallocSignal);
+      handleMalloc(sampleMalloc);
     }
     return ptr;
   }
@@ -89,25 +85,37 @@ public:
     auto realSize = SuperHeap::free(ptr);
     auto sampleFree = _freeSampler.sample(realSize);
     if (unlikely(sampleFree)) {
-      writeCount(FreeSignal, sampleFree * MallocSamplingRateBytes);
-      _freeTriggered++;
-      raise(FreeSignal);
+      handleFree(sampleFree);
     }
   }
 
 private:
 
+  void handleMalloc(size_t sampleMalloc) {
+    writeCount(MallocSignal, sampleMalloc * MallocSamplingRateBytes);
+    _pythonCount = 0;
+    _cCount = 0;
+    _mallocTriggered++;
+    raise(MallocSignal);
+  }
+
+  void handleFree(size_t sampleFree) {
+    writeCount(FreeSignal, sampleFree * MallocSamplingRateBytes);
+    _freeTriggered++;
+    raise(FreeSignal);
+  }
+  
   Sampler<MallocSamplingRateBytes> _mallocSampler;
   Sampler<MallocSamplingRateBytes> _freeSampler;
   Sampler<CallStackSamplingRate>   _callStackSampler;
-  char scalene_malloc_signal_filename[255];
-  char scalene_free_signal_filename[255];
   counterType _mallocTriggered;
   counterType _freeTriggered;
   counterType _pythonCount;
   counterType _cCount;
 
   open_addr_hashtable<65536> _table; // Maps call stack entries to function names.
+  char scalene_malloc_signal_filename[256];
+  char scalene_free_signal_filename[256];
   
   void recordCallStack(size_t sz) {
     // Walk the stack to see if this memory was allocated by Python
