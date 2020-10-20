@@ -9,7 +9,7 @@
 
 #define SAMPLER_DETERMINISTIC 0
 
-template <int SAMPLE_RATE>
+template <int64_t SAMPLE_RATE>
 class Sampler {
 private:
   int64_t _next;
