@@ -25,51 +25,23 @@
 #include "tprintf.h"
 #endif
 
-class TheCustomHeap;
-
 // We use prime numbers here (near 1MB, for example) to reduce the risk
 // of stride behavior interfering with sampling.
 
-const auto MallocSamplingRate = 1048538UL;
-const auto MemcpySamplingRate = MallocSamplingRate * 2 + 1;
-const auto RepoSize = 4096; // 65536; // 32768; // 4096;
+const auto MallocSamplingRate = 1048549UL;
+const auto MemcpySamplingRate = 2097131UL; // next prime after MallocSamplingRate * 2 + 1;
+// TBD: use sampler logic (with random sampling) to obviate the need for primes
+// already doing this for malloc-sampling.
 
-template <int Size>
-class OneSource {
-  HL::singleton<RepoSource<Size>> source;
+#include "nextheap.hpp"
+
+class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, NextHeap>> {
 public:
-  
-  inline bool isValid() { return true; }
-  Repo<Size> * get(size_t sz) {
-    std::lock_guard lock (getLock());
-    return source.getInstance().get(sz);
-  }
-  inline void put(Repo<Size> * repo) {
-    std::lock_guard lock (getLock());
-    source.getInstance().put(repo);
-  }
-  inline auto getBufferStart() {
-    return source.getInstance().getBufferStart();
-  }
-  inline auto getHeapSize() {
-    return source.getInstance().getHeapSize();
-  }
-  
-private:
-
-  static inline auto& getLock() {
-    static HL::SpinLock lock;
-    return lock;
-  }
+  void lock() {}
+  void unlock() {}
 };
 
-class S : public SampleHeap<MallocSamplingRate, RepoMan<RepoSize, OneSource>> {};
-//class S : public SampleHeap<MallocSamplingRate, HL::LockedHeap<HL::SpinLock, RepoMan<RepoSize, OneSource>>> {};
-// class S : public SampleHeap<MallocSamplingRate, HL::OneHeap<HL::LockedHeap<HL::SpinLock, RepoMan<RepoSize, OneSource>>>> {};
-// class S : public SampleHeap<MallocSamplingRate, HL::LockedHeap<HL::SpinLock, HL::OneHeap<RepoMan<RepoSize, RepoSource>>>> {};
-
-typedef HL::ThreadSpecificHeap<S> CustomHeapType;
-//typedef S CustomHeapType;
+//typedef NextHeap CustomHeapType;
 
 class InitializeMe {
 public:
@@ -89,57 +61,8 @@ public:
 
 static volatile InitializeMe initme;
 
-class TheCustomHeap {
-public:
-  ATTRIBUTE_ALWAYS_INLINE void * malloc(size_t sz) {
-    if (unlikely(initializing)) {
-      // If we call malloc while we are initializing,
-      // get memory from an internal buffer.
-      void * ptr = initBufferPtr;
-      initBufferPtr += sz;
-      if (initBufferPtr > initBuffer + MAX_LOCAL_BUFFER_SIZE) {
-	abort();
-      }
-      return ptr;
-    }
-    return cHeap->malloc(sz);
-  }
-
-  ATTRIBUTE_ALWAYS_INLINE void free(void * ptr) {
-    cHeap->free(ptr);
-  }
-
-  ATTRIBUTE_ALWAYS_INLINE size_t getSize(void * ptr) {
-    return cHeap->getSize(ptr);
-  }
-
-  void lock() {
-    //    cHeap->lock();
-  }
-
-  void unlock() {
-    //    cHeap->unlock();
-  }
-  
-  TheCustomHeap()
-  {
-    initializing = true;
-    cHeap = new (buf) CustomHeapType;
-    initializing = false;
-  }
-
-private:
-  bool initializing = true;
-  enum { MAX_LOCAL_BUFFER_SIZE = 256 * 131072 };
-  char initBuffer[MAX_LOCAL_BUFFER_SIZE];
-  char * initBufferPtr = initBuffer;
-  alignas(128) char buf[sizeof(CustomHeapType)];
-  CustomHeapType * cHeap;
-};
-
-
-TheCustomHeap& getTheCustomHeap() {
-  static TheCustomHeap thang;
+CustomHeapType& getTheCustomHeap() {
+  static CustomHeapType thang;
   return thang;
 }
 
