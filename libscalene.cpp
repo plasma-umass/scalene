@@ -37,7 +37,7 @@ const auto MemcpySamplingRate = 2097131UL; // next prime after MallocSamplingRat
 
 //class CustomHeapType : public NextHeap {
 //class CustomHeapType : public HL::ThreadSpecificHeap<NextHeap> {
-class CustomHeapType : public HL::ANSIWrapper<HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, NextHeap>>> {
+class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, NextHeap>> {
 public:
   void lock() {}
   void unlock() {}
@@ -63,10 +63,16 @@ public:
 
 static volatile InitializeMe initme;
 
+static CustomHeapType thang;
+
+#define getTheCustomHeap() thang
+
+#if 0
 CustomHeapType& getTheCustomHeap() {
   static CustomHeapType thang;
   return thang;
 }
+#endif
 
 
 #include <sys/types.h>
@@ -217,30 +223,30 @@ extern "C" ATTRIBUTE_EXPORT char * LOCAL_PREFIX(strcpy)(char * dst, const char *
   return result;
 }
 
-extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void * xxmalloc(size_t sz) {
+extern "C" ATTRIBUTE_EXPORT void * xxmalloc(size_t sz) {
   void * ptr = nullptr;
   ptr = getTheCustomHeap().malloc(sz);
   return ptr;
 }
 
-extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void xxfree(void * ptr) {
+extern "C" ATTRIBUTE_EXPORT void xxfree(void * ptr) {
   getTheCustomHeap().free(ptr);
 }
 
-extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void xxfree_sized(void * ptr, size_t sz) {
+extern "C" ATTRIBUTE_EXPORT void xxfree_sized(void * ptr, size_t sz) {
   // TODO FIXME maybe make a sized-free version?
   getTheCustomHeap().free(ptr);
 }
 
-extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) size_t xxmalloc_usable_size(void * ptr) {
+extern "C" ATTRIBUTE_EXPORT size_t xxmalloc_usable_size(void * ptr) {
   return getTheCustomHeap().getSize(ptr); // TODO FIXME adjust for ptr offset?
 }
 
-extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void xxmalloc_lock() {
+extern "C" ATTRIBUTE_EXPORT void xxmalloc_lock() {
   getTheCustomHeap().lock();
 }
 
-extern "C" ATTRIBUTE_EXPORT __attribute__((always_inline)) void xxmalloc_unlock() {
+extern "C" ATTRIBUTE_EXPORT void xxmalloc_unlock() {
   getTheCustomHeap().unlock();
 }
 
