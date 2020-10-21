@@ -65,27 +65,6 @@ Filename = NewType("Filename", str)
 LineNumber = NewType("LineNumber", int)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 
-files_to_profile: Dict[Filename, bool] = defaultdict(bool)
-functions_to_profile: Dict[Filename, Dict[Any, bool]] = defaultdict(lambda: {})
-
-# Logic to handle @profile decorators.
-def profile(func: Any) -> Any:
-    """Enable reporting *only* for decorated functions."""
-    # Record the file and function name
-    files_to_profile[func.__code__.co_filename] = True
-    functions_to_profile[func.__code__.co_filename][func] = True
-
-    @functools.wraps(func)
-    def wrapper_profile(*args: Any, **kwargs: Any) -> Any:
-        value = func(*args, **kwargs)
-        return value
-
-    return wrapper_profile
-
-
-builtins.profile = profile  # type: ignore
-
-
 assert (
     sys.version_info[0] == 3 and sys.version_info[1] >= 6
 ), "Scalene requires Python version 3.6 or above."
@@ -279,6 +258,12 @@ class Scalene:
     # Debugging flag, for internal use only.
     __debug: bool = False
 
+    # Support for @profile
+    # decorated files
+    __files_to_profile: Dict[Filename, bool] = defaultdict(bool)
+    # decorated functions
+    __functions_to_profile: Dict[Filename, Dict[Any, bool]] = defaultdict(lambda: {})
+
     # We use these in is_call_function to determine whether a
     # particular bytecode is a function call.  We use this to
     # distinguish between Python and native code execution when
@@ -470,6 +455,19 @@ class Scalene:
     __malloc_threshold = 100
 
     @staticmethod
+    def profile(func: Any) -> Any:
+        # Record the file and function name
+        Scalene.__files_to_profile[func.__code__.co_filename] = True
+        Scalene.__functions_to_profile[func.__code__.co_filename][func] = True
+
+        @functools.wraps(func)
+        def wrapper_profile(*args: Any, **kwargs: Any) -> Any:
+            value = func(*args, **kwargs)
+            return value
+
+        return wrapper_profile
+
+    @staticmethod
     def set_thread_sleeping(tid: int) -> None:
         Scalene.__is_thread_sleeping[tid] = True
 
@@ -568,7 +566,10 @@ start the timer interrupts."""
         """Replace lock with a version that periodically yields and updates sleeping status."""
 
         def __init__(self) -> None:
+            # Cache the original lock (which we replace)
             self.__lock: threading.Lock = Scalene.get_original_lock()
+            # Install our profile decorator.
+            builtins.profile = Scalene.profile  # type: ignore
 
         def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
             tident = threading.get_ident()
@@ -709,12 +710,12 @@ start the timer interrupts."""
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
         """When using @profile, only profile files & lines that have been decorated."""
-        if not files_to_profile:
+        if not Scalene.__files_to_profile:
             return True
-        if fname not in files_to_profile:
+        if fname not in Scalene.__files_to_profile:
             return False
         # Now check to see if it's the right line range.
-        for fn in functions_to_profile[fname]:
+        for fn in Scalene.__functions_to_profile[fname]:
             lines, line_start = inspect.getsourcelines(fn)
             if lineno >= line_start and lineno < line_start + len(lines):
                 # Yes, it's in range.
@@ -1061,8 +1062,8 @@ start the timer interrupts."""
         """Return true if the filename is one we should trace."""
         # If the @profile decorator has been used,
         # we restrict profiling to files containing decorated functions.
-        if files_to_profile:
-            return filename in files_to_profile
+        if Scalene.__files_to_profile:
+            return filename in Scalene.__files_to_profile
         # Generic handling follows (when no @profile decorator has been used).
         if not filename:
             return False
