@@ -103,6 +103,7 @@ public:
       scalene_memcpy_signal_filename[i] = fname[i];
     }
     stprintf::stprintf((char *) &scalene_memcpy_signal_filename[i], "@", pid);
+    _fd = open(scalene_memcpy_signal_filename, flags, perms);
   }
 
   int local_strlen(const char * str) {
@@ -185,13 +186,13 @@ private:
   unsigned long long _memcpyTriggered;
   unsigned long _interval;
   char scalene_memcpy_signal_filename[255];
-
+  int _fd;
+  
   void writeCount() {
     char buf[255];
     stprintf::stprintf(buf, "@,@\n", _memcpyTriggered, _memcpyOps);
-    int fd = open(scalene_memcpy_signal_filename, flags, perms);
-    write(fd, buf, strlen(buf));
-    close(fd);
+    write(_fd, buf, strlen(buf));
+    //    close(fd);
   }
 };
 
