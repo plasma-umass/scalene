@@ -418,11 +418,12 @@ class Scalene:
     #
     #   file to communicate the number of malloc/free samples (+ PID)
     __malloc_signal_filename = Filename("/tmp/scalene-malloc-signal" + str(os.getpid()))
+    __malloc_signal_position = 0
     try:
-        __malloc_signal_fd = open(__malloc_signal_filename, "r")
-        __malloc_signal_position = 0
+        __malloc_signal_fd = open(__malloc_signal_filename, "x")
     except BaseException:
         pass
+    __malloc_signal_fd = open(__malloc_signal_filename, "r")
     
     #   file to communicate the number of memcpy samples (+ PID)
     __memcpy_signal_filename = Filename("/tmp/scalene-memcpy-signal" + str(os.getpid()))
@@ -1041,15 +1042,13 @@ start the timer interrupts."""
         # Process the input array.
         arr: List[Tuple[int, int]] = []
         try:
-            with open(Scalene.__memcpy_signal_filename, "r") as mfile:
-                for count_str in mfile:
-                    count_str = count_str.rstrip()
-                    (memcpy_time_str, count_str2) = count_str.split(",")
-                    arr.append((int(memcpy_time_str), int(count_str2)))
-        except FileNotFoundError:
-            pass
-        try:
-            os.remove(Scalene.__memcpy_signal_filename)
+            mfile = Scalene.__memcpy_signal_fd
+            mfile.seek(Scalene.__memcpy_signal_position)
+            for count_str in mfile:
+                count_str = count_str.rstrip()
+                (memcpy_time_str, count_str2) = count_str.split(",")
+                arr.append((int(memcpy_time_str), int(count_str2)))
+            Scalene.__memcpy_signal_position = mfile.tell()
         except FileNotFoundError:
             pass
         arr.sort()
