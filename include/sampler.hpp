@@ -27,7 +27,7 @@ public:
 #endif
   }
   
-  inline ATTRIBUTE_ALWAYS_INLINE int sample(size_t sz) {
+  inline ATTRIBUTE_ALWAYS_INLINE int64_t sample(int64_t sz) {
     _next -= sz;
     if (unlikely(_next <= 0)) {
       return updateSample(sz);
@@ -37,11 +37,16 @@ public:
   
 private:
 
-  int updateSample(size_t sz) {
+  int64_t updateSample(int64_t sz) {
 #if SAMPLER_DETERMINISTIC
     _next = SAMPLE_RATE;
 #else
-    _next = rng.geometric(SAMPLE_PROBABILITY);
+    while (true) {
+      _next = rng.geometric(SAMPLE_PROBABILITY);
+      if (_next > 0) {
+	break;
+      }
+    }
 #endif
     if (sz >= SAMPLE_RATE) {
       return sz / SAMPLE_RATE + 1;
