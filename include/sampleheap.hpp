@@ -52,6 +52,7 @@ public:
     // Fill the 0s with the pid.
     auto pid = getpid();
     stprintf::stprintf(scalene_malloc_signal_filename, "/tmp/scalene-malloc-signal@", pid);
+    _fd = open(scalene_malloc_signal_filename, flags, perms);
   }
 
   ~SampleHeap() {
@@ -117,6 +118,7 @@ private:
   open_addr_hashtable<65536> _table; // Maps call stack entries to function names.
   char scalene_malloc_signal_filename[256];
   char scalene_free_signal_filename[256];
+  int _fd;
   
   void recordCallStack(size_t sz) {
     // Walk the stack to see if this memory was allocated by Python
@@ -231,19 +233,19 @@ private:
     _cCount += sz;
   }
   
-  static constexpr auto flags = O_WRONLY | O_CREAT | O_SYNC | O_APPEND; // O_TRUNC;
+  static constexpr auto flags = O_WRONLY | O_CREAT | O_APPEND; // O_SYNC // O_TRUNC;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
   void writeCount(AllocSignal sig, unsigned long count) {
+    //    tprintf::tprintf("write @\n", count);
     char buf[255];
     if (_pythonCount == 0) {
       _pythonCount = 1; // prevent 0/0
     }
     stprintf::stprintf(buf, "@,@,@,@\n", ((sig == MallocSignal) ? 'M' : 'F'), _mallocTriggered + _freeTriggered, count, (float) _pythonCount / (_pythonCount + _cCount));
     //    sprintf(buf, "%c,%llu,%lu,%f\n", ((sig == MallocSignal) ? 'M' : 'F'), _mallocTriggered + _freeTriggered, count, (float) _pythonCount / (_pythonCount + _cCount));
-    int fd = open(scalene_malloc_signal_filename, flags, perms);
-    write(fd, buf, strlen(buf));
-    close(fd);
+    write(_fd, buf, strlen(buf));
+    // close(fd);
   }
 
 };
