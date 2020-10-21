@@ -26,7 +26,6 @@ public:
   MWC()
     : MWC ((getpid() + time(nullptr)) | 1, (uint32_t) ((uint64_t) pthread_self() | 1))
   {
-    srand(time(nullptr));
   }
   MWC(uint32_t seed1, uint32_t seed2) : z(seed1), w(seed2) {
     d_assert(seed1 != 0);
@@ -65,8 +64,7 @@ public:
   // Convert a uniform random number (u) into a geometrically-distributed one with probability p.
   auto inline ATTRIBUTE_ALWAYS_INLINE geometric(double p) {
     auto u = nextU();
-    //    u = (double) rand() / (double) RAND_MAX;
-    auto geom = (int) ceil(log(u) / log(1.0 - p));
+    auto geom = (int64_t) ceil(log(u) / log(1.0 - p));
     return geom;
   }
 
