@@ -1,8 +1,11 @@
 #ifndef SAMPLEHEAP_H
 #define SAMPLEHEAP_H
 
-#include <sys/types.h>
+#include <sys/errno.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+
 #include <fcntl.h>
 #include <unistd.h> // for getpid()
 
@@ -34,29 +37,41 @@ typedef uint64_t counterType;
 
 template <unsigned long MallocSamplingRateBytes, class SuperHeap> 
 class SampleHeap : public SuperHeap {
+
+  static constexpr int MAX_FILE_SIZE = 4096 * 65536;
+  
 public:
   
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
   enum { CallStackSamplingRate = MallocSamplingRateBytes * 10 };
-  
+
   SampleHeap()
     : _mallocTriggered (0),
       _freeTriggered (0),
       _pythonCount (0),
-      _cCount (0)
+      _cCount (0),
+      _lastpos (0)
   {
     // Ignore these signals until they are replaced by a client.
     signal(MallocSignal, SIG_IGN);
     signal(FreeSignal, SIG_IGN);
-    // Fill the 0s with the pid.
+    // Set up the log file.
     auto pid = getpid();
     stprintf::stprintf(scalene_malloc_signal_filename, "/tmp/scalene-malloc-signal@", pid);
     _fd = open(scalene_malloc_signal_filename, flags, perms);
+    _filed = fdopen(_fd, "a");
+    // Make it so the file can reach the maximum size.
+    ftruncate(_fd, MAX_FILE_SIZE);
+    _mmap = reinterpret_cast<char *>(mmap(0, MAX_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0));
+    if (_mmap == MAP_FAILED) {
+      tprintf::tprintf("Scalene: internal error = @\n", errno);
+      abort();
+    }
   }
 
   ~SampleHeap() {
-    // Delete the signal log files.
+    // Delete the log file.
     unlink(scalene_malloc_signal_filename);
   }
   
@@ -117,8 +132,10 @@ private:
 
   open_addr_hashtable<65536> _table; // Maps call stack entries to function names.
   char scalene_malloc_signal_filename[256];
-  char scalene_free_signal_filename[256];
-  int _fd;
+  FILE * _filed; // FILE descriptor for the log
+  int _fd;       // true file descriptor for the log
+  char * _mmap;  // address of the first byte of the log
+  int _lastpos;  // last position written into the log
   
   void recordCallStack(size_t sz) {
     // Walk the stack to see if this memory was allocated by Python
@@ -229,23 +246,34 @@ private:
     }
     
   C_CODE:
-    //    tprintf::tprintf("C");
     _cCount += sz;
   }
   
-  static constexpr auto flags = O_WRONLY | O_CREAT | O_APPEND; // O_SYNC // O_TRUNC;
+  static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
   void writeCount(AllocSignal sig, unsigned long count) {
-    //    tprintf::tprintf("write @\n", count);
     char buf[255];
     if (_pythonCount == 0) {
       _pythonCount = 1; // prevent 0/0
     }
-    stprintf::stprintf(buf, "@,@,@,@\n", ((sig == MallocSignal) ? 'M' : 'F'), _mallocTriggered + _freeTriggered, count, (float) _pythonCount / (_pythonCount + _cCount));
-    //    sprintf(buf, "%c,%llu,%lu,%f\n", ((sig == MallocSignal) ? 'M' : 'F'), _mallocTriggered + _freeTriggered, count, (float) _pythonCount / (_pythonCount + _cCount));
-    write(_fd, buf, strlen(buf));
-    // close(fd);
+#if 0
+    stprintf::stprintf(_mmap + _lastpos,
+		       "@,@,@,@\n\n",
+		       ((sig == MallocSignal) ? 'M' : 'F'),
+		       _mallocTriggered + _freeTriggered,
+		       count,
+		       (float) _pythonCount / (_pythonCount + _cCount));
+#else
+    snprintf(_mmap + _lastpos,
+	     255,
+	     "%c,%llu,%lu,%f\n\n",
+	     ((sig == MallocSignal) ? 'M' : 'F'),
+	     _mallocTriggered + _freeTriggered,
+	     count,
+	     (float) _pythonCount / (_pythonCount + _cCount));
+#endif
+    _lastpos += strlen(_mmap + _lastpos);
   }
 
 };

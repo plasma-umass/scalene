@@ -18,6 +18,7 @@ import cloudpickle
 import dis
 import functools
 import inspect
+import mmap
 import os
 import pathlib
 import pickle
@@ -424,6 +425,7 @@ class Scalene:
     except BaseException:
         pass
     __malloc_signal_fd = open(__malloc_signal_filename, "r")
+    __malloc_signal_mmap = mmap.mmap(__malloc_signal_fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ)
     
     #   file to communicate the number of memcpy samples (+ PID)
     __memcpy_signal_filename = Filename("/tmp/scalene-memcpy-signal" + str(os.getpid()))
@@ -943,10 +945,13 @@ start the timer interrupts."""
         # Process the input array from where we left off reading last time.
         arr: List[Tuple[int, str, float, float]] = []
         try:
-            mfile = Scalene.__malloc_signal_fd
-            mfile.seek(Scalene.__malloc_signal_position)
-            for count_str in mfile:
-                count_str = count_str.rstrip()
+            mm = Scalene.__malloc_signal_mmap
+            mm.seek(Scalene.__malloc_signal_position)
+            while True:
+                count_str = mm.readline()
+                count_str = count_str.rstrip().decode('ascii')
+                if count_str == '':
+                    break
                 (
                     action,
                     alloc_time_str,
@@ -961,7 +966,7 @@ start the timer interrupts."""
                         float(python_fraction_str),
                     )
                 )
-            Scalene.__malloc_signal_position = mfile.tell()
+            Scalene.__malloc_signal_position = mm.tell()
         except FileNotFoundError:
             pass
 
