@@ -228,7 +228,7 @@ if (
             result = subprocess.run(args)
             if result.returncode < 0:
                 print(
-                    "scalene error: received signal",
+                    "Scalene error: received signal",
                     signal.Signals(-result.returncode).name,
                 )
             sys.exit(result.returncode)
@@ -247,17 +247,20 @@ if (
             result = subprocess.run(args, close_fds=True, shell=False)
             if result.returncode < 0:
                 print(
-                    "scalene error: received signal",
+                    "Scalene error: received signal",
                     signal.Signals(-result.returncode).name,
                 )
             sys.exit(result.returncode)
 
 # Install our profile decorator.
 
-def scalene_redirect_profile(func):
+
+def scalene_redirect_profile(func: Any) -> Any:
     return Scalene.profile(func)
 
-builtins.profile = scalene_redirect_profile
+
+builtins.profile = scalene_redirect_profile  # type: ignore
+
 
 class Scalene:
     """The Scalene profiler itself."""
@@ -295,11 +298,14 @@ class Scalene:
     def get_original_lock() -> threading.Lock:
         return Scalene.__original_lock()
 
-    # Likely names for the Python interpreter (assuming it's the same version as this one).
+    # Likely names for the Python interpreter.
     __all_python_names = [
-        "python",
-        "python" + str(sys.version_info.major),
-        "python" + str(sys.version_info.major) + "." + str(sys.version_info.minor),
+        os.path.basename(sys.executable),
+        os.path.basename(sys.executable) + str(sys.version_info.major),
+        os.path.basename(sys.executable)
+        + str(sys.version_info.major)
+        + "."
+        + str(sys.version_info.minor),
     ]
 
     # Statistics counters:
@@ -422,11 +428,16 @@ class Scalene:
     __malloc_signal_position = 0
     try:
         __malloc_signal_fd = open(__malloc_signal_filename, "x")
+        __malloc_signal_fd.truncate(
+            4096 * 65536
+        )  # must match include/sampleheap.hpp value
     except BaseException:
         pass
     __malloc_signal_fd = open(__malloc_signal_filename, "r")
-    __malloc_signal_mmap = mmap.mmap(__malloc_signal_fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ)
-    
+    __malloc_signal_mmap = mmap.mmap(
+        __malloc_signal_fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ
+    )
+
     #   file to communicate the number of memcpy samples (+ PID)
     __memcpy_signal_filename = Filename("/tmp/scalene-memcpy-signal" + str(os.getpid()))
     try:
@@ -446,18 +457,6 @@ class Scalene:
 
     # Whether we are in a signal handler or not (to make things properly re-entrant).
     __in_signal_handler = threading.Lock()
-
-    # We cache the previous signal handlers so we can play nice with
-    # apps that might already have handlers for these signals.
-    __original_malloc_signal_handler: Union[
-        Callable[[Signals, FrameType], None], int, Handlers, None
-    ] = signal.SIG_IGN
-    __original_free_signal_handler: Union[
-        Callable[[Signals, FrameType], None], int, Handlers, None
-    ] = signal.SIG_IGN
-    __original_memcpy_signal_handler: Union[
-        Callable[[Signals, FrameType], None], int, Handlers, None
-    ] = signal.SIG_IGN
 
     # Program-specific information:
     #   the name of the program being profiled
@@ -553,16 +552,9 @@ start the timer interrupts."""
         # CPU
         signal.signal(Scalene.__cpu_signal, Scalene.cpu_signal_handler)
         # Set signal handlers for memory allocation and memcpy events.
-        # Save the previous signal handlers, if any.
-        Scalene.__original_malloc_signal_handler = signal.signal(
-            Scalene.__malloc_signal, Scalene.malloc_signal_handler
-        )
-        Scalene.__original_free_signal_handler = signal.signal(
-            Scalene.__free_signal, Scalene.free_signal_handler
-        )
-        Scalene.__original_memcpy_signal_handler = signal.signal(
-            Scalene.__memcpy_signal, Scalene.memcpy_event_signal_handler
-        )
+        signal.signal(Scalene.__malloc_signal, Scalene.malloc_signal_handler)
+        signal.signal(Scalene.__free_signal, Scalene.free_signal_handler)
+        signal.signal(Scalene.__memcpy_signal, Scalene.memcpy_event_signal_handler)
         # Set every signal to restart interrupted system calls.
         signal.siginterrupt(Scalene.__cpu_signal, False)
         signal.siginterrupt(Scalene.__malloc_signal, False)
@@ -948,9 +940,8 @@ start the timer interrupts."""
             mm = Scalene.__malloc_signal_mmap
             mm.seek(Scalene.__malloc_signal_position)
             while True:
-                count_str = mm.readline()
-                count_str = count_str.rstrip().decode('ascii')
-                if count_str == '':
+                count_str = mm.readline().rstrip().decode("ascii")
+                if count_str == "":
                     break
                 (
                     action,
@@ -1494,10 +1485,14 @@ start the timer interrupts."""
     @staticmethod
     def disable_signals() -> None:
         """Turn off the profiling signals."""
-        signal.setitimer(Scalene.__cpu_timer_signal, 0)
-        signal.signal(Scalene.__malloc_signal, Scalene.__original_malloc_signal_handler)
-        signal.signal(Scalene.__free_signal, Scalene.__original_free_signal_handler)
-        signal.signal(Scalene.__memcpy_signal, Scalene.__original_memcpy_signal_handler)
+        try:
+            signal.setitimer(Scalene.__cpu_timer_signal, 0)
+            signal.signal(Scalene.__malloc_signal, signal.SIG_IGN)
+            signal.signal(Scalene.__free_signal, signal.SIG_IGN)
+            signal.signal(Scalene.__memcpy_signal, signal.SIG_IGN)
+        except:
+            # Retry just in case we get interrupted by one of our own signals.
+            Scalene.disable_signals()
 
     @staticmethod
     def exit_handler() -> None:
