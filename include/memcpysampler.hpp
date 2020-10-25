@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h> // for getpid()
 #include <signal.h>
+#include "fastmemcpy.hpp"
 
 template <unsigned long MemcpySamplingRateBytes>
 class MemcpySampler {
