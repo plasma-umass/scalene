@@ -60,7 +60,6 @@ public:
     auto pid = getpid();
     stprintf::stprintf(scalene_malloc_signal_filename, "/tmp/scalene-malloc-signal@", pid);
     _fd = open(scalene_malloc_signal_filename, flags, perms);
-    _filed = fdopen(_fd, "a");
     // Make it so the file can reach the maximum size.
     ftruncate(_fd, MAX_FILE_SIZE);
     _mmap = reinterpret_cast<char *>(mmap(0, MAX_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0));
@@ -132,7 +131,6 @@ private:
 
   open_addr_hashtable<65536> _table; // Maps call stack entries to function names.
   char scalene_malloc_signal_filename[256];
-  FILE * _filed; // FILE descriptor for the log
   int _fd;       // true file descriptor for the log
   char * _mmap;  // address of the first byte of the log
   int _lastpos;  // last position written into the log
