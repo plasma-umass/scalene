@@ -428,10 +428,7 @@ class Scalene:
     __malloc_signal_position = 0
     try:
         __malloc_signal_fd = open(__malloc_signal_filename, "x")
-        __malloc_signal_fd.truncate(
-            4096 * 65536
-        )  # must match include/sampleheap.hpp value
-    except BaseException:
+    except BaseException as exc:
         pass
     __malloc_signal_fd = open(__malloc_signal_filename, "r")
     __malloc_signal_mmap = mmap.mmap(
