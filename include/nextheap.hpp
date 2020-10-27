@@ -14,6 +14,11 @@ public:
   inline void * malloc(size_t sz) {
     return ::malloc(sz);
   }
+  inline void * memalign(size_t alignment, size_t size) {
+    void * buf;
+    ::posix_memalign(&buf, alignment, size);
+    return buf;
+  }
   inline bool free(void * ptr) {
     ::free(ptr);
     return true;
@@ -29,6 +34,7 @@ extern "C" {
   typedef void * mallocFn(size_t);
   typedef void freeFn(void *);
   typedef size_t mallocusablesizeFn(void *);
+  typedef void * memalignFn(size_t, size_t);
 }
 
 class NextHeap {
@@ -37,9 +43,11 @@ public:
   enum { Alignment = alignof(max_align_t) };
   NextHeap()
     : _inMalloc (false),
+      _inMemalign (false),
       _inFree (false),
       _malloc (nullptr),
       _free (nullptr),
+      _memalign (nullptr),
       _malloc_usable_size (nullptr)
   {
   }
@@ -48,6 +56,12 @@ public:
       return slowPathMalloc(sz);
     }
     return (*_malloc)(sz);
+  }
+  inline void * memalign(size_t alignment, size_t sz) {
+    if (unlikely(_memalign == nullptr)) {
+      return slowPathMemalign(alignment, sz);
+    }
+    return (*_memalign)(alignment, sz);
   }
   inline bool free(void * ptr) {
     if (unlikely(_free == nullptr)) {
@@ -94,9 +108,23 @@ private:
     _inMalloc = false;
     return (*_malloc)(sz);
   }
-  
+
+  void * slowPathMemalign(size_t alignment, size_t sz) {
+    if (_inMemalign) {
+      // If we're in a recursive call, return null.
+      return 0;
+    }
+    _inMemalign = true;
+    // Welcome to the hideous incantation required to use dlsym with C++...
+    *(void **)(&_memalign) = dlsym(RTLD_NEXT, "memalign");
+    _inMemalign = false;
+    return (*_memalign)(alignment, sz);
+  }
+
+  bool _inMemalign;
   bool _inMalloc;
   bool _inFree;
+  memalignFn * _memalign;
   mallocFn * _malloc;
   freeFn * _free;
   mallocusablesizeFn * _malloc_usable_size;
