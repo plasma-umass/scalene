@@ -31,6 +31,7 @@ const auto MemcpySamplingRate = 2097131UL; // next prime after MallocSamplingRat
 
 //class CustomHeapType : public NextHeap {
 //class CustomHeapType : public HL::ThreadSpecificHeap<NextHeap> {
+
 class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, NextHeap>> {
 public:
   void lock() {}
@@ -57,15 +58,18 @@ public:
 
 static volatile InitializeMe initme;
 
-static CustomHeapType thang;
+#if 1
 
+static CustomHeapType thang;
 #define getTheCustomHeap() thang
 
-#if 0
+#else
+
 CustomHeapType& getTheCustomHeap() {
   static CustomHeapType thang;
   return thang;
 }
+
 #endif
 
 
@@ -81,7 +85,6 @@ auto& getSampler() {
 #endif
 
 extern "C" ATTRIBUTE_EXPORT void * LOCAL_PREFIX(memcpy)(void * dst, const void * src, size_t n) {
-  // tprintf::tprintf("memcpy @ @ (@)\n", dst, src, n);
   auto result = getSampler().memcpy(dst, src, n);
   return result;
 }
@@ -110,6 +113,10 @@ extern "C" ATTRIBUTE_EXPORT void xxfree(void * ptr) {
 extern "C" ATTRIBUTE_EXPORT void xxfree_sized(void * ptr, size_t sz) {
   // TODO FIXME maybe make a sized-free version?
   getTheCustomHeap().free(ptr);
+}
+
+extern "C" ATTRIBUTE_EXPORT void * xxmemalign(size_t alignment, size_t sz) {
+  return getTheCustomHeap().memalign(alignment, sz);
 }
 
 extern "C" ATTRIBUTE_EXPORT size_t xxmalloc_usable_size(void * ptr) {
