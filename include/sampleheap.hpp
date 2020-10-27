@@ -265,7 +265,11 @@ private:
 #else
     snprintf(_mmap + _lastpos,
 	     255,
+#if defined(__APPLE__)
 	     "%c,%llu,%lu,%f\n\n",
+#else
+	     "%c,%lu,%lu,%f\n\n",
+#endif
 	     ((sig == MallocSignal) ? 'M' : 'F'),
 	     _mallocTriggered + _freeTriggered,
 	     count,
