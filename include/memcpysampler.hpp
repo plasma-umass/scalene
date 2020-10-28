@@ -75,7 +75,6 @@ private:
     return ::memcpy(dst, src, n);
 #else
     return rte_memcpy(dst, src, n);
-    //    return memcpy_fast(dst, src, n);
 #endif
   }
   

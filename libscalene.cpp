@@ -12,7 +12,6 @@
 
 #include "sampleheap.hpp"
 #include "memcpysampler.hpp"
-#include "fastmemcpy.hpp"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
