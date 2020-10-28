@@ -430,10 +430,14 @@ class Scalene:
         __malloc_signal_fd = open(__malloc_signal_filename, "x")
     except BaseException as exc:
         pass
-    __malloc_signal_fd = open(__malloc_signal_filename, "r")
-    __malloc_signal_mmap = mmap.mmap(
-        __malloc_signal_fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ
-    )
+    try:
+        __malloc_signal_fd = open(__malloc_signal_filename, "r")
+        __malloc_signal_mmap = mmap.mmap(
+            __malloc_signal_fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ
+        )
+    except BaseException as exc:
+        # Ignore if we aren't profiling memory.
+        pass
 
     #   file to communicate the number of memcpy samples (+ PID)
     __memcpy_signal_filename = Filename("/tmp/scalene-memcpy-signal" + str(os.getpid()))
