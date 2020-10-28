@@ -105,6 +105,27 @@ public:
     }
   }
 
+  void * memalign(size_t alignment, size_t sz) {
+    auto ptr = SuperHeap::memalign(alignment, sz);
+    if (unlikely(ptr == nullptr)) {
+      return nullptr;
+    }
+    auto realSize = SuperHeap::getSize(ptr);
+    assert(realSize >= sz);
+    assert((sz < 16) || (realSize <= 2 * sz));
+    auto sampleMalloc = _mallocSampler.sample(realSize);
+    auto sampleCallStack = _callStackSampler.sample(realSize);
+#if 1
+    if (unlikely(sampleCallStack)) {
+      recordCallStack(realSize);
+    }
+#endif
+    if (unlikely(sampleMalloc)) {
+      handleMalloc(sampleMalloc);
+    }
+    return ptr;
+  }
+  
 private:
 
   void handleMalloc(size_t sampleMalloc) {
