@@ -7,7 +7,8 @@
 #include <fcntl.h>
 #include <unistd.h> // for getpid()
 #include <signal.h>
-#include "fastmemcpy.hpp"
+//#include "fastmemcpy.hpp"
+#include "rtememcpy.h"
 
 template <unsigned long MemcpySamplingRateBytes>
 class MemcpySampler {
@@ -73,7 +74,8 @@ private:
 #if defined(__APPLE__)
     return ::memcpy(dst, src, n);
 #else
-    return memcpy_fast(dst, src, n);
+    return rte_memcpy(dst, src, n);
+    //    return memcpy_fast(dst, src, n);
 #endif
   }
   
