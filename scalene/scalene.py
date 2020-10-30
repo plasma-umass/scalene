@@ -1537,6 +1537,8 @@ start the timer interrupts."""
                     the_globals = __main__.__dict__
                     # Splice in the name of the file being executed instead of the profiler.
                     the_globals["__file__"] = os.path.basename(sys.argv[0])
+                    # Some mysterious module foo to make this work the same with -m as with `scalene`.
+                    the_globals["__spec__"] = None
                     # Start the profiler.
                     fullname = os.path.join(program_path, os.path.basename(sys.argv[0]))
                     profiler = Scalene(Filename(fullname))
