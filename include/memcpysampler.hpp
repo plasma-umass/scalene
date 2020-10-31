@@ -7,10 +7,9 @@
 #include <fcntl.h>
 #include <unistd.h> // for getpid()
 #include <signal.h>
-//#include "fastmemcpy.hpp"
 #include "rtememcpy.h"
 
-template <unsigned long MemcpySamplingRateBytes>
+template <uint64_t MemcpySamplingRateBytes>
 class MemcpySampler {
   enum { MemcpySignal = SIGPROF };
   static constexpr auto flags = O_WRONLY | O_CREAT | O_SYNC | O_APPEND; // O_TRUNC;
@@ -110,9 +109,9 @@ private:
     }
   }
   
-  unsigned long _memcpyOps;
+  uint64_t _memcpyOps;
   unsigned long long _memcpyTriggered;
-  unsigned long _interval;
+  uint64_t _interval;
   char scalene_memcpy_signal_filename[255];
 
   void writeCount() {
