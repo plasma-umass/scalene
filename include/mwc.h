@@ -58,7 +58,7 @@ public:
 
   // Returns a float between 0 and 1.
   auto inline nextU() {
-    return (float) next() / (float) UINT32_MAX;
+    return (double) next() / (double) UINT32_MAX;
   }
 
   // Convert a uniform random number (u) into a geometrically-distributed one with probability p.
