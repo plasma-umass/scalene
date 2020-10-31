@@ -1041,12 +1041,13 @@ start the timer interrupts."""
         arr: List[Tuple[int, int]] = []
         try:
             mfile = Scalene.__memcpy_signal_fd
-            mfile.seek(Scalene.__memcpy_signal_position)
-            for count_str in mfile:
-                count_str = count_str.rstrip()
-                (memcpy_time_str, count_str2) = count_str.split(",")
-                arr.append((int(memcpy_time_str), int(count_str2)))
-            Scalene.__memcpy_signal_position = mfile.tell()
+            if mfile:
+                mfile.seek(Scalene.__memcpy_signal_position)
+                for count_str in mfile:
+                    count_str = count_str.rstrip()
+                    (memcpy_time_str, count_str2) = count_str.split(",")
+                    arr.append((int(memcpy_time_str), int(count_str2)))
+                Scalene.__memcpy_signal_position = mfile.tell()
         except Exception as exc:
             pass
         arr.sort()
