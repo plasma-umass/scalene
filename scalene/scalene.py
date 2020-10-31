@@ -441,6 +441,7 @@ class Scalene:
 
     #   file to communicate the number of memcpy samples (+ PID)
     __memcpy_signal_filename = Filename("/tmp/scalene-memcpy-signal" + str(os.getpid()))
+    __memcpy_signal_fd = None
     try:
         __memcpy_signal_fd = open(__memcpy_signal_filename, "r")
         __memcpy_signal_position = 0
@@ -1046,7 +1047,7 @@ start the timer interrupts."""
                 (memcpy_time_str, count_str2) = count_str.split(",")
                 arr.append((int(memcpy_time_str), int(count_str2)))
             Scalene.__memcpy_signal_position = mfile.tell()
-        except FileNotFoundError:
+        except Exception as exc:
             pass
         arr.sort()
 
