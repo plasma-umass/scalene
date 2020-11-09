@@ -1089,7 +1089,7 @@ start the timer interrupts."""
         if filename[0] == "<":
             # Not a real file.
             return False
-        if "entrypoint.py" in filename or "scalene/__main__.py" in filename:
+        if "scalene_profiler.py" in filename or "scalene/__main__.py" in filename:
             # Don't profile the profiler.
             return False
         if Scalene.__profile_all:
