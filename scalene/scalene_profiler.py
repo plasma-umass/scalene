@@ -19,6 +19,7 @@ import dis
 import functools
 import inspect
 import mmap
+import multiprocessing
 import os
 import pathlib
 import pickle
@@ -58,6 +59,7 @@ from typing import (
     Union,
     cast,
 )
+from multiprocessing.process import BaseProcess
 
 from scalene.adaptive import Adaptive
 from scalene.runningstats import RunningStats
@@ -582,13 +584,23 @@ start the timer interrupts."""
         return time.perf_counter()
 
     class ReplacementPollSelector(selectors.PollSelector):
-        def select(self, timeout: Optional[float] = None):
-
-            if timeout and timeout < 0:
+        def select(self, timeout: float = -1):
+            tident = threading.get_ident()
+            start_time = Scalene.get_wallclock_time()
+            if timeout < 0:
                 interval = sys.getswitchinterval()
             else:
                 interval = min(timeout, sys.getswitchinterval())
-            return super().select(interval)
+            while True:
+                Scalene.set_thread_sleeping(tident)
+                selected = super().select(interval)
+                Scalene.reset_thread_sleeping(tident)
+                if selected:
+                    return selected
+                end_time = Scalene.get_wallclock_time()
+                if timeout != -1:
+                    if end_time - start_time >= timeout:
+                        return None
 
     class ReplacementLock(object):
         """Replace lock with a version that periodically yields and updates sleeping status."""
@@ -635,11 +647,40 @@ start the timer interrupts."""
         def __exit__(self, type: str, value: str, traceback: Any) -> None:
             self.release()
 
+    @staticmethod
+    def replacement_process_join(self, timeout: float = -1):
+        from multiprocessing.process import _children
+        # print(multiprocessing.process.active_children())
+        self._check_closed()
+        assert self._parent_pid == os.getpid(), 'can only join a child process'
+        assert self._popen is not None, 'can only join a started process'
+        tident = threading.get_ident()
+        if timeout < 0:
+            interval = sys.getswitchinterval()
+        else:
+            interval = min(timeout, sys.getswitchinterval())
+        start_time = Scalene.get_wallclock_time()
+        while True:
+            Scalene.set_thread_sleeping(tident)
+            res = self._popen.wait(timeout)
+            if res is not None:
+                _children.discard(self)
+                return
+            print(multiprocessing.process.active_children())
+            Scalene.reset_thread_sleeping(tident)
+            if timeout != -1:
+                end_time = Scalene.get_wallclock_time()
+                if end_time - start_time >= timeout:
+                    _children.discard(self)
+                    return
+
+
     def __init__(self, program_being_profiled: Optional[Filename] = None):
         # Hijack join.
         threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
         # Hijack lock.
         threading.Lock = Scalene.ReplacementLock  # type: ignore
+        multiprocessing.Process.join = Scalene.replacement_process_join
         selectors.PollSelector = Scalene.ReplacementPollSelector
         if "cpu_percent_threshold" in arguments:
             Scalene.__cpu_percent_threshold = int(arguments.cpu_percent_threshold)
@@ -1562,6 +1603,10 @@ start the timer interrupts."""
                         exit_status = 0
                         profiler.start()
                         # Run the code being profiled.
+                        import sys as _sys
+                        _sys.argv = ['abcde']
+                        globals = dict(the_globals)
+                        globals['sys'] = _sys
                         try:
                             exec(code, the_globals, the_locals)
                         except SystemExit as se:
