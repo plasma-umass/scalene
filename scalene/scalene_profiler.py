@@ -954,6 +954,7 @@ start the timer interrupts."""
                     if frame:
                         fname = frame.f_code.co_filename
                         continue
+
             if frame:
                 new_frames.append((frame, tident, orig_frame))
         return new_frames
