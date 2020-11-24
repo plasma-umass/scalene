@@ -1568,9 +1568,8 @@ start the timer interrupts."""
                             # Intercept sys.exit and propagate the error code.
                             exit_status = se.code
                         except BaseException:
-                            if Scalene.__debug:
-                                print(traceback.format_exc())  # for debugging only
-                            pass
+                            print(traceback.format_exc())  # for debugging only
+
                         profiler.stop()
                         # If we've collected any samples, dump them.
                         if profiler.output_profiles():
