@@ -24,6 +24,7 @@ import pathlib
 import pickle
 import platform
 import random
+import selectors
 import signal
 import stat
 import struct
@@ -580,6 +581,15 @@ start the timer interrupts."""
         """Wall-clock time."""
         return time.perf_counter()
 
+    class ReplacementPollSelector(selectors.PollSelector):
+        def select(self, timeout: Optional[float] = None):
+
+            if timeout and timeout < 0:
+                interval = sys.getswitchinterval()
+            else:
+                interval = min(timeout, sys.getswitchinterval())
+            return super().select(interval)
+
     class ReplacementLock(object):
         """Replace lock with a version that periodically yields and updates sleeping status."""
 
@@ -630,6 +640,7 @@ start the timer interrupts."""
         threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
         # Hijack lock.
         threading.Lock = Scalene.ReplacementLock  # type: ignore
+        selectors.PollSelector = Scalene.ReplacementPollSelector
         if "cpu_percent_threshold" in arguments:
             Scalene.__cpu_percent_threshold = int(arguments.cpu_percent_threshold)
         if "malloc_threshold" in arguments:
@@ -902,6 +913,8 @@ start the timer interrupts."""
                     if frame:
                         fname = frame.f_code.co_filename
                         continue
+                else:
+                    break
             if frame:
                 new_frames.append((frame, tident, orig_frame))
         return new_frames
@@ -1078,7 +1091,7 @@ start the timer interrupts."""
         if filename[0] == "<":
             # Not a real file.
             return False
-        if "scalene.py" in filename or "scalene/__main__.py" in filename:
+        if "scalene_profiler.py" in filename or "scalene/__main__.py" in filename:
             # Don't profile the profiler.
             return False
         if Scalene.__profile_all:
