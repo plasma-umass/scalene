@@ -10,7 +10,6 @@
     usage: scalene test/testme.py
 
 """
-
 import argparse
 import atexit
 import builtins
@@ -496,6 +495,15 @@ class Scalene:
         return wrapper_profile
 
     @staticmethod
+    def shim(func: Any) -> Any:
+        func(Scalene)
+        # Not sure why anyone would WANT to use this function, considering that it just takes in
+        # scalene as an argument and returns nothing
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            return func(*args, **kwargs)
+        return wrapped
+    @staticmethod
     def set_thread_sleeping(tid: int) -> None:
         Scalene.__is_thread_sleeping[tid] = True
 
@@ -512,24 +520,6 @@ class Scalene:
                 return True
         return False
 
-    @staticmethod
-    def thread_join_replacement(
-        self: threading.Thread, timeout: Optional[float] = None
-    ) -> None:
-        """We replace threading.Thread.join with this method which always
-periodically yields."""
-        start_time = Scalene.get_wallclock_time()
-        interval = sys.getswitchinterval()
-        while self.is_alive():
-            Scalene.__is_thread_sleeping[threading.get_ident()] = True
-            Scalene.__original_thread_join(self, interval)
-            Scalene.__is_thread_sleeping[threading.get_ident()] = False
-            # If a timeout was specified, check to see if it's expired.
-            if timeout:
-                end_time = Scalene.get_wallclock_time()
-                if end_time - start_time >= timeout:
-                    return None
-        return None
 
     @staticmethod
     def set_timer_signals() -> None:
@@ -583,105 +573,13 @@ start the timer interrupts."""
         """Wall-clock time."""
         return time.perf_counter()
 
-    class ReplacementPollSelector(selectors.PollSelector):
-        def select(self, timeout: float = -1):
-            tident = threading.get_ident()
-            start_time = Scalene.get_wallclock_time()
-            if timeout < 0:
-                interval = sys.getswitchinterval()
-            else:
-                interval = min(timeout, sys.getswitchinterval())
-            while True:
-                Scalene.set_thread_sleeping(tident)
-                selected = super().select(interval)
-                Scalene.reset_thread_sleeping(tident)
-                if selected:
-                    return selected
-                end_time = Scalene.get_wallclock_time()
-                if timeout != -1:
-                    if end_time - start_time >= timeout:
-                        return None
-
-    class ReplacementLock(object):
-        """Replace lock with a version that periodically yields and updates sleeping status."""
-
-        def __init__(self) -> None:
-            # Cache the original lock (which we replace)
-            self.__lock: threading.Lock = Scalene.get_original_lock()
-
-        def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
-            tident = threading.get_ident()
-            if blocking == 0:
-                blocking = False
-            start_time = Scalene.get_wallclock_time()
-            if blocking:
-                if timeout < 0:
-                    interval = sys.getswitchinterval()
-                else:
-                    interval = min(timeout, sys.getswitchinterval())
-            else:
-                interval = -1
-            while True:
-                Scalene.set_thread_sleeping(tident)
-                acquired_lock = self.__lock.acquire(blocking, interval)
-                Scalene.reset_thread_sleeping(tident)
-                if acquired_lock:
-                    return True
-                if not blocking:
-                    return False
-                # If a timeout was specified, check to see if it's expired.
-                if timeout != -1:
-                    end_time = Scalene.get_wallclock_time()
-                    if end_time - start_time >= timeout:
-                        return False
-
-        def release(self) -> None:
-            self.__lock.release()
-
-        def locked(self) -> bool:
-            return self.__lock.locked()
-
-        def __enter__(self) -> None:
-            self.acquire()
-
-        def __exit__(self, type: str, value: str, traceback: Any) -> None:
-            self.release()
-
-    @staticmethod
-    def replacement_process_join(self, timeout: float = -1):
-        from multiprocessing.process import _children
-        # print(multiprocessing.process.active_children())
-        self._check_closed()
-        assert self._parent_pid == os.getpid(), 'can only join a child process'
-        assert self._popen is not None, 'can only join a started process'
-        tident = threading.get_ident()
-        if timeout < 0:
-            interval = sys.getswitchinterval()
-        else:
-            interval = min(timeout, sys.getswitchinterval())
-        start_time = Scalene.get_wallclock_time()
-        while True:
-            Scalene.set_thread_sleeping(tident)
-            res = self._popen.wait(timeout)
-            if res is not None:
-                _children.discard(self)
-                return
-            print(multiprocessing.process.active_children())
-            Scalene.reset_thread_sleeping(tident)
-            if timeout != -1:
-                end_time = Scalene.get_wallclock_time()
-                if end_time - start_time >= timeout:
-                    _children.discard(self)
-                    return
-
-
     def __init__(self, program_being_profiled: Optional[Filename] = None):
-        # Hijack join.
-        threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
+        import scalene.replacement_pjoin
         # Hijack lock.
-        threading.Lock = Scalene.ReplacementLock  # type: ignore
-        multiprocessing.Process.join = Scalene.replacement_process_join
-        selectors.PollSelector = Scalene.ReplacementPollSelector
+        import scalene.replacement_lock
+        import scalene.replacement_poll_selector
+        # Hijack join.
+        import scalene.replacement_thread_join
         if "cpu_percent_threshold" in arguments:
             Scalene.__cpu_percent_threshold = int(arguments.cpu_percent_threshold)
         if "malloc_threshold" in arguments:
@@ -1563,6 +1461,7 @@ start the timer interrupts."""
 
     @staticmethod
     def main() -> None:
+        # import scalene.replacement_rlock
         """Invokes the profiler from the command-line."""
         try:
             args, left = parse_args()  # We currently do this twice, but who cares.
@@ -1613,9 +1512,8 @@ start the timer interrupts."""
                             # Intercept sys.exit and propagate the error code.
                             exit_status = se.code
                         except BaseException:
-                            if Scalene.__debug:
-                                print(traceback.format_exc())  # for debugging only
-                            pass
+                            print(traceback.format_exc())  # for debugging only
+
                         profiler.stop()
                         # If we've collected any samples, dump them.
                         if profiler.output_profiles():
