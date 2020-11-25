@@ -10,7 +10,6 @@
     usage: scalene test/testme.py
 
 """
-
 import argparse
 import atexit
 import builtins
@@ -19,6 +18,7 @@ import dis
 import functools
 import inspect
 import mmap
+import multiprocessing
 import os
 import pathlib
 import pickle
@@ -58,6 +58,7 @@ from typing import (
     Union,
     cast,
 )
+from multiprocessing.process import BaseProcess
 
 from scalene.adaptive import Adaptive
 from scalene.runningstats import RunningStats
@@ -494,6 +495,25 @@ class Scalene:
         return wrapper_profile
 
     @staticmethod
+    def shim(func: Callable[[Any], Any]) -> Any:
+        """
+        Provides a decorator that, when used, calls the wrapped function with the Scalene type
+
+        Wrapped function must be of type (s: Scalene) -> Any
+
+        This decorator allows for marking a function in a separate file as a drop-in replacement for an existing
+        library function. The intention is for these functions to replace a function that indefinitely blocks (which
+        interferes with Scalene) with a function that awakens periodically to allow for signals to be delivered
+        """
+        func(Scalene)
+        # Returns the function itself to the calling file for the sake
+        # of not displaying unusual errors if someone attempts to call
+        # it
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            return func(*args, **kwargs)
+        return wrapped
+    @staticmethod
     def set_thread_sleeping(tid: int) -> None:
         Scalene.__is_thread_sleeping[tid] = True
 
@@ -510,24 +530,6 @@ class Scalene:
                 return True
         return False
 
-    @staticmethod
-    def thread_join_replacement(
-        self: threading.Thread, timeout: Optional[float] = None
-    ) -> None:
-        """We replace threading.Thread.join with this method which always
-periodically yields."""
-        start_time = Scalene.get_wallclock_time()
-        interval = sys.getswitchinterval()
-        while self.is_alive():
-            Scalene.__is_thread_sleeping[threading.get_ident()] = True
-            Scalene.__original_thread_join(self, interval)
-            Scalene.__is_thread_sleeping[threading.get_ident()] = False
-            # If a timeout was specified, check to see if it's expired.
-            if timeout:
-                end_time = Scalene.get_wallclock_time()
-                if end_time - start_time >= timeout:
-                    return None
-        return None
 
     @staticmethod
     def set_timer_signals() -> None:
@@ -581,66 +583,13 @@ start the timer interrupts."""
         """Wall-clock time."""
         return time.perf_counter()
 
-    class ReplacementPollSelector(selectors.PollSelector):
-        def select(self, timeout: Optional[float] = None):
-
-            if timeout and timeout < 0:
-                interval = sys.getswitchinterval()
-            else:
-                interval = min(timeout, sys.getswitchinterval())
-            return super().select(interval)
-
-    class ReplacementLock(object):
-        """Replace lock with a version that periodically yields and updates sleeping status."""
-
-        def __init__(self) -> None:
-            # Cache the original lock (which we replace)
-            self.__lock: threading.Lock = Scalene.get_original_lock()
-
-        def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
-            tident = threading.get_ident()
-            if blocking == 0:
-                blocking = False
-            start_time = Scalene.get_wallclock_time()
-            if blocking:
-                if timeout < 0:
-                    interval = sys.getswitchinterval()
-                else:
-                    interval = min(timeout, sys.getswitchinterval())
-            else:
-                interval = -1
-            while True:
-                Scalene.set_thread_sleeping(tident)
-                acquired_lock = self.__lock.acquire(blocking, interval)
-                Scalene.reset_thread_sleeping(tident)
-                if acquired_lock:
-                    return True
-                if not blocking:
-                    return False
-                # If a timeout was specified, check to see if it's expired.
-                if timeout != -1:
-                    end_time = Scalene.get_wallclock_time()
-                    if end_time - start_time >= timeout:
-                        return False
-
-        def release(self) -> None:
-            self.__lock.release()
-
-        def locked(self) -> bool:
-            return self.__lock.locked()
-
-        def __enter__(self) -> None:
-            self.acquire()
-
-        def __exit__(self, type: str, value: str, traceback: Any) -> None:
-            self.release()
-
     def __init__(self, program_being_profiled: Optional[Filename] = None):
-        # Hijack join.
-        threading.Thread.join = Scalene.thread_join_replacement  # type: ignore
+        import scalene.replacement_pjoin
         # Hijack lock.
-        threading.Lock = Scalene.ReplacementLock  # type: ignore
-        selectors.PollSelector = Scalene.ReplacementPollSelector
+        import scalene.replacement_lock
+        import scalene.replacement_poll_selector
+        # Hijack join.
+        import scalene.replacement_thread_join
         if "cpu_percent_threshold" in arguments:
             Scalene.__cpu_percent_threshold = int(arguments.cpu_percent_threshold)
         if "malloc_threshold" in arguments:
@@ -1522,6 +1471,7 @@ start the timer interrupts."""
 
     @staticmethod
     def main() -> None:
+        # import scalene.replacement_rlock
         """Invokes the profiler from the command-line."""
         try:
             args, left = parse_args()  # We currently do this twice, but who cares.
@@ -1568,9 +1518,8 @@ start the timer interrupts."""
                             # Intercept sys.exit and propagate the error code.
                             exit_status = se.code
                         except BaseException:
-                            if Scalene.__debug:
-                                print(traceback.format_exc())  # for debugging only
-                            pass
+                            print(traceback.format_exc())  # for debugging only
+
                         profiler.stop()
                         # If we've collected any samples, dump them.
                         if profiler.output_profiles():
