@@ -5,7 +5,7 @@ import sys
 
 
 @Scalene.shim
-def replacement_poll_selector(scalene):
+def replacement_poll_selector(scalene: Scalene):
     class ReplacementPollSelector(selectors.PollSelector):
         def select(self, timeout: float = -1):
             tident = threading.get_ident()

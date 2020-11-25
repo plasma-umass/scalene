@@ -5,7 +5,7 @@ import threading
 
 
 @Scalene.shim
-def replacement_thread_join(scalene):
+def replacement_thread_join(scalene: Scalene):
     orig_thread_join = threading.Thread.join
     def thread_join_replacement(
         self: threading.Thread, timeout: Optional[float] = None

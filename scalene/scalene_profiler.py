@@ -495,10 +495,20 @@ class Scalene:
         return wrapper_profile
 
     @staticmethod
-    def shim(func: Any) -> Any:
+    def shim(func: Callable[[Any], Any]) -> Any:
+        """
+        Provides a decorator that, when used, calls the wrapped function with the Scalene type
+
+        Wrapped function must be of type (s: Scalene) -> Any
+
+        This decorator allows for marking a function in a separate file as a drop-in replacement for an existing
+        library function. The intention is for these functions to replace a function that indefinitely blocks (which
+        interferes with Scalene) with a function that awakens periodically to allow for signals to be delivered
+        """
         func(Scalene)
-        # Not sure why anyone would WANT to use this function, considering that it just takes in
-        # scalene as an argument and returns nothing
+        # Returns the function itself to the calling file for the sake
+        # of not displaying unusual errors if someone attempts to call
+        # it
         @functools.wraps(func)
         def wrapped(*args, **kwargs):
             return func(*args, **kwargs)
@@ -1502,10 +1512,6 @@ start the timer interrupts."""
                         exit_status = 0
                         profiler.start()
                         # Run the code being profiled.
-                        import sys as _sys
-                        _sys.argv = ['abcde']
-                        globals = dict(the_globals)
-                        globals['sys'] = _sys
                         try:
                             exec(code, the_globals, the_locals)
                         except SystemExit as se:
