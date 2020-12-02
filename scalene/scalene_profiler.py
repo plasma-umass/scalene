@@ -186,6 +186,13 @@ def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         default=100,
         help="only report profiles with at least this many allocations (default: 100)",
     )
+    parser.add_argument(
+        "--malloc-replacement",
+        dest="malloc_replacement",
+        type=str,
+        default=None,
+        help="Path to library of malloc replacement"
+    )
     # the PID of the profiling process (for internal use only)
     parser.add_argument("--pid", type=int, default=0, help=argparse.SUPPRESS)
     # Parse out all Scalene arguments and jam the remaining ones into argv.
@@ -224,6 +231,8 @@ if (
             os.environ["LD_PRELOAD"] = os.path.join(
                 os.path.dirname(__file__), "libscalene.so"
             )
+            if arguments.malloc_replacement:
+                os.environ["LD_PRELOAD"] += ":" + arguments.malloc_replacement
             os.environ["PYTHONMALLOC"] = "malloc"
             args = sys.argv[1:]
             args = [os.path.basename(sys.executable), "-m", "scalene"] + args
