@@ -7,7 +7,10 @@
 #include <fcntl.h>
 #include <unistd.h> // for getpid()
 #include <signal.h>
+
+#if defined(__x86_64__)
 #include "rtememcpy.h"
+#endif
 
 template <uint64_t MemcpySamplingRateBytes>
 class MemcpySampler {
@@ -105,7 +108,9 @@ private:
       writeCount();
       _memcpyTriggered++;
       _memcpyOps = 0;
+#if !SCALENE_DISABLE_SIGNALS
       raise(MemcpySignal);
+#endif
     }
   }
   
