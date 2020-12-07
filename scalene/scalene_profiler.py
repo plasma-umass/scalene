@@ -45,6 +45,7 @@ from rich import box
 from signal import Handlers, Signals
 from textwrap import dedent
 from types import CodeType, FrameType
+from shutil import rmtree
 from typing import (
     Any,
     Callable,
@@ -277,8 +278,10 @@ class Scalene:
     """The Scalene profiler itself."""
 
     # Debugging flag, for internal use only.
-    __debug: bool = False
-
+    __debug: bool = True
+    # Whether the current profiler is a child
+    __is_child = arguments.pid != 0
+    __parent_pid = arguments.pid if __is_child else os.getpid()
     # Support for @profile
     # decorated files
     __files_to_profile: Dict[Filename, bool] = defaultdict(bool)
@@ -408,9 +411,9 @@ class Scalene:
     # path for the program being profiled
     __program_path: str = ""
     # temporary directory to hold aliases to Python
-    __python_alias_dir: Any = tempfile.TemporaryDirectory(prefix="scalene")
+    __python_alias_dir: Any = tempfile.mkdtemp(prefix="scalene")
     # and its name
-    __python_alias_dir_name: Any = __python_alias_dir.name
+    __python_alias_dir_name: Any = __python_alias_dir
     # where we write profile info
     __output_file: str = ""
     # if we output HTML or not
@@ -467,7 +470,7 @@ class Scalene:
     __malloc_signal = signal.SIGXCPU
     __free_signal = signal.SIGXFSZ
     __memcpy_signal = signal.SIGPROF
-
+    __fork_signal = signal.SIGTSTP
     # Whether we are in a signal handler or not (to make things properly re-entrant).
     __in_signal_handler = threading.Lock()
 
@@ -569,11 +572,13 @@ start the timer interrupts."""
         signal.signal(Scalene.__malloc_signal, Scalene.malloc_signal_handler)
         signal.signal(Scalene.__free_signal, Scalene.free_signal_handler)
         signal.signal(Scalene.__memcpy_signal, Scalene.memcpy_event_signal_handler)
+        signal.signal(Scalene.__fork_signal, Scalene.fork_signal_handler)
         # Set every signal to restart interrupted system calls.
         signal.siginterrupt(Scalene.__cpu_signal, False)
         signal.siginterrupt(Scalene.__malloc_signal, False)
         signal.siginterrupt(Scalene.__free_signal, False)
         signal.siginterrupt(Scalene.__memcpy_signal, False)
+        signal.siginterrupt(Scalene.__fork_signal, False)
         # Turn on the CPU profiling timer to run every mean_cpu_sampling_rate seconds.
         signal.setitimer(
             Scalene.__cpu_timer_signal,
@@ -599,6 +604,9 @@ start the timer interrupts."""
         import scalene.replacement_poll_selector
         # Hijack join.
         import scalene.replacement_thread_join
+        # hijack fork
+        import scalene.replacement_fork
+        import scalene.replacement_exit
         if "cpu_percent_threshold" in arguments:
             Scalene.__cpu_percent_threshold = int(arguments.cpu_percent_threshold)
         if "malloc_threshold" in arguments:
@@ -829,6 +837,8 @@ start the timer interrupts."""
         this_frame: FrameType,
     ) -> List[Tuple[FrameType, int, FrameType]]:
         """Collects all stack frames that Scalene actually processes."""
+        if threading._active_limbo_lock.locked():
+            return None
         frames: List[Tuple[FrameType, int]] = [
             (
                 cast(FrameType, sys._current_frames().get(cast(int, t.ident), None)),
@@ -862,6 +872,7 @@ start the timer interrupts."""
                 back = cast(FrameType, frame.f_back)
                 fname = Filename(back.f_code.co_filename)
             while not Scalene.should_trace(fname):
+
                 # Walk the stack backwards until we hit a frame that
                 # IS one we should trace (if there is one).  i.e., if
                 # it's in the code being profiled, and it is just
@@ -994,6 +1005,13 @@ start the timer interrupts."""
                 Scalene.__memory_free_count[fname][lineno][bytei] += 1
                 Scalene.__total_memory_free_samples += before - after
 
+    @staticmethod
+    def fork_signal_handler(
+            signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+            frame: FrameType,
+    ) -> None:
+        Scalene.__is_child = True
+        arguments.pid = Scalene.__parent_pid
     @staticmethod
     def memcpy_event_signal_handler(
         signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
@@ -1321,6 +1339,7 @@ start the timer interrupts."""
         # Get the children's stats, if any.
         if not arguments.pid:
             Scalene.merge_stats()
+            rmtree(Scalene.__python_alias_dir)
         current_max: float = Scalene.__max_footprint
         # If we've collected any samples, dump them.
         if (
