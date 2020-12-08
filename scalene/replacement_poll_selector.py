@@ -6,6 +6,10 @@ import sys
 
 @Scalene.shim
 def replacement_poll_selector(scalene: Scalene):
+    """
+    A replacement for selectors.PollSelector that
+    periodically wakes up to accept signals
+    """
     class ReplacementPollSelector(selectors.PollSelector):
         def select(self, timeout: float = -1):
             tident = threading.get_ident()
