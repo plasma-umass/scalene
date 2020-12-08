@@ -269,7 +269,7 @@ class Scalene:
     """The Scalene profiler itself."""
 
     # Debugging flag, for internal use only.
-    __debug: bool = True
+    __debug: bool = False
     # Whether the current profiler is a child
     __is_child = arguments.pid != 0
     __parent_pid = arguments.pid if __is_child else os.getpid()
