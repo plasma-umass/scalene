@@ -203,10 +203,10 @@ arguments, left = parse_args()
 
 # Load shared objects (that is, interpose on malloc, memcpy and friends)
 # unless the user specifies "--cpu-only" at the command-line.
-# (x86-64 only for now.)
+# (x86-64 and Apple ARM only for now.)
 
 if not arguments.cpu_only and (
-    platform.machine() != "x86_64" or struct.calcsize("P") * 8 != 64
+    (platform.machine() != "x86_64" and platform.machine() != "arm64") or struct.calcsize("P") * 8 != 64
 ):
     arguments.cpu_only = True
     print(
@@ -215,7 +215,7 @@ if not arguments.cpu_only and (
 
 if (
     not arguments.cpu_only
-    and platform.machine() == "x86_64"
+    and (platform.machine() != "x86_64" and platform.machine() != "arm64")
     and struct.calcsize("P") * 8 == 64
 ):
     # Load the shared object on Linux.
