@@ -34,6 +34,8 @@
 #ifndef _RTE_MEMCPY_X86_64_H_
 #define _RTE_MEMCPY_X86_64_H_
 
+#if defined(__x86_64__)
+
 /**
  * @file
  *
@@ -632,5 +634,7 @@ COPY_BLOCK_64_BACK15:
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* x86_64 */
 
 #endif /* _RTE_MEMCPY_X86_64_H_ */
