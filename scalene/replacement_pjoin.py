@@ -11,7 +11,7 @@ def replacement_pjoin(scalene: Scalene):
     A drop-in replacement for multiprocessing.Process.join
     that periodically yields to handle signals
     """
-    def replacement_process_join(self, timeout: float = -1):
+    def replacement_process_join(self, timeout: float = -1) -> None:
         self._check_closed()
         assert self._parent_pid == os.getpid(), 'can only join a child process'
         assert self._popen is not None, 'can only join a started process'
