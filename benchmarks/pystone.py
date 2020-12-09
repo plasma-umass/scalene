@@ -34,7 +34,7 @@ Version History:
 
 LOOPS = 500000
 
-from time import clock
+import time # from time import clock
 
 __version__ = "1.1"
 
@@ -86,10 +86,10 @@ def Proc0(loops=LOOPS):
     global PtrGlb
     global PtrGlbNext
 
-    starttime = clock()
+    starttime = time.perf_counter()
     for i in range(loops):
         pass
-    nulltime = clock() - starttime
+    nulltime = time.perf_counter() - starttime
 
     PtrGlbNext = Record()
     PtrGlb = Record()
@@ -101,7 +101,7 @@ def Proc0(loops=LOOPS):
     String1Loc = "DHRYSTONE PROGRAM, 1'ST STRING"
     Array2Glob[8][7] = 10
 
-    starttime = clock()
+    starttime = time.perf_counter()
 
     for i in range(loops):
         Proc5()
@@ -127,7 +127,7 @@ def Proc0(loops=LOOPS):
         IntLoc2 = 7 * (IntLoc3 - IntLoc2) - IntLoc1
         IntLoc1 = Proc2(IntLoc1)
 
-    benchtime = clock() - starttime - nulltime
+    benchtime = time.perf_counter() - starttime - nulltime
     if benchtime == 0.0:
         loopsPerBenchtime = 0.0
     else:
