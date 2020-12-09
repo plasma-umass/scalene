@@ -1,3 +1,5 @@
+#define SCALENE_DISABLE_SIGNALS 0  // for debugging only
+
 #include <heaplayers.h>
 
 #include <execinfo.h>
@@ -18,20 +20,14 @@
 #include "tprintf.h"
 #endif
 
-// We use prime numbers here (near 1MB, for example) to reduce the risk
-// of stride behavior interfering with sampling.
-
-const auto MallocSamplingRate = 1048549UL;
-const auto MemcpySamplingRate = 2097131UL; // next prime after MallocSamplingRate * 2 + 1;
-// TBD: use sampler logic (with random sampling) to obviate the need for primes
-// already doing this for malloc-sampling.
+const uint64_t MallocSamplingRate = 1048576ULL;
+const uint64_t MemcpySamplingRate = MallocSamplingRate * 2ULL;
 
 #include "nextheap.hpp"
 
-//class CustomHeapType : public NextHeap {
-//class CustomHeapType : public HL::ThreadSpecificHeap<NextHeap> {
+class ParentHeap: public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, NextHeap>> {};
 
-class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, NextHeap>> {
+class CustomHeapType : public ParentHeap {
 public:
   void lock() {}
   void unlock() {}
