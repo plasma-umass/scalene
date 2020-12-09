@@ -58,13 +58,14 @@ public:
 
   // Returns a float between 0 and 1.
   auto inline nextU() {
-    return (double) next() / (double) UINT32_MAX;
+    auto next_u = (double) next() / (double) UINT32_MAX;
+    return next_u;
   }
 
   // Convert a uniform random number (u) into a geometrically-distributed one with probability p.
   auto inline ATTRIBUTE_ALWAYS_INLINE geometric(double p) {
     auto u = nextU();
-    auto geom = (int64_t) ceil(log(u) / log(1.0 - p));
+    auto geom = (int64_t) round(log(u) / log(1.0 - p));
     return geom;
   }
 
