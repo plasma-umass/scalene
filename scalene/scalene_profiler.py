@@ -215,7 +215,7 @@ if not arguments.cpu_only and (
 
 if (
     not arguments.cpu_only
-    and (platform.machine() != "x86_64" and platform.machine() != "arm64")
+    and (platform.machine() == "x86_64" or platform.machine() == "arm64")
     and struct.calcsize("P") * 8 == 64
 ):
     # Load the shared object on Linux.
