@@ -510,9 +510,11 @@ class Scalene:
         # of not displaying unusual errors if someone attempts to call
         # it
         @functools.wraps(func)
-        def wrapped(*args, **kwargs):
-            return func(*args, **kwargs)
+        def wrapped(*args: Any, **kwargs: Any) -> Any:
+            return func(*args, **kwargs) # type: ignore
+
         return wrapped
+
     @staticmethod
     def set_thread_sleeping(tid: int) -> None:
         Scalene.__is_thread_sleeping[tid] = True
@@ -529,7 +531,6 @@ class Scalene:
             if ins.offset == bytei and ins.opcode in Scalene.__call_opcodes:
                 return True
         return False
-
 
     @staticmethod
     def set_timer_signals() -> None:
@@ -585,11 +586,14 @@ start the timer interrupts."""
 
     def __init__(self, program_being_profiled: Optional[Filename] = None):
         import scalene.replacement_pjoin
+
         # Hijack lock.
         import scalene.replacement_lock
         import scalene.replacement_poll_selector
+
         # Hijack join.
         import scalene.replacement_thread_join
+
         if "cpu_percent_threshold" in arguments:
             Scalene.__cpu_percent_threshold = int(arguments.cpu_percent_threshold)
         if "malloc_threshold" in arguments:
