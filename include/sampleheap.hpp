@@ -20,13 +20,6 @@
 #include "stprintf.h"
 #include "tprintf.h"
 
-#define DISABLE_SIGNALS 0 // For debugging purposes only.
-
-#if DISABLE_SIGNALS
-#define raise(x)
-#endif
-
-
 #define USE_ATOMICS 0
 
 #if USE_ATOMICS
@@ -35,7 +28,7 @@ typedef std::atomic<uint64_t> counterType;
 typedef uint64_t counterType;
 #endif
 
-template <unsigned long MallocSamplingRateBytes, class SuperHeap> 
+template <uint64_t MallocSamplingRateBytes, class SuperHeap> 
 class SampleHeap : public SuperHeap {
 
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
@@ -44,7 +37,7 @@ public:
   
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
-  enum { CallStackSamplingRate = MallocSamplingRateBytes * 10 };
+  enum { CallStackSamplingRate = MallocSamplingRateBytes * 10 }; // 10 here just to reduce overhead
 
   SampleHeap()
     : _mallocTriggered (0),
@@ -133,13 +126,17 @@ private:
     _pythonCount = 0;
     _cCount = 0;
     _mallocTriggered++;
+#if !SCALENE_DISABLE_SIGNALS
     raise(MallocSignal);
+#endif
   }
 
   void handleFree(size_t sampleFree) {
     writeCount(FreeSignal, sampleFree * MallocSamplingRateBytes);
     _freeTriggered++;
+#if !SCALENE_DISABLE_SIGNALS
     raise(FreeSignal);
+#endif
   }
   
   Sampler<MallocSamplingRateBytes> _mallocSampler;
@@ -260,7 +257,7 @@ private:
 	    return;
 	  }
       }
-      tprintf::tprintf("@\n", fn_name);
+      //      tprintf::tprintf("@\n", fn_name);
 #endif	  
     }
     
@@ -271,8 +268,9 @@ private:
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
-  void writeCount(AllocSignal sig, unsigned long count) {
-    char buf[255];
+  void writeCount(AllocSignal sig, uint64_t count) {
+    const auto MAX_BUFSIZE = 1024;
+    char buf[MAX_BUFSIZE];
     if (_pythonCount == 0) {
       _pythonCount = 1; // prevent 0/0
     }
@@ -284,10 +282,11 @@ private:
 		       count,
 		       (float) _pythonCount / (_pythonCount + _cCount));
 #else
+    //    tprintf::tprintf("count = @\n", count);
     snprintf(_mmap + _lastpos,
-	     255,
+	     MAX_BUFSIZE,
 #if defined(__APPLE__)
-	     "%c,%llu,%lu,%f\n\n",
+	     "%c,%llu,%llu,%f\n\n",
 #else
 	     "%c,%lu,%lu,%f\n\n",
 #endif
@@ -296,7 +295,7 @@ private:
 	     count,
 	     (float) _pythonCount / (_pythonCount + _cCount));
 #endif
-    _lastpos += strlen(_mmap + _lastpos);
+    _lastpos += strlen(_mmap + _lastpos) - 1;
   }
 
 };

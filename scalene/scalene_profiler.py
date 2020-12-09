@@ -921,7 +921,7 @@ start the timer interrupts."""
                         float(python_fraction_str),
                     )
                 )
-            Scalene.__malloc_signal_position = mm.tell()
+            Scalene.__malloc_signal_position = mm.tell() - 1
         except FileNotFoundError:
             pass
 
