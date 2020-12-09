@@ -5,54 +5,60 @@
 #include <thread>
 #include <unistd.h>
 
-#include "mwc.h"
+#include <chrono>
+#include <random>
+
+//#include "mwc.h"
 
 #define SAMPLER_DETERMINISTIC 0
 
-template <int64_t SAMPLE_RATE>
+#include <pthread.h>
+#include <stdio.h>
+#include <time.h>
+#include <unistd.h>
+
+template <uint64_t SAMPLE_RATE>
 class Sampler {
 private:
-  int64_t _next;
+  uint64_t _next;
 #if !SAMPLER_DETERMINISTIC
-  MWC rng;
+  std::mt19937_64 rng { (unsigned long long) std::chrono::system_clock::now().time_since_epoch().count() }; // (getpid() + time(nullptr) + (uint64_t) pthread_self()) } ;
+  std::geometric_distribution<uint64_t> geom { SAMPLE_PROBABILITY }; // (double) SAMPLE_RATE };
+  //  MWC rng;
 #endif
   
 public:
   Sampler()
   {
 #if !SAMPLER_DETERMINISTIC
-    _next = rng.geometric(SAMPLE_PROBABILITY);
+    _next = geom(rng); // SAMPLE_RATE;
 #else
     _next = SAMPLE_RATE;
 #endif
   }
   
-  inline ATTRIBUTE_ALWAYS_INLINE int64_t sample(int64_t sz) {
-    _next -= sz;
-    if (unlikely(_next <= 0)) {
-      return updateSample(sz);
+  inline ATTRIBUTE_ALWAYS_INLINE uint64_t sample(uint64_t sz) {
+    if (unlikely(_next <= sz)) {
+      return updateSample(sz - _next);
     }
+    _next -= sz;
     return 0;
   }
   
 private:
 
-  int64_t updateSample(int64_t sz) {
+  uint64_t updateSample(uint64_t sz) {
 #if SAMPLER_DETERMINISTIC
     _next = SAMPLE_RATE;
 #else
     while (true) {
-      _next = rng.geometric(SAMPLE_PROBABILITY);
-      if (_next > 0) {
+      _next = geom(rng);
+      if (_next != 0) {
 	break;
       }
     }
 #endif
-    if (sz >= SAMPLE_RATE) {
-      return sz / SAMPLE_RATE + 1;
-    } else {
-      return 1;
-    }
+    return sz * SAMPLE_PROBABILITY + 1;
   }
   
   static constexpr double SAMPLE_PROBABILITY = (double) 1.0 / (double) SAMPLE_RATE;
