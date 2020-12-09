@@ -514,7 +514,7 @@ class Scalene:
         # it
         @functools.wraps(func)
         def wrapped(*args: Any, **kwargs: Any) -> Any:
-            return func(*args, **kwargs) # type: ignore
+            return func(*args, **kwargs)  # type: ignore
 
         return wrapped
 
@@ -556,7 +556,7 @@ class Scalene:
     @staticmethod
     def enable_signals() -> None:
         """Set up the signal handlers to handle interrupts for profiling and
-start the timer interrupts."""
+        start the timer interrupts."""
         Scalene.set_timer_signals()
         # CPU
         signal.signal(Scalene.__cpu_signal, Scalene.cpu_signal_handler)
@@ -598,9 +598,11 @@ start the timer interrupts."""
 
         # Hijack join.
         import scalene.replacement_thread_join
+
         # hijack fork
         import scalene.replacement_fork
         import scalene.replacement_exit
+
         if "cpu_percent_threshold" in arguments:
             Scalene.__cpu_percent_threshold = int(arguments.cpu_percent_threshold)
         if "malloc_threshold" in arguments:
@@ -832,6 +834,9 @@ start the timer interrupts."""
     ) -> List[Tuple[FrameType, int, FrameType]]:
         """Collects all stack frames that Scalene actually processes."""
         if threading._active_limbo_lock.locked():
+            # Avoids deadlock where a Scalene signal occurs
+            # in the middle of a critical section of the
+            # threading library
             return None
         frames: List[Tuple[FrameType, int]] = [
             (
@@ -1001,8 +1006,8 @@ start the timer interrupts."""
 
     @staticmethod
     def fork_signal_handler(
-            signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
-            frame: FrameType,
+        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        frame: FrameType,
     ) -> None:
         """
         Receives a signal sent by a child process (0 return code) after a fork and mutates
@@ -1011,6 +1016,7 @@ start the timer interrupts."""
         Scalene.__is_child = True
         # Note-- __parent_pid of the topmost process is its own pid
         arguments.pid = Scalene.__parent_pid
+
     @staticmethod
     def memcpy_event_signal_handler(
         signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
@@ -1094,7 +1100,11 @@ start the timer interrupts."""
 
     @staticmethod
     def output_profile_line(
-        fname: Filename, line_no: LineNumber, line: str, console: Console, tbl: Table,
+        fname: Filename,
+        line_no: LineNumber,
+        line: str,
+        console: Console,
+        tbl: Table,
     ) -> bool:
         """Print at most one line of the profile (true == printed one)."""
         if not Scalene.profile_this_code(fname, line_no):
@@ -1176,16 +1186,17 @@ start the timer interrupts."""
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
         # Only report utilization where there is more than 1% CPU total usage,
         # and the standard error of the mean is low (meaning it's an accurate estimate).
-        sys_str: str = "" if n_cpu_percent < 0.5 or Scalene.__cpu_utilization[fname][
-            line_no
-        ].size() <= 1 or Scalene.__cpu_utilization[fname][
-            line_no
-        ].sem() > 0.025 or Scalene.__cpu_utilization[
-            fname
-        ][
-            line_no
-        ].mean() > 0.99 else "%3.0f%%" % (
-            n_cpu_percent * (1.0 - (Scalene.__cpu_utilization[fname][line_no].mean()))
+        sys_str: str = (
+            ""
+            if n_cpu_percent < 0.5
+            or Scalene.__cpu_utilization[fname][line_no].size() <= 1
+            or Scalene.__cpu_utilization[fname][line_no].sem() > 0.025
+            or Scalene.__cpu_utilization[fname][line_no].mean() > 0.99
+            else "%3.0f%%"
+            % (
+                n_cpu_percent
+                * (1.0 - (Scalene.__cpu_utilization[fname][line_no].mean()))
+            )
         )
 
         if did_sample_memory:

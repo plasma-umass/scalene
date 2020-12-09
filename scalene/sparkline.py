@@ -9,7 +9,9 @@ From https://rosettacode.org/wiki/Sparkline_in_unicode#Python
 
 
 def generate(
-    arr: List[float], minimum: Optional[float] = None, maximum: Optional[float] = None,
+    arr: List[float],
+    minimum: Optional[float] = None,
+    maximum: Optional[float] = None,
 ) -> Tuple[float, float, str]:
     all_zeros = all(i == 0 for i in arr)
     if all_zeros:
