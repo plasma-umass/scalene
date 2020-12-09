@@ -461,7 +461,7 @@ class Scalene:
     __malloc_signal = signal.SIGXCPU
     __free_signal = signal.SIGXFSZ
     __memcpy_signal = signal.SIGPROF
-    __fork_signal = signal.SIGTSTP
+    fork_signal = signal.SIGTSTP
     # Whether we are in a signal handler or not (to make things properly re-entrant).
     __in_signal_handler = threading.Lock()
 
@@ -564,13 +564,13 @@ start the timer interrupts."""
         signal.signal(Scalene.__malloc_signal, Scalene.malloc_signal_handler)
         signal.signal(Scalene.__free_signal, Scalene.free_signal_handler)
         signal.signal(Scalene.__memcpy_signal, Scalene.memcpy_event_signal_handler)
-        signal.signal(Scalene.__fork_signal, Scalene.fork_signal_handler)
+        signal.signal(Scalene.fork_signal, Scalene.fork_signal_handler)
         # Set every signal to restart interrupted system calls.
         signal.siginterrupt(Scalene.__cpu_signal, False)
         signal.siginterrupt(Scalene.__malloc_signal, False)
         signal.siginterrupt(Scalene.__free_signal, False)
         signal.siginterrupt(Scalene.__memcpy_signal, False)
-        signal.siginterrupt(Scalene.__fork_signal, False)
+        signal.siginterrupt(Scalene.fork_signal, False)
         # Turn on the CPU profiling timer to run every mean_cpu_sampling_rate seconds.
         signal.setitimer(
             Scalene.__cpu_timer_signal,

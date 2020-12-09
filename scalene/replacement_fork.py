@@ -13,6 +13,6 @@ def replacement_fork(scalene: Scalene):
     def fork_replacement():
         result = orig_fork()
         if result == 0:
-            signal.raise_signal(signal.SIGTSTP)
+            signal.raise_signal(Scalene.fork_signal)
         return result
     os.fork = fork_replacement
