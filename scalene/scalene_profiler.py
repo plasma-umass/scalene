@@ -25,6 +25,7 @@ import pickle
 import platform
 import random
 import selectors
+import shutil
 import signal
 import stat
 import struct
@@ -1358,7 +1359,10 @@ start the timer interrupts."""
                 title.append(mem_usage_line)
 
         null = open("/dev/null", "w")
-        console = Console(width=132, record=True, force_terminal=True, file=null)
+        # Get column width of the terminal and adjust to fit.
+        # Note that Scalene works best with at least 132 columns.
+        column_width = shutil.get_terminal_size().columns
+        console = Console(width=column_width, record=True, force_terminal=True, file=null)
         # Build a list of files we will actually report on.
         report_files: List[Filename] = []
         # Sort in descending order of CPU cycles, and then ascending order by filename
@@ -1407,14 +1411,15 @@ start the timer interrupts."""
             tbl.add_column("Time %\nPython", no_wrap=True)
             tbl.add_column("Time %\nnative", no_wrap=True)
             tbl.add_column("Sys\n%", no_wrap=True)
+
             if did_sample_memory:
                 tbl.add_column("Mem %\nPython", no_wrap=True)
                 tbl.add_column("Net\n(MB)", no_wrap=True)
                 tbl.add_column("Memory usage\nover time / %", no_wrap=True)
                 tbl.add_column("Copy\n(MB/s)", no_wrap=True)
-                tbl.add_column("\n" + fname, width=60)
+                tbl.add_column("\n" + fname, width=column_width-72)
             else:
-                tbl.add_column("\n" + fname, width=96)
+                tbl.add_column("\n" + fname, width=column_width-36)
 
             # Print out the the profile for the source, line by line.
             with open(fname, "r") as source_file:
