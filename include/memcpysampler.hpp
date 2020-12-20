@@ -11,19 +11,19 @@
 #if defined(__x86_64__)
 #include "rtememcpy.h"
 #endif
-#include "samplefile.hpp"
+// #include "samplefile.hpp"
 
 // const auto MAX_BUFSIZE = 1024;
 
 template <uint64_t MemcpySamplingRateBytes>
-class MemcpySampler : SampleFile {
+class MemcpySampler /*: SampleFile*/ {
   enum { MemcpySignal = SIGPROF };
   static constexpr auto flags = O_WRONLY | O_CREAT | O_SYNC | O_APPEND; // O_TRUNC;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
   static constexpr auto fname = "/tmp/scalene-memcpy-signalXXXXX";
 public:
   MemcpySampler()
-    : SampleFile("/tmp/scalene-memcpy-signal@"),
+    : _samplefile("/tmp/scalene-memcpy-signal@"),
       _interval (MemcpySamplingRateBytes),
       _memcpyOps (0),
       _memcpyTriggered (0)
@@ -76,6 +76,7 @@ private:
 
   //// local implementations of memcpy and friends.
   Sampler<MemcpySamplingRateBytes> _memcpySampler;
+  SampleFile _samplefile;
   ATTRIBUTE_ALWAYS_INLINE inline void * local_memcpy(void * dst, const void * src, size_t n) {
 #if defined(__APPLE__)
     return ::memcpy(dst, src, n);
@@ -127,7 +128,7 @@ private:
   void writeCount() {
     char buf[255];
     stprintf::stprintf(buf, "@,@\n", _memcpyTriggered, _memcpyOps);
-    writeToFile(buf);
+    _samplefile.writeToFile(buf);
     // int fd = open(scalene_memcpy_signal_filename, flags, perms);
     // write(fd, buf, strlen(buf));
     // close(fd);

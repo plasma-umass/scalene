@@ -32,7 +32,7 @@ typedef uint64_t counterType;
 const auto MAX_BUFSIZE = 1024;
 
 template <uint64_t MallocSamplingRateBytes, class SuperHeap> 
-class SampleHeap : public SuperHeap, SampleFile {
+class SampleHeap : public SuperHeap{
 
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
   
@@ -43,13 +43,14 @@ public:
   enum { CallStackSamplingRate = MallocSamplingRateBytes * 10 }; // 10 here just to reduce overhead
 
   SampleHeap()
-    : SampleFile("/tmp/scalene-malloc-signal@"),
+    : _samplefile("/tmp/scalene-malloc-signal@"),
       _mallocTriggered (0),
       _freeTriggered (0),
       _pythonCount (0),
       _cCount (0),
       _lastpos (0)
   {
+    // tprintf::tprintf("ABCDE\n");
     // Ignore these signals until they are replaced by a client.
     signal(MallocSignal, SIG_IGN);
     signal(FreeSignal, SIG_IGN);
@@ -146,6 +147,9 @@ private:
   Sampler<MallocSamplingRateBytes> _mallocSampler;
   Sampler<MallocSamplingRateBytes> _freeSampler;
   Sampler<CallStackSamplingRate>   _callStackSampler;
+
+  SampleFile _samplefile;
+
   counterType _mallocTriggered;
   counterType _freeTriggered;
   counterType _pythonCount;
@@ -298,7 +302,7 @@ private:
 	     count,
 	     (float) _pythonCount / (_pythonCount + _cCount));
 #endif
-    writeToFile(buf);
+    // _samplefile.writeToFile(buf);
     // _lastpos += strlen(_mmap + _lastpos) - 1;
   }
 
