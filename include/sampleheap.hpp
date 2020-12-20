@@ -32,7 +32,7 @@ typedef uint64_t counterType;
 const auto MAX_BUFSIZE = 1024;
 
 template <uint64_t MallocSamplingRateBytes, class SuperHeap> 
-class SampleHeap : public SuperHeap, SampleFile<MAX_BUFSIZE> {
+class SampleHeap : public SuperHeap, SampleFile {
 
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
   
