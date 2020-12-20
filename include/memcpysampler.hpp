@@ -71,7 +71,7 @@ public:
 private:
 
   //// local implementations of memcpy and friends.
-  
+  Sampler<MemcpySamplingRateBytes> _memcpySampler;
   ATTRIBUTE_ALWAYS_INLINE inline void * local_memcpy(void * dst, const void * src, size_t n) {
 #if defined(__APPLE__)
     return ::memcpy(dst, src, n);
@@ -104,7 +104,8 @@ private:
   
   void incrementMemoryOps(int n) {
     _memcpyOps += n;
-    if (unlikely(_memcpyOps >= _interval)) {
+    auto sampleMemop = _memcpySampler.sample(n);
+    if (unlikely(sampleMemop)) {
       writeCount();
       _memcpyTriggered++;
       _memcpyOps = 0;
