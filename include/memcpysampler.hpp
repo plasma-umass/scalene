@@ -108,6 +108,7 @@ private:
     if (unlikely(sampleMemop)) {
       writeCount();
       _memcpyTriggered++;
+      _memcpyOps = 0;
 #if !SCALENE_DISABLE_SIGNALS
       raise(MemcpySignal);
 #endif
