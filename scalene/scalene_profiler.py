@@ -207,7 +207,8 @@ arguments, left = parse_args()
 # (x86-64 and Apple ARM only for now.)
 
 if not arguments.cpu_only and (
-    (platform.machine() != "x86_64" and platform.machine() != "arm64") or struct.calcsize("P") * 8 != 64
+    (platform.machine() != "x86_64" and platform.machine() != "arm64")
+    or struct.calcsize("P") * 8 != 64
 ):
     arguments.cpu_only = True
     print(
@@ -512,7 +513,7 @@ class Scalene:
         # it
         @functools.wraps(func)
         def wrapped(*args: Any, **kwargs: Any) -> Any:
-            return func(*args, **kwargs) # type: ignore
+            return func(*args, **kwargs)  # type: ignore
 
         return wrapped
 
@@ -554,7 +555,7 @@ class Scalene:
     @staticmethod
     def enable_signals() -> None:
         """Set up the signal handlers to handle interrupts for profiling and
-start the timer interrupts."""
+        start the timer interrupts."""
         Scalene.set_timer_signals()
         # CPU
         signal.signal(Scalene.__cpu_signal, Scalene.cpu_signal_handler)
@@ -1074,7 +1075,11 @@ start the timer interrupts."""
 
     @staticmethod
     def output_profile_line(
-        fname: Filename, line_no: LineNumber, line: str, console: Console, tbl: Table,
+        fname: Filename,
+        line_no: LineNumber,
+        line: str,
+        console: Console,
+        tbl: Table,
     ) -> bool:
         """Print at most one line of the profile (true == printed one)."""
         if not Scalene.profile_this_code(fname, line_no):
@@ -1156,16 +1161,17 @@ start the timer interrupts."""
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
         # Only report utilization where there is more than 1% CPU total usage,
         # and the standard error of the mean is low (meaning it's an accurate estimate).
-        sys_str: str = "" if n_cpu_percent < 0.5 or Scalene.__cpu_utilization[fname][
-            line_no
-        ].size() <= 1 or Scalene.__cpu_utilization[fname][
-            line_no
-        ].sem() > 0.025 or Scalene.__cpu_utilization[
-            fname
-        ][
-            line_no
-        ].mean() > 0.99 else "%3.0f%%" % (
-            n_cpu_percent * (1.0 - (Scalene.__cpu_utilization[fname][line_no].mean()))
+        sys_str: str = (
+            ""
+            if n_cpu_percent < 0.5
+            or Scalene.__cpu_utilization[fname][line_no].size() <= 1
+            or Scalene.__cpu_utilization[fname][line_no].sem() > 0.025
+            or Scalene.__cpu_utilization[fname][line_no].mean() > 0.99
+            else "%3.0f%%"
+            % (
+                n_cpu_percent
+                * (1.0 - (Scalene.__cpu_utilization[fname][line_no].mean()))
+            )
         )
 
         if did_sample_memory:
@@ -1363,7 +1369,9 @@ start the timer interrupts."""
         # Get column width of the terminal and adjust to fit.
         # Note that Scalene works best with at least 132 columns.
         column_width = shutil.get_terminal_size().columns
-        console = Console(width=column_width, record=True, force_terminal=True, file=null)
+        console = Console(
+            width=column_width, record=True, force_terminal=True, file=null
+        )
         # Build a list of files we will actually report on.
         report_files: List[Filename] = []
         # Sort in descending order of CPU cycles, and then ascending order by filename
@@ -1418,9 +1426,9 @@ start the timer interrupts."""
                 tbl.add_column("Net\n(MB)", no_wrap=True)
                 tbl.add_column("Memory usage\nover time / %", no_wrap=True)
                 tbl.add_column("Copy\n(MB/s)", no_wrap=True)
-                tbl.add_column("\n" + fname, width=column_width-72)
+                tbl.add_column("\n" + fname, width=column_width - 72)
             else:
-                tbl.add_column("\n" + fname, width=column_width-36)
+                tbl.add_column("\n" + fname, width=column_width - 36)
 
             # Print out the the profile for the source, line by line.
             with open(fname, "r") as source_file:
@@ -1480,6 +1488,13 @@ start the timer interrupts."""
             pass
 
     @staticmethod
+    def termination_handler(
+        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        this_frame: FrameType,
+    ) -> None:
+        sys.exit(-1)
+
+    @staticmethod
     def main() -> None:
         # import scalene.replacement_rlock
         """Invokes the profiler from the command-line."""
@@ -1520,6 +1535,10 @@ start the timer interrupts."""
                     try:
                         # We exit with this status (returning error code as appropriate).
                         exit_status = 0
+                        # Catch termination so we print a profile before exiting.
+                        # (Invokes sys.exit, which is caught below.)
+                        signal.signal(signal.SIGTERM, Scalene.termination_handler)
+                        # Catch termination so we print a profile before exiting.
                         profiler.start()
                         # Run the code being profiled.
                         try:
