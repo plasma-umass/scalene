@@ -742,7 +742,8 @@ start the timer interrupts."""
             # Sometimes, for some reason, virtual time exceeds
             # wallclock time, which makes no sense...
             cpu_utilization = 1.0
-        assert 0 <= cpu_utilization <= 1, "CPU utilization must be between 0 and 1."
+        if cpu_utilization < 0.0:
+            cpu_utilization = 0.0
         python_time = Scalene.__last_cpu_sampling_rate
         c_time = elapsed_virtual - python_time
         if c_time < 0:
