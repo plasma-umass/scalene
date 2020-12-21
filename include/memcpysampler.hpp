@@ -11,33 +11,23 @@
 #if defined(__x86_64__)
 #include "rtememcpy.h"
 #endif
-// #include "samplefile.hpp"
+#include "samplefile.hpp"
 
-// const auto MAX_BUFSIZE = 1024;
 
 template <uint64_t MemcpySamplingRateBytes>
-class MemcpySampler /*: SampleFile*/ {
+class MemcpySampler {
   enum { MemcpySignal = SIGPROF };
   static constexpr auto flags = O_WRONLY | O_CREAT | O_SYNC | O_APPEND; // O_TRUNC;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
   static constexpr auto fname = "/tmp/scalene-memcpy-signalXXXXX";
 public:
   MemcpySampler()
-    : _samplefile("/tmp/scalene-memcpy-signal@"),
+    : _samplefile((char*) "/tmp/scalene-memcpy-signal@", (char*) "/tmp/scalene-memcpy-lock@"),
       _interval (MemcpySamplingRateBytes),
       _memcpyOps (0),
       _memcpyTriggered (0)
   {
     signal(MemcpySignal, SIG_IGN);
-  //   auto pid = getpid();
-  //   int i;
-  //   for (i = 0; i < local_strlen(fname); i++) {
-  //     if (fname[i] == 'X') {
-	// break;
-  //     }
-  //     scalene_memcpy_signal_filename[i] = fname[i];
-  //   }
-  //   stprintf::stprintf((char *) &scalene_memcpy_signal_filename[i], "@", pid);
   }
 
   int local_strlen(const char * str) {
@@ -49,9 +39,9 @@ public:
     return len;
   }
   
-  // ~MemcpySampler() {
-  //   unlink(scalene_memcpy_signal_filename);
-  // }
+   ~MemcpySampler() {
+   _samplefile.~SampleFile();
+   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void * memcpy(void * dst, const void * src, size_t n) {
     auto result = local_memcpy(dst, src, n);
@@ -127,11 +117,9 @@ private:
 
   void writeCount() {
     char buf[255];
-    stprintf::stprintf(buf, "@,@\n", _memcpyTriggered, _memcpyOps);
+
+    stprintf::stprintf(buf, "@,@\n\n", _memcpyTriggered, _memcpyOps);
     _samplefile.writeToFile(buf);
-    // int fd = open(scalene_memcpy_signal_filename, flags, perms);
-    // write(fd, buf, strlen(buf));
-    // close(fd);
   }
 };
 

@@ -43,33 +43,22 @@ public:
   enum { CallStackSamplingRate = MallocSamplingRateBytes * 10 }; // 10 here just to reduce overhead
 
   SampleHeap()
-    : _samplefile("/tmp/scalene-malloc-signal@"),
+    : _samplefile((char*) "/tmp/scalene-malloc-signal@", (char*) "/tmp/scalene-malloc-lock@"),
       _mallocTriggered (0),
       _freeTriggered (0),
       _pythonCount (0),
       _cCount (0),
       _lastpos (0)
   {
-    // tprintf::tprintf("ABCDE\n");
     // Ignore these signals until they are replaced by a client.
     signal(MallocSignal, SIG_IGN);
     signal(FreeSignal, SIG_IGN);
-    // Set up the log file.
-    // auto pid = getpid();
-    // stprintf::stprintf(scalene_malloc_signal_filename, "/tmp/scalene-malloc-signal@", pid);
-    // _fd = open(scalene_malloc_signal_filename, flags, perms);
-    // // Make it so the file can reach the maximum size.
-    // ftruncate(_fd, MAX_FILE_SIZE);
-    // _mmap = reinterpret_cast<char *>(mmap(0, MAX_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0));
-    // if (_mmap == MAP_FAILED) {
-    //   tprintf::tprintf("Scalene: internal error = @\n", errno);
-    //   abort();
-    // }
+
   }
 
   ~SampleHeap() {
     // Delete the log file.
-    // unlink(scalene_malloc_signal_filename);
+    _samplefile.~SampleFile();
   }
   
   ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
@@ -302,7 +291,10 @@ private:
 	     count,
 	     (float) _pythonCount / (_pythonCount + _cCount));
 #endif
-    // _samplefile.writeToFile(buf);
+//       tprintf::tprintf("Writing ");
+//       tprintf::tprintf(buf);
+//       tprintf::tprintf("\n");
+     _samplefile.writeToFile(buf);
     // _lastpos += strlen(_mmap + _lastpos) - 1;
   }
 

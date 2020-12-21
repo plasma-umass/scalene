@@ -1,5 +1,7 @@
 import selectors
 import threading
+from typing import Optional, List, Tuple
+from selectors import SelectorKey
 from scalene.scalene_profiler import Scalene
 import sys
 
@@ -7,7 +9,7 @@ import sys
 @Scalene.shim
 def replacement_poll_selector(scalene: Scalene):
     class ReplacementPollSelector(selectors.PollSelector):
-        def select(self, timeout: float = -1):
+        def select(self, timeout: Optional[float] = -1) -> List[Tuple[SelectorKey, int]]:
             tident = threading.get_ident()
             start_time = scalene.get_wallclock_time()
             if timeout < 0:
@@ -23,5 +25,5 @@ def replacement_poll_selector(scalene: Scalene):
                 end_time = scalene.get_wallclock_time()
                 if timeout != -1:
                     if end_time - start_time >= timeout:
-                        return None
+                        return []
     selectors.PollSelector = ReplacementPollSelector
