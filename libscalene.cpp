@@ -41,8 +41,6 @@ class InitializeMe {
 public:
   InitializeMe()
   {
-
-tprintf::tprintf("STARTING\n");
 #if 1
     // invoke backtrace so it resolves symbols now
 #if 0 // defined(__linux__)
