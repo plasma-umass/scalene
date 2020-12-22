@@ -46,9 +46,11 @@ class SampleFile {
         }
         void writeToFile(char* line) {
             lock.lock();
-            rte_memcpy(_mmap + *_lastpos,
-                line,
-                MAX_BUFSIZE);
+            char* src = line;
+            char* dst = _mmap + *_lastpos;
+            for(int i = 0; i < MAX_BUFSIZE; i++) {
+                *dst++ = *src++;
+            }
             *_lastpos += strlen(_mmap + *_lastpos) - 1;
             lock.unlock();
         }
