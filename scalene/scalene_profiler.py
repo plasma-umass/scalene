@@ -883,9 +883,7 @@ start the timer interrupts."""
         this_frame: FrameType,
     ) -> None:
         """Handle malloc events."""
-        # print("Locking malloc")
         if Scalene.__in_signal_handler.acquire(blocking=False):
-            # print("Locked malloc")
             Scalene.allocation_signal_handler(signum, this_frame)
             Scalene.__in_signal_handler.release()
 
@@ -895,9 +893,7 @@ start the timer interrupts."""
         this_frame: FrameType,
     ) -> None:
         """Handle free events."""
-        # print("Locking free")
         if Scalene.__in_signal_handler.acquire(blocking=False):
-            # print("Locked free")
             Scalene.allocation_signal_handler(signum, this_frame)
             Scalene.__in_signal_handler.release()
 
@@ -906,7 +902,6 @@ start the timer interrupts."""
         signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
         this_frame: FrameType,
     ) -> None:
-        # print(signum)
         """Handle interrupts for memory profiling (mallocs and frees)."""
         new_frames = Scalene.compute_frames_to_record(this_frame)
         if not new_frames:
@@ -919,11 +914,8 @@ start the timer interrupts."""
             mm.seek(Scalene.__malloc_signal_position)
             while True:
                 count_str = mm.readline().rstrip().decode("ascii")
-                # print(count_str)
                 if count_str == "":
                     break
-                # print("POS", Scalene.__malloc_signal_position)
-                # print("STR", count_str)
                 (
                     action,
                     alloc_time_str,
@@ -938,7 +930,6 @@ start the timer interrupts."""
                         float(python_fraction_str),
                     )
                 )
-            # print("New position", mm.tell() - 1)
             Scalene.__malloc_signal_position = mm.tell() - 1
         except FileNotFoundError:
             pass
@@ -1002,49 +993,34 @@ start the timer interrupts."""
                 Scalene.__memory_free_samples[fname][lineno][bytei] += before - after
                 Scalene.__memory_free_count[fname][lineno][bytei] += 1
                 Scalene.__total_memory_free_samples += before - after
-        # print(Scalene.__malloc_signal_filename)
     @staticmethod
     def memcpy_event_signal_handler(
         signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
         frame: FrameType,
     ) -> None:
         """Handles memcpy events."""
-        # print("Locking")
         if not Scalene.__in_signal_handler.acquire(blocking=False):
             return
-        # print("Locked")
         new_frames = Scalene.compute_frames_to_record(frame)
         if not new_frames:
             Scalene.__in_signal_handler.release()
             return
 
         # Process the input array.
-        arr: List[Tuple[int, int]] = []
-        # print("ABCDE")
-        # print(Scalene.__malloc_signal_filename)
-        # print(Scalene.__memcpy_signal_filename)
-        # print()
         try:
             mfile = Scalene.__memcpy_signal_mmap
             if mfile:
                 mfile.seek(Scalene.__memcpy_signal_position)
-                # print(Scalene.__memcpy_signal_position)
                 while True:
                     count_str = mfile.readline().rstrip().decode("ascii")
-                    # print(count_str)
                     if count_str == "":
                         break
-                    # print("XYZ")
-                    # print(count_str)
                     count_str = count_str.rstrip()
-                    # print(count_str)
 
                     (memcpy_time_str, count_str2) = count_str.split(",")
-                    # print(memcpy_time_str, count_str2)
-                    # print("Y")
                     arr.append((int(memcpy_time_str), int(count_str2)))
                 Scalene.__memcpy_signal_position = mfile.tell() - 1
-        except Exception as exc:
+        except Exception:
             pass
         arr.sort()
 

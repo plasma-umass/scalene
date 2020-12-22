@@ -29,7 +29,6 @@ typedef std::atomic<uint64_t> counterType;
 typedef uint64_t counterType;
 #endif
 
-const auto MAX_BUFSIZE = 1024;
 
 template <uint64_t MallocSamplingRateBytes, class SuperHeap> 
 class SampleHeap : public SuperHeap{
@@ -56,10 +55,6 @@ public:
 
   }
 
-  ~SampleHeap() {
-    // Delete the log file.
-    _samplefile.~SampleFile();
-  }
   
   ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
     auto ptr = SuperHeap::malloc(sz);
@@ -145,9 +140,6 @@ private:
   counterType _cCount;
 
   open_addr_hashtable<65536> _table; // Maps call stack entries to function names.
-  char scalene_malloc_signal_filename[256];
-  int _fd;       // true file descriptor for the log
-  char * _mmap;  // address of the first byte of the log
   int _lastpos;  // last position written into the log
   
   void recordCallStack(size_t sz) {

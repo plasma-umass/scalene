@@ -38,10 +38,6 @@ public:
     }
     return len;
   }
-  
-   ~MemcpySampler() {
-   _samplefile.~SampleFile();
-   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void * memcpy(void * dst, const void * src, size_t n) {
     auto result = local_memcpy(dst, src, n);
@@ -113,7 +109,6 @@ private:
   uint64_t _memcpyOps;
   unsigned long long _memcpyTriggered;
   uint64_t _interval;
-  char scalene_memcpy_signal_filename[255];
 
   void writeCount() {
     char buf[255];
