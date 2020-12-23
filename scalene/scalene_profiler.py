@@ -1005,7 +1005,7 @@ start the timer interrupts."""
         if not new_frames:
             Scalene.__in_signal_handler.release()
             return
-
+        arr: List[Tuple[int, int]] = []
         # Process the input array.
         try:
             mfile = Scalene.__memcpy_signal_mmap
