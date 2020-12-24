@@ -1,5 +1,4 @@
 import tensorflow as tf
-from time import perf_counter
 
 num_threads = 16
 tf.config.threading.set_inter_op_parallelism_threads(
@@ -28,8 +27,6 @@ loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 model.compile(optimizer='adam',
               loss=loss_fn,
               metrics=['accuracy'])
-t0 = perf_counter()
-model.fit(x_train, y_train, epochs=2)
+
+model.fit(x_train, y_train, epochs=5)
 model.evaluate(x_test,  y_test, verbose=2)
-dt = perf_counter() - t0
-print(f"Total time: {dt}")
