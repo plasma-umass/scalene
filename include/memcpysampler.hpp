@@ -11,6 +11,8 @@
 #if defined(__x86_64__)
 #include "rtememcpy.h"
 #endif
+#include "samplefile.hpp"
+
 
 template <uint64_t MemcpySamplingRateBytes>
 class MemcpySampler {
@@ -20,20 +22,12 @@ class MemcpySampler {
   static constexpr auto fname = "/tmp/scalene-memcpy-signalXXXXX";
 public:
   MemcpySampler()
-    : _interval (MemcpySamplingRateBytes),
+    : _samplefile((char*) "/tmp/scalene-memcpy-signal@", (char*) "/tmp/scalene-memcpy-lock@"),
+      _interval (MemcpySamplingRateBytes),
       _memcpyOps (0),
       _memcpyTriggered (0)
   {
     signal(MemcpySignal, SIG_IGN);
-    auto pid = getpid();
-    int i;
-    for (i = 0; i < local_strlen(fname); i++) {
-      if (fname[i] == 'X') {
-	break;
-      }
-      scalene_memcpy_signal_filename[i] = fname[i];
-    }
-    stprintf::stprintf((char *) &scalene_memcpy_signal_filename[i], "@", pid);
   }
 
   int local_strlen(const char * str) {
@@ -43,10 +37,6 @@ public:
       str++;
     }
     return len;
-  }
-  
-  ~MemcpySampler() {
-    unlink(scalene_memcpy_signal_filename);
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void * memcpy(void * dst, const void * src, size_t n) {
@@ -72,6 +62,7 @@ private:
 
   //// local implementations of memcpy and friends.
   Sampler<MemcpySamplingRateBytes> _memcpySampler;
+  SampleFile _samplefile;
   ATTRIBUTE_ALWAYS_INLINE inline void * local_memcpy(void * dst, const void * src, size_t n) {
 #if defined(__APPLE__)
     return ::memcpy(dst, src, n);
@@ -118,14 +109,12 @@ private:
   uint64_t _memcpyOps;
   unsigned long long _memcpyTriggered;
   uint64_t _interval;
-  char scalene_memcpy_signal_filename[255];
 
   void writeCount() {
     char buf[255];
-    stprintf::stprintf(buf, "@,@\n", _memcpyTriggered, _memcpyOps);
-    int fd = open(scalene_memcpy_signal_filename, flags, perms);
-    write(fd, buf, strlen(buf));
-    close(fd);
+
+    stprintf::stprintf(buf, "@,@\n\n", _memcpyTriggered, _memcpyOps);
+    _samplefile.writeToFile(buf);
   }
 };
 

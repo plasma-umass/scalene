@@ -1,4 +1,4 @@
-#define SCALENE_DISABLE_SIGNALS 0  // for debugging only
+#define SCALENE_DISABLE_SIGNALS 0 // for debugging only
 
 #include <heaplayers.h>
 
@@ -14,6 +14,7 @@
 
 #include "sampleheap.hpp"
 #include "memcpysampler.hpp"
+#include "samplefile.hpp"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
@@ -23,6 +24,7 @@
 const uint64_t MallocSamplingRate = 1048576ULL;
 const uint64_t MemcpySamplingRate = MallocSamplingRate * 2ULL;
 
+HL::PosixLock SampleFile::lock = HL::PosixLock();
 #include "nextheap.hpp"
 
 class ParentHeap: public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, NextHeap>> {};

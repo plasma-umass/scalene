@@ -17,6 +17,7 @@
 #include "common.hpp"
 #include "open_addr_hashtable.hpp"
 #include "sampler.hpp"
+#include "samplefile.hpp"
 #include "stprintf.h"
 #include "tprintf.h"
 
@@ -28,8 +29,9 @@ typedef std::atomic<uint64_t> counterType;
 typedef uint64_t counterType;
 #endif
 
+
 template <uint64_t MallocSamplingRateBytes, class SuperHeap> 
-class SampleHeap : public SuperHeap {
+class SampleHeap : public SuperHeap{
 
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
   
@@ -40,7 +42,8 @@ public:
   enum { CallStackSamplingRate = MallocSamplingRateBytes * 10 }; // 10 here just to reduce overhead
 
   SampleHeap()
-    : _mallocTriggered (0),
+    : _samplefile((char*) "/tmp/scalene-malloc-signal@", (char*) "/tmp/scalene-malloc-lock@"),
+      _mallocTriggered (0),
       _freeTriggered (0),
       _pythonCount (0),
       _cCount (0),
@@ -49,23 +52,9 @@ public:
     // Ignore these signals until they are replaced by a client.
     signal(MallocSignal, SIG_IGN);
     signal(FreeSignal, SIG_IGN);
-    // Set up the log file.
-    auto pid = getpid();
-    stprintf::stprintf(scalene_malloc_signal_filename, "/tmp/scalene-malloc-signal@", pid);
-    _fd = open(scalene_malloc_signal_filename, flags, perms);
-    // Make it so the file can reach the maximum size.
-    ftruncate(_fd, MAX_FILE_SIZE);
-    _mmap = reinterpret_cast<char *>(mmap(0, MAX_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0));
-    if (_mmap == MAP_FAILED) {
-      tprintf::tprintf("Scalene: internal error = @\n", errno);
-      abort();
-    }
+
   }
 
-  ~SampleHeap() {
-    // Delete the log file.
-    unlink(scalene_malloc_signal_filename);
-  }
   
   ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
     auto ptr = SuperHeap::malloc(sz);
@@ -142,15 +131,15 @@ private:
   Sampler<MallocSamplingRateBytes> _mallocSampler;
   Sampler<MallocSamplingRateBytes> _freeSampler;
   Sampler<CallStackSamplingRate>   _callStackSampler;
+
+  SampleFile _samplefile;
+
   counterType _mallocTriggered;
   counterType _freeTriggered;
   counterType _pythonCount;
   counterType _cCount;
 
   open_addr_hashtable<65536> _table; // Maps call stack entries to function names.
-  char scalene_malloc_signal_filename[256];
-  int _fd;       // true file descriptor for the log
-  char * _mmap;  // address of the first byte of the log
   int _lastpos;  // last position written into the log
   
   void recordCallStack(size_t sz) {
@@ -269,7 +258,6 @@ private:
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
   void writeCount(AllocSignal sig, uint64_t count) {
-    const auto MAX_BUFSIZE = 1024;
     char buf[MAX_BUFSIZE];
     if (_pythonCount == 0) {
       _pythonCount = 1; // prevent 0/0
@@ -283,7 +271,7 @@ private:
 		       (float) _pythonCount / (_pythonCount + _cCount));
 #else
     //    tprintf::tprintf("count = @\n", count);
-    snprintf(_mmap + _lastpos,
+    snprintf(buf,
 	     MAX_BUFSIZE,
 #if defined(__APPLE__)
 	     "%c,%llu,%llu,%f\n\n",
@@ -295,7 +283,11 @@ private:
 	     count,
 	     (float) _pythonCount / (_pythonCount + _cCount));
 #endif
-    _lastpos += strlen(_mmap + _lastpos) - 1;
+//       tprintf::tprintf("Writing ");
+//       tprintf::tprintf(buf);
+//       tprintf::tprintf("\n");
+     _samplefile.writeToFile(buf);
+    // _lastpos += strlen(_mmap + _lastpos) - 1;
   }
 
 };
