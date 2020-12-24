@@ -136,6 +136,7 @@ void *memcpy_musl(void * dest, const void * src, size_t n)
 #if defined(__x86_64__)
 #include "rtememcpy.h"
 #endif
+#include "samplefile.hpp"
 
 template <uint64_t MemcpySamplingRateBytes>
 class MemcpySampler {
@@ -145,7 +146,8 @@ class MemcpySampler {
   static constexpr auto fname = "/tmp/scalene-memcpy-signalXXXXX";
 public:
   MemcpySampler()
-    : _interval (MemcpySamplingRateBytes),
+    : _samplefile((char*) "/tmp/scalene-memcpy-signal@", (char*) "/tmp/scalene-memcpy-lock@"),
+      _interval (MemcpySamplingRateBytes),
       _memcpyOps (0),
       _memcpyTriggered (0)
   {
@@ -197,6 +199,7 @@ private:
 
   //// local implementations of memcpy and friends.
   Sampler<MemcpySamplingRateBytes> _memcpySampler;
+  SampleFile _samplefile;
   ATTRIBUTE_ALWAYS_INLINE inline void * local_memcpy(void * dst, const void * src, size_t n) {
 #if defined(__APPLE__)
     return ::memcpy(dst, src, n);
