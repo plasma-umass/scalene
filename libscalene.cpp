@@ -52,6 +52,7 @@ public:
 };
 
 static volatile InitializeMe initme;
+HL::PosixLock SampleFile::lock;
 
 #if 1
 

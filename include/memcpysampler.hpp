@@ -251,10 +251,8 @@ private:
 
   void writeCount() {
     char buf[255];
-    stprintf::stprintf(buf, "@,@\n", _memcpyTriggered, _memcpyOps);
-    int fd = open(scalene_memcpy_signal_filename, flags, perms);
-    write(fd, buf, strlen(buf));
-    close(fd);
+    stprintf::stprintf(buf, "@,@\n\n", _memcpyTriggered, _memcpyOps);
+    _samplefile.writeToFile(buf);
   }
 };
 

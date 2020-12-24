@@ -22,9 +22,8 @@ class Sampler {
 private:
   uint64_t _next;
 #if !SAMPLER_DETERMINISTIC
-  std::mt19937_64 rng { (unsigned long long) std::chrono::system_clock::now().time_since_epoch().count() }; // (getpid() + time(nullptr) + (uint64_t) pthread_self()) } ;
-  std::geometric_distribution<uint64_t> geom { SAMPLE_PROBABILITY }; // (double) SAMPLE_RATE };
-  //  MWC rng;
+  std::mt19937_64 rng { 1234567890UL + (uint64_t) getpid() + (uint64_t) pthread_self() };
+  std::geometric_distribution<uint64_t> geom { SAMPLE_PROBABILITY };
 #endif
   
 public:

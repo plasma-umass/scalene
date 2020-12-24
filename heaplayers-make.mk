@@ -1,4 +1,4 @@
-# CPPFLAGS = -std=c++14 -g -O0 -flto -DNDEBUG -fno-builtin-malloc -fvisibility=hidden
+# CPPFLAGS = -std=c++14 -g -O0 -DNDEBUG -fno-builtin-malloc -fvisibility=hidden
 CPPFLAGS = -std=c++14 -g -O3 -DNDEBUG -fno-builtin-malloc -fvisibility=hidden
 CXX = clang++
 
