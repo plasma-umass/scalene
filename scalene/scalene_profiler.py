@@ -238,7 +238,11 @@ if (
             )
             os.environ["PYTHONMALLOC"] = "malloc"
             args = sys.argv[1:]
-            args = [os.path.basename(sys.executable), "-m", "scalene"] + args
+            args = [
+                os.path.basename(sys.executable),
+                "-m",
+                "scalene",
+            ] + args
             result = subprocess.run(args)
             if result.returncode < 0:
                 print(
@@ -258,7 +262,11 @@ if (
             )
             os.environ["PYTHONMALLOC"] = "malloc"
             args = sys.argv[1:]
-            args = [os.path.basename(sys.executable), "-m", "scalene"] + args
+            args = [
+                os.path.basename(sys.executable),
+                "-m",
+                "scalene",
+            ] + args
             result = subprocess.run(args, close_fds=True, shell=False)
             if result.returncode < 0:
                 print(
@@ -447,14 +455,17 @@ class Scalene:
     __malloc_signal_position = 0
     try:
         __malloc_signal_fd = open(__malloc_signal_filename, "x")
-    except BaseException as exc:
+    except BaseException:
         pass
     try:
         __malloc_signal_fd = open(__malloc_signal_filename, "r")
         __malloc_signal_mmap = mmap.mmap(
-            __malloc_signal_fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ
+            __malloc_signal_fd.fileno(),
+            0,
+            mmap.MAP_SHARED,
+            mmap.PROT_READ,
         )
-    except BaseException as exc:
+    except BaseException:
         # Ignore if we aren't profiling memory.
         pass
 
@@ -466,7 +477,10 @@ class Scalene:
     try:
         __memcpy_signal_fd = open(__memcpy_signal_filename, "r")
         __memcpy_signal_mmap = mmap.mmap(
-            __memcpy_signal_fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ
+            __memcpy_signal_fd.fileno(),
+            0,
+            mmap.MAP_SHARED,
+            mmap.PROT_READ,
         )
 
     except BaseException:
@@ -576,8 +590,8 @@ class Scalene:
 
     @staticmethod
     def enable_signals() -> None:
-        """Set up the signal handlers to handle interrupts for profiling and
-        start the timer interrupts."""
+        """Set up the signal handlers to handle interrupts for profiling and start the
+        timer interrupts."""
         Scalene.set_timer_signals()
         # CPU
         signal.signal(Scalene.__cpu_signal, Scalene.cpu_signal_handler)
@@ -585,7 +599,8 @@ class Scalene:
         signal.signal(Scalene.__malloc_signal, Scalene.malloc_signal_handler)
         signal.signal(Scalene.__free_signal, Scalene.free_signal_handler)
         signal.signal(
-            Scalene.__memcpy_signal, Scalene.memcpy_event_signal_handler
+            Scalene.__memcpy_signal,
+            Scalene.memcpy_event_signal_handler,
         )
         # Set every signal to restart interrupted system calls.
         signal.siginterrupt(Scalene.__cpu_signal, False)
@@ -832,7 +847,8 @@ class Scalene:
                 if not Scalene.__is_thread_sleeping[tident]:
                     # Check if the original caller is stuck inside a call.
                     if Scalene.is_call_function(
-                        orig_frame.f_code, ByteCodeIndex(orig_frame.f_lasti)
+                        orig_frame.f_code,
+                        ByteCodeIndex(orig_frame.f_lasti),
                     ):
                         # It is. Attribute time to native.
                         Scalene.__cpu_samples_c[fname][
@@ -1467,7 +1483,10 @@ class Scalene:
         # Note that Scalene works best with at least 132 columns.
         column_width = shutil.get_terminal_size().columns
         console = Console(
-            width=column_width, record=True, force_terminal=True, file=null
+            width=column_width,
+            record=True,
+            force_terminal=True,
+            file=null,
         )
         # Build a list of files we will actually report on.
         report_files: List[Filename] = []
@@ -1579,7 +1598,7 @@ class Scalene:
             signal.signal(Scalene.__malloc_signal, signal.SIG_IGN)
             signal.signal(Scalene.__free_signal, signal.SIG_IGN)
             signal.signal(Scalene.__memcpy_signal, signal.SIG_IGN)
-        except:
+        except BaseException:
             # Retry just in case we get interrupted by one of our own signals.
             Scalene.disable_signals()
 
@@ -1625,7 +1644,9 @@ class Scalene:
                     # Read in the code and compile it.
                     try:
                         code = compile(
-                            prog_being_profiled.read(), sys.argv[0], "exec"
+                            prog_being_profiled.read(),
+                            sys.argv[0],
+                            "exec",
                         )
                     except SyntaxError:
                         traceback.print_exc()
@@ -1656,7 +1677,8 @@ class Scalene:
                         # Catch termination so we print a profile before exiting.
                         # (Invokes sys.exit, which is caught below.)
                         signal.signal(
-                            signal.SIGTERM, Scalene.termination_handler
+                            signal.SIGTERM,
+                            Scalene.termination_handler,
                         )
                         # Catch termination so we print a profile before exiting.
                         profiler.start()
@@ -1686,7 +1708,7 @@ class Scalene:
             except (FileNotFoundError, IOError):
                 print("Scalene: could not find input file " + sys.argv[0])
                 sys.exit(-1)
-        except SystemExit as se:
+        except SystemExit:
             pass
         except BaseException:
             print("Scalene failed to initialize.\n" + traceback.format_exc())
