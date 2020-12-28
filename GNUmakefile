@@ -7,7 +7,7 @@ mypy:
 	-mypy $(SOURCES)
 
 black:
-	-black $(SOURCES)
+	-black -l 79 $(SOURCES)
 
 upload: # to pypi
 	-cp libscalene.so libscalene.dylib scalene/
