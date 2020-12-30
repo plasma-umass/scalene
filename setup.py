@@ -9,7 +9,9 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 mmap_hl_spinlock = Extension('mmap_hl_spinlock',
                 include_dirs=['.', 'Heap-Layers', 'Heap-Layers/utility'],
-                sources=['mmap_hl_spinlock.cpp'])
+                sources=['mmap_hl_spinlock.cpp'],
+                extra_compile_args=['-std=c++14'],
+                language="c++14")
 
 setup(
     name="scalene",
