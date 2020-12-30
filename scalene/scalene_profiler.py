@@ -451,8 +451,12 @@ class Scalene:
     # Things that need to be in sync with include/sampleheap.hpp:
     #
     #   file to communicate the number of malloc/free samples (+ PID)
-    __malloc_signal_filename = Filename("/tmp/scalene-malloc-signal" + str(os.getpid()))
-    __malloc_lock_filename = Filename("/tmp/scalene-malloc-lock" + str(os.getpid()))
+    __malloc_signal_filename = Filename(
+        "/tmp/scalene-malloc-signal" + str(os.getpid())
+    )
+    __malloc_lock_filename = Filename(
+        "/tmp/scalene-malloc-lock" + str(os.getpid())
+    )
     __malloc_signal_position = 0
     try:
         __malloc_signal_fd = open(__malloc_signal_filename, "x")
@@ -476,7 +480,9 @@ class Scalene:
         pass
 
     #   file to communicate the number of memcpy samples (+ PID)
-    __memcpy_signal_filename = Filename("/tmp/scalene-memcpy-signal" + str(os.getpid()))
+    __memcpy_signal_filename = Filename(
+        "/tmp/scalene-memcpy-signal" + str(os.getpid())
+    )
     __memcpy_lock_filename = Filename("/tmp/scalene-memcpy-lock" + str(os.getpid()))
     __memcpy_signal_fd = None
     __memcpy_lock_fd = None
