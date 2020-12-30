@@ -31,7 +31,14 @@ def _create(
     max_ = fixed_max if fixed_max is not None else float(max(numbers))
     extent = _get_extent(max_, min_)
     spark = "".join(
-        __bars[min([__bar_count - 1, int((n - min_) / extent * __bar_count)])]
+        __bars[
+            min(
+                [
+                    __bar_count - 1,
+                    int((n - min_) / extent * __bar_count),
+                ]
+            )
+        ]
         for n in numbers
     )
     return min_, max_, spark

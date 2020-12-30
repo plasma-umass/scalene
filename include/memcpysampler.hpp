@@ -10,7 +10,11 @@
 
 #include <string.h>
 #include <stdint.h>
+
+#if !defined(__APPLE__)
 #include <endian.h>
+#endif
+
 
 void *memcpy_musl(void * dest, const void * src, size_t n)
 {
