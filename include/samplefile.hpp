@@ -47,10 +47,10 @@ public:
     int amt_read = read(init_fd, buf, 3);
     if (amt_read == 2 && strcmp(buf, "q&") == 0) {
       // If magic number is present, we know that a HL::SpinLock has already been initialized
-      _spin_lock = (HL::SpinLock*) (_lastpos + sizeof(uint64_t));
+      _spin_lock = (HL::SpinLock*) (((char*) _lastpos) + sizeof(uint64_t));
     } else {
       write(init_fd, "q&", 3);
-      _spin_lock = new(_lastpos + sizeof(uint64_t)) HL::SpinLock();
+      _spin_lock = new(((char*) _lastpos )+ sizeof(uint64_t)) HL::SpinLock();
       _spin_lock->lock();
       _spin_lock->unlock();
       *_lastpos = 0;
