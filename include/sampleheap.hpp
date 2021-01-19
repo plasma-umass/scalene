@@ -136,7 +136,6 @@ private:
   counterType _freeTriggered;
   counterType _pythonCount;
   counterType _cCount;
-
   open_addr_hashtable<65536> _table; // Maps call stack entries to function names.
   SampleFile _samplefile;
 
@@ -275,12 +274,12 @@ private:
 #if defined(__APPLE__)
 	     "%c,%llu,%llu,%f\n\n",
 #else
-	     "%c,%lu,%lu,%f\n\n",
+	     "%c,%lu,%lu,%f,%d\n\n",
 #endif
 	     ((sig == MallocSignal) ? 'M' : 'F'),
 	     _mallocTriggered + _freeTriggered,
 	     count,
-	     (float) _pythonCount / (_pythonCount + _cCount));
+	     (float) _pythonCount / (_pythonCount + _cCount), getpid());
 #endif
      _samplefile.writeToFile(buf);
   }

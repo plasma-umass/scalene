@@ -1,13 +1,18 @@
 import selectors
+import sys
 import threading
 from scalene.scalene_profiler import Scalene
-import sys
+from typing import Optional
 
 
 @Scalene.shim
 def replacement_poll_selector(scalene: Scalene):
+    """
+    A replacement for selectors.PollSelector that
+    periodically wakes up to accept signals
+    """
     class ReplacementPollSelector(selectors.PollSelector):
-        def select(self, timeout: float = -1):
+        def select(self, timeout: Optional[float] = -1):
             tident = threading.get_ident()
             start_time = scalene.get_wallclock_time()
             if timeout < 0:

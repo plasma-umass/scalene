@@ -8,7 +8,10 @@ import threading
 @Scalene.shim
 def replacement_pjoin(scalene: Scalene):
     def replacement_process_join(self, timeout: float = -1):
-        from multiprocessing.process import _children
+        """
+        A drop-in replacement for multiprocessing.Process.join
+        that periodically yields to handle signals
+        """
         # print(multiprocessing.process.active_children())
         self._check_closed()
         assert self._parent_pid == os.getpid(), 'can only join a child process'
@@ -21,15 +24,16 @@ def replacement_pjoin(scalene: Scalene):
         start_time = scalene.get_wallclock_time()
         while True:
             scalene.set_thread_sleeping(tident)
-            res = self._popen.wait(timeout)
+            res = self._popen.wait(interval)
             if res is not None:
+                from multiprocessing.process import _children
                 _children.discard(self)
                 return
-            print(multiprocessing.process.active_children())
             scalene.reset_thread_sleeping(tident)
             if timeout != -1:
                 end_time = scalene.get_wallclock_time()
                 if end_time - start_time >= timeout:
+                    from multiprocessing.process import _children
                     _children.discard(self)
                     return
     multiprocessing.Process.join = replacement_process_join

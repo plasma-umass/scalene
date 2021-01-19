@@ -66,7 +66,7 @@ public:
   }
   void writeToFile(char* line) {
     _spin_lock->lock();
-    strncpy(_mmap + *_lastpos, (const char *) line, MAX_BUFSIZE); // FIXME
+    strncpy(_mmap + *_lastpos, (const char *) line, strlen(line)); // FIXME
     *_lastpos += strlen(_mmap + *_lastpos) - 1;
     _spin_lock->unlock();
   }
