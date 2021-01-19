@@ -11,18 +11,27 @@
 //#include "mwc.h"
 
 #define SAMPLER_DETERMINISTIC 0
+#define SAMPLER_LOWDISCREPANCY 1
 
 #include <pthread.h>
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
 
+#if SAMPLER_LOWDISCREPANCY
+#include "lowdiscrepancy.hpp"
+#endif
+
 template <uint64_t SAMPLE_RATE>
 class Sampler {
 private:
   uint64_t _next;
 #if !SAMPLER_DETERMINISTIC
+#if !SAMPLER_LOWDISCREPANCY
   std::mt19937_64 rng { 1234567890UL + (uint64_t) getpid() + (uint64_t) pthread_self() };
+#else
+  LowDiscrepancy rng { 1234567890UL + (uint64_t) getpid() + (uint64_t) pthread_self() };
+#endif
   std::geometric_distribution<uint64_t> geom { SAMPLE_PROBABILITY };
 #endif
   
