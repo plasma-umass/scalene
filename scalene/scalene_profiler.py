@@ -1234,7 +1234,7 @@ class Scalene:
             else n_malloc_mb / Scalene.__total_memory_malloc_samples
         )
         n_python_fraction = (
-            0 if not n_malloc_mb else n_python_malloc_mb / n_malloc_mb
+            0 if not n_malloc_mb else n_python_malloc_mb / Scalene.__total_memory_malloc_samples # was / n_malloc_mb
         )
         # Finally, print results.
         n_cpu_percent_c_str: str = (
