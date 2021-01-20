@@ -121,12 +121,12 @@ private:
     return (*_memalign)(alignment, sz);
   }
 
-  bool _inMemalign;
   bool _inMalloc;
+  bool _inMemalign;
   bool _inFree;
-  memalignFn * _memalign;
   mallocFn * _malloc;
   freeFn * _free;
+  memalignFn * _memalign;
   mallocusablesizeFn * _malloc_usable_size;
 };
 #endif
