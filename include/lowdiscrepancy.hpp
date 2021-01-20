@@ -41,7 +41,6 @@ public:
       _next = _next - 1.0;
     }
 #endif
-    std::cout << prev << std::endl;
     return prev;
   }
 
