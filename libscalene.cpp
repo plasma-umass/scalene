@@ -14,6 +14,7 @@
 
 #include "sampleheap.hpp"
 #include "memcpysampler.hpp"
+#include "staticbufferheap.hpp"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
@@ -65,7 +66,6 @@ CustomHeapType& getTheCustomHeap() {
   return thang;
 }
 
-
 auto& getSampler() {
   static MemcpySampler<MemcpySamplingRate> msamp;
   return msamp;
@@ -88,21 +88,33 @@ extern "C" ATTRIBUTE_EXPORT void * LOCAL_PREFIX(memmove)(void * dst, const void 
 }
 
 extern "C" ATTRIBUTE_EXPORT char * LOCAL_PREFIX(strcpy)(char * dst, const char * src) {
-  // tprintf::tprintf("strcpy @ @ (@)\n", dst, src);
   auto result = getSampler().strcpy(dst, src);
   return result;
 }
 
+
+StaticBufferHeap<16 * 1048576> buffer;
+
+static bool _inMalloc = false;
+
 extern "C" ATTRIBUTE_EXPORT void * xxmalloc(size_t sz) {
-  if (!_initialized) {
-    return nullptr;
+  if (_inMalloc) {
+    buffer.malloc(sz);
   }
   void * ptr = nullptr;
+  _inMalloc = true;
   ptr = getTheCustomHeap().malloc(sz);
+  _inMalloc = false;
   return ptr;
 }
 
 extern "C" ATTRIBUTE_EXPORT void xxfree(void * ptr) {
+  if (!_initialized) {
+    return;
+  }
+  if (buffer.isValid(ptr)) {
+    return;
+  }
   getTheCustomHeap().free(ptr);
 }
 
@@ -112,10 +124,18 @@ extern "C" ATTRIBUTE_EXPORT void xxfree_sized(void * ptr, size_t sz) {
 }
 
 extern "C" ATTRIBUTE_EXPORT void * xxmemalign(size_t alignment, size_t sz) {
-  return getTheCustomHeap().memalign(alignment, sz);
+  if (_initialized) {
+    return getTheCustomHeap().memalign(alignment, sz);
+  } else {
+    // FIXME
+    return buffer.malloc(sz);
+  }
 }
 
 extern "C" ATTRIBUTE_EXPORT size_t xxmalloc_usable_size(void * ptr) {
+  if (buffer.isValid(ptr)) {
+    return buffer.getSize(ptr);
+  }
   return getTheCustomHeap().getSize(ptr); // TODO FIXME adjust for ptr offset?
 }
 
