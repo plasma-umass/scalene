@@ -64,7 +64,7 @@ public:
     }
     auto realSize = SuperHeap::getSize(ptr);
     assert(realSize >= sz);
-    assert((sz < 16) || (realSize <= 2 * sz));
+    //    assert((sz < 16) || (realSize <= 2 * sz));
     auto sampleMalloc = _mallocSampler.sample(realSize);
     auto sampleCallStack = _callStackSampler.sample(realSize);
 #if 1
