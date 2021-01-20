@@ -27,8 +27,14 @@ const uint64_t MemcpySamplingRate = MallocSamplingRate * 2ULL;
 
 class ParentHeap: public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, NextHeap>> {};
 
+static bool _initialized { false };
+
 class CustomHeapType : public ParentHeap {
 public:
+  CustomHeapType()
+  {
+    _initialized = true;
+  }
   void lock() {}
   void unlock() {}
 };
@@ -54,19 +60,10 @@ public:
 static volatile InitializeMe initme;
 HL::PosixLock SampleFile::lock;
 
-#if 1
-
-static CustomHeapType thang;
-#define getTheCustomHeap() thang
-
-#else
-
 CustomHeapType& getTheCustomHeap() {
   static CustomHeapType thang;
   return thang;
 }
-
-#endif
 
 
 auto& getSampler() {
@@ -97,6 +94,9 @@ extern "C" ATTRIBUTE_EXPORT char * LOCAL_PREFIX(strcpy)(char * dst, const char *
 }
 
 extern "C" ATTRIBUTE_EXPORT void * xxmalloc(size_t sz) {
+  if (!_initialized) {
+    return nullptr;
+  }
   void * ptr = nullptr;
   ptr = getTheCustomHeap().malloc(sz);
   return ptr;
