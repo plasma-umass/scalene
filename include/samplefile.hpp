@@ -65,10 +65,14 @@ public:
     unlink(_lockfile);
   }
   void writeToFile(char* line) {
+    // tprintf::tprintf("Locking C @\n", getpid());
     _spin_lock->lock();
+    // tprintf::tprintf("Locked C\n");
     strncpy(_mmap + *_lastpos, (const char *) line, MAX_BUFSIZE); // FIXME
     *_lastpos += strlen(_mmap + *_lastpos) - 1;
+    // tprintf::tprintf("Unlocking C @\n", getpid());
     _spin_lock->unlock();
+    // tprintf::tprintf("Unlocked C @\n", getpid());
   }
 
 private:

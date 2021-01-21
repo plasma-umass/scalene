@@ -996,37 +996,40 @@ class Scalene:
         new_frames = Scalene.compute_frames_to_record(this_frame)
         if not new_frames:
             return
+        # print("ALLOCATOR")
+        
+        # Process the input array from where we left off reading last time.
+        arr: List[Tuple[int, str, float, float]] = []
         try:
-            mmap_hl_spinlock.mmap_lock(Scalene.__malloc_lock_mmap)
-            # Process the input array from where we left off reading last time.
-            arr: List[Tuple[int, str, float, float]] = []
-            try:
-                mm = Scalene.__malloc_signal_mmap
-                mm.seek(Scalene.__malloc_signal_position)
-                while True:
+            mm = Scalene.__malloc_signal_mmap
+            mm.seek(Scalene.__malloc_signal_position)
+            while True:
+                try:
                     count_str = mm.readline().rstrip().decode("ascii")
-                    if count_str == "":
-                        break
+                    mmap_hl_spinlock.mmap_lock(Scalene.__malloc_lock_mmap)
+                finally:
+                    mmap_hl_spinlock.mmap_unlock(Scalene.__malloc_lock_mmap)    
+                if count_str == "":
+                    break
+                (
+                    action,
+                    alloc_time_str,
+                    count_str,
+                    python_fraction_str,
+                ) = count_str.split(",")
+                arr.append(
                     (
+                        int(alloc_time_str),
                         action,
-                        alloc_time_str,
-                        count_str,
-                        python_fraction_str,
-                    ) = count_str.split(",")
-                    arr.append(
-                        (
-                            int(alloc_time_str),
-                            action,
-                            float(count_str),
-                            float(python_fraction_str),
-                        )
+                        float(count_str),
+                        float(python_fraction_str),
                     )
-                Scalene.__malloc_signal_position = mm.tell() - 1
-            except FileNotFoundError:
-                pass
-        finally:
-            mmap_hl_spinlock.mmap_unlock(Scalene.__malloc_lock_mmap)
-            arr.sort()
+                )
+            Scalene.__malloc_signal_position = mm.tell() - 1
+        except FileNotFoundError:
+            pass
+
+        arr.sort()
 
         # Iterate through the array to compute the new current footprint.
         # and update the global __memory_footprint_samples.
@@ -1096,18 +1099,19 @@ class Scalene:
         """Handles memcpy events."""
         if not Scalene.__in_signal_handler.acquire(blocking=False):
             return
-        mmap_hl_spinlock.mmap_lock(Scalene.__memcpy_lock_mmap)
+       
+        new_frames = Scalene.compute_frames_to_record(frame)
+        if not new_frames:
+            Scalene.__in_signal_handler.release()
+            return
+        arr: List[Tuple[int, int]] = []
+        # Process the input array.
         try:
-            new_frames = Scalene.compute_frames_to_record(frame)
-            if not new_frames:
-                Scalene.__in_signal_handler.release()
-                return
-            arr: List[Tuple[int, int]] = []
-            # Process the input array.
-            try:
-                mfile = Scalene.__memcpy_signal_mmap
-                if mfile:
-                    mfile.seek(Scalene.__memcpy_signal_position)
+            mfile = Scalene.__memcpy_signal_mmap
+            if mfile:
+                mfile.seek(Scalene.__memcpy_signal_position)
+                try:
+                    mmap_hl_spinlock.mmap_lock(Scalene.__memcpy_lock_mmap)
                     while True:
                         count_str = mfile.readline().rstrip().decode("ascii")
                         if count_str == "":
@@ -1116,25 +1120,24 @@ class Scalene:
 
                         (memcpy_time_str, count_str2) = count_str.split(",")
                         arr.append((int(memcpy_time_str), int(count_str2)))
-                    Scalene.__memcpy_signal_position = mfile.tell() - 1
-            except Exception:
-                pass
-            arr.sort()
+                finally:
+                    mmap_hl_spinlock.mmap_unlock(Scalene.__memcpy_lock_mmap)
+                Scalene.__memcpy_signal_position = mfile.tell() - 1
+        except Exception:
+            pass
+        arr.sort()
 
-            for item in arr:
-                _memcpy_time, count = item
-                for (the_frame, _tident, _orig_frame) in new_frames:
-                    fname = Filename(the_frame.f_code.co_filename)
-                    line_no = LineNumber(the_frame.f_lineno)
-                    bytei = ByteCodeIndex(the_frame.f_lasti)
-                    # Add the byte index to the set for this line.
-                    Scalene.__bytei_map[fname][line_no].add(bytei)
-                    Scalene.__memcpy_samples[fname][line_no] += count
+        for item in arr:
+            _memcpy_time, count = item
+            for (the_frame, _tident, _orig_frame) in new_frames:
+                fname = Filename(the_frame.f_code.co_filename)
+                line_no = LineNumber(the_frame.f_lineno)
+                bytei = ByteCodeIndex(the_frame.f_lasti)
+                # Add the byte index to the set for this line.
+                Scalene.__bytei_map[fname][line_no].add(bytei)
+                Scalene.__memcpy_samples[fname][line_no] += count
 
-            Scalene.__in_signal_handler.release()
-        finally:
-            # TODO: wrap this in a contextmanager
-            mmap_hl_spinlock.mmap_unlock(Scalene.__memcpy_lock_mmap)
+        Scalene.__in_signal_handler.release()
     @staticmethod
     @lru_cache(None)
     def should_trace(filename: str) -> bool:
