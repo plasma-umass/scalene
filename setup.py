@@ -15,7 +15,7 @@ mmap_hl_spinlock = Extension('mmap_hl_spinlock',
 
 setup(
     name="scalene",
-    version="1.1.12",
+    version="1.1.14",
     description="Scalene: A high-resolution, low-overhead CPU and memory profiler for Python",
     keywords="performance memory profiler",
     long_description=long_description,

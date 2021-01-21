@@ -30,6 +30,8 @@ public:
 
 #else
 
+#include "staticbufferheap.hpp"
+
 extern "C" {
   typedef void * mallocFn(size_t);
   typedef void freeFn(void *);
@@ -39,6 +41,8 @@ extern "C" {
 
 class NextHeap {
 private:
+  StaticBufferHeap<65536> buffer;
+  
 public:
   enum { Alignment = alignof(max_align_t) };
   NextHeap()
@@ -53,71 +57,70 @@ public:
   }
   inline void * malloc(size_t sz) {
     if (unlikely(_malloc == nullptr)) {
-      return slowPathMalloc(sz);
+      if (_inMalloc) {
+	return buffer.malloc(sz);
+      }
+      init();
     }
     return (*_malloc)(sz);
   }
   inline void * memalign(size_t alignment, size_t sz) {
     if (unlikely(_memalign == nullptr)) {
-      return slowPathMemalign(alignment, sz);
+      if (_inMalloc) {
+	return buffer.malloc(sz); // FIXME
+      }
+      init();
     }
     return (*_memalign)(alignment, sz);
   }
   inline bool free(void * ptr) {
     if (unlikely(_free == nullptr)) {
-      return slowPathFree(ptr);
+      if (_inMalloc) {
+	return false;
+      }
+      init();
     }
-    (*_free)(ptr);
+    if (!buffer.isValid(ptr)) {
+      (*_free)(ptr);
+    }
     return true;
   }
 
   inline size_t getSize(void * ptr) {
-    if (unlikely(!_malloc_usable_size)) {
+    if (unlikely(_malloc_usable_size == nullptr)) {
       if (_inMalloc) {
-	// If we're in a recursive call, return 0 for the size.
-	return 0;
+	return buffer.getSize(ptr);
       }
-      _inMalloc = true;
-      *(void **)(&_malloc_usable_size) = dlsym(RTLD_NEXT, "malloc_usable_size");
-      _inMalloc = false;
+      init();
+    }
+    if (buffer.isValid(ptr)) {
+      return buffer.getSize(ptr);
     }
     return (*_malloc_usable_size)(ptr);
   }
-  
+
 private:
 
-  bool slowPathFree(void * ptr) {
-    if (_inFree) {
-      return false;
-    }
-    _inFree = true;
+  void init() {
+    _inMalloc = true;
+    // Welcome to the hideous incantation required to use dlsym with C++...
+    *(void **)(&_malloc_usable_size) = dlsym(RTLD_NEXT, "malloc_usable_size");
     *(void **)(&_free) = dlsym(RTLD_NEXT, "free");
-    _inFree = false;
+    *(void **)(&_malloc) = dlsym(RTLD_NEXT, "malloc");
+    *(void **)(&_memalign) = dlsym(RTLD_NEXT, "memalign");
+    _inMalloc = false;
+  }
+  
+  bool slowPathFree(void * ptr) {
     (*_free)(ptr);
     return true;
   }
   
   void * slowPathMalloc(size_t sz) {
-    if (_inMalloc) {
-      // If we're in a recursive call, return null.
-      return 0;
-    }
-    _inMalloc = true;
-    // Welcome to the hideous incantation required to use dlsym with C++...
-    *(void **)(&_malloc) = dlsym(RTLD_NEXT, "malloc");
-    _inMalloc = false;
     return (*_malloc)(sz);
   }
 
   void * slowPathMemalign(size_t alignment, size_t sz) {
-    if (_inMemalign) {
-      // If we're in a recursive call, return null.
-      return 0;
-    }
-    _inMemalign = true;
-    // Welcome to the hideous incantation required to use dlsym with C++...
-    *(void **)(&_memalign) = dlsym(RTLD_NEXT, "memalign");
-    _inMemalign = false;
     return (*_memalign)(alignment, sz);
   }
 
