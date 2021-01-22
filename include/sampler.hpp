@@ -25,11 +25,15 @@
 template <uint64_t SAMPLE_RATE>
 class Sampler {
 private:
+  static constexpr double SAMPLE_PROBABILITY = (double) 1.0 / (double) SAMPLE_RATE;
+
+  uint64_t _lastSampleSize;
   uint64_t _next;
 #if !SAMPLER_DETERMINISTIC
 #if !SAMPLER_LOWDISCREPANCY
   std::mt19937_64 rng { 1234567890UL + (uint64_t) getpid() + (uint64_t) pthread_self() };
 #else
+  //  LowDiscrepancy rng { UINT64_MAX / 2 }; // 1234567890UL + (uint64_t) getpid() + (uint64_t) pthread_self() };
   LowDiscrepancy rng { 1234567890UL + (uint64_t) getpid() + (uint64_t) pthread_self() };
 #endif
   std::geometric_distribution<uint64_t> geom { SAMPLE_PROBABILITY };
@@ -43,6 +47,7 @@ public:
 #else
     _next = SAMPLE_RATE;
 #endif
+    _lastSampleSize = _next;
   }
   
   inline ATTRIBUTE_ALWAYS_INLINE uint64_t sample(uint64_t sz) {
@@ -66,8 +71,9 @@ private:
       }
     }
 #endif
-    return sz * SAMPLE_PROBABILITY + 1;
+    auto prevSampleSize = _lastSampleSize;
+    _lastSampleSize = _next;
+    return sz + prevSampleSize;
   }
-  
-  static constexpr double SAMPLE_PROBABILITY = (double) 1.0 / (double) SAMPLE_RATE;
+
 };
