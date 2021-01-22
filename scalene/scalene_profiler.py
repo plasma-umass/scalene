@@ -1063,54 +1063,44 @@ class Scalene:
         new_frames = Scalene.compute_frames_to_record(this_frame)
         if not new_frames:
             return
-        curr_pid = os.getpid()
+        # print("ALLOCATOR")
+        
         # Process the input array from where we left off reading last time.
         arr: List[Tuple[int, str, float, float]] = []
         try:
-            
             mm = Scalene.__malloc_signal_mmap
             mm.seek(Scalene.__malloc_signal_position)
-            try:
-                mmap_hl_spinlock.mmap_lock(Scalene.__malloc_lock_mmap)
-                while True:
-                    
+            curr_pid = os.getpid()
+            while True:
+                try:
+                    mmap_hl_spinlock.mmap_lock(Scalene.__malloc_lock_mmap)
                     count_str = mm.readline().rstrip().decode("ascii")
-                    if count_str == "":
-                        # print("breaking", mm.readline())
-                        break
-                    (
-                        action,
-                        alloc_time_str,
-                        count_str,
-                        python_fraction_str,
-                        pid
-                    ) = count_str.split(',')
-                    # print("CURR", int(curr_pid))
-                    # print("PID", int(pid))
-                    # print("CMP", int(curr_pid) == int(pid))
-                    if int(curr_pid) == int(pid):
-                        # print(count_str)
-                        arr.append(
-                            (
-                                int(alloc_time_str),
-                                action,
-                                float(count_str),
-                                float(python_fraction_str),
-                            )
+                finally:
+                    mmap_hl_spinlock.mmap_unlock(Scalene.__malloc_lock_mmap)    
+                if count_str == "":
+                    break
+                (
+                    action,
+                    alloc_time_str,
+                    count_str,
+                    python_fraction_str,
+                    pid_str
+                ) = count_str.split(",")
+                if int(curr_pid) == int(pid_str):
+                    # print(count_str)
+                    arr.append(
+                        (
+                            int(alloc_time_str),
+                            action,
+                            float(count_str),
+                            float(python_fraction_str),
                         )
+                    )z
                 Scalene.__malloc_signal_position = mm.tell() - 1
-            finally:
-                mmap_hl_spinlock.mmap_unlock(Scalene.__malloc_lock_mmap)
         except FileNotFoundError:
             pass
 
         arr.sort()
-        # if len(arr) == 0:
-        #     print("Nothing here", curr_pid, signum)
-        #     print()
-        #     print()
-        # else:
-        #     print("Something here")
         # Iterate through the array to compute the new current footprint.
         # and update the global __memory_footprint_samples.
         before = Scalene.__current_footprint
@@ -1124,8 +1114,7 @@ class Scalene:
                     Scalene.__max_footprint = Scalene.__current_footprint
             else:
                 Scalene.__current_footprint -= count
-            Scalene.__memory_footprint_samples.add(
-                Scalene.__current_footprint)
+            Scalene.__memory_footprint_samples.add(Scalene.__current_footprint)
         after = Scalene.__current_footprint
 
         # Now update the memory footprint for every running frame.
@@ -1152,8 +1141,7 @@ class Scalene:
                     python_frac += python_fraction * count
                 else:
                     curr -= count
-                Scalene.__per_line_footprint_samples[fname][lineno].add(
-                    curr)
+                Scalene.__per_line_footprint_samples[fname][lineno].add(curr)
             assert curr == after
             # If there was a net increase in memory, treat it as if it
             # was a malloc; otherwise, treat it as if it was a
@@ -1241,7 +1229,6 @@ class Scalene:
                 Scalene.__memcpy_samples[fname][line_no] += count
 
         Scalene.__in_signal_handler.release()
-       
 
     @staticmethod
     @lru_cache(None)
