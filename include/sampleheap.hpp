@@ -112,7 +112,7 @@ public:
 private:
 
   void handleMalloc(size_t sampleMalloc) {
-    writeCount(MallocSignal, sampleMalloc * MallocSamplingRateBytes);
+    writeCount(MallocSignal, sampleMalloc);
     _pythonCount = 0;
     _cCount = 0;
     _mallocTriggered++;
@@ -122,7 +122,7 @@ private:
   }
 
   void handleFree(size_t sampleFree) {
-    writeCount(FreeSignal, sampleFree * MallocSamplingRateBytes);
+    writeCount(FreeSignal, sampleFree);
     _freeTriggered++;
 #if !SCALENE_DISABLE_SIGNALS
     raise(FreeSignal);
