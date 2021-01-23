@@ -1500,17 +1500,29 @@ class Scalene:
                 _, _, spark_str = sparkline.generate(
                     samples.get()[0 : samples.len()], 0, current_max
                 )
-                mem_usage_line = Text.assemble(
-                    "Memory usage: ",
-                    ((spark_str, "blue")),
-                    (" (max: %6.2fMB)\n" % current_max),
-                )
+                # If memory used is > 1GB, use GB as the unit.
+                if current_max > 1024 * 1048576:
+                    mem_usage_line = Text.assemble(
+                        "Memory usage: ",
+                        ((spark_str, "blue")),
+                        (" (max: %6.2fGB)\n" % current_max / 1048576),
+                    )
+                else:
+                    # Otherwise, use MB.
+                    mem_usage_line = Text.assemble(
+                        "Memory usage: ",
+                        ((spark_str, "blue")),
+                        (" (max: %6.2fMB)\n" % current_max),
+                    )
                 title.append(mem_usage_line)
 
         null = open("/dev/null", "w")
         # Get column width of the terminal and adjust to fit.
         # Note that Scalene works best with at least 132 columns.
-        column_width = shutil.get_terminal_size().columns
+        if Scalene.__html:
+            column_width = 132
+        else:
+            column_width = shutil.get_terminal_size().columns
         console = Console(
             width=column_width,
             record=True,
