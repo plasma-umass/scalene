@@ -111,6 +111,10 @@ public:
   
 private:
 
+  // Prevent copying and assignment.
+  SampleHeap(const SampleHeap&) = delete;
+  SampleHeap& operator=(const SampleHeap&) = delete;
+  
   void handleMalloc(size_t sampleMalloc) {
     writeCount(MallocSignal, sampleMalloc);
     _pythonCount = 0;
