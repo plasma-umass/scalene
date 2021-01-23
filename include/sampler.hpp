@@ -22,26 +22,28 @@
 #include "lowdiscrepancy.hpp"
 #endif
 
-template <uint64_t SAMPLE_RATE>
-class Sampler {
+template <uint64_t SAMPLE_RATE> class Sampler {
 private:
-  static constexpr double SAMPLE_PROBABILITY = (double) 1.0 / (double) SAMPLE_RATE;
+  static constexpr double SAMPLE_PROBABILITY =
+      (double)1.0 / (double)SAMPLE_RATE;
 
   uint64_t _lastSampleSize;
   uint64_t _next;
 #if !SAMPLER_DETERMINISTIC
 #if !SAMPLER_LOWDISCREPANCY
-  std::mt19937_64 rng { 1234567890UL + (uint64_t) getpid() + (uint64_t) pthread_self() };
+  std::mt19937_64 rng{1234567890UL + (uint64_t)getpid() +
+                      (uint64_t)pthread_self()};
 #else
-  //  LowDiscrepancy rng { UINT64_MAX / 2 }; // 1234567890UL + (uint64_t) getpid() + (uint64_t) pthread_self() };
-  LowDiscrepancy rng { 1234567890UL + (uint64_t) getpid() + (uint64_t) pthread_self() };
+  //  LowDiscrepancy rng { UINT64_MAX / 2 }; // 1234567890UL + (uint64_t)
+  //  getpid() + (uint64_t) pthread_self() };
+  LowDiscrepancy rng{1234567890UL + (uint64_t)getpid() +
+                     (uint64_t)pthread_self()};
 #endif
-  std::geometric_distribution<uint64_t> geom { SAMPLE_PROBABILITY };
+  std::geometric_distribution<uint64_t> geom{SAMPLE_PROBABILITY};
 #endif
-  
+
 public:
-  Sampler()
-  {
+  Sampler() {
 #if !SAMPLER_DETERMINISTIC
     _next = geom(rng); // SAMPLE_RATE;
 #else
@@ -49,7 +51,7 @@ public:
 #endif
     _lastSampleSize = _next;
   }
-  
+
   inline ATTRIBUTE_ALWAYS_INLINE uint64_t sample(uint64_t sz) {
     if (unlikely(_next <= sz)) {
       return updateSample(sz - _next);
@@ -57,9 +59,8 @@ public:
     _next -= sz;
     return 0;
   }
-  
-private:
 
+private:
   uint64_t updateSample(uint64_t sz) {
 #if SAMPLER_DETERMINISTIC
     _next = SAMPLE_RATE;
@@ -67,7 +68,7 @@ private:
     while (true) {
       _next = geom(rng);
       if (_next != 0) {
-	break;
+        break;
       }
     }
 #endif
@@ -75,5 +76,4 @@ private:
     _lastSampleSize = _next;
     return sz + prevSampleSize;
   }
-
 };

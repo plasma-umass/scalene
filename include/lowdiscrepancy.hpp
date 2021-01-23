@@ -11,16 +11,13 @@
 /** generator for low-discrepancy sequences **/
 
 class LowDiscrepancy {
-  
-private:
 
+private:
   uint64_t _next;
 
 public:
-
-  LowDiscrepancy(uint64_t seed)
-  {
-    std::mt19937_64 rng (seed);
+  LowDiscrepancy(uint64_t seed) {
+    std::mt19937_64 rng(seed);
     rng(); // consume one RNG
     _next = 0;
     // Initialize the sequence with a value that's in the middle two quartiles.
@@ -34,8 +31,12 @@ public:
 
 private:
   static inline constexpr auto next() {
-    return (uint64_t) ((double) UINT64_MAX * 0.6180339887498949025257388711906969547271728515625L); // 1 - golden ratio
+    return (uint64_t)(
+        (double)UINT64_MAX *
+        0.6180339887498949025257388711906969547271728515625L); // 1 - golden
+                                                               // ratio
   }
+
 public:
   inline auto operator()() {
     auto prev = _next;
@@ -48,7 +49,5 @@ public:
     return prev;
   }
 
-  void discard() {
-    (*this)();
-  }
+  void discard() { (*this)(); }
 };
