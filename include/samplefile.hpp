@@ -12,31 +12,36 @@
 #include "stprintf.h"
 #include "rtememcpy.h"
 
-const int MAX_BUFSIZE = 1024;
-
 // Handles creation, deletion, and concurrency control
 // signal files in memory
 
 class SampleFile {
+  static constexpr int LOCK_FD_SIZE = 4096;
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
+  static constexpr int MAX_BUFSIZE = 1024;
 
 public:
   SampleFile(char* filename_template, char* lockfilename_template) {
     auto pid = getpid();
+    // tprintf::tprintf("SampleFile: pid = @\n", pid);
     stprintf::stprintf(_signalfile, filename_template, pid);
     stprintf::stprintf(_lockfile, lockfilename_template, pid);
     _signal_fd = open(_signalfile, flags, perms);
     _lock_fd = open(_lockfile, flags, perms);
+    if ((_signal_fd == -1) || (_lock_fd == -1)) {
+      tprintf::tprintf("Scalene: internal error = @ (@:@)\n", errno, __FILE__, __LINE__);
+      abort();
+    }
     ftruncate(_signal_fd, MAX_FILE_SIZE);
-    ftruncate(_lock_fd, 4096);
+    ftruncate(_lock_fd, LOCK_FD_SIZE);
     _mmap = reinterpret_cast<char*>(mmap(0, MAX_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _signal_fd, 0));
-    _lastpos = reinterpret_cast<int*>(mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, _lock_fd, 0));
+    _lastpos = reinterpret_cast<int*>(mmap(0, LOCK_FD_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _lock_fd, 0));
     if (_mmap == MAP_FAILED) {
-      tprintf::tprintf("Scalene: internal error = @\n", errno);
+      tprintf::tprintf("Scalene: internal error = @ (@:@)\n", errno, __FILE__, __LINE__);
       abort();
     }
     if (_lastpos == MAP_FAILED) {
-      tprintf::tprintf("Scalene: internal error = @\n", errno);
+      tprintf::tprintf("Scalene: internal error = @ (@:@)\n", errno, __FILE__, __LINE__);
       abort();
     }
     *_lastpos = 0;
@@ -44,6 +49,9 @@ public:
   ~SampleFile() {
     unlink(_signalfile);
     unlink(_lockfile);
+    close(_signal_fd);
+    close(_lock_fd);
+    //    tprintf::tprintf("closing SampleFile: @\n", getpid());
   }
   void writeToFile(char* line) {
     lock.lock();
