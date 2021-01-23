@@ -1501,11 +1501,11 @@ class Scalene:
                     samples.get()[0 : samples.len()], 0, current_max
                 )
                 # If memory used is > 1GB, use GB as the unit.
-                if current_max > 1024 * 1048576:
+                if current_max > 1024:
                     mem_usage_line = Text.assemble(
                         "Memory usage: ",
                         ((spark_str, "blue")),
-                        (" (max: %6.2fGB)\n" % current_max / 1048576),
+                        (" (max: %6.2fGB)\n" % (current_max / 1024)),
                     )
                 else:
                     # Otherwise, use MB.
