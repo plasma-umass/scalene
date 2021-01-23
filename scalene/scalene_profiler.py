@@ -388,6 +388,12 @@ class Scalene:
         lambda: defaultdict(int)
     )
 
+    # leak score tracking
+    __leak_score: Dict[
+        Filename, Dict[LineNumber, float]
+    ] = defaultdict(lambda: defaultdict(float))
+
+    
     # how many CPU samples have been collected
     __total_cpu_samples: float = 0.0
 
@@ -1018,6 +1024,7 @@ class Scalene:
         # Iterate through the array to compute the new current footprint.
         # and update the global __memory_footprint_samples.
         before = Scalene.__current_footprint
+        prevmax = Scalene.__max_footprint
         for item in arr:
             _alloc_time, action, count, python_fraction = item
             count /= 1024 * 1024
@@ -1030,7 +1037,6 @@ class Scalene:
                 Scalene.__current_footprint -= count
             Scalene.__memory_footprint_samples.add(Scalene.__current_footprint)
         after = Scalene.__current_footprint
-
         # Now update the memory footprint for every running frame.
         # This is a pain, since we don't know to whom to attribute memory,
         # so we may overcount.
@@ -1077,6 +1083,10 @@ class Scalene:
                 )
                 Scalene.__memory_free_count[fname][lineno][bytei] += 1
                 Scalene.__total_memory_free_samples += before - after
+            # If we just increased the peak memory, add to a leak score (UI to come)
+            if prevmax != Scalene.__max_footprint:
+                Scalene.__leak_score[fname][lineno] += Scalene.__max_footprint - prevmax
+
 
     @staticmethod
     def memcpy_event_signal_handler(
@@ -1179,6 +1189,10 @@ class Scalene:
         """Print at most one line of the profile (true == printed one)."""
         if not Scalene.profile_this_code(fname, line_no):
             return False
+        # Currently disabled: surfacing the "leak score"
+        if Scalene.__leak_score[fname][line_no] > 0:
+            # print(fname,line_no,Scalene.__leak_score[fname][line_no] / Scalene.__total_memory_malloc_samples, Scalene.__leak_score[fname][line_no] / Scalene.__max_footprint)
+            pass
         current_max = Scalene.__max_footprint
         did_sample_memory: bool = (
             Scalene.__total_memory_free_samples
