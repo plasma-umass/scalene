@@ -41,7 +41,7 @@ extern "C" {
 
 class NextHeap {
 private:
-  StaticBufferHeap<65536> buffer;
+  StaticBufferHeap<640 * 1024> buffer; // should be enough for anyone :)
   
 public:
   enum { Alignment = alignof(max_align_t) };
