@@ -61,6 +61,11 @@ public:
   }
 
 private:
+
+  // Prevent copying and assignment.
+  SampleFile(const SampleFile&) = delete;
+  SampleFile& operator=(const SampleFile&) = delete;
+  
   // Flags for the mmap regions
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
