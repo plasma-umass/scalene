@@ -389,11 +389,10 @@ class Scalene:
     )
 
     # leak score tracking
-    __leak_score: Dict[
-        Filename, Dict[LineNumber, float]
-    ] = defaultdict(lambda: defaultdict(float))
+    __leak_score: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
+        lambda: defaultdict(float)
+    )
 
-    
     # how many CPU samples have been collected
     __total_cpu_samples: float = 0.0
 
@@ -1085,8 +1084,9 @@ class Scalene:
                 Scalene.__total_memory_free_samples += before - after
             # If we just increased the peak memory, add to a leak score (UI to come)
             if prevmax != Scalene.__max_footprint:
-                Scalene.__leak_score[fname][lineno] += Scalene.__max_footprint - prevmax
-
+                Scalene.__leak_score[fname][lineno] += (
+                    Scalene.__max_footprint - prevmax
+                )
 
     @staticmethod
     def memcpy_event_signal_handler(
@@ -1217,7 +1217,7 @@ class Scalene:
         if n_cpu_samples_c < 0:
             n_cpu_samples_c = 0
         n_cpu_samples_python = Scalene.__cpu_samples_python[fname][line_no]
-        
+
         # Compute percentages of CPU time.
         if Scalene.__total_cpu_samples != 0:
             n_cpu_percent_c = (
@@ -1250,13 +1250,18 @@ class Scalene:
             else n_malloc_mb / Scalene.__total_memory_malloc_samples
         )
         n_python_fraction = (
-            0 if not n_malloc_mb else n_python_malloc_mb / Scalene.__total_memory_malloc_samples # was / n_malloc_mb
+            0
+            if not n_malloc_mb
+            else n_python_malloc_mb
+            / Scalene.__total_memory_malloc_samples  # was / n_malloc_mb
         )
-        
+
         # Correct for number of samples
         for bytei in Scalene.__memory_malloc_count[fname][line_no]:
             n_malloc_mb /= Scalene.__memory_malloc_count[fname][line_no][bytei]
-            n_python_malloc_mb /= Scalene.__memory_malloc_count[fname][line_no][bytei]
+            n_python_malloc_mb /= Scalene.__memory_malloc_count[fname][
+                line_no
+            ][bytei]
         for bytei in Scalene.__memory_free_count[fname][line_no]:
             n_free_mb /= Scalene.__memory_free_count[fname][line_no][bytei]
 
@@ -1264,7 +1269,7 @@ class Scalene:
         if -1 < n_growth_mb < 0:
             # Don't print out "-0".
             n_growth_mb = 0
-            
+
         # Finally, print results.
         n_cpu_percent_c_str: str = (
             "" if n_cpu_percent_c < 0.5 else "%6.0f%%" % n_cpu_percent_c
