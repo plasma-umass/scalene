@@ -1256,14 +1256,16 @@ class Scalene:
             / Scalene.__total_memory_malloc_samples  # was / n_malloc_mb
         )
 
-        # Correct for number of samples
-        for bytei in Scalene.__memory_malloc_count[fname][line_no]:
-            n_malloc_mb /= Scalene.__memory_malloc_count[fname][line_no][bytei]
-            n_python_malloc_mb /= Scalene.__memory_malloc_count[fname][
-                line_no
-            ][bytei]
-        for bytei in Scalene.__memory_free_count[fname][line_no]:
-            n_free_mb /= Scalene.__memory_free_count[fname][line_no][bytei]
+        if False:
+            # Currently disabled; possibly use in another column?
+            # Correct for number of samples
+            for bytei in Scalene.__memory_malloc_count[fname][line_no]:
+                n_malloc_mb /= Scalene.__memory_malloc_count[fname][line_no][bytei]
+                n_python_malloc_mb /= Scalene.__memory_malloc_count[fname][
+                    line_no
+                ][bytei]
+            for bytei in Scalene.__memory_free_count[fname][line_no]:
+                n_free_mb /= Scalene.__memory_free_count[fname][line_no][bytei]
 
         n_growth_mb = n_malloc_mb - n_free_mb
         if -1 < n_growth_mb < 0:
