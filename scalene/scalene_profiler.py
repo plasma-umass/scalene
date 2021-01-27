@@ -1642,7 +1642,7 @@ class Scalene:
                         syntax_highlighted
                     )
                 ]
-                for line_no, line in enumerate(formatted_lines):
+                for line_no, line in enumerate(formatted_lines, start=1):
                     old_did_print = did_print
                     did_print = Scalene.output_profile_line(
                         fname, LineNumber(line_no), line, console, tbl
