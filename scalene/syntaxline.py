@@ -4,4 +4,3 @@ class SyntaxLine:
 
     def __rich_console__(self, console, options):
         yield from self.segments
-
