@@ -1673,13 +1673,12 @@ class Scalene:
                         os.path.dirname(__file__), "libscalene.so"
                     )
                     os.environ["PYTHONMALLOC"] = "malloc"
-                    args = sys.argv[1:]
-                    args = [
+                    new_args = [
                         os.path.basename(sys.executable),
                         "-m",
                         "scalene",
-                    ] + args
-                    result = subprocess.run(args)
+                    ] + sys.argv[1:]
+                    result = subprocess.run(new_args)
                     if result.returncode < 0:
                         print(
                             "Scalene error: received signal",
@@ -1697,13 +1696,13 @@ class Scalene:
                         os.path.dirname(__file__), "libscalene.dylib"
                     )
                     os.environ["PYTHONMALLOC"] = "malloc"
-                    args = sys.argv[1:]
-                    args = [
+                    orig_args = args
+                    new_args = [
                         os.path.basename(sys.executable),
                         "-m",
                         "scalene",
-                    ] + args
-                    result = subprocess.run(args, close_fds=True, shell=False)
+                    ] + sys.argv[1:]
+                    result = subprocess.run(new_args, close_fds=True, shell=False)
                     if result.returncode < 0:
                         print(
                             "Scalene error: received signal",
