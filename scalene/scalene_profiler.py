@@ -84,198 +84,6 @@ if sys.platform == "win32":
     )
     sys.exit(-1)
 
-
-def debug_print(message: str) -> None:
-    """Print a message accompanied by info about the file, line number, and caller."""
-    import sys
-    import inspect
-
-    callerframerecord = inspect.stack()[1]
-    frame = callerframerecord[0]
-    info = inspect.getframeinfo(frame)
-    print(
-        os.getpid(),
-        info.filename,
-        "func=%s" % info.function,
-        "line=%s:" % info.lineno,
-        message,
-    )
-
-
-def parse_args() -> Tuple[argparse.Namespace, List[str]]:
-    usage = dedent(
-        """Scalene: a high-precision CPU and memory profiler.
-        https://github.com/emeryberger/scalene
-        % scalene yourprogram.py
-        """
-    )
-    parser = argparse.ArgumentParser(
-        prog="scalene",
-        description=usage,
-        formatter_class=argparse.RawTextHelpFormatter,
-        allow_abbrev=False,
-    )
-    parser.add_argument(
-        "--outfile",
-        type=str,
-        default=None,
-        help="file to hold profiler output (default: stdout)",
-    )
-    parser.add_argument(
-        "--html",
-        dest="html",
-        action="store_const",
-        const=True,
-        default=False,
-        help="output as HTML (default: text)",
-    )
-    parser.add_argument(
-        "--reduced-profile",
-        dest="reduced_profile",
-        action="store_const",
-        const=True,
-        default=False,
-        help="generate a reduced profile, with non-zero lines only (default: False).",
-    )
-    parser.add_argument(
-        "--profile-interval",
-        type=float,
-        default=float("inf"),
-        help="output profiles every so many seconds.",
-    )
-    parser.add_argument(
-        "--cpu-only",
-        dest="cpu_only",
-        action="store_const",
-        const=True,
-        default=False,
-        help="only profile CPU time (default: profile CPU, memory, and copying)",
-    )
-    parser.add_argument(
-        "--profile-all",
-        dest="profile_all",
-        action="store_const",
-        const=True,
-        default=False,
-        help="profile all executed code, not just the target program (default: only the target program)",
-    )
-    parser.add_argument(
-        "--use-virtual-time",
-        dest="use_virtual_time",
-        action="store_const",
-        const=True,
-        default=False,
-        help="measure only CPU time, not time spent in I/O or blocking (default: False)",
-    )
-    parser.add_argument(
-        "--cpu-percent-threshold",
-        dest="cpu_percent_threshold",
-        type=int,
-        default=1,
-        help="only report profiles with at least this percent of CPU time (default: 1%%)",
-    )
-    parser.add_argument(
-        "--cpu-sampling-rate",
-        dest="cpu_sampling_rate",
-        type=float,
-        default=0.01,
-        help="CPU sampling rate (default: every 0.01s)",
-    )
-    parser.add_argument(
-        "--malloc-threshold",
-        dest="malloc_threshold",
-        type=int,
-        default=100,
-        help="only report profiles with at least this many allocations (default: 100)",
-    )
-    # the PID of the profiling process (for internal use only)
-    parser.add_argument("--pid", type=int, default=0, help=argparse.SUPPRESS)
-    # Parse out all Scalene arguments and jam the remaining ones into argv.
-    # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
-    args, left = parser.parse_known_args()
-    # If the user did not enter any commands (just `scalene` or `python3 -m scalene`),
-    # print the usage information and bail.
-    if len(sys.argv) == 1:
-        parser.print_help(sys.stderr)
-        sys.exit(-1)
-    return args, left
-
-
-arguments, left = parse_args()
-
-# Load shared objects (that is, interpose on malloc, memcpy and friends)
-# unless the user specifies "--cpu-only" at the command-line.
-# (x86-64 and Apple ARM only for now.)
-
-if not arguments.cpu_only and (
-    (
-        platform.machine() != "x86_64"
-        and platform.machine() != "arm64"
-        and platform.machine() != "aarch64"
-    )
-    or struct.calcsize("P") * 8 != 64
-):
-    arguments.cpu_only = True
-    print(
-        "scalene warning: currently only 64-bit x86-64 platforms are supported for memory and copy profiling."
-    )
-
-if (
-    not arguments.cpu_only
-    and (
-        platform.machine() == "x86_64"
-        or platform.machine() == "arm64"
-        or platform.machine() == "aarch64"
-    )
-    and struct.calcsize("P") * 8 == 64
-):
-    # Load the shared object on Linux.
-    if sys.platform == "linux":
-        if ("LD_PRELOAD" not in os.environ) and (
-            "PYTHONMALLOC" not in os.environ
-        ):
-            os.environ["LD_PRELOAD"] = os.path.join(
-                os.path.dirname(__file__), "libscalene.so"
-            )
-            os.environ["PYTHONMALLOC"] = "malloc"
-            args = sys.argv[1:]
-            args = [
-                os.path.basename(sys.executable),
-                "-m",
-                "scalene",
-            ] + args
-            result = subprocess.run(args)
-            if result.returncode < 0:
-                print(
-                    "Scalene error: received signal",
-                    signal.Signals(-result.returncode).name,
-                )
-
-            sys.exit(result.returncode)
-
-    # Similar logic, but for Mac OS X.
-    if sys.platform == "darwin":
-        if ("DYLD_INSERT_LIBRARIES" not in os.environ) and (
-            "PYTHONMALLOC" not in os.environ
-        ):
-            os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(
-                os.path.dirname(__file__), "libscalene.dylib"
-            )
-            os.environ["PYTHONMALLOC"] = "malloc"
-            args = sys.argv[1:]
-            args = [
-                os.path.basename(sys.executable),
-                "-m",
-                "scalene",
-            ] + args
-            result = subprocess.run(args, close_fds=True, shell=False)
-            if result.returncode < 0:
-                print(
-                    "Scalene error: received signal",
-                    signal.Signals(-result.returncode).name,
-                )
-            sys.exit(result.returncode)
-
 # Install our profile decorator.
 
 
@@ -636,7 +444,9 @@ class Scalene:
         """Wall-clock time."""
         return time.perf_counter()
 
-    def __init__(self, program_being_profiled: Optional[Filename] = None):
+    def __init__(
+        self, arguments, program_being_profiled: Optional[Filename] = None
+    ):
         import scalene.replacement_pjoin
 
         # Hijack lock.
@@ -667,12 +477,14 @@ class Scalene:
             dirname = os.environ["PATH"].split(os.pathsep)[0]
             Scalene.__python_alias_dir = None
             Scalene.__python_alias_dir_name = dirname
+            Scalene.__pid = arguments.pid
 
         else:
             # Parent process.
             # Create a temporary directory to hold aliases to the Python
             # executable, so scalene can handle multiple processes; each
             # one is a shell script that redirects to Scalene.
+            Scalene.__pid = 0
             cmdline = ""
             preface = ""
             # Pass along commands from the invoking command line.
@@ -1340,7 +1152,7 @@ class Scalene:
                 ncpcs = n_cpu_percent_c_str
                 nufs = spark_str + n_usage_fraction_str
 
-            if not arguments.reduced_profile or ncpps + ncpcs + nufs:
+            if not Scalene.__reduced_profile or ncpps + ncpcs + nufs:
                 tbl.add_row(
                     str(line_no),
                     ncpps,  # n_cpu_percent_python_str,
@@ -1462,7 +1274,7 @@ class Scalene:
     def output_profiles() -> bool:
         """Write the profile out."""
         # Get the children's stats, if any.
-        if not arguments.pid:
+        if not Scalene.__pid:
             Scalene.merge_stats()
         current_max: float = Scalene.__max_footprint
         # If we've collected any samples, dump them.
@@ -1555,8 +1367,8 @@ class Scalene:
 
         # Don't actually output the profile if we are a child process.
         # Instead, write info to disk for the main process to collect.
-        if arguments.pid:
-            Scalene.output_stats(arguments.pid)
+        if Scalene.__pid:
+            Scalene.output_stats(Scalene.__pid)
             return True
 
         for fname in report_files:
@@ -1706,15 +1518,211 @@ class Scalene:
         sys.exit(-1)
 
     @staticmethod
+    def debug_print(message: str) -> None:
+        """Print a message accompanied by info about the file, line number, and caller."""
+        import sys
+        import inspect
+
+        callerframerecord = inspect.stack()[1]
+        frame = callerframerecord[0]
+        info = inspect.getframeinfo(frame)
+        print(
+            os.getpid(),
+            info.filename,
+            "func=%s" % info.function,
+            "line=%s:" % info.lineno,
+            message,
+        )
+
+    @staticmethod
+    def parse_args() -> Tuple[argparse.Namespace, List[str]]:
+        usage = dedent(
+            """Scalene: a high-precision CPU and memory profiler.
+            https://github.com/emeryberger/scalene
+            % scalene yourprogram.py
+            """
+        )
+        parser = argparse.ArgumentParser(
+            prog="scalene",
+            description=usage,
+            formatter_class=argparse.RawTextHelpFormatter,
+            allow_abbrev=False,
+        )
+        parser.add_argument(
+            "--outfile",
+            type=str,
+            default=None,
+            help="file to hold profiler output (default: stdout)",
+        )
+        parser.add_argument(
+            "--html",
+            dest="html",
+            action="store_const",
+            const=True,
+            default=False,
+            help="output as HTML (default: text)",
+        )
+        parser.add_argument(
+            "--reduced-profile",
+            dest="reduced_profile",
+            action="store_const",
+            const=True,
+            default=False,
+            help="generate a reduced profile, with non-zero lines only (default: False).",
+        )
+        parser.add_argument(
+            "--profile-interval",
+            type=float,
+            default=float("inf"),
+            help="output profiles every so many seconds.",
+        )
+        parser.add_argument(
+            "--cpu-only",
+            dest="cpu_only",
+            action="store_const",
+            const=True,
+            default=False,
+            help="only profile CPU time (default: profile CPU, memory, and copying)",
+        )
+        parser.add_argument(
+            "--profile-all",
+            dest="profile_all",
+            action="store_const",
+            const=True,
+            default=False,
+            help="profile all executed code, not just the target program (default: only the target program)",
+        )
+        parser.add_argument(
+            "--use-virtual-time",
+            dest="use_virtual_time",
+            action="store_const",
+            const=True,
+            default=False,
+            help="measure only CPU time, not time spent in I/O or blocking (default: False)",
+        )
+        parser.add_argument(
+            "--cpu-percent-threshold",
+            dest="cpu_percent_threshold",
+            type=int,
+            default=1,
+            help="only report profiles with at least this percent of CPU time (default: 1%%)",
+        )
+        parser.add_argument(
+            "--cpu-sampling-rate",
+            dest="cpu_sampling_rate",
+            type=float,
+            default=0.01,
+            help="CPU sampling rate (default: every 0.01s)",
+        )
+        parser.add_argument(
+            "--malloc-threshold",
+            dest="malloc_threshold",
+            type=int,
+            default=100,
+            help="only report profiles with at least this many allocations (default: 100)",
+        )
+        # the PID of the profiling process (for internal use only)
+        parser.add_argument(
+            "--pid", type=int, default=0, help=argparse.SUPPRESS
+        )
+        # Parse out all Scalene arguments and jam the remaining ones into argv.
+        # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
+        args, left = parser.parse_known_args()
+        # If the user did not enter any commands (just `scalene` or `python3 -m scalene`),
+        # print the usage information and bail.
+        if len(sys.argv) == 1:
+            parser.print_help(sys.stderr)
+            sys.exit(-1)
+        return args, left
+
+    @staticmethod
+    def setup_preload(args):
+        # First, check that we are on a supported platform.
+        if not args.cpu_only and (
+            (
+                platform.machine() != "x86_64"
+                and platform.machine() != "arm64"
+                and platform.machine() != "aarch64"
+            )
+            or struct.calcsize("P") * 8 != 64
+        ):
+            args.cpu_only = True
+            print(
+                "Scalene warning: currently only 64-bit x86-64 and ARM platforms are supported for memory and copy profiling."
+            )
+
+        # Load shared objects (that is, interpose on malloc, memcpy and friends)
+        # unless the user specifies "--cpu-only" at the command-line.
+        # (x86-64 and Apple ARM only for now.)
+
+        if (
+            not args.cpu_only
+            and (
+                platform.machine() == "x86_64"
+                or platform.machine() == "arm64"
+                or platform.machine() == "aarch64"
+            )
+            and struct.calcsize("P") * 8 == 64
+        ):
+            # Load the shared object on Linux.
+            if sys.platform == "linux":
+                if ("LD_PRELOAD" not in os.environ) and (
+                    "PYTHONMALLOC" not in os.environ
+                ):
+                    os.environ["LD_PRELOAD"] = os.path.join(
+                        os.path.dirname(__file__), "libscalene.so"
+                    )
+                    os.environ["PYTHONMALLOC"] = "malloc"
+                    args = sys.argv[1:]
+                    args = [
+                        os.path.basename(sys.executable),
+                        "-m",
+                        "scalene",
+                    ] + args
+                    result = subprocess.run(args)
+                    if result.returncode < 0:
+                        print(
+                            "Scalene error: received signal",
+                            signal.Signals(-result.returncode).name,
+                        )
+
+                    sys.exit(result.returncode)
+
+            # Similar logic, but for Mac OS X.
+            if sys.platform == "darwin":
+                if ("DYLD_INSERT_LIBRARIES" not in os.environ) and (
+                    "PYTHONMALLOC" not in os.environ
+                ):
+                    os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(
+                        os.path.dirname(__file__), "libscalene.dylib"
+                    )
+                    os.environ["PYTHONMALLOC"] = "malloc"
+                    args = sys.argv[1:]
+                    args = [
+                        os.path.basename(sys.executable),
+                        "-m",
+                        "scalene",
+                    ] + args
+                    result = subprocess.run(args, close_fds=True, shell=False)
+                    if result.returncode < 0:
+                        print(
+                            "Scalene error: received signal",
+                            signal.Signals(-result.returncode).name,
+                        )
+                    sys.exit(result.returncode)
+
+    @staticmethod
     def main() -> None:
         # import scalene.replacement_rlock
         """Invokes the profiler from the command-line."""
+        (
+            args,
+            left,
+        ) = Scalene.parse_args()
+        Scalene.setup_preload(args)
+        sys.argv = left
+
         try:
-            (
-                args,
-                left,
-            ) = parse_args()  # We currently do this twice, but who cares.
-            sys.argv = left
             Scalene.__output_profile_interval = args.profile_interval
             Scalene.__next_output_time = (
                 Scalene.get_wallclock_time()
@@ -1723,6 +1731,10 @@ class Scalene:
             Scalene.__html = args.html
             Scalene.__output_file = args.outfile
             Scalene.__profile_all = args.profile_all
+            if args.reduced_profile:
+                Scalene.__reduced_profile = True
+            else:
+                Scalene.__reduced_profile = False
             try:
                 with open(sys.argv[0], "rb") as prog_being_profiled:
                     # Read in the code and compile it.
@@ -1754,7 +1766,7 @@ class Scalene:
                     fullname = os.path.join(
                         program_path, os.path.basename(sys.argv[0])
                     )
-                    profiler = Scalene(Filename(fullname))
+                    profiler = Scalene(args, Filename(fullname))
                     try:
                         # We exit with this status (returning error code as appropriate).
                         exit_status = 0
