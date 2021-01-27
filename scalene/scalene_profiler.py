@@ -63,6 +63,7 @@ from multiprocessing.process import BaseProcess
 
 from scalene.adaptive import Adaptive
 from scalene.runningstats import RunningStats
+from scalene.syntaxline import SyntaxLine
 from scalene import sparkline
 
 Filename = NewType("Filename", str)
@@ -1198,17 +1199,6 @@ class Scalene:
             Scalene.__total_memory_free_samples
             + Scalene.__total_memory_malloc_samples
         ) > 0
-        # Strip newline
-        line = line.rstrip()
-        # Generate syntax highlighted version.
-        if Scalene.__html:
-            syntax_highlighted = Syntax(
-                line, "python", theme="default", line_numbers=False
-            )
-        else:
-            syntax_highlighted = Syntax(
-                line, "python", theme="vim", line_numbers=False
-            )
         # Prepare output values.
         n_cpu_samples_c = Scalene.__cpu_samples_c[fname][line_no]
         # Correct for negative CPU sample counts. This can happen
@@ -1256,14 +1246,18 @@ class Scalene:
             / Scalene.__total_memory_malloc_samples  # was / n_malloc_mb
         )
 
-        # Correct for number of samples
-        for bytei in Scalene.__memory_malloc_count[fname][line_no]:
-            n_malloc_mb /= Scalene.__memory_malloc_count[fname][line_no][bytei]
-            n_python_malloc_mb /= Scalene.__memory_malloc_count[fname][
-                line_no
-            ][bytei]
-        for bytei in Scalene.__memory_free_count[fname][line_no]:
-            n_free_mb /= Scalene.__memory_free_count[fname][line_no][bytei]
+        if False:
+            # Currently disabled; possibly use in another column?
+            # Correct for number of samples
+            for bytei in Scalene.__memory_malloc_count[fname][line_no]:
+                n_malloc_mb /= Scalene.__memory_malloc_count[fname][line_no][
+                    bytei
+                ]
+                n_python_malloc_mb /= Scalene.__memory_malloc_count[fname][
+                    line_no
+                ][bytei]
+            for bytei in Scalene.__memory_free_count[fname][line_no]:
+                n_free_mb /= Scalene.__memory_free_count[fname][line_no][bytei]
 
         n_growth_mb = n_malloc_mb - n_free_mb
         if -1 < n_growth_mb < 0:
@@ -1356,7 +1350,7 @@ class Scalene:
                     n_growth_mb_str,
                     nufs,  # spark_str + n_usage_fraction_str,
                     n_copy_mb_s_str,
-                    syntax_highlighted,
+                    line,
                 )
                 return True
             else:
@@ -1380,7 +1374,7 @@ class Scalene:
                     ncpps,  # n_cpu_percent_python_str,
                     ncpcs,  # n_cpu_percent_c_str,
                     sys_str,
-                    syntax_highlighted,
+                    line,
                 )
                 return True
             else:
@@ -1583,6 +1577,7 @@ class Scalene:
                 box=box.MINIMAL_HEAVY_HEAD,
                 title=new_title,
                 collapse_padding=True,
+                width=column_width - 1,
             )
 
             tbl.add_column("Line", justify="right", no_wrap=True)
@@ -1590,21 +1585,64 @@ class Scalene:
             tbl.add_column("Time %\nnative", no_wrap=True)
             tbl.add_column("Sys\n%", no_wrap=True)
 
+            other_columns_width = 0  # Size taken up by all columns BUT code
+
             if did_sample_memory:
                 tbl.add_column("Mem %\nPython", no_wrap=True)
                 tbl.add_column("Net\n(MB)", no_wrap=True)
                 tbl.add_column("Memory usage\nover time / %", no_wrap=True)
                 tbl.add_column("Copy\n(MB/s)", no_wrap=True)
-                tbl.add_column("\n" + fname, width=column_width - 72)
+                other_columns_width = 72
+                tbl.add_column(
+                    "\n" + fname,
+                    width=column_width - other_columns_width,
+                    no_wrap=True,
+                )
             else:
-                tbl.add_column("\n" + fname, width=column_width - 36)
+                other_columns_width = 36
+                tbl.add_column(
+                    "\n" + fname,
+                    width=column_width - other_columns_width,
+                    no_wrap=True,
+                )
 
             # Print out the the profile for the source, line by line.
             with open(fname, "r") as source_file:
                 # We track whether we should put in ellipsis (for reduced profiles)
                 # or not.
                 did_print = True  # did we print a profile line last time?
-                for line_no, line in enumerate(source_file, 1):
+                code_lines = source_file.read()
+                # Generate syntax highlighted version for the whole file,
+                # which we will consume a line at a time.
+                # See https://github.com/willmcgugan/rich/discussions/965#discussioncomment-314233
+                syntax_highlighted = None
+                if Scalene.__html:
+                    syntax_highlighted = Syntax(
+                        code_lines,
+                        "python",
+                        theme="default",
+                        line_numbers=False,
+                        code_width=None,
+                    )
+                else:
+                    syntax_highlighted = Syntax(
+                        code_lines,
+                        "python",
+                        theme="vim",
+                        line_numbers=False,
+                        code_width=None,
+                    )
+                capture_console = Console(
+                    width=column_width - other_columns_width,
+                    force_terminal=True,
+                )
+                formatted_lines = [
+                    SyntaxLine(segments)
+                    for segments in capture_console.render_lines(
+                        syntax_highlighted
+                    )
+                ]
+                for line_no, line in enumerate(formatted_lines):
                     old_did_print = did_print
                     did_print = Scalene.output_profile_line(
                         fname, LineNumber(line_no), line, console, tbl
@@ -1618,12 +1656,12 @@ class Scalene:
 
         if Scalene.__html:
             # Write HTML file.
-            if not Scalene.__output_file:
-                Scalene.__output_file = "/dev/stdout"
             md = Markdown(
                 "generated by the [scalene](https://github.com/emeryberger/scalene) profiler"
             )
             console.print(md)
+            if not Scalene.__output_file:
+                Scalene.__output_file = "/dev/stdout"
             console.save_html(Scalene.__output_file, clear=False)
         else:
             if not Scalene.__output_file:
