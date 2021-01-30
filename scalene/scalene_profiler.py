@@ -39,6 +39,7 @@ from collections import defaultdict
 from functools import lru_cache, wraps
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.segment import Segment
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
@@ -202,6 +203,8 @@ class Scalene:
         lambda: defaultdict(float)
     )
 
+    __allocation_velocity: Tuple[float, int] = (0.0, 0)
+    
     # how many CPU samples have been collected
     __total_cpu_samples: float = 0.0
 
@@ -258,6 +261,10 @@ class Scalene:
     __start_time: float = 0
     # total time spent in program being profiled
     __elapsed_time: float = 0
+    # pid for tracking child processes
+    __pid: int = 0
+    # reduced profile?
+    __reduced_profile: bool = False
 
     # maps byte indices to line numbers (collected at runtime)
     # [filename][lineno] -> set(byteindex)
@@ -445,7 +452,7 @@ class Scalene:
         return time.perf_counter()
 
     def __init__(
-        self, arguments, program_being_profiled: Optional[Filename] = None
+        self, arguments : argparse.Namespace, program_being_profiled: Optional[Filename] = None
     ):
         import scalene.replacement_pjoin
 
@@ -895,10 +902,9 @@ class Scalene:
                 )
                 Scalene.__memory_free_count[fname][lineno][bytei] += 1
                 Scalene.__total_memory_free_samples += before - after
-            # If we just increased the peak memory, add to a leak score (UI to come)
-            if prevmax != Scalene.__max_footprint:
-                Scalene.__leak_score[fname][lineno] += (
-                    Scalene.__max_footprint - prevmax
+            Scalene.__allocation_velocity = (Scalene.__allocation_velocity[0] + (after - before), Scalene.__allocation_velocity[1] + allocs)
+            Scalene.__leak_score[fname][lineno] += (
+                    after - before
                 )
 
     @staticmethod
@@ -995,16 +1001,21 @@ class Scalene:
     def output_profile_line(
         fname: Filename,
         line_no: LineNumber,
-        line: str,
+        line: SyntaxLine,
         console: Console,
         tbl: Table,
     ) -> bool:
         """Print at most one line of the profile (true == printed one)."""
         if not Scalene.profile_this_code(fname, line_no):
             return False
-        # Currently disabled: surfacing the "leak score"
-        if Scalene.__leak_score[fname][line_no] > 0:
-            # print(fname,line_no,Scalene.__leak_score[fname][line_no] / Scalene.__total_memory_malloc_samples, Scalene.__leak_score[fname][line_no] / Scalene.__max_footprint)
+        # Only report potential leaks if the allocation velocity (growth rate) is above some threshold.
+        # FIXME magic number for now, at least 1% growth rate
+        velocity = 0.0
+        if Scalene.__allocation_velocity[1] > 0:
+            velocity = Scalene.__allocation_velocity[0] / Scalene.__allocation_velocity[1]
+        if Scalene.__leak_score[fname][line_no] * velocity > 0.01:
+            # Currently disabled output
+            # print(fname,line_no, Scalene.__leak_score[fname][line_no], (Scalene.__leak_score[fname][line_no] / Scalene.__total_memory_malloc_samples))
             pass
         current_max = Scalene.__max_footprint
         did_sample_memory: bool = (
@@ -1180,7 +1191,7 @@ class Scalene:
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str
 
-            if not arguments.reduced_profile or ncpps + ncpcs:
+            if not Scalene.__reduced_profile or ncpps + ncpcs:
                 tbl.add_row(
                     str(line_no),
                     ncpps,  # n_cpu_percent_python_str,
@@ -1311,21 +1322,24 @@ class Scalene:
                 _, _, spark_str = sparkline.generate(
                     samples.get()[0 : samples.len()], 0, current_max
                 )
+                # Compute allocation velocity (slope), between 0 and 1.
+                velocity = 0.0
+                if Scalene.__allocation_velocity[1] > 0:
+                    velocity = 100.0 * Scalene.__allocation_velocity[0] / Scalene.__allocation_velocity[1]
                 # If memory used is > 1GB, use GB as the unit.
                 if current_max > 1024:
                     mem_usage_line = Text.assemble(
                         "Memory usage: ",
                         ((spark_str, "blue")),
-                        (" (max: %6.2fGB)\n" % (current_max / 1024)),
+                        (" (max: %6.2fGB, growth rate: %3.0f%%)\n" % ((current_max / 1024), velocity))
                     )
                 else:
                     # Otherwise, use MB.
                     mem_usage_line = Text.assemble(
                         "Memory usage: ",
                         ((spark_str, "blue")),
-                        (" (max: %6.2fMB)\n" % current_max),
+                        (" (max: %6.2fMB, growth rate: %3.0f%%)\n" % (current_max, velocity))
                     )
-                title.append(mem_usage_line)
 
         null = open("/dev/null", "w")
         # Get column width of the terminal and adjust to fit.
@@ -1636,7 +1650,7 @@ class Scalene:
         return args, left
 
     @staticmethod
-    def setup_preload(args):
+    def setup_preload(args : argparse.Namespace) -> None:
         # First, check that we are on a supported platform.
         if not args.cpu_only and (
             (
