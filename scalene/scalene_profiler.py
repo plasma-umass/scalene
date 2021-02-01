@@ -204,7 +204,7 @@ class Scalene:
     )
 
     __allocation_velocity: Tuple[float, int] = (0.0, 0)
-    
+
     # how many CPU samples have been collected
     __total_cpu_samples: float = 0.0
 
@@ -452,7 +452,9 @@ class Scalene:
         return time.perf_counter()
 
     def __init__(
-        self, arguments : argparse.Namespace, program_being_profiled: Optional[Filename] = None
+        self,
+        arguments: argparse.Namespace,
+        program_being_profiled: Optional[Filename] = None,
     ):
         import scalene.replacement_pjoin
 
@@ -902,10 +904,16 @@ class Scalene:
                 )
                 Scalene.__memory_free_count[fname][lineno][bytei] += 1
                 Scalene.__total_memory_free_samples += before - after
-            Scalene.__allocation_velocity = (Scalene.__allocation_velocity[0] + (after - before), Scalene.__allocation_velocity[1] + allocs)
-            Scalene.__leak_score[fname][lineno] += (
-                    after - before
-                )
+            Scalene.__allocation_velocity = (
+                Scalene.__allocation_velocity[0] + (after - before),
+                Scalene.__allocation_velocity[1] + allocs,
+            )
+            # Update leak score if we just increased the max footprint (starting at a fixed threshold, currently 100MB, FIXME).
+            if (
+                prevmax < Scalene.__max_footprint
+                and Scalene.__max_footprint > 100
+            ):
+                Scalene.__leak_score[fname][lineno] += 1
 
     @staticmethod
     def memcpy_event_signal_handler(
@@ -1009,14 +1017,25 @@ class Scalene:
         if not Scalene.profile_this_code(fname, line_no):
             return False
         # Only report potential leaks if the allocation velocity (growth rate) is above some threshold.
+        # Leak score = percentage of times this line exceeded the previous high watermark for memory consumption.
         # FIXME magic number for now, at least 1% growth rate
         velocity = 0.0
         if Scalene.__allocation_velocity[1] > 0:
-            velocity = Scalene.__allocation_velocity[0] / Scalene.__allocation_velocity[1]
-        if Scalene.__leak_score[fname][line_no] * velocity > 0.01:
-            # Currently disabled output
-            # print(fname,line_no, Scalene.__leak_score[fname][line_no], (Scalene.__leak_score[fname][line_no] / Scalene.__total_memory_malloc_samples))
-            pass
+            velocity = (
+                Scalene.__allocation_velocity[0]
+                / Scalene.__allocation_velocity[1]
+            )
+        leak_score = 0.0
+        if (
+            line_no in Scalene.__leak_score[fname]
+            and Scalene.__leak_score[fname][line_no] * velocity > 0.01
+        ):
+            # Currently disabled output, FIXME
+            leak_score = Scalene.__leak_score[fname][line_no] / sum(
+                Scalene.__leak_score[fname].values()
+            )
+            # print(fname,line_no, Scalene.__leak_score[fname][line_no], Scalene.__leak_score[fname][line_no] / sum(Scalene.__leak_score[fname].values())) # (Scalene.__leak_score[fname][line_no] / Scalene.__total_memory_malloc_samples))
+            # pass
         current_max = Scalene.__max_footprint
         did_sample_memory: bool = (
             Scalene.__total_memory_free_samples
@@ -1325,20 +1344,30 @@ class Scalene:
                 # Compute allocation velocity (slope), between 0 and 1.
                 velocity = 0.0
                 if Scalene.__allocation_velocity[1] > 0:
-                    velocity = 100.0 * Scalene.__allocation_velocity[0] / Scalene.__allocation_velocity[1]
+                    velocity = (
+                        100.0
+                        * Scalene.__allocation_velocity[0]
+                        / Scalene.__allocation_velocity[1]
+                    )
                 # If memory used is > 1GB, use GB as the unit.
                 if current_max > 1024:
                     mem_usage_line = Text.assemble(
                         "Memory usage: ",
                         ((spark_str, "blue")),
-                        (" (max: %6.2fGB, growth rate: %3.0f%%)\n" % ((current_max / 1024), velocity))
+                        (
+                            " (max: %6.2fGB, growth rate: %3.0f%%)\n"
+                            % ((current_max / 1024), velocity)
+                        ),
                     )
                 else:
                     # Otherwise, use MB.
                     mem_usage_line = Text.assemble(
                         "Memory usage: ",
                         ((spark_str, "blue")),
-                        (" (max: %6.2fMB, growth rate: %3.0f%%)\n" % (current_max, velocity))
+                        (
+                            " (max: %6.2fMB, growth rate: %3.0f%%)\n"
+                            % (current_max, velocity)
+                        ),
                     )
 
         null = open("/dev/null", "w")
@@ -1650,7 +1679,7 @@ class Scalene:
         return args, left
 
     @staticmethod
-    def setup_preload(args : argparse.Namespace) -> None:
+    def setup_preload(args: argparse.Namespace) -> None:
         # First, check that we are on a supported platform.
         if not args.cpu_only and (
             (
@@ -1716,7 +1745,9 @@ class Scalene:
                         "-m",
                         "scalene",
                     ] + sys.argv[1:]
-                    result = subprocess.run(new_args, close_fds=True, shell=False)
+                    result = subprocess.run(
+                        new_args, close_fds=True, shell=False
+                    )
                     if result.returncode < 0:
                         print(
                             "Scalene error: received signal",
