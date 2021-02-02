@@ -203,7 +203,7 @@ class Scalene:
         lambda: defaultdict(float)
     )
 
-    __allocation_velocity: Tuple[float, int] = (0.0, 0)
+    __allocation_velocity: Tuple[float, float] = (0.0, 0.0)
 
     # how many CPU samples have been collected
     __total_cpu_samples: float = 0.0

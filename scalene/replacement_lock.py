@@ -5,7 +5,7 @@ from typing import Any
 
 
 @Scalene.shim
-def replacement_lock(scalene: Scalene):
+def replacement_lock(scalene: Scalene) -> None:
     class ReplacementLock(object):
         """Replace lock with a version that periodically yields and updates sleeping status."""
 

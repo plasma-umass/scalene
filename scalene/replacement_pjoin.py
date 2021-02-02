@@ -6,8 +6,8 @@ import threading
 
 
 @Scalene.shim
-def replacement_pjoin(scalene: Scalene):
-    def replacement_process_join(self, timeout: float = -1):
+def replacement_pjoin(scalene: Scalene) -> None:
+    def replacement_process_join(self, timeout: float = -1) -> None:
         from multiprocessing.process import _children
         # print(multiprocessing.process.active_children())
         self._check_closed()
@@ -32,4 +32,4 @@ def replacement_pjoin(scalene: Scalene):
                 if end_time - start_time >= timeout:
                     _children.discard(self)
                     return
-    multiprocessing.Process.join = replacement_process_join
+    multiprocessing.Process.join = replacement_process_join # type: ignore
