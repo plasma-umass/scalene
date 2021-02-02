@@ -1,9 +1,11 @@
 import os
 import time
 
-seconds = 0.2
+from random import random
+from requests import get
 
-for i in range(500):
-    s = str(i)
-    os.system("curl 127.0.0.1:5000/" + s + " > /dev/null");
-    time.sleep(seconds)
+iter = 1
+while True:
+    print(iter)
+    iter += 1
+    get(f"http://localhost:5000/{random()}")
