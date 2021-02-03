@@ -11,6 +11,3 @@ pytest = "*"
 cloudpickle = "*"
 numpy = "*"
 rich = "*"
-
-[requires]
-python_version = "3.6"
