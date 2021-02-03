@@ -7,9 +7,9 @@ this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
-mmap_hl_spinlock = Extension('mmap_hl_spinlock',
+mmap_hl_spinlock = Extension('get_line_atomic',
                 include_dirs=['.', 'Heap-Layers', 'Heap-Layers/utility'],
-                sources=['mmap_hl_spinlock.cpp'],
+                sources=['get_line_atomic.cpp'],
                 extra_compile_args=['-std=c++14'],
                 language="c++14")
 

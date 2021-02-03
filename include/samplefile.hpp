@@ -68,6 +68,7 @@ public:
     // tprintf::tprintf("Locking C @\n", getpid());
     _spin_lock->lock();
     // tprintf::tprintf("Locked C\n");
+    char* ptr = _mmap;
     strncpy(_mmap + *_lastpos, (const char *) line, MAX_BUFSIZE); // FIXME
     *_lastpos += strlen(_mmap + *_lastpos) - 1;
     // tprintf::tprintf("Unlocking C @\n", getpid());

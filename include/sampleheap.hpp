@@ -45,7 +45,8 @@ public:
       _mallocTriggered (0),
       _freeTriggered (0),
       _pythonCount (0),
-      _cCount (0)
+      _cCount (0),
+      _pid(getpid())
   {
     // Ignore these signals until they are replaced by a client.
     signal(MallocSignal, SIG_IGN);
@@ -138,7 +139,7 @@ private:
   counterType _cCount;
   open_addr_hashtable<65536> _table; // Maps call stack entries to function names.
   SampleFile _samplefile;
-
+  pid_t _pid;
   void recordCallStack(size_t sz) {
     // Walk the stack to see if this memory was allocated by Python
     // through its object allocation APIs.
@@ -281,6 +282,10 @@ private:
 	     count,
 	     (float) _pythonCount / (_pythonCount + _cCount), getpid());
 #endif
+    // if(getpid() != _pid) {
+    //   tprintf::tprintf("@_@ ", _pid, getpid());
+    //   tprintf::tprintf(buf);
+    // }
      _samplefile.writeToFile(buf);
   }
 
