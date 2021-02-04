@@ -6,8 +6,8 @@ import threading
 
 
 @Scalene.shim
-def replacement_pjoin(scalene: Scalene):
-    def replacement_process_join(self, timeout: float = -1):
+def replacement_pjoin(scalene: Scalene) -> None:
+    def replacement_process_join(self, timeout: float = -1) -> None: # type: ignore
         """
         A drop-in replacement for multiprocessing.Process.join
         that periodically yields to handle signals
@@ -36,4 +36,4 @@ def replacement_pjoin(scalene: Scalene):
                     from multiprocessing.process import _children
                     _children.discard(self)
                     return
-    multiprocessing.Process.join = replacement_process_join
+    multiprocessing.Process.join = replacement_process_join # type: ignore
