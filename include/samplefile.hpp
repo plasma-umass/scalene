@@ -14,11 +14,12 @@
 
 // Handles creation, deletion, and concurrency control
 // signal files in memory
+static constexpr int MAX_BUFSIZE = 1024;
 
 class SampleFile {
   static constexpr int LOCK_FD_SIZE = 4096;
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
-  static constexpr int MAX_BUFSIZE = 1024;
+
   static char* initializer;
 public:
   SampleFile(char* filename_template, char* lockfilename_template) {
