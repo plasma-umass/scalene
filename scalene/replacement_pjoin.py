@@ -7,7 +7,7 @@ import threading
 
 @Scalene.shim
 def replacement_pjoin(scalene: Scalene) -> None:
-    def replacement_process_join(self, timeout: float = -1) -> None:
+    def replacement_process_join(self, timeout: float = -1) -> None: # type: ignore
         from multiprocessing.process import _children
         # print(multiprocessing.process.active_children())
         self._check_closed()
