@@ -2,7 +2,7 @@ import selectors
 import sys
 import threading
 from scalene.scalene_profiler import Scalene
-from typing import Optional
+from typing import Optional, List, Tuple
 
 
 @Scalene.shim

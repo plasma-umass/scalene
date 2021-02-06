@@ -36,10 +36,10 @@ public:
                        __LINE__);
       abort();
     }
-    ftruncate(_signal_fd, MAX_FILE_SIZE);
-    ftruncate(_lock_fd, 4096);
-    _mmap = reinterpret_cast<char*>(mmap(0, MAX_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, _signal_fd, 0));
-    _lastpos = reinterpret_cast<uint64_t*>(mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, _lock_fd, 0));
+    ftruncate(signal_fd, MAX_FILE_SIZE);
+    ftruncate(lock_fd, 4096);
+    _mmap = reinterpret_cast<char*>(mmap(0, MAX_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, signal_fd, 0));
+    _lastpos = reinterpret_cast<uint64_t*>(mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, lock_fd, 0));
     close(signal_fd);
     close(lock_fd);
     if (_mmap == MAP_FAILED) {
@@ -103,8 +103,6 @@ private:
 
   char _signalfile[256]; // Name of log file that signals are written to
   char _lockfile[256]; // Name of file that _lastpos is persisted in
-  int _signal_fd; // fd of log file that signals are written to
-  int _lock_fd; // fd of file that _lastpos is persisted in
   char* _mmap; // address of first byte of log
   uint64_t* _lastpos; // address of first byte of _lastpos
   HL::SpinLock* _spin_lock;

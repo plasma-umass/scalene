@@ -105,9 +105,9 @@ class Scalene:
     # Debugging flag, for internal use only.
     __debug: bool = False
     # Whether the current profiler is a child
-    __is_child = arguments.pid != 0
+    __is_child = -1
     # the pid of the primary profiler
-    __parent_pid = arguments.pid if __is_child else os.getpid()
+    __parent_pid = -1
     # Support for @profile
     # decorated files
     __files_to_profile: Dict[Filename, bool] = defaultdict(bool)
@@ -1034,7 +1034,7 @@ class Scalene:
         Scalene.__is_child = True
         Scalene.clear_metrics()
         # Note-- __parent_pid of the topmost process is its own pid
-        arguments.pid = Scalene.__parent_pid
+        Scalene.__pid = Scalene.__parent_pid
         signal.setitimer(
             Scalene.__cpu_timer_signal,
             Scalene.__mean_cpu_sampling_rate,
@@ -1909,6 +1909,9 @@ class Scalene:
             Scalene.__html = args.html
             Scalene.__output_file = args.outfile
             Scalene.__profile_all = args.profile_all
+            Scalene.__is_child = args.pid != 0
+            # the pid of the primary profiler
+            Scalene.__parent_pid = args.pid if Scalene.__is_child else os.getpid()
             if args.reduced_profile:
                 Scalene.__reduced_profile = True
             else:

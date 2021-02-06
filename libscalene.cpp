@@ -32,8 +32,6 @@ class ParentHeap
 
 static bool _initialized{false};
 
-static bool _initialized { false };
-
 class CustomHeapType : public ParentHeap {
 public:
   CustomHeapType() { _initialized = true; }
