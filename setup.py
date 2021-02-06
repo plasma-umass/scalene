@@ -34,7 +34,8 @@ setup(
     packages=find_packages(),
     install_requires=[
         "rich>=2.0.0",
-        "cloudpickle>=1.5.0"
+        "cloudpickle>=1.5.0",
+        "numpy"
     ],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
