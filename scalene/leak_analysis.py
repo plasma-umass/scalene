@@ -1,4 +1,5 @@
 import math
+import numpy as np
 from numpy.random import default_rng
 from typing import Any, List, Tuple
 
@@ -19,16 +20,21 @@ def xform(i: float, n: int) -> float:
 
 def normalized_entropy(v: List[float]) -> float:
     """Returns a value between 0 (all mass concentrated in one item) and 1 (uniformly spread)."""
-    n = int(sum(v))
+    assert len(v) > 0
+    if len(v) == 1:
+        return 1
+    n = int(np.nansum(v))
+    assert n > 0
     h = -sum([xform(i, n) for i in v])
     return h / math.log(len(v))
 
 
 def multinomial_pvalue(vec: List[float], trials: int = 2000) -> float:
     """Returns the empirical likelihood (via Monte Carlo trials) of randomly finding a vector with as low entropy as this one."""
-    n = sum(vec)
-    m = len(vec)
-    ne = normalized_entropy(vec)
+    n = np.nansum(vec)
+    newvec = list(filter(lambda x: not np.isnan(x), vec))
+    m = len(newvec)
+    ne = normalized_entropy(newvec)
     sampled_vec = rng.multinomial(n, [1 / m for i in range(m)], trials)
     # Return the fraction of times the sampled vector has no more entropy than the original vector
     return sum(normalized_entropy(v) <= ne for v in sampled_vec) / trials
@@ -36,7 +42,7 @@ def multinomial_pvalue(vec: List[float], trials: int = 2000) -> float:
 
 def argmax(vec: List[Any]) -> int:
     """Return the (first) index with the maximum value."""
-    m = max(vec)
+    m = np.nanmax(vec)
     for (index, value) in enumerate(vec):
         if value == m:
             return index
@@ -74,13 +80,15 @@ def outliers(
     # See https://en.wikipedia.org/wiki/False_discovery_rate#Benjamini%E2%80%93Yekutieli_procedure
     c_m = harmonic_number(m)
     while pv <= alpha * (removed + 1) / (m * c_m) and removed < m:
-        # While we remain below the threshold, remove (zero-out) the max
-        # and add its index to the list of results with its p-value.
+        # While we remain below the threshold, remove (zero-out by
+        # setting to NaN) the max and add its index to the list of
+        # results with its p-value.
         max_index = argmax(vec)
         results.append((max_index, pv))
-        vec[max_index] = 0
+        vec[max_index] = np.nan
         removed += 1
-        pv = multinomial_pvalue(vec)
+        if removed < m:
+            pv = multinomial_pvalue(vec)
     return results
 
 
