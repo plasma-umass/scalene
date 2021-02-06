@@ -975,8 +975,8 @@ class Scalene:
             # Not a real file.
             return False
         if (
-            "scalene_profiler.py" in filename
-            or "scalene/__main__.py" in filename
+            "scalene/" in filename
+            # or "scalene/__main__.py" in filename
         ):
             # Don't profile the profiler.
             return False
