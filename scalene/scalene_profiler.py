@@ -20,7 +20,6 @@ import functools
 import get_line_atomic
 import inspect
 import mmap
-import mmap_hl_spinlock
 import multiprocessing
 import os
 import pathlib
