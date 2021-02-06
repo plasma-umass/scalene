@@ -282,7 +282,7 @@ private:
 
   void writeCount() {
     char buf[255];
-    stprintf::stprintf(buf, "@,@,@\n\n", _memcpyTriggered, _memcpyOps, getpid());
+    stprintf::stprintf(buf, "@,@\n\n", _memcpyTriggered, _memcpyOps);
     _samplefile.writeToFile(buf);
   }
 };
