@@ -64,19 +64,20 @@ def harmonic_number(n: int) -> float:
     )
 
 
-def leak_candidates(
+def outliers(
     vec: List[float], alpha: float = 0.01, trials: int = 3000
 ) -> List[Tuple[int, float]]:
-    """Returns the indices with values that are significant outliers."""
+    """Returns the indices with values that are significant outliers, with their p-values"""
     m = len(vec)
     removed = 0
     results = []
     pv = multinomial_pvalue(vec, trials)
-    c_m = harmonic_number(
-        m
-    )  # Benjamin-Yekutieli procedure to control false-discovery rate
+    # We use the Benjamin-Yekutieli procedure to control false-discovery rate.
+    # See https://en.wikipedia.org/wiki/False_discovery_rate#Benjamini%E2%80%93Yekutieli_procedure
+    c_m = harmonic_number(m)
     while pv <= alpha * (removed + 1) / (m * c_m) and removed < m:
-        # While we remain below the threshold, remove the max and add it to the list of results with its p-value
+        # While we remain below the threshold, remove (zero-out) the max
+        # and add its index to the list of results with its p-value.
         max_index = argmax(vec)
         results.append((max_index, pv))
         vec[max_index] = 0
@@ -87,7 +88,7 @@ def leak_candidates(
 
 if __name__ == "__main__":
     # Run a simple test.
-    print(leak_candidates([1000, 8, 8, 1, 0], alpha=0.01, trials=10000))
-    print(leak_candidates([8, 8, 1, 0], alpha=0.01, trials=10000))
-    print(leak_candidates([8, 1, 0], alpha=0.01, trials=10000))
-    print(leak_candidates([1, 0], alpha=0.01, trials=10000))
+    print(outliers([1000, 8, 8, 1, 0], alpha=0.01, trials=10000))
+    print(outliers([8, 8, 1, 0], alpha=0.01, trials=10000))
+    print(outliers([8, 1, 0], alpha=0.01, trials=10000))
+    print(outliers([1, 0], alpha=0.01, trials=10000))
