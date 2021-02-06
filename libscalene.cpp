@@ -41,6 +41,18 @@ public:
 
 // typedef NextHeap CustomHeapType;
 
+// This is a hack to have a long-living buffer
+// to put init filename in
+char init_file[MAX_BUFSIZE];
+char* init_with_pid() {
+  stprintf::stprintf(init_file, "/tmp/initializer-@", getpid());
+  // creates the file and then closes it
+  return init_file;
+  int fd = open(init_file, O_CREAT|O_RDWR, S_IRUSR | S_IWUSR);
+  close(fd);
+  return init_file;
+}
+char* SampleFile::initializer = init_with_pid();
 class InitializeMe {
 public:
   InitializeMe() {
