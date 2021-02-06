@@ -1563,7 +1563,6 @@ class Scalene:
     @staticmethod
     def debug_print(message: str) -> None:
         """Print a message accompanied by info about the file, line number, and caller."""
-        import sys
         import inspect
 
         callerframerecord = inspect.stack()[1]
@@ -1739,7 +1738,6 @@ class Scalene:
                         os.path.dirname(__file__), "libscalene.dylib"
                     )
                     os.environ["PYTHONMALLOC"] = "malloc"
-                    orig_args = args
                     new_args = [
                         os.path.basename(sys.executable),
                         "-m",
