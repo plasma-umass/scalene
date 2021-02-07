@@ -18,6 +18,15 @@ def xform(i: float, n: int) -> float:
     return i / n * log(i / n)
 
 
+def binomial(total: int, observed: int, success: float):
+    return math.factorial(total) / (math.factorial(total - observed) * math.factorial(observed)) * math.pow(success, observed) * math.pow(1.0 - success, total - observed)
+
+def one_sided_binomial_test_ge(total: int, observed: int, success: float):
+    return sum(binomial(total, o, success) for o in range(observed, total+1))
+
+def one_sided_binomial_test_lt(total: int, observed: int, success: float):
+    return 1.0 - one_sided_binomial_test_ge(total, observed, success)
+
 def normalized_entropy(v: List[float]) -> float:
     """Returns a value between 0 (all mass concentrated in one item) and 1 (uniformly spread)."""
     assert len(v) > 0
@@ -27,7 +36,6 @@ def normalized_entropy(v: List[float]) -> float:
     assert n > 0
     h = -sum([xform(i, n) for i in v])
     return h / math.log(len(v))
-
 
 def multinomial_pvalue(vec: List[float], trials: int = 2000) -> float:
     """Returns the empirical likelihood (via Monte Carlo trials) of randomly finding a vector with as low entropy as this one."""
@@ -79,16 +87,22 @@ def outliers(
     # We use the Benjamin-Yekutieli procedure to control false-discovery rate.
     # See https://en.wikipedia.org/wiki/False_discovery_rate#Benjamini%E2%80%93Yekutieli_procedure
     c_m = harmonic_number(m)
-    while pv <= alpha * (removed + 1) / (m * c_m) and removed < m:
-        # While we remain below the threshold, remove (zero-out by
-        # setting to NaN) the max and add its index to the list of
-        # results with its p-value.
-        max_index = argmax(vec)
-        results.append((max_index, pv))
-        vec[max_index] = np.nan
-        removed += 1
-        if removed < m:
-            pv = multinomial_pvalue(vec)
+    if pv <= alpha:
+        while removed < m:
+            # While we remain below the threshold, remove (zero-out by
+            # setting to NaN) the max and add its index to the list of
+            # results with its p-value.
+            max_index = argmax(vec)
+            # See how unlikely this bin is to have occurred at random,
+            # assuming a uniform distribution into bins.
+            this_pvalue = one_sided_binomial_test_ge(int(np.nansum(vec)), vec[max_index], 1/(m-removed))
+            # print("max_index = ", max_index, "p-value = ", this_pvalue)
+            if this_pvalue <= (alpha * (removed + 1) / (m * c_m)):
+                results.append((max_index, this_pvalue))
+                vec[max_index] = np.nan
+                removed += 1
+            else:
+                break
     return results
 
 
