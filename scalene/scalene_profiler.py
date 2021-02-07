@@ -913,6 +913,7 @@ class Scalene:
                     Scalene.__malloc_lastpos):
                     break
                 count_str = buf.split(b'\n')[0].decode('ascii')
+                # print(count_str)
                 if count_str == "":
                     # print("breaking", mm.readline())
                     break
@@ -1854,6 +1855,7 @@ class Scalene:
                         "-m",
                         "scalene",
                     ] + sys.argv[1:]
+                    print(new_args)
                     result = subprocess.run(new_args)
                     if result.returncode < 0:
                         print(

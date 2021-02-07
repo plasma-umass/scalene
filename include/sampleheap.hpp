@@ -274,7 +274,7 @@ private:
     //    tprintf::tprintf("count = @\n", count);
     snprintf(buf, MAX_BUFSIZE,
 #if defined(__APPLE__)
-             "%c,%llu,%llu,%f\n\n",
+             "%c,%llu,%llu,%f,%d\n\n",
 #else
 	     "%c,%lu,%lu,%f,%d\n\n",
 #endif
