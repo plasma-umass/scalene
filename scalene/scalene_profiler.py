@@ -1865,12 +1865,13 @@ class Scalene:
 
             # Similar logic, but for Mac OS X.
             if sys.platform == "darwin":
-                if ("DYLD_INSERT_LIBRARIES" not in os.environ) and (
+                if (("DYLD_INSERT_LIBRARIES" not in os.environ) and (
                     "PYTHONMALLOC" not in os.environ
-                ):
+                )) or 'OBJC_DISABLE_INITIALIZE_FORK_SAFETY' not in os.environ:
                     os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(
                         os.path.dirname(__file__), "libscalene.dylib"
                     )
+                    os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
                     os.environ["PYTHONMALLOC"] = "malloc"
                     orig_args = args
                     new_args = [
@@ -1898,7 +1899,7 @@ class Scalene:
         ) = Scalene.parse_args()
         Scalene.setup_preload(args)
         sys.argv = left
-
+        multiprocessing.set_start_method('fork')
         try:
             Scalene.__output_profile_interval = args.profile_interval
             Scalene.__next_output_time = (
