@@ -30,7 +30,10 @@ def replacement_pjoin(scalene: Scalene) -> None:
                 _children.discard(self)
                 return
             scalene.reset_thread_sleeping(tident)
-            if interval != -1:
+            # I think that this should be timeout-- 
+            # Interval is the sleep time per-tic,
+            # but timeout determines whether it returns
+            if timeout != -1:
                 end_time = scalene.get_wallclock_time()
                 if end_time - start_time >= timeout:
                     from multiprocessing.process import _children
