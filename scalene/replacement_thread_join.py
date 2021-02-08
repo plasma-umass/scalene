@@ -7,11 +7,12 @@ import threading
 @Scalene.shim
 def replacement_thread_join(scalene: Scalene) -> None:
     orig_thread_join = threading.Thread.join
+
     def thread_join_replacement(
         self: threading.Thread, timeout: Optional[float] = None
     ) -> None:
         """We replace threading.Thread.join with this method which always
-            periodically yields."""
+        periodically yields."""
         start_time = scalene.get_wallclock_time()
         interval = sys.getswitchinterval()
         while self.is_alive():
@@ -24,4 +25,5 @@ def replacement_thread_join(scalene: Scalene) -> None:
                 if end_time - start_time >= timeout:
                     return None
         return None
-    threading.Thread.join = thread_join_replacement # type: ignore
+
+    threading.Thread.join = thread_join_replacement  # type: ignore
