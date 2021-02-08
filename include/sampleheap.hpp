@@ -9,8 +9,8 @@
 #include <fcntl.h>
 #include <unistd.h> // for getpid()
 
-#include <random>
 #include <atomic>
+#include <random>
 
 #include <signal.h>
 
@@ -29,23 +29,25 @@ typedef std::atomic<uint64_t> counterType;
 typedef uint64_t counterType;
 #endif
 
-template <uint64_t MallocSamplingRateBytes, class SuperHeap> 
+template <uint64_t MallocSamplingRateBytes, class SuperHeap>
 class SampleHeap : public SuperHeap {
 
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
-  
+
 public:
-  
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
-  enum { CallStackSamplingRate = MallocSamplingRateBytes * 10 }; // 10 here just to reduce overhead
+  enum {
+    CallStackSamplingRate = MallocSamplingRateBytes * 10
+  }; // 10 here just to reduce overhead
 
   SampleHeap()
     : _samplefile((char*) "/tmp/scalene-malloc-signal@", (char*) "/tmp/scalene-malloc-lock@"),
       _mallocTriggered (0),
       _freeTriggered (0),
       _pythonCount (0),
-      _cCount (0)
+      _cCount (0),
+      _pid(getpid())
   {
     // Ignore these signals until they are replaced by a client.
     signal(MallocSignal, SIG_IGN);
@@ -56,8 +58,8 @@ public:
     // Delete the log file.
     // unlink(scalene_malloc_signal_filename);
   }
-  
-  ATTRIBUTE_ALWAYS_INLINE inline void * malloc(size_t sz) {
+
+  ATTRIBUTE_ALWAYS_INLINE inline void *malloc(size_t sz) {
     auto ptr = SuperHeap::malloc(sz);
     if (unlikely(ptr == nullptr)) {
       return nullptr;
@@ -78,8 +80,10 @@ public:
     return ptr;
   }
 
-  ATTRIBUTE_ALWAYS_INLINE inline void free(void * ptr) {
-    if (unlikely(ptr == nullptr)) { return; }
+  ATTRIBUTE_ALWAYS_INLINE inline void free(void *ptr) {
+    if (unlikely(ptr == nullptr)) {
+      return;
+    }
     auto realSize = SuperHeap::getSize(ptr);
     SuperHeap::free(ptr);
     auto sampleFree = _freeSampler.sample(realSize);
@@ -88,7 +92,7 @@ public:
     }
   }
 
-  void * memalign(size_t alignment, size_t sz) {
+  void *memalign(size_t alignment, size_t sz) {
     auto ptr = SuperHeap::memalign(alignment, sz);
     if (unlikely(ptr == nullptr)) {
       return nullptr;
@@ -108,11 +112,14 @@ public:
     }
     return ptr;
   }
-  
+
 private:
+  // Prevent copying and assignment.
+  SampleHeap(const SampleHeap &) = delete;
+  SampleHeap &operator=(const SampleHeap &) = delete;
 
   void handleMalloc(size_t sampleMalloc) {
-    writeCount(MallocSignal, sampleMalloc * MallocSamplingRateBytes);
+    writeCount(MallocSignal, sampleMalloc);
     _pythonCount = 0;
     _cCount = 0;
     _mallocTriggered++;
@@ -122,31 +129,33 @@ private:
   }
 
   void handleFree(size_t sampleFree) {
-    writeCount(FreeSignal, sampleFree * MallocSamplingRateBytes);
+    writeCount(FreeSignal, sampleFree);
     _freeTriggered++;
 #if !SCALENE_DISABLE_SIGNALS
     raise(FreeSignal);
 #endif
   }
-  
+
   Sampler<MallocSamplingRateBytes> _mallocSampler;
   Sampler<MallocSamplingRateBytes> _freeSampler;
-  Sampler<CallStackSamplingRate>   _callStackSampler;
+  Sampler<CallStackSamplingRate> _callStackSampler;
   counterType _mallocTriggered;
   counterType _freeTriggered;
   counterType _pythonCount;
   counterType _cCount;
 
-  open_addr_hashtable<65536> _table; // Maps call stack entries to function names.
+  open_addr_hashtable<65536>
+      _table; // Maps call stack entries to function names.
   SampleFile _samplefile;
-
+  pid_t _pid;
   void recordCallStack(size_t sz) {
     // Walk the stack to see if this memory was allocated by Python
     // through its object allocation APIs.
-    const auto MAX_FRAMES_TO_CHECK = 4; // enough to skip past the replacement_malloc
-    void * callstack[MAX_FRAMES_TO_CHECK];
+    const auto MAX_FRAMES_TO_CHECK =
+        4; // enough to skip past the replacement_malloc
+    void *callstack[MAX_FRAMES_TO_CHECK];
     auto frames = backtrace(callstack, MAX_FRAMES_TO_CHECK);
-    char * fn_name;
+    char *fn_name;
     // tprintf::tprintf("------- @ -------\n", sz);
     for (auto i = 0; i < frames; i++) {
       fn_name = nullptr;
@@ -158,55 +167,55 @@ private:
       auto v = _table.get(callstack[i]);
 #endif
       if (v == nullptr) {
-	// Not found. Add to table.
-	Dl_info info;
-	int r = dladdr(callstack[i], &info);
-	if (r) {
+        // Not found. Add to table.
+        Dl_info info;
+        int r = dladdr(callstack[i], &info);
+        if (r) {
 #if !USE_HASHTABLE
 #else
-	  _table.put(callstack[i], (void *) info.dli_sname);
+          _table.put(callstack[i], (void *)info.dli_sname);
 #endif
-	  fn_name = (char *) info.dli_sname;
-	} else {
-	  continue;
-	}
+          fn_name = (char *)info.dli_sname;
+        } else {
+          continue;
+        }
       } else {
-	// Found it.
-	fn_name = (char *) v;
+        // Found it.
+        fn_name = (char *)v;
       }
       if (!fn_name) {
-	continue;
+        continue;
       }
       // tprintf::tprintf("@\n", fn_name);
       if (strlen(fn_name) < 9) { // length of PySet_New
-	continue;
+        continue;
       }
       // Starts with Py, assume it's Python calling.
       if (strstr(fn_name, "Py") == &fn_name[0]) {
-	//(strstr(fn_name, "PyList_Append") ||
-	//   strstr(fn_name, "_From") ||
-	//   strstr(fn_name, "_New") ||
-	//   strstr(fn_name, "_Copy"))) {
-	if (strstr(fn_name, "PyArray_")) {
-	  // Make sure we're not in NumPy, which irritatingly exports some functions starting with "Py"...
-	  // tprintf::tprintf("--NO---\n");
-	  goto C_CODE;
-	}
+        //(strstr(fn_name, "PyList_Append") ||
+        //   strstr(fn_name, "_From") ||
+        //   strstr(fn_name, "_New") ||
+        //   strstr(fn_name, "_Copy"))) {
+        if (strstr(fn_name, "PyArray_")) {
+          // Make sure we're not in NumPy, which irritatingly exports some
+          // functions starting with "Py"... tprintf::tprintf("--NO---\n");
+          goto C_CODE;
+        }
 #if 0
 	if (strstr(fn_name, "PyEval") || strstr(fn_name, "PyCompile") || strstr(fn_name, "PyImport")) {
 	  // Ignore allocations due to interpreter internal operations, for now.
 	  goto C_CODE;
 	}
 #endif
-	// tprintf::tprintf("P\n");
-	_pythonCount += sz;
-	return;
+        // tprintf::tprintf("P\n");
+        _pythonCount += sz;
+        return;
       }
       if (strstr(fn_name, "_Py") == 0) {
-	continue;
+        continue;
       }
       if (strstr(fn_name, "_PyCFunction")) {
-	goto C_CODE;
+        goto C_CODE;
       }
 #if 1
       _pythonCount += sz;
@@ -216,42 +225,35 @@ private:
       // * _PyObject_Realloc
       // * _PyMem_Realloc
       if (strstr(fn_name, "New")) {
-	// tprintf::tprintf("P\n");
-	_pythonCount += sz;
-	return;
+        // tprintf::tprintf("P\n");
+        _pythonCount += sz;
+        return;
       }
-      if (strstr(fn_name, "_PyObject_") ) {
-	if ((strstr(fn_name, "GC_Alloc") ) ||
-	    (strstr(fn_name, "GC_New") ) ||
-	    (strstr(fn_name, "GC_NewVar") ) ||
-	    (strstr(fn_name, "GC_Resize") ) ||
-	    (strstr(fn_name, "Malloc") ) ||
-	    (strstr(fn_name, "Calloc") ))	      
-	  {
-	    // tprintf::tprintf("P\n");
-	    _pythonCount += sz;
-	    return;
-	  }
+      if (strstr(fn_name, "_PyObject_")) {
+        if ((strstr(fn_name, "GC_Alloc")) || (strstr(fn_name, "GC_New")) ||
+            (strstr(fn_name, "GC_NewVar")) || (strstr(fn_name, "GC_Resize")) ||
+            (strstr(fn_name, "Malloc")) || (strstr(fn_name, "Calloc"))) {
+          // tprintf::tprintf("P\n");
+          _pythonCount += sz;
+          return;
+        }
       }
-      if (strstr(fn_name, "_PyMem_") ) {
-	if ((strstr(fn_name, "Malloc") ) ||
-	    (strstr(fn_name, "Calloc") ) ||
-	    (strstr(fn_name, "RawMalloc") ) ||
-	    (strstr(fn_name, "RawCalloc") ))
-	  {
-	    // tprintf::tprintf("p\n");
-	    _pythonCount += sz;
-	    return;
-	  }
+      if (strstr(fn_name, "_PyMem_")) {
+        if ((strstr(fn_name, "Malloc")) || (strstr(fn_name, "Calloc")) ||
+            (strstr(fn_name, "RawMalloc")) || (strstr(fn_name, "RawCalloc"))) {
+          // tprintf::tprintf("p\n");
+          _pythonCount += sz;
+          return;
+        }
       }
       //      tprintf::tprintf("@\n", fn_name);
-#endif	  
+#endif
     }
-    
+
   C_CODE:
     _cCount += sz;
   }
-  
+
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
@@ -270,21 +272,23 @@ private:
 		       (float) _pythonCount / (_pythonCount + _cCount));
 #else
     //    tprintf::tprintf("count = @\n", count);
-    snprintf(buf,
-	     MAX_BUFSIZE,
+    snprintf(buf, MAX_BUFSIZE,
 #if defined(__APPLE__)
-	     "%c,%llu,%llu,%f\n\n",
+             "%c,%llu,%llu,%f,%d\n\n",
 #else
-	     "%c,%lu,%lu,%f\n\n",
+	     "%c,%lu,%lu,%f,%d\n\n",
 #endif
 	     ((sig == MallocSignal) ? 'M' : 'F'),
 	     _mallocTriggered + _freeTriggered,
 	     count,
-	     (float) _pythonCount / (_pythonCount + _cCount));
+	     (float) _pythonCount / (_pythonCount + _cCount), getpid());
 #endif
+    // if(getpid() != _pid) {
+    //   tprintf::tprintf("@_@ ", _pid, getpid());
+    //   tprintf::tprintf(buf);
+    // }
      _samplefile.writeToFile(buf);
   }
-
 };
 
 #endif

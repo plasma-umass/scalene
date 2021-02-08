@@ -15,12 +15,15 @@ UNAME_P := $(shell uname -p)
 
 ifeq ($(UNAME_S),Darwin)
   all: Heap-Layers $(MACOS_SRC)
+	rm -f lib$(LIBNAME).dylib scalene/lib$(LIBNAME).dylib
 	$(MACOS_COMPILE)
+	cp lib$(LIBNAME).dylib scalene
 endif
 
 ifeq ($(UNAME_S),Linux)
   all: Heap-Layers $(LINUX_SRC)
 	$(LINUX_COMPILE)
+	cp lib$(LIBNAME).so scalene
 endif
 
 Heap-Layers:

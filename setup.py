@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+from distutils.core import Extension
 
 from os import path
 
@@ -6,9 +7,15 @@ this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
+mmap_hl_spinlock = Extension('get_line_atomic',
+                include_dirs=['.', 'Heap-Layers', 'Heap-Layers/utility'],
+                sources=['get_line_atomic.cpp'],
+                extra_compile_args=['-std=c++14'],
+                language="c++14")
+
 setup(
     name="scalene",
-    version="1.1.14",
+    version="1.1.15",
     description="Scalene: A high-resolution, low-overhead CPU and memory profiler for Python",
     keywords="performance memory profiler",
     long_description=long_description,
@@ -36,6 +43,7 @@ setup(
         "rich>=2.0.0",
         "cloudpickle>=1.5.0"
     ],
+    ext_modules=[mmap_hl_spinlock],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
     python_requires=">=3.6",
