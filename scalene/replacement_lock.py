@@ -52,4 +52,4 @@ def replacement_lock(scalene: Scalene) -> None:
         def __exit__(self, type: str, value: str, traceback: Any) -> None:
             self.release()
 
-    threading.Lock = ReplacementLock  # type: ignore
+    threading.Lock = ReplacementLock # type: ignore
