@@ -819,15 +819,7 @@ class Scalene:
             mm = Scalene.__malloc_signal_mmap
             mm.seek(Scalene.__malloc_signal_position)
             while True:
-                if not get_line_atomic.get_line_atomic(
-                    Scalene.__malloc_lock_mmap, 
-                    Scalene.__malloc_signal_mmap,
-                    buf,
-                    Scalene.__malloc_lastpos):
-                    break
-                count_str = buf.split(b'\n')[0].decode('ascii')
-                # print(count_str)
-
+                count_str = mm.readline().rstrip().decode("ascii")
                 if count_str == "":
                     break
                 (
@@ -1728,7 +1720,6 @@ class Scalene:
                         "-m",
                         "scalene",
                     ] + sys.argv[1:]
-                    print(new_args)
                     result = subprocess.run(new_args)
                     if result.returncode < 0:
                         print(
@@ -1740,13 +1731,12 @@ class Scalene:
 
             # Similar logic, but for Mac OS X.
             if sys.platform == "darwin":
-                if (("DYLD_INSERT_LIBRARIES" not in os.environ) and (
+                if ("DYLD_INSERT_LIBRARIES" not in os.environ) and (
                     "PYTHONMALLOC" not in os.environ
-                )) or 'OBJC_DISABLE_INITIALIZE_FORK_SAFETY' not in os.environ:
+                ):
                     os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(
                         os.path.dirname(__file__), "libscalene.dylib"
                     )
-                    os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
                     os.environ["PYTHONMALLOC"] = "malloc"
                     new_args = [
                         os.path.basename(sys.executable),
@@ -1773,7 +1763,7 @@ class Scalene:
         ) = Scalene.parse_args()
         Scalene.setup_preload(args)
         sys.argv = left
-        multiprocessing.set_start_method('fork')
+
         try:
             Scalene.__output_profile_interval = args.profile_interval
             Scalene.__next_output_time = (
