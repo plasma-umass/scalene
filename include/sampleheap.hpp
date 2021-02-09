@@ -42,9 +42,13 @@ public:
   }; // 10 here just to reduce overhead
 
   SampleHeap()
-      : _samplefile((char *)"/tmp/scalene-malloc-signal@",
-                    (char *)"/tmp/scalene-malloc-lock@"),
-        _mallocTriggered(0), _freeTriggered(0), _pythonCount(0), _cCount(0) {
+    : _samplefile((char*) "/tmp/scalene-malloc-signal@", (char*) "/tmp/scalene-malloc-lock@"),
+      _mallocTriggered (0),
+      _freeTriggered (0),
+      _pythonCount (0),
+      _cCount (0),
+      _pid(getpid())
+  {
     // Ignore these signals until they are replaced by a client.
     signal(MallocSignal, SIG_IGN);
     signal(FreeSignal, SIG_IGN);
@@ -143,7 +147,7 @@ private:
   open_addr_hashtable<65536>
       _table; // Maps call stack entries to function names.
   SampleFile _samplefile;
-
+  pid_t _pid;
   void recordCallStack(size_t sz) {
     // Walk the stack to see if this memory was allocated by Python
     // through its object allocation APIs.
@@ -270,15 +274,20 @@ private:
     //    tprintf::tprintf("count = @\n", count);
     snprintf(buf, MAX_BUFSIZE,
 #if defined(__APPLE__)
-             "%c,%llu,%llu,%f\n\n",
+             "%c,%llu,%llu,%f,%d\n\n",
 #else
-             "%c,%lu,%lu,%f\n\n",
+	     "%c,%lu,%lu,%f,%d\n\n",
 #endif
-             ((sig == MallocSignal) ? 'M' : 'F'),
-             _mallocTriggered + _freeTriggered, count,
-             (float)_pythonCount / (_pythonCount + _cCount));
+	     ((sig == MallocSignal) ? 'M' : 'F'),
+	     _mallocTriggered + _freeTriggered,
+	     count,
+	     (float) _pythonCount / (_pythonCount + _cCount), getpid());
 #endif
-    _samplefile.writeToFile(buf);
+    // if(getpid() != _pid) {
+    //   tprintf::tprintf("@_@ ", _pid, getpid());
+    //   tprintf::tprintf(buf);
+    // }
+     _samplefile.writeToFile(buf);
   }
 };
 
