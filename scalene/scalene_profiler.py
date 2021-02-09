@@ -2,12 +2,15 @@
 
     https://github.com/emeryberger/scalene
 
-    See the paper "scalene-paper.pdf" in this repository for details on Scalene's design.
-   OLD VERSION
+    See the paper "scalene-paper.pdf" in this repository for technical
+    details on an earlier version of Scalene's design; note that a
+    number of these details have changed.
+
     by Emery Berger
     https://emeryberger.com
 
     usage: scalene test/testme.py
+    usage help: scalene --help
 
 """
 import argparse
@@ -39,6 +42,7 @@ import time
 import traceback
 from collections import defaultdict
 from functools import lru_cache, wraps
+from operator import itemgetter
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.segment import Segment
@@ -66,6 +70,7 @@ from typing import (
 from multiprocessing.process import BaseProcess
 
 from scalene.adaptive import Adaptive
+from scalene.leak_analysis import outliers
 from scalene.runningstats import RunningStats
 from scalene.syntaxline import SyntaxLine
 from scalene import sparkline
@@ -205,8 +210,8 @@ class Scalene:
     )
 
     # leak score tracking
-    __leak_score: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
-        lambda: defaultdict(float)
+    __leak_score: Dict[Filename, Dict[LineNumber, int]] = defaultdict(
+        lambda: defaultdict(int)
     )
 
     __allocation_velocity: Tuple[float, float] = (0.0, 0.0)
@@ -373,7 +378,7 @@ class Scalene:
     __malloc_threshold = 100
 
     @classmethod
-    def clear_metrics(cls):
+    def clear_metrics(cls) -> None:
         """
         Clears the various states so that each forked process
         can start with a clean slate
@@ -793,7 +798,7 @@ class Scalene:
             # Avoids deadlock where a Scalene signal occurs
             # in the middle of a critical section of the
             # threading library
-            return None
+            return []
         frames: List[Tuple[FrameType, int]] = [
             (
                 cast(
@@ -1161,26 +1166,6 @@ class Scalene:
         """Print at most one line of the profile (true == printed one)."""
         if not Scalene.profile_this_code(fname, line_no):
             return False
-        # Only report potential leaks if the allocation velocity (growth rate) is above some threshold.
-        # Leak score = percentage of times this line exceeded the previous high watermark for memory consumption.
-        # FIXME magic number for now, at least 1% growth rate
-        velocity = 0.0
-        if Scalene.__allocation_velocity[1] > 0:
-            velocity = (
-                Scalene.__allocation_velocity[0]
-                / Scalene.__allocation_velocity[1]
-            )
-        leak_score = 0.0
-        if (
-            line_no in Scalene.__leak_score[fname]
-            and Scalene.__leak_score[fname][line_no] * velocity > 0.01
-        ):
-            # Currently disabled output, FIXME
-            leak_score = Scalene.__leak_score[fname][line_no] / sum(
-                Scalene.__leak_score[fname].values()
-            )
-            # print(fname,line_no, Scalene.__leak_score[fname][line_no], Scalene.__leak_score[fname][line_no] / sum(Scalene.__leak_score[fname].values())) # (Scalene.__leak_score[fname][line_no] / Scalene.__total_memory_malloc_samples))
-            # pass
         current_max = Scalene.__max_footprint
         did_sample_memory: bool = (
             Scalene.__total_memory_free_samples
@@ -1487,10 +1472,10 @@ class Scalene:
                 _, _, spark_str = sparkline.generate(
                     samples.get()[0 : samples.len()], 0, current_max
                 )
-                # Compute allocation velocity (slope), between 0 and 1.
-                velocity = 0.0
+                # Compute growth rate (slope), between 0 and 1.
+                growth_rate = 0.0
                 if Scalene.__allocation_velocity[1] > 0:
-                    velocity = (
+                    growth_rate = (
                         100.0
                         * Scalene.__allocation_velocity[0]
                         / Scalene.__allocation_velocity[1]
@@ -1502,7 +1487,7 @@ class Scalene:
                         ((spark_str, "blue")),
                         (
                             " (max: %6.2fGB, growth rate: %3.0f%%)\n"
-                            % ((current_max / 1024), velocity)
+                            % ((current_max / 1024), growth_rate)
                         ),
                     )
                 else:
@@ -1512,7 +1497,7 @@ class Scalene:
                         ((spark_str, "blue")),
                         (
                             " (max: %6.2fMB, growth rate: %3.0f%%)\n"
-                            % (current_max, velocity)
+                            % (current_max, growth_rate)
                         ),
                     )
 
@@ -1654,6 +1639,39 @@ class Scalene:
                     old_did_print = did_print
 
             console.print(tbl)
+
+            # Only report potential leaks if the allocation velocity (growth rate) is above some threshold.
+            # FIXME fixed for now
+            growth_rate_threshold = 0.01
+            alpha = 0.01
+            if growth_rate / 100 > growth_rate_threshold:
+                vec = list(Scalene.__leak_score[fname].values())
+                keys = list(Scalene.__leak_score[fname].keys())
+                outlier_vec = outliers(vec, alpha=alpha)
+                # Sort outliers by p-value in ascending order
+                outlier_vec.sort(key=itemgetter(1))
+                if len(outlier_vec) > 0:
+                    leak_lines = [keys[i] for (i, p_value) in outlier_vec]
+                    if False:  # disable reporting for now
+                        console.print(Scalene.__leak_score[fname])
+                        console.print(outlier_vec)
+                        console.print(leak_lines)
+                        if len(leak_lines) == 1:
+                            console.print(
+                                "Possible memory leak identified at line "
+                                + str(leak_lines[0])
+                                + " (alpha="
+                                + str(alpha)
+                                + ")"
+                            )
+                        else:
+                            console.print(
+                                "Possible memory leaks identified at lines "
+                                + ", ".join(map(str, sorted(leak_lines)))
+                                + " (alpha="
+                                + str(alpha)
+                                + ")"
+                            )
 
         if Scalene.__html:
             # Write HTML file.

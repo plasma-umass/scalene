@@ -25,5 +25,5 @@ def replacement_thread_join(scalene: Scalene) -> None:
                 if end_time - start_time >= timeout:
                     return None
         return None
-    
-    threading.Thread.join = thread_join_replacement # type: ignore
+
+    threading.Thread.join = thread_join_replacement  # type: ignore
