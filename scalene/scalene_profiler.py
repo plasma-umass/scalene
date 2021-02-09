@@ -189,6 +189,8 @@ class Scalene:
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
     ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
+    __last_malloc_triggered: Tuple[Filename, LineNumber] = ("", 0)
+    
     # mallocs attributable to Python, for each location in the program
     __memory_python_samples: Dict[
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
@@ -955,12 +957,6 @@ class Scalene:
             pass
 
         arr.sort()
-        # if len(arr) == 0:
-        #     print("Nothing here", curr_pid, signum)
-        #     print()
-        #     print()
-        # else:
-        #     print("Something here")
         # Iterate through the array to compute the new current footprint.
         # and update the global __memory_footprint_samples.
         before = Scalene.__current_footprint
@@ -996,6 +992,8 @@ class Scalene:
                 count /= 1024 * 1024
                 is_malloc = action == "M"
                 if is_malloc:
+                    # This will always get the last triggering malloc
+                    Scalene.__last_malloc_triggered = (fname, lineno)
                     allocs += count
                     curr += count
                     python_frac += python_fraction * count
@@ -1463,8 +1461,10 @@ class Scalene:
             Scalene.__total_memory_free_samples
             + Scalene.__total_memory_malloc_samples
         ) > 0
+        print("did sample memory?", did_sample_memory)
         title = Text()
         mem_usage_line: Union[Text, str] = ""
+        growth_rate = 0.0
         if did_sample_memory:
             samples = Scalene.__memory_footprint_samples
             if len(samples.get()) > 0:
@@ -1473,7 +1473,6 @@ class Scalene:
                     samples.get()[0 : samples.len()], 0, current_max
                 )
                 # Compute growth rate (slope), between 0 and 1.
-                growth_rate = 0.0
                 if Scalene.__allocation_velocity[1] > 0:
                     growth_rate = (
                         100.0
@@ -1845,6 +1844,7 @@ class Scalene:
     @staticmethod
     def setup_preload(args: argparse.Namespace) -> None:
         # First, check that we are on a supported platform.
+        # (x86-64 and ARM only for now.)
         if not args.cpu_only and (
             (
                 platform.machine() != "x86_64"
@@ -1860,16 +1860,8 @@ class Scalene:
 
         # Load shared objects (that is, interpose on malloc, memcpy and friends)
         # unless the user specifies "--cpu-only" at the command-line.
-        # (x86-64 and Apple ARM only for now.)
-
         if (
             not args.cpu_only
-            and (
-                platform.machine() == "x86_64"
-                or platform.machine() == "arm64"
-                or platform.machine() == "aarch64"
-            )
-            and struct.calcsize("P") * 8 == 64
         ):
             # Load the shared object on Linux.
             if sys.platform == "linux":
