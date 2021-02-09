@@ -81,6 +81,8 @@ def outliers(
 ) -> List[Tuple[int, float]]:
     """Returns the indices with values that are significant outliers, with their p-values"""
     m = len(vec)
+    if m == 0:
+        return []
     removed = 0
     results = []
     pv = multinomial_pvalue(vec, trials)
