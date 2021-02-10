@@ -29,4 +29,4 @@ def replacement_poll_selector(scalene: Scalene) -> None:
                 if timeout and timeout != -1:
                     if end_time - start_time >= timeout:
                         return [] # None
-    selectors.PollSelector = ReplacementPollSelector
+    selectors.PollSelector = ReplacementPollSelector # type: ignore
