@@ -18,16 +18,24 @@ def xform(i: float, n: int) -> float:
     return i / n * log(i / n)
 
 
-def binomial(total: int, observed: int, success: float):
-    return math.factorial(total) / (math.factorial(total - observed) * math.factorial(observed)) * math.pow(success, observed) * math.pow(1.0 - success, total - observed)
+def binomial(total: int, observed: int, success: float) -> float:
+    return (
+        math.factorial(total)
+        / (math.factorial(total - observed) * math.factorial(observed))
+        * math.pow(success, observed)
+        * math.pow(1.0 - success, total - observed)
+    )
 
-def one_sided_binomial_test_ge(total: int, observed: int, success: float):
-    return sum(binomial(total, o, success) for o in range(observed, total+1))
 
-def one_sided_binomial_test_lt(total: int, observed: int, success: float):
+def one_sided_binomial_test_ge(total: int, observed: int, success: float) -> float:
+    return sum(binomial(total, o, success) for o in range(observed, total + 1))
+
+
+def one_sided_binomial_test_lt(total: int, observed: int, success: float) -> float:
     return 1.0 - one_sided_binomial_test_ge(total, observed, success)
 
-def normalized_entropy(v: List[float]) -> float:
+
+def normalized_entropy(v: List[Any]) -> float:
     """Returns a value between 0 (all mass concentrated in one item) and 1 (uniformly spread)."""
     assert len(v) > 0
     if len(v) == 1:
@@ -37,7 +45,8 @@ def normalized_entropy(v: List[float]) -> float:
     h = -sum([xform(i, n) for i in v])
     return h / math.log(len(v))
 
-def multinomial_pvalue(vec: List[float], trials: int = 2000) -> float:
+
+def multinomial_pvalue(vec: List[Any], trials: int = 2000) -> float:
     """Returns the empirical likelihood (via Monte Carlo trials) of randomly finding a vector with as low entropy as this one."""
     n = np.nansum(vec)
     newvec = list(filter(lambda x: not np.isnan(x), vec))
@@ -77,10 +86,12 @@ def harmonic_number(n: int) -> float:
 
 
 def outliers(
-    vec: List[float], alpha: float = 0.01, trials: int = 3000
+    vec: List[Any], alpha: float = 0.01, trials: int = 3000
 ) -> List[Tuple[int, float]]:
     """Returns the indices with values that are significant outliers, with their p-values"""
     m = len(vec)
+    if m == 0:
+        return []
     removed = 0
     results = []
     pv = multinomial_pvalue(vec, trials)
@@ -95,7 +106,9 @@ def outliers(
             max_index = argmax(vec)
             # See how unlikely this bin is to have occurred at random,
             # assuming a uniform distribution into bins.
-            this_pvalue = one_sided_binomial_test_ge(int(np.nansum(vec)), vec[max_index], 1/(m-removed))
+            this_pvalue = one_sided_binomial_test_ge(
+                int(np.nansum(vec)), vec[max_index], 1 / (m - removed)
+            )
             # print("max_index = ", max_index, "p-value = ", this_pvalue)
             if this_pvalue <= (alpha * (removed + 1) / (m * c_m)):
                 results.append((max_index, this_pvalue))
