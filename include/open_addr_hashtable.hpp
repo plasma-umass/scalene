@@ -6,8 +6,9 @@
  * https://emeryberger.com
  **/
 
-template <unsigned long Size> class open_addr_hashtable {
-public:
+template <unsigned long Size>
+class open_addr_hashtable {
+ public:
   open_addr_hashtable() {
     static_assert((Size & (Size - 1UL)) == 0, "Size must be a power of two.");
   }
@@ -68,7 +69,7 @@ public:
     }
   }
 
-private:
+ private:
   // Returns -1 if not found.
   int find(void *k) {
     unsigned long h = hash1(k) & (Size - 1UL);
