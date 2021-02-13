@@ -8,7 +8,7 @@
 #if defined(__APPLE__)
 
 class NextHeap {
-public:
+ public:
   enum { Alignment = alignof(max_align_t) };
 
   inline void *malloc(size_t sz) { return ::malloc(sz); }
@@ -36,14 +36,19 @@ typedef void *memalignFn(size_t, size_t);
 }
 
 class NextHeap {
-private:
-  StaticBufferHeap<640 * 1024> buffer; // should be enough for anyone :)
+ private:
+  StaticBufferHeap<640 * 1024> buffer;  // should be enough for anyone :)
 
-public:
+ public:
   enum { Alignment = alignof(max_align_t) };
   NextHeap()
-      : _inMalloc(false), _inMemalign(false), _inFree(false), _malloc(nullptr),
-        _free(nullptr), _memalign(nullptr), _malloc_usable_size(nullptr) {}
+      : _inMalloc(false),
+        _inMemalign(false),
+        _inFree(false),
+        _malloc(nullptr),
+        _free(nullptr),
+        _memalign(nullptr),
+        _malloc_usable_size(nullptr) {}
   inline void *malloc(size_t sz) {
     if (unlikely(_malloc == nullptr)) {
       if (_inMalloc) {
@@ -56,7 +61,7 @@ public:
   inline void *memalign(size_t alignment, size_t sz) {
     if (unlikely(_memalign == nullptr)) {
       if (_inMalloc) {
-        return buffer.malloc(sz); // FIXME
+        return buffer.malloc(sz);  // FIXME
       }
       init();
     }
@@ -88,7 +93,7 @@ public:
     return (*_malloc_usable_size)(ptr);
   }
 
-private:
+ private:
   void init() {
     _inMalloc = true;
     // Welcome to the hideous incantation required to use dlsym with C++...
