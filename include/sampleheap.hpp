@@ -1,18 +1,16 @@
 #ifndef SAMPLEHEAP_H
 #define SAMPLEHEAP_H
 
+#include <fcntl.h>
+#include <signal.h>
 #include <sys/errno.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
-#include <fcntl.h>
-#include <unistd.h> // for getpid()
+#include <unistd.h>  // for getpid()
 
 #include <atomic>
 #include <random>
-
-#include <signal.h>
 
 #include "common.hpp"
 #include "open_addr_hashtable.hpp"
@@ -31,24 +29,25 @@ typedef uint64_t counterType;
 
 template <uint64_t MallocSamplingRateBytes, class SuperHeap>
 class SampleHeap : public SuperHeap {
-
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
 
-public:
+ public:
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
   enum {
     CallStackSamplingRate = MallocSamplingRateBytes * 10
-  }; // 10 here just to reduce overhead
+  };  // 10 here just to reduce overhead
 
   SampleHeap()
-    : _samplefile((char*) "/tmp/scalene-malloc-signal@", (char*) "/tmp/scalene-malloc-lock@"),
-      _mallocTriggered (0),
-      _freeTriggered (0),
-      _pythonCount (0),
-      _cCount (0),
-      _pid(getpid())
-  {
+      : _samplefile((char *)"/tmp/scalene-malloc-signal@",
+                    (char *)"/tmp/scalene-malloc-lock@"),
+        _mallocTriggered(0),
+        _freeTriggered(0),
+        _pythonCount(0),
+        _cCount(0),
+        _pid(getpid()),
+        _lastMallocTrigger(nullptr),
+        _freedLastMallocTrigger(false) {
     // Ignore these signals until they are replaced by a client.
     signal(MallocSignal, SIG_IGN);
     signal(FreeSignal, SIG_IGN);
@@ -75,7 +74,7 @@ public:
     }
 #endif
     if (unlikely(sampleMalloc)) {
-      handleMalloc(sampleMalloc);
+      handleMalloc(sampleMalloc, ptr);
     }
     return ptr;
   }
@@ -87,6 +86,10 @@ public:
     auto realSize = SuperHeap::getSize(ptr);
     SuperHeap::free(ptr);
     auto sampleFree = _freeSampler.sample(realSize);
+    if (unlikely(ptr == _lastMallocTrigger)) {
+      _freedLastMallocTrigger = true;
+      //      _lastMallocTrigger = nullptr;
+    }
     if (unlikely(sampleFree)) {
       handleFree(sampleFree);
     }
@@ -108,32 +111,35 @@ public:
     }
 #endif
     if (unlikely(sampleMalloc)) {
-      handleMalloc(sampleMalloc);
+      handleMalloc(sampleMalloc, ptr);
     }
     return ptr;
   }
 
-private:
+ private:
   // Prevent copying and assignment.
   SampleHeap(const SampleHeap &) = delete;
   SampleHeap &operator=(const SampleHeap &) = delete;
 
-  void handleMalloc(size_t sampleMalloc) {
-    writeCount(MallocSignal, sampleMalloc);
-    _pythonCount = 0;
-    _cCount = 0;
-    _mallocTriggered++;
+  void handleMalloc(size_t sampleMalloc, void *triggeringMallocPtr) {
+    //   tprintf::tprintf("TRIGGERING MALLOC = @\n", triggeringMallocPtr);
+    writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr);
 #if !SCALENE_DISABLE_SIGNALS
     raise(MallocSignal);
 #endif
+    _lastMallocTrigger = triggeringMallocPtr;
+    _freedLastMallocTrigger = false;
+    _pythonCount = 0;
+    _cCount = 0;
+    _mallocTriggered++;
   }
 
   void handleFree(size_t sampleFree) {
-    writeCount(FreeSignal, sampleFree);
-    _freeTriggered++;
+    writeCount(FreeSignal, sampleFree, nullptr);
 #if !SCALENE_DISABLE_SIGNALS
     raise(FreeSignal);
 #endif
+    _freeTriggered++;
   }
 
   Sampler<MallocSamplingRateBytes> _mallocSampler;
@@ -145,14 +151,14 @@ private:
   counterType _cCount;
 
   open_addr_hashtable<65536>
-      _table; // Maps call stack entries to function names.
+      _table;  // Maps call stack entries to function names.
   SampleFile _samplefile;
   pid_t _pid;
   void recordCallStack(size_t sz) {
     // Walk the stack to see if this memory was allocated by Python
     // through its object allocation APIs.
     const auto MAX_FRAMES_TO_CHECK =
-        4; // enough to skip past the replacement_malloc
+        4;  // enough to skip past the replacement_malloc
     void *callstack[MAX_FRAMES_TO_CHECK];
     auto frames = backtrace(callstack, MAX_FRAMES_TO_CHECK);
     char *fn_name;
@@ -187,7 +193,7 @@ private:
         continue;
       }
       // tprintf::tprintf("@\n", fn_name);
-      if (strlen(fn_name) < 9) { // length of PySet_New
+      if (strlen(fn_name) < 9) {  // length of PySet_New
         continue;
       }
       // Starts with Py, assume it's Python calling.
@@ -246,7 +252,6 @@ private:
           return;
         }
       }
-      //      tprintf::tprintf("@\n", fn_name);
 #endif
     }
 
@@ -254,40 +259,31 @@ private:
     _cCount += sz;
   }
 
+  void *_lastMallocTrigger;
+  bool _freedLastMallocTrigger;
+
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
-  void writeCount(AllocSignal sig, uint64_t count) {
-    const auto MAX_BUFSIZE = 1024;
-    char buf[MAX_BUFSIZE];
+  void writeCount(AllocSignal sig, uint64_t count, void *ptr) {
+    char buf[SampleFile::MAX_BUFSIZE];
     if (_pythonCount == 0) {
-      _pythonCount = 1; // prevent 0/0
+      _pythonCount = 1;  // prevent 0/0
     }
-#if 0
-    stprintf::stprintf(_mmap + _lastpos,
-		       "@,@,@,@\n\n",
-		       ((sig == MallocSignal) ? 'M' : 'F'),
-		       _mallocTriggered + _freeTriggered,
-		       count,
-		       (float) _pythonCount / (_pythonCount + _cCount));
-#else
-    //    tprintf::tprintf("count = @\n", count);
-    snprintf(buf, MAX_BUFSIZE,
+    snprintf(
+        buf, SampleFile::MAX_BUFSIZE,
 #if defined(__APPLE__)
-             "%c,%llu,%llu,%f,%d\n\n",
+        "%c,%llu,%llu,%f,%d,%p\n\n",
 #else
-	     "%c,%lu,%lu,%f,%d\n\n",
+        "%c,%lu,%lu,%f,%d,%p\n\n",
 #endif
-	     ((sig == MallocSignal) ? 'M' : 'F'),
-	     _mallocTriggered + _freeTriggered,
-	     count,
-	     (float) _pythonCount / (_pythonCount + _cCount), getpid());
-#endif
-    // if(getpid() != _pid) {
-    //   tprintf::tprintf("@_@ ", _pid, getpid());
-    //   tprintf::tprintf(buf);
-    // }
-     _samplefile.writeToFile(buf);
+        ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
+        _mallocTriggered + _freeTriggered, count,
+        (float)_pythonCount / (_pythonCount + _cCount), getpid(),
+        _freedLastMallocTrigger ? _lastMallocTrigger : ptr);
+    // Ensure we don't report last-malloc-freed multiple times.
+    _freedLastMallocTrigger = false;
+    _samplefile.writeToFile(buf);
   }
 };
 
