@@ -8,17 +8,22 @@
 #include "common.hpp"
 #include "libdivide.h"
 
-template <unsigned long Size> class RepoHeader {
-private:
+template <unsigned long Size>
+class RepoHeader {
+ private:
   enum { MAGIC_NUMBER = 0xCAFEBABE };
 
-public:
+ public:
   enum { Alignment = 2 * sizeof(unsigned long) };
   enum RepoState { RepoSource, LocalRepoMan, Unattached };
 
   RepoHeader(unsigned long objectSize)
-      : _freed(0), _magic(MAGIC_NUMBER), _repoState(RepoState::Unattached),
-        _nextRepo(nullptr), _nextObject(nullptr), _objectSize(objectSize),
+      : _freed(0),
+        _magic(MAGIC_NUMBER),
+        _repoState(RepoState::Unattached),
+        _nextRepo(nullptr),
+        _nextObject(nullptr),
+        _objectSize(objectSize),
         _divider(objectSize),
         _numberOfObjects((Size - sizeof(*this)) / objectSize) {
     static_assert(sizeof(RepoHeader) % 16 == 0, "Misaligned.");
@@ -91,7 +96,7 @@ public:
 
   // Increment the number of freed objects (invoked by free).
   // Returns true iff this free resulted in the whole repo being free.
-  inline ATTRIBUTE_ALWAYS_INLINE bool free(void *ptr) { // incFreed() {
+  inline ATTRIBUTE_ALWAYS_INLINE bool free(void *ptr) {  // incFreed() {
     if (ptr == nullptr) {
       return false;
     }
@@ -123,9 +128,9 @@ public:
     return ((_freed == _numberOfObjects));
   }
 
-private:
+ private:
   class Object {
-  public:
+   public:
     Object() : _magic(0xDEADBEEF), _next(nullptr) {}
     Object *getNext() const {
       assert(isValid());
@@ -136,7 +141,7 @@ private:
       _next = o;
     }
 
-  private:
+   private:
     bool isValid() const { return _magic == 0xDEADBEEF; }
     Object *_next;
     unsigned long _magic;
@@ -146,14 +151,14 @@ private:
   const libdivide::divider<uint32_t> _divider;
   const uint32_t _numberOfObjects;
   uint32_t
-      _bumped; // total number of objects allocated so far via pointer-bumping.
-  uint32_t _freed; // total number of objects freed so far.
+      _bumped;  // total number of objects allocated so far via pointer-bumping.
+  uint32_t _freed;  // total number of objects freed so far.
   uint32_t _magic;
   RepoState _repoState;
   RepoHeader *_nextRepo;
   Object *_nextObject;
   class NullLock {
-  public:
+   public:
     void lock() {}
     void unlock() {}
   };
@@ -162,7 +167,7 @@ private:
   //  HL::SpinLock _lock;
   double _dummy;
 
-public:
+ public:
   inline uint32_t fast_modulo(uint32_t v) {
     auto quotient = v / _divider;
     return v - (quotient * _objectSize);
@@ -177,8 +182,9 @@ public:
 };
 
 // The base for all object sizes of repos.
-template <unsigned long Size> class Repo : public RepoHeader<Size> {
-public:
+template <unsigned long Size>
+class Repo : public RepoHeader<Size> {
+ public:
   Repo(unsigned long objectSize) : RepoHeader<Size>(objectSize) {
     static_assert(sizeof(*this) == Size, "Something has gone terribly wrong.");
   }
@@ -225,7 +231,7 @@ public:
     }
   }
 
-private:
+ private:
   char _buffer[Size - sizeof(RepoHeader<Size>)];
 
   inline ATTRIBUTE_ALWAYS_INLINE constexpr bool inBounds(void *ptr) {
