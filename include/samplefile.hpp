@@ -14,12 +14,13 @@
 
 // Handles creation, deletion, and concurrency control
 // signal files in memory
-static constexpr int MAX_BUFSIZE = 1024;
 
 class SampleFile {
+public:
+  static constexpr int MAX_BUFSIZE = 256; // actual (and maximum) length of a line passed to writeToFile
+private:
   static constexpr int LOCK_FD_SIZE = 4096;
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
-  static constexpr int MAX_BUFSIZE = 1024;
 
   static char* initializer;
 public:
@@ -82,11 +83,12 @@ public:
     //    pthread_self(), (void*) this);
   }
   void writeToFile(char* line) {
+    assert(strlen(line) < MAX_BUFSIZE);
     // tprintf::tprintf("Locking C @\n", getpid());
     _spin_lock->lock();
     // tprintf::tprintf("Locked C\n");
     char* ptr = _mmap;
-    strncpy(_mmap + *_lastpos, (const char *) line, MAX_BUFSIZE); // FIXME
+    strncpy(_mmap + *_lastpos, (const char *) line, MAX_BUFSIZE);
     *_lastpos += strlen(_mmap + *_lastpos) - 1;
     // tprintf::tprintf("Unlocking C @\n", getpid());
     _spin_lock->unlock();
