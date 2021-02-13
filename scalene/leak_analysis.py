@@ -23,14 +23,14 @@ import operator as op
 from functools import reduce
 
 
-def ncr(n, r):
+def ncr(n: int, r: int) -> int:
     r = min(r, n - r)
     numer = reduce(op.mul, range(n, n - r, -1), 1)
     denom = reduce(op.mul, range(1, r + 1), 1)
     return numer // denom  # or / in Python 2
 
 
-def choose(n, k):
+def choose(n: int, k: int) -> int:
     """
     A fast way to calculate binomial coefficients by Andrew Dalke (contrib).
     """
