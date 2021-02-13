@@ -4,16 +4,17 @@
 #include "common.hpp"
 #include "repo.hpp"
 //#include "reposource.hpp"
-#include "heaplayers.h"
-
 #include <assert.h>
-#include <iostream>
-#include <new>
 #include <stdlib.h>
 
-template <int Size, template <int> class Source> class RepoMan {
+#include <iostream>
+#include <new>
 
-public:
+#include "heaplayers.h"
+
+template <int Size, template <int> class Source>
+class RepoMan {
+ public:
   enum { Alignment = Repo<Size>::Alignment };
 
   RepoMan() {
@@ -132,8 +133,8 @@ public:
     return 0;
   }
 
-  static ATTRIBUTE_ALWAYS_INLINE constexpr inline size_t
-  roundUp(size_t sz, size_t multiple) {
+  static ATTRIBUTE_ALWAYS_INLINE constexpr inline size_t roundUp(
+      size_t sz, size_t multiple) {
     assert((multiple & (multiple - 1)) == 0);
     if (unlikely(sz < multiple)) {
       sz = multiple;
@@ -145,8 +146,8 @@ public:
     return sz / MULTIPLE - 1;
   }
 
-  static ATTRIBUTE_ALWAYS_INLINE constexpr inline RepoHeader<Size> *
-  getHeader(void *ptr) {
+  static ATTRIBUTE_ALWAYS_INLINE constexpr inline RepoHeader<Size> *getHeader(
+      void *ptr) {
     auto header = (RepoHeader<Size> *)((uintptr_t)ptr & ~(Size - 1));
     return header;
   }
@@ -164,7 +165,7 @@ public:
 
   enum { MULTIPLE = 16 };
 
-private:
+ private:
   constexpr auto align(void *ptr) {
     const auto alignedPtr = (void *)(((uintptr_t)ptr + Size - 1) & ~(Size - 1));
     return alignedPtr;
@@ -182,12 +183,10 @@ private:
     void *alignedPtr = nullptr;
 
     if (sz <= Size) {
-
       // It's small enough: just use a repo.
       alignedPtr = _repoSource.get(origSize);
 
     } else {
-
       // Map until we find a suitably aligned chunk.
       // The goal here is to align the start of the next mmap request so it is
       // already suitably aligned.
@@ -226,7 +225,7 @@ private:
 #endif
     }
 
-    assert(align(alignedPtr) == alignedPtr); // Verify alignment.
+    assert(align(alignedPtr) == alignedPtr);  // Verify alignment.
     auto bigObjBase = new (alignedPtr) RepoHeader<Size>(origSize);
     auto ptr = bigObjBase + 1;
     return ptr;
