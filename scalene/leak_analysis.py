@@ -6,32 +6,84 @@ from typing import Any, List, Tuple
 rng = default_rng()
 
 
-def log(x: float) -> float:
-    """Redefine log so that if x is 0, log x is 0."""
-    if x == 0:
+def zlog(x: float) -> float:
+    """Redefine log so that if x is <= 0, log x is 0."""
+    if x <= 0:
         return 0
     else:
         return math.log(x)
 
 
 def xform(i: float, n: int) -> float:
-    return i / n * log(i / n)
+    assert n > 0
+    return i / n * zlog(i / n)
 
 
-def binomial(total: int, observed: int, success: float) -> float:
+import operator as op
+from functools import reduce
+
+
+def ncr(n, r):
+    r = min(r, n - r)
+    numer = reduce(op.mul, range(n, n - r, -1), 1)
+    denom = reduce(op.mul, range(1, r + 1), 1)
+    return numer // denom  # or / in Python 2
+
+
+def choose(n, k):
+    """
+    A fast way to calculate binomial coefficients by Andrew Dalke (contrib).
+    """
+    if 0 <= k <= n:
+        ntok = 1
+        ktok = 1
+        for t in range(1, min(k, n - k) + 1):
+            ntok *= n
+            ktok *= t
+            n -= 1
+        return ntok // ktok
+    else:
+        return 0
+
+
+def approx_binomial(total: int, observed: int, success: float) -> float:
+    n = total
+    p = success
+    q = 1 - success
+    k = observed
     return (
-        math.factorial(total)
-        / (math.factorial(total - observed) * math.factorial(observed))
-        * math.pow(success, observed)
-        * math.pow(1.0 - success, total - observed)
+        1
+        / math.sqrt(2 * math.pi * n * p * q)
+        * math.exp(-((k - n * p) ** 2) / (2 * n * p * q))
     )
 
 
-def one_sided_binomial_test_ge(total: int, observed: int, success: float) -> float:
+def exact_binomial(total: int, observed: int, success: float) -> float:
+    c = choose(total, observed)
+    return (
+        c
+        * (success ** observed)  # pow(success, observed)
+        * (1.0 - success)
+        ** (total - observed)  # pow(1.0 - success, total - observed)
+    )
+
+
+def binomial(total: int, observed: int, success: float) -> float:
+    if total * success > 100 and total * (1.0 - success) > 100:
+        return approx_binomial(total, observed, success)
+    else:
+        return exact_binomial(total, observed, success)
+
+
+def one_sided_binomial_test_ge(
+    total: int, observed: int, success: float
+) -> float:
     return sum(binomial(total, o, success) for o in range(observed, total + 1))
 
 
-def one_sided_binomial_test_lt(total: int, observed: int, success: float) -> float:
+def one_sided_binomial_test_lt(
+    total: int, observed: int, success: float
+) -> float:
     return 1.0 - one_sided_binomial_test_ge(total, observed, success)
 
 
@@ -94,7 +146,9 @@ def outliers(
         return []
     removed = 0
     results = []
-    pv = multinomial_pvalue(vec, trials)
+    # pv = multinomial_pvalue(vec, trials)
+    # Hack: for now, set pv to alpha because computing exact multinomial p-values is too expensive
+    pv = alpha
     # We use the Benjamin-Yekutieli procedure to control false-discovery rate.
     # See https://en.wikipedia.org/wiki/False_discovery_rate#Benjamini%E2%80%93Yekutieli_procedure
     c_m = harmonic_number(m)
