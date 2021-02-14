@@ -1280,11 +1280,11 @@ class Scalene:
 
         # Finally, print results.
         n_cpu_percent_c_str: str = (
-            "" if n_cpu_percent_c < 0.5 else "%6.0f%%" % n_cpu_percent_c
+            "" if n_cpu_percent_c < 0.01 else "%5.0f%%" % n_cpu_percent_c
         )
         n_cpu_percent_python_str: str = (
             ""
-            if n_cpu_percent_python < 0.5
+            if n_cpu_percent_python < 0.01
             else "%5.0f%%" % n_cpu_percent_python
         )
         n_growth_mb_str: str = (
@@ -1294,12 +1294,12 @@ class Scalene:
         )
         n_usage_fraction_str: str = (
             ""
-            if n_usage_fraction < 0.5
+            if n_usage_fraction < 0.01
             else "%3.0f%%" % (100 * n_usage_fraction)
         )
         n_python_fraction_str: str = (
             ""
-            if n_python_fraction < 0.5
+            if n_python_fraction < 0.01
             else "%5.0f%%" % (100 * n_python_fraction)
         )
         n_copy_b = Scalene.__memcpy_samples[fname][line_no]
@@ -1313,7 +1313,7 @@ class Scalene:
         # and the standard error of the mean is low (meaning it's an accurate estimate).
         sys_str: str = (
             ""
-            if n_cpu_percent < 0.5
+            if n_cpu_percent < 0.01
             or Scalene.__cpu_utilization[fname][line_no].size() <= 1
             or Scalene.__cpu_utilization[fname][line_no].sem() > 0.025
             or Scalene.__cpu_utilization[fname][line_no].mean() > 0.99
