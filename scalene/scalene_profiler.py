@@ -1688,7 +1688,7 @@ class Scalene:
             growth_rate_threshold = 0.01
             alpha = 0.001
             Z = 4.4172  # (for 1-alpha = 99.999% confidence)
-            max_error = 0.1  # maximum two-sided error
+            # max_error = 0.2  # maximum two-sided error
             leaks = []
             if growth_rate / 100 > growth_rate_threshold:
                 vec = list(Scalene.__leak_score[fname].values())
@@ -1696,14 +1696,17 @@ class Scalene:
                 for index, item in enumerate(
                     Scalene.__leak_score[fname].values()
                 ):
-                    # Add 1 to each of these to smooth them (in case frees == 0)
-                    allocs = item[0] + 1
+                    # Smoothing via "the rule of succession"
+                    # Add to each of these to smooth them (in case frees == 0).
+                    # See https://en.wikipedia.org/wiki/Rule_of_succession
                     frees = item[1] + 1
+                    allocs = item[0] + 1 # was 2
                     p = 1 - frees / allocs
                     # Compute Wald confidence interval
                     error = Z * math.sqrt(p * (1 - p) / (allocs + frees))
-                    if 2 * error > max_error:
-                        continue
+                    print("checking ", (keys[index], p - error, p + error))
+                    #if 2 * error > max_error:
+                    #    continue
                     if allocs + frees == 1:
                         continue
                     if p - error <= 0:
@@ -1711,33 +1714,27 @@ class Scalene:
                         continue
                     if p - error < growth_rate_threshold:
                         continue
-                    if p + error < 1:
+                    if p + error < 0.5:
                         continue
-                    leaks.append((keys[index], p - error))
+                    leaks.append((keys[index], max(0, p - error), min(1, p + error)))
                 # outlier_vec = outliers(vec, alpha=alpha)
                 # Sort outliers by p-value in ascending order
                 # outlier_vec.sort(key=itemgetter(1))
                 if len(leaks) > 0:
                     if True:  # disable reporting for now
-                        if len(leaks) == 1:
+                        # Report in descending order by least likelihood
+                        for leak in sorted(leaks, key=itemgetter(1), reverse=True):
                             output_str = (
                                 "Possible memory leak identified at line "
-                                + str(leaks[0][0])
-                                + " (estimated likelihood >= "
-                                + ("%3.2f" % (leaks[0][1] * 100))
+                                + str(leak[0])
+                                + " (estimated likelihood: "
+                                + ("%3.0f" % (leak[1] * 100))
+                                + "%"
+                                + " - "
+                                + ("%3.0f" % (leak[2] * 100))
                                 + "%)"
                             )
-                        else:
-                            output_str = (
-                                "Possible memory leaks identified at lines "
-                                + ", ".join(
-                                    map(lambda x: str(x[0]), sorted(leaks))
-                                )
-                                + " (estimated likelihood = "
-                                + ("%3.2f" % (leaks[0][1] * 100))
-                                + "%)"
-                            )
-                        console.print(output_str)
+                            console.print(output_str)
 
         if Scalene.__html:
             # Write HTML file.
