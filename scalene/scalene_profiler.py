@@ -928,7 +928,7 @@ class Scalene:
                     break
                 count_str = buf.split(b"\n")[0].decode("ascii")
                 # print(count_str)
-                if count_str == "":
+                if count_str.strip() == "":
                     # print("breaking", mm.readline())
                     break
                 (

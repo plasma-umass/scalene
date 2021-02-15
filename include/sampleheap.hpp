@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <random>
+#include <mutex>
 
 #include <signal.h>
 
@@ -41,6 +42,7 @@ public:
     CallStackSamplingRate = MallocSamplingRateBytes * 10
   }; // 10 here just to reduce overhead
 
+  static HL::PosixLock signal_init_lock; 
   SampleHeap()
     : _samplefile((char*) "/tmp/scalene-malloc-signal@", (char*) "/tmp/scalene-malloc-lock@"),
       _mallocTriggered (0),
@@ -49,9 +51,19 @@ public:
       _cCount (0),
       _pid(getpid())
   {
+    // tprintf::tprintf("STARTING");
     // Ignore these signals until they are replaced by a client.
-    signal(MallocSignal, SIG_IGN);
-    signal(FreeSignal, SIG_IGN);
+    signal_init_lock.lock();
+    struct sigaction malloc_sigaction;
+    sigaction(MallocSignal, NULL, &malloc_sigaction);
+    if (malloc_sigaction.sa_handler == SIG_DFL) {
+      // tprintf::tprintf("Signal ignored\n");
+      signal(MallocSignal, SIG_IGN);
+      signal(FreeSignal, SIG_IGN);
+    }   
+    // tprintf::tprintf("@\n", malloc_sigaction.sa_handler);
+    signal_init_lock.unlock();
+
   }
 
   ~SampleHeap() {
@@ -291,4 +303,6 @@ private:
   }
 };
 
+template <uint64_t MallocSamplingRateBytes, class SuperHeap>
+HL::PosixLock SampleHeap<MallocSamplingRateBytes,SuperHeap>::signal_init_lock;
 #endif
