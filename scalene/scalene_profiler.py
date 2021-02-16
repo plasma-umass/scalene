@@ -924,9 +924,10 @@ class Scalene:
                     Scalene.__malloc_signal_mmap,
                     buf,
                     Scalene.__malloc_lastpos,
+                    True,
                 ):
                     break
-                count_str = buf.split(b"\n")[0].decode("ascii")
+                count_str = buf.rstrip(b'\x00').split(b"\n")[0].decode("ascii")
                 # print(count_str)
                 if count_str.strip() == "":
                     # print("breaking", mm.readline())
@@ -1043,7 +1044,6 @@ class Scalene:
         Receives a signal sent by a child process (0 return code) after a fork and mutates
         current profiler into a child.
         """
-        # print("FORK SIGNAL", signal.getitimer(Scalene.__cpu_timer_signal))
         Scalene.__is_child = True
         Scalene.clear_metrics()
         # Note-- __parent_pid of the topmost process is its own pid
@@ -1073,7 +1073,6 @@ class Scalene:
         # Process the input array.
         try:
             mfile = Scalene.__memcpy_signal_mmap
-            mlock = Scalene.__memcpy_lock_mmap
             if mfile:
                 mfile.seek(Scalene.__memcpy_signal_position)
                 buf = bytearray(128)
@@ -1083,6 +1082,7 @@ class Scalene:
                         Scalene.__memcpy_signal_mmap,
                         buf,
                         Scalene.__memcpy_lastpos,
+                        False,
                     ):
                         break
                     count_str = buf.split(b"\n")[0].decode("ascii")

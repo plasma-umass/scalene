@@ -44,7 +44,7 @@ public:
 
   static HL::PosixLock signal_init_lock; 
   SampleHeap()
-    : _samplefile((char*) "/tmp/scalene-malloc-signal@", (char*) "/tmp/scalene-malloc-lock@"),
+    : _samplefile((char*) "/tmp/scalene-malloc-signal@", (char*) "/tmp/scalene-malloc-lock@", (char*) "/tmp/scalene-malloc-init@"),
       _mallocTriggered (0),
       _freeTriggered (0),
       _pythonCount (0),
@@ -57,7 +57,6 @@ public:
     struct sigaction malloc_sigaction;
     sigaction(MallocSignal, NULL, &malloc_sigaction);
     if (malloc_sigaction.sa_handler == SIG_DFL) {
-      // tprintf::tprintf("Signal ignored\n");
       signal(MallocSignal, SIG_IGN);
       signal(FreeSignal, SIG_IGN);
     }   
@@ -299,7 +298,7 @@ private:
     //   tprintf::tprintf("@_@ ", _pid, getpid());
     //   tprintf::tprintf(buf);
     // }
-     _samplefile.writeToFile(buf);
+     _samplefile.writeToFile(buf, 1);
   }
 };
 

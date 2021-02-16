@@ -180,7 +180,8 @@ template <uint64_t MemcpySamplingRateBytes> class MemcpySampler {
 public:
   MemcpySampler()
       : _samplefile((char *)"/tmp/scalene-memcpy-signal@",
-                    (char *)"/tmp/scalene-memcpy-lock@"),
+                    (char *)"/tmp/scalene-memcpy-lock@",
+                    (char*) "/tmp/scalene-memcpy-init@"),
         _interval(MemcpySamplingRateBytes), _memcpyOps(0), _memcpyTriggered(0) {
     signal(MemcpySignal, SIG_IGN);
     auto pid = getpid();
@@ -283,7 +284,7 @@ private:
   void writeCount() {
     char buf[255];
     stprintf::stprintf(buf, "@,@,@\n\n", _memcpyTriggered, _memcpyOps, getpid());
-    _samplefile.writeToFile(buf);
+    _samplefile.writeToFile(buf, 0);
   }
 };
 
