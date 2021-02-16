@@ -928,8 +928,6 @@ class Scalene:
         buf = bytearray(256)  # Must match SampleFile::MAX_BUFSIZE
         try:
             buf = bytearray(128)
-            # mm = Scalene.__malloc_signal_mmap
-            # mm.seek(Scalene.__malloc_signal_position)
 
             while True:
                 if not get_line_atomic.get_line_atomic(
@@ -943,6 +941,7 @@ class Scalene:
                 # print(count_str)
                 if count_str.strip() == "":
                     # print("breaking", mm.readline())
+
                     break
                 (
                     action,
