@@ -15,12 +15,14 @@
 
 // Handles creation, deletion, and concurrency control
 // signal files in memory
-static constexpr int MAX_BUFSIZE = 1024;
 
 class SampleFile {
+ public:
+  static constexpr int MAX_BUFSIZE =
+      256;  // actual (and maximum) length of a line passed to writeToFile
+ private:
   static constexpr int LOCK_FD_SIZE = 4096;
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
-  static constexpr int MAX_BUFSIZE = 1024;
 
   static char* initializer;
 public:
@@ -41,8 +43,10 @@ public:
     }
     ftruncate(signal_fd, MAX_FILE_SIZE);
     ftruncate(lock_fd, 4096);
-    _mmap = reinterpret_cast<char*>(mmap(0, MAX_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, signal_fd, 0));
-    _lastpos = reinterpret_cast<uint64_t*>(mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, lock_fd, 0));
+    _mmap = reinterpret_cast<char *>(mmap(
+        0, MAX_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, signal_fd, 0));
+    _lastpos = reinterpret_cast<uint64_t *>(
+        mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, lock_fd, 0));
     close(signal_fd);
     close(lock_fd);
     if (_mmap == MAP_FAILED) {
@@ -67,7 +71,6 @@ public:
       write(init_fd, "q&", 3);
       _spin_lock = new(((char*) _lastpos )+ sizeof(uint64_t)) HL::SpinLock();
       *_lastpos = 0;
-
     }
 
     flock(init_fd, LOCK_UN);
@@ -84,13 +87,13 @@ public:
   void writeToFile(char* line, int is_malloc) {
     _spin_lock->lock();
     char* ptr = _mmap;
-    strncpy(_mmap + *_lastpos, (const char *) line, MAX_BUFSIZE); // FIXME
+    strncpy(_mmap + *_lastpos, (const char *) line, MAX_BUFSIZE); 
     *_lastpos += strlen(_mmap + *_lastpos) - 1;
     _spin_lock->unlock();
     // tprintf::tprintf("Unlocked C @\n", getpid());
   }
 
-private:
+ private:
   // Prevent copying and assignment.
   SampleFile(const SampleFile &) = delete;
   SampleFile &operator=(const SampleFile &) = delete;
@@ -99,11 +102,11 @@ private:
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
-  char _signalfile[256]; // Name of log file that signals are written to
-  char _lockfile[256]; // Name of file that _lastpos is persisted in
-  char* _mmap; // address of first byte of log
-  uint64_t* _lastpos; // address of first byte of _lastpos
-  HL::SpinLock* _spin_lock;
+  char _signalfile[256];  // Name of log file that signals are written to
+  char _lockfile[256];    // Name of file that _lastpos is persisted in
+  char *_mmap;            // address of first byte of log
+  uint64_t *_lastpos;     // address of first byte of _lastpos
+  HL::SpinLock *_spin_lock;
   // Note: initialized in libscalene.cpp
   static HL::PosixLock lock;
   // static char* initializer;

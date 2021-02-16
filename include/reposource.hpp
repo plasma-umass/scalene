@@ -4,9 +4,10 @@
 #include "common.hpp"
 #include "repo.hpp"
 
-template <int Size> class RepoSource {
-private:
-  enum { MAX_HEAP_SIZE = 3UL * 1024 * 1024 * 1024 }; // 3GB
+template <int Size>
+class RepoSource {
+ private:
+  enum { MAX_HEAP_SIZE = 3UL * 1024 * 1024 * 1024 };  // 3GB
 
   const char *_bufferStart;
   char *_buf;
@@ -17,7 +18,7 @@ private:
     return alignedPtr;
   }
 
-public:
+ public:
   RepoSource()
       : _bufferStart(reinterpret_cast<char *>(MmapWrapper::map(MAX_HEAP_SIZE))),
         // Below, align the buffer and subtract the part removed by aligning it.
@@ -56,7 +57,7 @@ public:
           _sz -= Size;
           repo = new (buf) Repo<Size>(sz);
           assert(repo != nullptr);
-          repo->setNext(nullptr); // FIXME? presumably redundant.
+          repo->setNext(nullptr);  // FIXME? presumably redundant.
           assert(repo->getState() == RepoHeader<Size>::RepoState::Unattached);
           return repo;
         } else {
@@ -122,7 +123,7 @@ public:
     }
   }
 
-private:
+ private:
   RepoSource(RepoSource &);
   RepoSource &operator=(const RepoSource &);
 

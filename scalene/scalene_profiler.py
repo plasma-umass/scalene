@@ -22,6 +22,7 @@ import dis
 import functools
 import get_line_atomic
 import inspect
+import math
 import mmap
 import multiprocessing
 import os
@@ -70,11 +71,16 @@ from typing import (
 from multiprocessing.process import BaseProcess
 
 from scalene.adaptive import Adaptive
-from scalene.leak_analysis import outliers
+from scalene.leak_analysis import (
+    outliers,
+    multinomial_pvalue,
+    one_sided_binomial_test_lt,
+)
 from scalene.runningstats import RunningStats
 from scalene.syntaxline import SyntaxLine
 from scalene import sparkline
 
+Address = NewType("Address", str)
 Filename = NewType("Filename", str)
 LineNumber = NewType("LineNumber", int)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
@@ -189,8 +195,13 @@ class Scalene:
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
     ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
-    __last_malloc_triggered: Tuple[Filename, LineNumber] = ("", 0)
-    
+    # the last malloc to trigger a sample (used for leak detection)
+    __last_malloc_triggered: Tuple[Filename, LineNumber, Address] = (
+        Filename(""),
+        LineNumber(0),
+        Address("0x0"),
+    )
+
     # mallocs attributable to Python, for each location in the program
     __memory_python_samples: Dict[
         Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
@@ -212,9 +223,9 @@ class Scalene:
     )
 
     # leak score tracking
-    __leak_score: Dict[Filename, Dict[LineNumber, int]] = defaultdict(
-        lambda: defaultdict(int)
-    )
+    __leak_score: Dict[
+        Filename, Dict[LineNumber, Tuple[int, int]]
+    ] = defaultdict(lambda: defaultdict(lambda: ((0, 0))))
 
     __allocation_velocity: Tuple[float, float] = (0.0, 0.0)
 
@@ -869,7 +880,7 @@ class Scalene:
 
             #     except:
             #         pass
-            Scalene.allocation_signal_handler(signum, this_frame)
+            Scalene.allocation_signal_handler(signum, this_frame, "malloc")
             # try:
             #     print("=======================\n\n\n\n")
             # except:
@@ -892,7 +903,7 @@ class Scalene:
 
             #     except:
             #         pass
-            Scalene.allocation_signal_handler(signum, this_frame)
+            Scalene.allocation_signal_handler(signum, this_frame, "free")
             # try:
             #     print("=======================\n\n\n\n")
             # except:
@@ -905,6 +916,7 @@ class Scalene:
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
         this_frame: FrameType,
+        event: str,
     ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
         new_frames = Scalene.compute_frames_to_record(this_frame)
@@ -912,7 +924,8 @@ class Scalene:
             return
         curr_pid = os.getpid()
         # Process the input array from where we left off reading last time.
-        arr: List[Tuple[int, str, float, float]] = []
+        arr: List[Tuple[int, str, float, float, str]] = []
+        buf = bytearray(256)  # Must match SampleFile::MAX_BUFSIZE
         try:
             buf = bytearray(128)
             # mm = Scalene.__malloc_signal_mmap
@@ -924,7 +937,6 @@ class Scalene:
                     Scalene.__malloc_signal_mmap,
                     buf,
                     Scalene.__malloc_lastpos,
-                    True,
                 ):
                     break
                 count_str = buf.rstrip(b'\x00').split(b"\n")[0].decode("ascii")
@@ -938,21 +950,18 @@ class Scalene:
                     count_str,
                     python_fraction_str,
                     pid,
+                    pointer,
                 ) = count_str.split(",")
-                # print("CURR", int(curr_pid))
-                # print("PID", int(pid))
-                # print("CMP", int(curr_pid) == int(pid))
                 if int(curr_pid) == int(pid):
-                    # print(count_str)
                     arr.append(
                         (
                             int(alloc_time_str),
                             action,
                             float(count_str),
                             float(python_fraction_str),
+                            pointer,
                         )
                     )
-            # Scalene.__malloc_signal_position = mm.tell() - 1
 
         except FileNotFoundError:
             pass
@@ -962,8 +971,9 @@ class Scalene:
         # and update the global __memory_footprint_samples.
         before = Scalene.__current_footprint
         prevmax = Scalene.__max_footprint
+        freed_last_trigger = 0
         for item in arr:
-            _alloc_time, action, count, python_fraction = item
+            _alloc_time, action, count, python_fraction, pointer = item
             count /= 1024 * 1024
             is_malloc = action == "M"
             if is_malloc:
@@ -972,8 +982,36 @@ class Scalene:
                     Scalene.__max_footprint = Scalene.__current_footprint
             else:
                 Scalene.__current_footprint -= count
+                if action == "f":
+                    # Check if pointer actually matches
+                    # print("last malloc triggered ptr = ", Scalene.__last_malloc_triggered[2])
+                    # print("actual pointer = ", pointer)
+                    if Scalene.__last_malloc_triggered[2] == pointer:
+                        freed_last_trigger += 1
             Scalene.__memory_footprint_samples.add(Scalene.__current_footprint)
         after = Scalene.__current_footprint
+
+        if freed_last_trigger:
+            if freed_last_trigger > 1:
+                # Ignore the case where we have multiple last triggers in the sample file,
+                # since this can lead to false positives.
+                pass
+            else:
+                # We freed the last allocation trigger. Adjust scores.
+                this_fn = Scalene.__last_malloc_triggered[0]
+                this_ln = Scalene.__last_malloc_triggered[1]
+                this_ptr = Scalene.__last_malloc_triggered[2]
+                if this_ln != 0:
+                    Scalene.__leak_score[this_fn][this_ln] = (
+                        LineNumber(Scalene.__leak_score[this_fn][this_ln][0]),
+                        Scalene.__leak_score[this_fn][this_ln][1] + 1,
+                    )
+            Scalene.__last_malloc_triggered = (
+                Filename(""),
+                LineNumber(0),
+                Address("0x0"),
+            )
+
         # Now update the memory footprint for every running frame.
         # This is a pain, since we don't know to whom to attribute memory,
         # so we may overcount.
@@ -987,21 +1025,31 @@ class Scalene:
             curr = before
             python_frac = 0.0
             allocs = 0.0
+            last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
+            malloc_pointer = "0x0"
             # Go through the array again and add each updated current footprint.
             for item in arr:
-                _alloc_time, action, count, python_fraction = item
+                _alloc_time, action, count, python_fraction, pointer = item
                 count /= 1024 * 1024
                 is_malloc = action == "M"
                 if is_malloc:
                     # This will always get the last triggering malloc
-                    Scalene.__last_malloc_triggered = (fname, lineno)
+                    Scalene.__last_malloc_triggered = last_malloc
                     allocs += count
                     curr += count
                     python_frac += python_fraction * count
+                    malloc_pointer = pointer
                 else:
                     curr -= count
                 Scalene.__per_line_footprint_samples[fname][lineno].add(curr)
             assert curr == after
+            # If we allocated anything and this was a malloc event, then mark this as the last triggering malloc
+            if event == "malloc" and allocs > 0:
+                last_malloc = (
+                    Filename(fname),
+                    LineNumber(lineno),
+                    Address(malloc_pointer),
+                )
             # If there was a net increase in memory, treat it as if it
             # was a malloc; otherwise, treat it as if it was a
             # free. This is for later reporting of net memory gain /
@@ -1031,7 +1079,11 @@ class Scalene:
                 prevmax < Scalene.__max_footprint
                 and Scalene.__max_footprint > 100
             ):
-                Scalene.__leak_score[fname][lineno] += 1
+                Scalene.__last_malloc_triggered = last_malloc
+                Scalene.__leak_score[fname][lineno] = (
+                    Scalene.__leak_score[fname][lineno][0] + 1,
+                    Scalene.__leak_score[fname][lineno][1],
+                )
 
     @staticmethod
     def fork_signal_handler(
@@ -1082,7 +1134,6 @@ class Scalene:
                         Scalene.__memcpy_signal_mmap,
                         buf,
                         Scalene.__memcpy_lastpos,
-                        False,
                     ):
                         break
                     count_str = buf.split(b"\n")[0].decode("ascii")
@@ -1236,11 +1287,11 @@ class Scalene:
 
         # Finally, print results.
         n_cpu_percent_c_str: str = (
-            "" if n_cpu_percent_c < 0.5 else "%6.0f%%" % n_cpu_percent_c
+            "" if n_cpu_percent_c < 0.01 else "%5.0f%%" % n_cpu_percent_c
         )
         n_cpu_percent_python_str: str = (
             ""
-            if n_cpu_percent_python < 0.5
+            if n_cpu_percent_python < 0.01
             else "%5.0f%%" % n_cpu_percent_python
         )
         n_growth_mb_str: str = (
@@ -1250,12 +1301,12 @@ class Scalene:
         )
         n_usage_fraction_str: str = (
             ""
-            if n_usage_fraction < 0.5
+            if n_usage_fraction < 0.01
             else "%3.0f%%" % (100 * n_usage_fraction)
         )
         n_python_fraction_str: str = (
             ""
-            if n_python_fraction < 0.5
+            if n_python_fraction < 0.01
             else "%5.0f%%" % (100 * n_python_fraction)
         )
         n_copy_b = Scalene.__memcpy_samples[fname][line_no]
@@ -1269,7 +1320,7 @@ class Scalene:
         # and the standard error of the mean is low (meaning it's an accurate estimate).
         sys_str: str = (
             ""
-            if n_cpu_percent < 0.5
+            if n_cpu_percent < 0.01
             or Scalene.__cpu_utilization[fname][line_no].size() <= 1
             or Scalene.__cpu_utilization[fname][line_no].sem() > 0.025
             or Scalene.__cpu_utilization[fname][line_no].mean() > 0.99
@@ -1639,38 +1690,59 @@ class Scalene:
 
             console.print(tbl)
 
-            # Only report potential leaks if the allocation velocity (growth rate) is above some threshold.
-            # FIXME fixed for now
+            # Only report potential leaks if the allocation velocity (growth rate) is above some threshold
+            # FIXME: fixed at 1% for now.
+            # We only report potential leaks where the confidence interval is quite tight and includes 1.
             growth_rate_threshold = 0.01
-            alpha = 0.01
+            alpha = 0.001
+            Z = 4.4172  # (for 1-alpha = 99.999% confidence)
+            # max_error = 0.2  # maximum two-sided error
+            leaks = []
             if growth_rate / 100 > growth_rate_threshold:
                 vec = list(Scalene.__leak_score[fname].values())
                 keys = list(Scalene.__leak_score[fname].keys())
-                outlier_vec = outliers(vec, alpha=alpha)
+                for index, item in enumerate(
+                    Scalene.__leak_score[fname].values()
+                ):
+                    # Smoothing via "the rule of succession"
+                    # Add to each of these to smooth them (in case frees == 0).
+                    # See https://en.wikipedia.org/wiki/Rule_of_succession
+                    frees = item[1] + 1
+                    allocs = item[0] + 1 # was 2
+                    p = 1 - frees / allocs
+                    # Compute Wald confidence interval
+                    error = Z * math.sqrt(p * (1 - p) / (allocs + frees))
+                    print("checking ", (keys[index], p - error, p + error))
+                    #if 2 * error > max_error:
+                    #    continue
+                    if allocs + frees == 1:
+                        continue
+                    if p - error <= 0:
+                        # Confidence interval includes 0 --> definitely ignore
+                        continue
+                    if p - error < growth_rate_threshold:
+                        continue
+                    if p + error < 0.5:
+                        continue
+                    leaks.append((keys[index], max(0, p - error), min(1, p + error)))
+                # outlier_vec = outliers(vec, alpha=alpha)
                 # Sort outliers by p-value in ascending order
-                outlier_vec.sort(key=itemgetter(1))
-                if len(outlier_vec) > 0:
-                    leak_lines = [keys[i] for (i, p_value) in outlier_vec]
-                    if False:  # disable reporting for now
-                        console.print(Scalene.__leak_score[fname])
-                        console.print(outlier_vec)
-                        console.print(leak_lines)
-                        if len(leak_lines) == 1:
-                            console.print(
+                # outlier_vec.sort(key=itemgetter(1))
+                if len(leaks) > 0:
+                    if True:  # disable reporting for now
+                        # Report in descending order by least likelihood
+                        for leak in sorted(leaks, key=itemgetter(1), reverse=True):
+                            output_str = (
                                 "Possible memory leak identified at line "
-                                + str(leak_lines[0])
-                                + " (alpha="
-                                + str(alpha)
-                                + ")"
+                                + str(leak[0])
+                                + " (estimated likelihood: "
+                                + ("%3.0f" % (leak[1] * 100))
+                                + "%"
+                                + " - "
+                                + ("%3.0f" % (leak[2] * 100))
+                                + "%)"
                             )
-                        else:
-                            console.print(
-                                "Possible memory leaks identified at lines "
-                                + ", ".join(map(str, sorted(leak_lines)))
-                                + " (alpha="
-                                + str(alpha)
-                                + ")"
-                            )
+                            console.print(output_str)
 
         if Scalene.__html:
             # Write HTML file.
@@ -1860,9 +1932,7 @@ class Scalene:
 
         # Load shared objects (that is, interpose on malloc, memcpy and friends)
         # unless the user specifies "--cpu-only" at the command-line.
-        if (
-            not args.cpu_only
-        ):
+        if not args.cpu_only:
             # Load the shared object on Linux.
             if sys.platform == "linux":
                 if ("LD_PRELOAD" not in os.environ) and (
@@ -1995,7 +2065,8 @@ class Scalene:
                             # Intercept sys.exit and propagate the error code.
                             exit_status = se.code
                         except BaseException:
-                            print(traceback.format_exc())  # for debugging only
+                            pass
+                            # print(traceback.format_exc())  # for debugging only
 
                         profiler.stop()
                         # If we've collected any samples, dump them.

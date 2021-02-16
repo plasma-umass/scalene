@@ -4,12 +4,11 @@
 
 #include <fcntl.h>
 #include <signal.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h> // for getpid()
-
 #include <stdint.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>  // for getpid()
 
 #include "sampler.hpp"
 
@@ -34,8 +33,7 @@ void *memcpy_musl(void *dest, const void *src, size_t n) {
   typedef uint32_t __attribute__((__may_alias__)) u32;
   uint32_t w, x;
 
-  for (; (uintptr_t)s % 4 && n; n--)
-    *d++ = *s++;
+  for (; (uintptr_t)s % 4 && n; n--) *d++ = *s++;
 
   if ((uintptr_t)d % 4 == 0) {
     for (; n >= 16; s += 16, d += 16, n -= 16) {
@@ -65,56 +63,55 @@ void *memcpy_musl(void *dest, const void *src, size_t n) {
     return dest;
   }
 
-  if (n >= 32)
-    switch ((uintptr_t)d % 4) {
-    case 1:
-      w = *(u32 *)s;
-      *d++ = *s++;
-      *d++ = *s++;
-      *d++ = *s++;
-      n -= 3;
-      for (; n >= 17; s += 16, d += 16, n -= 16) {
-        x = *(u32 *)(s + 1);
-        *(u32 *)(d + 0) = (w LS 24) | (x RS 8);
-        w = *(u32 *)(s + 5);
-        *(u32 *)(d + 4) = (x LS 24) | (w RS 8);
-        x = *(u32 *)(s + 9);
-        *(u32 *)(d + 8) = (w LS 24) | (x RS 8);
-        w = *(u32 *)(s + 13);
-        *(u32 *)(d + 12) = (x LS 24) | (w RS 8);
-      }
-      break;
-    case 2:
-      w = *(u32 *)s;
-      *d++ = *s++;
-      *d++ = *s++;
-      n -= 2;
-      for (; n >= 18; s += 16, d += 16, n -= 16) {
-        x = *(u32 *)(s + 2);
-        *(u32 *)(d + 0) = (w LS 16) | (x RS 16);
-        w = *(u32 *)(s + 6);
-        *(u32 *)(d + 4) = (x LS 16) | (w RS 16);
-        x = *(u32 *)(s + 10);
-        *(u32 *)(d + 8) = (w LS 16) | (x RS 16);
-        w = *(u32 *)(s + 14);
-        *(u32 *)(d + 12) = (x LS 16) | (w RS 16);
-      }
-      break;
-    case 3:
-      w = *(u32 *)s;
-      *d++ = *s++;
-      n -= 1;
-      for (; n >= 19; s += 16, d += 16, n -= 16) {
-        x = *(u32 *)(s + 3);
-        *(u32 *)(d + 0) = (w LS 8) | (x RS 24);
-        w = *(u32 *)(s + 7);
-        *(u32 *)(d + 4) = (x LS 8) | (w RS 24);
-        x = *(u32 *)(s + 11);
-        *(u32 *)(d + 8) = (w LS 8) | (x RS 24);
-        w = *(u32 *)(s + 15);
-        *(u32 *)(d + 12) = (x LS 8) | (w RS 24);
-      }
-      break;
+  if (n >= 32) switch ((uintptr_t)d % 4) {
+      case 1:
+        w = *(u32 *)s;
+        *d++ = *s++;
+        *d++ = *s++;
+        *d++ = *s++;
+        n -= 3;
+        for (; n >= 17; s += 16, d += 16, n -= 16) {
+          x = *(u32 *)(s + 1);
+          *(u32 *)(d + 0) = (w LS 24) | (x RS 8);
+          w = *(u32 *)(s + 5);
+          *(u32 *)(d + 4) = (x LS 24) | (w RS 8);
+          x = *(u32 *)(s + 9);
+          *(u32 *)(d + 8) = (w LS 24) | (x RS 8);
+          w = *(u32 *)(s + 13);
+          *(u32 *)(d + 12) = (x LS 24) | (w RS 8);
+        }
+        break;
+      case 2:
+        w = *(u32 *)s;
+        *d++ = *s++;
+        *d++ = *s++;
+        n -= 2;
+        for (; n >= 18; s += 16, d += 16, n -= 16) {
+          x = *(u32 *)(s + 2);
+          *(u32 *)(d + 0) = (w LS 16) | (x RS 16);
+          w = *(u32 *)(s + 6);
+          *(u32 *)(d + 4) = (x LS 16) | (w RS 16);
+          x = *(u32 *)(s + 10);
+          *(u32 *)(d + 8) = (w LS 16) | (x RS 16);
+          w = *(u32 *)(s + 14);
+          *(u32 *)(d + 12) = (x LS 16) | (w RS 16);
+        }
+        break;
+      case 3:
+        w = *(u32 *)s;
+        *d++ = *s++;
+        n -= 1;
+        for (; n >= 19; s += 16, d += 16, n -= 16) {
+          x = *(u32 *)(s + 3);
+          *(u32 *)(d + 0) = (w LS 8) | (x RS 24);
+          w = *(u32 *)(s + 7);
+          *(u32 *)(d + 4) = (x LS 8) | (w RS 24);
+          x = *(u32 *)(s + 11);
+          *(u32 *)(d + 8) = (w LS 8) | (x RS 24);
+          w = *(u32 *)(s + 15);
+          *(u32 *)(d + 12) = (x LS 8) | (w RS 24);
+        }
+        break;
     }
   if (n & 16) {
     *d++ = *s++;
@@ -160,8 +157,7 @@ void *memcpy_musl(void *dest, const void *src, size_t n) {
   return dest;
 #endif
 
-  for (; n; n--)
-    *d++ = *s++;
+  for (; n; n--) *d++ = *s++;
   return dest;
 }
 
@@ -170,14 +166,15 @@ void *memcpy_musl(void *dest, const void *src, size_t n) {
 #endif
 #include "samplefile.hpp"
 
-template <uint64_t MemcpySamplingRateBytes> class MemcpySampler {
+template <uint64_t MemcpySamplingRateBytes>
+class MemcpySampler {
   enum { MemcpySignal = SIGPROF };
   static constexpr auto flags =
-      O_WRONLY | O_CREAT | O_SYNC | O_APPEND; // O_TRUNC;
+      O_WRONLY | O_CREAT | O_SYNC | O_APPEND;  // O_TRUNC;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
   static constexpr auto fname = "/tmp/scalene-memcpy-signalXXXXX";
 
-public:
+ public:
   MemcpySampler()
       : _samplefile((char *)"/tmp/scalene-memcpy-signal@",
                     (char *)"/tmp/scalene-memcpy-lock@",
@@ -210,24 +207,24 @@ public:
                                               size_t n) {
     auto result = local_memcpy(dst, src, n);
     incrementMemoryOps(n);
-    return result; // always dst
+    return result;  // always dst
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void *memmove(void *dst, const void *src,
                                                size_t n) {
     auto result = local_memmove(dst, src, n);
     incrementMemoryOps(n);
-    return result; // always dst
+    return result;  // always dst
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline char *strcpy(char *dst, const char *src) {
     auto n = ::strlen(src);
     auto result = local_strcpy(dst, src);
     incrementMemoryOps(n);
-    return result; // always dst
+    return result;  // always dst
   }
 
-private:
+ private:
   //// local implementations of memcpy and friends.
   Sampler<MemcpySamplingRateBytes> _memcpySampler;
   SampleFile _samplefile;

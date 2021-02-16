@@ -3,8 +3,9 @@
 #ifndef STATICBUFFERHEAP_H
 #define STATICBUFFERHEAP_H
 
-template <int BufferSize> class StaticBufferHeap {
-public:
+template <int BufferSize>
+class StaticBufferHeap {
+ public:
   StaticBufferHeap() {}
 
   enum { Alignment = alignof(std::max_align_t) };
@@ -54,9 +55,9 @@ public:
     return false;
   }
 
-private:
+ private:
   class Header {
-  public:
+   public:
     Header(size_t sz) : size(sz) {}
     alignas(Alignment) size_t size;
   };

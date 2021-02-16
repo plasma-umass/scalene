@@ -1,20 +1,18 @@
-#define SCALENE_DISABLE_SIGNALS 0 // for debugging only
-
-#include <heaplayers.h>
+#define SCALENE_DISABLE_SIGNALS 0  // for debugging only
 
 #include <execinfo.h>
+#include <heaplayers.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "common.hpp"
-#include "stprintf.h"
-#include "tprintf.h"
-
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
 #include "staticbufferheap.hpp"
+#include "stprintf.h"
+#include "tprintf.h"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
@@ -33,7 +31,7 @@ class ParentHeap
 static bool _initialized{false};
 
 class CustomHeapType : public ParentHeap {
-public:
+ public:
   CustomHeapType() { _initialized = true; }
   void lock() {}
   void unlock() {}
@@ -44,11 +42,11 @@ public:
 // This is a hack to have a long-living buffer
 // to put init filename in
 class InitializeMe {
-public:
+ public:
   InitializeMe() {
 #if 1
     // invoke backtrace so it resolves symbols now
-#if 0 // defined(__linux__)
+#if 0  // defined(__linux__)
     volatile void * dl = dlopen("libgcc_s.so.1", RTLD_NOW | RTLD_GLOBAL);
 #endif
     void *callstack[4];
@@ -77,14 +75,16 @@ auto &getSampler() {
 #define LOCAL_PREFIX(x) x
 #endif
 
-extern "C" ATTRIBUTE_EXPORT void *
-LOCAL_PREFIX(memcpy)(void *dst, const void *src, size_t n) {
+extern "C" ATTRIBUTE_EXPORT void *LOCAL_PREFIX(memcpy)(void *dst,
+                                                       const void *src,
+                                                       size_t n) {
   auto result = getSampler().memcpy(dst, src, n);
   return result;
 }
 
-extern "C" ATTRIBUTE_EXPORT void *
-LOCAL_PREFIX(memmove)(void *dst, const void *src, size_t n) {
+extern "C" ATTRIBUTE_EXPORT void *LOCAL_PREFIX(memmove)(void *dst,
+                                                        const void *src,
+                                                        size_t n) {
   auto result = getSampler().memmove(dst, src, n);
   return result;
 }
@@ -138,7 +138,7 @@ extern "C" ATTRIBUTE_EXPORT size_t xxmalloc_usable_size(void *ptr) {
   if (buffer.isValid(ptr)) {
     return buffer.getSize(ptr);
   }
-  return getTheCustomHeap().getSize(ptr); // TODO FIXME adjust for ptr offset?
+  return getTheCustomHeap().getSize(ptr);  // TODO FIXME adjust for ptr offset?
 }
 
 extern "C" ATTRIBUTE_EXPORT void xxmalloc_lock() { getTheCustomHeap().lock(); }

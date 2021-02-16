@@ -1,12 +1,12 @@
 #pragma once
 
-#include <cmath>
-#include <iostream>
-#include <thread>
 #include <unistd.h>
 
 #include <chrono>
+#include <cmath>
+#include <iostream>
 #include <random>
+#include <thread>
 
 //#include "mwc.h"
 
@@ -22,8 +22,9 @@
 #include "lowdiscrepancy.hpp"
 #endif
 
-template <uint64_t SAMPLE_RATE> class Sampler {
-private:
+template <uint64_t SAMPLE_RATE>
+class Sampler {
+ private:
   static constexpr double SAMPLE_PROBABILITY =
       (double)1.0 / (double)SAMPLE_RATE;
 
@@ -42,10 +43,10 @@ private:
   std::geometric_distribution<uint64_t> geom{SAMPLE_PROBABILITY};
 #endif
 
-public:
+ public:
   Sampler() {
 #if !SAMPLER_DETERMINISTIC
-    _next = geom(rng); // SAMPLE_RATE;
+    _next = geom(rng);  // SAMPLE_RATE;
 #else
     _next = SAMPLE_RATE;
 #endif
@@ -60,7 +61,7 @@ public:
     return 0;
   }
 
-private:
+ private:
   uint64_t updateSample(uint64_t sz) {
 #if SAMPLER_DETERMINISTIC
     _next = SAMPLE_RATE;
