@@ -69,6 +69,7 @@ public:
     } else {
       write(init_fd, "q&", 3);
       _spin_lock = new(((char*) _lastpos )+ sizeof(uint64_t)) HL::SpinLock();
+
       *_lastpos = 0;
     }
 
@@ -87,6 +88,7 @@ public:
     _spin_lock->lock();
     char* ptr = _mmap;
     strncpy(_mmap + *_lastpos, (const char *) line, MAX_BUFSIZE); 
+
     *_lastpos += strlen(_mmap + *_lastpos) - 1;
     _spin_lock->unlock();
     // tprintf::tprintf("Unlocked C @\n", getpid());

@@ -41,6 +41,7 @@ class CustomHeapType : public ParentHeap {
 
 // This is a hack to have a long-living buffer
 // to put init filename in
+
 class InitializeMe {
  public:
   InitializeMe() {

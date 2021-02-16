@@ -28,6 +28,7 @@ def replacement_pjoin(scalene: Scalene) -> None:
             if res is not None:
                 from multiprocessing.process import _children # type: ignore
 
+
                 _children.discard(self)
                 return
             scalene.reset_thread_sleeping(tident)
