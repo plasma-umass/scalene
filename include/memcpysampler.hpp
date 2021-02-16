@@ -177,11 +177,14 @@ class MemcpySampler {
  public:
   MemcpySampler()
       : _samplefile((char *)"/tmp/scalene-memcpy-signal@",
-                    (char *)"/tmp/scalene-memcpy-lock@"),
-        _interval(MemcpySamplingRateBytes),
-        _memcpyOps(0),
-        _memcpyTriggered(0) {
-    signal(MemcpySignal, SIG_IGN);
+                    (char *)"/tmp/scalene-memcpy-lock@",
+                    (char*) "/tmp/scalene-memcpy-init@"),
+        _interval(MemcpySamplingRateBytes), _memcpyOps(0), _memcpyTriggered(0) {
+    struct sigaction memcpy_sigaction;
+    sigaction(MemcpySignal, NULL, &memcpy_sigaction);
+    if (memcpy_sigaction.sa_handler == SIG_DFL) {
+      signal(MemcpySignal, SIG_IGN);
+    }   
     auto pid = getpid();
     int i;
     for (i = 0; i < local_strlen(fname); i++) {
@@ -281,9 +284,8 @@ class MemcpySampler {
 
   void writeCount() {
     char buf[255];
-    stprintf::stprintf(buf, "@,@,@\n\n", _memcpyTriggered, _memcpyOps,
-                       getpid());
-    _samplefile.writeToFile(buf);
+    stprintf::stprintf(buf, "@,@,@\n\n", _memcpyTriggered, _memcpyOps, getpid());
+    _samplefile.writeToFile(buf, 0);
   }
 };
 

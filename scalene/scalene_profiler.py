@@ -807,7 +807,7 @@ class Scalene:
         this_frame: FrameType,
     ) -> List[Tuple[FrameType, int, FrameType]]:
         """Collects all stack frames that Scalene actually processes."""
-        if threading._active_limbo_lock.locked():
+        if threading._active_limbo_lock.locked(): # type: ignore
             # Avoids deadlock where a Scalene signal occurs
             # in the middle of a critical section of the
             # threading library
@@ -927,6 +927,8 @@ class Scalene:
         arr: List[Tuple[int, str, float, float, str]] = []
         buf = bytearray(256)  # Must match SampleFile::MAX_BUFSIZE
         try:
+            buf = bytearray(128)
+
             while True:
                 if not get_line_atomic.get_line_atomic(
                     Scalene.__malloc_lock_mmap,
@@ -935,8 +937,11 @@ class Scalene:
                     Scalene.__malloc_lastpos,
                 ):
                     break
-                count_str = buf.split(b"\n")[0].decode("ascii")
-                if count_str == "":
+                count_str = buf.rstrip(b'\x00').split(b"\n")[0].decode("ascii")
+                # print(count_str)
+                if count_str.strip() == "":
+                    # print("breaking", mm.readline())
+
                     break
                 (
                     action,
@@ -1117,7 +1122,6 @@ class Scalene:
         # Process the input array.
         try:
             mfile = Scalene.__memcpy_signal_mmap
-            mlock = Scalene.__memcpy_lock_mmap
             if mfile:
                 mfile.seek(Scalene.__memcpy_signal_position)
                 buf = bytearray(128)
