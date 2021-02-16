@@ -180,7 +180,11 @@ class MemcpySampler {
                     (char *)"/tmp/scalene-memcpy-lock@",
                     (char*) "/tmp/scalene-memcpy-init@"),
         _interval(MemcpySamplingRateBytes), _memcpyOps(0), _memcpyTriggered(0) {
-    signal(MemcpySignal, SIG_IGN);
+    struct sigaction memcpy_sigaction;
+    sigaction(MemcpySignal, NULL, &memcpy_sigaction);
+    if (memcpy_sigaction.sa_handler == SIG_DFL) {
+      signal(MemcpySignal, SIG_IGN);
+    }   
     auto pid = getpid();
     int i;
     for (i = 0; i < local_strlen(fname); i++) {

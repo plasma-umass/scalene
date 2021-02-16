@@ -28,7 +28,6 @@ class SampleFile {
 public:
   SampleFile(char* filename_template, char* lockfilename_template, char* init_template) {
     static uint base_pid = getpid();
-    static HL::PosixLock init_lock;
     char init_file[64];
     stprintf::stprintf(init_file, init_template, base_pid);
     stprintf::stprintf(_signalfile, filename_template, base_pid);
@@ -62,6 +61,15 @@ public:
     int init_fd = open(init_file, O_CREAT|O_RDWR, perms);
     int res = flock(init_fd, LOCK_EX);
     char buf[3];
+    // A samplefile may be initialized
+    // multiple times from the same template,
+    // so access must be synchronized.
+    // the corresponding file/memory regions
+    // have been initialized,
+    // the lockfile will have the string "q&"
+    // at the beginning. Otherwise, it is written after initialization
+    // 
+    // 3 bytes are read to bring in both the magic string and the end-of-string character "q&\0"
     int amt_read = read(init_fd, buf, 3);
     if (amt_read != 0 && strcmp(buf, "q&") == 0) {
       // If magic number is present, we know that a HL::SpinLock has already been initialized

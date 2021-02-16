@@ -1032,8 +1032,6 @@ class Scalene:
                 count /= 1024 * 1024
                 is_malloc = action == "M"
                 if is_malloc:
-                    # This will always get the last triggering malloc
-                    Scalene.__last_malloc_triggered = last_malloc
                     allocs += count
                     curr += count
                     python_frac += python_fraction * count
@@ -1511,7 +1509,6 @@ class Scalene:
             Scalene.__total_memory_free_samples
             + Scalene.__total_memory_malloc_samples
         ) > 0
-        print("did sample memory?", did_sample_memory)
         title = Text()
         mem_usage_line: Union[Text, str] = ""
         growth_rate = 0.0
