@@ -33,7 +33,6 @@ public:
     stprintf::stprintf(init_file, init_template, base_pid);
     stprintf::stprintf(_signalfile, filename_template, base_pid);
     stprintf::stprintf(_lockfile, lockfilename_template, base_pid);
-    tprintf::tprintf(_signalfile, "\n");
     int signal_fd = open(_signalfile, flags, perms);
     int lock_fd = open(_lockfile, flags, perms);
     if ((signal_fd == -1) || (lock_fd == -1)) {
