@@ -1708,7 +1708,6 @@ class Scalene:
                     p = 1 - frees / allocs
                     # Compute Wald confidence interval
                     error = Z * math.sqrt(p * (1 - p) / (allocs + frees))
-                    print("checking ", (keys[index], p - error, p + error))
                     #if 2 * error > max_error:
                     #    continue
                     if allocs + frees == 1:
