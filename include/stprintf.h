@@ -123,7 +123,7 @@ inline void stprintf(char *buf, const char *format, T value, Targs... Fargs) {
         format = format + 2;
       } else {
 	formatStrCount += 1;
-	if (formatStrCount <=  sizeof...(Fargs)) {
+	if (formatStrCount <=  sizeof...(Fargs) + 1) {
 	  auto len = writeval(buf, value);
 	  buf += len;
 	  stprintf(buf, format + 1, Fargs...);
