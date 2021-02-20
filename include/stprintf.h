@@ -97,12 +97,12 @@ inline int writeval(char *buf, float n, size_t sz) {
 }
 
 inline int writeval(char *buf, const char *str, size_t sz) {
-  auto len = strlen(str);
   //    cout << "len = " << len << ", str = " << str << endl;
-  for (auto i = 0; i < len + 1 && i < sz; i++) {
+  int i = 0;
+  for (; i < sz && str[i] != '\0'; i++) {
     buf[i] = str[i];
   }
-  return len;
+  return i;
 }
 
 inline int writeval(char *buf, const char c, size_t sz) {
