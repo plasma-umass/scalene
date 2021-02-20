@@ -178,22 +178,27 @@ class MemcpySampler {
   MemcpySampler()
       : _samplefile((char *)"/tmp/scalene-memcpy-signal@",
                     (char *)"/tmp/scalene-memcpy-lock@",
-                    (char*) "/tmp/scalene-memcpy-init@"),
-        _interval(MemcpySamplingRateBytes), _memcpyOps(0), _memcpyTriggered(0) {
+                    (char *)"/tmp/scalene-memcpy-init@"),
+        _interval(MemcpySamplingRateBytes),
+        _memcpyOps(0),
+        _memcpyTriggered(0) {
     struct sigaction memcpy_sigaction;
     sigaction(MemcpySignal, NULL, &memcpy_sigaction);
     if (memcpy_sigaction.sa_handler == SIG_DFL) {
       signal(MemcpySignal, SIG_IGN);
-    }   
+    }
     auto pid = getpid();
     int i;
+    int sz = FILENAME_LENGTH;
     for (i = 0; i < local_strlen(fname); i++) {
       if (fname[i] == 'X') {
         break;
       }
       scalene_memcpy_signal_filename[i] = fname[i];
+      sz--;
     }
-    stprintf::stprintf((char *)&scalene_memcpy_signal_filename[i], "@", pid);
+    stprintf::stprintf((char *)&scalene_memcpy_signal_filename[i], "@", sz,
+                       pid);
   }
 
   int local_strlen(const char *str) {
@@ -280,11 +285,13 @@ class MemcpySampler {
   uint64_t _memcpyOps;
   unsigned long long _memcpyTriggered;
   uint64_t _interval;
-  char scalene_memcpy_signal_filename[255];
+  static constexpr int FILENAME_LENGTH = 255;
+  char scalene_memcpy_signal_filename[FILENAME_LENGTH];
 
   void writeCount() {
     char buf[255];
-    stprintf::stprintf(buf, "@,@,@\n\n", _memcpyTriggered, _memcpyOps, getpid());
+    stprintf::stprintf(buf, "@,@,@\n\n", _memcpyTriggered, _memcpyOps,
+                       getpid());
     _samplefile.writeToFile(buf, 0);
   }
 };
