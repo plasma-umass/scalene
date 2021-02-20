@@ -290,7 +290,7 @@ class MemcpySampler {
 
   void writeCount() {
     char buf[255];
-    stprintf::stprintf(buf, "@,@,@\n\n", _memcpyTriggered, _memcpyOps,
+    stprintf::stprintf(buf, "@,@,@\n\n", 255, _memcpyTriggered, _memcpyOps,
                        getpid());
     _samplefile.writeToFile(buf, 0);
   }
