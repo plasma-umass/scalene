@@ -87,19 +87,16 @@ inline int ftoa(char *buf, double n, size_t sz, int decimalPlaces = 8) {
 }
 
 inline int writeval(char *buf, double n, size_t sz) {
-  printf("DOUBLE\n");
   int len = ftoa(buf, n, sz);
   return len;
 }
 
 inline int writeval(char *buf, float n, size_t sz) {
-  printf("FLOAT\n");
   int len = ftoa(buf, n, sz);
   return len;
 }
 
 inline int writeval(char *buf, const char *str, size_t sz) {
-  printf("STRING\n");
   auto len = strlen(str);
   //    cout << "len = " << len << ", str = " << str << endl;
   for (auto i = 0; i < len + 1 && i < sz; i++) {
@@ -109,7 +106,6 @@ inline int writeval(char *buf, const char *str, size_t sz) {
 }
 
 inline int writeval(char *buf, const char c, size_t sz) {
-  printf("CHAR\n");
   if (sz >= 1) {
     buf[0] = c;
     return 1;
@@ -119,14 +115,12 @@ inline int writeval(char *buf, const char c, size_t sz) {
 }
 
 inline int writeval(char *buf, uint64_t n, size_t sz) {
-  printf("UINT\n");
   int len = itoa(buf, n, sz);
   return len;
 }
 
 template <class T>
 inline int writeval(char *buf, T n, size_t sz) {
-  printf("SOMETHING\n");
   int len = itoa(buf, n, sz);
   return len;
 }
