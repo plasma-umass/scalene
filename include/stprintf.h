@@ -15,18 +15,25 @@ using namespace std;
 namespace stprintf {
 
 template <typename T>
-inline int writeval(char *buf, T v);
+inline int writeval(char *buf, T v, size_t sz);
 
 template <typename T>
-inline int itoa(char *buf, T v) {
+inline int itoa(char *buf, T v, size_t sz) {
+  if (sz == 0) {
+    return 0;
+  }
   long n = (long)v;
   auto startbuf = buf;
   if (n < 0) {
+    sz--;
     *buf++ = '-';
     n = -n;
   }
   if (n == 0) {
-    *buf++ = '0';
+    if (sz) {
+      sz--;
+      *buf++ = '0';
+    }
     return (int)(buf - startbuf);
   }
   long tens = 1L;
@@ -34,6 +41,10 @@ inline int itoa(char *buf, T v) {
     tens *= 10;
   }
   while (tens) {
+    sz--;
+    if (sz == 0) {
+      break;
+    }
     *buf++ = '0' + n / tens;
     n = n - (n / tens) * tens;
     tens /= 10;
@@ -41,7 +52,7 @@ inline int itoa(char *buf, T v) {
   return (int)(buf - startbuf);
 }
 
-inline int ftoa(char *buf, double n, int decimalPlaces = 8) {
+inline int ftoa(char *buf, double n, size_t sz, int decimalPlaces = 8) {
   // Extract integer part
   auto ipart = (long)n;
 
@@ -52,7 +63,7 @@ inline int ftoa(char *buf, double n, int decimalPlaces = 8) {
   }
 
   // convert integer part to string
-  int i = itoa(buf, ipart);
+  int i = itoa(buf, ipart, sz);
 
   if (decimalPlaces > 0) {
     buf[i] = '.';
@@ -60,78 +71,102 @@ inline int ftoa(char *buf, double n, int decimalPlaces = 8) {
     fpart = fpart * multiple;
     multiple /= 10;
     while ((fpart < multiple) && (decimalPlaces > 0)) {
+      if (sz == 0) {
+        break;
+      }
       buf[++i] = '0';
+      sz--;
       multiple /= 10;
       decimalPlaces--;
     }
     if (fpart > 0) {
-      i = i + itoa(buf + i + 1, (long)fpart) + 1;
+      i = i + itoa(buf + i + 1, (long)fpart, sz - (i + 1)) + 1;
     }
   }
   return i;
 }
 
-inline int writeval(char *buf, double n) {
-  int len = ftoa(buf, n);
+inline int writeval(char *buf, double n, size_t sz) {
+  printf("DOUBLE\n");
+  int len = ftoa(buf, n, sz);
   return len;
 }
 
-inline int writeval(char *buf, float n) {
-  int len = ftoa(buf, n);
+inline int writeval(char *buf, float n, size_t sz) {
+  printf("FLOAT\n");
+  int len = ftoa(buf, n, sz);
   return len;
 }
 
-inline int writeval(char *buf, const char *str) {
+inline int writeval(char *buf, const char *str, size_t sz) {
+  printf("STRING\n");
   auto len = strlen(str);
   //    cout << "len = " << len << ", str = " << str << endl;
-  for (auto i = 0; i < len + 1; i++) {
+  for (auto i = 0; i < len + 1 && i < sz; i++) {
     buf[i] = str[i];
   }
   return len;
 }
 
-inline int writeval(char *buf, const char c) {
-  buf[0] = c;
-  return 1;
+inline int writeval(char *buf, const char c, size_t sz) {
+  printf("CHAR\n");
+  if (sz >= 1) {
+    buf[0] = c;
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
-inline int writeval(char *buf, uint64_t n) {
-  int len = itoa(buf, n);
+inline int writeval(char *buf, uint64_t n, size_t sz) {
+  printf("UINT\n");
+  int len = itoa(buf, n, sz);
   return len;
 }
 
 template <class T>
-inline int writeval(char *buf, T n) {
-  int len = itoa(buf, n);
+inline int writeval(char *buf, T n, size_t sz) {
+  printf("SOMETHING\n");
+  int len = itoa(buf, n, sz);
   return len;
 }
 
-inline void stprintf(char *buf, const char *format)  // base function
+inline void stprintf(char *buf, const char *format, size_t sz)  // base function
 {
-  writeval(buf, format);
+  writeval(buf, format, sz);
 }
 
-  template <typename T, typename... Targs>
-inline void stprintf(char *buf, const char *format, T value, Targs... Fargs) {
-    // Limit the number of formats to the number of args.
+template <typename T, typename... Targs>
+inline void stprintf(char *buf, const char *format, size_t sz, T value,
+                     Targs... Fargs) {
+  // Limit the number of formats to the number of args.
   unsigned int formatStrCount = 0;
   for (; *format != '\0'; format++) {
     if (*format == '@') {
       if (*(format + 1) == '\\') {
-        auto len = writeval(buf, "@");
+        auto len = writeval(buf, "@", sz);
         buf += len;
+        sz -= len;
         format = format + 2;
       } else {
-	formatStrCount += 1;
-	if (formatStrCount <=  sizeof...(Fargs) + 1) {
-	  auto len = writeval(buf, value);
-	  buf += len;
-	  stprintf(buf, format + 1, Fargs...);
-	}
+        formatStrCount += 1;
+        if (formatStrCount <= sizeof...(Fargs) + 1) {
+          auto len = writeval(buf, value, sz);
+          buf += len;
+          sz -= len;
+          stprintf(buf, format + 1, sz, Fargs...);
+        }
         return;
       }
     }
-    buf += writeval(buf, *format);
+    auto len = writeval(buf, *format, sz);
+    buf += len;
+    sz -= len;
+    // zero-terminate if there is room
+    if (sz >= 1) {
+      ++buf;
+      *buf = '\0';
+    }
   }
 }
 
