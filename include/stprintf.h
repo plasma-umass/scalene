@@ -156,11 +156,13 @@ inline void stprintf(char *buf, const char *format, size_t sz, T value,
     auto len = writeval(buf, *format, sz);
     buf += len;
     sz -= len;
+#if 0
     // zero-terminate if there is room
     if (sz >= 1) {
       ++buf;
       *buf = '\0';
     }
+#endif
   }
 }
 
