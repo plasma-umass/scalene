@@ -111,8 +111,10 @@ inline void stprintf(char *buf, const char *format)  // base function
   writeval(buf, format);
 }
 
-template <typename T, typename... Targs>
+  template <typename T, typename... Targs>
 inline void stprintf(char *buf, const char *format, T value, Targs... Fargs) {
+    // Limit the number of formats to the number of args.
+  unsigned int formatStrCount = 0;
   for (; *format != '\0'; format++) {
     if (*format == '@') {
       if (*(format + 1) == '\\') {
@@ -120,9 +122,12 @@ inline void stprintf(char *buf, const char *format, T value, Targs... Fargs) {
         buf += len;
         format = format + 2;
       } else {
-        auto len = writeval(buf, value);
-        buf += len;
-        stprintf(buf, format + 1, Fargs...);
+	formatStrCount += 1;
+	if (formatStrCount <=  sizeof...(Fargs)) {
+	  auto len = writeval(buf, value);
+	  buf += len;
+	  stprintf(buf, format + 1, Fargs...);
+	}
         return;
       }
     }
