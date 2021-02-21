@@ -134,6 +134,9 @@ template <typename T, typename... Targs>
 inline void stprintf(char *buf, const char *format, size_t sz, T value,
                      Targs... Fargs) {
   // Limit the number of formats to the number of args.
+  if (sz == 0) {
+    return;
+  }
   unsigned int formatStrCount = 0;
   for (; *format != '\0'; format++) {
     if (*format == '@') {
