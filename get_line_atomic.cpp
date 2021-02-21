@@ -53,7 +53,8 @@ static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
 
 
 static PyMethodDef MmapHlSpinlockMethods[] = {
-    {"get_line_atomic", get_line_atomic, METH_VARARGS, "locks HL::SpinLock located in buffer"}
+    {"get_line_atomic", get_line_atomic, METH_VARARGS, "locks HL::SpinLock located in buffer"},
+    {NULL, NULL, 0, NULL}
 };
 
 static struct PyModuleDef mmaphlspinlockmodule = {
