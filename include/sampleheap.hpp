@@ -52,17 +52,9 @@ class SampleHeap : public SuperHeap {
         _lastMallocTrigger(nullptr),
         _freedLastMallocTrigger(false) {
     // Ignore these signals until they are replaced by a client.
-    signal_init_lock.lock();
-    struct sigaction malloc_sigaction;
-    struct sigaction free_sigaction;
-    sigaction(MallocSignal, NULL, &malloc_sigaction);
-    sigaction(FreeSignal, NULL, &free_sigaction);
-    if (malloc_sigaction.sa_handler == SIG_DFL || free_sigaction.sa_handler == SIG_DFL) {
       signal(MallocSignal, SIG_IGN);
       signal(FreeSignal, SIG_IGN);
-    }   
     // tprintf::tprintf("@\n", malloc_sigaction.sa_handler);
-    signal_init_lock.unlock();
 
   }
 
