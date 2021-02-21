@@ -1097,6 +1097,12 @@ class Scalene:
         Scalene.clear_metrics()
         # Note-- __parent_pid of the topmost process is its own pid
         Scalene.__pid = Scalene.__parent_pid
+        signal.signal(Scalene.__malloc_signal, Scalene.malloc_signal_handler)
+        signal.signal(Scalene.__free_signal, Scalene.free_signal_handler)
+        signal.signal(
+            Scalene.__memcpy_signal,
+            Scalene.memcpy_event_signal_handler,
+        )
         signal.setitimer(
             Scalene.__cpu_timer_signal,
             Scalene.__mean_cpu_sampling_rate,
