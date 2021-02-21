@@ -6,6 +6,8 @@
  * https://emeryberger.com
  **/
 
+#include <stdint.h>
+
 template <unsigned long Size>
 class open_addr_hashtable {
  public:
@@ -23,7 +25,7 @@ class open_addr_hashtable {
   }
 
   void put(void *k, void *v) {
-    auto h = hash1(k) & (Size - 1);
+    auto h = hash1(k) & (Size - 1UL);
     if (payload[h].key == nullptr) {
       payload[h].key = k;
     }
@@ -45,7 +47,7 @@ class open_addr_hashtable {
 
   // @return true iff the element was deleted.
   bool remove(void *k) {
-    auto h = hash1(k);
+    auto h = hash1(k) & (Size - 1UL);
     if (payload[h].key == nullptr) {
       // Not in the hash table.
       return false;
