@@ -182,11 +182,8 @@ class MemcpySampler {
         _interval(MemcpySamplingRateBytes),
         _memcpyOps(0),
         _memcpyTriggered(0) {
-    struct sigaction memcpy_sigaction;
-    sigaction(MemcpySignal, NULL, &memcpy_sigaction);
-    if (memcpy_sigaction.sa_handler == SIG_DFL) {
-      signal(MemcpySignal, SIG_IGN);
-    }
+
+    signal(MemcpySignal, SIG_IGN);
     auto pid = getpid();
     int i;
     int sz = FILENAME_LENGTH;
