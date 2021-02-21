@@ -32,6 +32,7 @@ class SampleFile {
     static uint base_pid = getpid();
     constexpr int FILENAME_LENGTH = 255;
     char init_file[FILENAME_LENGTH];
+    memset(init_file, 0, FILENAME_LENGTH);
     stprintf::stprintf(init_file, init_template, FILENAME_LENGTH - 1, base_pid);
     stprintf::stprintf(_signalfile, filename_template, FILENAME_LENGTH - 1,
                        base_pid);
@@ -65,7 +66,8 @@ class SampleFile {
     // This is a miserable hack that does not deserve to exist
     int init_fd = open(init_file, O_CREAT | O_RDWR, perms);
     int res = flock(init_fd, LOCK_EX);
-    char buf[3];
+    char buf[4];
+    memset(buf, 0, 4);
     // A samplefile may be initialized
     // multiple times from the same template,
     // so access must be synchronized.
