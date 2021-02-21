@@ -31,5 +31,6 @@ def replacement_poll_selector(scalene: Scalene) -> None:
                 end_time = scalene.get_wallclock_time()
                 if timeout and timeout != -1:
                     if end_time - start_time >= timeout:
-                        return [] # None
-    selectors.PollSelector = ReplacementPollSelector # type: ignore
+                        return []  # None
+
+    selectors.PollSelector = ReplacementPollSelector  # type: ignore

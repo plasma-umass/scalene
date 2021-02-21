@@ -182,7 +182,6 @@ class MemcpySampler {
         _interval(MemcpySamplingRateBytes),
         _memcpyOps(0),
         _memcpyTriggered(0) {
-
     signal(MemcpySignal, SIG_IGN);
     auto pid = getpid();
     int i;

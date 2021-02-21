@@ -26,8 +26,7 @@ def replacement_pjoin(scalene: Scalene) -> None:
             scalene.set_thread_sleeping(tident)
             res = self._popen.wait(interval)
             if res is not None:
-                from multiprocessing.process import _children # type: ignore
-
+                from multiprocessing.process import _children  # type: ignore
 
                 _children.discard(self)
                 return
@@ -38,7 +37,7 @@ def replacement_pjoin(scalene: Scalene) -> None:
             if timeout != -1:
                 end_time = scalene.get_wallclock_time()
                 if end_time - start_time >= timeout:
-                    from multiprocessing.process import _children # type: ignore
+                    from multiprocessing.process import _children  # type: ignore
 
                     _children.discard(self)
                     return

@@ -12,7 +12,6 @@
 #include <atomic>
 #include <random>
 
-
 #include "common.hpp"
 #include "open_addr_hashtable.hpp"
 #include "samplefile.hpp"
@@ -39,11 +38,11 @@ class SampleHeap : public SuperHeap {
     CallStackSamplingRate = MallocSamplingRateBytes * 10
   };  // 10 here just to reduce overhead
 
-  static HL::PosixLock signal_init_lock; 
+  static HL::PosixLock signal_init_lock;
   SampleHeap()
       : _samplefile((char *)"/tmp/scalene-malloc-signal@",
                     (char *)"/tmp/scalene-malloc-lock@",
-                    (char*) "/tmp/scalene-malloc-init@"),
+                    (char *)"/tmp/scalene-malloc-init@"),
         _mallocTriggered(0),
         _freeTriggered(0),
         _pythonCount(0),
@@ -52,10 +51,9 @@ class SampleHeap : public SuperHeap {
         _lastMallocTrigger(nullptr),
         _freedLastMallocTrigger(false) {
     // Ignore these signals until they are replaced by a client.
-      signal(MallocSignal, SIG_IGN);
-      signal(FreeSignal, SIG_IGN);
+    signal(MallocSignal, SIG_IGN);
+    signal(FreeSignal, SIG_IGN);
     // tprintf::tprintf("@\n", malloc_sigaction.sa_handler);
-
   }
 
   ~SampleHeap() {
@@ -288,10 +286,10 @@ class SampleHeap : public SuperHeap {
         _freedLastMallocTrigger ? _lastMallocTrigger : ptr);
     // Ensure we don't report last-malloc-freed multiple times.
     _freedLastMallocTrigger = false;
-    _samplefile.writeToFile(buf,1);
+    _samplefile.writeToFile(buf, 1);
   }
 };
 
 template <uint64_t MallocSamplingRateBytes, class SuperHeap>
-HL::PosixLock SampleHeap<MallocSamplingRateBytes,SuperHeap>::signal_init_lock;
+HL::PosixLock SampleHeap<MallocSamplingRateBytes, SuperHeap>::signal_init_lock;
 #endif

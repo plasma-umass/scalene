@@ -10,6 +10,6 @@ def replacement_exit(scalene: Scalene) -> None:
     the "neat exit" (which raises the SystemExit error and
     allows Scalene to exit neatly)
     """
-    # Note: MyPy doesn't like this, but it works because passing an int 
+    # Note: MyPy doesn't like this, but it works because passing an int
     # to sys.exit does the right thing
-    os._exit = sys.exit # type: ignore
+    os._exit = sys.exit  # type: ignore
