@@ -807,7 +807,7 @@ class Scalene:
         this_frame: FrameType,
     ) -> List[Tuple[FrameType, int, FrameType]]:
         """Collects all stack frames that Scalene actually processes."""
-        if threading._active_limbo_lock.locked(): # type: ignore
+        if threading._active_limbo_lock.locked():  # type: ignore
             # Avoids deadlock where a Scalene signal occurs
             # in the middle of a critical section of the
             # threading library
@@ -937,7 +937,7 @@ class Scalene:
                     Scalene.__malloc_lastpos,
                 ):
                     break
-                count_str = buf.rstrip(b'\x00').split(b"\n")[0].decode("ascii")
+                count_str = buf.rstrip(b"\x00").split(b"\n")[0].decode("ascii")
                 # print(count_str)
                 if count_str.strip() == "":
                     # print("breaking", mm.readline())
@@ -1699,6 +1699,7 @@ class Scalene:
             alpha = 0.001
             Z = 4.4172  # (for 1-alpha = 99.999% confidence)
             # max_error = 0.2  # maximum two-sided error
+            leak_reporting_threshold = 0.05
             leaks = []
             if growth_rate / 100 > growth_rate_threshold:
                 vec = list(Scalene.__leak_score[fname].values())
@@ -1706,42 +1707,30 @@ class Scalene:
                 for index, item in enumerate(
                     Scalene.__leak_score[fname].values()
                 ):
-                    # Smoothing via "the rule of succession"
-                    # Add to each of these to smooth them (in case frees == 0).
                     # See https://en.wikipedia.org/wiki/Rule_of_succession
-                    frees = item[1] + 1
-                    allocs = item[0] + 1 # was 2
-                    p = 1 - frees / allocs
-                    # Compute Wald confidence interval
-                    error = Z * math.sqrt(p * (1 - p) / (allocs + frees))
-                    #if 2 * error > max_error:
-                    #    continue
-                    if allocs + frees == 1:
-                        continue
-                    if p - error <= 0:
-                        # Confidence interval includes 0 --> definitely ignore
-                        continue
-                    if p - error < growth_rate_threshold:
-                        continue
-                    if p + error < 0.5:
-                        continue
-                    leaks.append((keys[index], max(0, p - error), min(1, p + error)))
+                    frees = item[1]
+                    allocs = item[0]
+                    expected_leak = (frees + 1) / (frees + allocs + 2)
+                    if expected_leak <= leak_reporting_threshold:
+                        leaks.append(
+                            (keys[index], 1 - expected_leak)
+                        )  #  max(0, p - error), min(1, p + error)))
                 # outlier_vec = outliers(vec, alpha=alpha)
                 # Sort outliers by p-value in ascending order
                 # outlier_vec.sort(key=itemgetter(1))
                 if len(leaks) > 0:
                     if True:  # disable reporting for now
                         # Report in descending order by least likelihood
-                        for leak in sorted(leaks, key=itemgetter(1), reverse=True):
+                        for leak in sorted(
+                            leaks, key=itemgetter(1), reverse=True
+                        ):
                             output_str = (
                                 "Possible memory leak identified at line "
                                 + str(leak[0])
                                 + " (estimated likelihood: "
                                 + ("%3.0f" % (leak[1] * 100))
                                 + "%"
-                                + " - "
-                                + ("%3.0f" % (leak[2] * 100))
-                                + "%)"
+                                + ")"
                             )
                             console.print(output_str)
 
