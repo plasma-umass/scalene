@@ -82,7 +82,7 @@ class open_addr_hashtable {
       return -1;
     }
     while (true) {
-      h = (h + hash2((void *)h)) & (Size - 1UL);
+      h = (h + hash2((void *)h) + 1) & (Size - 1UL);
       if (payload[h].key == k) {
         return h;
       }
