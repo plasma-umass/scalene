@@ -8,6 +8,8 @@
 #include <random>
 #include <thread>
 
+#include "common.hpp"
+
 //#include "mwc.h"
 
 #define SAMPLER_DETERMINISTIC 0
