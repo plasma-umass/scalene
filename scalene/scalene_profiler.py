@@ -41,7 +41,7 @@ import tempfile
 import threading
 import time
 import traceback
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from functools import lru_cache, wraps
 from operator import itemgetter
 from rich.console import Console
@@ -1692,13 +1692,42 @@ class Scalene:
 
             console.print(tbl)
 
+            # Report top K lines (currently 5) in terms of net memory consumption.
+            net_mallocs = defaultdict(int)
+            for line_no in Scalene.__bytei_map[fname]:
+                for index in Scalene.__bytei_map[fname][line_no]:
+                    net_mallocs[line_no] += (
+                        Scalene.__memory_malloc_samples[fname][line_no][index]
+                        - Scalene.__memory_free_samples[fname][line_no][index]
+                    )
+            net_mallocs = OrderedDict(
+                sorted(net_mallocs.items(), key=itemgetter(1), reverse=True)
+            )
+            print(net_mallocs)
+            if len(net_mallocs) > 0:
+                console.print("Top net memory consumption, by line:")
+                index = 1
+                for net_malloc_lineno in net_mallocs:
+                    if net_mallocs[net_malloc_lineno] <= 1:
+                        break
+                    if index > 5:
+                        break
+                    output_str = (
+                        "("
+                        + str(index)
+                        + ") "
+                        + ("%5.0f" % (net_malloc_lineno))
+                        + ": "
+                        + ("%5.0f" % (net_mallocs[net_malloc_lineno]))
+                        + " MB"
+                    )
+                    console.print(output_str)
+                    index += 1
+
             # Only report potential leaks if the allocation velocity (growth rate) is above some threshold
             # FIXME: fixed at 1% for now.
             # We only report potential leaks where the confidence interval is quite tight and includes 1.
             growth_rate_threshold = 0.01
-            alpha = 0.001
-            Z = 4.4172  # (for 1-alpha = 99.999% confidence)
-            # max_error = 0.2  # maximum two-sided error
             leak_reporting_threshold = 0.05
             leaks = []
             if growth_rate / 100 > growth_rate_threshold:
@@ -1712,27 +1741,19 @@ class Scalene:
                     allocs = item[0]
                     expected_leak = (frees + 1) / (frees + allocs + 2)
                     if expected_leak <= leak_reporting_threshold:
-                        leaks.append(
-                            (keys[index], 1 - expected_leak)
-                        )  #  max(0, p - error), min(1, p + error)))
-                # outlier_vec = outliers(vec, alpha=alpha)
-                # Sort outliers by p-value in ascending order
-                # outlier_vec.sort(key=itemgetter(1))
+                        leaks.append((keys[index], 1 - expected_leak))
                 if len(leaks) > 0:
-                    if True:  # disable reporting for now
-                        # Report in descending order by least likelihood
-                        for leak in sorted(
-                            leaks, key=itemgetter(1), reverse=True
-                        ):
-                            output_str = (
-                                "Possible memory leak identified at line "
-                                + str(leak[0])
-                                + " (estimated likelihood: "
-                                + ("%3.0f" % (leak[1] * 100))
-                                + "%"
-                                + ")"
-                            )
-                            console.print(output_str)
+                    # Report in descending order by least likelihood
+                    for leak in sorted(leaks, key=itemgetter(1), reverse=True):
+                        output_str = (
+                            "Possible memory leak identified at line "
+                            + str(leak[0])
+                            + " (estimated likelihood: "
+                            + ("%3.0f" % (leak[1] * 100))
+                            + "%"
+                            + ")"
+                        )
+                        console.print(output_str)
 
         if Scalene.__html:
             # Write HTML file.
