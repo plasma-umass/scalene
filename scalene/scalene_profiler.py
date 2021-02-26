@@ -1703,7 +1703,6 @@ class Scalene:
             net_mallocs = OrderedDict(
                 sorted(net_mallocs.items(), key=itemgetter(1), reverse=True)
             )
-            print(net_mallocs)
             if len(net_mallocs) > 0:
                 console.print("Top net memory consumption, by line:")
                 index = 1
