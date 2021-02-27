@@ -1182,9 +1182,14 @@ class Scalene:
         ):
             # Don't profile the profiler.
             return False
+        if not Scalene.__profile_only in filename:
+            return False
         if Scalene.__profile_all:
-            # Profile everything else.
-            return True
+            # Profile everything else, except for "only" choices.
+            if Scalene.__profile_only in filename:
+                return True
+            else:
+                return False
         if "site-packages" in filename or "/usr/lib/python" in filename:
             # Don't profile Python internals.
             return False
@@ -1883,6 +1888,13 @@ class Scalene:
             help="profile all executed code, not just the target program (default: only the target program)",
         )
         parser.add_argument(
+            "--profile-only",
+            dest="profile_only",
+            type=str,
+            default="",
+            help="profile only code in files that contain the given string (default: no restrictions)",
+        )
+        parser.add_argument(
             "--use-virtual-time",
             dest="use_virtual_time",
             action="store_const",
@@ -2018,6 +2030,7 @@ class Scalene:
             Scalene.__html = args.html
             Scalene.__output_file = args.outfile
             Scalene.__profile_all = args.profile_all
+            Scalene.__profile_only = args.profile_only
             Scalene.__is_child = args.pid != 0
             # the pid of the primary profiler
             Scalene.__parent_pid = (
