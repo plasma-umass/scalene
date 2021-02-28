@@ -82,6 +82,7 @@ from scalene import sparkline
 
 Address = NewType("Address", str)
 Filename = NewType("Filename", str)
+FunctionName = NewType("FunctionName", str)
 LineNumber = NewType("LineNumber", int)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 
@@ -295,6 +296,12 @@ class Scalene:
     __bytei_map: Dict[
         Filename, Dict[LineNumber, Set[ByteCodeIndex]]
     ] = defaultdict(lambda: defaultdict(lambda: set()))
+
+    # maps filenames and line numbers to functions (collected at runtime)
+    # [filename][lineno] -> function name
+    __function_map: Dict[
+        Filename, Dict[LineNumber, FunctionName]
+    ] = defaultdict(lambda: defaultdict(str))
 
     # Things that need to be in sync with include/sampleheap.hpp:
     #
@@ -733,6 +740,7 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
+            Scalene.__function_map[fname][lineno] = frame.f_code.co_name
             if frame == new_frames[0][0]:
                 # Main thread.
                 if not Scalene.__is_thread_sleeping[tident]:
@@ -1018,6 +1026,7 @@ class Scalene:
         for (frame, _tident, _orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
+            Scalene.__function_map[fname][lineno] = frame.f_code.co_name
             bytei = ByteCodeIndex(frame.f_lasti)
             # Add the byte index to the set for this line (if it's not there already).
             Scalene.__bytei_map[fname][lineno].add(bytei)
@@ -1697,6 +1706,48 @@ class Scalene:
 
             console.print(tbl)
 
+            # Report top K functions (currently 5) in terms of total execution time.
+            functions = set()
+            cpu_time = defaultdict(float)
+            for line_no in Scalene.__function_map[fname]:
+                fn_name = Scalene.__function_map[fname][line_no]
+                cpu_time[fn_name] += (
+                    (
+                        Scalene.__cpu_samples_c[fname][line_no]
+                        + Scalene.__cpu_samples_python[fname][line_no]
+                    )
+                    * 100
+                    / Scalene.__total_cpu_samples
+                )
+                functions.add(fn_name)
+
+            function_time = OrderedDict(
+                sorted(cpu_time.items(), key=itemgetter(1), reverse=True)
+            )
+
+            num_functions = min(len(function_time), 5)
+            console.print(
+                "Top "
+                + str(num_functions)
+                + " function"
+                + ("s" if num_functions > 1 else "")
+                + ", by execution time:"
+            )
+            index = 1
+            for fn in function_time:
+                if index > 5:
+                    break
+                console.print(
+                    "("
+                    + str(index)
+                    + ") "
+                    + ("%5.0f" % function_time[fn])
+                    + "%"
+                    + ": "
+                    + fn
+                )
+                index += 1
+
             # Report top K lines (currently 5) in terms of net memory consumption.
             net_mallocs = defaultdict(int)
             for line_no in Scalene.__bytei_map[fname]:
@@ -1745,7 +1796,13 @@ class Scalene:
                     allocs = item[0]
                     expected_leak = (frees + 1) / (frees + allocs + 2)
                     if expected_leak <= leak_reporting_threshold:
-                        leaks.append((keys[index], 1 - expected_leak, net_mallocs[keys[index]]))
+                        leaks.append(
+                            (
+                                keys[index],
+                                1 - expected_leak,
+                                net_mallocs[keys[index]],
+                            )
+                        )
                 if len(leaks) > 0:
                     # Report in descending order by least likelihood
                     for leak in sorted(leaks, key=itemgetter(1), reverse=True):
@@ -1756,7 +1813,10 @@ class Scalene:
                             + ("%3.0f" % (leak[1] * 100))
                             + "%"
                             + ", velocity: "
-                            + ("%3.0f MB/s" % (leak[2] / Scalene.__elapsed_time))
+                            + (
+                                "%3.0f MB/s"
+                                % (leak[2] / Scalene.__elapsed_time)
+                            )
                             + ")"
                         )
                         console.print(output_str)
