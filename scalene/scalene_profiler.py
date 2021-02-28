@@ -17,12 +17,10 @@ import argparse
 import atexit
 import builtins
 import cloudpickle
-import ctypes
 import dis
 import functools
 import get_line_atomic
 import inspect
-import math
 import mmap
 import multiprocessing
 import os
@@ -30,7 +28,6 @@ import pathlib
 import pickle
 import platform
 import random
-import selectors
 import shutil
 import signal
 import stat
@@ -61,9 +58,7 @@ from typing import (
     Dict,
     FrozenSet,
     List,
-    NewType,
     Optional,
-    Set,
     Tuple,
     Union,
     cast,
@@ -296,6 +291,61 @@ class Scalene:
         can start with a clean slate
         """
         cls.__stats.clear()
+
+    @staticmethod
+    def build_function_stats(
+        stats: ScaleneStatistics, fname: Filename
+    ) -> ScaleneStatistics:
+        fn_stats = ScaleneStatistics()  # copy.deepcopy(stats)
+        fn_stats.elapsed_time = stats.elapsed_time
+        fn_stats.total_cpu_samples = stats.total_cpu_samples
+        fn_stats.memory_footprint_samples = Adaptive(27)
+        fn_stats.per_line_footprint_samples.clear()
+        fn_stats.total_memory_malloc_samples = (
+            stats.total_memory_malloc_samples
+        )
+        # fn_stats.cpu_samples = copy.copy(stats.cpu_samples)
+        # fn_stats.malloc_samples = copy.copy(stats.malloc_samples)
+        first_line_no = LineNumber(1)
+        for line_no in stats.function_map[fname]:
+            fn_name = stats.function_map[fname][line_no]
+            if fn_name == "<module>":
+                continue
+            fn_stats.cpu_samples_c[fn_name][
+                first_line_no
+            ] += stats.cpu_samples_c[fname][line_no]
+            fn_stats.cpu_samples_python[fn_name][
+                first_line_no
+            ] += stats.cpu_samples_python[fname][line_no]
+            for index in stats.bytei_map[fname][line_no]:
+                fn_stats.bytei_map[fn_name][first_line_no].add(
+                    ByteCodeIndex(0)
+                )
+                fn_stats.memory_malloc_count[fn_name][first_line_no][
+                    ByteCodeIndex(0)
+                ] += stats.memory_malloc_count[fname][line_no][index]
+                fn_stats.memory_free_count[fn_name][first_line_no][
+                    ByteCodeIndex(0)
+                ] += stats.memory_free_count[fname][line_no][index]
+                fn_stats.memory_malloc_samples[fn_name][first_line_no][
+                    ByteCodeIndex(0)
+                ] += stats.memory_malloc_samples[fname][line_no][index]
+                fn_stats.memory_python_samples[fn_name][first_line_no][
+                    ByteCodeIndex(0)
+                ] += stats.memory_python_samples[fname][line_no][index]
+                fn_stats.memory_free_samples[fn_name][first_line_no][
+                    ByteCodeIndex(0)
+                ] += stats.memory_free_samples[fname][line_no][index]
+            fn_stats.memcpy_samples[fn_name][
+                first_line_no
+            ] += stats.memcpy_samples[fname][line_no]
+            fn_stats.leak_score[fn_name][first_line_no] = (
+                fn_stats.leak_score[fn_name][first_line_no][0]
+                + stats.leak_score[fname][line_no][0],
+                fn_stats.leak_score[fn_name][first_line_no][1]
+                + stats.leak_score[fname][line_no][1],
+            )
+        return fn_stats
 
     # Replacement @profile decorator function.
     # We track which functions - in which files - have been decorated,
@@ -561,7 +611,8 @@ class Scalene:
             # again.
             Scalene.__next_output_time += Scalene.__output_profile_interval
             Scalene.stop()
-            Scalene.output_profiles()
+            stats = Scalene.__stats
+            Scalene.output_profiles(stats)
             Scalene.start()
         # Here we take advantage of an ostensible limitation of Python:
         # it only delivers signals after the interpreter has given up
@@ -619,7 +670,7 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
-            Scalene.__stats.function_map[fname][lineno] = FunctionName(
+            Scalene.__stats.function_map[fname][lineno] = Filename(
                 frame.f_code.co_name
             )
             if frame == new_frames[0][0]:
@@ -884,9 +935,7 @@ class Scalene:
         for (frame, _tident, _orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
-            stats.function_map[fname][lineno] = FunctionName(
-                frame.f_code.co_name
-            )
+            stats.function_map[fname][lineno] = Filename(frame.f_code.co_name)
             bytei = ByteCodeIndex(frame.f_lasti)
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
@@ -1088,14 +1137,15 @@ class Scalene:
         console: Console,
         tbl: Table,
         stats: ScaleneStatistics,
+        force_print: bool = False,
+        suppress_lineno_print: bool = False,
     ) -> bool:
         """Print at most one line of the profile (true == printed one)."""
-        if not Scalene.profile_this_code(fname, line_no):
+        if not force_print and not Scalene.profile_this_code(fname, line_no):
             return False
         current_max = stats.max_footprint
         did_sample_memory: bool = (
-            stats.total_memory_free_samples
-            + stats.total_memory_malloc_samples
+            stats.total_memory_free_samples + stats.total_memory_malloc_samples
         ) > 0
         # Prepare output values.
         n_cpu_samples_c = stats.cpu_samples_c[fname][line_no]
@@ -1124,9 +1174,9 @@ class Scalene:
         for index in stats.bytei_map[fname][line_no]:
             mallocs = stats.memory_malloc_samples[fname][line_no][index]
             n_malloc_mb += mallocs
-            n_python_malloc_mb += stats.memory_python_samples[fname][
-                line_no
-            ][index]
+            n_python_malloc_mb += stats.memory_python_samples[fname][line_no][
+                index
+            ]
             frees = stats.memory_free_samples[fname][line_no][index]
             n_free_mb += frees
 
@@ -1148,9 +1198,7 @@ class Scalene:
             for bytei in stats.memory_malloc_count[fname][
                 line_no
             ]:  # type : ignore
-                n_malloc_mb /= stats.memory_malloc_count[fname][line_no][
-                    bytei
-                ]
+                n_malloc_mb /= stats.memory_malloc_count[fname][line_no][bytei]
                 n_python_malloc_mb /= stats.memory_malloc_count[fname][
                     line_no
                 ][bytei]
@@ -1208,6 +1256,8 @@ class Scalene:
             )
         )
 
+        print_line_no = "" if suppress_lineno_print else str(line_no)
+
         if did_sample_memory:
             spark_str: str = ""
             # Scale the sparkline by the usage fraction.
@@ -1240,7 +1290,7 @@ class Scalene:
 
             if not Scalene.__reduced_profile or ncpps + ncpcs + nufs:
                 tbl.add_row(
-                    str(line_no),
+                    print_line_no,
                     ncpps,  # n_cpu_percent_python_str,
                     ncpcs,  # n_cpu_percent_c_str,
                     sys_str,
@@ -1268,7 +1318,7 @@ class Scalene:
 
             if not Scalene.__reduced_profile or ncpps + ncpcs:
                 tbl.add_row(
-                    str(line_no),
+                    print_line_no,
                     ncpps,  # n_cpu_percent_python_str,
                     ncpcs,  # n_cpu_percent_c_str,
                     sys_str,
@@ -1357,13 +1407,20 @@ class Scalene:
             os.remove(f)
 
     @staticmethod
-    def output_profiles() -> bool:
+    def output_fn_profiles(fn_stats: ScaleneStatistics) -> bool:
+        # Report top K functions (currently 5) in terms of total execution time.
+        return True
+
+    @staticmethod
+    def output_profiles(stats: ScaleneStatistics) -> bool:
         """Write the profile out."""
         # Get the children's stats, if any.
         if not Scalene.__pid:
             Scalene.merge_stats()
-            rmtree(Scalene.__python_alias_dir)
-        stats = Scalene.__stats
+            try:
+                rmtree(Scalene.__python_alias_dir)
+            except BaseException:
+                pass
         current_max: float = stats.max_footprint
         # If we've collected any samples, dump them.
         if (
@@ -1387,8 +1444,7 @@ class Scalene:
             return False
         # If I have at least one memory sample, then we are profiling memory.
         did_sample_memory: bool = (
-            stats.total_memory_free_samples
-            + stats.total_memory_malloc_samples
+            stats.total_memory_free_samples + stats.total_memory_malloc_samples
         ) > 0
         title = Text()
         mem_usage_line: Union[Text, str] = ""
@@ -1451,9 +1507,7 @@ class Scalene:
             fname = Filename(fname)
             try:
                 percent_cpu_time = (
-                    100
-                    * stats.cpu_samples[fname]
-                    / stats.total_cpu_samples
+                    100 * stats.cpu_samples[fname] / stats.total_cpu_samples
                 )
             except ZeroDivisionError:
                 percent_cpu_time = 0
@@ -1564,72 +1618,80 @@ class Scalene:
                         tbl.add_row("...")
                     old_did_print = did_print
 
+            # Potentially print a function summary.
+            fn_stats = Scalene.build_function_stats(stats, fname)
+            print_fn_summary = False
+            for fn_name in fn_stats.cpu_samples_python:
+                if fn_name == fname:
+                    continue
+                print_fn_summary = True
+                break
+
+            if print_fn_summary:
+                txt = Text.assemble("function summary", style="bold italic")
+                if did_sample_memory:
+                    tbl.add_row("", "", "", "", "", "", "", "", txt)
+                else:
+                    tbl.add_row("", "", "", "", txt)
+
+                for fn_name in fn_stats.cpu_samples_python:
+                    if fn_name == fname:
+                        continue
+                    if Scalene.__html:
+                        syntax_highlighted = Syntax(
+                            fn_name,
+                            "python",
+                            theme="default",
+                            line_numbers=False,
+                            code_width=None,
+                        )
+                    else:
+                        syntax_highlighted = Syntax(
+                            fn_name,
+                            "python",
+                            theme="vim",
+                            line_numbers=False,
+                            code_width=None,
+                        )
+                    Scalene.output_profile_line(
+                        fn_name,
+                        LineNumber(1),
+                        syntax_highlighted,  # type: ignore
+                        console,
+                        tbl,
+                        fn_stats,
+                        True,
+                        True,
+                    )  # force print, suppress line numbers
+
             console.print(tbl)
-
-            # Report top K functions (currently 5) in terms of total execution time.
-            functions = set()
-            cpu_time: Dict[FunctionName, float] = defaultdict(float)
-            for line_no in stats.function_map[fname]:
-                fn_name = stats.function_map[fname][line_no]
-                cpu_time[fn_name] += (
-                    (
-                        stats.cpu_samples_c[fname][line_no]
-                        + stats.cpu_samples_python[fname][line_no]
-                    )
-                    * 100
-                    / stats.total_cpu_samples
-                )
-                functions.add(fn_name)
-
-            function_time = OrderedDict(
-                sorted(cpu_time.items(), key=itemgetter(1), reverse=True)
-            )
-
-            num_functions = min(len(function_time), 5)
-            console.print(
-                "Top "
-                + str(num_functions)
-                + " function"
-                + ("s" if num_functions > 1 else "")
-                + ", by execution time:"
-            )
-            index = 1
-            for fn in function_time:
-                if index > 5:
-                    break
-                console.print(
-                    "("
-                    + str(index)
-                    + ") "
-                    + ("%5.0f" % function_time[fn])
-                    + "%"
-                    + ": "
-                    + fn
-                )
-                index += 1
 
             # Report top K lines (currently 5) in terms of net memory consumption.
             net_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
-                for index in stats.bytei_map[fname][line_no]:
+                for bytecode_index in stats.bytei_map[fname][line_no]:
                     net_mallocs[line_no] += (
-                        stats.memory_malloc_samples[fname][line_no][index]
-                        - stats.memory_free_samples[fname][line_no][index]
+                        stats.memory_malloc_samples[fname][line_no][
+                            bytecode_index
+                        ]
+                        - stats.memory_free_samples[fname][line_no][
+                            bytecode_index
+                        ]
                     )
             net_mallocs = OrderedDict(
                 sorted(net_mallocs.items(), key=itemgetter(1), reverse=True)
             )
             if len(net_mallocs) > 0:
                 console.print("Top net memory consumption, by line:")
-                index = 1
+                number = 1
                 for net_malloc_lineno in net_mallocs:
                     if net_mallocs[net_malloc_lineno] <= 1:
                         break
-                    if index > 5:
+                    if number > 5:
                         break
                     output_str = (
                         "("
-                        + str(index)
+                        + str(number)
                         + ") "
                         + ("%5.0f" % (net_malloc_lineno))
                         + ": "
@@ -1637,7 +1699,7 @@ class Scalene:
                         + " MB"
                     )
                     console.print(output_str)
-                    index += 1
+                    number += 1
 
             # Only report potential leaks if the allocation velocity (growth rate) is above some threshold
             # FIXME: fixed at 1% for now.
@@ -1648,9 +1710,7 @@ class Scalene:
             if growth_rate / 100 > growth_rate_threshold:
                 vec = list(stats.leak_score[fname].values())
                 keys = list(stats.leak_score[fname].keys())
-                for index, item in enumerate(
-                    stats.leak_score[fname].values()
-                ):
+                for index, item in enumerate(stats.leak_score[fname].values()):
                     # See https://en.wikipedia.org/wiki/Rule_of_succession
                     frees = item[1]
                     allocs = item[0]
@@ -1732,7 +1792,6 @@ class Scalene:
     @staticmethod
     def debug_print(message: str) -> None:
         """Print a message accompanied by info about the file, line number, and caller."""
-        import sys
         import inspect
 
         callerframerecord = inspect.stack()[1]
@@ -2012,7 +2071,8 @@ class Scalene:
 
                         profiler.stop()
                         # If we've collected any samples, dump them.
-                        if profiler.output_profiles():
+                        stats = Scalene.__stats
+                        if profiler.output_profiles(stats):
                             pass
                         else:
                             print(
