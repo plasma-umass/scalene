@@ -16,16 +16,28 @@ by [Emery Berger](https://emeryberger.com)
 
 Scalene is a high-performance CPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
 
+### Fast and Precise
+
 1. Scalene is _fast_. It uses sampling instead of instrumentation or relying on Python's tracing facilities. Its overhead is typically no more than 10-20% (and often less).
-1. Scalene is _precise_. Unlike most other Python profilers, Scalene performs CPU profiling _at the line level_, pointing to the specific lines of code that are responsible for the execution time in your program. This level of detail can be much more useful than the function-level profiles returned by most profilers.
-1. Scalene separates out time spent running in Python from time spent in native code (including libraries). Most Python programmers aren't going to optimize the performance of native code (which is usually either in the Python implementation or external libraries), so this helps developers focus their optimization efforts on the code they can actually improve.
-1. Scalene _profiles memory usage_. In addition to tracking CPU usage, Scalene also points to the specific lines of code responsible for memory growth. It accomplishes this via an included specialized memory allocator.
-1. Scalene produces _per-line_ memory profiles, making it easier to track down leaks.
-1. Scalene profiles _copying volume_, making it easy to spot inadvertent copying, especially due to crossing Python/library boundaries (e.g., accidentally converting `numpy` arrays into Python arrays, and vice versa).
-1. **NEW!** Scalene now reports the percentage of memory consumed by Python code vs. native code.
-1. **NEW!** Scalene now highlights hotspots (code accounting for significant percentages of CPU time or memory allocation) in red, making them even easier to spot.
-1. **NEW!** Scalene can produce reduced profiles (via `--reduced-profile`) that only report lines that consume more than 1% of CPU or perform at least 100 allocations.
-1. **NEW!** Scalene now also supports `@profile` decorators to profile only specific functions.
+1. Scalene performs profiling **_at the line level_**, pointing to the specific lines of code that are responsible for the execution time in your program. This level of detail can be much more useful than the function-level profiles returned by most profilers.
+
+### CPU profiling
+
+1. Scalene **separates out time spent in Python from time in native code** (including libraries). Most Python programmers aren't going to optimize the performance of native code (which is usually either in the Python implementation or external libraries), so this helps developers focus their optimization efforts on the code they can actually improve.
+1. Scalene highlights hotspots (code accounting for significant percentages of CPU time or memory allocation) in red, making them even easier to spot.
+
+### Memory profiling
+
+1. Scalene **profiles memory usage**. In addition to tracking CPU usage, Scalene also points to the specific lines of code responsible for memory growth. It accomplishes this via an included specialized memory allocator.
+1. Scalene separates out the percentage of memory consumed by Python code vs. native code.
+1. Scalene produces **_per-line_ memory profiles**.
+1. Scalene **identifies likely memory leaks**.
+1. Scalene **profiles _copying volume_**, making it easy to spot inadvertent copying, especially due to crossing Python/library boundaries (e.g., accidentally converting `numpy` arrays into Python arrays, and vice versa).
+
+### Other features
+
+1. Scalene can produce reduced profiles (via `--reduced-profile`) that only report lines that consume more than 1% of CPU or perform at least 100 allocations.
+1. Scalene now also supports `@profile` decorators to profile only specific functions.
 
 # Comparison to Other Profilers
 
