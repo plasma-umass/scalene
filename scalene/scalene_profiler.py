@@ -1211,11 +1211,11 @@ class Scalene:
 
         # Finally, print results.
         n_cpu_percent_c_str: str = (
-            "" if n_cpu_percent_c < 0.01 else "%5.0f%%" % n_cpu_percent_c
+            "" if n_cpu_percent_c < 1 else "%5.0f%%" % n_cpu_percent_c
         )
         n_cpu_percent_python_str: str = (
             ""
-            if n_cpu_percent_python < 0.01
+            if n_cpu_percent_python < 1
             else "%5.0f%%" % n_cpu_percent_python
         )
         n_growth_mb_str: str = (
