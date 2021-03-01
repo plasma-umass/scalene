@@ -6,7 +6,7 @@ from scalene.adaptive import Adaptive
 
 Address = NewType("Address", str)
 Filename = NewType("Filename", str)
-FunctionName = NewType("FunctionName", str)
+# FunctionName = NewType("FunctionName", str)
 LineNumber = NewType("LineNumber", int)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 
@@ -20,9 +20,9 @@ class ScaleneStatistics:
 
     #   CPU samples for each location in the program
     #   spent in the interpreter
-    cpu_samples_python: Dict[
-        Filename, Dict[LineNumber, float]
-    ] = defaultdict(lambda: defaultdict(float))
+    cpu_samples_python: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
+        lambda: defaultdict(float)
+    )
 
     #   CPU samples for each location in the program
     #   spent in C / libraries / system calls
@@ -116,9 +116,9 @@ class ScaleneStatistics:
 
     # maps filenames and line numbers to functions (collected at runtime)
     # [filename][lineno] -> function name
-    function_map: Dict[
-        Filename, Dict[LineNumber, FunctionName]
-    ] = defaultdict(lambda: defaultdict(lambda: FunctionName("")))
+    function_map: Dict[Filename, Dict[LineNumber, Filename]] = defaultdict(
+        lambda: defaultdict(lambda: Filename(""))
+    )
 
     @classmethod
     def clear(cls) -> None:

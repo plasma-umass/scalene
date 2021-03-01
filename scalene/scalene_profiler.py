@@ -299,13 +299,9 @@ class Scalene:
         fn_stats = ScaleneStatistics()  # copy.deepcopy(stats)
         fn_stats.elapsed_time = stats.elapsed_time
         fn_stats.total_cpu_samples = stats.total_cpu_samples
-        fn_stats.memory_footprint_samples = Adaptive(27)
-        fn_stats.per_line_footprint_samples.clear()
         fn_stats.total_memory_malloc_samples = (
             stats.total_memory_malloc_samples
         )
-        # fn_stats.cpu_samples = copy.copy(stats.cpu_samples)
-        # fn_stats.malloc_samples = copy.copy(stats.malloc_samples)
         first_line_no = LineNumber(1)
         for line_no in stats.function_map[fname]:
             fn_name = stats.function_map[fname][line_no]
@@ -317,6 +313,9 @@ class Scalene:
             fn_stats.cpu_samples_python[fn_name][
                 first_line_no
             ] += stats.cpu_samples_python[fname][line_no]
+            fn_stats.per_line_footprint_samples[fn_name][
+                first_line_no
+            ] += stats.per_line_footprint_samples[fname][line_no]
             for index in stats.bytei_map[fname][line_no]:
                 fn_stats.bytei_map[fn_name][first_line_no].add(
                     ByteCodeIndex(0)
