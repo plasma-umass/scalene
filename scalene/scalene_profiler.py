@@ -1244,7 +1244,7 @@ class Scalene:
         # and the standard error of the mean is low (meaning it's an accurate estimate).
         sys_str: str = (
             ""
-            if n_cpu_percent < 0.01
+            if n_cpu_percent < 1
             or stats.cpu_utilization[fname][line_no].size() <= 1
             or stats.cpu_utilization[fname][line_no].sem() > 0.025
             or stats.cpu_utilization[fname][line_no].mean() > 0.99
