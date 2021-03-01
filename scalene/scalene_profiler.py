@@ -1627,6 +1627,7 @@ class Scalene:
                 break
 
             if print_fn_summary:
+                tbl.add_row(None, end_section = True)
                 txt = Text.assemble("function summary", style="bold italic")
                 if did_sample_memory:
                     tbl.add_row("", "", "", "", "", "", "", "", txt)
