@@ -1335,6 +1335,7 @@ class Scalene:
             stats.total_memory_free_samples,
             stats.total_memory_malloc_samples,
             stats.memory_footprint_samples,
+            stats.function_map
         ]
         # To be added: __malloc_samples
 
@@ -1391,6 +1392,12 @@ class Scalene:
                 stats.total_memory_free_samples += value[9]
                 stats.total_memory_malloc_samples += value[10]
                 stats.memory_footprint_samples += value[11]
+                for k, v in value[12].items():
+                    if k in stats.function_map:
+                        stats.function_map[k].update(v)
+                    else:
+                        stats.function_map[k] = v
+                    pass
             os.remove(f)
 
     @staticmethod
@@ -2048,9 +2055,8 @@ class Scalene:
                         except SystemExit as se:
                             # Intercept sys.exit and propagate the error code.
                             exit_status = se.code
-                        except BaseException:
-                            pass
-                            # print(traceback.format_exc())  # for debugging only
+                        except BaseException as e:
+                            print("Error in program being profiled:\n", e)
 
                         profiler.stop()
                         # If we've collected any samples, dump them.
