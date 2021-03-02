@@ -1604,7 +1604,6 @@ class Scalene:
             fn_stats = Scalene.build_function_stats(stats, fname)
             print_fn_summary = False
             for fn_name in fn_stats.cpu_samples_python:
-                print("examining " + fn_name)
                 if fn_name == fname:
                     continue
                 print_fn_summary = True
