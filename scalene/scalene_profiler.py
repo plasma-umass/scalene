@@ -929,6 +929,11 @@ class Scalene:
             while "<" in Filename(f.f_code.co_name):
                 f = cast(FrameType, frame.f_back)
             fn_name = Filename(f.f_code.co_name)
+            # Prepend the class, if any
+            try:
+                fn_name = f.f_locals["self"].__class__.__name__ + "." + fn_name
+            except BaseException:
+                pass
             stats.function_map[fname][lineno] = fn_name
             bytei = ByteCodeIndex(frame.f_lasti)
             # Add the byte index to the set for this line (if it's not there already).
