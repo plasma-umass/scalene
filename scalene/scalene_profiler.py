@@ -464,14 +464,10 @@ class Scalene:
     ):
         import scalene.replacement_pjoin
 
-        # Hijack lock.
+        # Hijack lock, poll, thread_join, fork, and exit.
         import scalene.replacement_lock
         import scalene.replacement_poll_selector
-
-        # Hijack join.
         import scalene.replacement_thread_join
-
-        # Hijack fork.
         import scalene.replacement_fork
         import scalene.replacement_exit
 
@@ -1406,11 +1402,6 @@ class Scalene:
             os.remove(f)
 
     @staticmethod
-    def output_fn_profiles(fn_stats: ScaleneStatistics) -> bool:
-        # Report top K functions (currently 5) in terms of total execution time.
-        return True
-
-    @staticmethod
     def output_profiles(stats: ScaleneStatistics) -> bool:
         """Write the profile out."""
         # Get the children's stats, if any.
@@ -1621,13 +1612,14 @@ class Scalene:
             fn_stats = Scalene.build_function_stats(stats, fname)
             print_fn_summary = False
             for fn_name in fn_stats.cpu_samples_python:
+                print("examining " + fn_name)
                 if fn_name == fname:
                     continue
                 print_fn_summary = True
                 break
 
             if print_fn_summary:
-                tbl.add_row(None, end_section = True)
+                tbl.add_row(None, end_section=True)
                 txt = Text.assemble("function summary", style="bold italic")
                 if did_sample_memory:
                     tbl.add_row("", "", "", "", "", "", "", "", txt)
