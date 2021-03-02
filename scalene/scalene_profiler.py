@@ -922,7 +922,14 @@ class Scalene:
         for (frame, _tident, _orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
-            stats.function_map[fname][lineno] = Filename(frame.f_code.co_name)
+            # Walk the stack backwards until we find a proper function
+            # name (as in, one that doesn't contain "<", which
+            # indicates things like list comprehensions).
+            f = frame
+            while "<" in Filename(f.f_code.co_name):
+                f = cast(FrameType, frame.f_back)
+            fn_name = Filename(f.f_code.co_name)
+            stats.function_map[fname][lineno] = fn_name
             bytei = ByteCodeIndex(frame.f_lasti)
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
