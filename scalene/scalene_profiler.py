@@ -566,9 +566,7 @@ class Scalene:
     ) -> None:
         """Wrapper for CPU signal handlers that locks access to the signal handler itself."""
 
-        # print("signal")
         if Scalene.__in_signal_handler.acquire(blocking=False):
-            # print("In handler")
             Scalene.cpu_signal_handler_helper(signum, this_frame)
             Scalene.__in_signal_handler.release()
 
@@ -712,9 +710,6 @@ class Scalene:
         del new_frames
 
         Scalene.__stats.total_cpu_samples += total_time
-        # if Scalene.__is_child:
-        #     print("Adding sample child", Scalene.__total_cpu_samples)
-        # # print("Adding CPU sample")``
         # Pick a new random interval, distributed around the mean.
         next_interval = 0.0
         while next_interval <= 0.0:
@@ -852,7 +847,6 @@ class Scalene:
                 ):
                     break
                 count_str = buf.rstrip(b"\x00").split(b"\n")[0].decode("ascii")
-                # print(count_str)
                 if count_str.strip() == "":
                     break
                 (
@@ -895,8 +889,6 @@ class Scalene:
                 stats.current_footprint -= count
                 if action == "f":
                     # Check if pointer actually matches
-                    # print("last malloc triggered ptr = ", Scalene.__last_malloc_triggered[2])
-                    # print("actual pointer = ", pointer)
                     if stats.last_malloc_triggered[2] == pointer:
                         freed_last_trigger += 1
             stats.memory_footprint_samples.add(stats.current_footprint)
