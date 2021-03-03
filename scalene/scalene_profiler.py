@@ -834,9 +834,10 @@ class Scalene:
         curr_pid = os.getpid()
         # Process the input array from where we left off reading last time.
         arr: List[Tuple[int, str, float, float, str]] = []
-        buf = bytearray(256)  # Must match SampleFile::MAX_BUFSIZE
+        MAX_BUFSIZE = 256
+        buf = bytearray(MAX_BUFSIZE)  # Must match SampleFile::MAX_BUFSIZE
         try:
-            buf = bytearray(128)
+            buf = bytearray(MAX_BUFSIZE)
 
             while True:
                 if not get_line_atomic.get_line_atomic(
@@ -1042,7 +1043,7 @@ class Scalene:
             mfile = Scalene.__memcpy_signal_mmap
             if mfile:
                 mfile.seek(Scalene.__memcpy_signal_position)
-                buf = bytearray(128)
+                buf = bytearray(MAX_BUFSIZE)
                 while True:
                     if not get_line_atomic.get_line_atomic(
                         Scalene.__memcpy_lock_mmap,
