@@ -203,12 +203,18 @@ class Scalene:
     __malloc_lastpos = bytearray(8)
     try:
         __malloc_signal_fd = open(__malloc_signal_filename, "x")
+        os.unlink(__malloc_signal_fd.name)
         __malloc_lock_fd = open(__malloc_lock_filename, "x")
+        os.unlink(__malloc_lock_fd.name)
+        __malloc_signal_fd.close()
+        __malloc_lock_fd.close()
     except BaseException as exc:
         pass
     try:
         __malloc_signal_fd = open(__malloc_signal_filename, "r")
+        os.unlink(__malloc_signal_fd.name)
         __malloc_lock_fd = open(__malloc_lock_filename, "r+")
+        os.unlink(__malloc_lock_fd.name)
         __malloc_signal_mmap = mmap.mmap(
             __malloc_signal_fd.fileno(),
             0,
@@ -236,7 +242,9 @@ class Scalene:
     __memcpy_lock_fd = None
     try:
         __memcpy_signal_fd = open(__memcpy_signal_filename, "r")
+        os.unlink(__memcpy_signal_fd.name)
         __memcpy_lock_fd = open(__memcpy_lock_filename, "r+")
+        os.unlink(__memcpy_lock_fd.name)
         __memcpy_signal_mmap = mmap.mmap(
             __memcpy_signal_fd.fileno(),
             0,
@@ -2039,6 +2047,14 @@ class Scalene:
         except BaseException:
             print("Scalene failed to initialize.\n" + traceback.format_exc())
             sys.exit(-1)
+        finally:
+            try:
+                Scalene.__malloc_signal_fd.close()
+                Scalene.__malloc_lock_fd.close()
+                Scalene.__memcpy_signal_fd.close()
+                Scalene.__memcpy_lock_fd.close()
+            except BaseException:
+                pass
 
 
 if __name__ == "__main__":
