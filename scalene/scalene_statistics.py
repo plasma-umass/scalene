@@ -137,7 +137,7 @@ class ScaleneStatistics:
         # Not clearing max footprint
         # FIXME: leak score, leak velocity
 
-    def build_function_stats(self, fname: Filename) -> ScaleneStatistics:
+    def build_function_stats(self, fname: Filename):
         fn_stats = ScaleneStatistics()
         fn_stats.elapsed_time = self.elapsed_time
         fn_stats.total_cpu_samples = self.total_cpu_samples
