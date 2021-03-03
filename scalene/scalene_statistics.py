@@ -1,5 +1,5 @@
 from collections import defaultdict, OrderedDict
-from typing import Dict, NewType, Set, Tuple
+from typing import Dict, NewType, Set, Tuple, Type, TypeVar
 from scalene.runningstats import RunningStats
 from scalene import sparkline
 from scalene.adaptive import Adaptive
@@ -9,7 +9,6 @@ Filename = NewType("Filename", str)
 # FunctionName = NewType("FunctionName", str)
 LineNumber = NewType("LineNumber", int)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
-
 
 class ScaleneStatistics:
     # Statistics counters:
@@ -137,3 +136,55 @@ class ScaleneStatistics:
         # Not clearing current footprint
         # Not clearing max footprint
         # FIXME: leak score, leak velocity
+
+    def build_function_stats(self, fname: Filename) -> ScaleneStatistics:
+        fn_stats = ScaleneStatistics()
+        fn_stats.elapsed_time = self.elapsed_time
+        fn_stats.total_cpu_samples = self.total_cpu_samples
+        fn_stats.total_memory_malloc_samples = (
+            self.total_memory_malloc_samples
+        )
+        first_line_no = LineNumber(1)
+        for line_no in self.function_map[fname]:
+            fn_name = self.function_map[fname][line_no]
+            if fn_name == "<module>":
+                continue
+            fn_stats.cpu_samples_c[fn_name][
+                first_line_no
+            ] += self.cpu_samples_c[fname][line_no]
+            fn_stats.cpu_samples_python[fn_name][
+                first_line_no
+            ] += self.cpu_samples_python[fname][line_no]
+            fn_stats.per_line_footprint_samples[fn_name][
+                first_line_no
+            ] += self.per_line_footprint_samples[fname][line_no]
+            for index in self.bytei_map[fname][line_no]:
+                fn_stats.bytei_map[fn_name][first_line_no].add(
+                    ByteCodeIndex(0)
+                )
+                fn_stats.memory_malloc_count[fn_name][first_line_no][
+                    ByteCodeIndex(0)
+                ] += self.memory_malloc_count[fname][line_no][index]
+                fn_stats.memory_free_count[fn_name][first_line_no][
+                    ByteCodeIndex(0)
+                ] += self.memory_free_count[fname][line_no][index]
+                fn_stats.memory_malloc_samples[fn_name][first_line_no][
+                    ByteCodeIndex(0)
+                ] += self.memory_malloc_samples[fname][line_no][index]
+                fn_stats.memory_python_samples[fn_name][first_line_no][
+                    ByteCodeIndex(0)
+                ] += self.memory_python_samples[fname][line_no][index]
+                fn_stats.memory_free_samples[fn_name][first_line_no][
+                    ByteCodeIndex(0)
+                ] += self.memory_free_samples[fname][line_no][index]
+            fn_stats.memcpy_samples[fn_name][
+                first_line_no
+            ] += self.memcpy_samples[fname][line_no]
+            fn_stats.leak_score[fn_name][first_line_no] = (
+                fn_stats.leak_score[fn_name][first_line_no][0]
+                + self.leak_score[fname][line_no][0],
+                fn_stats.leak_score[fn_name][first_line_no][1]
+                + self.leak_score[fname][line_no][1],
+            )
+        return fn_stats
+        
