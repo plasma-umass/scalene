@@ -300,60 +300,6 @@ class Scalene:
         """
         cls.__stats.clear()
 
-    @staticmethod
-    def build_function_stats(
-        stats: ScaleneStatistics, fname: Filename
-    ) -> ScaleneStatistics:
-        fn_stats = ScaleneStatistics()  # copy.deepcopy(stats)
-        fn_stats.elapsed_time = stats.elapsed_time
-        fn_stats.total_cpu_samples = stats.total_cpu_samples
-        fn_stats.total_memory_malloc_samples = (
-            stats.total_memory_malloc_samples
-        )
-        first_line_no = LineNumber(1)
-        for line_no in stats.function_map[fname]:
-            fn_name = stats.function_map[fname][line_no]
-            if fn_name == "<module>":
-                continue
-            fn_stats.cpu_samples_c[fn_name][
-                first_line_no
-            ] += stats.cpu_samples_c[fname][line_no]
-            fn_stats.cpu_samples_python[fn_name][
-                first_line_no
-            ] += stats.cpu_samples_python[fname][line_no]
-            fn_stats.per_line_footprint_samples[fn_name][
-                first_line_no
-            ] += stats.per_line_footprint_samples[fname][line_no]
-            for index in stats.bytei_map[fname][line_no]:
-                fn_stats.bytei_map[fn_name][first_line_no].add(
-                    ByteCodeIndex(0)
-                )
-                fn_stats.memory_malloc_count[fn_name][first_line_no][
-                    ByteCodeIndex(0)
-                ] += stats.memory_malloc_count[fname][line_no][index]
-                fn_stats.memory_free_count[fn_name][first_line_no][
-                    ByteCodeIndex(0)
-                ] += stats.memory_free_count[fname][line_no][index]
-                fn_stats.memory_malloc_samples[fn_name][first_line_no][
-                    ByteCodeIndex(0)
-                ] += stats.memory_malloc_samples[fname][line_no][index]
-                fn_stats.memory_python_samples[fn_name][first_line_no][
-                    ByteCodeIndex(0)
-                ] += stats.memory_python_samples[fname][line_no][index]
-                fn_stats.memory_free_samples[fn_name][first_line_no][
-                    ByteCodeIndex(0)
-                ] += stats.memory_free_samples[fname][line_no][index]
-            fn_stats.memcpy_samples[fn_name][
-                first_line_no
-            ] += stats.memcpy_samples[fname][line_no]
-            fn_stats.leak_score[fn_name][first_line_no] = (
-                fn_stats.leak_score[fn_name][first_line_no][0]
-                + stats.leak_score[fname][line_no][0],
-                fn_stats.leak_score[fn_name][first_line_no][1]
-                + stats.leak_score[fname][line_no][1],
-            )
-        return fn_stats
-
     # Replacement @profile decorator function.
     # We track which functions - in which files - have been decorated,
     # and only report stats for those.
@@ -814,6 +760,8 @@ class Scalene:
             Scalene.allocation_signal_handler(signum, this_frame, "malloc")
             Scalene.__in_signal_handler.release()
 
+    MAX_BUFSIZE = 256 # Must match SampleFile::MAX_BUFSIZE
+            
     @staticmethod
     def free_signal_handler(
         signum: Union[
@@ -842,9 +790,9 @@ class Scalene:
         curr_pid = os.getpid()
         # Process the input array from where we left off reading last time.
         arr: List[Tuple[int, str, float, float, str]] = []
-        buf = bytearray(256)  # Must match SampleFile::MAX_BUFSIZE
+        buf = bytearray(Scalene.MAX_BUFSIZE)
         try:
-            buf = bytearray(128)
+            buf = bytearray(Scalene.MAX_BUFSIZE)
 
             while True:
                 if not get_line_atomic.get_line_atomic(
@@ -937,6 +885,9 @@ class Scalene:
             while "<" in Filename(f.f_code.co_name):
                 f = cast(FrameType, frame.f_back)
             fn_name = Filename(f.f_code.co_name)
+            # Prepend the class, if any
+            if "self" in f.f_locals:
+                fn_name = f.f_locals["self"].__class__.__name__ + "." + fn_name
             stats.function_map[fname][lineno] = fn_name
             bytei = ByteCodeIndex(frame.f_lasti)
             # Add the byte index to the set for this line (if it's not there already).
@@ -1047,7 +998,7 @@ class Scalene:
             mfile = Scalene.__memcpy_signal_mmap
             if mfile:
                 mfile.seek(Scalene.__memcpy_signal_position)
-                buf = bytearray(128)
+                buf = bytearray(Scalene.MAX_BUFSIZE)
                 while True:
                     if not get_line_atomic.get_line_atomic(
                         Scalene.__memcpy_lock_mmap,
@@ -1623,7 +1574,7 @@ class Scalene:
                     old_did_print = did_print
 
             # Potentially print a function summary.
-            fn_stats = Scalene.build_function_stats(stats, fname)
+            fn_stats = stats.build_function_stats(fname)
             print_fn_summary = False
             for fn_name in fn_stats.cpu_samples_python:
                 if fn_name == fname:
