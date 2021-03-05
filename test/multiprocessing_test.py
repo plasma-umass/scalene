@@ -9,7 +9,6 @@ class Integer(object):
         self.x = x
 
 def largest_prime_factor(n):
-    print(f"I IS {n}")
     for i in range(10):
         x = [Integer(i * i) for i in range(80000)]
         # sleep(1)
@@ -23,19 +22,15 @@ if __name__ == "__main__":
     # import __main__
     # x = [largest_prime_factor(i) for i in range_obj]
     t0 = perf_counter()
-    # handles = [multiprocessing.Process(target=largest_prime_factor, args=(i,)) for i in range_obj]
+    handles = [multiprocessing.Process(target=largest_prime_factor, args=(i,)) for i in range_obj]
     # handles = [multiprocessing.Process(target=largest_prime_factor, args=(1000000181,))]
-    for i in range_obj:
-        print("UWU")
-        largest_prime_factor(i)
-        print("done uwu")
-    # [ for i in range_obj]
-    # for handle in handles:
-    #     # print("Starting", handle)
-    #     handle.start()
-    # # multiprocessing.popen_fork.Popen
-    # for handle in handles:
-    #     # print("Joining", handle)
-    #     handle.join()
+    
+    for handle in handles:
+        # print("Starting", handle)
+        handle.start()
+    # multiprocessing.popen_fork.Popen
+    for handle in handles:
+        # print("Joining", handle)
+        handle.join()
     dt = perf_counter() - t0
     print(f"Total time: {dt}")
