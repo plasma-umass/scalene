@@ -885,6 +885,8 @@ class Scalene:
             while "<" in Filename(f.f_code.co_name):
                 f = cast(FrameType, frame.f_back)
             fn_name = Filename(f.f_code.co_name)
+            firstline = f.f_code.co_firstlineno
+            print(f"{fn_name}: {lineno}")
             # Prepend the class, if any
             while f:
                 if "self" in f.f_locals:
@@ -1098,6 +1100,7 @@ class Scalene:
         stats: ScaleneStatistics,
         force_print: bool = False,
         suppress_lineno_print: bool = False,
+        is_function_summary: bool = False
     ) -> bool:
         """Print at most one line of the profile (true == printed one)."""
         if not force_print and not Scalene.profile_this_code(fname, line_no):
