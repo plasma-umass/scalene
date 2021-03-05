@@ -897,8 +897,9 @@ class Scalene:
                     fn_name = f.f_locals["cls"].__name__ + "." + fn_name
                     break
                 f = f.f_back
-            stats.function_map[fname][lineno] = fn_name
-            stats.firstline_map[fn_name] = firstline
+            if Scalene.should_trace(fname):
+                print(f"adding to {fn_name} {fname}")
+                stats.function_map[fname][lineno] = fn_name
             bytei = ByteCodeIndex(frame.f_lasti)
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
