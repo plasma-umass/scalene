@@ -885,6 +885,7 @@ class Scalene:
             while "<" in Filename(f.f_code.co_name):
                 f = cast(FrameType, frame.f_back)
             fn_name = Filename(f.f_code.co_name)
+            firstline = f.f_code.co_firstlineno
             # Prepend the class, if any
             while f:
                 if "self" in f.f_locals:
@@ -895,6 +896,7 @@ class Scalene:
                     break
                 f = f.f_back
             stats.function_map[fname][lineno] = fn_name
+            stats.firstline_map[fn_name] = firstline
             bytei = ByteCodeIndex(frame.f_lasti)
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
@@ -1307,7 +1309,8 @@ class Scalene:
             stats.total_memory_free_samples,
             stats.total_memory_malloc_samples,
             stats.memory_footprint_samples,
-            stats.function_map
+            stats.function_map,
+            stats.firstline_map
         ]
         # To be added: __malloc_samples
 
@@ -1370,6 +1373,7 @@ class Scalene:
                     else:
                         stats.function_map[k] = v
                     pass
+                stats.firstline_map.update(value[13])
             os.remove(f)
 
     @staticmethod
@@ -1617,12 +1621,11 @@ class Scalene:
                         )
                     Scalene.output_profile_line(
                         fn_name,
-                        LineNumber(1),
+                        stats.firstline_map[fn_name],
                         syntax_highlighted,  # type: ignore
                         console,
                         tbl,
                         fn_stats,
-                        True,
                         True,
                     )  # force print, suppress line numbers
 

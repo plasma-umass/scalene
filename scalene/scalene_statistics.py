@@ -118,6 +118,7 @@ class ScaleneStatistics:
     function_map: Dict[Filename, Dict[LineNumber, Filename]] = defaultdict(
         lambda: defaultdict(lambda: Filename(""))
     )
+    firstline_map: Dict[Filename, LineNumber] = defaultdict(lambda : LineNumber(1))
 
     @classmethod
     def clear(cls) -> None:
