@@ -40,7 +40,7 @@ setup(
     ],
     packages=find_packages(),
     install_requires=[
-        "rich>=2.0.0",
+        "rich>=9.2.10",
         "cloudpickle>=1.5.0",
         "numpy"
     ],

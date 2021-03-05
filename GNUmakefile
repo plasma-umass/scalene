@@ -1,6 +1,6 @@
 LIBNAME = scalene
 PYTHON = python3
-PYTHON_SOURCES = scalene/scalene_profiler.py scalene/sparkline.py scalene/adaptive.py scalene/runningstats.py scalene/syntaxline.py scalene/leak_analysis.py scalene/replacement*.py
+PYTHON_SOURCES = scalene/scalene_profiler.py scalene/sparkline.py scalene/adaptive.py scalene/runningstats.py scalene/syntaxline.py scalene/leak_analysis.py scalene/replacement*.py scalene/scalene_statistics.py
 C_SOURCES = libscalene.cpp include/*.h*
 
 .PHONY: black clang-format

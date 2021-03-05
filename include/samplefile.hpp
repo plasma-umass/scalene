@@ -65,6 +65,7 @@ class SampleFile {
     }
     // This is a miserable hack that does not deserve to exist
     int init_fd = open(init_file, O_CREAT | O_RDWR, perms);
+    unlink(init_file);
     int res = flock(init_fd, LOCK_EX);
     char buf[4];
     memset(buf, 0, 4);

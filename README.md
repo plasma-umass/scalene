@@ -1,10 +1,10 @@
-![scalene](https://github.com/emeryberger/scalene/raw/master/docs/scalene-image.png)
+![scalene](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-image.png)
 
 # scalene: a high-performance CPU and memory profiler for Python
 
 by [Emery Berger](https://emeryberger.com)
 
-[![PyPI Latest Release](https://img.shields.io/pypi/v/scalene.svg)](https://pypi.org/project/scalene/)[![Downloads](https://pepy.tech/badge/scalene)](https://pepy.tech/project/scalene) [![Downloads](https://pepy.tech/badge/scalene/month)](https://pepy.tech/project/scalene) ![Python versions](https://img.shields.io/pypi/pyversions/scalene.svg?style=flat-square) ![License](https://img.shields.io/github/license/emeryberger/scalene) [![Twitter Follow](https://img.shields.io/twitter/follow/emeryberger.svg?style=social)](https://twitter.com/emeryberger)
+[![PyPI Latest Release](https://img.shields.io/pypi/v/scalene.svg)](https://pypi.org/project/scalene/)[![Downloads](https://pepy.tech/badge/scalene)](https://pepy.tech/project/scalene) [![Downloads](https://pepy.tech/badge/scalene/month)](https://pepy.tech/project/scalene) ![Python versions](https://img.shields.io/pypi/pyversions/scalene.svg?style=flat-square) ![License](https://img.shields.io/github/license/plasma-umass/scalene) [![Twitter Follow](https://img.shields.io/twitter/follow/emeryberger.svg?style=social)](https://twitter.com/emeryberger)
 ------------
 [中文版本 (Chinese version)](docs/README_CN.md)
 
@@ -16,16 +16,28 @@ by [Emery Berger](https://emeryberger.com)
 
 Scalene is a high-performance CPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
 
-1. Scalene is _fast_. It uses sampling instead of instrumentation or relying on Python's tracing facilities. Its overhead is typically no more than 10-20% (and often less).
-1. Scalene is _precise_. Unlike most other Python profilers, Scalene performs CPU profiling _at the line level_, pointing to the specific lines of code that are responsible for the execution time in your program. This level of detail can be much more useful than the function-level profiles returned by most profilers.
-1. Scalene separates out time spent running in Python from time spent in native code (including libraries). Most Python programmers aren't going to optimize the performance of native code (which is usually either in the Python implementation or external libraries), so this helps developers focus their optimization efforts on the code they can actually improve.
-1. Scalene _profiles memory usage_. In addition to tracking CPU usage, Scalene also points to the specific lines of code responsible for memory growth. It accomplishes this via an included specialized memory allocator.
-1. Scalene produces _per-line_ memory profiles, making it easier to track down leaks.
-1. Scalene profiles _copying volume_, making it easy to spot inadvertent copying, especially due to crossing Python/library boundaries (e.g., accidentally converting `numpy` arrays into Python arrays, and vice versa).
-1. **NEW!** Scalene now reports the percentage of memory consumed by Python code vs. native code.
-1. **NEW!** Scalene now highlights hotspots (code accounting for significant percentages of CPU time or memory allocation) in red, making them even easier to spot.
-1. **NEW!** Scalene can produce reduced profiles (via `--reduced-profile`) that only report lines that consume more than 1% of CPU or perform at least 100 allocations.
-1. **NEW!** Scalene now also supports `@profile` decorators to profile only specific functions.
+### Fast and Precise
+
+- Scalene is **_fast_**. It uses sampling instead of instrumentation or relying on Python's tracing facilities. Its overhead is typically no more than 10-20% (and often less).
+- Scalene performs profiling **_at the line level_**, pointing to the specific lines of code that are responsible for the execution time in your program. This level of detail can be much more useful than the function-level profiles returned by most profilers.
+
+### CPU profiling
+
+- Scalene **separates out time spent in Python from time in native code** (including libraries). Most Python programmers aren't going to optimize the performance of native code (which is usually either in the Python implementation or external libraries), so this helps developers focus their optimization efforts on the code they can actually improve.
+- Scalene **highlights hotspots** (code accounting for significant percentages of CPU time or memory allocation) in red, making them even easier to spot.
+
+### Memory profiling
+
+- Scalene **profiles memory usage**. In addition to tracking CPU usage, Scalene also points to the specific lines of code responsible for memory growth. It accomplishes this via an included specialized memory allocator.
+- Scalene separates out the percentage of **memory consumed by Python code vs. native code**.
+- Scalene produces **_per-line_ memory profiles**.
+- Scalene **identifies likely memory leaks**.
+- Scalene **profiles _copying volume_**, making it easy to spot inadvertent copying, especially due to crossing Python/library boundaries (e.g., accidentally converting `numpy` arrays into Python arrays, and vice versa).
+
+### Other features
+
+- Scalene can produce **reduced profiles** (via `--reduced-profile`) that only report lines that consume more than 1% of CPU or perform at least 100 allocations.
+- Scalene supports `@profile` decorators to profile only specific functions.
 
 # Comparison to Other Profilers
 
@@ -33,7 +45,7 @@ Scalene is a high-performance CPU *and* memory profiler for Python that does a n
 
 Below is a table comparing the **performance and features** of various profilers to Scalene.
 
-![Performance and feature comparison](https://github.com/emeryberger/scalene/blob/master/images/profiler-comparison.png)
+![Performance and feature comparison](https://github.com/plasma-umass/scalene/blob/master/images/profiler-comparison.png)
 
 **Function-granularity profilers** report information only for an entire function, while **line-granularity profilers** (like Scalene) report information for every line
 
@@ -55,7 +67,7 @@ it `--profile-all` and only include files with at least a
 `--cpu-percent-threshold` of time).  Here is a snippet from
 `pystone.py`.
 
-![Example profile](https://github.com/emeryberger/scalene/blob/master/images/sample-profile-pystone.png)
+![Example profile](https://github.com/plasma-umass/scalene/blob/master/images/sample-profile-pystone.png)
 
 * **Memory usage at the top**: Visualized by "sparklines", memory consumption over the runtime of the profiled code. Scalene is a statistical profiler, meaning that it does sampling, and variance can certainly happen. A longer-running program that allocates and frees more memory will have more stable results.
 * **"CPU % Python"**: How much time was spent in Python code.
@@ -76,33 +88,36 @@ The following command runs Scalene on a provided example program.
 To see all the options, run with `--help`.
 
     % scalene --help
-    usage: scalene [-h] [--outfile OUTFILE] [--html] [--reduced-profile]
-                   [--profile-interval PROFILE_INTERVAL] [--cpu-only]
-                   [--profile-all] [--use-virtual-time]
-                   [--cpu-percent-threshold CPU_PERCENT_THRESHOLD]
-                   [--cpu-sampling-rate CPU_SAMPLING_RATE]
-                   [--malloc-threshold MALLOC_THRESHOLD]
-    
-    Scalene: a high-precision CPU and memory profiler.
-            https://github.com/emeryberger/scalene
-            % scalene yourprogram.py
-    
-    optional arguments:
-      -h, --help            show this help message and exit
-      --outfile OUTFILE     file to hold profiler output (default: stdout)
-      --html                output as HTML (default: text)
-      --reduced-profile     generate a reduced profile, with non-zero lines only (default: False).
-      --profile-interval PROFILE_INTERVAL
-                            output profiles every so many seconds.
-      --cpu-only            only profile CPU time (default: profile CPU, memory, and copying)
-      --profile-all         profile all executed code, not just the target program (default: only the target program)
-      --use-virtual-time    measure only CPU time, not time spent in I/O or blocking (default: False)
-      --cpu-percent-threshold CPU_PERCENT_THRESHOLD
-                            only report profiles with at least this percent of CPU time (default: 1%)
-      --cpu-sampling-rate CPU_SAMPLING_RATE
-                            CPU sampling rate (default: every 0.01s)
-      --malloc-threshold MALLOC_THRESHOLD
-                            only report profiles with at least this many allocations (default: 100)
+     usage: scalene [-h] [--outfile OUTFILE] [--html] [--reduced-profile]
+                    [--profile-interval PROFILE_INTERVAL] [--cpu-only]
+                    [--profile-all] [--profile-only PROFILE_ONLY]
+                    [--use-virtual-time]
+                    [--cpu-percent-threshold CPU_PERCENT_THRESHOLD]
+                    [--cpu-sampling-rate CPU_SAMPLING_RATE]
+                    [--malloc-threshold MALLOC_THRESHOLD]
+     
+     Scalene: a high-precision CPU and memory profiler.
+                 https://github.com/plasma-umass/scalene
+                 % scalene yourprogram.py
+     
+     optional arguments:
+       -h, --help            show this help message and exit
+       --outfile OUTFILE     file to hold profiler output (default: stdout)
+       --html                output as HTML (default: text)
+       --reduced-profile     generate a reduced profile, with non-zero lines only (default: False).
+       --profile-interval PROFILE_INTERVAL
+                             output profiles every so many seconds.
+       --cpu-only            only profile CPU time (default: profile CPU, memory, and copying)
+       --profile-all         profile all executed code, not just the target program (default: only the target program)
+       --profile-only PROFILE_ONLY
+                             profile only code in files that contain the given string (default: no restrictions)
+       --use-virtual-time    measure only CPU time, not time spent in I/O or blocking (default: False)
+       --cpu-percent-threshold CPU_PERCENT_THRESHOLD
+                             only report profiles with at least this percent of CPU time (default: 1%)
+       --cpu-sampling-rate CPU_SAMPLING_RATE
+                             CPU sampling rate (default: every 0.01s)
+       --malloc-threshold MALLOC_THRESHOLD
+                             only report profiles with at least this many allocations (default: 100)
 
 
 ## Installation
@@ -126,7 +141,7 @@ or
 As an alternative to `pip`, you can use Homebrew to install the current version of Scalene from this repository:
 
 ```
-  % brew tap emeryberger/scalene
+  % brew tap plasma-umass/scalene
   % brew install --head libscalene
 ```
 
@@ -140,11 +155,11 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 
 # Technical Information
 
-For technical details on Scalene, please see the following paper: [Scalene: Scripting-Language Aware Profiling for Python](https://github.com/emeryberger/scalene/raw/master/scalene-paper.pdf) ([arXiv link](https://arxiv.org/abs/2006.03879)).
+For technical details on Scalene, please see the following paper: [Scalene: Scripting-Language Aware Profiling for Python](https://github.com/plasma-umass/scalene/raw/master/scalene-paper.pdf) ([arXiv link](https://arxiv.org/abs/2006.03879)).
 
 # Success Stories
 
-If you use Scalene to successfully debug a performance problem, please [add a comment to this issue](https://github.com/emeryberger/scalene/issues/58)!
+If you use Scalene to successfully debug a performance problem, please [add a comment to this issue](https://github.com/plasma-umass/scalene/issues/58)!
 
 # Acknowledgements
 
