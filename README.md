@@ -141,7 +141,7 @@ or
 As an alternative to `pip`, you can use Homebrew to install the current version of Scalene from this repository:
 
 ```
-  % brew tap emeryberger/scalene
+  % brew tap plasma-umass/scalene
   % brew install --head libscalene
 ```
 
