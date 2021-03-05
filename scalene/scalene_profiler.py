@@ -877,7 +877,6 @@ class Scalene:
 
         for (frame, _tident, _orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
-            print(f"orig name: {fname}")
             lineno = LineNumber(frame.f_lineno)
             # Walk the stack backwards until we find a proper function
             # name (as in, one that doesn't contain "<", which
@@ -896,8 +895,6 @@ class Scalene:
                     fn_name = f.f_locals["cls"].__name__ + "." + fn_name
                     break
                 f = f.f_back
-            if Scalene.should_trace(fname):
-                print(f"adding to {fn_name} {firstline}")
             stats.function_map[fname][lineno] = fn_name
             stats.firstline_map[fn_name] = firstline
             bytei = ByteCodeIndex(frame.f_lasti)
@@ -1223,7 +1220,6 @@ class Scalene:
         if not is_function_summary:
             print_line_no = "" if suppress_lineno_print else str(line_no)
         else:
-            # print(f"lineno for {fname}:", stats.firstline_map[fname])
             print_line_no = "" if fname not in stats.firstline_map else str(stats.firstline_map[fname])
         if did_sample_memory:
             spark_str: str = ""
@@ -1592,7 +1588,6 @@ class Scalene:
             # Potentially print a function summary.
             assert Scalene.should_trace(fname)
             fn_stats = stats.build_function_stats(fname)
-            print(fn_stats.function_map)
             print_fn_summary = False
             for fn_name in fn_stats.cpu_samples_python:
                 if fn_name == fname:
