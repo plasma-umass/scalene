@@ -8,7 +8,7 @@
 #if defined(__APPLE__)
 
 // FIXME use the non-__APPLE__ code on __APPLE__ as well to reduce unnecessary variants?
-class NextHeap {
+class SysMallocHeap {
  public:
   enum { Alignment = alignof(max_align_t) };
 
@@ -37,10 +37,10 @@ extern "C" {
 }
 
 /**
- * Provides access to the original system heap, even if the standard malloc/free/etc.
+ * Provides access to the original system heap, even if the standard malloc/free/...
  * have been redirected by way of LD_PRELOAD, MacOS interpose, etc.
  */
-class NextHeap {
+class SysMallocHeap {
  public:
   enum { Alignment = alignof(max_align_t) };
 

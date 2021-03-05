@@ -22,10 +22,10 @@
 const uint64_t MallocSamplingRate = 1048576ULL;
 const uint64_t MemcpySamplingRate = MallocSamplingRate * 2ULL;
 
-#include "nextheap.hpp"
+#include "sysmallocheap.hpp"
 
 class ParentHeap
-    : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, NextHeap>> {
+    : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, SysMallocHeap>> {
 };
 
 static bool _initialized{false};
