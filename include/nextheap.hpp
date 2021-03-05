@@ -7,7 +7,7 @@
 
 #if defined(__APPLE__)
 
-// XXX use the same code on __APPLE__?
+// FIXME use the non-__APPLE__ code on __APPLE__ as well to reduce unnecessary variants?
 class NextHeap {
  public:
   enum { Alignment = alignof(max_align_t) };
@@ -49,7 +49,7 @@ class NextHeap {
       if (_inInit) {
         return _initHeap->malloc(sz);
       }
-      init(); // FIXME call through std::call_once (here and elsewhere)?
+      init(); // FIXME call through std::call_once (here and elsewhere)? Is it recursion safe?
     }
     return (*_malloc)(sz);
   }
