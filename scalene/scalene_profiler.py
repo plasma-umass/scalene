@@ -1100,6 +1100,7 @@ class Scalene:
         stats: ScaleneStatistics,
         force_print: bool = False,
         suppress_lineno_print: bool = False,
+        is_function_summary: bool = False
     ) -> bool:
         """Print at most one line of the profile (true == printed one)."""
         if not force_print and not Scalene.profile_this_code(fname, line_no):
@@ -1216,9 +1217,10 @@ class Scalene:
                 * (1.0 - (stats.cpu_utilization[fname][line_no].mean()))
             )
         )
-
-        print_line_no = "" if suppress_lineno_print else str(line_no)
-
+        if not is_function_summary:
+            print_line_no = "" if suppress_lineno_print else str(line_no)
+        else:
+            print_line_no = "" if fname not in stats.firstline_map else str(stats.firstline_map[fname])
         if did_sample_memory:
             spark_str: str = ""
             # Scale the sparkline by the usage fraction.
@@ -1584,6 +1586,7 @@ class Scalene:
                     old_did_print = did_print
 
             # Potentially print a function summary.
+            assert Scalene.should_trace(fname)
             fn_stats = stats.build_function_stats(fname)
             print_fn_summary = False
             for fn_name in fn_stats.cpu_samples_python:
@@ -1621,12 +1624,14 @@ class Scalene:
                         )
                     Scalene.output_profile_line(
                         fn_name,
-                        stats.firstline_map[fn_name],
+                        LineNumber(1),
                         syntax_highlighted,  # type: ignore
                         console,
                         tbl,
                         fn_stats,
                         True,
+                        True,
+                        True
                     )  # force print, suppress line numbers
 
             console.print(tbl)
