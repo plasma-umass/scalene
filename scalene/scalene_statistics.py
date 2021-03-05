@@ -147,6 +147,7 @@ class ScaleneStatistics:
         )
         first_line_no = LineNumber(1)
         fn_stats.function_map = self.function_map
+        fn_stats.firstline_map = self.firstline_map
         for line_no in self.function_map[fname]:
             fn_name = self.function_map[fname][line_no]
             if fn_name == "<module>":
