@@ -49,7 +49,7 @@ class NextHeap {
       if (_inInit) {
         return _initHeap->malloc(sz);
       }
-      init();
+      init(); // FIXME call through std::call_once (here and elsewhere)?
     }
     return (*_malloc)(sz);
   }
@@ -91,7 +91,6 @@ class NextHeap {
   }
 
  private:
-  // FIXME this should be run from std::call_once
   void init() {
     // malloc et al can be called during initialization even before C++ constructors run,
     // so we rely on compile-time static data member initialization and on an in place new
