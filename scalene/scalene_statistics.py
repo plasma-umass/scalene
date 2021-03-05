@@ -146,6 +146,7 @@ class ScaleneStatistics:
             self.total_memory_malloc_samples
         )
         first_line_no = LineNumber(1)
+        fn_stats.function_map = self.function_map
         for line_no in self.function_map[fname]:
             fn_name = self.function_map[fname][line_no]
             if fn_name == "<module>":

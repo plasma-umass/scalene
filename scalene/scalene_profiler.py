@@ -617,9 +617,10 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
-            Scalene.__stats.function_map[fname][lineno] = Filename(
-                frame.f_code.co_name
-            )
+            if Scalene.should_trace(fname):
+                Scalene.__stats.function_map[fname][lineno] = Filename(
+                    frame.f_code.co_name
+                )
             if frame == new_frames[0][0]:
                 # Main thread.
                 if not Scalene.__is_thread_sleeping[tident]:
@@ -877,6 +878,7 @@ class Scalene:
 
         for (frame, _tident, _orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
+            print(f"orig name: {fname}")
             lineno = LineNumber(frame.f_lineno)
             # Walk the stack backwards until we find a proper function
             # name (as in, one that doesn't contain "<", which
@@ -1584,7 +1586,9 @@ class Scalene:
                     old_did_print = did_print
 
             # Potentially print a function summary.
+            assert Scalene.should_trace(fname)
             fn_stats = stats.build_function_stats(fname)
+            print(fn_stats.function_map)
             print_fn_summary = False
             for fn_name in fn_stats.cpu_samples_python:
                 if fn_name == fname:
