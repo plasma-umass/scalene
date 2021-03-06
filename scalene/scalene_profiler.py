@@ -126,7 +126,7 @@ class Scalene:
 
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
-    
+
     @staticmethod
     def get_original_lock() -> threading.Lock:
         return Scalene.__original_lock()
