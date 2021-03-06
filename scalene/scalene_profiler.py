@@ -34,7 +34,7 @@ import tempfile
 import threading
 import time
 import traceback
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 from functools import lru_cache, wraps
 from signal import Handlers, Signals
 from textwrap import dedent
@@ -52,13 +52,6 @@ from typing import (
 )
 from multiprocessing.process import BaseProcess
 
-from scalene.leak_analysis import (
-    outliers,
-    multinomial_pvalue,
-    one_sided_binomial_test_lt,
-)
-from scalene import sparkline
-from scalene.syntaxline import SyntaxLine
 from scalene.scalene_statistics import *
 from scalene.scalene_output import ScaleneOutput
 

@@ -3,10 +3,9 @@ import os
 import pathlib
 import pickle
 
-from collections import defaultdict, OrderedDict
-from typing import Any, Dict, List, NewType, Set, Tuple, Type, TypeVar
+from collections import defaultdict
+from typing import Any, Dict, List, NewType, Set, Tuple
 from scalene.runningstats import RunningStats
-from scalene import sparkline
 from scalene.adaptive import Adaptive
 
 Address = NewType("Address", str)
