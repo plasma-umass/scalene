@@ -14,7 +14,7 @@ from scalene import sparkline
 from scalene.syntaxline import SyntaxLine
 from scalene.scalene_statistics import *
 
-from typing import Callable
+from typing import Callable, Union
 
 class ScaleneOutput:
     
@@ -45,7 +45,7 @@ class ScaleneOutput:
         console: Console,
         tbl: Table,
         stats: ScaleneStatistics,
-        profile_this_code : Callable[[Filename], LineNumber],
+        profile_this_code : Callable[[Filename, LineNumber], bool],
         force_print: bool = False,
         suppress_lineno_print: bool = False,
         is_function_summary: bool = False
@@ -242,7 +242,7 @@ class ScaleneOutput:
     @staticmethod
     def output_profiles(stats: ScaleneStatistics,
                         pid : int,
-                        profile_this_code : Callable[[Filename], LineNumber],
+                        profile_this_code : Callable[[Filename, LineNumber], bool],
                         python_alias_dir_name : Filename,
                         python_alias_dir : Filename
                         ) -> bool:
@@ -251,7 +251,7 @@ class ScaleneOutput:
         if not pid:
             stats.merge_stats(python_alias_dir_name)
             try:
-                shutils.rmtree(python_alias_dir)
+                shutil.rmtree(python_alias_dir)
             except BaseException:
                 pass
         current_max: float = stats.max_footprint
@@ -356,7 +356,7 @@ class ScaleneOutput:
         # Don't actually output the profile if we are a child process.
         # Instead, write info to disk for the main process to collect.
         if pid:
-            stats.output_stats(pid, ScaleneOutput.__python_alias_dir_name)
+            stats.output_stats(pid, python_alias_dir_name)
             return True
 
         for fname in report_files:

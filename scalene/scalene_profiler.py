@@ -533,7 +533,13 @@ class Scalene:
             Scalene.__next_output_time += Scalene.__output_profile_interval
             Scalene.stop()
             stats = Scalene.__stats
-            ScaleneOutput.output_profiles(stats, Scalene.__pid, Scalene.profile_this_code)
+            ScaleneOutput.output_profiles(
+                stats,
+                Scalene.__pid,
+                Scalene.profile_this_code,
+                Scalene.__python_alias_dir_name,
+                Scalene.__python_alias_dir,
+            )
             Scalene.start()
         # Here we take advantage of an ostensible limitation of Python:
         # it only delivers signals after the interpreter has given up
@@ -734,8 +740,8 @@ class Scalene:
             Scalene.allocation_signal_handler(signum, this_frame, "malloc")
             Scalene.__in_signal_handler.release()
 
-    MAX_BUFSIZE = 256 # Must match SampleFile::MAX_BUFSIZE
-            
+    MAX_BUFSIZE = 256  # Must match SampleFile::MAX_BUFSIZE
+
     @staticmethod
     def free_signal_handler(
         signum: Union[
@@ -863,7 +869,9 @@ class Scalene:
             # Prepend the class, if any
             while f:
                 if "self" in f.f_locals:
-                    fn_name = f.f_locals["self"].__class__.__name__ + "." + fn_name
+                    fn_name = (
+                        f.f_locals["self"].__class__.__name__ + "." + fn_name
+                    )
                     break
                 if "cls" in f.f_locals:
                     fn_name = f.f_locals["cls"].__name__ + "." + fn_name
@@ -1376,11 +1384,13 @@ class Scalene:
 
                         profiler.stop()
                         # If we've collected any samples, dump them.
-                        if ScaleneOutput.output_profiles(Scalene.__stats,
-                                                         Scalene.__pid,
-                                                         Scalene.profile_this_code,
-                                                         Scalene.__python_alias_dir_name,
-                                                         Scalene.__python_alias_dir):
+                        if ScaleneOutput.output_profiles(
+                            Scalene.__stats,
+                            Scalene.__pid,
+                            Scalene.profile_this_code,
+                            Scalene.__python_alias_dir_name,
+                            Scalene.__python_alias_dir,
+                        ):
                             pass
                         else:
                             print(
