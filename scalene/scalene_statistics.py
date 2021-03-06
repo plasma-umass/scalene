@@ -15,6 +15,7 @@ Filename = NewType("Filename", str)
 LineNumber = NewType("LineNumber", int)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 
+
 class ScaleneStatistics:
     # Statistics counters:
     #
@@ -123,7 +124,9 @@ class ScaleneStatistics:
     function_map: Dict[Filename, Dict[LineNumber, Filename]] = defaultdict(
         lambda: defaultdict(lambda: Filename(""))
     )
-    firstline_map: Dict[Filename, LineNumber] = defaultdict(lambda : LineNumber(1))
+    firstline_map: Dict[Filename, LineNumber] = defaultdict(
+        lambda: LineNumber(1)
+    )
 
     @classmethod
     def clear(cls) -> None:
@@ -143,13 +146,11 @@ class ScaleneStatistics:
         # Not clearing max footprint
         # FIXME: leak score, leak velocity
 
-    def build_function_stats(self, fname: Filename): # type: ignore
+    def build_function_stats(self, fname: Filename):  # type: ignore
         fn_stats = ScaleneStatistics()
         fn_stats.elapsed_time = self.elapsed_time
         fn_stats.total_cpu_samples = self.total_cpu_samples
-        fn_stats.total_memory_malloc_samples = (
-            self.total_memory_malloc_samples
-        )
+        fn_stats.total_memory_malloc_samples = self.total_memory_malloc_samples
         first_line_no = LineNumber(1)
         fn_stats.function_map = self.function_map
         fn_stats.firstline_map = self.firstline_map
@@ -195,7 +196,7 @@ class ScaleneStatistics:
                 + self.leak_score[fname][line_no][1],
             )
         return fn_stats
-        
+
     def output_stats(self, pid: int, dir_name: Filename) -> None:
         payload: List[Any] = []
         payload = [
@@ -215,7 +216,7 @@ class ScaleneStatistics:
             self.total_memory_malloc_samples,
             self.memory_footprint_samples,
             self.function_map,
-            self.firstline_map
+            self.firstline_map,
         ]
         # To be added: __malloc_samples
 
@@ -227,7 +228,7 @@ class ScaleneStatistics:
         with open(out_fname, "wb") as out_file:
             cloudpickle.dump(payload, out_file)
 
-    def merge_stats(self, the_dir_name : Filename) -> None:
+    def merge_stats(self, the_dir_name: Filename) -> None:
         the_dir = pathlib.Path(the_dir_name)
         for f in list(the_dir.glob("**/scalene*")):
             # Skip empty files.
