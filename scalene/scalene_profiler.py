@@ -34,6 +34,7 @@ import tempfile
 import threading
 import time
 import traceback
+
 from collections import defaultdict
 from functools import lru_cache, wraps
 from signal import Handlers, Signals
@@ -52,6 +53,7 @@ from typing import (
 )
 from multiprocessing.process import BaseProcess
 
+from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_statistics import *
 from scalene.scalene_output import ScaleneOutput
 
@@ -864,12 +866,17 @@ class Scalene:
             # Prepend the class, if any
             while f:
                 if "self" in f.f_locals:
-                    fn_name = (
-                        f.f_locals["self"].__class__.__name__ + "." + fn_name
-                    )
+                    prepend_name = f.f_locals["self"].__class__.__name__
+                    if "Scalene" not in prepend_name:
+                        fn_name = (
+                            prepend_name + "." + fn_name
+                        )
                     break
                 if "cls" in f.f_locals:
-                    fn_name = f.f_locals["cls"].__name__ + "." + fn_name
+                    prepend_name = f.f_locals["cls"].__name__
+                    if "Scalene" in prepend_name:
+                        break
+                    fn_name = prepend_name + "." + fn_name
                     break
                 f = cast(FrameType, f.f_back)
             stats.function_map[fname][lineno] = fn_name
@@ -1131,82 +1138,82 @@ class Scalene:
         parser.add_argument(
             "--outfile",
             type=str,
-            default=None,
-            help="file to hold profiler output (default: stdout)",
+            default=ScaleneArguments.outfile,
+            help="file to hold profiler output (default: " + ("stdout" if not ScaleneArguments.outfile else ScaleneArguments.outfile) + ")",
         )
         parser.add_argument(
             "--html",
             dest="html",
             action="store_const",
             const=True,
-            default=False,
-            help="output as HTML (default: text)",
+            default=ScaleneArguments.html,
+            help="output as HTML (default: " + str("html" if ScaleneArguments.html else "text") + ")",
         )
         parser.add_argument(
             "--reduced-profile",
             dest="reduced_profile",
             action="store_const",
             const=True,
-            default=False,
-            help="generate a reduced profile, with non-zero lines only (default: False).",
+            default=ScaleneArguments.reduced_profile,
+            help="generate a reduced profile, with non-zero lines only (default: " + str(ScaleneArguments.reduced_profile) + ")",
         )
         parser.add_argument(
             "--profile-interval",
             type=float,
-            default=float("inf"),
-            help="output profiles every so many seconds.",
+            default=ScaleneArguments.profile_interval,
+            help="output profiles every so many seconds (default: " + str(ScaleneArguments.profile_interval) + ")",
         )
         parser.add_argument(
             "--cpu-only",
             dest="cpu_only",
             action="store_const",
             const=True,
-            default=False,
-            help="only profile CPU time (default: profile CPU, memory, and copying)",
+            default=ScaleneArguments.cpu_only,
+            help="only profile CPU time (default: profile " + ("CPU only" if ScaleneArguments.cpu_only else "CPU, memory, and copying") + ")",
         )
         parser.add_argument(
             "--profile-all",
             dest="profile_all",
             action="store_const",
             const=True,
-            default=False,
-            help="profile all executed code, not just the target program (default: only the target program)",
+            default=ScaleneArguments.profile_all,
+            help="profile all executed code, not just the target program (default: " + ("all code" if ScaleneArguments.profile_all else "only the target program") + ")",
         )
         parser.add_argument(
             "--profile-only",
             dest="profile_only",
             type=str,
-            default="",
-            help="profile only code in files that contain the given string (default: no restrictions)",
+            default=ScaleneArguments.profile_only,
+            help="profile only code in files that contain the given string (default: " + ("no restrictions" if not ScaleneArguments.profile_only else ScaleneArguments.profile_only) + ")",
         )
         parser.add_argument(
             "--use-virtual-time",
             dest="use_virtual_time",
             action="store_const",
             const=True,
-            default=False,
-            help="measure only CPU time, not time spent in I/O or blocking (default: False)",
+            default=ScaleneArguments.use_virtual_time,
+            help="measure only CPU time, not time spent in I/O or blocking (default: " + str(ScaleneArguments.use_virtual_time) + ")",
         )
         parser.add_argument(
             "--cpu-percent-threshold",
             dest="cpu_percent_threshold",
             type=int,
-            default=1,
-            help="only report profiles with at least this percent of CPU time (default: 1%%)",
+            default=ScaleneArguments.cpu_percent_threshold,
+            help="only report profiles with at least this percent of CPU time (default: " + str(ScaleneArguments.cpu_percent_threshold) + "%%)",
         )
         parser.add_argument(
             "--cpu-sampling-rate",
             dest="cpu_sampling_rate",
             type=float,
-            default=0.01,
-            help="CPU sampling rate (default: every 0.01s)",
+            default=ScaleneArguments.cpu_sampling_rate,
+            help="CPU sampling rate (default: every " + str(ScaleneArguments.cpu_sampling_rate) + "s)",
         )
         parser.add_argument(
             "--malloc-threshold",
             dest="malloc_threshold",
             type=int,
-            default=100,
-            help="only report profiles with at least this many allocations (default: 100)",
+            default=ScaleneArguments.malloc_threshold,
+            help="only report profiles with at least this many allocations (default: " + str(ScaleneArguments.malloc_threshold) + ")",
         )
         # the PID of the profiling process (for internal use only)
         parser.add_argument(
@@ -1295,10 +1302,37 @@ class Scalene:
                         )
                     sys.exit(result.returncode)
 
+    def profile_code(self, code: str, the_globals, the_locals) -> int:
+        # Catch termination so we print a profile before exiting.
+        self.start()
+        # Run the code being profiled.
+        exit_status = 0
+        try:
+            exec(code, the_globals, the_locals)
+        except SystemExit as se:
+            # Intercept sys.exit and propagate the error code.
+            exit_status = se.code
+        except BaseException as e:
+            print("Error in program being profiled:\n", e)
+
+        self.stop()
+        # If we've collected any samples, dump them.
+        if Scalene.__output.output_profiles(
+            Scalene.__stats,
+            Scalene.__pid,
+            Scalene.profile_this_code,
+            Scalene.__python_alias_dir_name,
+            Scalene.__python_alias_dir,
+        ):
+            pass
+        else:
+            print(
+                "Scalene: Program did not run for long enough to profile."
+            )
+        return exit_status
+        
     @staticmethod
     def main() -> None:
-        # import scalene.replacement_rlock
-        """Invokes the profiler from the command-line."""
         (
             args,
             left,
@@ -1359,38 +1393,7 @@ class Scalene:
                     profiler = Scalene(args, Filename(fullname))
                     try:
                         # We exit with this status (returning error code as appropriate).
-                        exit_status = 0
-                        # Catch termination so we print a profile before exiting.
-                        # (Invokes sys.exit, which is caught below.)
-                        signal.signal(
-                            signal.SIGTERM,
-                            Scalene.termination_handler,
-                        )
-                        # Catch termination so we print a profile before exiting.
-                        profiler.start()
-                        # Run the code being profiled.
-                        try:
-                            exec(code, the_globals, the_locals)
-                        except SystemExit as se:
-                            # Intercept sys.exit and propagate the error code.
-                            exit_status = se.code
-                        except BaseException as e:
-                            print("Error in program being profiled:\n", e)
-
-                        profiler.stop()
-                        # If we've collected any samples, dump them.
-                        if Scalene.__output.output_profiles(
-                            Scalene.__stats,
-                            Scalene.__pid,
-                            Scalene.profile_this_code,
-                            Scalene.__python_alias_dir_name,
-                            Scalene.__python_alias_dir,
-                        ):
-                            pass
-                        else:
-                            print(
-                                "Scalene: Program did not run for long enough to profile."
-                            )
+                        exit_status = profiler.profile_code(code, the_locals, the_globals)
                         sys.exit(exit_status)
                     except Exception as ex:
                         template = "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
@@ -1413,7 +1416,6 @@ class Scalene:
                 Scalene.__memcpy_lock_fd.close()
             except BaseException:
                 pass
-
-
+    
 if __name__ == "__main__":
     Scalene.main()
