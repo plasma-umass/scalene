@@ -125,7 +125,8 @@ class Scalene:
     __original_lock = threading.Lock
 
     __stats = ScaleneStatistics()
-
+    __output = ScaleneOutput()
+    
     @staticmethod
     def get_original_lock() -> threading.Lock:
         return Scalene.__original_lock()
@@ -400,11 +401,11 @@ class Scalene:
         import scalene.replacement_exit
 
         if "cpu_percent_threshold" in arguments:
-            ScaleneOutput.__cpu_percent_threshold = int(
+            Scalene.__output.cpu_percent_threshold = int(
                 arguments.cpu_percent_threshold
             )
         if "malloc_threshold" in arguments:
-            ScaleneOutput.__malloc_threshold = int(arguments.malloc_threshold)
+            Scalene.__output.malloc_threshold = int(arguments.malloc_threshold)
         if "cpu_sampling_rate" in arguments:
             Scalene.__mean_cpu_sampling_rate = float(
                 arguments.cpu_sampling_rate
@@ -533,7 +534,8 @@ class Scalene:
             Scalene.__next_output_time += Scalene.__output_profile_interval
             Scalene.stop()
             stats = Scalene.__stats
-            ScaleneOutput.output_profiles(
+            output = Scalene.__output
+            output.output_profiles(
                 stats,
                 Scalene.__pid,
                 Scalene.profile_this_code,
@@ -1317,8 +1319,8 @@ class Scalene:
                 Scalene.get_wallclock_time()
                 + Scalene.__output_profile_interval
             )
-            ScaleneOutput.__html = args.html
-            ScaleneOutput.__output_file = args.outfile
+            Scalene.__output.html = args.html
+            Scalene.__output.output_file = args.outfile
             Scalene.__profile_all = args.profile_all
             Scalene.__profile_only = args.profile_only
             Scalene.__is_child = args.pid != 0
@@ -1327,9 +1329,9 @@ class Scalene:
                 args.pid if Scalene.__is_child else os.getpid()
             )
             if args.reduced_profile:
-                ScaleneOutput.__reduced_profile = True
+                Scalene.__output.reduced_profile = True
             else:
-                ScaleneOutput.__reduced_profile = False
+                Scalene.__output.reduced_profile = False
             try:
                 with open(sys.argv[0], "rb") as prog_being_profiled:
                     # Read in the code and compile it.
@@ -1384,7 +1386,7 @@ class Scalene:
 
                         profiler.stop()
                         # If we've collected any samples, dump them.
-                        if ScaleneOutput.output_profiles(
+                        if Scalene.__output.output_profiles(
                             Scalene.__stats,
                             Scalene.__pid,
                             Scalene.profile_this_code,

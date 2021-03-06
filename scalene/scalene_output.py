@@ -17,28 +17,29 @@ from scalene.scalene_statistics import *
 from typing import Callable, Union
 
 class ScaleneOutput:
-    
+
     # where we write profile info
-    __output_file: str = ""
-    
+    output_file: str = ""
+
     # if we output HTML or not
-    __html: bool = False
+    html: bool = False
 
     # Threshold for highlighting lines of code in red.
-    __highlight_percentage = 33
+    highlight_percentage = 33
 
     # Default threshold for percent of CPU time to report a file.
-    __cpu_percent_threshold = 1
+    cpu_percent_threshold = 1
 
     # Default threshold for number of mallocs to report a file.
-    __malloc_threshold = 100
+    malloc_threshold = 100
 
     # reduced profile?
-    __reduced_profile: bool = False
+    reduced_profile: bool = False
     
+        
     # Profile output methods
-    @staticmethod
     def output_profile_line(
+            self,
         fname: Filename,
         line_no: LineNumber,
         line: SyntaxLine,
@@ -185,9 +186,9 @@ class ScaleneOutput:
             ncpcs: Any = ""
             nufs: Any = ""
             if (
-                n_usage_fraction >= ScaleneOutput.__highlight_percentage
+                n_usage_fraction >= self.highlight_percentage
                 or (n_cpu_percent_c + n_cpu_percent_python)
-                >= ScaleneOutput.__highlight_percentage
+                >= self.highlight_percentage
             ):
                 ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
                 ncpcs = Text.assemble((n_cpu_percent_c_str, "bold red"))
@@ -199,7 +200,7 @@ class ScaleneOutput:
                 ncpcs = n_cpu_percent_c_str
                 nufs = spark_str + n_usage_fraction_str
 
-            if not ScaleneOutput.__reduced_profile or ncpps + ncpcs + nufs:
+            if not self.reduced_profile or ncpps + ncpcs + nufs:
                 tbl.add_row(
                     print_line_no,
                     ncpps,  # n_cpu_percent_python_str,
@@ -220,14 +221,14 @@ class ScaleneOutput:
             # Red highlight
             if (
                 n_cpu_percent_c + n_cpu_percent_python
-            ) >= ScaleneOutput.__highlight_percentage:
+            ) >= self.highlight_percentage:
                 ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
                 ncpcs = Text.assemble((n_cpu_percent_c_str, "bold red"))
             else:
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str
 
-            if not ScaleneOutput.__reduced_profile or ncpps + ncpcs:
+            if not self.reduced_profile or ncpps + ncpcs:
                 tbl.add_row(
                     print_line_no,
                     ncpps,  # n_cpu_percent_python_str,
@@ -239,8 +240,8 @@ class ScaleneOutput:
             else:
                 return False
 
-    @staticmethod
-    def output_profiles(stats: ScaleneStatistics,
+    def output_profiles(self,
+                        stats: ScaleneStatistics,
                         pid : int,
                         profile_this_code : Callable[[Filename, LineNumber], bool],
                         python_alias_dir_name : Filename,
@@ -320,7 +321,7 @@ class ScaleneOutput:
         null = open("/dev/null", "w")
         # Get column width of the terminal and adjust to fit.
         # Note that Scalene works best with at least 132 columns.
-        if ScaleneOutput.__html:
+        if self.html:
             column_width = 132
         else:
             column_width = shutil.get_terminal_size().columns
@@ -347,8 +348,8 @@ class ScaleneOutput:
 
             # Ignore files responsible for less than some percent of execution time and fewer than a threshold # of mallocs.
             if (
-                stats.malloc_samples[fname] < ScaleneOutput.__malloc_threshold
-                and percent_cpu_time < ScaleneOutput.__cpu_percent_threshold
+                stats.malloc_samples[fname] < self.malloc_threshold
+                and percent_cpu_time < self.cpu_percent_threshold
             ):
                 continue
             report_files.append(fname)
@@ -414,7 +415,7 @@ class ScaleneOutput:
                 # which we will consume a line at a time.
                 # See https://github.com/willmcgugan/rich/discussions/965#discussioncomment-314233
                 syntax_highlighted = None
-                if ScaleneOutput.__html:
+                if self.html:
                     syntax_highlighted = Syntax(
                         code_lines,
                         "python",
@@ -442,7 +443,7 @@ class ScaleneOutput:
                 ]
                 for line_no, line in enumerate(formatted_lines, start=1):
                     old_did_print = did_print
-                    did_print = ScaleneOutput.output_profile_line(
+                    did_print = self.output_profile_line(
                         fname, LineNumber(line_no), line, console, tbl, stats, profile_this_code
                     )
                     if old_did_print and not did_print:
@@ -470,7 +471,7 @@ class ScaleneOutput:
                 for fn_name in fn_stats.cpu_samples_python:
                     if fn_name == fname:
                         continue
-                    if ScaleneOutput.__html:
+                    if self.html:
                         syntax_highlighted = Syntax(
                             fn_name,
                             "python",
@@ -486,7 +487,7 @@ class ScaleneOutput:
                             line_numbers=False,
                             code_width=None,
                         )
-                    ScaleneOutput.output_profile_line(
+                    self.output_profile_line(
                         fn_name,
                         LineNumber(1),
                         syntax_highlighted,  # type: ignore
@@ -573,23 +574,23 @@ class ScaleneOutput:
                         )
                         console.print(output_str)
 
-        if ScaleneOutput.__html:
+        if self.html:
             # Write HTML file.
             md = Markdown(
                 "generated by the [scalene](https://github.com/plasma-umass/scalene) profiler"
             )
             console.print(md)
-            if not ScaleneOutput.__output_file:
-                ScaleneOutput.__output_file = "/dev/stdout"
-            console.save_html(ScaleneOutput.__output_file, clear=False)
+            if not self.output_file:
+                self.output_file = "/dev/stdout"
+            console.save_html(self.output_file, clear=False)
         else:
-            if not ScaleneOutput.__output_file:
+            if not self.output_file:
                 # No output file specified: write to stdout.
                 sys.stdout.write(console.export_text(styles=True))
             else:
                 # Don't output styles to text file.
                 console.save_text(
-                    ScaleneOutput.__output_file, styles=False, clear=False
+                    self.output_file, styles=False, clear=False
                 )
         return True
     
