@@ -1,5 +1,10 @@
+import cloudpickle
+import os
+import pathlib
+import pickle
+
 from collections import defaultdict, OrderedDict
-from typing import Dict, NewType, Set, Tuple, Type, TypeVar
+from typing import Any, Dict, List, NewType, Set, Tuple, Type, TypeVar
 from scalene.runningstats import RunningStats
 from scalene import sparkline
 from scalene.adaptive import Adaptive
@@ -138,7 +143,7 @@ class ScaleneStatistics:
         # Not clearing max footprint
         # FIXME: leak score, leak velocity
 
-    def build_function_stats(self, fname: Filename):
+    def build_function_stats(self, fname: Filename): # type: ignore
         fn_stats = ScaleneStatistics()
         fn_stats.elapsed_time = self.elapsed_time
         fn_stats.total_cpu_samples = self.total_cpu_samples
@@ -191,3 +196,85 @@ class ScaleneStatistics:
             )
         return fn_stats
         
+    def output_stats(self, pid: int, dir_name: Filename) -> None:
+        payload: List[Any] = []
+        payload = [
+            self.max_footprint,
+            self.elapsed_time,
+            self.total_cpu_samples,
+            self.cpu_samples_c,
+            self.cpu_samples_python,
+            self.bytei_map,
+            self.cpu_samples,
+            self.memory_malloc_samples,
+            self.memory_python_samples,
+            self.memory_free_samples,
+            self.memcpy_samples,
+            self.per_line_footprint_samples,
+            self.total_memory_free_samples,
+            self.total_memory_malloc_samples,
+            self.memory_footprint_samples,
+            self.function_map,
+            self.firstline_map
+        ]
+        # To be added: __malloc_samples
+
+        # Create a file in the Python alias directory with the relevant info.
+        out_fname = os.path.join(
+            dir_name,
+            "scalene" + str(pid) + "-" + str(os.getpid()),
+        )
+        with open(out_fname, "wb") as out_file:
+            cloudpickle.dump(payload, out_file)
+
+    def merge_stats(self, the_dir_name : Filename) -> None:
+        the_dir = pathlib.Path(the_dir_name)
+        for f in list(the_dir.glob("**/scalene*")):
+            # Skip empty files.
+            if os.path.getsize(f) == 0:
+                continue
+            with open(f, "rb") as file:
+                unpickler = pickle.Unpickler(file)
+                value = unpickler.load()
+                self.max_footprint = max(self.max_footprint, value[0])
+                self.elapsed_time = max(self.elapsed_time, value[1])
+                self.total_cpu_samples += value[2]
+                del value[:3]
+                for dict, index in [
+                    (self.cpu_samples_c, 0),
+                    (self.cpu_samples_python, 1),
+                    (self.memcpy_samples, 7),
+                    (self.per_line_footprint_samples, 8),
+                ]:
+                    for fname in value[index]:
+                        for lineno in value[index][fname]:
+                            v = value[index][fname][lineno]
+                            dict[fname][lineno] += v  # type: ignore
+                for dict, index in [
+                    (self.memory_malloc_samples, 4),
+                    (self.memory_python_samples, 5),
+                    (self.memory_free_samples, 6),
+                ]:
+                    for fname in value[index]:
+                        for lineno in value[index][fname]:
+                            for ind in value[index][fname][lineno]:
+                                dict[fname][lineno][ind] += value[index][
+                                    fname
+                                ][lineno][ind]
+                for fname in value[2]:
+                    for lineno in value[2][fname]:
+                        v = value[2][fname][lineno]
+                        self.bytei_map[fname][lineno] |= v
+                for fname in value[3]:
+                    self.cpu_samples[fname] += value[3][fname]
+                self.total_memory_free_samples += value[9]
+                self.total_memory_malloc_samples += value[10]
+                self.memory_footprint_samples += value[11]
+                for k, v in value[12].items():
+                    if k in self.function_map:
+                        self.function_map[k].update(v)
+                    else:
+                        self.function_map[k] = v
+                    pass
+                self.firstline_map.update(value[13])
+            os.remove(f)

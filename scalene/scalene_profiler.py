@@ -16,7 +16,6 @@
 import argparse
 import atexit
 import builtins
-import cloudpickle
 import dis
 import functools
 import get_line_atomic
@@ -24,8 +23,6 @@ import inspect
 import mmap
 import multiprocessing
 import os
-import pathlib
-import pickle
 import platform
 import random
 import shutil
@@ -238,8 +235,6 @@ class Scalene:
     __memcpy_lock_filename = Filename(
         "/tmp/scalene-memcpy-lock" + str(os.getpid())
     )
-    __memcpy_signal_fd = None
-    __memcpy_lock_fd = None
     try:
         __memcpy_signal_fd = open(__memcpy_signal_filename, "r")
         os.unlink(__memcpy_signal_fd.name)
@@ -894,9 +889,9 @@ class Scalene:
                 if "cls" in f.f_locals:
                     fn_name = f.f_locals["cls"].__name__ + "." + fn_name
                     break
-                f = f.f_back
+                f = cast(FrameType, f.f_back)
             stats.function_map[fname][lineno] = fn_name
-            stats.firstline_map[fn_name] = firstline
+            stats.firstline_map[fn_name] = LineNumber(firstline)
             bytei = ByteCodeIndex(frame.f_lasti)
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
@@ -1292,98 +1287,11 @@ class Scalene:
                 return False
 
     @staticmethod
-    def output_stats(pid: int) -> None:
-        payload: List[Any] = []
-        stats = Scalene.__stats
-        payload = [
-            stats.max_footprint,
-            stats.elapsed_time,
-            stats.total_cpu_samples,
-            stats.cpu_samples_c,
-            stats.cpu_samples_python,
-            stats.bytei_map,
-            stats.cpu_samples,
-            stats.memory_malloc_samples,
-            stats.memory_python_samples,
-            stats.memory_free_samples,
-            stats.memcpy_samples,
-            stats.per_line_footprint_samples,
-            stats.total_memory_free_samples,
-            stats.total_memory_malloc_samples,
-            stats.memory_footprint_samples,
-            stats.function_map,
-            stats.firstline_map
-        ]
-        # To be added: __malloc_samples
-
-        # Create a file in the Python alias directory with the relevant info.
-        out_fname = os.path.join(
-            Scalene.__python_alias_dir_name,
-            "scalene" + str(pid) + "-" + str(os.getpid()),
-        )
-        with open(out_fname, "wb") as out_file:
-            cloudpickle.dump(payload, out_file)
-
-    @staticmethod
-    def merge_stats() -> None:
-        the_dir = pathlib.Path(Scalene.__python_alias_dir_name)
-        stats = Scalene.__stats
-        for f in list(the_dir.glob("**/scalene*")):
-            # Skip empty files.
-            if os.path.getsize(f) == 0:
-                continue
-            with open(f, "rb") as file:
-                unpickler = pickle.Unpickler(file)
-                value = unpickler.load()
-                stats.max_footprint = max(stats.max_footprint, value[0])
-                stats.elapsed_time = max(stats.elapsed_time, value[1])
-                stats.total_cpu_samples += value[2]
-                del value[:3]
-                for dict, index in [
-                    (stats.cpu_samples_c, 0),
-                    (stats.cpu_samples_python, 1),
-                    (stats.memcpy_samples, 7),
-                    (stats.per_line_footprint_samples, 8),
-                ]:
-                    for fname in value[index]:
-                        for lineno in value[index][fname]:
-                            v = value[index][fname][lineno]
-                            dict[fname][lineno] += v  # type: ignore
-                for dict, index in [
-                    (stats.memory_malloc_samples, 4),
-                    (stats.memory_python_samples, 5),
-                    (stats.memory_free_samples, 6),
-                ]:
-                    for fname in value[index]:
-                        for lineno in value[index][fname]:
-                            for ind in value[index][fname][lineno]:
-                                dict[fname][lineno][ind] += value[index][
-                                    fname
-                                ][lineno][ind]
-                for fname in value[2]:
-                    for lineno in value[2][fname]:
-                        v = value[2][fname][lineno]
-                        stats.bytei_map[fname][lineno] |= v
-                for fname in value[3]:
-                    stats.cpu_samples[fname] += value[3][fname]
-                stats.total_memory_free_samples += value[9]
-                stats.total_memory_malloc_samples += value[10]
-                stats.memory_footprint_samples += value[11]
-                for k, v in value[12].items():
-                    if k in stats.function_map:
-                        stats.function_map[k].update(v)
-                    else:
-                        stats.function_map[k] = v
-                    pass
-                stats.firstline_map.update(value[13])
-            os.remove(f)
-
-    @staticmethod
     def output_profiles(stats: ScaleneStatistics) -> bool:
         """Write the profile out."""
         # Get the children's stats, if any.
         if not Scalene.__pid:
-            Scalene.merge_stats()
+            Scalene.__stats.merge_stats(Scalene.__python_alias_dir_name)
             try:
                 rmtree(Scalene.__python_alias_dir)
             except BaseException:
@@ -1490,7 +1398,7 @@ class Scalene:
         # Don't actually output the profile if we are a child process.
         # Instead, write info to disk for the main process to collect.
         if Scalene.__pid:
-            Scalene.output_stats(Scalene.__pid)
+            Scalene.__stats.output_stats(Scalene.__pid, Scalene.__python_alias_dir_name)
             return True
 
         for fname in report_files:
