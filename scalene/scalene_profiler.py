@@ -710,7 +710,7 @@ class Scalene:
                 # the co_filename.
                 back = cast(FrameType, frame.f_back)
                 fname = Filename(back.f_code.co_filename)
-            while not Scalene.should_trace(fname):
+            while not Scalene.should_trace(fname, frame):
                 # Walk the stack backwards until we hit a frame that
                 # IS one we should trace (if there is one).  i.e., if
                 # it's in the code being profiled, and it is just
@@ -1026,8 +1026,11 @@ class Scalene:
 
     @staticmethod
     @lru_cache(None)
-    def should_trace(filename: str) -> bool:
+    def should_trace(filename: str, frame: FrameType) -> bool:
         """Return true if the filename is one we should trace."""
+        if "site-packages" in filename or "/lib/python" in filename:
+            # Don't profile Python internals.
+            return False
         # If the @profile decorator has been used,
         # we restrict profiling to files containing decorated functions.
         if Scalene.__files_to_profile:
@@ -1036,8 +1039,15 @@ class Scalene:
         if not filename:
             return False
         if filename[0] == "<":
-            # Not a real file.
-            return False
+            if "<ipython" in filename:
+                # profiling code created in a Jupyter cell
+                # we'll create a file for it!
+                with open(str(frame.f_code.co_filename), "w+") as f:
+                    f.write("".join(inspect.getsourcelines(frame.f_code)[0]))
+                return True
+            else:
+                # Not a real file and not a function created in Jupyter.
+                return False
         if (
             "scalene/"
             in filename
@@ -1053,9 +1063,6 @@ class Scalene:
                 return True
             else:
                 return False
-        if "site-packages" in filename or "/usr/lib/python" in filename:
-            # Don't profile Python internals.
-            return False
         # Profile anything in the program's directory or a child directory,
         # but nothing else, unless otherwise specified.
         filename = os.path.abspath(filename)
@@ -1123,8 +1130,25 @@ class Scalene:
             message,
         )
 
+    class StopJupyterExecution(Exception):
+        """NOP exception to enable clean exits from within Jupyter notebooks."""
+        def _render_traceback_(self):
+            pass
+        
+    @staticmethod
+    def clean_exit(code: int) -> None:
+        """Replacement for sys.exit that exits cleanly from within Jupyter notebooks."""
+        raise Scalene.StopJupyterExecution
+    
     @staticmethod
     def parse_args() -> Tuple[argparse.Namespace, List[str]]:
+        # In IPython, intercept exit cleanly (because sys.exit triggers a backtrace).
+        try:
+            from IPython import get_ipython
+            if get_ipython():
+                sys.exit = Scalene.clean_exit
+        except:
+            pass
         defaults = ScaleneArguments()
         usage = dedent(
             """Scalene: a high-precision CPU and memory profiler.
@@ -1410,6 +1434,9 @@ class Scalene:
                         # We exit with this status (returning error code as appropriate).
                         exit_status = profiler.profile_code(code, the_locals, the_globals)
                         sys.exit(exit_status)
+                    except Scalene.StopJupyterExecution:
+                        # Running in Jupyter notebooks
+                        pass
                     except Exception as ex:
                         template = "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
                         message = template.format(type(ex).__name__, ex.args)
@@ -1419,6 +1446,8 @@ class Scalene:
                 print("Scalene: could not find input file " + sys.argv[0])
                 sys.exit(-1)
         except SystemExit:
+            pass
+        except Scalene.StopJupyterExecution:
             pass
         except BaseException:
             print("Scalene failed to initialize.\n" + traceback.format_exc())
