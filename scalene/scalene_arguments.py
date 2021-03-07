@@ -2,7 +2,7 @@ import argparse
 
 class ScaleneArguments(argparse.Namespace):
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.cpu_only = False
         self.cpu_percent_threshold = 1
         self.cpu_sampling_rate = 0.01

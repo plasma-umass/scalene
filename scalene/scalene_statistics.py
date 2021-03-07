@@ -151,13 +151,12 @@ class ScaleneStatistics:
             LineNumber(0),
             Address("0x0"),
         )
-        self.allocation_velocity = (0.0,0.0)
+        self.allocation_velocity = (0.0, 0.0)
         self.per_line_footprint_samples.clear()
         self.bytei_map.clear()
         # Not clearing current footprint
         # Not clearing max footprint
         # FIXME: leak score, leak velocity
-
 
     def clear_all(self) -> None:
         self.clear()
