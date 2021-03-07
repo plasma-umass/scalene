@@ -128,7 +128,6 @@ class ScaleneStatistics:
     )
 
     def clear(self) -> None:
-        print("CLEARING")
         self.elapsed_time = 0
         self.cpu_samples_python.clear()
         # print(self.cpu_samples_python)
