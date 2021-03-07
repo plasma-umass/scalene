@@ -1,10 +1,10 @@
-![scalene](https://github.com/emeryberger/scalene/raw/master/docs/scalene-image.png)
+![scalene](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-image.png)
 
 # scalene: a high-performance CPU and memory profiler for Python
 
 by [Emery Berger](https://emeryberger.com)
 
-[![PyPI Latest Release](https://img.shields.io/pypi/v/scalene.svg)](https://pypi.org/project/scalene/)[![Downloads](https://pepy.tech/badge/scalene)](https://pepy.tech/project/scalene) [![Downloads](https://pepy.tech/badge/scalene/month)](https://pepy.tech/project/scalene) ![Python versions](https://img.shields.io/pypi/pyversions/scalene.svg?style=flat-square) ![License](https://img.shields.io/github/license/emeryberger/scalene) [![Twitter Follow](https://img.shields.io/twitter/follow/emeryberger.svg?style=social)](https://twitter.com/emeryberger)
+[![PyPI Latest Release](https://img.shields.io/pypi/v/scalene.svg)](https://pypi.org/project/scalene/)[![Downloads](https://pepy.tech/badge/scalene)](https://pepy.tech/project/scalene) [![Downloads](https://pepy.tech/badge/scalene/month)](https://pepy.tech/project/scalene) ![Python versions](https://img.shields.io/pypi/pyversions/scalene.svg?style=flat-square) ![License](https://img.shields.io/github/license/plasma-umass/scalene) [![Twitter Follow](https://img.shields.io/twitter/follow/emeryberger.svg?style=social)](https://twitter.com/emeryberger)
 ------------
 [中文版本 (Chinese version)](docs/README_CN.md)
 
@@ -45,7 +45,7 @@ Scalene is a high-performance CPU *and* memory profiler for Python that does a n
 
 Below is a table comparing the **performance and features** of various profilers to Scalene.
 
-![Performance and feature comparison](https://github.com/emeryberger/scalene/blob/master/images/profiler-comparison.png)
+![Performance and feature comparison](https://github.com/plasma-umass/scalene/blob/master/images/profiler-comparison.png)
 
 **Function-granularity profilers** report information only for an entire function, while **line-granularity profilers** (like Scalene) report information for every line
 
@@ -67,7 +67,7 @@ it `--profile-all` and only include files with at least a
 `--cpu-percent-threshold` of time).  Here is a snippet from
 `pystone.py`.
 
-![Example profile](https://github.com/emeryberger/scalene/blob/master/images/sample-profile-pystone.png)
+![Example profile](https://github.com/plasma-umass/scalene/blob/master/images/sample-profile-pystone.png)
 
 * **Memory usage at the top**: Visualized by "sparklines", memory consumption over the runtime of the profiled code. Scalene is a statistical profiler, meaning that it does sampling, and variance can certainly happen. A longer-running program that allocates and frees more memory will have more stable results.
 * **"CPU % Python"**: How much time was spent in Python code.
@@ -97,7 +97,7 @@ To see all the options, run with `--help`.
                     [--malloc-threshold MALLOC_THRESHOLD]
      
      Scalene: a high-precision CPU and memory profiler.
-                 https://github.com/emeryberger/scalene
+                 https://github.com/plasma-umass/scalene
                  % scalene yourprogram.py
      
      optional arguments:
@@ -141,7 +141,7 @@ or
 As an alternative to `pip`, you can use Homebrew to install the current version of Scalene from this repository:
 
 ```
-  % brew tap emeryberger/scalene
+  % brew tap plasma-umass/scalene
   % brew install --head libscalene
 ```
 
@@ -155,11 +155,11 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 
 # Technical Information
 
-For technical details on Scalene, please see the following paper: [Scalene: Scripting-Language Aware Profiling for Python](https://github.com/emeryberger/scalene/raw/master/scalene-paper.pdf) ([arXiv link](https://arxiv.org/abs/2006.03879)).
+For technical details on Scalene, please see the following paper: [Scalene: Scripting-Language Aware Profiling for Python](https://github.com/plasma-umass/scalene/raw/master/scalene-paper.pdf) ([arXiv link](https://arxiv.org/abs/2006.03879)).
 
 # Success Stories
 
-If you use Scalene to successfully debug a performance problem, please [add a comment to this issue](https://github.com/emeryberger/scalene/issues/58)!
+If you use Scalene to successfully debug a performance problem, please [add a comment to this issue](https://github.com/plasma-umass/scalene/issues/58)!
 
 # Acknowledgements
 
