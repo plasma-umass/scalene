@@ -25,8 +25,8 @@ try:
                 tmpfile.close()
                 # For now, only profile the temporary file (that is, the current cell).
                 args.profile_only = os.path.basename(tmpfile.name)
-                profiler = scalene_profiler.Scalene(args, tmpfile.name)
-                profiler.run_profiler(args, [tmpfile.name])
+                # profiler = scalene_profiler.Scalene(args, tmpfile.name)
+                scalene_profiler.Scalene.run_profiler(args, [tmpfile.name])
 
     def load_ipython_extension(ip):
         ip.register_magics(ScaleneMagics)
