@@ -1042,8 +1042,10 @@ class Scalene:
             if "<ipython" in filename:
                 # profiling code created in a Jupyter cell
                 # we'll create a file for it!
-                with open(str(frame.f_code.co_filename), "w+") as f:
-                    f.write("".join(inspect.getsourcelines(frame.f_code)[0]))
+                from os import path
+                if not path.exists(frame.f_code.co_filename):
+                    with open(str(frame.f_code.co_filename), "w+") as f:
+                        f.write(inspect.getsource(frame))
                 return True
             else:
                 # Not a real file and not a function created in Jupyter.
