@@ -127,23 +127,45 @@ class ScaleneStatistics:
         lambda: LineNumber(1)
     )
 
-    @classmethod
-    def clear(cls) -> None:
-        cls.cpu_samples_python.clear()
-        cls.cpu_samples_c.clear()
-        cls.cpu_utilization.clear()
-        cls.cpu_samples.clear()
-        cls.malloc_samples.clear()
-        cls.memory_malloc_samples.clear()
-        cls.memory_python_samples.clear()
-        cls.memory_free_samples.clear()
-        cls.memory_free_count.clear()
-        cls.total_cpu_samples = 0.0
-        cls.total_memory_malloc_samples = 0.0
-        cls.total_memory_free_samples = 0.0
+    # @classmethod
+    def clear(self) -> None:
+        print("CLEARING")
+        self.elapsed_time = 0
+        self.cpu_samples_python.clear()
+        # print(self.cpu_samples_python)
+        self.cpu_samples_c.clear()
+        self.cpu_utilization.clear()
+        self.cpu_samples.clear()
+        self.malloc_samples.clear()
+        self.memory_malloc_samples.clear()
+        self.memory_malloc_count.clear()
+        self.memory_python_samples.clear()
+        self.memory_free_samples.clear()
+        self.memory_free_count.clear()
+        self.memcpy_samples.clear()
+        self.total_cpu_samples = 0.0
+        self.total_memory_malloc_samples = 0.0
+        self.total_memory_free_samples = 0.0
+        self.current_footprint = 0.0
+        self.leak_score.clear()
+        self.last_malloc_triggered = (
+            Filename(""),
+            LineNumber(0),
+            Address("0x0"),
+        )
+        self.allocation_velocity = (0.0,0.0)
+        self.per_line_footprint_samples.clear()
+        self.bytei_map.clear()
         # Not clearing current footprint
         # Not clearing max footprint
         # FIXME: leak score, leak velocity
+
+
+    def clear_all(self) -> None:
+        self.clear()
+        self.current_footprint = 0
+        self.max_footprint = 0
+        self.per_line_footprint_samples.clear()
 
     def build_function_stats(self, fname: Filename):  # type: ignore
         fn_stats = ScaleneStatistics()

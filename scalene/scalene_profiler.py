@@ -1366,6 +1366,7 @@ class Scalene:
     @staticmethod
     def run_profiler(args: argparse.Namespace, left: [str]) -> None:
         Scalene.setup_preload(args)
+        Scalene.__stats.clear_all()
         sys.argv = left
         try:
             multiprocessing.set_start_method("fork")
