@@ -127,7 +127,6 @@ class ScaleneStatistics:
         lambda: LineNumber(1)
     )
 
-    # @classmethod
     def clear(self) -> None:
         print("CLEARING")
         self.elapsed_time = 0
