@@ -2,9 +2,7 @@ include README.md
 include LICENSE
 include scalene/libscalene.so
 include scalene/libscalene.dylib
-include scalene/scalene.py
-include scalene/adaptive.py
-include scalene/sparkline.py
+include scalene/*.py
 include test/testme.py
 include GNUmakefile
 include heaplayers-make.mk
