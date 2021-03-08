@@ -1156,9 +1156,18 @@ class Scalene:
         defaults = ScaleneArguments()
         usage = dedent(
             """Scalene: a high-precision CPU and memory profiler.
-            https://github.com/plasma-umass/scalene
-            % scalene yourprogram.py
-            """
+https://github.com/plasma-umass/scalene
+  % scalene yourprogram.py
+
+in Jupyter, line mode:
+  %scrun [options] statement
+
+in Jupyter, cell mode:
+
+  %%scalene [options]
+  code...
+  code...
+"""
         )
         parser = argparse.ArgumentParser(
             prog="scalene",

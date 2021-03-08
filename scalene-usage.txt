@@ -7,8 +7,17 @@ usage: scalene [-h] [--outfile OUTFILE] [--html] [--reduced-profile]
                [--malloc-threshold MALLOC_THRESHOLD]
 
 Scalene: a high-precision CPU and memory profiler.
-            https://github.com/plasma-umass/scalene
-            % scalene yourprogram.py
+https://github.com/plasma-umass/scalene
+  % scalene yourprogram.py
+
+in Jupyter, line mode:
+  %scrun [options] statement
+
+in Jupyter, cell mode:
+
+  %%scalene [options]
+  code...
+  code...
 
 optional arguments:
   -h, --help            show this help message and exit
