@@ -15,7 +15,7 @@ mmap_hl_spinlock = Extension('get_line_atomic',
 
 setup(
     name="scalene",
-    version="1.2.2",
+    version="1.2.4",
     description="Scalene: A high-resolution, low-overhead CPU and memory profiler for Python",
     keywords="performance memory profiler",
     long_description=long_description,
@@ -49,8 +49,8 @@ setup(
         "cloudpickle>=1.5.0",
         "numpy"
     ],
-    setup_requires=['setuptools_scm'],
     ext_modules=[mmap_hl_spinlock],
+    setup_requires=['setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
     python_requires=">=3.6",
