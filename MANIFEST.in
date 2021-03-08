@@ -11,3 +11,4 @@ include heaplayers-make.mk
 include libscalene.cpp
 include include/*.h
 include include/*.hpp
+recursive-include Heap-Layers *
