@@ -1324,6 +1324,13 @@ in Jupyter, cell mode:
         # Load shared objects (that is, interpose on malloc, memcpy and friends)
         # unless the user specifies "--cpu-only" at the command-line.
         if not args.cpu_only:
+            try:
+                from IPython import get_ipython
+
+                if get_ipython():
+                    sys.exit = Scalene.clean_exit  # type: ignore
+            except:
+                pass
             # Load the shared object on Linux.
             if sys.platform == "linux":
                 if ("LD_PRELOAD" not in os.environ) and (
@@ -1344,7 +1351,6 @@ in Jupyter, cell mode:
                             "Scalene error: received signal",
                             signal.Signals(-result.returncode).name,
                         )
-
                     sys.exit(result.returncode)
 
             # Similar logic, but for Mac OS X.
