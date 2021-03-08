@@ -46,6 +46,8 @@ try:
             str = usage.read()
         ScaleneMagics.scrun.__doc__ = str
         ScaleneMagics.scalene.__doc__ = str
+        import textwrap
+        print("\n".join(textwrap.wrap("Scalene extension successfully loaded. Note: Scalene currently only supports CPU profiling inside Jupyter notebooks. For full Scalene profiling, use the command line version.")))
         
 except:
     pass
