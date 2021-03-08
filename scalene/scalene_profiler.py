@@ -86,7 +86,6 @@ class Scalene:
 
     # Debugging flag, for internal use only.
     __debug: bool = False
-
     # Whether the current profiler is a child
     __is_child = -1
     # the pid of the primary profiler
@@ -1040,12 +1039,17 @@ class Scalene:
             return False
         if filename[0] == "<":
             if "<ipython" in filename:
-                # profiling code created in a Jupyter cell
-                # we'll create a file for it!
-                from os import path
-                if not path.exists(frame.f_code.co_filename):
+                # Profiling code created in a Jupyter cell:
+                # crate a file to hold the contents.
+                from IPython import get_ipython
+                import re
+                # Find the input where the function was defined;
+                # we need this to properly annotate the code.
+                result = re.match("<ipython-input-([0-9]+)-.*>", filename)
+                if result:
+                    # Write the cell's contents into the file.
                     with open(str(frame.f_code.co_filename), "w+") as f:
-                        f.write(inspect.getsource(frame))
+                        f.write(get_ipython().history_manager.input_hist_raw[int(result.group(1))])
                 return True
             else:
                 # Not a real file and not a function created in Jupyter.
@@ -1157,13 +1161,14 @@ class Scalene:
         usage = dedent(
             """Scalene: a high-precision CPU and memory profiler.
 https://github.com/plasma-umass/scalene
-  % scalene yourprogram.py
+
+command-line:
+  % scalene [options] yourprogram.py
 
 in Jupyter, line mode:
   %scrun [options] statement
 
 in Jupyter, cell mode:
-
   %%scalene [options]
   code...
   code...
@@ -1319,6 +1324,13 @@ in Jupyter, cell mode:
         # Load shared objects (that is, interpose on malloc, memcpy and friends)
         # unless the user specifies "--cpu-only" at the command-line.
         if not args.cpu_only:
+            try:
+                from IPython import get_ipython
+
+                if get_ipython():
+                    sys.exit = Scalene.clean_exit  # type: ignore
+            except:
+                pass
             # Load the shared object on Linux.
             if sys.platform == "linux":
                 if ("LD_PRELOAD" not in os.environ) and (
@@ -1339,7 +1351,6 @@ in Jupyter, cell mode:
                             "Scalene error: received signal",
                             signal.Signals(-result.returncode).name,
                         )
-
                     sys.exit(result.returncode)
 
             # Similar logic, but for Mac OS X.
