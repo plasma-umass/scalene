@@ -1040,7 +1040,7 @@ class Scalene:
         if filename[0] == "<":
             if "<ipython" in filename:
                 # Profiling code created in a Jupyter cell:
-                # crate a file to hold the contents.
+                # create a file to hold the contents.
                 from IPython import get_ipython
                 import re
                 # Find the input where the function was defined;
