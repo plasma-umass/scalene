@@ -44,6 +44,10 @@ try:
 
     def load_ipython_extension(ip: Any) -> None:
         ip.register_magics(ScaleneMagics)
+        with open("scalene-usage.txt", "r") as usage:
+            str = usage.read()
+        ScaleneMagics.scrun.__doc__ = str
+        ScaleneMagics.scalene.__doc__ = str
         
 except:
     pass
