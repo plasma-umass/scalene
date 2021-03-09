@@ -597,12 +597,11 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
-            Scalene.__stats.function_map[fname][lineno] = Filename(
-                frame.f_code.co_name
-            )
+            Scalene.enter_function_meta(frame, Scalene.__stats)
             if frame == new_frames[0][0]:
                 # Main thread.
                 if not Scalene.__is_thread_sleeping[tident]:
+                    
                     Scalene.__stats.cpu_samples_python[fname][lineno] += (
                         python_time / total_frames
                     )
@@ -726,6 +725,35 @@ class Scalene:
             if frame:
                 new_frames.append((frame, tident, orig_frame))
         return new_frames
+
+    @staticmethod
+    def enter_function_meta(frame: FrameType, stats: ScaleneStatistics):
+        fname = Filename(frame.f_code.co_filename)
+        lineno = LineNumber(frame.f_lineno)       
+        f = frame
+        while "<" in Filename(f.f_code.co_name):
+            f = cast(FrameType, frame.f_back)
+        if not Scalene.should_trace(f.f_code.co_filename):
+            return
+        fn_name = Filename(f.f_code.co_name)
+        firstline = f.f_code.co_firstlineno
+        # Prepend the class, if any
+        while f:
+            if "self" in f.f_locals:
+                prepend_name = f.f_locals["self"].__class__.__name__
+                if "Scalene" not in prepend_name:
+                    fn_name = prepend_name + "." + fn_name
+                break
+            if "cls" in f.f_locals:
+                prepend_name = f.f_locals["cls"].__name__
+                if "Scalene" in prepend_name:
+                    break
+                fn_name = prepend_name + "." + fn_name
+                break
+            f = cast(FrameType, f.f_back)
+
+        stats.function_map[fname][lineno] = fn_name
+        stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
     def malloc_signal_handler(
@@ -861,27 +889,7 @@ class Scalene:
             # Walk the stack backwards until we find a proper function
             # name (as in, one that doesn't contain "<", which
             # indicates things like list comprehensions).
-            f = frame
-            while "<" in Filename(f.f_code.co_name):
-                f = cast(FrameType, frame.f_back)
-            fn_name = Filename(f.f_code.co_name)
-            firstline = f.f_code.co_firstlineno
-            # Prepend the class, if any
-            while f:
-                if "self" in f.f_locals:
-                    prepend_name = f.f_locals["self"].__class__.__name__
-                    if "Scalene" not in prepend_name:
-                        fn_name = prepend_name + "." + fn_name
-                    break
-                if "cls" in f.f_locals:
-                    prepend_name = f.f_locals["cls"].__name__
-                    if "Scalene" in prepend_name:
-                        break
-                    fn_name = prepend_name + "." + fn_name
-                    break
-                f = cast(FrameType, f.f_back)
-            stats.function_map[fname][lineno] = fn_name
-            stats.firstline_map[fn_name] = LineNumber(firstline)
+            Scalene.enter_function_meta(frame, stats)
             bytei = ByteCodeIndex(frame.f_lasti)
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)

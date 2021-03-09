@@ -469,7 +469,7 @@ class ScaleneOutput:
                 else:
                     tbl.add_row("", "", "", "", txt)
 
-                for fn_name in fn_stats.cpu_samples_python:
+                for fn_name in sorted(fn_stats.cpu_samples_python, key = lambda k : stats.firstline_map[k]):
                     if fn_name == fname:
                         continue
                     if self.html:
