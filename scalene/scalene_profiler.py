@@ -733,7 +733,7 @@ class Scalene:
         f = frame
         while "<" in Filename(f.f_code.co_name):
             f = cast(FrameType, frame.f_back)
-        if not Scalene.should_trace(f.f_code.co_filename, f):
+        if not Scalene.should_trace(f.f_code.co_filename):
             return
         fn_name = Filename(f.f_code.co_name)
         firstline = f.f_code.co_firstlineno
