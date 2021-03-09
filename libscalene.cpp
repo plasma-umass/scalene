@@ -16,7 +16,6 @@
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
-#include "tprintf.h"
 #endif
 
 const uint64_t MallocSamplingRate = 1048576ULL;
@@ -24,15 +23,8 @@ const uint64_t MemcpySamplingRate = MallocSamplingRate * 2ULL;
 
 #include "sysmallocheap.hpp"
 
-class ParentHeap
-    : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, SysMallocHeap>> {
-};
-
-static bool _initialized{false};
-
-class CustomHeapType : public ParentHeap {
+class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, SysMallocHeap>> {
  public:
-  CustomHeapType() { _initialized = true; }
   void lock() {}
   void unlock() {}
 };
@@ -60,7 +52,7 @@ class InitializeMe {
 static volatile InitializeMe initme;
 HL::PosixLock SampleFile::lock;
 
-CustomHeapType &getTheCustomHeap() {
+inline CustomHeapType &getTheCustomHeap() {
   static CustomHeapType thang;
   return thang;
 }
@@ -96,53 +88,69 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
   return result;
 }
 
-StaticBufferHeap<16 * 1048576> buffer;
+// Calling the custom heap's constructor or malloc may itself lead to malloc calls;
+// to avoid an infinite recursion, we satisfy these from a static heap
+typedef StaticBufferHeap<16 * 1048576> StaticHeapType;
 
-static bool _inMalloc = false;
+inline StaticHeapType& getTheStaticHeap() {
+  static StaticHeapType theStaticHeap;
+  return theStaticHeap;
+}
+
+inline bool& getInMallocFlag() {
+  static thread_local bool inMalloc{false};
+  return inMalloc;
+}
+
+// malloc() et al may be (and generally speaking are) invoked before C++ invokes
+// global/static objects' constructors.  We work around this by working with "getter"
+// functions, such getTheCustomHeap, getTheStaticHeap and getInMallocFlag.
+// In getInMallocFlag's case, actually, the getter a bit of defensive programming because
+// of its thread_local storage, as it should otherwise be ok to initialize it at compile 
+// time as a static bool in global scope.
 
 extern "C" ATTRIBUTE_EXPORT void *xxmalloc(size_t sz) {
-  if (_inMalloc) {
-    buffer.malloc(sz);
+  if (getInMallocFlag()) {
+    return getTheStaticHeap().malloc(sz);
   }
-  void *ptr = nullptr;
-  _inMalloc = true;
-  ptr = getTheCustomHeap().malloc(sz);
-  _inMalloc = false;
+  getInMallocFlag() = true;
+  void* ptr = getTheCustomHeap().malloc(sz);
+  getInMallocFlag() = false;
   return ptr;
 }
 
 extern "C" ATTRIBUTE_EXPORT void xxfree(void *ptr) {
-  if (!_initialized) {
-    return;
+  if (!getTheStaticHeap().isValid(ptr)) {
+    getTheCustomHeap().free(ptr);
   }
-  if (buffer.isValid(ptr)) {
-    return;
-  }
-  getTheCustomHeap().free(ptr);
 }
 
 extern "C" ATTRIBUTE_EXPORT void xxfree_sized(void *ptr, size_t sz) {
   // TODO FIXME maybe make a sized-free version?
-  getTheCustomHeap().free(ptr);
+  xxfree(ptr);
 }
 
 extern "C" ATTRIBUTE_EXPORT void *xxmemalign(size_t alignment, size_t sz) {
-  if (_initialized) {
-    return getTheCustomHeap().memalign(alignment, sz);
-  } else {
-    // FIXME
-    return buffer.malloc(sz);
+  if (getInMallocFlag()) {
+    return getTheStaticHeap().malloc(sz); // FIXME 'alignment' ignored
   }
+
+  getInMallocFlag() = true;
+  void* ptr = getTheCustomHeap().memalign(alignment, sz);
+  getInMallocFlag() = false;
+  return ptr;
 }
 
 extern "C" ATTRIBUTE_EXPORT size_t xxmalloc_usable_size(void *ptr) {
-  if (buffer.isValid(ptr)) {
-    return buffer.getSize(ptr);
+  if (getTheStaticHeap().isValid(ptr)) {
+    return getTheStaticHeap().getSize(ptr);
   }
   return getTheCustomHeap().getSize(ptr);  // TODO FIXME adjust for ptr offset?
 }
 
-extern "C" ATTRIBUTE_EXPORT void xxmalloc_lock() { getTheCustomHeap().lock(); }
+extern "C" ATTRIBUTE_EXPORT void xxmalloc_lock() {
+  getTheCustomHeap().lock();
+}
 
 extern "C" ATTRIBUTE_EXPORT void xxmalloc_unlock() {
   getTheCustomHeap().unlock();
