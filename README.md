@@ -85,6 +85,23 @@ The following command runs Scalene on a provided example program.
   % scalene test/testme.py
 ```
 
+**NEW**: Scalene works inside Jupyter notebooks as well.
+
+Line mode:
+
+```
+  %scrun [options] statement
+```
+
+Cell mode:
+
+```
+  %%scalene [options]
+  code...
+  code...
+```
+
+
 To see all the options, run with `--help`.
 
     % scalene --help

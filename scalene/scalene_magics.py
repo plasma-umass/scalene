@@ -22,6 +22,7 @@ try:
            
         @line_cell_magic
         def scalene(self, line : str, cell : str = "") -> None:
+            """See https://github.com/plasma-umass/scalene for usage info."""
             if line:
                 sys.argv = ["scalene"]
                 sys.argv.extend(line.split(" "))
@@ -33,6 +34,7 @@ try:
                 
         @line_magic
         def scrun(self, line: str = "") -> None:
+            """See https://github.com/plasma-umass/scalene for usage info."""
             from scalene import scalene_profiler
             if line:
                 sys.argv = ["scalene"]
@@ -42,10 +44,14 @@ try:
 
     def load_ipython_extension(ip: Any) -> None:
         ip.register_magics(ScaleneMagics)
-        with open("scalene-usage.txt", "r") as usage:
-            str = usage.read()
-        ScaleneMagics.scrun.__doc__ = str
-        ScaleneMagics.scalene.__doc__ = str
+        try:
+            # For some reason, this isn't loading correctly on the web.
+            with open("scalene-usage.txt", "r") as usage:
+                str = usage.read()
+            ScaleneMagics.scrun.__doc__ = str
+            ScaleneMagics.scalene.__doc__ = str
+        except Exception:
+            pass
         import textwrap
         print("\n".join(textwrap.wrap("Scalene extension successfully loaded. Note: Scalene currently only supports CPU profiling inside Jupyter notebooks. For full Scalene profiling, use the command line version.")))
         
