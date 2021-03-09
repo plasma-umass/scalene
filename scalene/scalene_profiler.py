@@ -711,7 +711,7 @@ class Scalene:
                 # the co_filename.
                 back = cast(FrameType, frame.f_back)
                 fname = Filename(back.f_code.co_filename)
-            while not Scalene.should_trace(fname, frame):
+            while not Scalene.should_trace(fname):
                 # Walk the stack backwards until we hit a frame that
                 # IS one we should trace (if there is one).  i.e., if
                 # it's in the code being profiled, and it is just
@@ -1025,7 +1025,7 @@ class Scalene:
 
     @staticmethod
     @lru_cache(None)
-    def should_trace(filename: str, frame: FrameType) -> bool:
+    def should_trace(filename: str) -> bool:
         """Return true if the filename is one we should trace."""
         if "site-packages" in filename or "/lib/python" in filename:
             # Don't profile Python internals.
@@ -1048,7 +1048,8 @@ class Scalene:
                 result = re.match("<ipython-input-([0-9]+)-.*>", filename)
                 if result:
                     # Write the cell's contents into the file.
-                    with open(str(frame.f_code.co_filename), "w+") as f:
+                    with open(filename, "w+") as f:
+                    # with open(str(frame.f_code.co_filename), "w+") as f:
                         f.write(get_ipython().history_manager.input_hist_raw[int(result.group(1))])
                 return True
             else:
