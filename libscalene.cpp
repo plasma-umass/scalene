@@ -97,30 +97,35 @@ inline StaticHeapType& getTheStaticHeap() {
   return theStaticHeap;
 }
 
-inline bool& getInMallocFlag() {
+inline bool& isInMalloc() {
   static thread_local bool inMalloc{false};
   return inMalloc;
 }
 
+inline void setInMalloc(bool state) {
+  isInMalloc() = state;
+}
+
 // malloc() et al may be (and generally speaking are) invoked before C++ invokes
-// global/static objects' constructors.  We work around this by working with "getter"
-// functions, such getTheCustomHeap, getTheStaticHeap and getInMallocFlag.
-// In getInMallocFlag's case, actually, the getter a bit of defensive programming because
-// of its thread_local storage, as it should otherwise be ok to initialize it at compile 
-// time as a static bool in global scope.
+// global/static objects' constructors.  We work around this by declaring them
+// static within functions and returning references to the objects.
+// While "inMalloc" as a bool shouldn't be affected by this, its thread_local storage
+// might involve some runtime initialization, so we defensively declare it static
+// within a function as well.
 
 extern "C" ATTRIBUTE_EXPORT void *xxmalloc(size_t sz) {
-  if (getInMallocFlag()) {
+  if (unlikely(isInMalloc())) {
     return getTheStaticHeap().malloc(sz);
   }
-  getInMallocFlag() = true;
+
+  setInMalloc(true);
   void* ptr = getTheCustomHeap().malloc(sz);
-  getInMallocFlag() = false;
+  setInMalloc(false);
   return ptr;
 }
 
 extern "C" ATTRIBUTE_EXPORT void xxfree(void *ptr) {
-  if (!getTheStaticHeap().isValid(ptr)) {
+  if (likely(!getTheStaticHeap().isValid(ptr))) {
     getTheCustomHeap().free(ptr);
   }
 }
@@ -131,20 +136,21 @@ extern "C" ATTRIBUTE_EXPORT void xxfree_sized(void *ptr, size_t sz) {
 }
 
 extern "C" ATTRIBUTE_EXPORT void *xxmemalign(size_t alignment, size_t sz) {
-  if (getInMallocFlag()) {
+  if (unlikely(isInMalloc())) {
     return getTheStaticHeap().malloc(sz); // FIXME 'alignment' ignored
   }
 
-  getInMallocFlag() = true;
+  setInMalloc(true);
   void* ptr = getTheCustomHeap().memalign(alignment, sz);
-  getInMallocFlag() = false;
+  setInMalloc(false);
   return ptr;
 }
 
 extern "C" ATTRIBUTE_EXPORT size_t xxmalloc_usable_size(void *ptr) {
-  if (getTheStaticHeap().isValid(ptr)) {
+  if (unlikely(getTheStaticHeap().isValid(ptr))) {
     return getTheStaticHeap().getSize(ptr);
   }
+
   return getTheCustomHeap().getSize(ptr);  // TODO FIXME adjust for ptr offset?
 }
 
