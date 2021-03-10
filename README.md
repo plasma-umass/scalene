@@ -1,6 +1,6 @@
 ![scalene](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-image.png)
 
-# scalene: a high-performance CPU and memory profiler for Python
+# scalene: a high-performance CPU, GPU and memory profiler for Python
 
 by [Emery Berger](https://emeryberger.com)
 
@@ -14,7 +14,7 @@ by [Emery Berger](https://emeryberger.com)
   % pip install -U scalene
 ```
 
-Scalene is a high-performance CPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
+Scalene is a high-performance CPU, GPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
 
 ### Fast and Precise
 
@@ -29,7 +29,7 @@ Scalene is a high-performance CPU *and* memory profiler for Python that does a n
 
 ### GPU profiling
 
-- Scalene now reports **GPU time** (this is currently limited to nVidia-based systems).
+- Scalene reports **GPU time** (currently limited to nVidia-based systems).
 
 ### Memory profiling
 
