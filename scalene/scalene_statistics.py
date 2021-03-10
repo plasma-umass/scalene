@@ -272,7 +272,7 @@ class ScaleneStatistics:
                 self.max_footprint = max(self.max_footprint, value[0])
                 self.elapsed_time = max(self.elapsed_time, value[1])
                 self.total_cpu_samples += value[2]
-                self.total_gpu_samples += value[15]
+                self.total_gpu_samples += value[18]
                 del value[:3]
                 for dict, index in [
                     (self.cpu_samples_c, 0),
