@@ -34,6 +34,7 @@ import tempfile
 import threading
 import time
 import traceback
+import GPUtil
 
 from collections import defaultdict
 from functools import lru_cache, wraps
@@ -572,6 +573,19 @@ class Scalene:
             cpu_utilization = 1.0
         if cpu_utilization < 0.0:
             cpu_utilization = 0.0
+        # Sample GPU utilization at 1/10th the frequency of CPU
+        # sampling to reduce overhead (it's costly).  We multiply the
+        # elapsed time by a large number to get some moderately random
+        # chunk of the elapsed time.
+        gpu_load = 0.0
+        if int(100000 * elapsed_wallclock) % 10 == 0:
+            try:
+                for g in GPUtil.getGPUs():
+                    gpu_load += g.load
+            except:
+                pass
+        gpu_time = gpu_load * Scalene.__last_cpu_sampling_rate
+        Scalene.__stats.total_gpu_samples += gpu_time
         python_time = Scalene.__last_cpu_sampling_rate
         c_time = elapsed_virtual - python_time
         if c_time < 0:
@@ -614,12 +628,17 @@ class Scalene:
                     Scalene.__stats.cpu_utilization[fname][lineno].push(
                         cpu_utilization
                     )
+                    Scalene.__stats.gpu_samples[fname][lineno] += (
+                        gpu_time / total_frames
+                    )
+                    
             else:
                 # We can't play the same game here of attributing
                 # time, because we are in a thread, and threads don't
                 # get signals in Python. Instead, we check if the
                 # bytecode instruction being executed is a function
                 # call.  If so, we attribute all the time to native.
+                # NOTE: for now, we don't try to attribute GPU time to threads.
                 if not Scalene.__is_thread_sleeping[tident]:
                     # Check if the original caller is stuck inside a call.
                     if Scalene.is_call_function(

@@ -67,7 +67,8 @@ class ScaleneOutput:
         if n_cpu_samples_c < 0:
             n_cpu_samples_c = 0
         n_cpu_samples_python = stats.cpu_samples_python[fname][line_no]
-
+        n_gpu_samples = stats.gpu_samples[fname][line_no]
+                                          
         # Compute percentages of CPU time.
         if stats.total_cpu_samples != 0:
             n_cpu_percent_c = n_cpu_samples_c * 100 / stats.total_cpu_samples
@@ -77,6 +78,11 @@ class ScaleneOutput:
         else:
             n_cpu_percent_c = 0
             n_cpu_percent_python = 0
+
+        if stats.total_gpu_samples != 0:
+            n_gpu_percent = n_gpu_samples * 100 / stats.total_gpu_samples
+        else:
+            n_gpu_percent = 0
 
         # Now, memory stats.
         # Accumulate each one from every byte index.
@@ -126,6 +132,11 @@ class ScaleneOutput:
         n_cpu_percent_c_str: str = (
             "" if n_cpu_percent_c < 1 else "%5.0f%%" % n_cpu_percent_c
         )
+
+        n_gpu_percent_str: str = (
+            "" if n_gpu_percent < 1 else "%3.0f%%" % n_gpu_percent
+        )
+        
         n_cpu_percent_python_str: str = (
             ""
             if n_cpu_percent_python < 1
@@ -155,17 +166,14 @@ class ScaleneOutput:
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
         # Only report utilization where there is more than 1% CPU total usage,
         # and the standard error of the mean is low (meaning it's an accurate estimate).
+        n_sys_percent = n_cpu_percent * (1.0 - (stats.cpu_utilization[fname][line_no].mean()))
         sys_str: str = (
             ""
-            if n_cpu_percent < 1
+            if n_sys_percent < 1
             or stats.cpu_utilization[fname][line_no].size() <= 1
             or stats.cpu_utilization[fname][line_no].sem() > 0.025
             or stats.cpu_utilization[fname][line_no].mean() > 0.99
-            else "%3.0f%%"
-            % (
-                n_cpu_percent
-                * (1.0 - (stats.cpu_utilization[fname][line_no].mean()))
-            )
+            else "%3.0f%%" % ( n_sys_percent )
         )
         if not is_function_summary:
             print_line_no = "" if suppress_lineno_print else str(line_no)
@@ -186,9 +194,11 @@ class ScaleneOutput:
             ncpps: Any = ""
             ncpcs: Any = ""
             nufs: Any = ""
+            ngpus: Any = ""
+            
             if (
                 n_usage_fraction >= self.highlight_percentage
-                or (n_cpu_percent_c + n_cpu_percent_python)
+                or (n_cpu_percent_c + n_cpu_percent_python + n_gpu_percent)
                 >= self.highlight_percentage
             ):
                 ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
@@ -196,9 +206,11 @@ class ScaleneOutput:
                 nufs = Text.assemble(
                     (spark_str + n_usage_fraction_str, "bold red")
                 )
+                ngpus = Text.assemble((n_gpu_percent_str, "bold red"))
             else:
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str
+                ngpus = n_gpu_percent_str
                 nufs = spark_str + n_usage_fraction_str
 
             if not self.reduced_profile or ncpps + ncpcs + nufs:
@@ -207,6 +219,7 @@ class ScaleneOutput:
                     ncpps,  # n_cpu_percent_python_str,
                     ncpcs,  # n_cpu_percent_c_str,
                     sys_str,
+                    ngpus,
                     n_python_fraction_str,
                     n_growth_mb_str,
                     nufs,  # spark_str + n_usage_fraction_str,
@@ -221,13 +234,15 @@ class ScaleneOutput:
 
             # Red highlight
             if (
-                n_cpu_percent_c + n_cpu_percent_python
+                n_cpu_percent_c + n_cpu_percent_python + n_gpu_percent
             ) >= self.highlight_percentage:
                 ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
                 ncpcs = Text.assemble((n_cpu_percent_c_str, "bold red"))
+                ngpus = Text.assemble((n_gpu_percent_str, "bold red"))
             else:
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str
+                ngpus = n_gpu_percent_str
 
             if not self.reduced_profile or ncpps + ncpcs:
                 tbl.add_row(
@@ -235,6 +250,7 @@ class ScaleneOutput:
                     ncpps,  # n_cpu_percent_python_str,
                     ncpcs,  # n_cpu_percent_c_str,
                     sys_str,
+                    ngpus,  # n_gpu_percent_str
                     line,
                 )
                 return True
@@ -384,6 +400,7 @@ class ScaleneOutput:
             tbl.add_column("Time %\nPython", no_wrap=True)
             tbl.add_column("Time %\nnative", no_wrap=True)
             tbl.add_column("Sys\n%", no_wrap=True)
+            tbl.add_column("GPU\n%", no_wrap=True)
 
             other_columns_width = 0  # Size taken up by all columns BUT code
 
@@ -392,14 +409,14 @@ class ScaleneOutput:
                 tbl.add_column("Net\n(MB)", no_wrap=True)
                 tbl.add_column("Memory usage\nover time / %", no_wrap=True)
                 tbl.add_column("Copy\n(MB/s)", no_wrap=True)
-                other_columns_width = 72
+                other_columns_width = 72 + 5 # GPU
                 tbl.add_column(
                     "\n" + fname,
                     width=column_width - other_columns_width,
                     no_wrap=True,
                 )
             else:
-                other_columns_width = 36
+                other_columns_width = 36 + 5 # GPU
                 tbl.add_column(
                     "\n" + fname,
                     width=column_width - other_columns_width,
