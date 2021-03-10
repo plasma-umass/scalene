@@ -25,6 +25,11 @@ Scalene is a high-performance CPU *and* memory profiler for Python that does a n
 
 - Scalene **separates out time spent in Python from time in native code** (including libraries). Most Python programmers aren't going to optimize the performance of native code (which is usually either in the Python implementation or external libraries), so this helps developers focus their optimization efforts on the code they can actually improve.
 - Scalene **highlights hotspots** (code accounting for significant percentages of CPU time or memory allocation) in red, making them even easier to spot.
+- Scalene also separates out **system time**, making it easy to find I/O bottlenecks.
+
+### GPU profiling
+
+- Scalene now reports **GPU time** (this is currently limited to nVidia-based systems).
 
 ### Memory profiling
 

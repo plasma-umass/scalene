@@ -34,6 +34,11 @@ class ScaleneStatistics:
         lambda: defaultdict(float)
     )
 
+    #   GPU samples for each location in the program
+    gpu_samples: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
+        lambda: defaultdict(float)
+    )
+
     # Running stats for the fraction of time running on the CPU.
     cpu_utilization: Dict[
         Filename, Dict[LineNumber, RunningStats]
@@ -92,12 +97,15 @@ class ScaleneStatistics:
     # how many CPU samples have been collected
     total_cpu_samples: float = 0.0
 
+    # how many GPU samples have been collected
+    total_gpu_samples: float = 0.0
+    
     # "   "    malloc "       "    "    "
     total_memory_malloc_samples: float = 0.0
 
     # "   "    free   "       "    "    "
     total_memory_free_samples: float = 0.0
-
+    
     # the current memory footprint
     current_footprint: float = 0.0
 
@@ -134,6 +142,7 @@ class ScaleneStatistics:
         self.cpu_samples_c.clear()
         self.cpu_utilization.clear()
         self.cpu_samples.clear()
+        self.gpu_samples.clear()
         self.malloc_samples.clear()
         self.memory_malloc_samples.clear()
         self.memory_malloc_count.clear()
@@ -182,6 +191,9 @@ class ScaleneStatistics:
             fn_stats.cpu_samples_python[fn_name][
                 first_line_no
             ] += self.cpu_samples_python[fname][line_no]
+            fn_stats.gpu_samples[fn_name][
+                first_line_no
+            ] += self.gpu_samples[fname][line_no]
             fn_stats.per_line_footprint_samples[fn_name][
                 first_line_no
             ] += self.per_line_footprint_samples[fname][line_no]
@@ -235,6 +247,8 @@ class ScaleneStatistics:
             self.memory_footprint_samples,
             self.function_map,
             self.firstline_map,
+            self.gpu_samples,
+            self.total_gpu_samples
         ]
         # To be added: __malloc_samples
 
@@ -258,10 +272,12 @@ class ScaleneStatistics:
                 self.max_footprint = max(self.max_footprint, value[0])
                 self.elapsed_time = max(self.elapsed_time, value[1])
                 self.total_cpu_samples += value[2]
+                self.total_gpu_samples += value[18]
                 del value[:3]
                 for dict, index in [
                     (self.cpu_samples_c, 0),
                     (self.cpu_samples_python, 1),
+                    (self.gpu_samples, 14),
                     (self.memcpy_samples, 7),
                     (self.per_line_footprint_samples, 8),
                 ]:
