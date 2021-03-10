@@ -482,9 +482,9 @@ class ScaleneOutput:
                 tbl.add_row(None, end_section=True)
                 txt = Text.assemble("function summary", style="bold italic")
                 if did_sample_memory:
-                    tbl.add_row("", "", "", "", "", "", "", "", txt)
+                    tbl.add_row("", "", "", "", "", "", "", "", "", txt)
                 else:
-                    tbl.add_row("", "", "", "", txt)
+                    tbl.add_row("", "", "", "", "", txt)
 
                 for fn_name in sorted(fn_stats.cpu_samples_python, key = lambda k : stats.firstline_map[k]):
                     if fn_name == fname:
