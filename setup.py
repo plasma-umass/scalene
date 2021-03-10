@@ -15,8 +15,8 @@ mmap_hl_spinlock = Extension('get_line_atomic',
 
 setup(
     name="scalene",
-    version="1.2.4",
-    description="Scalene: A high-resolution, low-overhead CPU and memory profiler for Python",
+    version="1.3.0",
+    description="Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python",
     keywords="performance memory profiler",
     long_description=long_description,
     long_description_content_type="text/markdown",
