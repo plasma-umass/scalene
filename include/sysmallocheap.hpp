@@ -41,10 +41,10 @@ class SysMallocHeap {
   enum { Alignment = alignof(max_align_t) };
 
   SysMallocHeap() :
-      _malloc_usable_size((decltype(_malloc_usable_size)) dlsym(RTLD_NEXT, "malloc_usable_size")),
-      _free((decltype(_free)) dlsym(RTLD_NEXT, "free")),
       _malloc((decltype(_malloc)) dlsym(RTLD_NEXT, "malloc")),
-      _memalign((decltype(_memalign)) dlsym(RTLD_NEXT, "memalign")) {}
+      _free((decltype(_free)) dlsym(RTLD_NEXT, "free")),
+      _memalign((decltype(_memalign)) dlsym(RTLD_NEXT, "memalign")),
+      _malloc_usable_size((decltype(_malloc_usable_size)) dlsym(RTLD_NEXT, "malloc_usable_size")) {}
 
   inline void *malloc(size_t sz) {
     return (*_malloc)(sz);
