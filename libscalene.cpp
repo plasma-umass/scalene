@@ -111,6 +111,10 @@ class MutexGuard {
   }
 };
 
+#if !defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER)
+  #define PTHREAD_RECURSIVE_MUTEX_INITIALIZER PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
+#endif
+
 inline bool isInMalloc() {
   static pthread_mutex_t m = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
   MutexGuard g(m);
