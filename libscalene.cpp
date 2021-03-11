@@ -97,27 +97,54 @@ inline StaticHeapType& getTheStaticHeap() {
   return theStaticHeap;
 }
 
-inline bool& isInMalloc() {
-  static thread_local bool inMalloc{false};
-  return inMalloc;
+static enum {NEEDS_INIT=0, INITIALIZING=1, DONE=2} inMallocKeyState{NEEDS_INIT};
+static pthread_key_t inMallocKey;
+
+class MutexGuard {
+  pthread_mutex_t& _m;
+ public:
+  MutexGuard(pthread_mutex_t& m) : _m(m) {
+    pthread_mutex_lock(&_m); // XXX check return
+  }
+  ~MutexGuard() {
+    pthread_mutex_unlock(&_m); // XXX check return
+  }
+};
+
+inline bool isInMalloc() {
+  static pthread_mutex_t m = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+  MutexGuard g(m);
+
+  if (unlikely(inMallocKeyState == INITIALIZING)) {
+    return true;
+  }
+  else if (unlikely(inMallocKeyState == NEEDS_INIT)) {
+    inMallocKeyState = INITIALIZING; // in case pthread_key_create calls malloc/calloc/etc.
+    if (pthread_key_create(&inMallocKey, 0) != 0) {
+      // XXX abort?
+    }
+    inMallocKeyState = DONE;
+  }
+
+  return pthread_getspecific(inMallocKey) != 0;
 }
 
 inline void setInMalloc(bool state) {
-  isInMalloc() = state;
+  pthread_setspecific(inMallocKey, state ? (void*)1 : 0);
 }
 
 // malloc() et al may be (and generally speaking are) invoked before C++ invokes
 // global/static objects' constructors.  We work around this by declaring them
 // static within functions and returning references to the objects.
-// While "inMalloc" as a bool shouldn't be affected by this, its thread_local storage
-// might involve some runtime initialization, so we defensively declare it static
-// within a function as well.
 
 extern "C" ATTRIBUTE_EXPORT void *xxmalloc(size_t sz) {
+//tprintf::tprintf("xxmalloc\n");
   if (unlikely(isInMalloc())) {
+//tprintf::tprintf("static malloc\n");
     return getTheStaticHeap().malloc(sz);
   }
 
+//tprintf::tprintf("custom malloc\n");
   setInMalloc(true);
   void* ptr = getTheCustomHeap().malloc(sz);
   setInMalloc(false);
