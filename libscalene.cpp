@@ -29,27 +29,9 @@ class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRa
   void unlock() {}
 };
 
-// typedef NextHeap CustomHeapType;
-
 // This is a hack to have a long-living buffer
 // to put init filename in
 
-class InitializeMe {
- public:
-  InitializeMe() {
-#if 1
-    // invoke backtrace so it resolves symbols now
-#if 0  // defined(__linux__)
-    volatile void * dl = dlopen("libgcc_s.so.1", RTLD_NOW | RTLD_GLOBAL);
-#endif
-    void *callstack[4];
-    auto frames = backtrace(callstack, 4);
-#endif
-    //    isInitialized = true;
-  }
-};
-
-static volatile InitializeMe initme;
 HL::PosixLock SampleFile::lock;
 
 inline CustomHeapType &getTheCustomHeap() {
@@ -116,18 +98,20 @@ class MutexGuard {
 #endif
 
 inline bool isInMalloc() {
-  static pthread_mutex_t m = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
-  MutexGuard g(m);
+  if (inMallocKeyState != DONE) { // try to avoid locking, etc.
+    static pthread_mutex_t m = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+    MutexGuard g(m);
 
-  if (unlikely(inMallocKeyState == INITIALIZING)) {
-    return true;
-  }
-  else if (unlikely(inMallocKeyState == NEEDS_INIT)) {
-    inMallocKeyState = INITIALIZING; // in case pthread_key_create calls malloc/calloc/etc.
-    if (pthread_key_create(&inMallocKey, 0) != 0) {
-      // XXX abort?
+    if (unlikely(inMallocKeyState == INITIALIZING)) {
+      return true;
     }
-    inMallocKeyState = DONE;
+    else if (unlikely(inMallocKeyState == NEEDS_INIT)) {
+      inMallocKeyState = INITIALIZING; // in case pthread_key_create calls malloc/calloc/etc.
+      if (pthread_key_create(&inMallocKey, 0) != 0) {
+        // XXX abort?
+      }
+      inMallocKeyState = DONE;
+    }
   }
 
   return pthread_getspecific(inMallocKey) != 0;
@@ -142,13 +126,10 @@ inline void setInMalloc(bool state) {
 // static within functions and returning references to the objects.
 
 extern "C" ATTRIBUTE_EXPORT void *xxmalloc(size_t sz) {
-//tprintf::tprintf("xxmalloc\n");
   if (unlikely(isInMalloc())) {
-//tprintf::tprintf("static malloc\n");
     return getTheStaticHeap().malloc(sz);
   }
 
-//tprintf::tprintf("custom malloc\n");
   setInMalloc(true);
   void* ptr = getTheCustomHeap().malloc(sz);
   setInMalloc(false);
