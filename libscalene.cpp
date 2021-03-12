@@ -79,6 +79,7 @@ inline StaticHeapType& getTheStaticHeap() {
   return theStaticHeap;
 }
 
+// XXX use ': char'? implicitly atomic?
 static enum {NEEDS_INIT=0, INITIALIZING=1, DONE=2} inMallocKeyState{NEEDS_INIT};
 static pthread_key_t inMallocKey;
 
@@ -98,19 +99,22 @@ class MutexGuard {
 #endif
 
 inline bool isInMalloc() {
-  if (inMallocKeyState != DONE) { // try to avoid locking, etc.
+  auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_ACQUIRE); // XXX __ATOMIC_CONSUME?
+  if (state != DONE) {
     static pthread_mutex_t m = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
     MutexGuard g(m);
 
-    if (unlikely(inMallocKeyState == INITIALIZING)) {
+    state = __atomic_load_n(&inMallocKeyState, __ATOMIC_RELAXED);
+    if (unlikely(state == INITIALIZING)) {
       return true;
     }
-    else if (unlikely(inMallocKeyState == NEEDS_INIT)) {
-      inMallocKeyState = INITIALIZING; // in case pthread_key_create calls malloc/calloc/etc.
+    else if (unlikely(state == NEEDS_INIT)) {
+      // 'initializing' in case pthread_key_create calls malloc/calloc/...
+      __atomic_store_n(&inMallocKeyState, INITIALIZING, __ATOMIC_RELAXED);
       if (pthread_key_create(&inMallocKey, 0) != 0) {
         // XXX abort?
       }
-      inMallocKeyState = DONE;
+      __atomic_store_n(&inMallocKeyState, DONE, __ATOMIC_RELEASE);
     }
   }
 
