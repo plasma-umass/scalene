@@ -79,18 +79,18 @@ inline StaticHeapType& getTheStaticHeap() {
   return theStaticHeap;
 }
 
-// XXX use ': char'? implicitly atomic?
-static enum {NEEDS_INIT=0, INITIALIZING=1, DONE=2} inMallocKeyState{NEEDS_INIT};
-static pthread_key_t inMallocKey;
-
 class MutexGuard {
   pthread_mutex_t& _m;
  public:
   MutexGuard(pthread_mutex_t& m) : _m(m) {
-    pthread_mutex_lock(&_m); // XXX check return
+    if (pthread_mutex_lock(&_m) != 0) {
+      abort();
+    }
   }
   ~MutexGuard() {
-    pthread_mutex_unlock(&_m); // XXX check return
+    if (pthread_mutex_unlock(&_m) != 0) {
+      abort();
+    }
   }
 };
 
@@ -98,21 +98,29 @@ class MutexGuard {
   #define PTHREAD_RECURSIVE_MUTEX_INITIALIZER PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
 #endif
 
+// Implement thread specific key initialization using a modified double-checked locking
+// pattern (https://en.wikipedia.org/wiki/Double-checked_locking) so it's both efficient
+// and thread safe.  We prefer pthread and __atomic calls to std::mutex, std::atomic,
+// std::call_once, thread_local, etc., because AFAIK their contract doesn't prevent them
+// from allocating memory.
+static pthread_key_t inMallocKey;
+
 inline bool isInMalloc() {
-  auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_ACQUIRE); // XXX __ATOMIC_CONSUME?
+  static enum {NEEDS_KEY=0, CREATING_KEY=1, DONE=2} inMallocKeyState{NEEDS_KEY};
+  static pthread_mutex_t m = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+
+  auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_ACQUIRE); // XXX use __ATOMIC_CONSUME?
   if (state != DONE) {
-    static pthread_mutex_t m = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
     MutexGuard g(m);
 
     state = __atomic_load_n(&inMallocKeyState, __ATOMIC_RELAXED);
-    if (unlikely(state == INITIALIZING)) {
+    if (unlikely(state == CREATING_KEY)) {
       return true;
     }
-    else if (unlikely(state == NEEDS_INIT)) {
-      // 'initializing' in case pthread_key_create calls malloc/calloc/...
-      __atomic_store_n(&inMallocKeyState, INITIALIZING, __ATOMIC_RELAXED);
-      if (pthread_key_create(&inMallocKey, 0) != 0) {
-        // XXX abort?
+    else if (unlikely(state == NEEDS_KEY)) {
+      __atomic_store_n(&inMallocKeyState, CREATING_KEY, __ATOMIC_RELAXED);
+      if (pthread_key_create(&inMallocKey, 0) != 0) { // may call malloc/calloc/...
+        abort();
       }
       __atomic_store_n(&inMallocKeyState, DONE, __ATOMIC_RELEASE);
     }
@@ -125,9 +133,9 @@ inline void setInMalloc(bool state) {
   pthread_setspecific(inMallocKey, state ? (void*)1 : 0);
 }
 
-// malloc() et al may be (and generally speaking are) invoked before C++ invokes
-// global/static objects' constructors.  We work around this by declaring them
-// static within functions and returning references to the objects.
+// malloc/calloc/... may be (and generally speaking are) invoked before C++ invokes
+// global objects' constructors.  We work around this with static initializers
+// within within functions.
 
 extern "C" ATTRIBUTE_EXPORT void *xxmalloc(size_t sz) {
   if (unlikely(isInMalloc())) {
