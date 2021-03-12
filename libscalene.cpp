@@ -109,7 +109,7 @@ inline bool isInMalloc() {
   static enum {NEEDS_KEY=0, CREATING_KEY=1, DONE=2} inMallocKeyState{NEEDS_KEY};
   static pthread_mutex_t m = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
 
-  auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_ACQUIRE); // XXX use __ATOMIC_CONSUME?
+  auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_ACQUIRE);
   if (state != DONE) {
     MutexGuard g(m);
 
@@ -133,9 +133,8 @@ inline void setInMalloc(bool state) {
   pthread_setspecific(inMallocKey, state ? (void*)1 : 0);
 }
 
-// malloc/calloc/... may be (and generally speaking are) invoked before C++ invokes
-// global objects' constructors.  We work around this with static initializers
-// within within functions.
+// malloc/calloc/... may be called before C++ global objects' constructors,
+// so we work around this with static initializers within functions.
 
 extern "C" ATTRIBUTE_EXPORT void *xxmalloc(size_t sz) {
   if (unlikely(isInMalloc())) {
