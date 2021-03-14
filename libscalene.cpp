@@ -98,14 +98,26 @@ class MutexGuard {
   #define PTHREAD_RECURSIVE_MUTEX_INITIALIZER PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
 #endif
 
-// Implement thread specific key initialization using a modified double-checked locking
-// pattern (https://en.wikipedia.org/wiki/Double-checked_locking) so it's both efficient
-// and thread safe.  We prefer pthread and __atomic calls to std::mutex, std::atomic,
-// std::call_once, thread_local, etc., because AFAIK their contract doesn't prevent them
-// from allocating memory.
+// In order to service ::malloc through a custom heap, the custom heap's constructor
+// and its malloc method need to run; if either one of these, directly or indirectly,
+// need to call ::malloc, that would lead to an infinite recursion.  To avoid this, we
+// detect such recursive ::malloc calls using a thread-local boolean variable and service
+// them from a statically allocated heap.
+// 
+// The thread-local variable's and the static heap's initialization must be done carefully
+// so as not to require ::malloc when no heap is available to service it from. To further
+// complicate things, ::malloc is/can be invoked early during executable startup, before
+// C++ constructors for global objects.  On MacOS, this seems to happen before thread
+// initialization: attempts to use thread_local or __thread lead to an abort() in _tlv_bootstrap.
+//
+// In the code below, we prefer pthread and __atomic calls to std::mutex, std::atomic, etc.,
+// to minimize initialization and memory allocation requirements (potential and actual).
+// If malloc and the C++ constructor is all we need, we can use static initializers within
+// functions, such as in getTheStaticHeap().
 static pthread_key_t inMallocKey;
 
 inline bool isInMalloc() {
+  // modified double-checked locking pattern (https://en.wikipedia.org/wiki/Double-checked_locking)
   static enum {NEEDS_KEY=0, CREATING_KEY=1, DONE=2} inMallocKeyState{NEEDS_KEY};
   static pthread_mutex_t m = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
 
@@ -132,9 +144,6 @@ inline bool isInMalloc() {
 inline void setInMalloc(bool state) {
   pthread_setspecific(inMallocKey, state ? (void*)1 : 0);
 }
-
-// malloc/calloc/... may be called before C++ global objects' constructors,
-// so we work around this with static initializers within functions.
 
 extern "C" ATTRIBUTE_EXPORT void *xxmalloc(size_t sz) {
   if (unlikely(isInMalloc())) {
