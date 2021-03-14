@@ -4,6 +4,7 @@ from scalene.scalene_profiler import Scalene
 import sys
 import threading
 
+minor_version = sys.version_info.minor
 
 @Scalene.shim
 def replacement_pjoin(scalene: Scalene) -> None:
@@ -13,7 +14,8 @@ def replacement_pjoin(scalene: Scalene) -> None:
         that periodically yields to handle signals
         """
         # print(multiprocessing.process.active_children())
-        self._check_closed()
+        if minor_version >= 7:
+            self._check_closed()
         assert self._parent_pid == os.getpid(), "can only join a child process"
         assert self._popen is not None, "can only join a started process"
         tident = threading.get_ident()
