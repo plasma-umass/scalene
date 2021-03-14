@@ -6,7 +6,7 @@ from typing import Any
 
 @Scalene.shim
 def replacement_lock(scalene: Scalene) -> None:
-    class ReplacementLock(threading.Lock):
+    class ReplacementLock(object):
         """Replace lock with a version that periodically yields and updates sleeping status."""
 
         def __init__(self) -> None:
@@ -46,6 +46,9 @@ def replacement_lock(scalene: Scalene) -> None:
         def locked(self) -> bool:
             return self.__lock.locked()
 
+        def _at_fork_reinit(self):
+            self.__lock._at_fork_reinit()
+            
         def __enter__(self) -> None:
             self.acquire()
 
