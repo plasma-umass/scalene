@@ -164,7 +164,7 @@ As an alternative to `pip`, you can use Homebrew to install the current version 
 
 ```
   % brew tap plasma-umass/scalene
-  % brew install --head libscalene
+  % brew install --head plasma-umass/scalene/libscalene
 ```
 
 ### ArchLinux
