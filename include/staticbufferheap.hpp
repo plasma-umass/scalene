@@ -3,6 +3,11 @@
 #ifndef STATICBUFFERHEAP_H
 #define STATICBUFFERHEAP_H
 
+#include "staticmutex.hpp"
+
+/**
+ * Heap that satisfies all requests out of static buffer.
+ */
 template <int BufferSize>
 class StaticBufferHeap {
  public:
@@ -11,6 +16,8 @@ class StaticBufferHeap {
   enum { Alignment = alignof(std::max_align_t) };
 
   void *malloc(size_t sz) {
+    StaticMutex::Guard g(_mutex);
+
     auto oldAllocated = allocated();
     auto prevPtr = _bufPtr;
     if (sz == 0) {
@@ -32,6 +39,10 @@ class StaticBufferHeap {
 		     (void *) ptr);
 #endif
     return ptr;
+  }
+
+  void *memalign(size_t alignment, size_t sz) {
+    return malloc(sz); // FIXME 'alignment' ignored
   }
 
   void free(void *) {}
@@ -66,6 +77,7 @@ class StaticBufferHeap {
 
   alignas(Alignment) char _buf[BufferSize];
   char *_bufPtr{_buf};
+  StaticMutex _mutex;
 };
 
 #endif
