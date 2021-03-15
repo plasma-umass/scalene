@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef NEXTHEAP_HPP
-#define NEXTHEAP_HPP
+#ifndef SYSMALLOCHEAP_HPP
+#define SYSMALLOCHEAP_HPP
 
 #include <dlfcn.h>
 
