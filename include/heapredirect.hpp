@@ -34,7 +34,7 @@ namespace __heap_redirect {\
   inline bool isInMalloc() {\
     /* modified double-checked locking pattern (https://en.wikipedia.org/wiki/Double-checked_locking) */ \
     static enum {NEEDS_KEY=0, CREATING_KEY=1, DONE=2} inMallocKeyState{NEEDS_KEY};\
-    static StaticMutex m(PTHREAD_RECURSIVE_MUTEX_INITIALIZER);\
+    static StaticMutex m{PTHREAD_RECURSIVE_MUTEX_INITIALIZER};\
 \
     auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_ACQUIRE);\
     if (state != DONE) {\
