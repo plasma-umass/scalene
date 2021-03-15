@@ -4,6 +4,7 @@
 #define HEAPREDIRECT_H 
 
 #include "staticmutex.hpp"
+#include "staticbufferheap.hpp"
 
 /**
  * Redirects the system heap calls to a custom heap, using Heap-Layers' wrappers.
