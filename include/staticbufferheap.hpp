@@ -3,20 +3,22 @@
 #ifndef STATICBUFFERHEAP_H
 #define STATICBUFFERHEAP_H
 
-#include "staticmutex.hpp"
-
 /**
  * Heap that satisfies all requests out of static buffer.
  */
 template <int BufferSize>
 class StaticBufferHeap {
+  inline bool isPowerOf2(size_t n) {
+    return n && !(n & (n-1));
+  }
+
  public:
   StaticBufferHeap() {}
 
   enum { Alignment = alignof(std::max_align_t) };
 
   void *malloc(size_t sz) {
-    StaticMutex::Guard g(_mutex);
+    std::lock_guard<decltype(_mutex)> g(_mutex);
 
     auto oldAllocated = allocated();
     auto prevPtr = _bufPtr;
@@ -42,7 +44,19 @@ class StaticBufferHeap {
   }
 
   void *memalign(size_t alignment, size_t sz) {
-    return malloc(sz); // FIXME 'alignment' ignored
+    std::lock_guard<decltype(_mutex)> g(_mutex);
+
+    if (!isPowerOf2(alignment)) {
+      return nullptr;
+    }
+
+    uint64_t skip = (alignment - ((uint64_t)_bufPtr) % alignment) % alignment;
+    while (skip < sizeof(Header)) { // header needs to fit ahead of area
+      skip += alignment; // XXX remove loop
+    }
+    skip -= sizeof(Header);
+    _bufPtr += skip;
+    return malloc(sz);
   }
 
   void free(void *) {}
@@ -77,7 +91,7 @@ class StaticBufferHeap {
 
   alignas(Alignment) char _buf[BufferSize];
   char *_bufPtr{_buf};
-  StaticMutex _mutex;
+  std::recursive_mutex _mutex;
 };
 
 #endif
