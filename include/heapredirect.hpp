@@ -3,7 +3,6 @@
 #ifndef HEAPREDIRECT_H
 #define HEAPREDIRECT_H 
 
-#include "staticmutex.hpp"
 #include "staticbufferheap.hpp"
 
 /**
@@ -21,103 +20,138 @@
  * C++ constructors for global objects.  On MacOS, this seems to happen before thread
  * initialization: attempts to use thread_local or __thread lead to an abort() in _tlv_bootstrap.
  *
- * In the code below, we prefer pthread and __atomic calls to std::mutex, std::atomic, etc.,
- * to minimize initialization and memory allocation requirements (potential and actual).
- * If malloc and the C++ constructor is all we need, we can use static initializers within
- * functions, such as in getTheStaticHeap().
+ * To work around the C++ constructor issue, we use static initializers within functions;
+ * for the thread_local/__thread issue, we use POSIX thread-local data.  We prefer __atomic
+ * calls to std::atomic because STL code feels more likely to invoke malloc.
+ * We use std::recursive_mutex and std::lock_guard to avoid introducing more code and because
+ * they don't seem to require malloc, but may need to move to pthread_mutex if that should change.
+ *
+ * The problem is really that "won't use malloc" AFAIK isn't part of most of these primitives'
+ * contracts, so we stand on shaky ground.
  *
  * @author Juan Altmayer Pizzorno
  */
+template<typename CustomHeapType, int STATIC_HEAP_SIZE> 
+class HeapWrapper {
+  static pthread_key_t* getKey() {
+    // C++14 version of "inline static" data member
+    static pthread_key_t _inMallocKey;
+    return &_inMallocKey;
+  }
+
+  static bool isInMalloc() {
+    // modified double-checked locking pattern (https://en.wikipedia.org/wiki/Double-checked_locking)
+    static enum {NEEDS_KEY=0, CREATING_KEY=1, DONE=2} inMallocKeyState{NEEDS_KEY};
+    static std::recursive_mutex m;
+
+    auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_ACQUIRE);
+    if (state != DONE) {
+      std::lock_guard<decltype(m)> g{m};
+
+      state = __atomic_load_n(&inMallocKeyState, __ATOMIC_RELAXED);
+      if (unlikely(state == CREATING_KEY)) {
+        return true;
+      }
+      else if (unlikely(state == NEEDS_KEY)) {
+        __atomic_store_n(&inMallocKeyState, CREATING_KEY, __ATOMIC_RELAXED);
+        if (pthread_key_create(getKey(), 0) != 0) { // may call malloc/calloc/...
+          abort();
+        }
+        __atomic_store_n(&inMallocKeyState, DONE, __ATOMIC_RELEASE);
+      }
+    }
+
+    return pthread_getspecific(*getKey()) != 0;
+  }
+
+  static void setInMalloc(bool state) {
+    pthread_setspecific(*getKey(), state ? (void*)1 : 0);
+  }
+
+  typedef StaticBufferHeap<STATIC_HEAP_SIZE> StaticHeapType;
+
+  static StaticBufferHeap<STATIC_HEAP_SIZE>& getTheStaticHeap() {
+    static StaticBufferHeap<STATIC_HEAP_SIZE> theStaticHeap;
+    return theStaticHeap;
+  }
+
+  static CustomHeapType &getTheCustomHeap() {
+    static CustomHeapType thang;
+    return thang;
+  }
+
+ public:
+  static void* xxmalloc(size_t sz) {
+    if (unlikely(isInMalloc())) {
+      return getTheStaticHeap().malloc(sz);
+    }
+
+    setInMalloc(true);
+    void* ptr = getTheCustomHeap().malloc(sz);
+    setInMalloc(false);
+    return ptr;
+  }
+
+  static void *xxmemalign(size_t alignment, size_t sz) {
+    if (unlikely(isInMalloc())) {
+      return getTheStaticHeap().memalign(alignment, sz);
+    }
+
+    setInMalloc(true);
+    void* ptr = getTheCustomHeap().memalign(alignment, sz);
+    setInMalloc(false);
+    return ptr;
+  }
+
+  static void xxfree(void* ptr) {
+    if (likely(!getTheStaticHeap().isValid(ptr))) {
+      getTheCustomHeap().free(ptr);
+    }
+  }
+
+  static size_t xxmalloc_usable_size(void *ptr) {
+    if (unlikely(getTheStaticHeap().isValid(ptr))) {
+      return getTheStaticHeap().getSize(ptr);
+    }
+
+    return getTheCustomHeap().getSize(ptr);
+  }
+
+  static void xxmalloc_lock() {
+    getTheCustomHeap().lock();
+  }
+
+  static void xxmalloc_unlock() {
+    getTheCustomHeap().unlock();
+  }
+};
+
 #define HEAP_REDIRECT(CustomHeap, staticSize)\
-namespace __heap_redirect {\
-  static pthread_key_t _inMallocKey;\
-\
-  inline bool isInMalloc() {\
-    /* modified double-checked locking pattern (https://en.wikipedia.org/wiki/Double-checked_locking) */ \
-    static enum {NEEDS_KEY=0, CREATING_KEY=1, DONE=2} inMallocKeyState{NEEDS_KEY};\
-    static StaticMutex m{PTHREAD_RECURSIVE_MUTEX_INITIALIZER};\
-\
-    auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_ACQUIRE);\
-    if (state != DONE) {\
-      StaticMutex::Guard g(m);\
-\
-      state = __atomic_load_n(&inMallocKeyState, __ATOMIC_RELAXED);\
-      if (unlikely(state == CREATING_KEY)) {\
-        return true;\
-      }\
-      else if (unlikely(state == NEEDS_KEY)) {\
-        __atomic_store_n(&inMallocKeyState, CREATING_KEY, __ATOMIC_RELAXED);\
-        if (pthread_key_create(&_inMallocKey, 0) != 0) { /* may call malloc/calloc/...*/\
-          abort();\
-        }\
-        __atomic_store_n(&inMallocKeyState, DONE, __ATOMIC_RELEASE);\
-      }\
+  typedef HeapWrapper<CustomHeap, staticSize> Wrapper;\
+  extern "C" {\
+    ATTRIBUTE_EXPORT void *xxmalloc(size_t sz) {\
+      return Wrapper::xxmalloc(sz);\
     }\
-\
-    return pthread_getspecific(_inMallocKey) != 0;\
-  }\
-\
-  inline static void setInMalloc(bool state) {\
-    pthread_setspecific(_inMallocKey, state ? (void*)1 : 0);\
-  }\
-\
-  inline static StaticBufferHeap<staticSize>& getTheStaticHeap() {\
-    static StaticBufferHeap<staticSize> theStaticHeap;\
-    return theStaticHeap;\
-  }\
-\
-  inline static CustomHeap &getTheCustomHeap() {\
-    static CustomHeap thang;\
-    return thang;\
-  }\
-}\
-\
-extern "C" {\
-  using namespace __heap_redirect;\
-\
-  void* xxmalloc(size_t sz) {\
-    if (unlikely(isInMalloc())) {\
-      return getTheStaticHeap().malloc(sz);\
+    \
+    ATTRIBUTE_EXPORT void xxfree(void *ptr) {\
+      Wrapper::xxfree(ptr);\
     }\
-\
-    setInMalloc(true);\
-    void* ptr = getTheCustomHeap().malloc(sz);\
-    setInMalloc(false);\
-    return ptr;\
-  }\
-\
-  void *xxmemalign(size_t alignment, size_t sz) {\
-    if (unlikely(isInMalloc())) {\
-      return getTheStaticHeap().memalign(alignment, sz);\
+    \
+    ATTRIBUTE_EXPORT void *xxmemalign(size_t alignment, size_t sz) {\
+      return Wrapper::xxmemalign(alignment, sz);\
     }\
-\
-    setInMalloc(true);\
-    void* ptr = getTheCustomHeap().memalign(alignment, sz);\
-    setInMalloc(false);\
-    return ptr;\
-  }\
-\
-  void xxfree(void* ptr) {\
-    if (likely(!getTheStaticHeap().isValid(ptr))) {\
-      getTheCustomHeap().free(ptr);\
+    \
+    ATTRIBUTE_EXPORT size_t xxmalloc_usable_size(void *ptr) {\
+      return Wrapper::xxmalloc_usable_size(ptr);\
     }\
-  }\
-\
-  size_t xxmalloc_usable_size(void *ptr) {\
-    if (unlikely(getTheStaticHeap().isValid(ptr))) {\
-      return getTheStaticHeap().getSize(ptr);\
+    \
+    ATTRIBUTE_EXPORT void xxmalloc_lock() {\
+      Wrapper::xxmalloc_lock();\
     }\
-\
-    return getTheCustomHeap().getSize(ptr);\
-  }\
-\
-  void xxmalloc_lock() {\
-    getTheCustomHeap().lock();\
-  }\
-\
-  void xxmalloc_unlock() {\
-    getTheCustomHeap().unlock();\
-  }\
-}
+    \
+    ATTRIBUTE_EXPORT void xxmalloc_unlock() {\
+      Wrapper::xxmalloc_unlock();\
+    }\
+  }
 
 #endif
