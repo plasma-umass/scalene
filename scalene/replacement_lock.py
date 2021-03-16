@@ -46,6 +46,9 @@ def replacement_lock(scalene: Scalene) -> None:
         def locked(self) -> bool:
             return self.__lock.locked()
 
+        def _at_fork_reinit(self):
+            self.__lock._at_fork_reinit()
+            
         def __enter__(self) -> None:
             self.acquire()
 
