@@ -3,6 +3,9 @@
 #ifndef STATICBUFFERHEAP_H
 #define STATICBUFFERHEAP_H
 
+/**
+ * Heap that satisfies all requests out of static buffer.
+ */
 template <int BufferSize>
 class StaticBufferHeap {
  public:
@@ -34,6 +37,34 @@ class StaticBufferHeap {
     return ptr;
   }
 
+  void *memalign(size_t alignment, size_t sz) {
+    if (sz == 0 || !isPowerOf2(alignment)) {
+      return nullptr;
+    }
+
+    // Ensure we're not breaking this heap's 'Alignment'.
+    alignment = std::max(alignment, (size_t)Alignment);
+
+    // Note that if we're already aligned, we'll still skip 'alignment' bytes:
+    // we can't skip 0 bytes as we need space for 'Header'
+    uintptr_t skip = alignment - ((uintptr_t)_bufPtr % alignment);
+    while (skip < sizeof(Header)) {
+      skip += alignment;
+    }
+    skip -= sizeof(Header); // requires 'sizeof(Header) % Alignment == 0'
+
+    assert((skip % Alignment) == 0);
+
+    _bufPtr += skip;
+
+    if (void* p = malloc(sz)) {
+      return p;
+    }
+
+    _bufPtr -= skip;
+    return nullptr;
+  }
+
   void free(void *) {}
 
   size_t getSize(void *ptr) {
@@ -55,6 +86,8 @@ class StaticBufferHeap {
     return false;
   }
 
+  size_t allocated() const { return (uintptr_t)_bufPtr - (uintptr_t)_buf; }
+
  private:
   class Header {
    public:
@@ -62,7 +95,9 @@ class StaticBufferHeap {
     alignas(Alignment) size_t size;
   };
 
-  size_t allocated() { return (uintptr_t)_bufPtr - (uintptr_t)_buf; }
+  inline bool isPowerOf2(size_t n) {
+    return n && !(n & (n-1));
+  }
 
   alignas(Alignment) char _buf[BufferSize];
   char *_bufPtr{_buf};
