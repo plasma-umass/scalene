@@ -68,10 +68,10 @@ class HeapWrapper {
     pthread_setspecific(*getKey(), state ? (void*)1 : 0);
   }
 
-  typedef StaticBufferHeap<STATIC_HEAP_SIZE> StaticHeapType;
+  typedef LockedHeap<std::mutex, StaticBufferHeap<STATIC_HEAP_SIZE>> StaticHeapType;
 
-  static StaticBufferHeap<STATIC_HEAP_SIZE>& getTheStaticHeap() {
-    static StaticBufferHeap<STATIC_HEAP_SIZE> theStaticHeap;
+  static StaticHeapType& getTheStaticHeap() {
+    static StaticHeapType theStaticHeap;
     return theStaticHeap;
   }
 

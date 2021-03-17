@@ -14,8 +14,6 @@ class StaticBufferHeap {
   enum { Alignment = alignof(std::max_align_t) };
 
   void *malloc(size_t sz) {
-    std::lock_guard<decltype(_mutex)> g(_mutex);
-
     auto oldAllocated = allocated();
     auto prevPtr = _bufPtr;
     if (sz == 0) {
@@ -40,8 +38,6 @@ class StaticBufferHeap {
   }
 
   void *memalign(size_t alignment, size_t sz) {
-    std::lock_guard<decltype(_mutex)> g(_mutex);
-
     if (sz == 0 || !isPowerOf2(alignment)) {
       return nullptr;
     }
@@ -105,7 +101,6 @@ class StaticBufferHeap {
 
   alignas(Alignment) char _buf[BufferSize];
   char *_bufPtr{_buf};
-  std::recursive_mutex _mutex;
 };
 
 #endif
