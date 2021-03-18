@@ -34,10 +34,6 @@ class ScaleneOutput:
     # Default threshold for number of mallocs to report a file.
     malloc_threshold = 100
 
-    # reduced profile?
-    reduced_profile: bool = False
-    
-        
     # Profile output methods
     def output_profile_line(
             self,
@@ -50,15 +46,14 @@ class ScaleneOutput:
         profile_this_code : Callable[[Filename, LineNumber], bool],
         force_print: bool = False,
         suppress_lineno_print: bool = False,
-        is_function_summary: bool = False
+            is_function_summary: bool = False,
+            profile_memory: bool = False,
+            reduced_profile: bool = False
     ) -> bool:
         """Print at most one line of the profile (true == printed one)."""
         if not force_print and not profile_this_code(fname, line_no):
             return False
         current_max = stats.max_footprint
-        did_sample_memory: bool = (
-            stats.total_memory_free_samples + stats.total_memory_malloc_samples
-        ) > 0
         # Prepare output values.
         n_cpu_samples_c = stats.cpu_samples_c[fname][line_no]
         # Correct for negative CPU sample counts. This can happen
@@ -179,7 +174,7 @@ class ScaleneOutput:
             print_line_no = "" if suppress_lineno_print else str(line_no)
         else:
             print_line_no = "" if fname not in stats.firstline_map else str(stats.firstline_map[fname])
-        if did_sample_memory:
+        if profile_memory:
             spark_str: str = ""
             # Scale the sparkline by the usage fraction.
             samples = stats.per_line_footprint_samples[fname][line_no]
@@ -213,7 +208,7 @@ class ScaleneOutput:
                 ngpus = n_gpu_percent_str
                 nufs = spark_str + n_usage_fraction_str
 
-            if not self.reduced_profile or ncpps + ncpcs + nufs:
+            if not reduced_profile or ncpps + ncpcs + nufs:
                 tbl.add_row(
                     print_line_no,
                     ncpps,  # n_cpu_percent_python_str,
@@ -244,7 +239,7 @@ class ScaleneOutput:
                 ncpcs = n_cpu_percent_c_str
                 ngpus = n_gpu_percent_str
 
-            if not self.reduced_profile or ncpps + ncpcs:
+            if not reduced_profile or ncpps + ncpcs:
                 tbl.add_row(
                     print_line_no,
                     ncpps,  # n_cpu_percent_python_str,
@@ -262,7 +257,9 @@ class ScaleneOutput:
                         pid : int,
                         profile_this_code : Callable[[Filename, LineNumber], bool],
                         python_alias_dir_name : Filename,
-                        python_alias_dir : Filename
+                        python_alias_dir : Filename,
+                        profile_memory: bool = True,
+                        reduced_profile: bool = False
                         ) -> bool:
         """Write the profile out."""
         # Get the children's stats, if any.
@@ -293,14 +290,10 @@ class ScaleneOutput:
         if not all_instrumented_files:
             # We didn't collect samples in source files.
             return False
-        # If I have at least one memory sample, then we are profiling memory.
-        did_sample_memory: bool = (
-            stats.total_memory_free_samples + stats.total_memory_malloc_samples
-        ) > 0
         title = Text()
         mem_usage_line: Union[Text, str] = ""
         growth_rate = 0.0
-        if did_sample_memory:
+        if profile_memory:
             samples = stats.memory_footprint_samples
             if len(samples.get()) > 0:
                 # Output a sparkline as a summary of memory usage over time.
@@ -404,7 +397,7 @@ class ScaleneOutput:
 
             other_columns_width = 0  # Size taken up by all columns BUT code
 
-            if did_sample_memory:
+            if profile_memory:
                 tbl.add_column("Mem %\nPython", no_wrap=True)
                 tbl.add_column("Net\n(MB)", no_wrap=True)
                 tbl.add_column("Memory usage\nover time / %", no_wrap=True)
@@ -462,7 +455,9 @@ class ScaleneOutput:
                 for line_no, line in enumerate(formatted_lines, start=1):
                     old_did_print = did_print
                     did_print = self.output_profile_line(
-                        fname, LineNumber(line_no), line, console, tbl, stats, profile_this_code
+                        fname, LineNumber(line_no), line, console, tbl, stats, profile_this_code,
+                        profile_memory=profile_memory, force_print=True,
+                        suppress_lineno_print=False, is_function_summary=False, reduced_profile=reduced_profile
                     )
                     if old_did_print and not did_print:
                         # We are skipping lines, so add an ellipsis.
@@ -481,7 +476,7 @@ class ScaleneOutput:
             if print_fn_summary:
                 tbl.add_row(None, end_section=True)
                 txt = Text.assemble("function summary", style="bold italic")
-                if did_sample_memory:
+                if profile_memory:
                     tbl.add_row("", "", "", "", "", "", "", "", "", txt)
                 else:
                     tbl.add_row("", "", "", "", "", txt)
@@ -504,7 +499,8 @@ class ScaleneOutput:
                             theme="vim",
                             line_numbers=False,
                             code_width=None,
-                        )
+                        ) 
+                    # force print, suppress line numbers                       
                     self.output_profile_line(
                         fn_name,
                         LineNumber(1),
@@ -513,10 +509,12 @@ class ScaleneOutput:
                         tbl,
                         fn_stats,
                         profile_this_code,
-                        True,
-                        True,
-                        True
-                    )  # force print, suppress line numbers
+                        profile_memory=profile_memory,
+                        force_print=True,
+                        suppress_lineno_print=True,
+                        is_function_summary=True,
+                        reduced_profile=reduced_profile
+                    )
 
             console.print(tbl)
 
