@@ -119,6 +119,7 @@ class Scalene:
     # As above; we'll cache the original thread and replace it.
     __original_lock = threading.Lock
 
+    __args = ScaleneArguments()
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
 
@@ -136,18 +137,12 @@ class Scalene:
         + str(sys.version_info.minor),
     ]
 
-    # mean seconds between interrupts for CPU sampling.
-    __mean_cpu_sampling_rate: float = 0.01
-
     # last num seconds between interrupts for CPU sampling.
-    __last_cpu_sampling_rate: float = __mean_cpu_sampling_rate
+    __last_cpu_sampling_rate: float = 0
 
     # when did we last receive a signal?
     __last_signal_time_virtual: float = 0
     __last_signal_time_wallclock: float = 0
-
-    # do we use wallclock time (capturing system time and blocking) or not?
-    __use_wallclock_time: bool = True
 
     # path for the program being profiled
     __program_path: str = ""
@@ -158,12 +153,6 @@ class Scalene:
 
     ## Profile output parameters
 
-    # if we profile all code or just target code and code in its child directories
-    __profile_all: bool = False
-    # what function pathnames must contain to be output during profiling
-    __profile_only: str = ""
-    # how long between outputting stats during execution
-    __output_profile_interval: float = float("inf")
     # when we output the next profile
     __next_output_time: float = float("inf")
     # when we started
@@ -327,10 +316,10 @@ class Scalene:
     @staticmethod
     def set_timer_signals() -> None:
         """Set up timer signals for CPU profiling."""
-        if Scalene.__use_wallclock_time:
-            Scalene.__cpu_timer_signal = signal.ITIMER_REAL
-        else:
+        if Scalene.__args.use_virtual_time:
             Scalene.__cpu_timer_signal = signal.ITIMER_VIRTUAL
+        else:
+            Scalene.__cpu_timer_signal = signal.ITIMER_REAL
 
         # Now set the appropriate timer signal.
         if Scalene.__cpu_timer_signal == signal.ITIMER_REAL:
@@ -366,8 +355,8 @@ class Scalene:
         # Turn on the CPU profiling timer to run every mean_cpu_sampling_rate seconds.
         signal.setitimer(
             Scalene.__cpu_timer_signal,
-            Scalene.__mean_cpu_sampling_rate,
-            Scalene.__mean_cpu_sampling_rate,
+            Scalene.__args.cpu_sampling_rate,
+            Scalene.__args.cpu_sampling_rate,
         )
         Scalene.__last_signal_time_virtual = Scalene.get_process_time()
 
@@ -395,18 +384,7 @@ class Scalene:
         import scalene.replacement_fork
         import scalene.replacement_exit
 
-        if "cpu_percent_threshold" in arguments:
-            Scalene.__output.cpu_percent_threshold = int(
-                arguments.cpu_percent_threshold
-            )
-        if "malloc_threshold" in arguments:
-            Scalene.__output.malloc_threshold = int(arguments.malloc_threshold)
-        if "cpu_sampling_rate" in arguments:
-            Scalene.__mean_cpu_sampling_rate = float(
-                arguments.cpu_sampling_rate
-            )
-        if arguments.use_virtual_time:
-            Scalene.__use_wallclock_time = False
+        Scalene.__args = cast(ScaleneArguments, arguments)
 
         if arguments.pid:
             # Child process.
@@ -530,7 +508,7 @@ class Scalene:
             # Print out the profile. Set the next output time, stop
             # signals, print the profile, and then start signals
             # again.
-            Scalene.__next_output_time += Scalene.__output_profile_interval
+            Scalene.__next_output_time += Scalene.__args.output_profile_interval
             Scalene.stop()
             stats = Scalene.__stats
             output = Scalene.__output
@@ -540,6 +518,8 @@ class Scalene:
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir_name,
                 Scalene.__python_alias_dir,
+                profile_memory=not Scalene.__args.cpu_only,
+                reduced_profile=Scalene.__args.reduced_profile
             )
             Scalene.start()
         # Here we take advantage of an ostensible limitation of Python:
@@ -673,8 +653,8 @@ class Scalene:
             # low. For a fraction 1/f, the probability is
             # p = 1-(math.erf(f/math.sqrt(2)))/2
             next_interval = random.normalvariate(
-                Scalene.__mean_cpu_sampling_rate,
-                Scalene.__mean_cpu_sampling_rate / 3.0,
+                Scalene.__args.cpu_sampling_rate,
+                Scalene.__args.cpu_sampling_rate / 3.0,
             )
         Scalene.__last_cpu_sampling_rate = next_interval
         Scalene.__last_signal_time_wallclock = Scalene.get_wallclock_time()
@@ -746,7 +726,7 @@ class Scalene:
         return new_frames
 
     @staticmethod
-    def enter_function_meta(frame: FrameType, stats: ScaleneStatistics):
+    def enter_function_meta(frame: FrameType, stats: ScaleneStatistics) -> None:
         fname = Filename(frame.f_code.co_filename)
         lineno = LineNumber(frame.f_lineno)       
         f = frame
@@ -757,7 +737,7 @@ class Scalene:
         fn_name = Filename(f.f_code.co_name)
         firstline = f.f_code.co_firstlineno
         # Prepend the class, if any
-        while f and Scalene.should_trace(f.f_back.f_code.co_filename):
+        while f and Scalene.should_trace(f.f_back.f_code.co_filename): # type: ignore
             if "self" in f.f_locals:
                 prepend_name = f.f_locals["self"].__class__.__name__
                 if "Scalene" not in prepend_name:
@@ -993,8 +973,8 @@ class Scalene:
         )
         signal.setitimer(
             Scalene.__cpu_timer_signal,
-            Scalene.__mean_cpu_sampling_rate,
-            Scalene.__mean_cpu_sampling_rate,
+            Scalene.__args.cpu_sampling_rate,
+            Scalene.__args.cpu_sampling_rate,
         )
 
     @staticmethod
@@ -1089,11 +1069,11 @@ class Scalene:
         ):
             # Don't profile the profiler.
             return False
-        if not Scalene.__profile_only in filename:
+        if not Scalene.__args.profile_only in filename:
             return False
-        if Scalene.__profile_all:
+        if Scalene.__args.profile_all:
             # Profile everything else, except for "only" choices.
-            if Scalene.__profile_only in filename:
+            if Scalene.__args.profile_only in filename:
                 return True
             else:
                 return False
@@ -1437,6 +1417,8 @@ in Jupyter, cell mode:
             Scalene.profile_this_code,
             Scalene.__python_alias_dir_name,
             Scalene.__python_alias_dir,
+                profile_memory=not Scalene.__args.cpu_only,
+                reduced_profile=Scalene.__args.reduced_profile
         ):
             pass
         else:
@@ -1445,21 +1427,15 @@ in Jupyter, cell mode:
 
     @staticmethod
     def process_args(args: argparse.Namespace) -> None:
-        Scalene.__output_profile_interval = args.profile_interval
+        Scalene.__args = cast(ScaleneArguments, args)
         Scalene.__next_output_time = (
-            Scalene.get_wallclock_time() + Scalene.__output_profile_interval
+            Scalene.get_wallclock_time() + Scalene.__args.profile_interval
         )
         Scalene.__output.html = args.html
         Scalene.__output.output_file = args.outfile
-        Scalene.__profile_all = args.profile_all
-        Scalene.__profile_only = args.profile_only
         Scalene.__is_child = args.pid != 0
         # the pid of the primary profiler
         Scalene.__parent_pid = args.pid if Scalene.__is_child else os.getpid()
-        if args.reduced_profile:
-            Scalene.__output.reduced_profile = True
-        else:
-            Scalene.__output.reduced_profile = False
 
     @staticmethod
     def main() -> None:
