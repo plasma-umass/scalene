@@ -6,6 +6,7 @@ import threading
 
 minor_version = sys.version_info.minor
 
+
 @Scalene.shim
 def replacement_pjoin(scalene: Scalene) -> None:
     def replacement_process_join(self, timeout: float = -1) -> None:  # type: ignore
