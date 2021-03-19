@@ -1,7 +1,7 @@
 import argparse
 
-class ScaleneArguments(argparse.Namespace):
 
+class ScaleneArguments(argparse.Namespace):
     def __init__(self) -> None:
         self.cpu_only = False
         self.cpu_percent_threshold = 1
@@ -21,6 +21,3 @@ class ScaleneArguments(argparse.Namespace):
         self.reduced_profile = False
         # do we use virtual time or wallclock time (capturing system time and blocking)?
         self.use_virtual_time = False
-    
-    
-    

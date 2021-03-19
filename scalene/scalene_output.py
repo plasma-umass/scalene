@@ -17,6 +17,7 @@ from scalene.scalene_statistics import *
 
 from typing import Callable, Union
 
+
 class ScaleneOutput:
 
     # where we write profile info
@@ -36,19 +37,19 @@ class ScaleneOutput:
 
     # Profile output methods
     def output_profile_line(
-            self,
+        self,
         fname: Filename,
         line_no: LineNumber,
         line: SyntaxLine,
         console: Console,
         tbl: Table,
         stats: ScaleneStatistics,
-        profile_this_code : Callable[[Filename, LineNumber], bool],
+        profile_this_code: Callable[[Filename, LineNumber], bool],
         force_print: bool = False,
         suppress_lineno_print: bool = False,
-            is_function_summary: bool = False,
-            profile_memory: bool = False,
-            reduced_profile: bool = False
+        is_function_summary: bool = False,
+        profile_memory: bool = False,
+        reduced_profile: bool = False,
     ) -> bool:
         """Print at most one line of the profile (true == printed one)."""
         if not force_print and not profile_this_code(fname, line_no):
@@ -63,7 +64,7 @@ class ScaleneOutput:
             n_cpu_samples_c = 0
         n_cpu_samples_python = stats.cpu_samples_python[fname][line_no]
         n_gpu_samples = stats.gpu_samples[fname][line_no]
-                                          
+
         # Compute percentages of CPU time.
         if stats.total_cpu_samples != 0:
             n_cpu_percent_c = n_cpu_samples_c * 100 / stats.total_cpu_samples
@@ -131,7 +132,7 @@ class ScaleneOutput:
         n_gpu_percent_str: str = (
             "" if n_gpu_percent < 1 else "%3.0f%%" % n_gpu_percent
         )
-        
+
         n_cpu_percent_python_str: str = (
             ""
             if n_cpu_percent_python < 1
@@ -161,19 +162,25 @@ class ScaleneOutput:
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
         # Only report utilization where there is more than 1% CPU total usage,
         # and the standard error of the mean is low (meaning it's an accurate estimate).
-        n_sys_percent = n_cpu_percent * (1.0 - (stats.cpu_utilization[fname][line_no].mean()))
+        n_sys_percent = n_cpu_percent * (
+            1.0 - (stats.cpu_utilization[fname][line_no].mean())
+        )
         sys_str: str = (
             ""
             if n_sys_percent < 1
             or stats.cpu_utilization[fname][line_no].size() <= 1
             or stats.cpu_utilization[fname][line_no].sem() > 0.025
             or stats.cpu_utilization[fname][line_no].mean() > 0.99
-            else "%3.0f%%" % ( n_sys_percent )
+            else "%3.0f%%" % (n_sys_percent)
         )
         if not is_function_summary:
             print_line_no = "" if suppress_lineno_print else str(line_no)
         else:
-            print_line_no = "" if fname not in stats.firstline_map else str(stats.firstline_map[fname])
+            print_line_no = (
+                ""
+                if fname not in stats.firstline_map
+                else str(stats.firstline_map[fname])
+            )
         if profile_memory:
             spark_str: str = ""
             # Scale the sparkline by the usage fraction.
@@ -190,7 +197,7 @@ class ScaleneOutput:
             ncpcs: Any = ""
             nufs: Any = ""
             ngpus: Any = ""
-            
+
             if (
                 n_usage_fraction >= self.highlight_percentage
                 or (n_cpu_percent_c + n_cpu_percent_python + n_gpu_percent)
@@ -252,15 +259,16 @@ class ScaleneOutput:
             else:
                 return False
 
-    def output_profiles(self,
-                        stats: ScaleneStatistics,
-                        pid : int,
-                        profile_this_code : Callable[[Filename, LineNumber], bool],
-                        python_alias_dir_name : Filename,
-                        python_alias_dir : Filename,
-                        profile_memory: bool = True,
-                        reduced_profile: bool = False
-                        ) -> bool:
+    def output_profiles(
+        self,
+        stats: ScaleneStatistics,
+        pid: int,
+        profile_this_code: Callable[[Filename, LineNumber], bool],
+        python_alias_dir_name: Filename,
+        python_alias_dir: Filename,
+        profile_memory: bool = True,
+        reduced_profile: bool = False,
+    ) -> bool:
         """Write the profile out."""
         # Get the children's stats, if any.
         if not pid:
@@ -402,14 +410,14 @@ class ScaleneOutput:
                 tbl.add_column("Net\n(MB)", no_wrap=True)
                 tbl.add_column("Memory usage\nover time / %", no_wrap=True)
                 tbl.add_column("Copy\n(MB/s)", no_wrap=True)
-                other_columns_width = 72 + 5 # GPU
+                other_columns_width = 72 + 5  # GPU
                 tbl.add_column(
                     "\n" + fname,
                     width=column_width - other_columns_width,
                     no_wrap=True,
                 )
             else:
-                other_columns_width = 36 + 5 # GPU
+                other_columns_width = 36 + 5  # GPU
                 tbl.add_column(
                     "\n" + fname,
                     width=column_width - other_columns_width,
@@ -455,9 +463,18 @@ class ScaleneOutput:
                 for line_no, line in enumerate(formatted_lines, start=1):
                     old_did_print = did_print
                     did_print = self.output_profile_line(
-                        fname, LineNumber(line_no), line, console, tbl, stats, profile_this_code,
-                        profile_memory=profile_memory, force_print=True,
-                        suppress_lineno_print=False, is_function_summary=False, reduced_profile=reduced_profile
+                        fname,
+                        LineNumber(line_no),
+                        line,
+                        console,
+                        tbl,
+                        stats,
+                        profile_this_code,
+                        profile_memory=profile_memory,
+                        force_print=True,
+                        suppress_lineno_print=False,
+                        is_function_summary=False,
+                        reduced_profile=reduced_profile,
                     )
                     if old_did_print and not did_print:
                         # We are skipping lines, so add an ellipsis.
@@ -481,7 +498,10 @@ class ScaleneOutput:
                 else:
                     tbl.add_row("", "", "", "", "", txt)
 
-                for fn_name in sorted(fn_stats.cpu_samples_python, key = lambda k : stats.firstline_map[k]):
+                for fn_name in sorted(
+                    fn_stats.cpu_samples_python,
+                    key=lambda k: stats.firstline_map[k],
+                ):
                     if fn_name == fname:
                         continue
                     if self.html:
@@ -499,8 +519,8 @@ class ScaleneOutput:
                             theme="vim",
                             line_numbers=False,
                             code_width=None,
-                        ) 
-                    # force print, suppress line numbers                       
+                        )
+                    # force print, suppress line numbers
                     self.output_profile_line(
                         fn_name,
                         LineNumber(1),
@@ -513,7 +533,7 @@ class ScaleneOutput:
                         force_print=True,
                         suppress_lineno_print=True,
                         is_function_summary=True,
-                        reduced_profile=reduced_profile
+                        reduced_profile=reduced_profile,
                     )
 
             console.print(tbl)
@@ -605,8 +625,5 @@ class ScaleneOutput:
                 sys.stdout.write(console.export_text(styles=True))
             else:
                 # Don't output styles to text file.
-                console.save_text(
-                    self.output_file, styles=False, clear=False
-                )
+                console.save_text(self.output_file, styles=False, clear=False)
         return True
-    
