@@ -20,6 +20,7 @@ import dis
 import functools
 import get_line_atomic
 import inspect
+import math
 import mmap
 import multiprocessing
 import os
@@ -508,7 +509,9 @@ class Scalene:
             # Print out the profile. Set the next output time, stop
             # signals, print the profile, and then start signals
             # again.
-            Scalene.__next_output_time += Scalene.__args.output_profile_interval
+            Scalene.__next_output_time += (
+                Scalene.__args.output_profile_interval
+            )
             Scalene.stop()
             stats = Scalene.__stats
             output = Scalene.__output
@@ -519,7 +522,7 @@ class Scalene:
                 Scalene.__python_alias_dir_name,
                 Scalene.__python_alias_dir,
                 profile_memory=not Scalene.__args.cpu_only,
-                reduced_profile=Scalene.__args.reduced_profile
+                reduced_profile=Scalene.__args.reduced_profile,
             )
             Scalene.start()
         # Here we take advantage of an ostensible limitation of Python:
@@ -564,6 +567,10 @@ class Scalene:
                     gpu_load += g.load
             except:
                 pass
+        # Deal with an odd case reported here: https://github.com/plasma-umass/scalene/issues/124
+        # We don't want to report 'nan', so turn the load into 0.
+        if math.isnan(gpu_load):
+            gpu_load = 0.0
         gpu_time = gpu_load * Scalene.__last_cpu_sampling_rate
         Scalene.__stats.total_gpu_samples += gpu_time
         python_time = Scalene.__last_cpu_sampling_rate
@@ -595,7 +602,7 @@ class Scalene:
             if frame == new_frames[0][0]:
                 # Main thread.
                 if not Scalene.__is_thread_sleeping[tident]:
-                    
+
                     Scalene.__stats.cpu_samples_python[fname][lineno] += (
                         python_time / total_frames
                     )
@@ -611,7 +618,7 @@ class Scalene:
                     Scalene.__stats.gpu_samples[fname][lineno] += (
                         gpu_time / total_frames
                     )
-                    
+
             else:
                 # We can't play the same game here of attributing
                 # time, because we are in a thread, and threads don't
@@ -726,9 +733,11 @@ class Scalene:
         return new_frames
 
     @staticmethod
-    def enter_function_meta(frame: FrameType, stats: ScaleneStatistics) -> None:
+    def enter_function_meta(
+        frame: FrameType, stats: ScaleneStatistics
+    ) -> None:
         fname = Filename(frame.f_code.co_filename)
-        lineno = LineNumber(frame.f_lineno)       
+        lineno = LineNumber(frame.f_lineno)
         f = frame
         while "<" in Filename(f.f_code.co_name):
             f = cast(FrameType, frame.f_back)
@@ -737,7 +746,7 @@ class Scalene:
         fn_name = Filename(f.f_code.co_name)
         firstline = f.f_code.co_firstlineno
         # Prepend the class, if any
-        while f and Scalene.should_trace(f.f_back.f_code.co_filename): # type: ignore
+        while f and Scalene.should_trace(f.f_back.f_code.co_filename):  # type: ignore
             if "self" in f.f_locals:
                 prepend_name = f.f_locals["self"].__class__.__name__
                 if "Scalene" not in prepend_name:
@@ -1050,14 +1059,19 @@ class Scalene:
                 # create a file to hold the contents.
                 from IPython import get_ipython
                 import re
+
                 # Find the input where the function was defined;
                 # we need this to properly annotate the code.
                 result = re.match("<ipython-input-([0-9]+)-.*>", filename)
                 if result:
                     # Write the cell's contents into the file.
                     with open(filename, "w+") as f:
-                    # with open(str(frame.f_code.co_filename), "w+") as f:
-                        f.write(get_ipython().history_manager.input_hist_raw[int(result.group(1))])
+                        # with open(str(frame.f_code.co_filename), "w+") as f:
+                        f.write(
+                            get_ipython().history_manager.input_hist_raw[
+                                int(result.group(1))
+                            ]
+                        )
                 return True
             else:
                 # Not a real file and not a function created in Jupyter.
@@ -1417,8 +1431,8 @@ in Jupyter, cell mode:
             Scalene.profile_this_code,
             Scalene.__python_alias_dir_name,
             Scalene.__python_alias_dir,
-                profile_memory=not Scalene.__args.cpu_only,
-                reduced_profile=Scalene.__args.reduced_profile
+            profile_memory=not Scalene.__args.cpu_only,
+            reduced_profile=Scalene.__args.reduced_profile,
         ):
             pass
         else:
