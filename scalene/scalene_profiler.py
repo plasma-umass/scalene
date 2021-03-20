@@ -1214,7 +1214,7 @@ for the process ID that Scalene reports. For example:
 
    % python3 -m scalene [options] yourprogram.py &
  Scalene now profiling process 12345
-   to disable profiling: python3 -m scalene.profile --off --pid 12345
+   to suspend profiling: python3 -m scalene.profile --off --pid 12345
    to resume profiling:  python3 -m scalene.profile --on  --pid 12345
 """
         )
