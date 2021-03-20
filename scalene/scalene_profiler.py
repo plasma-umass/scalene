@@ -1196,20 +1196,32 @@ class Scalene:
 https://github.com/plasma-umass/scalene
 
 command-line:
-  % scalene [options] yourprogram.py
+   % scalene [options] yourprogram.py
+or
+   % python3 -m scalene [options] yourprogram.py
 
 in Jupyter, line mode:
-  %scrun [options] statement
+   %scrun [options] statement
 
 in Jupyter, cell mode:
-  %%scalene [options]
-  code...
-  code...
+   %%scalene [options]
+   code...
+   code...
+"""
+            )
+        epilog = dedent("""When running Scalene in the background, you can suspend/resume profiling
+for the process ID that Scalene reports. For example:
+
+   % python3 -m scalene [options] yourprogram.py &
+ Scalene now profiling process 12345
+   to disable profiling: python3 -m scalene.profile --off --pid 12345
+   to resume profiling:  python3 -m scalene.profile --on  --pid 12345
 """
         )
         parser = argparse.ArgumentParser(
             prog="scalene",
             description=usage,
+            epilog=epilog,
             formatter_class=argparse.RawTextHelpFormatter,
             allow_abbrev=False,
         )
