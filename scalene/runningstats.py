@@ -9,6 +9,14 @@ class RunningStats:
     def __init__(self) -> None:
         self.clear()
 
+    def __add__(self: "RunningStats", other: "RunningStats") -> "RunningStats":
+        if other.n > 0:
+            s = RunningStats()
+            s.m1 = (self.m1 * self.n + other.m1 * other.n) / (self.n + other.n)
+            s.n = self.n + other.n
+            return s
+        return self
+
     def clear(self) -> None:
         """Reset for new samples"""
         self.n = 0

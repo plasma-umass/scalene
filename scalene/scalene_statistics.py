@@ -138,7 +138,6 @@ class ScaleneStatistics:
     def clear(self) -> None:
         self.elapsed_time = 0
         self.cpu_samples_python.clear()
-        # print(self.cpu_samples_python)
         self.cpu_samples_c.clear()
         self.cpu_utilization.clear()
         self.cpu_samples.clear()
@@ -196,6 +195,9 @@ class ScaleneStatistics:
             fn_stats.gpu_samples[fn_name][first_line_no] += self.gpu_samples[
                 fname
             ][line_no]
+            fn_stats.cpu_utilization[fn_name][
+                first_line_no
+            ] += self.cpu_utilization[fname][line_no]
             fn_stats.per_line_footprint_samples[fn_name][
                 first_line_no
             ] += self.per_line_footprint_samples[fname][line_no]
