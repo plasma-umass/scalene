@@ -99,13 +99,13 @@ class ScaleneStatistics:
 
     # how many GPU samples have been collected
     total_gpu_samples: float = 0.0
-
+    
     # "   "    malloc "       "    "    "
     total_memory_malloc_samples: float = 0.0
 
     # "   "    free   "       "    "    "
     total_memory_free_samples: float = 0.0
-
+    
     # the current memory footprint
     current_footprint: float = 0.0
 
@@ -151,6 +151,7 @@ class ScaleneStatistics:
         self.memory_free_count.clear()
         self.memcpy_samples.clear()
         self.total_cpu_samples = 0.0
+        self.total_gpu_samples = 0.0
         self.total_memory_malloc_samples = 0.0
         self.total_memory_free_samples = 0.0
         self.current_footprint = 0.0
@@ -177,6 +178,7 @@ class ScaleneStatistics:
         fn_stats = ScaleneStatistics()
         fn_stats.elapsed_time = self.elapsed_time
         fn_stats.total_cpu_samples = self.total_cpu_samples
+        fn_stats.total_gpu_samples = self.total_gpu_samples
         fn_stats.total_memory_malloc_samples = self.total_memory_malloc_samples
         first_line_no = LineNumber(1)
         fn_stats.function_map = self.function_map
@@ -191,9 +193,9 @@ class ScaleneStatistics:
             fn_stats.cpu_samples_python[fn_name][
                 first_line_no
             ] += self.cpu_samples_python[fname][line_no]
-            fn_stats.gpu_samples[fn_name][first_line_no] += self.gpu_samples[
-                fname
-            ][line_no]
+            fn_stats.gpu_samples[fn_name][
+                first_line_no
+            ] += self.gpu_samples[fname][line_no]
             fn_stats.per_line_footprint_samples[fn_name][
                 first_line_no
             ] += self.per_line_footprint_samples[fname][line_no]
@@ -248,7 +250,7 @@ class ScaleneStatistics:
             self.function_map,
             self.firstline_map,
             self.gpu_samples,
-            self.total_gpu_samples,
+            self.total_gpu_samples
         ]
         # To be added: __malloc_samples
 
