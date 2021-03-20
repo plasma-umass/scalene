@@ -2,7 +2,7 @@ import signal
 
 class ScaleneSignals():
     
-    start_profiling_signal = signal.SIGPWR
+    start_profiling_signal = signal.SIGILL
     stop_profiling_signal = signal.SIGWINCH
     cpu_signal = signal.SIGVTALRM
     cpu_timer_signal = signal.ITIMER_REAL
