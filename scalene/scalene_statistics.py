@@ -151,6 +151,7 @@ class ScaleneStatistics:
         self.memory_free_count.clear()
         self.memcpy_samples.clear()
         self.total_cpu_samples = 0.0
+        self.total_gpu_samples = 0.0
         self.total_memory_malloc_samples = 0.0
         self.total_memory_free_samples = 0.0
         self.current_footprint = 0.0
@@ -177,6 +178,7 @@ class ScaleneStatistics:
         fn_stats = ScaleneStatistics()
         fn_stats.elapsed_time = self.elapsed_time
         fn_stats.total_cpu_samples = self.total_cpu_samples
+        fn_stats.total_gpu_samples = self.total_gpu_samples
         fn_stats.total_memory_malloc_samples = self.total_memory_malloc_samples
         first_line_no = LineNumber(1)
         fn_stats.function_map = self.function_map
