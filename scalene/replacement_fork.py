@@ -1,5 +1,6 @@
 import os
 from scalene.scalene_profiler import Scalene
+from scalene.scalene_signals import ScaleneSignals
 import signal
 
 
@@ -14,7 +15,7 @@ def replacement_fork(scalene: Scalene) -> None:
     def fork_replacement() -> int:
         result = orig_fork()
         if result == 0:
-            os.kill(os.getpid(), Scalene.fork_signal)
+            os.kill(os.getpid(), ScaleneSignals.fork_signal)
         return result
 
     os.fork = fork_replacement
