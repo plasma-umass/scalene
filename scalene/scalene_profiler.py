@@ -1338,7 +1338,9 @@ in Jupyter, cell mode:
         return args, left
 
     @staticmethod
-    def setup_preload(args: argparse.Namespace) -> None:
+    def setup_preload(args: argparse.Namespace) -> bool:
+        # Return true iff we had to preload libraries and run another process.
+        
         # First, check that we are on a supported platform.
         # (x86-64 and ARM only for now.)
         if not args.cpu_only and (
@@ -1356,83 +1358,87 @@ in Jupyter, cell mode:
 
         # Load shared objects (that is, interpose on malloc, memcpy and friends)
         # unless the user specifies "--cpu-only" at the command-line.
-        if not args.cpu_only:
-            try:
-                from IPython import get_ipython
+        
+        if args.cpu_only:
+            return False
 
-                if get_ipython():
-                    sys.exit = Scalene.clean_exit  # type: ignore
-            except:
-                pass
-            # Load the shared object on Linux.
-            if sys.platform == "linux":
-                if ("LD_PRELOAD" not in os.environ) and (
-                    "PYTHONMALLOC" not in os.environ
-                ):
-                    os.environ["LD_PRELOAD"] = os.path.join(
-                        os.path.dirname(__file__), "libscalene.so"
-                    )
-                    os.environ["PYTHONMALLOC"] = "malloc"
-                    new_args = [
-                        os.path.basename(sys.executable),
-                        "-m",
-                        "scalene",
-                    ] + sys.argv[1:]
-                    result = subprocess.Popen(
-                        new_args, close_fds=True, shell=False
-                    )
-                    # If running in the background, print the PID.
-                    if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
-                        # In the background.
-                        print("Scalene now profiling process " + str(result.pid)) 
-                        print("  to disable profiling: python3 -m scalene.profile --off --pid " + str(result.pid))
-                        print("  to resume profiling:  python3 -m scalene.profile --on  --pid " + str(result.pid))
-                       
-                    result.wait()
-                    if result.returncode < 0:
-                        print(
-                            "Scalene error: received signal",
-                            signal.Signals(-result.returncode).name,
-                        )
-                    sys.exit(result.returncode)
+        try:
+            from IPython import get_ipython
 
-            # Similar logic, but for Mac OS X.
-            if sys.platform == "darwin":
-                if (
-                    (
-                        ("DYLD_INSERT_LIBRARIES" not in os.environ)
-                        and ("PYTHONMALLOC" not in os.environ)
-                    )
-                    or "OBJC_DISABLE_INITIALIZE_FORK_SAFETY" not in os.environ
-                ):
-                    os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(
-                        os.path.dirname(__file__), "libscalene.dylib"
-                    )
-                    os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
-                    os.environ["PYTHONMALLOC"] = "malloc"
-                    orig_args = args
-                    new_args = [
-                        os.path.basename(sys.executable),
-                        "-m",
-                        "scalene",
-                    ] + sys.argv[1:]
-                    result = subprocess.Popen(
-                        new_args, close_fds=True, shell=False
-                    )
-                    # If running in the background, print the PID.
-                    if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
-                        # In the background.
-                        print("Scalene now profiling process " + str(result.pid))
-                        print("  to disable profiling: python3 -m scalene.profile --off --pid " + str(result.pid))
-                        print("  to resume profiling:  python3 -m scalene.profile --on  --pid " + str(result.pid))
-                    result.wait()
-                    if result.returncode < 0:
-                        print(
-                            "Scalene error: received signal",
-                            signal.Signals(-result.returncode).name,
-                        )
-                    sys.exit(result.returncode)
+            if get_ipython():
+                sys.exit = Scalene.clean_exit  # type: ignore
+        except:
+            pass
+        # Load the shared object on Linux.
+        if sys.platform == "linux":
+            if ("LD_PRELOAD" not in os.environ) and (
+                "PYTHONMALLOC" not in os.environ
+            ):
+                os.environ["LD_PRELOAD"] = os.path.join(
+                    os.path.dirname(__file__), "libscalene.so"
+                )
+                os.environ["PYTHONMALLOC"] = "malloc"
+                new_args = [
+                    os.path.basename(sys.executable),
+                    "-m",
+                    "scalene",
+                ] + sys.argv[1:]
+                result = subprocess.Popen(
+                    new_args, close_fds=True, shell=False
+                )
+                # If running in the background, print the PID.
+                if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
+                    # In the background.
+                    print("Scalene now profiling process " + str(result.pid)) 
+                    print("  to disable profiling: python3 -m scalene.profile --off --pid " + str(result.pid))
+                    print("  to resume profiling:  python3 -m scalene.profile --on  --pid " + str(result.pid))
 
+                result.wait()
+                if result.returncode < 0:
+                    print(
+                        "Scalene error: received signal",
+                        signal.Signals(-result.returncode).name,
+                    )
+                sys.exit(result.returncode)
+
+        # Similar logic, but for Mac OS X.
+        if sys.platform == "darwin":
+            if (
+                (
+                    ("DYLD_INSERT_LIBRARIES" not in os.environ)
+                    and ("PYTHONMALLOC" not in os.environ)
+                )
+                or "OBJC_DISABLE_INITIALIZE_FORK_SAFETY" not in os.environ
+            ):
+                os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(
+                    os.path.dirname(__file__), "libscalene.dylib"
+                )
+                os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
+                os.environ["PYTHONMALLOC"] = "malloc"
+                orig_args = args
+                new_args = [
+                    os.path.basename(sys.executable),
+                    "-m",
+                    "scalene",
+                ] + sys.argv[1:]
+                result = subprocess.Popen(
+                    new_args, close_fds=True, shell=False
+                )
+                # If running in the background, print the PID.
+                if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
+                    # In the background.
+                    print("Scalene now profiling process " + str(result.pid))
+                    print("  to disable profiling: python3 -m scalene.profile --off --pid " + str(result.pid))
+                    print("  to resume profiling:  python3 -m scalene.profile --on  --pid " + str(result.pid))
+                result.wait()
+                if result.returncode < 0:
+                    print(
+                        "Scalene error: received signal",
+                        signal.Signals(-result.returncode).name,
+                    )
+                sys.exit(result.returncode)
+        return True
+                    
     def profile_code(
         self,
         code: str,
@@ -1495,7 +1501,14 @@ in Jupyter, cell mode:
         signal.siginterrupt(ScaleneSignals.start_profiling_signal, False)
         signal.siginterrupt(ScaleneSignals.stop_profiling_signal, False)
         
-        Scalene.setup_preload(args)
+        did_preload = Scalene.setup_preload(args)
+        if not did_preload:
+            # If running in the background, print the PID.
+            if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
+                # In the background.
+                print("Scalene now profiling process " + str(os.getpid()))
+                print("  to disable profiling: python3 -m scalene.profile --off --pid " + str(os.getpid()))
+                print("  to resume profiling:  python3 -m scalene.profile --on  --pid " + str(os.getpid()))
         Scalene.__stats.clear_all()
         sys.argv = left
         try:
