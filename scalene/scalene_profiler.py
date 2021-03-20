@@ -84,6 +84,7 @@ def scalene_redirect_profile(func: Any) -> Any:
 
 builtins.profile = scalene_redirect_profile  # type: ignore
 
+
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -232,7 +233,7 @@ class Scalene:
         pass
     __memcpy_signal_position = 0
     __memcpy_lastpos = bytearray(8)
-    
+
     # Whether we are in a signal handler or not (to make things properly re-entrant).
     __in_signal_handler = threading.Lock()
 
@@ -333,7 +334,9 @@ class Scalene:
         # CPU
         signal.signal(ScaleneSignals.cpu_signal, Scalene.cpu_signal_handler)
         # Set signal handlers for memory allocation and memcpy events.
-        signal.signal(ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler)
+        signal.signal(
+            ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
+        )
         signal.signal(ScaleneSignals.free_signal, Scalene.free_signal_handler)
         signal.signal(ScaleneSignals.fork_signal, Scalene.fork_signal_handler)
         signal.signal(
@@ -967,7 +970,9 @@ class Scalene:
         Scalene.clear_metrics()
         # Note-- __parent_pid of the topmost process is its own pid
         Scalene.__pid = Scalene.__parent_pid
-        signal.signal(ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler)
+        signal.signal(
+            ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
+        )
         signal.signal(ScaleneSignals.free_signal, Scalene.free_signal_handler)
         signal.signal(
             ScaleneSignals.memcpy_signal,
@@ -1112,7 +1117,7 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         Scalene.start()
-        
+
     @staticmethod
     def stop_signal_handler(
         signum: Union[
@@ -1121,7 +1126,7 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         Scalene.stop()
-        
+
     @staticmethod
     def disable_signals() -> None:
         """Turn off the profiling signals."""
@@ -1208,8 +1213,9 @@ in Jupyter, cell mode:
    code...
    code...
 """
-            )
-        epilog = dedent("""When running Scalene in the background, you can suspend/resume profiling
+        )
+        epilog = dedent(
+            """When running Scalene in the background, you can suspend/resume profiling
 for the process ID that Scalene reports. For example:
 
    % python3 -m scalene [options] yourprogram.py &
@@ -1352,7 +1358,7 @@ for the process ID that Scalene reports. For example:
     @staticmethod
     def setup_preload(args: argparse.Namespace) -> bool:
         # Return true iff we had to preload libraries and run another process.
-        
+
         # First, check that we are on a supported platform.
         # (x86-64 and ARM only for now.)
         if not args.cpu_only and (
@@ -1370,7 +1376,7 @@ for the process ID that Scalene reports. For example:
 
         # Load shared objects (that is, interpose on malloc, memcpy and friends)
         # unless the user specifies "--cpu-only" at the command-line.
-        
+
         if args.cpu_only:
             return False
 
@@ -1401,9 +1407,15 @@ for the process ID that Scalene reports. For example:
                 # If running in the background, print the PID.
                 if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                     # In the background.
-                    print("Scalene now profiling process " + str(result.pid)) 
-                    print("  to disable profiling: python3 -m scalene.profile --off --pid " + str(result.pid))
-                    print("  to resume profiling:  python3 -m scalene.profile --on  --pid " + str(result.pid))
+                    print("Scalene now profiling process " + str(result.pid))
+                    print(
+                        "  to disable profiling: python3 -m scalene.profile --off --pid "
+                        + str(result.pid)
+                    )
+                    print(
+                        "  to resume profiling:  python3 -m scalene.profile --on  --pid "
+                        + str(result.pid)
+                    )
 
                 result.wait()
                 if result.returncode < 0:
@@ -1416,12 +1428,9 @@ for the process ID that Scalene reports. For example:
         # Similar logic, but for Mac OS X.
         if sys.platform == "darwin":
             if (
-                (
-                    ("DYLD_INSERT_LIBRARIES" not in os.environ)
-                    and ("PYTHONMALLOC" not in os.environ)
-                )
-                or "OBJC_DISABLE_INITIALIZE_FORK_SAFETY" not in os.environ
-            ):
+                ("DYLD_INSERT_LIBRARIES" not in os.environ)
+                and ("PYTHONMALLOC" not in os.environ)
+            ) or "OBJC_DISABLE_INITIALIZE_FORK_SAFETY" not in os.environ:
                 os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(
                     os.path.dirname(__file__), "libscalene.dylib"
                 )
@@ -1440,8 +1449,14 @@ for the process ID that Scalene reports. For example:
                 if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                     # In the background.
                     print("Scalene now profiling process " + str(result.pid))
-                    print("  to disable profiling: python3 -m scalene.profile --off --pid " + str(result.pid))
-                    print("  to resume profiling:  python3 -m scalene.profile --on  --pid " + str(result.pid))
+                    print(
+                        "  to disable profiling: python3 -m scalene.profile --off --pid "
+                        + str(result.pid)
+                    )
+                    print(
+                        "  to resume profiling:  python3 -m scalene.profile --on  --pid "
+                        + str(result.pid)
+                    )
                 result.wait()
                 if result.returncode < 0:
                     print(
@@ -1450,7 +1465,7 @@ for the process ID that Scalene reports. For example:
                     )
                 sys.exit(result.returncode)
         return True
-                    
+
     def profile_code(
         self,
         code: str,
@@ -1508,19 +1523,29 @@ for the process ID that Scalene reports. For example:
     @staticmethod
     def run_profiler(args: argparse.Namespace, left: List[str]) -> None:
         # Set up signal handlers for starting and stopping profiling.
-        signal.signal(ScaleneSignals.start_profiling_signal, Scalene.start_signal_handler)
-        signal.signal(ScaleneSignals.stop_profiling_signal, Scalene.stop_signal_handler)
+        signal.signal(
+            ScaleneSignals.start_profiling_signal, Scalene.start_signal_handler
+        )
+        signal.signal(
+            ScaleneSignals.stop_profiling_signal, Scalene.stop_signal_handler
+        )
         signal.siginterrupt(ScaleneSignals.start_profiling_signal, False)
         signal.siginterrupt(ScaleneSignals.stop_profiling_signal, False)
-        
+
         did_preload = Scalene.setup_preload(args)
         if not did_preload:
             # If running in the background, print the PID.
             if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                 # In the background.
                 print("Scalene now profiling process " + str(os.getpid()))
-                print("  to disable profiling: python3 -m scalene.profile --off --pid " + str(os.getpid()))
-                print("  to resume profiling:  python3 -m scalene.profile --on  --pid " + str(os.getpid()))
+                print(
+                    "  to disable profiling: python3 -m scalene.profile --off --pid "
+                    + str(os.getpid())
+                )
+                print(
+                    "  to resume profiling:  python3 -m scalene.profile --on  --pid "
+                    + str(os.getpid())
+                )
         Scalene.__stats.clear_all()
         sys.argv = left
         try:
