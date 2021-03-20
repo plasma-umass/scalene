@@ -1384,7 +1384,10 @@ in Jupyter, cell mode:
                     # If running in the background, print the PID.
                     if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                         # In the background.
-                        print("Profiling process " + str(result.pid))
+                        print("Scalene now profiling process " + str(result.pid)) 
+                        print("  to disable profiling: python3 -m scalene.profile --off --pid " + str(result.pid))
+                        print("  to resume profiling:  python3 -m scalene.profile --on  --pid " + str(result.pid))
+                       
                     result.wait()
                     if result.returncode < 0:
                         print(
@@ -1419,7 +1422,9 @@ in Jupyter, cell mode:
                     # If running in the background, print the PID.
                     if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                         # In the background.
-                        print("Profiling process " + str(result.pid))
+                        print("Scalene now profiling process " + str(result.pid))
+                        print("  to disable profiling: python3 -m scalene.profile --off --pid " + str(result.pid))
+                        print("  to resume profiling:  python3 -m scalene.profile --on  --pid " + str(result.pid))
                     result.wait()
                     if result.returncode < 0:
                         print(
