@@ -107,7 +107,6 @@ Cell mode:
   code...
 ```
 
-
 To see all the options, run with `--help`.
 
     % scalene --help
@@ -120,16 +119,28 @@ To see all the options, run with `--help`.
                     [--malloc-threshold MALLOC_THRESHOLD]
      
      Scalene: a high-precision CPU and memory profiler.
-                 https://github.com/plasma-umass/scalene
-                 % scalene yourprogram.py
+     https://github.com/plasma-umass/scalene
+     
+     command-line:
+        % scalene [options] yourprogram.py
+     or
+        % python3 -m scalene [options] yourprogram.py
+     
+     in Jupyter, line mode:
+        %scrun [options] statement
+     
+     in Jupyter, cell mode:
+        %%scalene [options]
+        code...
+        code...
      
      optional arguments:
        -h, --help            show this help message and exit
        --outfile OUTFILE     file to hold profiler output (default: stdout)
        --html                output as HTML (default: text)
-       --reduced-profile     generate a reduced profile, with non-zero lines only (default: False).
+       --reduced-profile     generate a reduced profile, with non-zero lines only (default: False)
        --profile-interval PROFILE_INTERVAL
-                             output profiles every so many seconds.
+                             output profiles every so many seconds (default: inf)
        --cpu-only            only profile CPU time (default: profile CPU, memory, and copying)
        --profile-all         profile all executed code, not just the target program (default: only the target program)
        --profile-only PROFILE_ONLY
@@ -141,6 +152,14 @@ To see all the options, run with `--help`.
                              CPU sampling rate (default: every 0.01s)
        --malloc-threshold MALLOC_THRESHOLD
                              only report profiles with at least this many allocations (default: 100)
+     
+     When running Scalene in the background, you can suspend/resume profiling
+     for the process ID that Scalene reports. For example:
+     
+        % python3 -m scalene [options] yourprogram.py &
+      Scalene now profiling process 12345
+        to suspend profiling: python3 -m scalene.profile --off --pid 12345
+        to resume profiling:  python3 -m scalene.profile --on  --pid 12345
 
 
 ## Installation
