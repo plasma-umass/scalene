@@ -36,7 +36,7 @@ ipython-genutils==0.2.0
 itsdangerous==1.1.0
 jax==0.2.7
 jedi==0.18.0
-Jinja2==2.11.2
+Jinja2==2.11.3
 json5==0.9.5
 jsonschema==3.2.0
 jupyter-client==6.1.11
