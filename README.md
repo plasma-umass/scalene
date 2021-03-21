@@ -43,6 +43,7 @@ Scalene is a high-performance CPU, GPU *and* memory profiler for Python that doe
 
 - Scalene can produce **reduced profiles** (via `--reduced-profile`) that only report lines that consume more than 1% of CPU or perform at least 100 allocations.
 - Scalene supports `@profile` decorators to profile only specific functions.
+- When Scalene is profiling a program launched in the background (via `&`), you can **suspend and resume profiling**.
 
 # Comparison to Other Profilers
 
