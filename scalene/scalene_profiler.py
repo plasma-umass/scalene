@@ -46,6 +46,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Set,
     FrozenSet,
     List,
     Optional,
@@ -245,6 +246,7 @@ class Scalene:
     __is_thread_sleeping: Dict[int, bool] = defaultdict(
         bool
     )  # False by default
+    __child_pids: Set[int] = set()
 
     @classmethod
     def clear_metrics(cls) -> None:
@@ -253,7 +255,15 @@ class Scalene:
         can start with a clean slate
         """
         cls.__stats.clear()
+        cls.__child_pids.clear()
 
+    @classmethod
+    def add_child_pid(cls, pid: int):
+        cls.__child_pids.add(pid)
+
+    @classmethod
+    def remove_child_pid(cls, pid: int):
+        cls.__child_pids.remove(pid)
     # Replacement @profile decorator function.
     # We track which functions - in which files - have been decorated,
     # and only report stats for those.
@@ -1116,6 +1126,8 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
+        for pid in Scalene.__child_pids:
+            os.kill(pid, ScaleneSignals.start_profiling_signal)
         Scalene.start()
 
     @staticmethod
@@ -1125,6 +1137,8 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
+        for pid in Scalene.__child_pids:
+            os.kill(pid, ScaleneSignals.stop_profiling_signal)
         Scalene.stop()
 
     @staticmethod
