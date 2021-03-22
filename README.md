@@ -207,5 +207,8 @@ If you use Scalene to successfully debug a performance problem, please [add a co
 
 Logo created by [Sophia Berger](https://www.linkedin.com/in/sophia-berger/).
 
-This material is based upon work supported by the National Science Foundation under Grant No. 1955610.
-
+This material is based upon work supported by the National Science
+Foundation under Grant No. 1955610. Any opinions, findings, and
+conclusions or recommendations expressed in this material are those of
+the author(s) and do not necessarily reflect the views of the National
+Science Foundation.
