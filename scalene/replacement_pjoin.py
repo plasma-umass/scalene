@@ -30,7 +30,7 @@ def replacement_pjoin(scalene: Scalene) -> None:
             res = self._popen.wait(interval)
             if res is not None:
                 from multiprocessing.process import _children  # type: ignore
-
+                scalene.remove_child_pid(self.pid)
                 _children.discard(self)
                 return
             scalene.reset_thread_sleeping(tident)

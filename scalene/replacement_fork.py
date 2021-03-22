@@ -16,6 +16,8 @@ def replacement_fork(scalene: Scalene) -> None:
         result = orig_fork()
         if result == 0:
             os.kill(os.getpid(), ScaleneSignals.fork_signal)
+        else:
+            scalene.add_child_pid(result)
         return result
 
     os.fork = fork_replacement
