@@ -24,6 +24,8 @@
 #include "lowdiscrepancy.hpp"
 #endif
 
+using namespace std::chrono;
+
 template <uint64_t SAMPLE_RATE>
 class Sampler {
  private:
@@ -37,10 +39,13 @@ class Sampler {
   std::mt19937_64 rng{1234567890UL + (uint64_t)getpid() +
                       (uint64_t)pthread_self()};
 #else
+  
   //  LowDiscrepancy rng { UINT64_MAX / 2 }; // 1234567890UL + (uint64_t)
   //  getpid() + (uint64_t) pthread_self() };
-  LowDiscrepancy rng{1234567890UL + (uint64_t)getpid() +
-                     (uint64_t)pthread_self()};
+  LowDiscrepancy rng{1234567890UL +
+    (uint64_t)getpid() +
+    (uint64_t)pthread_self() +
+    duration_cast<microseconds>(time_point_cast<microseconds>(system_clock::now()).time_since_epoch()).count()};
 #endif
   std::geometric_distribution<uint64_t> geom{SAMPLE_PROBABILITY};
 #endif
@@ -49,6 +54,7 @@ class Sampler {
   Sampler() {
 #if !SAMPLER_DETERMINISTIC
     _next = geom(rng);  // SAMPLE_RATE;
+    tprintf::tprintf("@\n", _next);
 #else
     _next = SAMPLE_RATE;
 #endif
