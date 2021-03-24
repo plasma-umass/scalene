@@ -39,13 +39,14 @@ class Sampler {
   std::mt19937_64 rng{1234567890UL + (uint64_t)getpid() +
                       (uint64_t)pthread_self()};
 #else
-  
+
   //  LowDiscrepancy rng { UINT64_MAX / 2 }; // 1234567890UL + (uint64_t)
   //  getpid() + (uint64_t) pthread_self() };
-  LowDiscrepancy rng{1234567890UL +
-    (uint64_t)getpid() +
-    (uint64_t)pthread_self() +
-    duration_cast<microseconds>(time_point_cast<microseconds>(system_clock::now()).time_since_epoch()).count()};
+  LowDiscrepancy rng{
+      1234567890UL + (uint64_t)getpid() + (uint64_t)pthread_self() +
+      duration_cast<microseconds>(
+          time_point_cast<microseconds>(system_clock::now()).time_since_epoch())
+          .count()};
 #endif
   std::geometric_distribution<uint64_t> geom{SAMPLE_PROBABILITY};
 #endif

@@ -51,13 +51,13 @@ class StaticBufferHeap {
     while (skip < sizeof(Header)) {
       skip += alignment;
     }
-    skip -= sizeof(Header); // requires 'sizeof(Header) % Alignment == 0'
+    skip -= sizeof(Header);  // requires 'sizeof(Header) % Alignment == 0'
 
     assert((skip % Alignment) == 0);
 
     _bufPtr += skip;
 
-    if (void* p = malloc(sz)) {
+    if (void *p = malloc(sz)) {
       return p;
     }
 
@@ -95,9 +95,7 @@ class StaticBufferHeap {
     alignas(Alignment) size_t size;
   };
 
-  inline bool isPowerOf2(size_t n) {
-    return n && !(n & (n-1));
-  }
+  inline bool isPowerOf2(size_t n) { return n && !(n & (n - 1)); }
 
   alignas(Alignment) char _buf[BufferSize];
   char *_bufPtr{_buf};
