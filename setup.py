@@ -1,11 +1,18 @@
 from setuptools import setup, find_packages
 from distutils.core import Extension
+import subprocess
 
 from os import path
 
 this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
+
+try:
+    cmd = "make"
+    out = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+except:
+    pass
 
 mmap_hl_spinlock = Extension('get_line_atomic',
                 include_dirs=['.', 'Heap-Layers', 'Heap-Layers/utility'],
