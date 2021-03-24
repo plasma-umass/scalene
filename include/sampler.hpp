@@ -53,8 +53,7 @@ class Sampler {
  public:
   Sampler() {
 #if !SAMPLER_DETERMINISTIC
-    _next = geom(rng);  // SAMPLE_RATE;
-    tprintf::tprintf("@\n", _next);
+    _next = geom(rng);
 #else
     _next = SAMPLE_RATE;
 #endif
