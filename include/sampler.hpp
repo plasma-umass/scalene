@@ -44,6 +44,7 @@ class Sampler {
   //  getpid() + (uint64_t) pthread_self() };
   LowDiscrepancy rng{
       1234567890UL + (uint64_t)getpid() + (uint64_t)pthread_self() +
+      (uint64_t)this +
       duration_cast<microseconds>(
           time_point_cast<microseconds>(system_clock::now()).time_since_epoch())
           .count()};
