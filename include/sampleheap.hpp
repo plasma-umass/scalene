@@ -7,6 +7,8 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/syscall.h>
+
 #include <unistd.h>  // for getpid()
 
 #include <atomic>
@@ -50,9 +52,17 @@ class SampleHeap : public SuperHeap {
         _pid(getpid()),
         _lastMallocTrigger(nullptr),
         _freedLastMallocTrigger(false) {
-    // Ignore these signals until they are replaced by a client.
-    signal(MallocSignal, SIG_IGN);
-    signal(FreeSignal, SIG_IGN);
+      
+      signal_init_lock.lock();
+      sighandler_t old_malloc = signal(MallocSignal, SIG_IGN);
+      if (old_malloc != SIG_DFL) {
+        signal(MallocSignal, old_malloc);
+      }
+      sighandler_t old_free = signal(FreeSignal, SIG_IGN);
+      if (old_free != SIG_DFL) {
+        signal(FreeSignal, old_free);
+      }
+      signal_init_lock.unlock();
     // tprintf::tprintf("@\n", malloc_sigaction.sa_handler);
   }
 
