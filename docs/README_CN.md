@@ -1,6 +1,6 @@
 ![scalene](https://github.com/emeryberger/scalene/raw/master/docs/scalene-image.png)
 
-# Scalene: 一个 Python 的高性能 CPU 内存分析器
+# Scalene: 一个 Python 的高性能 CPU，GPU 和 内存分析器
 
 by [Emery Berger](https://emeryberger.com)
 
@@ -8,7 +8,7 @@ by [Emery Berger](https://emeryberger.com)
 
 # 关于 Scalene
 
-Scalene 是一个 Python 的高性能 CPU *和* 内存分析器，它可以做到很多其他Python分析器不能做到的事情。它在能提供更多详细信息的同时，比其他的分析器要快几个数量级。
+Scalene 是一个 Python 的高性能 CPU，GPU *和* 内存分析器，它可以做到很多其他Python分析器不能做到的事情。它在能提供更多详细信息的同时，比其他的分析器要快几个数量级。
 
 1. Scalene 是 _很快的_。 它使用采样的方式而不是直接测量或者依靠Python的追踪工具。它的开销一般不超过10-20% (通常更少)。
 1. Scalene 是 _精确的_。和大部分其他的Python分析器不同，Scalene 在 _行级别_ 下执行CPU分析，在你的程序中指出对应代码行的执行时间。和大多数分析器所返回的功能级分析结果相比，这种程度的细节可能会更有用。
