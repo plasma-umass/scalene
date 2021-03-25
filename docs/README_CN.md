@@ -1,6 +1,6 @@
 ![scalene](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-image.png)
 
-# Scalene: 一个 Python 的高性能 CPU 内存分析器
+# Scalene: 一个 Python 的高性能 CPU，GPU和内存分析器
 
 by [Emery Berger](https://emeryberger.com)
 
