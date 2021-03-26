@@ -184,7 +184,7 @@ class MemcpySampler {
         _memcpyTriggered(0) {
           static HL::PosixLock init_lock;
           init_lock.lock();
-    sighandler_t old_sig = signal(MemcpySignal, SIG_IGN);
+    auto old_sig = signal(MemcpySignal, SIG_IGN);
     if (old_sig != SIG_DFL)
       signal(MemcpySignal, old_sig);
     init_lock.unlock();

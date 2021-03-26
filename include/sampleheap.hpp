@@ -23,6 +23,8 @@
 
 #define USE_ATOMICS 0
 
+
+
 #if USE_ATOMICS
 typedef std::atomic<uint64_t> counterType;
 #else
@@ -54,11 +56,11 @@ class SampleHeap : public SuperHeap {
         _freedLastMallocTrigger(false) {
       
       signal_init_lock.lock();
-      sighandler_t old_malloc = signal(MallocSignal, SIG_IGN);
+      auto old_malloc = signal(MallocSignal, SIG_IGN);
       if (old_malloc != SIG_DFL) {
         signal(MallocSignal, old_malloc);
       }
-      sighandler_t old_free = signal(FreeSignal, SIG_IGN);
+      auto old_free = signal(FreeSignal, SIG_IGN);
       if (old_free != SIG_DFL) {
         signal(FreeSignal, old_free);
       }

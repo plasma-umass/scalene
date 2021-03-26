@@ -1418,19 +1418,21 @@ for the process ID that Scalene reports. For example:
                 result = subprocess.Popen(
                     new_args, close_fds=True, shell=False
                 )
+                try:
                 # If running in the background, print the PID.
-                if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
-                    # In the background.
-                    print("Scalene now profiling process " + str(result.pid))
-                    print(
-                        "  to disable profiling: python3 -m scalene.profile --off --pid "
-                        + str(result.pid)
-                    )
-                    print(
-                        "  to resume profiling:  python3 -m scalene.profile --on  --pid "
-                        + str(result.pid)
-                    )
-
+                    if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
+                        # In the background.
+                        print("Scalene now profiling process " + str(result.pid))
+                        print(
+                            "  to disable profiling: python3 -m scalene.profile --off --pid "
+                            + str(result.pid)
+                        )
+                        print(
+                            "  to resume profiling:  python3 -m scalene.profile --on  --pid "
+                            + str(result.pid)
+                        )
+                except:
+                    pass
                 result.wait()
                 if result.returncode < 0:
                     print(
@@ -1460,17 +1462,20 @@ for the process ID that Scalene reports. For example:
                     new_args, close_fds=True, shell=False
                 )
                 # If running in the background, print the PID.
-                if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
-                    # In the background.
-                    print("Scalene now profiling process " + str(result.pid))
-                    print(
-                        "  to disable profiling: python3 -m scalene.profile --off --pid "
-                        + str(result.pid)
-                    )
-                    print(
-                        "  to resume profiling:  python3 -m scalene.profile --on  --pid "
-                        + str(result.pid)
-                    )
+                try:
+                    if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
+                        # In the background.
+                        print("Scalene now profiling process " + str(result.pid))
+                        print(
+                            "  to disable profiling: python3 -m scalene.profile --off --pid "
+                            + str(result.pid)
+                        )
+                        print(
+                            "  to resume profiling:  python3 -m scalene.profile --on  --pid "
+                            + str(result.pid)
+                        )
+                except:
+                    pass
                 result.wait()
                 if result.returncode < 0:
                     print(
