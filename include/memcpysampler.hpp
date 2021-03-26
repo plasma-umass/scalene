@@ -12,6 +12,11 @@
 
 #include "sampler.hpp"
 
+#if defined(__APPLE__)
+  #define SIGHANDLER_TYPE sig_t
+#else
+  #define SIGHANDLER_TYPE sighandler_t
+#endif
 #if !defined(__APPLE__)
 #include <endian.h>
 #endif
@@ -184,7 +189,7 @@ class MemcpySampler {
         _memcpyTriggered(0) {
           static HL::PosixLock init_lock;
           init_lock.lock();
-    sighandler_t old_sig = signal(MemcpySignal, SIG_IGN);
+    SIGHANDLER_TYPE old_sig = signal(MemcpySignal, SIG_IGN);
     if (old_sig != SIG_DFL)
       signal(MemcpySignal, old_sig);
     init_lock.unlock();
