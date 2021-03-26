@@ -25,7 +25,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .
     - name: checking this
-      run: python3 -c "import os;print(os.getpgrp())"
+      run: python3 -c "import os;import sys;print(os.getpgrp());print(sys.stdout.fileno())"
     - name: Do a thing
       run: make
     - name: Smoketest
