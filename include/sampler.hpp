@@ -2,7 +2,6 @@
 
 #include <unistd.h>
 
-#include <chrono>
 #include <cmath>
 #include <iostream>
 #include <random>
@@ -24,8 +23,6 @@
 #include "lowdiscrepancy.hpp"
 #endif
 
-using namespace std::chrono;
-
 template <uint64_t SAMPLE_RATE>
 class Sampler {
  private:
@@ -36,18 +33,11 @@ class Sampler {
   uint64_t _next;
 #if !SAMPLER_DETERMINISTIC
 #if !SAMPLER_LOWDISCREPANCY
-  std::mt19937_64 rng{1234567890UL + (uint64_t)getpid() +
+  std::mt19937_64 rng{1234567890UL + (uint64_t)getpid() + (uint64_t)this +
                       (uint64_t)pthread_self()};
 #else
-
-  //  LowDiscrepancy rng { UINT64_MAX / 2 }; // 1234567890UL + (uint64_t)
-  //  getpid() + (uint64_t) pthread_self() };
-  LowDiscrepancy rng{
-      1234567890UL + (uint64_t)getpid() + (uint64_t)pthread_self() +
-      (uint64_t)this +
-      duration_cast<microseconds>(
-          time_point_cast<microseconds>(system_clock::now()).time_since_epoch())
-          .count()};
+  LowDiscrepancy rng{1234567890UL + (uint64_t)getpid() + (uint64_t)this +
+                     (uint64_t)pthread_self()};
 #endif
   std::geometric_distribution<uint64_t> geom{SAMPLE_PROBABILITY};
 #endif
@@ -59,6 +49,7 @@ class Sampler {
 #else
     _next = SAMPLE_RATE;
 #endif
+    // tprintf::tprintf("sampler init: @\n", _next);
     _lastSampleSize = _next;
   }
 
