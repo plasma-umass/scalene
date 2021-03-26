@@ -1418,6 +1418,9 @@ for the process ID that Scalene reports. For example:
                 result = subprocess.Popen(
                     new_args, close_fds=True, shell=False
                 )
+                print(os.getpgrp())
+                print(sys.stdout.fileno())
+                print( os.tcgetpgrp(sys.stdout.fileno()))
                 # If running in the background, print the PID.
                 if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                     # In the background.
