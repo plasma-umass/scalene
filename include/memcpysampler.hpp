@@ -182,7 +182,12 @@ class MemcpySampler {
         _interval(MemcpySamplingRateBytes),
         _memcpyOps(0),
         _memcpyTriggered(0) {
-    signal(MemcpySignal, SIG_IGN);
+          static HL::PosixLock init_lock;
+          init_lock.lock();
+    sighandler_t old_sig = signal(MemcpySignal, SIG_IGN);
+    if (old_sig != SIG_DFL)
+      signal(MemcpySignal, old_sig);
+    init_lock.unlock();
     auto pid = getpid();
     int i;
     int sz = FILENAME_LENGTH;
