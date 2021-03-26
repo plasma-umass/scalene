@@ -1431,7 +1431,7 @@ for the process ID that Scalene reports. For example:
                             "  to resume profiling:  python3 -m scalene.profile --on  --pid "
                             + str(result.pid)
                         )
-                except e:
+                except:
                     pass
                 result.wait()
                 if result.returncode < 0:
