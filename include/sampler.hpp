@@ -11,7 +11,7 @@
 
 //#include "mwc.h"
 
-#define SAMPLER_DETERMINISTIC 1
+#define SAMPLER_DETERMINISTIC 0
 #define SAMPLER_LOWDISCREPANCY 1
 
 #include <pthread.h>
@@ -49,7 +49,7 @@ class Sampler {
 #else
     _next = SAMPLE_RATE;
 #endif
-    tprintf::tprintf("sampler init: @\n", _next);
+    // tprintf::tprintf("sampler init: @\n", _next);
     _lastSampleSize = _next;
   }
 
