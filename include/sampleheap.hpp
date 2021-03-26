@@ -24,11 +24,6 @@
 #define USE_ATOMICS 0
 
 
-#if defined(__APPLE__)
-  #define SIGHANDLER_TYPE sig_t
-#else
-  #define SIGHANDLER_TYPE sighandler_t
-#endif
 
 #if USE_ATOMICS
 typedef std::atomic<uint64_t> counterType;
@@ -61,11 +56,11 @@ class SampleHeap : public SuperHeap {
         _freedLastMallocTrigger(false) {
       
       signal_init_lock.lock();
-      SIGHANDLER_TYPE old_malloc = signal(MallocSignal, SIG_IGN);
+      auto old_malloc = signal(MallocSignal, SIG_IGN);
       if (old_malloc != SIG_DFL) {
         signal(MallocSignal, old_malloc);
       }
-      SIGHANDLER_TYPE old_free = signal(FreeSignal, SIG_IGN);
+      auto old_free = signal(FreeSignal, SIG_IGN);
       if (old_free != SIG_DFL) {
         signal(FreeSignal, old_free);
       }
