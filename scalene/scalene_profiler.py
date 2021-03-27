@@ -60,7 +60,7 @@ from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_statistics import *
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_signals import ScaleneSignals
-
+from scalene.scalene_version import scalene_version
 
 assert (
     sys.version_info[0] == 3 and sys.version_info[1] >= 6
@@ -1212,8 +1212,9 @@ class Scalene:
             pass
         defaults = ScaleneArguments()
         usage = dedent(
-            """Scalene: a high-precision CPU and memory profiler.
+            f"""Scalene: a high-precision CPU and memory profiler, version {scalene_version}
 https://github.com/plasma-umass/scalene
+
 
 command-line:
    % scalene [options] yourprogram.py

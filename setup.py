@@ -1,6 +1,7 @@
 from setuptools import setup, find_packages
 from distutils.core import Extension
 import subprocess
+from scalene.scalene_version import scalene_version
 
 from os import path
 
@@ -22,7 +23,7 @@ mmap_hl_spinlock = Extension('get_line_atomic',
 
 setup(
     name="scalene",
-    version="1.3.0",
+    version=scalene_version,
     description="Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python",
     keywords="performance memory profiler",
     long_description=long_description,
