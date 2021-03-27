@@ -258,12 +258,13 @@ class Scalene:
         cls.__child_pids.clear()
 
     @classmethod
-    def add_child_pid(cls, pid: int):
+    def add_child_pid(cls, pid: int) -> None:
         cls.__child_pids.add(pid)
 
     @classmethod
-    def remove_child_pid(cls, pid: int):
+    def remove_child_pid(cls, pid: int) -> None:
         cls.__child_pids.remove(pid)
+        
     # Replacement @profile decorator function.
     # We track which functions - in which files - have been decorated,
     # and only report stats for those.
