@@ -1555,18 +1555,21 @@ for the process ID that Scalene reports. For example:
 
         did_preload = Scalene.setup_preload(args)
         if not did_preload:
-            # If running in the background, print the PID.
-            if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
-                # In the background.
-                print("Scalene now profiling process " + str(os.getpid()))
-                print(
-                    "  to disable profiling: python3 -m scalene.profile --off --pid "
-                    + str(os.getpid())
-                )
-                print(
-                    "  to resume profiling:  python3 -m scalene.profile --on  --pid "
-                    + str(os.getpid())
-                )
+            try:
+                # If running in the background, print the PID.
+                if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
+                    # In the background.
+                    print("Scalene now profiling process " + str(os.getpid()))
+                    print(
+                        "  to disable profiling: python3 -m scalene.profile --off --pid "
+                        + str(os.getpid())
+                    )
+                    print(
+                        "  to resume profiling:  python3 -m scalene.profile --on  --pid "
+                        + str(os.getpid())
+                    )
+            except:
+                pass
         Scalene.__stats.clear_all()
         sys.argv = left
         try:
