@@ -339,10 +339,16 @@ class ScaleneOutput:
         null = open("/dev/null", "w")
         # Get column width of the terminal and adjust to fit.
         # Note that Scalene works best with at least 132 columns.
-        if self.html:
-            column_width = 132
-        else:
-            column_width = shutil.get_terminal_size().columns
+        column_width = 132
+        if not self.html:
+            try:
+                # If we are in a Jupyter notebook, stick with 132
+                if 'ipykernel' in sys.modules:
+                    pass
+            except:
+                # Otherwise, get the actual terminal size.
+                column_width = shutil.get_terminal_size().columns
+            
         console = Console(
             width=column_width,
             record=True,
