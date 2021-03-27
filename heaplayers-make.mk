@@ -5,6 +5,9 @@ CXX = clang++
 UNAME_S := $(shell uname -s)
 UNAME_P := $(shell uname -p)
 ifeq ($(UNAME_S),Darwin)
+	ifeq ($(UNAME_P),arm)
+		ARMFLAG = -arch arm64 
+	endif
 	ifeq ($(UNAME_P),arm64)
 		ARMFLAG = -arch arm64 
 	endif
