@@ -391,7 +391,7 @@ class ScaleneOutput:
             import re
             result = re.match("<ipython-input-([0-9]+)-.*>", fname)
             if result:
-                fname = '[' + result.group(1) + ']'
+                fname = Filename('[' + result.group(1) + ']')
             
             # Print header.
             percent_cpu_time = (
