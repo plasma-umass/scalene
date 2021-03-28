@@ -389,7 +389,7 @@ class ScaleneOutput:
             # If the file was actually a Jupyter (IPython) cell,
             # restore its name, as in "[12]".
             import re
-            result = re.match("<ipython-input-([0-9]+)-.*>", filename)
+            result = re.match("<ipython-input-([0-9]+)-.*>", fname)
             if result:
                 fname = '[' + result.group(1) + ']'
             
