@@ -385,6 +385,14 @@ class ScaleneOutput:
             return True
 
         for fname in report_files:
+            
+            # If the file was actually a Jupyter (IPython) cell,
+            # restore its name, as in "[12]".
+            import re
+            result = re.match("<ipython-input-([0-9]+)-.*>", filename)
+            if result:
+                fname = '[' + result.group(1) + ']'
+            
             # Print header.
             percent_cpu_time = (
                 100 * stats.cpu_samples[fname] / stats.total_cpu_samples
