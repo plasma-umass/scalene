@@ -388,10 +388,11 @@ class ScaleneOutput:
             
             # If the file was actually a Jupyter (IPython) cell,
             # restore its name, as in "[12]".
+            fname_print = fname
             import re
-            result = re.match("<ipython-input-([0-9]+)-.*>", fname)
+            result = re.match("<ipython-input-([0-9]+)-.*>", fname_print)
             if result:
-                fname = Filename('[' + result.group(1) + ']')
+                fname_print = Filename('[' + result.group(1) + ']')
             
             # Print header.
             percent_cpu_time = (
@@ -399,7 +400,7 @@ class ScaleneOutput:
             )
             new_title = mem_usage_line + (
                 "%s: %% of time = %6.2f%% out of %6.2fs."
-                % (fname, percent_cpu_time, stats.elapsed_time)
+                % (fname_print, percent_cpu_time, stats.elapsed_time)
             )
             # Only display total memory usage once.
             mem_usage_line = ""
