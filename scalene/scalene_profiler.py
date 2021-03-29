@@ -1247,6 +1247,12 @@ for the process ID that Scalene reports. For example:
             allow_abbrev=False,
         )
         parser.add_argument(
+            "--version",
+            dest="version",
+            action="store_const",
+            const=True,
+            help="prints the version number for this release of Scalene and exits")
+        parser.add_argument(
             "--outfile",
             type=str,
             default=defaults.outfile,
@@ -1367,6 +1373,9 @@ for the process ID that Scalene reports. For example:
         # print the usage information and bail.
         if len(sys.argv) == 1:
             parser.print_help(sys.stderr)
+            sys.exit(-1)
+        if args.version:
+            print(f"Scalene version {scalene_version}")
             sys.exit(-1)
         return args, left
 
