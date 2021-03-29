@@ -1,8 +1,6 @@
 import os
 from scalene.scalene_profiler import Scalene
 from scalene.scalene_signals import ScaleneSignals
-import signal
-
 
 @Scalene.shim
 def replacement_fork(scalene: Scalene) -> None:

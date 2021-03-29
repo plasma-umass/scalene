@@ -5,7 +5,6 @@ from collections import OrderedDict
 from operator import itemgetter
 from rich.console import Console
 from rich.markdown import Markdown
-from rich.segment import Segment
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
@@ -344,11 +343,12 @@ class ScaleneOutput:
             try:
                 # If we are in a Jupyter notebook, stick with 132
                 if 'ipykernel' in sys.modules:
-                    pass
+                    column_width = 132
+                else:
+                    column_width = shutil.get_terminal_size().columns
             except:
-                # Otherwise, get the actual terminal size.
-                column_width = shutil.get_terminal_size().columns
-            
+                pass
+
         console = Console(
             width=column_width,
             record=True,

@@ -99,13 +99,13 @@ class ScaleneStatistics:
 
     # how many GPU samples have been collected
     total_gpu_samples: float = 0.0
-    
+
     # "   "    malloc "       "    "    "
     total_memory_malloc_samples: float = 0.0
 
     # "   "    free   "       "    "    "
     total_memory_free_samples: float = 0.0
-    
+
     # the current memory footprint
     current_footprint: float = 0.0
 
@@ -252,7 +252,7 @@ class ScaleneStatistics:
             self.function_map,
             self.firstline_map,
             self.gpu_samples,
-            self.total_gpu_samples
+            self.total_gpu_samples,
         ]
         # To be added: __malloc_samples
 
@@ -314,6 +314,5 @@ class ScaleneStatistics:
                         self.function_map[k].update(v)
                     else:
                         self.function_map[k] = v
-                    pass
                 self.firstline_map.update(value[13])
             os.remove(f)

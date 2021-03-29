@@ -38,7 +38,7 @@ import traceback
 import GPUtil
 
 from collections import defaultdict
-from functools import lru_cache, wraps
+from functools import lru_cache
 from signal import Handlers, Signals
 from textwrap import dedent
 from types import CodeType, FrameType
@@ -813,7 +813,6 @@ class Scalene:
         curr_pid = os.getpid()
         # Process the input array from where we left off reading last time.
         arr: List[Tuple[int, str, float, float, str]] = []
-        buf = bytearray(Scalene.MAX_BUFSIZE)
         try:
             buf = bytearray(Scalene.MAX_BUFSIZE)
 
