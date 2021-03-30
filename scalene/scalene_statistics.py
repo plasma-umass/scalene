@@ -18,122 +18,122 @@ ByteCodeIndex = NewType("ByteCodeIndex", int)
 class ScaleneStatistics:
     # Statistics counters:
     #
+    def __init__(self):
+        # total time spent in program being profiled
+        self.elapsed_time: float = 0
 
-    # total time spent in program being profiled
-    elapsed_time: float = 0
+        #   CPU samples for each location in the program
+        #   spent in the interpreter
+        self.cpu_samples_python: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
 
-    #   CPU samples for each location in the program
-    #   spent in the interpreter
-    cpu_samples_python: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
-        lambda: defaultdict(float)
-    )
+        #   CPU samples for each location in the program
+        #   spent in C / libraries / system calls
+        self.cpu_samples_c: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
 
-    #   CPU samples for each location in the program
-    #   spent in C / libraries / system calls
-    cpu_samples_c: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
-        lambda: defaultdict(float)
-    )
+        #   GPU samples for each location in the program
+        self.gpu_samples: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
 
-    #   GPU samples for each location in the program
-    gpu_samples: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
-        lambda: defaultdict(float)
-    )
+        # Running stats for the fraction of time running on the CPU.
+        self.cpu_utilization: Dict[
+            Filename, Dict[LineNumber, RunningStats]
+        ] = defaultdict(lambda: defaultdict(RunningStats))
 
-    # Running stats for the fraction of time running on the CPU.
-    cpu_utilization: Dict[
-        Filename, Dict[LineNumber, RunningStats]
-    ] = defaultdict(lambda: defaultdict(RunningStats))
+        # Running count of total CPU samples per file. Used to prune reporting.
+        self.cpu_samples: Dict[Filename, float] = defaultdict(float)
 
-    # Running count of total CPU samples per file. Used to prune reporting.
-    cpu_samples: Dict[Filename, float] = defaultdict(float)
+        # Running count of malloc samples per file. Used to prune reporting.
+        self.malloc_samples: Dict[Filename, float] = defaultdict(float)
 
-    # Running count of malloc samples per file. Used to prune reporting.
-    malloc_samples: Dict[Filename, float] = defaultdict(float)
+        # malloc samples for each location in the program
+        self.memory_malloc_samples: Dict[
+            Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
+        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
 
-    # malloc samples for each location in the program
-    memory_malloc_samples: Dict[
-        Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
-    ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+        # number of times samples were added for the above
+        self.memory_malloc_count: Dict[
+            Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
+        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
-    # number of times samples were added for the above
-    memory_malloc_count: Dict[
-        Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
-    ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+        # the last malloc to trigger a sample (used for leak detection)
+        self.last_malloc_triggered: Tuple[Filename, LineNumber, Address] = (
+            Filename(""),
+            LineNumber(0),
+            Address("0x0"),
+        )
 
-    # the last malloc to trigger a sample (used for leak detection)
-    last_malloc_triggered: Tuple[Filename, LineNumber, Address] = (
-        Filename(""),
-        LineNumber(0),
-        Address("0x0"),
-    )
+        # mallocs attributable to Python, for each location in the program
+        self.memory_python_samples: Dict[
+            Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
+        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
 
-    # mallocs attributable to Python, for each location in the program
-    memory_python_samples: Dict[
-        Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
-    ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+        # free samples for each location in the program
+        self.memory_free_samples: Dict[
+            Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
+        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
 
-    # free samples for each location in the program
-    memory_free_samples: Dict[
-        Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
-    ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+        # number of times samples were added for the above
+        self.memory_free_count: Dict[
+            Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
+        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
-    # number of times samples were added for the above
-    memory_free_count: Dict[
-        Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
-    ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+        # memcpy samples for each location in the program
+        self.memcpy_samples: Dict[Filename, Dict[LineNumber, int]] = defaultdict(
+            lambda: defaultdict(int)
+        )
 
-    # memcpy samples for each location in the program
-    memcpy_samples: Dict[Filename, Dict[LineNumber, int]] = defaultdict(
-        lambda: defaultdict(int)
-    )
+        # leak score tracking
+        self.leak_score: Dict[
+            Filename, Dict[LineNumber, Tuple[int, int]]
+        ] = defaultdict(lambda: defaultdict(lambda: ((0, 0))))
 
-    # leak score tracking
-    leak_score: Dict[
-        Filename, Dict[LineNumber, Tuple[int, int]]
-    ] = defaultdict(lambda: defaultdict(lambda: ((0, 0))))
+        self.allocation_velocity: Tuple[float, float] = (0.0, 0.0)
 
-    allocation_velocity: Tuple[float, float] = (0.0, 0.0)
+        # how many CPU samples have been collected
+        self.total_cpu_samples: float = 0.0
 
-    # how many CPU samples have been collected
-    total_cpu_samples: float = 0.0
+        # how many GPU samples have been collected
+        self.total_gpu_samples: float = 0.0
 
-    # how many GPU samples have been collected
-    total_gpu_samples: float = 0.0
+        # "   "    malloc "       "    "    "
+        self.total_memory_malloc_samples: float = 0.0
 
-    # "   "    malloc "       "    "    "
-    total_memory_malloc_samples: float = 0.0
+        # "   "    free   "       "    "    "
+        self.total_memory_free_samples: float = 0.0
 
-    # "   "    free   "       "    "    "
-    total_memory_free_samples: float = 0.0
+        # the current memory footprint
+        self.current_footprint: float = 0.0
 
-    # the current memory footprint
-    current_footprint: float = 0.0
+        # the peak memory footprint
+        self.max_footprint: float = 0.0
 
-    # the peak memory footprint
-    max_footprint: float = 0.0
+        # memory footprint samples (time, footprint), using 'Adaptive' sampling.
+        self.memory_footprint_samples = Adaptive(27)
 
-    # memory footprint samples (time, footprint), using 'Adaptive' sampling.
-    memory_footprint_samples = Adaptive(27)
+        # same, but per line
+        self.per_line_footprint_samples: Dict[str, Dict[int, Adaptive]] = defaultdict(
+            lambda: defaultdict(lambda: Adaptive(9))
+        )
 
-    # same, but per line
-    per_line_footprint_samples: Dict[str, Dict[int, Adaptive]] = defaultdict(
-        lambda: defaultdict(lambda: Adaptive(9))
-    )
+        # maps byte indices to line numbers (collected at runtime)
+        # [filename][lineno] -> set(byteindex)
+        self.bytei_map: Dict[
+            Filename, Dict[LineNumber, Set[ByteCodeIndex]]
+        ] = defaultdict(lambda: defaultdict(lambda: set()))
 
-    # maps byte indices to line numbers (collected at runtime)
-    # [filename][lineno] -> set(byteindex)
-    bytei_map: Dict[
-        Filename, Dict[LineNumber, Set[ByteCodeIndex]]
-    ] = defaultdict(lambda: defaultdict(lambda: set()))
-
-    # maps filenames and line numbers to functions (collected at runtime)
-    # [filename][lineno] -> function name
-    function_map: Dict[Filename, Dict[LineNumber, Filename]] = defaultdict(
-        lambda: defaultdict(lambda: Filename(""))
-    )
-    firstline_map: Dict[Filename, LineNumber] = defaultdict(
-        lambda: LineNumber(1)
-    )
+        # maps filenames and line numbers to functions (collected at runtime)
+        # [filename][lineno] -> function name
+        self.function_map: Dict[Filename, Dict[LineNumber, Filename]] = defaultdict(
+            lambda: defaultdict(lambda: Filename(""))
+        )
+        self.firstline_map: Dict[Filename, LineNumber] = defaultdict(
+            lambda: LineNumber(1)
+        )
 
     def clear(self) -> None:
         self.elapsed_time = 0
