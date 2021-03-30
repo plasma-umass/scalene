@@ -1051,16 +1051,18 @@ class Scalene:
     @lru_cache(None)
     def should_trace(filename: str) -> bool:
         """Return true if the filename is one we should trace."""
-        if "site-packages" in filename or "/lib/python" in filename:
-            # Don't profile Python internals.
+        if not filename:
             return False
         # If the @profile decorator has been used,
         # we restrict profiling to files containing decorated functions.
         if Scalene.__files_to_profile:
             return filename in Scalene.__files_to_profile
         # Generic handling follows (when no @profile decorator has been used).
-        if not filename:
-            return False
+        profile_only_list = Scalene.__args.profile_only.split(",")
+        if "site-packages" in filename or "/lib/python" in filename:
+            # Don't profile Python internals by default.
+            if not Scalene.__args.profile_all:
+                return False
         if filename[0] == "<":
             if "<ipython" in filename:
                 # Profiling code created in a Jupyter cell:
@@ -1087,18 +1089,25 @@ class Scalene:
         if (
             "scalene/"
             in filename
-            # or "scalene/__main__.py" in filename
         ):
             # Don't profile the profiler.
             return False
-        if not Scalene.__args.profile_only in filename:
+        found_in_profile_only = False
+        for prof in profile_only_list:
+            if prof in filename:
+                found_in_profile_only = True
+                break
+        if not found_in_profile_only:
             return False
         if Scalene.__args.profile_all:
             # Profile everything else, except for "only" choices.
-            if Scalene.__args.profile_only in filename:
-                return True
-            else:
+            found_in_profile_only = False
+            for prof in profile_only_list:
+                if prof in filename:
+                    return True
+            if profile_only_list and not found_in_profile_only:
                 return False
+            return True
         # Profile anything in the program's directory or a child directory,
         # but nothing else, unless otherwise specified.
         filename = os.path.abspath(filename)
@@ -1317,7 +1326,7 @@ for the process ID that Scalene reports. For example:
             dest="profile_only",
             type=str,
             default=defaults.profile_only,
-            help="profile only code in files that contain the given string (default: "
+            help="profile only code in files matching the given strings, separated by commas (default: "
             + (
                 "no restrictions"
                 if not defaults.profile_only
