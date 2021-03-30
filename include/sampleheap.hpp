@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
+#include <dlfcn.h>
 
 #include <unistd.h>  // for getpid()
 
