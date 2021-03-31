@@ -24,20 +24,20 @@ class ScaleneStatistics:
 
         #   CPU samples for each location in the program
         #   spent in the interpreter
-        self.cpu_samples_python: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
-            lambda: defaultdict(float)
-        )
+        self.cpu_samples_python: Dict[
+            Filename, Dict[LineNumber, float]
+        ] = defaultdict(lambda: defaultdict(float))
 
         #   CPU samples for each location in the program
         #   spent in C / libraries / system calls
-        self.cpu_samples_c: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
-            lambda: defaultdict(float)
-        )
+        self.cpu_samples_c: Dict[
+            Filename, Dict[LineNumber, float]
+        ] = defaultdict(lambda: defaultdict(float))
 
         #   GPU samples for each location in the program
-        self.gpu_samples: Dict[Filename, Dict[LineNumber, float]] = defaultdict(
-            lambda: defaultdict(float)
-        )
+        self.gpu_samples: Dict[
+            Filename, Dict[LineNumber, float]
+        ] = defaultdict(lambda: defaultdict(float))
 
         # Running stats for the fraction of time running on the CPU.
         self.cpu_utilization: Dict[
@@ -83,9 +83,9 @@ class ScaleneStatistics:
         ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
         # memcpy samples for each location in the program
-        self.memcpy_samples: Dict[Filename, Dict[LineNumber, int]] = defaultdict(
-            lambda: defaultdict(int)
-        )
+        self.memcpy_samples: Dict[
+            Filename, Dict[LineNumber, int]
+        ] = defaultdict(lambda: defaultdict(int))
 
         # leak score tracking
         self.leak_score: Dict[
@@ -116,9 +116,9 @@ class ScaleneStatistics:
         self.memory_footprint_samples = Adaptive(27)
 
         # same, but per line
-        self.per_line_footprint_samples: Dict[str, Dict[int, Adaptive]] = defaultdict(
-            lambda: defaultdict(lambda: Adaptive(9))
-        )
+        self.per_line_footprint_samples: Dict[
+            str, Dict[int, Adaptive]
+        ] = defaultdict(lambda: defaultdict(lambda: Adaptive(9)))
 
         # maps byte indices to line numbers (collected at runtime)
         # [filename][lineno] -> set(byteindex)
@@ -128,9 +128,9 @@ class ScaleneStatistics:
 
         # maps filenames and line numbers to functions (collected at runtime)
         # [filename][lineno] -> function name
-        self.function_map: Dict[Filename, Dict[LineNumber, Filename]] = defaultdict(
-            lambda: defaultdict(lambda: Filename(""))
-        )
+        self.function_map: Dict[
+            Filename, Dict[LineNumber, Filename]
+        ] = defaultdict(lambda: defaultdict(lambda: Filename("")))
         self.firstline_map: Dict[Filename, LineNumber] = defaultdict(
             lambda: LineNumber(1)
         )

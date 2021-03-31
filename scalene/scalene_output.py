@@ -342,7 +342,7 @@ class ScaleneOutput:
         if not self.html:
             try:
                 # If we are in a Jupyter notebook, stick with 132
-                if 'ipykernel' in sys.modules:
+                if "ipykernel" in sys.modules:
                     column_width = 132
                 else:
                     column_width = shutil.get_terminal_size().columns
@@ -385,15 +385,16 @@ class ScaleneOutput:
             return True
 
         for fname in report_files:
-            
+
             # If the file was actually a Jupyter (IPython) cell,
             # restore its name, as in "[12]".
             fname_print = fname
             import re
+
             result = re.match("<ipython-input-([0-9]+)-.*>", fname_print)
             if result:
-                fname_print = Filename('[' + result.group(1) + ']')
-            
+                fname_print = Filename("[" + result.group(1) + "]")
+
             # Print header.
             percent_cpu_time = (
                 100 * stats.cpu_samples[fname] / stats.total_cpu_samples
@@ -507,7 +508,9 @@ class ScaleneOutput:
 
             if print_fn_summary:
                 tbl.add_row(None, end_section=True)
-                txt = Text.assemble(f"function summary for {fname}", style="bold italic")
+                txt = Text.assemble(
+                    f"function summary for {fname}", style="bold italic"
+                )
                 if profile_memory:
                     tbl.add_row("", "", "", "", "", "", "", "", "", txt)
                 else:

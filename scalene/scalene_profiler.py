@@ -265,7 +265,7 @@ class Scalene:
     @classmethod
     def remove_child_pid(cls, pid: int) -> None:
         cls.__child_pids.remove(pid)
-        
+
     # Replacement @profile decorator function.
     # We track which functions - in which files - have been decorated,
     # and only report stats for those.
@@ -1080,10 +1080,7 @@ class Scalene:
             else:
                 # Not a real file and not a function created in Jupyter.
                 return False
-        if (
-            "scalene/"
-            in filename
-        ):
+        if "scalene/" in filename:
             # Don't profile the profiler.
             return False
         found_in_profile_only = False
@@ -1254,7 +1251,8 @@ for the process ID that Scalene reports. For example:
             dest="version",
             action="store_const",
             const=True,
-            help="prints the version number for this release of Scalene and exits")
+            help="prints the version number for this release of Scalene and exits",
+        )
         parser.add_argument(
             "--outfile",
             type=str,
@@ -1432,10 +1430,12 @@ for the process ID that Scalene reports. For example:
                     new_args, close_fds=True, shell=False
                 )
                 try:
-                # If running in the background, print the PID.
+                    # If running in the background, print the PID.
                     if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                         # In the background.
-                        print("Scalene now profiling process " + str(result.pid))
+                        print(
+                            "Scalene now profiling process " + str(result.pid)
+                        )
                         print(
                             "  to disable profiling: python3 -m scalene.profile --off --pid "
                             + str(result.pid)
@@ -1478,7 +1478,9 @@ for the process ID that Scalene reports. For example:
                 try:
                     if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                         # In the background.
-                        print("Scalene now profiling process " + str(result.pid))
+                        print(
+                            "Scalene now profiling process " + str(result.pid)
+                        )
                         print(
                             "  to disable profiling: python3 -m scalene.profile --off --pid "
                             + str(result.pid)
