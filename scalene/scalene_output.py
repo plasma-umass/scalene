@@ -507,7 +507,7 @@ class ScaleneOutput:
 
             if print_fn_summary:
                 tbl.add_row(None, end_section=True)
-                txt = Text.assemble("function summary", style="bold italic")
+                txt = Text.assemble(f"function summary for {fname}", style="bold italic")
                 if profile_memory:
                     tbl.add_row("", "", "", "", "", "", "", "", "", txt)
                 else:
