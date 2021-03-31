@@ -35,7 +35,6 @@ import tempfile
 import threading
 import time
 import traceback
-import GPUtil
 
 from collections import defaultdict
 from functools import lru_cache
@@ -61,6 +60,7 @@ from scalene.scalene_statistics import *
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_signals import ScaleneSignals
 from scalene.scalene_version import scalene_version
+from scalene.scalene_gpu import ScaleneGPU
 
 assert (
     sys.version_info[0] == 3 and sys.version_info[1] >= 6
@@ -126,6 +126,7 @@ class Scalene:
     __args = ScaleneArguments()
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
+    __gpu = ScaleneGPU()
 
     @staticmethod
     def get_original_lock() -> threading.Lock:
@@ -568,12 +569,10 @@ class Scalene:
         # elapsed time by a large number to get some moderately random
         # chunk of the elapsed time.
         gpu_load = 0.0
+        gpu_mem_used = 0
         if int(100000 * elapsed_wallclock) % 10 == 0:
-            try:
-                for g in GPUtil.getGPUs():
-                    gpu_load += g.load
-            except:
-                pass
+            gpu_load = Scalene.__gpu.load()
+            gpu_mem_used = Scalene.__gpu.memory_used()
         # Deal with an odd case reported here: https://github.com/plasma-umass/scalene/issues/124
         # We don't want to report 'nan', so turn the load into 0.
         if math.isnan(gpu_load):
