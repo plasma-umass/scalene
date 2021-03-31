@@ -56,7 +56,7 @@ setup(
         "rich>=9.2.10",
         "cloudpickle>=1.5.0",
         "gputil",
-        "nvidia-ml-py>=11.450.51",
+        "nvidia-ml-py==11.450.51",
         "numpy"
     ],
     ext_modules=[mmap_hl_spinlock],
