@@ -427,14 +427,14 @@ class ScaleneOutput:
                 tbl.add_column("Copy\n(MB/s)", no_wrap=True)
                 other_columns_width = 72 + 5  # GPU
                 tbl.add_column(
-                    "\n" + fname,
+                    "\n" + fname_print,
                     width=column_width - other_columns_width,
                     no_wrap=True,
                 )
             else:
                 other_columns_width = 36 + 5  # GPU
                 tbl.add_column(
-                    "\n" + fname,
+                    "\n" + fname_print,
                     width=column_width - other_columns_width,
                     no_wrap=True,
                 )
