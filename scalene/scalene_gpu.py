@@ -1,7 +1,7 @@
 import pynvml
 
 
-class scalene_gpu:
+class ScaleneGPU:
     """A wrapper around the nvidia device driver library (nvidia-ml-py)."""
 
     def __init__(self):
