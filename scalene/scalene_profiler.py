@@ -564,16 +564,11 @@ class Scalene:
             cpu_utilization = 1.0
         if cpu_utilization < 0.0:
             cpu_utilization = 0.0
-        # Sample GPU utilization at 1/10th the frequency of CPU
-        # sampling to reduce overhead (it's costly).  We multiply the
-        # elapsed time by a large number to get some moderately random
-        # chunk of the elapsed time.
-        gpu_load = 0.0
-        gpu_mem_used = 0
-        if int(100000 * elapsed_wallclock) % 10 == 0:
-            gpu_load = Scalene.__gpu.load()
-            gpu_mem_used = Scalene.__gpu.memory_used()
+        # Sample GPU load as well.
+        gpu_load = Scalene.__gpu.load()
+        gpu_mem_used = Scalene.__gpu.memory_used()
         # Deal with an odd case reported here: https://github.com/plasma-umass/scalene/issues/124
+        # (Note: probably obsolete now that Scalene is using the nvidia wrappers, but just in case...)
         # We don't want to report 'nan', so turn the load into 0.
         if math.isnan(gpu_load):
             gpu_load = 0.0
