@@ -25,7 +25,7 @@ class ScaleneGPU:
             l = 0.0
             for i in range(self.__ngpus):
                 l += pynvml.nvmlDeviceGetUtilizationRates(self.__handle[i]).gpu
-            return l / self.__ngpus
+            return (l / self.__ngpus) / 100.0
         return 0.0
 
     def memory_used(self):
