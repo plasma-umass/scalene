@@ -64,7 +64,7 @@ try:
         print(
             "\n".join(
                 textwrap.wrap(
-                    "Scalene extension successfully loaded. Note: Scalene currently only supports CPU profiling inside Jupyter notebooks. For full Scalene profiling, use the command line version."
+                    "Scalene extension successfully loaded. Note: Scalene currently only supports CPU+GPU profiling inside Jupyter notebooks. For full Scalene profiling, use the command line version."
                 )
             )
         )
