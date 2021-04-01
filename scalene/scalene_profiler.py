@@ -169,11 +169,9 @@ class Scalene:
     #
     #   file to communicate the number of malloc/free samples (+ PID)
     __malloc_signal_filename = Filename(
-        "/tmp/scalene-malloc-signal" + str(os.getpid())
+        f"/tmp/scalene-malloc-signal{os.getpid()}"
     )
-    __malloc_lock_filename = Filename(
-        "/tmp/scalene-malloc-lock" + str(os.getpid())
-    )
+    __malloc_lock_filename = Filename(f"/tmp/scalene-malloc-lock{os.getpid()}")
     __malloc_signal_position = 0
     __malloc_lastpos = bytearray(8)
     try:
@@ -208,11 +206,9 @@ class Scalene:
 
     #   file to communicate the number of memcpy samples (+ PID)
     __memcpy_signal_filename = Filename(
-        "/tmp/scalene-memcpy-signal" + str(os.getpid())
+        f"/tmp/scalene-memcpy-signal{os.getpid()}"
     )
-    __memcpy_lock_filename = Filename(
-        "/tmp/scalene-memcpy-lock" + str(os.getpid())
-    )
+    __memcpy_lock_filename = Filename(f"/tmp/scalene-memcpy-lock{os.getpid()}")
     try:
         __memcpy_signal_fd = open(__memcpy_signal_filename, "r")
         os.unlink(__memcpy_signal_fd.name)
@@ -418,9 +414,7 @@ class Scalene:
             cmdline = ""
             preface = ""
             # Pass along commands from the invoking command line.
-            cmdline += " --cpu-sampling-rate=" + str(
-                arguments.cpu_sampling_rate
-            )
+            cmdline += f" --cpu-sampling-rate={arguments.cpu_sampling_rate}"
             if arguments.use_virtual_time:
                 cmdline += " --use-virtual-time"
             if arguments.cpu_only:
@@ -438,7 +432,7 @@ class Scalene:
                     )
                     preface += "DYLD_INSERT_LIBRARIES=" + shared_lib
             # Add the --pid field so we can propagate it to the child.
-            cmdline += " --pid=" + str(os.getpid())
+            cmdline += " --pid={os.getpid()}"
             payload = """#!/bin/bash
     echo $$
     %s %s -m scalene %s $@
@@ -1070,7 +1064,6 @@ class Scalene:
                 if result:
                     # Write the cell's contents into the file.
                     with open(filename, "w+") as f:
-                        # with open(str(frame.f_code.co_filename), "w+") as f:
                         f.write(
                             get_ipython().history_manager.input_hist_raw[
                                 int(result.group(1))
@@ -1277,17 +1270,13 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.reduced_profile,
-            help="generate a reduced profile, with non-zero lines only (default: "
-            + str(defaults.reduced_profile)
-            + ")",
+            help=f"generate a reduced profile, with non-zero lines only (default: {defaults.reduced_profile})",
         )
         parser.add_argument(
             "--profile-interval",
             type=float,
             default=defaults.profile_interval,
-            help="output profiles every so many seconds (default: "
-            + str(defaults.profile_interval)
-            + ")",
+            help=f"output profiles every so many seconds (default: {defaults.profile_interval})",
         )
         parser.add_argument(
             "--cpu-only",
@@ -1332,36 +1321,28 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.use_virtual_time,
-            help="measure only CPU time, not time spent in I/O or blocking (default: "
-            + str(defaults.use_virtual_time)
-            + ")",
+            help=f"measure only CPU time, not time spent in I/O or blocking (default: {defaults.use_virtual_time})",
         )
         parser.add_argument(
             "--cpu-percent-threshold",
             dest="cpu_percent_threshold",
             type=int,
             default=defaults.cpu_percent_threshold,
-            help="only report profiles with at least this percent of CPU time (default: "
-            + str(defaults.cpu_percent_threshold)
-            + "%%)",
+            help=f"only report profiles with at least this percent of CPU time (default: {defaults.cpu_percent_threshold}%%)",
         )
         parser.add_argument(
             "--cpu-sampling-rate",
             dest="cpu_sampling_rate",
             type=float,
             default=defaults.cpu_sampling_rate,
-            help="CPU sampling rate (default: every "
-            + str(defaults.cpu_sampling_rate)
-            + "s)",
+            help=f"CPU sampling rate (default: every {defaults.cpu_sampling_rate}s)",
         )
         parser.add_argument(
             "--malloc-threshold",
             dest="malloc_threshold",
             type=int,
             default=defaults.malloc_threshold,
-            help="only report profiles with at least this many allocations (default: "
-            + str(defaults.malloc_threshold)
-            + ")",
+            help=f"only report profiles with at least this many allocations (default: {defaults.malloc_threshold})",
         )
         # the PID of the profiling process (for internal use only)
         parser.add_argument(
@@ -1433,16 +1414,12 @@ for the process ID that Scalene reports. For example:
                     # If running in the background, print the PID.
                     if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                         # In the background.
+                        print(f"Scalene now profiling process {result.pid}")
                         print(
-                            "Scalene now profiling process " + str(result.pid)
+                            f"  to disable profiling: python3 -m scalene.profile --off --pid {result.pid}"
                         )
                         print(
-                            "  to disable profiling: python3 -m scalene.profile --off --pid "
-                            + str(result.pid)
-                        )
-                        print(
-                            "  to resume profiling:  python3 -m scalene.profile --on  --pid "
-                            + str(result.pid)
+                            f"  to resume profiling:  python3 -m scalene.profile --on  --pid {result.pid}"
                         )
                 except:
                     pass
@@ -1478,16 +1455,12 @@ for the process ID that Scalene reports. For example:
                 try:
                     if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                         # In the background.
+                        print(f"Scalene now profiling process {result.pid}")
                         print(
-                            "Scalene now profiling process " + str(result.pid)
+                            f"  to disable profiling: python3 -m scalene.profile --off --pid {result.pid}"
                         )
                         print(
-                            "  to disable profiling: python3 -m scalene.profile --off --pid "
-                            + str(result.pid)
-                        )
-                        print(
-                            "  to resume profiling:  python3 -m scalene.profile --on  --pid "
-                            + str(result.pid)
+                            f"  to resume profiling:  python3 -m scalene.profile --on  --pid {result.pid}"
                         )
                 except:
                     pass
@@ -1572,14 +1545,12 @@ for the process ID that Scalene reports. For example:
                 # If running in the background, print the PID.
                 if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                     # In the background.
-                    print("Scalene now profiling process " + str(os.getpid()))
+                    print(f"Scalene now profiling process {os.getpid()}")
                     print(
-                        "  to disable profiling: python3 -m scalene.profile --off --pid "
-                        + str(os.getpid())
+                        f"  to disable profiling: python3 -m scalene.profile --off --pid {os.getpid()}"
                     )
                     print(
-                        "  to resume profiling:  python3 -m scalene.profile --on  --pid "
-                        + str(os.getpid())
+                        f"  to resume profiling:  python3 -m scalene.profile --on  --pid {os.getpid()}"
                     )
             except:
                 pass
