@@ -127,7 +127,9 @@ class Scalene:
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
     __gpu = ScaleneGPU()
-
+    
+    __output.gpu = __gpu.has_gpu()
+    
     @staticmethod
     def get_original_lock() -> threading.Lock:
         return Scalene.__original_lock()
