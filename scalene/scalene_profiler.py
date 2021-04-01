@@ -966,6 +966,8 @@ class Scalene:
         """
         Scalene.__is_child = True
         Scalene.clear_metrics()
+        if Scalene.__gpu.has_gpu():
+            Scalene.__gpu.nvml_reinit()
         # Note-- __parent_pid of the topmost process is its own pid
         Scalene.__pid = Scalene.__parent_pid
         signal.signal(
@@ -1081,6 +1083,7 @@ class Scalene:
             if prof in filename:
                 found_in_profile_only = True
                 break
+
         if not found_in_profile_only:
             return False
         if Scalene.__args.profile_all:

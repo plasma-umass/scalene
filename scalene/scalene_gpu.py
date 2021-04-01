@@ -20,6 +20,15 @@ class ScaleneGPU:
     def has_gpu(self):
         return self.__has_gpu
 
+    def nvml_reinit(self):
+        self.handle = []
+        try:
+            pynvml.nvmlInit()
+            self.__ngpus = pynvml.nvmlDeviceGetCount()
+            for i in range(self.__ngpus):
+                self.__handle.append(pynvml.nvmlDeviceGetHandleByIndex(i))
+        except:
+            pass
     def load(self):
         if self.__has_gpu:
             l = 0.0
