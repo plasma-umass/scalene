@@ -37,7 +37,7 @@ class ScaleneOutput:
 
         # if we are on a GPU or not
         gpu: bool = False
-        
+
     # Profile output methods
     def output_profile_line(
         self,
@@ -141,11 +141,19 @@ class ScaleneOutput:
             if n_cpu_percent_python < 1
             else "%5.0f%%" % n_cpu_percent_python
         )
-        n_growth_mb_str: str = (
-            ""
-            if (not n_growth_mb and not n_usage_fraction)
-            else "%5.0f" % n_growth_mb
-        )
+        if n_growth_mb < 1024:
+            n_growth_mem_str: str = (
+                ""
+                if (not n_growth_mb and not n_usage_fraction)
+                else ("%5.0f" % n_growth_mb + "M")
+            )
+        else:
+            n_growth_mem_str: str = (
+                ""
+                if (not n_growth_mb and not n_usage_fraction)
+                else ("%5.2f" % (n_growth_mb / 1024.0) + "G")
+            )
+
         n_usage_fraction_str: str = (
             ""
             if n_usage_fraction < 0.01
@@ -227,7 +235,7 @@ class ScaleneOutput:
                         sys_str,
                         ngpus,
                         n_python_fraction_str,
-                        n_growth_mb_str,
+                        n_growth_mem_str,
                         nufs,  # spark_str + n_usage_fraction_str,
                         n_copy_mb_s_str,
                         line,
@@ -239,11 +247,11 @@ class ScaleneOutput:
                         ncpcs,  # n_cpu_percent_c_str,
                         sys_str,
                         n_python_fraction_str,
-                        n_growth_mb_str,
+                        n_growth_mem_str,
                         nufs,  # spark_str + n_usage_fraction_str,
                         n_copy_mb_s_str,
                         line,
-                        )
+                    )
                 return True
             else:
                 return False
@@ -280,7 +288,7 @@ class ScaleneOutput:
                         sys_str,
                         line,
                     )
-                    
+
                 return True
             else:
                 return False
@@ -441,27 +449,27 @@ class ScaleneOutput:
             )
 
             tbl.add_column("Line", justify="right", no_wrap=True)
-            tbl.add_column("Time %\nPython", no_wrap=True)
-            tbl.add_column("Time %\nnative", no_wrap=True)
-            tbl.add_column("Sys\n%", no_wrap=True)
+            tbl.add_column("Time:\nPython", no_wrap=True)
+            tbl.add_column("\nnative", no_wrap=True)
+            tbl.add_column("\nsystem", no_wrap=True)
             if self.gpu:
                 tbl.add_column("GPU\n%", no_wrap=True)
 
             other_columns_width = 0  # Size taken up by all columns BUT code
 
             if profile_memory:
-                tbl.add_column("Mem %\nPython", no_wrap=True)
-                tbl.add_column("Net\n(MB)", no_wrap=True)
-                tbl.add_column("Memory usage\nover time / %", no_wrap=True)
+                tbl.add_column("Mem:\nPython", no_wrap=True)
+                tbl.add_column("\nnet", no_wrap=True)
+                tbl.add_column("\ntimeline/%", no_wrap=True)
                 tbl.add_column("Copy\n(MB/s)", no_wrap=True)
-                other_columns_width = 72 + (5 if self.gpu else 0)
+                other_columns_width = 73 + (5 if self.gpu else 0)
                 tbl.add_column(
                     "\n" + fname_print,
                     width=column_width - other_columns_width,
                     no_wrap=True,
                 )
             else:
-                other_columns_width = 36 + (5 if self.gpu else 0)
+                other_columns_width = 37 + (5 if self.gpu else 0)
                 tbl.add_column(
                     "\n" + fname_print,
                     width=column_width - other_columns_width,
