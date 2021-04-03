@@ -1077,7 +1077,7 @@ class Scalene:
             else:
                 # Not a real file and not a function created in Jupyter.
                 return False
-        if "scalene/" in filename:
+        if "scalene/scalene" in filename:
             # Don't profile the profiler.
             return False
         found_in_profile_only = False
