@@ -743,7 +743,7 @@ class Scalene:
         fn_name = Filename(f.f_code.co_name)
         firstline = f.f_code.co_firstlineno
         # Prepend the class, if any
-        while f and Scalene.should_trace(f.f_back.f_code.co_filename):  # type: ignore
+        while f and f.f_back and f.f_back.f_code and Scalene.should_trace(f.f_back.f_code.co_filename):  # type: ignore
             if "self" in f.f_locals:
                 prepend_name = f.f_locals["self"].__class__.__name__
                 if "Scalene" not in prepend_name:
