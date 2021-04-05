@@ -448,17 +448,17 @@ class ScaleneOutput:
 
             tbl.add_column("Line", style="dim", justify="right", no_wrap=True, width=4)
             tbl.add_column(Markdown("Time  " + "\n" + "_Python_"), no_wrap=True, width=6)
-            tbl.add_column(Markdown("\-\-\-\-\-\-  \n_native_"), no_wrap=True, width=6)
-            tbl.add_column(Markdown("\-\-\-\-\-\-  \n_system_"), no_wrap=True, width=6)
+            tbl.add_column(Markdown("––––––  \n_native_"), no_wrap=True, width=6)
+            tbl.add_column(Markdown("––––––  \n_system_"), no_wrap=True, width=6)
             if self.gpu:
-                tbl.add_column(Markdown("\-\-\-\-\-\-  \n_GPU_"), no_wrap=True, width=6)
+                tbl.add_column(Markdown("––––––  \n_GPU_"), no_wrap=True, width=6)
 
             other_columns_width = 0  # Size taken up by all columns BUT code
 
             if profile_memory:
                 tbl.add_column(Markdown("Memory  \n_Python_"), no_wrap=True, width=7)
-                tbl.add_column(Markdown("\-\-\-\-\-\-  \n_net_"), no_wrap=True, width=6)
-                tbl.add_column(Markdown("\-\-\-\-\-\-\-\-\-\-\-  \n_timeline_/%"), no_wrap=True, width=14)
+                tbl.add_column(Markdown("––––––  \n_net_"), no_wrap=True, width=6)
+                tbl.add_column(Markdown("–––––––––––  \n_timeline_/%"), no_wrap=True, width=14)
                 tbl.add_column(Markdown("Copy  \n_(MB/s)_"), no_wrap=True, width=6)
                 other_columns_width = 75 + (6 if self.gpu else 0)
                 tbl.add_column(
