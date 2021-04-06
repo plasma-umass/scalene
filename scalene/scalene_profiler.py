@@ -750,11 +750,14 @@ class Scalene:
                     fn_name = prepend_name + "." + fn_name
                 break
             if "cls" in f.f_locals:
-                prepend_name = f.f_locals["cls"].__name__
-                if "Scalene" in prepend_name:
+                try:
+                    prepend_name = f.f_locals["cls"].__name__
+                    if "Scalene" in prepend_name:
+                        break
+                    fn_name = prepend_name + "." + fn_name
                     break
-                fn_name = prepend_name + "." + fn_name
-                break
+                except KeyError:
+                    pass
             f = cast(FrameType, f.f_back)
 
         stats.function_map[fname][lineno] = fn_name
