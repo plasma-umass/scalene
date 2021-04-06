@@ -127,7 +127,9 @@ class Scalene:
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
     __gpu = ScaleneGPU()
-
+    
+    __output.gpu = __gpu.has_gpu()
+    
     @staticmethod
     def get_original_lock() -> threading.Lock:
         return Scalene.__original_lock()
@@ -740,18 +742,21 @@ class Scalene:
         fn_name = Filename(f.f_code.co_name)
         firstline = f.f_code.co_firstlineno
         # Prepend the class, if any
-        while f and Scalene.should_trace(f.f_back.f_code.co_filename):  # type: ignore
+        while f and f.f_back and f.f_back.f_code and Scalene.should_trace(f.f_back.f_code.co_filename):  # type: ignore
             if "self" in f.f_locals:
                 prepend_name = f.f_locals["self"].__class__.__name__
                 if "Scalene" not in prepend_name:
                     fn_name = prepend_name + "." + fn_name
                 break
             if "cls" in f.f_locals:
-                prepend_name = f.f_locals["cls"].__name__
-                if "Scalene" in prepend_name:
+                try:
+                    prepend_name = f.f_locals["cls"].__name__
+                    if "Scalene" in prepend_name:
+                        break
+                    fn_name = prepend_name + "." + fn_name
                     break
-                fn_name = prepend_name + "." + fn_name
-                break
+                except KeyError:
+                    pass
             f = cast(FrameType, f.f_back)
 
         stats.function_map[fname][lineno] = fn_name
@@ -1074,7 +1079,7 @@ class Scalene:
             else:
                 # Not a real file and not a function created in Jupyter.
                 return False
-        if "scalene/" in filename:
+        if "scalene/scalene" in filename:
             # Don't profile the profiler.
             return False
         found_in_profile_only = False

@@ -19,12 +19,6 @@ from typing import Callable, Union
 
 class ScaleneOutput:
 
-    # where we write profile info
-    output_file: str = ""
-
-    # if we output HTML or not
-    html: bool = False
-
     # Threshold for highlighting lines of code in red.
     highlight_percentage = 33
 
@@ -33,6 +27,16 @@ class ScaleneOutput:
 
     # Default threshold for number of mallocs to report a file.
     malloc_threshold = 100
+
+    def __init__(self):
+        # where we write profile info
+        output_file: str = ""
+
+        # if we output HTML or not
+        html: bool = False
+
+        # if we are on a GPU or not
+        gpu: bool = False
 
     # Profile output methods
     def output_profile_line(
@@ -125,37 +129,45 @@ class ScaleneOutput:
 
         # Finally, print results.
         n_cpu_percent_c_str: str = (
-            "" if n_cpu_percent_c < 1 else "%5.0f%%" % n_cpu_percent_c
+            "" if n_cpu_percent_c < 1 else f"{n_cpu_percent_c:5.0f}%"
         )
 
         n_gpu_percent_str: str = (
-            "" if n_gpu_percent < 1 else "%3.0f%%" % n_gpu_percent
+            "" if n_gpu_percent < 1 else f"{n_gpu_percent:3.0f}%"
         )
 
         n_cpu_percent_python_str: str = (
             ""
             if n_cpu_percent_python < 1
-            else "%5.0f%%" % n_cpu_percent_python
+            else f"{n_cpu_percent_python:5.0f}%"
         )
-        n_growth_mb_str: str = (
-            ""
-            if (not n_growth_mb and not n_usage_fraction)
-            else "%5.0f" % n_growth_mb
-        )
+        if n_growth_mb < 1024:
+            n_growth_mem_str: str = (
+                ""
+                if (not n_growth_mb and not n_usage_fraction)
+                else f"{n_growth_mb:5.1f}M"
+            )
+        else:
+            n_growth_mem_str: str = (
+                ""
+                if (not n_growth_mb and not n_usage_fraction)
+                else f"{(n_growth_mb / 1024):5.2f}G"
+            )
+
         n_usage_fraction_str: str = (
             ""
             if n_usage_fraction < 0.01
-            else "%3.0f%%" % (100 * n_usage_fraction)
+            else f"{(100 * n_usage_fraction):4.0f}%"
         )
         n_python_fraction_str: str = (
             ""
             if n_python_fraction < 0.01
-            else "%5.0f%%" % (100 * n_python_fraction)
+            else f"{(n_python_fraction * 100):4.0f}%"
         )
         n_copy_b = stats.memcpy_samples[fname][line_no]
         n_copy_mb_s = n_copy_b / (1024 * 1024 * stats.elapsed_time)
         n_copy_mb_s_str: str = (
-            "" if n_copy_mb_s < 0.5 else "%6.0f" % n_copy_mb_s
+            "" if n_copy_mb_s < 0.5 else f"{n_copy_mb_s:6.0f}"
         )
 
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
@@ -170,7 +182,7 @@ class ScaleneOutput:
             or stats.cpu_utilization[fname][line_no].size() <= 1
             or stats.cpu_utilization[fname][line_no].sem() > 0.025
             or stats.cpu_utilization[fname][line_no].mean() > 0.99
-            else "%3.0f%%" % (n_sys_percent)
+            else f"{n_sys_percent:4.0f}%"
         )
         if not is_function_summary:
             print_line_no = "" if suppress_lineno_print else str(line_no)
@@ -215,18 +227,31 @@ class ScaleneOutput:
                 nufs = spark_str + n_usage_fraction_str
 
             if not reduced_profile or ncpps + ncpcs + nufs:
-                tbl.add_row(
-                    print_line_no,
-                    ncpps,  # n_cpu_percent_python_str,
-                    ncpcs,  # n_cpu_percent_c_str,
-                    sys_str,
-                    ngpus,
-                    n_python_fraction_str,
-                    n_growth_mb_str,
-                    nufs,  # spark_str + n_usage_fraction_str,
-                    n_copy_mb_s_str,
-                    line,
-                )
+                if self.gpu:
+                    tbl.add_row(
+                        print_line_no,
+                        ncpps,  # n_cpu_percent_python_str,
+                        ncpcs,  # n_cpu_percent_c_str,
+                        sys_str,
+                        ngpus,
+                        n_python_fraction_str,
+                        n_growth_mem_str,
+                        nufs,  # spark_str + n_usage_fraction_str,
+                        n_copy_mb_s_str,
+                        line,
+                    )
+                else:
+                    tbl.add_row(
+                        print_line_no,
+                        ncpps,  # n_cpu_percent_python_str,
+                        ncpcs,  # n_cpu_percent_c_str,
+                        sys_str,
+                        n_python_fraction_str,
+                        n_growth_mem_str,
+                        nufs,  # spark_str + n_usage_fraction_str,
+                        n_copy_mb_s_str,
+                        line,
+                    )
                 return True
             else:
                 return False
@@ -246,14 +271,24 @@ class ScaleneOutput:
                 ngpus = n_gpu_percent_str
 
             if not reduced_profile or ncpps + ncpcs:
-                tbl.add_row(
-                    print_line_no,
-                    ncpps,  # n_cpu_percent_python_str,
-                    ncpcs,  # n_cpu_percent_c_str,
-                    sys_str,
-                    ngpus,  # n_gpu_percent_str
-                    line,
-                )
+                if self.gpu:
+                    tbl.add_row(
+                        print_line_no,
+                        ncpps,  # n_cpu_percent_python_str,
+                        ncpcs,  # n_cpu_percent_c_str,
+                        sys_str,
+                        ngpus,  # n_gpu_percent_str
+                        line,
+                    )
+                else:
+                    tbl.add_row(
+                        print_line_no,
+                        ncpps,  # n_cpu_percent_python_str,
+                        ncpcs,  # n_cpu_percent_c_str,
+                        sys_str,
+                        line,
+                    )
+
                 return True
             else:
                 return False
@@ -320,8 +355,7 @@ class ScaleneOutput:
                         "Memory usage: ",
                         ((spark_str, "blue")),
                         (
-                            " (max: %6.2fGB, growth rate: %3.0f%%)\n"
-                            % ((current_max / 1024), growth_rate)
+                            f" (max: {(current_max / 1024):6.2f}GB, growth rate: {growth_rate:3.0f}%)\n"
                         ),
                     )
                 else:
@@ -330,8 +364,7 @@ class ScaleneOutput:
                         "Memory usage: ",
                         ((spark_str, "blue")),
                         (
-                            " (max: %6.2fMB, growth rate: %3.0f%%)\n"
-                            % (current_max, growth_rate)
+                            f" (max: {current_max:6.2f}MB, growth rate: {growth_rate:3.0f}%)\n"
                         ),
                     )
 
@@ -413,27 +446,28 @@ class ScaleneOutput:
                 width=column_width - 1,
             )
 
-            tbl.add_column("Line", justify="right", no_wrap=True)
-            tbl.add_column("Time %\nPython", no_wrap=True)
-            tbl.add_column("Time %\nnative", no_wrap=True)
-            tbl.add_column("Sys\n%", no_wrap=True)
-            tbl.add_column("GPU\n%", no_wrap=True)
+            tbl.add_column("Line", style="dim", justify="right", no_wrap=True, width=4)
+            tbl.add_column(Markdown("Time  " + "\n" + "_Python_"), no_wrap=True, width=6)
+            tbl.add_column(Markdown("––––––  \n_native_"), no_wrap=True, width=6)
+            tbl.add_column(Markdown("––––––  \n_system_"), no_wrap=True, width=6)
+            if self.gpu:
+                tbl.add_column(Markdown("––––––  \n_GPU_"), no_wrap=True, width=6)
 
             other_columns_width = 0  # Size taken up by all columns BUT code
 
             if profile_memory:
-                tbl.add_column("Mem %\nPython", no_wrap=True)
-                tbl.add_column("Net\n(MB)", no_wrap=True)
-                tbl.add_column("Memory usage\nover time / %", no_wrap=True)
-                tbl.add_column("Copy\n(MB/s)", no_wrap=True)
-                other_columns_width = 72 + 5  # GPU
+                tbl.add_column(Markdown("Memory  \n_Python_"), no_wrap=True, width=7)
+                tbl.add_column(Markdown("––––––  \n_net_"), no_wrap=True, width=6)
+                tbl.add_column(Markdown("–––––––––––  \n_timeline_/%"), no_wrap=True, width=14)
+                tbl.add_column(Markdown("Copy  \n_(MB/s)_"), no_wrap=True, width=6)
+                other_columns_width = 75 + (6 if self.gpu else 0)
                 tbl.add_column(
                     "\n" + fname_print,
                     width=column_width - other_columns_width,
                     no_wrap=True,
                 )
             else:
-                other_columns_width = 36 + 5  # GPU
+                other_columns_width = 37 + (5 if self.gpu else 0)
                 tbl.add_column(
                     "\n" + fname_print,
                     width=column_width - other_columns_width,
@@ -512,9 +546,16 @@ class ScaleneOutput:
                     f"function summary for {fname}", style="bold italic"
                 )
                 if profile_memory:
-                    tbl.add_row("", "", "", "", "", "", "", "", "", txt)
+                    if self.gpu:
+                        tbl.add_row("", "", "", "", "", "", "", "", "", txt)
+                    else:
+                        tbl.add_row("", "", "", "", "", "", "", "", txt)
                 else:
-                    tbl.add_row("", "", "", "", "", txt)
+                    if self.gpu:
+                        tbl.add_row("", "", "", "", "", txt)
+                    else:
+                        tbl.add_row("", "", "", "", txt)
+                        
 
                 for fn_name in sorted(
                     fn_stats.cpu_samples_python,
