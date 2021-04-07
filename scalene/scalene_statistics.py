@@ -173,7 +173,7 @@ class ScaleneStatistics:
         self.max_footprint = 0
         self.per_line_footprint_samples.clear()
 
-    def build_function_stats(self, fname: Filename):  # type: ignore
+    def build_function_stats(self, filename: Filename):  # type: ignore
         fn_stats = ScaleneStatistics()
         fn_stats.elapsed_time = self.elapsed_time
         fn_stats.total_cpu_samples = self.total_cpu_samples
@@ -182,52 +182,52 @@ class ScaleneStatistics:
         first_line_no = LineNumber(1)
         fn_stats.function_map = self.function_map
         fn_stats.firstline_map = self.firstline_map
-        for line_no in self.function_map[fname]:
-            fn_name = self.function_map[fname][line_no]
+        for line_no in self.function_map[filename]:
+            fn_name = self.function_map[filename][line_no]
             if fn_name == "<module>":
                 continue
             fn_stats.cpu_samples_c[fn_name][
                 first_line_no
-            ] += self.cpu_samples_c[fname][line_no]
+            ] += self.cpu_samples_c[filename][line_no]
             fn_stats.cpu_samples_python[fn_name][
                 first_line_no
-            ] += self.cpu_samples_python[fname][line_no]
+            ] += self.cpu_samples_python[filename][line_no]
             fn_stats.gpu_samples[fn_name][first_line_no] += self.gpu_samples[
-                fname
+                filename
             ][line_no]
             fn_stats.cpu_utilization[fn_name][
                 first_line_no
-            ] += self.cpu_utilization[fname][line_no]
+            ] += self.cpu_utilization[filename][line_no]
             fn_stats.per_line_footprint_samples[fn_name][
                 first_line_no
-            ] += self.per_line_footprint_samples[fname][line_no]
-            for index in self.bytei_map[fname][line_no]:
+            ] += self.per_line_footprint_samples[filename][line_no]
+            for index in self.bytei_map[filename][line_no]:
                 fn_stats.bytei_map[fn_name][first_line_no].add(
                     ByteCodeIndex(0)
                 )
                 fn_stats.memory_malloc_count[fn_name][first_line_no][
                     ByteCodeIndex(0)
-                ] += self.memory_malloc_count[fname][line_no][index]
+                ] += self.memory_malloc_count[filename][line_no][index]
                 fn_stats.memory_free_count[fn_name][first_line_no][
                     ByteCodeIndex(0)
-                ] += self.memory_free_count[fname][line_no][index]
+                ] += self.memory_free_count[filename][line_no][index]
                 fn_stats.memory_malloc_samples[fn_name][first_line_no][
                     ByteCodeIndex(0)
-                ] += self.memory_malloc_samples[fname][line_no][index]
+                ] += self.memory_malloc_samples[filename][line_no][index]
                 fn_stats.memory_python_samples[fn_name][first_line_no][
                     ByteCodeIndex(0)
-                ] += self.memory_python_samples[fname][line_no][index]
+                ] += self.memory_python_samples[filename][line_no][index]
                 fn_stats.memory_free_samples[fn_name][first_line_no][
                     ByteCodeIndex(0)
-                ] += self.memory_free_samples[fname][line_no][index]
+                ] += self.memory_free_samples[filename][line_no][index]
             fn_stats.memcpy_samples[fn_name][
                 first_line_no
-            ] += self.memcpy_samples[fname][line_no]
+            ] += self.memcpy_samples[filename][line_no]
             fn_stats.leak_score[fn_name][first_line_no] = (
                 fn_stats.leak_score[fn_name][first_line_no][0]
-                + self.leak_score[fname][line_no][0],
+                + self.leak_score[filename][line_no][0],
                 fn_stats.leak_score[fn_name][first_line_no][1]
-                + self.leak_score[fname][line_no][1],
+                + self.leak_score[filename][line_no][1],
             )
         return fn_stats
 
@@ -257,11 +257,11 @@ class ScaleneStatistics:
         # To be added: __malloc_samples
 
         # Create a file in the Python alias directory with the relevant info.
-        out_fname = os.path.join(
+        out_filename = os.path.join(
             dir_name,
             "scalene" + str(pid) + "-" + str(os.getpid()),
         )
-        with open(out_fname, "wb") as out_file:
+        with open(out_filename, "wb") as out_file:
             cloudpickle.dump(payload, out_file)
 
     def merge_stats(self, the_dir_name: Filename) -> None:
@@ -285,27 +285,27 @@ class ScaleneStatistics:
                     (self.memcpy_samples, 7),
                     (self.per_line_footprint_samples, 8),
                 ]:
-                    for fname in value[index]:
-                        for lineno in value[index][fname]:
-                            v = value[index][fname][lineno]
-                            dict[fname][lineno] += v  # type: ignore
+                    for filename in value[index]:
+                        for lineno in value[index][filename]:
+                            v = value[index][filename][lineno]
+                            dict[filename][lineno] += v  # type: ignore
                 for dict, index in [
                     (self.memory_malloc_samples, 4),
                     (self.memory_python_samples, 5),
                     (self.memory_free_samples, 6),
                 ]:
-                    for fname in value[index]:
-                        for lineno in value[index][fname]:
-                            for ind in value[index][fname][lineno]:
-                                dict[fname][lineno][ind] += value[index][
-                                    fname
+                    for filename in value[index]:
+                        for lineno in value[index][filename]:
+                            for ind in value[index][filename][lineno]:
+                                dict[filename][lineno][ind] += value[index][
+                                    filename
                                 ][lineno][ind]
-                for fname in value[2]:
-                    for lineno in value[2][fname]:
-                        v = value[2][fname][lineno]
-                        self.bytei_map[fname][lineno] |= v
-                for fname in value[3]:
-                    self.cpu_samples[fname] += value[3][fname]
+                for filename in value[2]:
+                    for lineno in value[2][filename]:
+                        v = value[2][filename][lineno]
+                        self.bytei_map[filename][lineno] |= v
+                for filename in value[3]:
+                    self.cpu_samples[filename] += value[3][filename]
                 self.total_memory_free_samples += value[9]
                 self.total_memory_malloc_samples += value[10]
                 self.memory_footprint_samples += value[11]

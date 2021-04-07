@@ -127,6 +127,15 @@ class ScaleneOutput:
             # Don't print out "-0".
             n_growth_mb = 0
 
+        n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
+        n_sys_percent = n_cpu_percent * (
+            1.0 - (stats.cpu_utilization[fname][line_no].mean())
+        )
+
+        # Adjust CPU time by utilization.
+        n_cpu_percent_python *= stats.cpu_utilization[fname][line_no].mean()
+        n_cpu_percent_c *= stats.cpu_utilization[fname][line_no].mean()
+        
         # Finally, print results.
         n_cpu_percent_c_str: str = (
             "" if n_cpu_percent_c < 1 else f"{n_cpu_percent_c:5.0f}%"
@@ -170,18 +179,14 @@ class ScaleneOutput:
             "" if n_copy_mb_s < 0.5 else f"{n_copy_mb_s:6.0f}"
         )
 
-        n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
         # Only report utilization where there is more than 1% CPU total usage,
         # and the standard error of the mean is low (meaning it's an accurate estimate).
-        n_sys_percent = n_cpu_percent * (
-            1.0 - (stats.cpu_utilization[fname][line_no].mean())
-        )
         sys_str: str = (
             ""
             if n_sys_percent < 1
-            or stats.cpu_utilization[fname][line_no].size() <= 1
-            or stats.cpu_utilization[fname][line_no].sem() > 0.025
-            or stats.cpu_utilization[fname][line_no].mean() > 0.99
+            #or stats.cpu_utilization[fname][line_no].size() <= 1
+            #or stats.cpu_utilization[fname][line_no].sem() > 0.025
+            #or stats.cpu_utilization[fname][line_no].mean() > 0.99
             else f"{n_sys_percent:4.0f}%"
         )
         if not is_function_summary:
