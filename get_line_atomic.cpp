@@ -2,8 +2,10 @@
 #include <Python.h>
 #include <heaplayers.h>
 #include <string.h>
+#include <mutex>
 
-#include "tprintf.h"
+// #include "tprintf.h"
+
 // This uses Python's buffer interface to view a mmap buffer passed in,
 // which we assume has a layout of [ uint64_t | HL::SpinLock ].
 //
@@ -29,30 +31,26 @@ static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
                           // protocol is found here
                           // https://docs.python.org/3/c-api/buffer.html
     return NULL;
-  HL::SpinLock* lock =
-      (HL::SpinLock*)(((char*)lock_mmap.buf) + sizeof(uint64_t));
-  // tprintf::tprintf("Locking python @\n", getpid());
-  lock->lock();
+  auto buf = reinterpret_cast<char*>(lock_mmap.buf) + sizeof(uint64_t);
+  auto lock = reinterpret_cast<HL::SpinLock *>(buf);
 
-  uint64_t* lastpos = (uint64_t*)lastpos_buf.buf;
-  char* current_iter = ((char*)signal_mmap.buf) + *lastpos;
-  char* start = current_iter;
-  char* result_iter = (char*)result_bytearray.buf;
+  std::lock_guard<HL::SpinLock> theLock(*lock);
+
+  auto lastpos = reinterpret_cast<uint64_t*>(lastpos_buf.buf);
+  auto current_iter = reinterpret_cast<char*>(signal_mmap.buf) + *lastpos;
+  auto start = current_iter;
+  auto result_iter = reinterpret_cast<char*>(result_bytearray.buf);
 
   if (*current_iter == '\n') {
-    // (*lastpos)--;
-    lock->unlock();
     Py_RETURN_FALSE;
   } else {
-    char* null_loc = (char*)memchr(current_iter, '\n', result_bytearray.len);
+    auto null_loc = reinterpret_cast<char *>(memchr(current_iter, '\n', result_bytearray.len));
     for (int i = 0; i <= null_loc - start; i++) {
       *(result_iter++) = *(current_iter++);
       (*lastpos)++;
     }
-    // (*lastpos)++;
   }
 
-  lock->unlock();
   Py_RETURN_TRUE;
 }
 
