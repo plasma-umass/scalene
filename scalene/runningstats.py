@@ -10,12 +10,15 @@ class RunningStats:
         self.clear()
 
     def __add__(self: "RunningStats", other: "RunningStats") -> "RunningStats":
+        s = RunningStats()
         if other.n > 0:
-            s = RunningStats()
             s.m1 = (self.m1 * self.n + other.m1 * other.n) / (self.n + other.n)
+            # TBD: Fix s.m2 and friends
+            # For now, leave at zero.
             s.n = self.n + other.n
-            return s
-        return self
+        else:
+            s = self
+        return s
 
     def clear(self) -> None:
         """Reset for new samples"""
