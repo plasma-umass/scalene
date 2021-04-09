@@ -390,6 +390,7 @@ class Scalene:
         import scalene.replacement_thread_join
         import scalene.replacement_fork
         import scalene.replacement_exit
+        import scalene.replacement_mp_lock
 
         Scalene.__args = cast(ScaleneArguments, arguments)
 
