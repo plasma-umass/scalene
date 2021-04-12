@@ -422,6 +422,9 @@ class ScaleneOutput:
             stats.output_stats(pid, python_alias_dir_name)
             return True
 
+        if len(report_files) == 0:
+            return False
+        
         for fname in report_files:
 
             # If the file was actually a Jupyter (IPython) cell,
