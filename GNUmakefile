@@ -1,7 +1,7 @@
 LIBNAME = scalene
 PYTHON = python3
 PYTHON_SOURCES = scalene/[a-z]*.py
-C_SOURCES = libscalene.cpp include/*.h*
+C_SOURCES = libscalene.cpp get_line_atomic.cpp include/*.h*
 
 .PHONY: black clang-format
 

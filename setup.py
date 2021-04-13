@@ -1,11 +1,19 @@
 from setuptools import setup, find_packages
 from distutils.core import Extension
+import subprocess
+from scalene.scalene_version import scalene_version
 
 from os import path
 
 this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
+
+try:
+    cmd = "make"
+    out = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+except:
+    pass
 
 mmap_hl_spinlock = Extension('get_line_atomic',
                 include_dirs=['.', 'Heap-Layers', 'Heap-Layers/utility'],
@@ -15,7 +23,7 @@ mmap_hl_spinlock = Extension('get_line_atomic',
 
 setup(
     name="scalene",
-    version="1.3.0",
+    version=scalene_version,
     description="Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python",
     keywords="performance memory profiler",
     long_description=long_description,
@@ -47,7 +55,7 @@ setup(
     install_requires=[
         "rich>=9.2.10",
         "cloudpickle>=1.5.0",
-        "gputil",
+        "nvidia-ml-py==11.450.51",
         "numpy"
     ],
     ext_modules=[mmap_hl_spinlock],

@@ -1,5 +1,5 @@
 import sys
-
+import traceback
 
 def main():
     try:
@@ -7,6 +7,7 @@ def main():
         scalene_profiler.Scalene.main()
     except Exception as exc:
         sys.stderr.write("ERROR: Calling scalene main function failed: %s\n" % exc)
+        traceback.print_exc()
         sys.exit(1)
 
 

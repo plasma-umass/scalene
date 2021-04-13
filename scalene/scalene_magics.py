@@ -3,17 +3,13 @@ try:
         Magics,
         magics_class,
         line_magic,
-        cell_magic,
         line_cell_magic,
     )
-    from IPython.core.page import page
     from scalene import scalene_profiler
     from scalene.scalene_arguments import ScaleneArguments
     from typing import Any
-    import os
     import sys
     import tempfile
-    import textwrap
 
     @magics_class
     class ScaleneMagics(Magics):  # type: ignore
@@ -68,7 +64,7 @@ try:
         print(
             "\n".join(
                 textwrap.wrap(
-                    "Scalene extension successfully loaded. Note: Scalene currently only supports CPU profiling inside Jupyter notebooks. For full Scalene profiling, use the command line version."
+                    "Scalene extension successfully loaded. Note: Scalene currently only supports CPU+GPU profiling inside Jupyter notebooks. For full Scalene profiling, use the command line version."
                 )
             )
         )

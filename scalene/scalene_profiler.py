@@ -35,10 +35,9 @@ import tempfile
 import threading
 import time
 import traceback
-import GPUtil
 
 from collections import defaultdict
-from functools import lru_cache, wraps
+from functools import lru_cache
 from signal import Handlers, Signals
 from textwrap import dedent
 from types import CodeType, FrameType
@@ -60,7 +59,8 @@ from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_statistics import *
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_signals import ScaleneSignals
-
+from scalene.scalene_version import scalene_version
+from scalene.scalene_gpu import ScaleneGPU
 
 assert (
     sys.version_info[0] == 3 and sys.version_info[1] >= 6
@@ -126,7 +126,10 @@ class Scalene:
     __args = ScaleneArguments()
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
-
+    __gpu = ScaleneGPU()
+    
+    __output.gpu = __gpu.has_gpu()
+    
     @staticmethod
     def get_original_lock() -> threading.Lock:
         return Scalene.__original_lock()
@@ -168,11 +171,9 @@ class Scalene:
     #
     #   file to communicate the number of malloc/free samples (+ PID)
     __malloc_signal_filename = Filename(
-        "/tmp/scalene-malloc-signal" + str(os.getpid())
+        f"/tmp/scalene-malloc-signal{os.getpid()}"
     )
-    __malloc_lock_filename = Filename(
-        "/tmp/scalene-malloc-lock" + str(os.getpid())
-    )
+    __malloc_lock_filename = Filename(f"/tmp/scalene-malloc-lock{os.getpid()}")
     __malloc_signal_position = 0
     __malloc_lastpos = bytearray(8)
     try:
@@ -207,11 +208,9 @@ class Scalene:
 
     #   file to communicate the number of memcpy samples (+ PID)
     __memcpy_signal_filename = Filename(
-        "/tmp/scalene-memcpy-signal" + str(os.getpid())
+        f"/tmp/scalene-memcpy-signal{os.getpid()}"
     )
-    __memcpy_lock_filename = Filename(
-        "/tmp/scalene-memcpy-lock" + str(os.getpid())
-    )
+    __memcpy_lock_filename = Filename(f"/tmp/scalene-memcpy-lock{os.getpid()}")
     try:
         __memcpy_signal_fd = open(__memcpy_signal_filename, "r")
         os.unlink(__memcpy_signal_fd.name)
@@ -258,12 +257,13 @@ class Scalene:
         cls.__child_pids.clear()
 
     @classmethod
-    def add_child_pid(cls, pid: int):
+    def add_child_pid(cls, pid: int) -> None:
         cls.__child_pids.add(pid)
 
     @classmethod
-    def remove_child_pid(cls, pid: int):
+    def remove_child_pid(cls, pid: int) -> None:
         cls.__child_pids.remove(pid)
+
     # Replacement @profile decorator function.
     # We track which functions - in which files - have been decorated,
     # and only report stats for those.
@@ -390,6 +390,7 @@ class Scalene:
         import scalene.replacement_thread_join
         import scalene.replacement_fork
         import scalene.replacement_exit
+        import scalene.replacement_mp_lock
 
         Scalene.__args = cast(ScaleneArguments, arguments)
 
@@ -416,9 +417,7 @@ class Scalene:
             cmdline = ""
             preface = ""
             # Pass along commands from the invoking command line.
-            cmdline += " --cpu-sampling-rate=" + str(
-                arguments.cpu_sampling_rate
-            )
+            cmdline += f" --cpu-sampling-rate={arguments.cpu_sampling_rate}"
             if arguments.use_virtual_time:
                 cmdline += " --use-virtual-time"
             if arguments.cpu_only:
@@ -436,7 +435,7 @@ class Scalene:
                     )
                     preface += "DYLD_INSERT_LIBRARIES=" + shared_lib
             # Add the --pid field so we can propagate it to the child.
-            cmdline += " --pid=" + str(os.getpid())
+            cmdline += " --pid={os.getpid()}"
             payload = """#!/bin/bash
     echo $$
     %s %s -m scalene %s $@
@@ -465,9 +464,6 @@ class Scalene:
         if program_being_profiled:
             Scalene.__program_being_profiled = Filename(
                 os.path.abspath(program_being_profiled)
-            )
-            Scalene.__program_path = os.path.dirname(
-                Scalene.__program_being_profiled
             )
 
     @staticmethod
@@ -562,18 +558,11 @@ class Scalene:
             cpu_utilization = 1.0
         if cpu_utilization < 0.0:
             cpu_utilization = 0.0
-        # Sample GPU utilization at 1/10th the frequency of CPU
-        # sampling to reduce overhead (it's costly).  We multiply the
-        # elapsed time by a large number to get some moderately random
-        # chunk of the elapsed time.
-        gpu_load = 0.0
-        if int(100000 * elapsed_wallclock) % 10 == 0:
-            try:
-                for g in GPUtil.getGPUs():
-                    gpu_load += g.load
-            except:
-                pass
+        # Sample GPU load as well.
+        gpu_load = Scalene.__gpu.load()
+        gpu_mem_used = Scalene.__gpu.memory_used()
         # Deal with an odd case reported here: https://github.com/plasma-umass/scalene/issues/124
+        # (Note: probably obsolete now that Scalene is using the nvidia wrappers, but just in case...)
         # We don't want to report 'nan', so turn the load into 0.
         if math.isnan(gpu_load):
             gpu_load = 0.0
@@ -747,23 +736,28 @@ class Scalene:
         f = frame
         while "<" in Filename(f.f_code.co_name):
             f = cast(FrameType, frame.f_back)
+            if "<genexpr>" in f.f_code.co_name:
+                return
         if not Scalene.should_trace(f.f_code.co_filename):
             return
         fn_name = Filename(f.f_code.co_name)
         firstline = f.f_code.co_firstlineno
         # Prepend the class, if any
-        while f and Scalene.should_trace(f.f_back.f_code.co_filename):  # type: ignore
+        while f and f.f_back and f.f_back.f_code and Scalene.should_trace(f.f_back.f_code.co_filename):  # type: ignore
             if "self" in f.f_locals:
                 prepend_name = f.f_locals["self"].__class__.__name__
                 if "Scalene" not in prepend_name:
                     fn_name = prepend_name + "." + fn_name
                 break
             if "cls" in f.f_locals:
-                prepend_name = f.f_locals["cls"].__name__
-                if "Scalene" in prepend_name:
+                try:
+                    prepend_name = f.f_locals["cls"].__name__
+                    if "Scalene" in prepend_name:
+                        break
+                    fn_name = prepend_name + "." + fn_name
                     break
-                fn_name = prepend_name + "." + fn_name
-                break
+                except KeyError:
+                    pass
             f = cast(FrameType, f.f_back)
 
         stats.function_map[fname][lineno] = fn_name
@@ -812,7 +806,6 @@ class Scalene:
         curr_pid = os.getpid()
         # Process the input array from where we left off reading last time.
         arr: List[Tuple[int, str, float, float, str]] = []
-        buf = bytearray(Scalene.MAX_BUFSIZE)
         try:
             buf = bytearray(Scalene.MAX_BUFSIZE)
 
@@ -978,6 +971,8 @@ class Scalene:
         """
         Scalene.__is_child = True
         Scalene.clear_metrics()
+        if Scalene.__gpu.has_gpu():
+            Scalene.__gpu.nvml_reinit()
         # Note-- __parent_pid of the topmost process is its own pid
         Scalene.__pid = Scalene.__parent_pid
         signal.signal(
@@ -1051,16 +1046,18 @@ class Scalene:
     @lru_cache(None)
     def should_trace(filename: str) -> bool:
         """Return true if the filename is one we should trace."""
-        if "site-packages" in filename or "/lib/python" in filename:
-            # Don't profile Python internals.
+        if not filename:
             return False
         # If the @profile decorator has been used,
         # we restrict profiling to files containing decorated functions.
         if Scalene.__files_to_profile:
             return filename in Scalene.__files_to_profile
         # Generic handling follows (when no @profile decorator has been used).
-        if not filename:
-            return False
+        profile_only_list = Scalene.__args.profile_only.split(",")
+        if "site-packages" in filename or "/lib/python" in filename:
+            # Don't profile Python internals by default.
+            if not Scalene.__args.profile_all:
+                return False
         if filename[0] == "<":
             if "<ipython" in filename:
                 # Profiling code created in a Jupyter cell:
@@ -1074,7 +1071,6 @@ class Scalene:
                 if result:
                     # Write the cell's contents into the file.
                     with open(filename, "w+") as f:
-                        # with open(str(frame.f_code.co_filename), "w+") as f:
                         f.write(
                             get_ipython().history_manager.input_hist_raw[
                                 int(result.group(1))
@@ -1084,21 +1080,26 @@ class Scalene:
             else:
                 # Not a real file and not a function created in Jupyter.
                 return False
-        if (
-            "scalene/"
-            in filename
-            # or "scalene/__main__.py" in filename
-        ):
+        if "scalene/scalene" in filename:
             # Don't profile the profiler.
             return False
-        if not Scalene.__args.profile_only in filename:
+        found_in_profile_only = False
+        for prof in profile_only_list:
+            if prof in filename:
+                found_in_profile_only = True
+                break
+
+        if not found_in_profile_only:
             return False
         if Scalene.__args.profile_all:
             # Profile everything else, except for "only" choices.
-            if Scalene.__args.profile_only in filename:
-                return True
-            else:
+            found_in_profile_only = False
+            for prof in profile_only_list:
+                if prof in filename:
+                    return True
+            if profile_only_list and not found_in_profile_only:
                 return False
+            return True
         # Profile anything in the program's directory or a child directory,
         # but nothing else, unless otherwise specified.
         filename = os.path.abspath(filename)
@@ -1211,8 +1212,9 @@ class Scalene:
             pass
         defaults = ScaleneArguments()
         usage = dedent(
-            """Scalene: a high-precision CPU and memory profiler.
+            f"""Scalene: a high-precision CPU and memory profiler, version {scalene_version}
 https://github.com/plasma-umass/scalene
+
 
 command-line:
    % scalene [options] yourprogram.py
@@ -1246,6 +1248,13 @@ for the process ID that Scalene reports. For example:
             allow_abbrev=False,
         )
         parser.add_argument(
+            "--version",
+            dest="version",
+            action="store_const",
+            const=True,
+            help="prints the version number for this release of Scalene and exits",
+        )
+        parser.add_argument(
             "--outfile",
             type=str,
             default=defaults.outfile,
@@ -1269,17 +1278,13 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.reduced_profile,
-            help="generate a reduced profile, with non-zero lines only (default: "
-            + str(defaults.reduced_profile)
-            + ")",
+            help=f"generate a reduced profile, with non-zero lines only (default: {defaults.reduced_profile})",
         )
         parser.add_argument(
             "--profile-interval",
             type=float,
             default=defaults.profile_interval,
-            help="output profiles every so many seconds (default: "
-            + str(defaults.profile_interval)
-            + ")",
+            help=f"output profiles every so many seconds (default: {defaults.profile_interval})",
         )
         parser.add_argument(
             "--cpu-only",
@@ -1310,7 +1315,7 @@ for the process ID that Scalene reports. For example:
             dest="profile_only",
             type=str,
             default=defaults.profile_only,
-            help="profile only code in files that contain the given string (default: "
+            help="profile only code in files matching the given strings, separated by commas (default: "
             + (
                 "no restrictions"
                 if not defaults.profile_only
@@ -1324,36 +1329,36 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.use_virtual_time,
-            help="measure only CPU time, not time spent in I/O or blocking (default: "
-            + str(defaults.use_virtual_time)
-            + ")",
+            help=f"measure only CPU time, not time spent in I/O or blocking (default: {defaults.use_virtual_time})",
         )
         parser.add_argument(
             "--cpu-percent-threshold",
             dest="cpu_percent_threshold",
             type=int,
             default=defaults.cpu_percent_threshold,
-            help="only report profiles with at least this percent of CPU time (default: "
-            + str(defaults.cpu_percent_threshold)
-            + "%%)",
+            help=f"only report profiles with at least this percent of CPU time (default: {defaults.cpu_percent_threshold}%%)",
         )
         parser.add_argument(
             "--cpu-sampling-rate",
             dest="cpu_sampling_rate",
             type=float,
             default=defaults.cpu_sampling_rate,
-            help="CPU sampling rate (default: every "
-            + str(defaults.cpu_sampling_rate)
-            + "s)",
+            help=f"CPU sampling rate (default: every {defaults.cpu_sampling_rate}s)",
         )
         parser.add_argument(
             "--malloc-threshold",
             dest="malloc_threshold",
             type=int,
             default=defaults.malloc_threshold,
-            help="only report profiles with at least this many allocations (default: "
-            + str(defaults.malloc_threshold)
-            + ")",
+            help=f"only report profiles with at least this many allocations (default: {defaults.malloc_threshold})",
+        )
+
+        parser.add_argument(
+            "--program-path",
+            dest="program_path",
+            type=str,
+            default="",
+            help="The directory that the code to profile is located in (default: the directory that the profiled program is in)"
         )
         # the PID of the profiling process (for internal use only)
         parser.add_argument(
@@ -1366,6 +1371,9 @@ for the process ID that Scalene reports. For example:
         # print the usage information and bail.
         if len(sys.argv) == 1:
             parser.print_help(sys.stderr)
+            sys.exit(-1)
+        if args.version:
+            print(f"Scalene version {scalene_version}")
             sys.exit(-1)
         return args, left
 
@@ -1418,19 +1426,19 @@ for the process ID that Scalene reports. For example:
                 result = subprocess.Popen(
                     new_args, close_fds=True, shell=False
                 )
-                # If running in the background, print the PID.
-                if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
-                    # In the background.
-                    print("Scalene now profiling process " + str(result.pid))
-                    print(
-                        "  to disable profiling: python3 -m scalene.profile --off --pid "
-                        + str(result.pid)
-                    )
-                    print(
-                        "  to resume profiling:  python3 -m scalene.profile --on  --pid "
-                        + str(result.pid)
-                    )
-
+                try:
+                    # If running in the background, print the PID.
+                    if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
+                        # In the background.
+                        print(f"Scalene now profiling process {result.pid}")
+                        print(
+                            f"  to disable profiling: python3 -m scalene.profile --off --pid {result.pid}"
+                        )
+                        print(
+                            f"  to resume profiling:  python3 -m scalene.profile --on  --pid {result.pid}"
+                        )
+                except:
+                    pass
                 result.wait()
                 if result.returncode < 0:
                     print(
@@ -1460,17 +1468,18 @@ for the process ID that Scalene reports. For example:
                     new_args, close_fds=True, shell=False
                 )
                 # If running in the background, print the PID.
-                if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
-                    # In the background.
-                    print("Scalene now profiling process " + str(result.pid))
-                    print(
-                        "  to disable profiling: python3 -m scalene.profile --off --pid "
-                        + str(result.pid)
-                    )
-                    print(
-                        "  to resume profiling:  python3 -m scalene.profile --on  --pid "
-                        + str(result.pid)
-                    )
+                try:
+                    if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
+                        # In the background.
+                        print(f"Scalene now profiling process {result.pid}")
+                        print(
+                            f"  to disable profiling: python3 -m scalene.profile --off --pid {result.pid}"
+                        )
+                        print(
+                            f"  to resume profiling:  python3 -m scalene.profile --on  --pid {result.pid}"
+                        )
+                except:
+                    pass
                 result.wait()
                 if result.returncode < 0:
                     print(
@@ -1548,18 +1557,19 @@ for the process ID that Scalene reports. For example:
 
         did_preload = Scalene.setup_preload(args)
         if not did_preload:
-            # If running in the background, print the PID.
-            if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
-                # In the background.
-                print("Scalene now profiling process " + str(os.getpid()))
-                print(
-                    "  to disable profiling: python3 -m scalene.profile --off --pid "
-                    + str(os.getpid())
-                )
-                print(
-                    "  to resume profiling:  python3 -m scalene.profile --on  --pid "
-                    + str(os.getpid())
-                )
+            try:
+                # If running in the background, print the PID.
+                if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
+                    # In the background.
+                    print(f"Scalene now profiling process {os.getpid()}")
+                    print(
+                        f"  to disable profiling: python3 -m scalene.profile --off --pid {os.getpid()}"
+                    )
+                    print(
+                        f"  to resume profiling:  python3 -m scalene.profile --on  --pid {os.getpid()}"
+                    )
+            except:
+                pass
         Scalene.__stats.clear_all()
         sys.argv = left
         try:
@@ -1585,7 +1595,10 @@ for the process ID that Scalene reports. For example:
                         os.path.abspath(sys.argv[0])
                     )
                     sys.path.insert(0, program_path)
-                    Scalene.__program_path = program_path
+                    if len(args.program_path) > 0:
+                        Scalene.__program_path = os.path.abspath(args.program_path)
+                    else:
+                        Scalene.__program_path = program_path
                     # Grab local and global variables.
                     import __main__
 

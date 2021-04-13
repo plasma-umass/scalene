@@ -17,6 +17,8 @@ class ScaleneArguments(argparse.Namespace):
         self.profile_interval = float("inf")
         # what function pathnames must contain to be output during profiling
         self.profile_only = ""
+        # The root of the directory that has the files that should be profiled
+        self.program_path = ""
         # reduced profile?
         self.reduced_profile = False
         # do we use virtual time or wallclock time (capturing system time and blocking)?

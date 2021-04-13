@@ -2,12 +2,15 @@
 
 # scalene: a high-performance CPU, GPU and memory profiler for Python
 
-by [Emery Berger](https://emeryberger.com)
+by [Emery Berger](https://emeryberger.com) and [Sam Stern](https://samstern.me/)
+
+[Scalene Discord channel](https://discord.gg/6Dtaf6HW3m)
 
 [![PyPI Latest Release](https://img.shields.io/pypi/v/scalene.svg)](https://pypi.org/project/scalene/)[![Downloads](https://pepy.tech/badge/scalene)](https://pepy.tech/project/scalene) [![Downloads](https://pepy.tech/badge/scalene/month)](https://pepy.tech/project/scalene) ![Python versions](https://img.shields.io/pypi/pyversions/scalene.svg?style=flat-square) ![License](https://img.shields.io/github/license/plasma-umass/scalene) [![Twitter Follow](https://img.shields.io/twitter/follow/emeryberger.svg?style=social)](https://twitter.com/emeryberger)
 ------------
-[中文版本 (Chinese version)](docs/README_CN.md)
 
+ [中文版本 (Chinese version)](docs/README_CN.md)
+ 
 # About Scalene
 
 ```
@@ -206,3 +209,9 @@ If you use Scalene to successfully debug a performance problem, please [add a co
 # Acknowledgements
 
 Logo created by [Sophia Berger](https://www.linkedin.com/in/sophia-berger/).
+
+This material is based upon work supported by the National Science
+Foundation under Grant No. 1955610. Any opinions, findings, and
+conclusions or recommendations expressed in this material are those of
+the author(s) and do not necessarily reflect the views of the National
+Science Foundation.

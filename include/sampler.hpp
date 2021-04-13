@@ -2,7 +2,6 @@
 
 #include <unistd.h>
 
-#include <chrono>
 #include <cmath>
 #include <iostream>
 #include <random>
@@ -34,12 +33,10 @@ class Sampler {
   uint64_t _next;
 #if !SAMPLER_DETERMINISTIC
 #if !SAMPLER_LOWDISCREPANCY
-  std::mt19937_64 rng{1234567890UL + (uint64_t)getpid() +
+  std::mt19937_64 rng{1234567890UL + (uint64_t)getpid() + (uint64_t)this +
                       (uint64_t)pthread_self()};
 #else
-  //  LowDiscrepancy rng { UINT64_MAX / 2 }; // 1234567890UL + (uint64_t)
-  //  getpid() + (uint64_t) pthread_self() };
-  LowDiscrepancy rng{1234567890UL + (uint64_t)getpid() +
+  LowDiscrepancy rng{1234567890UL + (uint64_t)getpid() + (uint64_t)this +
                      (uint64_t)pthread_self()};
 #endif
   std::geometric_distribution<uint64_t> geom{SAMPLE_PROBABILITY};
@@ -48,10 +45,11 @@ class Sampler {
  public:
   Sampler() {
 #if !SAMPLER_DETERMINISTIC
-    _next = geom(rng);  // SAMPLE_RATE;
+    _next = geom(rng);
 #else
     _next = SAMPLE_RATE;
 #endif
+    // tprintf::tprintf("sampler init: @\n", _next);
     _lastSampleSize = _next;
   }
 

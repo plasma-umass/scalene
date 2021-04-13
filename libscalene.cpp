@@ -8,12 +8,11 @@
 #include <unistd.h>
 
 #include "common.hpp"
+#include "heapredirect.h"
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
 #include "stprintf.h"
 #include "tprintf.h"
-#include "heapredirect.hpp"
-#include "sysmallocheap.hpp"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
@@ -22,7 +21,8 @@
 const uint64_t MallocSamplingRate = 1048576ULL;
 const uint64_t MemcpySamplingRate = MallocSamplingRate * 2ULL;
 
-class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, SysMallocHeap>> {
+class CustomHeapType : public HL::ThreadSpecificHeap<
+                           SampleHeap<MallocSamplingRate, HL::SysMallocHeap>> {
  public:
   void lock() {}
   void unlock() {}

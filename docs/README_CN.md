@@ -1,204 +1,209 @@
-![scalene](https://github.com/emeryberger/scalene/raw/master/docs/scalene-image.png)
+![scalene](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-image.png)
 
-# Scalene: 一个 Python 的高性能 CPU 内存分析器
+# Scalene: 一个 Python 的高性能 CPU，GPU和内存分析器
 
 by [Emery Berger](https://emeryberger.com)
 
-------------
+[Scalene Discord channel](https://discord.gg/6Dtaf6HW3m)
 
+[![PyPI Latest Release](https://img.shields.io/pypi/v/scalene.svg)](https://pypi.org/project/scalene/)[![Downloads](https://pepy.tech/badge/scalene)](https://pepy.tech/project/scalene) [![Downloads](https://pepy.tech/badge/scalene/month)](https://pepy.tech/project/scalene) ![Python versions](https://img.shields.io/pypi/pyversions/scalene.svg?style=flat-square) ![License](https://img.shields.io/github/license/plasma-umass/scalene) [![Twitter Follow](https://img.shields.io/twitter/follow/emeryberger.svg?style=social)](https://twitter.com/emeryberger)
+------------
 # 关于 Scalene
 
-Scalene 是一个 Python 的高性能 CPU *和* 内存分析器，它可以做到很多其他Python分析器不能做到的事情。它在能提供更多详细信息的同时，比其他的分析器要快几个数量级。
+```
+  % pip install -U scalene
+```
 
-1. Scalene 是 _很快的_。 它使用采样的方式而不是直接测量或者依靠Python的追踪工具。它的开销一般不超过10-20% (通常更少)。
-1. Scalene 是 _精确的_。和大部分其他的Python分析器不同，Scalene 在 _行级别_ 下执行CPU分析，在你的程序中指出对应代码行的执行时间。和大多数分析器所返回的功能级分析结果相比，这种程度的细节可能会更有用。
-1. Scalane 可以区分在Python中运行的时间和在native代码(包括库)中花费的时间。大多数的Python程序员并不会去优化native代码(通常在Python实现中或者所依赖的外部库)，所以区分这两种运行时间，有助于开发者能够将优化的工作专注于他们能够实际改善的代码上。
-1. Scalene 可以 _分析内存使用情况_。除了追踪CPU使用情况，Scalene还指出对应代码行的内存增长。这是通过指定内存分配器来实现的。
-1. **NEW!** Scalene 会生成 _每行_ 的内存分析，以此更容易的追踪内存泄露。
-1. **NEW!** Scalene 会分析 _内存拷贝量_, 从而易于发现意外的内存拷贝。特别是因为跨越Python和底层库的边界导致的意外 (例如：意外的把 `numpy` 数组转化成了Python数组，反之亦然)。
+Scalene 是一个 Python 的高性能 CPU, GPU *和* 内存分析器，它可以做到很多其他Python分析器不能做到的事情。它在能提供更多详细信息的同时，比其他的分析器要快几个数量级。
 
-## 安装
+### 快速且精确
+
+- Scalene 是 _很快的_。 它使用采样的方式而不是直接测量或者依靠Python的追踪工具。它的开销一般不超过10-20% (通常更少)。
+- Scalene 是 _精确的_。和大部分其他的Python分析器不同，Scalene 在 _行级别_ 下执行CPU分析，在你的程序中指出对应代码行的执行时间。和大多数分析器所返回的函数级分析结果相比，这种程度的细节可能会更有用。
+
+### CPU 分析
+
+- Scalene **将在 Python 中和本地代码中花费的时间分开** (包括库)。 大部分的 Python 程序员并不会去优化本地代码 (通常是在 Python 实现中或者外部库)， 所以这能帮开发者专注于他们实际上能够改进的代码。
+- Scalene 用红色 **高亮热点** 代码 (占用了大量 CPU 时间和内存分配的), 使他们更容易被发现。
+- Scalene 还会分离出 **系统时间**, 使查找 I/O 瓶颈变得容易。
+
+### GPU 分析
+
+- Scalene 上报 **GPU 时间** (目前仅限于基于nVidia的系统)。
+
+### Memory 分析
+
+- Scalene **分析内存使用**。 除了跟踪 CPU 使用， Scalene 也会指出需要为内存增长负责的特定代码行。 它是通过引用专门的内存分配器来实现的。
+- Scalene 分理出 **Python代码 与 本地代码** 内存消耗的百分比。
+- Scalene 产生 **_按行的_ 内存分析**.
+- Scalene **识别可能的内存泄漏**.
+- Scalene **分析 _内存拷贝量_**, 从而易于发现意外的内存拷贝。特别是因为跨越Python和底层库的边界导致的意外 (例如：意外的把 `numpy` 数组转化成了Python数组，反之亦然)。
+
+
+### 其他特性
+
+- Scalene 可以生成 **更少的分析** (通过 `--reduced-profile`) 只上报那些小号超过 1% CPU 或者执行至少100个分配的代码行。
+- Scalene 支持通过 `@profile` 装饰器只对特定函数进行分析。
+- 当 Scalene 在对后台启动(通过 `&`)的程序进行分析时， 你可以 **暂停和恢复分析**。
+
+# 对比其他的分析器
+
+## 性能和特性
+
+下表将各种分析器的 **性能和特性** 跟 Scalene 进行比较。
+
+![Performance and feature comparison](https://github.com/plasma-umass/scalene/blob/master/images/profiler-comparison.png)
+
+**函数粒度的分析器** 只上报整个函数的信息， 而 **行粒度的分析器** (像 Scalene) 可以上报每一行的信息。
+
+- **Time** is either real (wall-clock time), CPU-only, or both.
+- **Efficiency**: :green_circle: = 快, :yellow_circle: = 较慢, :red_circle: = 最慢
+- **Mem Cons.**: 跟踪内存消耗
+- **Unmodified Code**: 适用于未修改的代码
+- **Threads**: 适用于线程
+- **Python/C**: 分别分析 Python/C 的时间和内存消耗
+- **Mem Trend**: 显示一段时间内的内存使用趋势
+- **Copy Vol.**: 上报 _内存拷贝量_, 内存复制的 MB/s
+
+## 输出
+
+Scalene 可以为正在被分析的程序打印带注释的源码
+(通过 `--html` 选项打印文本或者HTML) 以及他在同一目录下使用的任何模块 (你可以选择 `--profile-all` 分析所有，也可以使用 `--cpu-percent-threshold` ，只分析 CPU 时间)。这里有一个代码片段
+`pystone.py`.
+
+![Example profile](https://github.com/plasma-umass/scalene/blob/master/images/sample-profile-pystone.png)
+
+* **Memory usage at the top**: 通过 "sparklines" 可视化， 分析的代码在运行期间的内存占用。 Scalene 是一个统计的分析器， 意味着它使用采样，所以就肯定会有差异发生。一个运行时间更长的程序可以分配和释放更多的内存，会获得更稳定的结果。
+* **"CPU % Python"**: Python 代码占用的时间。
+* **"CPU % Native"**: 本地代码占用的时间 (例如 C/C++ 写的库)。
+* **"Mem % Python"**: 相对于非 Python 代码(例如 C/C++ 写的库)，Python 代码的内存分配。
+* **"Net (MB)"**: 正数代表内存分配的净值，负数代表内存回收的净值。
+* **"Memory usage over time / %"**: 通过 "sparklines" 可视化， 表示这些代码行在程序运行时产生的内存消耗，以及此行内存活动总的百分比。
+* **"Copy (MB/s)"**: 复制的 MB/s (参见 "关于 Scalene").
+
+## Using `scalene`
+
+下面的命令是让 Scalene 执行提供的示例程序。
+
+```
+  % scalene test/testme.py
+```
+
+**NEW**: Scalene 可以在 Jupyter notebooks 内部工作了。
+
+行模式:
+
+```
+  %scrun [options] statement
+```
+
+Cell模式:
+
+```
+  %%scalene [options]
+  code...
+  code...
+```
+
+运行时加上 `--help`，来查看所有的选项。
+
+    % scalene --help
+     usage: scalene [-h] [--outfile OUTFILE] [--html] [--reduced-profile]
+                    [--profile-interval PROFILE_INTERVAL] [--cpu-only]
+                    [--profile-all] [--profile-only PROFILE_ONLY]
+                    [--use-virtual-time]
+                    [--cpu-percent-threshold CPU_PERCENT_THRESHOLD]
+                    [--cpu-sampling-rate CPU_SAMPLING_RATE]
+                    [--malloc-threshold MALLOC_THRESHOLD]
+     
+     Scalene: a high-precision CPU and memory profiler.
+     https://github.com/plasma-umass/scalene
+     
+     command-line:
+        % scalene [options] yourprogram.py
+     or
+        % python3 -m scalene [options] yourprogram.py
+     
+     in Jupyter, line mode:
+        %scrun [options] statement
+     
+     in Jupyter, cell mode:
+        %%scalene [options]
+        code...
+        code...
+     
+     optional arguments:
+       -h, --help            show this help message and exit
+       --outfile OUTFILE     file to hold profiler output (default: stdout)
+       --html                output as HTML (default: text)
+       --reduced-profile     generate a reduced profile, with non-zero lines only (default: False)
+       --profile-interval PROFILE_INTERVAL
+                             output profiles every so many seconds (default: inf)
+       --cpu-only            only profile CPU time (default: profile CPU, memory, and copying)
+       --profile-all         profile all executed code, not just the target program (default: only the target program)
+       --profile-only PROFILE_ONLY
+                             profile only code in files that contain the given string (default: no restrictions)
+       --use-virtual-time    measure only CPU time, not time spent in I/O or blocking (default: False)
+       --cpu-percent-threshold CPU_PERCENT_THRESHOLD
+                             only report profiles with at least this percent of CPU time (default: 1%)
+       --cpu-sampling-rate CPU_SAMPLING_RATE
+                             CPU sampling rate (default: every 0.01s)
+       --malloc-threshold MALLOC_THRESHOLD
+                             only report profiles with at least this many allocations (default: 100)
+     
+     When running Scalene in the background, you can suspend/resume profiling
+     for the process ID that Scalene reports. For example:
+     
+        % python3 -m scalene [options] yourprogram.py &
+      Scalene now profiling process 12345
+        to suspend profiling: python3 -m scalene.profile --off --pid 12345
+        to resume profiling:  python3 -m scalene.profile --on  --pid 12345
+
+
+## Installation
+
+### pip (Mac OS X, Linux, and Windows WSL2)
 
 Scalene 通过 pip 包的形式进行分发，可以运行在Mac OS X和Linux平台(包括在[Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)中运行的Ubuntu)。 
 
+
 你可以通过下面的方式安装：
 ```
-  % pip install scalene
+  % pip install -U scalene
 ```
 
 或者
 ```
-  % python -m pip install scalene
+  % python3 -m pip install -U scalene
 ```
 
-_注意_: 现在这样安装Scalene，是不会安装内存分析的库，所以你只能用它来执行CPU的分析。如果要使用它的内存分析能力，你需要下载这个代码仓库。
+### Homebrew (Mac OS X)
 
-**NEW**: 你现在可以通过以下命令，在 Mac OS X 上使用 brew 安装内存分析的部分：
-
-```
-  % brew tap emeryberger/scalene
-  % brew install --head libscalene
-```
-
-这将会安装一个你可以使用的 `scalene` 脚本（下面会提到）。
-
-# 使用
-
-下面的命令会让 Scalene 在提供的示例程序上执行 行级别的CPU分析。
+除了使用 `pip`，你可以使用 Homebrew 从这个仓库安装当前版本的 Scalene:
 
 ```
-  % scalene test/testme.py
+  % brew tap plasma-umass/scalene
+  % brew install --head plasma-umass/scalene/libscalene
 ```
 
-如果你使用Homebrew安装 Scalene 库，你只需要执行 `scalene` 就可以执行行级别的CPU和内存分析：
+### ArchLinux
 
-```
-  % scalene test/testme.py
-```
-
-否则，你需要运行 `make` 来先构建一个指定的内存分配器：
-
-```
-  % make
-```
-
-在 Mac OS X 系统上进行分析(不使用Homebrew安装)：
-```
-  % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene test/testme.py
-``` 
-
-在Linux系统上分析：
-```
-  % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc scalene test/testme.py
-``` 
-
-执行时增加 `--help` 来查看全部配置：
-
-    % scalene --help
-    usage: scalene [-h] [-o OUTFILE] [--profile-interval PROFILE_INTERVAL]
-                   [--wallclock]
-                   prog
-    
-    Scalene: a high-precision CPU and memory profiler.
-                https://github.com/emeryberger/Scalene
-    
-                    for CPU profiling only:
-                % scalene yourprogram.py
-                    for CPU and memory profiling (Mac OS X):
-                % DYLD_INSERT_LIBRARIES=$PWD/libscalene.dylib PYTHONMALLOC=malloc scalene yourprogram.py
-                    for CPU and memory profiling (Linux):
-                % LD_PRELOAD=$PWD/libscalene.so PYTHONMALLOC=malloc scalene yourprogram.py
-    
-    positional arguments:
-      prog                  program to be profiled
-    
-    optional arguments:
-      -h, --help            show this help message and exit
-      -o OUTFILE, --outfile OUTFILE
-                            file to hold profiler output (default: stdout)
-      --profile-interval PROFILE_INTERVAL
-                            output profiles every so many seconds.
-      --wallclock           use wall clock time (default: virtual time)
-
-# 对比其他分析器
-
-## 性能和功能
-
-下面的表格把 scalene 和不同分析器的**性能**做了比较。运行的示例程序  (`benchmarks/julia1_nopil.py`) 来自于 Gorelick 和 Ozsvald 的 _《高性能Python编程》_。所有的这些结果都是在 2016款 MacBook Pro上运行的。
+**NEW**: 通过 [AUR
+package](https://aur.archlinux.org/packages/python-scalene-git/) 你可以在 Arch Linux 上安装 Scalene。使用你最喜欢的 AUR helper，或者手动下载 `PKGBUILD` 然后运行 `makepkg -cirs` 来构建。 注意，这会把
+`libscalene.so` 放在 `/usr/lib`下; modify the below usage instructions accordingly.
 
 
-| Profiler                           | Time | Slowdown |
-| :--- | ---: | ---: |
-| _original program_ | 6.71s | 1.0x |
-|                    |     |        |
-| `cProfile`      | 11.04s  | 1.65x  |
-| `Profile`       | 202.26s | 30.14x |
-| `pyinstrument`  | 9.83s   | 1.46x  |
-| `line_profiler` | 78.0s   | 11.62x |
-| `pprofile` _(deterministic)_ | 403.67s | 60.16x |
-| `pprofile` _(statistical)_ | 7.47s | 1.11x |
-| `yappi` _(CPU)_ | 127.53s | 19.01x |
-| `yappi` _(wallclock)_ | 21.45s | 3.2x |
-| `py-spy` | 7.25s | 1.08x |
-| `memory_profiler`     | _> 2 hours_ | **>1000x**|
-|               |     |        |                    | |  | |
-| `scalene` _(CPU only)_     | 6.98s | **1.04x** |
-| `scalene` _(CPU + memory)_ | 7.68s | **1.14x** |
+# 技术信息
 
-这个表格是其他分析器 vs. Scalene 的**功能**比较。
+关于 Scalene 的技术细节，请看下面的论文: [Scalene: Scripting-Language Aware Profiling for Python](https://github.com/plasma-umass/scalene/raw/master/scalene-paper.pdf) ([arXiv link](https://arxiv.org/abs/2006.03879)).
 
-| Profiler | Line-level?    | CPU? | Wall clock vs. CPU time? | Python vs. native? | Memory? | Unmodified code? | Threads? |
-| ---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `cProfile`                   |   | ✔ | wall clock  |   |   | ✔ |   |
-| `Profile`                    |   | ✔ | CPU time    |   |   | ✔ |   |
-| `pyinstrument`               |   | ✔ | wall clock  |   |   | ✔ |   |
-| `line_profiler`              | ✔ | ✔ | wall clock  |   |   |   |   |
-| `pprofile` _(deterministic)_ | ✔ | ✔ | wall clock  |   |   | ✔ | ✔ | 
-| `pprofile` _(statistical)_   | ✔ | ✔ | wall clock  |   |   | ✔ | ✔ |
-| `yappi` _(CPU)_              |   | ✔ | CPU time    |   |   | ✔ | ✔ |
-| `yappi` _(wallclock)_        |   | ✔ | wall clock  |   |   | ✔ | ✔ |
-| `py-spy`                     | ✔ | ✔ | **both**    |   |   | ✔ | ✔ |
-| `memory_profiler`            | ✔ |   |             |   | ✔ |   |   |
-|                              |   |   |             |   |   |   |   |
-| `scalene` _(CPU only)_       | ✔ | ✔ | **both**    | ✔ |   | ✔ | ✔ |
-| `scalene` _(CPU + memory)_   | ✔ | ✔ | **both**    | ✔ | ✔ | ✔ | ✔ |
+# 成功案例
 
-
-## 输出
-
-Scalene 打印被分析程序中带注释的源代码，以及程序在同目录和子目录使用到的任何模块。下面是一个来自 pystone.py `pystone.py` 的片段，只使用了CPU分析：
-
-```
-    benchmarks/pystone.py: % of CPU time = 100.00% out of   3.66s.
-          	 |     CPU % |     CPU % |   
-      Line	 |  (Python) |  (native) |  [benchmarks/pystone.py]
-    --------------------------------------------------------------------------------
-    [... lines omitted ...]
-       137	 |     0.27% |     0.14% | def Proc1(PtrParIn):
-       138	 |     1.37% |     0.11% |     PtrParIn.PtrComp = NextRecord = PtrGlb.copy()
-       139	 |     0.27% |     0.22% |     PtrParIn.IntComp = 5
-       140	 |     1.37% |     0.77% |     NextRecord.IntComp = PtrParIn.IntComp
-       141	 |     2.47% |     0.93% |     NextRecord.PtrComp = PtrParIn.PtrComp
-       142	 |     1.92% |     0.78% |     NextRecord.PtrComp = Proc3(NextRecord.PtrComp)
-       143	 |     0.27% |     0.17% |     if NextRecord.Discr == Ident1:
-       144	 |     0.82% |     0.30% |         NextRecord.IntComp = 6
-       145	 |     2.19% |     0.79% |         NextRecord.EnumComp = Proc6(PtrParIn.EnumComp)
-       146	 |     1.10% |     0.39% |         NextRecord.PtrComp = PtrGlb.PtrComp
-       147	 |     0.82% |     0.06% |         NextRecord.IntComp = Proc7(NextRecord.IntComp, 10)
-       148	 |           |           |     else:
-       149	 |           |           |         PtrParIn = NextRecord.copy()
-       150	 |     0.82% |     0.32% |     NextRecord.PtrComp = None
-       151	 |           |           |     return PtrParIn
-```
-
-下面是一个启用了内存分析的示例，运行的是Julia的基准测试。第一行是一个“sparkline”，总结了一段时间内的内存消耗。
-
-```
-    Memory usage: ▁▁▄▇█▇▇▇█▇█▇█▇█▇█▇▇▇▇█▇▇█▇█▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇█ (max: 105.73MB)
-    benchmarks/julia1_nopil.py: % of CPU time = 100.00% out of   9.11s.
-          	 |     CPU % |     CPU % | Avg memory  | Memory      | 
-      Line	 |  (Python) |  (native) | growth (MB) | usage (%)   | [benchmarks/julia1_nopil.py]
-    --------------------------------------------------------------------------------
-         1	 |           |           |             |             | import sys
-    [... lines omitted ...]
-        30	 |           |           |             |             | def calculate_z_serial_purepython(maxiter, zs, cs):
-        31	 |           |           |             |             |     """Calculate output list using Julia update rule"""
-        32	 |           |           |          18 |       0.74% |     output = [0] * len(zs)
-        33	 |     0.44% |     0.06% |          16 |       1.32% |     for i in range(len(zs)):
-        34	 |           |           |             |             |         n = 0
-        35	 |     0.22% |     0.04% |         -16 |             |         z = zs[i]
-        36	 |     0.22% |     0.07% |             |             |         c = cs[i]
-        37	 |    26.12% |     5.57% |             |             |         while abs(z) < 2 and n < maxiter:
-        38	 |    36.04% |     7.74% |          16 |      85.09% |             z = z * z + c
-        39	 |    12.01% |     2.70% |         -16 |       3.96% |             n += 1
-        40	 |     0.33% |     0.10% |             |             |         output[i] = n
-        41	 |           |           |             |             |     return output
-        42	 |           |           |             |             | 
-```
-
-正的内存数代表内存的分配量(以MB为单位)，负的内存数代表内存的回收量。
-内存的使用率代表特定行中总内存分配的活动。
+如果你成功使用 Scalene 调试性能问题， 请 [在这个 issue 下增加评论](https://github.com/plasma-umass/scalene/issues/58)!
 
 # 致谢
 
-Logo由 [Sophia Berger](https://www.linkedin.com/in/sophia-berger/) 创作。
+Logo 由 [Sophia Berger](https://www.linkedin.com/in/sophia-berger/) 创作。
+
+本材料基于美国国家科学基金会在1955610资助下的支持。
+本材料中表达的任何观点，发现，结论或建议均为作者的个人观点，并不一定反映国家科学的观点。 
