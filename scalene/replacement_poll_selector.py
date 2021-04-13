@@ -26,7 +26,7 @@ def replacement_poll_selector(scalene: Scalene) -> None:
                 scalene.set_thread_sleeping(tident)
                 selected = super().select(interval)
                 scalene.reset_thread_sleeping(tident)
-                if selected:
+                if selected or timeout == 0:
                     return selected
                 end_time = scalene.get_wallclock_time()
                 if timeout and timeout != -1:
