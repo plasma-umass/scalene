@@ -111,20 +111,22 @@ class ScaleneOutput:
 
         if False:
             # Currently disabled; possibly use in another column?
-            # Correct for number of samples
+            # Normalize by number of samples ("net *average*")
             for bytei in stats.memory_malloc_count[fname][
                 line_no
             ]:  # type : ignore
-                n_malloc_mb /= stats.memory_malloc_count[fname][line_no][bytei]
-                n_python_malloc_mb /= stats.memory_malloc_count[fname][
-                    line_no
-                ][bytei]
+                count = stats.memory_malloc_count[fname][line_no][bytei]
+                if count > 0:
+                    n_malloc_mb /= count
+                    n_python_malloc_mb /= count
             for bytei in stats.memory_free_count[fname][line_no]:
-                n_free_mb /= stats.memory_free_count[fname][line_no][bytei]
+                count = stats.memory_free_count[fname][line_no][bytei]
+                if count > 0:
+                    n_free_mb /= count
 
         n_growth_mb = n_malloc_mb - n_free_mb
-        if -1 < n_growth_mb < 0:
-            # Don't print out "-0".
+        if -1 < n_growth_mb < 1:
+            # Don't print out "-0" or anything below 1.
             n_growth_mb = 0
 
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
@@ -154,7 +156,7 @@ class ScaleneOutput:
             n_growth_mem_str: str = (
                 ""
                 if (not n_growth_mb and not n_usage_fraction)
-                else f"{n_growth_mb:5.1f}M"
+                else f"{n_growth_mb:5.0f}M"
             )
         else:
             n_growth_mem_str: str = (
