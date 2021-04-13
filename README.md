@@ -96,6 +96,15 @@ The following command runs Scalene on a provided example program.
 
 **NEW**: Scalene works inside Jupyter notebooks as well.
 
+[This notebook](https://github.com/plasma-umass/scalene/blob/master/scalene-demo.ipynb) illustrates the use Scalene in Jupyter.
+
+Installation:
+
+```
+  !pip install scalene
+  %load_ext scalene
+```
+
 Line mode:
 
 ```
