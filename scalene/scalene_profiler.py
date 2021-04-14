@@ -736,7 +736,7 @@ class Scalene:
         f = frame
         while "<" in Filename(f.f_code.co_name):
             f = cast(FrameType, frame.f_back)
-            if "<genexpr>" in f.f_code.co_name:
+            if "<genexpr>" in f.f_code.co_name or "<module>" in f.f_code.co_name:
                 return
         if not Scalene.should_trace(f.f_code.co_filename):
             return
