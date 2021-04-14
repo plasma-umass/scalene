@@ -390,6 +390,7 @@ class Scalene:
         import scalene.replacement_thread_join
         import scalene.replacement_fork
         import scalene.replacement_exit
+        import scalene.replacement_mp_lock
 
         Scalene.__args = cast(ScaleneArguments, arguments)
 
@@ -463,9 +464,6 @@ class Scalene:
         if program_being_profiled:
             Scalene.__program_being_profiled = Filename(
                 os.path.abspath(program_being_profiled)
-            )
-            Scalene.__program_path = os.path.dirname(
-                Scalene.__program_being_profiled
             )
 
     @staticmethod
@@ -738,6 +736,8 @@ class Scalene:
         f = frame
         while "<" in Filename(f.f_code.co_name):
             f = cast(FrameType, frame.f_back)
+            if "<genexpr>" in f.f_code.co_name or "<module>" in f.f_code.co_name:
+                return
         if not Scalene.should_trace(f.f_code.co_filename):
             return
         fn_name = Filename(f.f_code.co_name)
@@ -1352,6 +1352,14 @@ for the process ID that Scalene reports. For example:
             default=defaults.malloc_threshold,
             help=f"only report profiles with at least this many allocations (default: {defaults.malloc_threshold})",
         )
+
+        parser.add_argument(
+            "--program-path",
+            dest="program_path",
+            type=str,
+            default="",
+            help="The directory that the code to profile is located in (default: the directory that the profiled program is in)"
+        )
         # the PID of the profiling process (for internal use only)
         parser.add_argument(
             "--pid", type=int, default=0, help=argparse.SUPPRESS
@@ -1587,7 +1595,10 @@ for the process ID that Scalene reports. For example:
                         os.path.abspath(sys.argv[0])
                     )
                     sys.path.insert(0, program_path)
-                    Scalene.__program_path = program_path
+                    if len(args.program_path) > 0:
+                        Scalene.__program_path = os.path.abspath(args.program_path)
+                    else:
+                        Scalene.__program_path = program_path
                     # Grab local and global variables.
                     import __main__
 

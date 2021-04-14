@@ -231,30 +231,35 @@ class ScaleneStatistics:
             )
         return fn_stats
 
+    payload_contents = [
+        "max_footprint",
+        "elapsed_time",
+        "total_cpu_samples",
+        "cpu_samples_c",
+        "cpu_samples_python",
+        "bytei_map",
+        "cpu_samples",
+        "memory_malloc_samples",
+        "memory_python_samples",
+        "memory_free_samples",
+        "memcpy_samples",
+        "per_line_footprint_samples",
+        "total_memory_free_samples",
+        "total_memory_malloc_samples",
+        "memory_footprint_samples",
+        "function_map",
+        "firstline_map",
+        "gpu_samples",
+        "total_gpu_samples",
+        "memory_malloc_count",
+        "memory_free_count",
+    ]
+    # To be added: __malloc_samples
+    
     def output_stats(self, pid: int, dir_name: Filename) -> None:
         payload: List[Any] = []
-        payload = [
-            self.max_footprint,
-            self.elapsed_time,
-            self.total_cpu_samples,
-            self.cpu_samples_c,
-            self.cpu_samples_python,
-            self.bytei_map,
-            self.cpu_samples,
-            self.memory_malloc_samples,
-            self.memory_python_samples,
-            self.memory_free_samples,
-            self.memcpy_samples,
-            self.per_line_footprint_samples,
-            self.total_memory_free_samples,
-            self.total_memory_malloc_samples,
-            self.memory_footprint_samples,
-            self.function_map,
-            self.firstline_map,
-            self.gpu_samples,
-            self.total_gpu_samples,
-        ]
-        # To be added: __malloc_samples
+        for n in ScaleneStatistics.payload_contents:
+            payload.append(getattr(self, n))
 
         # Create a file in the Python alias directory with the relevant info.
         out_filename = os.path.join(
@@ -273,46 +278,50 @@ class ScaleneStatistics:
             with open(f, "rb") as file:
                 unpickler = pickle.Unpickler(file)
                 value = unpickler.load()
-                self.max_footprint = max(self.max_footprint, value[0])
-                self.elapsed_time = max(self.elapsed_time, value[1])
-                self.total_cpu_samples += value[2]
-                self.total_gpu_samples += value[18]
-                del value[:3]
-                for dict, index in [
-                    (self.cpu_samples_c, 0),
-                    (self.cpu_samples_python, 1),
-                    (self.gpu_samples, 14),
-                    (self.memcpy_samples, 7),
-                    (self.per_line_footprint_samples, 8),
+                x = ScaleneStatistics()
+                for i, n in enumerate(ScaleneStatistics.payload_contents):
+                    setattr(x, n, value[i])
+                self.max_footprint = max(self.max_footprint, x.max_footprint)
+                self.elapsed_time = max(self.elapsed_time, x.elapsed_time)
+                self.total_cpu_samples += x.total_cpu_samples
+                self.total_gpu_samples += x.total_gpu_samples
+                for dest, src in [
+                    (self.cpu_samples_c, x.cpu_samples_c),
+                    (self.cpu_samples_python, x.cpu_samples_python),
+                    (self.gpu_samples, x.gpu_samples),
+                    (self.memcpy_samples, x.memcpy_samples),
+                    (self.per_line_footprint_samples, x.per_line_footprint_samples),
                 ]:
-                    for filename in value[index]:
-                        for lineno in value[index][filename]:
-                            v = value[index][filename][lineno]
-                            dict[filename][lineno] += v  # type: ignore
-                for dict, index in [
-                    (self.memory_malloc_samples, 4),
-                    (self.memory_python_samples, 5),
-                    (self.memory_free_samples, 6),
+                    for filename in src:
+                        for lineno in src[filename]:
+                            v = src[filename][lineno]
+                            dest[filename][lineno] += v  # type: ignore
+                for dest, src in [
+                        (self.memory_malloc_samples, x.memory_malloc_samples),
+                        (self.memory_python_samples, x.memory_python_samples),
+                        (self.memory_free_samples, x.memory_free_samples),
+                        (self.memory_malloc_count, x.memory_malloc_count),
+                        (self.memory_free_count, x.memory_free_count)
                 ]:
-                    for filename in value[index]:
-                        for lineno in value[index][filename]:
-                            for ind in value[index][filename][lineno]:
-                                dict[filename][lineno][ind] += value[index][
+                    for filename in src:
+                        for lineno in src[filename]:
+                            for ind in src[filename][lineno]:
+                                dest[filename][lineno][ind] += src[
                                     filename
                                 ][lineno][ind]
-                for filename in value[2]:
-                    for lineno in value[2][filename]:
-                        v = value[2][filename][lineno]
+                for filename in x.bytei_map:
+                    for lineno in x.bytei_map[filename]:
+                        v = x.bytei_map[filename][lineno]
                         self.bytei_map[filename][lineno] |= v
-                for filename in value[3]:
-                    self.cpu_samples[filename] += value[3][filename]
-                self.total_memory_free_samples += value[9]
-                self.total_memory_malloc_samples += value[10]
-                self.memory_footprint_samples += value[11]
-                for k, v in value[12].items():
+                for filename in x.cpu_samples:
+                    self.cpu_samples[filename] += x.cpu_samples[filename]
+                self.total_memory_free_samples += x.total_memory_free_samples
+                self.total_memory_malloc_samples += x.total_memory_malloc_samples
+                self.memory_footprint_samples += x.memory_footprint_samples
+                for k, v in x.function_map.items():
                     if k in self.function_map:
                         self.function_map[k].update(v)
                     else:
                         self.function_map[k] = v
-                self.firstline_map.update(value[13])
+                self.firstline_map.update(x.firstline_map)
             os.remove(f)
