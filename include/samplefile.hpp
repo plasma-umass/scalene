@@ -31,9 +31,8 @@ class SampleFile {
              char *init_template) {
     static uint base_pid = getpid();
     constexpr int FILENAME_LENGTH = 255;
-    char init_file[FILENAME_LENGTH];
-    memset(init_file, 0, FILENAME_LENGTH);
-    stprintf::stprintf(init_file, init_template, FILENAME_LENGTH - 1, base_pid);
+    memset(_init_filename, 0, FILENAME_LENGTH);
+    stprintf::stprintf(_init_filename, init_template, FILENAME_LENGTH - 1, base_pid);
     stprintf::stprintf(_signalfile, filename_template, FILENAME_LENGTH - 1,
                        base_pid);
     stprintf::stprintf(_lockfile, lockfilename_template, FILENAME_LENGTH - 1,
@@ -64,8 +63,7 @@ class SampleFile {
       abort();
     }
     // This is a miserable hack that does not deserve to exist
-    int init_fd = open(init_file, O_CREAT | O_RDWR, perms);
-    unlink(init_file);
+    int init_fd = open(_init_filename, O_CREAT | O_RDWR, perms);
     int res = flock(init_fd, LOCK_EX);
     char buf[4];
     memset(buf, 0, 4);
@@ -101,6 +99,7 @@ class SampleFile {
     munmap(_lastpos, LOCK_FD_SIZE);
     unlink(_signalfile);
     unlink(_lockfile);
+    unlink(_init_filename);
     //    tprintf::tprintf("~SampleFile: pid = @, tid=@, this=@\n", getpid(),
     //    pthread_self(), (void*) this);
   }
@@ -125,6 +124,7 @@ class SampleFile {
 
   char _signalfile[256];  // Name of log file that signals are written to
   char _lockfile[256];    // Name of file that _lastpos is persisted in
+  char _init_filename[256]; // initializer filename
   char *_mmap;            // address of first byte of log
   uint64_t *_lastpos;     // address of first byte of _lastpos
   HL::SpinLock *_spin_lock;
