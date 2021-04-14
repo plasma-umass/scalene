@@ -79,6 +79,7 @@ class SampleFile {
     //
     // 3 bytes are read to bring in both the magic string and the end-of-string
     // character "q&\0"
+    fsync(init_fd);
     int amt_read = read(init_fd, buf, 3);
     if (amt_read != 0 && strcmp(buf, "q&") == 0) {
       // If magic number is present, we know that a HL::SpinLock has already
@@ -86,6 +87,7 @@ class SampleFile {
       _spin_lock = (HL::SpinLock *)(((char *)_lastpos) + sizeof(uint64_t));
     } else {
       write(init_fd, "q&", 3);
+      fsync(init_fd);
       _spin_lock = new (((char *)_lastpos) + sizeof(uint64_t)) HL::SpinLock();
 
       *_lastpos = 0;
