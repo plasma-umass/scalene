@@ -5,7 +5,16 @@ C_SOURCES = libscalene.cpp get_line_atomic.cpp include/*.h*
 
 .PHONY: black clang-format
 
+SRC = printf/printf.c
+INCLUDES = -Iprintf
+OTHER_DEPS = printf
+
 include heaplayers-make.mk
+
+printf/printf.c: printf
+
+printf:
+	git clone https://github.com/mpaland/printf
 
 mypy:
 	-mypy $(PYTHON_SOURCES)

@@ -18,7 +18,6 @@ class LowDiscrepancy {
   LowDiscrepancy(uint64_t seed) {
     std::mt19937_64 rng(seed);
     rng();  // consume one RNG
-    _next = 0;
     // Initialize the sequence with a value that's in the middle two quartiles.
     while ((_next < UINT64_MAX / 4) || (_next > UINT64_MAX - UINT64_MAX / 4)) {
       _next = rng();  //  / (float) rng.max();
