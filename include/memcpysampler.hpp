@@ -172,34 +172,25 @@ class MemcpySampler {
   static constexpr auto flags =
       O_WRONLY | O_CREAT | O_SYNC | O_APPEND;  // O_TRUNC;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
-  static constexpr auto fname = "/tmp/scalene-memcpy-signalXXXXX";
+  static constexpr auto fname = "/tmp/scalene-memcpy-signal%d";
 
  public:
   MemcpySampler()
-      : _samplefile((char *)"/tmp/scalene-memcpy-signal@",
-                    (char *)"/tmp/scalene-memcpy-lock@",
-                    (char *)"/tmp/scalene-memcpy-init@"),
+      : _samplefile((char *)"/tmp/scalene-memcpy-signal%d",
+                    (char *)"/tmp/scalene-memcpy-lock%d",
+                    (char *)"/tmp/scalene-memcpy-init%d"),
         _interval(MemcpySamplingRateBytes),
         _memcpyOps(0),
         _memcpyTriggered(0) {
-          static HL::PosixLock init_lock;
-          init_lock.lock();
+    static HL::PosixLock init_lock;
+    init_lock.lock();
     auto old_sig = signal(MemcpySignal, SIG_IGN);
     if (old_sig != SIG_DFL)
       signal(MemcpySignal, old_sig);
     init_lock.unlock();
     auto pid = getpid();
-    int i;
-    int sz = FILENAME_LENGTH;
-    for (i = 0; i < local_strlen(fname); i++) {
-      if (fname[i] == 'X') {
-        break;
-      }
-      scalene_memcpy_signal_filename[i] = fname[i];
-      sz--;
-    }
-    stprintf::stprintf((char *)&scalene_memcpy_signal_filename[i], "@", sz,
-                       pid);
+    snprintf((char *)scalene_memcpy_signal_filename, FILENAME_LENGTH, fname, pid);
+    // printf("initialized (%s)\n", scalene_memcpy_signal_filename);
   }
 
   int local_strlen(const char *str) {
@@ -290,9 +281,9 @@ class MemcpySampler {
   char scalene_memcpy_signal_filename[FILENAME_LENGTH];
 
   void writeCount() {
-    char buf[255];
-    stprintf::stprintf(buf, "@,@,@\n\n", 255, _memcpyTriggered, _memcpyOps,
-                       getpid());
+    char buf[FILENAME_LENGTH];
+    snprintf(buf, FILENAME_LENGTH, "%d,%d,%d", _memcpyTriggered, _memcpyOps,
+	     getpid());
     _samplefile.writeToFile(buf, 0);
   }
 };

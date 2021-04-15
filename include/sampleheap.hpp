@@ -19,8 +19,6 @@
 #include "open_addr_hashtable.hpp"
 #include "samplefile.hpp"
 #include "sampler.hpp"
-#include "stprintf.h"
-#include "tprintf.h"
 
 #define USE_ATOMICS 0
 
@@ -43,11 +41,10 @@ class SampleHeap : public SuperHeap {
     CallStackSamplingRate = MallocSamplingRateBytes * 10
   };  // 10 here just to reduce overhead
 
-  static HL::PosixLock signal_init_lock;
   SampleHeap()
-      : _samplefile((char *)"/tmp/scalene-malloc-signal@",
-                    (char *)"/tmp/scalene-malloc-lock@",
-                    (char *)"/tmp/scalene-malloc-init@"),
+      : _samplefile((char *)"/tmp/scalene-malloc-signal%d",
+                    (char *)"/tmp/scalene-malloc-lock%d",
+                    (char *)"/tmp/scalene-malloc-init%d"),
         _mallocTriggered(0),
         _freeTriggered(0),
         _pythonCount(0),
@@ -55,18 +52,17 @@ class SampleHeap : public SuperHeap {
         _pid(getpid()),
         _lastMallocTrigger(nullptr),
         _freedLastMallocTrigger(false) {
-      
-      signal_init_lock.lock();
-      auto old_malloc = signal(MallocSignal, SIG_IGN);
-      if (old_malloc != SIG_DFL) {
-        signal(MallocSignal, old_malloc);
-      }
-      auto old_free = signal(FreeSignal, SIG_IGN);
-      if (old_free != SIG_DFL) {
-        signal(FreeSignal, old_free);
-      }
-      signal_init_lock.unlock();
-    // tprintf::tprintf("@\n", malloc_sigaction.sa_handler);
+    get_signal_init_lock().lock();
+    auto old_malloc = signal(MallocSignal, SIG_IGN);
+    if (old_malloc != SIG_DFL) {
+      signal(MallocSignal, old_malloc);
+    }
+    auto old_free = signal(FreeSignal, SIG_IGN);
+    if (old_free != SIG_DFL) {
+      signal(FreeSignal, old_free);
+    }
+    get_signal_init_lock().unlock();
+    int pid = getpid();
   }
 
   ~SampleHeap() {
@@ -81,7 +77,6 @@ class SampleHeap : public SuperHeap {
     }
     auto realSize = SuperHeap::getSize(ptr);
     assert(realSize >= sz);
-    //    assert((sz < 16) || (realSize <= 2 * sz));
     auto sampleMalloc = _mallocSampler.sample(realSize);
     auto sampleCallStack = _callStackSampler.sample(realSize);
 #if 1
@@ -104,7 +99,6 @@ class SampleHeap : public SuperHeap {
     auto sampleFree = _freeSampler.sample(realSize);
     if (unlikely(ptr == _lastMallocTrigger)) {
       _freedLastMallocTrigger = true;
-      //      _lastMallocTrigger = nullptr;
     }
     if (unlikely(sampleFree)) {
       handleFree(sampleFree);
@@ -214,10 +208,6 @@ class SampleHeap : public SuperHeap {
       }
       // Starts with Py, assume it's Python calling.
       if (strstr(fn_name, "Py") == &fn_name[0]) {
-        //(strstr(fn_name, "PyList_Append") ||
-        //   strstr(fn_name, "_From") ||
-        //   strstr(fn_name, "_New") ||
-        //   strstr(fn_name, "_Copy"))) {
         if (strstr(fn_name, "PyArray_")) {
           // Make sure we're not in NumPy, which irritatingly exports some
           // functions starting with "Py"... tprintf::tprintf("--NO---\n");
@@ -247,7 +237,6 @@ class SampleHeap : public SuperHeap {
       // * _PyObject_Realloc
       // * _PyMem_Realloc
       if (strstr(fn_name, "New")) {
-        // tprintf::tprintf("P\n");
         _pythonCount += sz;
         return;
       }
@@ -255,7 +244,6 @@ class SampleHeap : public SuperHeap {
         if ((strstr(fn_name, "GC_Alloc")) || (strstr(fn_name, "GC_New")) ||
             (strstr(fn_name, "GC_NewVar")) || (strstr(fn_name, "GC_Resize")) ||
             (strstr(fn_name, "Malloc")) || (strstr(fn_name, "Calloc"))) {
-          // tprintf::tprintf("P\n");
           _pythonCount += sz;
           return;
         }
@@ -263,7 +251,6 @@ class SampleHeap : public SuperHeap {
       if (strstr(fn_name, "_PyMem_")) {
         if ((strstr(fn_name, "Malloc")) || (strstr(fn_name, "Calloc")) ||
             (strstr(fn_name, "RawMalloc")) || (strstr(fn_name, "RawCalloc"))) {
-          // tprintf::tprintf("p\n");
           _pythonCount += sz;
           return;
         }
@@ -286,23 +273,28 @@ class SampleHeap : public SuperHeap {
     if (_pythonCount == 0) {
       _pythonCount = 1;  // prevent 0/0
     }
-    snprintf(
-        buf, SampleFile::MAX_BUFSIZE,
+    snprintf(buf, SampleFile::MAX_BUFSIZE,
 #if defined(__APPLE__)
-        "%c,%llu,%llu,%f,%d,%p\n\n",
+	     "%c,%llu,%llu,%f,%d,%p\n\n",
 #else
-        "%c,%lu,%lu,%f,%d,%p\n\n",
+	     "%c,%lu,%lu,%f,%d,%p\n\n",
 #endif
-        ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
-        _mallocTriggered + _freeTriggered, count,
-        (float)_pythonCount / (_pythonCount + _cCount), getpid(),
-        _freedLastMallocTrigger ? _lastMallocTrigger : ptr);
+	     ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
+	     _mallocTriggered + _freeTriggered,
+	     count,
+	     (float)_pythonCount / (_pythonCount + _cCount),
+	     getpid(),
+	     _freedLastMallocTrigger ? _lastMallocTrigger : ptr);
     // Ensure we don't report last-malloc-freed multiple times.
     _freedLastMallocTrigger = false;
     _samplefile.writeToFile(buf, 1);
   }
+
+  HL::PosixLock& get_signal_init_lock() {
+    static HL::PosixLock signal_init_lock;
+    return signal_init_lock;
+  }
+  
 };
 
-template <uint64_t MallocSamplingRateBytes, class SuperHeap>
-HL::PosixLock SampleHeap<MallocSamplingRateBytes, SuperHeap>::signal_init_lock;
 #endif

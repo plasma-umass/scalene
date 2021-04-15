@@ -18,6 +18,11 @@
 #include "macinterpose.h"
 #endif
 
+// For use by the replacement printf routines (see https://github.com/mpaland/printf)
+extern "C" void _putchar(char ch) {
+  ::write(1, (void *) &ch, 1);
+}
+
 const uint64_t MallocSamplingRate = 1048576ULL;
 const uint64_t MemcpySamplingRate = MallocSamplingRate * 2ULL;
 
@@ -29,11 +34,6 @@ class CustomHeapType : public HL::ThreadSpecificHeap<
 };
 
 HEAP_REDIRECT(CustomHeapType, 8 * 1024 * 1024);
-
-// This is a hack to have a long-living buffer
-// to put init filename in
-
-HL::PosixLock SampleFile::lock;
 
 auto &getSampler() {
   static MemcpySampler<MemcpySamplingRate> msamp;
