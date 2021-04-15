@@ -8,6 +8,7 @@
 #include <thread>
 
 #include "common.hpp"
+#include "printf.h"
 
 //#include "mwc.h"
 
@@ -49,7 +50,6 @@ class Sampler {
 #else
     _next = SAMPLE_RATE;
 #endif
-    // tprintf::tprintf("sampler init: @\n", _next);
     _lastSampleSize = _next;
   }
 

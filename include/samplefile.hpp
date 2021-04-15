@@ -10,8 +10,7 @@
 #include <unistd.h>
 
 #include "rtememcpy.h"
-#include "stprintf.h"
-#include "tprintf.h"
+#include "printf.h"
 
 // Handles creation, deletion, and concurrency control
 // signal files in memory
@@ -31,17 +30,14 @@ class SampleFile {
              char *init_template) {
     static uint base_pid = getpid();
     constexpr int FILENAME_LENGTH = 255;
-    memset(_init_filename, 0, FILENAME_LENGTH);
-    stprintf::stprintf(_init_filename, init_template, FILENAME_LENGTH - 1, base_pid);
-    stprintf::stprintf(_signalfile, filename_template, FILENAME_LENGTH - 1,
-                       base_pid);
-    stprintf::stprintf(_lockfile, lockfilename_template, FILENAME_LENGTH - 1,
-                       base_pid);
+    snprintf(_init_filename, FILENAME_LENGTH - 1, init_template, base_pid);
+    snprintf(_signalfile, FILENAME_LENGTH - 1, filename_template, base_pid);
+    snprintf(_lockfile, FILENAME_LENGTH - 1, lockfilename_template, base_pid);
     int signal_fd = open(_signalfile, flags, perms);
     int lock_fd = open(_lockfile, flags, perms);
     if ((signal_fd == -1) || (lock_fd == -1)) {
-      tprintf::tprintf("Scalene: internal error = @ (@:@)\n", errno, __FILE__,
-                       __LINE__);
+      fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
+	      __LINE__);
       abort();
     }
     ftruncate(signal_fd, MAX_FILE_SIZE);
@@ -53,13 +49,13 @@ class SampleFile {
     close(signal_fd);
     close(lock_fd);
     if (_mmap == MAP_FAILED) {
-      tprintf::tprintf("Scalene: internal error = @ (@:@)\n", errno, __FILE__,
-                       __LINE__);
+      fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
+	      __LINE__);
       abort();
     }
     if (_lastpos == MAP_FAILED) {
-      tprintf::tprintf("Scalene: internal error = @ (@:@)\n", errno, __FILE__,
-                       __LINE__);
+      fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
+	      __LINE__);
       abort();
     }
     // This is a miserable hack that does not deserve to exist
@@ -77,7 +73,8 @@ class SampleFile {
     //
     // 3 bytes are read to bring in both the magic string and the end-of-string
     // character "q&\0"
-    fsync(init_fd);
+    // fsync(init_fd);
+
     int amt_read = read(init_fd, buf, 3);
     if (amt_read != 0 && strcmp(buf, "q&") == 0) {
       // If magic number is present, we know that a HL::SpinLock has already
@@ -87,7 +84,6 @@ class SampleFile {
       write(init_fd, "q&", 3);
       fsync(init_fd);
       _spin_lock = new (((char *)_lastpos) + sizeof(uint64_t)) HL::SpinLock();
-
       *_lastpos = 0;
     }
 
@@ -100,17 +96,15 @@ class SampleFile {
     unlink(_signalfile);
     unlink(_lockfile);
     unlink(_init_filename);
-    //    tprintf::tprintf("~SampleFile: pid = @, tid=@, this=@\n", getpid(),
-    //    pthread_self(), (void*) this);
   }
   void writeToFile(char *line, int is_malloc) {
     _spin_lock->lock();
+    // printf("[%s] {%s}\n", _signalfile, line);
     char *ptr = _mmap;
     strncpy(_mmap + *_lastpos, (const char *)line, MAX_BUFSIZE);
 
     *_lastpos += strlen(_mmap + *_lastpos) - 1;
     _spin_lock->unlock();
-    // tprintf::tprintf("Unlocked C @\n", getpid());
   }
 
  private:
@@ -122,15 +116,12 @@ class SampleFile {
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
-  char _signalfile[256];  // Name of log file that signals are written to
-  char _lockfile[256];    // Name of file that _lastpos is persisted in
-  char _init_filename[256]; // initializer filename
+  char _signalfile[MAX_BUFSIZE];  // Name of log file that signals are written to
+  char _lockfile[MAX_BUFSIZE];    // Name of file that _lastpos is persisted in
+  char _init_filename[MAX_BUFSIZE]; // initializer filename
   char *_mmap;            // address of first byte of log
   uint64_t *_lastpos;     // address of first byte of _lastpos
   HL::SpinLock *_spin_lock;
-  // Note: initialized in libscalene.cpp
-  static HL::PosixLock lock;
-  // static char* initializer;
 };
 
 #endif

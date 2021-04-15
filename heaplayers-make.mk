@@ -12,24 +12,24 @@ ifeq ($(UNAME_S),Darwin)
 		ARMFLAG = -arch arm64 
 	endif
 endif
-INCLUDES = -I. -I./include -IHeap-Layers -IHeap-Layers/wrappers -IHeap-Layers/utility
+INCLUDES := $(INCLUDES) -I. -I./include -IHeap-Layers -IHeap-Layers/wrappers -IHeap-Layers/utility
 
-MACOS_SRC = lib$(LIBNAME).cpp Heap-Layers/wrappers/macwrapper.cpp
+MACOS_SRC := $(SRC) lib$(LIBNAME).cpp Heap-Layers/wrappers/macwrapper.cpp
 MACOS_COMPILE = $(CXX) -flto -ftls-model=initial-exec -ftemplate-depth=1024 -arch x86_64 $(ARMFLAG) -pipe $(CPPFLAGS) $(INCLUDES) -D_REENTRANT=1 -compatibility_version 1 -current_version 1 -D'CUSTOM_PREFIX(x)=xx\#\#x' $(MACOS_SRC) -dynamiclib -install_name $(DESTDIR)$(PREFIX)/lib$(LIBNAME).dylib -o lib$(LIBNAME).dylib -ldl -lpthread 
 
-LINUX_SRC = lib$(LIBNAME).cpp Heap-Layers/wrappers/gnuwrapper.cpp
+LINUX_SRC := $(SRC) lib$(LIBNAME).cpp Heap-Layers/wrappers/gnuwrapper.cpp
 LINUX_COMPILE = $(CXX) $(CPPFLAGS) -D'CUSTOM_PREFIX(x)=xx\#\#x' -I/usr/include/nptl -pipe -fPIC $(INCLUDES) -D_REENTRANT=1 -shared $(LINUX_SRC) -Bsymbolic -o lib$(LIBNAME).so -ldl -lpthread
 
 
 ifeq ($(UNAME_S),Darwin)
-  all: Heap-Layers $(MACOS_SRC)
+  all: Heap-Layers $(MACOS_SRC) $(OTHER_DEPS)
 	rm -f lib$(LIBNAME).dylib scalene/lib$(LIBNAME).dylib
 	$(MACOS_COMPILE)
 	cp lib$(LIBNAME).dylib scalene
 endif
 
 ifeq ($(UNAME_S),Linux)
-  all: Heap-Layers $(LINUX_SRC)
+  all: Heap-Layers $(LINUX_SRC) $(OTHER_DEPS)
 	$(LINUX_COMPILE)
 	cp lib$(LIBNAME).so scalene
 endif
