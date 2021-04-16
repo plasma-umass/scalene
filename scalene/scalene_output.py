@@ -398,6 +398,7 @@ class ScaleneOutput:
         # Build a list of files we will actually report on.
         report_files: List[Filename] = []
         # Sort in descending order of CPU cycles, and then ascending order by filename
+        print("ALL FILES", all_instrumented_files)
         for fname in sorted(
             all_instrumented_files,
             key=lambda f: (-(stats.cpu_samples[f]), f),
