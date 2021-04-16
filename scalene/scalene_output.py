@@ -691,6 +691,7 @@ class ScaleneOutput:
             console.save_html(self.output_file, clear=False)
         else:
             if not self.output_file:
+                print("W R I T I N G")
                 # No output file specified: write to stdout.
                 sys.stdout.write(console.export_text(styles=True))
             else:
