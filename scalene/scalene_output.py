@@ -605,9 +605,9 @@ class ScaleneOutput:
                         is_function_summary=True,
                         reduced_profile=reduced_profile,
                     )
-
+            print("P R I N T I N G")
             console.print(tbl)
-
+            print("P R I N T E D")
             # Report top K lines (currently 5) in terms of net memory consumption.
             net_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
