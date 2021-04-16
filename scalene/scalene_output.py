@@ -427,7 +427,7 @@ class ScaleneOutput:
 
         if len(report_files) == 0:
             return False
-        
+        print("REPORT FILES", report_files)
         for fname in report_files:
 
             # If the file was actually a Jupyter (IPython) cell,
