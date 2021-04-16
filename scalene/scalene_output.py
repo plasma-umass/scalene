@@ -429,7 +429,7 @@ class ScaleneOutput:
             return False
         print("REPORT FILES", report_files)
         for fname in report_files:
-
+            print("IITTTTTTTTTEEEEERRRRRRRRR")
             # If the file was actually a Jupyter (IPython) cell,
             # restore its name, as in "[12]".
             fname_print = fname
