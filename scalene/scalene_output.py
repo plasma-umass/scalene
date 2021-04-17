@@ -398,6 +398,7 @@ class ScaleneOutput:
         # Build a list of files we will actually report on.
         report_files: List[Filename] = []
         # Sort in descending order of CPU cycles, and then ascending order by filename
+        print("ALL FILES", all_instrumented_files)
         for fname in sorted(
             all_instrumented_files,
             key=lambda f: (-(stats.cpu_samples[f]), f),
@@ -426,9 +427,9 @@ class ScaleneOutput:
 
         if len(report_files) == 0:
             return False
-        
+        print("REPORT FILES", report_files)
         for fname in report_files:
-
+            print("IITTTTTTTTTEEEEERRRRRRRRR")
             # If the file was actually a Jupyter (IPython) cell,
             # restore its name, as in "[12]".
             fname_print = fname
@@ -604,9 +605,9 @@ class ScaleneOutput:
                         is_function_summary=True,
                         reduced_profile=reduced_profile,
                     )
-
+            print("P R I N T I N G")
             console.print(tbl)
-
+            print("P R I N T E D")
             # Report top K lines (currently 5) in terms of net memory consumption.
             net_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
@@ -690,6 +691,7 @@ class ScaleneOutput:
             console.save_html(self.output_file, clear=False)
         else:
             if not self.output_file:
+                print("W R I T I N G")
                 # No output file specified: write to stdout.
                 sys.stdout.write(console.export_text(styles=True))
             else:
