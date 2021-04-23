@@ -4,8 +4,6 @@
 #include <string.h>
 #include <mutex>
 
-// #include "tprintf.h"
-
 // This uses Python's buffer interface to view a mmap buffer passed in,
 // which we assume has a layout of [ uint64_t | HL::SpinLock ].
 //
