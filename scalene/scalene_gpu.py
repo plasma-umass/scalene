@@ -4,7 +4,7 @@ import pynvml
 class ScaleneGPU:
     """A wrapper around the nvidia device driver library (nvidia-ml-py)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.__ngpus = 0
         self.__has_gpu = False
         self.__handle = []
@@ -17,11 +17,11 @@ class ScaleneGPU:
         except:
             pass
 
-    def has_gpu(self):
+    def has_gpu(self) -> bool:
         return self.__has_gpu
 
-    def nvml_reinit(self):
-        self.handle = []
+    def nvml_reinit(self) -> None:
+        self.__handle = []
         try:
             pynvml.nvmlInit()
             self.__ngpus = pynvml.nvmlDeviceGetCount()
@@ -29,7 +29,8 @@ class ScaleneGPU:
                 self.__handle.append(pynvml.nvmlDeviceGetHandleByIndex(i))
         except:
             pass
-    def load(self):
+        
+    def load(self) -> float:
         if self.__has_gpu:
             l = 0.0
             for i in range(self.__ngpus):
@@ -37,7 +38,7 @@ class ScaleneGPU:
             return (l / self.__ngpus) / 100.0
         return 0.0
 
-    def memory_used(self):
+    def memory_used(self) -> int:
         mem_used = 0
         for i in range(self.__ngpus):
             mem_info = pynvml.nvmlDeviceGetMemoryInfo(self.__handle[i])
