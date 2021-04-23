@@ -26,17 +26,17 @@ class ScaleneOutput:
     cpu_percent_threshold = 1
 
     # Default threshold for number of mallocs to report a file.
-    malloc_threshold = 100
+    malloc_threshold = 1 # 100
 
-    def __init__(self):
+    def __init__(self) -> None:
         # where we write profile info
-        output_file: str = ""
+        self.output_file = ""
 
         # if we output HTML or not
-        html: bool = False
+        self.html = False
 
         # if we are on a GPU or not
-        gpu: bool = False
+        self.gpu = False
 
     # Profile output methods
     def output_profile_line(
@@ -152,14 +152,15 @@ class ScaleneOutput:
             if n_cpu_percent_python < 1
             else f"{n_cpu_percent_python:5.0f}%"
         )
+        n_growth_mem_str = ""
         if n_growth_mb < 1024:
-            n_growth_mem_str: str = (
+            n_growth_mem_str = (
                 ""
                 if (not n_growth_mb and not n_usage_fraction)
                 else f"{n_growth_mb:5.0f}M"
             )
         else:
-            n_growth_mem_str: str = (
+            n_growth_mem_str = (
                 ""
                 if (not n_growth_mb and not n_usage_fraction)
                 else f"{(n_growth_mb / 1024):5.2f}G"
@@ -376,6 +377,7 @@ class ScaleneOutput:
                     )
 
         null = open("/dev/null", "w")
+        
         # Get column width of the terminal and adjust to fit.
         # Note that Scalene works best with at least 132 columns.
         column_width = 132
@@ -393,7 +395,7 @@ class ScaleneOutput:
             width=column_width,
             record=True,
             force_terminal=True,
-            file=null,
+            file=null
         )
         # Build a list of files we will actually report on.
         report_files: List[Filename] = []
@@ -439,9 +441,12 @@ class ScaleneOutput:
                 fname_print = Filename("[" + result.group(1) + "]")
 
             # Print header.
-            percent_cpu_time = (
-                100 * stats.cpu_samples[fname] / stats.total_cpu_samples
-            )
+            if not stats.total_cpu_samples:
+                percent_cpu_time = 0
+            else:
+                percent_cpu_time = (
+                    100 * stats.cpu_samples[fname] / stats.total_cpu_samples
+                )
             new_title = mem_usage_line + (
                 "%s: %% of time = %6.2f%% out of %6.2fs."
                 % (fname_print, percent_cpu_time, stats.elapsed_time)
