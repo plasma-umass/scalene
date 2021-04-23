@@ -15,7 +15,7 @@ def replacement_mp_semlock(scalene: Scalene):
     
     class ReplacementSemLock(multiprocessing.synchronize.Lock):
         
-        def __enter__(self):
+        def __enter__(self) -> bool:
             timeout = sys.getswitchinterval()
             tident = threading.get_ident()
             while True:
@@ -24,8 +24,10 @@ def replacement_mp_semlock(scalene: Scalene):
                 scalene.reset_thread_sleeping(tident)
                 if acquired:
                     return True
-        def __exit__(self, *args):
+                
+        def __exit__(self, *args) -> None:
             super().__exit__(*args)
+            
     multiprocessing.synchronize.Lock = ReplacementSemLock
 
 
