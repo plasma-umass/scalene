@@ -348,36 +348,32 @@ class Scalene:
             signal.signal(
                 ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
             )
-            if True:  # FIXME
-                signal.signal(
-                    ScaleneSignals.free_signal, Scalene.free_signal_handler
-                )
-                signal.signal(
-                    ScaleneSignals.fork_signal, Scalene.fork_signal_handler
-                )
-                signal.signal(
-                    ScaleneSignals.memcpy_signal,
-                    Scalene.memcpy_signal_handler,
-                )
+            signal.signal(
+                ScaleneSignals.free_signal, Scalene.free_signal_handler
+            )
+            signal.signal(
+                ScaleneSignals.fork_signal, Scalene.fork_signal_handler
+            )
+            signal.signal(
+                ScaleneSignals.memcpy_signal,
+                Scalene.memcpy_signal_handler,
+            )
             # Set every signal to restart interrupted system calls.
             signal.siginterrupt(ScaleneSignals.cpu_signal, False)
             signal.siginterrupt(ScaleneSignals.malloc_signal, False)
             signal.siginterrupt(ScaleneSignals.free_signal, False)
             signal.siginterrupt(ScaleneSignals.memcpy_signal, False)
             signal.siginterrupt(ScaleneSignals.fork_signal, False)
-            # Turn on the CPU profiling timer to run every mean_cpu_sampling_rate seconds.
-            # CPU
-            if True:  # FIXME
-                signal.signal(
-                    ScaleneSignals.cpu_signal,
-                    Scalene.cpu_signal_handler_helper,
-                )
-                signal.setitimer(
-                    ScaleneSignals.cpu_timer_signal,
-                    Scalene.__args.cpu_sampling_rate,
-                    0,
-                )  # Scalene.__args.cpu_sampling_rate,
-                # )
+            # Turn on the CPU profiling timer to run at the sampling rate (exactly once).
+            signal.signal(
+                ScaleneSignals.cpu_signal,
+                Scalene.cpu_signal_handler_helper,
+            )
+            signal.setitimer(
+                ScaleneSignals.cpu_timer_signal,
+                Scalene.__args.cpu_sampling_rate,
+                0,
+            )
 
     @staticmethod
     def get_process_time() -> float:
@@ -514,7 +510,6 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         """Handle interrupts for CPU profiling."""
-        Scalene.disable_allocation_signals()
         # Record how long it has been since we received a timer
         # before.  See the logic below.
         now_virtual = Scalene.get_process_time()
@@ -599,7 +594,6 @@ class Scalene:
             if not Scalene.__is_thread_sleeping[tident]:
                 total_frames += 1
         if total_frames == 0:
-            Scalene.enable_allocation_signals()
             return
         normalized_time = total_time / total_frames
 
@@ -681,7 +675,6 @@ class Scalene:
         # FIXME
         if True:
             signal.setitimer(ScaleneSignals.cpu_timer_signal, next_interval, 0)
-        Scalene.enable_allocation_signals()
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -790,20 +783,6 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
-    def enable_allocation_signals() -> None:
-        return
-        signal.signal(
-            ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
-        )
-        signal.signal(ScaleneSignals.free_signal, Scalene.free_signal_handler)
-
-    @staticmethod
-    def disable_allocation_signals() -> None:
-        return
-        signal.signal(ScaleneSignals.malloc_signal, signal.SIG_IGN)
-        signal.signal(ScaleneSignals.free_signal, signal.SIG_IGN)
-
-    @staticmethod
     def malloc_signal_handler(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
@@ -837,7 +816,6 @@ class Scalene:
 
         gc.collect()
         gc.disable()
-        Scalene.disable_allocation_signals()
         signal.setitimer(ScaleneSignals.cpu_timer_signal, 0, 0)
         t = threading.Thread(
             target=Scalene.allocation_signal_handler,
@@ -850,7 +828,6 @@ class Scalene:
             Scalene.__args.cpu_sampling_rate,
             0,
         )
-        Scalene.enable_allocation_signals()
         gc.enable()
 
     @staticmethod
@@ -1052,14 +1029,12 @@ class Scalene:
             ScaleneSignals.memcpy_signal,
             Scalene.memcpy_signal_handler,
         )
+        # Set the timer to go off exactly one time (we'll start it up again after its signal is handled).
         signal.setitimer(
             ScaleneSignals.cpu_timer_signal,
             Scalene.__args.cpu_sampling_rate,
             0,
         )
-
-    #            Scalene.__args.cpu_sampling_rate,
-    #        )
 
     @staticmethod
     def memcpy_signal_handler(
