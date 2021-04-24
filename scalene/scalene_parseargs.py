@@ -9,11 +9,13 @@ from textwrap import dedent
 import argparse
 import sys
 
+
 class StopJupyterExecution(Exception):
     """NOP exception to enable clean exits from within Jupyter notebooks."""
 
     def _render_traceback_(self) -> None:
         pass
+
 
 class ScaleneParseArgs:
     @staticmethod
@@ -197,5 +199,3 @@ for the process ID that Scalene reports. For example:
             print(f"Scalene version {scalene_version}")
             sys.exit(-1)
         return args, left
-
-    
