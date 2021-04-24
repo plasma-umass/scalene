@@ -9,8 +9,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "rtememcpy.h"
 #include "printf.h"
+#include "rtememcpy.h"
 
 // Handles creation, deletion, and concurrency control
 // signal files in memory
@@ -37,7 +37,7 @@ class SampleFile {
     int lock_fd = open(_lockfile, flags, perms);
     if ((signal_fd == -1) || (lock_fd == -1)) {
       fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
-	      __LINE__);
+              __LINE__);
       abort();
     }
     ftruncate(signal_fd, MAX_FILE_SIZE);
@@ -50,12 +50,12 @@ class SampleFile {
     close(lock_fd);
     if (_mmap == MAP_FAILED) {
       fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
-	      __LINE__);
+              __LINE__);
       abort();
     }
     if (_lastpos == MAP_FAILED) {
       fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
-	      __LINE__);
+              __LINE__);
       abort();
     }
     // This is a miserable hack that does not deserve to exist
@@ -116,11 +116,12 @@ class SampleFile {
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
-  char _signalfile[MAX_BUFSIZE];  // Name of log file that signals are written to
-  char _lockfile[MAX_BUFSIZE];    // Name of file that _lastpos is persisted in
-  char _init_filename[MAX_BUFSIZE]; // initializer filename
-  char *_mmap;            // address of first byte of log
-  uint64_t *_lastpos;     // address of first byte of _lastpos
+  char
+      _signalfile[MAX_BUFSIZE];  // Name of log file that signals are written to
+  char _lockfile[MAX_BUFSIZE];   // Name of file that _lastpos is persisted in
+  char _init_filename[MAX_BUFSIZE];  // initializer filename
+  char *_mmap;                       // address of first byte of log
+  uint64_t *_lastpos;                // address of first byte of _lastpos
   HL::SpinLock *_spin_lock;
 };
 

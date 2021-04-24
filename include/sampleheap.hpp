@@ -1,15 +1,14 @@
 #ifndef SAMPLEHEAP_H
 #define SAMPLEHEAP_H
 
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/errno.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/syscall.h>
-#include <dlfcn.h>
-
+#include <sys/types.h>
 #include <unistd.h>  // for getpid()
 
 #include <atomic>
@@ -17,10 +16,9 @@
 
 #include "common.hpp"
 #include "open_addr_hashtable.hpp"
+#include "printf.h"
 #include "samplefile.hpp"
 #include "sampler.hpp"
-
-#include "printf.h"
 
 #define USE_ATOMICS 0
 
@@ -124,7 +122,7 @@ class SampleHeap : public SuperHeap {
 
   void handleMalloc(size_t sampleMalloc, void *triggeringMallocPtr) {
     writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr);
-    
+
 #if !SCALENE_DISABLE_SIGNALS
     raise(MallocSignal);
 #endif
@@ -137,7 +135,7 @@ class SampleHeap : public SuperHeap {
 
   void handleFree(size_t sampleFree) {
     writeCount(FreeSignal, sampleFree, nullptr);
-#if 0 // !SCALENE_DISABLE_SIGNALS
+#if 0  // !SCALENE_DISABLE_SIGNALS
     // Disabled for now.
     raise(FreeSignal);
 #endif
@@ -262,28 +260,26 @@ class SampleHeap : public SuperHeap {
     if (_pythonCount == 0) {
       _pythonCount = 1;  // prevent 0/0
     }
-    snprintf(buf, SampleFile::MAX_BUFSIZE,
+    snprintf(
+        buf, SampleFile::MAX_BUFSIZE,
 #if defined(__APPLE__)
-	     "%c,%llu,%llu,%f,%d,%p\n\n",
+        "%c,%llu,%llu,%f,%d,%p\n\n",
 #else
-	     "%c,%lu,%lu,%f,%d,%p\n\n",
+        "%c,%lu,%lu,%f,%d,%p\n\n",
 #endif
-	     ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
-	     _mallocTriggered + _freeTriggered,
-	     count,
-	     (float)_pythonCount / (_pythonCount + _cCount),
-	     getpid(),
-	     _freedLastMallocTrigger ? _lastMallocTrigger : ptr);
+        ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
+        _mallocTriggered + _freeTriggered, count,
+        (float)_pythonCount / (_pythonCount + _cCount), getpid(),
+        _freedLastMallocTrigger ? _lastMallocTrigger : ptr);
     // Ensure we don't report last-malloc-freed multiple times.
     _freedLastMallocTrigger = false;
     _samplefile.writeToFile(buf, 1);
   }
 
-  HL::PosixLock& get_signal_init_lock() {
+  HL::PosixLock &get_signal_init_lock() {
     static HL::PosixLock signal_init_lock;
     return signal_init_lock;
   }
-  
 };
 
 #endif

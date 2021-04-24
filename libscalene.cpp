@@ -18,17 +18,17 @@
 #include "macinterpose.h"
 #endif
 
-// For use by the replacement printf routines (see https://github.com/mpaland/printf)
-extern "C" void _putchar(char ch) {
-  ::write(1, (void *) &ch, 1);
-}
+// For use by the replacement printf routines (see
+// https://github.com/mpaland/printf)
+extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t MallocSamplingRate = 1048571ULL; // a prime number near a megabyte
+constexpr uint64_t MallocSamplingRate =
+    1048571ULL;  // a prime number near a megabyte
 constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 2ULL;
 
 class CustomHeapType : public HL::ThreadSpecificHeap<
-  SampleHeap<MallocSamplingRate, HL::SysMallocHeap>> {
-public:
+                           SampleHeap<MallocSamplingRate, HL::SysMallocHeap>> {
+ public:
   void lock() {}
   void unlock() {}
 };

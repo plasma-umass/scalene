@@ -26,7 +26,7 @@ class ScaleneOutput:
     cpu_percent_threshold = 1
 
     # Default threshold for number of mallocs to report a file.
-    malloc_threshold = 1 # 100
+    malloc_threshold = 1  # 100
 
     def __init__(self) -> None:
         # where we write profile info
@@ -137,7 +137,7 @@ class ScaleneOutput:
         # Adjust CPU time by utilization.
         n_cpu_percent_python *= stats.cpu_utilization[fname][line_no].mean()
         n_cpu_percent_c *= stats.cpu_utilization[fname][line_no].mean()
-        
+
         # Finally, print results.
         n_cpu_percent_c_str: str = (
             "" if n_cpu_percent_c < 1 else f"{n_cpu_percent_c:5.0f}%"
@@ -148,9 +148,7 @@ class ScaleneOutput:
         )
 
         n_cpu_percent_python_str: str = (
-            ""
-            if n_cpu_percent_python < 1
-            else f"{n_cpu_percent_python:5.0f}%"
+            "" if n_cpu_percent_python < 1 else f"{n_cpu_percent_python:5.0f}%"
         )
         n_growth_mem_str = ""
         if n_growth_mb < 1024:
@@ -187,9 +185,9 @@ class ScaleneOutput:
         sys_str: str = (
             ""
             if n_sys_percent < 1
-            #or stats.cpu_utilization[fname][line_no].size() <= 1
-            #or stats.cpu_utilization[fname][line_no].sem() > 0.025
-            #or stats.cpu_utilization[fname][line_no].mean() > 0.99
+            # or stats.cpu_utilization[fname][line_no].size() <= 1
+            # or stats.cpu_utilization[fname][line_no].sem() > 0.025
+            # or stats.cpu_utilization[fname][line_no].mean() > 0.99
             else f"{n_sys_percent:4.0f}%"
         )
         if not is_function_summary:
@@ -377,7 +375,7 @@ class ScaleneOutput:
                     )
 
         null = open("/dev/null", "w")
-        
+
         # Get column width of the terminal and adjust to fit.
         # Note that Scalene works best with at least 132 columns.
         column_width = 132
@@ -392,10 +390,7 @@ class ScaleneOutput:
                 pass
 
         console = Console(
-            width=column_width,
-            record=True,
-            force_terminal=True,
-            file=null
+            width=column_width, record=True, force_terminal=True, file=null
         )
         # Build a list of files we will actually report on.
         report_files: List[Filename] = []
@@ -428,7 +423,7 @@ class ScaleneOutput:
 
         if len(report_files) == 0:
             return False
-        
+
         for fname in report_files:
 
             # If the file was actually a Jupyter (IPython) cell,
@@ -461,20 +456,40 @@ class ScaleneOutput:
                 width=column_width - 1,
             )
 
-            tbl.add_column("Line", style="dim", justify="right", no_wrap=True, width=4)
-            tbl.add_column(Markdown("Time  " + "\n" + "_Python_"), no_wrap=True, width=6)
-            tbl.add_column(Markdown("––––––  \n_native_"), no_wrap=True, width=6)
-            tbl.add_column(Markdown("––––––  \n_system_"), no_wrap=True, width=6)
+            tbl.add_column(
+                "Line", style="dim", justify="right", no_wrap=True, width=4
+            )
+            tbl.add_column(
+                Markdown("Time  " + "\n" + "_Python_"), no_wrap=True, width=6
+            )
+            tbl.add_column(
+                Markdown("––––––  \n_native_"), no_wrap=True, width=6
+            )
+            tbl.add_column(
+                Markdown("––––––  \n_system_"), no_wrap=True, width=6
+            )
             if self.gpu:
-                tbl.add_column(Markdown("––––––  \n_GPU_"), no_wrap=True, width=6)
+                tbl.add_column(
+                    Markdown("––––––  \n_GPU_"), no_wrap=True, width=6
+                )
 
             other_columns_width = 0  # Size taken up by all columns BUT code
 
             if profile_memory:
-                tbl.add_column(Markdown("Memory  \n_Python_"), no_wrap=True, width=7)
-                tbl.add_column(Markdown("––––––  \n_net_"), no_wrap=True, width=6)
-                tbl.add_column(Markdown("–––––––––––  \n_timeline_/%"), no_wrap=True, width=14)
-                tbl.add_column(Markdown("Copy  \n_(MB/s)_"), no_wrap=True, width=6)
+                tbl.add_column(
+                    Markdown("Memory  \n_Python_"), no_wrap=True, width=7
+                )
+                tbl.add_column(
+                    Markdown("––––––  \n_net_"), no_wrap=True, width=6
+                )
+                tbl.add_column(
+                    Markdown("–––––––––––  \n_timeline_/%"),
+                    no_wrap=True,
+                    width=14,
+                )
+                tbl.add_column(
+                    Markdown("Copy  \n_(MB/s)_"), no_wrap=True, width=6
+                )
                 other_columns_width = 75 + (6 if self.gpu else 0)
                 tbl.add_column(
                     "\n" + fname_print,
@@ -570,7 +585,6 @@ class ScaleneOutput:
                         tbl.add_row("", "", "", "", "", txt)
                     else:
                         tbl.add_row("", "", "", "", txt)
-                        
 
                 for fn_name in sorted(
                     fn_stats.cpu_samples_python,

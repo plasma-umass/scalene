@@ -116,9 +116,7 @@ class Scalene:
     )
 
     # Cache the original thread join function, which we replace with our own version.
-    __original_thread_join: Callable[
-        [threading.Thread, Union[builtins.float, None]], None
-    ] = threading.Thread.join
+    __original_thread_join = threading.Thread.join
 
     # As above; we'll cache the original thread and replace it.
     __original_lock = threading.Lock
@@ -130,9 +128,9 @@ class Scalene:
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
     __gpu = ScaleneGPU()
-    
+
     __output.gpu = __gpu.has_gpu()
-    
+
     @staticmethod
     def get_original_lock() -> threading.Lock:
         return Scalene.__original_lock()
@@ -175,7 +173,7 @@ class Scalene:
 
     MAX_BUFSIZE = 256  # Must match SampleFile::MAX_BUFSIZE
     __buf = bytearray(MAX_BUFSIZE)
-    
+
     #
     #   file to communicate the number of malloc/free samples (+ PID)
     __malloc_signal_filename = Filename(
@@ -350,9 +348,13 @@ class Scalene:
             signal.signal(
                 ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
             )
-            if True: # FIXME
-                signal.signal(ScaleneSignals.free_signal, Scalene.free_signal_handler)
-                signal.signal(ScaleneSignals.fork_signal, Scalene.fork_signal_handler)
+            if True:  # FIXME
+                signal.signal(
+                    ScaleneSignals.free_signal, Scalene.free_signal_handler
+                )
+                signal.signal(
+                    ScaleneSignals.fork_signal, Scalene.fork_signal_handler
+                )
                 signal.signal(
                     ScaleneSignals.memcpy_signal,
                     Scalene.memcpy_signal_handler,
@@ -365,12 +367,16 @@ class Scalene:
             signal.siginterrupt(ScaleneSignals.fork_signal, False)
             # Turn on the CPU profiling timer to run every mean_cpu_sampling_rate seconds.
             # CPU
-            if True: # FIXME
-                signal.signal(ScaleneSignals.cpu_signal, Scalene.cpu_signal_handler_helper)
+            if True:  # FIXME
+                signal.signal(
+                    ScaleneSignals.cpu_signal,
+                    Scalene.cpu_signal_handler_helper,
+                )
                 signal.setitimer(
                     ScaleneSignals.cpu_timer_signal,
                     Scalene.__args.cpu_sampling_rate,
-                    0) # Scalene.__args.cpu_sampling_rate,
+                    0,
+                )  # Scalene.__args.cpu_sampling_rate,
                 # )
 
     @staticmethod
@@ -482,10 +488,8 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         """Wrapper for CPU signal handlers."""
-        Scalene.cpu_signal_handler_helper(signum, this_frame)
-        #t = threading.Thread(target=Scalene.cpu_signal_handler_helper, args=(signum, this_frame))
-        #t.start()
-        
+        with Scalene.__in_signal_handler:
+            Scalene.cpu_signal_handler_helper(signum, this_frame)
 
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
@@ -510,177 +514,174 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         """Handle interrupts for CPU profiling."""
-        with Scalene.__in_signal_handler:
-            Scalene.disable_allocation_signals()
-            # Record how long it has been since we received a timer
-            # before.  See the logic below.
-            now_virtual = Scalene.get_process_time()
-            now_wallclock = Scalene.get_wallclock_time()
-            # If it's time to print some profiling info, do so.
-            if now_virtual >= Scalene.__next_output_time:
-                # Print out the profile. Set the next output time, stop
-                # signals, print the profile, and then start signals
-                # again.
-                Scalene.__next_output_time += (
-                    Scalene.__args.output_profile_interval
-                )
-                Scalene.stop()
-                stats = Scalene.__stats
-                output = Scalene.__output
-                output.output_profiles(
-                    stats,
-                    Scalene.__pid,
-                    Scalene.profile_this_code,
-                    Scalene.__python_alias_dir_name,
-                    Scalene.__python_alias_dir,
-                    profile_memory=not Scalene.__args.cpu_only,
-                    reduced_profile=Scalene.__args.reduced_profile,
-                )
-                Scalene.start()
-            # Here we take advantage of an ostensible limitation of Python:
-            # it only delivers signals after the interpreter has given up
-            # control. This seems to mean that sampling is limited to code
-            # running purely in the interpreter, and in fact, that was a limitation
-            # of the first version of Scalene, meaning that native code was entirely ignored.
-            #
-            # (cf. https://docs.python.org/3.9/library/signal.html#execution-of-python-signal-handlers)
-            #
-            # However: lemons -> lemonade: this "problem" is in fact
-            # an effective way to separate out time spent in
-            # Python vs. time spent in native code "for free"!  If we get
-            # the signal immediately, we must be running in the
-            # interpreter. On the other hand, if it was delayed, that means
-            # we are running code OUTSIDE the interpreter, e.g.,
-            # native code (be it inside of Python or in a library). We
-            # account for this time by tracking the elapsed (process) time
-            # and compare it to the interval, and add any computed delay
-            # (as if it were sampled) to the C counter.
-            elapsed_virtual = now_virtual - Scalene.__last_signal_time_virtual
-            elapsed_wallclock = (
-                now_wallclock - Scalene.__last_signal_time_wallclock
+        Scalene.disable_allocation_signals()
+        # Record how long it has been since we received a timer
+        # before.  See the logic below.
+        now_virtual = Scalene.get_process_time()
+        now_wallclock = Scalene.get_wallclock_time()
+        # If it's time to print some profiling info, do so.
+        if now_virtual >= Scalene.__next_output_time:
+            # Print out the profile. Set the next output time, stop
+            # signals, print the profile, and then start signals
+            # again.
+            Scalene.__next_output_time += (
+                Scalene.__args.output_profile_interval
             )
-            # CPU utilization is the fraction of time spent on the CPU
-            # over the total wallclock time.
-            cpu_utilization = elapsed_virtual / elapsed_wallclock
-            if cpu_utilization > 1.0:
-                # Sometimes, for some reason, virtual time exceeds
-                # wallclock time, which makes no sense...
-                cpu_utilization = 1.0
-            if cpu_utilization < 0.0:
-                cpu_utilization = 0.0
-            # Sample GPU load as well.
-            gpu_load = Scalene.__gpu.load()
-            gpu_mem_used = Scalene.__gpu.memory_used()
-            # Deal with an odd case reported here: https://github.com/plasma-umass/scalene/issues/124
-            # (Note: probably obsolete now that Scalene is using the nvidia wrappers, but just in case...)
-            # We don't want to report 'nan', so turn the load into 0.
-            if math.isnan(gpu_load):
-                gpu_load = 0.0
-            gpu_time = gpu_load * Scalene.__last_cpu_sampling_rate
-            Scalene.__stats.total_gpu_samples += gpu_time
-            python_time = Scalene.__last_cpu_sampling_rate
-            c_time = elapsed_virtual - python_time
-            if c_time < 0:
-                c_time = 0
+            Scalene.stop()
+            stats = Scalene.__stats
+            output = Scalene.__output
+            output.output_profiles(
+                stats,
+                Scalene.__pid,
+                Scalene.profile_this_code,
+                Scalene.__python_alias_dir_name,
+                Scalene.__python_alias_dir,
+                profile_memory=not Scalene.__args.cpu_only,
+                reduced_profile=Scalene.__args.reduced_profile,
+            )
+            Scalene.start()
+        # Here we take advantage of an ostensible limitation of Python:
+        # it only delivers signals after the interpreter has given up
+        # control. This seems to mean that sampling is limited to code
+        # running purely in the interpreter, and in fact, that was a limitation
+        # of the first version of Scalene, meaning that native code was entirely ignored.
+        #
+        # (cf. https://docs.python.org/3.9/library/signal.html#execution-of-python-signal-handlers)
+        #
+        # However: lemons -> lemonade: this "problem" is in fact
+        # an effective way to separate out time spent in
+        # Python vs. time spent in native code "for free"!  If we get
+        # the signal immediately, we must be running in the
+        # interpreter. On the other hand, if it was delayed, that means
+        # we are running code OUTSIDE the interpreter, e.g.,
+        # native code (be it inside of Python or in a library). We
+        # account for this time by tracking the elapsed (process) time
+        # and compare it to the interval, and add any computed delay
+        # (as if it were sampled) to the C counter.
+        elapsed_virtual = now_virtual - Scalene.__last_signal_time_virtual
+        elapsed_wallclock = (
+            now_wallclock - Scalene.__last_signal_time_wallclock
+        )
+        # CPU utilization is the fraction of time spent on the CPU
+        # over the total wallclock time.
+        cpu_utilization = elapsed_virtual / elapsed_wallclock
+        if cpu_utilization > 1.0:
+            # Sometimes, for some reason, virtual time exceeds
+            # wallclock time, which makes no sense...
+            cpu_utilization = 1.0
+        if cpu_utilization < 0.0:
+            cpu_utilization = 0.0
+        # Sample GPU load as well.
+        gpu_load = Scalene.__gpu.load()
+        gpu_mem_used = Scalene.__gpu.memory_used()
+        # Deal with an odd case reported here: https://github.com/plasma-umass/scalene/issues/124
+        # (Note: probably obsolete now that Scalene is using the nvidia wrappers, but just in case...)
+        # We don't want to report 'nan', so turn the load into 0.
+        if math.isnan(gpu_load):
+            gpu_load = 0.0
+        gpu_time = gpu_load * Scalene.__last_cpu_sampling_rate
+        Scalene.__stats.total_gpu_samples += gpu_time
+        python_time = Scalene.__last_cpu_sampling_rate
+        c_time = elapsed_virtual - python_time
+        if c_time < 0:
+            c_time = 0
 
-            # Update counters for every running thread.
-            new_frames = Scalene.compute_frames_to_record(this_frame)
-            # Now update counters (weighted) for every frame we are tracking.
-            total_time = python_time + c_time
+        # Update counters for every running thread.
+        new_frames = Scalene.compute_frames_to_record(this_frame)
+        # Now update counters (weighted) for every frame we are tracking.
+        total_time = python_time + c_time
 
-            # First, find out how many frames are not sleeping.  We need
-            # to know this number so we can parcel out time appropriately
-            # (equally to each running thread).
-            total_frames = 0
-            for (frame, tident, orig_frame) in new_frames:
-                if not Scalene.__is_thread_sleeping[tident]:
-                    total_frames += 1
-            if total_frames == 0:
-                Scalene.enable_allocation_signals()
-                return
-            normalized_time = total_time / total_frames
-
-            # Now attribute execution time.
-            for (frame, tident, orig_frame) in new_frames:
-                fname = Filename(frame.f_code.co_filename)
-                lineno = LineNumber(frame.f_lineno)
-                Scalene.enter_function_meta(frame, Scalene.__stats)
-                if frame == new_frames[0][0]:
-                    # Main thread.
-                    if not Scalene.__is_thread_sleeping[tident]:
-
-                        Scalene.__stats.cpu_samples_python[fname][lineno] += (
-                            python_time / total_frames
-                        )
-                        Scalene.__stats.cpu_samples_c[fname][lineno] += (
-                            c_time / total_frames
-                        )
-                        Scalene.__stats.cpu_samples[fname] += (
-                            python_time + c_time
-                        ) / total_frames
-                        Scalene.__stats.cpu_utilization[fname][lineno].push(
-                            cpu_utilization
-                        )
-                        Scalene.__stats.gpu_samples[fname][lineno] += (
-                            gpu_time / total_frames
-                        )
-
-                else:
-                    # We can't play the same game here of attributing
-                    # time, because we are in a thread, and threads don't
-                    # get signals in Python. Instead, we check if the
-                    # bytecode instruction being executed is a function
-                    # call.  If so, we attribute all the time to native.
-                    # NOTE: for now, we don't try to attribute GPU time to threads.
-                    if not Scalene.__is_thread_sleeping[tident]:
-                        # Check if the original caller is stuck inside a call.
-                        if Scalene.is_call_function(
-                            orig_frame.f_code,
-                            ByteCodeIndex(orig_frame.f_lasti),
-                        ):
-                            # It is. Attribute time to native.
-                            Scalene.__stats.cpu_samples_c[fname][
-                                lineno
-                            ] += normalized_time
-                        else:
-                            # Not in a call function so we attribute the time to Python.
-                            Scalene.__stats.cpu_samples_python[fname][
-                                lineno
-                            ] += normalized_time
-                        Scalene.__stats.cpu_samples[fname] += normalized_time
-                        Scalene.__stats.cpu_utilization[fname][lineno].push(
-                            cpu_utilization
-                        )
-
-            del new_frames
-
-            Scalene.__stats.total_cpu_samples += total_time
-            if False:
-                # Pick a new random interval, distributed around the mean.
-                next_interval = 0.0
-                while next_interval <= 0.0:
-                    # Choose a normally distributed random number around the
-                    # mean for the next interval. By setting the standard
-                    # deviation to a fraction of the mean, we know by
-                    # properties of the normal distribution that the
-                    # likelihood of iterating this loop more than once is
-                    # low. For a fraction 1/f, the probability is
-                    # p = 1-(math.erf(f/math.sqrt(2)))/2
-                    next_interval = random.normalvariate(
-                        Scalene.__args.cpu_sampling_rate,
-                        Scalene.__args.cpu_sampling_rate / 3.0,
-                    )
-            else:
-                next_interval = Scalene.__args.cpu_sampling_rate    
-            Scalene.__last_cpu_sampling_rate = next_interval
-            Scalene.__last_signal_time_wallclock = Scalene.get_wallclock_time()
-            Scalene.__last_signal_time_virtual = Scalene.get_process_time()
-            # FIXME
-            if True:
-                signal.setitimer(
-                    ScaleneSignals.cpu_timer_signal, next_interval, 0
-                )
+        # First, find out how many frames are not sleeping.  We need
+        # to know this number so we can parcel out time appropriately
+        # (equally to each running thread).
+        total_frames = 0
+        for (frame, tident, orig_frame) in new_frames:
+            if not Scalene.__is_thread_sleeping[tident]:
+                total_frames += 1
+        if total_frames == 0:
             Scalene.enable_allocation_signals()
+            return
+        normalized_time = total_time / total_frames
+
+        # Now attribute execution time.
+        for (frame, tident, orig_frame) in new_frames:
+            fname = Filename(frame.f_code.co_filename)
+            lineno = LineNumber(frame.f_lineno)
+            Scalene.enter_function_meta(frame, Scalene.__stats)
+            if frame == new_frames[0][0]:
+                # Main thread.
+                if not Scalene.__is_thread_sleeping[tident]:
+
+                    Scalene.__stats.cpu_samples_python[fname][lineno] += (
+                        python_time / total_frames
+                    )
+                    Scalene.__stats.cpu_samples_c[fname][lineno] += (
+                        c_time / total_frames
+                    )
+                    Scalene.__stats.cpu_samples[fname] += (
+                        python_time + c_time
+                    ) / total_frames
+                    Scalene.__stats.cpu_utilization[fname][lineno].push(
+                        cpu_utilization
+                    )
+                    Scalene.__stats.gpu_samples[fname][lineno] += (
+                        gpu_time / total_frames
+                    )
+
+            else:
+                # We can't play the same game here of attributing
+                # time, because we are in a thread, and threads don't
+                # get signals in Python. Instead, we check if the
+                # bytecode instruction being executed is a function
+                # call.  If so, we attribute all the time to native.
+                # NOTE: for now, we don't try to attribute GPU time to threads.
+                if not Scalene.__is_thread_sleeping[tident]:
+                    # Check if the original caller is stuck inside a call.
+                    if Scalene.is_call_function(
+                        orig_frame.f_code,
+                        ByteCodeIndex(orig_frame.f_lasti),
+                    ):
+                        # It is. Attribute time to native.
+                        Scalene.__stats.cpu_samples_c[fname][
+                            lineno
+                        ] += normalized_time
+                    else:
+                        # Not in a call function so we attribute the time to Python.
+                        Scalene.__stats.cpu_samples_python[fname][
+                            lineno
+                        ] += normalized_time
+                    Scalene.__stats.cpu_samples[fname] += normalized_time
+                    Scalene.__stats.cpu_utilization[fname][lineno].push(
+                        cpu_utilization
+                    )
+
+        del new_frames
+
+        Scalene.__stats.total_cpu_samples += total_time
+        if False:
+            # Pick a new random interval, distributed around the mean.
+            next_interval = 0.0
+            while next_interval <= 0.0:
+                # Choose a normally distributed random number around the
+                # mean for the next interval. By setting the standard
+                # deviation to a fraction of the mean, we know by
+                # properties of the normal distribution that the
+                # likelihood of iterating this loop more than once is
+                # low. For a fraction 1/f, the probability is
+                # p = 1-(math.erf(f/math.sqrt(2)))/2
+                next_interval = random.normalvariate(
+                    Scalene.__args.cpu_sampling_rate,
+                    Scalene.__args.cpu_sampling_rate / 3.0,
+                )
+        else:
+            next_interval = Scalene.__args.cpu_sampling_rate
+        Scalene.__last_cpu_sampling_rate = next_interval
+        Scalene.__last_signal_time_wallclock = Scalene.get_wallclock_time()
+        Scalene.__last_signal_time_virtual = Scalene.get_process_time()
+        # FIXME
+        if True:
+            signal.setitimer(ScaleneSignals.cpu_timer_signal, next_interval, 0)
+        Scalene.enable_allocation_signals()
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -753,14 +754,22 @@ class Scalene:
         f = frame
         while "<" in Filename(f.f_code.co_name):
             f = cast(FrameType, frame.f_back)
-            if "<genexpr>" in f.f_code.co_name or "<module>" in f.f_code.co_name:
+            if (
+                "<genexpr>" in f.f_code.co_name
+                or "<module>" in f.f_code.co_name
+            ):
                 return
         if not Scalene.should_trace(f.f_code.co_filename):
             return
         fn_name = Filename(f.f_code.co_name)
         firstline = f.f_code.co_firstlineno
         # Prepend the class, if any
-        while f and f.f_back and f.f_back.f_code and Scalene.should_trace(f.f_back.f_code.co_filename):
+        while (
+            f
+            and f.f_back
+            and f.f_back.f_code
+            and Scalene.should_trace(f.f_back.f_code.co_filename)
+        ):
             if "self" in f.f_locals:
                 prepend_name = f.f_locals["self"].__class__.__name__
                 if "Scalene" not in prepend_name:
@@ -781,25 +790,19 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
-    def enable_allocation_signals():
+    def enable_allocation_signals() -> None:
         return
         signal.signal(
             ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
         )
-        signal.signal(
-            ScaleneSignals.free_signal, Scalene.free_signal_handler
-        )
+        signal.signal(ScaleneSignals.free_signal, Scalene.free_signal_handler)
 
     @staticmethod
-    def disable_allocation_signals():
+    def disable_allocation_signals() -> None:
         return
-        signal.signal(
-            ScaleneSignals.malloc_signal, signal.SIG_IGN
-        )
-        signal.signal(
-            ScaleneSignals.free_signal, signal.SIG_IGN
-        )
-        
+        signal.signal(ScaleneSignals.malloc_signal, signal.SIG_IGN)
+        signal.signal(ScaleneSignals.free_signal, signal.SIG_IGN)
+
     @staticmethod
     def malloc_signal_handler(
         signum: Union[
@@ -808,22 +811,26 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         """Handle malloc events."""
-        if threading._active_limbo_lock.locked():
+        if threading._active_limbo_lock.locked():  # type: ignore
             return
         if Scalene.__in_signal_handler.locked():
             return
         import gc
+
         gc.collect()
         gc.disable()
         Scalene.disable_allocation_signals()
-        signal.setitimer(
-            ScaleneSignals.cpu_timer_signal, 0, 0
+        signal.setitimer(ScaleneSignals.cpu_timer_signal, 0, 0)
+        t = threading.Thread(
+            target=Scalene.allocation_signal_handler,
+            args=(signum, this_frame, "malloc"),
         )
-        t = threading.Thread(target=Scalene.allocation_signal_handler, args=(signum, this_frame, "malloc"))
         t.start()
-        Scalene.__original_thread_join(t) # t.join()
+        Scalene.__original_thread_join(t)  # t.join()
         signal.setitimer(
-            ScaleneSignals.cpu_timer_signal, Scalene.__args.cpu_sampling_rate, 0
+            ScaleneSignals.cpu_timer_signal,
+            Scalene.__args.cpu_sampling_rate,
+            0,
         )
         Scalene.enable_allocation_signals()
         gc.enable()
@@ -836,26 +843,29 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         """Handle free events."""
-        if threading._active_limbo_lock.locked():
+        if threading._active_limbo_lock.locked():  # type: ignore
             return
         if Scalene.__in_signal_handler.locked():
             return
         import gc
+
         gc.collect()
         gc.disable()
         Scalene.disable_allocation_signals()
-        signal.setitimer(
-            ScaleneSignals.cpu_timer_signal, 0, 0
+        signal.setitimer(ScaleneSignals.cpu_timer_signal, 0, 0)
+        t = threading.Thread(
+            target=Scalene.allocation_signal_handler,
+            args=(signum, this_frame, "free"),
         )
-        t = threading.Thread(target=Scalene.allocation_signal_handler, args=(signum, this_frame, "free"))
         t.start()
-        Scalene.__original_thread_join(t) # t.join()
+        Scalene.__original_thread_join(t)  # t.join()
         signal.setitimer(
-            ScaleneSignals.cpu_timer_signal, Scalene.__args.cpu_sampling_rate, 0
+            ScaleneSignals.cpu_timer_signal,
+            Scalene.__args.cpu_sampling_rate,
+            0,
         )
         Scalene.enable_allocation_signals()
         gc.enable()
-        
 
     @staticmethod
     def allocation_signal_handler(
@@ -866,7 +876,7 @@ class Scalene:
         event: str,
     ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
-        if threading._active_limbo_lock.locked():
+        if threading._active_limbo_lock.locked():  # type: ignore
             return
         with Scalene.__in_signal_handler:
             stats = Scalene.__stats
@@ -885,7 +895,11 @@ class Scalene:
                         Scalene.__malloc_lastpos,
                     ):
                         break
-                    count_str = Scalene.__buf.rstrip(b"\x00").split(b"\n")[0].decode("ascii")
+                    count_str = (
+                        Scalene.__buf.rstrip(b"\x00")
+                        .split(b"\n")[0]
+                        .decode("ascii")
+                    )
                     if count_str.strip() == "":
                         break
                     (
@@ -899,12 +913,13 @@ class Scalene:
                     # assert action in ["M", "f", "F"]
                     if int(curr_pid) == int(pid):
                         arr.append(
-                                (int(alloc_time_str),
-                                 action,
-                                 float(count_str),
-                                 float(python_fraction_str),
-                                 pointer,
-                                 )
+                            (
+                                int(alloc_time_str),
+                                action,
+                                float(count_str),
+                                float(python_fraction_str),
+                                pointer,
+                            )
                         )
 
             except FileNotFoundError:
@@ -943,7 +958,10 @@ class Scalene:
                     this_fn, this_ln, this_ptr = stats.last_malloc_triggered
                     if this_ln != 0:
                         mallocs, frees = stats.leak_score[this_fn][this_ln]
-                        stats.leak_score[this_fn][this_ln] = (mallocs, frees + 1)
+                        stats.leak_score[this_fn][this_ln] = (
+                            mallocs,
+                            frees + 1,
+                        )
                 stats.last_malloc_triggered = (
                     Filename(""),
                     LineNumber(0),
@@ -1019,7 +1037,7 @@ class Scalene:
                 )
                 # Update leak score if we just increased the max footprint (starting at a fixed threshold, currently 100MB, FIXME).
                 if prevmax < stats.max_footprint and stats.max_footprint > 100:
-                    stats.last_malloc_triggered = last_malloc 
+                    stats.last_malloc_triggered = last_malloc
                     mallocs, frees = stats.leak_score[fname][lineno]
                     stats.leak_score[fname][lineno] = (mallocs + 1, frees)
 
@@ -1051,9 +1069,11 @@ class Scalene:
         signal.setitimer(
             ScaleneSignals.cpu_timer_signal,
             Scalene.__args.cpu_sampling_rate,
-            0)
-#            Scalene.__args.cpu_sampling_rate,
-#        )
+            0,
+        )
+
+    #            Scalene.__args.cpu_sampling_rate,
+    #        )
 
     @staticmethod
     def memcpy_signal_handler(
@@ -1063,14 +1083,16 @@ class Scalene:
         frame: FrameType,
     ) -> None:
         """Handles memcpy events."""
-        threading.Thread(target=Scalene.memcpy_signal_handler_helper, args=(signum, frame)).start()
+        threading.Thread(
+            target=Scalene.memcpy_signal_handler_helper, args=(signum, frame)
+        ).start()
 
     @staticmethod
     def memcpy_signal_handler_helper(
-            signum: Union[
-                Callable[[Signals, FrameType], None], int, Handlers, None
-            ],
-            frame: FrameType
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
+        frame: FrameType,
     ) -> None:
         with Scalene.__in_signal_handler:
             curr_pid = os.getpid()
@@ -1091,9 +1113,13 @@ class Scalene:
                             Scalene.__memcpy_lastpos,
                         ):
                             break
-                        count_str = Scalene.__buf.split(b"\n")[0].decode("ascii")
+                        count_str = Scalene.__buf.split(b"\n")[0].decode(
+                            "ascii"
+                        )
 
-                        (memcpy_time_str, count_str2, pid) = count_str.split(",")
+                        (memcpy_time_str, count_str2, pid) = count_str.split(
+                            ","
+                        )
                         if int(curr_pid) == int(pid):
                             arr.append((int(memcpy_time_str), int(count_str2)))
                     Scalene.__memcpy_signal_position = mfile.tell() - 1
@@ -1224,7 +1250,6 @@ class Scalene:
         except BaseException:
             # Retry just in case we get interrupted by one of our own signals.
             Scalene.disable_signals()
-            
 
     @staticmethod
     def exit_handler() -> None:
@@ -1430,7 +1455,7 @@ for the process ID that Scalene reports. For example:
             dest="program_path",
             type=str,
             default="",
-            help="The directory that the code to profile is located in (default: the directory that the profiled program is in)"
+            help="The directory that the code to profile is located in (default: the directory that the profiled program is in)",
         )
         # the PID of the profiling process (for internal use only)
         parser.add_argument(
@@ -1670,7 +1695,9 @@ for the process ID that Scalene reports. For example:
                     )
                     sys.path.insert(0, program_path)
                     if len(args.program_path) > 0:
-                        Scalene.__program_path = os.path.abspath(args.program_path)
+                        Scalene.__program_path = os.path.abspath(
+                            args.program_path
+                        )
                     else:
                         Scalene.__program_path = program_path
                     # Grab local and global variables.
@@ -1688,6 +1715,7 @@ for the process ID that Scalene reports. For example:
                     )
                     # Do a GC before we start.
                     import gc
+
                     gc.collect()
                     gc.disable()
                     profiler = Scalene(args, Filename(fullname))

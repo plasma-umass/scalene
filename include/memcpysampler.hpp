@@ -185,11 +185,11 @@ class MemcpySampler {
     static HL::PosixLock init_lock;
     init_lock.lock();
     auto old_sig = signal(MemcpySignal, SIG_IGN);
-    if (old_sig != SIG_DFL)
-      signal(MemcpySignal, old_sig);
+    if (old_sig != SIG_DFL) signal(MemcpySignal, old_sig);
     init_lock.unlock();
     auto pid = getpid();
-    snprintf((char *)scalene_memcpy_signal_filename, FILENAME_LENGTH, fname, pid);
+    snprintf((char *)scalene_memcpy_signal_filename, FILENAME_LENGTH, fname,
+             pid);
     // printf("initialized (%s)\n", scalene_memcpy_signal_filename);
   }
 
@@ -283,7 +283,7 @@ class MemcpySampler {
   void writeCount() {
     char buf[FILENAME_LENGTH];
     snprintf(buf, FILENAME_LENGTH, "%d,%d,%d", _memcpyTriggered, _memcpyOps,
-	     getpid());
+             getpid());
     _samplefile.writeToFile(buf, 0);
   }
 };
