@@ -807,6 +807,8 @@ class Scalene:
         this_frame: FrameType,
         allocation_type: str,
     ) -> None:
+        if threading._active_limbo_lock.locked():  # type: ignore
+            return
         import gc
 
         gc.collect()
