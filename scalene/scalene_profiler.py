@@ -672,9 +672,8 @@ class Scalene:
         Scalene.__last_cpu_sampling_rate = next_interval
         Scalene.__last_signal_time_wallclock = Scalene.get_wallclock_time()
         Scalene.__last_signal_time_virtual = Scalene.get_process_time()
-        # FIXME
-        if True:
-            signal.setitimer(ScaleneSignals.cpu_timer_signal, next_interval, 0)
+        # Reset the CPU timer.
+        signal.setitimer(ScaleneSignals.cpu_timer_signal, next_interval, 0)
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -808,26 +807,17 @@ class Scalene:
         this_frame: FrameType,
         allocation_type: str,
     ) -> None:
-        if threading._active_limbo_lock.locked():  # type: ignore
-            return
-        if Scalene.__in_signal_handler.locked():
-            return
         import gc
 
         gc.collect()
         gc.disable()
-        signal.setitimer(ScaleneSignals.cpu_timer_signal, 0, 0)
+        # Handle the signal in a separate thread.
         t = threading.Thread(
             target=Scalene.allocation_signal_handler,
             args=(signum, this_frame, allocation_type),
         )
         t.start()
         Scalene.__original_thread_join(t)  # t.join()
-        signal.setitimer(
-            ScaleneSignals.cpu_timer_signal,
-            Scalene.__args.cpu_sampling_rate,
-            0,
-        )
         gc.enable()
 
     @staticmethod
