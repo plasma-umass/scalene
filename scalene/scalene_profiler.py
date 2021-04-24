@@ -810,30 +810,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        """Handle malloc events."""
-        if threading._active_limbo_lock.locked():  # type: ignore
-            return
-        if Scalene.__in_signal_handler.locked():
-            return
-        import gc
-
-        gc.collect()
-        gc.disable()
-        Scalene.disable_allocation_signals()
-        signal.setitimer(ScaleneSignals.cpu_timer_signal, 0, 0)
-        t = threading.Thread(
-            target=Scalene.allocation_signal_handler,
-            args=(signum, this_frame, "malloc"),
-        )
-        t.start()
-        Scalene.__original_thread_join(t)  # t.join()
-        signal.setitimer(
-            ScaleneSignals.cpu_timer_signal,
-            Scalene.__args.cpu_sampling_rate,
-            0,
-        )
-        Scalene.enable_allocation_signals()
-        gc.enable()
+        Scalene.allocation_signal_handler_helper(signum, this_frame, "malloc")
 
     @staticmethod
     def free_signal_handler(
@@ -842,7 +819,16 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        """Handle free events."""
+        Scalene.allocation_signal_handler_helper(signum, this_frame, "free")
+
+    @staticmethod
+    def allocation_signal_handler_helper(
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
+        this_frame: FrameType,
+        allocation_type: str,
+    ) -> None:
         if threading._active_limbo_lock.locked():  # type: ignore
             return
         if Scalene.__in_signal_handler.locked():
@@ -855,7 +841,7 @@ class Scalene:
         signal.setitimer(ScaleneSignals.cpu_timer_signal, 0, 0)
         t = threading.Thread(
             target=Scalene.allocation_signal_handler,
-            args=(signum, this_frame, "free"),
+            args=(signum, this_frame, allocation_type),
         )
         t.start()
         Scalene.__original_thread_join(t)  # t.join()
