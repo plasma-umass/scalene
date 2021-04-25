@@ -1258,11 +1258,7 @@ class Scalene:
         ):
             pass
         else:
-            print("Scalene: Program did not run for long enough to profile.")\
-
-        # if not Scalene.__is_child:
-        #     os.remove(Scalene.__malloc_lock_filename)
-        #     os.remove(Scalene.__memcpy_lock_filename)
+            print("Scalene: Program did not run for long enough to profile.")
         return exit_status
 
     @staticmethod
