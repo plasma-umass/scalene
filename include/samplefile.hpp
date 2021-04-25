@@ -94,7 +94,7 @@ class SampleFile {
     munmap(_mmap, MAX_FILE_SIZE);
     munmap(_lastpos, LOCK_FD_SIZE);
     unlink(_signalfile);
-    unlink(_lockfile);
+    // unlink(_lockfile);
     unlink(_init_filename);
   }
   void writeToFile(char *line, int is_malloc) {
