@@ -295,7 +295,7 @@ class ScaleneStatistics:
     def increment_cpu_utilization(
         dest: Dict[Filename, Dict[LineNumber, RunningStats]],
         src:  Dict[Filename, Dict[LineNumber, RunningStats]]
-    ):
+    ) -> None:
         for filename in src:
             for lineno in src[filename]:
                 dest[filename][lineno] += src[filename][lineno]
