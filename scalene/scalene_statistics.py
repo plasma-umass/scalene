@@ -250,6 +250,7 @@ class ScaleneStatistics:
         "cpu_samples_python",
         "bytei_map",
         "cpu_samples",
+        "cpu_utilization",
         "memory_malloc_samples",
         "memory_python_samples",
         "memory_free_samples",
@@ -291,6 +292,15 @@ class ScaleneStatistics:
                 dest[filename][lineno] += v  # type: ignore
 
     @staticmethod
+    def increment_cpu_utilization(
+        dest: Dict[Filename, Dict[LineNumber, RunningStats]],
+        src:  Dict[Filename, Dict[LineNumber, RunningStats]]
+    ) -> None:
+        for filename in src:
+            for lineno in src[filename]:
+                dest[filename][lineno] += src[filename][lineno]
+
+    @staticmethod
     def increment_per_bytecode_samples(
         dest: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, T]]],
         src: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, T]]],
@@ -315,6 +325,9 @@ class ScaleneStatistics:
                 for i, n in enumerate(ScaleneStatistics.payload_contents):
                     setattr(x, n, value[i])
                 self.max_footprint = max(self.max_footprint, x.max_footprint)
+                self.increment_cpu_utilization(
+                    self.cpu_utilization, x.cpu_utilization
+                )
                 self.elapsed_time = max(self.elapsed_time, x.elapsed_time)
                 self.total_cpu_samples += x.total_cpu_samples
                 self.total_gpu_samples += x.total_gpu_samples
