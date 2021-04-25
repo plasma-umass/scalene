@@ -371,7 +371,7 @@ class Scalene:
             signal.setitimer(
                 ScaleneSignals.cpu_timer_signal,
                 Scalene.__args.cpu_sampling_rate,
-                0,
+                Scalene.__args.cpu_sampling_rate
             )
 
     @staticmethod
@@ -483,8 +483,8 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         """Wrapper for CPU signal handlers."""
-        with Scalene.__in_signal_handler:
-            Scalene.cpu_signal_handler_helper(signum, this_frame)
+        #with Scalene.__in_signal_handler:
+        Scalene.cpu_signal_handler_helper(signum, this_frame)
 
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
@@ -672,7 +672,8 @@ class Scalene:
         Scalene.__last_signal_time_wallclock = Scalene.get_wallclock_time()
         Scalene.__last_signal_time_virtual = Scalene.get_process_time()
         # Reset the CPU timer.
-        signal.setitimer(ScaleneSignals.cpu_timer_signal, next_interval, 0)
+        # (No change for now.)
+        signal.setitimer(ScaleneSignals.cpu_timer_signal, next_interval, next_interval)
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -810,16 +811,16 @@ class Scalene:
             return
         import gc
 
-        gc.collect()
-        gc.disable()
+        #gc.collect()
+        #gc.disable()
         # Handle the signal in a separate thread.
         t = threading.Thread(
             target=Scalene.allocation_signal_handler,
             args=(signum, this_frame, allocation_type),
         )
         t.start()
-        Scalene.__original_thread_join(t)  # t.join()
-        gc.enable()
+        #Scalene.__original_thread_join(t)  # t.join()
+        #gc.enable()
 
     @staticmethod
     def allocation_signal_handler(
@@ -1019,12 +1020,6 @@ class Scalene:
         signal.signal(
             ScaleneSignals.memcpy_signal,
             Scalene.memcpy_signal_handler,
-        )
-        # Set the timer to go off exactly one time (we'll start it up again after its signal is handled).
-        signal.setitimer(
-            ScaleneSignals.cpu_timer_signal,
-            Scalene.__args.cpu_sampling_rate,
-            0,
         )
 
     @staticmethod
@@ -1351,9 +1346,7 @@ class Scalene:
                     )
                     # Do a GC before we start.
                     import gc
-
                     gc.collect()
-                    gc.disable()
                     profiler = Scalene(args, Filename(fullname))
                     try:
                         # We exit with this status (returning error code as appropriate).
