@@ -7,7 +7,7 @@ include scalene/*.py
 include test/testme.py
 include GNUmakefile
 include heaplayers-make.mk
-include libscalene.cpp
-include include/*.h
-include include/*.hpp
-recursive-include Heap-Layers *
+include src/source/libscalene.cpp
+include src/include/*.h
+include src/include/*.hpp
+recursive-include vendor/Heap-Layers *
