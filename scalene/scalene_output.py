@@ -395,7 +395,6 @@ class ScaleneOutput:
         # Build a list of files we will actually report on.
         report_files: List[Filename] = []
         # Sort in descending order of CPU cycles, and then ascending order by filename
-        print("ALL FILES", all_instrumented_files)
         for fname in sorted(
             all_instrumented_files,
             key=lambda f: (-(stats.cpu_samples[f]), f),
@@ -622,9 +621,7 @@ class ScaleneOutput:
                         is_function_summary=True,
                         reduced_profile=reduced_profile,
                     )
-            print("P R I N T I N G")
             console.print(tbl)
-            print("P R I N T E D")
             # Report top K lines (currently 5) in terms of net memory consumption.
             net_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
