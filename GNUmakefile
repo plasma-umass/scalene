@@ -1,20 +1,20 @@
 LIBNAME = scalene
 PYTHON = python3
 PYTHON_SOURCES = scalene/[a-z]*.py
-C_SOURCES = libscalene.cpp get_line_atomic.cpp include/*.h*
+C_SOURCES = src/source/libscalene.cpp src/source/get_line_atomic.cpp src/include/*.h*
 
-.PHONY: black clang-format
+.PHONY: black clang-format format upload
 
-SRC = printf/printf.c
-INCLUDES = -Iprintf
-OTHER_DEPS = printf
+SRC = vendor/printf/printf.c
+INCLUDES = -Isrc/include -Ivendor/printf
+OTHER_DEPS = vendor/printf
 
 include heaplayers-make.mk
 
-printf/printf.c: printf
+vendor/printf/printf.c: vendor/printf
 
-printf:
-	git clone https://github.com/mpaland/printf
+vendor/printf:
+	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
 
 mypy:
 	-mypy $(PYTHON_SOURCES)

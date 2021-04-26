@@ -16,8 +16,8 @@ except:
     pass
 
 mmap_hl_spinlock = Extension('get_line_atomic',
-                include_dirs=['.', 'Heap-Layers', 'Heap-Layers/utility'],
-                sources=['get_line_atomic.cpp'],
+                include_dirs=['.', 'vendor/Heap-Layers', 'vendor/Heap-Layers/utility'],
+                sources=['src/source/get_line_atomic.cpp'],
                 extra_compile_args=['-std=c++14'],
                 language="c++14")
 

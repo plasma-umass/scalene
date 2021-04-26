@@ -54,7 +54,7 @@ Scalene is a high-performance CPU, GPU *and* memory profiler for Python that doe
 
 Below is a table comparing the **performance and features** of various profilers to Scalene.
 
-![Performance and feature comparison](https://github.com/plasma-umass/scalene/raw/master/images/profiler-comparison.png)
+![Performance and feature comparison](https://github.com/plasma-umass/scalene/raw/master/docs/images/profiler-comparison.png)
 
 **Function-granularity profilers** report information only for an entire function, while **line-granularity profilers** (like Scalene) report information for every line
 
@@ -76,7 +76,7 @@ it `--profile-all` and only include files with at least a
 `--cpu-percent-threshold` of time).  Here is a snippet from
 `pystone.py`.
 
-![Example profile](https://github.com/plasma-umass/scalene/raw/master/images/sample-profile-pystone.png)
+![Example profile](https://github.com/plasma-umass/scalene/raw/master/docs/images/sample-profile-pystone.png)
 
 * **Memory usage at the top**: Visualized by "sparklines", memory consumption over the runtime of the profiled code. Scalene is a statistical profiler, meaning that it does sampling, and variance can certainly happen. A longer-running program that allocates and frees more memory will have more stable results.
 * **"CPU % Python"**: How much time was spent in Python code.

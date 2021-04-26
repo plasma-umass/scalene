@@ -10,10 +10,8 @@
 #include "common.hpp"
 #include "printf.h"
 
-//#include "mwc.h"
-
-#define SAMPLER_DETERMINISTIC 0
-#define SAMPLER_LOWDISCREPANCY 1
+#define SAMPLER_DETERMINISTIC 1
+#define SAMPLER_LOWDISCREPANCY 0
 
 #include <pthread.h>
 #include <stdio.h>
@@ -46,7 +44,12 @@ class Sampler {
  public:
   Sampler() {
 #if !SAMPLER_DETERMINISTIC
-    _next = geom(rng);
+    while (true) {
+      _next = geom(rng);
+      if (_next != 0) {
+        break;
+      }
+    }
 #else
     _next = SAMPLE_RATE;
 #endif
@@ -57,11 +60,11 @@ class Sampler {
     if (unlikely(_next <= sz)) {
       return updateSample(sz - _next);
     }
+    assert(sz <= _next);
     _next -= sz;
     return 0;
   }
 
- private:
   uint64_t updateSample(uint64_t sz) {
 #if SAMPLER_DETERMINISTIC
     _next = SAMPLE_RATE;
@@ -75,6 +78,8 @@ class Sampler {
 #endif
     auto prevSampleSize = _lastSampleSize;
     _lastSampleSize = _next;
-    return sz + prevSampleSize;
+    return sz + SAMPLE_RATE;
+    // previously:
+    // return sz + prevSampleSize;
   }
 };

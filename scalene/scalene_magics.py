@@ -7,6 +7,7 @@ try:
     )
     from scalene import scalene_profiler
     from scalene.scalene_arguments import ScaleneArguments
+    from scalene.scalene_parseargs import ScaleneParseArgs
     from typing import Any
     import sys
     import tempfile
@@ -32,7 +33,7 @@ try:
             if line:
                 sys.argv = ["scalene"]
                 sys.argv.extend(line.split(" "))
-                (args, left) = scalene_profiler.Scalene.parse_args()
+                (args, left) = ScaleneParseArgs.parse_args()
             else:
                 args = ScaleneArguments()
             if cell:
@@ -46,7 +47,7 @@ try:
             if line:
                 sys.argv = ["scalene"]
                 sys.argv.extend(line.split(" "))
-                (args, left) = scalene_profiler.Scalene.parse_args()
+                (args, left) = ScaleneParseArgs.parse_args()
                 self.run_code(args, (" ").join(left))  # type: ignore
 
     def load_ipython_extension(ip: Any) -> None:
