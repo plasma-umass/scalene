@@ -29,7 +29,7 @@ class ScaleneGPU:
                 self.__handle.append(pynvml.nvmlDeviceGetHandleByIndex(i))
         except:
             pass
-        
+
     def load(self) -> float:
         if self.__has_gpu:
             l = 0.0

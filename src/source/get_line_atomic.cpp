@@ -2,6 +2,7 @@
 #include <Python.h>
 #include <heaplayers.h>
 #include <string.h>
+
 #include <mutex>
 
 // This uses Python's buffer interface to view a mmap buffer passed in,
@@ -30,7 +31,7 @@ static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
                           // https://docs.python.org/3/c-api/buffer.html
     return NULL;
   auto buf = reinterpret_cast<char*>(lock_mmap.buf) + sizeof(uint64_t);
-  auto lock = reinterpret_cast<HL::SpinLock *>(buf);
+  auto lock = reinterpret_cast<HL::SpinLock*>(buf);
 
   std::lock_guard<HL::SpinLock> theLock(*lock);
 
@@ -42,7 +43,8 @@ static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
   if (*current_iter == '\n') {
     Py_RETURN_FALSE;
   } else {
-    auto null_loc = reinterpret_cast<char *>(memchr(current_iter, '\n', result_bytearray.len));
+    auto null_loc = reinterpret_cast<char*>(
+        memchr(current_iter, '\n', result_bytearray.len));
     for (int i = 0; i <= null_loc - start; i++) {
       *(result_iter++) = *(current_iter++);
       (*lastpos)++;
