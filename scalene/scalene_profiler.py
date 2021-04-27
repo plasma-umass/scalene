@@ -2,7 +2,7 @@
 
     https://github.com/plasma-umass/scalene
 
-    See the paper "scalene-paper.pdf" in this repository for technical
+    See the paper "docs/scalene-paper.pdf" in this repository for technical
     details on an earlier version of Scalene's design; note that a
     number of these details have changed.
 
@@ -18,6 +18,7 @@ import atexit
 import builtins
 import dis
 import functools
+import gc
 import get_line_atomic
 import inspect
 import math
@@ -216,7 +217,7 @@ class Scalene:
     __memcpy_signal_filename = Filename(
         f"/tmp/scalene-memcpy-signal{os.getpid()}"
     )
-    
+
     __memcpy_lock_filename = Filename(f"/tmp/scalene-memcpy-lock{os.getpid()}")
     try:
         __memcpy_signal_fd = open(__memcpy_signal_filename, "r")
@@ -368,12 +369,12 @@ class Scalene:
             # Turn on the CPU profiling timer to run at the sampling rate (exactly once).
             signal.signal(
                 ScaleneSignals.cpu_signal,
-                Scalene.cpu_signal_handler_helper,
+                Scalene.cpu_signal_handler,
             )
             signal.setitimer(
                 ScaleneSignals.cpu_timer_signal,
                 Scalene.__args.cpu_sampling_rate,
-                Scalene.__args.cpu_sampling_rate
+                Scalene.__args.cpu_sampling_rate,
             )
 
     @staticmethod
@@ -485,7 +486,7 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         """Wrapper for CPU signal handlers."""
-        #with Scalene.__in_signal_handler:
+        # with Scalene.__in_signal_handler:
         Scalene.cpu_signal_handler_helper(signum, this_frame)
 
     @staticmethod
@@ -675,7 +676,9 @@ class Scalene:
         Scalene.__last_signal_time_virtual = Scalene.get_process_time()
         # Reset the CPU timer.
         # (No change for now.)
-        signal.setitimer(ScaleneSignals.cpu_timer_signal, next_interval, next_interval)
+        signal.setitimer(
+            ScaleneSignals.cpu_timer_signal, next_interval, next_interval
+        )
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -811,18 +814,12 @@ class Scalene:
     ) -> None:
         if threading._active_limbo_lock.locked():  # type: ignore
             return
-        import gc
-
-        #gc.collect()
-        #gc.disable()
         # Handle the signal in a separate thread.
         t = threading.Thread(
             target=Scalene.allocation_signal_handler,
             args=(signum, this_frame, allocation_type),
         )
         t.start()
-        #Scalene.__original_thread_join(t)  # t.join()
-        #gc.enable()
 
     @staticmethod
     def allocation_signal_handler(
@@ -925,9 +922,6 @@ class Scalene:
                     Address("0x0"),
                 )
 
-            if len(arr) > 1:
-                return
-
             # Now update the memory footprint for every running frame.
             # This is a pain, since we don't know to whom to attribute memory,
             # so we may overcount.
@@ -1015,7 +1009,7 @@ class Scalene:
             Scalene.__gpu.nvml_reinit()
         # Note-- __parent_pid of the topmost process is its own pid
         Scalene.__pid = Scalene.__parent_pid
-        # Note: Leaving the previous version here, in case `enable_signals` 
+        # Note: Leaving the previous version here, in case `enable_signals`
         # has side-effects that I am unaware of
         #
         # signal.signal(
@@ -1059,7 +1053,6 @@ class Scalene:
             try:
                 mfile = Scalene.__memcpy_signal_mmap
                 if mfile:
-                    mfile.seek(Scalene.__memcpy_signal_position)
                     while True:
                         if not get_line_atomic.get_line_atomic(
                             Scalene.__memcpy_lock_mmap,
@@ -1068,9 +1061,9 @@ class Scalene:
                             Scalene.__memcpy_lastpos,
                         ):
                             break
-                        count_str = Scalene.__memcpy_buf.split(b"\n")[0].decode(
-                            "ascii"
-                        )
+                        count_str = Scalene.__memcpy_buf.split(b"\n")[
+                            0
+                        ].decode("ascii")
                         (memcpy_time_str, count_str2, pid) = count_str.split(
                             ","
                         )
@@ -1356,7 +1349,6 @@ class Scalene:
                         program_path, os.path.basename(sys.argv[0])
                     )
                     # Do a GC before we start.
-                    import gc
                     gc.collect()
                     profiler = Scalene(args, Filename(fullname))
                     try:
