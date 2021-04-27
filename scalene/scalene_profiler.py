@@ -368,7 +368,7 @@ class Scalene:
             # Turn on the CPU profiling timer to run at the sampling rate (exactly once).
             signal.signal(
                 ScaleneSignals.cpu_signal,
-                Scalene.cpu_signal_handler_helper,
+                Scalene.cpu_signal_handler,
             )
             signal.setitimer(
                 ScaleneSignals.cpu_timer_signal,
@@ -485,7 +485,7 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         """Wrapper for CPU signal handlers."""
-        # with Scalene.__in_signal_handler:
+        #with Scalene.__in_signal_handler:
         Scalene.cpu_signal_handler_helper(signum, this_frame)
 
     @staticmethod
