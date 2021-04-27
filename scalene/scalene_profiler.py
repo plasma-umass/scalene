@@ -18,6 +18,7 @@ import atexit
 import builtins
 import dis
 import functools
+import gc
 import get_line_atomic
 import inspect
 import math
@@ -485,7 +486,7 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         """Wrapper for CPU signal handlers."""
-        #with Scalene.__in_signal_handler:
+        # with Scalene.__in_signal_handler:
         Scalene.cpu_signal_handler_helper(signum, this_frame)
 
     @staticmethod
@@ -813,18 +814,12 @@ class Scalene:
     ) -> None:
         if threading._active_limbo_lock.locked():  # type: ignore
             return
-        import gc
-
-        # gc.collect()
-        # gc.disable()
         # Handle the signal in a separate thread.
         t = threading.Thread(
             target=Scalene.allocation_signal_handler,
             args=(signum, this_frame, allocation_type),
         )
         t.start()
-        # Scalene.__original_thread_join(t)  # t.join()
-        # gc.enable()
 
     @staticmethod
     def allocation_signal_handler(
@@ -926,9 +921,6 @@ class Scalene:
                     LineNumber(0),
                     Address("0x0"),
                 )
-
-            if len(arr) > 1:
-                return
 
             # Now update the memory footprint for every running frame.
             # This is a pain, since we don't know to whom to attribute memory,
@@ -1357,8 +1349,6 @@ class Scalene:
                         program_path, os.path.basename(sys.argv[0])
                     )
                     # Do a GC before we start.
-                    import gc
-
                     gc.collect()
                     profiler = Scalene(args, Filename(fullname))
                     try:
