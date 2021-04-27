@@ -172,6 +172,7 @@ class Scalene:
 
     MAX_BUFSIZE = 256  # Must match SampleFile::MAX_BUFSIZE
     __buf = bytearray(MAX_BUFSIZE)
+    __memcpy_buf = bytearray(MAX_BUFSIZE)
 
     #
     #   file to communicate the number of malloc/free samples (+ PID)
@@ -215,6 +216,7 @@ class Scalene:
     __memcpy_signal_filename = Filename(
         f"/tmp/scalene-memcpy-signal{os.getpid()}"
     )
+    
     __memcpy_lock_filename = Filename(f"/tmp/scalene-memcpy-lock{os.getpid()}")
     try:
         __memcpy_signal_fd = open(__memcpy_signal_filename, "r")
@@ -1045,6 +1047,8 @@ class Scalene:
         ],
         frame: FrameType,
     ) -> None:
+        if threading._active_limbo_lock.locked():  # type: ignore
+            return
         with Scalene.__in_signal_handler:
             curr_pid = os.getpid()
             new_frames = Scalene.compute_frames_to_record(frame)
@@ -1060,21 +1064,20 @@ class Scalene:
                         if not get_line_atomic.get_line_atomic(
                             Scalene.__memcpy_lock_mmap,
                             Scalene.__memcpy_signal_mmap,
-                            Scalene.__buf,
+                            Scalene.__memcpy_buf,
                             Scalene.__memcpy_lastpos,
                         ):
                             break
-                        count_str = Scalene.__buf.split(b"\n")[0].decode(
+                        count_str = Scalene.__memcpy_buf.split(b"\n")[0].decode(
                             "ascii"
                         )
-
                         (memcpy_time_str, count_str2, pid) = count_str.split(
                             ","
                         )
                         if int(curr_pid) == int(pid):
                             arr.append((int(memcpy_time_str), int(count_str2)))
                     Scalene.__memcpy_signal_position = mfile.tell() - 1
-            except Exception:
+            except ValueError as e:
                 pass
             arr.sort()
 

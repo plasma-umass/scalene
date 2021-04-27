@@ -11,6 +11,7 @@
 #include <unistd.h>  // for getpid()
 
 #include "sampler.hpp"
+#include "printf.h"
 
 #if !defined(__APPLE__)
 #include <endian.h>
@@ -282,7 +283,7 @@ class MemcpySampler {
 
   void writeCount() {
     char buf[FILENAME_LENGTH];
-    snprintf(buf, FILENAME_LENGTH, "%d,%d,%d", _memcpyTriggered, _memcpyOps,
+    snprintf(buf, FILENAME_LENGTH, "%d,%d,%d\n\n", _memcpyTriggered, _memcpyOps,
              getpid());
     _samplefile.writeToFile(buf, 0);
   }
