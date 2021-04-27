@@ -1059,7 +1059,6 @@ class Scalene:
             try:
                 mfile = Scalene.__memcpy_signal_mmap
                 if mfile:
-                    mfile.seek(Scalene.__memcpy_signal_position)
                     while True:
                         if not get_line_atomic.get_line_atomic(
                             Scalene.__memcpy_lock_mmap,
