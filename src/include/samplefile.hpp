@@ -99,7 +99,6 @@ class SampleFile {
   }
   void writeToFile(char *line, int is_malloc) {
     _spin_lock->lock();
-    // printf("[%s] {%s}\n", _signalfile, line);
     char *ptr = _mmap;
     strncpy(_mmap + *_lastpos, (const char *)line, MAX_BUFSIZE);
 
