@@ -390,7 +390,7 @@ class ScaleneOutput:
                 pass
 
         console = Console(
-            width=column_width, record=True, force_terminal=True, quiet=True, file=null
+            width=column_width, record=True, force_terminal=True, file=null
         )
         # Build a list of files we will actually report on.
         report_files: List[Filename] = []
@@ -423,7 +423,9 @@ class ScaleneOutput:
 
         if len(report_files) == 0:
             return False
+
         for fname in report_files:
+
             # If the file was actually a Jupyter (IPython) cell,
             # restore its name, as in "[12]".
             fname_print = fname
@@ -621,7 +623,9 @@ class ScaleneOutput:
                         is_function_summary=True,
                         reduced_profile=reduced_profile,
                     )
+
             console.print(tbl)
+
             # Report top K lines (currently 5) in terms of net memory consumption.
             net_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
@@ -705,7 +709,6 @@ class ScaleneOutput:
             console.save_html(self.output_file, clear=False)
         else:
             if not self.output_file:
-                print("W R I T I N G")
                 # No output file specified: write to stdout.
                 sys.stdout.write(console.export_text(styles=True))
             else:
