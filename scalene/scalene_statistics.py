@@ -4,7 +4,17 @@ import pathlib
 import pickle
 
 from collections import defaultdict
-from typing import Any, Dict, List, NewType, Set, Tuple
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    List,
+    NewType,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+)
 from scalene.runningstats import RunningStats
 from scalene.adaptive import Adaptive
 
@@ -13,12 +23,13 @@ Filename = NewType("Filename", str)
 # FunctionName = NewType("FunctionName", str)
 LineNumber = NewType("LineNumber", int)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
+T = TypeVar("T")
 
 
 class ScaleneStatistics:
     # Statistics counters:
     #
-    def __init__(self):
+    def __init__(self) -> None:
         # total time spent in program being profiled
         self.elapsed_time: float = 0
 
@@ -117,7 +128,7 @@ class ScaleneStatistics:
 
         # same, but per line
         self.per_line_footprint_samples: Dict[
-            str, Dict[int, Adaptive]
+            Filename, Dict[LineNumber, Adaptive]
         ] = defaultdict(lambda: defaultdict(lambda: Adaptive(9)))
 
         # maps byte indices to line numbers (collected at runtime)
@@ -239,6 +250,7 @@ class ScaleneStatistics:
         "cpu_samples_python",
         "bytei_map",
         "cpu_samples",
+        "cpu_utilization",
         "memory_malloc_samples",
         "memory_python_samples",
         "memory_free_samples",
@@ -255,7 +267,7 @@ class ScaleneStatistics:
         "memory_free_count",
     ]
     # To be added: __malloc_samples
-    
+
     def output_stats(self, pid: int, dir_name: Filename) -> None:
         payload: List[Any] = []
         for n in ScaleneStatistics.payload_contents:
@@ -268,6 +280,37 @@ class ScaleneStatistics:
         )
         with open(out_filename, "wb") as out_file:
             cloudpickle.dump(payload, out_file)
+
+    @staticmethod
+    def increment_per_line_samples(
+        dest: Dict[Filename, Dict[LineNumber, T]],
+        src: Dict[Filename, Dict[LineNumber, T]],
+    ) -> None:
+        for filename in src:
+            for lineno in src[filename]:
+                v = src[filename][lineno]
+                dest[filename][lineno] += v  # type: ignore
+
+    @staticmethod
+    def increment_cpu_utilization(
+        dest: Dict[Filename, Dict[LineNumber, RunningStats]],
+        src:  Dict[Filename, Dict[LineNumber, RunningStats]]
+    ) -> None:
+        for filename in src:
+            for lineno in src[filename]:
+                dest[filename][lineno] += src[filename][lineno]
+
+    @staticmethod
+    def increment_per_bytecode_samples(
+        dest: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, T]]],
+        src: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, T]]],
+    ) -> None:
+        for filename in src:
+            for lineno in src[filename]:
+                for ind in src[filename][lineno]:
+                    dest[filename][lineno][ind] += src[  # type: ignore
+                        filename
+                    ][lineno][ind]
 
     def merge_stats(self, the_dir_name: Filename) -> None:
         the_dir = pathlib.Path(the_dir_name)
@@ -282,33 +325,43 @@ class ScaleneStatistics:
                 for i, n in enumerate(ScaleneStatistics.payload_contents):
                     setattr(x, n, value[i])
                 self.max_footprint = max(self.max_footprint, x.max_footprint)
+                self.increment_cpu_utilization(
+                    self.cpu_utilization, x.cpu_utilization
+                )
                 self.elapsed_time = max(self.elapsed_time, x.elapsed_time)
                 self.total_cpu_samples += x.total_cpu_samples
                 self.total_gpu_samples += x.total_gpu_samples
-                for dest, src in [
-                    (self.cpu_samples_c, x.cpu_samples_c),
-                    (self.cpu_samples_python, x.cpu_samples_python),
-                    (self.gpu_samples, x.gpu_samples),
-                    (self.memcpy_samples, x.memcpy_samples),
-                    (self.per_line_footprint_samples, x.per_line_footprint_samples),
-                ]:
-                    for filename in src:
-                        for lineno in src[filename]:
-                            v = src[filename][lineno]
-                            dest[filename][lineno] += v  # type: ignore
-                for dest, src in [
-                        (self.memory_malloc_samples, x.memory_malloc_samples),
-                        (self.memory_python_samples, x.memory_python_samples),
-                        (self.memory_free_samples, x.memory_free_samples),
-                        (self.memory_malloc_count, x.memory_malloc_count),
-                        (self.memory_free_count, x.memory_free_count)
-                ]:
-                    for filename in src:
-                        for lineno in src[filename]:
-                            for ind in src[filename][lineno]:
-                                dest[filename][lineno][ind] += src[
-                                    filename
-                                ][lineno][ind]
+                self.increment_per_line_samples(
+                    self.cpu_samples_c, x.cpu_samples_c
+                )
+                self.increment_per_line_samples(
+                    self.cpu_samples_python, x.cpu_samples_python
+                )
+                self.increment_per_line_samples(
+                    self.gpu_samples, x.gpu_samples
+                )
+                self.increment_per_line_samples(
+                    self.memcpy_samples, x.memcpy_samples
+                )
+                self.increment_per_line_samples(
+                    self.per_line_footprint_samples,
+                    x.per_line_footprint_samples,
+                )
+                self.increment_per_bytecode_samples(
+                    self.memory_malloc_samples, x.memory_malloc_samples
+                )
+                self.increment_per_bytecode_samples(
+                    self.memory_python_samples, x.memory_python_samples
+                )
+                self.increment_per_bytecode_samples(
+                    self.memory_free_samples, x.memory_free_samples
+                )
+                self.increment_per_bytecode_samples(
+                    self.memory_malloc_count, x.memory_malloc_count
+                )
+                self.increment_per_bytecode_samples(
+                    self.memory_free_count, x.memory_free_count
+                )
                 for filename in x.bytei_map:
                     for lineno in x.bytei_map[filename]:
                         v = x.bytei_map[filename][lineno]
@@ -316,12 +369,14 @@ class ScaleneStatistics:
                 for filename in x.cpu_samples:
                     self.cpu_samples[filename] += x.cpu_samples[filename]
                 self.total_memory_free_samples += x.total_memory_free_samples
-                self.total_memory_malloc_samples += x.total_memory_malloc_samples
+                self.total_memory_malloc_samples += (
+                    x.total_memory_malloc_samples
+                )
                 self.memory_footprint_samples += x.memory_footprint_samples
-                for k, v in x.function_map.items():
+                for k, val in x.function_map.items():
                     if k in self.function_map:
-                        self.function_map[k].update(v)
+                        self.function_map[k].update(val)
                     else:
-                        self.function_map[k] = v
+                        self.function_map[k] = val
                 self.firstline_map.update(x.firstline_map)
             os.remove(f)

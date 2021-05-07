@@ -1,7 +1,7 @@
 from rich.console import Console
 from rich.segment import Segment
 from rich.style import Style
-from typing import Any, Generator, List
+from typing import Any, Iterator, List
 
 
 class SyntaxLine:
@@ -10,5 +10,5 @@ class SyntaxLine:
 
     def __rich_console__(
         self, console: Console, options: Any
-    ) -> Generator[Any, Any, Segment]:
+    ) -> Iterator[Segment]:
         yield from self.segments
