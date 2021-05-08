@@ -1030,6 +1030,8 @@ class Scalene:
         frame: FrameType,
     ) -> None:
         """Handles memcpy events."""
+        if threading._active_limbo_lock.locked():  # type: ignore
+            return
         threading.Thread(
             target=Scalene.memcpy_signal_handler_helper, args=(signum, frame)
         ).start()
