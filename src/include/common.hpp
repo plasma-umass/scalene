@@ -3,8 +3,10 @@
 #ifndef COMMON_HPP
 #define COMMON_HPP
 
+#ifndef likely
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
+#endif
 
 #define ATTRIBUTE_NEVER_INLINE __attribute__((noinline))
 #define ATTRIBUTE_ALWAYS_INLINE __attribute__((always_inline))
