@@ -16,7 +16,7 @@ INCLUDES := $(INCLUDES) -Ivendor/printf
 ifeq ($(shell uname -s),Darwin)
   LIBFILE := lib$(LIBNAME).dylib
   WRAPPER := vendor/Heap-Layers/wrappers/macwrapper.cpp
-	ifneq (,$(filter $(shell uname -s),arm arm64))
+	ifneq (,$(filter $(shell uname -p),arm arm64))  # this means "if arm or arm64"
     ARMFLAG = -arch arm64 
   endif
   CXXFLAGS := $(CXXFLAGS) -flto -ftls-model=initial-exec -ftemplate-depth=1024 -arch x86_64 $(ARMFLAG) -compatibility_version 1 -current_version 1 -dynamiclib
