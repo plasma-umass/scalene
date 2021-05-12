@@ -35,6 +35,8 @@ ifeq ($(UNAME_S),Linux)
 	cp lib$(LIBNAME).so scalene
 endif
 
+vendor/Heap-Layers/wrappers/macwrapper.cpp : vendor/Heap-Layers
+
 vendor/Heap-Layers:
 	mkdir -p vendor && cd vendor && git clone https://github.com/emeryberger/Heap-Layers
 
