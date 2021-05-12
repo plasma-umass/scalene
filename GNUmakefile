@@ -34,7 +34,7 @@ endif
 
 SRC := src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
 
-all: vendor/Heap-Layers vendor/printf $(SRC) $(OTHER_DEPS)
+all: vendor/Heap-Layers $(SRC) $(OTHER_DEPS)
 	rm -f $(LIBFILE) scalene/$(LIBFILE)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(LIBFILE) -ldl -lpthread
 	cp $(LIBFILE) scalene
@@ -48,11 +48,9 @@ vendor/Hoard:
 	mkdir -p vendor && cd vendor && git clone https://github.com/emeryberger/Hoard
 	cd vendor/Hoard/src && ln -s ../../Heap-Layers  # avoid inconsistencies by using same package
 
-vendor/printf/printf.cpp: vendor/printf
-	cd vendor/printf && ln -s printf.c printf.cpp
-
-vendor/printf:
+vendor/printf/printf.cpp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
+	cd vendor/printf && ln -s printf.c printf.cpp
 
 mypy:
 	-mypy $(PYTHON_SOURCES)
