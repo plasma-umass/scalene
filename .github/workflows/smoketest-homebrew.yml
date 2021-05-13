@@ -1,0 +1,12 @@
+name: "Homebrew Tests"
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  homebrew-macos:
+    runs-on: macos-latest
+    steps:
+      - run: brew tap plasma-umass/scalene
+      - run: brew install --head plasma-umass/scalene/scalene
