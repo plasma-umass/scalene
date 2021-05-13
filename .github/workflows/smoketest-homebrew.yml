@@ -9,4 +9,4 @@ jobs:
     runs-on: macos-latest
     steps:
       - run: brew tap plasma-umass/scalene
-      - run: brew install --head plasma-umass/scalene/libscalene
+      - run: brew install --head plasma-umass/scalene/scalene
