@@ -56,7 +56,10 @@ Below is a table comparing the **performance and features** of various profilers
 
 ![Performance and feature comparison](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/images/profiler-comparison.png)
 
-**Function-granularity profilers** report information only for an entire function, while **line-granularity profilers** report information for every line -- Scalene does both.
+_Note that Scalene has all these features_
+
+- **Slowdown**: the slowdown when running a benchmark from the Pyperformance suite
+- **Lines or functions**: does the profiler report information only for entires functions, or for every line -- Scalene does both
 - **Unmodified Code**: works on unmodified code
 - **Threads**: supports Python threads
 - **Multiprocessing**: supports use of the `multiprocessing` library
