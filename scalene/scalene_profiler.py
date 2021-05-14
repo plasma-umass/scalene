@@ -517,12 +517,12 @@ class Scalene:
         now_virtual = Scalene.get_process_time()
         now_wallclock = Scalene.get_wallclock_time()
         # If it's time to print some profiling info, do so.
-        if now_virtual >= Scalene.__next_output_time:
+        if now_wallclock >= Scalene.__next_output_time:
             # Print out the profile. Set the next output time, stop
             # signals, print the profile, and then start signals
             # again.
             Scalene.__next_output_time += (
-                Scalene.__args.output_profile_interval
+                Scalene.__args.profile_interval
             )
             Scalene.stop()
             stats = Scalene.__stats
