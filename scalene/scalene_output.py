@@ -391,7 +391,7 @@ class ScaleneOutput:
                 pass
 
         console = Console(
-            width=column_width, record=True, force_terminal=True, file=null
+            width=column_width, record=True, force_terminal=True, file=null, force_jupyter=False,
         )
         # Build a list of files we will actually report on.
         report_files: List[Filename] = []
