@@ -7,7 +7,7 @@ C_SOURCES = src/source/libscalene.cpp src/source/get_line_atomic.cpp src/include
 
 # CXXFLAGS = -std=c++14 -g -O0
 CXXFLAGS = -std=c++14 -g -O3 -DNDEBUG -D_REENTRANT=1 -D'CUSTOM_PREFIX(x)=xx\#\#x' -pipe -fno-builtin-malloc -fvisibility=hidden
-CXX = clang++
+CXX = g++
 
 INCLUDES  = -Isrc -Isrc/include
 INCLUDES := $(INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility
