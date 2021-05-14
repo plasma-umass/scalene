@@ -10,8 +10,8 @@
 #include <sys/types.h>
 #include <unistd.h>  // for getpid()
 
-#include "sampler.hpp"
 #include "printf.h"
+#include "sampler.hpp"
 
 #if !defined(__APPLE__)
 #include <endian.h>

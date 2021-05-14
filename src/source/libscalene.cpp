@@ -6,10 +6,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
 #include <cstddef>
 
 #if defined(__APPLE__)
-  #include "hoardtlab.h" // must come before common.hpp
+#include "hoardtlab.h"  // must come before common.hpp
 #endif
 
 #include "common.hpp"
@@ -20,7 +21,7 @@
 #include "tprintf.h"
 
 #if defined(__APPLE__)
-  #include "macinterpose.h"
+#include "macinterpose.h"
 #endif
 
 #if defined(__APPLE__)
@@ -28,22 +29,23 @@
 // we use Hoard instead to avoid that.
 
 class ScaleneBaseHeap : public HL::ANSIWrapper<Hoard::TLABBase> {
-  static Hoard::HoardHeapType* getMainHoardHeap() {
+  static Hoard::HoardHeapType *getMainHoardHeap() {
     alignas(std::max_align_t) static char thBuf[sizeof(Hoard::HoardHeapType)];
-    static auto* th = new (thBuf) Hoard::HoardHeapType;
+    static auto *th = new (thBuf) Hoard::HoardHeapType;
     return th;
   }
 
-public:
+ public:
   static constexpr size_t Alignment = alignof(std::max_align_t);
 
   ScaleneBaseHeap() : HL::ANSIWrapper<Hoard::TLABBase>(getMainHoardHeap()) {}
 
-  void* memalign(size_t alignment, size_t size) {
-    // XXX Copied from Heap-Layers/wrappers/generic-memalign.cpp ; we can't use it directly
-    // because it invokes xxmalloc, which would be detected as a recursive malloc call, causing
-    // all memalign to be serviced by heapredirect's static buffer.  We use this->malloc()
-    // and this->free() to ensure these are bound to this heap's functions.
+  void *memalign(size_t alignment, size_t size) {
+    // XXX Copied from Heap-Layers/wrappers/generic-memalign.cpp ; we can't use
+    // it directly because it invokes xxmalloc, which would be detected as a
+    // recursive malloc call, causing all memalign to be serviced by
+    // heapredirect's static buffer.  We use this->malloc() and this->free() to
+    // ensure these are bound to this heap's functions.
 
     // Check for non power-of-two alignment.
     if ((alignment == 0) || (alignment & (alignment - 1))) {
@@ -57,8 +59,8 @@ public:
 
     // Try to just allocate an object of the requested size.
     // If it happens to be aligned properly, just return it.
-    void * ptr = this->malloc(size);
-    if (((size_t) ptr & ~(alignment - 1)) == (size_t) ptr) {
+    void *ptr = this->malloc(size);
+    if (((size_t)ptr & ~(alignment - 1)) == (size_t)ptr) {
       // It is already aligned just fine; return it.
       return ptr;
     }
@@ -66,12 +68,13 @@ public:
     // and align within.
     this->free(ptr);
     ptr = this->malloc(size + 2 * alignment);
-    void * alignedPtr = (void *) (((size_t) ptr + alignment - 1) & ~(alignment - 1));
+    void *alignedPtr =
+        (void *)(((size_t)ptr + alignment - 1) & ~(alignment - 1));
     return alignedPtr;
   }
 };
-#else // not __APPLE__
-  using ScaleneBaseHeap = HL::SysMallocHeap;
+#else  // not __APPLE__
+using ScaleneBaseHeap = HL::SysMallocHeap;
 #endif
 
 // For use by the replacement printf routines (see
@@ -79,8 +82,8 @@ public:
 extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
 
 constexpr uint64_t MallocSamplingRate =
-  1048571ULL;  // a prime number near a megabyte
-constexpr uint64_t MemcpySamplingRate = 2097169ULL; // another prime, near 2MB
+    1048571ULL;  // a prime number near a megabyte
+constexpr uint64_t MemcpySamplingRate = 2097169ULL;  // another prime, near 2MB
 
 class CustomHeapType : public HL::ThreadSpecificHeap<
                            SampleHeap<MallocSamplingRate, ScaleneBaseHeap>> {
