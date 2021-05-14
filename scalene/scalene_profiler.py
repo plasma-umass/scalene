@@ -812,7 +812,7 @@ class Scalene:
         this_frame: FrameType,
         allocation_type: str,
     ) -> None:
-        if threading._active_limbo_lock.locked():  # type: ignore
+        if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
             return
         # Handle the signal in a separate thread.
         t = threading.Thread(
@@ -830,7 +830,7 @@ class Scalene:
         event: str,
     ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
-        if threading._active_limbo_lock.locked():  # type: ignore
+        if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
             return
         with Scalene.__in_signal_handler:
             stats = Scalene.__stats
@@ -1030,7 +1030,7 @@ class Scalene:
         frame: FrameType,
     ) -> None:
         """Handles memcpy events."""
-        if threading._active_limbo_lock.locked():  # type: ignore
+        if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
             return
         threading.Thread(
             target=Scalene.memcpy_signal_handler_helper, args=(signum, frame)
@@ -1043,7 +1043,7 @@ class Scalene:
         ],
         frame: FrameType,
     ) -> None:
-        if threading._active_limbo_lock.locked():  # type: ignore
+        if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
             return
         with Scalene.__in_signal_handler:
             curr_pid = os.getpid()
