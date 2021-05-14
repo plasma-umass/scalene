@@ -203,10 +203,10 @@ For Ubuntu/Debian:
 
 ```
   # Ubuntu 20
-  % sudo apt install git python3-all-dev clang-10 # or clang-11
+  % sudo apt install git python3-all-dev
 
   # Ubuntu 18
-  % sudo apt install git python3-all-dev clang-6
+  % sudo apt install git python3-all-dev
 ```
 
 ### Homebrew (Mac OS X)
