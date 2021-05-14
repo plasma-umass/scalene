@@ -56,20 +56,21 @@ Below is a table comparing the **performance and features** of various profilers
 
 ![Performance and feature comparison](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/images/profiler-comparison.png)
 
-_Note that Scalene has all these features_
+- **Slowdown**: the slowdown when running a benchmark from the Pyperformance suite. Green means less than 2x overhead. Scalene's overhead is just a 20% slowdown.
 
-- **Slowdown**: the slowdown when running a benchmark from the Pyperformance suite
-- **Lines or functions**: does the profiler report information only for entires functions, or for every line -- Scalene does both
-- **Unmodified Code**: works on unmodified code
-- **Threads**: supports Python threads
-- **Multiprocessing**: supports use of the `multiprocessing` library
-- **Python vs. C time**: breaks out time spent in Python vs. native code (e.g., libraries)
-- **System time**: breaks out system time (e.g., sleeping or performing I/O)
+Scalene has all of the following features, many of which only Scalene supports:
+
+- **Lines or functions**: does the profiler report information only for entires functions, or for every line -- Scalene does both.
+- **Unmodified Code**: works on unmodified code.
+- **Threads**: supports Python threads.
+- **Multiprocessing**: supports use of the `multiprocessing` library -- _Scalene only_
+- **Python vs. C time**: breaks out time spent in Python vs. native code (e.g., libraries) -- _Scalene only_
+- **System time**: breaks out system time (e.g., sleeping or performing I/O) -- _Scalene only_
 - **Profiles memory**: reports memory consumption per line / function
-- **GPU**: reports time spent on an NVIDIA GPU (if present)
-- **Memory trends**: reports memory use over time per line / function
-- **Copy volume**: reports megabytes being copied per second
-- **Detects leaks**: automatically pinpoints lines responsible for likely memory leaks
+- **GPU**: reports time spent on an NVIDIA GPU (if present) -- _Scalene only_
+- **Memory trends**: reports memory use over time per line / function -- _Scalene only_
+- **Copy volume**: reports megabytes being copied per second -- _Scalene only_
+- **Detects leaks**: automatically pinpoints lines responsible for likely memory leaks -- _Scalene only_
 
 ## Output
 
