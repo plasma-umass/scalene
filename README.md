@@ -2,7 +2,7 @@
 
 # scalene: a high-performance CPU, GPU and memory profiler for Python
 
-by [Emery Berger](https://emeryberger.com) and [Sam Stern](https://samstern.me/)
+by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), and [Juan Altmayer Pizzorno](https://github.com/jaltmayerpizzorno).
 
 [Scalene Discord channel](https://discord.gg/6Dtaf6HW3m)
 
