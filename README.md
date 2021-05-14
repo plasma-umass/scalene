@@ -56,16 +56,17 @@ Below is a table comparing the **performance and features** of various profilers
 
 ![Performance and feature comparison](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/images/profiler-comparison.png)
 
-**Function-granularity profilers** report information only for an entire function, while **line-granularity profilers** (like Scalene) report information for every line
-
-- **Time** is either real (wall-clock time), CPU-only, or both.
-- **Efficiency**: :green_circle: = fast, :yellow_circle: = slower, :red_circle: = slowest
-- **Mem Cons.**: tracks memory consumption
+**Function-granularity profilers** report information only for an entire function, while **line-granularity profilers** report information for every line -- Scalene does both.
 - **Unmodified Code**: works on unmodified code
-- **Threads**: works correctly with threads
-- **Python/C**: separately attributes Python/C time and memory consumption
-- **Mem Trend**: shows memory usage trends over time
-- **Copy Vol.**: reports _copy volume_, the amount of megabytes being copied per second
+- **Threads**: supports Python threads
+- **Multiprocessing**: supports use of the `multiprocessing` library
+- **Python vs. C time**: breaks out time spent in Python vs. native code (e.g., libraries)
+- **System time**: breaks out system time (e.g., sleeping or performing I/O)
+- **Profiles memory**: reports memory consumption per line / function
+- **GPU**: reports time spent on an NVIDIA GPU (if present)
+- **Memory trends**: reports memory use over time per line / function
+- **Copy volume**: reports megabytes being copied per second
+- **Detects leaks**: automatically pinpoints lines responsible for likely memory leaks
 
 ## Output
 
