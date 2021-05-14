@@ -11,3 +11,5 @@ include src/source/libscalene.cpp
 include src/include/*.h
 include src/include/*.hpp
 recursive-include vendor/Heap-Layers *
+recursive-include vendor/Hoard *
+recursive-include vendor/printf *
