@@ -195,7 +195,7 @@ or
   % python3 -m pip install -U scalene
 ```
 
-You may need to install some packages first. Scalene relies on the `python3.x-dev` package as well as the `clang` compiler.
+You may need to install some packages first.
 
 See https://stackoverflow.com/a/19344978/4954434 for full instructions for all Linux flavors.
 
@@ -203,10 +203,10 @@ For Ubuntu/Debian:
 
 ```
   # Ubuntu 20
-  % sudo apt install python3-all-dev clang-10 # or clang-11
+  % sudo apt install git python3-all-dev clang-10 # or clang-11
 
   # Ubuntu 18
-  % sudo apt install python3-all-dev clang-6
+  % sudo apt install git python3-all-dev clang-6
 ```
 
 ### Homebrew (Mac OS X)
