@@ -12,8 +12,12 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 try:
     cmd = "make"
     out = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-except:
-    pass
+except Exception as e:
+    if isinstance(e, subprocess.CalledProcessError):
+        print("`make` returned non-zero error code:", e.returncode, e.output)
+    else:
+        print("Unexpected error:", e)
+    exit(1)
 
 mmap_hl_spinlock = Extension('get_line_atomic',
                 include_dirs=['.', 'vendor/Heap-Layers', 'vendor/Heap-Layers/utility'],
