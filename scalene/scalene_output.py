@@ -1,5 +1,6 @@
 import shutil
 import sys
+import tempfile
 
 from collections import OrderedDict
 from operator import itemgetter
@@ -374,7 +375,7 @@ class ScaleneOutput:
                         ),
                     )
 
-        null = open("/dev/null", "w")
+        null = tempfile.TemporaryFile(mode='w+')
 
         # Get column width of the terminal and adjust to fit.
         # Note that Scalene works best with at least 132 columns.
