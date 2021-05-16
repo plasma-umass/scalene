@@ -10,7 +10,6 @@ try:
     from scalene.scalene_parseargs import ScaleneParseArgs
     from typing import Any
     import sys
-    import tempfile
 
     @magics_class
     class ScaleneMagics(Magics):  # type: ignore
