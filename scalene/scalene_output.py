@@ -339,7 +339,6 @@ class ScaleneOutput:
         if not all_instrumented_files:
             # We didn't collect samples in source files.
             return False
-        title = Text()
         mem_usage_line: Union[Text, str] = ""
         growth_rate = 0.0
         if profile_memory:
