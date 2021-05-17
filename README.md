@@ -60,7 +60,7 @@ Below is a table comparing the **performance and features** of various profilers
 
 Scalene has all of the following features, many of which only Scalene supports:
 
-- **Lines or functions**: does the profiler report information only for entires functions, or for every line -- Scalene does both.
+- **Lines or functions**: does the profiler report information only for entire functions, or for every line -- Scalene does both.
 - **Unmodified Code**: works on unmodified code.
 - **Threads**: supports Python threads.
 - **Multiprocessing**: supports use of the `multiprocessing` library -- _Scalene only_
