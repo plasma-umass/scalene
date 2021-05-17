@@ -1002,6 +1002,12 @@ class Scalene:
         current profiler into a child.
         """
         Scalene.__is_child = True
+
+        # This is only called after a fork in the
+        # child process, any child threads that held this 
+        # lock no longer exist. Therefore, releasing it here is safe.
+        if Scalene.__in_signal_handler.locked():
+            Scalene.__in_signal_handler.release()
         Scalene.clear_metrics()
         if Scalene.__gpu.has_gpu():
             Scalene.__gpu.nvml_reinit()
