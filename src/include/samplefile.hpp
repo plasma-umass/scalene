@@ -40,12 +40,20 @@ class SampleFile {
               __LINE__);
       abort();
     }
-    ftruncate(signal_fd, MAX_FILE_SIZE);
-    ftruncate(lock_fd, 4096);
+    if (ftruncate(signal_fd, MAX_FILE_SIZE) != 0) {
+      fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
+              __LINE__);
+      abort();
+    }
+    if (ftruncate(lock_fd, LOCK_FD_SIZE) != 0) {
+      fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
+              __LINE__);
+      abort();
+    }
     _mmap = reinterpret_cast<char *>(mmap(
         0, MAX_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, signal_fd, 0));
     _lastpos = reinterpret_cast<uint64_t *>(
-        mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, lock_fd, 0));
+        mmap(0, LOCK_FD_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, lock_fd, 0));
     close(signal_fd);
     close(lock_fd);
     if (_mmap == MAP_FAILED) {
@@ -81,7 +89,11 @@ class SampleFile {
       // been initialized
       _spin_lock = (HL::SpinLock *)(((char *)_lastpos) + sizeof(uint64_t));
     } else {
-      write(init_fd, "q&", 3);
+      if (write(init_fd, "q&", 3) != 3) {
+        fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
+                __LINE__);
+        abort();
+      }
       fsync(init_fd);
       _spin_lock = new (((char *)_lastpos) + sizeof(uint64_t)) HL::SpinLock();
       *_lastpos = 0;
