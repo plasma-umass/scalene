@@ -6,7 +6,7 @@ C_SOURCES = src/source/libscalene.cpp src/source/get_line_atomic.cpp src/include
 .PHONY: black clang-format format upload
 
 # CXXFLAGS = -std=c++14 -g -O0
-CXXFLAGS = -std=c++14 -g -O3 -DNDEBUG -D_REENTRANT=1 -D'CUSTOM_PREFIX(x)=xx\#\#x' -pipe -fno-builtin-malloc -fvisibility=hidden
+CXXFLAGS = -std=c++14 -g -O3 -DNDEBUG -D_REENTRANT=1 -pipe -fno-builtin-malloc -fvisibility=hidden
 CXX = g++
 
 INCLUDES  = -Isrc -Isrc/include
