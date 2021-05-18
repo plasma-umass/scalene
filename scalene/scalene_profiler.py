@@ -33,6 +33,7 @@ import tempfile
 import threading
 import time
 import traceback
+import queue
 
 from collections import defaultdict
 from functools import lru_cache
@@ -121,6 +122,9 @@ class Scalene:
 
     # Whether we are in a signal handler or not (to make things properly re-entrant).
     __in_signal_handler = threading.Lock()
+
+    __allocation_signal_queue = queue.SimpleQueue()
+    __memcpy_signal_queue = queue.SimpleQueue()
 
     __args = ScaleneArguments()
     __stats = ScaleneStatistics()
@@ -476,6 +480,9 @@ class Scalene:
                 os.path.abspath(program_being_profiled)
             )
 
+        threading.Thread(target=Scalene.allocation_signal_thread, daemon=True).start()
+        threading.Thread(target=Scalene.memcpy_signal_thread, daemon=True).start()
+
     @staticmethod
     def cpu_signal_handler(
         signum: Union[
@@ -684,11 +691,6 @@ class Scalene:
         this_frame: FrameType,
     ) -> List[Tuple[FrameType, int, FrameType]]:
         """Collects all stack frames that Scalene actually processes."""
-        if threading._active_limbo_lock.locked():  # type: ignore
-            # Avoids deadlock where a Scalene signal occurs
-            # in the middle of a critical section of the
-            # threading library
-            return []
         frames: List[Tuple[FrameType, int]] = [
             (
                 cast(
@@ -791,7 +793,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.allocation_signal_handler_helper(signum, this_frame, "malloc")
+        Scalene.__allocation_signal_queue.put((signum, this_frame, "malloc"))
 
     @staticmethod
     def free_signal_handler(
@@ -800,24 +802,12 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.allocation_signal_handler_helper(signum, this_frame, "free")
+        Scalene.__allocation_signal_queue.put((signum, this_frame, "free"))
 
     @staticmethod
-    def allocation_signal_handler_helper(
-        signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
-        ],
-        this_frame: FrameType,
-        allocation_type: str,
-    ) -> None:
-        if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
-            return
-        # Handle the signal in a separate thread.
-        t = threading.Thread(
-            target=Scalene.allocation_signal_handler,
-            args=(signum, this_frame, allocation_type),
-        )
-        t.start()
+    def allocation_signal_thread() -> None:
+        while True:
+            Scalene.allocation_signal_handler(*Scalene.__allocation_signal_queue.get())
 
     @staticmethod
     def allocation_signal_handler(
@@ -828,8 +818,6 @@ class Scalene:
         event: str,
     ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
-        if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
-            return
         with Scalene.__in_signal_handler:
             stats = Scalene.__stats
             new_frames = Scalene.compute_frames_to_record(this_frame)
@@ -1034,11 +1022,12 @@ class Scalene:
         frame: FrameType,
     ) -> None:
         """Handles memcpy events."""
-        if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
-            return
-        threading.Thread(
-            target=Scalene.memcpy_signal_handler_helper, args=(signum, frame)
-        ).start()
+        Scalene.__memcpy_signal_queue.put((signum, frame))
+
+    @staticmethod
+    def memcpy_signal_thread() -> None:
+        while True:
+            Scalene.memcpy_signal_handler_helper(*Scalene.__memcpy_signal_queue.get())
 
     @staticmethod
     def memcpy_signal_handler_helper(
@@ -1047,8 +1036,6 @@ class Scalene:
         ],
         frame: FrameType,
     ) -> None:
-        if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
-            return
         with Scalene.__in_signal_handler:
             curr_pid = os.getpid()
             new_frames = Scalene.compute_frames_to_record(frame)
@@ -1161,9 +1148,18 @@ class Scalene:
         Scalene.__start_time = Scalene.get_wallclock_time()
 
     @staticmethod
+    def poorMansJoin(queue: queue.SimpleQueue) -> None:
+        """Waits until queue jobs have been processed."""
+        # FIXME this only checks that the queue is empty... the last job may still be missing
+        while (queue.qsize() > 0):
+            time.sleep(.05)
+
+    @staticmethod
     def stop() -> None:
         """Complete profiling."""
         Scalene.disable_signals()
+        Scalene.poorMansJoin(Scalene.__allocation_signal_queue)
+        Scalene.poorMansJoin(Scalene.__memcpy_signal_queue)
         stats = Scalene.__stats
         stats.elapsed_time += (
             Scalene.get_wallclock_time() - Scalene.__start_time
