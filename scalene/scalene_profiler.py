@@ -124,7 +124,9 @@ class Scalene:
     __in_signal_handler = threading.Lock()
 
     __allocation_signal_queue = queue.SimpleQueue()
+    __allocation_signal_thread = None
     __memcpy_signal_queue = queue.SimpleQueue()
+    __memcpy_signal_thread = None
 
     __args = ScaleneArguments()
     __stats = ScaleneStatistics()
@@ -476,9 +478,6 @@ class Scalene:
                 os.path.abspath(program_being_profiled)
             )
 
-        threading.Thread(target=Scalene.allocation_signal_thread, daemon=True).start()
-        threading.Thread(target=Scalene.memcpy_signal_thread, daemon=True).start()
-
     @staticmethod
     def cpu_signal_handler(
         signum: Union[
@@ -800,7 +799,9 @@ class Scalene:
     @staticmethod
     def allocation_signal_thread() -> None:
         while True:
-            Scalene.allocation_signal_handler(*Scalene.__allocation_signal_queue.get())
+            item = Scalene.__allocation_signal_queue.get()
+            if item == None: break
+            Scalene.allocation_signal_handler(*item)
 
     @staticmethod
     def allocation_signal_handler(
@@ -972,6 +973,17 @@ class Scalene:
                     stats.leak_score[fname][lineno] = (mallocs + 1, frees)
 
     @staticmethod
+    def prepare_for_fork() -> None:
+        """Invoked (by the parent process) before a fork."""
+        Scalene.stop_signal_threads()
+
+    @staticmethod
+    def parent_after_fork(childPid: int) -> None:
+        """Invoked by the parent process after a fork."""
+        Scalene.add_child_pid(childPid)
+        Scalene.start_signal_threads()
+
+    @staticmethod
     def child_after_fork() -> None:
         """
         Called by a child process (0 return code) after a fork and mutates the
@@ -1001,6 +1013,7 @@ class Scalene:
         #     Scalene.memcpy_signal_handler,
         # )
         Scalene.enable_signals()
+        Scalene.start_signal_threads()
 
     @staticmethod
     def memcpy_signal_handler(
@@ -1015,7 +1028,9 @@ class Scalene:
     @staticmethod
     def memcpy_signal_thread() -> None:
         while True:
-            Scalene.memcpy_signal_handler_helper(*Scalene.__memcpy_signal_queue.get())
+            item = Scalene.__memcpy_signal_queue.get()
+            if item == None: break
+            Scalene.memcpy_signal_handler_helper(*item)
 
     @staticmethod
     def memcpy_signal_handler_helper(
@@ -1130,24 +1145,41 @@ class Scalene:
         return Scalene.__program_path in filename
 
     @staticmethod
+    def start_signal_threads() -> None:
+        """Starts the signal processing threads."""
+        assert Scalene.__allocation_signal_thread == None
+        assert Scalene.__memcpy_signal_thread == None
+
+        Scalene.__allocation_signal_thread = \
+                threading.Thread(target=Scalene.allocation_signal_thread, daemon=True)
+        Scalene.__allocation_signal_thread.start()
+        Scalene.__memcpy_signal_thread = \
+                threading.Thread(target=Scalene.memcpy_signal_thread, daemon=True)
+        Scalene.__memcpy_signal_thread.start()
+
+    @staticmethod
+    def stop_signal_threads() -> None:
+        """Stops the signal processing threads."""
+        Scalene.__allocation_signal_queue.put(None)
+        Scalene.__allocation_signal_thread.join()
+        Scalene.__allocation_signal_thread = None
+
+        Scalene.__memcpy_signal_queue.put(None)
+        Scalene.__memcpy_signal_thread.join()
+        Scalene.__memcpy_signal_thread = None
+
+    @staticmethod
     def start() -> None:
         """Initiate profiling."""
         Scalene.enable_signals()
+        Scalene.start_signal_threads()
         Scalene.__start_time = Scalene.get_wallclock_time()
-
-    @staticmethod
-    def poorMansJoin(queue: queue.SimpleQueue) -> None:
-        """Waits until queue jobs have been processed."""
-        # FIXME this only checks that the queue is empty... the last job may still be missing
-        while (queue.qsize() > 0):
-            time.sleep(.05)
 
     @staticmethod
     def stop() -> None:
         """Complete profiling."""
         Scalene.disable_signals()
-        Scalene.poorMansJoin(Scalene.__allocation_signal_queue)
-        Scalene.poorMansJoin(Scalene.__memcpy_signal_queue)
+        Scalene.stop_signal_threads()
         stats = Scalene.__stats
         stats.elapsed_time += (
             Scalene.get_wallclock_time() - Scalene.__start_time

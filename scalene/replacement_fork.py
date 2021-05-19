@@ -12,11 +12,14 @@ def replacement_fork(scalene: Scalene) -> None:
     orig_fork = os.fork
 
     def fork_replacement() -> int:
-        result = orig_fork()
-        if result == 0:
+        scalene.prepare_for_fork()
+
+        child_pid = orig_fork()
+        if child_pid == 0:
             scalene.child_after_fork()
         else:
-            scalene.add_child_pid(result)
-        return result
+            scalene.parent_after_fork(child_pid)
+
+        return child_pid
 
     os.fork = fork_replacement
