@@ -352,9 +352,6 @@ class Scalene:
                 ScaleneSignals.free_signal, Scalene.free_signal_handler
             )
             signal.signal(
-                ScaleneSignals.fork_signal, Scalene.fork_signal_handler
-            )
-            signal.signal(
                 ScaleneSignals.memcpy_signal,
                 Scalene.memcpy_signal_handler,
             )
@@ -363,7 +360,6 @@ class Scalene:
             signal.siginterrupt(ScaleneSignals.malloc_signal, False)
             signal.siginterrupt(ScaleneSignals.free_signal, False)
             signal.siginterrupt(ScaleneSignals.memcpy_signal, False)
-            signal.siginterrupt(ScaleneSignals.fork_signal, False)
             # Turn on the CPU profiling timer to run at the sampling rate (exactly once).
             signal.signal(
                 ScaleneSignals.cpu_signal,
@@ -988,14 +984,9 @@ class Scalene:
                     stats.leak_score[fname][lineno] = (mallocs + 1, frees)
 
     @staticmethod
-    def fork_signal_handler(
-        signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
-        ],
-        frame: FrameType,
-    ) -> None:
+    def child_after_fork() -> None:
         """
-        Receives a signal sent by a child process (0 return code) after a fork and mutates
+        Called by a child process (0 return code) after a fork and mutates the
         current profiler into a child.
         """
         Scalene.__is_child = True
