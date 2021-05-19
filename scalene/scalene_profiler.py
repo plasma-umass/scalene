@@ -123,6 +123,8 @@ class Scalene:
     # Whether we are in a signal handler or not (to make things properly re-entrant).
     __in_signal_handler = threading.Lock()
 
+    __cpu_signal_queue = queue.SimpleQueue()
+    __cpu_signal_thread = None
     __allocation_signal_queue = queue.SimpleQueue()
     __allocation_signal_thread = None
     __memcpy_signal_queue = queue.SimpleQueue()
@@ -486,8 +488,15 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         """Wrapper for CPU signal handlers."""
-        # with Scalene.__in_signal_handler:
-        Scalene.cpu_signal_handler_helper(signum, this_frame)
+        Scalene.__cpu_signal_queue.put((signum, this_frame))
+
+    @staticmethod
+    def cpu_signal_thread() -> None:
+        while True:
+            item = Scalene.__cpu_signal_queue.get()
+            if item == None: break
+            with Scalene.__in_signal_handler:  # XXX is this needed?
+                Scalene.cpu_signal_handler_helper(*item)
 
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
@@ -686,11 +695,11 @@ class Scalene:
         this_frame: FrameType,
     ) -> List[Tuple[FrameType, int, FrameType]]:
         """Collects all stack frames that Scalene actually processes."""
-        if threading._active_limbo_lock.locked():  # type: ignore
-            # Avoids deadlock where a Scalene signal occurs
-            # in the middle of a critical section of the
-            # threading library
-            return []
+#        if threading._active_limbo_lock.locked():  # type: ignore
+#            # Avoids deadlock where a Scalene signal occurs
+#            # in the middle of a critical section of the
+#            # threading library
+#            return []
         frames: List[Tuple[FrameType, int]] = [
             (
                 cast(
@@ -1152,9 +1161,13 @@ class Scalene:
     @staticmethod
     def start_signal_threads() -> None:
         """Starts the signal processing threads."""
+        assert Scalene.__cpu_signal_thread == None
         assert Scalene.__allocation_signal_thread == None
         assert Scalene.__memcpy_signal_thread == None
 
+        Scalene.__cpu_signal_thread = \
+                threading.Thread(target=Scalene.cpu_signal_thread, daemon=True)
+        Scalene.__cpu_signal_thread.start()
         Scalene.__allocation_signal_thread = \
                 threading.Thread(target=Scalene.allocation_signal_thread, daemon=True)
         Scalene.__allocation_signal_thread.start()
@@ -1165,6 +1178,10 @@ class Scalene:
     @staticmethod
     def stop_signal_threads() -> None:
         """Stops the signal processing threads."""
+        Scalene.__cpu_signal_queue.put(None)
+        Scalene.__cpu_signal_thread.join()
+        Scalene.__cpu_signal_thread = None
+
         Scalene.__allocation_signal_queue.put(None)
         Scalene.__allocation_signal_thread.join()
         Scalene.__allocation_signal_thread = None
