@@ -79,7 +79,7 @@ using ScaleneBaseHeap = HL::SysMallocHeap;
 
 // For use by the replacement printf routines (see
 // https://github.com/mpaland/printf)
-extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
+extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
 constexpr uint64_t MallocSamplingRate =
     1048571ULL;  // a prime number near a megabyte
