@@ -227,6 +227,11 @@ package](https://aur.archlinux.org/packages/python-scalene-git/). Use your favor
 manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that this will place
 `libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
 
+## Asked Questions
+
+**Q: How do I use Scalene with Django?**
+
+**A:** Pass in the `--noreload` option (see https://github.com/plasma-umass/scalene/issues/178).
 
 # Technical Information
 
