@@ -19,6 +19,8 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 
 Scalene is a high-performance CPU, GPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
 
+[![Scalene presentation at PyCon 2021](https://img.youtube.com/vi/5iEf-_7mM1k/0.jpg)](https://youtu.be/5iEf-_7mM1k)|
+
 ### Fast and Precise
 
 - Scalene is **_fast_**. It uses sampling instead of instrumentation or relying on Python's tracing facilities. Its overhead is typically no more than 10-20% (and often less).
