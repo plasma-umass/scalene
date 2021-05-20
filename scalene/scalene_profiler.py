@@ -352,9 +352,6 @@ class Scalene:
                 ScaleneSignals.free_signal, Scalene.free_signal_handler
             )
             signal.signal(
-                ScaleneSignals.fork_signal, Scalene.fork_signal_handler
-            )
-            signal.signal(
                 ScaleneSignals.memcpy_signal,
                 Scalene.memcpy_signal_handler,
             )
@@ -363,7 +360,6 @@ class Scalene:
             signal.siginterrupt(ScaleneSignals.malloc_signal, False)
             signal.siginterrupt(ScaleneSignals.free_signal, False)
             signal.siginterrupt(ScaleneSignals.memcpy_signal, False)
-            signal.siginterrupt(ScaleneSignals.fork_signal, False)
             # Turn on the CPU profiling timer to run at the sampling rate (exactly once).
             signal.signal(
                 ScaleneSignals.cpu_signal,
@@ -771,14 +767,11 @@ class Scalene:
                     fn_name = prepend_name + "." + fn_name
                 break
             if "cls" in f.f_locals:
-                try:
-                    prepend_name = f.f_locals["cls"].__name__
-                    if "Scalene" in prepend_name:
-                        break
-                    fn_name = prepend_name + "." + fn_name
+                prepend_name = getattr(f.f_locals["cls"], "__name__", None)
+                if not prepend_name or "Scalene" in prepend_name:
                     break
-                except KeyError:
-                    pass
+                fn_name = prepend_name + "." + fn_name
+                break
             f = f.f_back
 
         stats.function_map[fname][lineno] = fn_name
@@ -991,17 +984,18 @@ class Scalene:
                     stats.leak_score[fname][lineno] = (mallocs + 1, frees)
 
     @staticmethod
-    def fork_signal_handler(
-        signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
-        ],
-        frame: FrameType,
-    ) -> None:
+    def child_after_fork() -> None:
         """
-        Receives a signal sent by a child process (0 return code) after a fork and mutates
+        Called by a child process (0 return code) after a fork and mutates the
         current profiler into a child.
         """
         Scalene.__is_child = True
+
+        # This is only called after a fork in the
+        # child process, any child threads that held this 
+        # lock no longer exist. Therefore, releasing it here is safe.
+        if Scalene.__in_signal_handler.locked():
+            Scalene.__in_signal_handler.release()
         Scalene.clear_metrics()
         if Scalene.__gpu.has_gpu():
             Scalene.__gpu.nvml_reinit()
