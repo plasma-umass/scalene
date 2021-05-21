@@ -799,7 +799,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.__allocation_signal_queue.put((signum, this_frame, "malloc"))
+        Scalene.__allocation_signal_queue.put((signum, this_frame))
 
     @staticmethod
     def free_signal_handler(
@@ -808,7 +808,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.__allocation_signal_queue.put((signum, this_frame, "free"))
+        Scalene.__allocation_signal_queue.put((signum, this_frame))
 
     @staticmethod
     def allocation_signal_thread() -> None:
@@ -823,7 +823,6 @@ class Scalene:
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
         this_frame: FrameType,
-        event: str,
     ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
         with Scalene.__in_signal_handler:
@@ -950,7 +949,7 @@ class Scalene:
                     stats.per_line_footprint_samples[fname][lineno].add(curr)
                 assert curr == after
                 # If we allocated anything and this was a malloc event, then mark this as the last triggering malloc
-                if event == "malloc" and allocs > 0:
+                if signum == ScaleneSignals.malloc_signal and allocs > 0:
                     last_malloc = (
                         Filename(fname),
                         LineNumber(lineno),
