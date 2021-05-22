@@ -19,7 +19,6 @@ import builtins
 import dis
 import functools
 import gc
-import get_line_atomic
 import inspect
 import math
 import mmap
@@ -33,6 +32,10 @@ import tempfile
 import threading
 import time
 import traceback
+
+# FIXME
+if sys.platform != 'win32':
+	import get_line_atomic
 
 from collections import defaultdict
 from functools import lru_cache
@@ -72,7 +75,8 @@ if sys.platform == "win32":
         "Scalene currently does not support Windows, "
         + "but works on Windows Subsystem for Linux 2, Linux, Mac OS X."
     )
-    sys.exit(-1)
+    # FIXME
+    # sys.exit(-1)
 
 # Install our profile decorator.
 
@@ -321,9 +325,24 @@ class Scalene:
                 return True
         return False
 
+    timer_signals = True
+
+    @staticmethod
+    def timer_thang() -> None:
+      Scalene.timer_signals = True
+      while Scalene.timer_signals:
+          time.sleep(Scalene.__args.cpu_sampling_rate)
+          signal.raise_signal(ScaleneSignals.cpu_signal)
+
     @staticmethod
     def set_timer_signals() -> None:
         """Set up timer signals for CPU profiling."""
+        if sys.platform == 'win32':
+          print("THREAD")
+          Scalene.timer_signals = True
+          t = threading.Thread(target=Scalene.timer_thang)
+          t.start()
+          return
         if Scalene.__args.use_virtual_time:
             ScaleneSignals.cpu_timer_signal = signal.ITIMER_VIRTUAL
         else:
@@ -343,6 +362,13 @@ class Scalene:
     def enable_signals() -> None:
         """Set up the signal handlers to handle interrupts for profiling and start the
         timer interrupts."""
+        if sys.platform == 'win32':
+          Scalene.timer_signals = True
+          signal.signal(
+              ScaleneSignals.cpu_signal,
+              Scalene.cpu_signal_handler,
+          )
+          return
         with Scalene.__in_signal_handler:
             # Set signal handlers for memory allocation and memcpy events.
             signal.signal(
@@ -390,11 +416,12 @@ class Scalene:
 
         # Hijack lock, poll, thread_join, fork, and exit.
         import scalene.replacement_lock
-        import scalene.replacement_poll_selector
         import scalene.replacement_thread_join
-        import scalene.replacement_fork
         import scalene.replacement_exit
         import scalene.replacement_mp_lock
+        if sys.platform != 'win32':
+          import scalene.replacement_poll_selector
+          import scalene.replacement_fork
 
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.set_timer_signals()
@@ -670,9 +697,10 @@ class Scalene:
         Scalene.__last_signal_time_virtual = Scalene.get_process_time()
         # Reset the CPU timer.
         # (No change for now.)
-        signal.setitimer(
-            ScaleneSignals.cpu_timer_signal, next_interval, next_interval
-        )
+        if sys.platform != 'win32':
+          signal.setitimer(
+              ScaleneSignals.cpu_timer_signal, next_interval, next_interval
+          )
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -1182,6 +1210,9 @@ class Scalene:
     @staticmethod
     def disable_signals() -> None:
         """Turn off the profiling signals."""
+        if sys.platform == 'win32':
+           Scalene.timer_signals = False
+           return
         try:
             with Scalene.__in_signal_handler:
                 signal.setitimer(ScaleneSignals.cpu_timer_signal, 0)
@@ -1280,8 +1311,9 @@ class Scalene:
         signal.signal(
             ScaleneSignals.stop_profiling_signal, Scalene.stop_signal_handler
         )
-        signal.siginterrupt(ScaleneSignals.start_profiling_signal, False)
-        signal.siginterrupt(ScaleneSignals.stop_profiling_signal, False)
+        if sys.platform != 'win32': # FIXME
+          signal.siginterrupt(ScaleneSignals.start_profiling_signal, False)
+          signal.siginterrupt(ScaleneSignals.stop_profiling_signal, False)
 
         did_preload = ScalenePreload.setup_preload(args)
         if not did_preload:
