@@ -19,10 +19,17 @@ except Exception as e:
         print("Unexpected error:", e)
     exit(1)
 
+import sys
+
+if sys.platform == 'win32':
+    extra_args = '/std:c++14' # for Visual Studio C++
+else:
+    extra_args = '-std=c++14' # Clang or g++
+    
 mmap_hl_spinlock = Extension('get_line_atomic',
                 include_dirs=['.', 'vendor/Heap-Layers', 'vendor/Heap-Layers/utility'],
                 sources=['src/source/get_line_atomic.cpp'],
-                extra_compile_args=['-std=c++14'],
+                extra_compile_args=[extra_args],
                 language="c++14")
 
 setup(
@@ -53,7 +60,8 @@ setup(
         "Programming Language :: Python :: 3.9",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX :: Linux",
-        "Operating System :: MacOS :: MacOS X"
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: Microsoft :: Windows :: Windows 10"
     ],
     packages=find_packages(),
     install_requires=[
