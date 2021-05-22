@@ -68,15 +68,9 @@ assert (
 ), "Scalene requires Python version 3.6 or above."
 
 
-# Scalene currently only supports Unix-like operating systems; in
-# particular, Linux, Mac OS X, and WSL 2 (Windows Subsystem for Linux 2 = Ubuntu)
-if sys.platform == "win32":
-    print(
-        "Scalene currently does not support Windows, "
-        + "but works on Windows Subsystem for Linux 2, Linux, Mac OS X."
-    )
-    # FIXME
-    # sys.exit(-1)
+# Scalene fully supports Unix-like operating systems; in
+# particular, Linux, Mac OS X, and WSL 2 (Windows Subsystem for Linux 2 = Ubuntu).
+# It also has partial support for Windows.
 
 # Install our profile decorator.
 
@@ -338,10 +332,6 @@ class Scalene:
     def set_timer_signals() -> None:
         """Set up timer signals for CPU profiling."""
         if sys.platform == 'win32':
-          print("THREAD")
-          Scalene.timer_signals = True
-          t = threading.Thread(target=Scalene.timer_thang)
-          t.start()
           return
         if Scalene.__args.use_virtual_time:
             ScaleneSignals.cpu_timer_signal = signal.ITIMER_VIRTUAL
@@ -368,6 +358,10 @@ class Scalene:
               ScaleneSignals.cpu_signal,
               Scalene.cpu_signal_handler,
           )
+          # On Windows, we simulate timer signals by running a background thread.
+          Scalene.timer_signals = True
+          t = threading.Thread(target=Scalene.timer_thang)
+          t.start()
           return
         with Scalene.__in_signal_handler:
             # Set signal handlers for memory allocation and memcpy events.

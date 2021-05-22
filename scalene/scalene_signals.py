@@ -15,5 +15,9 @@ class ScaleneSignals:
       free_signal = signal.SIGXFSZ
     else:
       cpu_signal = signal.SIGBREAK
-      cpu_timer_signal = signal.SIGFPE
+      cpu_timer_signal = None
       stop_profiling_signal = signal.SIGTERM
+      # TO DO - not yet activated for Windows
+      mempcy_signal = None
+      malloc_signal = None
+      free_signal = None
