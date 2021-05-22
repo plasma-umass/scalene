@@ -774,6 +774,7 @@ class Scalene:
                 return
         if not Scalene.should_trace(f.f_code.co_filename):
             return
+    
         fn_name = Filename(f.f_code.co_name)
         firstline = f.f_code.co_firstlineno
         # Prepend the class, if any
@@ -781,7 +782,8 @@ class Scalene:
             f
             and f.f_back
             and f.f_back.f_code
-            and Scalene.should_trace(f.f_back.f_code.co_filename)
+# NOTE: next line disabled as it is interfering with name resolution for thread run methods
+#            and Scalene.should_trace(f.f_back.f_code.co_filename)
         ):
             if "self" in f.f_locals:
                 prepend_name = f.f_locals["self"].__class__.__name__
