@@ -15,9 +15,10 @@ WRAPPER = vendor/Heap-Layers/wrappers/gnuwrapper.cpp
 SRC = src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
 
 all: vendor/Heap-Layers $(SRC) $(OTHER_DEPS)
-	del /F /Q $(LIBFILE) scalene\$(LIBFILE)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) /o $(LIBFILE)
-	cp $(LIBFILE) scalene
+
+#	del /F /Q $(LIBFILE) scalene\$(LIBFILE)
+#	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) /o $(LIBFILE)
+#	cp $(LIBFILE) scalene
 
 $(WRAPPER) : vendor/Heap-Layers
 
