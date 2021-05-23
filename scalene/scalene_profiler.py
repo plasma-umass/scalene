@@ -977,20 +977,20 @@ class Scalene:
                     stats.leak_score[fname][lineno] = (mallocs + 1, frees)
 
     @staticmethod
-    def prepare_for_fork() -> None:
-        """Invoked (by the parent process) before a fork."""
+    def before_fork() -> None:
+        """Executed just before a fork."""
         Scalene.stop_signal_threads()
 
     @staticmethod
-    def parent_after_fork(childPid: int) -> None:
-        """Invoked by the parent process after a fork."""
+    def after_fork_in_parent(childPid: int) -> None:
+        """Executed by the parent process after a fork."""
         Scalene.add_child_pid(childPid)
         Scalene.start_signal_threads()
 
     @staticmethod
-    def child_after_fork() -> None:
+    def after_fork_in_child() -> None:
         """
-        Called by a child process (0 return code) after a fork and mutates the
+        Executed by a child process after a fork and mutates the
         current profiler into a child.
         """
         Scalene.__is_child = True
