@@ -6,7 +6,7 @@ include scalene/scalene-usage.txt
 include scalene/*.py
 include test/testme.py
 include GNUmakefile
-include heaplayers-make.mk
+include Makefile
 include src/source/libscalene.cpp
 include src/include/*.h
 include src/include/*.hpp

@@ -19,6 +19,14 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 
 Scalene is a high-performance CPU, GPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
 
+## Scalene talk (PyCon US 2021)
+
+Below is a talk presented at PyCon 2021 that walks through Scalene's advantages and how to use it to debug the performance of an application (and provides some technical details on its internals). We highly recommend watching this video!
+
+[![Scalene presentation at PyCon 2021](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/images/scalene-video-img.png)](https://youtu.be/5iEf-_7mM1k "Scalene presentation at PyCon 2021")
+
+## Scalene Overview
+
 ### Fast and Precise
 
 - Scalene is **_fast_**. It uses sampling instead of instrumentation or relying on Python's tracing facilities. Its overhead is typically no more than 10-20% (and often less).
@@ -225,6 +233,11 @@ package](https://aur.archlinux.org/packages/python-scalene-git/). Use your favor
 manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that this will place
 `libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
 
+# Asked Questions
+
+**Q: How do I use Scalene with Django?**
+
+**A:** Pass in the `--noreload` option (see https://github.com/plasma-umass/scalene/issues/178).
 
 # Technical Information
 
