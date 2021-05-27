@@ -7,31 +7,14 @@ CXXFLAGS = /Ox /DNDEBUG /std:c++14 /Zi
 CXX = cl
 
 MAIN_INCLUDES  = -Isrc -Isrc/include
-INCLUDES = $(MAIN_INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility -Ivendor/printf
+INCLUDES = $(MAIN_INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility # -Ivendor/printf
 
 LIBFILE = lib$(LIBNAME).dll
-WRAPPER = vendor/Heap-Layers/wrappers/gnuwrapper.cpp
+WRAPPER = # vendor/Heap-Layers/wrappers/gnuwrapper.cpp
 
-SRC = src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
+SRC = # src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
 
-all: vendor/Heap-Layers $(SRC) $(OTHER_DEPS)
-
-#	del /F /Q $(LIBFILE) scalene\$(LIBFILE)
-#	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) /o $(LIBFILE)
-#	cp $(LIBFILE) scalene
-
-$(WRAPPER) : vendor/Heap-Layers
-
-vendor/Heap-Layers:
-	git clone https://github.com/emeryberger/Heap-Layers -o vendor/Heap-Layers
-
-vendor/Hoard:
-	git clone https://github.com/emeryberger/Hoard -o vendor/Hoard
-	# mklink vendor\Hoard\src\..\..\Heap-Layers vendor\Heap-Layers
-
-vendor/printf/printf.cpp:
-	git clone https://github.com/mpaland/printf -o vendor/printf
-	# mklink vendor\printf\printf.cpp vendor\printf\printf.c
+all: $(SRC) $(OTHER_DEPS)
 
 mypy:
 	-mypy $(PYTHON_SOURCES)
