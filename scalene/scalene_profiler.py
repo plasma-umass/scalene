@@ -33,7 +33,6 @@ import tempfile
 import threading
 import time
 import traceback
-import queue
 
 # FIXME
 if sys.platform != "win32":
@@ -121,11 +120,6 @@ class Scalene:
 
     # Whether we are in a signal handler or not (to make things properly re-entrant).
     __in_signal_handler = threading.Lock()
-
-    __allocation_signal_queue = queue.SimpleQueue()
-    __allocation_signal_thread = None
-    __memcpy_signal_queue = queue.SimpleQueue()
-    __memcpy_signal_thread = None
 
     __args = ScaleneArguments()
     __stats = ScaleneStatistics()
@@ -356,18 +350,36 @@ class Scalene:
             assert False, "ITIMER_PROF is not currently supported."
 
     __alloc_signal_queue = queue.SimpleQueue()
+    __alloc_signal_mgr_thread = None
     __memcpy_signal_queue = queue.SimpleQueue()
+    __memcpy_signal_mgr_thread = None
+
 
     @staticmethod
-    def setup_signal_threads() -> None:
-        alloc_signal_mgr_thread = threading.Thread(
+    def start_signal_threads() -> None:
+        """Starts the signal processing threads."""
+        assert Scalene.__alloc_signal_mgr_thread == None
+        assert Scalene.__memcpy_signal_mgr_thread == None
+
+        Scalene.__alloc_signal_mgr_thread = threading.Thread(
             target=Scalene.alloc_signal_manager, daemon=True
         )
-        alloc_signal_mgr_thread.start()
-        memcpy_signal_mgr_thread = threading.Thread(
+        Scalene.__alloc_signal_mgr_thread.start()
+        Scalene.__memcpy_signal_mgr_thread = threading.Thread(
             target=Scalene.memcpy_signal_manager, daemon=True
         )
-        memcpy_signal_mgr_thread.start()
+        Scalene.__memcpy_signal_mgr_thread.start()
+
+    @staticmethod
+    def stop_signal_threads() -> None:
+        """Stops the signal processing threads."""
+        Scalene.__alloc_signal_queue.put(None)
+        Scalene.__alloc_signal_mgr_thread.join()
+        Scalene.__alloc_signal_mgr_thread = None
+
+        Scalene.__memcpy_signal_queue.put(None)
+        Scalene.__memcpy_signal_mgr_thread.join()
+        Scalene.__memcpy_signal_mgr_thread = None
 
     @staticmethod
     def malloc_signal_dispatcher(
@@ -376,7 +388,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.__alloc_signal_queue.put((signum, this_frame, "malloc"))
+        Scalene.__alloc_signal_queue.put((signum, this_frame))
 
     @staticmethod
     def free_signal_dispatcher(
@@ -385,16 +397,15 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.__alloc_signal_queue.put((signum, this_frame, "free"))
+        Scalene.__alloc_signal_queue.put((signum, this_frame))
 
     @staticmethod
     def alloc_signal_manager() -> None:
         while True:
             item = Scalene.__alloc_signal_queue.get()
-            # If we get a `None`, we stop.
-            if not item:
+            if item == None:  # stop request
                 break
-            Scalene.allocation_signal_handler_helper(*item)
+            Scalene.allocation_signal_handler(*item)
 
     @staticmethod
     def memcpy_signal_dispatcher(
@@ -409,9 +420,9 @@ class Scalene:
     def memcpy_signal_manager() -> None:
         while True:
             item = Scalene.__memcpy_signal_queue.get()
-            if not item:
+            if item == None:  # stop request
                 break
-            Scalene.memcpy_signal_handler_helper(*item)
+            Scalene.memcpy_signal_handler(*item)
 
     @staticmethod
     def enable_signals() -> None:
@@ -429,7 +440,6 @@ class Scalene:
             t.start()
             return
         with Scalene.__in_signal_handler:
-            Scalene.setup_signal_threads()
             # Set signal handlers for memory allocation and memcpy events.
             signal.signal(
                 ScaleneSignals.malloc_signal, Scalene.malloc_signal_dispatcher
@@ -487,7 +497,6 @@ class Scalene:
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.set_timer_signals()
         Scalene.__last_signal_time_virtual = Scalene.get_process_time()
-        Scalene.setup_signal_threads()
         if arguments.pid:
             # Child process.
             # We need to use the same directory as the parent.
@@ -868,36 +877,11 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
-    def malloc_signal_handler(
-        signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
-        ],
-        this_frame: FrameType,
-    ) -> None:
-        Scalene.__allocation_signal_queue.put((signum, this_frame))
-
-    @staticmethod
-    def free_signal_handler(
-        signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
-        ],
-        this_frame: FrameType,
-    ) -> None:
-        Scalene.__allocation_signal_queue.put((signum, this_frame))
-
-    @staticmethod
-    def allocation_signal_thread() -> None:
-        while True:
-            item = Scalene.__allocation_signal_queue.get()
-            if item == None: break
-            Scalene.allocation_signal_handler(*item)
-
-    @staticmethod
     def allocation_signal_handler(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType,
+        this_frame: FrameType
     ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
         with Scalene.__in_signal_handler:
@@ -1089,39 +1073,13 @@ class Scalene:
             Scalene.__gpu.nvml_reinit()
         # Note-- __parent_pid of the topmost process is its own pid
         Scalene.__pid = Scalene.__parent_pid
-        # Note: Leaving the previous version here, in case `enable_signals`
-        # has side-effects that I am unaware of
-        #
-        # signal.signal(
-        #     ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
-        # )
-        # signal.signal(ScaleneSignals.free_signal, Scalene.free_signal_handler)
-        # signal.signal(
-        #     ScaleneSignals.memcpy_signal,
-        #     Scalene.memcpy_signal_handler,
-        # )
-        Scalene.enable_signals()
+
         Scalene.start_signal_threads()
+        Scalene.enable_signals()
+
 
     @staticmethod
     def memcpy_signal_handler(
-        signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
-        ],
-        frame: FrameType,
-    ) -> None:
-        """Handles memcpy events."""
-        Scalene.__memcpy_signal_queue.put((signum, frame))
-
-    @staticmethod
-    def memcpy_signal_thread() -> None:
-        while True:
-            item = Scalene.__memcpy_signal_queue.get()
-            if item == None: break
-            Scalene.memcpy_signal_handler_helper(*item)
-
-    @staticmethod
-    def memcpy_signal_handler_helper(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
@@ -1233,34 +1191,10 @@ class Scalene:
         return Scalene.__program_path in filename
 
     @staticmethod
-    def start_signal_threads() -> None:
-        """Starts the signal processing threads."""
-        assert Scalene.__allocation_signal_thread == None
-        assert Scalene.__memcpy_signal_thread == None
-
-        Scalene.__allocation_signal_thread = \
-                threading.Thread(target=Scalene.allocation_signal_thread, daemon=True)
-        Scalene.__allocation_signal_thread.start()
-        Scalene.__memcpy_signal_thread = \
-                threading.Thread(target=Scalene.memcpy_signal_thread, daemon=True)
-        Scalene.__memcpy_signal_thread.start()
-
-    @staticmethod
-    def stop_signal_threads() -> None:
-        """Stops the signal processing threads."""
-        Scalene.__allocation_signal_queue.put(None)
-        Scalene.__allocation_signal_thread.join()
-        Scalene.__allocation_signal_thread = None
-
-        Scalene.__memcpy_signal_queue.put(None)
-        Scalene.__memcpy_signal_thread.join()
-        Scalene.__memcpy_signal_thread = None
-
-    @staticmethod
     def start() -> None:
         """Initiate profiling."""
-        Scalene.enable_signals()
         Scalene.start_signal_threads()
+        Scalene.enable_signals()
         Scalene.__start_time = Scalene.get_wallclock_time()
 
     @staticmethod
