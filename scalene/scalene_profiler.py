@@ -35,8 +35,8 @@ import time
 import traceback
 
 # FIXME
-if sys.platform != 'win32':
-	import get_line_atomic
+if sys.platform != "win32":
+    import get_line_atomic
 
 from collections import defaultdict
 from functools import lru_cache
@@ -324,16 +324,16 @@ class Scalene:
 
     @staticmethod
     def timer_thang() -> None:
-      Scalene.timer_signals = True
-      while Scalene.timer_signals:
-          time.sleep(Scalene.__args.cpu_sampling_rate)
-          signal.raise_signal(ScaleneSignals.cpu_signal)
+        Scalene.timer_signals = True
+        while Scalene.timer_signals:
+            time.sleep(Scalene.__args.cpu_sampling_rate)
+            signal.raise_signal(ScaleneSignals.cpu_signal)
 
     @staticmethod
     def set_timer_signals() -> None:
         """Set up timer signals for CPU profiling."""
-        if sys.platform == 'win32':
-          return
+        if sys.platform == "win32":
+            return
         if Scalene.__args.use_virtual_time:
             ScaleneSignals.cpu_timer_signal = signal.ITIMER_VIRTUAL
         else:
@@ -355,16 +355,14 @@ class Scalene:
     @staticmethod
     def setup_signal_threads() -> None:
         alloc_signal_mgr_thread = threading.Thread(
-          target=Scalene.alloc_signal_manager,
-          daemon=True
+            target=Scalene.alloc_signal_manager, daemon=True
         )
         alloc_signal_mgr_thread.start()
         memcpy_signal_mgr_thread = threading.Thread(
-          target=Scalene.memcpy_signal_manager,
-          daemon=True
+            target=Scalene.memcpy_signal_manager, daemon=True
         )
         memcpy_signal_mgr_thread.start()
-    
+
     @staticmethod
     def malloc_signal_dispatcher(
         signum: Union[
@@ -372,7 +370,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-      Scalene.__alloc_signal_queue.put((signum, this_frame, "malloc"))
+        Scalene.__alloc_signal_queue.put((signum, this_frame, "malloc"))
 
     @staticmethod
     def free_signal_dispatcher(
@@ -381,14 +379,14 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-      Scalene.__alloc_signal_queue.put((signum, this_frame, "free"))
+        Scalene.__alloc_signal_queue.put((signum, this_frame, "free"))
 
     @staticmethod
     def alloc_signal_manager() -> None:
-      while True:
-        (signum, this_frame, op) = Scalene.__alloc_signal_queue.get()
-        Scalene.allocation_signal_handler_helper(signum, this_frame, op)
-    
+        while True:
+            (signum, this_frame, op) = Scalene.__alloc_signal_queue.get()
+            Scalene.allocation_signal_handler_helper(signum, this_frame, op)
+
     @staticmethod
     def memcpy_signal_dispatcher(
         signum: Union[
@@ -396,29 +394,29 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-      Scalene.__memcpy_signal_queue.put((signum, this_frame))
+        Scalene.__memcpy_signal_queue.put((signum, this_frame))
 
     @staticmethod
     def memcpy_signal_manager() -> None:
-      while True:
-        (signum, this_frame) = Scalene.__memcpy_signal_queue.get()
-        Scalene.memcpy_signal_handler_helper(signum, this_frame)
+        while True:
+            (signum, this_frame) = Scalene.__memcpy_signal_queue.get()
+            Scalene.memcpy_signal_handler_helper(signum, this_frame)
 
     @staticmethod
     def enable_signals() -> None:
         """Set up the signal handlers to handle interrupts for profiling and start the
         timer interrupts."""
-        if sys.platform == 'win32':
-          Scalene.timer_signals = True
-          signal.signal(
-              ScaleneSignals.cpu_signal,
-              Scalene.cpu_signal_handler,
-          )
-          # On Windows, we simulate timer signals by running a background thread.
-          Scalene.timer_signals = True
-          t = threading.Thread(target=Scalene.timer_thang)
-          t.start()
-          return
+        if sys.platform == "win32":
+            Scalene.timer_signals = True
+            signal.signal(
+                ScaleneSignals.cpu_signal,
+                Scalene.cpu_signal_handler,
+            )
+            # On Windows, we simulate timer signals by running a background thread.
+            Scalene.timer_signals = True
+            t = threading.Thread(target=Scalene.timer_thang)
+            t.start()
+            return
         with Scalene.__in_signal_handler:
             # Set signal handlers for memory allocation and memcpy events.
             signal.signal(
@@ -469,9 +467,10 @@ class Scalene:
         import scalene.replacement_thread_join
         import scalene.replacement_exit
         import scalene.replacement_mp_lock
-        if sys.platform != 'win32':
-          import scalene.replacement_poll_selector
-          import scalene.replacement_fork
+
+        if sys.platform != "win32":
+            import scalene.replacement_poll_selector
+            import scalene.replacement_fork
 
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.set_timer_signals()
@@ -592,9 +591,7 @@ class Scalene:
             # Print out the profile. Set the next output time, stop
             # signals, print the profile, and then start signals
             # again.
-            Scalene.__next_output_time += (
-                Scalene.__args.profile_interval
-            )
+            Scalene.__next_output_time += Scalene.__args.profile_interval
             Scalene.stop()
             stats = Scalene.__stats
             output = Scalene.__output
@@ -747,10 +744,10 @@ class Scalene:
         Scalene.__last_signal_time_virtual = Scalene.get_process_time()
         # Reset the CPU timer.
         # (No change for now.)
-        if sys.platform != 'win32':
-          signal.setitimer(
-              ScaleneSignals.cpu_timer_signal, next_interval, next_interval
-          )
+        if sys.platform != "win32":
+            signal.setitimer(
+                ScaleneSignals.cpu_timer_signal, next_interval, next_interval
+            )
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -830,7 +827,7 @@ class Scalene:
                 return
         if not Scalene.should_trace(f.f_code.co_filename):
             return
-    
+
         fn_name = Filename(f.f_code.co_name)
         firstline = f.f_code.co_firstlineno
         # Prepend the class, if any
@@ -838,8 +835,8 @@ class Scalene:
             f
             and f.f_back
             and f.f_back.f_code
-# NOTE: next line disabled as it is interfering with name resolution for thread run methods
-#            and Scalene.should_trace(f.f_back.f_code.co_filename)
+            # NOTE: next line disabled as it is interfering with name resolution for thread run methods
+            #            and Scalene.should_trace(f.f_back.f_code.co_filename)
         ):
             if "self" in f.f_locals:
                 prepend_name = f.f_locals["self"].__class__.__name__
@@ -1072,7 +1069,7 @@ class Scalene:
         Scalene.__is_child = True
 
         # This is only called after a fork in the
-        # child process, any child threads that held this 
+        # child process, any child threads that held this
         # lock no longer exist. Therefore, releasing it here is safe.
         if Scalene.__in_signal_handler.locked():
             Scalene.__in_signal_handler.release()
@@ -1263,9 +1260,9 @@ class Scalene:
     @staticmethod
     def disable_signals() -> None:
         """Turn off the profiling signals."""
-        if sys.platform == 'win32':
-           Scalene.timer_signals = False
-           return
+        if sys.platform == "win32":
+            Scalene.timer_signals = False
+            return
         try:
             with Scalene.__in_signal_handler:
                 signal.setitimer(ScaleneSignals.cpu_timer_signal, 0)
@@ -1364,9 +1361,9 @@ class Scalene:
         signal.signal(
             ScaleneSignals.stop_profiling_signal, Scalene.stop_signal_handler
         )
-        if sys.platform != 'win32': # FIXME
-          signal.siginterrupt(ScaleneSignals.start_profiling_signal, False)
-          signal.siginterrupt(ScaleneSignals.stop_profiling_signal, False)
+        if sys.platform != "win32":  # FIXME
+            signal.siginterrupt(ScaleneSignals.start_profiling_signal, False)
+            signal.siginterrupt(ScaleneSignals.stop_profiling_signal, False)
 
         did_preload = ScalenePreload.setup_preload(args)
         if not did_preload:
