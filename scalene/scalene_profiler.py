@@ -351,6 +351,19 @@ class Scalene:
 
     alloc_signal_queue = queue.SimpleQueue()
     memcpy_signal_queue = queue.SimpleQueue()
+
+    @staticmethod
+    def setup_signal_threads() -> None:
+        alloc_signal_mgr_thread = threading.Thread(
+          target=Scalene.alloc_signal_manager,
+          daemon=True
+        )
+        alloc_signal_mgr_thread.start()
+        memcpy_signal_mgr_thread = threading.Thread(
+          target=Scalene.memcpy_signal_manager,
+          daemon=True
+        )
+        memcpy_signal_mgr_thread.start()
     
     @staticmethod
     def malloc_signal_dispatcher(
@@ -463,16 +476,7 @@ class Scalene:
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.set_timer_signals()
         Scalene.__last_signal_time_virtual = Scalene.get_process_time()
-        alloc_signal_mgr_thread = threading.Thread(
-          target=Scalene.alloc_signal_manager,
-          daemon=True
-        )
-        alloc_signal_mgr_thread.start()
-        memcpy_signal_mgr_thread = threading.Thread(
-          target=Scalene.memcpy_signal_manager,
-          daemon=True
-        )
-        memcpy_signal_mgr_thread.start()
+        Scalene.setup_signal_threads()
         if arguments.pid:
             # Child process.
             # We need to use the same directory as the parent.
@@ -1088,6 +1092,7 @@ class Scalene:
         #     ScaleneSignals.memcpy_signal,
         #     Scalene.memcpy_signal_handler,
         # )
+        Scalene.setup_signal_threads()
         Scalene.enable_signals()
 
     @staticmethod
