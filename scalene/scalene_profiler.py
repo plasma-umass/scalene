@@ -384,8 +384,11 @@ class Scalene:
     @staticmethod
     def alloc_signal_manager() -> None:
         while True:
-            (signum, this_frame, op) = Scalene.__alloc_signal_queue.get()
-            Scalene.allocation_signal_handler_helper(signum, this_frame, op)
+            item = Scalene.__alloc_signal_queue.get()
+            # If we get a `None`, we stop.
+            if not item:
+                break
+            Scalene.allocation_signal_handler_helper(*item)
 
     @staticmethod
     def memcpy_signal_dispatcher(
@@ -399,8 +402,10 @@ class Scalene:
     @staticmethod
     def memcpy_signal_manager() -> None:
         while True:
-            (signum, this_frame) = Scalene.__memcpy_signal_queue.get()
-            Scalene.memcpy_signal_handler_helper(signum, this_frame)
+            item = Scalene.__memcpy_signal_queue.get()
+            if not item:
+                break
+            Scalene.memcpy_signal_handler_helper(*item)
 
     @staticmethod
     def enable_signals() -> None:
@@ -418,6 +423,7 @@ class Scalene:
             t.start()
             return
         with Scalene.__in_signal_handler:
+            Scalene.setup_signal_threads()
             # Set signal handlers for memory allocation and memcpy events.
             signal.signal(
                 ScaleneSignals.malloc_signal, Scalene.malloc_signal_dispatcher
@@ -1089,7 +1095,6 @@ class Scalene:
         #     ScaleneSignals.memcpy_signal,
         #     Scalene.memcpy_signal_handler,
         # )
-        Scalene.setup_signal_threads()
         Scalene.enable_signals()
 
     @staticmethod
@@ -1269,6 +1274,8 @@ class Scalene:
                 signal.signal(ScaleneSignals.malloc_signal, signal.SIG_IGN)
                 signal.signal(ScaleneSignals.free_signal, signal.SIG_IGN)
                 signal.signal(ScaleneSignals.memcpy_signal, signal.SIG_IGN)
+            Scalene.__alloc_signal_queue.put(None)
+            Scalene.__memcpy_signal_queue.put(None)
         except BaseException:
             # Retry just in case we get interrupted by one of our own signals.
             Scalene.disable_signals()
