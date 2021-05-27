@@ -27,11 +27,11 @@ vendor/Heap-Layers:
 
 vendor/Hoard:
 	git clone https://github.com/emeryberger/Hoard -o vendor/Hoard
-	cd vendor/Hoard/src && mklink ../../Heap-Layers Heap-Layers
+	mklink vendor\Hoard\src\..\..\Heap-Layers vendor\Heap-Layers
 
 vendor/printf/printf.cpp:
 	git clone https://github.com/mpaland/printf -o vendor/printf
-	cd vendor/printf && mklink printf.cpp printf.c
+	mklink vendor\printf\printf.cpp vendor\printf\printf.c
 
 mypy:
 	-mypy $(PYTHON_SOURCES)
