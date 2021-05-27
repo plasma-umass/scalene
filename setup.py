@@ -76,5 +76,5 @@ setup(
     setup_requires=['setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
-    python_requires=">=3.6",
+    python_requires=">=3.7",
 )
