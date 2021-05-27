@@ -23,6 +23,7 @@ import inspect
 import math
 import mmap
 import multiprocessing
+import queue
 import os
 import random
 import signal
@@ -348,6 +349,48 @@ class Scalene:
             # NOT SUPPORTED
             assert False, "ITIMER_PROF is not currently supported."
 
+    alloc_signal_queue = queue.SimpleQueue()
+    memcpy_signal_queue = queue.SimpleQueue()
+    
+    @staticmethod
+    def malloc_signal_dispatcher(
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
+        this_frame: FrameType,
+    ) -> None:
+      Scalene.alloc_signal_queue.put((signum, this_frame, "malloc"))
+
+    @staticmethod
+    def free_signal_dispatcher(
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
+        this_frame: FrameType,
+    ) -> None:
+      Scalene.alloc_signal_queue.put((signum, this_frame, "free"))
+
+    @staticmethod
+    def alloc_signal_manager() -> None:
+      while True:
+        (signum, this_frame, op) = Scalene.alloc_signal_queue.get()
+        Scalene.allocation_signal_handler_helper(signum, this_frame, op)
+    
+    @staticmethod
+    def memcpy_signal_dispatcher(
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
+        this_frame: FrameType,
+    ) -> None:
+      Scalene.memcpy_signal_queue.put((signum, this_frame))
+
+    @staticmethod
+    def memcpy_signal_manager() -> None:
+      while True:
+        (signum, this_frame) = Scalene.memcpy_signal_queue.get()
+        Scalene.memcpy_signal_handler_helper(signum, this_frame)
+
     @staticmethod
     def enable_signals() -> None:
         """Set up the signal handlers to handle interrupts for profiling and start the
@@ -366,14 +409,14 @@ class Scalene:
         with Scalene.__in_signal_handler:
             # Set signal handlers for memory allocation and memcpy events.
             signal.signal(
-                ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
+                ScaleneSignals.malloc_signal, Scalene.malloc_signal_dispatcher
             )
             signal.signal(
-                ScaleneSignals.free_signal, Scalene.free_signal_handler
+                ScaleneSignals.free_signal, Scalene.free_signal_dispatcher
             )
             signal.signal(
                 ScaleneSignals.memcpy_signal,
-                Scalene.memcpy_signal_handler,
+                Scalene.memcpy_signal_dispatcher,
             )
             # Set every signal to restart interrupted system calls.
             signal.siginterrupt(ScaleneSignals.cpu_signal, False)
@@ -420,7 +463,16 @@ class Scalene:
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.set_timer_signals()
         Scalene.__last_signal_time_virtual = Scalene.get_process_time()
-
+        alloc_signal_mgr_thread = threading.Thread(
+          target=Scalene.alloc_signal_manager,
+          daemon=True
+        )
+        alloc_signal_mgr_thread.start()
+        memcpy_signal_mgr_thread = threading.Thread(
+          target=Scalene.memcpy_signal_manager,
+          daemon=True
+        )
+        memcpy_signal_mgr_thread.start()
         if arguments.pid:
             # Child process.
             # We need to use the same directory as the parent.
