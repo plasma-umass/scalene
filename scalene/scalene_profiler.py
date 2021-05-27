@@ -464,16 +464,6 @@ class Scalene:
                 0,
             )
 
-    @staticmethod
-    def get_process_time() -> float:
-        """Time spent on the CPU."""
-        return time.process_time()
-
-    @staticmethod
-    def get_wallclock_time() -> float:
-        """Wall-clock time."""
-        return time.perf_counter()
-
     def __init__(
         self,
         arguments: argparse.Namespace,
@@ -493,7 +483,7 @@ class Scalene:
 
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.set_timer_signals()
-        Scalene.__last_signal_time_virtual = Scalene.get_process_time()
+        Scalene.__last_signal_time_virtual = time.process_time()
         Scalene.setup_signal_threads()
         if arguments.pid:
             # Child process.
@@ -576,8 +566,8 @@ class Scalene:
     ) -> None:
         """Wrapper for CPU signal handlers."""
         # with Scalene.__in_signal_handler:
-        now_virtual = Scalene.get_process_time()
-        now_wallclock = Scalene.get_wallclock_time()
+        now_virtual = time.process_time()
+        now_wallclock = time.perf_counter()
         # Sample GPU load as well.
         gpu_load = Scalene.__gpu.load()
         gpu_mem_used = Scalene.__gpu.memory_used()
@@ -592,7 +582,11 @@ class Scalene:
             )
         )
         if sys.platform != "win32":
-            signal.setitimer(ScaleneSignals.cpu_timer_signal, Scalene.__args.cpu_sampling_rate, 0)
+            signal.setitimer(
+                ScaleneSignals.cpu_timer_signal,
+                Scalene.__args.cpu_sampling_rate,
+                0,
+            )
 
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
@@ -666,7 +660,10 @@ class Scalene:
         )
         # CPU utilization is the fraction of time spent on the CPU
         # over the total wallclock time.
-        cpu_utilization = elapsed_virtual / elapsed_wallclock
+        try:
+            cpu_utilization = elapsed_virtual / elapsed_wallclock
+        except ZeroDivisionError:
+            cpu_utilization = 0.0
         if cpu_utilization > 1.0:
             # Sometimes, for some reason, virtual time exceeds
             # wallclock time, which makes no sense...
@@ -774,8 +771,8 @@ class Scalene:
         else:
             next_interval = Scalene.__args.cpu_sampling_rate
         Scalene.__last_cpu_sampling_rate = next_interval
-        Scalene.__last_signal_time_wallclock = Scalene.get_wallclock_time()
-        Scalene.__last_signal_time_virtual = Scalene.get_process_time()
+        Scalene.__last_signal_time_virtual = now_virtual
+        Scalene.__last_signal_time_wallclock = now_wallclock
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -1252,16 +1249,14 @@ class Scalene:
     def start() -> None:
         """Initiate profiling."""
         Scalene.enable_signals()
-        Scalene.__start_time = Scalene.get_wallclock_time()
+        Scalene.__start_time = time.perf_counter()
 
     @staticmethod
     def stop() -> None:
         """Complete profiling."""
         Scalene.disable_signals()
         stats = Scalene.__stats
-        stats.elapsed_time += (
-            Scalene.get_wallclock_time() - Scalene.__start_time
-        )
+        stats.elapsed_time += time.perf_counter() - Scalene.__start_time
 
     @staticmethod
     def start_signal_handler(
@@ -1367,7 +1362,7 @@ class Scalene:
     def process_args(args: argparse.Namespace) -> None:
         Scalene.__args = cast(ScaleneArguments, args)
         Scalene.__next_output_time = (
-            Scalene.get_wallclock_time() + Scalene.__args.profile_interval
+            time.perf_counter() + Scalene.__args.profile_interval
         )
         Scalene.__output.html = args.html
         Scalene.__output.output_file = args.outfile
