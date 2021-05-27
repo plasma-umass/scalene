@@ -19,7 +19,7 @@ try:
             # The length of the history buffer lets us find the most recent string (this one).
             filename = f"<ipython-input-{len(get_ipython().history_manager.input_hist_raw)-1}-profile>"
             # Drop the first line (%%scalene).
-            newcode = '\n' + code
+            newcode = "\n" + code
             with open(filename, "w+") as tmpfile:
                 tmpfile.write(newcode)
             args.cpu_only = True  # full Scalene is not yet working, force to use CPU-only mode
