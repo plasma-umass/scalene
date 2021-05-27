@@ -3,6 +3,7 @@ import os
 from scalene.scalene_profiler import Scalene
 import sys
 import threading
+import time
 
 minor_version = sys.version_info.minor
 
@@ -24,7 +25,7 @@ def replacement_pjoin(scalene: Scalene) -> None:
             interval = sys.getswitchinterval()
         else:
             interval = min(timeout, sys.getswitchinterval())
-        start_time = scalene.get_wallclock_time()
+        start_time = time.perf_counter()
         while True:
             scalene.set_thread_sleeping(tident)
             res = self._popen.wait(interval)
@@ -39,7 +40,7 @@ def replacement_pjoin(scalene: Scalene) -> None:
             # Interval is the sleep time per-tic,
             # but timeout determines whether it returns
             if timeout != -1:
-                end_time = scalene.get_wallclock_time()
+                end_time = time.perf_counter()
                 if end_time - start_time >= timeout:
                     from multiprocessing.process import _children  # type: ignore
 
