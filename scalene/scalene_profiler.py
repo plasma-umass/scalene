@@ -373,13 +373,15 @@ class Scalene:
     @staticmethod
     def stop_signal_threads() -> None:
         """Stops the signal processing threads."""
-        Scalene.__alloc_signal_queue.put(None)
-        Scalene.__alloc_signal_mgr_thread.join()
-        Scalene.__alloc_signal_mgr_thread = None
+        if Scalene.__alloc_signal_mgr_thread != None:
+            Scalene.__alloc_signal_queue.put(None)
+            Scalene.__alloc_signal_mgr_thread.join()
+            Scalene.__alloc_signal_mgr_thread = None
 
-        Scalene.__memcpy_signal_queue.put(None)
-        Scalene.__memcpy_signal_mgr_thread.join()
-        Scalene.__memcpy_signal_mgr_thread = None
+        if Scalene.__memcpy_signal_mgr_thread != None:
+            Scalene.__memcpy_signal_queue.put(None)
+            Scalene.__memcpy_signal_mgr_thread.join()
+            Scalene.__memcpy_signal_mgr_thread = None
 
     @staticmethod
     def malloc_signal_dispatcher(
@@ -440,6 +442,7 @@ class Scalene:
             t.start()
             return
         with Scalene.__in_signal_handler:
+            Scalene.start_signal_threads()
             # Set signal handlers for memory allocation and memcpy events.
             signal.signal(
                 ScaleneSignals.malloc_signal, Scalene.malloc_signal_dispatcher
@@ -1074,7 +1077,6 @@ class Scalene:
         # Note-- __parent_pid of the topmost process is its own pid
         Scalene.__pid = Scalene.__parent_pid
 
-        Scalene.start_signal_threads()
         Scalene.enable_signals()
 
 
@@ -1193,7 +1195,6 @@ class Scalene:
     @staticmethod
     def start() -> None:
         """Initiate profiling."""
-        Scalene.start_signal_threads()
         Scalene.enable_signals()
         Scalene.__start_time = Scalene.get_wallclock_time()
 
@@ -1201,7 +1202,6 @@ class Scalene:
     def stop() -> None:
         """Complete profiling."""
         Scalene.disable_signals()
-        Scalene.stop_signal_threads()
         stats = Scalene.__stats
         stats.elapsed_time += (
             Scalene.get_wallclock_time() - Scalene.__start_time
@@ -1232,6 +1232,7 @@ class Scalene:
     @staticmethod
     def disable_signals() -> None:
         """Turn off the profiling signals."""
+        Scalene.stop_signal_threads()
         if sys.platform == "win32":
             Scalene.timer_signals = False
             return
