@@ -483,7 +483,6 @@ class Scalene:
 
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.set_timer_signals()
-        Scalene.__last_signal_time_virtual = time.process_time()
         Scalene.setup_signal_threads()
         if arguments.pid:
             # Child process.
@@ -568,6 +567,12 @@ class Scalene:
         # with Scalene.__in_signal_handler:
         now_virtual = time.process_time()
         now_wallclock = time.perf_counter()
+        if (
+            Scalene.__last_signal_time_virtual == 0.0
+            or Scalene.__last_signal_time_wallclock == 0.0
+        ):
+            Scalene.__last_signal_time_virtual = now_virtual
+            Scalene.__last_signal_time_wallclock = now_wallclock
         # Sample GPU load as well.
         gpu_load = Scalene.__gpu.load()
         gpu_mem_used = Scalene.__gpu.memory_used()
@@ -579,6 +584,8 @@ class Scalene:
                 now_wallclock,
                 gpu_load,
                 gpu_mem_used,
+                Scalene.__last_signal_time_virtual,
+                Scalene.__last_signal_time_wallclock,
             )
         )
         if sys.platform != "win32":
@@ -587,6 +594,8 @@ class Scalene:
                 Scalene.__args.cpu_sampling_rate,
                 0,
             )
+        Scalene.__last_signal_time_virtual = time.process_time()
+        Scalene.__last_signal_time_wallclock = time.perf_counter()
 
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
@@ -613,6 +622,8 @@ class Scalene:
         now_wallclock: float,
         gpu_load: float,
         gpu_mem_used: float,
+        prev_virtual: float,
+        prev_wallclock: float,
     ) -> None:
         """Handle interrupts for CPU profiling."""
         # We have recorded how long it has been since we received a timer
@@ -654,10 +665,8 @@ class Scalene:
         # account for this time by tracking the elapsed (process) time
         # and compare it to the interval, and add any computed delay
         # (as if it were sampled) to the C counter.
-        elapsed_virtual = now_virtual - Scalene.__last_signal_time_virtual
-        elapsed_wallclock = (
-            now_wallclock - Scalene.__last_signal_time_wallclock
-        )
+        elapsed_virtual = now_virtual - prev_virtual
+        elapsed_wallclock = now_wallclock - prev_wallclock
         # CPU utilization is the fraction of time spent on the CPU
         # over the total wallclock time.
         try:
@@ -771,8 +780,6 @@ class Scalene:
         else:
             next_interval = Scalene.__args.cpu_sampling_rate
         Scalene.__last_cpu_sampling_rate = next_interval
-        Scalene.__last_signal_time_virtual = now_virtual
-        Scalene.__last_signal_time_wallclock = now_wallclock
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
