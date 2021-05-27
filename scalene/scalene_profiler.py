@@ -349,8 +349,8 @@ class Scalene:
             # NOT SUPPORTED
             assert False, "ITIMER_PROF is not currently supported."
 
-    alloc_signal_queue = queue.SimpleQueue()
-    memcpy_signal_queue = queue.SimpleQueue()
+    __alloc_signal_queue = queue.SimpleQueue()
+    __memcpy_signal_queue = queue.SimpleQueue()
 
     @staticmethod
     def setup_signal_threads() -> None:
@@ -372,7 +372,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-      Scalene.alloc_signal_queue.put((signum, this_frame, "malloc"))
+      Scalene.__alloc_signal_queue.put((signum, this_frame, "malloc"))
 
     @staticmethod
     def free_signal_dispatcher(
@@ -381,12 +381,12 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-      Scalene.alloc_signal_queue.put((signum, this_frame, "free"))
+      Scalene.__alloc_signal_queue.put((signum, this_frame, "free"))
 
     @staticmethod
     def alloc_signal_manager() -> None:
       while True:
-        (signum, this_frame, op) = Scalene.alloc_signal_queue.get()
+        (signum, this_frame, op) = Scalene.__alloc_signal_queue.get()
         Scalene.allocation_signal_handler_helper(signum, this_frame, op)
     
     @staticmethod
@@ -396,12 +396,12 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-      Scalene.memcpy_signal_queue.put((signum, this_frame))
+      Scalene.__memcpy_signal_queue.put((signum, this_frame))
 
     @staticmethod
     def memcpy_signal_manager() -> None:
       while True:
-        (signum, this_frame) = Scalene.memcpy_signal_queue.get()
+        (signum, this_frame) = Scalene.__memcpy_signal_queue.get()
         Scalene.memcpy_signal_handler_helper(signum, this_frame)
 
     @staticmethod
