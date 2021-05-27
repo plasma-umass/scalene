@@ -349,6 +349,7 @@ class Scalene:
             # NOT SUPPORTED
             assert False, "ITIMER_PROF is not currently supported."
 
+    __cpu_signal_queue = queue.SimpleQueue()
     __alloc_signal_queue = queue.SimpleQueue()
     __memcpy_signal_queue = queue.SimpleQueue()
 
@@ -357,11 +358,15 @@ class Scalene:
         alloc_signal_mgr_thread = threading.Thread(
             target=Scalene.alloc_signal_manager, daemon=True
         )
-        alloc_signal_mgr_thread.start()
         memcpy_signal_mgr_thread = threading.Thread(
             target=Scalene.memcpy_signal_manager, daemon=True
         )
+        cpu_signal_mgr_thread = threading.Thread(
+            target=Scalene.cpu_signal_manager, daemon=True
+        )
+        alloc_signal_mgr_thread.start()
         memcpy_signal_mgr_thread.start()
+        cpu_signal_mgr_thread.start()
 
     @staticmethod
     def malloc_signal_dispatcher(
@@ -408,6 +413,14 @@ class Scalene:
             Scalene.memcpy_signal_handler_helper(*item)
 
     @staticmethod
+    def cpu_signal_manager() -> None:
+        while True:
+            item = Scalene.__cpu_signal_queue.get()
+            if not item:
+                break
+            Scalene.cpu_signal_handler_helper(*item)
+
+    @staticmethod
     def enable_signals() -> None:
         """Set up the signal handlers to handle interrupts for profiling and start the
         timer interrupts."""
@@ -448,7 +461,7 @@ class Scalene:
             signal.setitimer(
                 ScaleneSignals.cpu_timer_signal,
                 Scalene.__args.cpu_sampling_rate,
-                0
+                0,
             )
 
     @staticmethod
@@ -563,7 +576,23 @@ class Scalene:
     ) -> None:
         """Wrapper for CPU signal handlers."""
         # with Scalene.__in_signal_handler:
-        Scalene.cpu_signal_handler_helper(signum, this_frame)
+        now_virtual = Scalene.get_process_time()
+        now_wallclock = Scalene.get_wallclock_time()
+        # Sample GPU load as well.
+        gpu_load = Scalene.__gpu.load()
+        gpu_mem_used = Scalene.__gpu.memory_used()
+        Scalene.__cpu_signal_queue.put(
+            (
+                signum,
+                this_frame,
+                now_virtual,
+                now_wallclock,
+                gpu_load,
+                gpu_mem_used,
+            )
+        )
+        if sys.platform != "win32":
+            signal.setitimer(ScaleneSignals.cpu_timer_signal, Scalene.__args.cpu_sampling_rate, 0)
 
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
@@ -586,12 +615,14 @@ class Scalene:
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
         this_frame: FrameType,
+        now_virtual: float,
+        now_wallclock: float,
+        gpu_load: float,
+        gpu_mem_used: float,
     ) -> None:
         """Handle interrupts for CPU profiling."""
-        # Record how long it has been since we received a timer
+        # We have recorded how long it has been since we received a timer
         # before.  See the logic below.
-        now_virtual = Scalene.get_process_time()
-        now_wallclock = Scalene.get_wallclock_time()
         # If it's time to print some profiling info, do so.
         if now_wallclock >= Scalene.__next_output_time:
             # Print out the profile. Set the next output time, stop
@@ -642,9 +673,6 @@ class Scalene:
             cpu_utilization = 1.0
         if cpu_utilization < 0.0:
             cpu_utilization = 0.0
-        # Sample GPU load as well.
-        gpu_load = Scalene.__gpu.load()
-        gpu_mem_used = Scalene.__gpu.memory_used()
         # Deal with an odd case reported here: https://github.com/plasma-umass/scalene/issues/124
         # (Note: probably obsolete now that Scalene is using the nvidia wrappers, but just in case...)
         # We don't want to report 'nan', so turn the load into 0.
@@ -748,12 +776,6 @@ class Scalene:
         Scalene.__last_cpu_sampling_rate = next_interval
         Scalene.__last_signal_time_wallclock = Scalene.get_wallclock_time()
         Scalene.__last_signal_time_virtual = Scalene.get_process_time()
-        # Reset the CPU timer.
-        # (No change for now.)
-        if sys.platform != "win32":
-            signal.setitimer(
-                ScaleneSignals.cpu_timer_signal, next_interval, 0
-            )
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -1277,6 +1299,7 @@ class Scalene:
                 signal.signal(ScaleneSignals.memcpy_signal, signal.SIG_IGN)
             Scalene.__alloc_signal_queue.put(None)
             Scalene.__memcpy_signal_queue.put(None)
+            Scalene.__cpu_signal_queue.put(None)
         except BaseException:
             # Retry just in case we get interrupted by one of our own signals.
             Scalene.disable_signals()
@@ -1369,7 +1392,7 @@ class Scalene:
         signal.signal(
             ScaleneSignals.stop_profiling_signal, Scalene.stop_signal_handler
         )
-        if sys.platform != "win32":  # FIXME
+        if sys.platform != "win32":
             signal.siginterrupt(ScaleneSignals.start_profiling_signal, False)
             signal.siginterrupt(ScaleneSignals.stop_profiling_signal, False)
 
