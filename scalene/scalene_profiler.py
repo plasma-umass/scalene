@@ -448,7 +448,7 @@ class Scalene:
             signal.setitimer(
                 ScaleneSignals.cpu_timer_signal,
                 Scalene.__args.cpu_sampling_rate,
-                Scalene.__args.cpu_sampling_rate,
+                0
             )
 
     @staticmethod
@@ -752,7 +752,7 @@ class Scalene:
         # (No change for now.)
         if sys.platform != "win32":
             signal.setitimer(
-                ScaleneSignals.cpu_timer_signal, next_interval, next_interval
+                ScaleneSignals.cpu_timer_signal, next_interval, 0
             )
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
@@ -829,6 +829,7 @@ class Scalene:
             if (
                 "<genexpr>" in f.f_code.co_name
                 or "<module>" in f.f_code.co_name
+                or "<listcomp>" in f.f_code.co_name
             ):
                 return
         if not Scalene.should_trace(f.f_code.co_filename):
@@ -842,7 +843,7 @@ class Scalene:
             and f.f_back
             and f.f_back.f_code
             # NOTE: next line disabled as it is interfering with name resolution for thread run methods
-            #            and Scalene.should_trace(f.f_back.f_code.co_filename)
+            # and Scalene.should_trace(f.f_back.f_code.co_filename)
         ):
             if "self" in f.f_locals:
                 prepend_name = f.f_locals["self"].__class__.__name__
