@@ -23,14 +23,14 @@ all: vendor/Heap-Layers $(SRC) $(OTHER_DEPS)
 $(WRAPPER) : vendor/Heap-Layers
 
 vendor/Heap-Layers:
-	cd vendor && rmdir /S /Q Heap-Layers && git clone https://github.com/emeryberger/Heap-Layers
+	git clone https://github.com/emeryberger/Heap-Layers -o vendor\Heap-Layers
 
 vendor/Hoard:
-	cd vendor && rmdir /S /Q Hoard && git clone https://github.com/emeryberger/Hoard
+	git clone https://github.com/emeryberger/Hoard -o vendor\Hoard
 	cd vendor/Hoard/src && mklink ../../Heap-Layers Heap-Layers
 
 vendor/printf/printf.cpp:
-	cd vendor && rmdir /S /Q printf && git clone https://github.com/mpaland/printf
+	git clone https://github.com/mpaland/printf -o vendor\printf
 	cd vendor/printf && mklink printf.cpp printf.c
 
 mypy:
