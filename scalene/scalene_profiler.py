@@ -888,24 +888,6 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
-    def malloc_signal_handler(
-        signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
-        ],
-        this_frame: FrameType,
-    ) -> None:
-        Scalene.allocation_signal_handler_helper(signum, this_frame, "malloc")
-
-    @staticmethod
-    def free_signal_handler(
-        signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
-        ],
-        this_frame: FrameType,
-    ) -> None:
-        Scalene.allocation_signal_handler_helper(signum, this_frame, "free")
-
-    @staticmethod
     def allocation_signal_handler_helper(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
@@ -915,12 +897,7 @@ class Scalene:
     ) -> None:
         if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
             return
-        # Handle the signal in a separate thread.
-        t = threading.Thread(
-            target=Scalene.allocation_signal_handler,
-            args=(signum, this_frame, allocation_type),
-        )
-        t.start()
+        Scalene.allocation_signal_handler(signum, this_frame, allocation_type)
 
     @staticmethod
     def allocation_signal_handler(
@@ -1092,6 +1069,7 @@ class Scalene:
                     stats.last_malloc_triggered = last_malloc
                     mallocs, frees = stats.leak_score[fname][lineno]
                     stats.leak_score[fname][lineno] = (mallocs + 1, frees)
+        del this_frame
 
     @staticmethod
     def child_after_fork() -> None:
@@ -1134,9 +1112,7 @@ class Scalene:
         """Handles memcpy events."""
         if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
             return
-        threading.Thread(
-            target=Scalene.memcpy_signal_handler_helper, args=(signum, frame)
-        ).start()
+        Scalene.memcpy_signal_handler_helper(signum, frame)
 
     @staticmethod
     def memcpy_signal_handler_helper(
@@ -1188,6 +1164,7 @@ class Scalene:
                     # Add the byte index to the set for this line.
                     stats.bytei_map[fname][line_no].add(bytei)
                     stats.memcpy_samples[fname][line_no] += count
+        del frame
 
     @staticmethod
     @lru_cache(None)
