@@ -27,7 +27,7 @@
 #include "macinterpose.h"
 #endif
 
-#if 0 && defined(__APPLE__)
+#if defined(__APPLE__)
 // Using the system allocator rather than Python's would add too much overhead;
 // we use Hoard instead to avoid that.
 
