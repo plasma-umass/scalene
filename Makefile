@@ -23,7 +23,7 @@ all: vendor/Heap-Layers $(SRC) $(OTHER_DEPS)
 $(WRAPPER) : vendor/Heap-Layers
 
 vendor/Heap-Layers:
-	git clone https://github.com/emeryberger/Heap-Layers -o vendor\Heap-Layers
+	git clone https://github.com/emeryberger/Heap-Layers -o vendor/Heap-Layers
 
 vendor/Hoard:
 	git clone https://github.com/emeryberger/Hoard -o vendor\Hoard
