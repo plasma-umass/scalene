@@ -374,7 +374,7 @@ class ScaleneOutput:
                         ),
                     )
 
-        null = tempfile.TemporaryFile(mode='w+')
+        null = tempfile.TemporaryFile(mode="w+")
 
         # Get column width of the terminal and adjust to fit.
         # Note that Scalene works best with at least 132 columns.
@@ -390,7 +390,11 @@ class ScaleneOutput:
                 pass
 
         console = Console(
-            width=column_width, record=True, force_terminal=True, file=null, force_jupyter=False,
+            width=column_width,
+            record=True,
+            force_terminal=True,
+            file=null,
+            force_jupyter=False,
         )
         # Build a list of files we will actually report on.
         report_files: List[Filename] = []
