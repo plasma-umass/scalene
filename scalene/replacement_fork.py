@@ -6,17 +6,20 @@ from scalene.scalene_signals import ScaleneSignals
 @Scalene.shim
 def replacement_fork(scalene: Scalene) -> None:
     """
-    Raises a signal when a process is the child after
-    a fork system call.
+    Executes Scalene fork() handling.
+    Works just like os.register_at_fork(), but unlike that also provides the child PID.
     """
     orig_fork = os.fork
 
     def fork_replacement() -> int:
-        result = orig_fork()
-        if result == 0:
-            scalene.child_after_fork()
+        scalene.before_fork()
+
+        child_pid = orig_fork()
+        if child_pid == 0:
+            scalene.after_fork_in_child()
         else:
-            scalene.add_child_pid(result)
-        return result
+            scalene.after_fork_in_parent(child_pid)
+
+        return child_pid
 
     os.fork = fork_replacement
