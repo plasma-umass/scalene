@@ -63,6 +63,7 @@ for the process ID that Scalene reports. For example:
    to resume profiling:  python3 -m scalene.profile --on  --pid 12345
 """
         )
+
         parser = argparse.ArgumentParser(
             prog="scalene",
             description=usage,
@@ -184,18 +185,31 @@ for the process ID that Scalene reports. For example:
             help="The directory that the code to profile is located in (default: the directory that the profiled program is in)",
         )
         group = parser.add_mutually_exclusive_group(required=False)
-        group.add_argument("--on", action="store_true", help="start with profiling on (default)")
-        group.add_argument("--off", action="store_true", help="start with profiling off")
+        group.add_argument(
+            "--on",
+            action="store_true",
+            help="start with profiling on (default)",
+        )
+        group.add_argument(
+            "--off", action="store_true", help="start with profiling off"
+        )
         # the PID of the profiling process (for internal use only)
         parser.add_argument(
             "--pid", type=int, default=0, help=argparse.SUPPRESS
         )
+        parser.add_argument(
+            "---",
+            dest="unused_args",
+            help=argparse.SUPPRESS,
+            nargs=argparse.REMAINDER,
+        )
         # Parse out all Scalene arguments and jam the remaining ones into argv.
         # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
         args, left = parser.parse_known_args()
+        left += args.unused_args
         # If the user did not enter any commands (just `scalene` or `python3 -m scalene`),
         # print the usage information and bail.
-        if len(sys.argv) == 1:
+        if len(sys.argv) + len(left) == 1:
             parser.print_help(sys.stderr)
             sys.exit(-1)
         if args.version:

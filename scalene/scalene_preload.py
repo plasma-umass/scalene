@@ -89,7 +89,6 @@ class ScalenePreload:
                 )
                 os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
                 os.environ["PYTHONMALLOC"] = "malloc"
-                orig_args = args
                 new_args = [
                     os.path.basename(sys.executable),
                     "-m",

@@ -408,9 +408,7 @@ class Scalene:
         signal.signal(
             ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
         )
-        signal.signal(
-            ScaleneSignals.free_signal, Scalene.free_signal_handler
-        )
+        signal.signal(ScaleneSignals.free_signal, Scalene.free_signal_handler)
         signal.signal(
             ScaleneSignals.memcpy_signal,
             Scalene.memcpy_signal_handler,
@@ -867,7 +865,7 @@ class Scalene:
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType
+        this_frame: FrameType,
     ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
         stats = Scalene.__stats
