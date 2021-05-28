@@ -109,7 +109,7 @@ The following command runs Scalene on a provided example program.
 
 **NEW**: Scalene works inside Jupyter notebooks as well.
 
-[This notebook](https://github.com/plasma-umass/scalene/blob/master/docs/scalene-demo.ipynb) illustrates the use Scalene in Jupyter.
+[This notebook](https://nbviewer.jupyter.org/github/plasma-umass/scalene/blob/master/docs/scalene-demo.ipynb) illustrates the use of Scalene in Jupyter.
 
 Installation:
 
