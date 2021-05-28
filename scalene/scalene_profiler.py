@@ -501,7 +501,7 @@ class Scalene:
                     )
                     preface += "DYLD_INSERT_LIBRARIES=" + shared_lib
             # Add the --pid field so we can propagate it to the child.
-            cmdline += " --pid={os.getpid()}"
+            cmdline += f" --pid={os.getpid()}"
             payload = """#!/bin/bash
     echo $$
     %s %s -m scalene %s $@
