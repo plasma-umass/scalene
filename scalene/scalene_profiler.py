@@ -477,6 +477,8 @@ class Scalene:
             cmdline += f" --cpu-sampling-rate={arguments.cpu_sampling_rate}"
             if arguments.use_virtual_time:
                 cmdline += " --use-virtual-time"
+            if arguments.off:
+                cmdline += " --off"
             if arguments.cpu_only:
                 cmdline += " --cpu-only"
             else:
@@ -1056,18 +1058,8 @@ class Scalene:
             Scalene.__gpu.nvml_reinit()
         # Note-- __parent_pid of the topmost process is its own pid
         Scalene.__pid = Scalene.__parent_pid
-        # Note: Leaving the previous version here, in case `enable_signals`
-        # has side-effects that I am unaware of
-        #
-        # signal.signal(
-        #     ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
-        # )
-        # signal.signal(ScaleneSignals.free_signal, Scalene.free_signal_handler)
-        # signal.signal(
-        #     ScaleneSignals.memcpy_signal,
-        #     Scalene.memcpy_signal_handler,
-        # )
-        Scalene.enable_signals()
+        if not Scalene.__args.off:
+            Scalene.enable_signals()
 
     @staticmethod
     def memcpy_signal_handler_helper(
@@ -1263,8 +1255,9 @@ class Scalene:
         the_globals: Dict[str, str],
         the_locals: Dict[str, str],
     ) -> int:
-        # Catch termination so we print a profile before exiting.
-        self.start()
+        # If --off is set, tell all children to not profile and stop profiling before we even start.
+        if not Scalene.__args.off:
+            self.start()
         # Run the code being profiled.
         exit_status = 0
         try:

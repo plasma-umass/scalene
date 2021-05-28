@@ -183,6 +183,9 @@ for the process ID that Scalene reports. For example:
             default="",
             help="The directory that the code to profile is located in (default: the directory that the profiled program is in)",
         )
+        group = parser.add_mutually_exclusive_group(required=False)
+        group.add_argument("--on", action="store_true", help="start with profiling on (default)")
+        group.add_argument("--off", action="store_true", help="start with profiling off")
         # the PID of the profiling process (for internal use only)
         parser.add_argument(
             "--pid", type=int, default=0, help=argparse.SUPPRESS
