@@ -63,10 +63,11 @@ from scalene.scalene_preload import ScalenePreload
 from scalene.scalene_signals import ScaleneSignals
 from scalene.scalene_gpu import ScaleneGPU
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
+from scalene.scalene_sigqueue import ScaleneSigQueue
 
 assert (
-    sys.version_info[0] == 3 and sys.version_info[1] >= 6
-), "Scalene requires Python version 3.6 or above."
+    sys.version_info[0] == 3 and sys.version_info[1] >= 7
+), "Scalene requires Python version 3.7 or above."
 
 
 # Scalene fully supports Unix-like operating systems; in
@@ -346,52 +347,18 @@ class Scalene:
             # NOT SUPPORTED
             assert False, "ITIMER_PROF is not currently supported."
 
-    # FIXME make me a list
-    __cpu_signal_queue = queue.SimpleQueue()
-    __cpu_signal_mgr_thread = None
-    __alloc_signal_queue = queue.SimpleQueue()
-    __alloc_signal_mgr_thread = None
-    __memcpy_signal_queue = queue.SimpleQueue()
-    __memcpy_signal_mgr_thread = None
-
-
     @staticmethod
     def start_signal_threads() -> None:
-        """Starts the signal processing threads."""
-        assert Scalene.__cpu_signal_mgr_thread == None
-        assert Scalene.__alloc_signal_mgr_thread == None
-        assert Scalene.__memcpy_signal_mgr_thread == None
-
-        Scalene.__alloc_signal_mgr_thread = threading.Thread(
-            target=Scalene.alloc_signal_manager, daemon=True
-        )
-        Scalene.__memcpy_signal_mgr_thread = threading.Thread(
-            target=Scalene.memcpy_signal_manager, daemon=True
-        )
-        Scalene.__cpu_signal_mgr_thread = threading.Thread(
-            target=Scalene.cpu_signal_manager, daemon=True
-        )
-        Scalene.__alloc_signal_mgr_thread.start()
-        Scalene.__memcpy_signal_mgr_thread.start()
-        Scalene.__cpu_signal_mgr_thread.start()
+        Scalene.__cpu_sigq.start()
+        Scalene.__alloc_sigq.start()
+        Scalene.__memcpy_sigq.start()
 
     @staticmethod
     def stop_signal_threads() -> None:
         """Stops the signal processing threads."""
-        if Scalene.__cpu_signal_mgr_thread != None:
-            Scalene.__cpu_signal_queue.put(None)
-            Scalene.__cpu_signal_mgr_thread.join()
-            Scalene.__cpu_signal_mgr_thread = None
-
-        if Scalene.__alloc_signal_mgr_thread != None:
-            Scalene.__alloc_signal_queue.put(None)
-            Scalene.__alloc_signal_mgr_thread.join()
-            Scalene.__alloc_signal_mgr_thread = None
-
-        if Scalene.__memcpy_signal_mgr_thread != None:
-            Scalene.__memcpy_signal_queue.put(None)
-            Scalene.__memcpy_signal_mgr_thread.join()
-            Scalene.__memcpy_signal_mgr_thread = None
+        Scalene.__cpu_sigq.stop()
+        Scalene.__alloc_sigq.stop()
+        Scalene.__memcpy_sigq.stop()
 
     @staticmethod
     def malloc_signal_dispatcher(
@@ -400,7 +367,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.__alloc_signal_queue.put((signum, this_frame))
+        Scalene.__alloc_sigq.put((signum, this_frame))
 
     @staticmethod
     def free_signal_dispatcher(
@@ -409,15 +376,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.__alloc_signal_queue.put((signum, this_frame))
-
-    @staticmethod
-    def alloc_signal_manager() -> None:
-        while True:
-            item = Scalene.__alloc_signal_queue.get()
-            if item == None:  # stop request
-                break
-            Scalene.allocation_signal_handler(*item)
+        Scalene.__alloc_sigq.put((signum, this_frame))
 
     @staticmethod
     def memcpy_signal_dispatcher(
@@ -426,23 +385,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.__memcpy_signal_queue.put((signum, this_frame))
-
-    @staticmethod
-    def memcpy_signal_manager() -> None:
-        while True:
-            item = Scalene.__memcpy_signal_queue.get()
-            if item == None:  # stop request
-                break
-            Scalene.memcpy_signal_handler(*item)
-
-    @staticmethod
-    def cpu_signal_manager() -> None:
-        while True:
-            item = Scalene.__cpu_signal_queue.get()
-            if item == None:  # stop request
-                break
-            Scalene.cpu_signal_handler_helper(*item)
+        Scalene.__memcpy_sigq.put((signum, this_frame))
 
     @staticmethod
     def enable_signals() -> None:
@@ -505,6 +448,14 @@ class Scalene:
             import scalene.replacement_fork
 
         Scalene.__args = cast(ScaleneArguments, arguments)
+        Scalene.__cpu_sigq = ScaleneSigQueue(Scalene.cpu_signal_handler_helper)
+        Scalene.__alloc_sigq = ScaleneSigQueue(
+            Scalene.allocation_signal_handler_helper
+        )
+        Scalene.__memcpy_sigq = ScaleneSigQueue(
+            Scalene.memcpy_signal_handler_helper
+        )
+
         Scalene.set_timer_signals()
         if arguments.pid:
             # Child process.
@@ -532,6 +483,8 @@ class Scalene:
             cmdline += f" --cpu-sampling-rate={arguments.cpu_sampling_rate}"
             if arguments.use_virtual_time:
                 cmdline += " --use-virtual-time"
+            if arguments.off:
+                cmdline += " --off"
             if arguments.cpu_only:
                 cmdline += " --cpu-only"
             else:
@@ -597,7 +550,7 @@ class Scalene:
         # Sample GPU load as well.
         gpu_load = Scalene.__gpu.load()
         gpu_mem_used = Scalene.__gpu.memory_used()
-        Scalene.__cpu_signal_queue.put(
+        Scalene.__cpu_sigq.put(
             (
                 signum,
                 this_frame,
@@ -909,7 +862,7 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
-    def allocation_signal_handler(
+    def allocation_signal_handler_helper(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
@@ -1076,6 +1029,10 @@ class Scalene:
                 stats.leak_score[fname][lineno] = (mallocs + 1, frees)
         del this_frame
 
+    __cpu_sigq = None
+    __alloc_sigq = None
+    __memcpy_sigq = None
+
     @staticmethod
     def before_fork() -> None:
         """Executed just before a fork."""
@@ -1100,11 +1057,11 @@ class Scalene:
             Scalene.__gpu.nvml_reinit()
         # Note-- __parent_pid of the topmost process is its own pid
         Scalene.__pid = Scalene.__parent_pid
-
-        Scalene.enable_signals()
+        if not Scalene.__args.off:
+            Scalene.enable_signals()
 
     @staticmethod
-    def memcpy_signal_handler(
+    def memcpy_signal_handler_helper(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
@@ -1293,8 +1250,9 @@ class Scalene:
         the_globals: Dict[str, str],
         the_locals: Dict[str, str],
     ) -> int:
-        # Catch termination so we print a profile before exiting.
-        self.start()
+        # If --off is set, tell all children to not profile and stop profiling before we even start.
+        if not Scalene.__args.off:
+            self.start()
         # Run the code being profiled.
         exit_status = 0
         try:
