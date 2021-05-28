@@ -44,7 +44,10 @@ class ScaleneBaseHeap : public HL::ANSIWrapper<Hoard::TLABBase> {
   static constexpr size_t Alignment = alignof(std::max_align_t);
 
   ScaleneBaseHeap() : super(getMainHoardHeap()) {}
+};
 
+class BaseHeap : public HL::OneHeap<ScaleneBaseHeap> {
+ public:
   void *memalign(size_t alignment, size_t size) {
     // XXX Copied from Heap-Layers/wrappers/generic-memalign.cpp ; we can't use
     // it directly because it invokes xxmalloc, which would be detected as a
@@ -78,35 +81,6 @@ class ScaleneBaseHeap : public HL::ANSIWrapper<Hoard::TLABBase> {
     return alignedPtr;
   }
 };
-
-template<class HEAP>
-struct JustOneHeap { // like HL::OneHeap, but with memalign
-  static HEAP& getTheHeap() {
-    alignas(std::max_align_t) static char buffer[sizeof(HEAP)];
-    static HEAP* heap = new (buffer) HEAP;
-    return *heap;
-  }
-
-  enum { Alignment = HEAP::Alignment };
-  
-  static inline void* malloc(size_t sz) {
-    return getTheHeap().malloc(sz);
-  }
-  
-  static inline void free(void* ptr) {
-    getTheHeap().free(ptr);
-  }
-  
-  static inline size_t getSize(void * ptr) {
-    return getTheHeap().getSize(ptr);
-  }
-
-  void *memalign(size_t alignment, size_t size) {
-    return getTheHeap().memalign(alignment, size);
-  }
-};
-
-using BaseHeap = JustOneHeap<ScaleneBaseHeap>;
 
 #else  // not __APPLE__
 
