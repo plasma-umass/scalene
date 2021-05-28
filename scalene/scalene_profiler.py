@@ -348,20 +348,21 @@ class Scalene:
             assert False, "ITIMER_PROF is not currently supported."
 
     @staticmethod
-    def start_signal_threads() -> None:
+    def start_signal_queues() -> None:
+        """Starts the signal processing queues (i.e., their threads)"""
         Scalene.__cpu_sigq.start()
         Scalene.__alloc_sigq.start()
         Scalene.__memcpy_sigq.start()
 
     @staticmethod
-    def stop_signal_threads() -> None:
-        """Stops the signal processing threads."""
+    def stop_signal_queues() -> None:
+        """Stops the signal processing queues (i.e., their threads)"""
         Scalene.__cpu_sigq.stop()
         Scalene.__alloc_sigq.stop()
         Scalene.__memcpy_sigq.stop()
 
     @staticmethod
-    def malloc_signal_dispatcher(
+    def malloc_signal_handler(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
@@ -370,7 +371,7 @@ class Scalene:
         Scalene.__alloc_sigq.put((signum, this_frame))
 
     @staticmethod
-    def free_signal_dispatcher(
+    def free_signal_handler(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
@@ -379,7 +380,7 @@ class Scalene:
         Scalene.__alloc_sigq.put((signum, this_frame))
 
     @staticmethod
-    def memcpy_signal_dispatcher(
+    def memcpy_signal_handler(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
@@ -402,17 +403,17 @@ class Scalene:
             t = threading.Thread(target=Scalene.timer_thang)
             t.start()
             return
-        Scalene.start_signal_threads()
+        Scalene.start_signal_queues()
         # Set signal handlers for memory allocation and memcpy events.
         signal.signal(
-            ScaleneSignals.malloc_signal, Scalene.malloc_signal_dispatcher
+            ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
         )
         signal.signal(
-            ScaleneSignals.free_signal, Scalene.free_signal_dispatcher
+            ScaleneSignals.free_signal, Scalene.free_signal_handler
         )
         signal.signal(
             ScaleneSignals.memcpy_signal,
-            Scalene.memcpy_signal_dispatcher,
+            Scalene.memcpy_signal_handler,
         )
         # Set every signal to restart interrupted system calls.
         signal.siginterrupt(ScaleneSignals.cpu_signal, False)
@@ -448,12 +449,12 @@ class Scalene:
             import scalene.replacement_fork
 
         Scalene.__args = cast(ScaleneArguments, arguments)
-        Scalene.__cpu_sigq = ScaleneSigQueue(Scalene.cpu_signal_handler_helper)
+        Scalene.__cpu_sigq = ScaleneSigQueue(Scalene.cpu_sigqueue_processor)
         Scalene.__alloc_sigq = ScaleneSigQueue(
-            Scalene.allocation_signal_handler_helper
+            Scalene.alloc_sigqueue_processor
         )
         Scalene.__memcpy_sigq = ScaleneSigQueue(
-            Scalene.memcpy_signal_handler_helper
+            Scalene.memcpy_sigqueue_processor
         )
 
         Scalene.set_timer_signals()
@@ -587,7 +588,7 @@ class Scalene:
         return False
 
     @staticmethod
-    def cpu_signal_handler_helper(
+    def cpu_sigqueue_processor(
         _signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
@@ -862,7 +863,7 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
-    def allocation_signal_handler_helper(
+    def alloc_sigqueue_processor(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
@@ -1036,13 +1037,13 @@ class Scalene:
     @staticmethod
     def before_fork() -> None:
         """Executed just before a fork."""
-        Scalene.stop_signal_threads()
+        Scalene.stop_signal_queues()
 
     @staticmethod
     def after_fork_in_parent(childPid: int) -> None:
         """Executed by the parent process after a fork."""
         Scalene.add_child_pid(childPid)
-        Scalene.start_signal_threads()
+        Scalene.start_signal_queues()
 
     @staticmethod
     def after_fork_in_child() -> None:
@@ -1061,7 +1062,7 @@ class Scalene:
             Scalene.enable_signals()
 
     @staticmethod
-    def memcpy_signal_handler_helper(
+    def memcpy_sigqueue_processor(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
@@ -1216,7 +1217,7 @@ class Scalene:
             signal.signal(ScaleneSignals.malloc_signal, signal.SIG_IGN)
             signal.signal(ScaleneSignals.free_signal, signal.SIG_IGN)
             signal.signal(ScaleneSignals.memcpy_signal, signal.SIG_IGN)
-            Scalene.stop_signal_threads()
+            Scalene.stop_signal_queues()
         except BaseException:
             # Retry just in case we get interrupted by one of our own signals.
             Scalene.disable_signals()   # FIXME this could loop with an error
