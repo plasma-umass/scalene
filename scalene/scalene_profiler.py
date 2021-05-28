@@ -348,31 +348,39 @@ class Scalene:
             assert False, "ITIMER_PROF is not currently supported."
 
     @staticmethod
-    def setup_signal_threads() -> None:
+    def start_signal_queues() -> None:
+        """Starts the signal processing queues (i.e., their threads)"""
         Scalene.__cpu_sigq.start()
         Scalene.__alloc_sigq.start()
         Scalene.__memcpy_sigq.start()
 
     @staticmethod
-    def malloc_signal_dispatcher(
+    def stop_signal_queues() -> None:
+        """Stops the signal processing queues (i.e., their threads)"""
+        Scalene.__cpu_sigq.stop()
+        Scalene.__alloc_sigq.stop()
+        Scalene.__memcpy_sigq.stop()
+
+    @staticmethod
+    def malloc_signal_handler(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.__alloc_sigq.put((signum, this_frame, "malloc"))
+        Scalene.__alloc_sigq.put((signum, this_frame))
 
     @staticmethod
-    def free_signal_dispatcher(
+    def free_signal_handler(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.__alloc_sigq.put((signum, this_frame, "free"))
+        Scalene.__alloc_sigq.put((signum, this_frame))
 
     @staticmethod
-    def memcpy_signal_dispatcher(
+    def memcpy_signal_handler(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
@@ -395,17 +403,17 @@ class Scalene:
             t = threading.Thread(target=Scalene.timer_thang)
             t.start()
             return
-        Scalene.setup_signal_threads()
+        Scalene.start_signal_queues()
         # Set signal handlers for memory allocation and memcpy events.
         signal.signal(
-            ScaleneSignals.malloc_signal, Scalene.malloc_signal_dispatcher
+            ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
         )
         signal.signal(
-            ScaleneSignals.free_signal, Scalene.free_signal_dispatcher
+            ScaleneSignals.free_signal, Scalene.free_signal_handler
         )
         signal.signal(
             ScaleneSignals.memcpy_signal,
-            Scalene.memcpy_signal_dispatcher,
+            Scalene.memcpy_signal_handler,
         )
         # Set every signal to restart interrupted system calls.
         signal.siginterrupt(ScaleneSignals.cpu_signal, False)
@@ -441,16 +449,15 @@ class Scalene:
             import scalene.replacement_fork
 
         Scalene.__args = cast(ScaleneArguments, arguments)
-        Scalene.__cpu_sigq = ScaleneSigQueue(Scalene.cpu_signal_handler_helper)
+        Scalene.__cpu_sigq = ScaleneSigQueue(Scalene.cpu_sigqueue_processor)
         Scalene.__alloc_sigq = ScaleneSigQueue(
-            Scalene.allocation_signal_handler_helper
+            Scalene.alloc_sigqueue_processor
         )
         Scalene.__memcpy_sigq = ScaleneSigQueue(
-            Scalene.memcpy_signal_handler_helper
+            Scalene.memcpy_sigqueue_processor
         )
 
         Scalene.set_timer_signals()
-        Scalene.setup_signal_threads()
         if arguments.pid:
             # Child process.
             # We need to use the same directory as the parent.
@@ -581,7 +588,7 @@ class Scalene:
         return False
 
     @staticmethod
-    def cpu_signal_handler_helper(
+    def cpu_sigqueue_processor(
         _signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
@@ -856,28 +863,13 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
-    def allocation_signal_handler_helper(
+    def alloc_sigqueue_processor(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType,
-        allocation_type: str,
-    ) -> None:
-        if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
-            return
-        Scalene.allocation_signal_handler(signum, this_frame, allocation_type)
-
-    @staticmethod
-    def allocation_signal_handler(
-        signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
-        ],
-        this_frame: FrameType,
-        event: str,
+        this_frame: FrameType
     ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
-        if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
-            return
         stats = Scalene.__stats
         new_frames = Scalene.compute_frames_to_record(this_frame)
         if not new_frames:
@@ -1001,7 +993,7 @@ class Scalene:
                 stats.per_line_footprint_samples[fname][lineno].add(curr)
             assert curr == after
             # If we allocated anything and this was a malloc event, then mark this as the last triggering malloc
-            if event == "malloc" and allocs > 0:
+            if signum == ScaleneSignals.malloc_signal and allocs > 0:
                 last_malloc = (
                     Filename(fname),
                     LineNumber(lineno),
@@ -1043,16 +1035,24 @@ class Scalene:
     __memcpy_sigq = None
 
     @staticmethod
-    def child_after_fork() -> None:
+    def before_fork() -> None:
+        """Executed just before a fork."""
+        Scalene.stop_signal_queues()
+
+    @staticmethod
+    def after_fork_in_parent(childPid: int) -> None:
+        """Executed by the parent process after a fork."""
+        Scalene.add_child_pid(childPid)
+        Scalene.start_signal_queues()
+
+    @staticmethod
+    def after_fork_in_child() -> None:
         """
-        Called by a child process (0 return code) after a fork and mutates the
+        Executed by a child process after a fork and mutates the
         current profiler into a child.
         """
         Scalene.__is_child = True
 
-        # This is only called after a fork in the
-        # child process, any child threads that held this
-        # lock no longer exist. Therefore, releasing it here is safe.
         Scalene.clear_metrics()
         if Scalene.__gpu.has_gpu():
             Scalene.__gpu.nvml_reinit()
@@ -1062,14 +1062,12 @@ class Scalene:
             Scalene.enable_signals()
 
     @staticmethod
-    def memcpy_signal_handler_helper(
+    def memcpy_sigqueue_processor(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
         frame: FrameType,
     ) -> None:
-        if threading._active_limbo_lock.locked() or threading._shutdown_locks_lock.locked():  # type: ignore
-            return
         curr_pid = os.getpid()
         new_frames = Scalene.compute_frames_to_record(frame)
         if not new_frames:
@@ -1209,7 +1207,7 @@ class Scalene:
         Scalene.stop()
 
     @staticmethod
-    def disable_signals() -> None:
+    def disable_signals(retry: bool = True) -> None:
         """Turn off the profiling signals."""
         if sys.platform == "win32":
             Scalene.timer_signals = False
@@ -1219,12 +1217,11 @@ class Scalene:
             signal.signal(ScaleneSignals.malloc_signal, signal.SIG_IGN)
             signal.signal(ScaleneSignals.free_signal, signal.SIG_IGN)
             signal.signal(ScaleneSignals.memcpy_signal, signal.SIG_IGN)
-            Scalene.__alloc_sigq.stop()
-            Scalene.__memcpy_sigq.stop()
-            Scalene.__cpu_sigq.stop()
-        except BaseException:
+            Scalene.stop_signal_queues()
+        except BaseException as e:
             # Retry just in case we get interrupted by one of our own signals.
-            Scalene.disable_signals()
+            if retry:
+                Scalene.disable_signals(retry=False)
 
     @staticmethod
     def exit_handler() -> None:
