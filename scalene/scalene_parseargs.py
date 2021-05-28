@@ -200,6 +200,7 @@ for the process ID that Scalene reports. For example:
         parser.add_argument(
             "---",
             dest="unused_args",
+            default=[],
             help=argparse.SUPPRESS,
             nargs=argparse.REMAINDER,
         )
