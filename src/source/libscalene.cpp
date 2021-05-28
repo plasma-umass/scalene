@@ -82,8 +82,9 @@ class ScaleneBaseHeap : public HL::ANSIWrapper<Hoard::TLABBase> {
 template<class HEAP>
 struct JustOneHeap { // like HL::OneHeap, but with memalign
   static HEAP& getTheHeap() {
-    static HEAP theHeap;
-    return theHeap;
+    alignas(std::max_align_t) static char buffer[sizeof(HEAP)];
+    static HEAP* heap = new (buffer) HEAP;
+    return *heap;
   }
 
   enum { Alignment = HEAP::Alignment };
