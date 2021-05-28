@@ -239,6 +239,10 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 
 **A:** Pass in the `--noreload` option (see https://github.com/plasma-umass/scalene/issues/178).
 
+**Q: How do I use Scalene with PyTorch?**
+
+**A:** Scalene works with PyTorch version 1.5.1. There's a bug in newer versions of PyTorch (https://github.com/pytorch/pytorch/issues/57185) that interferes with Scalene (discussion here: https://github.com/plasma-umass/scalene/issues/110).
+
 # Technical Information
 
 For technical details on Scalene, please see the following paper: [Scalene: Scripting-Language Aware Profiling for Python](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-paper.pdf) ([arXiv link](https://arxiv.org/abs/2006.03879)).
