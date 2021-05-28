@@ -15,12 +15,12 @@ class ScaleneSigQueue:
         return self.queue.get()
 
     def start(self):
-        assert self.thread == None
+        assert not self.thread
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
 
     def stop(self):
-        if self.thread != None:
+        if self.thread:
             self.queue.put(None)
             self.thread.join()
             self.thread = None

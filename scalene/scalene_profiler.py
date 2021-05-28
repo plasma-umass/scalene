@@ -1207,7 +1207,7 @@ class Scalene:
         Scalene.stop()
 
     @staticmethod
-    def disable_signals() -> None:
+    def disable_signals(retry: bool = True) -> None:
         """Turn off the profiling signals."""
         if sys.platform == "win32":
             Scalene.timer_signals = False
@@ -1218,9 +1218,10 @@ class Scalene:
             signal.signal(ScaleneSignals.free_signal, signal.SIG_IGN)
             signal.signal(ScaleneSignals.memcpy_signal, signal.SIG_IGN)
             Scalene.stop_signal_queues()
-        except BaseException:
+        except BaseException as e:
             # Retry just in case we get interrupted by one of our own signals.
-            Scalene.disable_signals()   # FIXME this could loop with an error
+            if retry:
+                Scalene.disable_signals(retry=False)
 
     @staticmethod
     def exit_handler() -> None:
