@@ -1,6 +1,7 @@
 from setuptools import setup, find_packages
 from distutils.core import Extension
 import subprocess
+import sys
 from scalene.scalene_version import scalene_version
 
 from os import path
