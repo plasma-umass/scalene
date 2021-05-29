@@ -26,6 +26,7 @@ import multiprocessing
 import queue
 import os
 import random
+import re
 import signal
 import stat
 import sys
@@ -34,7 +35,6 @@ import threading
 import time
 import traceback
 
-# FIXME
 if sys.platform != "win32":
     import get_line_atomic
 
@@ -517,7 +517,7 @@ class Scalene:
             # Finally, insert this directory into the path.
             sys.path.insert(0, Scalene.__python_alias_dir_name)
             os.environ["PATH"] = (
-                Scalene.__python_alias_dir_name + ":" + os.environ["PATH"]
+                Scalene.__python_alias_dir_name + os.pathsep + os.environ["PATH"]
             )
             # Force the executable (if anyone invokes it later) to point to one of our aliases.
             sys.executable = Scalene.__all_python_names[0]
@@ -1021,7 +1021,7 @@ class Scalene:
                 stats.allocation_velocity[0] + (after - before),
                 stats.allocation_velocity[1] + allocs,
             )
-            # Update leak score if we just increased the max footprint (starting at a fixed threshold, currently 100MB, FIXME).
+            # Update leak score if we just increased the max footprint (starting at a fixed threshold, currently 100MB,
             if prevmax < stats.max_footprint and stats.max_footprint > 100:
                 stats.last_malloc_triggered = last_malloc
                 mallocs, frees = stats.leak_score[fname][lineno]
@@ -1262,7 +1262,6 @@ class Scalene:
             exit_status = se.code
         except BaseException as e:
             print("Error in program being profiled:\n", e)
-            # FIXME
             traceback.print_exc()
 
         self.stop()
@@ -1338,12 +1337,14 @@ class Scalene:
         try:
             Scalene.process_args(args)
             try:
-                with open(sys.argv[0], "rb") as prog_being_profiled:
+                # Look for something ending in '.py'. Treat the first one as our executable.
+                progs = [x for x in sys.argv if re.match('.*\.py$', x)]
+                with open(progs[0], "rb") as prog_being_profiled:
                     # Read in the code and compile it.
                     try:
                         code = compile(
                             prog_being_profiled.read(),
-                            sys.argv[0],
+                            progs[0],
                             "exec",
                         )
                     except SyntaxError:
@@ -1351,7 +1352,7 @@ class Scalene:
                         sys.exit(-1)
                     # Push the program's path.
                     program_path = os.path.dirname(
-                        os.path.abspath(sys.argv[0])
+                        os.path.abspath(progs[0])
                     )
                     sys.path.insert(0, program_path)
                     if len(args.program_path) > 0:
@@ -1366,12 +1367,12 @@ class Scalene:
                     the_locals = __main__.__dict__
                     the_globals = __main__.__dict__
                     # Splice in the name of the file being executed instead of the profiler.
-                    the_globals["__file__"] = os.path.basename(sys.argv[0])
+                    the_globals["__file__"] = os.path.basename(progs[0])
                     # Some mysterious module foo to make this work the same with -m as with `scalene`.
                     the_globals["__spec__"] = None
                     # Start the profiler.
                     fullname = os.path.join(
-                        program_path, os.path.basename(sys.argv[0])
+                        program_path, os.path.basename(progs[0])
                     )
                     # Do a GC before we start.
                     gc.collect()
@@ -1391,7 +1392,7 @@ class Scalene:
                         print(message)
                         print(traceback.format_exc())
             except (FileNotFoundError, IOError):
-                print("Scalene: could not find input file " + sys.argv[0])
+                print("Scalene: could not find input file " + progs[0])
                 sys.exit(-1)
         except SystemExit:
             pass
