@@ -14,7 +14,7 @@ class RichArgParser(argparse.ArgumentParser):
 
     def __init__(self, *args, **kwargs):
         from rich.console import Console
-        self.console = Console(force_terminal=True)
+        self.console = Console()
         super().__init__(*args, **kwargs)
         
     def _print_message(self, message, file=None):
