@@ -14,7 +14,7 @@ try:
     @magics_class
     class ScaleneMagics(Magics):  # type: ignore
         def run_code(self, args: ScaleneArguments, code: str) -> None:
-            from IPython import get_ipython
+            import IPython
             # Create a file to hold the supplied code.
             # We encode the cell number in the string for later recovery.
             # The length of the history buffer lets us find the most recent string (this one).
