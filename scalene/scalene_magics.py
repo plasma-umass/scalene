@@ -9,6 +9,7 @@ try:
     from scalene.scalene_arguments import ScaleneArguments
     from scalene.scalene_parseargs import ScaleneParseArgs
     from typing import Any
+    from IPython import get_ipython
     import sys
 
     @magics_class
