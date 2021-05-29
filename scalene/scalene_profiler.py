@@ -482,7 +482,7 @@ class Scalene:
             cmdline += f" --cpu-sampling-rate={arguments.cpu_sampling_rate}"
             if arguments.use_virtual_time:
                 cmdline += " --use-virtual-time"
-            if arguments.off:
+            if 'off' in arguments and arguments.off:
                 cmdline += " --off"
             if arguments.cpu_only:
                 cmdline += " --cpu-only"
@@ -1056,7 +1056,7 @@ class Scalene:
             Scalene.__gpu.nvml_reinit()
         # Note-- __parent_pid of the topmost process is its own pid
         Scalene.__pid = Scalene.__parent_pid
-        if not Scalene.__args.off:
+        if not 'off' in Scalene.__args or not Scalene.__args.off:
             Scalene.enable_signals()
 
     @staticmethod
@@ -1126,7 +1126,7 @@ class Scalene:
             if "<ipython" in filename:
                 # Profiling code created in a Jupyter cell:
                 # create a file to hold the contents.
-                from IPython import get_ipython
+                import IPython
                 import re
 
                 # Find the input where the function was defined;
@@ -1251,7 +1251,7 @@ class Scalene:
         the_locals: Dict[str, str],
     ) -> int:
         # If --off is set, tell all children to not profile and stop profiling before we even start.
-        if not Scalene.__args.off:
+        if not 'off' in Scalene.__args or not Scalene.__args.off:
             self.start()
         # Run the code being profiled.
         exit_status = 0
@@ -1339,6 +1339,12 @@ class Scalene:
             try:
                 # Look for something ending in '.py'. Treat the first one as our executable.
                 progs = [x for x in sys.argv if re.match('.*\.py$', x)]
+                # Just in case that didn't work, try sys.argv[0] and __file__.
+                try:
+                    progs.append(sys.argv[0])
+                    progs.append(__file__)
+                except:
+                    pass
                 with open(progs[0], "rb") as prog_being_profiled:
                     # Read in the code and compile it.
                     try:

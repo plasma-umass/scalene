@@ -23,7 +23,7 @@ try:
             newcode = "\n" + code
             with open(filename, "w+") as tmpfile:
                 tmpfile.write(newcode)
-            ### args.cpu_only = True  # full Scalene is not yet working, force to use CPU-only mode
+            args.cpu_only = True  # full Scalene is not yet working, force to use CPU-only mode
             scalene_profiler.Scalene.run_profiler(args, [filename])
 
         @line_cell_magic

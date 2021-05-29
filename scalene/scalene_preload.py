@@ -39,8 +39,10 @@ class ScalenePreload:
 
             if get_ipython():
                 sys.exit = Scalene.clean_exit  # type: ignore
+                sys._exit = Scalene.clean_exit
         except:
             pass
+
         # Load the shared object on Linux.
         if sys.platform == "linux":
             if ("LD_PRELOAD" not in os.environ) and (

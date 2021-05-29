@@ -42,6 +42,7 @@ class ScaleneParseArgs:
 
             if get_ipython():
                 sys.exit = clean_exit  # type: ignore
+                sys._exit = clean_exit
         except:
             pass
         defaults = ScaleneArguments()
@@ -220,9 +221,11 @@ for the process ID that Scalene reports. For example:
         # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
         args, left = parser.parse_known_args()
         left += args.unused_args
+        import re
+        in_jupyter_notebook = len(sys.argv) >= 1 and re.match("<ipython-input-([0-9]+)-.*>", sys.argv[0])
         # If the user did not enter any commands (just `scalene` or `python3 -m scalene`),
         # print the usage information and bail.
-        if len(sys.argv) + len(left) == 1:
+        if not in_jupyter_notebook and (len(sys.argv) + len(left) == 1):
             parser.print_help(sys.stderr)
             sys.exit(-1)
         if args.version:
