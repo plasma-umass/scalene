@@ -14,7 +14,7 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 # About Scalene
 
 ```console
-  % pip install -U scalene
+pip install -U scalene
 ```
 
 Scalene is a high-performance CPU, GPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
@@ -106,7 +106,7 @@ it `--profile-all` and only include files with at least a
 The following command runs Scalene on a provided example program.
 
 ```console
-  % scalene test/testme.py
+scalene test/testme.py
 ```
 
 <details>
@@ -117,26 +117,29 @@ The following command runs Scalene on a provided example program.
 Installation:
 
 ```console
-  !pip install scalene
-  %load_ext scalene
+!pip install scalene
+%load_ext scalene
 ```
 
 Line mode:
 
 ```console
-  %scrun [options] statement
+%scrun [options] statement
 ```
 
 Cell mode:
 
 ```console
-  %%scalene [options]
-  code...
-  code...
+%%scalene [options]
+code...
+code...
 ```
 </details>
 
-To see all the options, run with `--help`.
+<details>
+ <summary>
+  Click to see all Scalene's options (available by running with <code>--help</code>)
+ </summary>
 
 ```console
     % scalene --help
@@ -191,6 +194,7 @@ To see all the options, run with `--help`.
         to suspend profiling: python3 -m scalene.profile --off --pid 12345
         to resume profiling:  python3 -m scalene.profile --on  --pid 12345
 ```
+</details>
 
 ## Installation
 
