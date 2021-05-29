@@ -105,7 +105,7 @@ it `--profile-all` and only include files with at least a
 
 The following command runs Scalene on a provided example program.
 
-```
+```console
   % scalene test/testme.py
 ```
 
@@ -115,20 +115,20 @@ The following command runs Scalene on a provided example program.
 
 Installation:
 
-```
+```console
   !pip install scalene
   %load_ext scalene
 ```
 
 Line mode:
 
-```
+```console
   %scrun [options] statement
 ```
 
 Cell mode:
 
-```
+```console
   %%scalene [options]
   code...
   code...
@@ -192,17 +192,17 @@ To see all the options, run with `--help`.
 ## Installation
 
 <details open>
-<summary>Using pip (Mac OS X, Linux, Windows, and WSL2)</summary>
+<summary>Using <code>pip</code> (Mac OS X, Linux, Windows, and WSL2)</summary>
 
 Scalene is distributed as a `pip` package and works on Mac OS X and Linux platforms (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and works (with some limitations) on Windows.
 
 You can install it as follows:
-```
+```console
   % pip install -U scalene
 ```
 
 or
-```
+```console
   % python3 -m pip install -U scalene
 ```
 
@@ -212,7 +212,7 @@ See https://stackoverflow.com/a/19344978/4954434 for full instructions for all L
 
 For Ubuntu/Debian:
 
-```
+```console
   # Ubuntu 20
   % sudo apt install git python3-all-dev
 
@@ -223,11 +223,11 @@ For Ubuntu/Debian:
 
 
 <details>
-<summary>Using Homebrew (Mac OS X)</summary>
+<summary>Using <code>Homebrew</code> (Mac OS X)</summary>
 
 As an alternative to `pip`, you can use Homebrew to install the current version of Scalene from this repository:
 
-```
+```console
   % brew tap plasma-umass/scalene
   % brew install --head plasma-umass/scalene/scalene
 ```
