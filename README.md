@@ -192,7 +192,7 @@ To see all the options, run with `--help`.
 ## Installation
 
 <details>
-<summary>**pip** (Mac OS X, Linux, Windows, and WSL2)</summary>
+<summary>Using pip (Mac OS X, Linux, Windows, and WSL2)</summary>
 
 Scalene is distributed as a `pip` package and works on Mac OS X and Linux platforms (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and works (with some limitations) on Windows.
 
@@ -223,7 +223,7 @@ For Ubuntu/Debian:
 
 
 <details>
-<summary>**Homebrew** (Mac OS X)</summary>
+<summary>Using Homebrew (Mac OS X)</summary>
 
 As an alternative to `pip`, you can use Homebrew to install the current version of Scalene from this repository:
 
@@ -234,7 +234,7 @@ As an alternative to `pip`, you can use Homebrew to install the current version 
 </details>
 
 <details>
-<summary>**ArchLinux**</summary>
+<summary>On ArchLinux</summary>
 
 You can install Scalene on Arch Linux via the [AUR
 package](https://aur.archlinux.org/packages/python-scalene-git/). Use your favorite AUR helper, or
