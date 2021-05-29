@@ -1,6 +1,7 @@
 import argparse
 import os
 import platform
+import scalene
 import signal
 import struct
 import subprocess
@@ -46,7 +47,7 @@ class ScalenePreload:
                 "PYTHONMALLOC" not in os.environ
             ):
                 os.environ["LD_PRELOAD"] = os.path.join(
-                    os.path.dirname(__file__), "libscalene.so"
+                    os.path.dirname(scalene.__path__[0]), "libscalene.so"
                 )
                 os.environ["PYTHONMALLOC"] = "malloc"
                 new_args = [
@@ -85,7 +86,7 @@ class ScalenePreload:
                 and ("PYTHONMALLOC" not in os.environ)
             ) or "OBJC_DISABLE_INITIALIZE_FORK_SAFETY" not in os.environ:
                 os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(
-                    os.path.dirname(__file__), "libscalene.dylib"
+                    os.path.dirname(scalene.__path__[0]), "libscalene.dylib"
                 )
                 os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
                 os.environ["PYTHONMALLOC"] = "malloc"
