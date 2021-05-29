@@ -9,16 +9,16 @@ try:
     from scalene.scalene_arguments import ScaleneArguments
     from scalene.scalene_parseargs import ScaleneParseArgs
     from typing import Any
-    from IPython import get_ipython
     import sys
 
     @magics_class
     class ScaleneMagics(Magics):  # type: ignore
         def run_code(self, args: ScaleneArguments, code: str) -> None:
+            from IPython import get_ipython
             # Create a file to hold the supplied code.
             # We encode the cell number in the string for later recovery.
             # The length of the history buffer lets us find the most recent string (this one).
-            filename = f"<ipython-input-{len(get_ipython().history_manager.input_hist_raw)-1}-profile>"
+            filename = f"<ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile>"
             # Drop the first line (%%scalene).
             newcode = "\n" + code
             with open(filename, "w+") as tmpfile:
