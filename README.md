@@ -13,7 +13,7 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
  
 # About Scalene
 
-```
+```console
   % pip install -U scalene
 ```
 
@@ -136,6 +136,7 @@ Cell mode:
 
 To see all the options, run with `--help`.
 
+```console
     % scalene --help
      usage: scalene [-h] [--outfile OUTFILE] [--html] [--reduced-profile]
                     [--profile-interval PROFILE_INTERVAL] [--cpu-only]
@@ -187,7 +188,7 @@ To see all the options, run with `--help`.
       Scalene now profiling process 12345
         to suspend profiling: python3 -m scalene.profile --off --pid 12345
         to resume profiling:  python3 -m scalene.profile --on  --pid 12345
-
+```
 
 ## Installation
 
