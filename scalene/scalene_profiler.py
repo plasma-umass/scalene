@@ -1136,7 +1136,7 @@ class Scalene:
                     # Write the cell's contents into the file.
                     with open(filename, "w+") as f:
                         f.write(
-                            get_ipython().history_manager.input_hist_raw[
+                            IPython.get_ipython().history_manager.input_hist_raw[
                                 int(result.group(1))
                             ]
                         )
