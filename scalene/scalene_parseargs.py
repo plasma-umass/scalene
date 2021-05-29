@@ -10,6 +10,17 @@ import argparse
 import sys
 
 
+class RichArgParser(argparse.ArgumentParser):
+
+    def __init__(self, *args, **kwargs):
+        from rich.console import Console
+        self.console = Console(force_terminal=True)
+        super().__init__(*args, **kwargs)
+        
+    def _print_message(self, message, file=None):
+        if message:
+            self.console.print(message)
+                
 class StopJupyterExecution(Exception):
     """NOP exception to enable clean exits from within Jupyter notebooks."""
 
@@ -35,22 +46,22 @@ class ScaleneParseArgs:
             pass
         defaults = ScaleneArguments()
         usage = dedent(
-            f"""Scalene: a high-precision CPU and memory profiler, version {scalene_version}
-https://github.com/plasma-umass/scalene
+            f"""[b]Scalene[/b]: a high-precision CPU and memory profiler, version {scalene_version}
+[link=https://github.com/plasma-umass/scalene]https://github.com/plasma-umass/scalene[/link]
 
 
 command-line:
-   % scalene [options] yourprogram.py
+  % [b]scalene \[options] yourprogram.py[/b]
 or
-   % python3 -m scalene [options] yourprogram.py
+  % [b]python3 -m scalene \[options] yourprogram.py[/b]
 
 in Jupyter, line mode:
-   %scrun [options] statement
+[b]  %scrun \[options] statement[/b]
 
 in Jupyter, cell mode:
-   %%scalene [options]
-   code...
-   code...
+[b]  %%scalene \[options]
+   your code here
+[/b]
 """
         )
         epilog = dedent(
@@ -64,7 +75,7 @@ for the process ID that Scalene reports. For example:
 """
         )
 
-        parser = argparse.ArgumentParser(
+        parser = RichArgParser( # argparse.ArgumentParser(
             prog="scalene",
             description=usage,
             epilog=epilog,
@@ -82,9 +93,9 @@ for the process ID that Scalene reports. For example:
             "--outfile",
             type=str,
             default=defaults.outfile,
-            help="file to hold profiler output (default: "
+            help="file to hold profiler output (default: [blue]"
             + ("stdout" if not defaults.outfile else defaults.outfile)
-            + ")",
+            + "[/blue])",
         )
         parser.add_argument(
             "--html",
@@ -92,9 +103,9 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.html,
-            help="output as HTML (default: "
+            help="output as HTML (default: [blue]"
             + str("html" if defaults.html else "text")
-            + ")",
+            + "[/blue])",
         )
         parser.add_argument(
             "--reduced-profile",
@@ -102,13 +113,13 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.reduced_profile,
-            help=f"generate a reduced profile, with non-zero lines only (default: {defaults.reduced_profile})",
+            help=f"generate a reduced profile, with non-zero lines only (default: [blue]{defaults.reduced_profile}[/blue])",
         )
         parser.add_argument(
             "--profile-interval",
             type=float,
             default=defaults.profile_interval,
-            help=f"output profiles every so many seconds (default: {defaults.profile_interval})",
+            help=f"output profiles every so many seconds (default: [blue]{defaults.profile_interval}[/blue])",
         )
         parser.add_argument(
             "--cpu-only",
@@ -116,9 +127,9 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.cpu_only,
-            help="only profile CPU time (default: profile "
-            + ("CPU only" if defaults.cpu_only else "CPU, memory, and copying")
-            + ")",
+            help="only profile CPU+GPU time (default: [blue]profile "
+            + ("CPU only" if defaults.cpu_only else "CPU+GPU, memory, and copying")
+            + "[/blue])",
         )
         parser.add_argument(
             "--profile-all",
@@ -126,26 +137,26 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.profile_all,
-            help="profile all executed code, not just the target program (default: "
+            help="profile all executed code, not just the target program (default: [blue]"
             + (
                 "all code"
                 if defaults.profile_all
                 else "only the target program"
             )
-            + ")",
+            + "[/blue])",
         )
         parser.add_argument(
             "--profile-only",
             dest="profile_only",
             type=str,
             default=defaults.profile_only,
-            help="profile only code in files matching the given strings, separated by commas (default: "
+            help="profile only code in files matching the given strings, separated by commas (default: [blue]"
             + (
                 "no restrictions"
                 if not defaults.profile_only
                 else defaults.profile_only
             )
-            + ")",
+            + "[/blue])",
         )
         parser.add_argument(
             "--use-virtual-time",
@@ -153,28 +164,28 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.use_virtual_time,
-            help=f"measure only CPU time, not time spent in I/O or blocking (default: {defaults.use_virtual_time})",
+            help=f"measure only CPU time, not time spent in I/O or blocking (default: [blue]{defaults.use_virtual_time}[/blue])",
         )
         parser.add_argument(
             "--cpu-percent-threshold",
             dest="cpu_percent_threshold",
             type=int,
             default=defaults.cpu_percent_threshold,
-            help=f"only report profiles with at least this percent of CPU time (default: {defaults.cpu_percent_threshold}%%)",
+            help=f"only report profiles with at least this percent of CPU time (default: [blue]{defaults.cpu_percent_threshold}%%[/blue])",
         )
         parser.add_argument(
             "--cpu-sampling-rate",
             dest="cpu_sampling_rate",
             type=float,
             default=defaults.cpu_sampling_rate,
-            help=f"CPU sampling rate (default: every {defaults.cpu_sampling_rate}s)",
+            help=f"CPU sampling rate (default: every [blue]{defaults.cpu_sampling_rate}s[/blue])",
         )
         parser.add_argument(
             "--malloc-threshold",
             dest="malloc_threshold",
             type=int,
             default=defaults.malloc_threshold,
-            help=f"only report profiles with at least this many allocations (default: {defaults.malloc_threshold})",
+            help=f"only report profiles with at least this many allocations (default: [blue]{defaults.malloc_threshold}[/blue])",
         )
 
         parser.add_argument(
@@ -182,7 +193,7 @@ for the process ID that Scalene reports. For example:
             dest="program_path",
             type=str,
             default="",
-            help="The directory that the code to profile is located in (default: the directory that the profiled program is in)",
+            help="The directory containing the code to profile (default: [blue]the path to the profiled program[/blue])",
         )
         group = parser.add_mutually_exclusive_group(required=False)
         group.add_argument(
@@ -197,6 +208,7 @@ for the process ID that Scalene reports. For example:
         parser.add_argument(
             "--pid", type=int, default=0, help=argparse.SUPPRESS
         )
+        # collect all arguments after "---", which Scalene will ignore
         parser.add_argument(
             "---",
             dest="unused_args",
@@ -204,7 +216,7 @@ for the process ID that Scalene reports. For example:
             help=argparse.SUPPRESS,
             nargs=argparse.REMAINDER,
         )
-        # Parse out all Scalene arguments and jam the remaining ones into argv.
+        # Parse out all Scalene arguments.
         # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
         args, left = parser.parse_known_args()
         left += args.unused_args
