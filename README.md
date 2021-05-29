@@ -109,7 +109,8 @@ The following command runs Scalene on a provided example program.
   % scalene test/testme.py
 ```
 
-**NEW**: Scalene works inside Jupyter notebooks as well.
+<details>
+<summary>Using Scalene inside Jupyter notebooks</summary>
 
 [This notebook](https://nbviewer.jupyter.org/github/plasma-umass/scalene/blob/master/docs/scalene-demo.ipynb) illustrates the use of Scalene in Jupyter.
 
@@ -133,6 +134,7 @@ Cell mode:
   code...
   code...
 ```
+</details>
 
 To see all the options, run with `--help`.
 
