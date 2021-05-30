@@ -359,7 +359,7 @@ class ScaleneOutput:
                 if current_max > 1024:
                     mem_usage_line = Text.assemble(
                         "Memory usage: ",
-                        ((spark_str, "blue")),
+                        ((spark_str, "green")),
                         (
                             f" (max: {(current_max / 1024):6.2f}GB, growth rate: {growth_rate:3.0f}%)\n"
                         ),
@@ -368,7 +368,7 @@ class ScaleneOutput:
                     # Otherwise, use MB.
                     mem_usage_line = Text.assemble(
                         "Memory usage: ",
-                        ((spark_str, "blue")),
+                        ((spark_str, "green")),
                         (
                             f" (max: {current_max:6.2f}MB, growth rate: {growth_rate:3.0f}%)\n"
                         ),
@@ -461,38 +461,39 @@ class ScaleneOutput:
             )
 
             tbl.add_column(
-                "Line", style="dim", justify="right", no_wrap=True, width=4
+                Markdown("Line", style="dim"), style="dim", justify="right", no_wrap=True, width=4
             )
             tbl.add_column(
-                Markdown("Time  " + "\n" + "_Python_"), no_wrap=True, width=6
+                Markdown("Time  " + "\n" + "_Python_", style="blue"), style="blue", no_wrap=True, width=6
             )
             tbl.add_column(
-                Markdown("––––––  \n_native_"), no_wrap=True, width=6
+                Markdown("––––––  \n_native_", style="blue"), style="blue", no_wrap=True, width=6
             )
             tbl.add_column(
-                Markdown("––––––  \n_system_"), no_wrap=True, width=6
+                Markdown("––––––  \n_system_", style="blue"), style="blue", no_wrap=True, width=6
             )
             if self.gpu:
                 tbl.add_column(
-                    Markdown("––––––  \n_GPU_"), no_wrap=True, width=6
+                    Markdown("––––––  \n_GPU_", style="green"), style="green", no_wrap=True, width=6
                 )
 
             other_columns_width = 0  # Size taken up by all columns BUT code
 
             if profile_memory:
                 tbl.add_column(
-                    Markdown("Memory  \n_Python_"), no_wrap=True, width=7
+                    Markdown("Memory  \n_Python_", style="green"), style="green", no_wrap=True, width=7
                 )
                 tbl.add_column(
-                    Markdown("––––––  \n_net_"), no_wrap=True, width=6
+                    Markdown("––––––  \n_net_", style="green"), style="green", no_wrap=True, width=6
                 )
                 tbl.add_column(
-                    Markdown("–––––––––––  \n_timeline_/%"),
+                    Markdown("–––––––––––  \n_timeline_/%", style="green"),
+                    style="green",
                     no_wrap=True,
                     width=14,
                 )
                 tbl.add_column(
-                    Markdown("Copy  \n_(MB/s)_"), no_wrap=True, width=6
+                    Markdown("Copy  \n_(MB/s)_", style="yellow"), style="yellow", no_wrap=True, width=6
                 )
                 other_columns_width = 75 + (6 if self.gpu else 0)
                 tbl.add_column(
@@ -662,7 +663,7 @@ class ScaleneOutput:
                         + ("%5.0f" % (net_mallocs[net_malloc_lineno]))
                         + " MB"
                     )
-                    console.print(output_str)
+                    console.print(Markdown(output_str, style="green"))
                     number += 1
 
             # Only report potential leaks if the allocation velocity (growth rate) is above some threshold
