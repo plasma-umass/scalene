@@ -51,9 +51,6 @@ class ScalenePreload:
                 "Scalene warning: currently only 64-bit x86-64 and ARM platforms are supported for memory and copy profiling."
             )
 
-        # Load shared objects (that is, interpose on malloc, memcpy and friends)
-        # unless the user specifies "--cpu-only" at the command-line.
-
         try:
             from IPython import get_ipython
 
@@ -63,40 +60,40 @@ class ScalenePreload:
         except:
             pass
 
-        # Start a subprocess with the required environment variables.
-        if sys.platform == "linux" or sys.platform == "darwin":
-            req_env = ScalenePreload.get_preload_environ(args)
-            if not all(k_v in os.environ.items() for k_v in req_env.items()):
-                os.environ.update(req_env)
+        # Start a subprocess with the required environment variables,
+        # which may include preloading libscalene
+        req_env = ScalenePreload.get_preload_environ(args)
+        if not all(k_v in os.environ.items() for k_v in req_env.items()):
+            os.environ.update(req_env)
 
-                new_args = [
-                    os.path.basename(sys.executable),
-                    "-m",
-                    "scalene",
-                ] + sys.argv[1:]
-                result = subprocess.Popen(
-                    new_args, close_fds=True, shell=False
-                )
-                try:
-                    # If running in the background, print the PID.
-                    if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
-                        # In the background.
-                        print(f"Scalene now profiling process {result.pid}")
-                        print(
-                            f"  to disable profiling: python3 -m scalene.profile --off --pid {result.pid}"
-                        )
-                        print(
-                            f"  to resume profiling:  python3 -m scalene.profile --on  --pid {result.pid}"
-                        )
-                except:
-                    pass
-                result.wait()
-                if result.returncode < 0:
+            new_args = [
+                os.path.basename(sys.executable),
+                "-m",
+                "scalene",
+            ] + sys.argv[1:]
+            result = subprocess.Popen(
+                new_args, close_fds=True, shell=False
+            )
+            try:
+                # If running in the background, print the PID.
+                if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
+                    # In the background.
+                    print(f"Scalene now profiling process {result.pid}")
                     print(
-                        "Scalene error: received signal",
-                        signal.Signals(-result.returncode).name,
+                        f"  to disable profiling: python3 -m scalene.profile --off --pid {result.pid}"
                     )
-                sys.exit(result.returncode)
-                return True
+                    print(
+                        f"  to resume profiling:  python3 -m scalene.profile --on  --pid {result.pid}"
+                    )
+            except:
+                pass
+            result.wait()
+            if result.returncode < 0:
+                print(
+                    "Scalene error: received signal",
+                    signal.Signals(-result.returncode).name,
+                )
+            sys.exit(result.returncode)
+            return True
 
         return False
