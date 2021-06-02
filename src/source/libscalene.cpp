@@ -92,11 +92,13 @@ using BaseHeap = HL::SysMallocHeap;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t MallocSamplingRate =
-    1048571ULL;  // a prime number near a megabyte
+constexpr uint64_t MallocSamplingRate = 870173ULL;
+//  1048571ULL * 4;  // a prime number near a megabyte
+constexpr uint64_t FreeSamplingRate = 758201ULL;
+//  1048571ULL * 4;  // a prime number near a megabyte
 constexpr uint64_t MemcpySamplingRate = 2097169ULL;  // another prime, near 2MB
 
-class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, BaseHeap>> {
+class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>> {
  public:
   void lock() {}
   void unlock() {}

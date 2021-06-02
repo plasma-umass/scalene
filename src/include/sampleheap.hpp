@@ -28,7 +28,9 @@ typedef std::atomic<uint64_t> counterType;
 typedef uint64_t counterType;
 #endif
 
-template <uint64_t MallocSamplingRateBytes, class SuperHeap>
+template <uint64_t MallocSamplingRateBytes,
+	  uint64_t FreeSamplingRateBytes,
+	  class SuperHeap>
 class SampleHeap : public SuperHeap {
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
 
@@ -43,10 +45,6 @@ class SampleHeap : public SuperHeap {
       : _samplefile((char *)"/tmp/scalene-malloc-signal%d",
                     (char *)"/tmp/scalene-malloc-lock%d",
                     (char *)"/tmp/scalene-malloc-init%d"),
-        _mallocTriggered(0),
-        _freeTriggered(0),
-        _pythonCount(0),
-        _cCount(0),
         _pid(getpid()),
         _lastMallocTrigger(nullptr),
         _freedLastMallocTrigger(false) {
@@ -86,7 +84,6 @@ class SampleHeap : public SuperHeap {
       return;
     }
     auto realSize = SuperHeap::getSize(ptr);
-    SuperHeap::free(ptr);
     auto sampleFree = _freeSampler.sample(realSize);
     if (unlikely(ptr == _lastMallocTrigger)) {
       _freedLastMallocTrigger = true;
@@ -94,6 +91,7 @@ class SampleHeap : public SuperHeap {
     if (unlikely(sampleFree)) {
       handleFree(sampleFree);
     }
+    SuperHeap::free(ptr);
   }
 
   void *memalign(size_t alignment, size_t sz) {
@@ -130,25 +128,32 @@ class SampleHeap : public SuperHeap {
     _freedLastMallocTrigger = false;
     _pythonCount = 0;
     _cCount = 0;
-    _mallocTriggered++;
+    mallocTriggered()++;
   }
 
   void handleFree(size_t sampleFree) {
     writeCount(FreeSignal, sampleFree, nullptr);
-#if 0  // !SCALENE_DISABLE_SIGNALS
-    // Disabled for now.
-    raise(FreeSignal);
+#if !SCALENE_DISABLE_SIGNALS
+    raise(MallocSignal); // was FreeSignal
 #endif
-    _freeTriggered++;
+    freeTriggered()++;
   }
 
   Sampler<MallocSamplingRateBytes> _mallocSampler;
-  Sampler<MallocSamplingRateBytes> _freeSampler;
+  Sampler<FreeSamplingRateBytes> _freeSampler;
   Sampler<CallStackSamplingRate> _callStackSampler;
-  counterType _mallocTriggered;
-  counterType _freeTriggered;
-  counterType _pythonCount;
-  counterType _cCount;
+  
+  static auto& mallocTriggered() {
+    static std::atomic<uint64_t> _mallocTriggered {0};
+    return _mallocTriggered;
+  }
+  static auto& freeTriggered() {
+    static std::atomic<uint64_t> _freeTriggered {0};
+    return _freeTriggered;
+  }
+  
+  counterType _pythonCount {0};
+  counterType _cCount {0};
 
   open_addr_hashtable<65536>
       _table;  // Maps call stack entries to function names.
@@ -268,7 +273,7 @@ class SampleHeap : public SuperHeap {
         "%c,%lu,%lu,%f,%d,%p\n\n",
 #endif
         ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
-        _mallocTriggered + _freeTriggered, count,
+        mallocTriggered() + freeTriggered(), count,
         (float)_pythonCount / (_pythonCount + _cCount), getpid(),
         _freedLastMallocTrigger ? _lastMallocTrigger : ptr);
     // Ensure we don't report last-malloc-freed multiple times.
