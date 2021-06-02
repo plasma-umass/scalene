@@ -7,11 +7,35 @@ import struct
 import subprocess
 import sys
 
+from typing import Dict
 
 class ScalenePreload:
     @staticmethod
+    def get_preload_environ(args: argparse.Namespace) -> Dict[str, str]:
+        env = dict()
+
+        if sys.platform == "linux":
+            env["LD_PRELOAD"] = os.path.join(
+                os.path.dirname(scalene.__path__[0]), "libscalene.so"
+            )
+            env["PYTHONMALLOC"] = "malloc"
+
+        elif sys.platform == "darwin":
+            env["DYLD_INSERT_LIBRARIES"] = os.path.join(
+                os.path.dirname(scalene.__path__[0]), "libscalene.dylib"
+            )
+            env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
+            env["PYTHONMALLOC"] = "malloc"
+
+        return env
+
+    @staticmethod
     def setup_preload(args: argparse.Namespace) -> bool:
-        # Return true iff we had to preload libraries and run another process.
+        """
+        Ensures that Scalene runs with libscalene preloaded, if necessary,
+        as well as any other required environment variables.
+        Returns true iff we had to run another process.
+        """
 
         # First, check that we are on a supported platform.
         # (x86-64 and ARM only for now.)
@@ -43,15 +67,12 @@ class ScalenePreload:
         except:
             pass
 
-        # Load the shared object on Linux.
-        if sys.platform == "linux":
-            if ("LD_PRELOAD" not in os.environ) and (
-                "PYTHONMALLOC" not in os.environ
-            ):
-                os.environ["LD_PRELOAD"] = os.path.join(
-                    os.path.dirname(scalene.__path__[0]), "libscalene.so"
-                )
-                os.environ["PYTHONMALLOC"] = "malloc"
+        # Start a subprocess with the required environment variables.
+        if sys.platform == "linux" or sys.platform == "darwin":
+            req_env = ScalenePreload.get_preload_environ(args)
+            if not all(k in os.environ for k in req_env):
+                os.environ.update(req_env)
+
                 new_args = [
                     os.path.basename(sys.executable),
                     "-m",
@@ -81,43 +102,4 @@ class ScalenePreload:
                     )
                 sys.exit(result.returncode)
 
-        # Similar logic, but for Mac OS X.
-        if sys.platform == "darwin":
-            if (
-                ("DYLD_INSERT_LIBRARIES" not in os.environ)
-                and ("PYTHONMALLOC" not in os.environ)
-            ) or "OBJC_DISABLE_INITIALIZE_FORK_SAFETY" not in os.environ:
-                os.environ["DYLD_INSERT_LIBRARIES"] = os.path.join(
-                    os.path.dirname(scalene.__path__[0]), "libscalene.dylib"
-                )
-                os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
-                os.environ["PYTHONMALLOC"] = "malloc"
-                new_args = [
-                    os.path.basename(sys.executable),
-                    "-m",
-                    "scalene",
-                ] + sys.argv[1:]
-                result = subprocess.Popen(
-                    new_args, close_fds=True, shell=False
-                )
-                # If running in the background, print the PID.
-                try:
-                    if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
-                        # In the background.
-                        print(f"Scalene now profiling process {result.pid}")
-                        print(
-                            f"  to disable profiling: python3 -m scalene.profile --off --pid {result.pid}"
-                        )
-                        print(
-                            f"  to resume profiling:  python3 -m scalene.profile --on  --pid {result.pid}"
-                        )
-                except:
-                    pass
-                result.wait()
-                if result.returncode < 0:
-                    print(
-                        "Scalene error: received signal",
-                        signal.Signals(-result.returncode).name,
-                    )
-                sys.exit(result.returncode)
         return True
