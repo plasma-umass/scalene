@@ -35,9 +35,12 @@ endif
 SRC := src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
 
 all: vendor/Heap-Layers $(SRC) $(OTHER_DEPS)
-	rm -f $(LIBFILE) scalene/$(LIBFILE)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(LIBFILE) -ldl -lpthread
-	cp $(LIBFILE) scalene
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o scalene/$(LIBFILE) -ldl -lpthread
+
+clean:
+	git restore scalene/$(LIBFILE)
+	rm -rf scalene/$(LIBFILE).dSYM
+	rm -rf scalene.egg-info get_line_atomic*.so
 
 $(WRAPPER) : vendor/Heap-Layers
 
