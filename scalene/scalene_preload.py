@@ -15,17 +15,20 @@ class ScalenePreload:
         env = dict()
 
         if sys.platform == "linux":
-            env["LD_PRELOAD"] = os.path.join(
-                os.path.dirname(scalene.__path__[0]), "libscalene.so"
-            )
-            env["PYTHONMALLOC"] = "malloc"
+            if not args.cpu_only:
+                env["LD_PRELOAD"] = os.path.join(
+                    os.path.dirname(scalene.__path__[0]), "libscalene.so"
+                )
+                env["PYTHONMALLOC"] = "malloc"
 
         elif sys.platform == "darwin":
-            env["DYLD_INSERT_LIBRARIES"] = os.path.join(
-                os.path.dirname(scalene.__path__[0]), "libscalene.dylib"
-            )
+            if not args.cpu_only:
+                env["DYLD_INSERT_LIBRARIES"] = os.path.join(
+                    os.path.dirname(scalene.__path__[0]), "libscalene.dylib"
+                )
+                env["PYTHONMALLOC"] = "malloc"
+            # required for multiprocessing support, even without libscalene
             env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
-            env["PYTHONMALLOC"] = "malloc"
 
         return env
 
@@ -54,9 +57,6 @@ class ScalenePreload:
 
         # Load shared objects (that is, interpose on malloc, memcpy and friends)
         # unless the user specifies "--cpu-only" at the command-line.
-
-        if args.cpu_only:
-            return False
 
         try:
             from IPython import get_ipython
