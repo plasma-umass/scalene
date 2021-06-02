@@ -97,5 +97,6 @@ class ScalenePreload:
                         signal.Signals(-result.returncode).name,
                     )
                 sys.exit(result.returncode)
+                return True
 
-        return True
+        return False
