@@ -455,7 +455,6 @@ class Scalene:
             # one is a shell script that redirects to Scalene.
             Scalene.__pid = 0
             cmdline = ""
-            preface = ""
             # Pass along commands from the invoking command line.
             cmdline += f" --cpu-sampling-rate={arguments.cpu_sampling_rate}"
             if arguments.use_virtual_time:
@@ -464,18 +463,10 @@ class Scalene:
                 cmdline += " --off"
             if arguments.cpu_only:
                 cmdline += " --cpu-only"
-            else:
-                preface = "PYTHONMALLOC=malloc "
-                if sys.platform == "linux":
-                    shared_lib = os.path.join(
-                        os.path.dirname(__file__), "libscalene.so"
-                    )
-                    preface += "LD_PRELOAD=" + shared_lib
-                else:
-                    shared_lib = os.path.join(
-                        os.path.dirname(__file__), "libscalene.dylib"
-                    )
-                    preface += "DYLD_INSERT_LIBRARIES=" + shared_lib
+
+            environ = ScalenePreload.get_preload_environ(arguments)
+            preface = ' '.join('='.join((k,str(v))) for (k,v) in environ.items())
+
             # Add the --pid field so we can propagate it to the child.
             cmdline += f" --pid={os.getpid()} ---"
             payload = """#!/bin/bash
