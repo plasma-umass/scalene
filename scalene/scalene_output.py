@@ -176,7 +176,10 @@ class ScaleneOutput:
             else f"{(n_python_fraction * 100):4.0f}%"
         )
         n_copy_b = stats.memcpy_samples[fname][line_no]
-        n_copy_mb_s = n_copy_b / (1024 * 1024 * stats.elapsed_time)
+        if stats.elapsed_time:
+            n_copy_mb_s = n_copy_b / (1024 * 1024 * stats.elapsed_time)
+        else:
+            n_copy_mb_s = 0
         n_copy_mb_s_str: str = (
             "" if n_copy_mb_s < 0.5 else f"{n_copy_mb_s:6.0f}"
         )
