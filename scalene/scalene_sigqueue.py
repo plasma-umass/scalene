@@ -15,10 +15,10 @@ class ScaleneSigQueue:
         return self.queue.get()
 
     def start(self):
-        assert not self.thread
         # We use a daemon thread to defensively avoid hanging if we never join with it
-        self.thread = threading.Thread(target=self.run, daemon=True)
-        self.thread.start()
+        if not self.thread:
+            self.thread = threading.Thread(target=self.run, daemon=True)
+            self.thread.start()
 
     def stop(self):
         if self.thread:
