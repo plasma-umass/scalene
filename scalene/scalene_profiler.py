@@ -572,7 +572,7 @@ class Scalene:
             # signals, print the profile, and then start signals
             # again.
             Scalene.__next_output_time += Scalene.__args.profile_interval
-            Scalene.stop()
+            # Scalene.stop()
             stats = Scalene.__stats
             output = Scalene.__output
             output.output_profiles(
@@ -584,7 +584,7 @@ class Scalene:
                 profile_memory=not Scalene.__args.cpu_only,
                 reduced_profile=Scalene.__args.reduced_profile,
             )
-            Scalene.start()
+            # Scalene.start()
         # Here we take advantage of an ostensible limitation of Python:
         # it only delivers signals after the interpreter has given up
         # control. This seems to mean that sampling is limited to code
