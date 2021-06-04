@@ -1,6 +1,7 @@
 import sys
 from scalene.scalene_profiler import Scalene
 import threading
+import time
 from typing import Any
 
 
@@ -18,7 +19,7 @@ def replacement_lock(scalene: Scalene) -> None:
             tident = threading.get_ident()
             if blocking == 0:
                 blocking = False
-            start_time = scalene.get_wallclock_time()
+            start_time = time.perf_counter()
             if blocking:
                 if timeout < 0:
                     interval = sys.getswitchinterval()
@@ -36,7 +37,7 @@ def replacement_lock(scalene: Scalene) -> None:
                     return False
                 # If a timeout was specified, check to see if it's expired.
                 if timeout != -1:
-                    end_time = scalene.get_wallclock_time()
+                    end_time = time.perf_counter()
                     if end_time - start_time >= timeout:
                         return False
 

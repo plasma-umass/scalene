@@ -13,6 +13,7 @@ jobs:
   smoketest-linux:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
     - uses: actions/checkout@v2
@@ -31,6 +32,8 @@ jobs:
   smoketest-macos:
 
     runs-on: macos-latest
+    timeout-minutes: 5
+
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.9

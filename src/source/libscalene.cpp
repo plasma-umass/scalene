@@ -1,6 +1,9 @@
 #define SCALENE_DISABLE_SIGNALS 0  // for debugging only
 
+#if !defined(_WIN32)
 #include <execinfo.h>
+#endif
+
 #include <heaplayers.h>
 #include <signal.h>
 #include <stdio.h>
@@ -29,6 +32,8 @@
 // we use Hoard instead to avoid that.
 
 class ScaleneBaseHeap : public HL::ANSIWrapper<Hoard::TLABBase> {
+  using super = HL::ANSIWrapper<Hoard::TLABBase>;
+
   static Hoard::HoardHeapType *getMainHoardHeap() {
     alignas(std::max_align_t) static char thBuf[sizeof(Hoard::HoardHeapType)];
     static auto *th = new (thBuf) Hoard::HoardHeapType;
@@ -38,8 +43,11 @@ class ScaleneBaseHeap : public HL::ANSIWrapper<Hoard::TLABBase> {
  public:
   static constexpr size_t Alignment = alignof(std::max_align_t);
 
-  ScaleneBaseHeap() : HL::ANSIWrapper<Hoard::TLABBase>(getMainHoardHeap()) {}
+  ScaleneBaseHeap() : super(getMainHoardHeap()) {}
+};
 
+class BaseHeap : public HL::OneHeap<ScaleneBaseHeap> {
+ public:
   void *memalign(size_t alignment, size_t size) {
     // XXX Copied from Heap-Layers/wrappers/generic-memalign.cpp ; we can't use
     // it directly because it invokes xxmalloc, which would be detected as a
@@ -73,20 +81,24 @@ class ScaleneBaseHeap : public HL::ANSIWrapper<Hoard::TLABBase> {
     return alignedPtr;
   }
 };
+
 #else  // not __APPLE__
-using ScaleneBaseHeap = HL::SysMallocHeap;
+
+using BaseHeap = HL::SysMallocHeap;
+
 #endif
 
 // For use by the replacement printf routines (see
 // https://github.com/mpaland/printf)
-extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
+extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t MallocSamplingRate =
-    1048571ULL;  // a prime number near a megabyte
+constexpr uint64_t MallocSamplingRate = 870173ULL;
+//  1048571ULL * 4;  // a prime number near a megabyte
+constexpr uint64_t FreeSamplingRate = 758201ULL;
+//  1048571ULL * 4;  // a prime number near a megabyte
 constexpr uint64_t MemcpySamplingRate = 2097169ULL;  // another prime, near 2MB
 
-class CustomHeapType : public HL::ThreadSpecificHeap<
-                           SampleHeap<MallocSamplingRate, ScaleneBaseHeap>> {
+class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>> {
  public:
   void lock() {}
   void unlock() {}

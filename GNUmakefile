@@ -6,8 +6,8 @@ C_SOURCES = src/source/libscalene.cpp src/source/get_line_atomic.cpp src/include
 .PHONY: black clang-format format upload
 
 # CXXFLAGS = -std=c++14 -g -O0
-CXXFLAGS = -std=c++14 -g -O3 -DNDEBUG -D_REENTRANT=1 -D'CUSTOM_PREFIX(x)=xx\#\#x' -pipe -fno-builtin-malloc -fvisibility=hidden
-CXX = clang++
+CXXFLAGS = -std=c++14 -g -O3 -DNDEBUG -D_REENTRANT=1 -pipe -fno-builtin-malloc -fvisibility=hidden
+CXX = g++
 
 INCLUDES  = -Isrc -Isrc/include
 INCLUDES := $(INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility
@@ -35,9 +35,12 @@ endif
 SRC := src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
 
 all: vendor/Heap-Layers $(SRC) $(OTHER_DEPS)
-	rm -f $(LIBFILE) scalene/$(LIBFILE)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(LIBFILE) -ldl -lpthread
-	cp $(LIBFILE) scalene
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o scalene/$(LIBFILE) -ldl -lpthread
+
+clean:
+	git restore scalene/$(LIBFILE)
+	rm -rf scalene/$(LIBFILE).dSYM
+	rm -rf scalene.egg-info get_line_atomic*.so
 
 $(WRAPPER) : vendor/Heap-Layers
 

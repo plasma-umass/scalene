@@ -60,7 +60,7 @@ class Sampler {
     if (unlikely(_next <= sz)) {
       return updateSample(sz - _next);
     }
-    assert(sz <= _next);
+    assert(sz < _next);
     _next -= sz;
     return 0;
   }

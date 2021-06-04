@@ -10,22 +10,21 @@ try:
     from scalene.scalene_parseargs import ScaleneParseArgs
     from typing import Any
     import sys
-    import tempfile
 
     @magics_class
     class ScaleneMagics(Magics):  # type: ignore
         def run_code(self, args: ScaleneArguments, code: str) -> None:
-            # Create a temporary file to hold the supplied code.
-            tmpfile = tempfile.NamedTemporaryFile(
-                mode="w+",
-                delete=False,
-                prefix="scalene_profile_",
-                suffix=".py",
-            )
-            tmpfile.write(code)
-            tmpfile.close()
+            import IPython
+            # Create a file to hold the supplied code.
+            # We encode the cell number in the string for later recovery.
+            # The length of the history buffer lets us find the most recent string (this one).
+            filename = f"<ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile>"
+            # Drop the first line (%%scalene).
+            newcode = "\n" + code
+            with open(filename, "w+") as tmpfile:
+                tmpfile.write(newcode)
             args.cpu_only = True  # full Scalene is not yet working, force to use CPU-only mode
-            scalene_profiler.Scalene.run_profiler(args, [tmpfile.name])
+            scalene_profiler.Scalene.run_profiler(args, [filename])
 
         @line_cell_magic
         def scalene(self, line: str, cell: str = "") -> None:
