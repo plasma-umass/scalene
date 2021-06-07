@@ -7,6 +7,7 @@ class ScaleneSigQueue:
         self.queue = queue.SimpleQueue()
         self.process = process
         self.thread = None
+        self.lock = threading.RLock() # held while processing an item
 
     def put(self, item):
         self.queue.put(item)
@@ -33,4 +34,5 @@ class ScaleneSigQueue:
             item = self.queue.get()
             if item == None:  # None == stop request
                 break
-            self.process(*item)
+            with self.lock:
+                self.process(*item)

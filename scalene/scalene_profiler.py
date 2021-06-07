@@ -156,8 +156,6 @@ class Scalene:
 
     # when we output the next profile
     __next_output_time: float = float("inf")
-    # when we started
-    __start_time: float = 0
     # pid for tracking child processes
     __pid: int = 0
 
@@ -572,22 +570,21 @@ class Scalene:
             # signals, print the profile, and then start signals
             # again.
             Scalene.__next_output_time += Scalene.__args.profile_interval
-            # Copied and pasted logic here from Scalene.stop(), minus signal disabling.
             stats = Scalene.__stats
-            stats.elapsed_time += time.perf_counter() - Scalene.__start_time
-            output = Scalene.__output
-            output.output_profiles(
-                stats,
-                Scalene.__pid,
-                Scalene.profile_this_code,
-                Scalene.__python_alias_dir_name,
-                Scalene.__python_alias_dir,
-                profile_memory=not Scalene.__args.cpu_only,
-                reduced_profile=Scalene.__args.reduced_profile,
-            )
-            # Scalene.start()
-            # Copied and pasted, as above for stop()
-            Scalene.__start_time = time.perf_counter()
+            # pause queues to prevent updates while we output
+            with Scalene.__cpu_sigq.lock, Scalene.__alloc_sigq.lock, Scalene.__memcpy_sigq.lock:
+                stats.stop_clock()
+                output = Scalene.__output
+                output.output_profiles(
+                    stats,
+                    Scalene.__pid,
+                    Scalene.profile_this_code,
+                    Scalene.__python_alias_dir_name,
+                    Scalene.__python_alias_dir,
+                    profile_memory=not Scalene.__args.cpu_only,
+                    reduced_profile=Scalene.__args.reduced_profile,
+                )
+                stats.start_clock()
             
         # Here we take advantage of an ostensible limitation of Python:
         # it only delivers signals after the interpreter has given up
@@ -1126,14 +1123,13 @@ class Scalene:
     def start() -> None:
         """Initiate profiling."""
         Scalene.enable_signals()
-        Scalene.__start_time = time.perf_counter()
+        Scalene.__stats.start_clock()
 
     @staticmethod
     def stop() -> None:
         """Complete profiling."""
         Scalene.disable_signals()
-        stats = Scalene.__stats
-        stats.elapsed_time += time.perf_counter() - Scalene.__start_time
+        Scalene.__stats.stop_clock()
 
     @staticmethod
     def start_signal_handler(

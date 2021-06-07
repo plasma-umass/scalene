@@ -2,6 +2,7 @@ import cloudpickle
 import os
 import pathlib
 import pickle
+import time
 
 from collections import defaultdict
 from typing import (
@@ -30,6 +31,9 @@ class ScaleneStatistics:
     # Statistics counters:
     #
     def __init__(self) -> None:
+        # time the profiling started
+        self.start_time: float = None
+
         # total time spent in program being profiled
         self.elapsed_time: float = 0
 
@@ -147,6 +151,7 @@ class ScaleneStatistics:
         )
 
     def clear(self) -> None:
+        self.start_time = 0
         self.elapsed_time = 0
         self.cpu_samples_python.clear()
         self.cpu_samples_c.clear()
@@ -183,6 +188,13 @@ class ScaleneStatistics:
         self.current_footprint = 0
         self.max_footprint = 0
         self.per_line_footprint_samples.clear()
+
+    def start_clock(self) -> None:
+        self.start_time = time.perf_counter()
+
+    def stop_clock(self) -> None:
+        self.elapsed_time += time.perf_counter() - self.start_time
+        self.start_time = None
 
     def build_function_stats(self, filename: Filename):  # type: ignore
         fn_stats = ScaleneStatistics()
