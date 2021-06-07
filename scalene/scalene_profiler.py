@@ -163,7 +163,7 @@ class Scalene:
     # (see include/sampleheap.hpp, include/samplefile.hpp)
 
     MAX_BUFSIZE = 256  # Must match SampleFile::MAX_BUFSIZE
-    __buf = bytearray(MAX_BUFSIZE)
+    __malloc_buf = bytearray(MAX_BUFSIZE)
     __memcpy_buf = bytearray(MAX_BUFSIZE)
 
     #
@@ -226,7 +226,6 @@ class Scalene:
 
     except BaseException:
         pass
-    __memcpy_signal_position = 0
     __memcpy_lastpos = bytearray(8)
 
     # Program-specific information:
@@ -822,6 +821,15 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
+    def read_malloc_mmap() -> bool:
+        return get_line_atomic.get_line_atomic(
+            Scalene.__malloc_lock_mmap,
+            Scalene.__malloc_signal_mmap,
+            Scalene.__malloc_buf,
+            Scalene.__malloc_lastpos,
+        )
+
+    @staticmethod
     def alloc_sigqueue_processor(
         signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
         this_frame: FrameType,
@@ -835,16 +843,9 @@ class Scalene:
         # Process the input array from where we left off reading last time.
         arr: List[Tuple[int, str, float, float, str]] = []
         try:
-            while True:
-                if not get_line_atomic.get_line_atomic(
-                    Scalene.__malloc_lock_mmap,
-                    Scalene.__malloc_signal_mmap,
-                    Scalene.__buf,
-                    Scalene.__malloc_lastpos,
-                ):
-                    break
+            while Scalene.read_malloc_mmap():
                 count_str = (
-                    Scalene.__buf.rstrip(b"\x00").split(b"\n")[0].decode("ascii")
+                    Scalene.__malloc_buf.rstrip(b"\x00").split(b"\n")[0].decode("ascii")
                 )
                 if count_str.strip() == "":
                     break
@@ -1014,6 +1015,15 @@ class Scalene:
             Scalene.enable_signals()
 
     @staticmethod
+    def read_memcpy_mmap() -> bool:
+        return get_line_atomic.get_line_atomic(
+            Scalene.__memcpy_lock_mmap,
+            Scalene.__memcpy_signal_mmap,
+            Scalene.__memcpy_buf,
+            Scalene.__memcpy_lastpos,
+        )
+
+    @staticmethod
     def memcpy_sigqueue_processor(
         signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
         frame: FrameType,
@@ -1025,21 +1035,12 @@ class Scalene:
         arr: List[Tuple[int, int]] = []
         # Process the input array.
         try:
-            mfile = Scalene.__memcpy_signal_mmap
-            if mfile:
-                while True:
-                    if not get_line_atomic.get_line_atomic(
-                        Scalene.__memcpy_lock_mmap,
-                        Scalene.__memcpy_signal_mmap,
-                        Scalene.__memcpy_buf,
-                        Scalene.__memcpy_lastpos,
-                    ):
-                        break
+            if Scalene.__memcpy_signal_mmap:
+                while Scalene.read_memcpy_mmap():
                     count_str = Scalene.__memcpy_buf.split(b"\n")[0].decode("ascii")
                     (memcpy_time_str, count_str2, pid) = count_str.split(",")
                     if int(curr_pid) == int(pid):
                         arr.append((int(memcpy_time_str), int(count_str2)))
-                Scalene.__memcpy_signal_position = mfile.tell() - 1
         except ValueError as e:
             pass
         arr.sort()
@@ -1120,10 +1121,17 @@ class Scalene:
         return Scalene.__program_path in filename
 
     @staticmethod
+    def clear_mmap_data() -> None:
+        while Scalene.read_malloc_mmap(): pass
+        if Scalene.__memcpy_signal_mmap:
+            while Scalene.read_memcpy_mmap(): pass
+
+    @staticmethod
     def start() -> None:
         """Initiate profiling."""
-        Scalene.enable_signals()
+        Scalene.clear_mmap_data()
         Scalene.__stats.start_clock()
+        Scalene.enable_signals()
 
     @staticmethod
     def stop() -> None:
