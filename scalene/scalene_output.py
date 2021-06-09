@@ -308,7 +308,6 @@ class ScaleneOutput:
         stats: ScaleneStatistics,
         pid: int,
         profile_this_code: Callable[[Filename, LineNumber], bool],
-        python_alias_dir_name: Filename,
         python_alias_dir: Filename,
         profile_memory: bool = True,
         reduced_profile: bool = False,
@@ -316,11 +315,7 @@ class ScaleneOutput:
         """Write the profile out."""
         # Get the children's stats, if any.
         if not pid:
-            stats.merge_stats(python_alias_dir_name)
-            try:
-                shutil.rmtree(python_alias_dir)
-            except BaseException:
-                pass
+            stats.merge_stats(python_alias_dir)
         current_max: float = stats.max_footprint
         # If we've collected any samples, dump them.
         if (
@@ -425,7 +420,7 @@ class ScaleneOutput:
         # Don't actually output the profile if we are a child process.
         # Instead, write info to disk for the main process to collect.
         if pid:
-            stats.output_stats(pid, python_alias_dir_name)
+            stats.output_stats(pid, python_alias_dir)
             return True
 
         if len(report_files) == 0:
