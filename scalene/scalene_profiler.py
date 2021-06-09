@@ -148,9 +148,7 @@ class Scalene:
     # path for the program being profiled
     __program_path: str = ""
     # temporary directory to hold aliases to Python
-    __python_alias_dir: Any
-    # and its name
-    __python_alias_dir_name: Filename
+    __python_alias_dir: Filename
 
     ## Profile output parameters
 
@@ -439,14 +437,12 @@ class Scalene:
             # The parent always puts this directory as the first entry in the PATH.
             # Extract the alias directory from the path.
             dirname = os.environ["PATH"].split(os.pathsep)[0]
-            Scalene.__python_alias_dir = None
-            Scalene.__python_alias_dir_name = Filename(dirname)
+            Scalene.__python_alias_dir = Filename(dirname)
             Scalene.__pid = arguments.pid
 
         else:
             # Parent process.
             Scalene.__python_alias_dir = Filename(tempfile.mkdtemp(prefix="scalene"))
-            Scalene.__python_alias_dir_name = Scalene.__python_alias_dir
             # Create a temporary directory to hold aliases to the Python
             # executable, so scalene can handle multiple processes; each
             # one is a shell script that redirects to Scalene.
@@ -476,14 +472,14 @@ class Scalene:
             )
             # Now create all the files.
             for name in Scalene.__all_python_names:
-                fname = os.path.join(Scalene.__python_alias_dir_name, name)
+                fname = os.path.join(Scalene.__python_alias_dir, name)
                 with open(fname, "w") as file:
                     file.write(payload)
                 os.chmod(fname, stat.S_IXUSR | stat.S_IRUSR | stat.S_IWUSR)
             # Finally, insert this directory into the path.
-            sys.path.insert(0, Scalene.__python_alias_dir_name)
+            sys.path.insert(0, Scalene.__python_alias_dir)
             os.environ["PATH"] = (
-                Scalene.__python_alias_dir_name + os.pathsep + os.environ["PATH"]
+                Scalene.__python_alias_dir + os.pathsep + os.environ["PATH"]
             )
             # Force the executable (if anyone invokes it later) to point to one of our aliases.
             sys.executable = Scalene.__all_python_names[0]
@@ -578,7 +574,6 @@ class Scalene:
                     stats,
                     Scalene.__pid,
                     Scalene.profile_this_code,
-                    Scalene.__python_alias_dir_name,
                     Scalene.__python_alias_dir,
                     profile_memory=not Scalene.__args.cpu_only,
                     reduced_profile=Scalene.__args.reduced_profile,
@@ -1180,7 +1175,8 @@ class Scalene:
         Scalene.disable_signals()
         # Delete the temporary directory.
         try:
-            Scalene.__python_alias_dir.cleanup()
+            if not Scalene.__pid:
+                Scalene.__python_alias_dir.cleanup()
         except BaseException:
             pass
         try:
@@ -1220,7 +1216,6 @@ class Scalene:
             Scalene.__stats,
             Scalene.__pid,
             Scalene.profile_this_code,
-            Scalene.__python_alias_dir_name,
             Scalene.__python_alias_dir,
             profile_memory=not Scalene.__args.cpu_only,
             reduced_profile=Scalene.__args.reduced_profile,
