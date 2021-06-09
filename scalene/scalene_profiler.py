@@ -164,21 +164,11 @@ class Scalene:
     __malloc_buf = bytearray(MAX_BUFSIZE)
     __memcpy_buf = bytearray(MAX_BUFSIZE)
 
-    #
     #   file to communicate the number of malloc/free samples (+ PID)
     __malloc_signal_filename = Filename(f"/tmp/scalene-malloc-signal{os.getpid()}")
     __malloc_lock_filename = Filename(f"/tmp/scalene-malloc-lock{os.getpid()}")
     __malloc_signal_position = 0
     __malloc_lastpos = bytearray(8)
-    try:
-        __malloc_signal_fd = open(__malloc_signal_filename, "x")
-        os.unlink(__malloc_signal_fd.name)
-        __malloc_lock_fd = open(__malloc_lock_filename, "x")
-        os.unlink(__malloc_lock_fd.name)
-        __malloc_signal_fd.close()
-        __malloc_lock_fd.close()
-    except BaseException as exc:
-        pass
     try:
         __malloc_signal_fd = open(__malloc_signal_filename, "r")
         os.unlink(__malloc_signal_fd.name)
