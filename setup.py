@@ -19,6 +19,9 @@ def extra_compile_args():
 
     return ['-std=c++14'] + multiarch_args()
 
+def make_command():
+    return 'nmake' if sys.platform == 'win32' else 'make'
+
 def dll_suffix():
     """Returns the file suffix ("extension") of a DLL"""
     if (sys.platform == 'win32'): return '.dll'
@@ -30,19 +33,26 @@ def read_file(name):
     with open(path.join(path.dirname(__file__), name), encoding="utf-8") as f:
         return f.read()
 
-import setuptools.command.build_py
+import setuptools.command.egg_info
+class EggInfoCommand(setuptools.command.egg_info.egg_info):
+    def run(self):
+        self.spawn([make_command(), 'vendor-deps'])
+        super().run()
 
+import setuptools.command.build_py
 class BuildPyCommand(setuptools.command.build_py.build_py):
     """Custom command that runs 'make' to generate libscalene."""
     def run(self):
         super().run()
-        make = 'nmake' if sys.platform == 'win32' else 'make'
+        self.build_libscalene()
+
+    def build_libscalene(self):
         build_ext = self.get_finalized_command('build_ext')
         scalene_temp = path.join(build_ext.build_temp, 'scalene')
         scalene_lib = path.join(self.build_lib, 'scalene')
         libscalene = 'libscalene' + dll_suffix()
         self.mkpath(scalene_temp)
-        self.spawn([make, 'OUTDIR=' + scalene_temp,
+        self.spawn([make_command(), 'OUTDIR=' + scalene_temp,
                     'ARCH=' + ' '.join(multiarch_args())])
         self.copy_file(path.join(scalene_temp, libscalene),
                        path.join(scalene_lib, libscalene))
@@ -87,6 +97,7 @@ setup(
     ],
     packages=find_packages(),
     cmdclass={
+        'egg_info': EggInfoCommand,
         'build_py': BuildPyCommand,
     },
     install_requires=[

@@ -62,6 +62,8 @@ vendor/printf/printf.cpp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
 
+vendor-deps: vendor/Heap-Layers vendor/Hoard vendor/printf/printf.cpp
+
 mypy:
 	-mypy $(PYTHON_SOURCES)
 
@@ -75,7 +77,7 @@ black:
 
 PYTHON_PLAT=$(shell python -c 'from pkg_resources import get_build_platform; p=get_build_platform(); print(p[:p.rindex("-")])')
 
-pkg: vendor/Heap-Layers vendor/Hoard vendor/printf/printf.cpp
+pkg: vendor-deps
 	-rm -rf dist build *egg-info
 	$(PYTHON) setup.py sdist bdist_wheel
 ifeq ($(shell uname -s),Darwin)
