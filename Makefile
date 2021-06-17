@@ -27,8 +27,9 @@ clang-format:
 black:
 	-black -l 79 $(PYTHON_SOURCES)
 
-upload: # to pypi
-	-cp libscalene.so libscalene.dylib scalene/
-	-rm -rf build dist *egg-info
+pkg: vendor/Heap-Layers vendor/Hoard vendor/printf/printf.cpp
+	-rm -rf dist build *egg-info
 	$(PYTHON) setup.py sdist bdist_wheel
+
+upload: pkg # to pypi
 	$(PYTHON) -m twine upload dist/*

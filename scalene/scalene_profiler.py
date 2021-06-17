@@ -36,7 +36,7 @@ import time
 import traceback
 
 if sys.platform != "win32":
-    import get_line_atomic
+    from scalene import get_line_atomic
 
 from collections import defaultdict
 from functools import lru_cache

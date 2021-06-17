@@ -16,10 +16,12 @@ INCLUDES := $(INCLUDES) -Ivendor/printf
 ifeq ($(shell uname -s),Darwin)
   LIBFILE := lib$(LIBNAME).dylib
   WRAPPER := vendor/Heap-Layers/wrappers/macwrapper.cpp
-	ifneq (,$(filter $(shell uname -p),arm arm64))  # this means "if arm or arm64"
-    ARMFLAG = -arch arm64 
+  ifneq (,$(filter $(shell uname -p),arm arm64))  # this means "if arm or arm64"
+    ARCH := -arch arm64 
+  else
+    ARCH := -arch x86_64
   endif
-  CXXFLAGS := $(CXXFLAGS) -flto -ftls-model=initial-exec -ftemplate-depth=1024 -arch x86_64 $(ARMFLAG) -compatibility_version 1 -current_version 1 -dynamiclib
+  CXXFLAGS := $(CXXFLAGS) -flto -ftls-model=initial-exec -ftemplate-depth=1024 $(ARCH) -compatibility_version 1 -current_version 1 -dynamiclib
 
   INCLUDES := $(INCLUDES) -Ivendor/Hoard/src/include/hoard -Ivendor/Hoard/src/include/util -Ivendor/Hoard/src/include/superblocks
   OTHER_DEPS := vendor/Hoard
@@ -34,13 +36,18 @@ endif
 
 SRC := src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
 
-all: vendor/Heap-Layers $(SRC) $(OTHER_DEPS)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o scalene/$(LIBFILE) -ldl -lpthread
+OUTDIR=scalene
+
+all: $(OUTDIR)/$(LIBFILE)
+
+$(OUTDIR)/$(LIBFILE): vendor/Heap-Layers $(SRC) $(OTHER_DEPS)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread
 
 clean:
-	git restore scalene/$(LIBFILE)
-	rm -rf scalene/$(LIBFILE).dSYM
+	rm -f $(OUTDIR)/$(LIBFILE)
+	rm -rf $(OUTDIR)/$(LIBFILE).dSYM
 	rm -rf scalene.egg-info get_line_atomic*.so
+	rm -rf build dist *egg-info
 
 $(WRAPPER) : vendor/Heap-Layers
 
@@ -66,8 +73,17 @@ clang-format:
 black:
 	-black -l 79 $(PYTHON_SOURCES)
 
-upload: # to pypi
-	-cp libscalene.so libscalene.dylib scalene/
-	-rm -rf build dist *egg-info
+PYTHON_PLAT=$(shell python -c 'from pkg_resources import get_build_platform; p=get_build_platform(); print(p[:p.rindex("-")])')
+
+pkg: vendor/Heap-Layers vendor/Hoard vendor/printf/printf.cpp
+	-rm -rf dist build *egg-info
 	$(PYTHON) setup.py sdist bdist_wheel
+ifeq ($(shell uname -s),Darwin)
+  ifneq (,$(filter $(shell uname -m),x86_64))
+    	# On Darwin/x86-64, cross-package for arm64 since github actions don't have M1 VMs yet
+	$(PYTHON) setup.py bdist_wheel -p $(PYTHON_PLAT)-arm64
+  endif
+endif
+
+upload: pkg # to pypi
 	$(PYTHON) -m twine upload dist/*

@@ -1,15 +1,6 @@
-include README.md
-include LICENSE
-include scalene/libscalene.so
-include scalene/libscalene.dylib
-include scalene/scalene-usage.txt
-include scalene/*.py
-include test/testme.py
-include GNUmakefile
-include Makefile
-include src/source/libscalene.cpp
-include src/include/*.h
-include src/include/*.hpp
-recursive-include vendor/Heap-Layers *
-recursive-include vendor/Hoard *
-recursive-include vendor/printf *
+graft vendor/Heap-Layers
+prune vendor/Heap-Layers/.git
+graft vendor/Hoard
+prune vendor/Hoard/.git
+graft vendor/printf
+prune vendor/printf/.git
