@@ -4,20 +4,12 @@ from scalene.scalene_version import scalene_version
 from os import path
 import sys
 
-def multiarch_args():
-    """Returns args requesting multi-architecture support, if applicable."""
-    # On Darwin/x86_64, we compile for both that and M1, so that we can
-    # package there for M1 as well
-    if sys.platform == 'darwin':
-        return ['-arch', 'x86_64', '-arch', 'arm64']
-    return []
-
 def extra_compile_args():
     """Returns extra compiler args for platform."""
     if sys.platform == 'win32':
         return ['/std:c++14'] # for Visual Studio C++
 
-    return ['-std=c++14'] + multiarch_args()
+    return ['-std=c++14']
 
 def make_command():
     return 'nmake' if sys.platform == 'win32' else 'make'
@@ -35,6 +27,7 @@ def read_file(name):
 
 import setuptools.command.egg_info
 class EggInfoCommand(setuptools.command.egg_info.egg_info):
+    """Custom command to download vendor libs before creating the egg_info."""
     def run(self):
         self.spawn([make_command(), 'vendor-deps'])
         super().run()
@@ -52,8 +45,7 @@ class BuildPyCommand(setuptools.command.build_py.build_py):
         scalene_lib = path.join(self.build_lib, 'scalene')
         libscalene = 'libscalene' + dll_suffix()
         self.mkpath(scalene_temp)
-        self.spawn([make_command(), 'OUTDIR=' + scalene_temp,
-                    'ARCH=' + ' '.join(multiarch_args())])
+        self.spawn([make_command(), 'OUTDIR=' + scalene_temp])
         self.copy_file(path.join(scalene_temp, libscalene),
                        path.join(scalene_lib, libscalene))
 
@@ -61,7 +53,6 @@ get_line_atomic = Extension('scalene.get_line_atomic',
     include_dirs=['.', 'vendor/Heap-Layers', 'vendor/Heap-Layers/utility'],
     sources=['src/source/get_line_atomic.cpp'],
     extra_compile_args=extra_compile_args(),
-    extra_link_args=multiarch_args(),
     language="c++"
 )
 
