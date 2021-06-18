@@ -43,6 +43,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        # workaround for missing arm64 support: https://github.com/actions/virtual-environments/issues/2557
+        sudo xcode-select -s "/Applications/Xcode_12.3.app"
         pip install -e .
     - name: Build C++ libraries
       run: make

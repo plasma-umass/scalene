@@ -75,9 +75,17 @@ clang-format:
 black:
 	-black -l 79 $(PYTHON_SOURCES)
 
+PYTHON_PLAT=$(shell python -c 'from pkg_resources import get_build_platform; p=get_build_platform(); print(p[:p.rindex("-")])')
+
 pkg: vendor-deps
 	-rm -rf dist build *egg-info
 	$(PYTHON) setup.py sdist bdist_wheel
+ifeq ($(shell uname -s),Darwin)
+  ifneq (,$(filter $(shell uname -m),x86_64))
+    	# On Darwin/x86-64, cross-package for arm64 since github actions don't have M1 VMs yet
+	$(PYTHON) setup.py bdist_wheel -p $(PYTHON_PLAT)-arm64
+  endif
+endif
 
 upload: pkg # to pypi
 	$(PYTHON) -m twine upload dist/*
