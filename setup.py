@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from scalene.scalene_version import scalene_version
-from os import path
+from os import path, environ
 import sys
 
 def multiarch_args():
@@ -67,9 +67,14 @@ get_line_atomic = Extension('scalene.get_line_atomic',
     language="c++"
 )
 
+testing = 'TWINE_REPOSITORY' in environ and environ['TWINE_REPOSITORY'] == 'testpypi'
+if testing:
+    import random
+    random.seed()
+
 setup(
     name="scalene",
-    version=scalene_version,
+    version=scalene_version + (f'.dev{random.randint(0,9999)}' if testing else ''),
     description="Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python",
     keywords="performance memory profiler",
     long_description=read_file("README.md"),
