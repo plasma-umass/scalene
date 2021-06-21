@@ -63,6 +63,7 @@ get_line_atomic = Extension('scalene.get_line_atomic',
     sources=['src/source/get_line_atomic.cpp'],
     extra_compile_args=extra_compile_args(),
     extra_link_args=multiarch_args(),
+    py_limited_api=True,
     language="c++"
 )
 
