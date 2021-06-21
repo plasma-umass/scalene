@@ -14,7 +14,8 @@ jobs:
 
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ macos-latest ]
+        #        os: [ ubuntu-latest, macos-latest ]  disabled while researching manylinux1 policy
 
     steps:
     - uses: actions/checkout@v2
