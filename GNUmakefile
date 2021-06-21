@@ -81,8 +81,7 @@ endif
 
 pkg: vendor-deps
 	-rm -rf dist build *egg-info
-	$(PYTHON) setup.py sdist
-	$(PYTHON) setup.py bdist_wheel --py-limited-api=cp37 $(PYTHON_PLAT)
+	$(PYTHON) setup.py sdist bdist_wheel --py-limited-api=cp37 $(PYTHON_PLAT)
 
 upload: pkg # to pypi
 	$(PYTHON) -m twine upload dist/*
