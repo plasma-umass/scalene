@@ -6,8 +6,7 @@ import sys
 
 def multiarch_args():
     """Returns args requesting multi-architecture support, if applicable."""
-    # On Darwin/x86_64, we compile for both that and M1, so that we can
-    # package there for M1 as well
+    # On MacOS we build "universal2" packages, for both x86_64 and arm64/M1
     if sys.platform == 'darwin':
         return ['-arch', 'x86_64', '-arch', 'arm64']
     return []
@@ -63,7 +62,7 @@ get_line_atomic = Extension('scalene.get_line_atomic',
     sources=['src/source/get_line_atomic.cpp'],
     extra_compile_args=extra_compile_args(),
     extra_link_args=multiarch_args(),
-    py_limited_api=True,
+    py_limited_api=True, # for binary compatibility
     language="c++"
 )
 

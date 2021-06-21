@@ -76,12 +76,14 @@ black:
 	-black -l 79 $(PYTHON_SOURCES)
 
 ifeq ($(shell uname -s),Darwin)
-  PYTHON_PLAT=-p $(shell python -c 'from pkg_resources import get_build_platform; p=get_build_platform(); print(p[:p.rindex("-")])')-universal2
+  PYTHON_PLAT:=-p $(shell $(PYTHON) -c 'from pkg_resources import get_build_platform; p=get_build_platform(); print(p[:p.rindex("-")])')-universal2
 endif
+
+PYTHON_API_VER:=$(shell $(PYTHON) -c 'from pip._vendor.packaging.tags import interpreter_name, interpreter_version; print(interpreter_name()+interpreter_version())')
 
 pkg: vendor-deps
 	-rm -rf dist build *egg-info
-	$(PYTHON) setup.py sdist bdist_wheel --py-limited-api=cp37 $(PYTHON_PLAT)
+	$(PYTHON) setup.py sdist bdist_wheel --py-limited-api=$(PYTHON_API_VER) $(PYTHON_PLAT)
 
 upload: pkg # to pypi
 	$(PYTHON) -m twine upload dist/*
