@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from scalene.scalene_version import scalene_version
-from os import path
+from os import path, environ
 import sys
 
 def multiarch_args():
@@ -109,6 +109,7 @@ setup(
     ],
     ext_modules=[get_line_atomic],
     setup_requires=['setuptools_scm'],
+    use_scm_version=('TWINE_REPOSITORY' in environ and environ['TWINE_REPOSITORY'] == 'testpypi'),
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
     python_requires=">=3.7",
