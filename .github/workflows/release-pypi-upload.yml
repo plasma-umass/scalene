@@ -28,7 +28,7 @@ jobs:
         pip install setuptools wheel twine
         # workaround for missing arm64 support:
         # https://github.com/actions/virtual-environments/issues/2557
-        [[ `uname -s` == 'Darwin' ]] && sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
+        [[ `uname -s` == 'Darwin' ]] && sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/* || true
     - name: Build
       run: make pkg
     - name: Upload
