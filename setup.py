@@ -68,12 +68,15 @@ get_line_atomic = Extension('scalene.get_line_atomic',
 
 testing = 'TWINE_REPOSITORY' in environ and environ['TWINE_REPOSITORY'] == 'testpypi'
 if testing:
-    import random
-    random.seed()
+    import subprocess
+    import time
+    version_timestamp = int(subprocess.check_output(["git", "log", "-1", "--format=%ct", "scalene/scalene_version.py"]))
+    mins_since_version = (time.time() - version_timestamp)/60
 
 setup(
     name="scalene",
-    version=scalene_version + (f'.dev{random.randint(0,9999)}' if testing else ''),
+    # testpypi (and pypi) doesn't allow one to replace files, so add monotonically increasing ".devN" suffix
+    version=scalene_version + (f'.dev{int(mins_since_version/5)}' if testing else ''),
     description="Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python",
     keywords="performance memory profiler",
     long_description=read_file("README.md"),
