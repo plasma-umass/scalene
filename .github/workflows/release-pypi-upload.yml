@@ -15,7 +15,7 @@ jobs:
         os: [ ubuntu-latest, macos-latest ]
         include:
           - os: ubuntu-latest
-            container: quay.io/pypa/manylinux2_24_x86_64  # https://github.com/pypa/manylinux
+            container: quay.io/pypa/manylinux2014_x86_64  # https://github.com/pypa/manylinux
 
     container: ${{ matrix.container }}
 
