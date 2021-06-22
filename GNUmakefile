@@ -81,9 +81,14 @@ endif
 
 PYTHON_API_VER:=$(shell $(PYTHON) -c 'from pip._vendor.packaging.tags import interpreter_name, interpreter_version; print(interpreter_name()+interpreter_version())')
 
-pkg: vendor-deps
-	-rm -rf dist build *egg-info
-	$(PYTHON) setup.py sdist bdist_wheel --py-limited-api=$(PYTHON_API_VER) $(PYTHON_PLAT)
+bdist: vendor-deps
+	$(PYTHON) setup.py bdist_wheel --py-limited-api=$(PYTHON_API_VER) $(PYTHON_PLAT)
+ifeq ($(shell uname -s),Linux)
+	auditwheel repair dist/*.whl
+endif
 
-upload: pkg # to pypi
+sdist: vendor-deps
+	$(PYTHON) setup.py sdist
+
+upload: sdist bdist # to pypi
 	$(PYTHON) -m twine upload dist/*
