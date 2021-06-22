@@ -15,7 +15,7 @@ jobs:
         os: [ ubuntu-latest, macos-latest ]
         include:
           - os: ubuntu-latest
-            container: quay.io/pypa/manylinux2014_x86_64  # https://github.com/pypa/manylinux
+            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
 
     container: ${{ matrix.container }}
 
@@ -23,13 +23,13 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Set up Python
-      if: matrix.os != 'ubuntu-latest'
+      if: matrix.container == ''
       uses: actions/setup-python@v2
       with:
         python-version: 3.7
 
     - name: Set up Python
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.container != ''
       run: echo "/opt/python/cp37-cp37m/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
@@ -43,7 +43,9 @@ jobs:
       run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
 
     - name: Build source dist
-      if: ${{ matrix.os }} == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-latest'
+      env:
+        TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }} # used by setup.py
       run: make sdist
 
     - name: Build binary dist
