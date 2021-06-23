@@ -44,7 +44,7 @@ jobs:
       run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
 
     - name: Build source dist
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-latest' # we only need sdist once
       env:
         TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }} # used by setup.py
       run: make sdist
