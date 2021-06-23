@@ -85,6 +85,8 @@ bdist: vendor-deps
 	$(PYTHON) setup.py bdist_wheel --py-limited-api=$(PYTHON_API_VER) $(PYTHON_PLAT)
 ifeq ($(shell uname -s),Linux)
 	auditwheel repair dist/*.whl
+	rm -f dist/*.whl
+	mv wheelhouse/*.whl dist/
 endif
 
 sdist: vendor-deps

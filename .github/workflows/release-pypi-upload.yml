@@ -22,15 +22,17 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up Python
+    - name: Set up python (script version)
       if: matrix.container == ''
       uses: actions/setup-python@v2
       with:
         python-version: 3.7
 
-    - name: Set up Python
+    - name: Set up python (container version)
       if: matrix.container != ''
-      run: echo "/opt/python/cp37-cp37m/bin" >> $GITHUB_PATH
+      run: |
+        echo "/opt/python/cp37-cp37m/bin" >> $GITHUB_PATH
+        echo "/usr/local/bin" >> $GITHUB_PATH   # for git
 
     - name: Install dependencies
       run: |
