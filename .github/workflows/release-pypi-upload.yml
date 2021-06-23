@@ -4,7 +4,7 @@ name: build & pypi upload
 
 on:
   release:
-    types: [ created ]
+    types: [ published ]
   workflow_dispatch: # manual execution
 
 jobs:
