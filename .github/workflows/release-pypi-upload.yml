@@ -32,8 +32,6 @@ jobs:
       if: matrix.container != ''
       run: |
         echo "/opt/python/cp37-cp37m/bin" >> $GITHUB_PATH
-        echo "/usr/local/bin" >> $GITHUB_PATH   # for git
-        which git
 
     - name: Install dependencies
       run: |
