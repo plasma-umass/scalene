@@ -39,23 +39,26 @@ class EggInfoCommand(setuptools.command.egg_info.egg_info):
         self.spawn([make_command(), 'vendor-deps'])
         super().run()
 
-import setuptools.command.build_py
-class BuildPyCommand(setuptools.command.build_py.build_py):
+import setuptools.command.build_ext
+class BuildExtCommand(setuptools.command.build_ext.build_ext):
     """Custom command that runs 'make' to generate libscalene."""
     def run(self):
         super().run()
         self.build_libscalene()
 
     def build_libscalene(self):
-        build_ext = self.get_finalized_command('build_ext')
-        scalene_temp = path.join(build_ext.build_temp, 'scalene')
+        scalene_temp = path.join(self.build_temp, 'scalene')
         scalene_lib = path.join(self.build_lib, 'scalene')
         libscalene = 'libscalene' + dll_suffix()
         self.mkpath(scalene_temp)
+        self.mkpath(scalene_lib)
         self.spawn([make_command(), 'OUTDIR=' + scalene_temp,
                     'ARCH=' + ' '.join(multiarch_args())])
         self.copy_file(path.join(scalene_temp, libscalene),
                        path.join(scalene_lib, libscalene))
+        if self.inplace:
+            self.copy_file(path.join(scalene_lib, libscalene),
+                           path.join('scalene', libscalene))
 
 get_line_atomic = Extension('scalene.get_line_atomic',
     include_dirs=['.', 'vendor/Heap-Layers', 'vendor/Heap-Layers/utility'],
@@ -66,16 +69,20 @@ get_line_atomic = Extension('scalene.get_line_atomic',
     language="c++"
 )
 
+# if TWINE_REPOSITORY=testpypi, we're testing packaging. Build using a ".devN"
+# (monotonically increasing, not too big) suffix in the version number, so that
+# we can upload new files (as testpypi/pypi don't allow re-uploading files with
+# the same name as previously uploaded).
 testing = 'TWINE_REPOSITORY' in environ and environ['TWINE_REPOSITORY'] == 'testpypi'
 if testing:
     import subprocess
     import time
-    version_timestamp = int(subprocess.check_output(["git", "log", "-1", "--format=%ct", "scalene/scalene_version.py"]))
+    version_timestamp = int(subprocess.check_output(["git", "log", "-1", "--format=%ct",
+                                                     "scalene/scalene_version.py"]))
     mins_since_version = (time.time() - version_timestamp)/60
 
 setup(
     name="scalene",
-    # testpypi (and pypi) doesn't allow one to replace files, so add monotonically increasing ".devN" suffix
     version=scalene_version + (f'.dev{int(mins_since_version/5)}' if testing else ''),
     description="Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python",
     keywords="performance memory profiler",
@@ -107,7 +114,7 @@ setup(
     packages=find_packages(),
     cmdclass={
         'egg_info': EggInfoCommand,
-        'build_py': BuildPyCommand,
+        'build_ext': BuildExtCommand,
     },
     install_requires=[
         "rich>=9.2.10",
