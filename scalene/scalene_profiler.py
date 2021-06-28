@@ -65,9 +65,7 @@ from scalene.scalene_gpu import ScaleneGPU
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
-assert (
-    sys.version_info[0] == 3 and sys.version_info[1] >= 7
-), "Scalene requires Python version 3.7 or above."
+assert (sys.version_info >= (3,7)), "Scalene requires Python version 3.7 or above."
 
 
 # Scalene fully supports Unix-like operating systems; in
