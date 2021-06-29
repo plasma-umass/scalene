@@ -1317,6 +1317,9 @@ class Scalene:
                     except StopJupyterExecution:
                         # Running in Jupyter notebooks
                         pass
+                    except AttributeError:
+                        # don't let the handler below mask programming errors
+                        raise
                     except Exception as ex:
                         template = "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
                         message = template.format(type(ex).__name__, ex.args)
