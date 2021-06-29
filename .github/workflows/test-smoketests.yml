@@ -1,0 +1,44 @@
+name: smoketests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  smoketests:
+    timeout-minutes: 5
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+        python: [ 3.9 ]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python }}
+
+    - name: Work around arm64 support on MacOS
+      # https://github.com/actions/virtual-environments/issues/2557
+      if: matrix.os == 'macos-latest'
+      run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
+
+    - name: Install dependencies
+      run: python -m pip install --upgrade pip
+
+    - name: Build scalene
+      run: pip install -e .
+
+    - name: cpu-only smoke test
+      run: python -m scalene --cpu-only test/testme.py
+
+    - name: multiprocessing smoke test
+      run: python -m scalene test/multiprocessing_test.py
+
+    - name: profile-interval smoke test
+      run: python -m scalene --profile-interval=2 test/testme.py

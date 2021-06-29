@@ -1,4 +1,4 @@
-name: "Homebrew Tests"
+name: test homebrew install
 
 on:
   push:
