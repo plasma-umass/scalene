@@ -1105,9 +1105,10 @@ class Scalene:
 
     @staticmethod
     def clear_mmap_data() -> None:
-        while Scalene.read_malloc_mmap(): pass
-        if Scalene.__memcpy_signal_mmap:
-            while Scalene.read_memcpy_mmap(): pass
+        if not Scalene.__args.cpu_only:
+            while Scalene.read_malloc_mmap(): pass
+            if Scalene.__memcpy_signal_mmap:
+                while Scalene.read_memcpy_mmap(): pass
 
     @staticmethod
     def start() -> None:
