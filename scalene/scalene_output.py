@@ -554,7 +554,7 @@ class ScaleneOutput:
                         stats,
                         profile_this_code,
                         profile_memory=profile_memory,
-                        force_print=True,
+                        force_print=False,
                         suppress_lineno_print=False,
                         is_function_summary=False,
                         reduced_profile=reduced_profile,
