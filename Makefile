@@ -27,6 +27,23 @@ clang-format:
 black:
 	-black -l 79 $(PYTHON_SOURCES)
 
+vendor/Heap-Layers:
+	cd vendor && git clone https://github.com/emeryberger/Heap-Layers
+
+vendor/Hoard:
+	cd vendor && git clone https://github.com/emeryberger/Hoard
+	cd vendor\Hoard\src && git clone https://github.com/emeryberger/Heap-Layers
+
+vendor/printf/printf.cpp:
+	cd vendor && git clone https://github.com/mpaland/printf
+	cd vendor\printf && copy printf.c printf.cpp
+
+vendor-deps: clear-vendor-dirs vendor/Heap-Layers vendor/Hoard vendor/printf/printf.cpp
+
+clear-vendor-dirs:
+	rmdir /Q /S vendor
+	mkdir vendor
+
 pkg: vendor/Heap-Layers vendor/Hoard vendor/printf/printf.cpp
 	-rm -rf dist build *egg-info
 	$(PYTHON) setup.py sdist bdist_wheel
