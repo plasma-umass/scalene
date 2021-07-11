@@ -167,6 +167,7 @@ class Scalene:
     __malloc_lock_filename = Filename(f"/tmp/scalene-malloc-lock{os.getpid()}")
     __malloc_signal_position = 0
     __malloc_lastpos = bytearray(8)
+    __malloc_signal_mmap = None
     try:
         __malloc_signal_fd = open(__malloc_signal_filename, "r")
         os.unlink(__malloc_signal_fd.name)
