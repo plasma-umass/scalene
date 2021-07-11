@@ -16,7 +16,7 @@
 #include "printf.h"
 #include "sampler.hpp"
 
-#if !defined(__APPLE__)
+#if !defined(__APPLE__) && !defined(_WIN32)
 #include <endian.h>
 #endif
 

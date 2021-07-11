@@ -4,10 +4,17 @@
 
 #include <errno.h>
 #include <heaplayers.h>
+
+#if !defined(_WIN32)
 #include <pthread.h>
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#else
+#include <sys/stat.h>
+#define S_IRUSR _S_IRUSR
+#define S_IWUSR _S_IWUSR
+#endif
 
 #include "printf.h"
 #include "rtememcpy.h"
@@ -105,7 +112,7 @@ class SampleFile {
   ~SampleFile() {
     munmap(_mmap, MAX_FILE_SIZE);
     munmap(_lastpos, LOCK_FD_SIZE);
-    unlink(_signalfile);
+    //unlink(_signalfile);
     // unlink(_lockfile);
     unlink(_init_filename);
   }
