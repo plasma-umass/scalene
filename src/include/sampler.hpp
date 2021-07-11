@@ -1,6 +1,8 @@
 #pragma once
 
+#if !defined(_WIN32)
 #include <unistd.h>
+#endif
 
 #include <cmath>
 #include <iostream>
