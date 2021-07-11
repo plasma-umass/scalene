@@ -47,6 +47,9 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
         self.build_libscalene()
 
     def build_libscalene(self):
+        # No build of DLL for Windows currently.
+        if (sys.platform == 'win32'):
+            return
         scalene_temp = path.join(self.build_temp, 'scalene')
         scalene_lib = path.join(self.build_lib, 'scalene')
         libscalene = 'libscalene' + dll_suffix()
