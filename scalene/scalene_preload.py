@@ -26,6 +26,10 @@ class ScalenePreload:
             # required for multiprocessing support, even without libscalene
             env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
 
+        elif sys.platform == "win32":
+            # Force CPU only on Windows for now.
+            args.cpu_only = True
+
         return env
 
     @staticmethod
