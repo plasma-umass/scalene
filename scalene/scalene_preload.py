@@ -41,6 +41,7 @@ class ScalenePreload:
         if not args.cpu_only and (
             (
                 platform.machine() != "x86_64"
+                and platform.machine() != "AMD64"
                 and platform.machine() != "arm64"
                 and platform.machine() != "aarch64"
             )
