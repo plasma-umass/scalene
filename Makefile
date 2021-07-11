@@ -7,14 +7,15 @@ CXXFLAGS = /Ox /DNDEBUG /std:c++14 /Zi
 CXX = cl
 
 MAIN_INCLUDES  = -Isrc -Isrc/include
-INCLUDES = $(MAIN_INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility # -Ivendor/printf
+INCLUDES = $(MAIN_INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility -Ivendor/printf
 
 LIBFILE = lib$(LIBNAME).dll
 WRAPPER = # vendor/Heap-Layers/wrappers/gnuwrapper.cpp
 
-SRC = # src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
+SRC = src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
 
 all: $(SRC) $(OTHER_DEPS)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) /o $(LIBFILE)
 
 mypy:
 	-mypy $(PYTHON_SOURCES)
