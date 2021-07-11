@@ -44,7 +44,9 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
     """Custom command that runs 'make' to generate libscalene."""
     def run(self):
         super().run()
-        self.build_libscalene()
+        # No build of DLL for Windows currently.
+        if sys.platform != 'win32':
+            self.build_libscalene()
 
     def build_libscalene(self):
         scalene_temp = path.join(self.build_temp, 'scalene')
@@ -54,9 +56,6 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
         self.mkpath(scalene_lib)
         self.spawn([make_command(), 'OUTDIR=' + scalene_temp,
                     'ARCH=' + ' '.join(multiarch_args())])
-        # No build of DLL for Windows currently.
-        if (sys.platform == 'win32'):
-            return
         self.copy_file(path.join(scalene_temp, libscalene),
                        path.join(scalene_lib, libscalene))
         if self.inplace:
@@ -125,7 +124,7 @@ setup(
         "nvidia-ml-py==11.450.51",
         "numpy"
     ],
-    ext_modules=[get_line_atomic],
+    ext_modules=[get_line_atomic] if sys.platform != 'win32' else [],
     setup_requires=['setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
