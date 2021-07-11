@@ -6,6 +6,7 @@
 #endif
 
 #include <cmath>
+#include <cstdint>
 #include <iostream>
 #include <random>
 #include <thread>
