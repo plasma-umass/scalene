@@ -372,6 +372,7 @@ class Scalene:
             Scalene.timer_signals = True
             t = threading.Thread(target=Scalene.timer_thang)
             t.start()
+            Scalene.start_signal_queues()
             return
         Scalene.start_signal_queues()
         # Set signal handlers for memory allocation and memcpy events.
@@ -703,11 +704,14 @@ class Scalene:
         this_frame: FrameType,
     ) -> List[Tuple[FrameType, int, FrameType]]:
         """Collects all stack frames that Scalene actually processes."""
-        if threading._active_limbo_lock.locked():  # type: ignore
-            # Avoids deadlock where a Scalene signal occurs
-            # in the middle of a critical section of the
-            # threading library
-            return []
+        try:
+            if threading._active_limbo_lock.locked():  # type: ignore
+                # Avoids deadlock where a Scalene signal occurs
+                # in the middle of a critical section of the
+                # threading library
+                return []
+        except:
+            pass
         frames: List[Tuple[FrameType, int]] = [
             (
                 cast(
