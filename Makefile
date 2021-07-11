@@ -1,7 +1,7 @@
 LIBNAME = scalene
 PYTHON = python3
 PYTHON_SOURCES = scalene/[a-z]*.py
-C_SOURCES = src/source/libscalene.cpp src/source/get_line_atomic.cpp src/include/*.h*
+C_SOURCES = src/source/get_line_atomic.cpp src/include/*.h* # src/source/libscalene.cpp 
 
 CXXFLAGS = /Ox /DNDEBUG /std:c++14 /Zi
 CXX = cl
@@ -14,8 +14,8 @@ WRAPPER = # vendor/Heap-Layers/wrappers/gnuwrapper.cpp
 
 SRC = src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
 
-all: $(SRC) $(OTHER_DEPS)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) /o $(LIBFILE)
+all:  # vendor-deps $(SRC) $(OTHER_DEPS)
+# $(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) /o $(LIBFILE)
 
 mypy:
 	-mypy $(PYTHON_SOURCES)
@@ -42,7 +42,7 @@ vendor/printf/printf.cpp:
 vendor-deps: clear-vendor-dirs vendor/Heap-Layers vendor/Hoard vendor/printf/printf.cpp
 
 clear-vendor-dirs:
-	rmdir /Q /S vendor
+	if exist vendor\ (rmdir /Q /S vendor)
 	mkdir vendor
 
 pkg: vendor/Heap-Layers vendor/Hoard vendor/printf/printf.cpp
