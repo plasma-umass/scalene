@@ -2,13 +2,13 @@
 
 #if !defined(_WIN32)
 #include <execinfo.h>
+#include <unistd.h>
 #endif
 
 #include <heaplayers.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include <cstddef>
 
