@@ -805,6 +805,8 @@ class Scalene:
 
     @staticmethod
     def read_malloc_mmap() -> bool:
+        if sys.platform == "win32":
+            return False
         return get_line_atomic.get_line_atomic(
             Scalene.__malloc_lock_mmap,
             Scalene.__malloc_signal_mmap,
@@ -999,6 +1001,8 @@ class Scalene:
 
     @staticmethod
     def read_memcpy_mmap() -> bool:
+        if sys.platform == "win32":
+            return False
         return get_line_atomic.get_line_atomic(
             Scalene.__memcpy_lock_mmap,
             Scalene.__memcpy_signal_mmap,
