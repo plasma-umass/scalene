@@ -12,11 +12,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ windows-latest ]
-#        os: [ ubuntu-latest, macos-latest ]
-#        include:
-#          - os: ubuntu-latest
-#            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        include:
+          - os: ubuntu-latest
+            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
 
     container: ${{ matrix.container }}
 
