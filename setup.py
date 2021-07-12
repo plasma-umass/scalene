@@ -125,7 +125,8 @@ setup(
         "nvidia-ml-py==11.450.51",
         "numpy"
     ],
-    ext_modules=[get_line_atomic] if sys.platform != 'win32' else [],
+#    ext_modules=[get_line_atomic] if sys.platform != 'win32' else [],
+    ext_modules=[get_line_atomic]
     setup_requires=['setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
