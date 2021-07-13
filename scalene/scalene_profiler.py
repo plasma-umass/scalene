@@ -297,11 +297,13 @@ class Scalene:
     timer_signals = True
 
     @staticmethod
-    def timer_thang() -> None:
+    def windows_timer_loop() -> None:
+        """For Windows, send periodic timer signals; launch as a background thread."""
         Scalene.timer_signals = True
+        pid = os.getpid()
         while Scalene.timer_signals:
             time.sleep(Scalene.__args.cpu_sampling_rate)
-            signal.raise_signal(ScaleneSignals.cpu_signal)
+            os.kill(pid, ScaleneSignals.cpu_signal)
 
     @staticmethod
     def set_timer_signals() -> None:
@@ -370,7 +372,7 @@ class Scalene:
             )
             # On Windows, we simulate timer signals by running a background thread.
             Scalene.timer_signals = True
-            t = threading.Thread(target=Scalene.timer_thang)
+            t = threading.Thread(target=Scalene.windows_timer_loop)
             t.start()
             Scalene.start_signal_queues()
             return
