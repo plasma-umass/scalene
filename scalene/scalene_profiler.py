@@ -65,7 +65,11 @@ from scalene.scalene_gpu import ScaleneGPU
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
-assert (sys.version_info >= (3,7)), "Scalene requires Python version 3.7 or above."
+def require_python(version: Tuple[int, int]):
+    assert (sys.version_info >= version), \
+           f"Scalene requires Python version {version[0]}.{version[1]} or above."
+
+require_python((3,7) if sys.platform != "win32" else (3,8))
 
 
 # Scalene fully supports Unix-like operating systems; in
@@ -300,10 +304,9 @@ class Scalene:
     def windows_timer_loop() -> None:
         """For Windows, send periodic timer signals; launch as a background thread."""
         Scalene.timer_signals = True
-        pid = os.getpid()
         while Scalene.timer_signals:
             time.sleep(Scalene.__args.cpu_sampling_rate)
-            os.kill(pid, ScaleneSignals.cpu_signal)
+            signal.raise_signal(ScaleneSignals.cpu_signal)
 
     @staticmethod
     def set_timer_signals() -> None:

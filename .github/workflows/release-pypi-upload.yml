@@ -12,10 +12,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
         include:
+          - os: macos-latest
+            python_version: 3.7
           - os: ubuntu-latest
+            python_version: 3.7
             container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
+          - os: windows-latest
+            python_version: 3.8
 
     container: ${{ matrix.container }}
 
@@ -26,7 +30,7 @@ jobs:
       if: matrix.container == ''
       uses: actions/setup-python@v2
       with:
-        python-version: 3.7
+        python-version: ${{ matrix.python_version }}
 
     - name: Set up python (container version)
       if: matrix.container != ''
