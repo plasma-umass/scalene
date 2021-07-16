@@ -12,10 +12,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-        python_version: [ 3.7 ]
         include:
+          - os: macos-latest
+            python_version: 3.7
           - os: ubuntu-latest
+            python_version: 3.7
             container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
           - os: windows-latest
             python_version: 3.8
