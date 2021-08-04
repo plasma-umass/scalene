@@ -44,6 +44,15 @@ import setuptools.command.build_ext
 class BuildExtCommand(setuptools.command.build_ext.build_ext):
     """Custom command that runs 'make' to generate libscalene."""
     def run(self):
+        if (sys.platform == 'darwin'):
+            import sysconfig
+            mdt = 'MACOSX_DEPLOYMENT_TARGET'
+            target = environ[mdt] if mdt in environ else sysconfig.get_config_var(mdt)
+            # required for gcc/clang to find libstdc++ headers
+            if [int(n) for n in target.split('.')] < [10, 9]:
+                from distutils.errors import DistutilsError
+                raise DistutilsError('Please re-start setup.py setting ' + mdt + '=10.9 or greater')
+
         super().run()
         # No build of DLL for Windows currently.
         if sys.platform != 'win32':
