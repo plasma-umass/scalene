@@ -5,6 +5,7 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch: # manual execution
 
 jobs:
   smoketests:
@@ -13,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest ]
-        python: [ 3.9 ]
+        python: [ 3.9, pypy-3.7 ]
 
     steps:
     - uses: actions/checkout@v2
