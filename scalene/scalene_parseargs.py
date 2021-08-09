@@ -2,7 +2,9 @@ from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_version import scalene_version
 
 from typing import (
+    Any,
     List,
+    Optional,
     Tuple,
 )
 from textwrap import dedent
@@ -12,12 +14,12 @@ import sys
 
 class RichArgParser(argparse.ArgumentParser):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         from rich.console import Console
         self.console = Console()
         super().__init__(*args, **kwargs)
         
-    def _print_message(self, message, file=None):
+    def _print_message(self, message : Optional[str], file: Any = None) -> None:
         if message:
             self.console.print(message)
                 
@@ -41,8 +43,8 @@ class ScaleneParseArgs:
             from IPython import get_ipython
 
             if get_ipython():
-                sys.exit = clean_exit  # type: ignore
-                sys._exit = clean_exit
+                sys.exit = ScaleneParseArgs.clean_exit  # type: ignore
+                sys._exit = ScaleneParseArgs.clean_exit
         except:
             pass
         defaults = ScaleneArguments()

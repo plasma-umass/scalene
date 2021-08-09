@@ -1,3 +1,4 @@
+import pathlib
 import shutil
 import sys
 import tempfile
@@ -308,7 +309,7 @@ class ScaleneOutput:
         stats: ScaleneStatistics,
         pid: int,
         profile_this_code: Callable[[Filename, LineNumber], bool],
-        python_alias_dir: Filename,
+        python_alias_dir: pathlib.Path,
         profile_memory: bool = True,
         reduced_profile: bool = False,
     ) -> bool:

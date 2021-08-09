@@ -23,6 +23,7 @@ import inspect
 import math
 import mmap
 import multiprocessing
+import pathlib
 import queue
 import os
 import random
@@ -44,6 +45,7 @@ from signal import Handlers, Signals
 from types import CodeType, FrameType
 from typing import (
     Any,
+    AnyStr,
     Callable,
     Dict,
     Set,
@@ -65,7 +67,7 @@ from scalene.scalene_gpu import ScaleneGPU
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
-def require_python(version: Tuple[int, int]):
+def require_python(version: Tuple[int, int]) -> None:
     assert (sys.version_info >= version), \
            f"Scalene requires Python version {version[0]}.{version[1]} or above."
 
@@ -150,7 +152,8 @@ class Scalene:
     # path for the program being profiled
     __program_path: str = ""
     # temporary directory to hold aliases to Python
-    __python_alias_dir: Filename
+
+    __python_alias_dir: pathlib.Path
 
     ## Profile output parameters
 
@@ -227,6 +230,11 @@ class Scalene:
     __is_thread_sleeping: Dict[int, bool] = defaultdict(bool)  # False by default
     __child_pids: Set[int] = set()
 
+    # Signal queues for CPU timers, allocations, and memcpy
+    __cpu_sigq : ScaleneSigQueue[Any]
+    __alloc_sigq : ScaleneSigQueue[Any]
+    __memcpy_sigq : ScaleneSigQueue[Any]
+    
     @classmethod
     def clear_metrics(cls) -> None:
         """
@@ -432,12 +440,12 @@ class Scalene:
             # The parent always puts this directory as the first entry in the PATH.
             # Extract the alias directory from the path.
             dirname = os.environ["PATH"].split(os.pathsep)[0]
-            Scalene.__python_alias_dir = Filename(dirname)
+            Scalene.__python_alias_dir = pathlib.Path(dirname)
             Scalene.__pid = arguments.pid
 
         else:
             # Parent process.
-            Scalene.__python_alias_dir = Filename(tempfile.mkdtemp(prefix="scalene"))
+            Scalene.__python_alias_dir = pathlib.Path(tempfile.mkdtemp(prefix="scalene"))
             # Create a temporary directory to hold aliases to the Python
             # executable, so scalene can handle multiple processes; each
             # one is a shell script that redirects to Scalene.
@@ -472,9 +480,9 @@ class Scalene:
                     file.write(payload)
                 os.chmod(fname, stat.S_IXUSR | stat.S_IRUSR | stat.S_IWUSR)
             # Finally, insert this directory into the path.
-            sys.path.insert(0, Scalene.__python_alias_dir)
+            sys.path.insert(0, str(Scalene.__python_alias_dir))
             os.environ["PATH"] = (
-                Scalene.__python_alias_dir + os.pathsep + os.environ["PATH"]
+                str(Scalene.__python_alias_dir) + os.pathsep + os.environ["PATH"]
             )
             # Force the executable (if anyone invokes it later) to point to one of our aliases.
             sys.executable = Scalene.__all_python_names[0]
@@ -969,10 +977,6 @@ class Scalene:
                 mallocs, frees = stats.leak_score[fname][lineno]
                 stats.leak_score[fname][lineno] = (mallocs + 1, frees)
         del this_frame
-
-    __cpu_sigq = None
-    __alloc_sigq = None
-    __memcpy_sigq = None
 
     @staticmethod
     def before_fork() -> None:

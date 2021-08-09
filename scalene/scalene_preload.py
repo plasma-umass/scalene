@@ -61,7 +61,7 @@ class ScalenePreload:
 
             if get_ipython():
                 sys.exit = Scalene.clean_exit  # type: ignore
-                sys._exit = Scalene.clean_exit
+                sys._exit = Scalene.clean_exit  # type: ignore
         except:
             pass
 

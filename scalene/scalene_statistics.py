@@ -32,7 +32,7 @@ class ScaleneStatistics:
     #
     def __init__(self) -> None:
         # time the profiling started
-        self.start_time: float = None
+        self.start_time: float = 0
 
         # total time spent in program being profiled
         self.elapsed_time: float = 0
@@ -194,7 +194,7 @@ class ScaleneStatistics:
 
     def stop_clock(self) -> None:
         self.elapsed_time += time.perf_counter() - self.start_time
-        self.start_time = None
+        self.start_time = 0
 
     def build_function_stats(self, filename: Filename):  # type: ignore
         fn_stats = ScaleneStatistics()
@@ -280,7 +280,7 @@ class ScaleneStatistics:
     ]
     # To be added: __malloc_samples
 
-    def output_stats(self, pid: int, dir_name: Filename) -> None:
+    def output_stats(self, pid: int, dir_name: pathlib.Path) -> None:
         payload: List[Any] = []
         for n in ScaleneStatistics.payload_contents:
             payload.append(getattr(self, n))
@@ -324,7 +324,7 @@ class ScaleneStatistics:
                         filename
                     ][lineno][ind]
 
-    def merge_stats(self, the_dir_name: Filename) -> None:
+    def merge_stats(self, the_dir_name: pathlib.Path) -> None:
         the_dir = pathlib.Path(the_dir_name)
         for f in list(the_dir.glob("**/scalene*")):
             # Skip empty files.
