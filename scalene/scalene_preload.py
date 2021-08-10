@@ -9,6 +9,7 @@ import sys
 
 from typing import Dict
 
+
 class ScalenePreload:
     @staticmethod
     def get_preload_environ(args: argparse.Namespace) -> Dict[str, str]:
@@ -16,12 +17,16 @@ class ScalenePreload:
 
         if sys.platform == "linux":
             if not args.cpu_only:
-                env["LD_PRELOAD"] = os.path.join(scalene.__path__[0], "libscalene.so")
+                env["LD_PRELOAD"] = os.path.join(
+                    scalene.__path__[0], "libscalene.so"
+                )
                 env["PYTHONMALLOC"] = "malloc"
 
         elif sys.platform == "darwin":
             if not args.cpu_only:
-                env["DYLD_INSERT_LIBRARIES"] = os.path.join(scalene.__path__[0], "libscalene.dylib")
+                env["DYLD_INSERT_LIBRARIES"] = os.path.join(
+                    scalene.__path__[0], "libscalene.dylib"
+                )
                 env["PYTHONMALLOC"] = "malloc"
             # required for multiprocessing support, even without libscalene
             env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
@@ -76,9 +81,7 @@ class ScalenePreload:
                 "-m",
                 "scalene",
             ] + sys.argv[1:]
-            result = subprocess.Popen(
-                new_args, close_fds=True, shell=False
-            )
+            result = subprocess.Popen(new_args, close_fds=True, shell=False)
             try:
                 # If running in the background, print the PID.
                 if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):

@@ -2,14 +2,15 @@ import queue
 import threading
 from typing import Any, Callable, Generic, Optional, TypeVar
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class ScaleneSigQueue(Generic[T]):
-    def __init__(self, process : Any) -> None:
-        self.queue : queue.SimpleQueue[Optional[T]] = queue.SimpleQueue()
+    def __init__(self, process: Any) -> None:
+        self.queue: queue.SimpleQueue[Optional[T]] = queue.SimpleQueue()
         self.process = process
-        self.thread : Optional[threading.Thread] = None
-        self.lock = threading.RLock() # held while processing an item
+        self.thread: Optional[threading.Thread] = None
+        self.lock = threading.RLock()  # held while processing an item
 
     def put(self, item: Optional[T]) -> None:
         self.queue.put(item)

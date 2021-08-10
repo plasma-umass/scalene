@@ -66,11 +66,14 @@ from scalene.scalene_gpu import ScaleneGPU
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
-def require_python(version: Tuple[int, int]) -> None:
-    assert (sys.version_info >= version), \
-           f"Scalene requires Python version {version[0]}.{version[1]} or above."
 
-require_python((3,7) if sys.platform != "win32" else (3,8))
+def require_python(version: Tuple[int, int]) -> None:
+    assert (
+        sys.version_info >= version
+    ), f"Scalene requires Python version {version[0]}.{version[1]} or above."
+
+
+require_python((3, 7) if sys.platform != "win32" else (3, 8))
 
 
 # Scalene fully supports Unix-like operating systems; in
@@ -100,7 +103,9 @@ class Scalene:
     # decorated files
     __files_to_profile: Dict[Filename, bool] = defaultdict(bool)
     # decorated functions
-    __functions_to_profile: Dict[Filename, Dict[Any, bool]] = defaultdict(lambda: {})
+    __functions_to_profile: Dict[Filename, Dict[Any, bool]] = defaultdict(
+        lambda: {}
+    )
 
     # We use these in is_call_function to determine whether a
     # particular bytecode is a function call.  We use this to
@@ -169,7 +174,9 @@ class Scalene:
     __memcpy_buf = bytearray(MAX_BUFSIZE)
 
     #   file to communicate the number of malloc/free samples (+ PID)
-    __malloc_signal_filename = Filename(f"/tmp/scalene-malloc-signal{os.getpid()}")
+    __malloc_signal_filename = Filename(
+        f"/tmp/scalene-malloc-signal{os.getpid()}"
+    )
     __malloc_lock_filename = Filename(f"/tmp/scalene-malloc-lock{os.getpid()}")
     __malloc_signal_position = 0
     __malloc_lastpos = bytearray(8)
@@ -196,7 +203,9 @@ class Scalene:
         pass
 
     #   file to communicate the number of memcpy samples (+ PID)
-    __memcpy_signal_filename = Filename(f"/tmp/scalene-memcpy-signal{os.getpid()}")
+    __memcpy_signal_filename = Filename(
+        f"/tmp/scalene-memcpy-signal{os.getpid()}"
+    )
 
     __memcpy_lock_filename = Filename(f"/tmp/scalene-memcpy-lock{os.getpid()}")
     try:
@@ -226,14 +235,16 @@ class Scalene:
     __program_being_profiled = Filename("")
 
     # Is the thread sleeping? (We use this to properly attribute CPU time.)
-    __is_thread_sleeping: Dict[int, bool] = defaultdict(bool)  # False by default
+    __is_thread_sleeping: Dict[int, bool] = defaultdict(
+        bool
+    )  # False by default
     __child_pids: Set[int] = set()
 
     # Signal queues for CPU timers, allocations, and memcpy
-    __cpu_sigq : ScaleneSigQueue[Any]
-    __alloc_sigq : ScaleneSigQueue[Any]
-    __memcpy_sigq : ScaleneSigQueue[Any]
-    
+    __cpu_sigq: ScaleneSigQueue[Any]
+    __alloc_sigq: ScaleneSigQueue[Any]
+    __memcpy_sigq: ScaleneSigQueue[Any]
+
     @classmethod
     def clear_metrics(cls) -> None:
         """
@@ -351,21 +362,27 @@ class Scalene:
 
     @staticmethod
     def malloc_signal_handler(
-        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
         this_frame: FrameType,
     ) -> None:
         Scalene.__alloc_sigq.put((signum, this_frame))
 
     @staticmethod
     def free_signal_handler(
-        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
         this_frame: FrameType,
     ) -> None:
         Scalene.__alloc_sigq.put((signum, this_frame))
 
     @staticmethod
     def memcpy_signal_handler(
-        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
         this_frame: FrameType,
     ) -> None:
         Scalene.__memcpy_sigq.put((signum, this_frame))
@@ -388,7 +405,9 @@ class Scalene:
             return
         Scalene.start_signal_queues()
         # Set signal handlers for memory allocation and memcpy events.
-        signal.signal(ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler)
+        signal.signal(
+            ScaleneSignals.malloc_signal, Scalene.malloc_signal_handler
+        )
         signal.signal(ScaleneSignals.free_signal, Scalene.free_signal_handler)
         signal.signal(
             ScaleneSignals.memcpy_signal,
@@ -429,8 +448,12 @@ class Scalene:
 
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.__cpu_sigq = ScaleneSigQueue(Scalene.cpu_sigqueue_processor)
-        Scalene.__alloc_sigq = ScaleneSigQueue(Scalene.alloc_sigqueue_processor)
-        Scalene.__memcpy_sigq = ScaleneSigQueue(Scalene.memcpy_sigqueue_processor)
+        Scalene.__alloc_sigq = ScaleneSigQueue(
+            Scalene.alloc_sigqueue_processor
+        )
+        Scalene.__memcpy_sigq = ScaleneSigQueue(
+            Scalene.memcpy_sigqueue_processor
+        )
 
         Scalene.set_timer_signals()
         if arguments.pid:
@@ -444,7 +467,9 @@ class Scalene:
 
         else:
             # Parent process.
-            Scalene.__python_alias_dir = pathlib.Path(tempfile.mkdtemp(prefix="scalene"))
+            Scalene.__python_alias_dir = pathlib.Path(
+                tempfile.mkdtemp(prefix="scalene")
+            )
             # Create a temporary directory to hold aliases to the Python
             # executable, so scalene can handle multiple processes; each
             # one is a shell script that redirects to Scalene.
@@ -460,7 +485,9 @@ class Scalene:
                 cmdline += " --cpu-only"
 
             environ = ScalenePreload.get_preload_environ(arguments)
-            preface = ' '.join('='.join((k,str(v))) for (k,v) in environ.items())
+            preface = " ".join(
+                "=".join((k, str(v))) for (k, v) in environ.items()
+            )
 
             # Add the --pid field so we can propagate it to the child.
             cmdline += f" --pid={os.getpid()} ---"
@@ -481,7 +508,9 @@ class Scalene:
             # Finally, insert this directory into the path.
             sys.path.insert(0, str(Scalene.__python_alias_dir))
             os.environ["PATH"] = (
-                str(Scalene.__python_alias_dir) + os.pathsep + os.environ["PATH"]
+                str(Scalene.__python_alias_dir)
+                + os.pathsep
+                + os.environ["PATH"]
             )
             # Force the executable (if anyone invokes it later) to point to one of our aliases.
             sys.executable = Scalene.__all_python_names[0]
@@ -496,7 +525,9 @@ class Scalene:
 
     @staticmethod
     def cpu_signal_handler(
-        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
         this_frame: FrameType,
     ) -> None:
         """Wrapper for CPU signal handlers."""
@@ -549,7 +580,9 @@ class Scalene:
 
     @staticmethod
     def cpu_sigqueue_processor(
-        _signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        _signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
         this_frame: FrameType,
         now_virtual: float,
         now_wallclock: float,
@@ -581,7 +614,7 @@ class Scalene:
                     reduced_profile=Scalene.__args.reduced_profile,
                 )
                 stats.start_clock()
-            
+
         # Here we take advantage of an ostensible limitation of Python:
         # it only delivers signals after the interpreter has given up
         # control. This seems to mean that sampling is limited to code
@@ -660,7 +693,9 @@ class Scalene:
                     Scalene.__stats.cpu_samples[fname] += (
                         python_time + c_time
                     ) / total_frames
-                    Scalene.__stats.cpu_utilization[fname][lineno].push(cpu_utilization)
+                    Scalene.__stats.cpu_utilization[fname][lineno].push(
+                        cpu_utilization
+                    )
                     Scalene.__stats.gpu_samples[fname][lineno] += (
                         gpu_time / total_frames
                     )
@@ -679,14 +714,18 @@ class Scalene:
                         ByteCodeIndex(orig_frame.f_lasti),
                     ):
                         # It is. Attribute time to native.
-                        Scalene.__stats.cpu_samples_c[fname][lineno] += normalized_time
+                        Scalene.__stats.cpu_samples_c[fname][
+                            lineno
+                        ] += normalized_time
                     else:
                         # Not in a call function so we attribute the time to Python.
                         Scalene.__stats.cpu_samples_python[fname][
                             lineno
                         ] += normalized_time
                     Scalene.__stats.cpu_samples[fname] += normalized_time
-                    Scalene.__stats.cpu_utilization[fname][lineno].push(cpu_utilization)
+                    Scalene.__stats.cpu_utilization[fname][lineno].push(
+                        cpu_utilization
+                    )
 
         del new_frames
 
@@ -768,7 +807,9 @@ class Scalene:
         return new_frames
 
     @staticmethod
-    def enter_function_meta(frame: FrameType, stats: ScaleneStatistics) -> None:
+    def enter_function_meta(
+        frame: FrameType, stats: ScaleneStatistics
+    ) -> None:
         fname = Filename(frame.f_code.co_filename)
         lineno = LineNumber(frame.f_lineno)
         f = frame
@@ -825,7 +866,9 @@ class Scalene:
 
     @staticmethod
     def alloc_sigqueue_processor(
-        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
         this_frame: FrameType,
     ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
@@ -839,7 +882,9 @@ class Scalene:
         try:
             while Scalene.read_malloc_mmap():
                 count_str = (
-                    Scalene.__malloc_buf.rstrip(b"\x00").split(b"\n")[0].decode("ascii")
+                    Scalene.__malloc_buf.rstrip(b"\x00")
+                    .split(b"\n")[0]
+                    .decode("ascii")
                 )
                 if count_str.strip() == "":
                     break
@@ -955,7 +1000,9 @@ class Scalene:
             # free. This is for later reporting of net memory gain /
             # loss per line of code.
             if after > before:
-                stats.memory_malloc_samples[fname][lineno][bytei] += after - before
+                stats.memory_malloc_samples[fname][lineno][bytei] += (
+                    after - before
+                )
                 stats.memory_python_samples[fname][lineno][bytei] += (
                     python_frac / allocs
                 ) * (after - before)
@@ -963,7 +1010,9 @@ class Scalene:
                 stats.memory_malloc_count[fname][lineno][bytei] += 1
                 stats.total_memory_malloc_samples += after - before
             else:
-                stats.memory_free_samples[fname][lineno][bytei] += before - after
+                stats.memory_free_samples[fname][lineno][bytei] += (
+                    before - after
+                )
                 stats.memory_free_count[fname][lineno][bytei] += 1
                 stats.total_memory_free_samples += before - after
             stats.allocation_velocity = (
@@ -1017,7 +1066,9 @@ class Scalene:
 
     @staticmethod
     def memcpy_sigqueue_processor(
-        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
         frame: FrameType,
     ) -> None:
         curr_pid = os.getpid()
@@ -1029,7 +1080,9 @@ class Scalene:
         try:
             if Scalene.__memcpy_signal_mmap:
                 while Scalene.read_memcpy_mmap():
-                    count_str = Scalene.__memcpy_buf.split(b"\n")[0].decode("ascii")
+                    count_str = Scalene.__memcpy_buf.split(b"\n")[0].decode(
+                        "ascii"
+                    )
                     (memcpy_time_str, count_str2, pid) = count_str.split(",")
                     if int(curr_pid) == int(pid):
                         arr.append((int(memcpy_time_str), int(count_str2)))
@@ -1115,9 +1168,11 @@ class Scalene:
     @staticmethod
     def clear_mmap_data() -> None:
         if not Scalene.__args.cpu_only:
-            while Scalene.read_malloc_mmap(): pass
+            while Scalene.read_malloc_mmap():
+                pass
             if Scalene.__memcpy_signal_mmap:
-                while Scalene.read_memcpy_mmap(): pass
+                while Scalene.read_memcpy_mmap():
+                    pass
 
     @staticmethod
     def start() -> None:
@@ -1134,7 +1189,9 @@ class Scalene:
 
     @staticmethod
     def start_signal_handler(
-        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
         this_frame: FrameType,
     ) -> None:
         for pid in Scalene.__child_pids:
@@ -1143,7 +1200,9 @@ class Scalene:
 
     @staticmethod
     def stop_signal_handler(
-        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
         this_frame: FrameType,
     ) -> None:
         for pid in Scalene.__child_pids:
@@ -1184,7 +1243,9 @@ class Scalene:
 
     @staticmethod
     def termination_handler(
-        signum: Union[Callable[[Signals, FrameType], None], int, Handlers, None],
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
         this_frame: FrameType,
     ) -> None:
         sys.exit(-1)
@@ -1249,7 +1310,9 @@ class Scalene:
         signal.signal(
             ScaleneSignals.start_profiling_signal, Scalene.start_signal_handler
         )
-        signal.signal(ScaleneSignals.stop_profiling_signal, Scalene.stop_signal_handler)
+        signal.signal(
+            ScaleneSignals.stop_profiling_signal, Scalene.stop_signal_handler
+        )
         if sys.platform != "win32":
             signal.siginterrupt(ScaleneSignals.start_profiling_signal, False)
             signal.siginterrupt(ScaleneSignals.stop_profiling_signal, False)
@@ -1301,7 +1364,9 @@ class Scalene:
                     program_path = os.path.dirname(os.path.abspath(progs[0]))
                     sys.path.insert(0, program_path)
                     if len(args.program_path) > 0:
-                        Scalene.__program_path = os.path.abspath(args.program_path)
+                        Scalene.__program_path = os.path.abspath(
+                            args.program_path
+                        )
                     else:
                         Scalene.__program_path = program_path
                     # Grab local and global variables.
@@ -1314,7 +1379,9 @@ class Scalene:
                     # Some mysterious module foo to make this work the same with -m as with `scalene`.
                     the_globals["__spec__"] = None
                     # Start the profiler.
-                    fullname = os.path.join(program_path, os.path.basename(progs[0]))
+                    fullname = os.path.join(
+                        program_path, os.path.basename(progs[0])
+                    )
                     # Do a GC before we start.
                     gc.collect()
                     profiler = Scalene(args, Filename(fullname))

@@ -13,16 +13,17 @@ import sys
 
 
 class RichArgParser(argparse.ArgumentParser):
-
     def __init__(self, *args: Any, **kwargs: Any):
         from rich.console import Console
+
         self.console = Console()
         super().__init__(*args, **kwargs)
-        
-    def _print_message(self, message : Optional[str], file: Any = None) -> None:
+
+    def _print_message(self, message: Optional[str], file: Any = None) -> None:
         if message:
             self.console.print(message)
-                
+
+
 class StopJupyterExecution(Exception):
     """NOP exception to enable clean exits from within Jupyter notebooks."""
 
@@ -78,7 +79,7 @@ for the process ID that Scalene reports. For example:
 """
         )
 
-        parser = RichArgParser( # argparse.ArgumentParser(
+        parser = RichArgParser(  # argparse.ArgumentParser(
             prog="scalene",
             description=usage,
             epilog=epilog,
@@ -131,7 +132,11 @@ for the process ID that Scalene reports. For example:
             const=True,
             default=defaults.cpu_only,
             help="only profile CPU+GPU time (default: [blue]profile "
-            + ("CPU only" if defaults.cpu_only else "CPU+GPU, memory, and copying")
+            + (
+                "CPU only"
+                if defaults.cpu_only
+                else "CPU+GPU, memory, and copying"
+            )
             + "[/blue])",
         )
         parser.add_argument(
@@ -224,7 +229,10 @@ for the process ID that Scalene reports. For example:
         args, left = parser.parse_known_args()
         left += args.unused_args
         import re
-        in_jupyter_notebook = len(sys.argv) >= 1 and re.match("<ipython-input-([0-9]+)-.*>", sys.argv[0])
+
+        in_jupyter_notebook = len(sys.argv) >= 1 and re.match(
+            "<ipython-input-([0-9]+)-.*>", sys.argv[0]
+        )
         # If the user did not enter any commands (just `scalene` or `python3 -m scalene`),
         # print the usage information and bail.
         if not in_jupyter_notebook and (len(sys.argv) + len(left) == 1):
