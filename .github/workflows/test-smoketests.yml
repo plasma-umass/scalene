@@ -9,12 +9,17 @@ on:
 
 jobs:
   smoketests:
-    timeout-minutes: 5
+    timeout-minutes: ${{ timeout_minutes }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest ]
         python: [ 3.9, pypy-3.7 ]
+        include:
+          - python: 3.9
+            timeout_minutes: 5
+          - python: pypy-3.7
+            timeout_minutes: 10
 
     steps:
     - uses: actions/checkout@v2
