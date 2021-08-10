@@ -1,3 +1,4 @@
+import pathlib
 import shutil
 import sys
 import tempfile
@@ -308,7 +309,7 @@ class ScaleneOutput:
         stats: ScaleneStatistics,
         pid: int,
         profile_this_code: Callable[[Filename, LineNumber], bool],
-        python_alias_dir: Filename,
+        python_alias_dir: pathlib.Path,
         profile_memory: bool = True,
         reduced_profile: bool = False,
     ) -> bool:
@@ -459,39 +460,66 @@ class ScaleneOutput:
             )
 
             tbl.add_column(
-                Markdown("Line", style="dim"), style="dim", justify="right", no_wrap=True, width=4
+                Markdown("Line", style="dim"),
+                style="dim",
+                justify="right",
+                no_wrap=True,
+                width=4,
             )
             tbl.add_column(
-                Markdown("Time  " + "\n" + "_Python_", style="blue"), style="blue", no_wrap=True, width=6
+                Markdown("Time  " + "\n" + "_Python_", style="blue"),
+                style="blue",
+                no_wrap=True,
+                width=6,
             )
             tbl.add_column(
-                Markdown("––––––  \n_native_", style="blue"), style="blue", no_wrap=True, width=6
+                Markdown("––––––  \n_native_", style="blue"),
+                style="blue",
+                no_wrap=True,
+                width=6,
             )
             tbl.add_column(
-                Markdown("––––––  \n_system_", style="blue"), style="blue", no_wrap=True, width=6
+                Markdown("––––––  \n_system_", style="blue"),
+                style="blue",
+                no_wrap=True,
+                width=6,
             )
             if self.gpu:
                 tbl.add_column(
-                    Markdown("––––––  \n_GPU_", style="yellow4"), style="yellow4", no_wrap=True, width=6
+                    Markdown("––––––  \n_GPU_", style="yellow4"),
+                    style="yellow4",
+                    no_wrap=True,
+                    width=6,
                 )
 
             other_columns_width = 0  # Size taken up by all columns BUT code
 
             if profile_memory:
                 tbl.add_column(
-                    Markdown("Memory  \n_Python_", style="dark_green"), style="dark_green", no_wrap=True, width=7
+                    Markdown("Memory  \n_Python_", style="dark_green"),
+                    style="dark_green",
+                    no_wrap=True,
+                    width=7,
                 )
                 tbl.add_column(
-                    Markdown("––––––  \n_net_", style="dark_green"), style="dark_green", no_wrap=True, width=6
+                    Markdown("––––––  \n_net_", style="dark_green"),
+                    style="dark_green",
+                    no_wrap=True,
+                    width=6,
                 )
                 tbl.add_column(
-                    Markdown("–––––––––––  \n_timeline_/%", style="dark_green"),
+                    Markdown(
+                        "–––––––––––  \n_timeline_/%", style="dark_green"
+                    ),
                     style="dark_green",
                     no_wrap=True,
                     width=14,
                 )
                 tbl.add_column(
-                    Markdown("Copy  \n_(MB/s)_", style="yellow4"), style="yellow4", no_wrap=True, width=6
+                    Markdown("Copy  \n_(MB/s)_", style="yellow4"),
+                    style="yellow4",
+                    no_wrap=True,
+                    width=6,
                 )
                 other_columns_width = 75 + (6 if self.gpu else 0)
                 tbl.add_column(
