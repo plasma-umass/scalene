@@ -15,11 +15,11 @@ jobs:
       matrix:
         os: [ ubuntu-latest, macos-latest ]
         python: [ 3.9, pypy-3.7 ]
+        timeout_minutes: 5
         include:
-          - python: 3.9
-            timeout_minutes: 5
           - python: pypy-3.7
-            timeout_minutes: 10
+            os: macos-latest
+            timeout_minutes: 15  # it builds numpy and other dependencies
 
     steps:
     - uses: actions/checkout@v2
