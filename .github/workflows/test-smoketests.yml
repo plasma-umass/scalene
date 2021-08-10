@@ -15,7 +15,7 @@ jobs:
       matrix:
         os: [ ubuntu-latest, macos-latest ]
         python: [ 3.9, pypy-3.7 ]
-        timeout_minutes: 5
+        timeout_minutes: [ 5 ]
         include:
           - python: pypy-3.7
             os: macos-latest
