@@ -45,7 +45,6 @@ from signal import Handlers, Signals
 from types import CodeType, FrameType
 from typing import (
     Any,
-    AnyStr,
     Callable,
     Dict,
     Set,
