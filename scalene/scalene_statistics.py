@@ -193,6 +193,7 @@ class ScaleneStatistics:
         self.start_time = time.perf_counter()
 
     def stop_clock(self) -> None:
+        assert self.start_time > 0
         self.elapsed_time += time.perf_counter() - self.start_time
         self.start_time = 0
 
