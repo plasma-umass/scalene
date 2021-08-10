@@ -9,8 +9,6 @@ on:
 
 jobs:
   smoketests:
-    timeout-minutes: ${{ timeout_minutes }}
-    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest ]
@@ -20,6 +18,8 @@ jobs:
             timeout_minutes: 5
           - python: pypy-3.7
             timeout_minutes: 10
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ timeout_minutes }}
 
     steps:
     - uses: actions/checkout@v2
