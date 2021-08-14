@@ -672,14 +672,24 @@ class ScaleneOutput:
             net_mallocs = OrderedDict(
                 sorted(net_mallocs.items(), key=itemgetter(1), reverse=True)
             )
+            # Print the top N lines by net memory consumption, as long
+            # as they are above some threshold MB in size.
+            print_top_mallocs_count = 5
+            print_top_mallocs_threshold_mb = 1
             if len(net_mallocs) > 0:
-                console.print("Top net memory consumption, by line:")
+                printed_header = False
                 number = 1
                 for net_malloc_lineno in net_mallocs:
-                    if net_mallocs[net_malloc_lineno] <= 1:
+                    # Don't print lines with less than the threshold MB allocated.
+                    if net_mallocs[net_malloc_lineno] <= print_top_mallocs_threshold_mb:
                         break
-                    if number > 5:
+                    # Only print the top N.
+                    if number > print_top_mallocs_count:
                         break
+                    # Print the header only if we are printing something (and only once).
+                    if not printed_header:
+                        console.print("Top net memory consumption, by line:")
+                        printed_header = True
                     output_str = (
                         "("
                         + str(number)
