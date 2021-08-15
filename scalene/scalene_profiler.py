@@ -51,6 +51,7 @@ from typing import (
     FrozenSet,
     List,
     Optional,
+    TextIO,
     Tuple,
     Union,
     cast,
@@ -181,27 +182,10 @@ class Scalene:
     __malloc_signal_position = 0
     __malloc_lastpos = bytearray(8)
     __malloc_signal_mmap = None
-    try:
-        __malloc_signal_fd = open(__malloc_signal_filename, "r")
-        os.unlink(__malloc_signal_fd.name)
-        __malloc_lock_fd = open(__malloc_lock_filename, "r+")
-        os.unlink(__malloc_lock_fd.name)
-        __malloc_signal_mmap = mmap.mmap(
-            __malloc_signal_fd.fileno(),
-            0,
-            mmap.MAP_SHARED,
-            mmap.PROT_READ,
-        )
-        __malloc_lock_mmap = mmap.mmap(
-            __malloc_lock_fd.fileno(),
-            0,
-            mmap.MAP_SHARED,
-            mmap.PROT_READ | mmap.PROT_WRITE,
-        )
-    except BaseException as exc:
-        # Ignore if we aren't profiling memory.
-        pass
-
+    __malloc_lock_mmap : mmap.mmap
+    __malloc_signal_fd : TextIO
+    __malloc_lock_fd : TextIO
+    
     #   file to communicate the number of memcpy samples (+ PID)
     __memcpy_signal_filename = Filename(
         f"/tmp/scalene-memcpy-signal{os.getpid()}"
@@ -454,6 +438,31 @@ class Scalene:
         Scalene.__memcpy_sigq = ScaleneSigQueue(
             Scalene.memcpy_sigqueue_processor
         )
+
+        # Initialize the malloc related files; if for whatever reason
+        # the files don't exist and we are supposed to be profiling
+        # memory, exit.
+        try:
+            Scalene.__malloc_signal_fd = open(Scalene.__malloc_signal_filename, "r")
+            os.unlink(Scalene.__malloc_signal_fd.name)
+            Scalene.__malloc_lock_fd = open(Scalene.__malloc_lock_filename, "r+")
+            os.unlink(Scalene.__malloc_lock_fd.name)
+            Scalene.__malloc_signal_mmap = mmap.mmap(
+                Scalene.__malloc_signal_fd.fileno(),
+                0,
+                mmap.MAP_SHARED,
+                mmap.PROT_READ,
+            )
+            Scalene.__malloc_lock_mmap = mmap.mmap(
+                Scalene.__malloc_lock_fd.fileno(),
+                0,
+                mmap.MAP_SHARED,
+                mmap.PROT_READ | mmap.PROT_WRITE,
+            )
+        except BaseException as exc:
+            # Ignore if we aren't profiling memory; otherwise, exit.
+            if not arguments.cpu_only:
+                sys.exit(-1)
 
         Scalene.set_timer_signals()
         if arguments.pid:
@@ -854,7 +863,7 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
-    def read_malloc_mmap() -> bool:
+    def read_malloc_mmap() -> Any:
         if sys.platform == "win32":
             return False
         return get_line_atomic.get_line_atomic(
@@ -1054,7 +1063,7 @@ class Scalene:
             Scalene.enable_signals()
 
     @staticmethod
-    def read_memcpy_mmap() -> bool:
+    def read_memcpy_mmap() -> Any:
         if sys.platform == "win32":
             return False
         return get_line_atomic.get_line_atomic(
