@@ -27,7 +27,8 @@ class ScalenePreload:
                 env["DYLD_INSERT_LIBRARIES"] = os.path.join(
                     scalene.__path__[0], "libscalene.dylib"
                 )
-                env["PYTHONMALLOC"] = "malloc"
+                # env["PYTHONMALLOC"] = "malloc"
+                env["PYTHONMALLOC"] = "pymalloc"
             # required for multiprocessing support, even without libscalene
             env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
 
