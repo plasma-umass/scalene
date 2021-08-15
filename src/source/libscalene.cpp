@@ -102,8 +102,15 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 // arenas. See
 // https://docs.python.org/3/c-api/memory.html#the-pymalloc-allocator).
 
+#if !defined(_WIN32)
+
 extern "C" ATTRIBUTE_EXPORT void * LOCAL_PREFIX(mmap)(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
+#if defined(__APPLE__)
   auto ptr = ::mmap(addr, len, prot, flags, fd, offset);
+#else
+  static decltype(::mmap)* _mmap = (decltype(::mmap)) dlsym(RTLD_NEXT, "mmap"));
+  auto ptr = _mmap(addr, len, prot, flags, fd, offset);
+#endif
   if (len == 256 * 1024) {
     TheHeapWrapper::register_malloc(len, 0);
   }
@@ -111,12 +118,19 @@ extern "C" ATTRIBUTE_EXPORT void * LOCAL_PREFIX(mmap)(void *addr, size_t len, in
 }
 
 extern "C" ATTRIBUTE_EXPORT int LOCAL_PREFIX(munmap)(void * addr, size_t len) {
+#if defined(__APPLE__)
   auto result = ::munmap(addr, len);
+#else
+  static decltype(::munmap)* _munmap = (decltype(::munmap)) dlsym(RTLD_NEXT, "munmap"));
+  auto result = _munmap(addr, len);
+#endif
   if (len == 256 * 1024) {
     TheHeapWrapper::register_free(len, 0);
   }
   return result;
 }
+
+#endif
 
 #if defined(__APPLE__)
 MAC_INTERPOSE(xxmemcpy, memcpy);
@@ -125,3 +139,4 @@ MAC_INTERPOSE(xxstrcpy, strcpy);
 MAC_INTERPOSE(xxmmap, mmap);
 MAC_INTERPOSE(xxmunmap, munmap);
 #endif
+
