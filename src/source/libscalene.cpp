@@ -104,32 +104,35 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 #if !defined(_WIN32)
 
-extern "C" ATTRIBUTE_EXPORT void * LOCAL_PREFIX(mmap)(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
+extern "C" {
+  
+  ATTRIBUTE_EXPORT void * LOCAL_PREFIX(mmap)(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
 #if defined(__APPLE__)
-  auto ptr = ::mmap(addr, len, prot, flags, fd, offset);
+    auto ptr = ::mmap(addr, len, prot, flags, fd, offset);
 #else
-  static decltype(::mmap)* _mmap = (decltype(::mmap)) dlsym(RTLD_NEXT, "mmap"));
-  auto ptr = _mmap(addr, len, prot, flags, fd, offset);
+    static auto * _mmap = reinterpret_cast<decltype(::mmap) *>(reinterpret_cast<size_t>(dlsym(RTLD_NEXT, "mmap")));
+    auto ptr = _mmap(addr, len, prot, flags, fd, offset);
 #endif
-  if (len == 256 * 1024) {
-    TheHeapWrapper::register_malloc(len, 0);
+    if (len == 256 * 1024) {
+      TheHeapWrapper::register_malloc(len, 0);
+    }
+    return ptr;
   }
-  return ptr;
-}
 
-extern "C" ATTRIBUTE_EXPORT int LOCAL_PREFIX(munmap)(void * addr, size_t len) {
+  ATTRIBUTE_EXPORT int LOCAL_PREFIX(munmap)(void * addr, size_t len) {
 #if defined(__APPLE__)
-  auto result = ::munmap(addr, len);
+    auto result = ::munmap(addr, len);
 #else
-  static decltype(::munmap)* _munmap = (decltype(::munmap)) dlsym(RTLD_NEXT, "munmap"));
-  auto result = _munmap(addr, len);
+    static auto * _munmap = reinterpret_cast<decltype(::munmap) *>(reinterpret_cast<size_t>(dlsym(RTLD_NEXT, "munmap")));
+    auto result = _munmap(addr, len);
 #endif
-  if (len == 256 * 1024) {
-    TheHeapWrapper::register_free(len, 0);
+    if (len == 256 * 1024) {
+      TheHeapWrapper::register_free(len, 0);
+    }
+    return result;
   }
-  return result;
-}
 
+}
 #endif
 
 #if defined(__APPLE__)
