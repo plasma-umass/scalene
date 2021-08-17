@@ -101,7 +101,7 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 // arena -- a call to alloc(ctx, size) should be sufficiently
 // disambiguating. See
 // https://docs.python.org/3/c-api/memory.html#customize-pymalloc-arena-allocator
-// For now, assume that all exactly 256MB or 1GB requests for the
+// For now, assume that all exactly 256MB requests for the
 // right kind of memory (private, anonymous, etc.) are in fact Python
 // arenas. See
 // https://docs.python.org/3/c-api/memory.html#the-pymalloc-allocator).
@@ -118,11 +118,11 @@ extern "C" {
     auto ptr = _mmap(addr, len, prot, flags, fd, offset);
 #endif
     if ((addr == NULL) &&
-	(prot == PROT_READ | PROT_WRITE) &&
-	(flags == MAP_PRIVATE | MAP_ANONYMOUS) &&
+	(prot == (PROT_READ | PROT_WRITE)) &&
+	(flags == (MAP_PRIVATE | MAP_ANONYMOUS)) &&
 	(fd == -1) &&
 	(offset == 0) &&
-	((len == 256 * 1024) || (len == 1024 * 1024)))
+	(len == 256 * 1024))
       {
 	TheHeapWrapper::register_malloc(len, 0);
       } else {
@@ -142,8 +142,7 @@ extern "C" {
     static auto * _munmap = reinterpret_cast<decltype(::munmap) *>(reinterpret_cast<size_t>(dlsym(RTLD_NEXT, "munmap")));
     auto result = _munmap(addr, len);
 #endif
-     if ((len == (256 * 1024)) ||
-	(len == (1024 * 1024))) {
+     if (len == (256 * 1024)) {
        TheHeapWrapper::register_free(len, 0);
      } else {
        //       printf("munmap %llu, %p\n", len, addr);
