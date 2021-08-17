@@ -50,9 +50,11 @@ public:
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t MallocSamplingRate = 262147ULL; // 870173ULL;
+//constexpr uint64_t MallocSamplingRate = 262147ULL; // 870173ULL;
+constexpr uint64_t MallocSamplingRate = 870173ULL;
 //  1048571ULL * 4;  // a prime number near 256K
-constexpr uint64_t FreeSamplingRate = 262261ULL; // 758201ULL;
+//constexpr uint64_t FreeSamplingRate = 262261ULL; // 758201ULL;
+constexpr uint64_t FreeSamplingRate = 758201ULL;
 //  1048571ULL * 4;  // a prime number near 256K
 constexpr uint64_t MemcpySamplingRate = 2097169ULL;  // another prime, near 2MB
 
