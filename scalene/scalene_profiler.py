@@ -736,7 +736,8 @@ class Scalene:
                         cpu_utilization
                     )
 
-        del new_frames
+        
+        del new_frames[:]
 
         Scalene.__stats.total_cpu_samples += total_time
         if False:
@@ -776,13 +777,14 @@ class Scalene:
             if t != threading.main_thread()
         ]
         # Put the main thread in the front.
+        tid = cast(int, threading.main_thread().ident)
         frames.insert(
             0,
             (
                 sys._current_frames().get(
-                    cast(int, threading.main_thread().ident), None
+                    tid, None
                 ),
-                cast(int, threading.main_thread().ident),
+                tid,
             ),
         )
         # Process all the frames to remove ones we aren't going to track.
@@ -813,6 +815,7 @@ class Scalene:
                     break
             if frame:
                 new_frames.append((frame, tident, orig_frame))
+        del frames[:]
         return new_frames
 
     @staticmethod
