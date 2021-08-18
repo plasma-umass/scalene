@@ -27,75 +27,35 @@
 #include "macinterpose.h"
 #endif
 
-#if defined(__APPLE__)
-// Using the system allocator rather than Python's would add too much overhead;
-// we use Hoard instead to avoid that.
-
-class ScaleneBaseHeap : public HL::ANSIWrapper<Hoard::TLABBase> {
-  using super = HL::ANSIWrapper<Hoard::TLABBase>;
-
-  static Hoard::HoardHeapType *getMainHoardHeap() {
-    alignas(std::max_align_t) static char thBuf[sizeof(Hoard::HoardHeapType)];
-    static auto *th = new (thBuf) Hoard::HoardHeapType;
-    return th;
-  }
-
- public:
-  static constexpr size_t Alignment = alignof(std::max_align_t);
-
-  ScaleneBaseHeap() : super(getMainHoardHeap()) {}
-};
-
-class BaseHeap : public HL::OneHeap<ScaleneBaseHeap> {
- public:
-  void *memalign(size_t alignment, size_t size) {
-    // XXX Copied from Heap-Layers/wrappers/generic-memalign.cpp ; we can't use
-    // it directly because it invokes xxmalloc, which would be detected as a
-    // recursive malloc call, causing all memalign to be serviced by
-    // heapredirect's static buffer.  We use this->malloc() and this->free() to
-    // ensure these are bound to this heap's functions.
-
-    // Check for non power-of-two alignment.
-    if ((alignment == 0) || (alignment & (alignment - 1))) {
-      return nullptr;
-    }
-
-    if (alignment <= alignof(max_align_t)) {
-      // Already aligned by default.
-      return this->malloc(size);
-    }
-
-    // Try to just allocate an object of the requested size.
-    // If it happens to be aligned properly, just return it.
-    void *ptr = this->malloc(size);
-    if (((size_t)ptr & ~(alignment - 1)) == (size_t)ptr) {
-      // It is already aligned just fine; return it.
-      return ptr;
-    }
-    // It was not aligned as requested: free the object and allocate a big one,
-    // and align within.
-    this->free(ptr);
-    ptr = this->malloc(size + 2 * alignment);
-    void *alignedPtr =
-        (void *)(((size_t)ptr + alignment - 1) & ~(alignment - 1));
-    return alignedPtr;
-  }
-};
-
-#else  // not __APPLE__
+#if 1
 
 using BaseHeap = HL::SysMallocHeap;
 
+#else // for debugging
+
+class BaseHeap : public HL::SysMallocHeap {
+public:
+  using HL::SysMallocHeap::SysMallocHeap;
+
+  void * malloc(size_t sz) {
+    if (sz >= 256 * 1024) {
+      printf("malloc %lu\n", sz);
+    }
+    return HL::SysMallocHeap::malloc(sz);
+  }
+};
 #endif
 
 // For use by the replacement printf routines (see
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
+//constexpr uint64_t MallocSamplingRate = 262147ULL; // 870173ULL;
 constexpr uint64_t MallocSamplingRate = 870173ULL;
-//  1048571ULL * 4;  // a prime number near a megabyte
+//  1048571ULL * 4;  // a prime number near 256K
+//constexpr uint64_t FreeSamplingRate = 262261ULL; // 758201ULL;
 constexpr uint64_t FreeSamplingRate = 758201ULL;
-//  1048571ULL * 4;  // a prime number near a megabyte
+//  1048571ULL * 4;  // a prime number near 256K
 constexpr uint64_t MemcpySamplingRate = 2097169ULL;  // another prime, near 2MB
 
 class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>> {
@@ -137,8 +97,69 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
   return result;
 }
 
+// Initial support for tracking mmap and munmap of arenas to enable correct use of pymalloc.
+//
+// TODO: walk the stack to verify that this is a Python-allocated
+// arena -- a call to alloc(ctx, size) should be sufficiently
+// disambiguating. See
+// https://docs.python.org/3/c-api/memory.html#customize-pymalloc-arena-allocator
+// For now, assume that all exactly 256MB requests for the
+// right kind of memory (private, anonymous, etc.) are in fact Python
+// arenas. See
+// https://docs.python.org/3/c-api/memory.html#the-pymalloc-allocator).
+
+#if !defined(_WIN32)
+
+extern "C" {
+  
+  ATTRIBUTE_EXPORT void * LOCAL_PREFIX(mmap)(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
+#if defined(__APPLE__)
+    auto ptr = ::mmap(addr, len, prot, flags, fd, offset);
+#else
+    static auto * _mmap = reinterpret_cast<decltype(::mmap) *>(reinterpret_cast<size_t>(dlsym(RTLD_NEXT, "mmap")));
+    auto ptr = _mmap(addr, len, prot, flags, fd, offset);
+#endif
+    if ((addr == NULL) &&
+	(prot == (PROT_READ | PROT_WRITE)) &&
+	(flags == (MAP_PRIVATE | MAP_ANONYMOUS)) &&
+	(fd == -1) &&
+	(offset == 0) &&
+	(len == 256 * 1024))
+      {
+	TheHeapWrapper::register_malloc(len, 0);
+      } else {
+    }
+    return ptr;
+  }
+
+  ATTRIBUTE_EXPORT void * LOCAL_PREFIX(mmap64)(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
+    auto ptr = LOCAL_PREFIX(mmap)(addr, len, prot, flags, fd, offset);
+    return ptr;
+  }
+  
+  ATTRIBUTE_EXPORT int LOCAL_PREFIX(munmap)(void * addr, size_t len) {
+#if defined(__APPLE__)
+    auto result = ::munmap(addr, len);
+#else
+    static auto * _munmap = reinterpret_cast<decltype(::munmap) *>(reinterpret_cast<size_t>(dlsym(RTLD_NEXT, "munmap")));
+    auto result = _munmap(addr, len);
+#endif
+     if (len == (256 * 1024)) {
+       TheHeapWrapper::register_free(len, 0);
+     } else {
+       //       printf("munmap %llu, %p\n", len, addr);
+     }       
+    return result;
+  }
+
+}
+#endif
+
 #if defined(__APPLE__)
 MAC_INTERPOSE(xxmemcpy, memcpy);
 MAC_INTERPOSE(xxmemmove, memmove);
 MAC_INTERPOSE(xxstrcpy, strcpy);
+MAC_INTERPOSE(xxmmap, mmap);
+MAC_INTERPOSE(xxmunmap, munmap);
 #endif
+

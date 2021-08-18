@@ -68,6 +68,11 @@ class SampleHeap : public SuperHeap {
     }
     auto realSize = SuperHeap::getSize(ptr);
     assert(realSize >= sz);
+    register_malloc(realSize, ptr);
+    return ptr;
+  }
+
+  inline void register_malloc(size_t realSize, void * ptr) {
     auto sampleMalloc = _mallocSampler.sample(realSize);
     auto sampleCallStack = _callStackSampler.sample(realSize);
     if (unlikely(sampleCallStack)) {
@@ -76,22 +81,25 @@ class SampleHeap : public SuperHeap {
     if (unlikely(sampleMalloc)) {
       handleMalloc(sampleMalloc, ptr);
     }
-    return ptr;
   }
-
+  
   ATTRIBUTE_ALWAYS_INLINE inline void free(void *ptr) {
     if (unlikely(ptr == nullptr)) {
       return;
     }
     auto realSize = SuperHeap::getSize(ptr);
+    register_free(realSize, ptr);
+    SuperHeap::free(ptr);
+  }
+
+  inline void register_free(size_t realSize, void * ptr) {
     auto sampleFree = _freeSampler.sample(realSize);
-    if (unlikely(ptr == _lastMallocTrigger)) {
+    if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
       _freedLastMallocTrigger = true;
     }
     if (unlikely(sampleFree)) {
       handleFree(sampleFree);
     }
-    SuperHeap::free(ptr);
   }
 
   void *memalign(size_t alignment, size_t sz) {
@@ -102,14 +110,7 @@ class SampleHeap : public SuperHeap {
     auto realSize = SuperHeap::getSize(ptr);
     assert(realSize >= sz);
     assert((sz < 16) || (realSize <= 2 * sz));
-    auto sampleMalloc = _mallocSampler.sample(realSize);
-    auto sampleCallStack = _callStackSampler.sample(realSize);
-    if (unlikely(sampleCallStack)) {
-      recordCallStack(realSize);
-    }
-    if (unlikely(sampleMalloc)) {
-      handleMalloc(sampleMalloc, ptr);
-    }
+    register_free(realSize, ptr);
     return ptr;
   }
 
