@@ -126,8 +126,10 @@ class SampleHeap : public SuperHeap {
     //    PYTHON_SYMBOL(Py_IsInitialized);
     filename = "";
     lineno = 0;
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
     if (Py_IsInitialized()) {
-      //      PYTHON_SYMBOL(PyEval_GetFrame);
+//      PYTHON_SYMBOL(PyEval_GetFrame);
       //      PYTHON_SYMBOL(PyCode_Addr2Line);
       // PYTHON_SYMBOL(PyUnicode_AsEncodedString);
       //      PYTHON_SYMBOL(PyBytes_AsString);
@@ -157,6 +159,7 @@ class SampleHeap : public SuperHeap {
 	  lineno = line;
 	  filename = filenameStr;
 	  // py_Py_DecRef(encoded);
+	  PyGILState_Release(gstate);
 	  return 1;
 	  // frameno++;
 	  // break;
@@ -171,6 +174,7 @@ class SampleHeap : public SuperHeap {
       }
       //      py_PyGILState_Release(gilState);
     }
+    PyGILState_Release(gstate);
     return 0;
   }
   
