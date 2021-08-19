@@ -25,6 +25,7 @@ defusedxml==0.6.0
 distlib==0.3.1
 entrypoints==0.3
 feedparser==6.0.2
+find-libpython==0.2.0
 filelock==3.0.12
 flake8==3.8.4
 Flask==1.1.2
