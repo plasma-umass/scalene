@@ -12,10 +12,6 @@
 
 #include <cstddef>
 
-#if defined(__APPLE__)
-#include "hoardtlab.h"  // must come before common.hpp
-#endif
-
 #include "common.hpp"
 #include "heapredirect.h"
 #include "memcpysampler.hpp"
