@@ -14,6 +14,13 @@
 #include <atomic>
 #include <random>
 
+#include <Python.h>
+#include <frameobject.h>
+
+// Define a function py_name that points to the (dynamically-located) function name.
+#define PYTHON_SYMBOL(name) static auto * py_##name = reinterpret_cast<decltype(name) *>(reinterpret_cast<size_t>(dlsym(RTLD_DEFAULT, #name)))
+
+
 #include "common.hpp"
 #include "open_addr_hashtable.hpp"
 #include "printf.h"
@@ -115,13 +122,81 @@ class SampleHeap : public SuperHeap {
   }
 
  private:
+
+  int getPythonInfo(std::string& filename, int& lineno) {
+    filename = "";
+    lineno = 0;
+    PYTHON_SYMBOL(PyThreadState_Get);
+    PYTHON_SYMBOL(PyGILState_Ensure);
+    PYTHON_SYMBOL(PyGILState_Release);
+    PYTHON_SYMBOL(Py_Initialize);
+    PYTHON_SYMBOL(PyInterpreterState_Main);
+    PYTHON_SYMBOL(PyEval_GetFrame);
+    PYTHON_SYMBOL(PyCode_Addr2Line);
+    PYTHON_SYMBOL(PyUnicode_AsEncodedString);
+    PYTHON_SYMBOL(PyUnicode_AsASCIIString);
+    PYTHON_SYMBOL(PyBytes_AsString);
+    PYTHON_SYMBOL(Py_IsInitialized);
+    //    static DoInit pyinit;
+    // printf("initialized? %d\n", (py_Py_IsInitialized)());
+    if (py_Py_IsInitialized()) {
+      //      auto gilState = py_PyGILState_Ensure();
+      //      auto pstate = py_PyInterpreterState_Main();
+      auto frame = py_PyEval_GetFrame();
+      // printf("frame = %p\n", frame);
+      int frameno = 0;
+      while (NULL != frame) {
+        // int line = frame->f_lineno;
+        /*
+	  frame->f_lineno will not always return the correct line number
+	  you need to call PyCode_Addr2Line().
+        */
+	// printf("about to line\n");
+	// int line = frame->f_lineno; // for now
+	int line = py_PyCode_Addr2Line(frame->f_code, frame->f_lasti);
+	//	printf("line obtained.\n");
+	auto fname = frame->f_code->co_filename;
+	// printf("fname obtained.\n");
+	auto encoded = py_PyUnicode_AsEncodedString(fname, "utf-8", nullptr); // "ascii", NULL);
+	auto *filenameStr = py_PyBytes_AsString(encoded);
+	// auto encoded = py_PyUnicode_AsASCIIString(fname);
+	//	printf("here.\n");
+	//printf("doop\n");
+	if (strstr(filenameStr, "test-iters-simple.py")) {
+	  //	if (filename[0] != '<') {
+	  lineno = line;
+	  filename = filenameStr;
+	  return 1;
+	  // frameno++;
+	  // break;
+	}
+        /// int line = py_PyCode_Addr2Line(frame->f_code, frame->f_lasti);
+	//        auto *filename_obj = py_PyUnicode_AsEncodedString(frame->f_code->co_filename, "utf-8", nullptr);
+	//        auto *filename = py_PyBytes_AsString(filename_obj);
+	//	assert(filename);
+	///        printf("    %s(%d OR %d)\n", filename, line, frame->f_lineno);
+	//	Py_DECREF(frame);
+        frame = frame->f_back;
+      }
+      //      py_PyGILState_Release(gilState);
+    }
+    return 0;
+  }
+  
   // Prevent copying and assignment.
   SampleHeap(const SampleHeap &) = delete;
   SampleHeap &operator=(const SampleHeap &) = delete;
 
   void handleMalloc(size_t sampleMalloc, void *triggeringMallocPtr) {
     writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr);
-
+    std::string filename;
+    int lineno;
+    int r = getPythonInfo(filename, lineno);
+    if (r) {
+      char buf[255];
+      sprintf(buf, "M %s %d %lu\n", filename.c_str(), lineno, sampleMalloc);
+      printf(buf);
+    }
 #if !SCALENE_DISABLE_SIGNALS
     raise(MallocSignal);
 #endif
@@ -134,6 +209,14 @@ class SampleHeap : public SuperHeap {
 
   void handleFree(size_t sampleFree) {
     writeCount(FreeSignal, sampleFree, nullptr);
+    std::string filename;
+    int lineno;
+    int r = getPythonInfo(filename, lineno);
+    if (r) {
+      char buf[255];
+      sprintf(buf, "F %s %d %lu\n", filename.c_str(), lineno, sampleFree);
+      printf(buf);
+    }
 #if !SCALENE_DISABLE_SIGNALS
     raise(MallocSignal); // was FreeSignal
 #endif

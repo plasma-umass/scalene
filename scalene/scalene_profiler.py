@@ -688,6 +688,8 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
+            info = inspect.getframeinfo(frame)
+            assert lineno == info.lineno
             Scalene.enter_function_meta(frame, Scalene.__stats)
             if frame == new_frames[0][0]:
                 # Main thread.
@@ -821,6 +823,8 @@ class Scalene:
     ) -> None:
         fname = Filename(frame.f_code.co_filename)
         lineno = LineNumber(frame.f_lineno)
+        info = inspect.getframeinfo(frame)
+        assert lineno == info.lineno
         f = frame
         try:
             while "<" in Filename(f.f_code.co_name):
@@ -970,6 +974,8 @@ class Scalene:
         for (frame, _tident, _orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
+            info = inspect.getframeinfo(frame)
+            assert lineno == info.lineno
 
             # Walk the stack backwards until we find a proper function
             # name (as in, one that doesn't contain "<", which
