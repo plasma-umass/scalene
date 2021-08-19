@@ -5,8 +5,8 @@ C_SOURCES = src/source/libscalene.cpp src/source/get_line_atomic.cpp src/include
 
 .PHONY: black clang-format format upload vendor-deps
 
-# CXXFLAGS = -std=c++14 -g -O0
-CXXFLAGS = -std=c++14 -g -O3 -DNDEBUG -D_REENTRANT=1 -pipe -fno-builtin-malloc -fvisibility=hidden
+CXXFLAGS = -std=c++14 -g -O0
+# CXXFLAGS = -std=c++14 -g -O3 -DNDEBUG -D_REENTRANT=1 -pipe -fno-builtin-malloc -fvisibility=hidden
 CXX = g++
 
 INCLUDES  = -Isrc -Isrc/include
@@ -24,9 +24,6 @@ ifeq ($(shell uname -s),Darwin)
   endif
   CXXFLAGS := $(CXXFLAGS) -flto -ftls-model=initial-exec -ftemplate-depth=1024 $(ARCH) -compatibility_version 1 -current_version 1 -dynamiclib
 
-  INCLUDES := $(INCLUDES) -Ivendor/Hoard/src/include/hoard -Ivendor/Hoard/src/include/util -Ivendor/Hoard/src/include/superblocks
-  OTHER_DEPS := vendor/Hoard
-
 else # non-Darwin
   LIBFILE := lib$(LIBNAME).so
   WRAPPER := vendor/Heap-Layers/wrappers/gnuwrapper.cpp
@@ -41,8 +38,10 @@ OUTDIR=scalene
 
 all: $(OUTDIR)/$(LIBFILE)
 
-$(OUTDIR)/$(LIBFILE): vendor/Heap-Layers $(SRC) $(OTHER_DEPS)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread
+PYTHON_LIBRARY = `python3 -m find_libpython`
+
+$(OUTDIR)/$(LIBFILE): vendor/Heap-Layers $(SRC) $(C_SOURCES) GNUmakefile
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread $(PYTHON_LIBRARY)
 
 clean:
 	rm -f $(OUTDIR)/$(LIBFILE) scalene/get_line_atomic*.so
@@ -55,15 +54,11 @@ $(WRAPPER) : vendor/Heap-Layers
 vendor/Heap-Layers:
 	mkdir -p vendor && cd vendor && git clone https://github.com/emeryberger/Heap-Layers
 
-vendor/Hoard:
-	mkdir -p vendor && cd vendor && git clone https://github.com/emeryberger/Hoard
-	cd vendor/Hoard/src && ln -s ../../Heap-Layers  # avoid inconsistencies by using same package
-
 vendor/printf/printf.cpp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
 
-vendor-deps: vendor/Heap-Layers vendor/Hoard vendor/printf/printf.cpp
+vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp
 
 mypy:
 	-mypy $(PYTHON_SOURCES)
