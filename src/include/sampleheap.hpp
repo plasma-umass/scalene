@@ -122,59 +122,45 @@ class SampleHeap : public SuperHeap {
 
  private:
 
+  class GIL {
+  public:
+    GIL()
+    {
+      _gstate = PyGILState_Ensure();
+    }
+    ~GIL() {
+      PyGILState_Release(_gstate);
+    }
+  private:
+    PyGILState_STATE _gstate;
+  };
+  
+  
   int getPythonInfo(std::string& filename, int& lineno) {
     //    PYTHON_SYMBOL(Py_IsInitialized);
     filename = "";
     lineno = 0;
-    PyGILState_STATE gstate;
-    gstate = PyGILState_Ensure();
+    GIL gil;
     if (Py_IsInitialized()) {
-//      PYTHON_SYMBOL(PyEval_GetFrame);
-      //      PYTHON_SYMBOL(PyCode_Addr2Line);
-      // PYTHON_SYMBOL(PyUnicode_AsEncodedString);
-      //      PYTHON_SYMBOL(PyBytes_AsString);
-      //      PYTHON_SYMBOL(Py_DecRef);
       auto frame = PyEval_GetFrame();
-      // printf("frame = %p\n", frame);
       int frameno = 0;
       while (NULL != frame) {
         // int line = frame->f_lineno;
         /*
-	  frame->f_lineno will not always return the correct line number
-	  you need to call PyCode_Addr2Line().
+	  frame->f_lineno does not always return the correct line
+	  number (!), so we call PyCode_Addr2Line() instead.
         */
-	// printf("about to line\n");
-	// int line = frame->f_lineno; // for now
-	int line = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
-	//	printf("line obtained.\n");
+	lineno = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
 	auto fname = frame->f_code->co_filename;
-	// printf("fname obtained.\n");
 	auto encoded = PyUnicode_AsEncodedString(fname, "utf-8", nullptr); // "ascii", NULL);
 	auto *filenameStr = PyBytes_AsString(encoded);
-	// auto encoded = py_PyUnicode_AsASCIIString(fname);
-	//	printf("here.\n");
-	//printf("doop\n");
-	if (strstr(filenameStr, "test-iters-simple.py")) {
-	  //	if (filename[0] != '<') {
-	  lineno = line;
+	if (strstr(filenameStr, "test-iters")) {
 	  filename = filenameStr;
-	  // py_Py_DecRef(encoded);
-	  PyGILState_Release(gstate);
 	  return 1;
-	  // frameno++;
-	  // break;
 	}
-        /// int line = py_PyCode_Addr2Line(frame->f_code, frame->f_lasti);
-	//        auto *filename_obj = py_PyUnicode_AsEncodedString(frame->f_code->co_filename, "utf-8", nullptr);
-	//        auto *filename = py_PyBytes_AsString(filename_obj);
-	//	assert(filename);
-	///        printf("    %s(%d OR %d)\n", filename, line, frame->f_lineno);
-	//	py_Py_DecRef(encoded);
         frame = frame->f_back;
       }
-      //      py_PyGILState_Release(gilState);
     }
-    PyGILState_Release(gstate);
     return 0;
   }
   
