@@ -352,6 +352,7 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         Scalene.__alloc_sigq.put((signum, this_frame))
+        del this_frame
 
     @staticmethod
     def free_signal_handler(
@@ -361,6 +362,7 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         Scalene.__alloc_sigq.put((signum, this_frame))
+        del this_frame
 
     @staticmethod
     def memcpy_signal_handler(
@@ -369,7 +371,9 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
+        # return # FIXME
         Scalene.__memcpy_sigq.put((signum, this_frame))
+        del this_frame
 
     @staticmethod
     def enable_signals() -> None:
@@ -418,6 +422,7 @@ class Scalene:
         arguments: argparse.Namespace,
         program_being_profiled: Optional[Filename] = None,
     ):
+        # gc.set_debug(gc.DEBUG_SAVE)
         import scalene.replacement_pjoin
 
         # Hijack lock, poll, thread_join, fork, and exit.
@@ -604,6 +609,9 @@ class Scalene:
         # We have recorded how long it has been since we received a timer
         # before.  See the logic below.
         # If it's time to print some profiling info, do so.
+
+        #gc.collect()
+        #print(gc.get_referrers(this_frame))
         if now_wallclock >= Scalene.__next_output_time:
             # Print out the profile. Set the next output time, stop
             # signals, print the profile, and then start signals
@@ -623,7 +631,7 @@ class Scalene:
                     reduced_profile=Scalene.__args.reduced_profile,
                 )
                 stats.start_clock()
-
+    
         # Here we take advantage of an ostensible limitation of Python:
         # it only delivers signals after the interpreter has given up
         # control. This seems to mean that sampling is limited to code
@@ -669,7 +677,9 @@ class Scalene:
             c_time = 0
 
         # Update counters for every running thread.
+    
         new_frames = Scalene.compute_frames_to_record(this_frame)
+    
         # Now update counters (weighted) for every frame we are tracking.
         total_time = python_time + c_time
 
@@ -681,6 +691,9 @@ class Scalene:
             if not Scalene.__is_thread_sleeping[tident]:
                 total_frames += 1
         if total_frames == 0:
+            del this_frame
+            del new_frames[:]
+            del new_frames
             return
         normalized_time = total_time / total_frames
 
@@ -688,8 +701,6 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
-            info = inspect.getframeinfo(frame)
-            assert lineno == info.lineno
             Scalene.enter_function_meta(frame, Scalene.__stats)
             if frame == new_frames[0][0]:
                 # Main thread.
@@ -738,9 +749,13 @@ class Scalene:
                         cpu_utilization
                     )
 
+        # Below possibly unnecessary
+        del this_frame
+        del new_frames[:]
         del new_frames
 
         Scalene.__stats.total_cpu_samples += total_time
+    
         if False:
             # Pick a new random interval, distributed around the mean.
             next_interval = 0.0
@@ -778,15 +793,16 @@ class Scalene:
             if t != threading.main_thread()
         ]
         # Put the main thread in the front.
-        frames.insert(
-            0,
-            (
-                sys._current_frames().get(
-                    cast(int, threading.main_thread().ident), None
+        if True:
+            frames.insert(
+                0,
+                (
+                    sys._current_frames().get(
+                        cast(int, threading.main_thread().ident), None
+                    ),
+                    cast(int, threading.main_thread().ident),
                 ),
-                cast(int, threading.main_thread().ident),
-            ),
-        )
+            )
         # Process all the frames to remove ones we aren't going to track.
         new_frames: List[Tuple[FrameType, int, FrameType]] = []
         for (frame, tident) in frames:
@@ -815,6 +831,7 @@ class Scalene:
                     break
             if frame:
                 new_frames.append((frame, tident, orig_frame))
+        del frames[:]
         return new_frames
 
     @staticmethod
@@ -823,8 +840,6 @@ class Scalene:
     ) -> None:
         fname = Filename(frame.f_code.co_filename)
         lineno = LineNumber(frame.f_lineno)
-        info = inspect.getframeinfo(frame)
-        assert lineno == info.lineno
         f = frame
         try:
             while "<" in Filename(f.f_code.co_name):
@@ -888,6 +903,7 @@ class Scalene:
         stats = Scalene.__stats
         new_frames = Scalene.compute_frames_to_record(this_frame)
         if not new_frames:
+            del this_frame
             return
         curr_pid = os.getpid()
         # Process the input array from where we left off reading last time.
@@ -974,8 +990,6 @@ class Scalene:
         for (frame, _tident, _orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
-            info = inspect.getframeinfo(frame)
-            assert lineno == info.lineno
 
             # Walk the stack backwards until we find a proper function
             # name (as in, one that doesn't contain "<", which
@@ -1039,6 +1053,9 @@ class Scalene:
                 stats.last_malloc_triggered = last_malloc
                 mallocs, frees = stats.leak_score[fname][lineno]
                 stats.leak_score[fname][lineno] = (mallocs + 1, frees)
+            del frame
+        del new_frames[:]
+        del new_frames
         del this_frame
 
     @staticmethod
@@ -1087,9 +1104,6 @@ class Scalene:
         frame: FrameType,
     ) -> None:
         curr_pid = os.getpid()
-        new_frames = Scalene.compute_frames_to_record(frame)
-        if not new_frames:
-            return
         arr: List[Tuple[int, int]] = []
         # Process the input array.
         try:
@@ -1106,6 +1120,11 @@ class Scalene:
         arr.sort()
 
         stats = Scalene.__stats
+        new_frames = Scalene.compute_frames_to_record(frame)
+        if not new_frames:
+            del frame
+            return
+
         for item in arr:
             _memcpy_time, count = item
             for (the_frame, _tident, _orig_frame) in new_frames:
@@ -1115,6 +1134,8 @@ class Scalene:
                 # Add the byte index to the set for this line.
                 stats.bytei_map[fname][line_no].add(bytei)
                 stats.memcpy_samples[fname][line_no] += count
+        del new_frames[:]
+        del new_frames
         del frame
 
     @staticmethod
