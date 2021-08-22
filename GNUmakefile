@@ -9,10 +9,13 @@ CXXFLAGS = -std=c++14 -g -O0
 # CXXFLAGS = -std=c++14 -g -O3 -DNDEBUG -D_REENTRANT=1 -pipe -fno-builtin-malloc -fvisibility=hidden
 CXX = g++
 
+PYTHON_INCLUDE := $(shell echo `python3 -c "from sysconfig import get_paths as gp; print(gp()['include'])"`)
+PYTHON_LIBRARY := $(shell echo `python3 -m find_libpython`)
+
 INCLUDES  = -Isrc -Isrc/include
 INCLUDES := $(INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility
 INCLUDES := $(INCLUDES) -Ivendor/printf
-INCLUDES := $(INCLUDES) -I`python3 -c "from sysconfig import get_paths as gp; print(gp()['include'])"`
+INCLUDES := $(INCLUDES) -I$(PYTHON_INCLUDE)
 
 ifeq ($(shell uname -s),Darwin)
   LIBFILE := lib$(LIBNAME).dylib
@@ -37,8 +40,6 @@ SRC := src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
 OUTDIR=scalene
 
 all: $(OUTDIR)/$(LIBFILE)
-
-PYTHON_LIBRARY = `python3 -m find_libpython`
 
 $(OUTDIR)/$(LIBFILE): vendor/Heap-Layers $(SRC) $(C_SOURCES) GNUmakefile
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread $(PYTHON_LIBRARY)
