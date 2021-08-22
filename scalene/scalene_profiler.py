@@ -838,6 +838,7 @@ class Scalene:
     def enter_function_meta(
         frame: FrameType, stats: ScaleneStatistics
     ) -> None:
+        """Update tracking info so we can correctly report line number info later."""
         fname = Filename(frame.f_code.co_filename)
         lineno = LineNumber(frame.f_lineno)
         f = frame
@@ -901,13 +902,9 @@ class Scalene:
     ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
         stats = Scalene.__stats
-        new_frames = Scalene.compute_frames_to_record(this_frame)
-        if not new_frames:
-            del this_frame
-            return
         curr_pid = os.getpid()
         # Process the input array from where we left off reading last time.
-        arr: List[Tuple[int, str, float, float, str]] = []
+        arr: List[Tuple[int, str, float, float, str, Filename, LineNumber, ByteCodeIndex]] = []
         try:
             while Scalene.read_malloc_mmap():
                 count_str = (
@@ -924,7 +921,11 @@ class Scalene:
                     python_fraction_str,
                     pid,
                     pointer,
+                    reported_fname,
+                    reported_lineno,
+                    bytei_str
                 ) = count_str.split(",")
+                # print("RECEIVED ", reported_fname, reported_lineno)
                 # assert action in ["M", "f", "F"]
                 if int(curr_pid) == int(pid):
                     arr.append(
@@ -934,6 +935,9 @@ class Scalene:
                             float(count_str),
                             float(python_fraction_str),
                             pointer,
+                            Filename(reported_fname),
+                            LineNumber(int(reported_lineno)),
+                            ByteCodeIndex(int(bytei_str))
                         )
                     )
 
@@ -947,7 +951,7 @@ class Scalene:
         prevmax = stats.max_footprint
         freed_last_trigger = 0
         for item in arr:
-            _alloc_time, action, count, python_fraction, pointer = item
+            _alloc_time, action, count, python_fraction, pointer, fname, lineno, bytei = item
             count /= 1024 * 1024
             is_malloc = action == "M"
             if is_malloc:
@@ -983,40 +987,46 @@ class Scalene:
                 Address("0x0"),
             )
 
-        # Now update the memory footprint for every running frame.
-        # This is a pain, since we don't know to whom to attribute memory,
-        # so we may overcount.
-
-        for (frame, _tident, _orig_frame) in new_frames:
-            fname = Filename(frame.f_code.co_filename)
-            lineno = LineNumber(frame.f_lineno)
-
-            # Walk the stack backwards until we find a proper function
-            # name (as in, one that doesn't contain "<", which
-            # indicates things like list comprehensions).
-            Scalene.enter_function_meta(frame, stats)
-            bytei = ByteCodeIndex(frame.f_lasti)
+        # Walk the stack backwards until we find a proper function
+        # name (as in, one that doesn't contain "<", which
+        # indicates things like list comprehensions).
+        # Scalene.enter_function_meta(frame, stats)
+        # bytei = ByteCodeIndex(frame.f_lasti)
+        curr = before
+        python_frac = 0.0
+        allocs = 0.0
+        last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
+        malloc_pointer = "0x0"
+        # Go through the array again and add each updated current footprint.
+        for item in arr:
+            _alloc_time, action, count, python_fraction, pointer, fname, lineno, bytei = item
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
-            curr = before
-            python_frac = 0.0
-            allocs = 0.0
-            last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
-            malloc_pointer = "0x0"
-            # Go through the array again and add each updated current footprint.
-            for item in arr:
-                _alloc_time, action, count, python_fraction, pointer = item
-                count /= 1024 * 1024
-                is_malloc = action == "M"
-                if is_malloc:
-                    allocs += count
-                    curr += count
-                    python_frac += python_fraction * count
-                    malloc_pointer = pointer
-                else:
-                    curr -= count
-                stats.per_line_footprint_samples[fname][lineno].add(curr)
-            assert curr == after
+            count /= 1024 * 1024
+            is_malloc = action == "M"
+            if is_malloc:
+                allocs += count
+                curr += count
+                python_frac += python_fraction * count
+                malloc_pointer = pointer
+                stats.memory_malloc_samples[fname][lineno][bytei] += (
+                    count
+                )
+                stats.memory_python_samples[fname][lineno][bytei] += (
+                    count * python_frac
+                )
+                stats.malloc_samples[fname] += 1
+                stats.memory_malloc_count[fname][lineno][bytei] += 1
+                stats.total_memory_malloc_samples += count
+            else:
+                curr -= count
+                stats.memory_free_samples[fname][lineno][bytei] -= (
+                    count
+                )
+                stats.memory_free_count[fname][lineno][bytei] += 1
+                stats.total_memory_free_samples += count
+
+            stats.per_line_footprint_samples[fname][lineno].add(curr)
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
                 last_malloc = (
@@ -1024,26 +1034,7 @@ class Scalene:
                     LineNumber(lineno),
                     Address(malloc_pointer),
                 )
-            # If there was a net increase in memory, treat it as if it
-            # was a malloc; otherwise, treat it as if it was a
-            # free. This is for later reporting of net memory gain /
-            # loss per line of code.
-            if after > before:
-                stats.memory_malloc_samples[fname][lineno][bytei] += (
-                    after - before
-                )
-                stats.memory_python_samples[fname][lineno][bytei] += (
-                    python_frac / allocs
-                ) * (after - before)
-                stats.malloc_samples[fname] += 1
-                stats.memory_malloc_count[fname][lineno][bytei] += 1
-                stats.total_memory_malloc_samples += after - before
-            else:
-                stats.memory_free_samples[fname][lineno][bytei] += (
-                    before - after
-                )
-                stats.memory_free_count[fname][lineno][bytei] += 1
-                stats.total_memory_free_samples += before - after
+        if False:
             stats.allocation_velocity = (
                 stats.allocation_velocity[0] + (after - before),
                 stats.allocation_velocity[1] + allocs,
@@ -1053,9 +1044,6 @@ class Scalene:
                 stats.last_malloc_triggered = last_malloc
                 mallocs, frees = stats.leak_score[fname][lineno]
                 stats.leak_score[fname][lineno] = (mallocs + 1, frees)
-            del frame
-        del new_frames[:]
-        del new_frames
         del this_frame
 
     @staticmethod
@@ -1103,6 +1091,7 @@ class Scalene:
         ],
         frame: FrameType,
     ) -> None:
+        return # FIXME
         curr_pid = os.getpid()
         arr: List[Tuple[int, int]] = []
         # Process the input array.
@@ -1132,6 +1121,7 @@ class Scalene:
                 line_no = LineNumber(the_frame.f_lineno)
                 bytei = ByteCodeIndex(the_frame.f_lasti)
                 # Add the byte index to the set for this line.
+                # FIXME
                 stats.bytei_map[fname][line_no].add(bytei)
                 stats.memcpy_samples[fname][line_no] += count
         del new_frames[:]
