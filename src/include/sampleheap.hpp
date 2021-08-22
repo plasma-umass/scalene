@@ -142,39 +142,52 @@ class SampleHeap : public SuperHeap {
     lineno = 0;
     GIL gil;
     if (Py_IsInitialized()) {
+      static auto main_module = PyImport_AddModule("__main__");
+      static auto main_dict = PyModule_GetDict(main_module);
+      static auto should_trace = PyDict_GetItemString(main_dict, "should_trace");
+      if (!should_trace) {
+	should_trace = PyDict_GetItemString(main_dict, "should_trace");
+	if (!should_trace) {
+	  return 0;
+	}
+      }
       auto frame = PyEval_GetFrame();
       int frameno = 0;
       while (NULL != frame) {
-        // int line = frame->f_lineno;
-        /*
-	  frame->f_lineno does not always return the correct line
-	  number (!), so we call PyCode_Addr2Line() instead.
-        */
 	auto fname = frame->f_code->co_filename;
 	auto encoded = PyUnicode_AsEncodedString(fname, "utf-8", nullptr); // "ascii", NULL);
 	if (!encoded) {
 	  // WTAF
 	  return 0;
 	}
-	if (encoded) {
-	  auto filenameStr = PyBytes_AsString(encoded);
-	  if (strlen(filenameStr) == 0) {
-	    fname = frame->f_back->f_code->co_filename;
-	    encoded = PyUnicode_AsEncodedString(fname, "utf-8", nullptr); // "ascii", NULL);
-	    filenameStr = PyBytes_AsString(encoded);
-	  }
-	  lineno = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
-	  bytei = frame->f_lasti;
-	  if (!strstr(filenameStr, "<") &&
-	      !strstr(filenameStr, "scalene/") &&
-	      !strstr(filenameStr, "/python"))
-	    {
-	      // FIXME: here's we need Scalene's scalene_profiler.should_trace method.
-	      //if (strstr(filenameStr, "test-iters")) {
+	auto filenameStr = PyBytes_AsString(encoded);
+	if (strlen(filenameStr) == 0) {
+	  fname = frame->f_back->f_code->co_filename;
+	  encoded = PyUnicode_AsEncodedString(fname, "utf-8", nullptr); // "ascii", NULL);
+	  filenameStr = PyBytes_AsString(encoded);
+	}
+	lineno = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
+	bytei = frame->f_lasti;
+	if (!strstr(filenameStr, "<")
+	    && !strstr(filenameStr, "/python"))
+	  {
+	    if (!should_trace) {
+	      return 0;
+	    }
+	    // printf("filenameStr = (%s)\n", filenameStr);
+	    auto result = PyObject_CallFunction(should_trace, "s", filenameStr);
+	    if (!result) {
+	      return 0;
+	    }
+	    auto resultTruthy = PyObject_IsTrue(result);
+	    if (resultTruthy == 1) {
+	      //PyRun_SimpleString("print('wooot')");
 	      filename = filenameStr;
+	      Py_DecRef(result);
 	      return 1;
 	    }
-	}
+	    Py_DecRef(result);
+	  }
         frame = frame->f_back;
       }
     }
