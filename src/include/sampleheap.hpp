@@ -137,33 +137,40 @@ class SampleHeap : public SuperHeap {
   
   
   int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
-    //    PYTHON_SYMBOL(Py_IsInitialized);
-    filename = "";
-    lineno = 0;
+    filename = "<BOGUS>";
+    lineno = 1;
+    bytei = 0;
     GIL gil;
     if (Py_IsInitialized()) {
-      static auto main_module = PyImport_AddModule("__main__");
-      static auto main_dict = PyModule_GetDict(main_module);
-      static auto should_trace = PyDict_GetItemString(main_dict, "should_trace");
+      auto main_module = PyImport_AddModule("__main__");
+      if (!main_module) {
+	return 0;
+      }
+      auto main_dict = PyModule_GetDict(main_module);
+      if (!main_dict) {
+	return 0;
+      }
+      auto should_trace = PyDict_GetItemString(main_dict, "should_trace");
       if (!should_trace) {
-	should_trace = PyDict_GetItemString(main_dict, "should_trace");
-	if (!should_trace) {
+	//	should_trace = PyDict_GetItemString(main_dict, "should_trace");
+	//	if (!should_trace) {
 	  return 0;
-	}
+	  //	}
       }
       auto frame = PyEval_GetFrame();
       int frameno = 0;
       while (NULL != frame) {
 	auto fname = frame->f_code->co_filename;
-	auto encoded = PyUnicode_AsEncodedString(fname, "utf-8", nullptr); // "ascii", NULL);
+	auto encoded = PyUnicode_AsASCIIString(fname);
 	if (!encoded) {
 	  // WTAF
 	  return 0;
 	}
 	auto filenameStr = PyBytes_AsString(encoded);
 	if (strlen(filenameStr) == 0) {
+	  Py_DecRef(encoded);
 	  fname = frame->f_back->f_code->co_filename;
-	  encoded = PyUnicode_AsEncodedString(fname, "utf-8", nullptr); // "ascii", NULL);
+	  encoded = PyUnicode_AsASCIIString(fname);
 	  filenameStr = PyBytes_AsString(encoded);
 	}
 	lineno = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
@@ -172,23 +179,26 @@ class SampleHeap : public SuperHeap {
 	    && !strstr(filenameStr, "/python"))
 	  {
 	    if (!should_trace) {
+	      Py_DecRef(encoded);
 	      return 0;
 	    }
-	    // printf("filenameStr = (%s)\n", filenameStr);
 	    auto result = PyObject_CallFunction(should_trace, "s", filenameStr);
 	    if (!result) {
+	      Py_DecRef(encoded);
 	      return 0;
 	    }
 	    auto resultTruthy = PyObject_IsTrue(result);
 	    if (resultTruthy == 1) {
-	      //PyRun_SimpleString("print('wooot')");
 	      filename = filenameStr;
+	      Py_DecRef(encoded);
 	      Py_DecRef(result);
 	      return 1;
 	    }
+	    Py_DecRef(encoded);
 	    Py_DecRef(result);
 	  }
         frame = frame->f_back;
+	frameno++;
       }
     }
     return 0;
@@ -203,11 +213,12 @@ class SampleHeap : public SuperHeap {
     int lineno;
     int bytei;
     int r = getPythonInfo(filename, lineno, bytei);
-    if (r) {
-      char buf[255];
-      // sprintf(buf, "M %s %d %lu\n", filename.c_str(), lineno, sampleMalloc);
-      // printf(buf);
+    if (!r) {
+      ////      return;
     }
+    char buf[255];
+    //    sprintf(buf, "M %s %d %lu\n", filename.c_str(), lineno, sampleMalloc);
+    //    printf(buf);
     writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
     raise(MallocSignal);
@@ -224,12 +235,13 @@ class SampleHeap : public SuperHeap {
     int lineno;
     int bytei;
     int r = getPythonInfo(filename, lineno, bytei);
-    writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
-    if (r) {
-      char buf[255];
-      //      sprintf(buf, "F %s %d %lu\n", filename.c_str(), lineno, sampleFree);
-      //      printf(buf);
+    if (!r) {
+      ///      return;
     }
+    char buf[255];
+    // sprintf(buf, "F %s %d %lu\n", filename.c_str(), lineno, sampleFree);
+    //    printf(buf);
+    writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
     raise(MallocSignal); // was FreeSignal
 #endif
