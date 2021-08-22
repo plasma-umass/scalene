@@ -537,6 +537,8 @@ class ScaleneOutput:
                 )
 
             # Print out the the profile for the source, line by line.
+            if fname == "<BOGUS>":
+                continue
             with open(fname, "r") as source_file:
                 # We track whether we should put in ellipsis (for reduced profiles)
                 # or not.
