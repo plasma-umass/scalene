@@ -4,6 +4,7 @@ from scalene.scalene_version import scalene_version
 from typing import (
     Any,
     List,
+    NoReturn,
     Optional,
     Tuple,
 )
@@ -33,7 +34,7 @@ class StopJupyterExecution(Exception):
 
 class ScaleneParseArgs:
     @staticmethod
-    def clean_exit(code: int) -> None:
+    def clean_exit(code: object = 0) -> NoReturn:
         """Replacement for sys.exit that exits cleanly from within Jupyter notebooks."""
         raise StopJupyterExecution
 
@@ -44,8 +45,8 @@ class ScaleneParseArgs:
             from IPython import get_ipython
 
             if get_ipython():
-                sys.exit = ScaleneParseArgs.clean_exit  # type: ignore
-                sys._exit = ScaleneParseArgs.clean_exit
+                sys.exit = ScaleneParseArgs.clean_exit
+                sys._exit = ScaleneParseArgs.clean_exit # type: ignore
         except:
             pass
         defaults = ScaleneArguments()
