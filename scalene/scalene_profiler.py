@@ -925,7 +925,6 @@ class Scalene:
                     reported_lineno,
                     bytei_str
                 ) = count_str.split(",")
-                # print("RECEIVED ", reported_fname, reported_lineno)
                 # assert action in ["M", "f", "F"]
                 if int(curr_pid) == int(pid):
                     arr.append(
@@ -1020,7 +1019,7 @@ class Scalene:
                 stats.total_memory_malloc_samples += count
             else:
                 curr -= count
-                stats.memory_free_samples[fname][lineno][bytei] -= (
+                stats.memory_free_samples[fname][lineno][bytei] += (
                     count
                 )
                 stats.memory_free_count[fname][lineno][bytei] += 1
