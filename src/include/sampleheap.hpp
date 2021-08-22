@@ -136,7 +136,7 @@ class SampleHeap : public SuperHeap {
   };
   
   
-  int getPythonInfo(std::string& filename, int& lineno) {
+  int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
     //    PYTHON_SYMBOL(Py_IsInitialized);
     filename = "";
     lineno = 0;
@@ -150,14 +150,26 @@ class SampleHeap : public SuperHeap {
 	  frame->f_lineno does not always return the correct line
 	  number (!), so we call PyCode_Addr2Line() instead.
         */
-	lineno = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
 	auto fname = frame->f_code->co_filename;
 	auto encoded = PyUnicode_AsEncodedString(fname, "utf-8", nullptr); // "ascii", NULL);
-	auto *filenameStr = PyBytes_AsString(encoded);
-	if (strstr(filenameStr, "test-iters")) {
-	  filename = filenameStr;
-	  return 1;
+	auto filenameStr = PyBytes_AsString(encoded);
+	if (strlen(filenameStr) == 0) {
+	  fname = frame->f_back->f_code->co_filename;
+	  encoded = PyUnicode_AsEncodedString(fname, "utf-8", nullptr); // "ascii", NULL);
+	  filenameStr = PyBytes_AsString(encoded);
 	}
+	lineno = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
+	bytei = frame->f_lasti;
+	if (!strstr(filenameStr, "<") &&
+	    !strstr(filenameStr, "scalene/") &&
+	    !strstr(filenameStr, "/python"))
+	  {
+	    // FIXME: here's we need Scalene's scalene_profiler.should_trace method.
+	    if (strstr(filenameStr, "test-iters")) {
+	      filename = filenameStr;
+	      return 1;
+	    }
+	  }
         frame = frame->f_back;
       }
     }
@@ -169,15 +181,16 @@ class SampleHeap : public SuperHeap {
   SampleHeap &operator=(const SampleHeap &) = delete;
 
   void handleMalloc(size_t sampleMalloc, void *triggeringMallocPtr) {
-    writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr);
     std::string filename;
     int lineno;
-    int r = getPythonInfo(filename, lineno);
+    int bytei;
+    int r = getPythonInfo(filename, lineno, bytei);
     if (r) {
       char buf[255];
-      sprintf(buf, "M %s %d %lu\n", filename.c_str(), lineno, sampleMalloc);
-      printf(buf);
+      // sprintf(buf, "M %s %d %lu\n", filename.c_str(), lineno, sampleMalloc);
+      // printf(buf);
     }
+    writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
     raise(MallocSignal);
 #endif
@@ -189,14 +202,15 @@ class SampleHeap : public SuperHeap {
   }
 
   void handleFree(size_t sampleFree) {
-    writeCount(FreeSignal, sampleFree, nullptr);
     std::string filename;
     int lineno;
-    int r = getPythonInfo(filename, lineno);
+    int bytei;
+    int r = getPythonInfo(filename, lineno, bytei);
+    writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
     if (r) {
       char buf[255];
-      sprintf(buf, "F %s %d %lu\n", filename.c_str(), lineno, sampleFree);
-      printf(buf);
+      //      sprintf(buf, "F %s %d %lu\n", filename.c_str(), lineno, sampleFree);
+      //      printf(buf);
     }
 #if !SCALENE_DISABLE_SIGNALS
     raise(MallocSignal); // was FreeSignal
@@ -325,7 +339,7 @@ class SampleHeap : public SuperHeap {
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
-  void writeCount(AllocSignal sig, uint64_t count, void *ptr) {
+  void writeCount(AllocSignal sig, uint64_t count, void *ptr, const std::string& filename, int lineno, int bytei) {
     char buf[SampleFile::MAX_BUFSIZE];
     if (_pythonCount == 0) {
       _pythonCount = 1;  // prevent 0/0
@@ -333,14 +347,17 @@ class SampleHeap : public SuperHeap {
     snprintf(
         buf, SampleFile::MAX_BUFSIZE,
 #if defined(__APPLE__)
-        "%c,%llu,%llu,%f,%d,%p\n\n",
+        "%c,%llu,%llu,%f,%d,%p,%s,%d,%d\n\n",
 #else
-        "%c,%lu,%lu,%f,%d,%p\n\n",
+        "%c,%lu,%lu,%f,%d,%p,%s,%d,%d\n\n",
 #endif
         ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
         mallocTriggered() + freeTriggered(), count,
         (float)_pythonCount / (_pythonCount + _cCount), getpid(),
-        _freedLastMallocTrigger ? _lastMallocTrigger : ptr);
+        _freedLastMallocTrigger ? _lastMallocTrigger : ptr,
+	filename.c_str(),
+	lineno,
+	bytei);
     // Ensure we don't report last-malloc-freed multiple times.
     _freedLastMallocTrigger = false;
     _samplefile.writeToFile(buf, 1);
