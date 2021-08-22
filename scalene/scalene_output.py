@@ -59,6 +59,7 @@ class ScaleneOutput:
         """Print at most one line of the profile (true == printed one)."""
         if not force_print and not profile_this_code(fname, line_no):
             return False
+
         current_max = stats.max_footprint
         # Prepare output values.
         n_cpu_samples_c = stats.cpu_samples_c[fname][line_no]
