@@ -152,24 +152,29 @@ class SampleHeap : public SuperHeap {
         */
 	auto fname = frame->f_code->co_filename;
 	auto encoded = PyUnicode_AsEncodedString(fname, "utf-8", nullptr); // "ascii", NULL);
-	auto filenameStr = PyBytes_AsString(encoded);
-	if (strlen(filenameStr) == 0) {
-	  fname = frame->f_back->f_code->co_filename;
-	  encoded = PyUnicode_AsEncodedString(fname, "utf-8", nullptr); // "ascii", NULL);
-	  filenameStr = PyBytes_AsString(encoded);
+	if (!encoded) {
+	  // WTAF
+	  return 0;
 	}
-	lineno = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
-	bytei = frame->f_lasti;
-	if (!strstr(filenameStr, "<") &&
-	    !strstr(filenameStr, "scalene/") &&
-	    !strstr(filenameStr, "/python"))
-	  {
-	    // FIXME: here's we need Scalene's scalene_profiler.should_trace method.
-	    if (strstr(filenameStr, "test-iters")) {
+	if (encoded) {
+	  auto filenameStr = PyBytes_AsString(encoded);
+	  if (strlen(filenameStr) == 0) {
+	    fname = frame->f_back->f_code->co_filename;
+	    encoded = PyUnicode_AsEncodedString(fname, "utf-8", nullptr); // "ascii", NULL);
+	    filenameStr = PyBytes_AsString(encoded);
+	  }
+	  lineno = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
+	  bytei = frame->f_lasti;
+	  if (!strstr(filenameStr, "<") &&
+	      !strstr(filenameStr, "scalene/") &&
+	      !strstr(filenameStr, "/python"))
+	    {
+	      // FIXME: here's we need Scalene's scalene_profiler.should_trace method.
+	      //if (strstr(filenameStr, "test-iters")) {
 	      filename = filenameStr;
 	      return 1;
 	    }
-	  }
+	}
         frame = frame->f_back;
       }
     }
