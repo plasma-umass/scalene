@@ -60,7 +60,8 @@ class Sampler {
 
   inline ATTRIBUTE_ALWAYS_INLINE uint64_t sample(uint64_t sz) {
     if (unlikely(_next <= sz)) {
-      return updateSample(sz - _next);
+      // return updateSample(sz - _next);
+      return updateSample(sz);
     }
     assert(sz < _next);
     _next -= sz;
@@ -80,8 +81,6 @@ class Sampler {
 #endif
     auto prevSampleSize = _lastSampleSize;
     _lastSampleSize = _next;
-    return sz + SAMPLE_RATE;
-    // previously:
-    // return sz + prevSampleSize;
+    return sz;
   }
 };
