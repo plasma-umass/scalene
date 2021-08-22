@@ -1200,19 +1200,27 @@ class Scalene:
                 while Scalene.read_memcpy_mmap():
                     pass
 
+    __done = False
+    
     @staticmethod
     def start() -> None:
         """Initiate profiling."""
         Scalene.clear_mmap_data()
         Scalene.__stats.start_clock()
         Scalene.enable_signals()
+        Scalene.__done = False
 
     @staticmethod
     def stop() -> None:
         """Complete profiling."""
+        Scalene.__done = True
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
 
+    @staticmethod
+    def isDone() -> bool:
+        return Scalene.__done
+    
     @staticmethod
     def start_signal_handler(
         signum: Union[

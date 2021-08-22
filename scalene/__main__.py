@@ -4,7 +4,7 @@ import traceback
 from scalene import scalene_profiler
 
 def should_trace(s) -> str:
-    if scalene_profiler.Scalene.done:
+    if scalene_profiler.Scalene.isDone():
         return False
     return scalene_profiler.Scalene.should_trace(s)
 
