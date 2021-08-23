@@ -991,11 +991,10 @@ class Scalene:
         # indicates things like list comprehensions).
         # Scalene.enter_function_meta(frame, stats)
         # bytei = ByteCodeIndex(frame.f_lasti)
-        curr = before
-        python_frac = 0.0
         allocs = 0.0
         last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
         malloc_pointer = "0x0"
+        curr = before
         # Go through the array again and add each updated current footprint.
         for item in arr:
             _alloc_time, action, count, python_fraction, pointer, fname, lineno, bytei = item
@@ -1006,13 +1005,12 @@ class Scalene:
             if is_malloc:
                 allocs += count
                 curr += count
-                python_frac += python_fraction * count
                 malloc_pointer = pointer
                 stats.memory_malloc_samples[fname][lineno][bytei] += (
                     count
                 )
                 stats.memory_python_samples[fname][lineno][bytei] += (
-                    count * python_frac
+                    python_fraction * count
                 )
                 stats.malloc_samples[fname] += 1
                 stats.memory_malloc_count[fname][lineno][bytei] += 1
