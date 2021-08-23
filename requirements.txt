@@ -42,7 +42,7 @@ jsonschema==3.2.0
 jupyter-client==6.1.11
 jupyter-core==4.7.0
 jupyter-server==1.2.2
-jupyterlab==3.0.5
+jupyterlab==3.0.17
 jupyterlab-pygments==0.1.2
 jupyterlab-server==2.1.2
 keyboard==0.13.5
