@@ -122,6 +122,7 @@ class SampleHeap : public SuperHeap {
 
  private:
 
+  // An RAII class to simplify acquiring and releasing the GIL.
   class GIL {
   public:
     GIL()
@@ -137,11 +138,20 @@ class SampleHeap : public SuperHeap {
   
   
   int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
+    // This function walks the Python stack until it finds a frame
+    // corresponding to a file we are actually profiling. On success,
+    // it updates filename, lineno, and byte code index appropriately,
+    // and returns 1.  If the stack walk encounters no such file, it
+    // sets the filename to the pseudo-filename "<BOGUS>" for special
+    // treatment within Scalene, and returns 0.
     filename = "<BOGUS>";
     lineno = 1;
     bytei = 0;
     GIL gil;
     if (Py_IsInitialized()) {
+      // Try to get the should_trace method.  Fail fast if none of
+      // these lookups succeed, which can happen because of some
+      // intermediate allocation triggering the sample heap.
       auto main_module = PyImport_AddModule("__main__");
       if (!main_module) {
 	return 0;
@@ -152,10 +162,7 @@ class SampleHeap : public SuperHeap {
       }
       auto should_trace = PyDict_GetItemString(main_dict, "should_trace");
       if (!should_trace) {
-	//	should_trace = PyDict_GetItemString(main_dict, "should_trace");
-	//	if (!should_trace) {
 	  return 0;
-	  //	}
       }
       auto frame = PyEval_GetFrame();
       int frameno = 0;
@@ -178,10 +185,6 @@ class SampleHeap : public SuperHeap {
 	if (!strstr(filenameStr, "<")
 	    && !strstr(filenameStr, "/python"))
 	  {
-	    if (!should_trace) {
-	      Py_DecRef(encoded);
-	      return 0;
-	    }
 	    auto result = PyObject_CallFunction(should_trace, "s", filenameStr);
 	    if (!result) {
 	      Py_DecRef(encoded);
@@ -269,6 +272,9 @@ class SampleHeap : public SuperHeap {
   SampleFile _samplefile;
   pid_t _pid;
   void recordCallStack(size_t sz) {
+    if (!Py_IsInitialized()) {
+      return;
+    }
     // Walk the stack to see if this memory was allocated by Python
     // through its object allocation APIs.
     const auto MAX_FRAMES_TO_CHECK =
