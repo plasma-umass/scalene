@@ -793,16 +793,18 @@ class Scalene:
             if t != threading.main_thread()
         ]
         # Put the main thread in the front.
-        if True:
-            frames.insert(
-                0,
-                (
-                    sys._current_frames().get(
-                        cast(int, threading.main_thread().ident), None
-                    ),
-                    cast(int, threading.main_thread().ident),
+
+        tid = cast(int, threading.main_thread().ident)
+        frames.insert(
+            0,
+            (
+                sys._current_frames().get(
+                    tid, None
                 ),
-            )
+                tid,
+            ),
+        )
+
         # Process all the frames to remove ones we aren't going to track.
         new_frames: List[Tuple[FrameType, int, FrameType]] = []
         for (frame, tident) in frames:
