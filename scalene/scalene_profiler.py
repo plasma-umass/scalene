@@ -749,9 +749,9 @@ class Scalene:
                         cpu_utilization
                     )
 
+        del new_frames[:]
         # Below possibly unnecessary
         del this_frame
-        del new_frames[:]
         del new_frames
 
         Scalene.__stats.total_cpu_samples += total_time
