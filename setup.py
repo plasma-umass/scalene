@@ -134,6 +134,7 @@ setup(
     install_requires=[
         "rich>=9.2.10",
         "cloudpickle>=1.5.0",
+        "find_libpython>=0.2.0",
         "nvidia-ml-py==11.450.51",
         "numpy"
     ],
