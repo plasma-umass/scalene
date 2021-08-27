@@ -20,8 +20,8 @@ class ScalenePreload:
                 env["LD_PRELOAD"] = os.path.join(
                     scalene.__path__[0], "libscalene.so"
                 )
-                env["PYTHONMALLOC"] = "malloc"
-                # env["PYTHONMALLOC"] = "pymalloc"
+                # env["PYTHONMALLOC"] = "malloc"
+                env["PYTHONMALLOC"] = "pymalloc"
 
         elif sys.platform == "darwin":
             if not args.cpu_only:

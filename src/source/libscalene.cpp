@@ -28,13 +28,16 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t MallocSamplingRate = 262147ULL; // 870173ULL;
-// constexpr uint64_t MallocSamplingRate = 8 * 870173ULL; // FIXME: a large value since lower numbers currently cause SIGSEGVs
+//constexpr uint64_t MallocSamplingRate = 262147ULL; // 870173ULL;
+//constexpr uint64_t MallocSamplingRate = 8 * 870173ULL; // FIXME: a large value since lower numbers currently cause SIGSEGVs
 //  1048571ULL * 4;  // a prime number near 256K
-constexpr uint64_t FreeSamplingRate = 262261ULL; // 758201ULL;
-// constexpr uint64_t FreeSamplingRate = 8 * 758201ULL;
+//constexpr uint64_t FreeSamplingRate = 262261ULL; // 758201ULL;
 //  1048571ULL * 4;  // a prime number near 256K
-constexpr uint64_t MemcpySamplingRate = 2097169ULL;  // another prime, near 2MB
+// 
+
+constexpr uint64_t MallocSamplingRate = 1048576ULL;
+constexpr uint64_t FreeSamplingRate = MallocSamplingRate;
+constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 10;
 
 class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>> {
  public:
@@ -91,6 +94,7 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 // Use the wrapped version of dlsym that sidesteps its nasty habit of trying to allocate memory.
 extern "C" void * my_dlsym(void *, const char*);
 
+#if 1
 extern "C" {
   
   ATTRIBUTE_EXPORT void * LOCAL_PREFIX(mmap)(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
@@ -110,6 +114,7 @@ extern "C" {
 	TheHeapWrapper::register_malloc(len, 0);
       } else {
     }
+    
     return ptr;
   }
 
@@ -134,6 +139,8 @@ extern "C" {
   }
 
 }
+#endif
+
 #endif
 
 #if defined(__APPLE__)
