@@ -136,6 +136,7 @@ setup(
         "cloudpickle>=1.5.0",
         "find_libpython>=0.2.0",
         "nvidia-ml-py==11.450.51",
+        "wheel==0.36.2",
         "numpy"
     ],
     ext_modules=[get_line_atomic],
