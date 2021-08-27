@@ -177,12 +177,26 @@ class SampleHeap : public SuperHeap {
 	auto filenameStr = PyBytes_AsString(encoded);
 	if (strlen(filenameStr) == 0) {
 	  Py_DecRef(encoded);
+#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 9
+	  auto f_back = PyFrame_GetBack(frame);
+	  auto f_code = PyFrame_GetCode(f_back);
+	  fname = f_code->co_filename;
+#else
 	  fname = frame->f_back->f_code->co_filename;
+#endif
 	  encoded = PyUnicode_AsASCIIString(fname);
 	  filenameStr = PyBytes_AsString(encoded);
 	}
-	lineno = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
+#if defined(PyPy_FatalError)
+	// If this macro is defined, we are compiling PyPy, which
+	// AFAICT does not have any way to access bytecode index, so
+	// we punt and set it to 0.
+	bytei = 0;
+#else
 	bytei = frame->f_lasti;
+#endif
+	lineno = PyCode_Addr2Line(frame->f_code, bytei);
+	
 	if (!strstr(filenameStr, "<")
 	    && !strstr(filenameStr, "/python"))
 	  {
@@ -201,7 +215,11 @@ class SampleHeap : public SuperHeap {
 	    Py_DecRef(encoded);
 	    Py_DecRef(result);
 	  }
+#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 9
+	frame = PyFrame_GetBack(frame);
+#else
         frame = frame->f_back;
+#endif
 	frameno++;
       }
     }
