@@ -16,41 +16,23 @@
 #include "heapredirect.h"
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
-#include "stprintf.h"
-#include "tprintf.h"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
 #endif
 
-#if 1
-
-using BaseHeap = HL::SysMallocHeap;
-
-#else // for debugging
-
-class BaseHeap : public HL::SysMallocHeap {
-public:
-  using HL::SysMallocHeap::SysMallocHeap;
-
-  void * malloc(size_t sz) {
-    if (sz >= 256 * 1024) {
-      printf("malloc %lu\n", sz);
-    }
-    return HL::SysMallocHeap::malloc(sz);
-  }
-};
-#endif
+// Allocate exactly one system heap.
+using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 
 // For use by the replacement printf routines (see
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
-//constexpr uint64_t MallocSamplingRate = 262147ULL; // 870173ULL;
-constexpr uint64_t MallocSamplingRate = 8 * 870173ULL; // FIXME: a large value since lower numbers currently cause SIGSEGVs
+constexpr uint64_t MallocSamplingRate = 262147ULL; // 870173ULL;
+// constexpr uint64_t MallocSamplingRate = 8 * 870173ULL; // FIXME: a large value since lower numbers currently cause SIGSEGVs
 //  1048571ULL * 4;  // a prime number near 256K
-//constexpr uint64_t FreeSamplingRate = 262261ULL; // 758201ULL;
-constexpr uint64_t FreeSamplingRate = 8 * 758201ULL;
+constexpr uint64_t FreeSamplingRate = 262261ULL; // 758201ULL;
+// constexpr uint64_t FreeSamplingRate = 8 * 758201ULL;
 //  1048571ULL * 4;  // a prime number near 256K
 constexpr uint64_t MemcpySamplingRate = 2097169ULL;  // another prime, near 2MB
 
@@ -106,13 +88,16 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 #if !defined(_WIN32)
 
+// Use the wrapped version of dlsym that sidesteps its nasty habit of trying to allocate memory.
+extern "C" void * my_dlsym(void *, const char*);
+
 extern "C" {
   
   ATTRIBUTE_EXPORT void * LOCAL_PREFIX(mmap)(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
 #if defined(__APPLE__)
     auto ptr = ::mmap(addr, len, prot, flags, fd, offset);
 #else
-    static auto * _mmap = reinterpret_cast<decltype(::mmap) *>(reinterpret_cast<size_t>(dlsym(RTLD_NEXT, "mmap")));
+    static auto * _mmap = reinterpret_cast<decltype(::mmap) *>(reinterpret_cast<size_t>(my_dlsym(RTLD_NEXT, "mmap")));
     auto ptr = _mmap(addr, len, prot, flags, fd, offset);
 #endif
     if ((addr == NULL) &&
@@ -137,7 +122,7 @@ extern "C" {
 #if defined(__APPLE__)
     auto result = ::munmap(addr, len);
 #else
-    static auto * _munmap = reinterpret_cast<decltype(::munmap) *>(reinterpret_cast<size_t>(dlsym(RTLD_NEXT, "munmap")));
+    static auto * _munmap = reinterpret_cast<decltype(::munmap) *>(reinterpret_cast<size_t>(my_dlsym(RTLD_NEXT, "munmap")));
     auto result = _munmap(addr, len);
 #endif
      if (len == (256 * 1024)) {
