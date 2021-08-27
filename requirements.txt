@@ -254,4 +254,5 @@ virtualenv-clone==0.5.4
 wcwidth==0.2.5
 webencodings==0.5.1
 Werkzeug==1.0.1
+wheel==0.36.2
 xmltodict==0.12.0
