@@ -73,8 +73,9 @@ class SampleHeap : public SuperHeap {
       return nullptr;
     }
     auto realSize = SuperHeap::getSize(ptr);
-    assert(realSize >= sz);
-    register_malloc(realSize, ptr);
+    if (realSize > 0) {
+      register_malloc(realSize, ptr);
+    }
     return ptr;
   }
 
