@@ -150,8 +150,8 @@ class SampleHeap : public SuperHeap {
     bytei = 0;
     GIL gil;
     if (Py_IsInitialized()) {
-      // Try to get the should_trace method.  Fail fast if none of
-      // these lookups succeed, which can happen because of some
+      // Try to get the should_trace method.  Fail gracefully if none
+      // of these lookups succeed, which can happen because of some
       // intermediate allocation triggering the sample heap.
       auto main_module = PyImport_AddModule("__main__");
       if (!main_module) {
@@ -171,7 +171,6 @@ class SampleHeap : public SuperHeap {
 	auto fname = frame->f_code->co_filename;
 	auto encoded = PyUnicode_AsASCIIString(fname);
 	if (!encoded) {
-	  // WTAF
 	  return 0;
 	}
 	auto filenameStr = PyBytes_AsString(encoded);
@@ -196,7 +195,6 @@ class SampleHeap : public SuperHeap {
 	bytei = frame->f_lasti;
 #endif
 	lineno = PyCode_Addr2Line(frame->f_code, bytei);
-	
 	if (!strstr(filenameStr, "<")
 	    && !strstr(filenameStr, "/python"))
 	  {
@@ -238,9 +236,6 @@ class SampleHeap : public SuperHeap {
     if (!r) {
       ////      return;
     }
-    char buf[255];
-    //    sprintf(buf, "M %s %d %lu\n", filename.c_str(), lineno, sampleMalloc);
-    //    printf(buf);
     writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
     raise(MallocSignal);
@@ -260,9 +255,6 @@ class SampleHeap : public SuperHeap {
     if (!r) {
       ///      return;
     }
-    char buf[255];
-    // sprintf(buf, "F %s %d %lu\n", filename.c_str(), lineno, sampleFree);
-    //    printf(buf);
     writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
     raise(MallocSignal); // was FreeSignal
@@ -399,7 +391,7 @@ class SampleHeap : public SuperHeap {
     if (_pythonCount == 0) {
       _pythonCount = 1;  // prevent 0/0
     }
-    snprintf(
+    snprintf_(
         buf, SampleFile::MAX_BUFSIZE,
 #if defined(__APPLE__)
         "%c,%llu,%llu,%f,%d,%p,%s,%d,%d\n\n",
