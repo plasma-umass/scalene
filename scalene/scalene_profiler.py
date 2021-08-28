@@ -986,11 +986,6 @@ class Scalene:
                 Address("0x0"),
             )
 
-        # Walk the stack backwards until we find a proper function
-        # name (as in, one that doesn't contain "<", which
-        # indicates things like list comprehensions).
-        # Scalene.enter_function_meta(frame, stats)
-        # bytei = ByteCodeIndex(frame.f_lasti)
         allocs = 0.0
         last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
         malloc_pointer = "0x0"
@@ -998,6 +993,22 @@ class Scalene:
         # Go through the array again and add each updated current footprint.
         for item in arr:
             _alloc_time, action, count, python_fraction, pointer, fname, lineno, bytei = item
+
+            if fname == "<MMAP>":
+                # We are currently unable to precisely attribute lines of code from within Python,
+                # so instead we walk the stack backwards to find a "reasonable" frame to attribute
+                # mmap calls to.
+                tid = cast(int, threading.main_thread().ident)
+                frame = sys._current_frames().get(tid, None)
+                while frame and not Scalene.should_trace(fname):
+                    frame = frame.f_back
+                    if frame:
+                        fname = Filename(frame.f_code.co_filename)
+                        lineno = LineNumber(frame.f_lineno)
+                        bytei = ByteCodeIndex(frame.f_lasti)
+                if not frame:
+                    return
+                
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
             count /= 1024 * 1024

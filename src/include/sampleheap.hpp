@@ -105,7 +105,7 @@ class SampleHeap : public SuperHeap {
       _freedLastMallocTrigger = true;
     }
     if (unlikely(sampleFree)) {
-      handleFree(sampleFree);
+      handleFree(sampleFree, ptr);
     }
   }
 
@@ -232,9 +232,15 @@ class SampleHeap : public SuperHeap {
     std::string filename;
     int lineno;
     int bytei;
-    int r = getPythonInfo(filename, lineno, bytei);
-    if (!r) {
-      ////      return;
+    if (triggeringMallocPtr) { // not from mmap
+      int r = getPythonInfo(filename, lineno, bytei);
+      if (!r) {
+	// FIXME
+	// return;
+      }
+    } else {
+      // NULL argument to handleMalloc indicates it originated in mmap.
+      filename = "<MMAP>";
     }
     writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
@@ -247,13 +253,20 @@ class SampleHeap : public SuperHeap {
     mallocTriggered()++;
   }
 
-  void handleFree(size_t sampleFree) {
+  void handleFree(size_t sampleFree, void * ptr) {
     std::string filename;
     int lineno;
     int bytei;
-    int r = getPythonInfo(filename, lineno, bytei);
-    if (!r) {
-      ///      return;
+
+    if (ptr) {
+      int r = getPythonInfo(filename, lineno, bytei);
+      if (!r) {
+	// FIXME
+	///      return;
+      }
+    } else {
+      // NULL argument to handleFree indicates it originated in munmap.
+      filename = "<MMAP>";
     }
     writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS

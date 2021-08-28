@@ -40,7 +40,12 @@ constexpr uint64_t FreeSamplingRate = MallocSamplingRate;
 constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 10;
 
 class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>> {
+  using super = HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>>;
  public:
+  void * malloc(size_t sz) {
+    auto ptr = super::malloc(sz);
+    return ptr;
+  }
   void lock() {}
   void unlock() {}
 };
@@ -94,16 +99,63 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 // Use the wrapped version of dlsym that sidesteps its nasty habit of trying to allocate memory.
 extern "C" void * my_dlsym(void *, const char*);
 
-#if 1
-extern "C" {
-  
-  ATTRIBUTE_EXPORT void * LOCAL_PREFIX(mmap)(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
+#include "Python.h"
+
+  class GIL {
+  public:
+    GIL()
+    {
+      _gstate = PyGILState_Ensure();
+    }
+    ~GIL() {
+      PyGILState_Release(_gstate);
+    }
+  private:
+    PyGILState_STATE _gstate;
+  };
+
+extern "C" void * arena_malloc(void *, size_t len) {
 #if defined(__APPLE__)
-    auto ptr = ::mmap(addr, len, prot, flags, fd, offset);
+  auto ptr = ::mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 #else
-    static auto * _mmap = reinterpret_cast<decltype(::mmap) *>(reinterpret_cast<size_t>(my_dlsym(RTLD_NEXT, "mmap")));
-    auto ptr = _mmap(addr, len, prot, flags, fd, offset);
+  static auto * _mmap = reinterpret_cast<decltype(::mmap) *>(reinterpret_cast<size_t>(my_dlsym(RTLD_NEXT, "mmap")));
+  auto ptr = _mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 #endif
+  TheHeapWrapper::register_malloc(len, 0);
+  return ptr;
+}
+
+extern "C" void arena_free(void *, void * addr, size_t len) {
+#if defined(__APPLE__)
+  auto result = ::munmap(addr, len);
+#else
+  static auto * _munmap = reinterpret_cast<decltype(::munmap) *>(reinterpret_cast<size_t>(my_dlsym(RTLD_NEXT, "munmap")));
+  auto result = _munmap(addr, len);
+#endif
+  TheHeapWrapper::register_free(len, 0);
+}
+
+
+class MakeArenaAllocator {
+public:
+  MakeArenaAllocator()
+  {
+    static PyObjectArenaAllocator arenaAlloc;
+    
+    arenaAlloc.ctx = nullptr;
+    arenaAlloc.alloc = arena_malloc;
+    arenaAlloc.free = arena_free;
+    PyObject_SetArenaAllocator(&arenaAlloc);
+    Py_InitializeEx(1);
+  }
+};
+
+MakeArenaAllocator m;
+
+#if 0
+extern "C" {
+
+  ATTRIBUTE_EXPORT void * LOCAL_PREFIX(mmap)(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
     if ((addr == NULL) &&
 	(prot == (PROT_READ | PROT_WRITE)) &&
 	(flags == (MAP_PRIVATE | MAP_ANONYMOUS)) &&
@@ -112,9 +164,14 @@ extern "C" {
 	(len == 256 * 1024))
       {
 	TheHeapWrapper::register_malloc(len, 0);
-      } else {
-    }
+      }
     
+#if defined(__APPLE__)
+    auto ptr = ::mmap(addr, len, prot, flags, fd, offset);
+#else
+    static auto * _mmap = reinterpret_cast<decltype(::mmap) *>(reinterpret_cast<size_t>(my_dlsym(RTLD_NEXT, "mmap")));
+    auto ptr = _mmap(addr, len, prot, flags, fd, offset);
+#endif
     return ptr;
   }
 
@@ -133,7 +190,6 @@ extern "C" {
      if (len == (256 * 1024)) {
        TheHeapWrapper::register_free(len, 0);
      } else {
-       //       printf("munmap %llu, %p\n", len, addr);
      }       
     return result;
   }
