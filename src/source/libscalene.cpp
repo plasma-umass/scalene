@@ -99,21 +99,6 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 // Use the wrapped version of dlsym that sidesteps its nasty habit of trying to allocate memory.
 extern "C" void * my_dlsym(void *, const char*);
 
-#include "Python.h"
-
-  class GIL {
-  public:
-    GIL()
-    {
-      _gstate = PyGILState_Ensure();
-    }
-    ~GIL() {
-      PyGILState_Release(_gstate);
-    }
-  private:
-    PyGILState_STATE _gstate;
-  };
-
 extern "C" void * arena_malloc(void *, size_t len) {
 #if defined(__APPLE__)
   auto ptr = ::mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
@@ -135,6 +120,7 @@ extern "C" void arena_free(void *, void * addr, size_t len) {
   TheHeapWrapper::register_free(len, 0);
 }
 
+#include <Python.h>
 
 class MakeArenaAllocator {
 public:
@@ -146,11 +132,18 @@ public:
     arenaAlloc.alloc = arena_malloc;
     arenaAlloc.free = arena_free;
     PyObject_SetArenaAllocator(&arenaAlloc);
-    Py_InitializeEx(1);
   }
 };
 
+#if 0
+extern "C" int makeArenaAllocator() {
+  static MakeArenaAllocator m;
+  return 1;
+}
+#endif
+
 MakeArenaAllocator m;
+
 
 #if 0
 extern "C" {
@@ -203,7 +196,7 @@ extern "C" {
 MAC_INTERPOSE(xxmemcpy, memcpy);
 MAC_INTERPOSE(xxmemmove, memmove);
 MAC_INTERPOSE(xxstrcpy, strcpy);
-MAC_INTERPOSE(xxmmap, mmap);
-MAC_INTERPOSE(xxmunmap, munmap);
+//MAC_INTERPOSE(xxmmap, mmap);
+//MAC_INTERPOSE(xxmunmap, munmap);
 #endif
 
