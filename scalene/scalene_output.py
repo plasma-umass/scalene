@@ -112,21 +112,6 @@ class ScaleneOutput:
             / stats.total_memory_malloc_samples  # was / n_malloc_mb
         )
 
-        if False:
-            # Currently disabled; possibly use in another column?
-            # Normalize by number of samples ("net *average*")
-            for bytei in stats.memory_malloc_count[fname][
-                line_no
-            ]:  # type : ignore
-                count = stats.memory_malloc_count[fname][line_no][bytei]
-                if count > 0:
-                    n_malloc_mb /= count
-                    n_python_malloc_mb /= count
-            for bytei in stats.memory_free_count[fname][line_no]:
-                count = stats.memory_free_count[fname][line_no][bytei]
-                if count > 0:
-                    n_free_mb /= count
-
         n_growth_mb = n_malloc_mb - n_free_mb
         if -1 < n_growth_mb < 1:
             # Don't print out "-0" or anything below 1.
