@@ -18,18 +18,18 @@ class ScalenePreload:
         if sys.platform == "linux":
             if not args.cpu_only:
                 env["LD_PRELOAD"] = os.path.join(
-                    scalene.__path__[0], "libscalene.so"
+                    scalene.__path__[0], "libscalene.so" # type: ignore
                 )
-                # env["PYTHONMALLOC"] = "malloc"
-                env["PYTHONMALLOC"] = "pymalloc"
+                env["PYTHONMALLOC"] = "malloc"
+                # env["PYTHONMALLOC"] = "pymalloc"
 
         elif sys.platform == "darwin":
             if not args.cpu_only:
                 env["DYLD_INSERT_LIBRARIES"] = os.path.join(
                     scalene.__path__[0], "libscalene.dylib"
                 )
-                env["PYTHONMALLOC"] = "malloc"
-                # env["PYTHONMALLOC"] = "pymalloc"
+                # env["PYTHONMALLOC"] = "malloc"
+                env["PYTHONMALLOC"] = "pymalloc"
             # required for multiprocessing support, even without libscalene
             env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
 
