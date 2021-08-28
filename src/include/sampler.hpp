@@ -81,6 +81,9 @@ class Sampler {
 #endif
     auto prevSampleSize = _lastSampleSize;
     _lastSampleSize = _next;
-    return sz;
+    if (sz >= SAMPLE_RATE) {
+      return sz;
+    }
+    return sz + SAMPLE_RATE;
   }
 };
