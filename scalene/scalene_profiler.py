@@ -37,7 +37,7 @@ import time
 import traceback
 
 if sys.platform != "win32":
-    from scalene import get_line_atomic
+    from scalene import get_line_atomic # type: ignore
 
 from collections import defaultdict
 from functools import lru_cache
@@ -371,7 +371,6 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        # return # FIXME
         Scalene.__memcpy_sigq.put((signum, this_frame))
         del this_frame
 
@@ -610,8 +609,6 @@ class Scalene:
         # before.  See the logic below.
         # If it's time to print some profiling info, do so.
 
-        #gc.collect()
-        #print(gc.get_referrers(this_frame))
         if now_wallclock >= Scalene.__next_output_time:
             # Print out the profile. Set the next output time, stop
             # signals, print the profile, and then start signals
@@ -960,6 +957,7 @@ class Scalene:
                 if stats.current_footprint > stats.max_footprint:
                     stats.max_footprint = stats.current_footprint
             else:
+                assert action == "f" or action == "F"
                 stats.current_footprint -= count
                 if action == "f":
                     # Check if pointer actually matches
@@ -1018,6 +1016,7 @@ class Scalene:
                 stats.memory_malloc_count[fname][lineno][bytei] += 1
                 stats.total_memory_malloc_samples += count
             else:
+                assert action == "f" or action == "F"
                 curr -= count
                 stats.memory_free_samples[fname][lineno][bytei] += (
                     count
@@ -1076,12 +1075,13 @@ class Scalene:
     def read_memcpy_mmap() -> Any:
         if sys.platform == "win32":
             return False
-        return get_line_atomic.get_line_atomic(
+        r = get_line_atomic.get_line_atomic(
             Scalene.__memcpy_lock_mmap,
             Scalene.__memcpy_signal_mmap,
             Scalene.__memcpy_buf,
             Scalene.__memcpy_lastpos,
         )
+        return r
 
     @staticmethod
     def memcpy_sigqueue_processor(
@@ -1090,7 +1090,6 @@ class Scalene:
         ],
         frame: FrameType,
     ) -> None:
-        return # FIXME
         curr_pid = os.getpid()
         arr: List[Tuple[int, int]] = []
         # Process the input array.
@@ -1120,7 +1119,6 @@ class Scalene:
                 line_no = LineNumber(the_frame.f_lineno)
                 bytei = ByteCodeIndex(the_frame.f_lasti)
                 # Add the byte index to the set for this line.
-                # FIXME
                 stats.bytei_map[fname][line_no].add(bytei)
                 stats.memcpy_samples[fname][line_no] += count
         del new_frames[:]
@@ -1266,7 +1264,7 @@ class Scalene:
         # Delete the temporary directory.
         try:
             if not Scalene.__pid:
-                Scalene.__python_alias_dir.cleanup()
+                Scalene.__python_alias_dir.cleanup() # type: ignore
         except BaseException:
             pass
         try:
