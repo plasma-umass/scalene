@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <Python.h>
+
 #if !defined(_WIN32)
 #include <unistd.h>  // for getpid()
 #endif
@@ -268,7 +270,7 @@ class MemcpySampler {
   void incrementMemoryOps(int n) {
     _memcpyOps += n;
     auto sampleMemop = _memcpySampler.sample(n);
-    if (unlikely(sampleMemop)) {
+    if (Py_IsInitialized() && unlikely(sampleMemop)) {
       writeCount();
       _memcpyTriggered++;
       _memcpyOps = 0;
