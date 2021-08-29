@@ -136,7 +136,7 @@ class Scalene:
     @staticmethod
     def get_original_lock() -> threading.Lock:
         return Scalene.__original_lock()
-
+    
     # Likely names for the Python interpreter.
     __all_python_names = [
         os.path.basename(sys.executable),
@@ -1213,7 +1213,7 @@ class Scalene:
     @staticmethod
     def start() -> None:
         """Initiate profiling."""
-        Scalene.clear_mmap_data()
+        # Scalene.clear_mmap_data()
         Scalene.__stats.start_clock()
         Scalene.enable_signals()
         Scalene.__done = False
