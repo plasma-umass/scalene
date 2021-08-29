@@ -28,16 +28,9 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
-//constexpr uint64_t MallocSamplingRate = 262147ULL; // 870173ULL;
-//constexpr uint64_t MallocSamplingRate = 8 * 870173ULL; // FIXME: a large value since lower numbers currently cause SIGSEGVs
-//  1048571ULL * 4;  // a prime number near 256K
-//constexpr uint64_t FreeSamplingRate = 262261ULL; // 758201ULL;
-//  1048571ULL * 4;  // a prime number near 256K
-// 
-
-constexpr uint64_t MallocSamplingRate = 1048576ULL;
+constexpr uint64_t MallocSamplingRate = 2 * 1048576ULL;
 constexpr uint64_t FreeSamplingRate = MallocSamplingRate;
-constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 10;
+constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 7;
 
 class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>> {
   using super = HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>>;
