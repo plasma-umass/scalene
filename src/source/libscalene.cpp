@@ -76,16 +76,7 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
   return result;
 }
 
-// Initial support for tracking mmap and munmap of arenas to enable correct use of pymalloc.
-//
-// TODO: walk the stack to verify that this is a Python-allocated
-// arena -- a call to alloc(ctx, size) should be sufficiently
-// disambiguating. See
-// https://docs.python.org/3/c-api/memory.html#customize-pymalloc-arena-allocator
-// For now, assume that all exactly 256MB requests for the
-// right kind of memory (private, anonymous, etc.) are in fact Python
-// arenas. See
-// https://docs.python.org/3/c-api/memory.html#the-pymalloc-allocator).
+// Intercept arena allocation for tracking when using the (fast, built-in) pymalloc allocator.
 
 #if !defined(_WIN32)
 
