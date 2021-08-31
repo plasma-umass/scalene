@@ -153,6 +153,14 @@ class SampleHeap : public SuperHeap {
       // Try to get the should_trace method.  Fail gracefully if none
       // of these lookups succeed, which can happen because of some
       // intermediate allocation triggering the sample heap.
+      auto moduleName = PyUnicode_FromString("__main__");
+      if (!moduleName) {
+	return 0;
+      }
+      auto pluginModule = PyImport_Import(moduleName);
+      if (!pluginModule) {
+	return 0;
+      }
       auto main_module = PyImport_AddModule("__main__");
       if (!main_module) {
 	return 0;
@@ -163,7 +171,7 @@ class SampleHeap : public SuperHeap {
       }
       auto should_trace = PyDict_GetItemString(main_dict, "should_trace");
       if (!should_trace) {
-	  return 0;
+	return 0;
       }
       auto frame = PyEval_GetFrame();
       int frameno = 0;
@@ -184,6 +192,9 @@ class SampleHeap : public SuperHeap {
 	  fname = frame->f_back->f_code->co_filename;
 #endif
 	  encoded = PyUnicode_AsASCIIString(fname);
+	  if (!encoded) {
+	    return 0;
+	  }
 	  filenameStr = PyBytes_AsString(encoded);
 	}
 #if defined(PyPy_FatalError)
@@ -208,6 +219,8 @@ class SampleHeap : public SuperHeap {
 	      filename = filenameStr;
 	      Py_DecRef(encoded);
 	      Py_DecRef(result);
+	      Py_DecRef(moduleName);
+	      Py_DecRef(pluginModule);
 	      return 1;
 	    }
 	    Py_DecRef(encoded);
@@ -220,6 +233,8 @@ class SampleHeap : public SuperHeap {
 #endif
 	frameno++;
       }
+      Py_DecRef(moduleName);
+      Py_DecRef(pluginModule);
     }
     return 0;
   }
