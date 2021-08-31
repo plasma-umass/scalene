@@ -1000,14 +1000,17 @@ class Scalene:
                 # mmap calls to.
                 tid = cast(int, threading.main_thread().ident)
                 frame = sys._current_frames().get(tid, None)
+                if frame:
+                    fname = Filename(frame.f_code.co_filename)
                 while frame and not Scalene.should_trace(fname):
                     frame = frame.f_back
                     if frame:
                         fname = Filename(frame.f_code.co_filename)
-                        lineno = LineNumber(frame.f_lineno)
-                        bytei = ByteCodeIndex(frame.f_lasti)
                 if not frame:
                     return
+                assert Scalene.should_trace(fname)
+                lineno = LineNumber(frame.f_lineno)
+                bytei = ByteCodeIndex(frame.f_lasti)
                 
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
