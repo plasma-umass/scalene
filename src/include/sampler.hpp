@@ -84,6 +84,6 @@ class Sampler {
     if (sz >= SAMPLE_RATE) {
       return sz;
     }
-    return sz + SAMPLE_RATE;
+    return SAMPLE_RATE;
   }
 };
