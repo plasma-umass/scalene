@@ -28,7 +28,7 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t MallocSamplingRate = 2 * 1048576ULL;
+constexpr uint64_t MallocSamplingRate = 1048576ULL;
 constexpr uint64_t FreeSamplingRate = MallocSamplingRate;
 constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 7;
 
@@ -90,7 +90,7 @@ extern "C" void * arena_malloc(void *, size_t len) {
   static auto * _mmap = reinterpret_cast<decltype(::mmap) *>(reinterpret_cast<size_t>(my_dlsym(RTLD_NEXT, "mmap")));
   auto ptr = _mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 #endif
-  TheHeapWrapper::register_malloc(len, 0);
+  TheHeapWrapper::register_malloc(len, NULL);
   return ptr;
 }
 
@@ -101,7 +101,7 @@ extern "C" void arena_free(void *, void * addr, size_t len) {
   static auto * _munmap = reinterpret_cast<decltype(::munmap) *>(reinterpret_cast<size_t>(my_dlsym(RTLD_NEXT, "munmap")));
   auto result = _munmap(addr, len);
 #endif
-  TheHeapWrapper::register_free(len, 0);
+  TheHeapWrapper::register_free(len, NULL);
 }
 
 #include <Python.h>
@@ -126,7 +126,7 @@ extern "C" int makeArenaAllocator() {
 }
 #endif
 
-MakeArenaAllocator m;
+static MakeArenaAllocator m;
 
 
 #if 0
