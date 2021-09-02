@@ -82,6 +82,7 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 #include <Python.h>
 
+#if 0
 class MakeArenaAllocator {
 public:
   MakeArenaAllocator()
@@ -104,16 +105,23 @@ private:
   PyObjectArenaAllocator arenaAlloc;
     
   static void * arena_malloc(void * ctx, size_t len) {
-    auto ptr = original_arena_allocator.alloc(ctx, len);
-    TheHeapWrapper::register_malloc(len, NULL); // FIXME using the real address fails for some reason (presumably due to SampleHeap::getPythonInfo)
-    return ptr;
+    auto addr = original_arena_allocator.alloc(ctx, len);
+    // Ignore the first 64 arenas, which in principle should be populated for every size class.
+    static int countDown = 64;
+    if (countDown) {
+      countDown--;
+      return addr;
+    }
+    TheHeapWrapper::register_malloc(len, addr);
+    return addr;
   }
 
   static void arena_free(void * ctx, void * addr, size_t len) {
-    TheHeapWrapper::register_free(len, NULL); // FIXME see above
     original_arena_allocator.free(ctx, addr, len);
+    TheHeapWrapper::register_free(len, addr);
   }
 };
+#endif
 
 template <PyMemAllocatorDomain Domain>
 class MakeLocalAllocator {
@@ -183,7 +191,7 @@ private:
 };
 
 
-static MakeArenaAllocator m;
+// static MakeArenaAllocator m;
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;
 
