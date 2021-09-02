@@ -28,7 +28,7 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t MallocSamplingRate = 1048576ULL;
+constexpr uint64_t MallocSamplingRate = 2 * 1048576ULL;
 constexpr uint64_t FreeSamplingRate = MallocSamplingRate;
 constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 7;
 
@@ -76,33 +76,9 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
   return result;
 }
 
-// Intercept arena allocation for tracking when using the (fast, built-in) pymalloc allocator.
+// Intercept arena and local allocation for tracking when using the (fast, built-in) pymalloc allocator.
 
 #if !defined(_WIN32)
-
-// Use the wrapped version of dlsym that sidesteps its nasty habit of trying to allocate memory.
-extern "C" void * my_dlsym(void *, const char*);
-
-extern "C" void * arena_malloc(void *, size_t len) {
-#if defined(__APPLE__)
-  auto ptr = ::mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-#else
-  static auto * _mmap = reinterpret_cast<decltype(::mmap) *>(reinterpret_cast<size_t>(my_dlsym(RTLD_NEXT, "mmap")));
-  auto ptr = _mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-#endif
-  TheHeapWrapper::register_malloc(len, NULL);
-  return ptr;
-}
-
-extern "C" void arena_free(void *, void * addr, size_t len) {
-#if defined(__APPLE__)
-  auto result = ::munmap(addr, len);
-#else
-  static auto * _munmap = reinterpret_cast<decltype(::munmap) *>(reinterpret_cast<size_t>(my_dlsym(RTLD_NEXT, "munmap")));
-  auto result = _munmap(addr, len);
-#endif
-  TheHeapWrapper::register_free(len, NULL);
-}
 
 #include <Python.h>
 
@@ -110,71 +86,106 @@ class MakeArenaAllocator {
 public:
   MakeArenaAllocator()
   {
-    static PyObjectArenaAllocator arenaAlloc;
-    
     arenaAlloc.ctx = nullptr;
     arenaAlloc.alloc = arena_malloc;
     arenaAlloc.free = arena_free;
+    PyObject_GetArenaAllocator(&original_arena_allocator);
     PyObject_SetArenaAllocator(&arenaAlloc);
+  }
+
+  ~MakeArenaAllocator()
+  {
+    PyObject_SetArenaAllocator(&arenaAlloc);
+  }
+
+private:
+  
+  static inline PyObjectArenaAllocator original_arena_allocator;
+  PyObjectArenaAllocator arenaAlloc;
+    
+  static void * arena_malloc(void * ctx, size_t len) {
+    auto ptr = original_arena_allocator.alloc(ctx, len);
+    TheHeapWrapper::register_malloc(len, NULL); // FIXME using the real address fails for some reason (presumably due to SampleHeap::getPythonInfo)
+    return ptr;
+  }
+
+  static void arena_free(void * ctx, void * addr, size_t len) {
+    TheHeapWrapper::register_free(len, NULL); // FIXME see above
+    original_arena_allocator.free(ctx, addr, len);
   }
 };
 
-#if 0
-extern "C" int makeArenaAllocator() {
-  static MakeArenaAllocator m;
-  return 1;
-}
-#endif
-
-static MakeArenaAllocator m;
-
-
-#if 0
-extern "C" {
-
-  ATTRIBUTE_EXPORT void * LOCAL_PREFIX(mmap)(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
-    if ((addr == NULL) &&
-	(prot == (PROT_READ | PROT_WRITE)) &&
-	(flags == (MAP_PRIVATE | MAP_ANONYMOUS)) &&
-	(fd == -1) &&
-	(offset == 0) &&
-	(len == 256 * 1024))
-      {
-	TheHeapWrapper::register_malloc(len, 0);
-      }
-    
-#if defined(__APPLE__)
-    auto ptr = ::mmap(addr, len, prot, flags, fd, offset);
-#else
-    static auto * _mmap = reinterpret_cast<decltype(::mmap) *>(reinterpret_cast<size_t>(my_dlsym(RTLD_NEXT, "mmap")));
-    auto ptr = _mmap(addr, len, prot, flags, fd, offset);
-#endif
-    return ptr;
-  }
-
-  ATTRIBUTE_EXPORT void * LOCAL_PREFIX(mmap64)(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
-    auto ptr = LOCAL_PREFIX(mmap)(addr, len, prot, flags, fd, offset);
-    return ptr;
-  }
+template <PyMemAllocatorDomain Domain>
+class MakeLocalAllocator {
+public:
   
-  ATTRIBUTE_EXPORT int LOCAL_PREFIX(munmap)(void * addr, size_t len) {
-#if defined(__APPLE__)
-    auto result = ::munmap(addr, len);
-#else
-    static auto * _munmap = reinterpret_cast<decltype(::munmap) *>(reinterpret_cast<size_t>(my_dlsym(RTLD_NEXT, "munmap")));
-    auto result = _munmap(addr, len);
-#endif
-     if (len == (256 * 1024)) {
-       TheHeapWrapper::register_free(len, 0);
-     } else {
-     }       
+  MakeLocalAllocator()
+  {
+    localAlloc.ctx = nullptr;
+    localAlloc.malloc = local_malloc;
+    localAlloc.calloc = local_calloc;
+    localAlloc.realloc = local_realloc;
+    localAlloc.free = local_free;
+    PyMem_GetAllocator(Domain, &original_allocator);
+    PyMem_SetAllocator(Domain, &localAlloc);
+  }
+
+  ~MakeLocalAllocator() {
+    PyMem_SetAllocator(Domain, &original_allocator);
+  }
+
+private:
+
+  PyMemAllocatorEx localAlloc;
+  static inline PyMemAllocatorEx original_allocator;
+  
+  static void * local_malloc(void * ctx, size_t len) {
+    auto ptr = original_allocator.malloc(ctx, len);
+    if (!len) {
+      len = 1;
+    }
+    if (ptr) {
+      TheHeapWrapper::register_malloc(len, ptr);
+    }
+    return ptr;
+  }
+
+  static void local_free(void * ctx, void * ptr) {
+    if (ptr) {
+      TheHeapWrapper::register_free(12, ptr); // FIXME FIXME - we don't have the object size
+    }
+    original_allocator.free(ctx, ptr);
+  }
+
+  static void * local_realloc(void * ctx, void * ptr, size_t new_size) {
+    if (ptr) {
+      TheHeapWrapper::register_free(12, ptr); // FIXME OLD SIZE
+    }
+    if (!ptr && !new_size) {
+      new_size = 1;
+    }
+    auto result = original_allocator.realloc(ctx, ptr, new_size);
+    if (result && new_size) {
+      TheHeapWrapper::register_malloc(new_size, result);
+    }
     return result;
   }
 
-}
-#endif
+  static void * local_calloc(void * ctx, size_t nelem, size_t elsize) {
+    auto ptr = original_allocator.calloc(ctx, nelem, elsize);
+    auto product = nelem * elsize;
+    if (product) {
+      TheHeapWrapper::register_malloc(product, ptr);
+    }
+    return ptr;
+  }
 
-#endif
+};
+
+
+static MakeArenaAllocator m;
+static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
+static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;
 
 #if defined(__APPLE__)
 MAC_INTERPOSE(xxmemcpy, memcpy);
@@ -184,3 +195,4 @@ MAC_INTERPOSE(xxstrcpy, strcpy);
 //MAC_INTERPOSE(xxmunmap, munmap);
 #endif
 
+#endif
