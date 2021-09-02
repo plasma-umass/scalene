@@ -80,6 +80,7 @@ class SampleHeap : public SuperHeap {
   }
 
   inline void register_malloc(size_t realSize, void * ptr) {
+    assert(realSize);
     auto sampleMalloc = _mallocSampler.sample(realSize);
     auto sampleCallStack = _callStackSampler.sample(realSize);
     if (unlikely(sampleCallStack)) {
@@ -161,11 +162,7 @@ class SampleHeap : public SuperHeap {
       if (!pluginModule) {
 	return 0;
       }
-      auto main_module = PyImport_AddModule("__main__");
-      if (!main_module) {
-	return 0;
-      }
-      auto main_dict = PyModule_GetDict(main_module);
+      auto main_dict = PyModule_GetDict(pluginModule);
       if (!main_dict) {
 	return 0;
       }
