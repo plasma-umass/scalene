@@ -137,15 +137,47 @@ class SampleHeap : public SuperHeap {
   private:
     PyGILState_STATE _gstate;
   };
-  
+
+  // RAII class to manage recursion depth.
+  class RecursionTracker {
+  public:
+    RecursionTracker(int& v)
+      : _v (v)
+    {
+      _v++;
+    }
+    ~RecursionTracker() {
+      _v--;
+    }
+  private:
+    int& _v;
+  };
+
+  // RAII class to decrement a reference once we go out of scope.
+  class PyDecRef {
+  public:
+    PyDecRef(PyObject * o)
+      : _obj(o)
+    {}
+    ~PyDecRef() {
+      Py_DecRef(_obj);
+    }
+  private:
+    PyObject * _obj;
+  };
   
   int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
+    static __thread int recursionDepth = 0;
+    RecursionTracker r(recursionDepth);
     // This function walks the Python stack until it finds a frame
     // corresponding to a file we are actually profiling. On success,
     // it updates filename, lineno, and byte code index appropriately,
     // and returns 1.  If the stack walk encounters no such file, it
     // sets the filename to the pseudo-filename "<BOGUS>" for special
     // treatment within Scalene, and returns 0.
+    if (recursionDepth > 1) {
+      return 0;
+    }
     filename = "<BOGUS>";
     lineno = 1;
     bytei = 0;
@@ -158,10 +190,12 @@ class SampleHeap : public SuperHeap {
       if (!moduleName) {
 	return 0;
       }
+      PyDecRef d_moduleName (moduleName);
       auto pluginModule = PyImport_Import(moduleName);
       if (!pluginModule) {
 	return 0;
       }
+      PyDecRef d_pluginModule (pluginModule);
       auto main_dict = PyModule_GetDict(pluginModule);
       if (!main_dict) {
 	return 0;
@@ -178,9 +212,9 @@ class SampleHeap : public SuperHeap {
 	if (!encoded) {
 	  return 0;
 	}
+	PyDecRef _ (encoded);
 	auto filenameStr = PyBytes_AsString(encoded);
 	if (strlen(filenameStr) == 0) {
-	  Py_DecRef(encoded);
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 9
 	  auto f_back = PyFrame_GetBack(frame);
 	  auto f_code = PyFrame_GetCode(f_back);
@@ -208,20 +242,14 @@ class SampleHeap : public SuperHeap {
 	  {
 	    auto result = PyObject_CallFunction(should_trace, "s", filenameStr);
 	    if (!result) {
-	      Py_DecRef(encoded);
 	      return 0;
 	    }
+	    PyDecRef _(result);
 	    auto resultTruthy = PyObject_IsTrue(result);
 	    if (resultTruthy == 1) {
 	      filename = filenameStr;
-	      Py_DecRef(encoded);
-	      Py_DecRef(result);
-	      Py_DecRef(moduleName);
-	      Py_DecRef(pluginModule);
 	      return 1;
 	    }
-	    Py_DecRef(encoded);
-	    Py_DecRef(result);
 	  }
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 9
 	frame = PyFrame_GetBack(frame);
@@ -230,8 +258,6 @@ class SampleHeap : public SuperHeap {
 #endif
 	frameno++;
       }
-      Py_DecRef(moduleName);
-      Py_DecRef(pluginModule);
     }
     return 0;
   }
