@@ -108,7 +108,7 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 // arenas. See
 // https://docs.python.org/3/c-api/memory.html#the-pymalloc-allocator).
 
-#if !defined(_WIN32)
+#if 0 //!defined(_WIN32)
 
 extern "C" {
   
@@ -159,7 +159,7 @@ extern "C" {
 MAC_INTERPOSE(xxmemcpy, memcpy);
 MAC_INTERPOSE(xxmemmove, memmove);
 MAC_INTERPOSE(xxstrcpy, strcpy);
-MAC_INTERPOSE(xxmmap, mmap);
-MAC_INTERPOSE(xxmunmap, munmap);
+// MAC_INTERPOSE(xxmmap, mmap);
+// MAC_INTERPOSE(xxmunmap, munmap);
 #endif
 
