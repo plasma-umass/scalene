@@ -159,7 +159,7 @@ extern "C" {
 MAC_INTERPOSE(xxmemcpy, memcpy);
 MAC_INTERPOSE(xxmemmove, memmove);
 MAC_INTERPOSE(xxstrcpy, strcpy);
-MAC_INTERPOSE(xxmmap, mmap);
-MAC_INTERPOSE(xxmunmap, munmap);
+// MAC_INTERPOSE(xxmmap, mmap);
+// MAC_INTERPOSE(xxmunmap, munmap);
 #endif
 
