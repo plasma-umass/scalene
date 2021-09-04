@@ -28,7 +28,7 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t MallocSamplingRate = 2 * 1048576ULL;
+constexpr uint64_t MallocSamplingRate = 4 * 1048576ULL;
 constexpr uint64_t FreeSamplingRate = MallocSamplingRate;
 constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 7;
 
@@ -123,6 +123,8 @@ private:
 };
 #endif
 
+bool InPythonAllocator {false};
+
 template <PyMemAllocatorDomain Domain>
 class MakeLocalAllocator {
 public:
@@ -148,7 +150,9 @@ private:
   static inline PyMemAllocatorEx original_allocator;
   
   static void * local_malloc(void * ctx, size_t len) {
+    InPythonAllocator = true;
     auto ptr = original_allocator.malloc(ctx, len);
+    InPythonAllocator = false;
     if (!len) {
       len = 1;
     }
@@ -162,7 +166,9 @@ private:
     if (ptr) {
       TheHeapWrapper::register_free(12, ptr); // FIXME FIXME - we don't have the object size
     }
+    InPythonAllocator = true;
     original_allocator.free(ctx, ptr);
+    InPythonAllocator = false;
   }
 
   static void * local_realloc(void * ctx, void * ptr, size_t new_size) {
@@ -172,7 +178,9 @@ private:
     if (!ptr && !new_size) {
       new_size = 1;
     }
+    InPythonAllocator = true;
     auto result = original_allocator.realloc(ctx, ptr, new_size);
+    InPythonAllocator = false;
     if (result && new_size) {
       TheHeapWrapper::register_malloc(new_size, result);
     }
@@ -180,7 +188,9 @@ private:
   }
 
   static void * local_calloc(void * ctx, size_t nelem, size_t elsize) {
+    InPythonAllocator = true;
     auto ptr = original_allocator.calloc(ctx, nelem, elsize);
+    InPythonAllocator = false;
     auto product = nelem * elsize;
     if (product) {
       TheHeapWrapper::register_malloc(product, ptr);
