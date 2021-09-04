@@ -41,6 +41,10 @@ template <uint64_t MallocSamplingRateBytes,
 	  class SuperHeap>
 class SampleHeap : public SuperHeap {
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
+  
+  // Skip this much allocation before profiling.  This is a stopgap to
+  // try to avoid occasional crashes for reasons currently unknown.
+  static constexpr size_t ON_RAMP = 32 * 1048576;
 
  public:
   enum { Alignment = SuperHeap::Alignment };
@@ -52,7 +56,9 @@ class SampleHeap : public SuperHeap {
                     (char *)"/tmp/scalene-malloc-init%d"),
         _pid(getpid()),
         _lastMallocTrigger(nullptr),
-        _freedLastMallocTrigger(false) {
+        _freedLastMallocTrigger(false),
+	_onRamp(ON_RAMP)
+  {
     get_signal_init_lock().lock();
     auto old_malloc = signal(MallocSignal, SIG_IGN);
     if (old_malloc != SIG_DFL) {
@@ -67,13 +73,20 @@ class SampleHeap : public SuperHeap {
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void *malloc(size_t sz) {
+    if (sz < _onRamp) {
+      _onRamp -= sz;
+    } else {
+      _onRamp = 0;
+    }
     auto ptr = SuperHeap::malloc(sz);
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
-    auto realSize = SuperHeap::getSize(ptr);
-    if (realSize > 0) {
-      register_malloc(realSize, ptr);
+    if (!_onRamp) {
+      auto realSize = SuperHeap::getSize(ptr);
+      if (realSize > 0) {
+	register_malloc(realSize, ptr);
+      }
     }
     return ptr;
   }
@@ -81,11 +94,10 @@ class SampleHeap : public SuperHeap {
   inline void register_malloc(size_t realSize, void * ptr) {
     assert(realSize);
     auto sampleMalloc = _mallocSampler.sample(realSize);
-    //    auto sampleCallStack = _callStackSampler.sample(realSize);
     if (InPythonAllocator) {
-      _cCount += realSize;
-    } else {
       _pythonCount += realSize;
+    } else {
+      _cCount += realSize;
     }
     if (unlikely(sampleMalloc)) {
       handleMalloc(sampleMalloc, ptr);
@@ -96,8 +108,10 @@ class SampleHeap : public SuperHeap {
     if (unlikely(ptr == nullptr)) {
       return;
     }
-    auto realSize = SuperHeap::getSize(ptr);
-    register_free(realSize, ptr);
+    if (!_onRamp) {
+      auto realSize = SuperHeap::getSize(ptr);
+      register_free(realSize, ptr);
+    }
     SuperHeap::free(ptr);
   }
 
@@ -116,10 +130,12 @@ class SampleHeap : public SuperHeap {
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
-    auto realSize = SuperHeap::getSize(ptr);
-    assert(realSize >= sz);
-    assert((sz < 16) || (realSize <= 2 * sz));
-    register_free(realSize, ptr);
+    if (!_onRamp) {
+      auto realSize = SuperHeap::getSize(ptr);
+      assert(realSize >= sz);
+      assert((sz < 16) || (realSize <= 2 * sz));
+      register_malloc(realSize, ptr);
+    }
     return ptr;
   }
 
@@ -271,22 +287,18 @@ class SampleHeap : public SuperHeap {
     std::string filename;
     int lineno;
     int bytei;
-    if (triggeringMallocPtr) { // not from mmap
-      int r = getPythonInfo(filename, lineno, bytei);
-      if (!r) {
-	// FIXME
-	// return;
-      }
-    }
-    writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr, filename, lineno, bytei);
+    int r = getPythonInfo(filename, lineno, bytei);
+    if (r) {
+      writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
-    raise(MallocSignal);
+      raise(MallocSignal);
 #endif
-    _lastMallocTrigger = triggeringMallocPtr;
-    _freedLastMallocTrigger = false;
-    _pythonCount = 0;
-    _cCount = 0;
-    mallocTriggered()++;
+      _lastMallocTrigger = triggeringMallocPtr;
+      _freedLastMallocTrigger = false;
+      _pythonCount = 0;
+      _cCount = 0;
+      mallocTriggered()++;
+    }
   }
 
   void handleFree(size_t sampleFree, void * ptr) {
@@ -294,18 +306,14 @@ class SampleHeap : public SuperHeap {
     int lineno;
     int bytei;
 
-    if (ptr) {
-      int r = getPythonInfo(filename, lineno, bytei);
-      if (!r) {
-	// FIXME
-	///      return;
-      }
-    }
-    writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
+    int r = getPythonInfo(filename, lineno, bytei);
+    if (r) {
+      writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
-    raise(MallocSignal); // was FreeSignal
+      raise(MallocSignal); // was FreeSignal
 #endif
-    freeTriggered()++;
+      freeTriggered()++;
+    }
   }
 
   Sampler<MallocSamplingRateBytes> _mallocSampler;
@@ -328,6 +336,7 @@ class SampleHeap : public SuperHeap {
   
   void *_lastMallocTrigger;
   bool _freedLastMallocTrigger;
+  size_t _onRamp;
 
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
