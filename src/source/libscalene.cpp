@@ -76,52 +76,11 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
   return result;
 }
 
-// Intercept arena and local allocation for tracking when using the (fast, built-in) pymalloc allocator.
+// Intercept local allocation for tracking when using the (fast, built-in) pymalloc allocator.
 
 #if !defined(_WIN32)
 
 #include <Python.h>
-
-#if 0
-class MakeArenaAllocator {
-public:
-  MakeArenaAllocator()
-  {
-    arenaAlloc.ctx = nullptr;
-    arenaAlloc.alloc = arena_malloc;
-    arenaAlloc.free = arena_free;
-    PyObject_GetArenaAllocator(&original_arena_allocator);
-    PyObject_SetArenaAllocator(&arenaAlloc);
-  }
-
-  ~MakeArenaAllocator()
-  {
-    PyObject_SetArenaAllocator(&arenaAlloc);
-  }
-
-private:
-  
-  static inline PyObjectArenaAllocator original_arena_allocator;
-  PyObjectArenaAllocator arenaAlloc;
-    
-  static void * arena_malloc(void * ctx, size_t len) {
-    auto addr = original_arena_allocator.alloc(ctx, len);
-    // Ignore the first 64 arenas, which in principle should be populated for every size class.
-    static int countDown = 64;
-    if (countDown) {
-      countDown--;
-      return addr;
-    }
-    TheHeapWrapper::register_malloc(len, addr);
-    return addr;
-  }
-
-  static void arena_free(void * ctx, void * addr, size_t len) {
-    original_arena_allocator.free(ctx, addr, len);
-    TheHeapWrapper::register_free(len, addr);
-  }
-};
-#endif
 
 bool InPythonAllocator {false};
 
@@ -201,7 +160,6 @@ private:
 };
 
 
-// static MakeArenaAllocator m;
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;
 
