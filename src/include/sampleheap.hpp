@@ -26,6 +26,8 @@
 #include "samplefile.hpp"
 #include "sampler.hpp"
 
+extern bool InPythonAllocator; // defined in libscalene.cpp
+
 #define USE_ATOMICS 0
 
 #if USE_ATOMICS
@@ -43,9 +45,6 @@ class SampleHeap : public SuperHeap {
  public:
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
-  enum {
-    CallStackSamplingRate = MallocSamplingRateBytes * 10
-  };  // 10 here just to reduce overhead
 
   SampleHeap()
       : _samplefile((char *)"/tmp/scalene-malloc-signal%d",
@@ -82,9 +81,11 @@ class SampleHeap : public SuperHeap {
   inline void register_malloc(size_t realSize, void * ptr) {
     assert(realSize);
     auto sampleMalloc = _mallocSampler.sample(realSize);
-    auto sampleCallStack = _callStackSampler.sample(realSize);
-    if (unlikely(sampleCallStack)) {
-      recordCallStack(realSize);
+    //    auto sampleCallStack = _callStackSampler.sample(realSize);
+    if (InPythonAllocator) {
+      _cCount += realSize;
+    } else {
+      _pythonCount += realSize;
     }
     if (unlikely(sampleMalloc)) {
       handleMalloc(sampleMalloc, ptr);
@@ -276,9 +277,6 @@ class SampleHeap : public SuperHeap {
 	// FIXME
 	// return;
       }
-    } else {
-      // NULL argument to handleMalloc indicates it originated in mmap.
-      filename = "<MMAP>";
     }
     writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
@@ -302,9 +300,6 @@ class SampleHeap : public SuperHeap {
 	// FIXME
 	///      return;
       }
-    } else {
-      // NULL argument to handleFree indicates it originated in munmap.
-      filename = "<MMAP>";
     }
     writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
@@ -315,7 +310,6 @@ class SampleHeap : public SuperHeap {
 
   Sampler<MallocSamplingRateBytes> _mallocSampler;
   Sampler<FreeSamplingRateBytes> _freeSampler;
-  Sampler<CallStackSamplingRate> _callStackSampler;
   
   static auto& mallocTriggered() {
     static std::atomic<uint64_t> _mallocTriggered {0};
@@ -329,108 +323,9 @@ class SampleHeap : public SuperHeap {
   counterType _pythonCount {0};
   counterType _cCount {0};
 
-  open_addr_hashtable<65536>
-      _table;  // Maps call stack entries to function names.
   SampleFile _samplefile;
   pid_t _pid;
-  void recordCallStack(size_t sz) {
-    if (!Py_IsInitialized()) {
-      return;
-    }
-    // Walk the stack to see if this memory was allocated by Python
-    // through its object allocation APIs.
-    const auto MAX_FRAMES_TO_CHECK =
-        4;  // enough to skip past the replacement_malloc
-    void *callstack[MAX_FRAMES_TO_CHECK];
-    auto frames = backtrace(callstack, MAX_FRAMES_TO_CHECK);
-    char *fn_name;
-    for (auto i = 0; i < frames; i++) {
-      fn_name = nullptr;
-
-#define USE_HASHTABLE 1
-#if !USE_HASHTABLE
-      auto v = nullptr;
-#else
-      auto v = _table.get(callstack[i]);
-#endif
-      if (v == nullptr) {
-        // Not found. Add to table.
-        Dl_info info;
-        int r = dladdr(callstack[i], &info);
-        if (r) {
-#if !USE_HASHTABLE
-#else
-          _table.put(callstack[i], (void *)info.dli_sname);
-#endif
-          fn_name = (char *)info.dli_sname;
-        } else {
-          continue;
-        }
-      } else {
-        // Found it.
-        fn_name = (char *)v;
-      }
-      if (!fn_name) {
-        continue;
-      }
-      if (strlen(fn_name) < 9) {  // length of PySet_New
-        continue;
-      }
-      // Starts with Py, assume it's Python calling.
-      if (strstr(fn_name, "Py") == &fn_name[0]) {
-        if (strstr(fn_name, "PyArray_")) {
-          // Make sure we're not in NumPy, which irritatingly exports some
-          // functions starting with "Py"...
-          goto C_CODE;
-        }
-#if 0
-	if (strstr(fn_name, "PyEval") || strstr(fn_name, "PyCompile") || strstr(fn_name, "PyImport")) {
-	  // Ignore allocations due to interpreter internal operations, for now.
-	  goto C_CODE;
-	}
-#endif
-        _pythonCount += sz;
-        return;
-      }
-      if (strstr(fn_name, "_Py") == 0) {
-        continue;
-      }
-      if (strstr(fn_name, "_PyCFunction")) {
-        goto C_CODE;
-      }
-#if 1
-      _pythonCount += sz;
-      return;
-#else
-      // TBD: realloc requires special handling.
-      // * _PyObject_Realloc
-      // * _PyMem_Realloc
-      if (strstr(fn_name, "New")) {
-        _pythonCount += sz;
-        return;
-      }
-      if (strstr(fn_name, "_PyObject_")) {
-        if ((strstr(fn_name, "GC_Alloc")) || (strstr(fn_name, "GC_New")) ||
-            (strstr(fn_name, "GC_NewVar")) || (strstr(fn_name, "GC_Resize")) ||
-            (strstr(fn_name, "Malloc")) || (strstr(fn_name, "Calloc"))) {
-          _pythonCount += sz;
-          return;
-        }
-      }
-      if (strstr(fn_name, "_PyMem_")) {
-        if ((strstr(fn_name, "Malloc")) || (strstr(fn_name, "Calloc")) ||
-            (strstr(fn_name, "RawMalloc")) || (strstr(fn_name, "RawCalloc"))) {
-          _pythonCount += sz;
-          return;
-        }
-      }
-#endif
-    }
-
-  C_CODE:
-    _cCount += sz;
-  }
-
+  
   void *_lastMallocTrigger;
   bool _freedLastMallocTrigger;
 
