@@ -80,6 +80,20 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 #if !defined(_WIN32)
 
+class Ensure {
+public:
+  Ensure(bool& v)
+    : _in (v)
+  {
+    _in = true;
+  }
+  ~Ensure() {
+    _in = false;
+  }
+private:
+  bool& _in;
+};
+
 #include <Python.h>
 
 bool InPythonAllocator {false};
@@ -109,11 +123,13 @@ private:
   static inline PyMemAllocatorEx original_allocator;
   
   static void * local_malloc(void * ctx, size_t len) {
-    InPythonAllocator = true;
-    auto ptr = original_allocator.malloc(ctx, len);
-    InPythonAllocator = false;
     if (!len) {
       len = 1;
+    }
+    void * ptr = nullptr;
+    {
+      Ensure _ (InPythonAllocator);
+      ptr = original_allocator.malloc(ctx, len);
     }
     if (ptr) {
       TheHeapWrapper::register_malloc(len, ptr);
@@ -125,9 +141,8 @@ private:
     if (ptr) {
       TheHeapWrapper::register_free(12, ptr); // FIXME FIXME - we don't have the object size
     }
-    InPythonAllocator = true;
+    Ensure _ (InPythonAllocator);
     original_allocator.free(ctx, ptr);
-    InPythonAllocator = false;
   }
 
   static void * local_realloc(void * ctx, void * ptr, size_t new_size) {
@@ -137,9 +152,11 @@ private:
     if (!ptr && !new_size) {
       new_size = 1;
     }
-    InPythonAllocator = true;
-    auto result = original_allocator.realloc(ctx, ptr, new_size);
-    InPythonAllocator = false;
+    void * result = nullptr;
+    {
+      Ensure _ (InPythonAllocator);
+      result = original_allocator.realloc(ctx, ptr, new_size);
+    }
     if (result && new_size) {
       TheHeapWrapper::register_malloc(new_size, result);
     }
@@ -147,13 +164,18 @@ private:
   }
 
   static void * local_calloc(void * ctx, size_t nelem, size_t elsize) {
-    InPythonAllocator = true;
-    auto ptr = original_allocator.calloc(ctx, nelem, elsize);
-    InPythonAllocator = false;
     auto product = nelem * elsize;
-    if (product) {
-      TheHeapWrapper::register_malloc(product, ptr);
+    if (!product) {
+      product = 1;
+      nelem = 1;
+      elsize = 1;
     }
+    void * ptr = nullptr;
+    {
+      Ensure _ (InPythonAllocator);
+      ptr = original_allocator.calloc(ctx, nelem, elsize);
+    }
+    TheHeapWrapper::register_malloc(product, ptr);
     return ptr;
   }
 
