@@ -28,7 +28,7 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t MallocSamplingRate = 4 * 1048576ULL;
+constexpr uint64_t MallocSamplingRate = 2 * 1048576ULL;
 constexpr uint64_t FreeSamplingRate = MallocSamplingRate;
 constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 7;
 
@@ -104,11 +104,13 @@ public:
   
   MakeLocalAllocator()
   {
-    localAlloc.ctx = nullptr;
-    localAlloc.malloc = local_malloc;
-    localAlloc.calloc = local_calloc;
-    localAlloc.realloc = local_realloc;
-    localAlloc.free = local_free;
+    localAlloc = {
+      .ctx = nullptr,
+      .malloc = local_malloc,
+      .calloc = local_calloc,
+      .realloc = local_realloc,
+      .free = local_free
+    };
     PyMem_GetAllocator(Domain, &original_allocator);
     PyMem_SetAllocator(Domain, &localAlloc);
   }
@@ -166,9 +168,7 @@ private:
   static void * local_calloc(void * ctx, size_t nelem, size_t elsize) {
     auto product = nelem * elsize;
     if (!product) {
-      product = 1;
-      nelem = 1;
-      elsize = 1;
+      product = nelem = elsize = 1;
     }
     void * ptr = nullptr;
     {
