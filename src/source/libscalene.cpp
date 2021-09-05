@@ -96,8 +96,6 @@ private:
 
 #include <Python.h>
 
-bool InPythonAllocator {false};
-
 template <PyMemAllocatorDomain Domain>
 class MakeLocalAllocator {
 public:
@@ -125,58 +123,71 @@ private:
   static inline PyMemAllocatorEx original_allocator;
   
   static void * local_malloc(void * ctx, size_t len) {
-    if (!len) {
+    if (len == 0) {
       len = 1;
     }
-    void * ptr = nullptr;
-    {
-      Ensure _ (InPythonAllocator);
-      ptr = original_allocator.malloc(ctx, len);
+    Header * header = (Header *) original_allocator.malloc(ctx, len + sizeof(Header));
+    if (header) {
+      setSize(getObject(header), len);
+      TheHeapWrapper::register_malloc(len, getObject(header));
+      assert((size_t) getObject(header) - (size_t) header >= sizeof(Header));
+      assert(getSize(getObject(header)) == len);
+      return getObject(header);
     }
-    if (ptr) {
-      TheHeapWrapper::register_malloc(len, ptr);
-    }
-    return ptr;
+    return nullptr;
   }
 
   static void local_free(void * ctx, void * ptr) {
     if (ptr) {
-      TheHeapWrapper::register_free(12, ptr); // FIXME FIXME - we don't have the object size
+      const auto sz = getSize(ptr);
+      TheHeapWrapper::register_free(sz, ptr);
+      original_allocator.free(ctx, getHeader(ptr));
     }
-    Ensure _ (InPythonAllocator);
-    original_allocator.free(ctx, ptr);
   }
 
   static void * local_realloc(void * ctx, void * ptr, size_t new_size) {
-    if (ptr) {
-      TheHeapWrapper::register_free(12, ptr); // FIXME OLD SIZE
+    if (!ptr) {
+      return local_malloc(ctx, new_size);
     }
-    if (!ptr && !new_size) {
+    if (new_size == 0) {
       new_size = 1;
     }
-    void * result = nullptr;
-    {
-      Ensure _ (InPythonAllocator);
-      result = original_allocator.realloc(ctx, ptr, new_size);
+    const auto sz = getSize(ptr);
+    TheHeapWrapper::register_free(sz, getHeader(ptr));
+    Header * result = (Header *) original_allocator.realloc(ctx, getHeader(ptr), new_size + sizeof(Header));
+    if (result) {
+      TheHeapWrapper::register_malloc(new_size, getObject(result));
+      return getObject(result);
     }
-    if (result && new_size) {
-      TheHeapWrapper::register_malloc(new_size, result);
-    }
-    return result;
+    return nullptr;
   }
 
   static void * local_calloc(void * ctx, size_t nelem, size_t elsize) {
-    auto product = nelem * elsize;
-    if (!product) {
-      product = nelem = elsize = 1;
+    void * obj = local_malloc(ctx, nelem * elsize + 8);
+    if (obj) {
+      memset(obj, 0, nelem * elsize);
     }
-    void * ptr = nullptr;
-    {
-      Ensure _ (InPythonAllocator);
-      ptr = original_allocator.calloc(ctx, nelem, elsize);
-    }
-    TheHeapWrapper::register_malloc(product, ptr);
-    return ptr;
+    return obj;
+  }
+
+private:
+
+  using Header = size_t;
+  
+  static Header * getHeader(void * ptr) {
+    return (Header *) ptr - 1;
+  }
+
+  static size_t getSize(void * ptr) {
+    return *getHeader(ptr);
+  }
+
+  static void setSize(void * ptr, size_t sz) {
+    *getHeader(ptr) = sz;
+  }
+  
+  static void * getObject(Header * header) {
+    return (void *) (header + 1);
   }
 
 };
