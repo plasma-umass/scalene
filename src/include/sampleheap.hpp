@@ -26,8 +26,6 @@
 #include "samplefile.hpp"
 #include "sampler.hpp"
 
-extern bool InPythonAllocator; // defined in libscalene.cpp
-
 #define USE_ATOMICS 0
 
 #if USE_ATOMICS
@@ -85,16 +83,16 @@ class SampleHeap : public SuperHeap {
     if (!_onRamp) {
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
-	register_malloc(realSize, ptr);
+	register_malloc(realSize, ptr, false); // false -> invoked from C/C++
       }
     }
     return ptr;
   }
 
-  inline void register_malloc(size_t realSize, void * ptr) {
+  inline void register_malloc(size_t realSize, void * ptr, bool inPythonAllocator = true) {
     assert(realSize);
     auto sampleMalloc = _mallocSampler.sample(realSize);
-    if (InPythonAllocator) {
+    if (inPythonAllocator) {
       _pythonCount += realSize;
     } else {
       _cCount += realSize;
