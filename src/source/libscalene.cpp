@@ -80,20 +80,6 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 #if !defined(_WIN32)
 
-class Ensure {
-public:
-  Ensure(bool& v)
-    : _in (v)
-  {
-    _in = true;
-  }
-  ~Ensure() {
-    _in = false;
-  }
-private:
-  bool& _in;
-};
-
 #include <Python.h>
 
 template <PyMemAllocatorDomain Domain>
