@@ -148,6 +148,7 @@ private:
     Header * result = (Header *) original_allocator.realloc(ctx, getHeader(ptr), new_size + sizeof(Header));
     if (result) {
       TheHeapWrapper::register_malloc(new_size, getObject(result));
+      setSize(getObject(result), new_size);
       return getObject(result);
     }
     return nullptr;
@@ -185,7 +186,16 @@ private:
 #if DEBUG_HEADER
     assert(getHeader(ptr)->magic ==0x01020304);
 #endif
-    return getHeader(ptr)->size;
+    auto sz = getHeader(ptr)->size;
+    if (sz > 512) {
+#if defined(__APPLE__)
+      //      printf_("%p: sz = %lu, actual size = %lu\n", getHeader(ptr), sz, ::malloc_size(getHeader(ptr)));
+      assert(::malloc_size(getHeader(ptr)) >= sz);
+#else
+      assert(::malloc_usable_size(getHeader(ptr)) >= sz);
+#endif
+    }
+    return sz;
 #else
     return 123; // Bogus size.
 #endif
