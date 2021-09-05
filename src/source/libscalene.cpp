@@ -28,7 +28,7 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t MallocSamplingRate = 2 * 1048576ULL;
+constexpr uint64_t MallocSamplingRate = 1048576ULL;
 constexpr uint64_t FreeSamplingRate = MallocSamplingRate;
 constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 7;
 
@@ -82,6 +82,9 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 #include <Python.h>
 
+#define USE_HEADERS 1
+#define DEBUG_HEADER 0
+
 template <PyMemAllocatorDomain Domain>
 class MakeLocalAllocator {
 public:
@@ -116,8 +119,10 @@ private:
     if (header) {
       setSize(getObject(header), len);
       TheHeapWrapper::register_malloc(len, getObject(header));
+#if USE_HEADERS
       assert((size_t) getObject(header) - (size_t) header >= sizeof(Header));
       assert(getSize(getObject(header)) == len);
+#endif
       return getObject(header);
     }
     return nullptr;
@@ -158,22 +163,59 @@ private:
 
 private:
 
-  using Header = size_t;
+#if USE_HEADERS
+#if DEBUG_HEADER
+  class Header {
+  public:
+    size_t size;
+    size_t magic;
+  };
+#else
+  class Header {
+  public:
+    size_t size;
+  };
+#endif
+#else
+  class Header {};
+#endif
   
-  static Header * getHeader(void * ptr) {
-    return (Header *) ptr - 1;
-  }
-
   static size_t getSize(void * ptr) {
-    return *getHeader(ptr);
+#if USE_HEADERS
+#if DEBUG_HEADER
+    assert(getHeader(ptr)->magic ==0x01020304);
+#endif
+    return getHeader(ptr)->size;
+#else
+    return 123; // Bogus size.
+#endif
   }
 
   static void setSize(void * ptr, size_t sz) {
-    *getHeader(ptr) = sz;
+#if USE_HEADERS
+    auto h = getHeader(ptr);
+#if DEBUG_HEADER
+    h->magic = 0x01020304;
+#else
+    h->size = sz;
+#endif
+#endif
   }
   
+  static Header * getHeader(void * ptr) {
+#if USE_HEADERS
+    return (Header *) ptr - 1;
+#else
+    return (Header *) ptr;
+#endif
+  }
+
   static void * getObject(Header * header) {
+#if USE_HEADERS
     return (void *) (header + 1);
+#else
+    return (void *) header;
+#endif
   }
 
 };
@@ -186,8 +228,6 @@ static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;
 MAC_INTERPOSE(xxmemcpy, memcpy);
 MAC_INTERPOSE(xxmemmove, memmove);
 MAC_INTERPOSE(xxstrcpy, strcpy);
-//MAC_INTERPOSE(xxmmap, mmap);
-//MAC_INTERPOSE(xxmunmap, munmap);
 #endif
 
 #endif
