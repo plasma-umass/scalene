@@ -263,6 +263,7 @@ class SampleHeap : public SuperHeap {
 	    auto resultTruthy = PyObject_IsTrue(result);
 	    if (resultTruthy == 1) {
 	      filename = filenameStr;
+	      // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
 	      return 1;
 	    }
 	  }
@@ -360,7 +361,7 @@ class SampleHeap : public SuperHeap {
 	bytei);
     // Ensure we don't report last-malloc-freed multiple times.
     _freedLastMallocTrigger = false;
-    _samplefile.writeToFile(buf, 1);
+    _samplefile.writeToFile(buf);
   }
 
   HL::PosixLock &get_signal_init_lock() {
