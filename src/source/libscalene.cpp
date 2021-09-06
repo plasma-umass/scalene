@@ -112,16 +112,21 @@ private:
   static inline PyMemAllocatorEx original_allocator;
   
   static void * local_malloc(void * ctx, size_t len) {
-    if (len == 0) {
-      len = 1;
+    ///    printf_("MALLOC %lu\n", len);
+    if (len < 8) {
+      len = 8;
     }
-    Header * header = (Header *) original_allocator.malloc(ctx, len + sizeof(Header));
+    len += 8; // Add some slack.
+    Header * header = new (original_allocator.malloc(ctx, len + sizeof(Header))) Header(len);
     if (header) {
-      setSize(getObject(header), len);
+      //      setSize(getObject(header), len);
       TheHeapWrapper::register_malloc(len, getObject(header));
 #if USE_HEADERS
       assert((size_t) getObject(header) - (size_t) header >= sizeof(Header));
-      assert(getSize(getObject(header)) == len);
+      if (getSize(getObject(header)) < len) {
+	printf_("WTF %lu %lu\n", getSize(getObject(header)), len);
+      }
+      assert(getSize(getObject(header)) >= len);
 #endif
       return getObject(header);
     }
@@ -129,6 +134,7 @@ private:
   }
 
   static void local_free(void * ctx, void * ptr) {
+    ///    printf_("FREE %p\n", ptr);
     if (ptr) {
       const auto sz = getSize(ptr);
       TheHeapWrapper::register_free(sz, ptr);
@@ -137,11 +143,12 @@ private:
   }
 
   static void * local_realloc(void * ctx, void * ptr, size_t new_size) {
+    //    printf_("REALLOC %p %lu\n", ptr, new_size);
+    if (new_size < 8) {
+      new_size = 8;
+    }
     if (!ptr) {
       return local_malloc(ctx, new_size);
-    }
-    if (new_size == 0) {
-      new_size = 1;
     }
     const auto sz = getSize(ptr);
     TheHeapWrapper::register_free(sz, getHeader(ptr));
@@ -155,6 +162,7 @@ private:
   }
 
   static void * local_calloc(void * ctx, size_t nelem, size_t elsize) {
+    // printf_("CALLOC %lu %lu\n", nelem, elsize);
     void * obj = local_malloc(ctx, nelem * elsize + 8);
     if (obj) {
       memset(obj, 0, nelem * elsize);
@@ -164,17 +172,26 @@ private:
 
 private:
 
+  static constexpr size_t MAGIC_NUMBER = 0x01020304;
+  
 #if USE_HEADERS
 #if DEBUG_HEADER
   class Header {
   public:
-    size_t size;
+    Header(size_t sz)
+      : size(sz),
+	magic(MAGIC_NUMBER)
+    {}
+    alignas(std::max_align_t) size_t size;
     size_t magic;
   };
 #else
   class Header {
   public:
-    size_t size;
+    Header(size_t sz)
+      : size(sz)
+    {}
+    alignas(std::max_align_t) size_t size;
   };
 #endif
 #else
@@ -184,7 +201,7 @@ private:
   static size_t getSize(void * ptr) {
 #if USE_HEADERS
 #if DEBUG_HEADER
-    assert(getHeader(ptr)->magic ==0x01020304);
+    assert(getHeader(ptr)->magic == MAGIC_NUMBER);
 #endif
     auto sz = getHeader(ptr)->size;
     if (sz > 512) {
@@ -205,10 +222,9 @@ private:
 #if USE_HEADERS
     auto h = getHeader(ptr);
 #if DEBUG_HEADER
-    h->magic = 0x01020304;
-#else
-    h->size = sz;
+    h->magic = MAGIC_NUMBER;
 #endif
+    h->size = sz;
 #endif
   }
   
