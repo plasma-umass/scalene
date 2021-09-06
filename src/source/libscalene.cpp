@@ -78,7 +78,7 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 // Intercept local allocation for tracking when using the (fast, built-in) pymalloc allocator.
 
-#if !defined(_WIN32)
+#if 0 //!defined(_WIN32)
 
 #include <Python.h>
 

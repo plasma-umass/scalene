@@ -179,6 +179,7 @@ class Scalene:
         f"/tmp/scalene-malloc-signal{os.getpid()}"
     )
     __malloc_lock_filename = Filename(f"/tmp/scalene-malloc-lock{os.getpid()}")
+    __malloc_init_filename = Filename(f"/tmp/scalene-malloc-init{os.getpid()}")
     __malloc_signal_position = 0
     __malloc_lastpos = bytearray(8)
     __malloc_signal_mmap = None
@@ -191,7 +192,9 @@ class Scalene:
         f"/tmp/scalene-memcpy-signal{os.getpid()}"
     )
 
+
     __memcpy_lock_filename = Filename(f"/tmp/scalene-memcpy-lock{os.getpid()}")
+    __memcpy_init_filename = Filename(f"/tmp/scalene-memcpy-init{os.getpid()}")
     try:
         __memcpy_signal_fd = open(__memcpy_signal_filename, "r")
         os.unlink(__memcpy_signal_fd.name)
@@ -283,6 +286,11 @@ class Scalene:
 
         return wrapped
 
+    @staticmethod
+    def cleanup_files():
+        os.remove(Scalene.__malloc_init_filename)
+        os.remove(Scalene.__malloc_signal_filename)
+        os.remove(Scalene.__memcpy_init_filename)
     @staticmethod
     def set_thread_sleeping(tid: int) -> None:
         Scalene.__is_thread_sleeping[tid] = True
@@ -1475,6 +1483,8 @@ class Scalene:
                 Scalene.__malloc_lock_fd.close()
                 Scalene.__memcpy_signal_fd.close()
                 Scalene.__memcpy_lock_fd.close()
+                if not Scalene.__is_child:
+                    Scalene.cleanup_files()
             except BaseException:
                 pass
 

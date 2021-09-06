@@ -34,7 +34,10 @@ class ScaleneGPU:
         if self.__has_gpu:
             l = 0.0
             for i in range(self.__ngpus):
-                l += pynvml.nvmlDeviceGetUtilizationRates(self.__handle[i]).gpu
+                try:
+                    l += pynvml.nvmlDeviceGetUtilizationRates(self.__handle[i]).gpu
+                except pynvml.NVMLError_NotSupported:
+                    pass
             return (l / self.__ngpus) / 100.0
         return 0.0
 
