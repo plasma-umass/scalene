@@ -28,7 +28,7 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { int ignored = ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t MallocSamplingRate = 1048576ULL;
+constexpr uint64_t MallocSamplingRate = 2 * 1048576ULL;
 constexpr uint64_t FreeSamplingRate = MallocSamplingRate;
 constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 7;
 
@@ -116,8 +116,7 @@ private:
     if (len < 8) {
       len = 8;
     }
-    len += 8; // Add some slack.
-    Header * header = new (original_allocator.malloc(ctx, len + sizeof(Header))) Header(len);
+    Header * header = new (original_allocator.malloc(ctx, len + 8 + sizeof(Header))) Header(len);
     if (header) {
       //      setSize(getObject(header), len);
       TheHeapWrapper::register_malloc(len, getObject(header));
@@ -152,7 +151,7 @@ private:
     }
     const auto sz = getSize(ptr);
     TheHeapWrapper::register_free(sz, getHeader(ptr));
-    Header * result = (Header *) original_allocator.realloc(ctx, getHeader(ptr), new_size + sizeof(Header));
+    Header * result = (Header *) original_allocator.realloc(ctx, getHeader(ptr), new_size + 8 + sizeof(Header));
     if (result) {
       TheHeapWrapper::register_malloc(new_size, getObject(result));
       setSize(getObject(result), new_size);
@@ -163,7 +162,7 @@ private:
 
   static void * local_calloc(void * ctx, size_t nelem, size_t elsize) {
     // printf_("CALLOC %lu %lu\n", nelem, elsize);
-    void * obj = local_malloc(ctx, nelem * elsize + 8);
+    void * obj = local_malloc(ctx, nelem * elsize);
     if (obj) {
       memset(obj, 0, nelem * elsize);
     }
