@@ -290,7 +290,7 @@ class MemcpySampler {
     char buf[FILENAME_LENGTH];
     snprintf(buf, FILENAME_LENGTH, "%d,%d,%d\n\n", _memcpyTriggered, _memcpyOps,
              getpid());
-    _samplefile.writeToFile(buf, 0);
+    _samplefile.writeToFile(buf);
   }
 };
 

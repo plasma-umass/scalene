@@ -116,9 +116,8 @@ class SampleFile {
     // unlink(_lockfile);
     // unlink(_init_filename);
   }
-  void writeToFile(char *line, int is_malloc) {
+  void writeToFile(char *line) { // , int is_malloc) {
     _spin_lock->lock();
-    char *ptr = _mmap;
     strncpy(_mmap + *_lastpos, (const char *)line, MAX_BUFSIZE);
 
     *_lastpos += strlen(_mmap + *_lastpos) - 1;
