@@ -1324,29 +1324,19 @@ class Scalene:
             traceback.print_exc()
         self.stop()
         # If we've collected any samples, dump them.
-        did_print = False
-        attempts_to_print = 0
-        while not did_print and attempts_to_print < 10:
-            try:
-                attempts_to_print += 1
-                if Scalene.__output.output_profiles(
+        try:
+            if not Scalene.__output.output_profiles(
                     Scalene.__stats,
                     Scalene.__pid,
                     Scalene.profile_this_code,
                     Scalene.__python_alias_dir,
                     profile_memory=not Scalene.__args.cpu_only,
                     reduced_profile=Scalene.__args.reduced_profile,
-                ):
-                    pass
-                else:
-                    print("Scalene: Program did not run for long enough to profile.")
-                did_print = True
-            except BaseException as e:
-                pass
-                #print("Error in outputting profile:\n", e)
-                #traceback.print_exc()
-        if not did_print:
-            print("Scalene internal error. Please post a bug report to https://github.com/plasma-umass/scalene.")
+            ):
+                print("Scalene: Program did not run for long enough to profile.")
+        except BaseException as e:
+            print("Error in outputting profile:\n", e)
+            traceback.print_exc()
         return exit_status
 
     @staticmethod
