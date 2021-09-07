@@ -113,8 +113,8 @@ class ScaleneOutput:
         )
 
         n_growth_mb = n_malloc_mb - n_free_mb
-        if -1 < n_growth_mb < 1:
-            # Don't print out "-0" or anything below 1.
+        if n_growth_mb < 1:
+            # Don't print out anything below 1.
             n_growth_mb = 0
 
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
