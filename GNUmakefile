@@ -9,8 +9,8 @@ C_SOURCES = src/source/libscalene.cpp src/source/get_line_atomic.cpp src/include
 CXXFLAGS = -std=c++17 -g -O3 -DNDEBUG -D_REENTRANT=1 -pipe -fno-builtin-malloc -fvisibility=hidden
 CXX = g++
 
-PYTHON_INCLUDE := $(shell echo `python3 -c "from sysconfig import get_paths as gp; print(gp()['include'])"`)
-PYTHON_LIBRARY := $(shell echo `python3 -m find_libpython`)
+PYTHON_INCLUDE := $(shell python3 -c "from sysconfig import get_paths as gp; print(gp()['include'])")
+PYTHON_LIBRARY := $(shell python3 -m find_libpython)
 
 INCLUDES  = -Isrc -Isrc/include
 INCLUDES := $(INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility
@@ -26,12 +26,14 @@ ifeq ($(shell uname -s),Darwin)
     ARCH := -arch x86_64
   endif
   CXXFLAGS := $(CXXFLAGS) -flto -ftls-model=initial-exec -ftemplate-depth=1024 $(ARCH) -compatibility_version 1 -current_version 1 -dynamiclib
+  RPATH_FLAGS := -Wl,-rpath $(shell dirname $(PYTHON_LIBRARY))
 
 else # non-Darwin
   LIBFILE := lib$(LIBNAME).so
   WRAPPER := vendor/Heap-Layers/wrappers/gnuwrapper.cpp
   INCLUDES := $(INCLUDES) -I/usr/include/nptl 
   CXXFLAGS := $(CXXFLAGS) -fPIC -shared -Bsymbolic
+  RPATH_FLAGS :=
 
 endif
 
@@ -42,7 +44,7 @@ OUTDIR=scalene
 all: $(OUTDIR)/$(LIBFILE)
 
 $(OUTDIR)/$(LIBFILE): vendor/Heap-Layers $(SRC) $(C_SOURCES) GNUmakefile
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread $(PYTHON_LIBRARY)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread $(RPATH_FLAGS) $(PYTHON_LIBRARY)
 
 clean:
 	rm -f $(OUTDIR)/$(LIBFILE) scalene/get_line_atomic*.so
