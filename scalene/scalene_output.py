@@ -532,23 +532,13 @@ class ScaleneOutput:
                 # Generate syntax highlighted version for the whole file,
                 # which we will consume a line at a time.
                 # See https://github.com/willmcgugan/rich/discussions/965#discussioncomment-314233
-                syntax_highlighted = None
-                if self.html:
-                    syntax_highlighted = Syntax(
-                        code_lines,
-                        "python",
-                        theme="default",
-                        line_numbers=False,
-                        code_width=None,
-                    )
-                else:
-                    syntax_highlighted = Syntax(
-                        code_lines,
-                        "python",
-                        theme="vim",
-                        line_numbers=False,
-                        code_width=None,
-                    )
+                syntax_highlighted = Syntax(
+                    code_lines,
+                    "python",
+                    theme="default" if self.html else "vim",
+                    line_numbers=False,
+                    code_width=None,
+                )
                 capture_console = Console(
                     width=column_width - other_columns_width,
                     force_terminal=True,
@@ -611,22 +601,13 @@ class ScaleneOutput:
                 ):
                     if fn_name == fname:
                         continue
-                    if self.html:
-                        syntax_highlighted = Syntax(
-                            fn_name,
-                            "python",
-                            theme="default",
-                            line_numbers=False,
-                            code_width=None,
-                        )
-                    else:
-                        syntax_highlighted = Syntax(
-                            fn_name,
-                            "python",
-                            theme="vim",
-                            line_numbers=False,
-                            code_width=None,
-                        )
+                    syntax_highlighted = Syntax(
+                        fn_name,
+                        "python",
+                        theme="default" if self.html else "vim",
+                        line_numbers=False,
+                        code_width=None,
+                    )
                     # force print, suppress line numbers
                     self.output_profile_line(
                         fn_name,
