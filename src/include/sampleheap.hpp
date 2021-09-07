@@ -114,6 +114,10 @@ class SampleHeap : public SuperHeap {
   }
 
   inline void register_free(size_t realSize, void * ptr) {
+    // Experiment: frees 'unsample' the allocation counter. This
+    // approach means ignoring allocation swings less than the
+    // sampling period (on average).
+    _mallocSampler.unsample(realSize);
     auto sampleFree = _freeSampler.sample(realSize);
     if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
       _freedLastMallocTrigger = true;
@@ -243,15 +247,6 @@ class SampleHeap : public SuperHeap {
 	  }
 	  filenameStr = PyBytes_AsString(encoded);
 	}
-#if defined(PyPy_FatalError)
-	// If this macro is defined, we are compiling PyPy, which
-	// AFAICT does not have any way to access bytecode index, so
-	// we punt and set it to 0.
-	bytei = 0;
-#else
-	bytei = frame->f_lasti;
-#endif
-	lineno = PyCode_Addr2Line(frame->f_code, bytei);
 	if (!strstr(filenameStr, "<")
 	    && !strstr(filenameStr, "/python"))
 	  {
@@ -262,6 +257,15 @@ class SampleHeap : public SuperHeap {
 	    PyDecRef _(result);
 	    auto resultTruthy = PyObject_IsTrue(result);
 	    if (resultTruthy == 1) {
+#if defined(PyPy_FatalError)
+	      // If this macro is defined, we are compiling PyPy, which
+	      // AFAICT does not have any way to access bytecode index, so
+	      // we punt and set it to 0.
+	      bytei = 0;
+#else
+	      bytei = frame->f_lasti;
+#endif
+	      lineno = PyCode_Addr2Line(frame->f_code, bytei);
 	      filename = filenameStr;
 	      // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
 	      return 1;
@@ -288,6 +292,7 @@ class SampleHeap : public SuperHeap {
     int bytei;
     int r = getPythonInfo(filename, lineno, bytei);
     if (r) {
+      // printf_("MALLOC HANDLED (SAMPLEHEAP): %p -> %lu (%s, %d)\n", triggeringMallocPtr, sampleMalloc, filename.c_str(), lineno);
       writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
       raise(MallocSignal);
@@ -307,6 +312,7 @@ class SampleHeap : public SuperHeap {
 
     int r = getPythonInfo(filename, lineno, bytei);
     if (r) {
+      // printf_("FREE HANDLED (SAMPLEHEAP): %p -> (%s, %d)\n", ptr, filename.c_str(), lineno);
       writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
       raise(MallocSignal); // was FreeSignal
