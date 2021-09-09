@@ -60,6 +60,7 @@ vendor/Heap-Layers:
 vendor/printf/printf.cpp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
+	sed -i '' -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h
 
 vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp
 
