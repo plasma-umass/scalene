@@ -187,6 +187,9 @@ class SampleHeap : public SuperHeap {
   
   int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
     static __thread int recursionDepth = 0;
+    if (! Py_IsInitialized()) {
+      return 0;
+    }
     RecursionTracker r(recursionDepth);
     // This function walks the Python stack until it finds a frame
     // corresponding to a file we are actually profiling. On success,
@@ -194,7 +197,7 @@ class SampleHeap : public SuperHeap {
     // and returns 1.  If the stack walk encounters no such file, it
     // sets the filename to the pseudo-filename "<BOGUS>" for special
     // treatment within Scalene, and returns 0.
-    if (recursionDepth > 1 || Py_IsInitialized()) {
+    if (recursionDepth > 1) {
       return 0;
     }
     filename = "<BOGUS>";
