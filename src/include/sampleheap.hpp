@@ -194,14 +194,13 @@ class SampleHeap : public SuperHeap {
     // and returns 1.  If the stack walk encounters no such file, it
     // sets the filename to the pseudo-filename "<BOGUS>" for special
     // treatment within Scalene, and returns 0.
-    if (recursionDepth > 1) {
+    if (recursionDepth > 1 || Py_IsInitialized()) {
       return 0;
     }
     filename = "<BOGUS>";
     lineno = 1;
     bytei = 0;
-    GIL gil;
-    if (Py_IsInitialized()) {
+    GIL gil; 
       // Try to get the should_trace method.  Fail gracefully if none
       // of these lookups succeed, which can happen because of some
       // intermediate allocation triggering the sample heap.
@@ -277,8 +276,7 @@ class SampleHeap : public SuperHeap {
         frame = frame->f_back;
 #endif
 	frameno++;
-      }
-    }
+      } 
     return 0;
   }
   
