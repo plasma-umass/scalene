@@ -27,6 +27,7 @@ ifeq ($(shell uname -s),Darwin)
   endif
   CXXFLAGS := $(CXXFLAGS) -flto -ftls-model=initial-exec -ftemplate-depth=1024 $(ARCH) -compatibility_version 1 -current_version 1 -dynamiclib
   RPATH_FLAGS := -Wl,-rpath $(shell dirname $(PYTHON_LIBRARY))
+  SED_INPLACE = -i ''
 
 else # non-Darwin
   LIBFILE := lib$(LIBNAME).so
@@ -34,6 +35,7 @@ else # non-Darwin
   INCLUDES := $(INCLUDES) -I/usr/include/nptl 
   CXXFLAGS := $(CXXFLAGS) -fPIC -shared -Bsymbolic
   RPATH_FLAGS :=
+  SED_INPLACE = -i
 
 endif
 
@@ -60,7 +62,7 @@ vendor/Heap-Layers:
 vendor/printf/printf.cpp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
-	sed -i '' -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h
+	sed $(SED_INPLACE) -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h
 
 vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp
 
