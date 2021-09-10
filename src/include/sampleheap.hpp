@@ -17,6 +17,10 @@
 #include <atomic>
 #include <random>
 
+// We're unable to use the limited API because, for example,
+// there doesn't seem to be a function returning co_filename
+//#define Py_LIMITED_API 0x03070000
+
 #include <Python.h>
 #include <frameobject.h>
 
@@ -172,22 +176,46 @@ class SampleHeap : public SuperHeap {
     int& _v;
   };
 
-  // RAII class to decrement a reference once we go out of scope.
-  class PyDecRef {
+  // Implements a mini smart pointer to PyObject.
+  // Manages a "strong" reference to the object... to use with a weak reference, Py_IncRef it first.
+  // Unfortunately, not all PyObject subclasses (e.g., PyFrameObject) are declared as such,
+  // so we need to make this a template and cast.
+  template<class O = PyObject>
+  class PyPtr {
   public:
-    PyDecRef(PyObject * o)
-      : _obj(o)
-    {}
-    ~PyDecRef() {
-      Py_DecRef(_obj);
+    PyPtr(O* o) : _obj(o) {}
+
+    O* operator->() {
+        return _obj;
     }
+
+    operator O* () {
+        return _obj;
+    }
+
+    PyPtr& operator=(O* o) {
+      Py_DecRef((PyObject*)_obj);
+      _obj = o;
+      return *this;
+    }
+
+    PyPtr& operator=(PyPtr& ptr) {
+      Py_IncRef((PyObject*)ptr._obj);
+      *this = ptr._obj;
+      return *this;
+    }
+
+    ~PyPtr() {
+      Py_DecRef((PyObject*)_obj);
+    }
+
   private:
-    PyObject * _obj;
+    O* _obj;
   };
-  
+
   int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
     static __thread int recursionDepth = 0;
-    if (! Py_IsInitialized()) {
+    if (!Py_IsInitialized()) {
       return 0;
     }
     RecursionTracker r(recursionDepth);
@@ -207,16 +235,16 @@ class SampleHeap : public SuperHeap {
       // Try to get the should_trace method.  Fail gracefully if none
       // of these lookups succeed, which can happen because of some
       // intermediate allocation triggering the sample heap.
-      auto moduleName = PyUnicode_FromString("__main__");
+      PyPtr<> moduleName = PyUnicode_FromString("__main__");
       if (!moduleName) {
 	return 0;
       }
-      PyDecRef d_moduleName (moduleName);
-      auto pluginModule = PyImport_Import(moduleName);
+
+      PyPtr<> pluginModule = PyImport_Import(moduleName);
       if (!pluginModule) {
 	return 0;
       }
-      PyDecRef d_pluginModule (pluginModule);
+
       auto main_dict = PyModule_GetDict(pluginModule);
       if (!main_dict) {
 	return 0;
@@ -225,20 +253,21 @@ class SampleHeap : public SuperHeap {
       if (!should_trace) {
 	return 0;
       }
+
       auto frame = PyEval_GetFrame();
       int frameno = 0;
       while (NULL != frame) {
 	auto fname = frame->f_code->co_filename;
-	auto encoded = PyUnicode_AsASCIIString(fname);
+	PyPtr<> encoded = PyUnicode_AsASCIIString(fname);
 	if (!encoded) {
 	  return 0;
 	}
-	PyDecRef _ (encoded);
+
 	auto filenameStr = PyBytes_AsString(encoded);
 	if (strlen(filenameStr) == 0) {
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 9
-	  auto f_back = PyFrame_GetBack(frame);
-	  auto f_code = PyFrame_GetCode(f_back);
+	  PyPtr<PyFrameObject> f_back = PyFrame_GetBack(frame);
+	  PyPtr<PyCodeObject> f_code = PyFrame_GetCode(f_back);
 	  fname = f_code->co_filename;
 #else
 	  fname = frame->f_back->f_code->co_filename;
@@ -249,16 +278,15 @@ class SampleHeap : public SuperHeap {
 	  }
 	  filenameStr = PyBytes_AsString(encoded);
 	}
+
 	if (!strstr(filenameStr, "<")
 	    && !strstr(filenameStr, "/python"))
 	  {
-	    auto result = PyObject_CallFunction(should_trace, "s", filenameStr);
+	    PyPtr<> result = PyObject_CallFunction(should_trace, "s", filenameStr);
 	    if (!result) {
 	      return 0;
 	    }
-	    PyDecRef _(result);
-	    auto resultTruthy = PyObject_IsTrue(result);
-	    if (resultTruthy == 1) {
+	    if (PyObject_IsTrue(result) == 1) {
 #if defined(PyPy_FatalError)
 	      // If this macro is defined, we are compiling PyPy, which
 	      // AFAICT does not have any way to access bytecode index, so
@@ -268,13 +296,16 @@ class SampleHeap : public SuperHeap {
 	      bytei = frame->f_lasti;
 #endif
 	      lineno = PyCode_Addr2Line(frame->f_code, bytei);
+              // XXX we could do lineno = PyFrame_GetLineNumber(frame);
+
 	      filename = filenameStr;
 	      // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
 	      return 1;
 	    }
 	  }
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 9
-	frame = PyFrame_GetBack(frame);
+	PyPtr<PyFrameObject> f_back = PyFrame_GetBack(frame);
+	frame = f_back;
 #else
         frame = frame->f_back;
 #endif
