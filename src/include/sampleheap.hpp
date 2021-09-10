@@ -46,7 +46,7 @@ class SampleHeap : public SuperHeap {
   
   // Skip this much allocation before profiling.  This is a stopgap to
   // try to avoid occasional crashes for reasons currently unknown.
-  static constexpr size_t ON_RAMP = 32 * 1048576;
+  static constexpr size_t ON_RAMP = 0;//32 * 1048576;
 
  public:
   enum { Alignment = SuperHeap::Alignment };
@@ -232,6 +232,12 @@ class SampleHeap : public SuperHeap {
     lineno = 1;
     bytei = 0;
     GIL gil; 
+
+    if (PyGILState_GetThisThreadState() == 0) {
+      return 0;
+    }
+
+#if 0
       // Try to get the should_trace method.  Fail gracefully if none
       // of these lookups succeed, which can happen because of some
       // intermediate allocation triggering the sample heap.
@@ -253,6 +259,7 @@ class SampleHeap : public SuperHeap {
       if (!should_trace) {
 	return 0;
       }
+#endif
 
       auto frame = PyEval_GetFrame();
       int frameno = 0;
@@ -280,13 +287,16 @@ class SampleHeap : public SuperHeap {
 	}
 
 	if (!strstr(filenameStr, "<")
-	    && !strstr(filenameStr, "/python"))
+	    && !strstr(filenameStr, "/python")
+            && !strstr(filenameStr, "/scalene")) // FIXME I'm brittle
 	  {
+#if 0
 	    PyPtr<> result = PyObject_CallFunction(should_trace, "s", filenameStr);
 	    if (!result) {
 	      return 0;
 	    }
 	    if (PyObject_IsTrue(result) == 1) {
+#endif
 #if defined(PyPy_FatalError)
 	      // If this macro is defined, we are compiling PyPy, which
 	      // AFAICT does not have any way to access bytecode index, so
@@ -296,12 +306,13 @@ class SampleHeap : public SuperHeap {
 	      bytei = frame->f_lasti;
 #endif
 	      lineno = PyCode_Addr2Line(frame->f_code, bytei);
-              // XXX we could do lineno = PyFrame_GetLineNumber(frame);
 
 	      filename = filenameStr;
 	      // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
 	      return 1;
+#if 0
 	    }
+#endif
 	  }
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 9
 	PyPtr<PyFrameObject> f_back = PyFrame_GetBack(frame);
