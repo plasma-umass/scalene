@@ -122,6 +122,7 @@ class ScaleneJSON:
             "n_sys_percent" : n_sys_percent,
             "n_gpu_percent" : n_gpu_percent,
             "n_growth_mb" : n_growth_mb,
+            "n_malloc_mb" : n_malloc_mb,
             "n_usage_fraction": n_usage_fraction,
             "n_python_fraction" : n_python_fraction,
             "n_copy_mb_s" : n_copy_mb_s,
