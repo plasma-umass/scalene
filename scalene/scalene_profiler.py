@@ -624,15 +624,28 @@ class Scalene:
             # pause queues to prevent updates while we output
             with Scalene.__cpu_sigq.lock, Scalene.__alloc_sigq.lock, Scalene.__memcpy_sigq.lock:
                 stats.stop_clock()
-                output = Scalene.__output
-                output.output_profiles(
-                    stats,
-                    Scalene.__pid,
-                    Scalene.profile_this_code,
-                    Scalene.__python_alias_dir,
-                    profile_memory=not Scalene.__args.cpu_only,
-                    reduced_profile=Scalene.__args.reduced_profile,
-                )
+                if Scalene.__args.json:
+                    x = Scalene.__json.output_profiles(
+                        Scalene.__stats,
+                        Scalene.__pid,
+                        Scalene.profile_this_code,
+                        Scalene.__python_alias_dir,
+                        profile_memory=not Scalene.__args.cpu_only
+                    )
+                    if not Scalene.__output.output_file:
+                        Scalene.__output.output_file = "/dev/stdout"
+                    with open(Scalene.__output.output_file, "w") as f:
+                        f.write(str(x) + "\n")
+                else:
+                    output = Scalene.__output
+                    output.output_profiles(
+                        stats,
+                        Scalene.__pid,
+                        Scalene.profile_this_code,
+                        Scalene.__python_alias_dir,
+                        profile_memory=not Scalene.__args.cpu_only,
+                        reduced_profile=Scalene.__args.reduced_profile,
+                    )
                 stats.start_clock()
 
         # Here we take advantage of an ostensible limitation of Python:
@@ -1305,7 +1318,7 @@ class Scalene:
             if not Scalene.__output.output_file:
                 Scalene.__output.output_file = "/dev/stdout"
             with open(Scalene.__output.output_file, "w") as f:
-                f.write(str(x))
+                f.write(str(x) + "\n")
         elif Scalene.__output.output_profiles(
             Scalene.__stats,
             Scalene.__pid,
