@@ -59,6 +59,7 @@ from typing import (
 from multiprocessing.process import BaseProcess
 
 from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_statistics import *
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
@@ -129,9 +130,11 @@ class Scalene:
     __args = ScaleneArguments()
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
+    __json = ScaleneJSON()
     __gpu = ScaleneGPU()
 
     __output.gpu = __gpu.has_gpu()
+    __json.gpu = __gpu.has_gpu()
 
     @staticmethod
     def get_original_lock() -> threading.Lock:
@@ -1291,7 +1294,19 @@ class Scalene:
             traceback.print_exc()
         self.stop()
         # If we've collected any samples, dump them.
-        if Scalene.__output.output_profiles(
+        if Scalene.__args.json:
+            x = Scalene.__json.output_profiles(
+                Scalene.__stats,
+                Scalene.__pid,
+                Scalene.profile_this_code,
+                Scalene.__python_alias_dir,
+                profile_memory=not Scalene.__args.cpu_only
+            )
+            if not Scalene.__output.output_file:
+                Scalene.__output.output_file = "/dev/stdout"
+            with open(Scalene.__output.output_file, "w") as f:
+                f.write(str(x))
+        elif Scalene.__output.output_profiles(
             Scalene.__stats,
             Scalene.__pid,
             Scalene.profile_this_code,
