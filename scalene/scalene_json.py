@@ -15,9 +15,6 @@ from typing import Callable, Union
 
 class ScaleneJSON:
 
-    # Threshold for highlighting lines of code in red.
-    highlight_percentage = 33
-
     # Default threshold for percent of CPU time to report a file.
     cpu_percent_threshold = 1
 
@@ -177,8 +174,10 @@ class ScaleneJSON:
         else:
             samples = []
 
-        output = { "growth_rate" : growth_rate,
+        output = { "elapsed_time_sec" : stats.elapsed_time,
+                   "growth_rate" : growth_rate,
                    "samples" : samples,
+                   "max_footprint_mb" : stats.max_footprint,
                    "files" : {} }
 
         # Build a list of files we will actually report on.
@@ -235,7 +234,10 @@ class ScaleneJSON:
             # Print out the the profile for the source, line by line.
             with open(fname, "r") as source_file:
                 code_lines = source_file.readlines()
-                output["files"][fname] = []
+                output["files"][fname] = {
+                    "percent_cpu_time" : percent_cpu_time,
+                    "lines" : []
+                    }
                 for line_no, line in enumerate(code_lines, start=1):
                     o = self.output_profile_line(
                         fname=fname,
@@ -253,6 +255,6 @@ class ScaleneJSON:
                         del o_copy["line"]
                         del o_copy["lineno"]
                         if any(o_copy.values()):
-                            output["files"][fname].append(o)
+                            output["files"][fname]["lines"].append(o)
 
         return output
