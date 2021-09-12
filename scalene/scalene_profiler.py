@@ -20,6 +20,7 @@ import dis
 import functools
 import gc
 import inspect
+import json
 import math
 import mmap
 import multiprocessing
@@ -635,7 +636,7 @@ class Scalene:
                     if not Scalene.__output.output_file:
                         Scalene.__output.output_file = "/dev/stdout"
                     with open(Scalene.__output.output_file, "w") as f:
-                        f.write(str(x) + "\n")
+                        f.write(json.dumps(x, sort_keys=True, indent=4) + "\n")
                 else:
                     output = Scalene.__output
                     output.output_profiles(
@@ -1318,7 +1319,7 @@ class Scalene:
             if not Scalene.__output.output_file:
                 Scalene.__output.output_file = "/dev/stdout"
             with open(Scalene.__output.output_file, "w") as f:
-                f.write(str(x) + "\n")
+                f.write(json.dumps(x, sort_keys=True, indent=4) + "\n")
         elif Scalene.__output.output_profiles(
             Scalene.__stats,
             Scalene.__pid,
