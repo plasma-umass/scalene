@@ -233,7 +233,7 @@ class ScaleneJSON:
 
             # Print out the the profile for the source, line by line.
             with open(fname, "r") as source_file:
-                code_lines = source_file.read()
+                code_lines = source_file.readlines()
                 output["files"][fname] = []
                 for line_no, line in enumerate(code_lines, start=1):
                     o = self.output_profile_line(
