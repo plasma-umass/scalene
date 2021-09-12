@@ -1,3 +1,4 @@
+import copy
 import linecache
 import pathlib
 import shutil
@@ -246,7 +247,12 @@ class ScaleneJSON:
                     )
                     #o["percent_cpu_time"] = percent_cpu_time
                     #o["elapsed_time"] = stats.elapsed_time
+                    # Only output if the payload for the line is non-zero.
                     if o:
-                        output["files"][fname].append(o)
+                        o_copy = copy.copy(o)
+                        del o_copy["line"]
+                        del o_copy["lineno"]
+                        if any(o_copy.values()):
+                            output["files"][fname].append(o)
 
         return output
