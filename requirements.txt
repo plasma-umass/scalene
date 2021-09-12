@@ -74,7 +74,7 @@ parso==0.8.1
 pathspec==0.8.1
 pexpect==4.8.0
 pickleshare==0.7.5
-Pillow==8.2.0
+Pillow==8.3.2
 pipenv==2020.11.15
 plotly==4.14.3
 ply==3.11
