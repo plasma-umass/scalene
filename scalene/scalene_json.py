@@ -37,7 +37,7 @@ class ScaleneJSON:
             profile_this_code: Callable[[Filename, LineNumber], bool],
             profile_memory: bool = False,
             force_print: bool = False
-    ) -> bool:
+    ) -> Dict[str, Any]:
         """Print at most one line of the profile (true == printed one)."""
         if not force_print and not profile_this_code(fname, line_no):
             return {}
@@ -135,12 +135,11 @@ class ScaleneJSON:
         profile_this_code: Callable[[Filename, LineNumber], bool],
         python_alias_dir: pathlib.Path,
         profile_memory: bool = True
-    ) -> bool:
+    ) -> Dict[str, Any]:
         """Write the profile out."""
         # Get the children's stats, if any.
         if not pid:
             stats.merge_stats(python_alias_dir)
-        current_max: float = stats.max_footprint
         # If we've collected any samples, dump them.
         if (
             not stats.total_cpu_samples
@@ -148,7 +147,7 @@ class ScaleneJSON:
             and not stats.total_memory_free_samples
         ):
             # Nothing to output.
-            return False
+            return {}
         # Collect all instrumented filenames.
         all_instrumented_files: List[Filename] = list(
             set(
@@ -207,10 +206,10 @@ class ScaleneJSON:
         # Instead, write info to disk for the main process to collect.
         if pid:
             stats.output_stats(pid, python_alias_dir)
-            return True
+            return {}
 
         if len(report_files) == 0:
-            return False
+            return {}
 
         for fname in report_files:
 
