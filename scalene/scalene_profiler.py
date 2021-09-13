@@ -20,6 +20,7 @@ import dis
 import functools
 import gc
 import inspect
+import json
 import math
 import mmap
 import multiprocessing
@@ -59,6 +60,7 @@ from typing import (
 from multiprocessing.process import BaseProcess
 
 from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_statistics import *
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
@@ -129,9 +131,11 @@ class Scalene:
     __args = ScaleneArguments()
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
+    __json = ScaleneJSON()
     __gpu = ScaleneGPU()
 
     __output.gpu = __gpu.has_gpu()
+    __json.gpu = __gpu.has_gpu()
 
     @staticmethod
     def get_original_lock() -> threading.Lock:
@@ -287,10 +291,11 @@ class Scalene:
         return wrapped
 
     @staticmethod
-    def cleanup_files():
+    def cleanup_files() -> None:
         os.remove(Scalene.__malloc_init_filename)
         os.remove(Scalene.__malloc_signal_filename)
         os.remove(Scalene.__memcpy_init_filename)
+        
     @staticmethod
     def set_thread_sleeping(tid: int) -> None:
         Scalene.__is_thread_sleeping[tid] = True
@@ -626,15 +631,28 @@ class Scalene:
             # pause queues to prevent updates while we output
             with Scalene.__cpu_sigq.lock, Scalene.__alloc_sigq.lock, Scalene.__memcpy_sigq.lock:
                 stats.stop_clock()
-                output = Scalene.__output
-                output.output_profiles(
-                    stats,
-                    Scalene.__pid,
-                    Scalene.profile_this_code,
-                    Scalene.__python_alias_dir,
-                    profile_memory=not Scalene.__args.cpu_only,
-                    reduced_profile=Scalene.__args.reduced_profile,
-                )
+                if Scalene.__args.json:
+                    x = Scalene.__json.output_profiles(
+                        Scalene.__stats,
+                        Scalene.__pid,
+                        Scalene.profile_this_code,
+                        Scalene.__python_alias_dir,
+                        profile_memory=not Scalene.__args.cpu_only
+                    )
+                    if not Scalene.__output.output_file:
+                        Scalene.__output.output_file = "/dev/stdout"
+                    with open(Scalene.__output.output_file, "w") as f:
+                        f.write(json.dumps(x, sort_keys=True, indent=4) + "\n")
+                else:
+                    output = Scalene.__output
+                    output.output_profiles(
+                        stats,
+                        Scalene.__pid,
+                        Scalene.profile_this_code,
+                        Scalene.__python_alias_dir,
+                        profile_memory=not Scalene.__args.cpu_only,
+                        reduced_profile=Scalene.__args.reduced_profile,
+                    )
                 stats.start_clock()
     
         # Here we take advantage of an ostensible limitation of Python:
@@ -1324,19 +1342,29 @@ class Scalene:
             traceback.print_exc()
         self.stop()
         # If we've collected any samples, dump them.
-        try:
-            if not Scalene.__output.output_profiles(
-                    Scalene.__stats,
-                    Scalene.__pid,
-                    Scalene.profile_this_code,
-                    Scalene.__python_alias_dir,
-                    profile_memory=not Scalene.__args.cpu_only,
-                    reduced_profile=Scalene.__args.reduced_profile,
-            ):
-                print("Scalene: Program did not run for long enough to profile.")
-        except BaseException as e:
-            print("Error in outputting profile:\n", e)
-            traceback.print_exc()
+        if Scalene.__args.json:
+            x = Scalene.__json.output_profiles(
+                Scalene.__stats,
+                Scalene.__pid,
+                Scalene.profile_this_code,
+                Scalene.__python_alias_dir,
+                profile_memory=not Scalene.__args.cpu_only
+            )
+            if not Scalene.__output.output_file:
+                Scalene.__output.output_file = "/dev/stdout"
+            with open(Scalene.__output.output_file, "w") as f:
+                f.write(json.dumps(x, sort_keys=True, indent=4) + "\n")
+        elif Scalene.__output.output_profiles(
+            Scalene.__stats,
+            Scalene.__pid,
+            Scalene.profile_this_code,
+            Scalene.__python_alias_dir,
+            profile_memory=not Scalene.__args.cpu_only,
+            reduced_profile=Scalene.__args.reduced_profile,
+        ):
+            pass
+        else:
+            print("Scalene: Program did not run for long enough to profile.")
         return exit_status
 
     @staticmethod

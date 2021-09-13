@@ -13,6 +13,7 @@ from rich.text import Text
 from rich import box
 
 from scalene import sparkline
+from scalene.scalene_json import ScaleneJSON
 from scalene.syntaxline import SyntaxLine
 from scalene.scalene_statistics import *
 
@@ -43,6 +44,7 @@ class ScaleneOutput:
     # Profile output methods
     def output_profile_line(
         self,
+        json: ScaleneJSON,
         fname: Filename,
         line_no: LineNumber,
         line: SyntaxLine,
@@ -57,129 +59,58 @@ class ScaleneOutput:
         reduced_profile: bool = False,
     ) -> bool:
         """Print at most one line of the profile (true == printed one)."""
-        if not force_print and not profile_this_code(fname, line_no):
+        obj = json.output_profile_line(fname=fname, line_no=line_no, stats=stats, profile_this_code=profile_this_code, force_print=force_print)
+        if not obj:
             return False
-
-        current_max = stats.max_footprint
-        # Prepare output values.
-        n_cpu_samples_c = stats.cpu_samples_c[fname][line_no]
-        # Correct for negative CPU sample counts. This can happen
-        # because of floating point inaccuracies, since we perform
-        # subtraction to compute it.
-        if n_cpu_samples_c < 0:
-            n_cpu_samples_c = 0
-        n_cpu_samples_python = stats.cpu_samples_python[fname][line_no]
-        n_gpu_samples = stats.gpu_samples[fname][line_no]
-
-        # Compute percentages of CPU time.
-        if stats.total_cpu_samples != 0:
-            n_cpu_percent_c = n_cpu_samples_c * 100 / stats.total_cpu_samples
-            n_cpu_percent_python = (
-                n_cpu_samples_python * 100 / stats.total_cpu_samples
-            )
-        else:
-            n_cpu_percent_c = 0
-            n_cpu_percent_python = 0
-
-        if stats.total_gpu_samples != 0:
-            n_gpu_percent = n_gpu_samples * 100 / stats.total_gpu_samples
-        else:
-            n_gpu_percent = 0
-
-        # Now, memory stats.
-        # Accumulate each one from every byte index.
-        n_malloc_mb = 0.0
-        n_python_malloc_mb = 0.0
-        n_free_mb = 0.0
-        for index in stats.bytei_map[fname][line_no]:
-            mallocs = stats.memory_malloc_samples[fname][line_no][index]
-            n_malloc_mb += mallocs
-            n_python_malloc_mb += stats.memory_python_samples[fname][line_no][
-                index
-            ]
-            frees = stats.memory_free_samples[fname][line_no][index]
-            n_free_mb += frees
-
-        n_usage_fraction = (
-            0
-            if not stats.total_memory_malloc_samples
-            else n_malloc_mb / stats.total_memory_malloc_samples
-        )
-        n_python_fraction = (
-            0
-            if not n_malloc_mb
-            else n_python_malloc_mb
-            / stats.total_memory_malloc_samples  # was / n_malloc_mb
-        )
-
-        n_growth_mb = n_malloc_mb - n_free_mb
-        if n_growth_mb < 1:
-            # Don't print out anything below 1.
-            n_growth_mb = 0
-
-        n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
-        n_sys_percent = n_cpu_percent * (
-            1.0 - (stats.cpu_utilization[fname][line_no].mean())
-        )
-
-        # Adjust CPU time by utilization.
-        n_cpu_percent_python *= stats.cpu_utilization[fname][line_no].mean()
-        n_cpu_percent_c *= stats.cpu_utilization[fname][line_no].mean()
+        if -1 < obj["n_growth_mb"] < 1:
+            # Don't print out "-0" or anything below 1.
+            obj["n_growth_mb"] = 0
 
         # Finally, print results.
         n_cpu_percent_c_str: str = (
-            "" if n_cpu_percent_c < 1 else f"{n_cpu_percent_c:5.0f}%"
+            "" if obj["n_cpu_percent_c"] < 1 else f"{obj['n_cpu_percent_c']:5.0f}%"
         )
 
         n_gpu_percent_str: str = (
-            "" if n_gpu_percent < 1 else f"{n_gpu_percent:3.0f}%"
+            "" if obj["n_gpu_percent"] < 1 else f"{obj['n_gpu_percent']:3.0f}%"
         )
 
         n_cpu_percent_python_str: str = (
-            "" if n_cpu_percent_python < 1 else f"{n_cpu_percent_python:5.0f}%"
+            "" if obj["n_cpu_percent_python"] < 1 else f"{obj['n_cpu_percent_python']:5.0f}%"
         )
         n_growth_mem_str = ""
-        if n_growth_mb < 1024:
+        if obj["n_growth_mb"] < 1024:
             n_growth_mem_str = (
                 ""
-                if (not n_growth_mb and not n_usage_fraction)
-                else f"{n_growth_mb:5.0f}M"
+                if (not obj["n_growth_mb"] and not obj["n_usage_fraction"])
+                else f"{obj['n_growth_mb']:5.0f}M"
             )
         else:
             n_growth_mem_str = (
                 ""
-                if (not n_growth_mb and not n_usage_fraction)
-                else f"{(n_growth_mb / 1024):5.2f}G"
+                if (not obj["n_growth_mb"] and not obj["n_usage_fraction"])
+                else f"{(obj['n_growth_mb'] / 1024):5.2f}G"
             )
 
         n_usage_fraction_str: str = (
             ""
-            if n_usage_fraction < 0.01
-            else f"{(100 * n_usage_fraction):4.0f}%"
+            if obj["n_usage_fraction"] < 0.01
+            else f"{(100 * obj['n_usage_fraction']):4.0f}%"
         )
         n_python_fraction_str: str = (
             ""
-            if n_python_fraction < 0.01
-            else f"{(n_python_fraction * 100):4.0f}%"
+            if obj["n_python_fraction"] < 0.01
+            else f"{(obj['n_python_fraction'] * 100):4.0f}%"
         )
-        n_copy_b = stats.memcpy_samples[fname][line_no]
-        if stats.elapsed_time:
-            n_copy_mb_s = n_copy_b / (1024 * 1024 * stats.elapsed_time)
-        else:
-            n_copy_mb_s = 0
         n_copy_mb_s_str: str = (
-            "" if n_copy_mb_s < 0.5 else f"{n_copy_mb_s:6.0f}"
+            "" if obj["n_copy_mb_s"] < 0.5 else f"{obj['n_copy_mb_s']:6.0f}"
         )
 
-        # Only report utilization where there is more than 1% CPU total usage,
-        # and the standard error of the mean is low (meaning it's an accurate estimate).
+        # Only report utilization where there is more than 1% CPU total usage.
         sys_str: str = (
             ""
-            if n_sys_percent < 1
-            # or stats.cpu_utilization[fname][line_no].size() <= 1
-            # or stats.cpu_utilization[fname][line_no].sem() > 0.025
-            # or stats.cpu_utilization[fname][line_no].mean() > 0.99
-            else f"{n_sys_percent:4.0f}%"
+            if obj["n_sys_percent"] < 1
+            else f"{obj['n_sys_percent']:4.0f}%"
         )
         if not is_function_summary:
             print_line_no = "" if suppress_lineno_print else str(line_no)
@@ -192,12 +123,12 @@ class ScaleneOutput:
         if profile_memory:
             spark_str: str = ""
             # Scale the sparkline by the usage fraction.
-            samples = stats.per_line_footprint_samples[fname][line_no]
-            for i in range(0, len(samples.get())):
-                samples.get()[i] *= n_usage_fraction
-            if samples.get():
+            samples = obj["memory_samples"]
+            for i in range(0, len(samples)):
+                samples[i] *= obj["n_usage_fraction"]
+            if samples:
                 _, _, spark_str = sparkline.generate(
-                    samples.get()[0 : samples.len()], 0, current_max
+                    samples, 0, stats.max_footprint
                 )
 
             # Red highlight
@@ -207,8 +138,8 @@ class ScaleneOutput:
             ngpus: Any = ""
 
             if (
-                n_usage_fraction >= self.highlight_percentage
-                or (n_cpu_percent_c + n_cpu_percent_python + n_gpu_percent)
+                obj["n_usage_fraction"] >= self.highlight_percentage
+                or (obj["n_cpu_percent_c"] + obj["n_cpu_percent_python"] + obj["n_gpu_percent"])
                 >= self.highlight_percentage
             ):
                 ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
@@ -257,7 +188,7 @@ class ScaleneOutput:
 
             # Red highlight
             if (
-                n_cpu_percent_c + n_cpu_percent_python + n_gpu_percent
+                obj["n_cpu_percent_c"] + obj["n_cpu_percent_python"] + obj["n_gpu_percent"]
             ) >= self.highlight_percentage:
                 ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
                 ncpcs = Text.assemble((n_cpu_percent_c_str, "bold red"))
@@ -301,9 +232,10 @@ class ScaleneOutput:
     ) -> bool:
         """Write the profile out."""
         # Get the children's stats, if any.
+        json = ScaleneJSON()
+        json.gpu = self.gpu
         if not pid:
             stats.merge_stats(python_alias_dir)
-        current_max: float = stats.max_footprint
         # If we've collected any samples, dump them.
         if (
             not stats.total_cpu_samples
@@ -331,7 +263,7 @@ class ScaleneOutput:
             if len(samples.get()) > 0:
                 # Output a sparkline as a summary of memory usage over time.
                 _, _, spark_str = sparkline.generate(
-                    samples.get()[0 : samples.len()], 0, current_max
+                    samples.get()[0 : samples.len()], 0, stats.max_footprint
                 )
                 # Compute growth rate (slope), between 0 and 1.
                 if stats.allocation_velocity[1] > 0:
@@ -341,12 +273,12 @@ class ScaleneOutput:
                         / stats.allocation_velocity[1]
                     )
                 # If memory used is > 1GB, use GB as the unit.
-                if current_max > 1024:
+                if stats.max_footprint > 1024:
                     mem_usage_line = Text.assemble(
                         "Memory usage: ",
                         ((spark_str, "dark_green")),
                         (
-                            f" (max: {(current_max / 1024):6.2f}GB, growth rate: {growth_rate:3.0f}%)\n"
+                            f" (max: {(stats.max_footprint / 1024):6.2f}GB, growth rate: {growth_rate:3.0f}%)\n"
                         ),
                     )
                 else:
@@ -355,7 +287,7 @@ class ScaleneOutput:
                         "Memory usage: ",
                         ((spark_str, "dark_green")),
                         (
-                            f" (max: {current_max:6.2f}MB, growth rate: {growth_rate:3.0f}%)\n"
+                            f" (max: {stats.max_footprint:6.2f}MB, growth rate: {growth_rate:3.0f}%)\n"
                         ),
                     )
 
@@ -524,6 +456,7 @@ class ScaleneOutput:
             # Print out the the profile for the source, line by line.
             if fname == "<BOGUS>":
                 continue
+            # Print out the profile for the source, line by line.
             with open(fname, "r") as source_file:
                 # We track whether we should put in ellipsis (for reduced profiles)
                 # or not.
@@ -552,13 +485,14 @@ class ScaleneOutput:
                 for line_no, line in enumerate(formatted_lines, start=1):
                     old_did_print = did_print
                     did_print = self.output_profile_line(
-                        fname,
-                        LineNumber(line_no),
-                        line,
-                        console,
-                        tbl,
-                        stats,
-                        profile_this_code,
+                        json=json,
+                        fname=fname,
+                        line_no=LineNumber(line_no),
+                        line=line,
+                        console=console,
+                        tbl=tbl,
+                        stats=stats,
+                        profile_this_code=profile_this_code,
                         profile_memory=profile_memory,
                         force_print=False,
                         suppress_lineno_print=False,
@@ -610,13 +544,14 @@ class ScaleneOutput:
                     )
                     # force print, suppress line numbers
                     self.output_profile_line(
-                        fn_name,
-                        LineNumber(1),
-                        syntax_highlighted,  # type: ignore
-                        console,
-                        tbl,
-                        fn_stats,
-                        profile_this_code,
+                        json=json,
+                        fname=fn_name,
+                        line_no=LineNumber(1),
+                        line=syntax_highlighted,  # type: ignore
+                        console=console,
+                        tbl=tbl,
+                        stats=fn_stats,
+                        profile_this_code=profile_this_code,
                         profile_memory=profile_memory,
                         force_print=True,
                         suppress_lineno_print=True,
