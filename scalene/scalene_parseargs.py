@@ -113,6 +113,16 @@ for the process ID that Scalene reports. For example:
             + "[/blue])",
         )
         parser.add_argument(
+            "--json",
+            dest="json",
+            action="store_const",
+            const=True,
+            default=defaults.json,
+            help="output as JSON (default: [blue]"
+            + str("json" if defaults.json else "text")
+            + "[/blue])",
+        )
+        parser.add_argument(
             "--reduced-profile",
             dest="reduced_profile",
             action="store_const",
