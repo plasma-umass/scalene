@@ -13,7 +13,7 @@ from rich.text import Text
 from rich import box
 
 from scalene import sparkline
-from scalene.scalene_json import *
+from scalene.scalene_json import ScaleneJSON
 from scalene.syntaxline import SyntaxLine
 from scalene.scalene_statistics import *
 
@@ -62,11 +62,6 @@ class ScaleneOutput:
         obj = json.output_profile_line(fname=fname, line_no=line_no, stats=stats, profile_this_code=profile_this_code, force_print=force_print)
         if not obj:
             return False
-        n_usage_fraction = (
-            0
-            if not stats.total_memory_malloc_samples
-            else obj["n_malloc_mb"] / stats.total_memory_malloc_samples
-        )
         if -1 < obj["n_growth_mb"] < 1:
             # Don't print out "-0" or anything below 1.
             obj["n_growth_mb"] = 0
@@ -87,33 +82,28 @@ class ScaleneOutput:
         if obj["n_growth_mb"] < 1024:
             n_growth_mem_str = (
                 ""
-                if (not obj["n_growth_mb"] and not n_usage_fraction)
+                if (not obj["n_growth_mb"] and not obj["n_usage_fraction"])
                 else f"{obj['n_growth_mb']:5.0f}M"
             )
         else:
             n_growth_mem_str = (
                 ""
-                if (not obj["n_growth_mb"] and not n_usage_fraction)
+                if (not obj["n_growth_mb"] and not obj["n_usage_fraction"])
                 else f"{(obj['n_growth_mb'] / 1024):5.2f}G"
             )
 
         n_usage_fraction_str: str = (
             ""
-            if n_usage_fraction < 0.01
-            else f"{(100 * n_usage_fraction):4.0f}%"
+            if obj["n_usage_fraction"] < 0.01
+            else f"{(100 * obj['n_usage_fraction']):4.0f}%"
         )
         n_python_fraction_str: str = (
             ""
             if obj["n_python_fraction"] < 0.01
             else f"{(obj['n_python_fraction'] * 100):4.0f}%"
         )
-        n_copy_b = stats.memcpy_samples[fname][line_no]
-        if stats.elapsed_time:
-            n_copy_mb_s = n_copy_b / (1024 * 1024 * stats.elapsed_time)
-        else:
-            n_copy_mb_s = 0
         n_copy_mb_s_str: str = (
-            "" if n_copy_mb_s < 0.5 else f"{n_copy_mb_s:6.0f}"
+            "" if obj["n_copy_mb_s"] < 0.5 else f"{obj['n_copy_mb_s']:6.0f}"
         )
 
         # Only report utilization where there is more than 1% CPU total usage.
@@ -135,7 +125,7 @@ class ScaleneOutput:
             # Scale the sparkline by the usage fraction.
             samples = obj["memory_samples"]
             for i in range(0, len(samples)):
-                samples[i] *= n_usage_fraction
+                samples[i] *= obj["n_usage_fraction"]
             if samples:
                 _, _, spark_str = sparkline.generate(
                     samples, 0, stats.max_footprint
@@ -148,7 +138,7 @@ class ScaleneOutput:
             ngpus: Any = ""
 
             if (
-                n_usage_fraction >= self.highlight_percentage
+                obj["n_usage_fraction"] >= self.highlight_percentage
                 or (obj["n_cpu_percent_c"] + obj["n_cpu_percent_python"] + obj["n_gpu_percent"])
                 >= self.highlight_percentage
             ):
@@ -198,7 +188,7 @@ class ScaleneOutput:
 
             # Red highlight
             if (
-                n_cpu_percent_c + n_cpu_percent_python + n_gpu_percent
+                obj["n_cpu_percent_c"] + obj["n_cpu_percent_python"] + obj["n_gpu_percent"]
             ) >= self.highlight_percentage:
                 ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
                 ncpcs = Text.assemble((n_cpu_percent_c_str, "bold red"))
