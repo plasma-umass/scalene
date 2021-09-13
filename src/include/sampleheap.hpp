@@ -30,6 +30,14 @@
 #include "samplefile.hpp"
 #include "sampler.hpp"
 
+static SampleFile& getSampleFile() {
+  static SampleFile mallocSampleFile((char *)"/tmp/scalene-malloc-signal%d",
+                                     (char *)"/tmp/scalene-malloc-lock%d",
+                                     (char *)"/tmp/scalene-malloc-init%d");
+
+  return mallocSampleFile;
+}
+
 #define USE_ATOMICS 0
 
 #if USE_ATOMICS
@@ -53,14 +61,12 @@ class SampleHeap : public SuperHeap {
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
 
   SampleHeap()
-      : _samplefile((char *)"/tmp/scalene-malloc-signal%d",
-                    (char *)"/tmp/scalene-malloc-lock%d",
-                    (char *)"/tmp/scalene-malloc-init%d"),
-        _pid(getpid()),
-        _lastMallocTrigger(nullptr),
+      : _lastMallocTrigger(nullptr),
         _freedLastMallocTrigger(false),
 	_onRamp(ON_RAMP)
   {
+    getSampleFile(); // invoked here so the file gets initialized before python attempts to read from it
+
     get_signal_init_lock().lock();
     auto old_malloc = signal(MallocSignal, SIG_IGN);
     if (old_malloc != SIG_DFL) {
@@ -379,9 +385,6 @@ class SampleHeap : public SuperHeap {
   counterType _pythonCount {0};
   counterType _cCount {0};
 
-  SampleFile _samplefile;
-  pid_t _pid;
-  
   void *_lastMallocTrigger;
   bool _freedLastMallocTrigger;
   size_t _onRamp;
@@ -410,7 +413,7 @@ class SampleHeap : public SuperHeap {
 	bytei);
     // Ensure we don't report last-malloc-freed multiple times.
     _freedLastMallocTrigger = false;
-    _samplefile.writeToFile(buf);
+    getSampleFile().writeToFile(buf);
   }
 
   HL::PosixLock &get_signal_init_lock() {
