@@ -42,16 +42,23 @@ static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
   auto start = current_iter;
   auto result_iter = reinterpret_cast<char*>(result_bytearray.buf);
 
-  if (*current_iter == '\n') {
+  char* nl = reinterpret_cast<char*>(memchr(current_iter, '\n', result_bytearray.len));
+  int len = (nl == nullptr) ? 0 : nl - start;
+
+  if (len == 0) {
     Py_RETURN_FALSE;
   }
 
-  auto null_loc
-    = reinterpret_cast<char*>(memchr(current_iter, '\n', result_bytearray.len));
-  for (int i = 0; i <= null_loc - start; i++) {
-    *(result_iter++) = *(current_iter++);
-    (*lastpos)++;
-  }
+#if 0
+  char tmp[result_bytearray.len+1];
+  memcpy(tmp, current_iter, len);
+  tmp[len] = '\0';
+  tprintf::tprintf("read @ from @\n", tmp, *lastpos);
+#endif
+
+  memcpy(result_iter, current_iter, len+1);
+  *lastpos += len+1;
+
   Py_RETURN_TRUE;
 }
 
