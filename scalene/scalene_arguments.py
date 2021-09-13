@@ -8,6 +8,7 @@ class ScaleneArguments(argparse.Namespace):
         # mean seconds between interrupts for CPU sampling.
         self.cpu_sampling_rate = 0.01
         self.html = False
+        self.json = False
         self.malloc_threshold = 100
         self.outfile = None
         self.pid = 0
