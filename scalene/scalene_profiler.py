@@ -291,10 +291,11 @@ class Scalene:
         return wrapped
 
     @staticmethod
-    def cleanup_files():
+    def cleanup_files() -> None:
         os.remove(Scalene.__malloc_init_filename)
         os.remove(Scalene.__malloc_signal_filename)
         os.remove(Scalene.__memcpy_init_filename)
+        
     @staticmethod
     def set_thread_sleeping(tid: int) -> None:
         Scalene.__is_thread_sleeping[tid] = True
