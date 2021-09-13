@@ -55,12 +55,13 @@ static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
   tmp[len] = '\0';
   tprintf::tprintf("read @ from @\n", tmp, *lastpos);
 #endif
-  auto null_loc
-    = reinterpret_cast<char*>(memchr(current_iter, '\n', result_bytearray.len));
-  for (int i = 0; i <= null_loc - start; i++) {
+
+  // avoid 'memcpy', as Scalene interposes on it to measure memory copying
+  for (int i = 0; i <= len; i++) {
     *(result_iter++) = *(current_iter++);
-    (*lastpos)++;
   }
+
+  *lastpos += len+1;
 
   Py_RETURN_TRUE;
 }
