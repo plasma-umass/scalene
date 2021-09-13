@@ -33,8 +33,8 @@ class SampleFile {
   static char *initializer;
 
  public:
-  SampleFile(char *filename_template, char *lockfilename_template,
-             char *init_template) {
+  SampleFile(const char *filename_template, const char *lockfilename_template,
+             const char *init_template) {
     static uint base_pid = getpid();
     constexpr int FILENAME_LENGTH = 255;
     snprintf(_init_filename, FILENAME_LENGTH - 1, init_template, base_pid);

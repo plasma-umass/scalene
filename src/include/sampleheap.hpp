@@ -31,9 +31,9 @@
 #include "sampler.hpp"
 
 static SampleFile& getSampleFile() {
-  static SampleFile mallocSampleFile((char *)"/tmp/scalene-malloc-signal%d",
-                                     (char *)"/tmp/scalene-malloc-lock%d",
-                                     (char *)"/tmp/scalene-malloc-init%d");
+  static SampleFile mallocSampleFile("/tmp/scalene-malloc-signal%d",
+                                     "/tmp/scalene-malloc-lock%d",
+                                     "/tmp/scalene-malloc-init%d");
 
   return mallocSampleFile;
 }
