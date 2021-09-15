@@ -53,18 +53,13 @@ template <uint64_t MallocSamplingRateBytes,
 class SampleHeap : public SuperHeap {
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
   
-  // Skip this much allocation before profiling.  This is a stopgap to
-  // try to avoid occasional crashes for reasons currently unknown.
-  static constexpr size_t ON_RAMP = 0;//32 * 1048576;
-
  public:
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
 
   SampleHeap()
       : _lastMallocTrigger(nullptr),
-        _freedLastMallocTrigger(false),
-	_onRamp(ON_RAMP)
+        _freedLastMallocTrigger(false)
   {
     getSampleFile(); // invoked here so the file gets initialized before python attempts to read from it
 
@@ -83,16 +78,11 @@ class SampleHeap : public SuperHeap {
 
   ATTRIBUTE_ALWAYS_INLINE inline void *malloc(size_t sz) {
     MallocRecursionGuard g;
-    if (sz < _onRamp) {
-      _onRamp -= sz;
-    } else {
-      _onRamp = 0;
-    }
     auto ptr = SuperHeap::malloc(sz);
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
-    if (!g.wasInMalloc() && !_onRamp) {
+    if (!g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
 	register_malloc(realSize, ptr, false); // false -> invoked from C/C++
@@ -120,7 +110,7 @@ class SampleHeap : public SuperHeap {
     if (unlikely(ptr == nullptr)) {
       return;
     }
-    if (!g.wasInMalloc() && !_onRamp) {
+    if (!g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       register_free(realSize, ptr);
     }
@@ -147,7 +137,7 @@ class SampleHeap : public SuperHeap {
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
-    if (!g.wasInMalloc() && !_onRamp) {
+    if (!g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
@@ -229,89 +219,36 @@ class SampleHeap : public SuperHeap {
       return 0;
     }
 
-#if 0
-      // Try to get the should_trace method.  Fail gracefully if none
-      // of these lookups succeed, which can happen because of some
-      // intermediate allocation triggering the sample heap.
-      PyPtr<> moduleName = PyUnicode_FromString("__main__");
-      if (!moduleName) {
-	return 0;
+    for (auto frame = PyEval_GetFrame(); frame != nullptr; frame = frame->f_back) {
+      auto fname = frame->f_code->co_filename;
+      PyPtr<> encoded = PyUnicode_AsASCIIString(fname);
+      if (!encoded) {
+        return 0;
       }
 
-      PyPtr<> pluginModule = PyImport_Import(moduleName);
-      if (!pluginModule) {
-	return 0;
+      auto filenameStr = PyBytes_AsString(encoded);
+      if (strlen(filenameStr) == 0) {
+        continue;
       }
 
-      auto main_dict = PyModule_GetDict(pluginModule);
-      if (!main_dict) {
-	return 0;
-      }
-      auto should_trace = PyDict_GetItemString(main_dict, "should_trace");
-      if (!should_trace) {
-	return 0;
-      }
-#endif
-
-      auto frame = PyEval_GetFrame();
-      while (NULL != frame) {
-	auto fname = frame->f_code->co_filename;
-	PyPtr<> encoded = PyUnicode_AsASCIIString(fname);
-	if (!encoded) {
-	  return 0;
-	}
-
-	auto filenameStr = PyBytes_AsString(encoded);
-	if (strlen(filenameStr) == 0) {
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 9
-	  PyPtr<PyFrameObject> f_back = PyFrame_GetBack(frame);
-	  PyPtr<PyCodeObject> f_code = PyFrame_GetCode(f_back);
-	  fname = f_code->co_filename;
-#else
-	  fname = frame->f_back->f_code->co_filename;
-#endif
-	  encoded = PyUnicode_AsASCIIString(fname);
-	  if (!encoded) {
-	    return 0;
-	  }
-	  filenameStr = PyBytes_AsString(encoded);
-	}
-
-	if (!strstr(filenameStr, "<")
-	    && !strstr(filenameStr, "/python")
-            && !strstr(filenameStr, "/scalene")) // FIXME I'm brittle
-	  {
-#if 0
-	    PyPtr<> result = PyObject_CallFunction(should_trace, "s", filenameStr);
-	    if (!result) {
-	      return 0;
-	    }
-	    if (PyObject_IsTrue(result) == 1) {
-#endif
+      if (!strstr(filenameStr, "<")
+          && !strstr(filenameStr, "/python")
+          && !strstr(filenameStr, "scalene/scalene")) {
 #if defined(PyPy_FatalError)
-	      // If this macro is defined, we are compiling PyPy, which
-	      // AFAICT does not have any way to access bytecode index, so
-	      // we punt and set it to 0.
-	      bytei = 0;
+            // If this macro is defined, we are compiling PyPy, which
+            // AFAICT does not have any way to access bytecode index, so
+            // we punt and set it to 0.
+            bytei = 0;
 #else
-	      bytei = frame->f_lasti;
+            bytei = frame->f_lasti;
 #endif
-	      lineno = PyCode_Addr2Line(frame->f_code, bytei);
+            lineno = PyCode_Addr2Line(frame->f_code, bytei);
 
-	      filename = filenameStr;
-	      // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
-	      return 1;
-#if 0
-	    }
-#endif
-	  }
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 9
-	PyPtr<PyFrameObject> f_back = PyFrame_GetBack(frame);
-	frame = f_back;
-#else
-        frame = frame->f_back;
-#endif
-      } 
+            filename = filenameStr;
+            // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
+            return 1;
+      }
+    } 
     return 0;
   }
   
@@ -371,7 +308,6 @@ class SampleHeap : public SuperHeap {
 
   void *_lastMallocTrigger;
   bool _freedLastMallocTrigger;
-  size_t _onRamp;
 
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
