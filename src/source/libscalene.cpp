@@ -13,6 +13,7 @@
 #include <cstddef>
 
 #include "common.hpp"
+#include "mallocrecursionguard.hpp"
 #include "heapredirect.h"
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
@@ -112,6 +113,7 @@ private:
   static inline PyMemAllocatorEx original_allocator;
   
   static void * local_malloc(void * ctx, size_t len) {
+    MallocRecursionGuard g;
     ///    printf_("MALLOC %lu\n", len);
     if (len < 8) {
       len = 8;
@@ -119,7 +121,9 @@ private:
     Header * header = new (original_allocator.malloc(ctx, len + 8 + sizeof(Header))) Header(len);
     if (header) {
       //      setSize(getObject(header), len);
-      TheHeapWrapper::register_malloc(len, getObject(header));
+      if (!g.wasInMalloc()) {
+        TheHeapWrapper::register_malloc(len, getObject(header));
+      }
 #if USE_HEADERS
       assert((size_t) getObject(header) - (size_t) header >= sizeof(Header));
       if (getSize(getObject(header)) < len) {
@@ -133,10 +137,13 @@ private:
   }
 
   static void local_free(void * ctx, void * ptr) {
+    MallocRecursionGuard g;
     ///    printf_("FREE %p\n", ptr);
     if (ptr) {
       const auto sz = getSize(ptr);
-      TheHeapWrapper::register_free(sz, ptr);
+      if (!g.wasInMalloc()) {
+        TheHeapWrapper::register_free(sz, ptr);
+      }
       original_allocator.free(ctx, getHeader(ptr));
     }
   }
@@ -150,10 +157,16 @@ private:
       return local_malloc(ctx, new_size);
     }
     const auto sz = getSize(ptr);
-    TheHeapWrapper::register_free(sz, getHeader(ptr));
+
+    MallocRecursionGuard g;
+    if (!g.wasInMalloc()) {
+      TheHeapWrapper::register_free(sz, getHeader(ptr));
+    }
     Header * result = (Header *) original_allocator.realloc(ctx, getHeader(ptr), new_size + 8 + sizeof(Header));
     if (result) {
-      TheHeapWrapper::register_malloc(new_size, getObject(result));
+      if (!g.wasInMalloc()) {
+        TheHeapWrapper::register_malloc(new_size, getObject(result));
+      }
       setSize(getObject(result), new_size);
       return getObject(result);
     }

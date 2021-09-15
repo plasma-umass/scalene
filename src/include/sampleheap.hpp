@@ -25,6 +25,7 @@
 #include <frameobject.h>
 
 #include "common.hpp"
+#include "mallocrecursionguard.hpp"
 #include "open_addr_hashtable.hpp"
 #include "printf.h"
 #include "samplefile.hpp"
@@ -81,6 +82,7 @@ class SampleHeap : public SuperHeap {
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void *malloc(size_t sz) {
+    MallocRecursionGuard g;
     if (sz < _onRamp) {
       _onRamp -= sz;
     } else {
@@ -90,7 +92,7 @@ class SampleHeap : public SuperHeap {
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
-    if (!_onRamp) {
+    if (!g.wasInMalloc() && !_onRamp) {
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
 	register_malloc(realSize, ptr, false); // false -> invoked from C/C++
@@ -113,10 +115,12 @@ class SampleHeap : public SuperHeap {
   }
   
   ATTRIBUTE_ALWAYS_INLINE inline void free(void *ptr) {
+    MallocRecursionGuard g;
+
     if (unlikely(ptr == nullptr)) {
       return;
     }
-    if (!_onRamp) {
+    if (!g.wasInMalloc() && !_onRamp) {
       auto realSize = SuperHeap::getSize(ptr);
       register_free(realSize, ptr);
     }
@@ -138,11 +142,12 @@ class SampleHeap : public SuperHeap {
   }
 
   void *memalign(size_t alignment, size_t sz) {
+    MallocRecursionGuard g;
     auto ptr = SuperHeap::memalign(alignment, sz);
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
-    if (!_onRamp) {
+    if (!g.wasInMalloc() && !_onRamp) {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
@@ -167,20 +172,6 @@ class SampleHeap : public SuperHeap {
     PyGILState_STATE _gstate;
   };
 
-  // RAII class to manage recursion depth.
-  class RecursionTracker {
-  public:
-    RecursionTracker(int& v)
-      : _v (v)
-    {
-      _v++;
-    }
-    ~RecursionTracker() {
-      _v--;
-    }
-  private:
-    int& _v;
-  };
 
   // Implements a mini smart pointer to PyObject.
   // Manages a "strong" reference to the object... to use with a weak reference, Py_IncRef it first.
@@ -220,20 +211,15 @@ class SampleHeap : public SuperHeap {
   };
 
   int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
-    static __thread int recursionDepth = 0;
     if (!Py_IsInitialized()) {
       return 0;
     }
-    RecursionTracker r(recursionDepth);
     // This function walks the Python stack until it finds a frame
     // corresponding to a file we are actually profiling. On success,
     // it updates filename, lineno, and byte code index appropriately,
     // and returns 1.  If the stack walk encounters no such file, it
     // sets the filename to the pseudo-filename "<BOGUS>" for special
     // treatment within Scalene, and returns 0.
-    if (recursionDepth > 1) {
-      return 0;
-    }
     filename = "<BOGUS>";
     lineno = 1;
     bytei = 0;
@@ -268,7 +254,6 @@ class SampleHeap : public SuperHeap {
 #endif
 
       auto frame = PyEval_GetFrame();
-      int frameno = 0;
       while (NULL != frame) {
 	auto fname = frame->f_code->co_filename;
 	PyPtr<> encoded = PyUnicode_AsASCIIString(fname);
@@ -326,7 +311,6 @@ class SampleHeap : public SuperHeap {
 #else
         frame = frame->f_back;
 #endif
-	frameno++;
       } 
     return 0;
   }
