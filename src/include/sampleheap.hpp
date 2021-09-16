@@ -29,7 +29,7 @@
 #include "printf.h"
 #include "samplefile.hpp"
 #include "sampler.hpp"
-
+#include "py_env.hpp"
 static SampleFile& getSampleFile() {
   static SampleFile mallocSampleFile("/tmp/scalene-malloc-signal%d",
                                      "/tmp/scalene-malloc-lock%d",
@@ -55,7 +55,6 @@ class SampleHeap : public SuperHeap {
   // Skip this much allocation before profiling.  This is a stopgap to
   // try to avoid occasional crashes for reasons currently unknown.
   static constexpr size_t ON_RAMP = 0;//32 * 1048576;
-
  public:
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
@@ -98,6 +97,7 @@ class SampleHeap : public SuperHeap {
     }
     return ptr;
   }
+
 
   inline void register_malloc(size_t realSize, void * ptr, bool inPythonAllocator = true) {
     assert(realSize);
@@ -292,34 +292,31 @@ class SampleHeap : public SuperHeap {
 	  filenameStr = PyBytes_AsString(encoded);
 	}
 
-	if (!strstr(filenameStr, "<")
-	    && !strstr(filenameStr, "/python")
-            && !strstr(filenameStr, "/scalene")) // FIXME I'm brittle
-	  {
-#if 0
-	    PyPtr<> result = PyObject_CallFunction(should_trace, "s", filenameStr);
-	    if (!result) {
-	      return 0;
-	    }
-	    if (PyObject_IsTrue(result) == 1) {
-#endif
-#if defined(PyPy_FatalError)
-	      // If this macro is defined, we are compiling PyPy, which
-	      // AFAICT does not have any way to access bytecode index, so
-	      // we punt and set it to 0.
-	      bytei = 0;
-#else
-	      bytei = frame->f_lasti;
-#endif
-	      lineno = PyCode_Addr2Line(frame->f_code, bytei);
+if (py_string_ptr_list.initialized()) {	
+    if (!strstr(filenameStr, "<")
+        && !strstr(filenameStr, "/python")
+              && !strstr(filenameStr, "/scalene")) // FIXME I'm brittle
+      {
 
-	      filename = filenameStr;
-	      // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
-	      return 1;
-#if 0
-	    }
-#endif
-	  }
+        if (py_string_ptr_list.should_trace(filenameStr) == 1) {
+
+  #if defined(PyPy_FatalError)
+          // If this macro is defined, we are compiling PyPy, which
+          // AFAICT does not have any way to access bytecode index, so
+          // we punt and set it to 0.
+          bytei = 0;
+  #else
+          bytei = frame->f_lasti;
+  #endif
+          lineno = PyCode_Addr2Line(frame->f_code, bytei);
+
+          filename = filenameStr;
+          // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
+          return 1;
+        }
+
+      }
+    }
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 9
 	PyPtr<PyFrameObject> f_back = PyFrame_GetBack(frame);
 	frame = f_back;
@@ -416,7 +413,7 @@ class SampleHeap : public SuperHeap {
     getSampleFile().writeToFile(buf);
   }
 
-  HL::PosixLock &get_signal_init_lock() {
+  static HL::PosixLock &get_signal_init_lock() {
     static HL::PosixLock signal_init_lock;
     return signal_init_lock;
   }

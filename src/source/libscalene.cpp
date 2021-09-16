@@ -85,6 +85,52 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 #define USE_HEADERS 1
 #define DEBUG_HEADER 0
 
+static PyObject* register_files_to_profile(PyObject* self, PyObject* args) {
+  PyObject* a_list;
+  int profile_all;
+  if (! PyArg_ParseTuple(args, "Op", &a_list, &profile_all))
+    return NULL;
+  printf_("profile all? %d\n", profile_all);
+  auto is_list = PyList_Check(a_list);
+  if (! is_list) {
+    PyErr_SetString(PyExc_Exception, "Requires list or list-like object");
+  }
+  set_py_string_ptr_list(a_list, profile_all);
+  Py_RETURN_NONE;
+}
+
+static PyObject* print_files_to_profile(PyObject* self, PyObject* args) {
+  py_string_ptr_list.print();
+  Py_RETURN_NONE;
+}
+
+static PyMethodDef EmbMethods[] = {
+  {"register_files_to_profile", register_files_to_profile, METH_VARARGS, "Provides list of things into allocator"},
+  {"print_files_to_profile", print_files_to_profile, METH_NOARGS, "printing for debug"},
+  {NULL, NULL, 0, NULL}
+};
+
+static PyModuleDef EmbedModule = {
+  PyModuleDef_HEAD_INIT, "register_files_to_profile", NULL, -1, EmbMethods, NULL, NULL, NULL, NULL
+};
+
+static PyObject* PyInit_RegisterFilesToProfile() {
+  return PyModule_Create(&EmbedModule);
+}
+
+static int initing = 0;
+
+class CreateEmbedModule {
+  public:
+  CreateEmbedModule() {
+    initing += 1;
+    PyImport_AppendInittab("register_files_to_profile", &PyInit_RegisterFilesToProfile);
+  }
+};
+
+
+static CreateEmbedModule module;
+
 template <PyMemAllocatorDomain Domain>
 class MakeLocalAllocator {
 public:
@@ -244,7 +290,6 @@ private:
   }
 
 };
-
 
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;
