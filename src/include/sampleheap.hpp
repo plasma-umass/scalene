@@ -133,10 +133,12 @@ class SampleHeap : public SuperHeap {
   }
 
   inline void register_free(size_t realSize, void * ptr) {
+#if 0
     // Experiment: frees 'unsample' the allocation counter. This
     // approach means ignoring allocation swings less than the
     // sampling period (on average).
     _mallocSampler.unsample(realSize);
+#endif
     auto sampleFree = _freeSampler.sample(realSize);
     if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
       _freedLastMallocTrigger = true;
