@@ -100,7 +100,22 @@ class SampleHeap : public SuperHeap {
       _cCount += realSize;
     }
     if (unlikely(sampleMalloc)) {
-      handleMalloc(sampleMalloc, ptr);
+      std::string filename;
+      int lineno;
+      int bytei;
+      int r = getPythonInfo(filename, lineno, bytei);
+      if (r) {
+        // printf_("MALLOC HANDLED (SAMPLEHEAP): %p -> %lu (%s, %d)\n", ptr, sampleMalloc, filename.c_str(), lineno);
+        writeCount(MallocSignal, sampleMalloc, ptr, filename, lineno, bytei);
+#if !SCALENE_DISABLE_SIGNALS
+        raise(MallocSignal);
+#endif
+        _lastMallocTrigger = ptr;
+        _freedLastMallocTrigger = false;
+        _pythonCount = 0;
+        _cCount = 0;
+        mallocTriggered()++;
+      }
     }
   }
   
@@ -127,7 +142,19 @@ class SampleHeap : public SuperHeap {
       _freedLastMallocTrigger = true;
     }
     if (unlikely(sampleFree)) {
-      handleFree(sampleFree, ptr);
+      std::string filename;
+      int lineno;
+      int bytei;
+
+      int r = getPythonInfo(filename, lineno, bytei);
+      if (r) {
+        // printf_("FREE HANDLED (SAMPLEHEAP): %p -> (%s, %d)\n", ptr, filename.c_str(), lineno);
+        writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
+#if !SCALENE_DISABLE_SIGNALS
+        raise(MallocSignal); // was FreeSignal
+#endif
+        freeTriggered()++;
+      }
     }
   }
 
@@ -256,40 +283,6 @@ class SampleHeap : public SuperHeap {
   SampleHeap(const SampleHeap &) = delete;
   SampleHeap &operator=(const SampleHeap &) = delete;
 
-  void handleMalloc(size_t sampleMalloc, void *triggeringMallocPtr) {
-    std::string filename;
-    int lineno;
-    int bytei;
-    int r = getPythonInfo(filename, lineno, bytei);
-    if (r) {
-      // printf_("MALLOC HANDLED (SAMPLEHEAP): %p -> %lu (%s, %d)\n", triggeringMallocPtr, sampleMalloc, filename.c_str(), lineno);
-      writeCount(MallocSignal, sampleMalloc, triggeringMallocPtr, filename, lineno, bytei);
-#if !SCALENE_DISABLE_SIGNALS
-      raise(MallocSignal);
-#endif
-      _lastMallocTrigger = triggeringMallocPtr;
-      _freedLastMallocTrigger = false;
-      _pythonCount = 0;
-      _cCount = 0;
-      mallocTriggered()++;
-    }
-  }
-
-  void handleFree(size_t sampleFree, void * ptr) {
-    std::string filename;
-    int lineno;
-    int bytei;
-
-    int r = getPythonInfo(filename, lineno, bytei);
-    if (r) {
-      // printf_("FREE HANDLED (SAMPLEHEAP): %p -> (%s, %d)\n", ptr, filename.c_str(), lineno);
-      writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
-#if !SCALENE_DISABLE_SIGNALS
-      raise(MallocSignal); // was FreeSignal
-#endif
-      freeTriggered()++;
-    }
-  }
 
   Sampler<MallocSamplingRateBytes> _mallocSampler;
   Sampler<FreeSamplingRateBytes> _freeSampler;
