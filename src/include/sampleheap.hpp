@@ -231,9 +231,13 @@ class SampleHeap : public SuperHeap {
   };
 
   int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
-    if (!Py_IsInitialized()) {
+    // No python, no python stack.  Also, the stack is a property of the
+    // thread state; no thread state, no python stack.
+    if (!Py_IsInitialized() ||
+        PyGILState_GetThisThreadState() == 0) {
       return 0;
     }
+
     // This function walks the Python stack until it finds a frame
     // corresponding to a file we are actually profiling. On success,
     // it updates filename, lineno, and byte code index appropriately,
@@ -244,10 +248,6 @@ class SampleHeap : public SuperHeap {
     lineno = 1;
     bytei = 0;
     GIL gil; 
-
-    if (PyGILState_GetThisThreadState() == 0) {
-      return 0;
-    }
 
     for (auto frame = PyEval_GetFrame(); frame != nullptr; frame = frame->f_back) {
       auto fname = frame->f_code->co_filename;
