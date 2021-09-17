@@ -1453,8 +1453,9 @@ class Scalene:
                     else:
                         Scalene.__program_path = program_path
                     # Grab local and global variables.
-                    import register_files_to_profile
-                    register_files_to_profile.register_files_to_profile(Scalene.__files_to_profile.split(',') if Scalene.__files_to_profile else [], Scalene.__program_path, Scalene.__args.profile_all)
+                    if not Scalene.__args.cpu_only:
+                        import register_files_to_profile
+                        register_files_to_profile.register_files_to_profile(Scalene.__files_to_profile.split(',') if Scalene.__files_to_profile else [], Scalene.__program_path, Scalene.__args.profile_all)
         
                     import __main__
 
