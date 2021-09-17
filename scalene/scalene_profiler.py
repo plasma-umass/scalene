@@ -1328,9 +1328,6 @@ class Scalene:
         the_locals: Dict[str, str],
     ) -> int:
         # If --off is set, tell all children to not profile and stop profiling before we even start.
-        import register_files_to_profile
-        if Scalene.__files_to_profile:
-            register_files_to_profile.register_files_to_profile(Scalene.__files_to_profile.split(','), Scalene.__args.profile_all)
         if not "off" in Scalene.__args or not Scalene.__args.off:
             self.start()
         # Run the code being profiled.
@@ -1456,6 +1453,9 @@ class Scalene:
                     else:
                         Scalene.__program_path = program_path
                     # Grab local and global variables.
+                    import register_files_to_profile
+                    register_files_to_profile.register_files_to_profile(Scalene.__files_to_profile.split(',') if Scalene.__files_to_profile else [], Scalene.__program_path, Scalene.__args.profile_all)
+        
                     import __main__
 
                     the_locals = __main__.__dict__

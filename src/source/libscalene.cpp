@@ -88,15 +88,15 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 static PyObject* register_files_to_profile(PyObject* self, PyObject* args) {
   PyObject* a_list;
+  PyObject* base_path;
   int profile_all;
-  if (! PyArg_ParseTuple(args, "Op", &a_list, &profile_all))
+  if (! PyArg_ParseTuple(args, "OOp", &a_list, &base_path, &profile_all))
     return NULL;
-  printf_("profile all? %d\n", profile_all);
   auto is_list = PyList_Check(a_list);
   if (! is_list) {
     PyErr_SetString(PyExc_Exception, "Requires list or list-like object");
   }
-  set_py_string_ptr_list(a_list, profile_all);
+  set_py_string_ptr_list(a_list, base_path, profile_all);
   Py_RETURN_NONE;
 }
 

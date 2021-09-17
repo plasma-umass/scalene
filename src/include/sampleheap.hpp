@@ -264,7 +264,10 @@ class SampleHeap : public SuperHeap {
       if (!strstr(filenameStr, "<")
           && !strstr(filenameStr, "/python")
           && !strstr(filenameStr, "scalene/scalene")) {
-            if (py_string_ptr_list.should_trace(filenameStr) == 1) {
+            bool should_trace = true;
+            if (py_string_ptr_list.initialized())
+              should_trace = py_string_ptr_list.should_trace(filenameStr);
+            if ( should_trace == 1) {
 #if defined(PyPy_FatalError)
               // If this macro is defined, we are compiling PyPy, which
               // AFAICT does not have any way to access bytecode index, so
