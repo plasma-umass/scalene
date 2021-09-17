@@ -264,7 +264,7 @@ class SampleHeap : public SuperHeap {
       if (!strstr(filenameStr, "<")
           && !strstr(filenameStr, "/python")
           && !strstr(filenameStr, "scalene/scalene")) {
-            bool should_trace = true;
+            bool should_trace = false;
             if (py_string_ptr_list.initialized())
               should_trace = py_string_ptr_list.should_trace(filenameStr);
             if ( should_trace == 1) {
