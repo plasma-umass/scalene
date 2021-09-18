@@ -420,7 +420,7 @@ class ScaleneOutput:
                     width=7,
                 )
                 tbl.add_column(
-                    Markdown("––––––  \n_net_", style="dark_green"),
+                    Markdown("––––––  \n_avg_", style="dark_green"),
                     style="dark_green",
                     no_wrap=True,
                     width=6,
@@ -455,6 +455,8 @@ class ScaleneOutput:
 
             # Print out the the profile for the source, line by line.
             if fname == "<BOGUS>":
+                continue
+            if not fname:
                 continue
             # Print out the profile for the source, line by line.
             with open(fname, "r") as source_file:
