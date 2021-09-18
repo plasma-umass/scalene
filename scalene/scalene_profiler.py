@@ -102,6 +102,10 @@ class Scalene:
     __is_child = -1
     # the pid of the primary profiler
     __parent_pid = -1
+
+    __last_profiled : Tuple[Filename, LineNumber] = ("NADA", 0)
+    __last_profiled_invalidated : bool = False
+
     # Support for @profile
     # decorated files
     __files_to_profile: Dict[Filename, bool] = defaultdict(bool)
@@ -236,6 +240,50 @@ class Scalene:
     __alloc_sigq: ScaleneSigQueue[Any]
     __memcpy_sigq: ScaleneSigQueue[Any]
 
+    @staticmethod
+    def interruption_handler(
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
+        this_frame: FrameType
+    ) -> None:
+        raise KeyboardInterrupt
+
+    @staticmethod
+    def invalidate_lines(frame, event, arg) -> Any:
+        # Mark the last_profiled information as invalid as soon as we execute a different line of code.
+        # FIXME this only correctly supports single-threaded programs at the moment.
+        if False: # for testing purposes only - if true, measure overhead when on all the time.
+            try:
+                return Scalene.invalidate_lines
+            except:
+                return None
+        try:
+            # Stop tracing when we've invalidated or when we're done profiling.
+            # This needs to be inside the try-except because during shutdown,
+            # the members of Scalene disappear.
+            if Scalene.__last_profiled_invalidated or Scalene.__done:
+                sys.settrace(None)
+                return None
+        except:
+            sys.settrace(None)
+            return None
+        f = frame
+        if f.f_code.co_filename[0] == "<" or "scalene" in f.f_code.co_filename:
+            # Don't trace this scope, since it is executing inside of Scalene or Python internals.
+            f.f_trace_lines = False
+            return None
+        if Scalene.__last_profiled != (f.f_code.co_filename, f.f_lineno):
+            # We've executed a different line. Mark this as
+            # invalidated and stop tracing.
+            Scalene.__last_profiled_invalidated = True
+            # (prof_fname, prof_lineno) = Scalene.__last_profiled
+            # print("invalidated ", prof_fname, prof_lineno)
+            sys.settrace(None)
+            return None
+        # This should probably never happen but just in case, keep on tracing.
+        return Scalene.invalidate_lines
+        
     @classmethod
     def clear_metrics(cls) -> None:
         """
@@ -366,6 +414,8 @@ class Scalene:
     ) -> None:
         Scalene.__alloc_sigq.put((signum, this_frame))
         del this_frame
+        if not Scalene.__last_profiled_invalidated: #  and not sys.gettrace():
+            sys.settrace(Scalene.invalidate_lines)
 
     @staticmethod
     def free_signal_handler(
@@ -719,12 +769,15 @@ class Scalene:
             del new_frames
             return
         normalized_time = total_time / total_frames
-
+        
         # Now attribute execution time.
         for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
             Scalene.enter_function_meta(frame, Scalene.__stats)
+            if Scalene.__last_profiled != (fname, lineno):
+                Scalene.__last_profiled_invalidated = True
+                # print("CPU INVALIDATED was ", Scalene.__last_profiled, "at", (fname, lineno))
             if frame == new_frames[0][0]:
                 # Main thread.
                 if not Scalene.__is_thread_sleeping[tident]:
@@ -969,11 +1022,13 @@ class Scalene:
             pass
 
         arr.sort()
+        
         # Iterate through the array to compute the new current footprint.
         # and update the global __memory_footprint_samples.
         before = stats.current_footprint
         prevmax = stats.max_footprint
         freed_last_trigger = 0
+    
         for item in arr:
             _alloc_time, action, count, python_fraction, pointer, fname, lineno, bytei = item
             count /= 1024 * 1024
@@ -1016,28 +1071,16 @@ class Scalene:
         last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
         malloc_pointer = "0x0"
         curr = before
+        last_linecount = defaultdict(int)
+        
         # Go through the array again and add each updated current footprint.
         for item in arr:
             _alloc_time, action, count, python_fraction, pointer, fname, lineno, bytei = item
 
-            if fname == "<MMAP>":
-                # We are currently unable to precisely attribute lines of code from within Python,
-                # so instead we walk the stack backwards to find a "reasonable" frame to attribute
-                # mmap calls to.
-                tid = cast(int, threading.main_thread().ident)
-                frame = sys._current_frames().get(tid, None)
-                if frame:
-                    fname = Filename(frame.f_code.co_filename)
-                while frame and not Scalene.should_trace(fname):
-                    frame = frame.f_back
-                    if frame:
-                        fname = Filename(frame.f_code.co_filename)
-                if not frame:
-                    return
-                assert Scalene.should_trace(fname)
-                lineno = LineNumber(frame.f_lineno)
-                bytei = ByteCodeIndex(frame.f_lasti)
-                
+            if Scalene.__last_profiled != (fname, lineno):
+                # print("malloc/free INVALIDATED was ", Scalene.__last_profiled, "at", (fname, lineno))
+                Scalene.__last_profiled_invalidated = True
+
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
             count /= 1024 * 1024
@@ -1053,8 +1096,18 @@ class Scalene:
                     python_fraction * count
                 )
                 stats.malloc_samples[fname] += 1
-                stats.memory_malloc_count[fname][lineno][bytei] += 1
                 stats.total_memory_malloc_samples += count
+                # Check if we executed any other lines since the last sample.
+                if Scalene.__last_profiled_invalidated:
+                    # Yes, new line, so we bump the counter (used for later computing the average memory consumption).
+                    #  print("MALLOC updating", fname, lineno, Scalene.__last_profiled)
+                    stats.memory_malloc_count[fname][lineno][bytei] += 1
+                    Scalene.__last_profiled = (fname, lineno)
+                    Scalene.__last_profiled_invalidated = False
+                    
+                else:
+                    # print("checked but nope: ", fname, lineno, Scalene.__last_profiled, Scalene.__last_profiled_invalidated)
+                    pass
             else:
                 assert action == "f" or action == "F"
                 curr -= count
@@ -1063,7 +1116,7 @@ class Scalene:
                 )
                 stats.memory_free_count[fname][lineno][bytei] += 1
                 stats.total_memory_free_samples += count
-
+                
             stats.per_line_footprint_samples[fname][lineno].add(curr)
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
@@ -1337,34 +1390,39 @@ class Scalene:
         except SystemExit as se:
             # Intercept sys.exit and propagate the error code.
             exit_status = se.code
+        except KeyboardInterrupt:
+            # Cleanly handle keyboard interrupts (quits execution and dumps the profile).
+            print("Scalene execution interrupted.")
+            pass
         except BaseException as e:
             print("Error in program being profiled:\n", e)
             traceback.print_exc()
-        self.stop()
-        # If we've collected any samples, dump them.
-        if Scalene.__args.json:
-            x = Scalene.__json.output_profiles(
+        finally:
+            self.stop()
+            # If we've collected any samples, dump them.
+            if Scalene.__args.json:
+                x = Scalene.__json.output_profiles(
+                    Scalene.__stats,
+                    Scalene.__pid,
+                    Scalene.profile_this_code,
+                    Scalene.__python_alias_dir,
+                    profile_memory=not Scalene.__args.cpu_only
+                )
+                if not Scalene.__output.output_file:
+                    Scalene.__output.output_file = "/dev/stdout"
+                with open(Scalene.__output.output_file, "w") as f:
+                    f.write(json.dumps(x, sort_keys=True, indent=4) + "\n")
+            elif Scalene.__output.output_profiles(
                 Scalene.__stats,
                 Scalene.__pid,
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
-                profile_memory=not Scalene.__args.cpu_only
-            )
-            if not Scalene.__output.output_file:
-                Scalene.__output.output_file = "/dev/stdout"
-            with open(Scalene.__output.output_file, "w") as f:
-                f.write(json.dumps(x, sort_keys=True, indent=4) + "\n")
-        elif Scalene.__output.output_profiles(
-            Scalene.__stats,
-            Scalene.__pid,
-            Scalene.profile_this_code,
-            Scalene.__python_alias_dir,
-            profile_memory=not Scalene.__args.cpu_only,
-            reduced_profile=Scalene.__args.reduced_profile,
-        ):
-            pass
-        else:
-            print("Scalene: Program did not run for long enough to profile.")
+                profile_memory=not Scalene.__args.cpu_only,
+                reduced_profile=Scalene.__args.reduced_profile,
+            ):
+                pass
+            else:
+                print("Scalene: Program did not run for long enough to profile.")
         return exit_status
 
     @staticmethod
@@ -1400,6 +1458,8 @@ class Scalene:
             signal.siginterrupt(ScaleneSignals.start_profiling_signal, False)
             signal.siginterrupt(ScaleneSignals.stop_profiling_signal, False)
 
+        signal.signal(signal.SIGINT, Scalene.interruption_handler)
+        
         did_preload = ScalenePreload.setup_preload(args)
         if not did_preload:
             try:

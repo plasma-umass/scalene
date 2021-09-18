@@ -69,10 +69,12 @@ class ScaleneJSON:
         # Now, memory stats.
         # Accumulate each one from every byte index.
         n_malloc_mb = 0.0
+        n_mallocs = 0
         n_python_malloc_mb = 0.0
         n_free_mb = 0.0
         for index in stats.bytei_map[fname][line_no]:
             mallocs = stats.memory_malloc_samples[fname][line_no][index]
+            n_mallocs += stats.memory_malloc_count[fname][line_no][index]
             n_malloc_mb += mallocs
             n_python_malloc_mb += stats.memory_python_samples[fname][line_no][
                 index
@@ -89,10 +91,14 @@ class ScaleneJSON:
             0
             if not n_malloc_mb
             else n_python_malloc_mb
-            / stats.total_memory_malloc_samples  # was / n_malloc_mb
+            / stats.total_memory_malloc_samples
         )
 
-        n_growth_mb = n_malloc_mb - n_free_mb
+        # Compute **average** growth.
+        n_growth_mb = 0
+        if n_mallocs:
+            n_growth_mb = n_malloc_mb / n_mallocs # - n_free_mb
+        # print(fname, line_no, n_malloc_mb, n_mallocs)
 
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
         n_sys_percent = n_cpu_percent * (
