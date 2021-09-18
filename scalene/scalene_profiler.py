@@ -104,7 +104,7 @@ class Scalene:
     __parent_pid = -1
 
     __last_profiled : Tuple[Filename, LineNumber] = ("NADA", 0)
-    __last_profiled_invalidated : bool = True
+    __last_profiled_invalidated : bool = False
 
     # Support for @profile
     # decorated files
@@ -249,32 +249,40 @@ class Scalene:
     ) -> None:
         raise KeyboardInterrupt
 
-    __counter = 0
-    
     @staticmethod
     def invalidate_lines(frame, event, arg) -> Any:
         # Mark the last_profiled information as invalid as soon as we execute a different line of code.
         # FIXME this only correctly supports single-threaded programs at the moment.
+        if False: # for testing purposes only - if true, measure overhead when on all the time.
+            try:
+                return Scalene.invalidate_lines
+            except:
+                return None
         try:
-            if Scalene.__done or Scalene.__last_profiled_invalidated:
+            # Stop tracing when we've invalidated or when we're done profiling.
+            # This needs to be inside the try-except because during shutdown,
+            # the members of Scalene disappear.
+            if Scalene.__last_profiled_invalidated or Scalene.__done:
                 sys.settrace(None)
                 return None
         except:
             sys.settrace(None)
             return None
         f = frame
-        Scalene.__counter += 1
         if f.f_code.co_filename[0] == "<" or "scalene" in f.f_code.co_filename:
+            # Don't trace this scope, since it is executing inside of Scalene or Python internals.
             f.f_trace_lines = False
             return None
         if Scalene.__last_profiled != (f.f_code.co_filename, f.f_lineno):
-            (prof_fname, prof_lineno) = Scalene.__last_profiled
+            # We've executed a different line. Mark this as
+            # invalidated and stop tracing.
             Scalene.__last_profiled_invalidated = True
-            # print("invalidated ", prof_fname, prof_lineno, Scalene.__counter)
+            # (prof_fname, prof_lineno) = Scalene.__last_profiled
+            # print("invalidated ", prof_fname, prof_lineno)
             sys.settrace(None)
             return None
-        else:
-            return Scalene.invalidate_lines
+        # This should probably never happen but just in case, keep on tracing.
+        return Scalene.invalidate_lines
         
     @classmethod
     def clear_metrics(cls) -> None:
