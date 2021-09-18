@@ -248,24 +248,33 @@ class Scalene:
         this_frame: FrameType
     ) -> None:
         raise KeyboardInterrupt
-        
+
+    __counter = 0
+    
     @staticmethod
     def invalidate_lines(frame, event, arg) -> Any:
         # Mark the last_profiled information as invalid as soon as we execute a different line of code.
         # FIXME this only correctly supports single-threaded programs at the moment.
         try:
             if Scalene.__done or Scalene.__last_profiled_invalidated:
+                sys.settrace(None)
                 return None
         except:
+            sys.settrace(None)
             return None
-        if event == 'line':
-            f = frame
-            if f.f_code.co_filename[0] != "<" and "scalene" not in f.f_code.co_filename:
-                if Scalene.__last_profiled != (f.f_code.co_filename, f.f_lineno):
-                    Scalene.__last_profiled_invalidated = True
-                    # print("tracer invalidated ", Scalene.__last_profiled, (f.f_code.co_filename, f.f_lineno))
-                    return None
-        return Scalene.invalidate_lines
+        f = frame
+        Scalene.__counter += 1
+        if f.f_code.co_filename[0] == "<" or "scalene" in f.f_code.co_filename:
+            f.f_trace_lines = False
+            return None
+        if Scalene.__last_profiled != (f.f_code.co_filename, f.f_lineno):
+            (prof_fname, prof_lineno) = Scalene.__last_profiled
+            Scalene.__last_profiled_invalidated = True
+            # print("invalidated ", prof_fname, prof_lineno, Scalene.__counter)
+            sys.settrace(None)
+            return None
+        else:
+            return Scalene.invalidate_lines
         
     @classmethod
     def clear_metrics(cls) -> None:
@@ -397,7 +406,7 @@ class Scalene:
     ) -> None:
         Scalene.__alloc_sigq.put((signum, this_frame))
         del this_frame
-        if not Scalene.__last_profiled_invalidated and not sys.gettrace():
+        if not Scalene.__last_profiled_invalidated: #  and not sys.gettrace():
             sys.settrace(Scalene.invalidate_lines)
 
     @staticmethod
