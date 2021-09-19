@@ -23,7 +23,6 @@ import gc
 import inspect
 import json
 import math
-import mmap
 import multiprocessing
 import pathlib
 import queue
@@ -54,7 +53,6 @@ from typing import (
     List,
     Optional,
     Set,
-    TextIO,
     Tuple,
     Union,
     cast,
@@ -63,6 +61,7 @@ from multiprocessing.process import BaseProcess
 
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_json import ScaleneJSON
+from scalene.scalene_mapfile import ScaleneMapFile
 from scalene.scalene_statistics import *
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
@@ -180,38 +179,8 @@ class Scalene:
     # pid for tracking child processes
     __pid: int = 0
 
-    # Things that need to be in sync with the C++ side
-    # (see include/sampleheap.hpp, include/samplefile.hpp)
-
-    MAX_BUFSIZE = 256  # Must match SampleFile::MAX_BUFSIZE
-    
-    __malloc_buf = bytearray(MAX_BUFSIZE)
-    #   file to communicate the number of malloc/free samples (+ PID)
-    __malloc_signal_filename = Filename(
-        f"/tmp/scalene-malloc-signal{os.getpid()}"
-    )
-    __malloc_lock_filename = Filename(f"/tmp/scalene-malloc-lock{os.getpid()}")
-    __malloc_init_filename = Filename(f"/tmp/scalene-malloc-init{os.getpid()}")
-    __malloc_signal_position = 0
-    __malloc_lastpos = bytearray(8)
-    __malloc_signal_mmap = None
-    __malloc_lock_mmap : mmap.mmap
-    __malloc_signal_fd : TextIO
-    __malloc_lock_fd : TextIO
-    
-    __memcpy_buf = bytearray(MAX_BUFSIZE)
-    #   file to communicate the number of memcpy samples (+ PID)
-    __memcpy_signal_filename = Filename(
-        f"/tmp/scalene-memcpy-signal{os.getpid()}"
-    )
-    __memcpy_lock_filename = Filename(f"/tmp/scalene-memcpy-lock{os.getpid()}")
-    __memcpy_init_filename = Filename(f"/tmp/scalene-memcpy-init{os.getpid()}")
-    __memcpy_signal_position = 0
-    __memcpy_lastpos = bytearray(8)
-    __memcpy_signal_mmap = None
-    __memcpy_lock_mmap : mmap.mmap
-    __memcpy_signal_fd : TextIO
-    __memcpy_lock_fd : TextIO
+    __malloc_mapfile : ScaleneMapFile
+    __memcpy_mapfile : ScaleneMapFile
 
     # Program-specific information:
     #   the name of the program being profiled
@@ -329,9 +298,9 @@ class Scalene:
 
     @staticmethod
     def cleanup_files() -> None:
-        os.remove(Scalene.__malloc_init_filename)
-        os.remove(Scalene.__malloc_signal_filename)
-        os.remove(Scalene.__memcpy_init_filename)
+        os.remove(Scalene.__malloc_mapfile.init_filename)
+        os.remove(Scalene.__malloc_mapfile.signal_filename)
+        os.remove(Scalene.__memcpy_mapfile.init_filename)
         
     @staticmethod
     def set_thread_sleeping(tid: int) -> None:
@@ -480,42 +449,11 @@ class Scalene:
         # the files don't exist and we are supposed to be profiling
         # memory, exit.
         try:
-            Scalene.__malloc_signal_fd = open(Scalene.__malloc_signal_filename, "r")
-            os.unlink(Scalene.__malloc_signal_fd.name)
-            Scalene.__malloc_lock_fd = open(Scalene.__malloc_lock_filename, "r+")
-            os.unlink(Scalene.__malloc_lock_fd.name)
-            Scalene.__malloc_signal_mmap = mmap.mmap(
-                Scalene.__malloc_signal_fd.fileno(),
-                0,
-                mmap.MAP_SHARED,
-                mmap.PROT_READ,
-            )
-            Scalene.__malloc_lock_mmap = mmap.mmap(
-                Scalene.__malloc_lock_fd.fileno(),
-                0,
-                mmap.MAP_SHARED,
-                mmap.PROT_READ | mmap.PROT_WRITE,
-            )
-            Scalene.__memcpy_signal_fd = open(Scalene.__memcpy_signal_filename, "r")
-            os.unlink(Scalene.__memcpy_signal_fd.name)
-            Scalene.__memcpy_lock_fd = open(Scalene.__memcpy_lock_filename, "r+")
-            os.unlink(Scalene.__memcpy_lock_fd.name)
-            Scalene.__memcpy_signal_mmap = mmap.mmap(
-                Scalene.__memcpy_signal_fd.fileno(),
-                0,
-                mmap.MAP_SHARED,
-                mmap.PROT_READ,
-            )
-            Scalene.__memcpy_lock_mmap = mmap.mmap(
-                Scalene.__memcpy_lock_fd.fileno(),
-                0,
-                mmap.MAP_SHARED,
-                mmap.PROT_READ | mmap.PROT_WRITE,
-            )
+            Scalene.__malloc_mapfile = ScaleneMapFile("malloc")
+            Scalene.__memcpy_mapfile = ScaleneMapFile("memcpy")
         except BaseException as exc:
             # Ignore if we aren't profiling memory; otherwise, exit.
             if not arguments.cpu_only:
-                print("SNAP")
                 sys.exit(-1)
 
         Scalene.__signals.set_timer_signals(arguments.use_virtual_time)
@@ -963,24 +901,24 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @classmethod
-    def read_mmap(cls, which: str) -> Any:
+    def read_mmap(cls, which: ScaleneMapFile) -> Any:
         """Generic method for reading info from mmapped files."""
         if sys.platform == "win32":
             return False
         return get_line_atomic.get_line_atomic(
-            getattr(cls, "_Scalene__" + which + "_lock_mmap"),
-            getattr(cls, "_Scalene__" + which + "_signal_mmap"),
-            getattr(cls, "_Scalene__" + which + "_buf"),
-            getattr(cls, "_Scalene__" + which + "_lastpos"),
+            which.lock_mmap,
+            which.signal_mmap,
+            which.buf,
+            which.lastpos
         )
         
     @staticmethod
     def read_malloc_mmap() -> Any:
-        return Scalene.read_mmap("malloc")
+        return Scalene.read_mmap(Scalene.__malloc_mapfile)
 
     @staticmethod
     def read_memcpy_mmap() -> Any:
-        return Scalene.read_mmap("memcpy")
+        return Scalene.read_mmap(Scalene.__memcpy_mapfile)
     
     @staticmethod
     def alloc_sigqueue_processor(
@@ -997,7 +935,7 @@ class Scalene:
         try:
             while Scalene.read_malloc_mmap():
                 count_str = (
-                    Scalene.__malloc_buf.rstrip(b"\x00")
+                    Scalene.__malloc_mapfile.buf.rstrip(b"\x00")
                     .split(b"\n")[0]
                     .decode("ascii")
                 )
@@ -1186,9 +1124,9 @@ class Scalene:
         arr: List[Tuple[int, int]] = []
         # Process the input array.
         try:
-            if Scalene.__memcpy_signal_mmap:
+            if Scalene.__memcpy_mapfile.signal_mmap:
                 while Scalene.read_memcpy_mmap():
-                    count_str = Scalene.__memcpy_buf.split(b"\n")[0].decode(
+                    count_str = Scalene.__memcpy_mapfile.buf.split(b"\n")[0].decode(
                         "ascii"
                     )
                     (memcpy_time_str, count_str2, pid) = count_str.split(",")
@@ -1285,7 +1223,7 @@ class Scalene:
         if not Scalene.__args.cpu_only:
             while Scalene.read_malloc_mmap():
                 pass
-            if Scalene.__memcpy_signal_mmap:
+            if Scalene.__memcpy_mapfile.signal_mmap:
                 while Scalene.read_memcpy_mmap():
                     pass
 
@@ -1560,10 +1498,8 @@ class Scalene:
             sys.exit(-1)
         finally:
             try:
-                Scalene.__malloc_signal_fd.close()
-                Scalene.__malloc_lock_fd.close()
-                Scalene.__memcpy_signal_fd.close()
-                Scalene.__memcpy_lock_fd.close()
+                Scalene.__malloc_mapfile.close()
+                Scalene.__memcpy_mapfile.close()
                 if not Scalene.__is_child:
                     Scalene.cleanup_files()
             except BaseException:
