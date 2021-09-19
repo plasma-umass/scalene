@@ -95,7 +95,7 @@ class ScaleneJSON:
         )
 
         # Compute **average** growth.
-        n_growth_mb = 0
+        n_growth_mb : float = 0
         if n_mallocs:
             n_growth_mb = n_malloc_mb / n_mallocs # - n_free_mb
         # print(fname, line_no, n_malloc_mb, n_mallocs)
@@ -179,7 +179,7 @@ class ScaleneJSON:
         else:
             samples = []
 
-        output = { "elapsed_time_sec" : stats.elapsed_time,
+        output : Dict[str, Any] = { "elapsed_time_sec" : stats.elapsed_time,
                    "growth_rate" : growth_rate,
                    "samples" : samples,
                    "max_footprint_mb" : stats.max_footprint,
