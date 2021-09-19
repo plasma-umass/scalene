@@ -42,6 +42,7 @@ if sys.platform != "win32":
 
 from collections import defaultdict
 from functools import lru_cache
+from resource import getrusage as resource_usage, RUSAGE_SELF
 from signal import Handlers, Signals
 from types import CodeType, FrameType
 from typing import (
@@ -103,7 +104,7 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
 
-    __last_profiled : Tuple[Filename, LineNumber] = ("NADA", 0)
+    __last_profiled : Tuple[Filename, LineNumber] = (Filename("NADA"), LineNumber(0))
     __last_profiled_invalidated : bool = False
 
     # Support for @profile
@@ -161,6 +162,8 @@ class Scalene:
     # when did we last receive a signal?
     __last_signal_time_virtual: float = 0
     __last_signal_time_wallclock: float = 0
+    __last_signal_time_sys: float = 0
+    __last_signal_time_user: float = 0
 
     # path for the program being profiled
     __program_path: str = ""
@@ -250,7 +253,7 @@ class Scalene:
         raise KeyboardInterrupt
 
     @staticmethod
-    def invalidate_lines(frame, event, arg) -> Any:
+    def invalidate_lines(frame: FrameType, event: str, arg: str) -> Any:
         # Mark the last_profiled information as invalid as soon as we execute a different line of code.
         # FIXME this only correctly supports single-threaded programs at the moment.
         if False: # for testing purposes only - if true, measure overhead when on all the time.
@@ -607,14 +610,19 @@ class Scalene:
         this_frame: FrameType,
     ) -> None:
         """Wrapper for CPU signal handlers."""
+        ru = resource_usage(RUSAGE_SELF)
+        now_sys = ru.ru_stime
+        now_user = ru.ru_utime
         now_virtual = time.process_time()
         now_wallclock = time.perf_counter()
         if (
-            Scalene.__last_signal_time_virtual == 0.0
-            or Scalene.__last_signal_time_wallclock == 0.0
+            Scalene.__last_signal_time_virtual == 0
+            or Scalene.__last_signal_time_wallclock == 0
         ):
             Scalene.__last_signal_time_virtual = now_virtual
             Scalene.__last_signal_time_wallclock = now_wallclock
+            Scalene.__last_signal_time_sys = now_sys
+            Scalene.__last_signal_time_user = now_user
         # Sample GPU load as well.
         gpu_load = Scalene.__gpu.load()
         gpu_mem_used = Scalene.__gpu.memory_used()
@@ -624,10 +632,14 @@ class Scalene:
                 this_frame,
                 now_virtual,
                 now_wallclock,
+                now_sys,
+                now_user,
                 gpu_load,
                 gpu_mem_used,
                 Scalene.__last_signal_time_virtual,
                 Scalene.__last_signal_time_wallclock,
+                Scalene.__last_signal_time_sys,
+                Scalene.__last_signal_time_user
             )
         )
         if sys.platform != "win32":
@@ -636,8 +648,13 @@ class Scalene:
                 Scalene.__args.cpu_sampling_rate,
                 0,
             )
+        ru = resource_usage(RUSAGE_SELF)
+        now_sys = ru.ru_stime
+        now_user = ru.ru_utime
         Scalene.__last_signal_time_virtual = time.process_time()
         Scalene.__last_signal_time_wallclock = time.perf_counter()
+        Scalene.__last_signal_time_sys = now_sys
+        Scalene.__last_signal_time_user = now_user
 
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
@@ -662,10 +679,14 @@ class Scalene:
         this_frame: FrameType,
         now_virtual: float,
         now_wallclock: float,
+            now_sys: float,
+            now_user: float,
         gpu_load: float,
         gpu_mem_used: float,
         prev_virtual: float,
         prev_wallclock: float,
+            prev_sys: float,
+            prev_user: float
     ) -> None:
         """Handle interrupts for CPU profiling."""
         # We have recorded how long it has been since we received a timer
@@ -726,16 +747,12 @@ class Scalene:
         elapsed_virtual = now_virtual - prev_virtual
         elapsed_wallclock = now_wallclock - prev_wallclock
         # CPU utilization is the fraction of time spent on the CPU
-        # over the total wallclock time.
+        # over the total time.
+        elapsed_user = now_user - prev_user
+        elapsed_sys = now_sys - prev_sys
         try:
-            cpu_utilization = elapsed_virtual / elapsed_wallclock
+            cpu_utilization = elapsed_user / (elapsed_user + elapsed_sys)
         except ZeroDivisionError:
-            cpu_utilization = 0.0
-        if cpu_utilization > 1.0:
-            # Sometimes, for some reason, virtual time exceeds
-            # wallclock time, which makes no sense...
-            cpu_utilization = 1.0
-        if cpu_utilization < 0.0:
             cpu_utilization = 0.0
         # Deal with an odd case reported here: https://github.com/plasma-umass/scalene/issues/124
         # (Note: probably obsolete now that Scalene is using the nvidia wrappers, but just in case...)
@@ -1071,7 +1088,6 @@ class Scalene:
         last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
         malloc_pointer = "0x0"
         curr = before
-        last_linecount = defaultdict(int)
         
         # Go through the array again and add each updated current footprint.
         for item in arr:
