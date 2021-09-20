@@ -176,8 +176,8 @@ code...
                              output profiles every so many seconds (default: inf)
        --cpu-only            only profile CPU time (default: profile CPU, memory, and copying)
        --profile-all         profile all executed code, not just the target program (default: only the target program)
-        --profile-only PROFILE_ONLY
-                             profile only code for filenames that contain the given string (default: no restrictions)
+       --profile-only PROFILE_ONLY
+                             profile only code in filenames that contain the given strings, separated by commas (default: no restrictions)
        --use-virtual-time    measure only CPU time, not time spent in I/O or blocking (default: False)
        --cpu-percent-threshold CPU_PERCENT_THRESHOLD
                              only report profiles with at least this percent of CPU time (default: 1%)

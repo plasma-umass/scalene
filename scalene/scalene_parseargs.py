@@ -169,7 +169,7 @@ for the process ID that Scalene reports. For example:
             dest="profile_only",
             type=str,
             default=defaults.profile_only,
-            help="profile only code in files matching the given strings, separated by commas (default: [blue]"
+            help="profile only code in filenames that contain the given strings, separated by commas (default: [blue]"
             + (
                 "no restrictions"
                 if not defaults.profile_only
