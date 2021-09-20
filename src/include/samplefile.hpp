@@ -33,8 +33,8 @@ class SampleFile {
   static char *initializer;
 
  public:
-  SampleFile(char *filename_template, char *lockfilename_template,
-             char *init_template) {
+  SampleFile(const char *filename_template, const char *lockfilename_template,
+             const char *init_template) {
     static uint base_pid = getpid();
     constexpr int FILENAME_LENGTH = 255;
     snprintf(_init_filename, FILENAME_LENGTH - 1, init_template, base_pid);
@@ -61,6 +61,7 @@ class SampleFile {
         0, MAX_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, signal_fd, 0));
     _lastpos = reinterpret_cast<uint64_t *>(
         mmap(0, LOCK_FD_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, lock_fd, 0));
+    // tprintf::tprintf("@ SampleFile::SampleFile @ _lastpos=@\n", (void*)_mmap, _signalfile, *_lastpos);
     close(signal_fd);
     close(lock_fd);
     if (_mmap == MAP_FAILED) {
@@ -96,6 +97,7 @@ class SampleFile {
       // been initialized
       _spin_lock = (HL::SpinLock *)(((char *)_lastpos) + sizeof(uint64_t));
     } else {
+      // tprintf::tprintf("@ SampleFile::SampleFile initializing\n", (void*)_mmap);
       if (write(init_fd, "q&", 3) != 3) {
         fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
                 __LINE__);
@@ -116,12 +118,12 @@ class SampleFile {
     // unlink(_lockfile);
     // unlink(_init_filename);
   }
-  void writeToFile(char *line, int is_malloc) {
+  void writeToFile(char *line) { // , int is_malloc) {
     _spin_lock->lock();
-    char *ptr = _mmap;
     strncpy(_mmap + *_lastpos, (const char *)line, MAX_BUFSIZE);
 
     *_lastpos += strlen(_mmap + *_lastpos) - 1;
+    // tprintf::tprintf("@ wrote @, lastpos=@\n", (void*)_mmap, line, *_lastpos);
     _spin_lock->unlock();
   }
 

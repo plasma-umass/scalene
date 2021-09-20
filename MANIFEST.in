@@ -1,6 +1,4 @@
 graft vendor/Heap-Layers
 prune vendor/Heap-Layers/.git
-graft vendor/Hoard
-prune vendor/Hoard/.git
 graft vendor/printf
 prune vendor/printf/.git

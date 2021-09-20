@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <Python.h>
+
 #if !defined(_WIN32)
 #include <unistd.h>  // for getpid()
 #endif
@@ -180,9 +182,9 @@ class MemcpySampler {
 
  public:
   MemcpySampler()
-      : _samplefile((char *)"/tmp/scalene-memcpy-signal%d",
-                    (char *)"/tmp/scalene-memcpy-lock%d",
-                    (char *)"/tmp/scalene-memcpy-init%d"),
+      : _samplefile("/tmp/scalene-memcpy-signal%d",
+                    "/tmp/scalene-memcpy-lock%d",
+                    "/tmp/scalene-memcpy-init%d"),
         _interval(MemcpySamplingRateBytes),
         _memcpyOps(0),
         _memcpyTriggered(0) {
@@ -268,7 +270,7 @@ class MemcpySampler {
   void incrementMemoryOps(int n) {
     _memcpyOps += n;
     auto sampleMemop = _memcpySampler.sample(n);
-    if (unlikely(sampleMemop)) {
+    if (Py_IsInitialized() && unlikely(sampleMemop)) {
       writeCount();
       _memcpyTriggered++;
       _memcpyOps = 0;
@@ -288,7 +290,7 @@ class MemcpySampler {
     char buf[FILENAME_LENGTH];
     snprintf(buf, FILENAME_LENGTH, "%d,%d,%d\n\n", _memcpyTriggered, _memcpyOps,
              getpid());
-    _samplefile.writeToFile(buf, 0);
+    _samplefile.writeToFile(buf);
   }
 };
 

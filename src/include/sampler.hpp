@@ -14,8 +14,8 @@
 #include "common.hpp"
 #include "printf.h"
 
-#define SAMPLER_DETERMINISTIC 1
-#define SAMPLER_LOWDISCREPANCY 0
+#define SAMPLER_DETERMINISTIC 0
+#define SAMPLER_LOWDISCREPANCY 1
 
 #include <stdio.h>
 #include <time.h>
@@ -37,11 +37,12 @@ class Sampler {
   std::mt19937_64 rng{1234567890UL + (uint64_t)getpid() + (uint64_t)this +
                       (uint64_t)pthread_self()};
 #else
-  LowDiscrepancy rng{1234567890UL + (uint64_t)getpid() + (uint64_t)this +
-                     (uint64_t)pthread_self()};
+  LowDiscrepancy rng{1}; // 234567890UL + (uint64_t)getpid() + (uint64_t)this +
+  // (uint64_t)pthread_self()};
 #endif
+#endif
+  
   std::geometric_distribution<uint64_t> geom{SAMPLE_PROBABILITY};
-#endif
 
  public:
   Sampler() {
@@ -58,9 +59,14 @@ class Sampler {
     _lastSampleSize = _next;
   }
 
+  inline ATTRIBUTE_ALWAYS_INLINE void unsample(uint64_t sz) {
+    _next += sz;
+  }
+  
   inline ATTRIBUTE_ALWAYS_INLINE uint64_t sample(uint64_t sz) {
     if (unlikely(_next <= sz)) {
-      return updateSample(sz - _next);
+      // return updateSample(sz - _next);
+      return updateSample(sz);
     }
     assert(sz < _next);
     _next -= sz;
@@ -78,10 +84,11 @@ class Sampler {
       }
     }
 #endif
-    auto prevSampleSize = _lastSampleSize;
+    //    printf_("NEXT = %lu\n", _next);
     _lastSampleSize = _next;
-    return sz + SAMPLE_RATE;
-    // previously:
-    // return sz + prevSampleSize;
+    if (sz >= SAMPLE_RATE) {
+      return sz;
+    }
+    return SAMPLE_RATE;
   }
 };

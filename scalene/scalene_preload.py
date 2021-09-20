@@ -18,18 +18,20 @@ class ScalenePreload:
         if sys.platform == "linux":
             if not args.cpu_only:
                 env["LD_PRELOAD"] = os.path.join(
-                    scalene.__path__[0], "libscalene.so"
+                    scalene.__path__[0], "libscalene.so" # type: ignore
                 )
-                # env["PYTHONMALLOC"] = "malloc"
-                env["PYTHONMALLOC"] = "pymalloc"
+                # Disable command-line specified PYTHONMALLOC.
+                if "PYTHONMALLOC" in env:
+                    del env["PYTHONMALLOC"]
 
         elif sys.platform == "darwin":
             if not args.cpu_only:
                 env["DYLD_INSERT_LIBRARIES"] = os.path.join(
                     scalene.__path__[0], "libscalene.dylib"
                 )
-                # env["PYTHONMALLOC"] = "malloc"
-                env["PYTHONMALLOC"] = "pymalloc"
+                # Disable command-line specified PYTHONMALLOC.
+                if "PYTHONMALLOC" in env:
+                    del env["PYTHONMALLOC"]
             # required for multiprocessing support, even without libscalene
             env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
 
@@ -97,7 +99,11 @@ class ScalenePreload:
                     )
             except:
                 pass
-            result.wait()
+            try:
+                result.wait()
+            except KeyboardInterrupt:
+                result.returncode = 0
+                pass
             if result.returncode < 0:
                 print(
                     "Scalene error: received signal",

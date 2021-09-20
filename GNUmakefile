@@ -3,15 +3,19 @@ PYTHON = python3
 PYTHON_SOURCES = scalene/[a-z]*.py
 C_SOURCES = src/source/libscalene.cpp src/source/get_line_atomic.cpp src/include/*.h*
 
-.PHONY: black clang-format format upload
+.PHONY: black clang-format format upload vendor-deps
 
-# CXXFLAGS = -std=c++14 -g -O0
-CXXFLAGS = -std=c++14 -g -O3 -DNDEBUG -D_REENTRANT=1 -pipe -fno-builtin-malloc -fvisibility=hidden
+# CXXFLAGS = -std=c++17 -g -O0 # FIXME
+CXXFLAGS = -std=c++17 -g -O3 -DNDEBUG -D_REENTRANT=1 -pipe -fno-builtin-malloc -fvisibility=hidden
 CXX = g++
+
+PYTHON_INCLUDE := $(shell python3 -c "from sysconfig import get_paths as gp; print(gp()['include'])")
+PYTHON_LIBRARY := $(shell python3 -m find_libpython)
 
 INCLUDES  = -Isrc -Isrc/include
 INCLUDES := $(INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility
 INCLUDES := $(INCLUDES) -Ivendor/printf
+INCLUDES := $(INCLUDES) -I$(PYTHON_INCLUDE)
 
 ifeq ($(shell uname -s),Darwin)
   LIBFILE := lib$(LIBNAME).dylib
@@ -22,15 +26,16 @@ ifeq ($(shell uname -s),Darwin)
     ARCH := -arch x86_64
   endif
   CXXFLAGS := $(CXXFLAGS) -flto -ftls-model=initial-exec -ftemplate-depth=1024 $(ARCH) -compatibility_version 1 -current_version 1 -dynamiclib
-
-  INCLUDES := $(INCLUDES) -Ivendor/Hoard/src/include/hoard -Ivendor/Hoard/src/include/util -Ivendor/Hoard/src/include/superblocks
-  OTHER_DEPS := vendor/Hoard
+  RPATH_FLAGS := -Wl,-rpath $(shell dirname $(PYTHON_LIBRARY))
+  SED_INPLACE = -i ''
 
 else # non-Darwin
   LIBFILE := lib$(LIBNAME).so
   WRAPPER := vendor/Heap-Layers/wrappers/gnuwrapper.cpp
   INCLUDES := $(INCLUDES) -I/usr/include/nptl 
   CXXFLAGS := $(CXXFLAGS) -fPIC -shared -Bsymbolic
+  RPATH_FLAGS :=
+  SED_INPLACE = -i
 
 endif
 
@@ -40,8 +45,8 @@ OUTDIR=scalene
 
 all: $(OUTDIR)/$(LIBFILE)
 
-$(OUTDIR)/$(LIBFILE): vendor/Heap-Layers $(SRC) $(OTHER_DEPS)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread
+$(OUTDIR)/$(LIBFILE): vendor/Heap-Layers $(SRC) $(C_SOURCES) GNUmakefile
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread $(RPATH_FLAGS) $(PYTHON_LIBRARY)
 
 clean:
 	rm -f $(OUTDIR)/$(LIBFILE) scalene/get_line_atomic*.so
@@ -54,15 +59,12 @@ $(WRAPPER) : vendor/Heap-Layers
 vendor/Heap-Layers:
 	mkdir -p vendor && cd vendor && git clone https://github.com/emeryberger/Heap-Layers
 
-vendor/Hoard:
-	mkdir -p vendor && cd vendor && git clone https://github.com/emeryberger/Hoard
-	cd vendor/Hoard/src && ln -s ../../Heap-Layers  # avoid inconsistencies by using same package
-
 vendor/printf/printf.cpp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
+	sed $(SED_INPLACE) -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h
 
-vendor-deps: vendor/Heap-Layers vendor/Hoard vendor/printf/printf.cpp
+vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp
 
 mypy:
 	-mypy $(PYTHON_SOURCES)

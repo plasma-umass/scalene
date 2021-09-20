@@ -420,7 +420,7 @@ class ScaleneOutput:
                     width=7,
                 )
                 tbl.add_column(
-                    Markdown("––––––  \n_net_", style="dark_green"),
+                    Markdown("––––––  \n_avg_", style="dark_green"),
                     style="dark_green",
                     no_wrap=True,
                     width=6,
@@ -453,6 +453,11 @@ class ScaleneOutput:
                     no_wrap=True,
                 )
 
+            # Print out the the profile for the source, line by line.
+            if fname == "<BOGUS>":
+                continue
+            if not fname:
+                continue
             # Print out the profile for the source, line by line.
             with open(fname, "r") as source_file:
                 # We track whether we should put in ellipsis (for reduced profiles)
@@ -462,23 +467,13 @@ class ScaleneOutput:
                 # Generate syntax highlighted version for the whole file,
                 # which we will consume a line at a time.
                 # See https://github.com/willmcgugan/rich/discussions/965#discussioncomment-314233
-                syntax_highlighted = None
-                if self.html:
-                    syntax_highlighted = Syntax(
-                        code_lines,
-                        "python",
-                        theme="default",
-                        line_numbers=False,
-                        code_width=None,
-                    )
-                else:
-                    syntax_highlighted = Syntax(
-                        code_lines,
-                        "python",
-                        theme="vim",
-                        line_numbers=False,
-                        code_width=None,
-                    )
+                syntax_highlighted = Syntax(
+                    code_lines,
+                    "python",
+                    theme="default" if self.html else "vim",
+                    line_numbers=False,
+                    code_width=None,
+                )
                 capture_console = Console(
                     width=column_width - other_columns_width,
                     force_terminal=True,
@@ -542,22 +537,13 @@ class ScaleneOutput:
                 ):
                     if fn_name == fname:
                         continue
-                    if self.html:
-                        syntax_highlighted = Syntax(
-                            fn_name,
-                            "python",
-                            theme="default",
-                            line_numbers=False,
-                            code_width=None,
-                        )
-                    else:
-                        syntax_highlighted = Syntax(
-                            fn_name,
-                            "python",
-                            theme="vim",
-                            line_numbers=False,
-                            code_width=None,
-                        )
+                    syntax_highlighted = Syntax(
+                        fn_name,
+                        "python",
+                        theme="default" if self.html else "vim",
+                        line_numbers=False,
+                        code_width=None,
+                    )
                     # force print, suppress line numbers
                     self.output_profile_line(
                         json=json,
