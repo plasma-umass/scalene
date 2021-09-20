@@ -58,7 +58,7 @@ def doit():
     for i in r:
         q4.append(i)
     # q4 = list(r)
-    z = 2000000 * sys.getsizeof(1)
+    z = 2000000 * getsizeof(1)
     print(z)
     print("q4", total_size(q4)/(1024*1024))
     del q4
