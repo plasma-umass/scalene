@@ -1452,7 +1452,7 @@ class Scalene:
                     # Grab local and global variables.
                     if not Scalene.__args.cpu_only:
                         import register_files_to_profile
-                        register_files_to_profile.register_files_to_profile(Scalene.__files_to_profile.split(',') if Scalene.__files_to_profile else [], Scalene.__program_path, Scalene.__args.profile_all)
+                        register_files_to_profile.register_files_to_profile(list(Scalene.__files_to_profile.keys()), Scalene.__program_path, Scalene.__args.profile_all)
         
                     import __main__
 
