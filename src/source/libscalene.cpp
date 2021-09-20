@@ -13,7 +13,7 @@
 #include <cstddef>
 
 #include "common.hpp"
-#include "mallocrecursionguard.hpp"
+
 #include "heapredirect.h"
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
@@ -155,46 +155,46 @@ public:
 
 private:
 
+  static constexpr int SLACK = 0;
+  
   PyMemAllocatorEx localAlloc;
   static inline PyMemAllocatorEx original_allocator;
   
-  static void * local_malloc(void * ctx, size_t len) {
-    MallocRecursionGuard g;
-    ///    printf_("MALLOC %lu\n", len);
+  static inline void * local_malloc(void * ctx, size_t len) {
+#if 1
     if (len < 8) {
       len = 8;
     }
-    Header * header = new (original_allocator.malloc(ctx, len + 8 + sizeof(Header))) Header(len);
-    if (header) {
-      //      setSize(getObject(header), len);
-      if (!g.wasInMalloc()) {
-        TheHeapWrapper::register_malloc(len, getObject(header));
-      }
-#if USE_HEADERS
-      assert((size_t) getObject(header) - (size_t) header >= sizeof(Header));
-      if (getSize(getObject(header)) < len) {
-	printf_("WTF %lu %lu\n", getSize(getObject(header)), len);
-      }
-      assert(getSize(getObject(header)) >= len);
 #endif
-      return getObject(header);
+#if USE_HEADERS
+    Header * header = new (original_allocator.malloc(ctx, len + SLACK + sizeof(Header))) Header(len);
+#else
+    Header * header = (Header *) original_allocator.malloc(ctx, len + SLACK);
+#endif
+    assert(header); // We expect this to always succeed.
+    TheHeapWrapper::register_malloc(len, getObject(header));
+#if USE_HEADERS
+    assert((size_t) getObject(header) - (size_t) header >= sizeof(Header));
+#ifndef NDEBUG
+    if (getSize(getObject(header)) < len) {
+      printf_("Size mismatch: %lu %lu\n", getSize(getObject(header)), len);
     }
-    return nullptr;
+#endif
+    assert(getSize(getObject(header)) >= len);
+#endif
+    return getObject(header);
   }
 
-  static void local_free(void * ctx, void * ptr) {
-    MallocRecursionGuard g;
+  static inline void local_free(void * ctx, void * ptr) {
     ///    printf_("FREE %p\n", ptr);
     if (ptr) {
       const auto sz = getSize(ptr);
-      if (!g.wasInMalloc()) {
-        TheHeapWrapper::register_free(sz, ptr);
-      }
+      TheHeapWrapper::register_free(sz, ptr);
       original_allocator.free(ctx, getHeader(ptr));
     }
   }
 
-  static void * local_realloc(void * ctx, void * ptr, size_t new_size) {
+  static inline void * local_realloc(void * ctx, void * ptr, size_t new_size) {
     //    printf_("REALLOC %p %lu\n", ptr, new_size);
     if (new_size < 8) {
       new_size = 8;
@@ -204,26 +204,22 @@ private:
     }
     const auto sz = getSize(ptr);
 
-    MallocRecursionGuard g;
-    if (!g.wasInMalloc()) {
-      TheHeapWrapper::register_free(sz, getHeader(ptr));
-    }
-    Header * result = (Header *) original_allocator.realloc(ctx, getHeader(ptr), new_size + 8 + sizeof(Header));
+    TheHeapWrapper::register_free(sz, getHeader(ptr));
+    Header * result = (Header *) original_allocator.realloc(ctx, getHeader(ptr), new_size + SLACK + sizeof(Header));
     if (result) {
-      if (!g.wasInMalloc()) {
-        TheHeapWrapper::register_malloc(new_size, getObject(result));
-      }
+      TheHeapWrapper::register_malloc(new_size, getObject(result));
       setSize(getObject(result), new_size);
       return getObject(result);
     }
     return nullptr;
   }
 
-  static void * local_calloc(void * ctx, size_t nelem, size_t elsize) {
+  static inline void * local_calloc(void * ctx, size_t nelem, size_t elsize) {
     // printf_("CALLOC %lu %lu\n", nelem, elsize);
-    void * obj = local_malloc(ctx, nelem * elsize);
-    if (obj) {
-      memset(obj, 0, nelem * elsize);
+    const auto nbytes = nelem * elsize;
+    void * obj = local_malloc(ctx, nbytes);
+    if (true) { // obj) {
+      memset(obj, 0, nbytes);
     }
     return obj;
   }
@@ -253,10 +249,13 @@ private:
   };
 #endif
 #else
-  class Header {};
+  class Header {
+  public:
+    Header(size_t) {}
+  };
 #endif
   
-  static size_t getSize(void * ptr) {
+  static inline size_t getSize(void * ptr) {
 #if USE_HEADERS
 #if DEBUG_HEADER
     assert(getHeader(ptr)->magic == MAGIC_NUMBER);
@@ -276,7 +275,7 @@ private:
 #endif
   }
 
-  static void setSize(void * ptr, size_t sz) {
+  static inline void setSize(void * ptr, size_t sz) {
 #if USE_HEADERS
     auto h = getHeader(ptr);
 #if DEBUG_HEADER
@@ -286,7 +285,7 @@ private:
 #endif
   }
   
-  static Header * getHeader(void * ptr) {
+  static inline Header * getHeader(void * ptr) {
 #if USE_HEADERS
     return (Header *) ptr - 1;
 #else
@@ -294,7 +293,7 @@ private:
 #endif
   }
 
-  static void * getObject(Header * header) {
+  static inline void * getObject(Header * header) {
 #if USE_HEADERS
     return (void *) (header + 1);
 #else
