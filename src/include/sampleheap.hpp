@@ -101,22 +101,26 @@ class SampleHeap : public SuperHeap {
       _cCount += realSize;
     }
     if (unlikely(sampleMalloc)) {
-      std::string filename;
-      int lineno;
-      int bytei;
-      int r = getPythonInfo(filename, lineno, bytei);
-      if (r) {
-        // printf_("MALLOC HANDLED (SAMPLEHEAP): %p -> %lu (%s, %d)\n", ptr, sampleMalloc, filename.c_str(), lineno);
-        writeCount(MallocSignal, sampleMalloc, ptr, filename, lineno, bytei);
+      process_malloc(sampleMalloc, ptr);
+    }
+  }
+
+  void process_malloc(size_t sampleMalloc, void * ptr) {
+    std::string filename;
+    int lineno;
+    int bytei;
+    int r = getPythonInfo(filename, lineno, bytei);
+    if (r) {
+      // printf_("MALLOC HANDLED (SAMPLEHEAP): %p -> %lu (%s, %d)\n", ptr, sampleMalloc, filename.c_str(), lineno);
+      writeCount(MallocSignal, sampleMalloc, ptr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
-        raise(MallocSignal);
+      raise(MallocSignal);
 #endif
-        _lastMallocTrigger = ptr;
-        _freedLastMallocTrigger = false;
-        _pythonCount = 0;
-        _cCount = 0;
-        mallocTriggered()++;
-      }
+      _lastMallocTrigger = ptr;
+      _freedLastMallocTrigger = false;
+      _pythonCount = 0;
+      _cCount = 0;
+      mallocTriggered()++;
     }
   }
   
@@ -145,21 +149,26 @@ class SampleHeap : public SuperHeap {
       _freedLastMallocTrigger = true;
     }
     if (unlikely(sampleFree)) {
-      std::string filename;
-      int lineno;
-      int bytei;
-
-      int r = getPythonInfo(filename, lineno, bytei);
-      if (r) {
-        // printf_("FREE HANDLED (SAMPLEHEAP): %p -> (%s, %d)\n", ptr, filename.c_str(), lineno);
-        writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
-#if !SCALENE_DISABLE_SIGNALS
-        raise(MallocSignal); // was FreeSignal
-#endif
-        freeTriggered()++;
-      }
+      process_free(sampleFree);
     }
   }
+
+  void process_free(size_t sampleFree) {
+    std::string filename;
+    int lineno;
+    int bytei;
+    
+    int r = getPythonInfo(filename, lineno, bytei);
+    if (r) {
+      // printf_("FREE HANDLED (SAMPLEHEAP): %p -> (%s, %d)\n", ptr, filename.c_str(), lineno);
+      writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
+#if !SCALENE_DISABLE_SIGNALS
+      raise(MallocSignal); // was FreeSignal
+#endif
+      freeTriggered()++;
+    }
+  }
+  
 
   void *memalign(size_t alignment, size_t sz) {
     MallocRecursionGuard g;
