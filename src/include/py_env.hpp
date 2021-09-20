@@ -12,6 +12,7 @@ public:
         owner = list_wrapper;
         path_owner = base_path;
         Py_INCREF(owner);
+        Py_INCREF(path_owner);
         profile_all = profile_all_b;
         auto size = PyList_Size(owner);
         items.reserve(size);
@@ -26,12 +27,7 @@ public:
     PyStringPtrList() {
         is_initialized = false;
     }
-    ~PyStringPtrList() {
-        if (is_initialized) {
-            Py_DECREF(owner);
-            Py_DECREF(path_owner);
-        }
-    }
+
     bool initialized() {
         return is_initialized;
     }
