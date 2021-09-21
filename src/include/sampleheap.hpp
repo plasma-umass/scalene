@@ -28,9 +28,9 @@
 #include "mallocrecursionguard.hpp"
 #include "open_addr_hashtable.hpp"
 #include "printf.h"
+#include "py_env.hpp"
 #include "samplefile.hpp"
 #include "sampler.hpp"
-#include "py_env.hpp"
 static SampleFile& getSampleFile() {
   static SampleFile mallocSampleFile("/tmp/scalene-malloc-signal%d",
                                      "/tmp/scalene-malloc-lock%d",
@@ -47,21 +47,18 @@ typedef std::atomic<uint64_t> counterType;
 typedef uint64_t counterType;
 #endif
 
-template <uint64_t MallocSamplingRateBytes,
-	  uint64_t FreeSamplingRateBytes,
-	  class SuperHeap>
+template <uint64_t MallocSamplingRateBytes, uint64_t FreeSamplingRateBytes,
+          class SuperHeap>
 class SampleHeap : public SuperHeap {
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
-  
+
  public:
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
 
-  SampleHeap()
-      : _lastMallocTrigger(nullptr),
-        _freedLastMallocTrigger(false)
-  {
-    getSampleFile(); // invoked here so the file gets initialized before python attempts to read from it
+  SampleHeap() : _lastMallocTrigger(nullptr), _freedLastMallocTrigger(false) {
+    getSampleFile();  // invoked here so the file gets initialized before python
+                      // attempts to read from it
 
     get_signal_init_lock().lock();
     auto old_malloc = signal(MallocSignal, SIG_IGN);
@@ -76,7 +73,7 @@ class SampleHeap : public SuperHeap {
     int pid = getpid();
   }
 
-  ATTRIBUTE_ALWAYS_INLINE inline void *malloc(size_t sz) {
+  ATTRIBUTE_ALWAYS_INLINE inline void* malloc(size_t sz) {
     MallocRecursionGuard g;
     auto ptr = SuperHeap::malloc(sz);
     if (unlikely(ptr == nullptr)) {
@@ -85,14 +82,14 @@ class SampleHeap : public SuperHeap {
     if (!g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
-	register_malloc(realSize, ptr, false); // false -> invoked from C/C++
+        register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
       }
     }
     return ptr;
   }
 
-
-  inline void register_malloc(size_t realSize, void * ptr, bool inPythonAllocator = true) {
+  inline void register_malloc(size_t realSize, void* ptr,
+                              bool inPythonAllocator = true) {
     assert(realSize);
     auto sampleMalloc = _mallocSampler.sample(realSize);
     if (inPythonAllocator) {
@@ -105,13 +102,14 @@ class SampleHeap : public SuperHeap {
     }
   }
 
-  void process_malloc(size_t sampleMalloc, void * ptr) {
+  void process_malloc(size_t sampleMalloc, void* ptr) {
     std::string filename;
     int lineno;
     int bytei;
     int r = getPythonInfo(filename, lineno, bytei);
     if (r) {
-      // printf_("MALLOC HANDLED (SAMPLEHEAP): %p -> %lu (%s, %d)\n", ptr, sampleMalloc, filename.c_str(), lineno);
+      // printf_("MALLOC HANDLED (SAMPLEHEAP): %p -> %lu (%s, %d)\n", ptr,
+      // sampleMalloc, filename.c_str(), lineno);
       writeCount(MallocSignal, sampleMalloc, ptr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
       raise(MallocSignal);
@@ -123,8 +121,8 @@ class SampleHeap : public SuperHeap {
       mallocTriggered()++;
     }
   }
-  
-  ATTRIBUTE_ALWAYS_INLINE inline void free(void *ptr) {
+
+  ATTRIBUTE_ALWAYS_INLINE inline void free(void* ptr) {
     MallocRecursionGuard g;
 
     if (unlikely(ptr == nullptr)) {
@@ -137,7 +135,7 @@ class SampleHeap : public SuperHeap {
     SuperHeap::free(ptr);
   }
 
-  inline void register_free(size_t realSize, void * ptr) {
+  inline void register_free(size_t realSize, void* ptr) {
 #if 1
     // Experiment: frees 'unsample' the allocation counter. This
     // approach means ignoring allocation swings less than the
@@ -157,20 +155,20 @@ class SampleHeap : public SuperHeap {
     std::string filename;
     int lineno;
     int bytei;
-    
+
     int r = getPythonInfo(filename, lineno, bytei);
     if (r) {
-      // printf_("FREE HANDLED (SAMPLEHEAP): %p -> (%s, %d)\n", ptr, filename.c_str(), lineno);
+      // printf_("FREE HANDLED (SAMPLEHEAP): %p -> (%s, %d)\n", ptr,
+      // filename.c_str(), lineno);
       writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
-      raise(MallocSignal); // was FreeSignal
+      raise(MallocSignal);  // was FreeSignal
 #endif
       freeTriggered()++;
     }
   }
-  
 
-  void *memalign(size_t alignment, size_t sz) {
+  void* memalign(size_t alignment, size_t sz) {
     MallocRecursionGuard g;
     auto ptr = SuperHeap::memalign(alignment, sz);
     if (unlikely(ptr == nullptr)) {
@@ -186,38 +184,29 @@ class SampleHeap : public SuperHeap {
   }
 
  private:
-
   // An RAII class to simplify acquiring and releasing the GIL.
   class GIL {
-  public:
-    GIL()
-    {
-      _gstate = PyGILState_Ensure();
-    }
-    ~GIL() {
-      PyGILState_Release(_gstate);
-    }
-  private:
+   public:
+    GIL() { _gstate = PyGILState_Ensure(); }
+    ~GIL() { PyGILState_Release(_gstate); }
+
+   private:
     PyGILState_STATE _gstate;
   };
 
-
   // Implements a mini smart pointer to PyObject.
-  // Manages a "strong" reference to the object... to use with a weak reference, Py_IncRef it first.
-  // Unfortunately, not all PyObject subclasses (e.g., PyFrameObject) are declared as such,
-  // so we need to make this a template and cast.
-  template<class O = PyObject>
+  // Manages a "strong" reference to the object... to use with a weak reference,
+  // Py_IncRef it first. Unfortunately, not all PyObject subclasses (e.g.,
+  // PyFrameObject) are declared as such, so we need to make this a template and
+  // cast.
+  template <class O = PyObject>
   class PyPtr {
-  public:
+   public:
     PyPtr(O* o) : _obj(o) {}
 
-    O* operator->() {
-        return _obj;
-    }
+    O* operator->() { return _obj; }
 
-    operator O* () {
-        return _obj;
-    }
+    operator O*() { return _obj; }
 
     PyPtr& operator=(O* o) {
       Py_DecRef((PyObject*)_obj);
@@ -231,19 +220,16 @@ class SampleHeap : public SuperHeap {
       return *this;
     }
 
-    ~PyPtr() {
-      Py_DecRef((PyObject*)_obj);
-    }
+    ~PyPtr() { Py_DecRef((PyObject*)_obj); }
 
-  private:
+   private:
     O* _obj;
   };
 
   int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
     // No python, no python stack.  Also, the stack is a property of the
     // thread state; no thread state, no python stack.
-    if (!Py_IsInitialized() ||
-        PyGILState_GetThisThreadState() == 0) {
+    if (!Py_IsInitialized() || PyGILState_GetThisThreadState() == 0) {
       return 0;
     }
 
@@ -256,9 +242,10 @@ class SampleHeap : public SuperHeap {
     filename = "<BOGUS>";
     lineno = 1;
     bytei = 0;
-    GIL gil; 
+    GIL gil;
 
-    for (auto frame = PyEval_GetFrame(); frame != nullptr; frame = frame->f_back) {
+    for (auto frame = PyEval_GetFrame(); frame != nullptr;
+         frame = frame->f_back) {
       auto fname = frame->f_code->co_filename;
       PyPtr<> encoded = PyUnicode_AsASCIIString(fname);
       if (!encoded) {
@@ -270,59 +257,58 @@ class SampleHeap : public SuperHeap {
         continue;
       }
 
-      if (!strstr(filenameStr, "<")
-          && !strstr(filenameStr, "/python")
-          && !strstr(filenameStr, "scalene/scalene")) {
-            bool should_trace = false;
-            if (py_string_ptr_list.initialized())
-              should_trace = py_string_ptr_list.should_trace(filenameStr);
-            if ( should_trace == 1) {
+      if (!strstr(filenameStr, "<") && !strstr(filenameStr, "/python") &&
+          !strstr(filenameStr, "scalene/scalene")) {
+        bool should_trace = false;
+        if (py_string_ptr_list.initialized())
+          should_trace = py_string_ptr_list.should_trace(filenameStr);
+        if (should_trace == 1) {
 #if defined(PyPy_FatalError)
-              // If this macro is defined, we are compiling PyPy, which
-              // AFAICT does not have any way to access bytecode index, so
-              // we punt and set it to 0.
-              bytei = 0;
-  #else
-              bytei = frame->f_lasti;
-  #endif
-              lineno = PyCode_Addr2Line(frame->f_code, bytei);
+          // If this macro is defined, we are compiling PyPy, which
+          // AFAICT does not have any way to access bytecode index, so
+          // we punt and set it to 0.
+          bytei = 0;
+#else
+          bytei = frame->f_lasti;
+#endif
+          lineno = PyCode_Addr2Line(frame->f_code, bytei);
 
-              filename = filenameStr;
-              // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
-              return 1;
-            }
+          filename = filenameStr;
+          // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
+          return 1;
+        }
       }
-    } 
+    }
     return 0;
   }
-  
-  // Prevent copying and assignment.
-  SampleHeap(const SampleHeap &) = delete;
-  SampleHeap &operator=(const SampleHeap &) = delete;
 
+  // Prevent copying and assignment.
+  SampleHeap(const SampleHeap&) = delete;
+  SampleHeap& operator=(const SampleHeap&) = delete;
 
   Sampler<MallocSamplingRateBytes> _mallocSampler;
   Sampler<FreeSamplingRateBytes> _freeSampler;
-  
+
   static auto& mallocTriggered() {
-    static std::atomic<uint64_t> _mallocTriggered {0};
+    static std::atomic<uint64_t> _mallocTriggered{0};
     return _mallocTriggered;
   }
   static auto& freeTriggered() {
-    static std::atomic<uint64_t> _freeTriggered {0};
+    static std::atomic<uint64_t> _freeTriggered{0};
     return _freeTriggered;
   }
-  
-  counterType _pythonCount {0};
-  counterType _cCount {0};
 
-  void *_lastMallocTrigger;
+  counterType _pythonCount{0};
+  counterType _cCount{0};
+
+  void* _lastMallocTrigger;
   bool _freedLastMallocTrigger;
 
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
-  void writeCount(AllocSignal sig, uint64_t count, void *ptr, const std::string& filename, int lineno, int bytei) {
+  void writeCount(AllocSignal sig, uint64_t count, void* ptr,
+                  const std::string& filename, int lineno, int bytei) {
     char buf[SampleFile::MAX_BUFSIZE];
     if (_pythonCount == 0) {
       _pythonCount = 1;  // prevent 0/0
@@ -337,16 +323,14 @@ class SampleHeap : public SuperHeap {
         ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
         mallocTriggered() + freeTriggered(), count,
         (float)_pythonCount / (_pythonCount + _cCount), getpid(),
-        _freedLastMallocTrigger ? _lastMallocTrigger : ptr,
-	filename.c_str(),
-	lineno,
-	bytei);
+        _freedLastMallocTrigger ? _lastMallocTrigger : ptr, filename.c_str(),
+        lineno, bytei);
     // Ensure we don't report last-malloc-freed multiple times.
     _freedLastMallocTrigger = false;
     getSampleFile().writeToFile(buf);
   }
 
-  static HL::PosixLock &get_signal_init_lock() {
+  static HL::PosixLock& get_signal_init_lock() {
     static HL::PosixLock signal_init_lock;
     return signal_init_lock;
   }

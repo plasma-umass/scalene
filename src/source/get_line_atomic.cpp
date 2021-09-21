@@ -30,7 +30,7 @@ static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
                           // protocol is found here
                           // https://docs.python.org/3/c-api/buffer.html
     return NULL;
-  
+
   auto buf = reinterpret_cast<char*>(lock_mmap.buf) + sizeof(uint64_t);
   using LockType = HL::SpinLock;
   auto lock = reinterpret_cast<LockType*>(buf);
@@ -42,7 +42,8 @@ static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
   auto start = current_iter;
   auto result_iter = reinterpret_cast<char*>(result_bytearray.buf);
 
-  char* nl = reinterpret_cast<char*>(memchr(current_iter, '\n', result_bytearray.len));
+  char* nl =
+      reinterpret_cast<char*>(memchr(current_iter, '\n', result_bytearray.len));
   int len = (nl == nullptr) ? 0 : nl - start;
 
   if (len == 0) {
@@ -61,7 +62,7 @@ static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
     *(result_iter++) = *(current_iter++);
   }
 
-  *lastpos += len+1;
+  *lastpos += len + 1;
 
   Py_RETURN_TRUE;
 }

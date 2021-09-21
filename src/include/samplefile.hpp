@@ -61,7 +61,8 @@ class SampleFile {
         0, MAX_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, signal_fd, 0));
     _lastpos = reinterpret_cast<uint64_t *>(
         mmap(0, LOCK_FD_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, lock_fd, 0));
-    // tprintf::tprintf("@ SampleFile::SampleFile @ _lastpos=@\n", (void*)_mmap, _signalfile, *_lastpos);
+    // tprintf::tprintf("@ SampleFile::SampleFile @ _lastpos=@\n", (void*)_mmap,
+    // _signalfile, *_lastpos);
     close(signal_fd);
     close(lock_fd);
     if (_mmap == MAP_FAILED) {
@@ -97,10 +98,11 @@ class SampleFile {
       // been initialized
       _spin_lock = (HL::SpinLock *)(((char *)_lastpos) + sizeof(uint64_t));
     } else {
-      // tprintf::tprintf("@ SampleFile::SampleFile initializing\n", (void*)_mmap);
+      // tprintf::tprintf("@ SampleFile::SampleFile initializing\n",
+      // (void*)_mmap);
       if (write(init_fd, "q&", 3) != 3) {
-        fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
-                __LINE__);
+        fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno,
+                __FILE__, __LINE__);
         abort();
       }
       fsync(init_fd);
@@ -114,16 +116,17 @@ class SampleFile {
   ~SampleFile() {
     munmap(_mmap, MAX_FILE_SIZE);
     munmap(_lastpos, LOCK_FD_SIZE);
-    //unlink(_signalfile);
+    // unlink(_signalfile);
     // unlink(_lockfile);
     // unlink(_init_filename);
   }
-  void writeToFile(char *line) { // , int is_malloc) {
+  void writeToFile(char *line) {  // , int is_malloc) {
     _spin_lock->lock();
     strncpy(_mmap + *_lastpos, (const char *)line, MAX_BUFSIZE);
 
     *_lastpos += strlen(_mmap + *_lastpos) - 1;
-    // tprintf::tprintf("@ wrote @, lastpos=@\n", (void*)_mmap, line, *_lastpos);
+    // tprintf::tprintf("@ wrote @, lastpos=@\n", (void*)_mmap, line,
+    // *_lastpos);
     _spin_lock->unlock();
   }
 

@@ -2,14 +2,13 @@
 #ifndef MEMCPYSAMPLER_HPP
 #define MEMCPYSAMPLER_HPP
 
+#include <Python.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdint.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
-#include <Python.h>
 
 #if !defined(_WIN32)
 #include <unistd.h>  // for getpid()
@@ -183,8 +182,7 @@ class MemcpySampler {
  public:
   MemcpySampler()
       : _samplefile("/tmp/scalene-memcpy-signal%d",
-                    "/tmp/scalene-memcpy-lock%d",
-                    "/tmp/scalene-memcpy-init%d"),
+                    "/tmp/scalene-memcpy-lock%d", "/tmp/scalene-memcpy-init%d"),
         _interval(MemcpySamplingRateBytes),
         _memcpyOps(0),
         _memcpyTriggered(0) {

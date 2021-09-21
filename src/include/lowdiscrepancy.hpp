@@ -29,10 +29,11 @@ class LowDiscrepancy {
 
  private:
   static inline constexpr auto next() {
-    return (uint64_t)(
-        (double)UINT64_MAX *
-        0.6180339887498949025257388711906969547271728515625L);  // 1 - golden
-                                                                // ratio
+    return (
+        uint64_t)((double)UINT64_MAX *
+                  0.6180339887498949025257388711906969547271728515625L);  // 1 -
+                                                                          // golden
+                                                                          // ratio
   }
 
  public:

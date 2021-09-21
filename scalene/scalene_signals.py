@@ -1,8 +1,8 @@
 import signal
 import sys
 
-class ScaleneSignals:
 
+class ScaleneSignals:
     def __init__(self) -> None:
         self.start_profiling_signal = signal.SIGILL
         self.set_timer_signals(True)
@@ -31,4 +31,3 @@ class ScaleneSignals:
             else:
                 self.cpu_timer_signal = signal.ITIMER_REAL
                 self.cpu_signal = signal.SIGALRM
-    

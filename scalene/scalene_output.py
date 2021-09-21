@@ -59,7 +59,13 @@ class ScaleneOutput:
         reduced_profile: bool = False,
     ) -> bool:
         """Print at most one line of the profile (true == printed one)."""
-        obj = json.output_profile_line(fname=fname, line_no=line_no, stats=stats, profile_this_code=profile_this_code, force_print=force_print)
+        obj = json.output_profile_line(
+            fname=fname,
+            line_no=line_no,
+            stats=stats,
+            profile_this_code=profile_this_code,
+            force_print=force_print,
+        )
         if not obj:
             return False
         if -1 < obj["n_growth_mb"] < 1:
@@ -68,7 +74,9 @@ class ScaleneOutput:
 
         # Finally, print results.
         n_cpu_percent_c_str: str = (
-            "" if obj["n_cpu_percent_c"] < 1 else f"{obj['n_cpu_percent_c']:5.0f}%"
+            ""
+            if obj["n_cpu_percent_c"] < 1
+            else f"{obj['n_cpu_percent_c']:5.0f}%"
         )
 
         n_gpu_percent_str: str = (
@@ -76,7 +84,9 @@ class ScaleneOutput:
         )
 
         n_cpu_percent_python_str: str = (
-            "" if obj["n_cpu_percent_python"] < 1 else f"{obj['n_cpu_percent_python']:5.0f}%"
+            ""
+            if obj["n_cpu_percent_python"] < 1
+            else f"{obj['n_cpu_percent_python']:5.0f}%"
         )
         n_growth_mem_str = ""
         if obj["n_growth_mb"] < 1024:
@@ -108,9 +118,7 @@ class ScaleneOutput:
 
         # Only report utilization where there is more than 1% CPU total usage.
         sys_str: str = (
-            ""
-            if obj["n_sys_percent"] < 1
-            else f"{obj['n_sys_percent']:4.0f}%"
+            "" if obj["n_sys_percent"] < 1 else f"{obj['n_sys_percent']:4.0f}%"
         )
         if not is_function_summary:
             print_line_no = "" if suppress_lineno_print else str(line_no)
@@ -139,7 +147,11 @@ class ScaleneOutput:
 
             if (
                 obj["n_usage_fraction"] >= self.highlight_percentage
-                or (obj["n_cpu_percent_c"] + obj["n_cpu_percent_python"] + obj["n_gpu_percent"])
+                or (
+                    obj["n_cpu_percent_c"]
+                    + obj["n_cpu_percent_python"]
+                    + obj["n_gpu_percent"]
+                )
                 >= self.highlight_percentage
             ):
                 ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
@@ -188,7 +200,9 @@ class ScaleneOutput:
 
             # Red highlight
             if (
-                obj["n_cpu_percent_c"] + obj["n_cpu_percent_python"] + obj["n_gpu_percent"]
+                obj["n_cpu_percent_c"]
+                + obj["n_cpu_percent_python"]
+                + obj["n_gpu_percent"]
             ) >= self.highlight_percentage:
                 ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
                 ncpcs = Text.assemble((n_cpu_percent_c_str, "bold red"))
@@ -587,7 +601,10 @@ class ScaleneOutput:
                 number = 1
                 for net_malloc_lineno in net_mallocs:
                     # Don't print lines with less than the threshold MB allocated.
-                    if net_mallocs[net_malloc_lineno] <= print_top_mallocs_threshold_mb:
+                    if (
+                        net_mallocs[net_malloc_lineno]
+                        <= print_top_mallocs_threshold_mb
+                    ):
                         break
                     # Only print the top N.
                     if number > print_top_mallocs_count:

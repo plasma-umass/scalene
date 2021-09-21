@@ -101,8 +101,11 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
 
-    __last_profiled : Tuple[Filename, LineNumber] = (Filename("NADA"), LineNumber(0))
-    __last_profiled_invalidated : bool = False
+    __last_profiled: Tuple[Filename, LineNumber] = (
+        Filename("NADA"),
+        LineNumber(0),
+    )
+    __last_profiled_invalidated: bool = False
 
     # Support for @profile
     # decorated files
@@ -143,7 +146,7 @@ class Scalene:
     @staticmethod
     def get_original_lock() -> threading.Lock:
         return Scalene.__original_lock()
-    
+
     # Likely names for the Python interpreter.
     __all_python_names = [
         os.path.basename(sys.executable),
@@ -176,8 +179,8 @@ class Scalene:
     # pid for tracking child processes
     __pid: int = 0
 
-    __malloc_mapfile : ScaleneMapFile
-    __memcpy_mapfile : ScaleneMapFile
+    __malloc_mapfile: ScaleneMapFile
+    __memcpy_mapfile: ScaleneMapFile
 
     # Program-specific information:
     #   the name of the program being profiled
@@ -193,14 +196,14 @@ class Scalene:
     __cpu_sigq: ScaleneSigQueue[Any]
     __alloc_sigq: ScaleneSigQueue[Any]
     __memcpy_sigq: ScaleneSigQueue[Any]
-    __sigqueues : List[ScaleneSigQueue[Any]]
-    
+    __sigqueues: List[ScaleneSigQueue[Any]]
+
     @staticmethod
     def interruption_handler(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType
+        this_frame: FrameType,
     ) -> None:
         raise KeyboardInterrupt
 
@@ -208,7 +211,9 @@ class Scalene:
     def invalidate_lines(frame: FrameType, event: str, arg: str) -> Any:
         # Mark the last_profiled information as invalid as soon as we execute a different line of code.
         # FIXME this only correctly supports single-threaded programs at the moment.
-        if False: # for testing purposes only - if true, measure overhead when on all the time.
+        if (
+            False
+        ):  # for testing purposes only - if true, measure overhead when on all the time.
             try:
                 return Scalene.invalidate_lines
             except:
@@ -238,7 +243,7 @@ class Scalene:
             return None
         # This should probably never happen but just in case, keep on tracing.
         return Scalene.invalidate_lines
-        
+
     @classmethod
     def clear_metrics(cls) -> None:
         """
@@ -297,7 +302,7 @@ class Scalene:
     def cleanup_files() -> None:
         Scalene.__malloc_mapfile.cleanup()
         Scalene.__memcpy_mapfile.cleanup()
-        
+
     @staticmethod
     def set_thread_sleeping(tid: int) -> None:
         Scalene.__is_thread_sleeping[tid] = True
@@ -346,7 +351,7 @@ class Scalene:
     ) -> None:
         Scalene.__alloc_sigq.put((signum, this_frame))
         del this_frame
-        if not Scalene.__last_profiled_invalidated: #  and not sys.gettrace():
+        if not Scalene.__last_profiled_invalidated:  #  and not sys.gettrace():
             sys.settrace(Scalene.invalidate_lines)
 
     @staticmethod
@@ -390,7 +395,9 @@ class Scalene:
         signal.signal(
             Scalene.__signals.malloc_signal, Scalene.malloc_signal_handler
         )
-        signal.signal(Scalene.__signals.free_signal, Scalene.free_signal_handler)
+        signal.signal(
+            Scalene.__signals.free_signal, Scalene.free_signal_handler
+        )
         signal.signal(
             Scalene.__signals.memcpy_signal,
             Scalene.memcpy_signal_handler,
@@ -437,10 +444,12 @@ class Scalene:
         Scalene.__memcpy_sigq = ScaleneSigQueue(
             Scalene.memcpy_sigqueue_processor
         )
-        Scalene.__sigqueues = [Scalene.__cpu_sigq,
-                               Scalene.__alloc_sigq,
-                               Scalene.__memcpy_sigq]
-    
+        Scalene.__sigqueues = [
+            Scalene.__cpu_sigq,
+            Scalene.__alloc_sigq,
+            Scalene.__memcpy_sigq,
+        ]
+
         # Initialize the malloc related files; if for whatever reason
         # the files don't exist and we are supposed to be profiling
         # memory, exit.
@@ -557,7 +566,7 @@ class Scalene:
                 Scalene.__last_signal_time_virtual,
                 Scalene.__last_signal_time_wallclock,
                 Scalene.__last_signal_time_sys,
-                Scalene.__last_signal_time_user
+                Scalene.__last_signal_time_user,
             )
         )
         if sys.platform != "win32":
@@ -597,14 +606,14 @@ class Scalene:
         this_frame: FrameType,
         now_virtual: float,
         now_wallclock: float,
-            now_sys: float,
-            now_user: float,
+        now_sys: float,
+        now_user: float,
         gpu_load: float,
         gpu_mem_used: float,
         prev_virtual: float,
         prev_wallclock: float,
-            prev_sys: float,
-            prev_user: float
+        prev_sys: float,
+        prev_user: float,
     ) -> None:
         """Handle interrupts for CPU profiling."""
         # We have recorded how long it has been since we received a timer
@@ -619,7 +628,9 @@ class Scalene:
             stats = Scalene.__stats
             # pause (lock) all the queues to prevent updates while we output
             with contextlib.ExitStack() as stack:
-                locks = [stack.enter_context(s.lock) for s in Scalene.__sigqueues]
+                locks = [
+                    stack.enter_context(s.lock) for s in Scalene.__sigqueues
+                ]
                 stats.stop_clock()
                 if Scalene.__args.json:
                     x = Scalene.__json.output_profiles(
@@ -627,7 +638,7 @@ class Scalene:
                         Scalene.__pid,
                         Scalene.profile_this_code,
                         Scalene.__python_alias_dir,
-                        profile_memory=not Scalene.__args.cpu_only
+                        profile_memory=not Scalene.__args.cpu_only,
                     )
                     if not Scalene.__output.output_file:
                         Scalene.__output.output_file = "/dev/stdout"
@@ -644,7 +655,7 @@ class Scalene:
                         reduced_profile=Scalene.__args.reduced_profile,
                     )
                 stats.start_clock()
-    
+
         # Here we take advantage of an ostensible limitation of Python:
         # it only delivers signals after the interpreter has given up
         # control. This seems to mean that sampling is limited to code
@@ -686,9 +697,9 @@ class Scalene:
             c_time = 0
 
         # Update counters for every running thread.
-    
+
         new_frames = Scalene.compute_frames_to_record(this_frame)
-    
+
         # Now update counters (weighted) for every frame we are tracking.
         total_time = python_time + c_time
 
@@ -705,7 +716,7 @@ class Scalene:
             del new_frames
             return
         normalized_time = total_time / total_frames
-        
+
         # Now attribute execution time.
         for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
@@ -767,7 +778,7 @@ class Scalene:
         del new_frames
 
         Scalene.__stats.total_cpu_samples += total_time
-    
+
         if False:
             # Pick a new random interval, distributed around the mean.
             next_interval = 0.0
@@ -810,9 +821,7 @@ class Scalene:
         frames.insert(
             0,
             (
-                sys._current_frames().get(
-                    tid, None
-                ),
+                sys._current_frames().get(tid, None),
                 tid,
             ),
         )
@@ -907,7 +916,18 @@ class Scalene:
         stats = Scalene.__stats
         curr_pid = os.getpid()
         # Process the input array from where we left off reading last time.
-        arr: List[Tuple[int, str, float, float, str, Filename, LineNumber, ByteCodeIndex]] = []
+        arr: List[
+            Tuple[
+                int,
+                str,
+                float,
+                float,
+                str,
+                Filename,
+                LineNumber,
+                ByteCodeIndex,
+            ]
+        ] = []
         try:
             while Scalene.__malloc_mapfile.read():
                 count_str = Scalene.__malloc_mapfile.get_str()
@@ -922,7 +942,7 @@ class Scalene:
                     pointer,
                     reported_fname,
                     reported_lineno,
-                    bytei_str
+                    bytei_str,
                 ) = count_str.split(",")
                 # assert action in ["M", "f", "F"]
                 if int(curr_pid) == int(pid):
@@ -935,7 +955,7 @@ class Scalene:
                             pointer,
                             Filename(reported_fname),
                             LineNumber(int(reported_lineno)),
-                            ByteCodeIndex(int(bytei_str))
+                            ByteCodeIndex(int(bytei_str)),
                         )
                     )
 
@@ -943,15 +963,24 @@ class Scalene:
             pass
 
         arr.sort()
-        
+
         # Iterate through the array to compute the new current footprint.
         # and update the global __memory_footprint_samples.
         before = stats.current_footprint
         prevmax = stats.max_footprint
         freed_last_trigger = 0
-    
+
         for item in arr:
-            _alloc_time, action, count, python_fraction, pointer, fname, lineno, bytei = item
+            (
+                _alloc_time,
+                action,
+                count,
+                python_fraction,
+                pointer,
+                fname,
+                lineno,
+                bytei,
+            ) = item
             count /= 1024 * 1024
             is_malloc = action == "M"
             if is_malloc:
@@ -992,10 +1021,19 @@ class Scalene:
         last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
         malloc_pointer = "0x0"
         curr = before
-        
+
         # Go through the array again and add each updated current footprint.
         for item in arr:
-            _alloc_time, action, count, python_fraction, pointer, fname, lineno, bytei = item
+            (
+                _alloc_time,
+                action,
+                count,
+                python_fraction,
+                pointer,
+                fname,
+                lineno,
+                bytei,
+            ) = item
 
             if Scalene.__last_profiled != (fname, lineno):
                 # print("malloc/free INVALIDATED was ", Scalene.__last_profiled, "at", (fname, lineno))
@@ -1009,9 +1047,7 @@ class Scalene:
                 allocs += count
                 curr += count
                 malloc_pointer = pointer
-                stats.memory_malloc_samples[fname][lineno][bytei] += (
-                    count
-                )
+                stats.memory_malloc_samples[fname][lineno][bytei] += count
                 stats.memory_python_samples[fname][lineno][bytei] += (
                     python_fraction * count
                 )
@@ -1024,19 +1060,17 @@ class Scalene:
                     stats.memory_malloc_count[fname][lineno][bytei] += 1
                     Scalene.__last_profiled = (fname, lineno)
                     Scalene.__last_profiled_invalidated = False
-                    
+
                 else:
                     # print("checked but nope: ", fname, lineno, Scalene.__last_profiled, Scalene.__last_profiled_invalidated)
                     pass
             else:
                 assert action == "f" or action == "F"
                 curr -= count
-                stats.memory_free_samples[fname][lineno][bytei] += (
-                    count
-                )
+                stats.memory_free_samples[fname][lineno][bytei] += count
                 stats.memory_free_count[fname][lineno][bytei] += 1
                 stats.total_memory_free_samples += count
-                
+
             stats.per_line_footprint_samples[fname][lineno].add(curr)
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
@@ -1083,7 +1117,6 @@ class Scalene:
         Scalene.__pid = Scalene.__parent_pid
         if not "off" in Scalene.__args or not Scalene.__args.off:
             Scalene.enable_signals()
-
 
     @staticmethod
     def memcpy_sigqueue_processor(
@@ -1196,7 +1229,7 @@ class Scalene:
                 pass
 
     __done = False
-    
+
     @staticmethod
     def start() -> None:
         """Initiate profiling."""
@@ -1215,7 +1248,7 @@ class Scalene:
     @staticmethod
     def isDone() -> bool:
         return Scalene.__done
-    
+
     @staticmethod
     def start_signal_handler(
         signum: Union[
@@ -1262,7 +1295,7 @@ class Scalene:
         # Delete the temporary directory.
         try:
             if not Scalene.__pid:
-                Scalene.__python_alias_dir.cleanup() # type: ignore
+                Scalene.__python_alias_dir.cleanup()  # type: ignore
         except BaseException:
             pass
         try:
@@ -1311,7 +1344,7 @@ class Scalene:
                     Scalene.__pid,
                     Scalene.profile_this_code,
                     Scalene.__python_alias_dir,
-                    profile_memory=not Scalene.__args.cpu_only
+                    profile_memory=not Scalene.__args.cpu_only,
                 )
                 if not Scalene.__output.output_file:
                     Scalene.__output.output_file = "/dev/stdout"
@@ -1327,7 +1360,9 @@ class Scalene:
             ):
                 pass
             else:
-                print("Scalene: Program did not run for long enough to profile.")
+                print(
+                    "Scalene: Program did not run for long enough to profile."
+                )
         return exit_status
 
     @staticmethod
@@ -1354,17 +1389,21 @@ class Scalene:
     def run_profiler(args: argparse.Namespace, left: List[str]) -> None:
         # Set up signal handlers for starting and stopping profiling.
         signal.signal(
-            Scalene.__signals.start_profiling_signal, Scalene.start_signal_handler
+            Scalene.__signals.start_profiling_signal,
+            Scalene.start_signal_handler,
         )
         signal.signal(
-            Scalene.__signals.stop_profiling_signal, Scalene.stop_signal_handler
+            Scalene.__signals.stop_profiling_signal,
+            Scalene.stop_signal_handler,
         )
         if sys.platform != "win32":
-            signal.siginterrupt(Scalene.__signals.start_profiling_signal, False)
+            signal.siginterrupt(
+                Scalene.__signals.start_profiling_signal, False
+            )
             signal.siginterrupt(Scalene.__signals.stop_profiling_signal, False)
 
         signal.signal(signal.SIGINT, Scalene.interruption_handler)
-        
+
         did_preload = ScalenePreload.setup_preload(args)
         if not did_preload:
             try:
@@ -1420,8 +1459,13 @@ class Scalene:
                     # Grab local and global variables.
                     if not Scalene.__args.cpu_only:
                         import register_files_to_profile
-                        register_files_to_profile.register_files_to_profile(list(Scalene.__files_to_profile.keys()), Scalene.__program_path, Scalene.__args.profile_all)
-        
+
+                        register_files_to_profile.register_files_to_profile(
+                            list(Scalene.__files_to_profile.keys()),
+                            Scalene.__program_path,
+                            Scalene.__args.profile_all,
+                        )
+
                     import __main__
 
                     the_locals = __main__.__dict__

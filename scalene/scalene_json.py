@@ -30,13 +30,13 @@ class ScaleneJSON:
 
     # Profile output methods
     def output_profile_line(
-            self,
-            fname: Filename,
-            line_no: LineNumber,
-            stats: ScaleneStatistics,
-            profile_this_code: Callable[[Filename, LineNumber], bool],
-            profile_memory: bool = False,
-            force_print: bool = False
+        self,
+        fname: Filename,
+        line_no: LineNumber,
+        stats: ScaleneStatistics,
+        profile_this_code: Callable[[Filename, LineNumber], bool],
+        profile_memory: bool = False,
+        force_print: bool = False,
     ) -> Dict[str, Any]:
         """Print at most one line of the profile (true == printed one)."""
         if not force_print and not profile_this_code(fname, line_no):
@@ -90,14 +90,13 @@ class ScaleneJSON:
         n_python_fraction = (
             0
             if not n_malloc_mb
-            else n_python_malloc_mb
-            / stats.total_memory_malloc_samples
+            else n_python_malloc_mb / stats.total_memory_malloc_samples
         )
 
         # Compute **average** growth.
-        n_growth_mb : float = 0
+        n_growth_mb: float = 0
         if n_mallocs:
-            n_growth_mb = n_malloc_mb / n_mallocs # - n_free_mb
+            n_growth_mb = n_malloc_mb / n_mallocs  # - n_free_mb
         # print(fname, line_no, n_malloc_mb, n_mallocs)
 
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
@@ -119,20 +118,19 @@ class ScaleneJSON:
         if not any(samples):
             samples = []
         return {
-            "lineno" : line_no,
-            "line" : linecache.getline(fname, line_no),
-            "n_cpu_percent_c" : n_cpu_percent_c,
-            "n_cpu_percent_python" : n_cpu_percent_python,
-            "n_sys_percent" : n_sys_percent,
-            "n_gpu_percent" : n_gpu_percent,
-            "n_growth_mb" : n_growth_mb,
-            "n_malloc_mb" : n_malloc_mb,
+            "lineno": line_no,
+            "line": linecache.getline(fname, line_no),
+            "n_cpu_percent_c": n_cpu_percent_c,
+            "n_cpu_percent_python": n_cpu_percent_python,
+            "n_sys_percent": n_sys_percent,
+            "n_gpu_percent": n_gpu_percent,
+            "n_growth_mb": n_growth_mb,
+            "n_malloc_mb": n_malloc_mb,
             "n_usage_fraction": n_usage_fraction,
-            "n_python_fraction" : n_python_fraction,
-            "n_copy_mb_s" : n_copy_mb_s,
-            "memory_samples" : samples
+            "n_python_fraction": n_python_fraction,
+            "n_copy_mb_s": n_copy_mb_s,
+            "memory_samples": samples,
         }
-    
 
     def output_profiles(
         self,
@@ -140,7 +138,7 @@ class ScaleneJSON:
         pid: int,
         profile_this_code: Callable[[Filename, LineNumber], bool],
         python_alias_dir: pathlib.Path,
-        profile_memory: bool = True
+        profile_memory: bool = True,
     ) -> Dict[str, Any]:
         """Write the profile out."""
         # Get the children's stats, if any.
@@ -179,11 +177,13 @@ class ScaleneJSON:
         else:
             samples = []
 
-        output : Dict[str, Any] = { "elapsed_time_sec" : stats.elapsed_time,
-                   "growth_rate" : growth_rate,
-                   "samples" : samples,
-                   "max_footprint_mb" : stats.max_footprint,
-                   "files" : {} }
+        output: Dict[str, Any] = {
+            "elapsed_time_sec": stats.elapsed_time,
+            "growth_rate": growth_rate,
+            "samples": samples,
+            "max_footprint_mb": stats.max_footprint,
+            "files": {},
+        }
 
         # Build a list of files we will actually report on.
         report_files: List[Filename] = []
@@ -240,9 +240,9 @@ class ScaleneJSON:
             with open(fname, "r") as source_file:
                 code_lines = source_file.readlines()
                 output["files"][fname] = {
-                    "percent_cpu_time" : percent_cpu_time,
-                    "lines" : []
-                    }
+                    "percent_cpu_time": percent_cpu_time,
+                    "lines": [],
+                }
                 for line_no, line in enumerate(code_lines, start=1):
                     o = self.output_profile_line(
                         fname=fname,
@@ -250,10 +250,10 @@ class ScaleneJSON:
                         stats=stats,
                         profile_this_code=profile_this_code,
                         profile_memory=profile_memory,
-                        force_print=False
+                        force_print=False,
                     )
-                    #o["percent_cpu_time"] = percent_cpu_time
-                    #o["elapsed_time"] = stats.elapsed_time
+                    # o["percent_cpu_time"] = percent_cpu_time
+                    # o["elapsed_time"] = stats.elapsed_time
                     # Only output if the payload for the line is non-zero.
                     if o:
                         o_copy = copy.copy(o)

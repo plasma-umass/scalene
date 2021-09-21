@@ -13,7 +13,6 @@
 #include <cstddef>
 
 #include "common.hpp"
-
 #include "heapredirect.h"
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
@@ -33,10 +32,14 @@ constexpr uint64_t MallocSamplingRate = 2 * 1048576ULL;
 constexpr uint64_t FreeSamplingRate = MallocSamplingRate;
 constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 7;
 
-class CustomHeapType : public HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>> {
-  using super = HL::ThreadSpecificHeap<SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>>;
+class CustomHeapType
+    : public HL::ThreadSpecificHeap<
+          SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>> {
+  using super = HL::ThreadSpecificHeap<
+      SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>>;
+
  public:
-  void * malloc(size_t sz) {
+  void *malloc(size_t sz) {
     auto ptr = super::malloc(sz);
     return ptr;
   }
@@ -77,7 +80,8 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
   return result;
 }
 
-// Intercept local allocation for tracking when using the (fast, built-in) pymalloc allocator.
+// Intercept local allocation for tracking when using the (fast, built-in)
+// pymalloc allocator.
 
 #if !defined(_WIN32)
 
@@ -86,95 +90,97 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 #define USE_HEADERS 1
 #define DEBUG_HEADER 0
 
-static PyObject* register_files_to_profile(PyObject* self, PyObject* args) {
-  PyObject* a_list;
-  PyObject* base_path;
+static PyObject *register_files_to_profile(PyObject *self, PyObject *args) {
+  PyObject *a_list;
+  PyObject *base_path;
   int profile_all;
-  if (! PyArg_ParseTuple(args, "OOp", &a_list, &base_path, &profile_all))
+  if (!PyArg_ParseTuple(args, "OOp", &a_list, &base_path, &profile_all))
     return NULL;
   auto is_list = PyList_Check(a_list);
-  if (! is_list) {
+  if (!is_list) {
     PyErr_SetString(PyExc_Exception, "Requires list or list-like object");
   }
   set_py_string_ptr_list(a_list, base_path, profile_all);
   Py_RETURN_NONE;
 }
 
-static PyObject* print_files_to_profile(PyObject* self, PyObject* args) {
+static PyObject *print_files_to_profile(PyObject *self, PyObject *args) {
   py_string_ptr_list.print();
   Py_RETURN_NONE;
 }
 
 static PyMethodDef EmbMethods[] = {
-  {"register_files_to_profile", register_files_to_profile, METH_VARARGS, "Provides list of things into allocator"},
-  {"print_files_to_profile", print_files_to_profile, METH_NOARGS, "printing for debug"},
-  {NULL, NULL, 0, NULL}
-};
+    {"register_files_to_profile", register_files_to_profile, METH_VARARGS,
+     "Provides list of things into allocator"},
+    {"print_files_to_profile", print_files_to_profile, METH_NOARGS,
+     "printing for debug"},
+    {NULL, NULL, 0, NULL}};
 
-static PyModuleDef EmbedModule = {
-  PyModuleDef_HEAD_INIT, "register_files_to_profile", NULL, -1, EmbMethods, NULL, NULL, NULL, NULL
-};
+static PyModuleDef EmbedModule = {PyModuleDef_HEAD_INIT,
+                                  "register_files_to_profile",
+                                  NULL,
+                                  -1,
+                                  EmbMethods,
+                                  NULL,
+                                  NULL,
+                                  NULL,
+                                  NULL};
 
-static PyObject* PyInit_RegisterFilesToProfile() {
+static PyObject *PyInit_RegisterFilesToProfile() {
   return PyModule_Create(&EmbedModule);
 }
 
 static int initing = 0;
 
 class CreateEmbedModule {
-  public:
+ public:
   CreateEmbedModule() {
     initing += 1;
-    PyImport_AppendInittab("register_files_to_profile", &PyInit_RegisterFilesToProfile);
+    PyImport_AppendInittab("register_files_to_profile",
+                           &PyInit_RegisterFilesToProfile);
   }
 };
-
 
 static CreateEmbedModule module;
 
 template <PyMemAllocatorDomain Domain>
 class MakeLocalAllocator {
-public:
-  
-  MakeLocalAllocator()
-  {
-    localAlloc = {
-      .ctx = nullptr,
-      .malloc = local_malloc,
-      .calloc = local_calloc,
-      .realloc = local_realloc,
-      .free = local_free
-    };
+ public:
+  MakeLocalAllocator() {
+    localAlloc = {.ctx = nullptr,
+                  .malloc = local_malloc,
+                  .calloc = local_calloc,
+                  .realloc = local_realloc,
+                  .free = local_free};
     PyMem_GetAllocator(Domain, &original_allocator);
     PyMem_SetAllocator(Domain, &localAlloc);
   }
 
-  ~MakeLocalAllocator() {
-    PyMem_SetAllocator(Domain, &original_allocator);
-  }
+  ~MakeLocalAllocator() { PyMem_SetAllocator(Domain, &original_allocator); }
 
-private:
-
+ private:
   static constexpr int SLACK = 0;
-  
+
   PyMemAllocatorEx localAlloc;
   static inline PyMemAllocatorEx original_allocator;
-  
-  static inline void * local_malloc(void * ctx, size_t len) {
+
+  static inline void *local_malloc(void *ctx, size_t len) {
 #if 1
     if (len < 8) {
       len = 8;
     }
 #endif
 #if USE_HEADERS
-    Header * header = new (original_allocator.malloc(ctx, len + SLACK + sizeof(Header))) Header(len);
+    Header *header =
+        new (original_allocator.malloc(ctx, len + SLACK + sizeof(Header)))
+            Header(len);
 #else
-    Header * header = (Header *) original_allocator.malloc(ctx, len + SLACK);
+    Header *header = (Header *)original_allocator.malloc(ctx, len + SLACK);
 #endif
-    assert(header); // We expect this to always succeed.
+    assert(header);  // We expect this to always succeed.
     TheHeapWrapper::register_malloc(len, getObject(header));
 #if USE_HEADERS
-    assert((size_t) getObject(header) - (size_t) header >= sizeof(Header));
+    assert((size_t)getObject(header) - (size_t)header >= sizeof(Header));
 #ifndef NDEBUG
     if (getSize(getObject(header)) < len) {
       printf_("Size mismatch: %lu %lu\n", getSize(getObject(header)), len);
@@ -185,7 +191,7 @@ private:
     return getObject(header);
   }
 
-  static inline void local_free(void * ctx, void * ptr) {
+  static inline void local_free(void *ctx, void *ptr) {
     ///    printf_("FREE %p\n", ptr);
     if (ptr) {
       const auto sz = getSize(ptr);
@@ -194,7 +200,7 @@ private:
     }
   }
 
-  static inline void * local_realloc(void * ctx, void * ptr, size_t new_size) {
+  static inline void *local_realloc(void *ctx, void *ptr, size_t new_size) {
     //    printf_("REALLOC %p %lu\n", ptr, new_size);
     if (new_size < 8) {
       new_size = 8;
@@ -205,7 +211,8 @@ private:
     const auto sz = getSize(ptr);
 
     TheHeapWrapper::register_free(sz, getHeader(ptr));
-    Header * result = (Header *) original_allocator.realloc(ctx, getHeader(ptr), new_size + SLACK + sizeof(Header));
+    Header *result = (Header *)original_allocator.realloc(
+        ctx, getHeader(ptr), new_size + SLACK + sizeof(Header));
     if (result) {
       TheHeapWrapper::register_malloc(new_size, getObject(result));
       setSize(getObject(result), new_size);
@@ -214,48 +221,42 @@ private:
     return nullptr;
   }
 
-  static inline void * local_calloc(void * ctx, size_t nelem, size_t elsize) {
+  static inline void *local_calloc(void *ctx, size_t nelem, size_t elsize) {
     // printf_("CALLOC %lu %lu\n", nelem, elsize);
     const auto nbytes = nelem * elsize;
-    void * obj = local_malloc(ctx, nbytes);
-    if (true) { // obj) {
+    void *obj = local_malloc(ctx, nbytes);
+    if (true) {  // obj) {
       memset(obj, 0, nbytes);
     }
     return obj;
   }
 
-private:
-
+ private:
   static constexpr size_t MAGIC_NUMBER = 0x01020304;
-  
+
 #if USE_HEADERS
 #if DEBUG_HEADER
   class Header {
-  public:
-    Header(size_t sz)
-      : size(sz),
-	magic(MAGIC_NUMBER)
-    {}
+   public:
+    Header(size_t sz) : size(sz), magic(MAGIC_NUMBER) {}
     alignas(std::max_align_t) size_t size;
     size_t magic;
   };
 #else
   class Header {
-  public:
-    Header(size_t sz)
-      : size(sz)
-    {}
+   public:
+    Header(size_t sz) : size(sz) {}
     alignas(std::max_align_t) size_t size;
   };
 #endif
 #else
   class Header {
-  public:
+   public:
     Header(size_t) {}
   };
 #endif
-  
-  static inline size_t getSize(void * ptr) {
+
+  static inline size_t getSize(void *ptr) {
 #if USE_HEADERS
 #if DEBUG_HEADER
     assert(getHeader(ptr)->magic == MAGIC_NUMBER);
@@ -263,7 +264,8 @@ private:
     auto sz = getHeader(ptr)->size;
     if (sz > 512) {
 #if defined(__APPLE__)
-      //      printf_("%p: sz = %lu, actual size = %lu\n", getHeader(ptr), sz, ::malloc_size(getHeader(ptr)));
+      //      printf_("%p: sz = %lu, actual size = %lu\n", getHeader(ptr), sz,
+      //      ::malloc_size(getHeader(ptr)));
       assert(::malloc_size(getHeader(ptr)) >= sz);
 #else
       assert(::malloc_usable_size(getHeader(ptr)) >= sz);
@@ -271,11 +273,11 @@ private:
     }
     return sz;
 #else
-    return 123; // Bogus size.
+    return 123;  // Bogus size.
 #endif
   }
 
-  static inline void setSize(void * ptr, size_t sz) {
+  static inline void setSize(void *ptr, size_t sz) {
 #if USE_HEADERS
     auto h = getHeader(ptr);
 #if DEBUG_HEADER
@@ -284,23 +286,22 @@ private:
     h->size = sz;
 #endif
   }
-  
-  static inline Header * getHeader(void * ptr) {
+
+  static inline Header *getHeader(void *ptr) {
 #if USE_HEADERS
-    return (Header *) ptr - 1;
+    return (Header *)ptr - 1;
 #else
-    return (Header *) ptr;
+    return (Header *)ptr;
 #endif
   }
 
-  static inline void * getObject(Header * header) {
+  static inline void *getObject(Header *header) {
 #if USE_HEADERS
-    return (void *) (header + 1);
+    return (void *)(header + 1);
 #else
-    return (void *) header;
+    return (void *)header;
 #endif
   }
-
 };
 
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;

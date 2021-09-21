@@ -46,7 +46,7 @@ class ScaleneParseArgs:
 
             if get_ipython():
                 sys.exit = ScaleneParseArgs.clean_exit
-                sys._exit = ScaleneParseArgs.clean_exit # type: ignore
+                sys._exit = ScaleneParseArgs.clean_exit  # type: ignore
         except:
             pass
         defaults = ScaleneArguments()
