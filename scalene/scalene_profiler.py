@@ -295,9 +295,8 @@ class Scalene:
 
     @staticmethod
     def cleanup_files() -> None:
-        os.remove(Scalene.__malloc_mapfile.init_filename)
-        os.remove(Scalene.__malloc_mapfile.signal_filename)
-        os.remove(Scalene.__memcpy_mapfile.init_filename)
+        Scalene.__malloc_mapfile.cleanup()
+        Scalene.__memcpy_mapfile.cleanup()
         
     @staticmethod
     def set_thread_sleeping(tid: int) -> None:
@@ -898,14 +897,6 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
-    def read_malloc_mmap() -> Any:
-        return Scalene.__malloc_mapfile.read()
-
-    @staticmethod
-    def read_memcpy_mmap() -> Any:
-        return Scalene.__memcpy_mapfile.read()
-    
-    @staticmethod
     def alloc_sigqueue_processor(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
@@ -918,12 +909,8 @@ class Scalene:
         # Process the input array from where we left off reading last time.
         arr: List[Tuple[int, str, float, float, str, Filename, LineNumber, ByteCodeIndex]] = []
         try:
-            while Scalene.read_malloc_mmap():
-                count_str = (
-                    Scalene.__malloc_mapfile.buf.rstrip(b"\x00")
-                    .split(b"\n")[0]
-                    .decode("ascii")
-                )
+            while Scalene.__malloc_mapfile.read():
+                count_str = Scalene.__malloc_mapfile.get_str()
                 if count_str.strip() == "":
                     break
                 (
@@ -1109,14 +1096,11 @@ class Scalene:
         arr: List[Tuple[int, int]] = []
         # Process the input array.
         try:
-            if Scalene.__memcpy_mapfile.signal_mmap:
-                while Scalene.read_memcpy_mmap():
-                    count_str = Scalene.__memcpy_mapfile.buf.split(b"\n")[0].decode(
-                        "ascii"
-                    )
-                    (memcpy_time_str, count_str2, pid) = count_str.split(",")
-                    if int(curr_pid) == int(pid):
-                        arr.append((int(memcpy_time_str), int(count_str2)))
+            while Scalene.__memcpy_mapfile.read():
+                count_str = Scalene.__memcpy_mapfile.get_str()
+                (memcpy_time_str, count_str2, pid) = count_str.split(",")
+                if int(curr_pid) == int(pid):
+                    arr.append((int(memcpy_time_str), int(count_str2)))
         except ValueError as e:
             pass
         arr.sort()
@@ -1206,11 +1190,10 @@ class Scalene:
     @staticmethod
     def clear_mmap_data() -> None:
         if not Scalene.__args.cpu_only:
-            while Scalene.read_malloc_mmap():
+            while Scalene.__malloc_mapfile.read():
                 pass
-            if Scalene.__memcpy_mapfile.signal_mmap:
-                while Scalene.read_memcpy_mmap():
-                    pass
+            while Scalene.__memcpy_mapfile.read():
+                pass
 
     __done = False
     

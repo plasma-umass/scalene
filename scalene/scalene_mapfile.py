@@ -5,7 +5,7 @@ import sys
 if sys.platform != "win32":
     from scalene import get_line_atomic # type: ignore
 
-from typing import NewType, TextIO
+from typing import Any, NewType, TextIO
 Filename = NewType("Filename", str)
 
 class ScaleneMapFile:
@@ -16,49 +16,67 @@ class ScaleneMapFile:
     MAX_BUFSIZE = 256  # Must match SampleFile::MAX_BUFSIZE
 
     def __init__(self, name: str) -> None:
-        self.name = name
-        self.buf = bytearray(ScaleneMapFile.MAX_BUFSIZE)
+        self._name = name
+        self._buf = bytearray(ScaleneMapFile.MAX_BUFSIZE)
         #   file to communicate samples (+ PID)
-        self.signal_filename = Filename(
+        self._signal_filename = Filename(
             f"/tmp/scalene-{name}-signal{os.getpid()}"
         )
-        self.lock_filename = Filename(f"/tmp/scalene-{name}-lock{os.getpid()}")
-        self.init_filename = Filename(f"/tmp/scalene-{name}-init{os.getpid()}")
-        self.signal_position = 0
-        self.lastpos = bytearray(8)
-        self.signal_mmap = None
-        self.lock_mmap : mmap.mmap
-        self.signal_fd : TextIO
-        self.lock_fd : TextIO
-        self.signal_fd = open(self.signal_filename, "r")
-        os.unlink(self.signal_fd.name)
-        self.lock_fd = open(self.lock_filename, "r+")
-        os.unlink(self.lock_fd.name)
-        self.signal_mmap = mmap.mmap(
-            self.signal_fd.fileno(),
+        self._lock_filename = Filename(f"/tmp/scalene-{name}-lock{os.getpid()}")
+        self._init_filename = Filename(f"/tmp/scalene-{name}-init{os.getpid()}")
+        self._signal_position = 0
+        self._lastpos = bytearray(8)
+        self._signal_mmap = None
+        self._lock_mmap : mmap.mmap
+        self._signal_fd : TextIO
+        self._lock_fd : TextIO
+        self._signal_fd = open(self._signal_filename, "r")
+        os.unlink(self._signal_fd.name)
+        self._lock_fd = open(self._lock_filename, "r+")
+        os.unlink(self._lock_fd.name)
+        self._signal_mmap = mmap.mmap(
+            self._signal_fd.fileno(),
             0,
             mmap.MAP_SHARED,
             mmap.PROT_READ,
         )
-        self.lock_mmap = mmap.mmap(
-            self.lock_fd.fileno(),
+        self._lock_mmap = mmap.mmap(
+            self._lock_fd.fileno(),
             0,
             mmap.MAP_SHARED,
             mmap.PROT_READ | mmap.PROT_WRITE,
         )
 
     def close(self) -> None:
-        self.signal_fd.close()
-        self.lock_fd.close()
+        self._signal_fd.close()
+        self._lock_fd.close()
 
-    def read(self) -> bool:
+    def cleanup(self) -> None:
+        try:
+            os.remove(self._init_filename)
+            os.remove(self._signal_filename)
+        except FileNotFoundError:
+            pass
+        
+    def read(self) -> Any:
         if sys.platform == "win32":
             return False
+        if not self._signal_mmap:
+            return False
         return get_line_atomic.get_line_atomic(
-            self.lock_mmap,
-            self.signal_mmap,
-            self.buf,
-            self.lastpos
+            self._lock_mmap,
+            self._signal_mmap,
+            self._buf,
+            self._lastpos
         )
+
+    def get_str(self) -> str:
+        map_str = (
+            self._buf.rstrip(b"\x00")
+            .split(b"\n")[0]
+            .decode("ascii")
+        )
+        return map_str
+        
         
         
