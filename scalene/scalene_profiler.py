@@ -38,9 +38,6 @@ import threading
 import time
 import traceback
 
-if sys.platform != "win32":
-    from scalene import get_line_atomic # type: ignore
-
 from collections import defaultdict
 from functools import lru_cache
 from signal import Handlers, Signals
@@ -900,25 +897,13 @@ class Scalene:
         stats.function_map[fname][lineno] = fn_name
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
-    @classmethod
-    def read_mmap(cls, which: ScaleneMapFile) -> Any:
-        """Generic method for reading info from mmapped files."""
-        if sys.platform == "win32":
-            return False
-        return get_line_atomic.get_line_atomic(
-            which.lock_mmap,
-            which.signal_mmap,
-            which.buf,
-            which.lastpos
-        )
-        
     @staticmethod
     def read_malloc_mmap() -> Any:
-        return Scalene.read_mmap(Scalene.__malloc_mapfile)
+        return Scalene.__malloc_mapfile.read()
 
     @staticmethod
     def read_memcpy_mmap() -> Any:
-        return Scalene.read_mmap(Scalene.__memcpy_mapfile)
+        return Scalene.__memcpy_mapfile.read()
     
     @staticmethod
     def alloc_sigqueue_processor(

@@ -1,5 +1,9 @@
 import mmap
 import os
+import sys
+
+if sys.platform != "win32":
+    from scalene import get_line_atomic # type: ignore
 
 from typing import NewType, TextIO
 Filename = NewType("Filename", str)
@@ -46,4 +50,15 @@ class ScaleneMapFile:
     def close(self) -> None:
         self.signal_fd.close()
         self.lock_fd.close()
+
+    def read(self) -> bool:
+        if sys.platform == "win32":
+            return False
+        return get_line_atomic.get_line_atomic(
+            self.lock_mmap,
+            self.signal_mmap,
+            self.buf,
+            self.lastpos
+        )
+        
         
