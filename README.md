@@ -251,6 +251,18 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 
 # Asked Questions
 
+**Q: Is there any way to get shorter profiles or do more targeted profiling?**
+
+**A:** There are several options:
+
+1. Use `--reduced-profile` to include only lines and files with memory/CPU/GPU activity.
+2. Use `--profile-only` to include only filenames containing specific strings (as in, `--profile-only foo,bar,baz`).
+3. Decorate functions of interest with `@profile` to have Scalene report _only_ those functions.
+
+**Q: How do I run Scalene in PyCharm?**
+
+**A:**  In PyCharm, you can run Scalene at the command line by opening the terminal at the bottom of the IDE and running a Scalene command (e.g., `python -m scalene <your program>`). Use the options `--html` and `--outfile <your output.html>` to generate an HTML file that you can then view in the IDE.
+
 **Q: How do I use Scalene with Django?**
 
 **A:** Pass in the `--noreload` option (see https://github.com/plasma-umass/scalene/issues/178).
