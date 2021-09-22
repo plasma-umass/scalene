@@ -17,7 +17,6 @@ import argparse
 import atexit
 import builtins
 import contextlib
-import dis
 import functools
 import gc
 import inspect
@@ -41,12 +40,11 @@ import traceback
 from collections import defaultdict
 from functools import lru_cache
 from signal import Handlers, Signals
-from types import CodeType, FrameType
+from types import FrameType
 from typing import (
     Any,
     Callable,
     Dict,
-    FrozenSet,
     List,
     Optional,
     Set,
@@ -57,6 +55,7 @@ from typing import (
 from multiprocessing.process import BaseProcess
 
 from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_funcutils import ScaleneFuncUtils
 from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_mapfile import ScaleneMapFile
 from scalene.scalene_statistics import *
@@ -113,18 +112,6 @@ class Scalene:
     # decorated functions
     __functions_to_profile: Dict[Filename, Dict[Any, bool]] = defaultdict(
         lambda: {}
-    )
-
-    # We use these in is_call_function to determine whether a
-    # particular bytecode is a function call.  We use this to
-    # distinguish between Python and native code execution when
-    # running in threads.
-    __call_opcodes: FrozenSet[int] = frozenset(
-        {
-            dis.opmap[op_name]
-            for op_name in dis.opmap
-            if op_name.startswith("CALL_FUNCTION")
-        }
     )
 
     # Cache the original thread join function, which we replace with our own version.
@@ -310,15 +297,6 @@ class Scalene:
     @staticmethod
     def reset_thread_sleeping(tid: int) -> None:
         Scalene.__is_thread_sleeping[tid] = False
-
-    @staticmethod
-    @lru_cache(maxsize=None)
-    def is_call_function(code: CodeType, bytei: ByteCodeIndex) -> bool:
-        """Returns true iff the bytecode at the given index is a function call."""
-        for ins in dis.get_instructions(code):
-            if ins.offset == bytei and ins.opcode in Scalene.__call_opcodes:
-                return True
-        return False
 
     timer_signals = True
 
@@ -754,7 +732,7 @@ class Scalene:
                 # NOTE: for now, we don't try to attribute GPU time to threads.
                 if not Scalene.__is_thread_sleeping[tident]:
                     # Check if the original caller is stuck inside a call.
-                    if Scalene.is_call_function(
+                    if ScaleneFuncUtils.is_call_function(
                         orig_frame.f_code,
                         ByteCodeIndex(orig_frame.f_lasti),
                     ):
