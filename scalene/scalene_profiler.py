@@ -562,6 +562,36 @@ class Scalene:
         Scalene.__last_signal_time_user = now_user
 
     @staticmethod
+    def output_profile() -> bool:
+        if Scalene.__args.json:
+            x = Scalene.__json.output_profiles(
+                Scalene.__stats,
+                Scalene.__pid,
+                Scalene.profile_this_code,
+                Scalene.__python_alias_dir,
+                profile_memory=not Scalene.__args.cpu_only,
+            )
+            if x:
+                if not Scalene.__output.output_file:
+                    Scalene.__output.output_file = "/dev/stdout"
+                with open(Scalene.__output.output_file, "w") as f:
+                    f.write(json.dumps(x, sort_keys=True, indent=4) + "\n")
+                return True
+            else:
+                return False
+        else:
+            output = Scalene.__output
+            x = output.output_profiles(
+                Scalene.__stats,
+                Scalene.__pid,
+                Scalene.profile_this_code,
+                Scalene.__python_alias_dir,
+                profile_memory=not Scalene.__args.cpu_only,
+                reduced_profile=Scalene.__args.reduced_profile,
+            )
+            return x
+
+    @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
         """When using @profile, only profile files & lines that have been decorated."""
         if not Scalene.__files_to_profile:
@@ -610,28 +640,7 @@ class Scalene:
                     stack.enter_context(s.lock) for s in Scalene.__sigqueues
                 ]
                 stats.stop_clock()
-                if Scalene.__args.json:
-                    x = Scalene.__json.output_profiles(
-                        Scalene.__stats,
-                        Scalene.__pid,
-                        Scalene.profile_this_code,
-                        Scalene.__python_alias_dir,
-                        profile_memory=not Scalene.__args.cpu_only,
-                    )
-                    if not Scalene.__output.output_file:
-                        Scalene.__output.output_file = "/dev/stdout"
-                    with open(Scalene.__output.output_file, "w") as f:
-                        f.write(json.dumps(x, sort_keys=True, indent=4) + "\n")
-                else:
-                    output = Scalene.__output
-                    output.output_profiles(
-                        stats,
-                        Scalene.__pid,
-                        Scalene.profile_this_code,
-                        Scalene.__python_alias_dir,
-                        profile_memory=not Scalene.__args.cpu_only,
-                        reduced_profile=Scalene.__args.reduced_profile,
-                    )
+                Scalene.output_profile()
                 stats.start_clock()
 
         # Here we take advantage of an ostensible limitation of Python:
@@ -1316,26 +1325,7 @@ class Scalene:
         finally:
             self.stop()
             # If we've collected any samples, dump them.
-            if Scalene.__args.json:
-                x = Scalene.__json.output_profiles(
-                    Scalene.__stats,
-                    Scalene.__pid,
-                    Scalene.profile_this_code,
-                    Scalene.__python_alias_dir,
-                    profile_memory=not Scalene.__args.cpu_only,
-                )
-                if not Scalene.__output.output_file:
-                    Scalene.__output.output_file = "/dev/stdout"
-                with open(Scalene.__output.output_file, "w") as f:
-                    f.write(json.dumps(x, sort_keys=True, indent=4) + "\n")
-            elif Scalene.__output.output_profiles(
-                Scalene.__stats,
-                Scalene.__pid,
-                Scalene.profile_this_code,
-                Scalene.__python_alias_dir,
-                profile_memory=not Scalene.__args.cpu_only,
-                reduced_profile=Scalene.__args.reduced_profile,
-            ):
+            if Scalene.output_profile():
                 pass
             else:
                 print(
