@@ -8,7 +8,7 @@ from scalene.scalene_statistics import *
 
 
 class ScaleneFuncUtils:
-    
+
     # We use these in is_call_function to determine whether a
     # particular bytecode is a function call.  We use this to
     # distinguish between Python and native code execution when
@@ -26,7 +26,9 @@ class ScaleneFuncUtils:
     def is_call_function(code: CodeType, bytei: ByteCodeIndex) -> bool:
         """Returns true iff the bytecode at the given index is a function call."""
         for ins in dis.get_instructions(code):
-            if ins.offset == bytei and ins.opcode in ScaleneFuncUtils.__call_opcodes:
+            if (
+                ins.offset == bytei
+                and ins.opcode in ScaleneFuncUtils.__call_opcodes
+            ):
                 return True
         return False
-    
