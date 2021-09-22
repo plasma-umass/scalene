@@ -564,24 +564,24 @@ class Scalene:
     @staticmethod
     def output_profile() -> bool:
         if Scalene.__args.json:
-            x = Scalene.__json.output_profiles(
+            json_output = Scalene.__json.output_profiles(
                 Scalene.__stats,
                 Scalene.__pid,
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 profile_memory=not Scalene.__args.cpu_only,
             )
-            if x:
+            if json_output:
                 if not Scalene.__output.output_file:
                     Scalene.__output.output_file = "/dev/stdout"
                 with open(Scalene.__output.output_file, "w") as f:
-                    f.write(json.dumps(x, sort_keys=True, indent=4) + "\n")
+                    f.write(json.dumps(json_output, sort_keys=True, indent=4) + "\n")
                 return True
             else:
                 return False
         else:
             output = Scalene.__output
-            x = output.output_profiles(
+            did_output : bool = output.output_profiles(
                 Scalene.__stats,
                 Scalene.__pid,
                 Scalene.profile_this_code,
@@ -589,7 +589,7 @@ class Scalene:
                 profile_memory=not Scalene.__args.cpu_only,
                 reduced_profile=Scalene.__args.reduced_profile,
             )
-            return x
+            return did_output
 
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
