@@ -36,26 +36,10 @@ jobs:
       run: |
         PYV=`echo "${{ matrix.python_version }}" | tr -d "."`; ls -d -1 /opt/python/cp$PYV*/bin | head -n 1 >> $GITHUB_PATH
         cat $GITHUB_PATH
-#        echo "/opt/python/cp37-cp37m/bin" >> $GITHUB_PATH
-#
-#    - name: Set up python (3.8+container)
-#      if: matrix.container != '' && matrix.python_version == '3.8'
-#      run: |
-#        echo "/opt/python/cp38-cp38/bin" >> $GITHUB_PATH
-#
-#    - name: Set up python (3.9+container)
-#      if: matrix.container != '' && matrix.python_version == '3.9'
-#      run: |
-#        echo "/opt/python/cp39-cp39/bin" >> $GITHUB_PATH
-#
-#    - name: Set up python (3.10+container)
-#      if: matrix.container != '' && matrix.python_version == '3.10'
-#      run: |
-#        echo "/opt/python/cp310-cp310/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
       run: |
-        python3 -m pip install --upgrade pip
+#        python3 -m pip install --upgrade pip
         pip3 install setuptools wheel twine
 
     - name: Work around arm64 support on MacOS
