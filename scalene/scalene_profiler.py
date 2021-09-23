@@ -697,12 +697,11 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             if not Scalene.__is_thread_sleeping[tident]:
                 total_frames += 1
+                
         if total_frames == 0:
-            del this_frame
-            del new_frames[:]
-            del new_frames
-            return
-        normalized_time = total_time / total_frames
+            normalized_time = total_time
+        else:
+            normalized_time = total_time / total_frames
 
         # Now attribute execution time.
         for (frame, tident, orig_frame) in new_frames:
@@ -759,10 +758,10 @@ class Scalene:
                         cpu_utilization
                     )
 
+        # Clean up all the frames
         del new_frames[:]
-        # Below possibly unnecessary
-        del this_frame
         del new_frames
+        del this_frame
 
         Scalene.__stats.total_cpu_samples += total_time
 
