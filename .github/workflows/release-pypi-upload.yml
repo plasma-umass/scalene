@@ -12,14 +12,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        python_version: [3.7 3.8 3.9]
         include:
-          - os: macos-latest
-            python_version: 3.7
           - os: ubuntu-latest
-            python_version: 3.7
             container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
-          - os: windows-latest
-            python_version: 3.8
+#          - os: macos-latest
+#          - os: windows-latest
+#            python_version: 3.8
 
     container: ${{ matrix.container }}
 
@@ -32,10 +31,20 @@ jobs:
       with:
         python-version: ${{ matrix.python_version }}
 
-    - name: Set up python (container version)
-      if: matrix.container != ''
+    - name: Set up python (3.7 container)
+      if: matrix.container != '' && matrix.python_version == '3.7'
       run: |
         echo "/opt/python/cp37-cp37m/bin" >> $GITHUB_PATH
+
+    - name: Set up python (3.8 container)
+      if: matrix.container != '' && matrix.python_version == '3.8'
+      run: |
+        echo "/opt/python/cp38-cp38m/bin" >> $GITHUB_PATH
+
+    - name: Set up python (3.9 container)
+      if: matrix.container != '' && matrix.python_version == '3.9'
+      run: |
+        echo "/opt/python/cp39-cp39m/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
       run: |
