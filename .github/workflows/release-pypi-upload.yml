@@ -39,7 +39,6 @@ jobs:
 
     - name: Install dependencies
       run: |
-#        python3 -m pip install --upgrade pip
         pip3 install setuptools wheel twine
 
     - name: Work around arm64 support on MacOS
