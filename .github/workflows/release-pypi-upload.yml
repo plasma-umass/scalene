@@ -34,6 +34,7 @@ jobs:
     - name: Set up python (3.7 container)
       if: matrix.container != '' && matrix.python_version == '3.7'
       run: |
+        ls -alF /opt/python
         echo "/opt/python/cp37-cp37m/bin" >> $GITHUB_PATH
 
     - name: Set up python (3.8 container)
