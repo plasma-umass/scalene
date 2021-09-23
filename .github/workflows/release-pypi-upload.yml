@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python_version: [3.7, 3.8, 3.9, 3.10]
+        python_version: ['3.7', '3.8', '3.9', '3.10']
         include:
           - os: ubuntu-latest
             container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
@@ -34,7 +34,7 @@ jobs:
     - name: Set up python (container)
       if: matrix.container != ''
       run: |
-        PYV=`echo "${{ matrix.python_version }}" | tr -d "."`; ls -1 "/opt/python/cp$PYV*/bin" | head -n 1 >> $GITHUB_PATH
+        PYV=`echo "${{ matrix.python_version }}" | tr -d "."`; ls -d -1 "/opt/python/cp$PYV*/bin" | head -n 1 >> $GITHUB_PATH
         cat $GITHUB_PATH
 #        echo "/opt/python/cp37-cp37m/bin" >> $GITHUB_PATH
 #
