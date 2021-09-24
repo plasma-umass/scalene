@@ -89,7 +89,12 @@ def scalene_redirect_profile(func: Any) -> Any:
 
 builtins.profile = scalene_redirect_profile  # type: ignore
 
+def start() -> None:
+    Scalene.start()
 
+def stop() -> None:
+    Scalene.stop()
+    
 class Scalene:
     """The Scalene profiler itself."""
 
