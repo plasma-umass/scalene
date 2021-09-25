@@ -604,12 +604,11 @@ class Scalene:
         if fname not in Scalene.__files_to_profile:
             return False
         # Now check to see if it's the right line range.
-        for fn in Scalene.__functions_to_profile[fname]:
-            lines, line_start = inspect.getsourcelines(fn)
-            if lineno >= line_start and lineno < line_start + len(lines):
-                # Yes, it's in range.
-                return True
-        return False
+        line_info = (inspect.getsourcelines(fn)
+                     for fn in Scalene.__functions_to_profile[fname])
+        found_function = any(lineno >= line_start and lineno < line_start + len(lines) for
+                             (lines, line_start) in line_info)
+        return found_function
 
     @staticmethod
     def cpu_sigqueue_processor(
@@ -698,10 +697,9 @@ class Scalene:
         # First, find out how many frames are not sleeping.  We need
         # to know this number so we can parcel out time appropriately
         # (equally to each running thread).
-        total_frames = 0
-        for (frame, tident, orig_frame) in new_frames:
-            if not Scalene.__is_thread_sleeping[tident]:
-                total_frames += 1
+        total_frames = sum(1 for
+                           (frame, tident, orig_frame) in new_frames
+                           if not Scalene.__is_thread_sleeping[tident])
                 
         if total_frames == 0:
             normalized_time = total_time
@@ -1189,20 +1187,11 @@ class Scalene:
         if "scalene/scalene" in filename:
             # Don't profile the profiler.
             return False
-        found_in_profile_only = False
-        for prof in profile_only_list:
-            if prof in filename:
-                found_in_profile_only = True
-                break
-
+        found_in_profile_only = any(prof in filename for prof in profile_only_list)
         if not found_in_profile_only:
             return False
         if Scalene.__args.profile_all:
             # Profile everything else, except for "only" choices.
-            found_in_profile_only = False
-            for prof in profile_only_list:
-                if prof in filename:
-                    return True
             if profile_only_list and not found_in_profile_only:
                 return False
             return True
