@@ -38,7 +38,7 @@ class ScaleneGPU:
                     total_load += pynvml.nvmlDeviceGetUtilizationRates(
                         self.__handle[i]
                     ).gpu
-                except pynvml.NVMLError_NotSupported:
+                except:
                     pass
             return (total_load / self.__ngpus) / 100.0
         return 0.0
