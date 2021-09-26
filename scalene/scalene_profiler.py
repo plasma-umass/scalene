@@ -51,13 +51,12 @@ from typing import (
     Union,
     cast,
 )
-from multiprocessing.process import BaseProcess
 
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_funcutils import ScaleneFuncUtils
 from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_mapfile import ScaleneMapFile
-from scalene.scalene_statistics import *
+from scalene.scalene_statistics import Address, ByteCodeIndex, Filename, LineNumber, ScaleneStatistics
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
 from scalene.scalene_signals import ScaleneSignals
@@ -333,7 +332,7 @@ class Scalene:
     ) -> None:
         Scalene.__alloc_sigq.put((signum, this_frame))
         del this_frame
-        if not Scalene.__last_profiled_invalidated:  #  and not sys.gettrace():
+        if not Scalene.__last_profiled_invalidated:  # and not sys.gettrace():
             sys.settrace(Scalene.invalidate_lines)
 
     @staticmethod

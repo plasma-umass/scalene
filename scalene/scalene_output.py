@@ -1,10 +1,10 @@
-import pathlib
 import shutil
 import sys
 import tempfile
 
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 from operator import itemgetter
+from pathlib import Path
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.syntax import Syntax
@@ -15,9 +15,9 @@ from rich import box
 from scalene import sparkline
 from scalene.scalene_json import ScaleneJSON
 from scalene.syntaxline import SyntaxLine
-from scalene.scalene_statistics import *
+from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 
-from typing import Callable, Union
+from typing import Any, Callable, Dict, List, Union
 
 
 class ScaleneOutput:
@@ -240,7 +240,7 @@ class ScaleneOutput:
         stats: ScaleneStatistics,
         pid: int,
         profile_this_code: Callable[[Filename, LineNumber], bool],
-        python_alias_dir: pathlib.Path,
+        python_alias_dir: Path,
         profile_memory: bool = True,
         reduced_profile: bool = False,
     ) -> bool:
@@ -277,7 +277,7 @@ class ScaleneOutput:
             if len(samples.get()) > 0:
                 # Output a sparkline as a summary of memory usage over time.
                 _, _, spark_str = sparkline.generate(
-                    samples.get()[0 : samples.len()], 0, stats.max_footprint
+                    samples.get()[0: samples.len()], 0, stats.max_footprint
                 )
                 # Compute growth rate (slope), between 0 and 1.
                 if stats.allocation_velocity[1] > 0:
@@ -632,7 +632,6 @@ class ScaleneOutput:
             leak_reporting_threshold = 0.05
             leaks = []
             if growth_rate / 100 > growth_rate_threshold:
-                vec = list(stats.leak_score[fname].values())
                 keys = list(stats.leak_score[fname].keys())
                 for index, item in enumerate(stats.leak_score[fname].values()):
                     # See https://en.wikipedia.org/wiki/Rule_of_succession
