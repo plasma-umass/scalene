@@ -48,16 +48,16 @@ try:
                 sys.argv = ["scalene"]
                 sys.argv.extend(line.split(" "))
                 (args, left) = ScaleneParseArgs.parse_args()
-                self.run_code(args, (" ").join(left))  # type: ignore
+                self.run_code(args, " ".join(left))  # type: ignore
 
     def load_ipython_extension(ip: Any) -> None:
         ip.register_magics(ScaleneMagics)
         try:
             # For some reason, this isn't loading correctly on the web.
             with open("scalene-usage.txt", "r") as usage:
-                str = usage.read()
-            ScaleneMagics.scrun.__doc__ = str
-            ScaleneMagics.scalene.__doc__ = str
+                usage_str = usage.read()
+            ScaleneMagics.scrun.__doc__ = usage_str
+            ScaleneMagics.scalene.__doc__ = usage_str
         except Exception:
             pass
         import textwrap

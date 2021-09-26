@@ -8,13 +8,11 @@ from collections import defaultdict
 from typing import (
     Any,
     Dict,
-    Generic,
     List,
     NewType,
     Set,
     Tuple,
-    TypeVar,
-    Union,
+    TypeVar
 )
 from scalene.runningstats import RunningStats
 from scalene.adaptive import Adaptive

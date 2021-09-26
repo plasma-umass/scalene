@@ -3,6 +3,7 @@ import argparse
 
 class ScaleneArguments(argparse.Namespace):
     def __init__(self) -> None:
+        super(ScaleneArguments, self).__init__()
         self.cpu_only = False
         self.cpu_percent_threshold = 1
         # mean seconds between interrupts for CPU sampling.

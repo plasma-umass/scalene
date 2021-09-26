@@ -245,7 +245,7 @@ class ScaleneJSON:
                 }
                 for line_no, line in enumerate(code_lines, start=1):
                     o = self.output_profile_line(
-                        fname=fname,
+                        fname=fname_print,
                         line_no=LineNumber(line_no),
                         stats=stats,
                         profile_this_code=profile_this_code,

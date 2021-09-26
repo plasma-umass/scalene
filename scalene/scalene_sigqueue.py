@@ -1,6 +1,6 @@
 import queue
 import threading
-from typing import Any, Callable, Generic, Optional, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 
 T = TypeVar("T")
 
@@ -35,7 +35,7 @@ class ScaleneSigQueue(Generic[T]):
     def run(self) -> None:
         while True:
             item = self.queue.get()
-            if item == None:  # None == stop request
+            if item is None:  # None => stop request
                 break
             with self.lock:
                 self.process(*item)
