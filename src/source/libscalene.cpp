@@ -171,11 +171,11 @@ class MakeLocalAllocator {
     }
 #endif
 #if USE_HEADERS
-    Header *header =
+    auto *header =
         new (original_allocator.malloc(ctx, len + SLACK + sizeof(Header)))
             Header(len);
 #else
-    Header *header = (Header *)original_allocator.malloc(ctx, len + SLACK);
+    auto *header = (Header *)original_allocator.malloc(ctx, len + SLACK);
 #endif
     assert(header);  // We expect this to always succeed.
     TheHeapWrapper::register_malloc(len, getObject(header));
