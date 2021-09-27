@@ -93,10 +93,10 @@ testing = 'TWINE_REPOSITORY' in environ and environ['TWINE_REPOSITORY'] == 'test
 if testing:
     import subprocess
     import time
-    version_timestamp = subprocess.check_output(["git", "log", "-1", "--format=%ct",
+    version_timestamp = subprocess.check_output(["git", "log", "-1", #"--format=%ct",
                                                  "scalene/scalene_version.py"])
     print(version_timestamp)
-    mins_since_version = (time.time() - int(version_timestamp))/60
+    #mins_since_version = (time.time() - int(version_timestamp))/60
 
 setup(
     name="scalene",
