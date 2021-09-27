@@ -48,10 +48,6 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
 
-    - name: Come up with test version for testpipy
-      run: |
-        git log -1 --format=%ct scalene/scalene_version.py
-
     - name: Build source dist
       if: matrix.os == 'ubuntu-latest' # we only need sdist once
       env:
