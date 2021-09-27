@@ -21,6 +21,8 @@ jobs:
 #            python_version: 3.8
 
     container: ${{ matrix.container }}
+    env:
+      GOOGLE_DRIVE_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
 
     steps:
     - uses: actions/checkout@v2
@@ -58,7 +60,7 @@ jobs:
       run: make bdist
 
     - name: Upload to google drive, for testing
-      if: secrets.GOOGLE_DRIVE_CREDENTIALS != ''
+      if: env.GOOGLE_DRIVE_FOLDER != ''
       uses: Jodebu/upload-to-drive@master
       with:
         target: dist/scalene*.whl
@@ -66,7 +68,7 @@ jobs:
         folder: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
 
     - name: Upload
-      if: secrets.GOOGLE_DRIVE_CREDENTIALS == ''
+      if: env.GOOGLE_DRIVE_FOLDER == ''
       env:
         TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }}
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
