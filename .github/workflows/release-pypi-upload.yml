@@ -57,7 +57,16 @@ jobs:
         TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }} # used by setup.py
       run: make bdist
 
+    - name: Upload to google drive, for testing
+      if: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }} != ''
+      uses: Jodebu/upload-to-drive@master
+      with:
+        target: dist/scalene*.whl
+        credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+        folder: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
+
     - name: Upload
+      if: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }} == ''
       env:
         TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }}
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
