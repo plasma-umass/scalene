@@ -60,7 +60,7 @@ jobs:
         TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }} # used by setup.py
       run: |
         make bdist
-        echo "UPLOAD_TARGET=$(ls dist/scalene*.whl)" >> GITHUB_ENV
+        echo "UPLOAD_TARGET=$(ls dist/scalene*.whl)" >> $GITHUB_ENV
 
     - name: Upload to google drive, for testing
       if: env.GOOGLE_DRIVE_FOLDER != ''
@@ -68,7 +68,7 @@ jobs:
       with:
         target: ${{ env.UPLOAD_TARGET }}
         credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-        folder: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
+        folder: ${{ env.GOOGLE_DRIVE_FOLDER }}
 
     - name: Upload
       if: env.GOOGLE_DRIVE_FOLDER == ''
