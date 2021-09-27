@@ -63,7 +63,7 @@ jobs:
       if: env.GOOGLE_DRIVE_FOLDER != ''
       uses: Jodebu/upload-to-drive@master
       with:
-        target: dist/scalene*.whl
+        target: $(ls dist/scalene*.whl)
         credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
         folder: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
 
