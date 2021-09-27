@@ -22,10 +22,12 @@ jobs:
 
     container: ${{ matrix.container }}
     env:
-      GOOGLE_DRIVE_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
+      GOOGLE_DRIVE_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER }} # secrets can't be accessed directly in "if:"
 
     steps:
     - uses: actions/checkout@v2
+      run: |
+        git log -1 --format=%ct scalene/scalene_version.py
 
     - name: Set up python (script version)
       if: matrix.container == ''
