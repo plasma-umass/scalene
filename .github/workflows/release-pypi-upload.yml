@@ -26,8 +26,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      run: |
-        git log -1 --format=%ct scalene/scalene_version.py
 
     - name: Set up python (script version)
       if: matrix.container == ''
@@ -49,6 +47,10 @@ jobs:
       # https://github.com/actions/virtual-environments/issues/2557
       if: matrix.os == 'macos-latest'
       run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
+
+    - name: Come up with test version for testpipy
+      run: |
+        git log -1 --format=%ct scalene/scalene_version.py
 
     - name: Build source dist
       if: matrix.os == 'ubuntu-latest' # we only need sdist once
