@@ -152,17 +152,22 @@ class MakeLocalAllocator {
                   .calloc = local_calloc,
                   .realloc = local_realloc,
                   .free = local_free};
-    PyMem_GetAllocator(Domain, &original_allocator);
+    PyMem_GetAllocator(Domain, get_original_allocator());
     PyMem_SetAllocator(Domain, &localAlloc);
   }
 
-  ~MakeLocalAllocator() { PyMem_SetAllocator(Domain, &original_allocator); }
+  ~MakeLocalAllocator() { PyMem_SetAllocator(Domain, get_original_allocator()); }
 
  private:
   static constexpr int SLACK = 0;
 
   PyMemAllocatorEx localAlloc;
-  static inline PyMemAllocatorEx original_allocator;
+
+  static inline PyMemAllocatorEx* get_original_allocator() {
+      // poor man's "static inline" member
+      static PyMemAllocatorEx original_allocator;
+      return &original_allocator;
+  }
 
   static inline void *local_malloc(void *ctx, size_t len) {
 #if 1
@@ -172,10 +177,10 @@ class MakeLocalAllocator {
 #endif
 #if USE_HEADERS
     Header *header =
-        new (original_allocator.malloc(ctx, len + SLACK + sizeof(Header)))
+        new (get_original_allocator()->malloc(ctx, len + SLACK + sizeof(Header)))
             Header(len);
 #else
-    Header *header = (Header *)original_allocator.malloc(ctx, len + SLACK);
+    Header *header = (Header *)get_original_allocator()->malloc(ctx, len + SLACK);
 #endif
     assert(header);  // We expect this to always succeed.
     TheHeapWrapper::register_malloc(len, getObject(header));
@@ -196,7 +201,7 @@ class MakeLocalAllocator {
     if (ptr) {
       const auto sz = getSize(ptr);
       TheHeapWrapper::register_free(sz, ptr);
-      original_allocator.free(ctx, getHeader(ptr));
+      get_original_allocator()->free(ctx, getHeader(ptr));
     }
   }
 
@@ -211,7 +216,7 @@ class MakeLocalAllocator {
     const auto sz = getSize(ptr);
 
     TheHeapWrapper::register_free(sz, getHeader(ptr));
-    Header *result = (Header *)original_allocator.realloc(
+    Header *result = (Header *)get_original_allocator()->realloc(
         ctx, getHeader(ptr), new_size + SLACK + sizeof(Header));
     if (result) {
       TheHeapWrapper::register_malloc(new_size, getObject(result));
