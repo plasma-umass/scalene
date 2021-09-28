@@ -85,25 +85,15 @@ get_line_atomic = Extension('scalene.get_line_atomic',
     language="c++"
 )
 
-# if TWINE_REPOSITORY=testpypi, we're testing packaging. Build using a ".devN"
-# (monotonically increasing, not too big) suffix in the version number, so that
-# we can upload new files (as testpypi/pypi don't allow re-uploading files with
+# If we're testing packaging, build using a ".devN" suffix in the version number,
+# so that we can upload new files (as testpypi/pypi don't allow re-uploading files with
 # the same name as previously uploaded).
-testing = 'TWINE_REPOSITORY' in environ and environ['TWINE_REPOSITORY'] == 'testpypi'
-if True: #testing:
-    import subprocess
-    import time
-    print(subprocess.check_output(["ls", "-alF", "scalene/scalene_version.py"]))
-    print(subprocess.check_output(["bash", "-c", "git log -1 --decorate=no HEAD -- scalene/scalene_version.py"]))
-    print(subprocess.check_output(["bash", "-c", "git log -1 --decorate=no HEAD -- scalene/scalene_profiler.py"]))
-    version_timestamp = subprocess.check_output(["git", "log", "-1", #"--format=%ct",
-                                                 "--", "scalene/scalene_version.py"], text=True)
-    print(version_timestamp)
-    #mins_since_version = (time.time() - int(version_timestamp))/60
+# Numbering scheme: https://www.python.org/dev/peps/pep-0440
+dev_build = ('.dev' + environ['DEV_BUILD']) if 'DEV_BUILD' in environ else ''
 
 setup(
     name="scalene",
-    version=scalene_version + (f'.dev{int(mins_since_version/5)}' if testing else ''),
+    version=scalene_version + dev_build,
     description="Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python",
     keywords="performance memory profiler",
     long_description=read_file("README.md"),

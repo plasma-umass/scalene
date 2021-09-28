@@ -27,6 +27,13 @@ jobs:
       GOOGLE_DRIVE_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
 
     steps:
+    - name: Pick .devN name if a test build
+      env:
+        TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }}
+      run: |
+        # setup.py checks for DEV_BUILD
+        [ "$TWINE_REPOSITORY" == "testpypi" ] && echo "DEV_BUILD=$(date '+%Y%m%d%H%M')" >> $GITHUB_ENV
+
     - uses: actions/checkout@v2
 
     - name: Set up python (script version)
@@ -52,13 +59,9 @@ jobs:
 
     - name: Build source dist
       if: matrix.os == 'ubuntu-latest' # we only need sdist once
-      env:
-        TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }} # used by setup.py
       run: make sdist
 
     - name: Build binary dist
-      env:
-        TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }} # used by setup.py
       run: |
         make bdist
         echo "UPLOAD_TARGET=$(ls dist/scalene*.whl)" >> $GITHUB_ENV
