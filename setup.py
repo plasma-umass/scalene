@@ -93,10 +93,7 @@ testing = 'TWINE_REPOSITORY' in environ and environ['TWINE_REPOSITORY'] == 'test
 if True: #testing:
     import subprocess
     import time
-    print(subprocess.check_output(["pwd"]))
-    print(subprocess.check_output(["ls"]))
-    print(subprocess.check_output(["echo", "git log -1 --decorate=no -- scalene_version.py"]))
-    print(subprocess.check_output(["echo", "git log -1 --decorate=no -- scalene/scalene_version.py"]))
+    print(subprocess.check_output(["echo", "git log -1 --decorate=no HEAD -- scalene/scalene_version.py"]))
     version_timestamp = subprocess.check_output(["git", "log", #"-1", #"--format=%ct",
                                                  "--", "scalene/scalene_version.py"], text=True)
     print(version_timestamp)
