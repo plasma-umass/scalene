@@ -1,6 +1,13 @@
 # https://docs.github.com/en/actions/guides/building-and-testing-python#publishing-to-package-registries
 
-name: build & pypi upload
+# To upload to [test]pypi, define the project secrets PYPI_REPOSITORY (set to "pypi" or
+# "testpypi"), PYPI_USERNAME and PYPI_PASSWORD.
+
+# To have files upload to Google Drive rather than [test]pypi, follow the setup
+# instructions at https://github.com/Jodebu/upload-to-drive and define the
+# GOOGLE_DRIVE_FOLDER and GOOGLE_DRIVE_CREDENTIALS secrets in the project.
+
+name: build & upload
 
 on:
   release:
@@ -50,6 +57,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip3 install setuptools wheel twine
+        pip3 install find_libpython
 
     - name: Work around arm64 support on MacOS
       # https://github.com/actions/virtual-environments/issues/2557
