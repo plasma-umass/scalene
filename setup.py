@@ -94,7 +94,7 @@ if testing:
     import subprocess
     import time
     version_timestamp = subprocess.check_output(["git", "log", #"-1", #"--format=%ct",
-                                                 "--", "scalene/scalene_version.py"])
+                                                 "--", "scalene/scalene_version.py"], text=True)
     print(version_timestamp)
     #mins_since_version = (time.time() - int(version_timestamp))/60
 
