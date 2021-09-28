@@ -90,9 +90,10 @@ get_line_atomic = Extension('scalene.get_line_atomic',
 # we can upload new files (as testpypi/pypi don't allow re-uploading files with
 # the same name as previously uploaded).
 testing = 'TWINE_REPOSITORY' in environ and environ['TWINE_REPOSITORY'] == 'testpypi'
-if testing:
+if True: #testing:
     import subprocess
     import time
+    print(subprocess.check_output(["bash", "-c", "which git"]))
     version_timestamp = subprocess.check_output(["git", "log", #"-1", #"--format=%ct",
                                                  "--", "scalene/scalene_version.py"], text=True)
     print(version_timestamp)
