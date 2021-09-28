@@ -23,7 +23,8 @@ jobs:
 
     container: ${{ matrix.container }}
     env:
-      GOOGLE_DRIVE_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER }} # secrets can't be accessed directly in "if:"
+      # secrets can't be accessed directly in "if:"
+      GOOGLE_DRIVE_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
 
     steps:
     - uses: actions/checkout@v2
@@ -43,6 +44,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip3 install setuptools wheel twine
+        apt install git
 
     - name: Work around arm64 support on MacOS
       # https://github.com/actions/virtual-environments/issues/2557
