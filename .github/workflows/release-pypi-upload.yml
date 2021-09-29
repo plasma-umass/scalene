@@ -24,6 +24,9 @@ jobs:
         include:
           - os: ubuntu-latest
             container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
+          - os: macos-latest
+            python_version: 3.7
+            upload_source: true   # just need ONE of them to do it
 #          - os: windows-latest
 #            python_version: 3.8
 
@@ -63,7 +66,7 @@ jobs:
       run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
 
     - name: Build source dist
-      if: matrix.os == 'ubuntu-latest' # we only need sdist once
+      if: matrix.upload_source
       run: make sdist
 
     - name: Build binary dist
