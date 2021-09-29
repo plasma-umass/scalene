@@ -70,8 +70,7 @@ jobs:
       run: make sdist
 
     - name: Build binary dist
-      run: |
-        make bdist
+      run: make bdist
 
     - name: Figure out google drive upload target
       if: env.GOOGLE_DRIVE_FOLDER != ''
