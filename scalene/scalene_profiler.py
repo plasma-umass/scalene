@@ -56,7 +56,13 @@ from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_funcutils import ScaleneFuncUtils
 from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_mapfile import ScaleneMapFile
-from scalene.scalene_statistics import Address, ByteCodeIndex, Filename, LineNumber, ScaleneStatistics
+from scalene.scalene_statistics import (
+    Address,
+    ByteCodeIndex,
+    Filename,
+    LineNumber,
+    ScaleneStatistics,
+)
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
 from scalene.scalene_signals import ScaleneSignals
@@ -87,12 +93,15 @@ def scalene_redirect_profile(func: Any) -> Any:
 
 builtins.profile = scalene_redirect_profile  # type: ignore
 
+
 def start() -> None:
     Scalene.start()
 
+
 def stop() -> None:
     Scalene.stop()
-    
+
+
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -578,13 +587,16 @@ class Scalene:
                 if not Scalene.__output.output_file:
                     Scalene.__output.output_file = "/dev/stdout"
                 with open(Scalene.__output.output_file, "w") as f:
-                    f.write(json.dumps(json_output, sort_keys=True, indent=4) + "\n")
+                    f.write(
+                        json.dumps(json_output, sort_keys=True, indent=4)
+                        + "\n"
+                    )
                 return True
             else:
                 return False
         else:
             output = Scalene.__output
-            did_output : bool = output.output_profiles(
+            did_output: bool = output.output_profiles(
                 Scalene.__stats,
                 Scalene.__pid,
                 Scalene.profile_this_code,
@@ -602,10 +614,14 @@ class Scalene:
         if fname not in Scalene.__files_to_profile:
             return False
         # Now check to see if it's the right line range.
-        line_info = (inspect.getsourcelines(fn)
-                     for fn in Scalene.__functions_to_profile[fname])
-        found_function = any(line_start <= lineno < line_start + len(lines) for
-                             (lines, line_start) in line_info)
+        line_info = (
+            inspect.getsourcelines(fn)
+            for fn in Scalene.__functions_to_profile[fname]
+        )
+        found_function = any(
+            line_start <= lineno < line_start + len(lines)
+            for (lines, line_start) in line_info
+        )
         return found_function
 
     @staticmethod
@@ -695,10 +711,12 @@ class Scalene:
         # First, find out how many frames are not sleeping.  We need
         # to know this number so we can parcel out time appropriately
         # (equally to each running thread).
-        total_frames = sum(1 for
-                           (frame, tident, orig_frame) in new_frames
-                           if not Scalene.__is_thread_sleeping[tident])
-                
+        total_frames = sum(
+            1
+            for (frame, tident, orig_frame) in new_frames
+            if not Scalene.__is_thread_sleeping[tident]
+        )
+
         if total_frames == 0:
             normalized_time = total_time
         else:
@@ -1185,13 +1203,16 @@ class Scalene:
         if "scalene/scalene" in filename:
             # Don't profile the profiler.
             return False
-        found_in_profile_only = any(prof in filename for prof in profile_only_list)
-        if not found_in_profile_only:
+        # If (a) `profile-only` was used, and (b) the file matched
+        # NONE of the provided patterns, don't profile it.
+        not_found_in_profile_only = profile_only_list and not any(
+            prof in filename for prof in profile_only_list
+        )
+        if not_found_in_profile_only:
             return False
+        # Now we've filtered out any non matches to profile-only patterns.
+        # If `profile-all` is specified, profile this file.
         if Scalene.__args.profile_all:
-            # Profile everything else, except for "only" choices.
-            if profile_only_list and not found_in_profile_only:
-                return False
             return True
         # Profile anything in the program's directory or a child directory,
         # but nothing else, unless otherwise specified.

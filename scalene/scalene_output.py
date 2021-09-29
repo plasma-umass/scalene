@@ -277,7 +277,7 @@ class ScaleneOutput:
             if len(samples.get()) > 0:
                 # Output a sparkline as a summary of memory usage over time.
                 _, _, spark_str = sparkline.generate(
-                    samples.get()[0: samples.len()], 0, stats.max_footprint
+                    samples.get()[0 : samples.len()], 0, stats.max_footprint
                 )
                 # Compute growth rate (slope), between 0 and 1.
                 if stats.allocation_velocity[1] > 0:
