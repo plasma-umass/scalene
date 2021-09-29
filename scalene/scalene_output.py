@@ -577,32 +577,36 @@ class ScaleneOutput:
 
             console.print(tbl)
 
-            # Report top K lines (currently 5) in terms of net memory consumption.
-            net_mallocs: Dict[LineNumber, float] = defaultdict(float)
+            # Report top K lines (currently 5) in terms of average memory consumption.
+            avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
                 for bytecode_index in stats.bytei_map[fname][line_no]:
-                    net_mallocs[line_no] += (
+                    avg_mallocs[line_no] += (
                         stats.memory_malloc_samples[fname][line_no][
                             bytecode_index
                         ]
-                        - stats.memory_free_samples[fname][line_no][
-                            bytecode_index
-                        ]
+                        #- stats.memory_free_samples[fname][line_no][
+                        #    bytecode_index
+                        #]
                     )
-            net_mallocs = OrderedDict(
-                sorted(net_mallocs.items(), key=itemgetter(1), reverse=True)
+                    count = stats.memory_malloc_count[fname][line_no][bytecode_index]
+                    if count:
+                        avg_mallocs[line_no] /= count
+
+            avg_mallocs = OrderedDict(
+                sorted(avg_mallocs.items(), key=itemgetter(1), reverse=True)
             )
             # Print the top N lines by net memory consumption, as long
             # as they are above some threshold MB in size.
             print_top_mallocs_count = 5
             print_top_mallocs_threshold_mb = 1
-            if len(net_mallocs) > 0:
+            if len(avg_mallocs) > 0:
                 printed_header = False
                 number = 1
-                for net_malloc_lineno in net_mallocs:
+                for avg_malloc_lineno in avg_mallocs:
                     # Don't print lines with less than the threshold MB allocated.
                     if (
-                        net_mallocs[net_malloc_lineno]
+                        avg_mallocs[avg_malloc_lineno]
                         <= print_top_mallocs_threshold_mb
                     ):
                         break
@@ -611,15 +615,15 @@ class ScaleneOutput:
                         break
                     # Print the header only if we are printing something (and only once).
                     if not printed_header:
-                        console.print("Top net memory consumption, by line:")
+                        console.print("Top average memory consumption, by line:")
                         printed_header = True
                     output_str = (
                         "("
                         + str(number)
                         + ") "
-                        + ("%5.0f" % (net_malloc_lineno))
+                        + ("%5.0f" % (avg_malloc_lineno))
                         + ": "
-                        + ("%5.0f" % (net_mallocs[net_malloc_lineno]))
+                        + ("%5.0f" % (avg_mallocs[avg_malloc_lineno]))
                         + " MB"
                     )
                     console.print(Markdown(output_str, style="dark_green"))
@@ -644,7 +648,7 @@ class ScaleneOutput:
                             (
                                 keys[index],
                                 1 - expected_leak,
-                                net_mallocs[keys[index]],
+                                avg_mallocs[keys[index]],
                             )
                         )
                 if len(leaks) > 0:
