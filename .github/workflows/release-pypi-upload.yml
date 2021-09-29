@@ -23,14 +23,14 @@ jobs:
         include:
           - os: ubuntu-latest
             container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
-#          - os: macos-latest
+          - os: macos-latest
 #          - os: windows-latest
 #            python_version: 3.8
 
     container: ${{ matrix.container }}
     env:
       # secrets can't be accessed directly in "if:"
-      GOOGLE_DRIVE_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
+#      GOOGLE_DRIVE_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
       TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }}
 
     steps:
