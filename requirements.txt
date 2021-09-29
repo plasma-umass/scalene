@@ -8,6 +8,6 @@ pyperf==2.0.0
 pyproj==3.0.0.post1
 rich==10.7.0
 wheel==0.36.2
-
+find_libpython==0.2.0
 setuptools~=57.0.0
 pip~=21.1.2
