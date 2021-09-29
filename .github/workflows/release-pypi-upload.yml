@@ -1,6 +1,13 @@
 # https://docs.github.com/en/actions/guides/building-and-testing-python#publishing-to-package-registries
 
-name: build & pypi upload
+# To upload to [test]pypi, define the project secrets PYPI_REPOSITORY (set to "pypi" or
+# "testpypi"), PYPI_USERNAME and PYPI_PASSWORD.
+
+# To have files upload to Google Drive rather than [test]pypi, follow the setup
+# instructions at https://github.com/Jodebu/upload-to-drive and define the
+# GOOGLE_DRIVE_FOLDER and GOOGLE_DRIVE_CREDENTIALS secrets in the project.
+
+name: build & upload
 
 on:
   release:
@@ -12,18 +19,29 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        python_version: ['3.7', '3.8', '3.9']
+        os: ['ubuntu-latest', 'macos-latest']
         include:
+          - os: ubuntu-latest
+            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
           - os: macos-latest
             python_version: 3.7
-          - os: ubuntu-latest
-            python_version: 3.7
-            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
-          - os: windows-latest
-            python_version: 3.8
+            upload_source: true   # just need ONE of them to do it
+#          - os: windows-latest
+#            python_version: 3.8
 
     container: ${{ matrix.container }}
+    env:
+      # secrets can't be accessed directly in "if:"
+#      GOOGLE_DRIVE_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
+      TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }}
 
     steps:
+    - name: Pick .devN name if a test build
+      if: env.TWINE_REPOSITORY == 'testpypi'
+      run: |
+        echo "DEV_BUILD=$(date '+%Y%m%d%H%M')" >> $GITHUB_ENV  # for setup.py
+
     - uses: actions/checkout@v2
 
     - name: Set up python (script version)
@@ -35,12 +53,12 @@ jobs:
     - name: Set up python (container version)
       if: matrix.container != ''
       run: |
-        echo "/opt/python/cp37-cp37m/bin" >> $GITHUB_PATH
+        PYV=`echo "${{ matrix.python_version }}" | tr -d "."`; ls -d -1 /opt/python/cp$PYV*/bin | head -n 1 >> $GITHUB_PATH
+        cat $GITHUB_PATH
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install setuptools wheel twine
+        pip3 install setuptools wheel twine find_libpython
 
     - name: Work around arm64 support on MacOS
       # https://github.com/actions/virtual-environments/issues/2557
@@ -48,19 +66,28 @@ jobs:
       run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
 
     - name: Build source dist
-      if: matrix.os == 'ubuntu-latest' # we only need sdist once
-      env:
-        TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }} # used by setup.py
+      if: matrix.upload_source
       run: make sdist
 
     - name: Build binary dist
-      env:
-        TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }} # used by setup.py
       run: make bdist
 
+    - name: Figure out google drive upload target
+      if: env.GOOGLE_DRIVE_FOLDER != ''
+      run: |
+        echo "UPLOAD_TARGET=$(ls dist/scalene*.whl)" >> $GITHUB_ENV
+
+    - name: Upload to google drive
+      if: env.GOOGLE_DRIVE_FOLDER != ''
+      uses: Jodebu/upload-to-drive@master
+      with:
+        target: ${{ env.UPLOAD_TARGET }}
+        credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+        folder: ${{ env.GOOGLE_DRIVE_FOLDER }}
+
     - name: Upload
+      if: env.GOOGLE_DRIVE_FOLDER == ''
       env:
-        TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }}
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
       run: twine upload dist/*

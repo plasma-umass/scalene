@@ -27,9 +27,11 @@ class PyStringPtrList {
     scalene_base_path = PyBytes_AsString(PyUnicode_AsASCIIString(base_path));
     is_initialized = true;
   }
+
   PyStringPtrList() { is_initialized = false; }
 
   bool initialized() { return is_initialized; }
+
   bool should_trace(char* filename) {
     if (strstr(filename, "site-packages") || strstr(filename, "/lib/python")) {
       return false;
@@ -55,6 +57,7 @@ class PyStringPtrList {
 
     return strstr(resolved_path, scalene_base_path) != nullptr;
   }
+
   void print() {
     printf("Profile all? %d\nitems {", profile_all);
     for (auto c : items) {
@@ -79,6 +82,6 @@ static PyStringPtrList py_string_ptr_list;
 
 static void set_py_string_ptr_list(PyObject* p, PyObject* base_path,
                                    bool trace_all) {
-  std::lock_guard g(_mx);
+  std::lock_guard<decltype(_mx)> g(_mx);
   py_string_ptr_list = PyStringPtrList{p, base_path, trace_all};
 }
