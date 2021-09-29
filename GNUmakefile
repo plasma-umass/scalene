@@ -84,7 +84,7 @@ endif
 PYTHON_API_VER:=$(shell $(PYTHON) -c 'from pip._vendor.packaging.tags import interpreter_name, interpreter_version; print(interpreter_name()+interpreter_version())')
 
 bdist: vendor-deps
-	$(PYTHON) setup.py bdist_wheel --py-limited-api=$(PYTHON_API_VER) $(PYTHON_PLAT)
+	$(PYTHON) setup.py bdist_wheel $(PYTHON_PLAT)
 ifeq ($(shell uname -s),Linux)
 	auditwheel repair dist/*.whl
 	rm -f dist/*.whl
