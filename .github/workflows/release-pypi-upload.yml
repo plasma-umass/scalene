@@ -47,7 +47,7 @@ jobs:
       with:
         python-version: ${{ matrix.python_version }}
 
-    - name: Set up python (container)
+    - name: Set up python (container version)
       if: matrix.container != ''
       run: |
         PYV=`echo "${{ matrix.python_version }}" | tr -d "."`; ls -d -1 /opt/python/cp$PYV*/bin | head -n 1 >> $GITHUB_PATH
