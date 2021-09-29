@@ -177,7 +177,7 @@ class MakeLocalAllocator {
 #endif
 #if USE_HEADERS
     auto *header =
-        new (get_original_allocator().malloc(ctx, len + SLACK + sizeof(Header)))
+        new (get_original_allocator()->malloc(ctx, len + SLACK + sizeof(Header)))
             Header(len);
 #else
     auto *header = (Header *)get_original_allocator().malloc(ctx, len + SLACK);
