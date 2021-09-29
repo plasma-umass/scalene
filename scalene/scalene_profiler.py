@@ -24,7 +24,6 @@ import json
 import math
 import multiprocessing
 import pathlib
-import queue
 import os
 import random
 import re
@@ -52,13 +51,18 @@ from typing import (
     Union,
     cast,
 )
-from multiprocessing.process import BaseProcess
 
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_funcutils import ScaleneFuncUtils
 from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_mapfile import ScaleneMapFile
-from scalene.scalene_statistics import *
+from scalene.scalene_statistics import (
+    Address,
+    ByteCodeIndex,
+    Filename,
+    LineNumber,
+    ScaleneStatistics,
+)
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
 from scalene.scalene_signals import ScaleneSignals
@@ -89,12 +93,15 @@ def scalene_redirect_profile(func: Any) -> Any:
 
 builtins.profile = scalene_redirect_profile  # type: ignore
 
+
 def start() -> None:
     Scalene.start()
 
+
 def stop() -> None:
     Scalene.stop()
-    
+
+
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -164,7 +171,7 @@ class Scalene:
 
     __python_alias_dir: pathlib.Path
 
-    ## Profile output parameters
+    # Profile output parameters
 
     # when we output the next profile
     __next_output_time: float = float("inf")
@@ -200,7 +207,7 @@ class Scalene:
         raise KeyboardInterrupt
 
     @staticmethod
-    def invalidate_lines(frame: FrameType, event: str, arg: str) -> Any:
+    def invalidate_lines(frame: FrameType, _event: str, _arg: str) -> Any:
         # Mark the last_profiled information as invalid as soon as we execute a different line of code.
         # FIXME this only correctly supports single-threaded programs at the moment.
         if (
@@ -334,7 +341,7 @@ class Scalene:
     ) -> None:
         Scalene.__alloc_sigq.put((signum, this_frame))
         del this_frame
-        if not Scalene.__last_profiled_invalidated:  #  and not sys.gettrace():
+        if not Scalene.__last_profiled_invalidated:  # and not sys.gettrace():
             sys.settrace(Scalene.invalidate_lines)
 
     @staticmethod
@@ -580,13 +587,16 @@ class Scalene:
                 if not Scalene.__output.output_file:
                     Scalene.__output.output_file = "/dev/stdout"
                 with open(Scalene.__output.output_file, "w") as f:
-                    f.write(json.dumps(json_output, sort_keys=True, indent=4) + "\n")
+                    f.write(
+                        json.dumps(json_output, sort_keys=True, indent=4)
+                        + "\n"
+                    )
                 return True
             else:
                 return False
         else:
             output = Scalene.__output
-            did_output : bool = output.output_profiles(
+            did_output: bool = output.output_profiles(
                 Scalene.__stats,
                 Scalene.__pid,
                 Scalene.profile_this_code,
@@ -604,12 +614,15 @@ class Scalene:
         if fname not in Scalene.__files_to_profile:
             return False
         # Now check to see if it's the right line range.
-        for fn in Scalene.__functions_to_profile[fname]:
-            lines, line_start = inspect.getsourcelines(fn)
-            if lineno >= line_start and lineno < line_start + len(lines):
-                # Yes, it's in range.
-                return True
-        return False
+        line_info = (
+            inspect.getsourcelines(fn)
+            for fn in Scalene.__functions_to_profile[fname]
+        )
+        found_function = any(
+            line_start <= lineno < line_start + len(lines)
+            for (lines, line_start) in line_info
+        )
+        return found_function
 
     @staticmethod
     def cpu_sigqueue_processor(
@@ -698,11 +711,12 @@ class Scalene:
         # First, find out how many frames are not sleeping.  We need
         # to know this number so we can parcel out time appropriately
         # (equally to each running thread).
-        total_frames = 0
-        for (frame, tident, orig_frame) in new_frames:
-            if not Scalene.__is_thread_sleeping[tident]:
-                total_frames += 1
-                
+        total_frames = sum(
+            1
+            for (frame, tident, orig_frame) in new_frames
+            if not Scalene.__is_thread_sleeping[tident]
+        )
+
         if total_frames == 0:
             normalized_time = total_time
         else:
@@ -792,7 +806,7 @@ class Scalene:
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
     def compute_frames_to_record(
-        this_frame: FrameType,
+        _this_frame: FrameType,
     ) -> List[Tuple[FrameType, int, FrameType]]:
         """Collects all stack frames that Scalene actually processes."""
         frames: List[Tuple[FrameType, int]] = [
@@ -898,10 +912,10 @@ class Scalene:
 
     @staticmethod
     def alloc_sigqueue_processor(
-        signum: Union[
+        _signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType,
+        _this_frame: FrameType,
     ) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
         stats = Scalene.__stats
@@ -1080,7 +1094,7 @@ class Scalene:
                 stats.last_malloc_triggered = last_malloc
                 mallocs, frees = stats.leak_score[fname][lineno]
                 stats.leak_score[fname][lineno] = (mallocs + 1, frees)
-        del this_frame
+        del _this_frame
 
     @staticmethod
     def before_fork() -> None:
@@ -1088,9 +1102,9 @@ class Scalene:
         Scalene.stop_signal_queues()
 
     @staticmethod
-    def after_fork_in_parent(childPid: int) -> None:
+    def after_fork_in_parent(child_pid: int) -> None:
         """Executed by the parent process after a fork."""
-        Scalene.add_child_pid(childPid)
+        Scalene.add_child_pid(child_pid)
         Scalene.start_signal_queues()
 
     @staticmethod
@@ -1111,7 +1125,7 @@ class Scalene:
 
     @staticmethod
     def memcpy_sigqueue_processor(
-        signum: Union[
+        _signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
         frame: FrameType,
@@ -1189,22 +1203,16 @@ class Scalene:
         if "scalene/scalene" in filename:
             # Don't profile the profiler.
             return False
-        found_in_profile_only = False
-        for prof in profile_only_list:
-            if prof in filename:
-                found_in_profile_only = True
-                break
-
-        if not found_in_profile_only:
+        # If (a) `profile-only` was used, and (b) the file matched
+        # NONE of the provided patterns, don't profile it.
+        not_found_in_profile_only = profile_only_list and not any(
+            prof in filename for prof in profile_only_list
+        )
+        if not_found_in_profile_only:
             return False
+        # Now we've filtered out any non matches to profile-only patterns.
+        # If `profile-all` is specified, profile this file.
         if Scalene.__args.profile_all:
-            # Profile everything else, except for "only" choices.
-            found_in_profile_only = False
-            for prof in profile_only_list:
-                if prof in filename:
-                    return True
-            if profile_only_list and not found_in_profile_only:
-                return False
             return True
         # Profile anything in the program's directory or a child directory,
         # but nothing else, unless otherwise specified.
@@ -1242,10 +1250,10 @@ class Scalene:
 
     @staticmethod
     def start_signal_handler(
-        signum: Union[
+        _signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType,
+        _this_frame: FrameType,
     ) -> None:
         for pid in Scalene.__child_pids:
             os.kill(pid, Scalene.__signals.start_profiling_signal)
@@ -1253,10 +1261,10 @@ class Scalene:
 
     @staticmethod
     def stop_signal_handler(
-        signum: Union[
+        _signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType,
+        _this_frame: FrameType,
     ) -> None:
         for pid in Scalene.__child_pids:
             os.kill(pid, Scalene.__signals.stop_profiling_signal)
@@ -1274,7 +1282,7 @@ class Scalene:
             signal.signal(Scalene.__signals.free_signal, signal.SIG_IGN)
             signal.signal(Scalene.__signals.memcpy_signal, signal.SIG_IGN)
             Scalene.stop_signal_queues()
-        except BaseException as e:
+        except BaseException:
             # Retry just in case we get interrupted by one of our own signals.
             if retry:
                 Scalene.disable_signals(retry=False)
@@ -1296,10 +1304,10 @@ class Scalene:
 
     @staticmethod
     def termination_handler(
-        signum: Union[
+        _signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType,
+        _this_frame: FrameType,
     ) -> None:
         sys.exit(-1)
 
@@ -1310,7 +1318,7 @@ class Scalene:
         the_locals: Dict[str, str],
     ) -> int:
         # If --off is set, tell all children to not profile and stop profiling before we even start.
-        if not "off" in Scalene.__args or not Scalene.__args.off:
+        if "off" not in Scalene.__args or not Scalene.__args.off:
             self.start()
         # Run the code being profiled.
         exit_status = 0

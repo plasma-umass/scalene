@@ -5,17 +5,7 @@ import pickle
 import time
 
 from collections import defaultdict
-from typing import (
-    Any,
-    Dict,
-    Generic,
-    List,
-    NewType,
-    Set,
-    Tuple,
-    TypeVar,
-    Union,
-)
+from typing import Any, Dict, List, NewType, Set, Tuple, TypeVar
 from scalene.runningstats import RunningStats
 from scalene.adaptive import Adaptive
 

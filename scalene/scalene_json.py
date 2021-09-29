@@ -1,16 +1,9 @@
 import copy
 import linecache
-import pathlib
-import shutil
-import sys
-import tempfile
 
-from collections import OrderedDict
-from operator import itemgetter
-
-from scalene.scalene_statistics import *
-
-from typing import Callable, Union
+from pathlib import Path
+from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
+from typing import Any, Callable, Dict, List
 
 
 class ScaleneJSON:
@@ -137,7 +130,7 @@ class ScaleneJSON:
         stats: ScaleneStatistics,
         pid: int,
         profile_this_code: Callable[[Filename, LineNumber], bool],
-        python_alias_dir: pathlib.Path,
+        python_alias_dir: Path,
         profile_memory: bool = True,
     ) -> Dict[str, Any]:
         """Write the profile out."""
@@ -245,7 +238,7 @@ class ScaleneJSON:
                 }
                 for line_no, line in enumerate(code_lines, start=1):
                     o = self.output_profile_line(
-                        fname=fname,
+                        fname=fname_print,
                         line_no=LineNumber(line_no),
                         stats=stats,
                         profile_this_code=profile_this_code,
