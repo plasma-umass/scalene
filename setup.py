@@ -21,7 +21,7 @@ def multiarch_args():
     if sys.platform == 'darwin':
         return []
         # multiple architectures disabled for now, because of issues linking with the Python library.
-#         return ['-arch', 'x86_64', '-arch', 'arm64']
+        # return ['-arch', 'x86_64', '-arch', 'arm64']
     return []
 
 def extra_compile_args():
