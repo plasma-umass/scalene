@@ -21,9 +21,9 @@ jobs:
       matrix:
         python_version: ['3.7', '3.8', '3.9']
         include:
-#          - os: ubuntu-latest
-#            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
-          - os: macos-latest
+          - os: ubuntu-latest
+            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
+#          - os: macos-latest
 #          - os: windows-latest
 #            python_version: 3.8
 
