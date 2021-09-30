@@ -234,13 +234,17 @@ class Scalene:
             return None
         if Scalene.__last_profiled != (f.f_code.co_filename, f.f_lineno):
             # We've executed a different line. Mark this as
-            # invalidated and stop tracing.
+            # invalidated and stop tracing IF we aren't still executing
+            # the last-profiled line at a higher scope.
+            while f:
+                if (f.f_code.co_filename, f.f_lineno) == Scalene.__last_profiled:
+                    # Still on the stack; keep tracing.
+                    return Scalene.invalidate_lines
+                f = cast(FrameType, f.f_back)
+            # Not on the stack anywhere - we are done tracing.
             Scalene.__last_profiled_invalidated = True
-            # (prof_fname, prof_lineno) = Scalene.__last_profiled
-            # print("invalidated ", prof_fname, prof_lineno)
             sys.settrace(None)
             return None
-        # This should probably never happen but just in case, keep on tracing.
         return Scalene.invalidate_lines
 
     @classmethod
@@ -727,9 +731,6 @@ class Scalene:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
             Scalene.enter_function_meta(frame, Scalene.__stats)
-            if Scalene.__last_profiled != (fname, lineno):
-                Scalene.__last_profiled_invalidated = True
-                # print("CPU INVALIDATED was ", Scalene.__last_profiled, "at", (fname, lineno))
             if frame == new_frames[0][0]:
                 # Main thread.
                 if not Scalene.__is_thread_sleeping[tident]:
@@ -1041,7 +1042,6 @@ class Scalene:
             ) = item
 
             if Scalene.__last_profiled != (fname, lineno):
-                # print("malloc/free INVALIDATED was ", Scalene.__last_profiled, "at", (fname, lineno))
                 Scalene.__last_profiled_invalidated = True
 
             # Add the byte index to the set for this line (if it's not there already).
@@ -1061,7 +1061,7 @@ class Scalene:
                 # Check if we executed any other lines since the last sample.
                 if Scalene.__last_profiled_invalidated:
                     # Yes, new line, so we bump the counter (used for later computing the average memory consumption).
-                    #  print("MALLOC updating", fname, lineno, Scalene.__last_profiled)
+                    # print("MALLOC updating", fname, lineno, Scalene.__last_profiled, stats.memory_malloc_samples[fname][lineno][bytei])
                     stats.memory_malloc_count[fname][lineno][bytei] += 1
                     Scalene.__last_profiled = (fname, lineno)
                     Scalene.__last_profiled_invalidated = False
