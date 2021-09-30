@@ -90,7 +90,7 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 #define USE_HEADERS 1
 #define DEBUG_HEADER 0
 
-
+#define DL_FUNCTION(name) static decltype(name)* dl##name = (decltype(name)*) dlsym(RTLD_DEFAULT, #name)
 
 template <PyMemAllocatorDomain Domain>
 class MakeLocalAllocator {
@@ -101,11 +101,22 @@ class MakeLocalAllocator {
                   .calloc = local_calloc,
                   .realloc = local_realloc,
                   .free = local_free};
-    PyMem_GetAllocator(Domain, get_original_allocator());
-    PyMem_SetAllocator(Domain, &localAlloc);
+
+    DL_FUNCTION(PyMem_GetAllocator);
+    DL_FUNCTION(PyMem_SetAllocator);
+
+    if (dlPyMem_GetAllocator && dlPyMem_SetAllocator) {
+      dlPyMem_GetAllocator(Domain, get_original_allocator());
+      dlPyMem_SetAllocator(Domain, &localAlloc);
+    }
   }
 
-  ~MakeLocalAllocator() { PyMem_SetAllocator(Domain, get_original_allocator()); }
+  ~MakeLocalAllocator() {
+    DL_FUNCTION(PyMem_SetAllocator);
+    if (dlPyMem_SetAllocator) {
+      dlPyMem_SetAllocator(Domain, get_original_allocator());
+    }
+  }
 
  private:
   static constexpr int SLACK = 0;

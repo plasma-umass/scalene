@@ -2,7 +2,6 @@
 #ifndef MEMCPYSAMPLER_HPP
 #define MEMCPYSAMPLER_HPP
 
-#include <Python.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdint.h>
@@ -268,7 +267,7 @@ class MemcpySampler {
   void incrementMemoryOps(int n) {
     _memcpyOps += n;
     auto sampleMemop = _memcpySampler.sample(n);
-    if (Py_IsInitialized() && unlikely(sampleMemop)) {
+    if (unlikely(sampleMemop)) {
       writeCount();
       _memcpyTriggered++;
       _memcpyOps = 0;

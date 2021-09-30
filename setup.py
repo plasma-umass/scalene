@@ -90,8 +90,9 @@ register_files_to_profile = Extension('scalene.register_files_to_profile',
     sources = ['src/source/register_files_to_profile.cpp'],
     extra_compile_args=extra_compile_args(),
     extra_link_args=multiarch_args(),
-    py_limited_api=True,
+    py_limited_api=False,
     language="c++")
+
 # If we're testing packaging, build using a ".devN" suffix in the version number,
 # so that we can upload new files (as testpypi/pypi don't allow re-uploading files with
 # the same name as previously uploaded).
