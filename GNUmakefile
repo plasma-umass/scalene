@@ -12,7 +12,7 @@ CXX = g++
 INCLUDES  = -Isrc -Isrc/include
 INCLUDES := $(INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility
 INCLUDES := $(INCLUDES) -Ivendor/printf
-INCLUDES := $(INCLUDES) $(shell python3-config --include)
+INCLUDES := $(INCLUDES) $(shell python3-config --includes)
 
 ifeq ($(shell uname -s),Darwin)
   LIBFILE := lib$(LIBNAME).dylib
