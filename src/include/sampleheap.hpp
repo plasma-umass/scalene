@@ -25,7 +25,7 @@
 #include "mallocrecursionguard.hpp"
 #include "open_addr_hashtable.hpp"
 #include "printf.h"
-#include "py_env.hpp"
+#include "pywhere.hpp"
 #include "samplefile.hpp"
 #include "sampler.hpp"
 static SampleFile& getSampleFile() {
@@ -99,12 +99,12 @@ class SampleHeap : public SuperHeap {
     }
   }
 
-  decltype(getPythonInfo)*
-  getGetPythonInfo() {
+  decltype(whereInPython)*
+  getWhereInPython() {
     // FIXME this is way too costly -- change to non-polling
-    static decltype(getPythonInfo)* function = 0;
+    static decltype(whereInPython)* function = 0;
     if (!function) {
-      function = (decltype(getPythonInfo)*) dlsym(RTLD_DEFAULT, "getPythonInfo");
+      function = (decltype(whereInPython)*) dlsym(RTLD_DEFAULT, "whereInPython");
     }
     return function;
   }
@@ -114,8 +114,8 @@ class SampleHeap : public SuperHeap {
     int lineno;
     int bytei;
 
-    decltype(getPythonInfo)* getInfo = getGetPythonInfo();
-    if (getInfo && getInfo(filename, lineno, bytei)) {
+    decltype(whereInPython)* where = getWhereInPython();
+    if (where && where(filename, lineno, bytei)) {
       // printf_("MALLOC HANDLED (SAMPLEHEAP): %p -> %lu (%s, %d)\n", ptr,
       // sampleMalloc, filename.c_str(), lineno);
       writeCount(MallocSignal, sampleMalloc, ptr, filename, lineno, bytei);
@@ -164,8 +164,8 @@ class SampleHeap : public SuperHeap {
     int lineno;
     int bytei;
 
-    decltype(getPythonInfo)* getInfo = getGetPythonInfo();
-    if (getInfo && getInfo(filename, lineno, bytei)) {
+    decltype(whereInPython)* where = getWhereInPython();
+    if (where && where (filename, lineno, bytei)) {
       // printf_("FREE HANDLED (SAMPLEHEAP): %p -> (%s, %d)\n", ptr,
       // filename.c_str(), lineno);
       writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);

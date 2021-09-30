@@ -1,19 +1,16 @@
 #include <Python.h>
 #include <frameobject.h>
 
-#include "py_env.hpp"
-
-#include <limits.h>
-#include <stdlib.h>
+#include "pywhere.hpp"
 
 #include <mutex>
 #include <vector>
 
 #include "printf.h"
 
-class PyStringPtrList {
+class TraceConfig {
  public:
-  PyStringPtrList(PyObject* list_wrapper, PyObject* base_path,
+  TraceConfig(PyObject* list_wrapper, PyObject* base_path,
                   bool profile_all_b) {
     // Assumes that each item is a bytes object
     owner = list_wrapper;
@@ -69,13 +66,13 @@ class PyStringPtrList {
     printf("}\n");
   }
 
-  static void setInstance(PyStringPtrList* instance) {
+  static void setInstance(TraceConfig* instance) {
     std::lock_guard<decltype(_instanceMutex)> g(_instanceMutex);
     delete _instance;
     _instance = instance;
   }
 
-  static PyStringPtrList* getInstance() {
+  static TraceConfig* getInstance() {
     std::lock_guard<decltype(_instanceMutex)> g(_instanceMutex);
     return _instance;
   }
@@ -90,11 +87,11 @@ class PyStringPtrList {
   bool profile_all;
 
   static std::mutex _instanceMutex;
-  static PyStringPtrList* _instance;
+  static TraceConfig* _instance;
 };
 
-PyStringPtrList* PyStringPtrList::_instance = 0;
-std::mutex PyStringPtrList::_instanceMutex;
+TraceConfig* TraceConfig::_instance = 0;
+std::mutex TraceConfig::_instanceMutex;
 
 // An RAII class to simplify acquiring and releasing the GIL.
 class GIL {
@@ -139,7 +136,7 @@ class PyPtr {
 };
 
 
-int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
+int whereInPython(std::string& filename, int& lineno, int& bytei) {
   // No python, no python stack.  Also, the stack is a property of the
   // thread state; no thread state, no python stack.
   if (!Py_IsInitialized() || PyGILState_GetThisThreadState() == 0) {
@@ -156,6 +153,11 @@ int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
   lineno = 1;
   bytei = 0;
   GIL gil;
+
+  auto traceConfig = TraceConfig::getInstance();
+  if (!traceConfig) {
+    return 0;
+  }
   
   for (auto frame = PyEval_GetFrame(); frame != nullptr;
        frame = frame->f_back) {
@@ -172,10 +174,7 @@ int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
   
     if (!strstr(filenameStr, "<") && !strstr(filenameStr, "/python") &&
         !strstr(filenameStr, "scalene/scalene")) {
-      bool should_trace = false;
-      if (auto py_string_ptr_list = PyStringPtrList::getInstance())
-        should_trace = py_string_ptr_list->should_trace(filenameStr);
-      if (should_trace) {
+      if (traceConfig->should_trace(filenameStr)) {
   #if defined(PyPy_FatalError)
         // If this macro is defined, we are compiling PyPy, which
         // AFAICT does not have any way to access bytecode index, so
@@ -205,12 +204,12 @@ static PyObject *register_files_to_profile(PyObject *self, PyObject *args) {
   if (!is_list) {
     PyErr_SetString(PyExc_Exception, "Requires list or list-like object");
   }
-  PyStringPtrList::setInstance(new PyStringPtrList(a_list, base_path, profile_all));
+  TraceConfig::setInstance(new TraceConfig(a_list, base_path, profile_all));
   Py_RETURN_NONE;
 }
 
 static PyObject *print_files_to_profile(PyObject *self, PyObject *args) {
-  if (PyStringPtrList* pl = PyStringPtrList::getInstance()) {
+  if (TraceConfig* pl = TraceConfig::getInstance()) {
     pl->print();
   }
   Py_RETURN_NONE;
@@ -224,7 +223,7 @@ static PyMethodDef EmbMethods[] = {
     {NULL, NULL, 0, NULL}};
 
 static PyModuleDef EmbedModule = {PyModuleDef_HEAD_INIT,
-                                  "register_files_to_profile",
+                                  "pywhere",
                                   NULL,
                                   -1,
                                   EmbMethods,
@@ -233,6 +232,6 @@ static PyModuleDef EmbedModule = {PyModuleDef_HEAD_INIT,
                                   NULL,
                                   NULL};
 
-PyMODINIT_FUNC PyInit_register_files_to_profile() {
+PyMODINIT_FUNC PyInit_pywhere() {
   return PyModule_Create(&EmbedModule);
 }

@@ -85,9 +85,9 @@ get_line_atomic = Extension('scalene.get_line_atomic',
     language="c++"
 )
 
-register_files_to_profile = Extension('scalene.register_files_to_profile',
+pywhere = Extension('scalene.pywhere',
     include_dirs=['.', 'src', 'src/include'],
-    sources = ['src/source/register_files_to_profile.cpp'],
+    sources = ['src/source/pywhere.cpp'],
     extra_compile_args=extra_compile_args(),
     extra_link_args=multiarch_args(),
     py_limited_api=False,
@@ -143,7 +143,7 @@ setup(
         "wheel==0.36.2",
         "numpy"
     ],
-    ext_modules=[get_line_atomic, register_files_to_profile],
+    ext_modules=[get_line_atomic, pywhere],
     setup_requires=['setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},

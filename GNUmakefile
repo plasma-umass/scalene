@@ -45,7 +45,7 @@ $(OUTDIR)/$(LIBFILE): vendor/Heap-Layers $(SRC) $(C_SOURCES) GNUmakefile
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread
 
 clean:
-	rm -f $(OUTDIR)/$(LIBFILE) scalene/get_line_atomic*.so
+	rm -f $(OUTDIR)/$(LIBFILE) scalene/*.so scalene/*.dylib
 	rm -rf $(OUTDIR)/$(LIBFILE).dSYM
 	rm -rf scalene.egg-info
 	rm -rf build dist *egg-info
