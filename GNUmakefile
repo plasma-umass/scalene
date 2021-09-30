@@ -43,7 +43,10 @@ SRC := src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
 
 OUTDIR=scalene
 
-all: $(OUTDIR)/$(LIBFILE)
+all: $(OUTDIR)/$(LIBFILE) $(OUTDIR)/libpyenv.so
+
+$(OUTDIR)/libpyenv.so: src/source/libpyenv.cpp
+	$(CXX) $(CXXFLAGS) -Isrc -Isrc/include $< -o $@
 
 $(OUTDIR)/$(LIBFILE): vendor/Heap-Layers $(SRC) $(C_SOURCES) GNUmakefile
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread $(RPATH_FLAGS) $(PYTHON_LIBRARY)
