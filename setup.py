@@ -85,6 +85,13 @@ get_line_atomic = Extension('scalene.get_line_atomic',
     language="c++"
 )
 
+register_files_to_profile = Extension('scalene.register_files_to_profile',
+    include_dirs=['.', 'src', 'src/include'],
+    sources = ['src/source/register_files_to_profile.cpp'],
+    extra_compile_args=extra_compile_args(),
+    extra_link_args=multiarch_args(),
+    py_limited_api=True,
+    language="c++")
 # If we're testing packaging, build using a ".devN" suffix in the version number,
 # so that we can upload new files (as testpypi/pypi don't allow re-uploading files with
 # the same name as previously uploaded).
@@ -135,7 +142,7 @@ setup(
         "wheel==0.36.2",
         "numpy"
     ],
-    ext_modules=[get_line_atomic],
+    ext_modules=[get_line_atomic, register_files_to_profile],
     setup_requires=['setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
