@@ -30,7 +30,6 @@ class Sampler {
   static constexpr double SAMPLE_PROBABILITY =
       (double)1.0 / (double)SAMPLE_RATE;
 
-  uint64_t _lastSampleSize;
   uint64_t _next;
 #if !SAMPLER_DETERMINISTIC
 #if !SAMPLER_LOWDISCREPANCY
@@ -56,10 +55,13 @@ class Sampler {
 #else
     _next = SAMPLE_RATE;
 #endif
-    _lastSampleSize = _next;
   }
 
-  inline ATTRIBUTE_ALWAYS_INLINE void unsample(uint64_t sz) { _next += sz; }
+  inline ATTRIBUTE_ALWAYS_INLINE void unsample(uint64_t sz) {
+    if (_next < SAMPLE_RATE / 2) {
+      _next += sz;
+    }
+  }
 
   inline ATTRIBUTE_ALWAYS_INLINE uint64_t sample(uint64_t sz) {
     if (unlikely(_next <= sz)) {
@@ -83,7 +85,6 @@ class Sampler {
     }
 #endif
     //    printf_("NEXT = %lu\n", _next);
-    _lastSampleSize = _next;
     if (sz >= SAMPLE_RATE) {
       return sz;
     }
