@@ -1,3 +1,5 @@
+#ifndef __PYENV_H
+#define __PYENV_H
 #include <Python.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -85,3 +87,4 @@ static void set_py_string_ptr_list(PyObject* p, PyObject* base_path,
   std::lock_guard<decltype(_mx)> g(_mx);
   py_string_ptr_list = PyStringPtrList{p, base_path, trace_all};
 }
+#endif

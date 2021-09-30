@@ -1438,7 +1438,7 @@ class Scalene:
                         Scalene.__program_path = program_path
                     # Grab local and global variables.
                     if not Scalene.__args.cpu_only:
-                        import register_files_to_profile
+                        from scalene import register_files_to_profile
 
                         register_files_to_profile.register_files_to_profile(
                             list(Scalene.__files_to_profile.keys()),
