@@ -58,7 +58,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip3 install setuptools wheel twine find_libpython
+        pip3 install setuptools wheel twine
 
     - name: Work around arm64 support on MacOS
       # https://github.com/actions/virtual-environments/issues/2557
