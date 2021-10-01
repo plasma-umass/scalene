@@ -1,6 +1,6 @@
 #include <Python.h>
 #include <frameobject.h>
-
+#include <dlfcn.h>
 #include "pywhere.hpp"
 
 #include <mutex>
@@ -205,6 +205,9 @@ static PyObject *register_files_to_profile(PyObject *self, PyObject *args) {
     PyErr_SetString(PyExc_Exception, "Requires list or list-like object");
   }
   TraceConfig::setInstance(new TraceConfig(a_list, base_path, profile_all));
+  void* q = dlsym(RTLD_DEFAULT, "set_where_in_python");
+  auto set_where_in_python = (void (*) (decltype(whereInPython)* )) q;
+  set_where_in_python(whereInPython);
   Py_RETURN_NONE;
 }
 
