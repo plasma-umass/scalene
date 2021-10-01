@@ -22,7 +22,8 @@ jobs:
       - run: |
         date '+%Y%m%d%H%M' > devN.txt
 
-      - uses: actions/upload-artifact@v2
+      - name: upload devN.txt for use by other jobs
+        uses: actions/upload-artifact@v2
         with:
           name: devN
           path: devN.txt
