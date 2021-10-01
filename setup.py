@@ -19,9 +19,7 @@ def multiarch_args():
     """Returns args requesting multi-architecture support, if applicable."""
     # On MacOS we build "universal2" packages, for both x86_64 and arm64/M1
     if sys.platform == 'darwin':
-        return []
-        # multiple architectures disabled for now, because of issues linking with the Python library.
-        # return ['-arch', 'x86_64', '-arch', 'arm64']
+        return ['-arch', 'x86_64', '-arch', 'arm64']
     return []
 
 def extra_compile_args():
