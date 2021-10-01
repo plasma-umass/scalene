@@ -19,11 +19,9 @@ jobs:
     name: create .devN build date coordinated across all matrix jobs
     runs-on: ubuntu-latest
     steps:
-      - run: |
-        date '+%Y%m%d%H%M' > devN.txt
+      - run: date '+%Y%m%d%H%M' > devN.txt
 
-      - name: upload devN.txt for use by other jobs
-        uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v2
         with:
           name: devN
           path: devN.txt
