@@ -203,11 +203,17 @@ static PyObject *register_files_to_profile(PyObject *self, PyObject *args) {
   auto is_list = PyList_Check(a_list);
   if (!is_list) {
     PyErr_SetString(PyExc_Exception, "Requires list or list-like object");
+    return NULL;
   }
   TraceConfig::setInstance(new TraceConfig(a_list, base_path, profile_all));
-  void* q = dlsym(RTLD_DEFAULT, "set_where_in_python");
-  auto set_where_in_python = (void (*) (decltype(whereInPython)* )) q;
-  set_where_in_python(whereInPython);
+
+  auto p_where = (decltype(p_whereInPython)*) dlsym(RTLD_DEFAULT, "p_whereInPython");
+  if (p_where == nullptr) {
+    PyErr_SetString(PyExc_Exception, "Unable to find p_whereInPython");
+    return NULL;
+  }
+  *p_where = whereInPython;
+
   Py_RETURN_NONE;
 }
 

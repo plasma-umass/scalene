@@ -272,6 +272,11 @@ class MakeLocalAllocator {
   }
 };
 
+
+// from pywhere.hpp
+decltype(p_whereInPython) __attribute((visibility("default"))) p_whereInPython = 0;
+
+
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;
 

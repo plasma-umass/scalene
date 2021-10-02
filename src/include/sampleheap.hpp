@@ -35,15 +35,6 @@ static SampleFile& getSampleFile() {
 
   return mallocSampleFile;
 }
-static std::mutex whereInPython_lock;
-static decltype(whereInPython)* where_in_python = nullptr;
- extern "C" {
-  static int sentinel = 6;
-  void __attribute__((visibility("default"))) set_where_in_python(decltype(whereInPython)* function) {
-    std::lock_guard<std::mutex> lock(whereInPython_lock);
-    where_in_python = function;
-  }
-}
  
 #define USE_ATOMICS 0
 
@@ -108,23 +99,13 @@ class SampleHeap : public SuperHeap {
     }
   }
 
-  decltype(whereInPython)*
-  getWhereInPython() {
-    // FIXME this is way too costly -- change to non-polling
-    static decltype(whereInPython)* function = 0;
-    if (!function) {
-      function = (decltype(whereInPython)*) dlsym(RTLD_DEFAULT, "whereInPython");
-    }
-    return function;
-  }
-
   void process_malloc(size_t sampleMalloc, void* ptr) {
     std::string filename;
     int lineno;
     int bytei;
 
-    decltype(whereInPython)* where = where_in_python;
-    if (where && where(filename, lineno, bytei)) {
+    decltype(whereInPython)* where = p_whereInPython;
+    if (where != nullptr && where(filename, lineno, bytei)) {
       // printf_("MALLOC HANDLED (SAMPLEHEAP): %p -> %lu (%s, %d)\n", ptr,
       // sampleMalloc, filename.c_str(), lineno);
       writeCount(MallocSignal, sampleMalloc, ptr, filename, lineno, bytei);
@@ -173,8 +154,8 @@ class SampleHeap : public SuperHeap {
     int lineno;
     int bytei;
 
-    decltype(whereInPython)* where = getWhereInPython();
-    if (where && where (filename, lineno, bytei)) {
+    decltype(whereInPython)* where = p_whereInPython;
+    if (where != nullptr && where(filename, lineno, bytei)) {
       // printf_("FREE HANDLED (SAMPLEHEAP): %p -> (%s, %d)\n", ptr,
       // filename.c_str(), lineno);
       writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
