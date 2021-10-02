@@ -19,9 +19,7 @@ def multiarch_args():
     """Returns args requesting multi-architecture support, if applicable."""
     # On MacOS we build "universal2" packages, for both x86_64 and arm64/M1
     if sys.platform == 'darwin':
-        return []
-        # multiple architectures disabled for now, because of issues linking with the Python library.
-        # return ['-arch', 'x86_64', '-arch', 'arm64']
+        return ['-arch', 'x86_64', '-arch', 'arm64']
     return []
 
 def extra_compile_args():
@@ -85,6 +83,14 @@ get_line_atomic = Extension('scalene.get_line_atomic',
     language="c++"
 )
 
+pywhere = Extension('scalene.pywhere',
+    include_dirs=['.', 'src', 'src/include'],
+    sources = ['src/source/pywhere.cpp'],
+    extra_compile_args=extra_compile_args(),
+    extra_link_args=multiarch_args(),
+    py_limited_api=False,
+    language="c++")
+
 # If we're testing packaging, build using a ".devN" suffix in the version number,
 # so that we can upload new files (as testpypi/pypi don't allow re-uploading files with
 # the same name as previously uploaded).
@@ -135,7 +141,7 @@ setup(
         "wheel==0.36.2",
         "numpy"
     ],
-    ext_modules=[get_line_atomic],
+    ext_modules=[get_line_atomic, pywhere],
     setup_requires=['setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},

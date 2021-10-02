@@ -21,14 +21,11 @@
 // there doesn't seem to be a function returning co_filename
 //#define Py_LIMITED_API 0x03070000
 
-#include <Python.h>
-#include <frameobject.h>
-
 #include "common.hpp"
 #include "mallocrecursionguard.hpp"
 #include "open_addr_hashtable.hpp"
 #include "printf.h"
-#include "py_env.hpp"
+#include "pywhere.hpp"
 #include "samplefile.hpp"
 #include "sampler.hpp"
 static SampleFile& getSampleFile() {
@@ -38,7 +35,7 @@ static SampleFile& getSampleFile() {
 
   return mallocSampleFile;
 }
-
+ 
 #define USE_ATOMICS 0
 
 #if USE_ATOMICS
@@ -106,8 +103,9 @@ class SampleHeap : public SuperHeap {
     std::string filename;
     int lineno;
     int bytei;
-    int r = getPythonInfo(filename, lineno, bytei);
-    if (r) {
+
+    decltype(whereInPython)* where = p_whereInPython;
+    if (where != nullptr && where(filename, lineno, bytei)) {
       // printf_("MALLOC HANDLED (SAMPLEHEAP): %p -> %lu (%s, %d)\n", ptr,
       // sampleMalloc, filename.c_str(), lineno);
       writeCount(MallocSignal, sampleMalloc, ptr, filename, lineno, bytei);
@@ -156,8 +154,8 @@ class SampleHeap : public SuperHeap {
     int lineno;
     int bytei;
 
-    int r = getPythonInfo(filename, lineno, bytei);
-    if (r) {
+    decltype(whereInPython)* where = p_whereInPython;
+    if (where != nullptr && where(filename, lineno, bytei)) {
       // printf_("FREE HANDLED (SAMPLEHEAP): %p -> (%s, %d)\n", ptr,
       // filename.c_str(), lineno);
       writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
@@ -184,104 +182,6 @@ class SampleHeap : public SuperHeap {
   }
 
  private:
-  // An RAII class to simplify acquiring and releasing the GIL.
-  class GIL {
-   public:
-    GIL() { _gstate = PyGILState_Ensure(); }
-    ~GIL() { PyGILState_Release(_gstate); }
-
-   private:
-    PyGILState_STATE _gstate;
-  };
-
-  // Implements a mini smart pointer to PyObject.
-  // Manages a "strong" reference to the object... to use with a weak reference,
-  // Py_IncRef it first. Unfortunately, not all PyObject subclasses (e.g.,
-  // PyFrameObject) are declared as such, so we need to make this a template and
-  // cast.
-  template <class O = PyObject>
-  class PyPtr {
-   public:
-    PyPtr(O* o) : _obj(o) {}
-
-    O* operator->() { return _obj; }
-
-    operator O*() { return _obj; }
-
-    PyPtr& operator=(O* o) {
-      Py_DecRef((PyObject*)_obj);
-      _obj = o;
-      return *this;
-    }
-
-    PyPtr& operator=(PyPtr& ptr) {
-      Py_IncRef((PyObject*)ptr._obj);
-      *this = ptr._obj;
-      return *this;
-    }
-
-    ~PyPtr() { Py_DecRef((PyObject*)_obj); }
-
-   private:
-    O* _obj;
-  };
-
-  int getPythonInfo(std::string& filename, int& lineno, int& bytei) {
-    // No python, no python stack.  Also, the stack is a property of the
-    // thread state; no thread state, no python stack.
-    if (!Py_IsInitialized() || PyGILState_GetThisThreadState() == 0) {
-      return 0;
-    }
-
-    // This function walks the Python stack until it finds a frame
-    // corresponding to a file we are actually profiling. On success,
-    // it updates filename, lineno, and byte code index appropriately,
-    // and returns 1.  If the stack walk encounters no such file, it
-    // sets the filename to the pseudo-filename "<BOGUS>" for special
-    // treatment within Scalene, and returns 0.
-    filename = "<BOGUS>";
-    lineno = 1;
-    bytei = 0;
-    GIL gil;
-
-    for (auto frame = PyEval_GetFrame(); frame != nullptr;
-         frame = frame->f_back) {
-      auto fname = frame->f_code->co_filename;
-      PyPtr<> encoded = PyUnicode_AsASCIIString(fname);
-      if (!encoded) {
-        return 0;
-      }
-
-      auto filenameStr = PyBytes_AsString(encoded);
-      if (strlen(filenameStr) == 0) {
-        continue;
-      }
-
-      if (!strstr(filenameStr, "<") && !strstr(filenameStr, "/python") &&
-          !strstr(filenameStr, "scalene/scalene")) {
-        bool should_trace = false;
-        if (py_string_ptr_list.initialized())
-          should_trace = py_string_ptr_list.should_trace(filenameStr);
-        if (should_trace == 1) {
-#if defined(PyPy_FatalError)
-          // If this macro is defined, we are compiling PyPy, which
-          // AFAICT does not have any way to access bytecode index, so
-          // we punt and set it to 0.
-          bytei = 0;
-#else
-          bytei = frame->f_lasti;
-#endif
-          lineno = PyCode_Addr2Line(frame->f_code, bytei);
-
-          filename = filenameStr;
-          // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
-          return 1;
-        }
-      }
-    }
-    return 0;
-  }
-
   // Prevent copying and assignment.
   SampleHeap(const SampleHeap&) = delete;
   SampleHeap& operator=(const SampleHeap&) = delete;

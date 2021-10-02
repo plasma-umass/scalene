@@ -9,13 +9,10 @@ C_SOURCES = src/source/libscalene.cpp src/source/get_line_atomic.cpp src/include
 CXXFLAGS = -std=c++17 -g -O3 -DNDEBUG -D_REENTRANT=1 -pipe -fno-builtin-malloc -fvisibility=hidden
 CXX = g++
 
-PYTHON_INCLUDE := $(shell python3 -c "from sysconfig import get_paths as gp; print(gp()['include'])")
-PYTHON_LIBRARY := $(shell python3 -m find_libpython)
-
 INCLUDES  = -Isrc -Isrc/include
 INCLUDES := $(INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility
 INCLUDES := $(INCLUDES) -Ivendor/printf
-INCLUDES := $(INCLUDES) -I$(PYTHON_INCLUDE)
+INCLUDES := $(INCLUDES) $(shell python3-config --includes)
 
 ifeq ($(shell uname -s),Darwin)
   LIBFILE := lib$(LIBNAME).dylib
@@ -26,7 +23,6 @@ ifeq ($(shell uname -s),Darwin)
     ARCH := -arch x86_64
   endif
   CXXFLAGS := $(CXXFLAGS) -flto -ftls-model=initial-exec -ftemplate-depth=1024 $(ARCH) -compatibility_version 1 -current_version 1 -dynamiclib
-  RPATH_FLAGS := -Wl,-rpath $(shell dirname $(PYTHON_LIBRARY))
   SED_INPLACE = -i ''
 
 else # non-Darwin
@@ -46,10 +42,10 @@ OUTDIR=scalene
 all: $(OUTDIR)/$(LIBFILE)
 
 $(OUTDIR)/$(LIBFILE): vendor/Heap-Layers $(SRC) $(C_SOURCES) GNUmakefile
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread $(RPATH_FLAGS) $(PYTHON_LIBRARY)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread
 
 clean:
-	rm -f $(OUTDIR)/$(LIBFILE) scalene/get_line_atomic*.so
+	rm -f $(OUTDIR)/$(LIBFILE) scalene/*.so scalene/*.dylib
 	rm -rf $(OUTDIR)/$(LIBFILE).dSYM
 	rm -rf scalene.egg-info
 	rm -rf build dist *egg-info
@@ -77,9 +73,9 @@ clang-format:
 black:
 	-black -l 79 $(PYTHON_SOURCES)
 
-#ifeq ($(shell uname -s),Darwin)
-#  PYTHON_PLAT:=-p $(shell $(PYTHON) -c 'from pkg_resources import get_build_platform; p=get_build_platform(); print(p[:p.rindex("-")])')-universal2
-#endif
+ifeq ($(shell uname -s),Darwin)
+  PYTHON_PLAT:=-p $(shell $(PYTHON) -c 'from pkg_resources import get_build_platform; p=get_build_platform(); print(p[:p.rindex("-")])')-universal2
+endif
 
 PYTHON_API_VER:=$(shell $(PYTHON) -c 'from pip._vendor.packaging.tags import interpreter_name, interpreter_version; print(interpreter_name()+interpreter_version())')
 
