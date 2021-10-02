@@ -1438,7 +1438,6 @@ class Scalene:
                         Scalene.__program_path = program_path
                     # Grab local and global variables.
                     if not Scalene.__args.cpu_only:
-                        sys.setdlopenflags(os.RTLD_GLOBAL|sys.getdlopenflags())
                         from scalene import pywhere
 
                         pywhere.register_files_to_profile(
