@@ -274,7 +274,7 @@ class MakeLocalAllocator {
 
 
 // from pywhere.hpp
-decltype(p_whereInPython) __attribute((visibility("default"))) p_whereInPython = 0;
+decltype(p_whereInPython) __attribute((visibility("default"))) p_whereInPython{nullptr};
 
 
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
