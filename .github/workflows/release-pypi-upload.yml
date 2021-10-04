@@ -31,16 +31,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python_version: ['3.7', '3.8', '3.9']
-        os: ['ubuntu-latest', 'macos-latest']
+#        python_version: ['3.7', '3.8', '3.9']
+#        os: ['ubuntu-latest', 'macos-latest']
         include:
-          - os: ubuntu-latest
-            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
-          - os: macos-latest
-            python_version: 3.7
-            upload_source: true   # just need ONE of them to do it
-#          - os: windows-latest
-#            python_version: 3.8
+#          - os: ubuntu-latest
+#            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
+#          - os: macos-latest
+#            python_version: 3.7
+#            upload_source: true   # just need ONE of them to do it
+          - os: windows-latest
+            python_version: 3.8
 
     container: ${{ matrix.container }}
     env:
