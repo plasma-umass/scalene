@@ -67,7 +67,6 @@ class SampleHeap : public SuperHeap {
       signal(FreeSignal, old_free);
     }
     get_signal_init_lock().unlock();
-    int pid = getpid();
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void* malloc(size_t sz) {
