@@ -277,9 +277,9 @@ class MemcpySampler {
     }
   }
 
+  uint64_t _interval;
   uint64_t _memcpyOps;
   unsigned long long _memcpyTriggered;
-  uint64_t _interval;
   static constexpr int FILENAME_LENGTH = 255;
   char scalene_memcpy_signal_filename[FILENAME_LENGTH];
 
