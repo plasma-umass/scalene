@@ -78,6 +78,11 @@ class SampleFile {
     // This is a miserable hack that does not deserve to exist
     int init_fd = open(_init_filename, O_CREAT | O_RDWR, perms);
     int res = flock(init_fd, LOCK_EX);
+    if (res) {
+      fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
+              __LINE__);
+      abort();
+    }
     char buf[4];
     memset(buf, 0, 4);
     // A samplefile may be initialized
