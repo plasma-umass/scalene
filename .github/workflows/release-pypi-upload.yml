@@ -55,11 +55,14 @@ jobs:
         with:
           name: devN
 
-      - name: set up to use .devN name if a test build
-        if: env.TWINE_REPOSITORY == 'testpypi'
-        run: |
-          echo "DEV_BUILD=$(cat devN.txt)" >> $GITHUB_ENV  # for setup.py
+      - name: set up to use .devN name if a test build (Unix version)
+        if: env.TWINE_REPOSITORY == 'testpypi' && matrix.os != 'windows-latest'
+        run: echo "DEV_BUILD=$(cat devN.txt)" >> $GITHUB_ENV  # for setup.py
   
+      - name: set up to use .devN name if a test build (Windows version)
+        if: env.TWINE_REPOSITORY == 'testpypi' && matrix.os == 'windows-latest'
+        run: ("DEV_BUILD=" + (get-content devN.txt)) >> $env:GITHUB_ENV  # for setup.py
+
       - uses: actions/checkout@v2
   
       - name: Set up python (script version)
