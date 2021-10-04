@@ -141,7 +141,7 @@ setup(
         "wheel==0.36.2",
         "numpy"
     ],
-    ext_modules=[get_line_atomic, pywhere],
+    ext_modules=[get_line_atomic] + ([pywhere] if sys.platform != 'win32' else []), 
     setup_requires=['setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
