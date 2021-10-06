@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import os
 import platform
 import scalene
@@ -65,14 +66,12 @@ class ScalenePreload:
                 "Scalene warning: currently only 64-bit x86-64 and ARM platforms are supported for memory and copy profiling."
             )
 
-        try:
+        with contextlib.suppress(BaseException):
             from IPython import get_ipython
 
             if get_ipython():
                 sys.exit = Scalene.clean_exit  # type: ignore
                 sys._exit = Scalene.clean_exit  # type: ignore
-        except:
-            pass
 
         # Start a subprocess with the required environment variables,
         # which may include preloading libscalene
@@ -86,7 +85,7 @@ class ScalenePreload:
                 "scalene",
             ] + sys.argv[1:]
             result = subprocess.Popen(new_args, close_fds=True, shell=False)
-            try:
+            with contextlib.suppress(BaseException):
                 # If running in the background, print the PID.
                 if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                     # In the background.
@@ -97,8 +96,6 @@ class ScalenePreload:
                     print(
                         f"  to resume profiling:  python3 -m scalene.profile --on  --pid {result.pid}"
                     )
-            except:
-                pass
             try:
                 result.wait()
             except KeyboardInterrupt:

@@ -10,6 +10,7 @@ from typing import (
 )
 from textwrap import dedent
 import argparse
+import contextlib
 import sys
 
 
@@ -41,14 +42,12 @@ class ScaleneParseArgs:
     @staticmethod
     def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         # In IPython, intercept exit cleanly (because sys.exit triggers a backtrace).
-        try:
+        with contextlib.suppress(BaseException):
             from IPython import get_ipython
 
             if get_ipython():
                 sys.exit = ScaleneParseArgs.clean_exit
                 sys._exit = ScaleneParseArgs.clean_exit  # type: ignore
-        except:
-            pass
         defaults = ScaleneArguments()
         usage = dedent(
             f"""[b]Scalene[/b]: a high-precision CPU and memory profiler, version {scalene_version}
