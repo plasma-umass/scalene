@@ -1,6 +1,6 @@
 import contextlib
 
-with contextlib.suppress(BaseException):
+with contextlib.suppress(Exception):
     from IPython.core.magic import (
         Magics,
         magics_class,

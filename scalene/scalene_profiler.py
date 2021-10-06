@@ -450,7 +450,7 @@ class Scalene:
         try:
             Scalene.__malloc_mapfile = ScaleneMapFile("malloc")
             Scalene.__memcpy_mapfile = ScaleneMapFile("memcpy")
-        except BaseException as exc:
+        except:
             # Ignore if we aren't profiling memory; otherwise, exit.
             if not arguments.cpu_only:
                 sys.exit(-1)
@@ -1277,7 +1277,7 @@ class Scalene:
             signal.signal(Scalene.__signals.free_signal, signal.SIG_IGN)
             signal.signal(Scalene.__signals.memcpy_signal, signal.SIG_IGN)
             Scalene.stop_signal_queues()
-        except BaseException:
+        except:
             # Retry just in case we get interrupted by one of our own signals.
             if retry:
                 Scalene.disable_signals(retry=False)
@@ -1287,10 +1287,10 @@ class Scalene:
         """When we exit, disable all signals."""
         Scalene.disable_signals()
         # Delete the temporary directory.
-        with contextlib.suppress(BaseException):
+        with contextlib.suppress(Exception):
             if not Scalene.__pid:
                 Scalene.__python_alias_dir.cleanup()  # type: ignore
-        with contextlib.suppress(BaseException):
+        with contextlib.suppress(Exception):
             os.remove(f"/tmp/scalene-malloc-lock{os.getpid()}")
 
     @staticmethod
@@ -1322,7 +1322,7 @@ class Scalene:
             # Cleanly handle keyboard interrupts (quits execution and dumps the profile).
             print("Scalene execution interrupted.")
             pass
-        except BaseException as e:
+        except Exception as e:
             print("Error in program being profiled:\n", e)
             traceback.print_exc()
         finally:
@@ -1377,7 +1377,7 @@ class Scalene:
 
         did_preload = ScalenePreload.setup_preload(args)
         if not did_preload:
-            with contextlib.suppress(BaseException):
+            with contextlib.suppress(Exception):
                 # If running in the background, print the PID.
                 if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                     # In the background.
@@ -1390,7 +1390,7 @@ class Scalene:
                     )
         Scalene.__stats.clear_all()
         sys.argv = left
-        with contextlib.suppress(BaseException):
+        with contextlib.suppress(Exception):
             multiprocessing.set_start_method("fork")
         try:
             Scalene.process_args(args)
@@ -1398,7 +1398,7 @@ class Scalene:
                 # Look for something ending in '.py'. Treat the first one as our executable.
                 progs = [x for x in sys.argv if re.match(".*\.py$", x)]
                 # Just in case that didn't work, try sys.argv[0] and __file__.
-                with contextlib.suppress(BaseException):
+                with contextlib.suppress(Exception):
                     progs.append(sys.argv[0])
                     progs.append(__file__)
                 with open(progs[0], "rb") as prog_being_profiled:
@@ -1470,11 +1470,11 @@ class Scalene:
             pass
         except StopJupyterExecution:
             pass
-        except BaseException:
+        except Exception:
             print("Scalene failed to initialize.\n" + traceback.format_exc())
             sys.exit(-1)
         finally:
-            with contextlib.suppress(BaseException):
+            with contextlib.suppress(Exception):
                 Scalene.__malloc_mapfile.close()
                 Scalene.__memcpy_mapfile.close()
                 if not Scalene.__is_child:

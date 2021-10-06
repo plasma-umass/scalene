@@ -66,7 +66,7 @@ class ScalenePreload:
                 "Scalene warning: currently only 64-bit x86-64 and ARM platforms are supported for memory and copy profiling."
             )
 
-        with contextlib.suppress(BaseException):
+        with contextlib.suppress(Exception):
             from IPython import get_ipython
 
             if get_ipython():
@@ -85,7 +85,7 @@ class ScalenePreload:
                 "scalene",
             ] + sys.argv[1:]
             result = subprocess.Popen(new_args, close_fds=True, shell=False)
-            with contextlib.suppress(BaseException):
+            with contextlib.suppress(Exception):
                 # If running in the background, print the PID.
                 if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                     # In the background.

@@ -8,7 +8,7 @@ class ScaleneGPU:
         self.__ngpus = 0
         self.__has_gpu = False
         self.__handle = []
-        with contextlib.suppress(BaseException):
+        with contextlib.suppress(Exception):
             pynvml.nvmlInit()
             self.__has_gpu = True
             self.__ngpus = pynvml.nvmlDeviceGetCount()
@@ -20,7 +20,7 @@ class ScaleneGPU:
 
     def nvml_reinit(self) -> None:
         self.__handle = []
-        with contextlib.suppress(BaseException):
+        with contextlib.suppress(Exception):
             pynvml.nvmlInit()
             self.__ngpus = pynvml.nvmlDeviceGetCount()
             for i in range(self.__ngpus):
@@ -30,7 +30,7 @@ class ScaleneGPU:
         if self.__has_gpu:
             total_load = 0.0
             for i in range(self.__ngpus):
-                with contextlib.suppress(BaseException):
+                with contextlib.suppress(Exception):
                     total_load += pynvml.nvmlDeviceGetUtilizationRates(
                         self.__handle[i]
                     ).gpu
