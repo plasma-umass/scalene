@@ -1,1 +1,1 @@
-scalene_version = "1.3.14"
+scalene_version = "1.3.15"
