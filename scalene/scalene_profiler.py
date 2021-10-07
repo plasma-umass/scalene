@@ -228,7 +228,7 @@ class Scalene:
             sys.settrace(None)
             return None
         f = frame
-        if f.f_code.co_filename[0] == "<" or "scalene" in f.f_code.co_filename:
+        if f.f_code.co_filename and (f.f_code.co_filename[0] == "<" or "scalene" in f.f_code.co_filename):
             # Don't trace this scope, since it is executing inside of Scalene or Python internals.
             f.f_trace_lines = False
             return None
