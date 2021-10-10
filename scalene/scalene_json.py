@@ -93,13 +93,16 @@ class ScaleneJSON:
         # print(fname, line_no, n_malloc_mb, n_mallocs)
 
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
-        n_sys_percent = n_cpu_percent * (
-            1.0 - (stats.cpu_utilization[fname][line_no].mean())
-        )
-
+        
         # Adjust CPU time by utilization.
-        n_cpu_percent_python *= stats.cpu_utilization[fname][line_no].mean()
-        n_cpu_percent_c *= stats.cpu_utilization[fname][line_no].mean()
+        mean_cpu_util = stats.cpu_utilization[fname][line_no].mean()
+        n_sys_percent = n_cpu_percent * (
+            1.0 - mean_cpu_util
+        )
+        n_cpu_percent_python *= mean_cpu_util
+        n_cpu_percent_c *= mean_cpu_util
+        print(line_no, mean_cpu_util)
+        del mean_cpu_util
 
         n_copy_b = stats.memcpy_samples[fname][line_no]
         if stats.elapsed_time:
