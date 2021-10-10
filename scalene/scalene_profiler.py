@@ -690,7 +690,7 @@ class Scalene:
         elapsed_user = now_user - prev_user
         elapsed_sys = now_sys - prev_sys
         try:
-            cpu_utilization = elapsed_user / (elapsed_user + elapsed_sys)
+            cpu_utilization = elapsed_user / elapsed_wallclock
         except ZeroDivisionError:
             cpu_utilization = 0.0
         # Deal with an odd case reported here: https://github.com/plasma-umass/scalene/issues/124
