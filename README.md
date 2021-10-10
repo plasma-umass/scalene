@@ -1,15 +1,15 @@
 ![scalene](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-image.png)
 
-# scalene: a high-performance CPU, GPU and memory profiler for Python
+# Scalene: a high-performance CPU, GPU and memory profiler for Python
 
 by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), and [Juan Altmayer Pizzorno](https://github.com/jaltmayerpizzorno).
 
 [Scalene Discord channel](https://discord.gg/6Dtaf6HW3m)
 
 [![PyPI Latest Release](https://img.shields.io/pypi/v/scalene.svg)](https://pypi.org/project/scalene/)[![Downloads](https://pepy.tech/badge/scalene)](https://pepy.tech/project/scalene) [![Downloads](https://pepy.tech/badge/scalene/month)](https://pepy.tech/project/scalene) ![Python versions](https://img.shields.io/pypi/pyversions/scalene.svg?style=flat-square) ![License](https://img.shields.io/github/license/plasma-umass/scalene) [![Twitter Follow](https://img.shields.io/twitter/follow/emeryberger.svg?style=social)](https://twitter.com/emeryberger)
-------------
 
-# About Scalene
+
+## About Scalene
 
 ```console
 pip install -U scalene
@@ -17,9 +17,9 @@ pip install -U scalene
 
 Scalene is a high-performance CPU, GPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
 
-## Scalene talk (PyCon US 2021)
+### Scalene talk (PyCon US 2021)
 
-Below is a talk presented at PyCon 2021 that walks through Scalene's advantages and how to use it to debug the performance of an application (and provides some technical details on its internals). We highly recommend watching this video!
+[This talk](https://youtu.be/5iEf-_7mM1k) presented at PyCon 2021 walks through Scalene's advantages and how to use it to debug the performance of an application (and provides some technical details on its internals). We highly recommend watching this video!
 
 [![Scalene presentation at PyCon 2021](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/images/scalene-video-img.png)](https://youtu.be/5iEf-_7mM1k "Scalene presentation at PyCon 2021")
 
@@ -81,7 +81,7 @@ Scalene has all of the following features, many of which only Scalene supports:
 ## Output
 
 Scalene prints annotated source code for the program being profiled
-(either as text or as HTML via the `--html` option) and any modules it
+(as text, JSON (`--json`), or HTML (`--html`)) and any modules it
 uses in the same directory or subdirectories (you can optionally have
 it `--profile-all` and only include files with at least a
 `--cpu-percent-threshold` of time).  Here is a snippet from
