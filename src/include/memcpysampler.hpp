@@ -165,9 +165,6 @@ void *memcpy_musl(void *dest, const void *src, size_t n) {
   return dest;
 }
 
-#if defined(__x86_64__)
-#include "rtememcpy.h"
-#endif
 #include "samplefile.hpp"
 
 template <uint64_t MemcpySamplingRateBytes>
@@ -238,7 +235,6 @@ class MemcpySampler {
     return ::memcpy(dst, src, n);
 #else
     return memcpy_musl(dst, src, n);
-    //    return rte_memcpy(dst, src, n);
 #endif
   }
 
