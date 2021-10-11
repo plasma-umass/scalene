@@ -2,6 +2,9 @@
 #ifndef MALLOCRECURSIONGUARD_H
 #define MALLOCRECURSIONGUARD_H
 
+#include <mutex>
+#include <pthread.h>
+
 #include "common.hpp"
 
 /**
