@@ -17,7 +17,6 @@
 #endif
 
 #include "printf.h"
-#include "rtememcpy.h"
 
 // Handles creation, deletion, and concurrency control
 // signal files in memory
