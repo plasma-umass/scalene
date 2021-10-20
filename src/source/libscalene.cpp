@@ -105,13 +105,11 @@ class MakeLocalAllocator {
     DL_FUNCTION(PyMem_GetAllocator);
     DL_FUNCTION(PyMem_SetAllocator);
 
-    if (dlPyMem_GetAllocator == nullptr || dlPyMem_SetAllocator == nullptr) {
-      fprintf(stderr, "Scalene: internal error: unable to find Python allocator functions\n");
-      abort();
+    if (dlPyMem_GetAllocator != nullptr && dlPyMem_SetAllocator != nullptr) {
+      // if these aren't found, chances are we were preloaded onto something other than Python
+      dlPyMem_GetAllocator(Domain, get_original_allocator());
+      dlPyMem_SetAllocator(Domain, &localAlloc);
     }
-
-    dlPyMem_GetAllocator(Domain, get_original_allocator());
-    dlPyMem_SetAllocator(Domain, &localAlloc);
   }
 
   ~MakeLocalAllocator() {

@@ -101,7 +101,6 @@ class ScaleneJSON:
         )
         n_cpu_percent_python *= mean_cpu_util
         n_cpu_percent_c *= mean_cpu_util
-        print(line_no, mean_cpu_util)
         del mean_cpu_util
 
         n_copy_b = stats.memcpy_samples[fname][line_no]
