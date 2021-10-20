@@ -134,7 +134,7 @@ setup(
         'build_ext': BuildExtCommand,
     },
     install_requires=[
-        "rich>=9.2.10",
+        "rich>=9.2.0",
         "cloudpickle>=1.5.0",
         "nvidia-ml-py==11.450.51",
         "wheel==0.36.2",
