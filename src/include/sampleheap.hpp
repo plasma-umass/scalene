@@ -75,7 +75,7 @@ class SampleHeap : public SuperHeap {
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
-    if (!g.wasInMalloc()) {
+    if (pythonDetected() && !g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
         register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
@@ -98,6 +98,7 @@ class SampleHeap : public SuperHeap {
     }
   }
 
+private:
   void process_malloc(size_t sampleMalloc, void* ptr) {
     std::string filename;
     int lineno;
@@ -119,13 +120,14 @@ class SampleHeap : public SuperHeap {
     }
   }
 
+public:
   ATTRIBUTE_ALWAYS_INLINE inline void free(void* ptr) {
     MallocRecursionGuard g;
 
     if (unlikely(ptr == nullptr)) {
       return;
     }
-    if (!g.wasInMalloc()) {
+    if (pythonDetected() && !g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       register_free(realSize, ptr);
     }
@@ -148,6 +150,7 @@ class SampleHeap : public SuperHeap {
     }
   }
 
+private:
   void process_free(size_t sampleFree) {
     std::string filename;
     int lineno;
@@ -165,13 +168,14 @@ class SampleHeap : public SuperHeap {
     }
   }
 
+public:
   void* memalign(size_t alignment, size_t sz) {
     MallocRecursionGuard g;
     auto ptr = SuperHeap::memalign(alignment, sz);
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
-    if (!g.wasInMalloc()) {
+    if (pythonDetected() && !g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
