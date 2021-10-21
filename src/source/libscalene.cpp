@@ -112,13 +112,6 @@ class MakeLocalAllocator {
     }
   }
 
-  ~MakeLocalAllocator() {
-    DL_FUNCTION(PyMem_SetAllocator);
-    if (dlPyMem_SetAllocator) {
-      dlPyMem_SetAllocator(Domain, get_original_allocator());
-    }
-  }
-
  private:
   static constexpr int SLACK = 0;
 

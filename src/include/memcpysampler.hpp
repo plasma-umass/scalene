@@ -15,6 +15,7 @@
 
 #include "printf.h"
 #include "sampler.hpp"
+#include "pywhere.hpp"
 
 #if !defined(__APPLE__) && !defined(_WIN32)
 #include <endian.h>
@@ -261,15 +262,17 @@ class MemcpySampler {
   }
 
   void incrementMemoryOps(int n) {
-    _memcpyOps += n;
-    auto sampleMemop = _memcpySampler.sample(n);
-    if (unlikely(sampleMemop)) {
-      writeCount();
-      _memcpyTriggered++;
-      _memcpyOps = 0;
+    if (pythonDetected()) {
+      _memcpyOps += n;
+      auto sampleMemop = _memcpySampler.sample(n);
+      if (unlikely(sampleMemop)) {
+        writeCount();
+        _memcpyTriggered++;
+        _memcpyOps = 0;
 #if !SCALENE_DISABLE_SIGNALS
-      raise(MemcpySignal);
+        raise(MemcpySignal);
 #endif
+      }
     }
   }
 

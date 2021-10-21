@@ -15,4 +15,14 @@ extern "C" int whereInPython(std::string& filename, int& lineno, int& bytei);
  */
 extern "C"  std::atomic<decltype(whereInPython)*> p_whereInPython;
 
+
+/**
+ * Returns whether the Python interpreter was detected.
+ * It's possible (and in fact happens for any fork/exec from within Python, given
+ * the preload environment variables) for libscalene to be preloaded onto a
+ * different executable.
+ */
+inline bool pythonDetected() {
+  return p_whereInPython != nullptr;
+}
 #endif
