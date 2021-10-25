@@ -2,6 +2,7 @@ from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from scalene.scalene_version import scalene_version
 from os import path, environ
+import platform
 import sys
 
 if sys.platform == 'darwin':
@@ -19,7 +20,11 @@ def multiarch_args():
     """Returns args requesting multi-architecture support, if applicable."""
     # On MacOS we build "universal2" packages, for both x86_64 and arm64/M1
     if sys.platform == 'darwin':
-        return ['-arch', 'x86_64', '-arch', 'arm64']
+        args = ['-arch', 'x86_64']
+        # ARM support was added in XCode 12, which requires MacOS 10.15.4
+        if [int(n) for n in platform.mac_ver()[0].split('.')] >= [10, 15, 4]:
+            args += ['-arch', 'arm64']
+        return args
     return []
 
 def extra_compile_args():
