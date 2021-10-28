@@ -26,10 +26,10 @@ if len(sys.argv) == 1 or args.pid == 0:
 
 try:
     if args.on:
-        os.kill(args.pid, ScaleneSignals.start_profiling_signal)
+        os.kill(args.pid, ScaleneSignals().start_profiling_signal)
         print("Scalene: profiling turned on.")
     else:
-        os.kill(args.pid, ScaleneSignals.stop_profiling_signal)
+        os.kill(args.pid, ScaleneSignals().stop_profiling_signal)
         print("Scalene: profiling turned off.")
 
 except ProcessLookupError:
