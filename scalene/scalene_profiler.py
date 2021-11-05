@@ -207,16 +207,21 @@ class Scalene:
         raise KeyboardInterrupt
 
     @staticmethod
+    def on_stack(frame: FrameType, fname: Filename, lineno: LineNumber) -> bool:
+        """Returns true iff the given filename and line number are anywhere on the stack starting at frame."""
+        found_frame = False
+        f = frame
+        while f:
+            if (f.f_code.co_filename, f.f_lineno) == (fname, lineno):
+                found_frame = True
+                break
+            f = cast(FrameType, f.f_back)
+        return found_frame
+        
+    @staticmethod
     def invalidate_lines(frame: FrameType, _event: str, _arg: str) -> Any:
-        # Mark the last_profiled information as invalid as soon as we execute a different line of code.
+        """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
         # FIXME this only correctly supports single-threaded programs at the moment.
-        if (
-            False
-        ):  # for testing purposes only - if true, measure overhead when on all the time.
-            try:
-                return Scalene.invalidate_lines
-            except:
-                return None
         try:
             # Stop tracing when we've invalidated or when we're done profiling.
             # This needs to be inside the try-except because during shutdown,
@@ -228,24 +233,19 @@ class Scalene:
             sys.settrace(None)
             return None
         f = frame
-        if f.f_code.co_filename and (f.f_code.co_filename[0] == "<" or "scalene" in f.f_code.co_filename):
+        if f.f_code.co_filename and (f.f_code.co_filename[0] == "<" or "scalene" in f.f_code.co_filename): ###
             # Don't trace this scope, since it is executing inside of Scalene or Python internals.
             f.f_trace_lines = False
             return None
-        if Scalene.__last_profiled != (f.f_code.co_filename, f.f_lineno):
-            # We've executed a different line. Mark this as
-            # invalidated and stop tracing IF we aren't still executing
-            # the last-profiled line at a higher scope.
-            while f:
-                if (f.f_code.co_filename, f.f_lineno) == Scalene.__last_profiled:
-                    # Still on the stack; keep tracing.
-                    return Scalene.invalidate_lines
-                f = cast(FrameType, f.f_back)
-            # Not on the stack anywhere - we are done tracing.
-            Scalene.__last_profiled_invalidated = True
-            sys.settrace(None)
-            return None
-        return Scalene.invalidate_lines
+        # Check to see if we've really executed a different line.
+        if Scalene.on_stack(frame, Scalene.__last_profiled[0], Scalene.__last_profiled[1]):
+            # Still on the stack; keep tracing.
+            return Scalene.invalidate_lines
+        # Not on the stack anywhere - we've executed a different line
+        # and so are done tracing.
+        Scalene.__last_profiled_invalidated = True
+        sys.settrace(None)
+        return None
 
     @classmethod
     def clear_metrics(cls) -> None:
@@ -272,7 +272,7 @@ class Scalene:
         # Record the file and function name
         Scalene.__files_to_profile[func.__code__.co_filename] = True
         Scalene.__functions_to_profile[func.__code__.co_filename][func] = True
-
+        
         @functools.wraps(func)
         def wrapper_profile(*args: Any, **kwargs: Any) -> Any:
             value = func(*args, **kwargs)
@@ -343,10 +343,17 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
+        if not Scalene.on_stack(this_frame, Scalene.__last_profiled[0], Scalene.__last_profiled[1]):
+            Scalene.__last_profiled_invalidated = True
+        if Scalene.__last_profiled_invalidated:
+            Scalene.__stats.memory_malloc_count[this_frame.f_code.co_filename][this_frame.f_lineno][this_frame.f_lasti] += 1
+            Scalene.__last_profiled_invalidated = False
+            Scalene.__last_profiled = (this_frame.f_code.co_filename, this_frame.f_lineno)
+        # Start tracing until we execute a different line of code.
+        sys.settrace(Scalene.invalidate_lines)
+        this_frame.f_trace_lines = True
         Scalene.__alloc_sigq.put((signum, this_frame))
         del this_frame
-        if not Scalene.__last_profiled_invalidated:  # and not sys.gettrace():
-            sys.settrace(Scalene.invalidate_lines)
 
     @staticmethod
     def free_signal_handler(
@@ -1038,9 +1045,6 @@ class Scalene:
                 bytei,
             ) = item
 
-            if Scalene.__last_profiled != (fname, lineno):
-                Scalene.__last_profiled_invalidated = True
-
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
             count /= 1024 * 1024
@@ -1055,17 +1059,6 @@ class Scalene:
                 )
                 stats.malloc_samples[fname] += 1
                 stats.total_memory_malloc_samples += count
-                # Check if we executed any other lines since the last sample.
-                if Scalene.__last_profiled_invalidated:
-                    # Yes, new line, so we bump the counter (used for later computing the average memory consumption).
-                    # print("MALLOC updating", fname, lineno, Scalene.__last_profiled, stats.memory_malloc_samples[fname][lineno][bytei])
-                    stats.memory_malloc_count[fname][lineno][bytei] += 1
-                    Scalene.__last_profiled = (fname, lineno)
-                    Scalene.__last_profiled_invalidated = False
-
-                else:
-                    # print("checked but nope: ", fname, lineno, Scalene.__last_profiled, Scalene.__last_profiled_invalidated)
-                    pass
             else:
                 assert action == "f" or action == "F"
                 curr -= count
