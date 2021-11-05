@@ -116,6 +116,10 @@ class Scalene:
         Filename("NADA"),
         LineNumber(0),
     )
+    __last_executed: Tuple[Filename, LineNumber] = (
+        Filename("NADA"),
+        LineNumber(0),
+    )
     __last_profiled_invalidated: bool = False
 
     # Support for @profile
@@ -245,6 +249,13 @@ class Scalene:
         # and so are done tracing.
         Scalene.__last_profiled_invalidated = True
         sys.settrace(None)
+        last_executed = frame
+        while last_executed:
+            if Scalene.should_trace(last_executed.f_code.co_filename):
+                break
+            last_executed = last_executed.f_back
+        if last_executed:
+            Scalene.__last_executed = (last_executed.f_code.co_filename, last_executed.f_lineno)
         return None
 
     @classmethod
@@ -343,9 +354,14 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        if not Scalene.on_stack(this_frame, Scalene.__last_profiled[0], Scalene.__last_profiled[1]):
-            Scalene.__last_profiled_invalidated = True
-        if Scalene.__last_profiled_invalidated:
+        while not Scalene.should_trace(this_frame.f_code.co_filename):
+            this_frame = this_frame.f_back
+        if not this_frame:
+            return None
+        this = (this_frame.f_code.co_filename, this_frame.f_lineno)
+        # if not Scalene.on_stack(this_frame, Scalene.__last_profiled[0], Scalene.__last_profiled[1]):
+        #     Scalene.__last_profiled_invalidated = True
+        if  this != Scalene.__last_profiled or this != Scalene.__last_executed:
             Scalene.__stats.memory_malloc_count[this_frame.f_code.co_filename][this_frame.f_lineno][this_frame.f_lasti] += 1
             Scalene.__last_profiled_invalidated = False
             Scalene.__last_profiled = (this_frame.f_code.co_filename, this_frame.f_lineno)
