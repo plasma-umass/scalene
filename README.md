@@ -11,19 +11,37 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 
 ## About Scalene
 
+Scalene is a high-performance CPU, GPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
+
+### Quick Start
+
+#### Installing Scalene:
+
 ```console
 pip install -U scalene
 ```
 
-Scalene is a high-performance CPU, GPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
+#### Using Scalene:
+
+Commonly used options:
+
+```console
+scalene your_prog.py                             # full profile
+python3 -m scalene your_prog.py                  # equivalent alternative
+scalene --cpu-only your_prog.py                  # only CPU/GPU
+scalene --reduced-profile your_prog.py           # only profile lines with significant usage
+scalene --html --outfile prof.html your_prog.py  # output HTML file 'prof.html'
+scalene --profile-interval 5.0 your_prog.py.     # output a new profile every five seconds
+scalene --help                                   # lists all options
+```
+
+## Scalene Overview
 
 ### Scalene talk (PyCon US 2021)
 
 [This talk](https://youtu.be/5iEf-_7mM1k) presented at PyCon 2021 walks through Scalene's advantages and how to use it to debug the performance of an application (and provides some technical details on its internals). We highly recommend watching this video!
 
 [![Scalene presentation at PyCon 2021](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/images/scalene-video-img.png)](https://youtu.be/5iEf-_7mM1k "Scalene presentation at PyCon 2021")
-
-## Scalene Overview
 
 ### Fast and Precise
 
