@@ -208,6 +208,18 @@ class Scalene:
         raise KeyboardInterrupt
 
     @staticmethod
+    def on_stack(frame: FrameType, fname: Filename, lineno: LineNumber) -> bool:
+        """Returns true iff the given filename and line number are anywhere on the stack starting at frame."""
+        found_frame = False
+        f = frame
+        while f:
+            if (f.f_code.co_filename, f.f_lineno) == (fname, lineno):
+                found_frame = True
+                break
+            f = cast(FrameType, f.f_back)
+        return found_frame
+
+    @staticmethod
     def invalidate_lines(frame: FrameType, _event: str, _arg: str) -> Any:
         """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
         # FIXME this only correctly supports single-threaded programs at the moment.
@@ -223,18 +235,19 @@ class Scalene:
         except:
             sys.settrace(None)
             return None
-        if Scalene.should_trace(frame.f_code.co_filename):
-            (fname, lineno, lasti) = Scalene.__last_profiled
-            if (frame.f_code.co_filename, frame.f_lineno) != (fname, lineno):
-                Scalene.__last_profiled_invalidated = True
-                # print("incrementing ", frame.f_code.co_filename, frame.f_lineno)
-                Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
-                Scalene.__last_profiled = ('NADA', 0, 0)
-                sys.settrace(None)
-            else:
-                return Scalene.invalidate_lines        
+        (fname, lineno, lasti) = Scalene.__last_profiled
+        # Check if we are still executing the same line of code or not.
+        if not Scalene.on_stack(frame, fname, lineno):
+            # Different line of code.
+            Scalene.__last_profiled_invalidated = True
+            Scalene.__last_profiled = ('NADA', 0, 0)
+            Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
+            sys.settrace(None)
+            return None
         else:
-            frame.f_trace_lines = False
+            return Scalene.invalidate_lines
+        #else:
+        #    frame.f_trace_lines = False
         return None
 
     @classmethod
@@ -333,6 +346,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
+        sys.settrace(None)
         # Walk the stack till we find a line of code in a file we are tracing.
         found_frame = False
         f = this_frame
@@ -342,23 +356,20 @@ class Scalene:
                 break
             f = cast(FrameType, f.f_back)
         if not found_frame:
-            # Edge case: this should never happen
             return
-        (fname, lineno, _lasti) = Scalene.__last_profiled
-        if not Scalene.__last_profiled_invalidated and ((f.f_code.co_filename, f.f_lineno) != (fname, lineno)):
-            Scalene.__last_profiled_invalidated = True
-            Scalene.__last_profiled = ('NADA', 0, 0)
-        if Scalene.__last_profiled_invalidated:
-            Scalene.__stats.memory_malloc_count[f.f_code.co_filename][f.f_lineno][f.f_lasti] += 1
-            Scalene.__last_profiled_invalidated = False
-            if found_frame:
-                Scalene.__last_profiled = (f.f_code.co_filename, f.f_lineno, f.f_lasti)
-                # Start tracing until we execute a different line of
-                # code in a file we are tracking.
-                f.f_trace = Scalene.invalidate_lines
-                f.f_trace_lines = True
-                sys.settrace(Scalene.invalidate_lines)
-                Scalene.__alloc_sigq.put((signum, f))
+        (fname, lineno, lasti) = Scalene.__last_profiled
+        if (not Scalene.__last_profiled_invalidated
+            and ((f.f_code.co_filename, f.f_lineno) != (fname, lineno))
+            and (fname != 'NADA')):
+            Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
+        Scalene.__last_profiled_invalidated = False
+        Scalene.__last_profiled = (f.f_code.co_filename, f.f_lineno, f.f_lasti)
+        # Start tracing until we execute a different line of
+        # code in a file we are tracking.
+        f.f_trace = Scalene.invalidate_lines
+        f.f_trace_lines = True
+        sys.settrace(Scalene.invalidate_lines)
+        Scalene.__alloc_sigq.put((signum, f))
         del this_frame
 
     @staticmethod
