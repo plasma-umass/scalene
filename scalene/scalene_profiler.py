@@ -227,24 +227,22 @@ class Scalene:
             # This needs to be inside the try-except because during shutdown,
             # the members of Scalene disappear.
             if Scalene.__last_profiled_invalidated or Scalene.__done:
+                Scalene.__last_profiled = ('NADA', 0)
                 sys.settrace(None)
                 return None
         except:
             sys.settrace(None)
             return None
-        f = frame
-        if f.f_code.co_filename and (f.f_code.co_filename[0] == "<" or "scalene" in f.f_code.co_filename): ###
-            # Don't trace this scope, since it is executing inside of Scalene or Python internals.
-            f.f_trace_lines = False
-            return None
-        # Check to see if we've really executed a different line.
-        if Scalene.on_stack(frame, Scalene.__last_profiled[0], Scalene.__last_profiled[1]):
-            # Still on the stack; keep tracing.
-            return Scalene.invalidate_lines
-        # Not on the stack anywhere - we've executed a different line
-        # and so are done tracing.
-        Scalene.__last_profiled_invalidated = True
-        sys.settrace(None)
+        if Scalene.should_trace(frame.f_code.co_filename):
+            if (frame.f_code.co_filename, frame.f_lineno) != Scalene.__last_profiled:
+                Scalene.__last_profiled_invalidated = True
+                Scalene.__stats.memory_malloc_count[frame.f_code.co_filename][frame.f_lineno][frame.f_lasti] += 1
+                Scalene.__last_profiled = ('NADA', 0)
+                sys.settrace(None)
+            else:
+                return Scalene.invalidate_lines        
+        else:
+            frame.f_trace_lines = False
         return None
 
     @classmethod
@@ -345,14 +343,28 @@ class Scalene:
     ) -> None:
         if not Scalene.on_stack(this_frame, Scalene.__last_profiled[0], Scalene.__last_profiled[1]):
             Scalene.__last_profiled_invalidated = True
+            Scalene.__last_profiled = ('NADA', 0)
         if Scalene.__last_profiled_invalidated:
+            # print(this_frame.f_code.co_filename, this_frame.f_lineno, Scalene.__last_profiled)
             Scalene.__stats.memory_malloc_count[this_frame.f_code.co_filename][this_frame.f_lineno][this_frame.f_lasti] += 1
             Scalene.__last_profiled_invalidated = False
-            Scalene.__last_profiled = (this_frame.f_code.co_filename, this_frame.f_lineno)
-        # Start tracing until we execute a different line of code.
-        sys.settrace(Scalene.invalidate_lines)
-        this_frame.f_trace_lines = True
-        Scalene.__alloc_sigq.put((signum, this_frame))
+            # Walk the stack till we find a line of code in a file we are tracing.
+            found_frame = False
+            f = this_frame
+            while f:
+                if Scalene.should_trace(f.f_code.co_filename):
+                    found_frame = True
+                    break
+                f = cast(FrameType, f.f_back)
+            if found_frame:
+                Scalene.__last_profiled = (f.f_code.co_filename, f.f_lineno)
+                # print(Scalene.__last_profiled)
+                # Start tracing until we execute a different line of
+                # code in a file we are tracking.
+                this_frame.f_trace = Scalene.invalidate_lines
+                this_frame.f_trace_lines = True
+                sys.settrace(Scalene.invalidate_lines)
+                Scalene.__alloc_sigq.put((signum, this_frame))
         del this_frame
 
     @staticmethod
