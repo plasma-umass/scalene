@@ -248,7 +248,6 @@ class Scalene:
             # Yes, still executing the same line of code.
             # If we are in a lower stack frame, disable further tracing.
             if frame.f_code.co_filename != fname:
-                ### print(frame.f_code.co_filename, fname)
                 frame.f_trace = None
                 frame.f_trace_lines = False
                 return None
@@ -375,6 +374,7 @@ class Scalene:
             f = cast(FrameType, f.f_back)
         if not found_frame:
             return
+        # print(f.f_code.co_filename, f.f_lineno)
         (fname, lineno, lasti) = Scalene.__last_profiled
         if (
             not Scalene.__last_profiled_invalidated
@@ -391,6 +391,8 @@ class Scalene:
         # Start tracing until we execute a different line of
         # code in a file we are tracking.
         Scalene.__alloc_sigq.put((signum, f))
+        f.f_trace = Scalene.invalidate_lines
+        f.f_trace_lines = True
         sys.settrace(Scalene.invalidate_lines)
         del this_frame
 
