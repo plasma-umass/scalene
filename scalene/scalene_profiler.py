@@ -112,10 +112,10 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
 
-    __last_profiled: Tuple[Filename, LineNumber] = (
+    __last_profiled: Tuple[Filename, LineNumber, ByteCodeIndex] = (
         Filename("NADA"),
         LineNumber(0),
-        int(0)
+        ByteCodeIndex(0)
     )
     __last_profiled_invalidated: bool = False
 
@@ -229,7 +229,7 @@ class Scalene:
             # the members of Scalene disappear.
             if Scalene.__last_profiled_invalidated or Scalene.__done:
                 Scalene.__last_profiled_invalidated = True
-                Scalene.__last_profiled = ('NADA', 0, 0)
+                Scalene.__last_profiled = (Filename('NADA'), LineNumber(0), ByteCodeIndex(0))
                 sys.settrace(None)
                 return None
         except:
@@ -240,7 +240,7 @@ class Scalene:
         if not Scalene.on_stack(frame, fname, lineno):
             # Different line of code.
             Scalene.__last_profiled_invalidated = True
-            Scalene.__last_profiled = ('NADA', 0, 0)
+            Scalene.__last_profiled = (Filename('NADA'), LineNumber(0), ByteCodeIndex(0))
             Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
             sys.settrace(None)
             return None
@@ -363,7 +363,7 @@ class Scalene:
             and (fname != 'NADA')):
             Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
         Scalene.__last_profiled_invalidated = False
-        Scalene.__last_profiled = (f.f_code.co_filename, f.f_lineno, f.f_lasti)
+        Scalene.__last_profiled = (Filename(f.f_code.co_filename), LineNumber(f.f_lineno), ByteCodeIndex(f.f_lasti))
         # Start tracing until we execute a different line of
         # code in a file we are tracking.
         f.f_trace = Scalene.invalidate_lines
