@@ -112,12 +112,12 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
 
-    __last_profiled: Tuple[Filename, LineNumber, ByteCodeIndex] = (
-        Filename("NADA"),
-        LineNumber(0),
-        ByteCodeIndex(0),
-    )
-    __last_profiled_invalidated: bool = False
+    __last_profiled = threading.local()
+    __last_profiled = (Filename("NADA"),  # type: ignore
+                       LineNumber(0),
+                       ByteCodeIndex(0))
+    __last_profiled_invalidated = threading.local()
+    __last_profiled_invalidated = False # type: ignore
 
     # Support for @profile
     # decorated files
@@ -224,14 +224,13 @@ class Scalene:
     @staticmethod
     def invalidate_lines(frame: FrameType, _event: str, _arg: str) -> Any:
         """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
-        # FIXME this only correctly supports single-threaded programs at the moment.
         try:
             # Stop tracing when we've invalidated or when we're done profiling.
             # This needs to be inside the try-except because during shutdown,
             # the members of Scalene disappear.
             if Scalene.__last_profiled_invalidated or Scalene.__done:
-                Scalene.__last_profiled_invalidated = True
-                Scalene.__last_profiled = (
+                Scalene.__last_profiled_invalidated = True # type: ignore
+                Scalene.__last_profiled = ( # type: ignore
                     Filename("NADA"),
                     LineNumber(0),
                     ByteCodeIndex(0),
@@ -256,8 +255,9 @@ class Scalene:
                 return Scalene.invalidate_lines
         
         # Different line of code. We're done.
-        Scalene.__last_profiled_invalidated = True
-        Scalene.__last_profiled = (
+        assert not Scalene.__last_profiled_invalidated
+        Scalene.__last_profiled_invalidated = True # type: ignore
+        Scalene.__last_profiled = (                # type: ignore
             Filename("NADA"),
             LineNumber(0),
             ByteCodeIndex(0),
@@ -382,8 +382,8 @@ class Scalene:
             and (fname != "NADA")
         ):
             Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
-        Scalene.__last_profiled_invalidated = False
-        Scalene.__last_profiled = (
+        Scalene.__last_profiled_invalidated = False # type: ignore
+        Scalene.__last_profiled = (                 # type: ignore
             Filename(f.f_code.co_filename),
             LineNumber(f.f_lineno),
             ByteCodeIndex(f.f_lasti),
