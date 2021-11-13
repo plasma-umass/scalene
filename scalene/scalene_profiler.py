@@ -112,12 +112,10 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
 
-    __last_profiled = threading.local()
-    __last_profiled = (Filename("NADA"),  # type: ignore
+    __last_profiled = (Filename("NADA"),
                        LineNumber(0),
                        ByteCodeIndex(0))
-    __last_profiled_invalidated = threading.local()
-    __last_profiled_invalidated = False # type: ignore
+    __last_profiled_invalidated = False
 
     # Support for @profile
     # decorated files
@@ -212,6 +210,7 @@ class Scalene:
         frame: FrameType, fname: Filename, lineno: LineNumber
     ) -> bool:
         """Returns true iff the given filename and line number are anywhere on the stack starting at frame."""
+        i = 0
         found_frame = False
         f = frame
         while f:
@@ -231,8 +230,8 @@ class Scalene:
             # This needs to be inside the try-except because during shutdown,
             # the members of Scalene disappear.
             if Scalene.__last_profiled_invalidated or Scalene.__done:
-                Scalene.__last_profiled_invalidated = True # type: ignore
-                Scalene.__last_profiled = ( # type: ignore
+                Scalene.__last_profiled_invalidated = True
+                Scalene.__last_profiled = (
                     Filename("NADA"),
                     LineNumber(0),
                     ByteCodeIndex(0),
@@ -245,21 +244,19 @@ class Scalene:
 
         # Check if we are still executing the same line of code or not (whether in this frame or one above it).
         (fname, lineno, lasti) = Scalene.__last_profiled
-        if ((frame.f_code.co_filename == fname) and (frame.f_lineno == lineno)) or Scalene.on_stack(frame, fname, lineno):
-            # Yes, still executing the same line of code.
-            # If we are in a lower stack frame, disable further tracing.
-            if frame.f_code.co_filename != fname:
-                frame.f_trace = None
-                frame.f_trace_lines = False
-                return None
-            else:
-                # Otherwise, keep tracing.
-                return Scalene.invalidate_lines
+        if ((frame.f_code.co_filename == fname) and (frame.f_lineno == lineno)):
+            # Same line, keep tracing.
+            return Scalene.invalidate_lines
+        if Scalene.on_stack(frame, fname, lineno):
+            # If we are in a lower stack frame, disable further tracing in this scope.
+            frame.f_trace = None
+            frame.f_trace_lines = False
+            return None
         
         # Different line of code. We're done.
         assert not Scalene.__last_profiled_invalidated
-        Scalene.__last_profiled_invalidated = True # type: ignore
-        Scalene.__last_profiled = (                # type: ignore
+        Scalene.__last_profiled_invalidated = True
+        Scalene.__last_profiled = (
             Filename("NADA"),
             LineNumber(0),
             ByteCodeIndex(0),
@@ -267,6 +264,7 @@ class Scalene:
         Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
         sys.settrace(None)
         frame.f_trace = None
+        frame.f_trace_lines = False
         return None
 
     @classmethod
@@ -384,8 +382,8 @@ class Scalene:
             and (fname != "NADA")
         ):
             Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
-        Scalene.__last_profiled_invalidated = False # type: ignore
-        Scalene.__last_profiled = (                 # type: ignore
+        Scalene.__last_profiled_invalidated = False
+        Scalene.__last_profiled = (
             Filename(f.f_code.co_filename),
             LineNumber(f.f_lineno),
             ByteCodeIndex(f.f_lasti),
