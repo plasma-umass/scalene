@@ -224,6 +224,8 @@ class Scalene:
     @staticmethod
     def invalidate_lines(frame: FrameType, _event: str, _arg: str) -> Any:
         """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
+        if _event != "line":
+            return
         try:
             # Stop tracing when we've invalidated or when we're done profiling.
             # This needs to be inside the try-except because during shutdown,
