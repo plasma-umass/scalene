@@ -35,7 +35,7 @@ scalene --profile-interval 5.0 your_prog.py.     # output a new profile every fi
 scalene --help                                   # lists all options
 ```
 
-Using Scalene programmatically in your code:
+To use Scalene programmatically in your code, invoke using `scalene` as above and then:
 
 ```Python
 import scalene
