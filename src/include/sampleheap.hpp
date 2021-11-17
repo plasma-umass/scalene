@@ -23,7 +23,6 @@
 
 #include "common.hpp"
 #include "mallocrecursionguard.hpp"
-#include "open_addr_hashtable.hpp"
 #include "printf.h"
 #include "pywhere.hpp"
 #include "samplefile.hpp"
