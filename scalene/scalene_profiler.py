@@ -111,7 +111,7 @@ class Scalene:
     __is_child = -1
     # the pid of the primary profiler
     __parent_pid = -1
-
+    __initialized: bool = False
     __last_profiled = (Filename("NADA"),
                        LineNumber(0),
                        ByteCodeIndex(0))
@@ -1262,6 +1262,10 @@ class Scalene:
     def start() -> None:
         """Initiate profiling."""
         # Scalene.clear_mmap_data()
+        if not Scalene.__initialized:
+            print("ERROR: Do not try to invoke `start` when you have not called Scalene using one of the methods"
+             "in https://github.com/plasma-umass/scalene#using-scalene")
+            sys.exit(-1)
         Scalene.__stats.start_clock()
         Scalene.enable_signals()
         Scalene.__done = False
@@ -1388,11 +1392,16 @@ class Scalene:
             args,
             left,
         ) = ScaleneParseArgs.parse_args()
+        Scalene.__initialized = True
         Scalene.run_profiler(args, left)
 
     @staticmethod
     def run_profiler(args: argparse.Namespace, left: List[str]) -> None:
         # Set up signal handlers for starting and stopping profiling.
+        if not Scalene.__initialized:
+            print("ERROR: Do not try to manually invoke `run_profiler`.\n"
+            "To invoke Scalene programmatically, see the usage noted in https://github.com/plasma-umass/scalene#using-scalene")
+            sys.exit(-1)
         signal.signal(
             Scalene.__signals.start_profiling_signal,
             Scalene.start_signal_handler,
