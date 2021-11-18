@@ -112,11 +112,10 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
     __initialized: bool = False
-    __last_profiled: Tuple[Filename, LineNumber] = (
-        Filename("NADA"),
-        LineNumber(0),
-    )
-    __last_profiled_invalidated: bool = False
+    __last_profiled = (Filename("NADA"),
+                       LineNumber(0),
+                       ByteCodeIndex(0))
+    __last_profiled_invalidated = False
 
     # Support for @profile
     # decorated files
@@ -207,8 +206,11 @@ class Scalene:
         raise KeyboardInterrupt
 
     @staticmethod
-    def on_stack(frame: FrameType, fname: Filename, lineno: LineNumber) -> bool:
+    def on_stack(
+        frame: FrameType, fname: Filename, lineno: LineNumber
+    ) -> bool:
         """Returns true iff the given filename and line number are anywhere on the stack starting at frame."""
+        i = 0
         found_frame = False
         f = frame
         while f:
@@ -217,34 +219,52 @@ class Scalene:
                 break
             f = cast(FrameType, f.f_back)
         return found_frame
-        
+
     @staticmethod
     def invalidate_lines(frame: FrameType, _event: str, _arg: str) -> Any:
         """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
-        # FIXME this only correctly supports single-threaded programs at the moment.
+        if _event != "line":
+            return
         try:
             # Stop tracing when we've invalidated or when we're done profiling.
             # This needs to be inside the try-except because during shutdown,
             # the members of Scalene disappear.
             if Scalene.__last_profiled_invalidated or Scalene.__done:
+                Scalene.__last_profiled_invalidated = True
+                Scalene.__last_profiled = (
+                    Filename("NADA"),
+                    LineNumber(0),
+                    ByteCodeIndex(0),
+                )
                 sys.settrace(None)
                 return None
         except:
             sys.settrace(None)
             return None
-        f = frame
-        if f.f_code.co_filename and (f.f_code.co_filename[0] == "<" or "scalene" in f.f_code.co_filename): ###
-            # Don't trace this scope, since it is executing inside of Scalene or Python internals.
-            f.f_trace_lines = False
-            return None
-        # Check to see if we've really executed a different line.
-        if Scalene.on_stack(frame, Scalene.__last_profiled[0], Scalene.__last_profiled[1]):
-            # Still on the stack; keep tracing.
+
+        # Check if we are still executing the same line of code or not (whether in this frame or one above it).
+        (fname, lineno, lasti) = Scalene.__last_profiled
+        if ((frame.f_code.co_filename == fname) and (frame.f_lineno == lineno)):
+            # Same line, keep tracing.
             return Scalene.invalidate_lines
-        # Not on the stack anywhere - we've executed a different line
-        # and so are done tracing.
+        if Scalene.on_stack(frame, fname, lineno):
+            # If we are in a lower stack frame, disable further tracing in this scope.
+            frame.f_trace = None
+            frame.f_trace_lines = False
+            return None
+        
+        # Different line of code. We're done.
+        assert not Scalene.__last_profiled_invalidated
         Scalene.__last_profiled_invalidated = True
+        Scalene.__last_profiled = (
+            Filename("NADA"),
+            LineNumber(0),
+            ByteCodeIndex(0),
+        )
+        Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
         sys.settrace(None)
+        frame.f_trace = None
+        frame.f_trace_lines = False
         return None
 
     @classmethod
@@ -272,7 +292,7 @@ class Scalene:
         # Record the file and function name
         Scalene.__files_to_profile[func.__code__.co_filename] = True
         Scalene.__functions_to_profile[func.__code__.co_filename][func] = True
-        
+
         @functools.wraps(func)
         def wrapper_profile(*args: Any, **kwargs: Any) -> Any:
             value = func(*args, **kwargs)
@@ -343,16 +363,37 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        if not Scalene.on_stack(this_frame, Scalene.__last_profiled[0], Scalene.__last_profiled[1]):
-            Scalene.__last_profiled_invalidated = True
-        if Scalene.__last_profiled_invalidated:
-            Scalene.__stats.memory_malloc_count[this_frame.f_code.co_filename][this_frame.f_lineno][this_frame.f_lasti] += 1
-            Scalene.__last_profiled_invalidated = False
-            Scalene.__last_profiled = (this_frame.f_code.co_filename, this_frame.f_lineno)
-        # Start tracing until we execute a different line of code.
+        sys.settrace(None)
+        # Walk the stack till we find a line of code in a file we are tracing.
+        found_frame = False
+        f = this_frame
+        while f:
+            if Scalene.should_trace(f.f_code.co_filename):
+                found_frame = True
+                break
+            f = cast(FrameType, f.f_back)
+        if not found_frame:
+            return
+        # print(f.f_code.co_filename, f.f_lineno)
+        (fname, lineno, lasti) = Scalene.__last_profiled
+        if (
+            not Scalene.__last_profiled_invalidated
+            and ((f.f_code.co_filename, f.f_lineno) != (fname, lineno))
+            and (fname != "NADA")
+        ):
+            Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
+        Scalene.__last_profiled_invalidated = False
+        Scalene.__last_profiled = (
+            Filename(f.f_code.co_filename),
+            LineNumber(f.f_lineno),
+            ByteCodeIndex(f.f_lasti),
+        )
+        # Start tracing until we execute a different line of
+        # code in a file we are tracking.
+        Scalene.__alloc_sigq.put((signum, f))
+        f.f_trace = Scalene.invalidate_lines
+        f.f_trace_lines = True
         sys.settrace(Scalene.invalidate_lines)
-        this_frame.f_trace_lines = True
-        Scalene.__alloc_sigq.put((signum, this_frame))
         del this_frame
 
     @staticmethod
@@ -834,7 +875,7 @@ class Scalene:
         frames.insert(
             0,
             (
-                sys._current_frames().get(tid, cast(FrameType,None)),
+                sys._current_frames().get(tid, cast(FrameType, None)),
                 tid,
             ),
         )

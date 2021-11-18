@@ -15,7 +15,7 @@
 #include "printf.h"
 
 #define SAMPLER_DETERMINISTIC 0
-#define SAMPLER_LOWDISCREPANCY 1
+#define SAMPLER_LOWDISCREPANCY 0
 
 #include <stdio.h>
 #include <time.h>
