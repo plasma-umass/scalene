@@ -34,7 +34,7 @@ static SampleFile& getSampleFile() {
 
   return mallocSampleFile;
 }
- 
+
 #define USE_ATOMICS 0
 
 #if USE_ATOMICS
@@ -97,7 +97,7 @@ class SampleHeap : public SuperHeap {
     }
   }
 
-private:
+ private:
   void process_malloc(size_t sampleMalloc, void* ptr) {
     std::string filename;
     int lineno;
@@ -119,7 +119,7 @@ private:
     }
   }
 
-public:
+ public:
   ATTRIBUTE_ALWAYS_INLINE inline void free(void* ptr) {
     MallocRecursionGuard g;
 
@@ -149,7 +149,7 @@ public:
     }
   }
 
-private:
+ private:
   void process_free(size_t sampleFree) {
     std::string filename;
     int lineno;
@@ -167,7 +167,7 @@ private:
     }
   }
 
-public:
+ public:
   void* memalign(size_t alignment, size_t sz) {
     MallocRecursionGuard g;
     auto ptr = SuperHeap::memalign(alignment, sz);

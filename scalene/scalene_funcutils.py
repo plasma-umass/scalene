@@ -25,6 +25,10 @@ class ScaleneFuncUtils:
     @lru_cache(maxsize=None)
     def is_call_function(code: CodeType, bytei: ByteCodeIndex) -> bool:
         """Returns true iff the bytecode at the given index is a function call."""
-        return any((ins.offset == bytei
-                    and ins.opcode in ScaleneFuncUtils.__call_opcodes)
-                   for ins in dis.get_instructions(code))
+        return any(
+            (
+                ins.offset == bytei
+                and ins.opcode in ScaleneFuncUtils.__call_opcodes
+            )
+            for ins in dis.get_instructions(code)
+        )

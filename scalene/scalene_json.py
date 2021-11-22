@@ -93,12 +93,10 @@ class ScaleneJSON:
         # print(fname, line_no, n_malloc_mb, n_mallocs)
 
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
-        
+
         # Adjust CPU time by utilization.
         mean_cpu_util = stats.cpu_utilization[fname][line_no].mean()
-        n_sys_percent = n_cpu_percent * (
-            1.0 - mean_cpu_util
-        )
+        n_sys_percent = n_cpu_percent * (1.0 - mean_cpu_util)
         n_cpu_percent_python *= mean_cpu_util
         n_cpu_percent_c *= mean_cpu_util
         del mean_cpu_util
@@ -257,20 +255,24 @@ class ScaleneJSON:
                         if any(o_copy.values()):
                             output["files"][fname]["lines"].append(o)
             fn_stats = stats.build_function_stats(fname)
-            output['files'][fname]['functions'] = []
+            output["files"][fname]["functions"] = []
             for fn_name in sorted(
                 fn_stats.cpu_samples_python,
                 key=lambda k: stats.firstline_map[k],
             ):
-                o = self.output_profile_line(fname=fn_name, line_no=LineNumber(
-                    1), stats=fn_stats, profile_this_code=profile_this_code,
-                        profile_memory=profile_memory,
-                        force_print=False)
+                o = self.output_profile_line(
+                    fname=fn_name,
+                    line_no=LineNumber(1),
+                    stats=fn_stats,
+                    profile_this_code=profile_this_code,
+                    profile_memory=profile_memory,
+                    force_print=False,
+                )
                 if o:
                     o_copy = copy.copy(o)
-                    del o_copy['line']
-                    del o_copy['lineno']
-                    o_copy['fn_name'] = fn_name
-                    output['files'][fname]['functions'].append(o_copy)
+                    del o_copy["line"]
+                    del o_copy["lineno"]
+                    o_copy["fn_name"] = fn_name
+                    output["files"][fname]["functions"].append(o_copy)
 
         return output

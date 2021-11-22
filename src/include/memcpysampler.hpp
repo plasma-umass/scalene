@@ -14,8 +14,8 @@
 #endif
 
 #include "printf.h"
-#include "sampler.hpp"
 #include "pywhere.hpp"
+#include "sampler.hpp"
 
 #if !defined(__APPLE__) && !defined(_WIN32)
 #include <endian.h>

@@ -90,7 +90,8 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 #define USE_HEADERS 1
 #define DEBUG_HEADER 0
 
-#define DL_FUNCTION(name) static decltype(name)* dl##name = (decltype(name)*) dlsym(RTLD_DEFAULT, #name)
+#define DL_FUNCTION(name) \
+  static decltype(name) *dl##name = (decltype(name) *)dlsym(RTLD_DEFAULT, #name)
 
 template <PyMemAllocatorDomain Domain>
 class MakeLocalAllocator {
@@ -106,7 +107,8 @@ class MakeLocalAllocator {
     DL_FUNCTION(PyMem_SetAllocator);
 
     if (dlPyMem_GetAllocator != nullptr && dlPyMem_SetAllocator != nullptr) {
-      // if these aren't found, chances are we were preloaded onto something other than Python
+      // if these aren't found, chances are we were preloaded onto something
+      // other than Python
       dlPyMem_GetAllocator(Domain, get_original_allocator());
       dlPyMem_SetAllocator(Domain, &localAlloc);
     }
@@ -117,10 +119,10 @@ class MakeLocalAllocator {
 
   PyMemAllocatorEx localAlloc;
 
-  static inline PyMemAllocatorEx* get_original_allocator() {
-      // poor man's "static inline" member
-      static PyMemAllocatorEx original_allocator;
-      return &original_allocator;
+  static inline PyMemAllocatorEx *get_original_allocator() {
+    // poor man's "static inline" member
+    static PyMemAllocatorEx original_allocator;
+    return &original_allocator;
   }
 
   static inline void *local_malloc(void *ctx, size_t len) {
@@ -130,9 +132,8 @@ class MakeLocalAllocator {
     }
 #endif
 #if USE_HEADERS
-    auto *header =
-        new (get_original_allocator()->malloc(ctx, len + SLACK + sizeof(Header)))
-            Header(len);
+    auto *header = new (get_original_allocator()->malloc(
+        ctx, len + SLACK + sizeof(Header))) Header(len);
 #else
     auto *header = (Header *)get_original_allocator().malloc(ctx, len + SLACK);
 #endif
@@ -263,10 +264,9 @@ class MakeLocalAllocator {
   }
 };
 
-
 // from pywhere.hpp
-decltype(p_whereInPython) __attribute((visibility("default"))) p_whereInPython{nullptr};
-
+decltype(p_whereInPython) __attribute((visibility("default")))
+p_whereInPython{nullptr};
 
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;

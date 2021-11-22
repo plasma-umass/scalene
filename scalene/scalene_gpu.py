@@ -1,6 +1,7 @@
 import contextlib
 import pynvml
 
+
 class ScaleneGPU:
     """A wrapper around the nvidia device driver library (nvidia-ml-py)."""
 

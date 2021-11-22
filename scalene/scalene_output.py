@@ -585,11 +585,13 @@ class ScaleneOutput:
                         stats.memory_malloc_samples[fname][line_no][
                             bytecode_index
                         ]
-                        #- stats.memory_free_samples[fname][line_no][
+                        # - stats.memory_free_samples[fname][line_no][
                         #    bytecode_index
-                        #]
+                        # ]
                     )
-                    count = stats.memory_malloc_count[fname][line_no][bytecode_index]
+                    count = stats.memory_malloc_count[fname][line_no][
+                        bytecode_index
+                    ]
                     if count:
                         avg_mallocs[line_no] /= count
 
@@ -615,7 +617,9 @@ class ScaleneOutput:
                         break
                     # Print the header only if we are printing something (and only once).
                     if not printed_header:
-                        console.print("Top average memory consumption, by line:")
+                        console.print(
+                            "Top average memory consumption, by line:"
+                        )
                         printed_header = True
                     output_str = (
                         "("
