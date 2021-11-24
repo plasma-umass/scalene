@@ -44,7 +44,7 @@ typedef std::atomic<uint64_t> counterType;
 typedef uint64_t counterType;
 #endif
 
-template <uint64_t MallocSamplingRateBytes, uint64_t FreeSamplingRateBytes,
+template <uint64_t AllocationSamplingRateBytes, // uint64_t FreeSamplingRateBytes,
           class SuperHeap>
 class SampleHeap : public SuperHeap {
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
@@ -183,7 +183,7 @@ class SampleHeap : public SuperHeap {
   SampleHeap(const SampleHeap&) = delete;
   SampleHeap& operator=(const SampleHeap&) = delete;
 
-  SampleInterval<MallocSamplingRateBytes> _allocationSampler;
+  SampleInterval<AllocationSamplingRateBytes> _allocationSampler;
 
   static auto& mallocTriggered() {
     static std::atomic<uint64_t> _mallocTriggered{0};
