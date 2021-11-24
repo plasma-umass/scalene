@@ -32,10 +32,7 @@ public:
     uint64_t decrement(uint64_t sample) {
         _decrements += sample;
         if (_decrements >= _increments + _sampleInterval) {
-            _decrements = 0;
-            auto prevSampleInterval = _sampleInterval;
-            _sampleInterval = _dis(_gen);
-            return prevSampleInterval;
+            return resetInterval(sample);
         }
         return 0;
     }
@@ -49,16 +46,25 @@ public:
     uint64_t increment(uint64_t sample) {
         _increments += sample;
         if (_increments >=  _decrements + _sampleInterval) {
-            _increments = 0;
-            auto prevSampleInterval = _sampleInterval;
-            _sampleInterval = _dis(_gen);
-            return prevSampleInterval;;
+            return resetInterval(sample);
         }
         return 0;
     }
 
 private:
 
+    uint64_t resetInterval(uint64_t sample) {
+        uint64_t prev = _sampleInterval;
+        _sampleInterval = _dis(_gen);
+        _increments = 0;
+        _decrements = 0;
+        if (sample > prev) {
+            return sample;
+        } else {
+            return SAMPLE_INTERVAL;
+        }
+    }
+    
     std::random_device _rd; /// random device for generating random intervals
     std::mt19937_64 _gen;  /// random number generator
     std::uniform_int_distribution<> _dis; /// distribution for generating random intervals
