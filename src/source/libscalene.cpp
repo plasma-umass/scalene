@@ -28,27 +28,33 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t MallocSamplingRate = 2 * 1048576ULL;
-constexpr uint64_t FreeSamplingRate = MallocSamplingRate;
-constexpr uint64_t MemcpySamplingRate = MallocSamplingRate * 7;
+constexpr uint64_t AllocationSamplingRate = 2 * 1048576ULL;
+constexpr uint64_t MemcpySamplingRate = AllocationSamplingRate * 7;
 
+
+/**
+ * @brief the replacement heap for sampling purposes
+ * 
+ */
 class CustomHeapType
     : public HL::ThreadSpecificHeap<
-          SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>> {
+          SampleHeap<AllocationSamplingRate, BaseHeap>> {
   using super = HL::ThreadSpecificHeap<
-      SampleHeap<MallocSamplingRate, FreeSamplingRate, BaseHeap>>;
+      SampleHeap<AllocationSamplingRate, BaseHeap>>;
 
  public:
-  void *malloc(size_t sz) {
-    auto ptr = super::malloc(sz);
-    return ptr;
-  }
   void lock() {}
   void unlock() {}
 };
 
+
 HEAP_REDIRECT(CustomHeapType, 8 * 1024 * 1024);
 
+/**
+ * @brief Get the static MemcpySampler object
+ * 
+ * @return auto& the singleton sampling object
+ */
 auto &getSampler() {
   static MemcpySampler<MemcpySamplingRate> msamp;
   return msamp;
@@ -93,6 +99,12 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 #define DL_FUNCTION(name) \
   static decltype(name) *dl##name = (decltype(name) *)dlsym(RTLD_DEFAULT, #name)
 
+/**
+ * @brief replace local Python allocators with our own sampling variants
+ * 
+ * @tparam Domain the Python domain of allocator we replace
+ */
+
 template <PyMemAllocatorDomain Domain>
 class MakeLocalAllocator {
  public:
@@ -115,9 +127,12 @@ class MakeLocalAllocator {
   }
 
  private:
-  static constexpr int SLACK = 0;
 
+  /// @brief the actual allocator we use to satisfy object allocations
   PyMemAllocatorEx localAlloc;
+
+   /// @brief extra bytes to allocate for heap objects
+  static constexpr int SLACK = 0;
 
   static inline PyMemAllocatorEx *get_original_allocator() {
     // poor man's "static inline" member
@@ -153,6 +168,7 @@ class MakeLocalAllocator {
 
   static inline void local_free(void *ctx, void *ptr) {
     ///    printf_("FREE %p\n", ptr);
+    // ignore nullptr
     if (ptr) {
       const auto sz = getSize(ptr);
       TheHeapWrapper::register_free(sz, ptr);
