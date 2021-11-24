@@ -26,7 +26,8 @@
 #include "printf.h"
 #include "pywhere.hpp"
 #include "samplefile.hpp"
-#include "sampler.hpp"
+#include "sampleinterval.hpp"
+
 static SampleFile& getSampleFile() {
   static SampleFile mallocSampleFile("/tmp/scalene-malloc-signal%d",
                                      "/tmp/scalene-malloc-lock%d",
@@ -86,7 +87,7 @@ class SampleHeap : public SuperHeap {
   inline void register_malloc(size_t realSize, void* ptr,
                               bool inPythonAllocator = true) {
     assert(realSize);
-    auto sampleMalloc = _mallocSampler.sample(realSize);
+    auto sampleMalloc = _allocationSampler.increment(realSize);
     if (inPythonAllocator) {
       _pythonCount += realSize;
     } else {
@@ -134,13 +135,7 @@ class SampleHeap : public SuperHeap {
   }
 
   inline void register_free(size_t realSize, void* ptr) {
-#if 1
-    // Experiment: frees 'unsample' the allocation counter. This
-    // approach means ignoring allocation swings less than the
-    // sampling period (on average).
-    _mallocSampler.unsample(realSize);
-#endif
-    auto sampleFree = _freeSampler.sample(realSize);
+    auto sampleFree = _allocationSampler.decrement(realSize);
     if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
       _freedLastMallocTrigger = true;
     }
@@ -188,8 +183,7 @@ class SampleHeap : public SuperHeap {
   SampleHeap(const SampleHeap&) = delete;
   SampleHeap& operator=(const SampleHeap&) = delete;
 
-  Sampler<MallocSamplingRateBytes> _mallocSampler;
-  Sampler<FreeSamplingRateBytes> _freeSampler;
+  SampleInterval<MallocSamplingRateBytes> _allocationSampler;
 
   static auto& mallocTriggered() {
     static std::atomic<uint64_t> _mallocTriggered{0};
