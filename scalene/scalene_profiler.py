@@ -206,7 +206,7 @@ class Scalene:
     @staticmethod
     def on_stack(
         frame: FrameType, fname: Filename, lineno: LineNumber
-    ) -> FrameType:
+    ) -> Optional[FrameType]:
         """Returns true iff the given filename and line number are anywhere on the stack starting at frame."""
         found_frame = None
         f = frame
