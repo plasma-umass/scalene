@@ -444,7 +444,7 @@ class Scalene:
         signal.setitimer(
             Scalene.__signals.cpu_timer_signal,
             Scalene.__args.cpu_sampling_rate,
-            0,
+            Scalene.__args.cpu_sampling_rate,
         )
 
     def __init__(
@@ -567,11 +567,11 @@ class Scalene:
     ) -> None:
         """Wrapper for CPU signal handlers."""
         # Get current time stats.
-        now_virtual = time.process_time()
-        now_wallclock = time.perf_counter()
         ru = resource.getrusage(resource.RUSAGE_SELF)
         now_sys = ru.ru_stime
         now_user = ru.ru_utime
+        now_virtual = time.process_time()
+        now_wallclock = time.perf_counter()
         if (
             Scalene.__last_signal_time_virtual == 0
             or Scalene.__last_signal_time_wallclock == 0
@@ -581,13 +581,8 @@ class Scalene:
             Scalene.__last_signal_time_wallclock = now_wallclock
             Scalene.__last_signal_time_sys = now_sys
             Scalene.__last_signal_time_user = now_user
-            # Restart the timer.
-            signal.setitimer(
-                Scalene.__signals.cpu_timer_signal,
-                Scalene.__args.cpu_sampling_rate,
-                0,
-            )
             return
+
         # Sample GPU load as well.
         gpu_load = Scalene.__gpu.load()
         gpu_mem_used = Scalene.__gpu.memory_used()
@@ -613,13 +608,6 @@ class Scalene:
         Scalene.__last_signal_time_wallclock = now_wallclock
         Scalene.__last_signal_time_sys = now_sys
         Scalene.__last_signal_time_user = now_user
-        if sys.platform != "win32":
-            # Restart the timer.
-            signal.setitimer(
-                Scalene.__signals.cpu_timer_signal,
-                Scalene.__args.cpu_sampling_rate,
-                0,
-            )
 
     @staticmethod
     def output_profile() -> bool:
