@@ -11,7 +11,6 @@ from scalene.adaptive import Adaptive
 
 Address = NewType("Address", str)
 Filename = NewType("Filename", str)
-# FunctionName = NewType("FunctionName", str)
 LineNumber = NewType("LineNumber", int)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 T = TypeVar("T")

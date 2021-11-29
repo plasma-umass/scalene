@@ -25,6 +25,9 @@ class ScaleneOutput:
     # Threshold for highlighting lines of code in red.
     highlight_percentage = 33
 
+    # Color for highlighted text (over the threshold of CPU time)
+    highlight_color = "bold red"
+
     # Default threshold for percent of CPU time to report a file.
     cpu_percent_threshold = 1
 
@@ -42,6 +45,7 @@ class ScaleneOutput:
         self.gpu = False
 
     # Profile output methods
+
     def output_profile_line(
         self,
         json: ScaleneJSON,
@@ -154,12 +158,18 @@ class ScaleneOutput:
                 )
                 >= self.highlight_percentage
             ):
-                ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
-                ncpcs = Text.assemble((n_cpu_percent_c_str, "bold red"))
-                nufs = Text.assemble(
-                    (spark_str + n_usage_fraction_str, "bold red")
+                ncpps = Text.assemble(
+                    (n_cpu_percent_python_str, self.highlight_color)
                 )
-                ngpus = Text.assemble((n_gpu_percent_str, "bold red"))
+                ncpcs = Text.assemble(
+                    (n_cpu_percent_c_str, self.highlight_color)
+                )
+                nufs = Text.assemble(
+                    (spark_str + n_usage_fraction_str, self.highlight_color)
+                )
+                ngpus = Text.assemble(
+                    (n_gpu_percent_str, self.highlight_color)
+                )
             else:
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str
@@ -204,9 +214,15 @@ class ScaleneOutput:
                 + obj["n_cpu_percent_python"]
                 + obj["n_gpu_percent"]
             ) >= self.highlight_percentage:
-                ncpps = Text.assemble((n_cpu_percent_python_str, "bold red"))
-                ncpcs = Text.assemble((n_cpu_percent_c_str, "bold red"))
-                ngpus = Text.assemble((n_gpu_percent_str, "bold red"))
+                ncpps = Text.assemble(
+                    (n_cpu_percent_python_str, self.highlight_color)
+                )
+                ncpcs = Text.assemble(
+                    (n_cpu_percent_c_str, self.highlight_color)
+                )
+                ngpus = Text.assemble(
+                    (n_gpu_percent_str, self.highlight_color)
+                )
             else:
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str

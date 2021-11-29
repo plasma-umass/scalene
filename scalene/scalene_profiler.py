@@ -105,8 +105,6 @@ def stop() -> None:
 class Scalene:
     """The Scalene profiler itself."""
 
-    # Debugging flag, for internal use only.
-    __debug: bool = False
     # Whether the current profiler is a child
     __is_child = -1
     # the pid of the primary profiler
@@ -254,7 +252,7 @@ class Scalene:
             )
             Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
             return None
-        except Exception as e:
+        except Exception:
             return None
 
     @classmethod
@@ -305,6 +303,7 @@ class Scalene:
         # Returns the function itself to the calling file for the sake
         # of not displaying unusual errors if someone attempts to call
         # it
+
         @functools.wraps(func)
         def wrapped(*args: Any, **kwargs: Any) -> Any:
             return func(*args, **kwargs)  # type: ignore
@@ -720,7 +719,6 @@ class Scalene:
         # CPU utilization is the fraction of time spent on the CPU
         # over the total time.
         elapsed_user = now_user - prev_user
-        elapsed_sys = now_sys - prev_sys
         try:
             cpu_utilization = elapsed_user / elapsed_wallclock
         except ZeroDivisionError:
@@ -887,7 +885,6 @@ class Scalene:
                     frame = cast(FrameType, frame.f_back)
                     if frame:
                         fname = frame.f_code.co_filename
-                        continue
                 else:
                     break
             if frame:
@@ -982,7 +979,6 @@ class Scalene:
                     reported_lineno,
                     bytei_str,
                 ) = count_str.split(",")
-                # assert action in ["M", "f", "F"]
                 if int(curr_pid) == int(pid):
                     arr.append(
                         (
@@ -1010,11 +1006,11 @@ class Scalene:
                 _alloc_time,
                 action,
                 count,
-                python_fraction,
+                _python_fraction,
                 pointer,
                 fname,
                 lineno,
-                bytei,
+                _bytei,
             ) = item
             count /= 1024 * 1024
             is_malloc = action == "M"
@@ -1264,7 +1260,7 @@ class Scalene:
         Scalene.__stats.stop_clock()
 
     @staticmethod
-    def isDone() -> bool:
+    def is_done() -> bool:
         return Scalene.__done
 
     @staticmethod
@@ -1345,16 +1341,13 @@ class Scalene:
         except KeyboardInterrupt:
             # Cleanly handle keyboard interrupts (quits execution and dumps the profile).
             print("Scalene execution interrupted.")
-            pass
         except Exception as e:
             print("Error in program being profiled:\n", e)
             traceback.print_exc()
         finally:
             self.stop()
             # If we've collected any samples, dump them.
-            if Scalene.output_profile():
-                pass
-            else:
+            if not Scalene.output_profile():
                 print(
                     "Scalene: Program did not run for long enough to profile."
                 )

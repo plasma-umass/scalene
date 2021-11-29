@@ -100,7 +100,6 @@ class ScalenePreload:
                 result.wait()
             except KeyboardInterrupt:
                 result.returncode = 0
-                pass
             if result.returncode < 0:
                 print(
                     "Scalene error: received signal",
