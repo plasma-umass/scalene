@@ -665,13 +665,14 @@ class ScaleneOutput:
                     allocs = item[0]
                     expected_leak = (frees + 1) / (frees + allocs + 2)
                     if expected_leak <= leak_reporting_threshold:
-                        leaks.append(
-                            (
-                                keys[index],
-                                1 - expected_leak,
-                                avg_mallocs[keys[index]],
+                        if keys[index] in avg_mallocs:
+                            leaks.append(
+                                (
+                                    keys[index],
+                                    1 - expected_leak,
+                                    avg_mallocs[keys[index]],
+                                )
                             )
-                        )
                 if len(leaks) > 0:
                     # Report in descending order by least likelihood
                     for leak in sorted(leaks, key=itemgetter(1), reverse=True):
