@@ -31,28 +31,25 @@ extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
 constexpr uint64_t AllocationSamplingRate = 2 * 1048576ULL;
 constexpr uint64_t MemcpySamplingRate = AllocationSamplingRate * 7;
 
-
 /**
  * @brief the replacement heap for sampling purposes
- * 
+ *
  */
-class CustomHeapType
-    : public HL::ThreadSpecificHeap<
-          SampleHeap<AllocationSamplingRate, BaseHeap>> {
-  using super = HL::ThreadSpecificHeap<
-      SampleHeap<AllocationSamplingRate, BaseHeap>>;
+class CustomHeapType : public HL::ThreadSpecificHeap<
+                           SampleHeap<AllocationSamplingRate, BaseHeap>> {
+  using super =
+      HL::ThreadSpecificHeap<SampleHeap<AllocationSamplingRate, BaseHeap>>;
 
  public:
   void lock() {}
   void unlock() {}
 };
 
-
 HEAP_REDIRECT(CustomHeapType, 8 * 1024 * 1024);
 
 /**
  * @brief Get the static MemcpySampler object
- * 
+ *
  * @return auto& the singleton sampling object
  */
 auto &getSampler() {
@@ -101,7 +98,7 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 /**
  * @brief replace local Python allocators with our own sampling variants
- * 
+ *
  * @tparam Domain the Python domain of allocator we replace
  */
 
@@ -127,11 +124,10 @@ class MakeLocalAllocator {
   }
 
  private:
-
   /// @brief the actual allocator we use to satisfy object allocations
   PyMemAllocatorEx localAlloc;
 
-   /// @brief extra bytes to allocate for heap objects
+  /// @brief extra bytes to allocate for heap objects
   static constexpr int SLACK = 0;
 
   static inline PyMemAllocatorEx *get_original_allocator() {
