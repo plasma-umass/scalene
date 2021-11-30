@@ -461,7 +461,7 @@ class ScaleneOutput:
                     ),
                     style="dark_green",
                     no_wrap=True,
-                    width=14,
+                    width=15,
                 )
                 tbl.add_column(
                     Markdown("Copy  \n_(MB/s)_", style="yellow4"),
