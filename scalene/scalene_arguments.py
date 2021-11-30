@@ -25,3 +25,4 @@ class ScaleneArguments(argparse.Namespace):
         self.reduced_profile = False
         # do we use virtual time or wallclock time (capturing system time and blocking)?
         self.use_virtual_time = False
+        self.memory_leak_detector = False # experimental

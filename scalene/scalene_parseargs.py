@@ -213,6 +213,17 @@ for the process ID that Scalene reports. For example:
             default="",
             help="The directory containing the code to profile (default: [blue]the path to the profiled program[/blue])",
         )
+
+        parser.add_argument(
+            "--memory-leak-detector",
+            dest="memory_leak_detector",
+            action="store_true",
+            default=defaults.memory_leak_detector,
+            help="EXPERIMENTAL: report likely memory leaks (default: [blue]"
+            + ( str(defaults.memory_leak_detector) )
+            + "[/blue])",
+        )
+        
         group = parser.add_mutually_exclusive_group(required=False)
         group.add_argument(
             "--on",

@@ -1098,7 +1098,7 @@ class Scalene:
             stats.allocation_velocity[0] + (after - before),
             stats.allocation_velocity[1] + allocs,
         )
-        if False:
+        if Scalene.__args.memory_leak_detector:
             # Update leak score if we just increased the max footprint (starting at a fixed threshold, currently 100MB
             if prevmax < stats.max_footprint and stats.max_footprint > 100:
                 stats.last_malloc_triggered = last_malloc
