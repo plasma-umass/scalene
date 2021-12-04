@@ -197,7 +197,7 @@ class Scalene:
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType,
+        this_frame: Optional[FrameType],
     ) -> None:
         raise KeyboardInterrupt
 
@@ -348,7 +348,7 @@ class Scalene:
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType,
+        this_frame: Optional[FrameType],
     ) -> None:
         # sys.settrace(None)
         # Walk the stack till we find a line of code in a file we are tracing.
@@ -361,6 +361,7 @@ class Scalene:
             f = cast(FrameType, f.f_back)
         if not found_frame:
             return
+        assert f
         Scalene.__alloc_sigq.put((signum, f))
         # Start tracing until we execute a different line of
         # code in a file we are tracking.
@@ -385,7 +386,7 @@ class Scalene:
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType,
+        this_frame: Optional[FrameType],
     ) -> None:
         Scalene.__alloc_sigq.put((signum, this_frame))
         del this_frame
@@ -395,7 +396,7 @@ class Scalene:
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType,
+        this_frame: Optional[FrameType],
     ) -> None:
         Scalene.__memcpy_sigq.put((signum, this_frame))
         del this_frame
@@ -560,7 +561,7 @@ class Scalene:
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType,
+        this_frame: Optional[FrameType],
     ) -> None:
         """Wrapper for CPU signal handlers."""
         # Get current time stats.
@@ -637,6 +638,7 @@ class Scalene:
                     if "ipykernel" in sys.modules:
                         column_width = 132
                     else:
+                        import shutil
                         column_width = shutil.get_terminal_size().columns
                 except:
                     pass
@@ -1112,6 +1114,7 @@ class Scalene:
             # Update leak score if we just increased the max footprint (starting at a fixed threshold, currently 100MB
             if prevmax < stats.max_footprint and stats.max_footprint > 100:
                 stats.last_malloc_triggered = last_malloc
+                fname, lineno, _ = last_malloc
                 mallocs, frees = stats.leak_score[fname][lineno]
                 stats.leak_score[fname][lineno] = (mallocs + 1, frees)
         del _this_frame
@@ -1276,7 +1279,7 @@ class Scalene:
         _signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        _this_frame: FrameType,
+        _this_frame: Optional[FrameType],
     ) -> None:
         for pid in Scalene.__child_pids:
             os.kill(pid, Scalene.__signals.start_profiling_signal)
@@ -1287,7 +1290,7 @@ class Scalene:
         _signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        _this_frame: FrameType,
+        _this_frame: Optional[FrameType],
     ) -> None:
         for pid in Scalene.__child_pids:
             os.kill(pid, Scalene.__signals.stop_profiling_signal)
@@ -1426,6 +1429,7 @@ class Scalene:
             multiprocessing.set_start_method("fork")
         try:
             Scalene.process_args(args)
+            progs = None
             try:
                 # Look for something ending in '.py'. Treat the first one as our executable.
                 progs = [x for x in sys.argv if re.match(".*\.py$", x)]
@@ -1496,7 +1500,10 @@ class Scalene:
                         print(message)
                         print(traceback.format_exc())
             except (FileNotFoundError, IOError):
-                print("Scalene: could not find input file " + progs[0])
+                if progs:
+                    print("Scalene: could not find input file " + progs[0])
+                else:
+                    print("Scalene: could not find input file.")
                 sys.exit(-1)
         except SystemExit:
             pass
