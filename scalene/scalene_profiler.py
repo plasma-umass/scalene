@@ -112,7 +112,7 @@ class Scalene:
     __initialized: bool = False
     __last_profiled = (Filename("NADA"), LineNumber(0), ByteCodeIndex(0))
     __last_profiled_invalidated = False
-    
+
     # Support for @profile
     # decorated files
     __files_to_profile: Dict[Filename, bool] = defaultdict(bool)
@@ -367,7 +367,10 @@ class Scalene:
         # code in a file we are tracking.
         # First, see if we have now executed a different line of code.
         # If so, increment.
-        if invalidated or not (fname == Filename(f.f_code.co_filename) and lineno == LineNumber(f.f_lineno)):
+        if invalidated or not (
+            fname == Filename(f.f_code.co_filename)
+            and lineno == LineNumber(f.f_lineno)
+        ):
             Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
         Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
@@ -639,10 +642,11 @@ class Scalene:
                         column_width = 132
                     else:
                         import shutil
+
                         column_width = shutil.get_terminal_size().columns
                 except:
                     pass
-            
+
             did_output: bool = output.output_profiles(
                 column_width,
                 Scalene.__stats,
@@ -1027,7 +1031,9 @@ class Scalene:
             is_malloc = action == "M"
             if is_malloc:
                 stats.current_footprint += count
-                stats.max_footprint = max(stats.current_footprint, stats.max_footprint)
+                stats.max_footprint = max(
+                    stats.current_footprint, stats.max_footprint
+                )
             else:
                 assert action == "f" or action == "F"
                 stats.current_footprint -= count
@@ -1197,7 +1203,9 @@ class Scalene:
                 return False
         # Generic handling follows (when no @profile decorator has been used).
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
-        if any(prof in filename for prof in profile_exclude_list if prof != ''):
+        if any(
+            prof in filename for prof in profile_exclude_list if prof != ""
+        ):
             return False
         if filename[0] == "<":
             if "<ipython" in filename:

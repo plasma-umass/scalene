@@ -10,7 +10,9 @@ class ScaleneArguments(argparse.Namespace):
         self.cpu_sampling_rate = 0.01
         self.html = False
         self.json = False
-        self.column_width = 132 # Note that Scalene works best with at least 132 columns.
+        self.column_width = (
+            132  # Note that Scalene works best with at least 132 columns.
+        )
         self.malloc_threshold = 100
         self.outfile = None
         self.pid = 0
@@ -28,4 +30,4 @@ class ScaleneArguments(argparse.Namespace):
         self.reduced_profile = False
         # do we use virtual time or wallclock time (capturing system time and blocking)?
         self.use_virtual_time = False
-        self.memory_leak_detector = False # experimental
+        self.memory_leak_detector = False  # experimental

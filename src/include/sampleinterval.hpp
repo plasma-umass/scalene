@@ -14,9 +14,7 @@ class SampleInterval {
    *
    */
   SampleInterval(uint64_t SAMPLE_INTERVAL)
-      : _sampleInterval(SAMPLE_INTERVAL),
-        _increments(0),
-        _decrements(0) {}
+      : _sampleInterval(SAMPLE_INTERVAL), _increments(0), _decrements(0) {}
 
   /**
    * @brief decrement by the sample amount, triggering an interval reset when we

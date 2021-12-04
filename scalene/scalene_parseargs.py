@@ -239,10 +239,10 @@ for the process ID that Scalene reports. For example:
             action="store_true",
             default=defaults.memory_leak_detector,
             help="EXPERIMENTAL: report likely memory leaks (default: [blue]"
-            + ( str(defaults.memory_leak_detector) )
+            + (str(defaults.memory_leak_detector))
             + "[/blue])",
         )
-        
+
         group = parser.add_mutually_exclusive_group(required=False)
         group.add_argument(
             "--on",

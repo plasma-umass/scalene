@@ -1,7 +1,8 @@
-#include <Python.h>
-#include <frameobject.h>
-#include <dlfcn.h>
 #include "pywhere.hpp"
+
+#include <Python.h>
+#include <dlfcn.h>
+#include <frameobject.h>
 
 #include <mutex>
 #include <vector>
@@ -10,8 +11,7 @@
 
 class TraceConfig {
  public:
-  TraceConfig(PyObject* list_wrapper, PyObject* base_path,
-                  bool profile_all_b) {
+  TraceConfig(PyObject* list_wrapper, PyObject* base_path, bool profile_all_b) {
     // Assumes that each item is a bytes object
     owner = list_wrapper;
     path_owner = base_path;
@@ -95,12 +95,12 @@ std::mutex TraceConfig::_instanceMutex;
 
 // An RAII class to simplify acquiring and releasing the GIL.
 class GIL {
-  public:
+ public:
   GIL() { _gstate = PyGILState_Ensure(); }
   ~GIL() { PyGILState_Release(_gstate); }
-  
-  private:
-    PyGILState_STATE _gstate;
+
+ private:
+  PyGILState_STATE _gstate;
 };
 
 // Implements a mini smart pointer to PyObject.
@@ -110,31 +110,30 @@ class GIL {
 // cast.
 template <class O = PyObject>
 class PyPtr {
-  public:
+ public:
   PyPtr(O* o) : _obj(o) {}
-  
+
   O* operator->() { return _obj; }
-  
+
   operator O*() { return _obj; }
-  
+
   PyPtr& operator=(O* o) {
     Py_DecRef((PyObject*)_obj);
     _obj = o;
     return *this;
   }
-  
+
   PyPtr& operator=(PyPtr& ptr) {
     Py_IncRef((PyObject*)ptr._obj);
     *this = ptr._obj;
     return *this;
   }
-  
-  ~PyPtr() { Py_DecRef((PyObject*)_obj); }
-  
-  private:
-    O* _obj;
-};
 
+  ~PyPtr() { Py_DecRef((PyObject*)_obj); }
+
+ private:
+  O* _obj;
+};
 
 int whereInPython(std::string& filename, int& lineno, int& bytei) {
   // No python, no python stack.  Also, the stack is a property of the
@@ -142,7 +141,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   if (!Py_IsInitialized() || PyGILState_GetThisThreadState() == 0) {
     return 0;
   }
-  
+
   // This function walks the Python stack until it finds a frame
   // corresponding to a file we are actually profiling. On success,
   // it updates filename, lineno, and byte code index appropriately,
@@ -158,7 +157,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   if (!traceConfig) {
     return 0;
   }
-  
+
   for (auto frame = PyEval_GetFrame(); frame != nullptr;
        frame = frame->f_back) {
     auto fname = frame->f_code->co_filename;
@@ -166,25 +165,25 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     if (!encoded) {
       return 0;
     }
-  
+
     auto filenameStr = PyBytes_AsString(encoded);
     if (strlen(filenameStr) == 0) {
       continue;
     }
-  
+
     if (!strstr(filenameStr, "<") && !strstr(filenameStr, "/python") &&
         !strstr(filenameStr, "scalene/scalene")) {
       if (traceConfig->should_trace(filenameStr)) {
-  #if defined(PyPy_FatalError)
+#if defined(PyPy_FatalError)
         // If this macro is defined, we are compiling PyPy, which
         // AFAICT does not have any way to access bytecode index, so
         // we punt and set it to 0.
         bytei = 0;
-  #else
+#else
         bytei = frame->f_lasti;
-  #endif
+#endif
         lineno = PyCode_Addr2Line(frame->f_code, bytei);
-  
+
         filename = filenameStr;
         // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
         return 1;
@@ -194,9 +193,9 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   return 0;
 }
 
-static PyObject *register_files_to_profile(PyObject *self, PyObject *args) {
-  PyObject *a_list;
-  PyObject *base_path;
+static PyObject* register_files_to_profile(PyObject* self, PyObject* args) {
+  PyObject* a_list;
+  PyObject* base_path;
   int profile_all;
   if (!PyArg_ParseTuple(args, "OOp", &a_list, &base_path, &profile_all))
     return NULL;
@@ -207,7 +206,8 @@ static PyObject *register_files_to_profile(PyObject *self, PyObject *args) {
   }
   TraceConfig::setInstance(new TraceConfig(a_list, base_path, profile_all));
 
-  auto p_where = (decltype(p_whereInPython)*) dlsym(RTLD_DEFAULT, "p_whereInPython");
+  auto p_where =
+      (decltype(p_whereInPython)*)dlsym(RTLD_DEFAULT, "p_whereInPython");
   if (p_where == nullptr) {
     PyErr_SetString(PyExc_Exception, "Unable to find p_whereInPython");
     return NULL;
@@ -217,7 +217,7 @@ static PyObject *register_files_to_profile(PyObject *self, PyObject *args) {
   Py_RETURN_NONE;
 }
 
-static PyObject *print_files_to_profile(PyObject *self, PyObject *args) {
+static PyObject* print_files_to_profile(PyObject* self, PyObject* args) {
   if (TraceConfig* pl = TraceConfig::getInstance()) {
     pl->print();
   }
@@ -241,6 +241,4 @@ static PyModuleDef EmbedModule = {PyModuleDef_HEAD_INIT,
                                   NULL,
                                   NULL};
 
-PyMODINIT_FUNC PyInit_pywhere() {
-  return PyModule_Create(&EmbedModule);
-}
+PyMODINIT_FUNC PyInit_pywhere() { return PyModule_Create(&EmbedModule); }
