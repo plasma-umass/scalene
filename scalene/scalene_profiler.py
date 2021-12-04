@@ -112,7 +112,7 @@ class Scalene:
     __initialized: bool = False
     __last_profiled = (Filename("NADA"), LineNumber(0), ByteCodeIndex(0))
     __last_profiled_invalidated = False
-
+    
     # Support for @profile
     # decorated files
     __files_to_profile: Dict[Filename, bool] = defaultdict(bool)
@@ -352,7 +352,6 @@ class Scalene:
     ) -> None:
         # sys.settrace(None)
         # Walk the stack till we find a line of code in a file we are tracing.
-        # print("malloc_signal_handler")
         found_frame = False
         f = this_frame
         while f:
@@ -388,7 +387,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.__alloc_sigq.put((signum, this_frame))
+        Scalene.__alloc_sigq.put((signum, f))
         del this_frame
 
     @staticmethod
@@ -611,6 +610,7 @@ class Scalene:
     def output_profile() -> bool:
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
+                Scalene.__args.column_width,
                 Scalene.__stats,
                 Scalene.__pid,
                 Scalene.profile_this_code,
@@ -630,7 +630,20 @@ class Scalene:
                 return False
         else:
             output = Scalene.__output
+            column_width = Scalene.__args.column_width
+            if not Scalene.__args.html:
+                # Get column width of the terminal and adjust to fit.
+                try:
+                    # If we are in a Jupyter notebook, stick with 132
+                    if "ipykernel" in sys.modules:
+                        column_width = 132
+                    else:
+                        column_width = shutil.get_terminal_size().columns
+                except:
+                    pass
+            
             did_output: bool = output.output_profiles(
+                column_width,
                 Scalene.__stats,
                 Scalene.__pid,
                 Scalene.profile_this_code,
@@ -999,8 +1012,7 @@ class Scalene:
         before = stats.current_footprint
         prevmax = stats.max_footprint
         freed_last_trigger = 0
-
-        for item in arr:
+        for (index, item) in enumerate(arr):
             (
                 _alloc_time,
                 action,
@@ -1015,8 +1027,7 @@ class Scalene:
             is_malloc = action == "M"
             if is_malloc:
                 stats.current_footprint += count
-                if stats.current_footprint > stats.max_footprint:
-                    stats.max_footprint = stats.current_footprint
+                stats.max_footprint = max(stats.current_footprint, stats.max_footprint)
             else:
                 assert action == "f" or action == "F"
                 stats.current_footprint -= count
@@ -1176,16 +1187,17 @@ class Scalene:
         """Return true if the filename is one we should trace."""
         if not filename:
             return False
-        # If the @profile decorator has been used,
-        # we restrict profiling to files containing decorated functions.
-        if Scalene.__files_to_profile:
-            return filename in Scalene.__files_to_profile
-        # Generic handling follows (when no @profile decorator has been used).
-        profile_only_list = Scalene.__args.profile_only.split(",")
+        if "scalene/scalene" in filename:
+            # Don't profile the profiler.
+            return False
         if "site-packages" in filename or "/lib/python" in filename:
             # Don't profile Python internals by default.
             if not Scalene.__args.profile_all:
                 return False
+        # Generic handling follows (when no @profile decorator has been used).
+        profile_exclude_list = Scalene.__args.profile_exclude.split(",")
+        if any(prof in filename for prof in profile_exclude_list if prof != ''):
+            return False
         if filename[0] == "<":
             if "<ipython" in filename:
                 # Profiling code created in a Jupyter cell:
@@ -1208,13 +1220,11 @@ class Scalene:
             else:
                 # Not a real file and not a function created in Jupyter.
                 return False
-        if "scalene/scalene" in filename:
-            # Don't profile the profiler.
-            return False
         # If (a) `profile-only` was used, and (b) the file matched
         # NONE of the provided patterns, don't profile it.
-        not_found_in_profile_only = profile_only_list and not any(
-            prof in filename for prof in profile_only_list
+        profile_only_set = set(Scalene.__args.profile_only.split(","))
+        not_found_in_profile_only = profile_only_set and not any(
+            prof in filename for prof in profile_only_set
         )
         if not_found_in_profile_only:
             return False
