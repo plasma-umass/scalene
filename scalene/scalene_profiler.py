@@ -610,7 +610,6 @@ class Scalene:
     def output_profile() -> bool:
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
-                Scalene.__args.column_width,
                 Scalene.__stats,
                 Scalene.__pid,
                 Scalene.profile_this_code,
