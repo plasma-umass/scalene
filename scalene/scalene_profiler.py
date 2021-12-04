@@ -247,7 +247,7 @@ class Scalene:
             Scalene.__last_profiled = (
                 Filename(ff),
                 LineNumber(fl),
-                ByteCodeIndex(frame.lasti),
+                ByteCodeIndex(frame.f_lasti),
             )
             return None
         except Exception:
