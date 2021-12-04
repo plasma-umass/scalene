@@ -1006,7 +1006,7 @@ class Scalene:
                         )
                     )
 
-        # Iterate through the array to compute the new current footprint.
+        # Iterate through the array to compute the new current footprint
         # and update the global __memory_footprint_samples.
         before = stats.current_footprint
         assert before >= 0
