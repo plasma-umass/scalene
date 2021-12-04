@@ -10,6 +10,7 @@ class ScaleneArguments(argparse.Namespace):
         self.cpu_sampling_rate = 0.01
         self.html = False
         self.json = False
+        self.column_width = 132 # Note that Scalene works best with at least 132 columns.
         self.malloc_threshold = 100
         self.outfile = None
         self.pid = 0
@@ -19,6 +20,8 @@ class ScaleneArguments(argparse.Namespace):
         self.profile_interval = float("inf")
         # what function pathnames must contain to be output during profiling
         self.profile_only = ""
+        # what function pathnames should never be output during profiling
+        self.profile_exclude = ""
         # The root of the directory that has the files that should be profiled
         self.program_path = ""
         # reduced profile?

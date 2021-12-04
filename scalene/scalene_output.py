@@ -253,6 +253,7 @@ class ScaleneOutput:
 
     def output_profiles(
         self,
+        column_width: int,
         stats: ScaleneStatistics,
         pid: int,
         profile_this_code: Callable[[Filename, LineNumber], bool],
@@ -322,19 +323,6 @@ class ScaleneOutput:
                     )
 
         null = tempfile.TemporaryFile(mode="w+")
-
-        # Get column width of the terminal and adjust to fit.
-        # Note that Scalene works best with at least 132 columns.
-        column_width = 132
-        if not self.html:
-            try:
-                # If we are in a Jupyter notebook, stick with 132
-                if "ipykernel" in sys.modules:
-                    column_width = 132
-                else:
-                    column_width = shutil.get_terminal_size().columns
-            except:
-                pass
 
         console = Console(
             width=column_width,
