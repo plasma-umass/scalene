@@ -94,6 +94,13 @@ for the process ID that Scalene reports. For example:
             help="prints the version number for this release of Scalene and exits",
         )
         parser.add_argument(
+            "--column-width",
+            dest="column_width",
+            type=int,
+            default=defaults.column_width,
+            help=f"Column width for profile output (default: [blue]{defaults.column_width}[/blue])",
+        )
+        parser.add_argument(
             "--outfile",
             type=str,
             default=defaults.outfile,
@@ -177,6 +184,19 @@ for the process ID that Scalene reports. For example:
             + "[/blue])",
         )
         parser.add_argument(
+            "--profile-exclude",
+            dest="profile_exclude",
+            type=str,
+            default=defaults.profile_exclude,
+            help="do not profile code in filenames that contain the given strings, separated by commas (default: [blue]"
+            + (
+                "no restrictions"
+                if not defaults.profile_exclude
+                else defaults.profile_exclude
+            )
+            + "[/blue])",
+        )
+        parser.add_argument(
             "--use-virtual-time",
             dest="use_virtual_time",
             action="store_const",
@@ -213,7 +233,6 @@ for the process ID that Scalene reports. For example:
             default="",
             help="The directory containing the code to profile (default: [blue]the path to the profiled program[/blue])",
         )
-
         parser.add_argument(
             "--memory-leak-detector",
             dest="memory_leak_detector",
