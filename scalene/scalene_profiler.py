@@ -1006,11 +1006,10 @@ class Scalene:
                         )
                     )
 
-        arr.sort()
-
         # Iterate through the array to compute the new current footprint.
         # and update the global __memory_footprint_samples.
         before = stats.current_footprint
+        assert before >= 0
         prevmax = stats.max_footprint
         freed_last_trigger = 0
         for (index, item) in enumerate(arr):

@@ -5,21 +5,16 @@
  * @brief "triggers" samples periodically when |increments-decrements| >
  * SAMPLE_INTERVAL
  *
- * @tparam SAMPLE_INTERVAL
  */
 
-template <uint64_t SAMPLE_INTERVAL>
 class SampleInterval {
  public:
   /**
    * @brief Construct a new SampleInterval object
    *
-   * intervals are randomized with a mean of SAMPLE_INTERVAL
    */
-  SampleInterval()
-      : _gen(_rd()),
-        _dis(0, 2 * SAMPLE_INTERVAL - 1),
-        _sampleInterval(_dis(_gen)),
+  SampleInterval(uint64_t SAMPLE_INTERVAL)
+      : _sampleInterval(SAMPLE_INTERVAL),
         _increments(0),
         _decrements(0) {}
 
@@ -55,21 +50,15 @@ class SampleInterval {
 
  private:
   uint64_t resetInterval(uint64_t sample) {
-    uint64_t prev = _sampleInterval;
-    _sampleInterval = _dis(_gen);
     _increments = 0;
     _decrements = 0;
-    if (sample > prev) {
+    if (sample > _sampleInterval) {
       return sample;
     } else {
-      return SAMPLE_INTERVAL;
+      return _sampleInterval;
     }
   }
 
-  std::random_device _rd;  /// random device for generating random intervals
-  std::mt19937_64 _gen;    /// random number generator
-  std::uniform_int_distribution<>
-      _dis;                  /// distribution for generating random intervals
   uint64_t _sampleInterval;  /// the current sample interval
   uint64_t _increments;      /// the number of increments since the last sample
                              /// interval reset

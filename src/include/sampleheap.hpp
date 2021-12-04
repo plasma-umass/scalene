@@ -54,7 +54,7 @@ class SampleHeap : public SuperHeap {
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
 
-  SampleHeap() : _lastMallocTrigger(nullptr), _freedLastMallocTrigger(false) {
+  SampleHeap() : _lastMallocTrigger(nullptr), _freedLastMallocTrigger(false), _allocationSampler(AllocationSamplingRateBytes) {
     getSampleFile();  // invoked here so the file gets initialized before python
                       // attempts to read from it
 
@@ -187,7 +187,7 @@ class SampleHeap : public SuperHeap {
   SampleHeap(const SampleHeap&) = delete;
   SampleHeap& operator=(const SampleHeap&) = delete;
 
-  SampleInterval<AllocationSamplingRateBytes> _allocationSampler;
+  SampleInterval _allocationSampler;
 
   static auto& mallocTriggered() {
     static std::atomic<uint64_t> _mallocTriggered{0};
