@@ -242,13 +242,13 @@ class Scalene:
                 return None
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
+            Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
             Scalene.__last_profiled_invalidated = False
             Scalene.__last_profiled = (
-                Filename("NADA"),
-                LineNumber(0),
-                ByteCodeIndex(0),
+                Filename(ff),
+                LineNumber(fl),
+                ByteCodeIndex(frame.lasti),
             )
-            Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
             return None
         except Exception:
             return None
@@ -350,7 +350,8 @@ class Scalene:
         ],
         this_frame: Optional[FrameType],
     ) -> None:
-        # sys.settrace(None)
+        invalidated = Scalene.__last_profiled_invalidated
+        (fname, lineno, lasti) = Scalene.__last_profiled
         # Walk the stack till we find a line of code in a file we are tracing.
         found_frame = False
         f = this_frame
@@ -362,13 +363,11 @@ class Scalene:
         if not found_frame:
             return
         assert f
-        Scalene.__alloc_sigq.put((signum, f))
         # Start tracing until we execute a different line of
         # code in a file we are tracking.
-        (fname, lineno, lasti) = Scalene.__last_profiled
         # First, see if we have now executed a different line of code.
         # If so, increment.
-        if Scalene.__last_profiled_invalidated or (fname == Filename(f.f_code.co_filename) and lineno != LineNumber(f.f_lineno)):
+        if invalidated or not (fname == Filename(f.f_code.co_filename) and lineno == LineNumber(f.f_lineno)):
             Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
         Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
@@ -376,6 +375,7 @@ class Scalene:
             LineNumber(f.f_lineno),
             ByteCodeIndex(f.f_lasti),
         )
+        Scalene.__alloc_sigq.put((signum, f))
         sys.settrace(Scalene.invalidate_lines)
         f.f_trace = Scalene.invalidate_lines
         f.f_trace_lines = True
@@ -1437,6 +1437,8 @@ class Scalene:
                 with contextlib.suppress(Exception):
                     progs.append(sys.argv[0])
                     progs.append(__file__)
+                if not progs:
+                    raise FileNotFoundError
                 with open(progs[0], "rb") as prog_being_profiled:
                     # Read in the code and compile it.
                     try:
@@ -1503,7 +1505,7 @@ class Scalene:
                 if progs:
                     print("Scalene: could not find input file " + progs[0])
                 else:
-                    print("Scalene: could not find input file.")
+                    print("Scalene: no input file specified.")
                 sys.exit(-1)
         except SystemExit:
             pass
