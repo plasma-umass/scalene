@@ -387,7 +387,7 @@ class Scalene:
         ],
         this_frame: FrameType,
     ) -> None:
-        Scalene.__alloc_sigq.put((signum, f))
+        Scalene.__alloc_sigq.put((signum, this_frame))
         del this_frame
 
     @staticmethod
