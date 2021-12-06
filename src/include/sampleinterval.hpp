@@ -26,7 +26,10 @@ class SampleInterval {
   uint64_t decrement(uint64_t sample) {
     _decrements += sample;
     if (_decrements >= _increments + _sampleInterval) {
-      return resetInterval(_decrements - _increments);
+      auto ret = _decrements - _increments;
+      _increments = 0;
+      _decrements = 0;
+      return ret;
     }
     return 0;
   }
@@ -41,21 +44,15 @@ class SampleInterval {
   uint64_t increment(uint64_t sample) {
     _increments += sample;
     if (_increments >= _decrements + _sampleInterval) {
-      return resetInterval(_increments - _decrements);
+      auto ret = _increments - _decrements;
+      _increments = 0;
+      _decrements = 0;
+      return ret;
     }
     return 0;
   }
 
  private:
-  uint64_t resetInterval(uint64_t sample) {
-    _increments = 0;
-    _decrements = 0;
-    if (sample > _sampleInterval) {
-      return sample;
-    } else {
-      return _sampleInterval;
-    }
-  }
 
   uint64_t _sampleInterval;  /// the current sample interval
   uint64_t _increments;      /// the number of increments since the last sample
