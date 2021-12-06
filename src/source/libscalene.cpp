@@ -90,7 +90,7 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 #include <Python.h>
 
-#define USE_HEADERS 0
+#define USE_HEADERS 1
 #define DEBUG_HEADER 0
 
 #define DL_FUNCTION(name) \
@@ -218,7 +218,8 @@ class MakeLocalAllocator {
   class Header {
    public:
     Header(size_t sz) : size(sz) {}
-    alignas(std::max_align_t) size_t size;
+    size_t size;
+    //    alignas(std::max_align_t) size_t size;
   };
 #endif
 #else
