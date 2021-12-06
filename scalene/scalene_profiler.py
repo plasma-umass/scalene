@@ -1011,9 +1011,9 @@ class Scalene:
                     )
 
         # Iterate through the array to compute the new current footprint
-        # and update the global __memory_footprint_samples.
-        before = stats.current_footprint
-        assert before >= 0
+        # and update the global __memory_footprint_samples. Since on some systems,
+        # we get free events before mallocs, force `before` to always be at least 0.
+        before = max(stats.current_footprint, 0)
         prevmax = stats.max_footprint
         freed_last_trigger = 0
         for (index, item) in enumerate(arr):
