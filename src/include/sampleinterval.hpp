@@ -26,7 +26,7 @@ class SampleInterval {
   uint64_t decrement(uint64_t sample) {
     _decrements += sample;
     if (_decrements >= _increments + _sampleInterval) {
-      return resetInterval(sample);
+      return resetInterval(_decrements - _increments);
     }
     return 0;
   }
@@ -41,7 +41,7 @@ class SampleInterval {
   uint64_t increment(uint64_t sample) {
     _increments += sample;
     if (_increments >= _decrements + _sampleInterval) {
-      return resetInterval(sample);
+      return resetInterval(_increments - _decrements);
     }
     return 0;
   }
