@@ -90,7 +90,7 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 #include <Python.h>
 
-#define USE_HEADERS 1
+#define USE_HEADERS 0
 #define DEBUG_HEADER 0
 
 #define DL_FUNCTION(name) \
@@ -146,7 +146,7 @@ class MakeLocalAllocator {
     auto *header = new (get_original_allocator()->malloc(
         ctx, len + SLACK + sizeof(Header))) Header(len);
 #else
-    auto *header = (Header *)get_original_allocator().malloc(ctx, len + SLACK);
+    auto *header = (Header *)get_original_allocator()->malloc(ctx, len + SLACK);
 #endif
     assert(header);  // We expect this to always succeed.
     TheHeapWrapper::register_malloc(len, getObject(header));
