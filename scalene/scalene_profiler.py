@@ -243,7 +243,7 @@ class Scalene:
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
             # Add the byte index to the set for this line (if it's not there already).
-            stats.bytei_map[fname][lineno].add(lasti)
+            Scalene.__stats.bytei_map[fname][lineno].add(lasti)
             # Add the count.
             Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
             Scalene.__last_profiled_invalidated = False
