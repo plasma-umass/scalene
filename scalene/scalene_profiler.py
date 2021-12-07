@@ -242,6 +242,9 @@ class Scalene:
                 return None
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
+            # Add the byte index to the set for this line (if it's not there already).
+            stats.bytei_map[fname][lineno].add(lasti)
+            # Add the count.
             Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
             Scalene.__last_profiled_invalidated = False
             Scalene.__last_profiled = (
@@ -371,6 +374,8 @@ class Scalene:
             fname == Filename(f.f_code.co_filename)
             and lineno == LineNumber(f.f_lineno)
         ):
+            # Add the byte index to the set for this line (if it's not there already).
+            Scalene.__stats.bytei_map[fname][lineno].add(lasti)
             Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
         Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
