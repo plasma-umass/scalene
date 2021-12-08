@@ -84,7 +84,8 @@ class ScaleneJSON:
         )
 
         # Compute **average** growth.
-        n_growth_mb: float = 0
+        # Setting to n_malloc_mb addresses the edge case where this allocation is the last line executed.
+        n_growth_mb: float = n_malloc_mb
         if n_mallocs:
             n_growth_mb = n_malloc_mb / n_mallocs
 

@@ -253,7 +253,12 @@ class Scalene:
                 ByteCodeIndex(frame.f_lasti),
             )
             return None
-        except Exception:
+        except AttributeError:
+            # This can happen when Scalene shuts down.
+            return None
+        except Exception as e:
+            print("Error in program being profiled:\n", e)
+            traceback.print_exc()
             return None
 
     @classmethod
