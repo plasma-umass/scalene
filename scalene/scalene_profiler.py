@@ -243,7 +243,7 @@ class Scalene:
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
             # Add the byte index to the set for this line (if it's not there already).
-            stats.bytei_map[fname][lineno].add(lasti)
+            Scalene.__stats.bytei_map[fname][lineno].add(lasti)
             # Add the count.
             Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
             Scalene.__last_profiled_invalidated = False
@@ -253,7 +253,12 @@ class Scalene:
                 ByteCodeIndex(frame.f_lasti),
             )
             return None
-        except Exception:
+        except AttributeError:
+            # This can happen when Scalene shuts down.
+            return None
+        except Exception as e:
+            print("Error in program being profiled:\n", e)
+            traceback.print_exc()
             return None
 
     @classmethod

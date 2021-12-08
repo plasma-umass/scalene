@@ -600,6 +600,9 @@ class ScaleneOutput:
                     )
                 if count:
                     avg_mallocs[line_no] += n_malloc_mb / count
+                else:
+                    # Setting to n_malloc_mb addresses the edge case where this allocation is the last line executed.
+                    avg_mallocs[line_no] += n_malloc_mb
 
             avg_mallocs = OrderedDict(
                 sorted(avg_mallocs.items(), key=itemgetter(1), reverse=True)
