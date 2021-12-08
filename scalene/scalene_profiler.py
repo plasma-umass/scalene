@@ -1041,9 +1041,15 @@ class Scalene:
             is_malloc = action == "M"
             if is_malloc:
                 stats.current_footprint += count
-                stats.max_footprint = max(
-                    stats.current_footprint, stats.max_footprint
-                )
+                # NOTE: need to merge all allocations on the same line (without intervening lines)
+                prev_max = stats.max_footprint
+                if stats.current_footprint > stats.max_footprint:
+                    stats.max_footprint = max(
+                        stats.current_footprint, stats.max_footprint
+                    )
+                    opportunity = min(stats.max_footprint - prev_max, count)
+                    opportunity = max(0, opportunity)
+                    print(f"{fname}:{lineno} - maximum savings opportunity = {opportunity * 100/count:.2f}%")
             else:
                 assert action == "f" or action == "F"
                 stats.current_footprint -= count
