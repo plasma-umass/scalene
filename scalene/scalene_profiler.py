@@ -438,10 +438,8 @@ class Scalene:
             Scalene.memcpy_signal_handler,
         )
         # Set every signal to restart interrupted system calls.
-        signal.siginterrupt(Scalene.__signals.cpu_signal, False)
-        signal.siginterrupt(Scalene.__signals.malloc_signal, False)
-        signal.siginterrupt(Scalene.__signals.free_signal, False)
-        signal.siginterrupt(Scalene.__signals.memcpy_signal, False)
+        for s in Scalene.__signals.get_all_signals():
+            signal.siginterrupt(s, False)
         # Turn on the CPU profiling timer to run at the sampling rate (exactly once).
         signal.signal(
             Scalene.__signals.cpu_signal,
