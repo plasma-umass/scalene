@@ -25,9 +25,9 @@ from functools import reduce
 
 def ncr(n: int, r: int) -> int:
     r = min(r, n - r)
-    numer = reduce(op.mul, range(n, n - r, -1), 1)
-    denom = reduce(op.mul, range(1, r + 1), 1)
-    return numer // denom  # or / in Python 2
+    numerator = reduce(op.mul, range(n, n - r, -1), 1)
+    denominator = reduce(op.mul, range(1, r + 1), 1)
+    return numerator // denominator  # or / in Python 2
 
 
 def choose(n: int, k: int) -> int:
