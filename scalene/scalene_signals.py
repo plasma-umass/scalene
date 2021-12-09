@@ -1,5 +1,6 @@
 import signal
 import sys
+from typing import List
 
 
 class ScaleneSignals:
@@ -37,7 +38,7 @@ class ScaleneSignals:
                 self.cpu_timer_signal = signal.ITIMER_REAL
                 self.cpu_signal = signal.SIGALRM
 
-    def get_all_signals(self) -> list[int]:
+    def get_all_signals(self) -> List[int]:
         return [self.start_profiling_signal,
                 self.stop_profiling_signal,
                 self.memcpy_signal,
