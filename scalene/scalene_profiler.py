@@ -137,6 +137,7 @@ class Scalene:
     __output.gpu = __gpu.has_gpu()
     __json.gpu = __gpu.has_gpu()
 
+    __in_cpu_handler = threading.Lock()
     @staticmethod
     def get_original_lock() -> threading.Lock:
         return Scalene.__original_lock()
@@ -576,48 +577,53 @@ class Scalene:
     ) -> None:
         """Wrapper for CPU signal handlers."""
         # Get current time stats.
-        ru = resource.getrusage(resource.RUSAGE_SELF)
-        now_sys = ru.ru_stime
-        now_user = ru.ru_utime
-        now_virtual = time.process_time()
-        now_wallclock = time.perf_counter()
-        if (
-            Scalene.__last_signal_time_virtual == 0
-            or Scalene.__last_signal_time_wallclock == 0
-        ):
-            # Initialization: store values and update on the next pass.
+        result = Scalene.__in_cpu_handler.acquire(blocking = False)
+        if not result:
+            return
+        try: 
+            ru = resource.getrusage(resource.RUSAGE_SELF)
+            now_sys = ru.ru_stime
+            now_user = ru.ru_utime
+            now_virtual = time.process_time()
+            now_wallclock = time.perf_counter()
+            if (
+                Scalene.__last_signal_time_virtual == 0
+                or Scalene.__last_signal_time_wallclock == 0
+            ):
+                # Initialization: store values and update on the next pass.
+                Scalene.__last_signal_time_virtual = now_virtual
+                Scalene.__last_signal_time_wallclock = now_wallclock
+                Scalene.__last_signal_time_sys = now_sys
+                Scalene.__last_signal_time_user = now_user
+                return
+
+            # Sample GPU load as well.
+            gpu_load = Scalene.__gpu.load()
+            gpu_mem_used = Scalene.__gpu.memory_used()
+            # Pass on to the signal queue.
+            Scalene.__cpu_sigq.put(
+                (
+                    signum,
+                    this_frame,
+                    now_virtual,
+                    now_wallclock,
+                    now_sys,
+                    now_user,
+                    gpu_load,
+                    gpu_mem_used,
+                    Scalene.__last_signal_time_virtual,
+                    Scalene.__last_signal_time_wallclock,
+                    Scalene.__last_signal_time_sys,
+                    Scalene.__last_signal_time_user,
+                )
+            )
+            # Store the latest values as the previously recorded values.
             Scalene.__last_signal_time_virtual = now_virtual
             Scalene.__last_signal_time_wallclock = now_wallclock
             Scalene.__last_signal_time_sys = now_sys
             Scalene.__last_signal_time_user = now_user
-            return
-
-        # Sample GPU load as well.
-        gpu_load = Scalene.__gpu.load()
-        gpu_mem_used = Scalene.__gpu.memory_used()
-        # Pass on to the signal queue.
-        Scalene.__cpu_sigq.put(
-            (
-                signum,
-                this_frame,
-                now_virtual,
-                now_wallclock,
-                now_sys,
-                now_user,
-                gpu_load,
-                gpu_mem_used,
-                Scalene.__last_signal_time_virtual,
-                Scalene.__last_signal_time_wallclock,
-                Scalene.__last_signal_time_sys,
-                Scalene.__last_signal_time_user,
-            )
-        )
-        # Store the latest values as the previously recorded values.
-        Scalene.__last_signal_time_virtual = now_virtual
-        Scalene.__last_signal_time_wallclock = now_wallclock
-        Scalene.__last_signal_time_sys = now_sys
-        Scalene.__last_signal_time_user = now_user
-
+        finally:
+            Scalene.__in_cpu_handler.release()
     @staticmethod
     def output_profile() -> bool:
         if Scalene.__args.json:
