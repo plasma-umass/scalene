@@ -96,6 +96,9 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 #define DL_FUNCTION(name) \
   static decltype(name) *dl##name = (decltype(name) *)dlsym(RTLD_DEFAULT, #name)
 
+
+#define PYMALLOC_MAX_SIZE 512
+
 /**
  * @brief replace local Python allocators with our own sampling variants
  *
@@ -149,7 +152,7 @@ class MakeLocalAllocator {
     auto *header = (Header *)get_original_allocator()->malloc(ctx, len + SLACK);
 #endif
     assert(header);  // We expect this to always succeed.
-    if (len < 512) {
+    if (len <= PYMALLOC_MAX_SIZE) { // don't count allocations pymalloc passes to malloc
       TheHeapWrapper::register_malloc(len, getObject(header));
     }
 #if USE_HEADERS
@@ -188,7 +191,7 @@ class MakeLocalAllocator {
     Header *result = (Header *)get_original_allocator()->realloc(
         ctx, getHeader(ptr), new_size + SLACK + sizeof(Header));
     if (result) {
-      if (new_size < 512) {
+      if (len <= PYMALLOC_MAX_SIZE) { // don't count allocations pymalloc passes to malloc
 	TheHeapWrapper::register_malloc(new_size, getObject(result));
       }
       setSize(getObject(result), new_size);
