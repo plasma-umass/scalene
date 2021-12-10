@@ -97,6 +97,8 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
   static decltype(name) *dl##name = (decltype(name) *)dlsym(RTLD_DEFAULT, #name)
 
 
+// Maximum size allocated internally by pymalloc;
+// aka "SMALL_REQUEST_THRESHOLD" in cpython/Objects/obmalloc.c
 #define PYMALLOC_MAX_SIZE 512
 
 /**
