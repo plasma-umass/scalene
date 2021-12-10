@@ -281,7 +281,6 @@ class MakeLocalAllocator {
 decltype(p_whereInPython) __attribute((visibility("default")))
 p_whereInPython{nullptr};
 
-static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;
 
 #if defined(__APPLE__)
