@@ -28,7 +28,7 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t AllocationSamplingRate = 2 * 1048576ULL;
+constexpr uint64_t AllocationSamplingRate = 1 * 1048576ULL;
 constexpr uint64_t MemcpySamplingRate = AllocationSamplingRate * 7;
 
 /**
@@ -149,7 +149,9 @@ class MakeLocalAllocator {
     auto *header = (Header *)get_original_allocator()->malloc(ctx, len + SLACK);
 #endif
     assert(header);  // We expect this to always succeed.
-    TheHeapWrapper::register_malloc(len, getObject(header));
+    if (len < 512) {
+      TheHeapWrapper::register_malloc(len, getObject(header));
+    }
 #if USE_HEADERS
     assert((size_t)getObject(header) - (size_t)header >= sizeof(Header));
 #ifndef NDEBUG
@@ -186,7 +188,9 @@ class MakeLocalAllocator {
     Header *result = (Header *)get_original_allocator()->realloc(
         ctx, getHeader(ptr), new_size + SLACK + sizeof(Header));
     if (result) {
-      TheHeapWrapper::register_malloc(new_size, getObject(result));
+      if (new_size < 512) {
+	TheHeapWrapper::register_malloc(new_size, getObject(result));
+      }
       setSize(getObject(result), new_size);
       return getObject(result);
     }
@@ -281,6 +285,7 @@ class MakeLocalAllocator {
 decltype(p_whereInPython) __attribute((visibility("default")))
 p_whereInPython{nullptr};
 
+static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;
 
 #if defined(__APPLE__)
