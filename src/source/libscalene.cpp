@@ -132,9 +132,6 @@ class MakeLocalAllocator {
   /// @brief the actual allocator we use to satisfy object allocations
   PyMemAllocatorEx localAlloc;
 
-  /// @brief extra bytes to allocate for heap objects
-  static constexpr int SLACK = 0;
-
   static inline PyMemAllocatorEx *get_original_allocator() {
     // poor man's "static inline" member
     static PyMemAllocatorEx original_allocator;
@@ -149,9 +146,9 @@ class MakeLocalAllocator {
 #endif
 #if USE_HEADERS
     auto *header = new (get_original_allocator()->malloc(
-        ctx, len + SLACK + sizeof(Header))) Header(len);
+        ctx, len + sizeof(Header))) Header(len);
 #else
-    auto *header = (Header *)get_original_allocator()->malloc(ctx, len + SLACK);
+    auto *header = (Header *)get_original_allocator()->malloc(ctx, len);
 #endif
     assert(header);  // We expect this to always succeed.
     if (len <= PYMALLOC_MAX_SIZE) { // don't count allocations pymalloc passes to malloc
@@ -193,7 +190,7 @@ class MakeLocalAllocator {
       TheHeapWrapper::register_free(sz, ptr);
     }
     Header *result = (Header *)get_original_allocator()->realloc(
-        ctx, getHeader(ptr), new_size + SLACK + sizeof(Header));
+        ctx, getHeader(ptr), new_size + sizeof(Header));
     if (result) {
       if (new_size <= PYMALLOC_MAX_SIZE) { // don't count allocations pymalloc passes to malloc
 	TheHeapWrapper::register_malloc(new_size, getObject(result));
