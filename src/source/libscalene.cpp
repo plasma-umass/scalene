@@ -244,7 +244,7 @@ class MakeLocalAllocator {
     assert(getHeader(ptr)->magic == MAGIC_NUMBER);
 #endif
     auto sz = getHeader(ptr)->size;
-    if (sz > 512) {
+    if (sz > PYMALLOC_MAX_SIZE) {
 #if defined(__APPLE__)
       //      printf_("%p: sz = %lu, actual size = %lu\n", getHeader(ptr), sz,
       //      ::malloc_size(getHeader(ptr)));
