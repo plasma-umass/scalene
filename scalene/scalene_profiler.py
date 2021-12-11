@@ -754,6 +754,13 @@ class Scalene:
             cpu_utilization = elapsed_user / elapsed_wallclock
         except ZeroDivisionError:
             cpu_utilization = 0.0
+        # On multicore systems running multi-threaded native code, CPU
+        # utilization can exceed 1; that is, elapsed user time is
+        # longer than elapsed wallclock time. If this occurs, set
+        # wall clock time to user time and set CPU utilization to 100%.
+        if cpu_utilization > 1.0:
+            cpu_utilization = 1.0
+            elapsed_wallclock = elapsed_user
         # Deal with an odd case reported here: https://github.com/plasma-umass/scalene/issues/124
         # (Note: probably obsolete now that Scalene is using the nvidia wrappers, but just in case...)
         # We don't want to report 'nan', so turn the load into 0.
