@@ -189,7 +189,9 @@ class MakeLocalAllocator {
     }
     const auto sz = getSize(ptr);
 
-    TheHeapWrapper::register_free(sz, getHeader(ptr));
+    if (sz <= PYMALLOC_MAX_SIZE) {
+      TheHeapWrapper::register_free(sz, ptr);
+    }
     Header *result = (Header *)get_original_allocator()->realloc(
         ctx, getHeader(ptr), new_size + SLACK + sizeof(Header));
     if (result) {
