@@ -452,9 +452,7 @@ class Scalene:
         )
         signal.setitimer(
             Scalene.__signals.cpu_timer_signal,
-            Scalene.__args.cpu_sampling_rate,
-            Scalene.__args.cpu_sampling_rate,
-        )
+            Scalene.__args.cpu_sampling_rate)
 
     def __init__(
         self,
@@ -590,6 +588,10 @@ class Scalene:
             Scalene.__last_signal_time_wallclock = now_wallclock
             Scalene.__last_signal_time_sys = now_sys
             Scalene.__last_signal_time_user = now_user
+            signal.setitimer(
+                Scalene.__signals.cpu_timer_signal,
+                Scalene.__args.cpu_sampling_rate,
+            )
             return
 
         # Sample GPU load as well.
@@ -617,7 +619,11 @@ class Scalene:
         Scalene.__last_signal_time_wallclock = now_wallclock
         Scalene.__last_signal_time_sys = now_sys
         Scalene.__last_signal_time_user = now_user
-
+        signal.setitimer(
+            Scalene.__signals.cpu_timer_signal,
+            Scalene.__args.cpu_sampling_rate,
+        )
+        
     @staticmethod
     def output_profile() -> bool:
         if Scalene.__args.json:
