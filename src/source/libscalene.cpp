@@ -193,7 +193,7 @@ class MakeLocalAllocator {
     Header *result = (Header *)get_original_allocator()->realloc(
         ctx, getHeader(ptr), new_size + SLACK + sizeof(Header));
     if (result) {
-      if (sz <= PYMALLOC_MAX_SIZE) { // don't count allocations pymalloc passes to malloc
+      if (new_size <= PYMALLOC_MAX_SIZE) { // don't count allocations pymalloc passes to malloc
 	TheHeapWrapper::register_malloc(new_size, getObject(result));
       }
       setSize(getObject(result), new_size);
