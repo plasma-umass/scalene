@@ -191,10 +191,6 @@ class MakeLocalAllocator {
 
     // printf_("LOCAL REALLOC %d (%lu)\n", Domain, new_size);
     
-    if (sz <= PYMALLOC_MAX_SIZE) {
-      TheHeapWrapper::register_free(sz, ptr);
-    }
-
     void * p = nullptr;
     const auto allocSize = new_size + sizeof(Header);
     void * buf = get_original_allocator()->realloc(ctx, getHeader(ptr), allocSize);
@@ -203,6 +199,8 @@ class MakeLocalAllocator {
       if (new_size <= PYMALLOC_MAX_SIZE) { // don't count allocations pymalloc passes to malloc
 	if (sz < new_size) {
 	  TheHeapWrapper::register_malloc(new_size - sz, getObject(result));
+	} else if (sz > new_size) {
+	  TheHeapWrapper::register_free(sz - new_size, ptr);
 	}
       }
       setSize(getObject(result), new_size);
