@@ -774,7 +774,6 @@ class Scalene:
         if math.isnan(gpu_load):
             gpu_load = 0.0
         gpu_time = gpu_load * Scalene.__last_cpu_sampling_rate
-        print("scalene_profiler GPU TIME", gpu_time)
         Scalene.__stats.total_gpu_samples += gpu_time
         python_time = Scalene.__last_cpu_sampling_rate
         c_time = elapsed_virtual - python_time
