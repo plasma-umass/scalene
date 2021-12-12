@@ -66,7 +66,14 @@ from scalene.scalene_statistics import (
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
 from scalene.scalene_signals import ScaleneSignals
-from scalene.scalene_gpu import ScaleneGPU
+
+import platform
+
+if platform.system() == "Darwin":
+    from scalene.scalene_apple_gpu import ScaleneAppleGPU as ScaleneGPU
+else:
+    from scalene.scalene_gpu import ScaleneGPU
+    
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
@@ -596,7 +603,7 @@ class Scalene:
 
         # Sample GPU load as well.
         gpu_load = Scalene.__gpu.load()
-        gpu_mem_used = Scalene.__gpu.memory_used()
+        gpu_mem_used = 0 # Scalene.__gpu.memory_used()
         # Pass on to the signal queue.
         Scalene.__cpu_sigq.put(
             (
@@ -767,6 +774,7 @@ class Scalene:
         if math.isnan(gpu_load):
             gpu_load = 0.0
         gpu_time = gpu_load * Scalene.__last_cpu_sampling_rate
+        print("scalene_profiler GPU TIME", gpu_time)
         Scalene.__stats.total_gpu_samples += gpu_time
         python_time = Scalene.__last_cpu_sampling_rate
         c_time = elapsed_virtual - python_time
