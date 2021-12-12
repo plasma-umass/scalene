@@ -69,7 +69,8 @@ from scalene.scalene_signals import ScaleneSignals
 
 import platform
 
-if platform.system() == "Darwin":
+# For now, disable experimental GPU support for Apple
+if False: # platform.system() == "Darwin":
     from scalene.scalene_apple_gpu import ScaleneAppleGPU as ScaleneGPU
 else:
     from scalene.scalene_gpu import ScaleneGPU
