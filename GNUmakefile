@@ -18,7 +18,7 @@ ifeq ($(shell uname -s),Darwin)
   LIBFILE := lib$(LIBNAME).dylib
   WRAPPER := vendor/Heap-Layers/wrappers/macwrapper.cpp
   ifneq (,$(filter $(shell uname -p),arm arm64))  # this means "if arm or arm64"
-    ARCH := -arch arm64 
+    ARCH := -arch arm64 -arch arm64e 
   else
     ARCH := -arch x86_64
   endif

@@ -23,7 +23,7 @@ def multiarch_args():
         args = ['-arch', 'x86_64']
         # ARM support was added in XCode 12, which requires MacOS 10.15.4
         if [int(n) for n in platform.mac_ver()[0].split('.')] >= [10, 15, 4]:
-            args += ['-arch', 'arm64']
+            args += ['-arch', 'arm64', '-arch', 'arm64e']
         return args
     return []
 
