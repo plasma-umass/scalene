@@ -28,7 +28,7 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t AllocationSamplingRate = 1 * 1048576ULL;
+constexpr uint64_t AllocationSamplingRate = 1 * 1549351ULL; // 1 * 1048576ULL;
 constexpr uint64_t MemcpySamplingRate = AllocationSamplingRate * 7;
 
 /**
@@ -145,8 +145,10 @@ class MakeLocalAllocator {
     }
 #endif
 #if USE_HEADERS
-    auto *header = new (get_original_allocator()->malloc(
-        ctx, len + sizeof(Header))) Header(len);
+    void * buf = nullptr;
+    const auto allocSize = len + sizeof(Header);
+    buf = get_original_allocator()->malloc(ctx, allocSize);
+    auto *header = new (buf) Header(len);
 #else
     auto *header = (Header *)get_original_allocator()->malloc(ctx, len);
 #endif
@@ -167,17 +169,18 @@ class MakeLocalAllocator {
   }
 
   static inline void local_free(void *ctx, void *ptr) {
-    ///    printf_("FREE %p\n", ptr);
     // ignore nullptr
     if (ptr) {
+      // printf_("LOCAL FREE %d (%d)\n", Domain, local_allocator_count);
       const auto sz = getSize(ptr);
-      TheHeapWrapper::register_free(sz, ptr);
+      if (sz <= PYMALLOC_MAX_SIZE) {
+	TheHeapWrapper::register_free(sz, ptr);
+      }
       get_original_allocator()->free(ctx, getHeader(ptr));
     }
   }
 
   static inline void *local_realloc(void *ctx, void *ptr, size_t new_size) {
-    //    printf_("REALLOC %p %lu\n", ptr, new_size);
     if (new_size < 8) {
       new_size = 8;
     }
@@ -186,19 +189,26 @@ class MakeLocalAllocator {
     }
     const auto sz = getSize(ptr);
 
+    // printf_("LOCAL REALLOC %d (%lu)\n", Domain, new_size);
+    
     if (sz <= PYMALLOC_MAX_SIZE) {
       TheHeapWrapper::register_free(sz, ptr);
     }
-    Header *result = (Header *)get_original_allocator()->realloc(
-        ctx, getHeader(ptr), new_size + sizeof(Header));
+
+    void * p = nullptr;
+    const auto allocSize = new_size + sizeof(Header);
+    void * buf = get_original_allocator()->realloc(ctx, getHeader(ptr), allocSize);
+    Header *result = new (buf) Header(new_size);
     if (result) {
       if (new_size <= PYMALLOC_MAX_SIZE) { // don't count allocations pymalloc passes to malloc
-	TheHeapWrapper::register_malloc(new_size, getObject(result));
+	if (sz < new_size) {
+	  TheHeapWrapper::register_malloc(new_size - sz, getObject(result));
+	}
       }
       setSize(getObject(result), new_size);
-      return getObject(result);
+      p = getObject(result);
     }
-    return nullptr;
+    return p;
   }
 
   static inline void *local_calloc(void *ctx, size_t nelem, size_t elsize) {
