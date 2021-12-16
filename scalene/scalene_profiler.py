@@ -226,7 +226,6 @@ class Scalene:
     @staticmethod
     def invalidate_lines(frame: FrameType, event: str, _arg: str) -> Any:
         """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
-        # print("invalidate_lines called")
         try:
             # If we are still on the same line, return.
             ff = frame.f_code.co_filename
@@ -1066,6 +1065,7 @@ class Scalene:
             else:
                 assert action == "f" or action == "F"
                 stats.current_footprint -= count
+                assert stats.current_footprint >= 0
                 if action == "f":
                     # Check if pointer actually matches
                     if stats.last_malloc_triggered[2] == pointer:
@@ -1393,6 +1393,7 @@ class Scalene:
             traceback.print_exc()
         finally:
             self.stop()
+            sys.settrace(None)
             # If we've collected any samples, dump them.
             if not Scalene.output_profile():
                 print(
