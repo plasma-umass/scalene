@@ -135,10 +135,33 @@ class PyPtr {
   O* _obj;
 };
 
+
+static PyThreadState*
+findMainPythonThread() {
+  PyThreadState* main = nullptr;
+
+  PyThreadState* t = PyInterpreterState_ThreadHead(PyInterpreterState_Main());
+  for (; t != nullptr; t = PyThreadState_Next(t)) {
+
+    // Recognize the main thread as the one with the smallest ID.
+    // In Juan's experiments, it's the last thread on the list and has id 1.
+    //
+    // FIXME this could be brittle...  another way would be to use
+    // _PyRuntime.main_thread (a native thread ID) and compare it to
+    // PyThreadState.thread_id, with the caveats that main_thread, etc.
+    // might go away or change, and thread_id is initialized with the
+    // native thread ID of whichever thread creates that PyThreadState.
+    if (main == nullptr || main->id > t->id) {
+      main = t;
+    }
+  }
+
+  return main;
+}
+
+
 int whereInPython(std::string& filename, int& lineno, int& bytei) {
-  // No python, no python stack.  Also, the stack is a property of the
-  // thread state; no thread state, no python stack.
-  if (!Py_IsInitialized() || PyGILState_GetThisThreadState() == 0) {
+  if (!Py_IsInitialized()) {    // No python, no python stack.
     return 0;
   }
 
@@ -153,13 +176,22 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   bytei = 0;
   GIL gil;
 
+  PyThreadState* threadState = PyGILState_GetThisThreadState();
+  if (threadState == 0 || threadState->frame == 0) {
+    // Various packages may create native threads; attribute what they do
+    // to what the main thread is doing, as it's likely to have requested it.
+    threadState = findMainPythonThread();
+    if (threadState == 0) {
+      return 0; // No thread, no stack
+    }
+  }
+
   auto traceConfig = TraceConfig::getInstance();
   if (!traceConfig) {
     return 0;
   }
 
-  for (auto frame = PyEval_GetFrame(); frame != nullptr;
-       frame = frame->f_back) {
+  for (auto frame = threadState->frame; frame != nullptr; frame = frame->f_back) {
     auto fname = frame->f_code->co_filename;
     PyPtr<> encoded = PyUnicode_AsASCIIString(fname);
     if (!encoded) {
