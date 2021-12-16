@@ -1,6 +1,6 @@
 cloudpickle==1.6.0
 ipython==7.19.0
-lxml==4.6.3
+lxml==4.6.5
 numpy~=1.21.2
 packaging==20.9
 pynvml==11.0.0
