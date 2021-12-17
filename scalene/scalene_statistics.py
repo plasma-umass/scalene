@@ -64,6 +64,16 @@ class ScaleneStatistics:
             Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
         ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
+        # the current footprint for this line
+        self.memory_current_footprint: Dict[
+            Filename, Dict[LineNumber, int]
+        ] = defaultdict(lambda: defaultdict(int))
+
+        # the max footprint for this line
+        self.memory_max_footprint: Dict[
+            Filename, Dict[LineNumber, int]
+        ] = defaultdict(lambda: defaultdict(int))
+
         # the last malloc to trigger a sample (used for leak detection)
         self.last_malloc_triggered: Tuple[Filename, LineNumber, Address] = (
             Filename(""),
@@ -150,6 +160,8 @@ class ScaleneStatistics:
         self.malloc_samples.clear()
         self.memory_malloc_samples.clear()
         self.memory_malloc_count.clear()
+        self.memory_current_footprint.clear()
+        self.memory_max_footprint.clear()
         self.memory_python_samples.clear()
         self.memory_free_samples.clear()
         self.memory_free_count.clear()

@@ -585,19 +585,11 @@ class ScaleneOutput:
             avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
                 count = 0
-                n_malloc_mb = 0
+                n_malloc_mb = stats.memory_max_footprint[fname][line_no]
                 for bytecode_index in stats.bytei_map[fname][line_no]:
                     count += stats.memory_malloc_count[fname][line_no][
                         bytecode_index
                     ]
-                    n_malloc_mb += (
-                        stats.memory_malloc_samples[fname][line_no][
-                            bytecode_index
-                        ]
-                        # - stats.memory_free_samples[fname][line_no][
-                        #    bytecode_index
-                        # ]
-                    )
                 if count:
                     avg_mallocs[line_no] += n_malloc_mb / count
                 else:

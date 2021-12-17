@@ -1070,6 +1070,18 @@ class Scalene:
                     # Check if pointer actually matches
                     if stats.last_malloc_triggered[2] == pointer:
                         freed_last_trigger += 1
+            # Precisely attribute frees when we are still executing a single line.
+            # Check to see whether we are currently tracing execution of a line.
+            (f, l, b) = Scalene.__last_profiled
+            if not is_malloc and f != Filename("NADA"):
+                # We just executed a free while we are tracing a line.
+                # We should update the current and peak amount of memory
+                # associated with that line.
+                stats.memory_current_footprint[f][l] -= count
+            if is_malloc:
+                stats.memory_current_footprint[fname][lineno] += count
+                stats.memory_max_footprint[fname][lineno] = max(stats.memory_current_footprint[fname][lineno],
+                                                                stats.memory_max_footprint[fname][lineno])
             stats.memory_footprint_samples.add(stats.current_footprint)
         after = stats.current_footprint
 
