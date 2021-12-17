@@ -64,14 +64,20 @@ class ScaleneJSON:
         n_malloc_mb = 0.0
         n_mallocs = 0
         n_python_malloc_mb = 0.0
+
         for index in stats.bytei_map[fname][line_no]:
             mallocs = stats.memory_malloc_samples[fname][line_no][index]
             n_mallocs += stats.memory_malloc_count[fname][line_no][index]
-            n_malloc_mb += mallocs
             n_python_malloc_mb += stats.memory_python_samples[fname][line_no][
                 index
             ]
 
+        # Use the average **peak** memory allocated by this line.
+        # This approach correctly accounts for varying footprints
+        # (mallocs+frees) that happened during execution of a single
+        # line.
+        n_malloc_mb = stats.memory_max_footprint[fname][line_no]
+        
         n_usage_fraction = (
             0
             if not stats.total_memory_malloc_samples
