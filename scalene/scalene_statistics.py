@@ -66,13 +66,13 @@ class ScaleneStatistics:
 
         # the current footprint for this line
         self.memory_current_footprint: Dict[
-            Filename, Dict[LineNumber, int]
-        ] = defaultdict(lambda: defaultdict(int))
+            Filename, Dict[LineNumber, float]
+        ] = defaultdict(lambda: defaultdict(float))
 
         # the max footprint for this line
         self.memory_max_footprint: Dict[
-            Filename, Dict[LineNumber, int]
-        ] = defaultdict(lambda: defaultdict(int))
+            Filename, Dict[LineNumber, float]
+        ] = defaultdict(lambda: defaultdict(float))
 
         # the last malloc to trigger a sample (used for leak detection)
         self.last_malloc_triggered: Tuple[Filename, LineNumber, Address] = (
@@ -226,13 +226,13 @@ class ScaleneStatistics:
             fn_stats.per_line_footprint_samples[fn_name][
                 first_line_no
             ] += self.per_line_footprint_samples[filename][line_no]
+            fn_stats.memory_malloc_count[fn_name][
+                first_line_no
+            ] += self.memory_malloc_count[filename][line_no]
             for index in self.bytei_map[filename][line_no]:
                 fn_stats.bytei_map[fn_name][first_line_no].add(
                     ByteCodeIndex(0)
                 )
-                fn_stats.memory_malloc_count[fn_name][first_line_no][
-                    ByteCodeIndex(0)
-                ] += self.memory_malloc_count[filename][line_no][index]
                 fn_stats.memory_free_count[fn_name][first_line_no][
                     ByteCodeIndex(0)
                 ] += self.memory_free_count[filename][line_no][index]
@@ -361,6 +361,9 @@ class ScaleneStatistics:
                     self.per_line_footprint_samples,
                     x.per_line_footprint_samples,
                 )
+                self.increment_per_line_samples(
+                    self.memory_malloc_count, x.memory_malloc_count
+                )
                 self.increment_per_bytecode_samples(
                     self.memory_malloc_samples, x.memory_malloc_samples
                 )
@@ -369,9 +372,6 @@ class ScaleneStatistics:
                 )
                 self.increment_per_bytecode_samples(
                     self.memory_free_samples, x.memory_free_samples
-                )
-                self.increment_per_bytecode_samples(
-                    self.memory_malloc_count, x.memory_malloc_count
                 )
                 self.increment_per_bytecode_samples(
                     self.memory_free_count, x.memory_free_count

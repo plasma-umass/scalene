@@ -2,6 +2,7 @@ import json
 import platform
 import re
 import subprocess
+import typing
 
 class ScaleneAppleGPU:
 
@@ -9,7 +10,6 @@ class ScaleneAppleGPU:
         assert platform.system() == "Darwin"
         self.cmd = 'DYLD_INSERT_LIBRARIES=\"\" ioreg -r -d 1 -w 0 -c "IOAccelerator"'
         self.regex = re.compile(r'"Device Utilization %"=(\d+)')
-        assert(int(self.regex.search('Test "Device Utilization %"=42').group(1)) == 42)
         self.last_load = 0.0
         self.sample_count = 0
         self.sample_interval = 10
@@ -36,11 +36,12 @@ class ScaleneAppleGPU:
                 line = line.decode('utf-8')
                 if "Device Utilization %" in line:
                     util = self.regex.search(line)
-                    self.last_load = int(util.group(1)) / 100.0
-                    self.sample_count = 0
-                    if self.last_load < 0.15:
-                        self.last_load = 0.0
-                    return self.last_load
+                    if util:
+                        self.last_load = int(util.group(1)) / 100.0
+                        self.sample_count = 0
+                        if self.last_load < 0.15:
+                            self.last_load = 0.0
+                        return self.last_load
             return 0.0 # Fall-through case
         except:
             return 0.0

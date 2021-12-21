@@ -400,7 +400,7 @@ class Scalene:
         )
         Scalene.__alloc_sigq.put([0])
         # Reset current footprint.
-        Scalene.__stats.memory_current_footprint[f.f_code.co_filename][f.f_lineno] = 0
+        Scalene.__stats.memory_current_footprint[Filename(f.f_code.co_filename)][LineNumber(f.f_lineno)] = 0
         # Start tracing.
         sys.settrace(Scalene.invalidate_lines)
         Scalene.__tracing = True
@@ -993,7 +993,7 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
-    def alloc_sigqueue_processor(x: Optional[List]) -> None:
+    def alloc_sigqueue_processor(x: Optional[List[int]]) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
         stats = Scalene.__stats
         curr_pid = os.getpid()
