@@ -118,6 +118,7 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
     __initialized: bool = False
+    __tracing = False
     __last_profiled = (Filename("NADA"), LineNumber(0), ByteCodeIndex(0))
     __last_profiled_invalidated = False
 
@@ -200,6 +201,7 @@ class Scalene:
     __memcpy_sigq: ScaleneSigQueue[Any]
     __sigqueues: List[ScaleneSigQueue[Any]]
 
+
     @staticmethod
     def interruption_handler(
         signum: Union[
@@ -249,10 +251,11 @@ class Scalene:
                 return None
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
+            Scalene.__tracing = False
             # Add the byte index to the set for this line (if it's not there already).
             Scalene.__stats.bytei_map[fname][lineno].add(lasti)
             # Add the count.
-            Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
+            Scalene.__stats.memory_malloc_count[fname][lineno] += 1
             Scalene.__last_profiled_invalidated = False
             Scalene.__last_profiled = (
                 Filename(ff),
@@ -388,15 +391,19 @@ class Scalene:
         ):
             # Add the byte index to the set for this line (if it's not there already).
             Scalene.__stats.bytei_map[fname][lineno].add(lasti)
-            Scalene.__stats.memory_malloc_count[fname][lineno][lasti] += 1
+            Scalene.__stats.memory_malloc_count[fname][lineno] += 1
         Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
             Filename(f.f_code.co_filename),
             LineNumber(f.f_lineno),
             ByteCodeIndex(f.f_lasti),
         )
-        Scalene.__alloc_sigq.put((signum, f))
+        Scalene.__alloc_sigq.put([0])
+        # Reset current footprint.
+        Scalene.__stats.memory_current_footprint[f.f_code.co_filename][f.f_lineno] = 0
+        # Start tracing.
         sys.settrace(Scalene.invalidate_lines)
+        Scalene.__tracing = True
         f.f_trace = Scalene.invalidate_lines
         f.f_trace_lines = True
         del this_frame
@@ -408,7 +415,7 @@ class Scalene:
         ],
         this_frame: Optional[FrameType],
     ) -> None:
-        Scalene.__alloc_sigq.put((signum, this_frame))
+        Scalene.__alloc_sigq.put([0])
         del this_frame
 
     @staticmethod
@@ -986,12 +993,7 @@ class Scalene:
         stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
-    def alloc_sigqueue_processor(
-        _signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
-        ],
-        _this_frame: FrameType,
-    ) -> None:
+    def alloc_sigqueue_processor(x: Optional[List]) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
         stats = Scalene.__stats
         curr_pid = os.getpid()
@@ -1070,18 +1072,17 @@ class Scalene:
                     # Check if pointer actually matches
                     if stats.last_malloc_triggered[2] == pointer:
                         freed_last_trigger += 1
-            # Precisely attribute frees when we are still executing a single line.
-            # Check to see whether we are currently tracing execution of a line.
-            (f, l, b) = Scalene.__last_profiled
-            if not is_malloc and f != Filename("NADA"):
-                # We just executed a free while we are tracing a line.
-                # We should update the current and peak amount of memory
-                # associated with that line.
-                stats.memory_current_footprint[f][l] -= count
+            # Update current and max footprints for this file & line.
             if is_malloc:
                 stats.memory_current_footprint[fname][lineno] += count
                 stats.memory_max_footprint[fname][lineno] = max(stats.memory_current_footprint[fname][lineno],
                                                                 stats.memory_max_footprint[fname][lineno])
+                # print("MALLOC ", fname, lineno, count, stats.memory_current_footprint[fname][lineno])
+            else:
+                stats.memory_current_footprint[fname][lineno] -= count
+                # Ensure that we never drop the current footprint below 0.
+                stats.memory_current_footprint[fname][lineno] = max(0, stats.memory_current_footprint[fname][lineno])
+                # print("FREE ", fname, lineno, count, stats.memory_current_footprint[fname][lineno])
             stats.memory_footprint_samples.add(stats.current_footprint)
         after = stats.current_footprint
 
@@ -1163,7 +1164,6 @@ class Scalene:
                 fname, lineno, _ = last_malloc
                 mallocs, frees = stats.leak_score[fname][lineno]
                 stats.leak_score[fname][lineno] = (mallocs + 1, frees)
-        del _this_frame
 
     @staticmethod
     def before_fork() -> None:
@@ -1406,6 +1406,7 @@ class Scalene:
         finally:
             self.stop()
             sys.settrace(None)
+            Scalene.__tracing = False
             # If we've collected any samples, dump them.
             if not Scalene.output_profile():
                 print(

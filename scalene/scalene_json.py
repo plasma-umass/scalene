@@ -60,24 +60,19 @@ class ScaleneJSON:
             n_gpu_percent = 0
 
         # Now, memory stats.
-        # Accumulate each one from every byte index.
-        n_malloc_mb = 0.0
-        n_mallocs = 0
-        n_python_malloc_mb = 0.0
+        n_malloc_mb = 0.0        # Total volume of memory allocated.
+        n_mallocs = 0            # Number of distinct allocation calls (those from the same line are counted as 1).
+        n_python_malloc_mb = 0.0 # Total volume of memory allocated by Python (not native code).
 
+        # Accumulate each one from every byte index.
+        n_mallocs = stats.memory_malloc_count[fname][line_no]
         for index in stats.bytei_map[fname][line_no]:
             mallocs = stats.memory_malloc_samples[fname][line_no][index]
-            n_mallocs += stats.memory_malloc_count[fname][line_no][index]
+            n_malloc_mb += mallocs
             n_python_malloc_mb += stats.memory_python_samples[fname][line_no][
                 index
             ]
 
-        # Use the average **peak** memory allocated by this line.
-        # This approach correctly accounts for varying footprints
-        # (mallocs+frees) that happened during execution of a single
-        # line.
-        n_malloc_mb = stats.memory_max_footprint[fname][line_no]
-        
         n_usage_fraction = (
             0
             if not stats.total_memory_malloc_samples
@@ -89,11 +84,8 @@ class ScaleneJSON:
             else n_python_malloc_mb / stats.total_memory_malloc_samples
         )
 
-        # Compute **average** growth.
-        # Setting to n_malloc_mb addresses the edge case where this allocation is the last line executed.
-        n_growth_mb: float = n_malloc_mb
-        if n_mallocs:
-            n_growth_mb = n_malloc_mb / n_mallocs
+        # Peak memory consumed by this line.
+        n_peak_mb = stats.memory_max_footprint[fname][line_no]
 
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
 
@@ -120,7 +112,9 @@ class ScaleneJSON:
             "n_cpu_percent_python": n_cpu_percent_python,
             "n_sys_percent": n_sys_percent,
             "n_gpu_percent": n_gpu_percent,
-            "n_growth_mb": n_growth_mb,
+            "n_peak_mb": n_peak_mb,
+            "n_growth_mb": n_peak_mb, # For backwards compatibility
+            "n_avg_mb" : 0 if n_mallocs == 0 else n_malloc_mb / n_mallocs,
             "n_malloc_mb": n_malloc_mb,
             "n_usage_fraction": n_usage_fraction,
             "n_python_fraction": n_python_fraction,

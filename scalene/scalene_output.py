@@ -72,9 +72,9 @@ class ScaleneOutput:
         )
         if not obj:
             return False
-        if -1 < obj["n_growth_mb"] < 1:
+        if -1 < obj["n_peak_mb"] < 1:
             # Don't print out "-0" or anything below 1.
-            obj["n_growth_mb"] = 0
+            obj["n_peak_mb"] = 0
 
         # Finally, print results.
         n_cpu_percent_c_str: str = (
@@ -93,17 +93,17 @@ class ScaleneOutput:
             else f"{obj['n_cpu_percent_python']:5.0f}%"
         )
         n_growth_mem_str = ""
-        if obj["n_growth_mb"] < 1024:
+        if obj["n_peak_mb"] < 1024:
             n_growth_mem_str = (
                 ""
-                if (not obj["n_growth_mb"] and not obj["n_usage_fraction"])
-                else f"{obj['n_growth_mb']:5.0f}M"
+                if (not obj["n_peak_mb"] and not obj["n_usage_fraction"])
+                else f"{obj['n_peak_mb']:5.0f}M"
             )
         else:
             n_growth_mem_str = (
                 ""
-                if (not obj["n_growth_mb"] and not obj["n_usage_fraction"])
-                else f"{(obj['n_growth_mb'] / 1024):5.2f}G"
+                if (not obj["n_peak_mb"] and not obj["n_usage_fraction"])
+                else f"{(obj['n_peak_mb'] / 1024):5.2f}G"
             )
 
         n_usage_fraction_str: str = (
@@ -584,12 +584,8 @@ class ScaleneOutput:
             # Report top K lines (currently 5) in terms of average memory consumption.
             avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
-                count = 0
                 n_malloc_mb = stats.memory_max_footprint[fname][line_no]
-                for bytecode_index in stats.bytei_map[fname][line_no]:
-                    count += stats.memory_malloc_count[fname][line_no][
-                        bytecode_index
-                    ]
+                count = stats.memory_malloc_count[fname][line_no]
                 if count:
                     avg_mallocs[line_no] += n_malloc_mb / count
                 else:
@@ -619,7 +615,7 @@ class ScaleneOutput:
                     # Print the header only if we are printing something (and only once).
                     if not printed_header:
                         console.print(
-                            "Top average memory consumption, by line:"
+                            "Top memory consumption, by line:"
                         )
                         printed_header = True
                     output_str = (

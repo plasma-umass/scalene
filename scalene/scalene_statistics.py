@@ -61,8 +61,8 @@ class ScaleneStatistics:
 
         # number of times samples were added for the above
         self.memory_malloc_count: Dict[
-            Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
-        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+            Filename, Dict[LineNumber, int]
+        ] = defaultdict(lambda: defaultdict(int))
 
         # the current footprint for this line
         self.memory_current_footprint: Dict[
