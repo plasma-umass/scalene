@@ -4,11 +4,13 @@ import re
 import subprocess
 import typing
 
-class ScaleneAppleGPU:
 
+class ScaleneAppleGPU:
     def __init__(self) -> None:
         assert platform.system() == "Darwin"
-        self.cmd = 'DYLD_INSERT_LIBRARIES=\"\" ioreg -r -d 1 -w 0 -c "IOAccelerator"'
+        self.cmd = (
+            'DYLD_INSERT_LIBRARIES="" ioreg -r -d 1 -w 0 -c "IOAccelerator"'
+        )
         self.regex = re.compile(r'"Device Utilization %"=(\d+)')
         self.last_load = 0.0
         self.sample_count = 0
@@ -22,7 +24,7 @@ class ScaleneAppleGPU:
     def nvml_reinit(self) -> None:
         # Here for compatibility with the nvidia wrapper.
         pass
-    
+
     def load(self) -> float:
         if not self.has_gpu():
             return 0.0
@@ -33,7 +35,7 @@ class ScaleneAppleGPU:
             s = subprocess.Popen(self.cmd, shell=True, stdout=subprocess.PIPE)
             s_return = s.stdout.readlines()
             for line in s_return:
-                line = line.decode('utf-8')
+                line = line.decode("utf-8")
                 if "Device Utilization %" in line:
                     util = self.regex.search(line)
                     if util:
@@ -42,7 +44,7 @@ class ScaleneAppleGPU:
                         if self.last_load < 0.15:
                             self.last_load = 0.0
                         return self.last_load
-            return 0.0 # Fall-through case
+            return 0.0  # Fall-through case
         except:
             return 0.0
 

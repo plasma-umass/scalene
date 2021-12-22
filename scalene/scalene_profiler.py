@@ -70,11 +70,11 @@ from scalene.scalene_signals import ScaleneSignals
 import platform
 
 # For now, disable experimental GPU support for Apple
-if False: # platform.system() == "Darwin":
+if False:  # platform.system() == "Darwin":
     from scalene.scalene_apple_gpu import ScaleneAppleGPU as ScaleneGPU
 else:
     from scalene.scalene_gpu import ScaleneGPU
-    
+
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
@@ -200,7 +200,6 @@ class Scalene:
     __alloc_sigq: ScaleneSigQueue[Any]
     __memcpy_sigq: ScaleneSigQueue[Any]
     __sigqueues: List[ScaleneSigQueue[Any]]
-
 
     @staticmethod
     def interruption_handler(
@@ -400,7 +399,9 @@ class Scalene:
         )
         Scalene.__alloc_sigq.put([0])
         # Reset current footprint.
-        Scalene.__stats.memory_current_footprint[Filename(f.f_code.co_filename)][LineNumber(f.f_lineno)] = 0
+        Scalene.__stats.memory_current_footprint[
+            Filename(f.f_code.co_filename)
+        ][LineNumber(f.f_lineno)] = 0
         # Start tracing.
         sys.settrace(Scalene.invalidate_lines)
         Scalene.__tracing = True
@@ -466,7 +467,8 @@ class Scalene:
         )
         signal.setitimer(
             Scalene.__signals.cpu_timer_signal,
-            Scalene.__args.cpu_sampling_rate)
+            Scalene.__args.cpu_sampling_rate,
+        )
 
     def __init__(
         self,
@@ -610,7 +612,7 @@ class Scalene:
 
         # Sample GPU load as well.
         gpu_load = Scalene.__gpu.load()
-        gpu_mem_used = 0 # Scalene.__gpu.memory_used()
+        gpu_mem_used = 0  # Scalene.__gpu.memory_used()
         # Pass on to the signal queue.
         Scalene.__cpu_sigq.put(
             (
@@ -637,7 +639,7 @@ class Scalene:
             Scalene.__signals.cpu_timer_signal,
             Scalene.__args.cpu_sampling_rate,
         )
-        
+
     @staticmethod
     def output_profile() -> bool:
         if Scalene.__args.json:
@@ -1129,8 +1131,10 @@ class Scalene:
                 stats.total_memory_malloc_samples += count
                 # Update current and max footprints for this file & line.
                 stats.memory_current_footprint[fname][lineno] += count
-                stats.memory_max_footprint[fname][lineno] = max(stats.memory_current_footprint[fname][lineno],
-                                                                stats.memory_max_footprint[fname][lineno])
+                stats.memory_max_footprint[fname][lineno] = max(
+                    stats.memory_current_footprint[fname][lineno],
+                    stats.memory_max_footprint[fname][lineno],
+                )
             else:
                 assert action == "f" or action == "F"
                 curr -= count
@@ -1139,7 +1143,9 @@ class Scalene:
                 stats.total_memory_free_samples += count
                 stats.memory_current_footprint[fname][lineno] -= count
                 # Ensure that we never drop the current footprint below 0.
-                stats.memory_current_footprint[fname][lineno] = max(0, stats.memory_current_footprint[fname][lineno])
+                stats.memory_current_footprint[fname][lineno] = max(
+                    0, stats.memory_current_footprint[fname][lineno]
+                )
 
             stats.per_line_footprint_samples[fname][lineno].add(curr)
             # If we allocated anything, then mark this as the last triggering malloc

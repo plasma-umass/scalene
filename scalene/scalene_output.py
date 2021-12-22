@@ -617,9 +617,7 @@ class ScaleneOutput:
                         break
                     # Print the header only if we are printing something (and only once).
                     if not printed_header:
-                        console.print(
-                            "Top memory consumption, by line:"
-                        )
+                        console.print("Top memory consumption, by line:")
                         printed_header = True
                     output_str = (
                         "("
