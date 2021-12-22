@@ -1072,17 +1072,6 @@ class Scalene:
                     # Check if pointer actually matches
                     if stats.last_malloc_triggered[2] == pointer:
                         freed_last_trigger += 1
-            # Update current and max footprints for this file & line.
-            if is_malloc:
-                stats.memory_current_footprint[fname][lineno] += count
-                stats.memory_max_footprint[fname][lineno] = max(stats.memory_current_footprint[fname][lineno],
-                                                                stats.memory_max_footprint[fname][lineno])
-                # print("MALLOC ", fname, lineno, count, stats.memory_current_footprint[fname][lineno])
-            else:
-                stats.memory_current_footprint[fname][lineno] -= count
-                # Ensure that we never drop the current footprint below 0.
-                stats.memory_current_footprint[fname][lineno] = max(0, stats.memory_current_footprint[fname][lineno])
-                # print("FREE ", fname, lineno, count, stats.memory_current_footprint[fname][lineno])
             stats.memory_footprint_samples.add(stats.current_footprint)
         after = stats.current_footprint
 
@@ -1138,12 +1127,19 @@ class Scalene:
                 )
                 stats.malloc_samples[fname] += 1
                 stats.total_memory_malloc_samples += count
+                # Update current and max footprints for this file & line.
+                stats.memory_current_footprint[fname][lineno] += count
+                stats.memory_max_footprint[fname][lineno] = max(stats.memory_current_footprint[fname][lineno],
+                                                                stats.memory_max_footprint[fname][lineno])
             else:
                 assert action == "f" or action == "F"
                 curr -= count
                 stats.memory_free_samples[fname][lineno][bytei] += count
                 stats.memory_free_count[fname][lineno][bytei] += 1
                 stats.total_memory_free_samples += count
+                stats.memory_current_footprint[fname][lineno] -= count
+                # Ensure that we never drop the current footprint below 0.
+                stats.memory_current_footprint[fname][lineno] = max(0, stats.memory_current_footprint[fname][lineno])
 
             stats.per_line_footprint_samples[fname][lineno].add(curr)
             # If we allocated anything, then mark this as the last triggering malloc
