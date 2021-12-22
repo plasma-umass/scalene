@@ -530,7 +530,10 @@ class ScaleneOutput:
                 break
 
             if print_fn_summary:
-                tbl.add_row(None, end_section=True)
+                try:
+                    tbl.add_row(None, end_section=True)
+                except TypeError:  # rich < 9.4.0 compatibility
+                    tbl.add_row(None)
                 txt = Text.assemble(
                     f"function summary for {fname}", style="bold italic"
                 )
