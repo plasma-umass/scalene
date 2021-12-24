@@ -80,16 +80,13 @@ class ScaleneJSON:
 
         # Average memory consumed by this line.
         n_avg_mb = (
-            0
+            stats.memory_aggregate_footprint[fname][line_no]
             if n_mallocs == 0
             else stats.memory_aggregate_footprint[fname][line_no] / n_mallocs
         )
 
         # Peak memory consumed by this line.
         n_peak_mb = stats.memory_max_footprint[fname][line_no]
-
-        if n_avg_mb > n_peak_mb:
-            print("OH SNAP ", fname, line_no, n_avg_mb, n_peak_mb)
 
         assert n_avg_mb <= n_peak_mb
 
@@ -121,6 +118,7 @@ class ScaleneJSON:
             "n_peak_mb": n_peak_mb,
             "n_growth_mb": n_peak_mb,  # For backwards compatibility
             "n_avg_mb": n_avg_mb,
+            "n_mallocs": n_mallocs,
             "n_malloc_mb": n_malloc_mb,
             "n_usage_fraction": n_usage_fraction,
             "n_python_fraction": n_python_fraction,

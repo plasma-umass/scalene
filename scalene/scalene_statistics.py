@@ -74,6 +74,11 @@ class ScaleneStatistics:
             Filename, Dict[LineNumber, float]
         ] = defaultdict(lambda: defaultdict(float))
 
+        # the current high watermark for this line
+        self.memory_current_highwater_mark: Dict[
+            Filename, Dict[LineNumber, float]
+        ] = defaultdict(lambda: defaultdict(float))
+
         # the aggregate footprint for this line (sum of all final "current"s)
         self.memory_aggregate_footprint: Dict[
             Filename, Dict[LineNumber, float]
@@ -167,6 +172,7 @@ class ScaleneStatistics:
         self.memory_malloc_count.clear()
         self.memory_current_footprint.clear()
         self.memory_max_footprint.clear()
+        self.memory_current_highwater_mark.clear()
         self.memory_aggregate_footprint.clear()
         self.memory_python_samples.clear()
         self.memory_free_samples.clear()

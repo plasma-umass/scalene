@@ -225,6 +225,17 @@ class Scalene:
         return found_frame
 
     @staticmethod
+    def update_line(
+        fname: Filename, lineno: LineNumber, lasti: ByteCodeIndex
+    ) -> None:
+        # Add the byte index to the set for this line (if it's not there already).
+        Scalene.__stats.bytei_map[fname][lineno].add(lasti)
+        Scalene.__stats.memory_malloc_count[fname][lineno] += 1
+        # Reset current footprint.
+        Scalene.__stats.memory_current_footprint[fname][lineno] = 0
+        Scalene.__stats.memory_current_highwater_mark[fname][lineno] = 0
+
+    @staticmethod
     def invalidate_lines(frame: FrameType, event: str, _arg: str) -> Any:
         """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
         try:
@@ -251,10 +262,7 @@ class Scalene:
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
             Scalene.__tracing = False
-            # Add the byte index to the set for this line (if it's not there already).
-            Scalene.__stats.bytei_map[fname][lineno].add(lasti)
-            # Add the count.
-            Scalene.__stats.memory_malloc_count[fname][lineno] += 1
+            Scalene.update_line(fname, lineno, lasti)
             Scalene.__last_profiled_invalidated = False
             Scalene.__last_profiled = (
                 Filename(ff),
@@ -388,13 +396,7 @@ class Scalene:
             fname == Filename(f.f_code.co_filename)
             and lineno == LineNumber(f.f_lineno)
         ):
-            # Add the byte index to the set for this line (if it's not there already).
-            Scalene.__stats.bytei_map[fname][lineno].add(lasti)
-            Scalene.__stats.memory_malloc_count[fname][lineno] += 1
-            # Reset current footprint.
-            Scalene.__stats.memory_current_footprint[
-                Filename(f.f_code.co_filename)
-            ][LineNumber(f.f_lineno)] = 0
+            Scalene.update_line(fname, lineno, lasti)
         Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
             Filename(f.f_code.co_filename),
@@ -1131,7 +1133,18 @@ class Scalene:
                 stats.total_memory_malloc_samples += count
                 # Update current and max footprints for this file & line.
                 stats.memory_current_footprint[fname][lineno] += count
-                stats.memory_aggregate_footprint[fname][lineno] += count
+                if (
+                    stats.memory_current_footprint[fname][lineno]
+                    > stats.memory_current_highwater_mark[fname][lineno]
+                ):
+                    stats.memory_current_highwater_mark[fname][
+                        lineno
+                    ] = stats.memory_current_footprint[fname][lineno]
+                    stats.memory_aggregate_footprint[fname][lineno] += count
+                stats.memory_current_highwater_mark[fname][lineno] = max(
+                    stats.memory_current_highwater_mark[fname][lineno],
+                    stats.memory_current_footprint[fname][lineno],
+                )
                 stats.memory_max_footprint[fname][lineno] = max(
                     stats.memory_current_footprint[fname][lineno],
                     stats.memory_max_footprint[fname][lineno],
@@ -1143,10 +1156,6 @@ class Scalene:
                 stats.memory_free_count[fname][lineno] += 1
                 stats.total_memory_free_samples += count
                 stats.memory_current_footprint[fname][lineno] -= count
-                stats.memory_aggregate_footprint[fname][lineno] -= count
-                stats.memory_aggregate_footprint[fname][lineno] = max(
-                    0, stats.memory_aggregate_footprint[fname][lineno]
-                )
                 # Ensure that we never drop the current footprint below 0.
                 stats.memory_current_footprint[fname][lineno] = max(
                     0, stats.memory_current_footprint[fname][lineno]
