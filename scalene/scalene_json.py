@@ -60,18 +60,12 @@ class ScaleneJSON:
             n_gpu_percent = 0
 
         # Now, memory stats.
-        n_malloc_mb = 0.0  # Total volume of memory allocated.
-        n_mallocs = 0  # Number of distinct allocation calls (those from the same line are counted as 1).
-        n_python_malloc_mb = 0.0  # Total volume of memory allocated by Python (not native code).
-
-        # Accumulate each one from every byte index.
+        # Total volume of memory allocated.
+        n_malloc_mb = stats.memory_malloc_samples[fname][line_no]
+        # Number of distinct allocation calls (those from the same line are counted as 1).
         n_mallocs = stats.memory_malloc_count[fname][line_no]
-        for index in stats.bytei_map[fname][line_no]:
-            mallocs = stats.memory_malloc_samples[fname][line_no][index]
-            n_malloc_mb += mallocs
-            n_python_malloc_mb += stats.memory_python_samples[fname][line_no][
-                index
-            ]
+        # Total volume of memory allocated by Python (not native code).
+        n_python_malloc_mb = stats.memory_python_samples[fname][line_no]
 
         n_usage_fraction = (
             0
@@ -84,8 +78,20 @@ class ScaleneJSON:
             else n_python_malloc_mb / stats.total_memory_malloc_samples
         )
 
+        # Average memory consumed by this line.
+        n_avg_mb = (
+            0
+            if n_mallocs == 0
+            else stats.memory_aggregate_footprint[fname][line_no] / n_mallocs
+        )
+
         # Peak memory consumed by this line.
         n_peak_mb = stats.memory_max_footprint[fname][line_no]
+
+        if n_avg_mb > n_peak_mb:
+            print("OH SNAP ", fname, line_no, n_avg_mb, n_peak_mb)
+
+        assert n_avg_mb <= n_peak_mb
 
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
 
@@ -114,7 +120,7 @@ class ScaleneJSON:
             "n_gpu_percent": n_gpu_percent,
             "n_peak_mb": n_peak_mb,
             "n_growth_mb": n_peak_mb,  # For backwards compatibility
-            "n_avg_mb": 0 if n_mallocs == 0 else n_malloc_mb / n_mallocs,
+            "n_avg_mb": n_avg_mb,
             "n_malloc_mb": n_malloc_mb,
             "n_usage_fraction": n_usage_fraction,
             "n_python_fraction": n_python_fraction,

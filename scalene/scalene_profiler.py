@@ -391,6 +391,10 @@ class Scalene:
             # Add the byte index to the set for this line (if it's not there already).
             Scalene.__stats.bytei_map[fname][lineno].add(lasti)
             Scalene.__stats.memory_malloc_count[fname][lineno] += 1
+            # Reset current footprint.
+            Scalene.__stats.memory_current_footprint[
+                Filename(f.f_code.co_filename)
+            ][LineNumber(f.f_lineno)] = 0
         Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
             Filename(f.f_code.co_filename),
@@ -398,10 +402,6 @@ class Scalene:
             ByteCodeIndex(f.f_lasti),
         )
         Scalene.__alloc_sigq.put([0])
-        # Reset current footprint.
-        Scalene.__stats.memory_current_footprint[
-            Filename(f.f_code.co_filename)
-        ][LineNumber(f.f_lineno)] = 0
         # Start tracing.
         sys.settrace(Scalene.invalidate_lines)
         Scalene.__tracing = True
@@ -1123,14 +1123,15 @@ class Scalene:
                 allocs += count
                 curr += count
                 malloc_pointer = pointer
-                stats.memory_malloc_samples[fname][lineno][bytei] += count
-                stats.memory_python_samples[fname][lineno][bytei] += (
+                stats.memory_malloc_samples[fname][lineno] += count
+                stats.memory_python_samples[fname][lineno] += (
                     python_fraction * count
                 )
                 stats.malloc_samples[fname] += 1
                 stats.total_memory_malloc_samples += count
                 # Update current and max footprints for this file & line.
                 stats.memory_current_footprint[fname][lineno] += count
+                stats.memory_aggregate_footprint[fname][lineno] += count
                 stats.memory_max_footprint[fname][lineno] = max(
                     stats.memory_current_footprint[fname][lineno],
                     stats.memory_max_footprint[fname][lineno],
@@ -1138,10 +1139,14 @@ class Scalene:
             else:
                 assert action == "f" or action == "F"
                 curr -= count
-                stats.memory_free_samples[fname][lineno][bytei] += count
-                stats.memory_free_count[fname][lineno][bytei] += 1
+                stats.memory_free_samples[fname][lineno] += count
+                stats.memory_free_count[fname][lineno] += 1
                 stats.total_memory_free_samples += count
                 stats.memory_current_footprint[fname][lineno] -= count
+                stats.memory_aggregate_footprint[fname][lineno] -= count
+                stats.memory_aggregate_footprint[fname][lineno] = max(
+                    0, stats.memory_aggregate_footprint[fname][lineno]
+                )
                 # Ensure that we never drop the current footprint below 0.
                 stats.memory_current_footprint[fname][lineno] = max(
                     0, stats.memory_current_footprint[fname][lineno]

@@ -620,17 +620,19 @@ class ScaleneOutput:
             # Compute AVERAGE memory consumption.
             avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
-                n_malloc_mb = 0.0
-                for bytei in stats.memory_malloc_samples[fname][line_no]:
-                    n_malloc_mb += stats.memory_malloc_samples[fname][line_no][
-                        bytei
-                    ]
+                n_malloc_mb = stats.memory_aggregate_footprint[fname][
+                    line_no
+                ]  # 0.0
+                # for bytei in stats.memory_malloc_samples[fname][line_no]:
+                #    n_malloc_mb += stats.memory_malloc_samples[fname][line_no][
+                #        bytei
+                #    ]
                 count = stats.memory_malloc_count[fname][line_no]
                 if count:
-                    avg_mallocs[line_no] += n_malloc_mb / count
+                    avg_mallocs[line_no] = n_malloc_mb / count
                 else:
                     # Setting to n_malloc_mb addresses the edge case where this allocation is the last line executed.
-                    avg_mallocs[line_no] += n_malloc_mb
+                    avg_mallocs[line_no] = n_malloc_mb
 
             avg_mallocs = OrderedDict(
                 sorted(avg_mallocs.items(), key=itemgetter(1), reverse=True)

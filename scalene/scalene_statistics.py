@@ -56,8 +56,8 @@ class ScaleneStatistics:
 
         # malloc samples for each location in the program
         self.memory_malloc_samples: Dict[
-            Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
-        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+            Filename, Dict[LineNumber, float]
+        ] = defaultdict(lambda: defaultdict(float))
 
         # number of times samples were added for the above
         self.memory_malloc_count: Dict[
@@ -74,6 +74,11 @@ class ScaleneStatistics:
             Filename, Dict[LineNumber, float]
         ] = defaultdict(lambda: defaultdict(float))
 
+        # the aggregate footprint for this line (sum of all final "current"s)
+        self.memory_aggregate_footprint: Dict[
+            Filename, Dict[LineNumber, float]
+        ] = defaultdict(lambda: defaultdict(float))
+
         # the last malloc to trigger a sample (used for leak detection)
         self.last_malloc_triggered: Tuple[Filename, LineNumber, Address] = (
             Filename(""),
@@ -83,18 +88,18 @@ class ScaleneStatistics:
 
         # mallocs attributable to Python, for each location in the program
         self.memory_python_samples: Dict[
-            Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
-        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+            Filename, Dict[LineNumber, float]
+        ] = defaultdict(lambda: defaultdict(float))
 
         # free samples for each location in the program
         self.memory_free_samples: Dict[
-            Filename, Dict[LineNumber, Dict[ByteCodeIndex, float]]
-        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+            Filename, Dict[LineNumber, float]
+        ] = defaultdict(lambda: defaultdict(float))
 
         # number of times samples were added for the above
         self.memory_free_count: Dict[
-            Filename, Dict[LineNumber, Dict[ByteCodeIndex, int]]
-        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+            Filename, Dict[LineNumber, int]
+        ] = defaultdict(lambda: defaultdict(int))
 
         # memcpy samples for each location in the program
         self.memcpy_samples: Dict[
@@ -162,6 +167,7 @@ class ScaleneStatistics:
         self.memory_malloc_count.clear()
         self.memory_current_footprint.clear()
         self.memory_max_footprint.clear()
+        self.memory_aggregate_footprint.clear()
         self.memory_python_samples.clear()
         self.memory_free_samples.clear()
         self.memory_free_count.clear()
@@ -229,22 +235,22 @@ class ScaleneStatistics:
             fn_stats.memory_malloc_count[fn_name][
                 first_line_no
             ] += self.memory_malloc_count[filename][line_no]
+            fn_stats.memory_free_count[fn_name][
+                first_line_no
+            ] += self.memory_free_count[filename][line_no]
+            fn_stats.memory_malloc_samples[fn_name][
+                first_line_no
+            ] += self.memory_malloc_samples[filename][line_no]
+            fn_stats.memory_python_samples[fn_name][
+                first_line_no
+            ] += self.memory_python_samples[filename][line_no]
+            fn_stats.memory_free_samples[fn_name][
+                first_line_no
+            ] += self.memory_free_samples[filename][line_no]
             for index in self.bytei_map[filename][line_no]:
                 fn_stats.bytei_map[fn_name][first_line_no].add(
                     ByteCodeIndex(0)
                 )
-                fn_stats.memory_free_count[fn_name][first_line_no][
-                    ByteCodeIndex(0)
-                ] += self.memory_free_count[filename][line_no][index]
-                fn_stats.memory_malloc_samples[fn_name][first_line_no][
-                    ByteCodeIndex(0)
-                ] += self.memory_malloc_samples[filename][line_no][index]
-                fn_stats.memory_python_samples[fn_name][first_line_no][
-                    ByteCodeIndex(0)
-                ] += self.memory_python_samples[filename][line_no][index]
-                fn_stats.memory_free_samples[fn_name][first_line_no][
-                    ByteCodeIndex(0)
-                ] += self.memory_free_samples[filename][line_no][index]
             fn_stats.memcpy_samples[fn_name][
                 first_line_no
             ] += self.memcpy_samples[filename][line_no]
@@ -258,6 +264,7 @@ class ScaleneStatistics:
 
     payload_contents = [
         "max_footprint",
+        "current_footprint",
         "elapsed_time",
         "total_cpu_samples",
         "cpu_samples_c",
@@ -339,6 +346,9 @@ class ScaleneStatistics:
                 for i, n in enumerate(ScaleneStatistics.payload_contents):
                     setattr(x, n, value[i])
                 self.max_footprint = max(self.max_footprint, x.max_footprint)
+                self.current_footprint = max(
+                    self.current_footprint, x.current_footprint
+                )
                 self.increment_cpu_utilization(
                     self.cpu_utilization, x.cpu_utilization
                 )
@@ -364,22 +374,26 @@ class ScaleneStatistics:
                 self.increment_per_line_samples(
                     self.memory_malloc_count, x.memory_malloc_count
                 )
-                self.increment_per_bytecode_samples(
+                self.increment_per_line_samples(
                     self.memory_malloc_samples, x.memory_malloc_samples
                 )
-                self.increment_per_bytecode_samples(
+                self.increment_per_line_samples(
                     self.memory_python_samples, x.memory_python_samples
                 )
-                self.increment_per_bytecode_samples(
+                self.increment_per_line_samples(
                     self.memory_free_samples, x.memory_free_samples
                 )
-                self.increment_per_bytecode_samples(
+                self.increment_per_line_samples(
                     self.memory_free_count, x.memory_free_count
                 )
                 for filename in x.bytei_map:
                     for lineno in x.bytei_map[filename]:
                         v = x.bytei_map[filename][lineno]
                         self.bytei_map[filename][lineno] |= v
+                        self.memory_max_footprint[filename][lineno] = max(
+                            self.memory_max_footprint[filename][lineno],
+                            x.memory_max_footprint[filename][lineno],
+                        )
                 for filename in x.cpu_samples:
                     self.cpu_samples[filename] += x.cpu_samples[filename]
                 self.total_memory_free_samples += x.total_memory_free_samples
