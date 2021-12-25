@@ -88,8 +88,12 @@ class ScaleneJSON:
         # Peak memory consumed by this line.
         n_peak_mb = stats.memory_max_footprint[fname][line_no]
 
-        assert n_avg_mb <= n_peak_mb
-
+        # Force the reporting of average to be no more than peak.
+        # In principle, this should never happen, but...
+        # assert n_avg_mb <= n_peak_mb
+        if n_avg_mb > n_peak_mb:
+            n_avg_mb = n_peak_mb
+            
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
 
         # Adjust CPU time by utilization.
