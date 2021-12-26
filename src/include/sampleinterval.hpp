@@ -54,7 +54,7 @@ class SampleInterval {
 
  private:
 
-  uint64_t _sampleInterval;  /// the current sample interval
+  const uint64_t _sampleInterval;  /// the current sample interval
   uint64_t _increments;      /// the number of increments since the last sample
                              /// interval reset
   uint64_t _decrements;      /// the number of decrements since the last sample
