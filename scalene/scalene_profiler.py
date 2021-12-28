@@ -714,7 +714,7 @@ class Scalene:
         gpu_mem_used: float,
         prev_virtual: float,
         prev_wallclock: float,
-        prev_sys: float,
+        _prev_sys: float,
         prev_user: float,
     ) -> None:
         """Handle interrupts for CPU profiling."""

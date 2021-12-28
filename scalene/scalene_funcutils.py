@@ -4,8 +4,7 @@ from functools import lru_cache
 from types import CodeType
 from typing import FrozenSet
 
-from scalene.scalene_statistics import *
-
+from scalene.scalene_statistics import ByteCodeIndex
 
 class ScaleneFuncUtils:
 
