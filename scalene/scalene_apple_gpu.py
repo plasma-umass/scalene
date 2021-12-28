@@ -1,8 +1,6 @@
-import json
 import platform
 import re
 import subprocess
-import typing
 
 
 class ScaleneAppleGPU:
