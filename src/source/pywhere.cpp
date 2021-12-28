@@ -135,14 +135,11 @@ class PyPtr {
   O* _obj;
 };
 
-
-static PyThreadState*
-findMainPythonThread() {
+static PyThreadState* findMainPythonThread() {
   PyThreadState* main = nullptr;
 
   PyThreadState* t = PyInterpreterState_ThreadHead(PyInterpreterState_Main());
   for (; t != nullptr; t = PyThreadState_Next(t)) {
-
     // Recognize the main thread as the one with the smallest ID.
     // In Juan's experiments, it's the last thread on the list and has id 1.
     //
@@ -159,9 +156,8 @@ findMainPythonThread() {
   return main;
 }
 
-
 int whereInPython(std::string& filename, int& lineno, int& bytei) {
-  if (!Py_IsInitialized()) {    // No python, no python stack.
+  if (!Py_IsInitialized()) {  // No python, no python stack.
     return 0;
   }
 
@@ -182,7 +178,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     // to what the main thread is doing, as it's likely to have requested it.
     threadState = findMainPythonThread();
     if (threadState == 0) {
-      return 0; // No thread, no stack
+      return 0;  // No thread, no stack
     }
   }
 
@@ -191,7 +187,8 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     return 0;
   }
 
-  for (auto frame = threadState->frame; frame != nullptr; frame = frame->f_back) {
+  for (auto frame = threadState->frame; frame != nullptr;
+       frame = frame->f_back) {
     auto fname = frame->f_code->co_filename;
     PyPtr<> encoded = PyUnicode_AsASCIIString(fname);
     if (!encoded) {

@@ -93,7 +93,7 @@ class ScaleneJSON:
         # assert n_avg_mb <= n_peak_mb
         if n_avg_mb > n_peak_mb:
             n_avg_mb = n_peak_mb
-            
+
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
 
         # Adjust CPU time by utilization.

@@ -102,7 +102,8 @@ def scalene_redirect_profile(func: Any) -> Any:
 builtins.profile = scalene_redirect_profile  # type: ignore
 
 # Must equal src/include/sampleheap.hpp NEWLINE *minus 1*
-NEWLINE_TRIGGER_LENGTH = 98820 # SampleHeap<...>::NEWLINE-1
+NEWLINE_TRIGGER_LENGTH = 98820  # SampleHeap<...>::NEWLINE-1
+
 
 def start() -> None:
     Scalene.start()

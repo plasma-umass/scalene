@@ -13,9 +13,7 @@ class SampleInterval {
    * @brief Construct a new SampleInterval object
    *
    */
-  SampleInterval(uint64_t SAMPLE_INTERVAL)
-    : _sampleInterval(SAMPLE_INTERVAL)
-  {
+  SampleInterval(uint64_t SAMPLE_INTERVAL) : _sampleInterval(SAMPLE_INTERVAL) {
     reset();
   }
 
@@ -54,15 +52,14 @@ class SampleInterval {
   }
 
  private:
-
   void reset() {
     _increments = 0;
     _decrements = 0;
   }
-  
+
   const uint64_t _sampleInterval;  /// the current sample interval
-  uint64_t _increments;      /// the number of increments since the last sample
-                             /// interval reset
-  uint64_t _decrements;      /// the number of decrements since the last sample
-                             /// interval reset
+  uint64_t _increments;  /// the number of increments since the last sample
+                         /// interval reset
+  uint64_t _decrements;  /// the number of decrements since the last sample
+                         /// interval reset
 };
