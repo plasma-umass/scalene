@@ -230,15 +230,10 @@ class Scalene:
     def update_line(
         fname: Filename, lineno: LineNumber, lasti: ByteCodeIndex
     ) -> None:
-        # Add the byte index to the set for this line (if it's not there already).
-        #Scalene.__stats.bytei_map[fname][lineno].add(lasti)
-        #Scalene.__stats.memory_malloc_count[fname][lineno] += 1
-        # Mark a new line.
+        # Mark a new line by allocating the trigger number of bytes.
         buf = bytearray(NEWLINE_TRIGGER_LENGTH)
+        # Immediately reclaim it.
         del buf
-        # Reset current footprint.
-        #Scalene.__stats.memory_current_footprint[fname][lineno] = 0
-        #Scalene.__stats.memory_current_highwater_mark[fname][lineno] = 0
 
     @staticmethod
     def invalidate_lines(frame: FrameType, event: str, _arg: str) -> Any:
@@ -1123,12 +1118,15 @@ class Scalene:
             ) = item
 
             is_malloc = action == "M"
-            if is_malloc and count == NEWLINE_TRIGGER_LENGTH+1:
+            if is_malloc and count == NEWLINE_TRIGGER_LENGTH + 1:
                 stats.memory_malloc_count[fname][lineno] += 1
+                stats.memory_aggregate_footprint[fname][
+                    lineno
+                ] += stats.memory_current_highwater_mark[fname][lineno]
                 stats.memory_current_footprint[fname][lineno] = 0
                 stats.memory_current_highwater_mark[fname][lineno] = 0
                 continue
-            
+
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
             count /= 1024 * 1024
@@ -1151,7 +1149,6 @@ class Scalene:
                     stats.memory_current_highwater_mark[fname][
                         lineno
                     ] = stats.memory_current_footprint[fname][lineno]
-                    stats.memory_aggregate_footprint[fname][lineno] += count
                 stats.memory_current_highwater_mark[fname][lineno] = max(
                     stats.memory_current_highwater_mark[fname][lineno],
                     stats.memory_current_footprint[fname][lineno],
