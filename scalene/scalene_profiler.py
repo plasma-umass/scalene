@@ -121,7 +121,6 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
     __initialized: bool = False
-    __tracing = False
     __last_profiled = (Filename("NADA"), LineNumber(0), ByteCodeIndex(0))
     __last_profiled_invalidated = False
 
@@ -262,7 +261,6 @@ class Scalene:
                 return None
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
-            Scalene.__tracing = False
             Scalene.update_line(fname, lineno, lasti)
             Scalene.__last_profiled_invalidated = False
             Scalene.__last_profiled = (
@@ -407,7 +405,6 @@ class Scalene:
         Scalene.__alloc_sigq.put([0])
         # Start tracing.
         sys.settrace(Scalene.invalidate_lines)
-        Scalene.__tracing = True
         f.f_trace = Scalene.invalidate_lines
         f.f_trace_lines = True
         del this_frame
@@ -1431,7 +1428,6 @@ class Scalene:
         finally:
             self.stop()
             sys.settrace(None)
-            Scalene.__tracing = False
             # If we've collected any samples, dump them.
             if not Scalene.output_profile():
                 print(
