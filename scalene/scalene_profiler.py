@@ -101,6 +101,8 @@ def scalene_redirect_profile(func: Any) -> Any:
 
 builtins.profile = scalene_redirect_profile  # type: ignore
 
+# Must equal src/include/sampleheap.hpp NEWLINE *minus 1*
+NEWLINE_TRIGGER_LENGTH = 98820 # SampleHeap<...>::NEWLINE-1
 
 def start() -> None:
     Scalene.start()
@@ -229,11 +231,14 @@ class Scalene:
         fname: Filename, lineno: LineNumber, lasti: ByteCodeIndex
     ) -> None:
         # Add the byte index to the set for this line (if it's not there already).
-        Scalene.__stats.bytei_map[fname][lineno].add(lasti)
-        Scalene.__stats.memory_malloc_count[fname][lineno] += 1
+        #Scalene.__stats.bytei_map[fname][lineno].add(lasti)
+        #Scalene.__stats.memory_malloc_count[fname][lineno] += 1
+        # Mark a new line.
+        buf = bytearray(NEWLINE_TRIGGER_LENGTH)
+        del buf
         # Reset current footprint.
-        Scalene.__stats.memory_current_footprint[fname][lineno] = 0
-        Scalene.__stats.memory_current_highwater_mark[fname][lineno] = 0
+        #Scalene.__stats.memory_current_footprint[fname][lineno] = 0
+        #Scalene.__stats.memory_current_highwater_mark[fname][lineno] = 0
 
     @staticmethod
     def invalidate_lines(frame: FrameType, event: str, _arg: str) -> Any:
@@ -1059,10 +1064,10 @@ class Scalene:
                 pointer,
                 fname,
                 lineno,
-                _bytei,
+                bytei,
             ) = item
-            count /= 1024 * 1024
             is_malloc = action == "M"
+            count /= 1024 * 1024
             if is_malloc:
                 stats.current_footprint += count
                 stats.max_footprint = max(
@@ -1117,10 +1122,16 @@ class Scalene:
                 bytei,
             ) = item
 
+            is_malloc = action == "M"
+            if is_malloc and count == NEWLINE_TRIGGER_LENGTH+1:
+                stats.memory_malloc_count[fname][lineno] += 1
+                stats.memory_current_footprint[fname][lineno] = 0
+                stats.memory_current_highwater_mark[fname][lineno] = 0
+                continue
+            
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
             count /= 1024 * 1024
-            is_malloc = action == "M"
             if is_malloc:
                 allocs += count
                 curr += count

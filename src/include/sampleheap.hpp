@@ -54,6 +54,8 @@ class SampleHeap : public SuperHeap {
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
 
+  static constexpr uint64_t NEWLINE = 98821;
+
   SampleHeap()
       : _lastMallocTrigger(nullptr),
         _freedLastMallocTrigger(false),
@@ -91,6 +93,17 @@ class SampleHeap : public SuperHeap {
   inline void register_malloc(size_t realSize, void* ptr,
                               bool inPythonAllocator = true) {
     assert(realSize);
+    // If this is the special NEWLINE value, trigger an update.
+    if (realSize == NEWLINE) {
+      std::string filename;
+      int lineno;
+      int bytei;
+      decltype(whereInPython)* where = p_whereInPython;
+      if (where != nullptr && where(filename, lineno, bytei)) {
+        writeCount(MallocSignal, realSize, ptr, filename, lineno, bytei);
+      }
+      return;
+    }
     auto sampleMalloc = _allocationSampler.increment(realSize);
     if (inPythonAllocator) {
       _pythonCount += realSize;

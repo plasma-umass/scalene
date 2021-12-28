@@ -96,7 +96,6 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 #define DL_FUNCTION(name) \
   static decltype(name) *dl##name = (decltype(name) *)dlsym(RTLD_DEFAULT, #name)
 
-
 // Maximum size allocated internally by pymalloc;
 // aka "SMALL_REQUEST_THRESHOLD" in cpython/Objects/obmalloc.c
 #define PYMALLOC_MAX_SIZE 512
@@ -152,8 +151,14 @@ class MakeLocalAllocator {
 #else
     auto *header = (Header *)get_original_allocator()->malloc(ctx, len);
 #endif
-    assert(header);  // We expect this to always succeed.
-    if (len <= PYMALLOC_MAX_SIZE) { // don't count allocations pymalloc passes to malloc
+    assert(header);                  // We expect this to always succeed.
+    if (len <= PYMALLOC_MAX_SIZE) {  // don't count allocations pymalloc passes
+                                     // to malloc
+      TheHeapWrapper::register_malloc(len, getObject(header));
+    }
+    class Nada {};
+    if (len == SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE) {
+      // Special case: register the new line execution.
       TheHeapWrapper::register_malloc(len, getObject(header));
     }
 #if USE_HEADERS
@@ -174,7 +179,7 @@ class MakeLocalAllocator {
       // printf_("LOCAL FREE %d (%d)\n", Domain, local_allocator_count);
       const auto sz = getSize(ptr);
       if (sz <= PYMALLOC_MAX_SIZE) {
-	TheHeapWrapper::register_free(sz, ptr);
+        TheHeapWrapper::register_free(sz, ptr);
       }
       get_original_allocator()->free(ctx, getHeader(ptr));
     }
@@ -190,20 +195,21 @@ class MakeLocalAllocator {
     const auto sz = getSize(ptr);
 
     // printf_("LOCAL REALLOC %d (%lu)\n", Domain, new_size);
-    
-    void * p = nullptr;
+
+    void *p = nullptr;
     const auto allocSize = new_size + sizeof(Header);
-    void * buf = get_original_allocator()->realloc(ctx, getHeader(ptr), allocSize);
+    void *buf =
+        get_original_allocator()->realloc(ctx, getHeader(ptr), allocSize);
     Header *result = new (buf) Header(new_size);
     if (result) {
       if (sz < new_size) {
-	if (new_size - sz <= PYMALLOC_MAX_SIZE) {
-	  TheHeapWrapper::register_malloc(new_size - sz, getObject(result));
-	}
+        if (new_size - sz <= PYMALLOC_MAX_SIZE) {
+          TheHeapWrapper::register_malloc(new_size - sz, getObject(result));
+        }
       } else if (sz > new_size) {
-	if (sz - new_size <= PYMALLOC_MAX_SIZE) {
-	  TheHeapWrapper::register_free(sz - new_size, ptr);
-	}
+        if (sz - new_size <= PYMALLOC_MAX_SIZE) {
+          TheHeapWrapper::register_free(sz - new_size, ptr);
+        }
       }
     }
     setSize(getObject(result), new_size);
