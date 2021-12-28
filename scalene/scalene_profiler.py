@@ -162,9 +162,6 @@ class Scalene:
         + str(sys.version_info.minor),
     ]
 
-    # last num seconds between interrupts for CPU sampling.
-    __last_cpu_sampling_rate: float = 0
-
     # when did we last receive a signal?
     __last_signal_time_virtual: float = 0
     __last_signal_time_wallclock: float = 0
@@ -231,12 +228,10 @@ class Scalene:
         fname: Filename, lineno: LineNumber, lasti: ByteCodeIndex
     ) -> None:
         # Mark a new line by allocating the trigger number of bytes.
-        buf = bytearray(NEWLINE_TRIGGER_LENGTH)
-        # Immediately reclaim it.
-        del buf
+        bytearray(NEWLINE_TRIGGER_LENGTH)
 
     @staticmethod
-    def invalidate_lines(frame: FrameType, event: str, _arg: str) -> Any:
+    def invalidate_lines(frame: FrameType, _event: str, _arg: str) -> Any:
         """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
         try:
             # If we are still on the same line, return.
@@ -782,9 +777,9 @@ class Scalene:
         # We don't want to report 'nan', so turn the load into 0.
         if math.isnan(gpu_load):
             gpu_load = 0.0
-        gpu_time = gpu_load * Scalene.__last_cpu_sampling_rate
+        gpu_time = gpu_load * Scalene.__args.cpu_sampling_rate
         Scalene.__stats.total_gpu_samples += gpu_time
-        python_time = Scalene.__last_cpu_sampling_rate
+        python_time = Scalene.__args.cpu_sampling_rate
         c_time = elapsed_virtual - python_time
         if c_time < 0:
             c_time = 0
@@ -868,25 +863,7 @@ class Scalene:
         del this_frame
 
         Scalene.__stats.total_cpu_samples += total_time
-
-        if False:
-            # Pick a new random interval, distributed around the mean.
-            next_interval = 0.0
-            while next_interval <= 0.0:
-                # Choose a normally distributed random number around the
-                # mean for the next interval. By setting the standard
-                # deviation to a fraction of the mean, we know by
-                # properties of the normal distribution that the
-                # likelihood of iterating this loop more than once is
-                # low. For a fraction 1/f, the probability is
-                # p = 1-(math.erf(f/math.sqrt(2)))/2
-                next_interval = random.normalvariate(
-                    Scalene.__args.cpu_sampling_rate,
-                    Scalene.__args.cpu_sampling_rate / 3.0,
-                )
-        else:
-            next_interval = Scalene.__args.cpu_sampling_rate
-        Scalene.__last_cpu_sampling_rate = next_interval
+        
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -1084,7 +1061,7 @@ class Scalene:
                 pass
             else:
                 # We freed the last allocation trigger. Adjust scores.
-                this_fn, this_ln, this_ptr = stats.last_malloc_triggered
+                this_fn, this_ln, _this_ptr = stats.last_malloc_triggered
                 if this_ln != 0:
                     mallocs, frees = stats.leak_score[this_fn][this_ln]
                     stats.leak_score[this_fn][this_ln] = (
