@@ -1,6 +1,7 @@
+from typing import Any, Iterator, List
+
 from rich.console import Console
 from rich.segment import Segment
-from typing import Any, Iterator, List
 
 
 class SyntaxLine:

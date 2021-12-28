@@ -3,6 +3,7 @@ import traceback
 
 from scalene import scalene_profiler
 
+
 def should_trace(s) -> bool:
     if scalene_profiler.Scalene.is_done():
         return False

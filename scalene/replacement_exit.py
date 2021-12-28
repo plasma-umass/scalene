@@ -1,5 +1,6 @@
 import os
 import sys
+
 from scalene.scalene_profiler import Scalene
 
 

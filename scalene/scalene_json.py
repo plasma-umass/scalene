@@ -1,9 +1,9 @@
 import copy
 import linecache
-
 from pathlib import Path
-from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 from typing import Any, Callable, Dict, List
+
+from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 
 
 class ScaleneJSON:

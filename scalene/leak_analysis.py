@@ -1,7 +1,8 @@
 import math
+from typing import Any, List, Tuple
+
 import numpy as np
 from numpy.random import default_rng
-from typing import Any, List, Tuple
 
 rng = default_rng()
 

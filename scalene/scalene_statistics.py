@@ -1,13 +1,14 @@
-import cloudpickle
 import os
 import pathlib
 import pickle
 import time
-
 from collections import defaultdict
 from typing import Any, Dict, List, NewType, Set, Tuple, TypeVar
-from scalene.runningstats import RunningStats
+
+import cloudpickle
+
 from scalene.adaptive import Adaptive
+from scalene.runningstats import RunningStats
 
 Address = NewType("Address", str)
 Filename = NewType("Filename", str)

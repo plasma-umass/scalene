@@ -1,8 +1,9 @@
 import sys
-from scalene.scalene_profiler import Scalene
 import threading
 import time
 from typing import Any
+
+from scalene.scalene_profiler import Scalene
 
 
 @Scalene.shim

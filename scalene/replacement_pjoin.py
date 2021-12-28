@@ -1,9 +1,10 @@
 import multiprocessing
 import os
-from scalene.scalene_profiler import Scalene
 import sys
 import threading
 import time
+
+from scalene.scalene_profiler import Scalene
 
 minor_version = sys.version_info.minor
 
@@ -42,7 +43,9 @@ def replacement_pjoin(scalene: Scalene) -> None:
             if timeout != -1:
                 end_time = time.perf_counter()
                 if end_time - start_time >= timeout:
-                    from multiprocessing.process import _children  # type: ignore
+                    from multiprocessing.process import (
+                        _children,
+                    )  # type: ignore
 
                     _children.discard(self)
                     return

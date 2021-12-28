@@ -2,13 +2,13 @@ import argparse
 import contextlib
 import os
 import platform
-import scalene
 import signal
 import struct
 import subprocess
 import sys
-
 from typing import Dict
+
+import scalene
 
 
 class ScalenePreload:

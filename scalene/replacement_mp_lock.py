@@ -1,10 +1,13 @@
-from scalene.scalene_profiler import Scalene
-import sys
-import threading
-import _multiprocessing
 import multiprocessing.synchronize
 import os
+import sys
+import threading
 from typing import Any
+
+import _multiprocessing
+
+from scalene.scalene_profiler import Scalene
+
 
 # The _multiprocessing module is entirely undocumented-- the header of the
 # acquire function is

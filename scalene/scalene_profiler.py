@@ -23,8 +23,9 @@ import inspect
 import json
 import math
 import multiprocessing
-import pathlib
 import os
+import pathlib
+import platform
 import re
 import resource
 import signal
@@ -34,27 +35,19 @@ import tempfile
 import threading
 import time
 import traceback
-
 from collections import defaultdict
 from functools import lru_cache
 from signal import Handlers, Signals
 from types import FrameType
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-    cast,
-)
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, cast
 
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_funcutils import ScaleneFuncUtils
 from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_mapfile import ScaleneMapFile
+from scalene.scalene_output import ScaleneOutput
+from scalene.scalene_preload import ScalenePreload
+from scalene.scalene_signals import ScaleneSignals
 from scalene.scalene_statistics import (
     Address,
     ByteCodeIndex,
@@ -62,11 +55,6 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
-from scalene.scalene_output import ScaleneOutput
-from scalene.scalene_preload import ScalenePreload
-from scalene.scalene_signals import ScaleneSignals
-
-import platform
 
 # For now, disable experimental GPU support for Apple
 if False:  # platform.system() == "Darwin":
@@ -470,17 +458,17 @@ class Scalene:
         program_being_profiled: Optional[Filename] = None,
     ) -> None:
         # gc.set_debug(gc.DEBUG_SAVE)
-        import scalene.replacement_pjoin
+        import scalene.replacement_exit
 
         # Hijack lock, poll, thread_join, fork, and exit.
         import scalene.replacement_lock
-        import scalene.replacement_thread_join
-        import scalene.replacement_exit
         import scalene.replacement_mp_lock
+        import scalene.replacement_pjoin
+        import scalene.replacement_thread_join
 
         if sys.platform != "win32":
-            import scalene.replacement_poll_selector
             import scalene.replacement_fork
+            import scalene.replacement_poll_selector
 
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.__cpu_sigq = ScaleneSigQueue(Scalene.cpu_sigqueue_processor)
@@ -862,7 +850,6 @@ class Scalene:
         del this_frame
 
         Scalene.__stats.total_cpu_samples += total_time
-        
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -1250,8 +1237,9 @@ class Scalene:
             if "<ipython" in filename:
                 # Profiling code created in a Jupyter cell:
                 # create a file to hold the contents.
-                import IPython
                 import re
+
+                import IPython
 
                 # Find the input where the function was defined;
                 # we need this to properly annotate the code.

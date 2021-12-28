@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 from textwrap import dedent
+
 from scalene.scalene_signals import ScaleneSignals
 
 usage = dedent("""Turn Scalene profiling on or off for a specific process.""")

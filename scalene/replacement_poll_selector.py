@@ -1,9 +1,10 @@
 import selectors
 import sys
-import time
 import threading
+import time
+from typing import List, Optional, Tuple
+
 from scalene.scalene_profiler import Scalene
-from typing import Optional, List, Tuple
 
 
 @Scalene.shim

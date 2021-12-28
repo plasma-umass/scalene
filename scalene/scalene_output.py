@@ -1,22 +1,21 @@
 import sys
 import tempfile
-
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict, defaultdict
 from operator import itemgetter
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Union
+
+from rich import box
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
-from rich import box
 
 from scalene import sparkline
 from scalene.scalene_json import ScaleneJSON
-from scalene.syntaxline import SyntaxLine
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
-
-from typing import Any, Callable, Dict, List, Union
+from scalene.syntaxline import SyntaxLine
 
 
 class ScaleneOutput:

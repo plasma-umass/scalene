@@ -1,17 +1,11 @@
-from scalene.scalene_arguments import ScaleneArguments
-from scalene.scalene_version import scalene_version
-
-from typing import (
-    Any,
-    List,
-    NoReturn,
-    Optional,
-    Tuple,
-)
-from textwrap import dedent
 import argparse
 import contextlib
 import sys
+from textwrap import dedent
+from typing import Any, List, NoReturn, Optional, Tuple
+
+from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_version import scalene_version
 
 
 class RichArgParser(argparse.ArgumentParser):
