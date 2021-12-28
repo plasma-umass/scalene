@@ -327,18 +327,6 @@ class ScaleneStatistics:
             for lineno in src[filename]:
                 dest[filename][lineno] += src[filename][lineno]
 
-    @staticmethod
-    def increment_per_bytecode_samples(
-        dest: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, T]]],
-        src: Dict[Filename, Dict[LineNumber, Dict[ByteCodeIndex, T]]],
-    ) -> None:
-        for filename in src:
-            for lineno in src[filename]:
-                for ind in src[filename][lineno]:
-                    dest[filename][lineno][ind] += src[  # type: ignore
-                        filename
-                    ][lineno][ind]
-
     def merge_stats(self, the_dir_name: pathlib.Path) -> None:
         the_dir = pathlib.Path(the_dir_name)
         for f in list(the_dir.glob("**/scalene*")):
