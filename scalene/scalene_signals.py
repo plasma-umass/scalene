@@ -19,7 +19,7 @@ class ScaleneSignals:
         else:
             self.stop_profiling_signal = signal.SIGTERM
             # TO DO - not yet activated for Windows
-            self.mempcy_signal = None
+            self.memcpy_signal = None
             self.malloc_signal = None
             self.free_signal = None
             self.cpu_signal = signal.SIGBREAK
