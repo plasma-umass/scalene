@@ -16,14 +16,22 @@ if sys.platform == 'darwin':
         newenv[mdt] = '10.9'
         execve(sys.executable, [sys.executable] + sys.argv, newenv)
 
+def clang_version():
+    import re
+    pat = re.compile('Clang ([0-9]+)')
+    match = pat.search(platform.python_compiler())
+    version = int(match.group(1))
+    return version
+
 def multiarch_args():
     """Returns args requesting multi-architecture support, if applicable."""
     # On MacOS we build "universal2" packages, for both x86_64 and arm64/M1
     if sys.platform == 'darwin':
         args = ['-arch', 'x86_64']
         # ARM support was added in XCode 12, which requires MacOS 10.15.4
-        if [int(n) for n in platform.mac_ver()[0].split('.')] >= [10, 15, 4]:
-            args += ['-arch', 'arm64', '-arch', 'arm64e']
+        if clang_version() >= 12: # XCode 12
+            if [int(n) for n in platform.mac_ver()[0].split('.')] >= [10, 15, 4]:
+                args += ['-arch', 'arm64', '-arch', 'arm64e']
         return args
     return []
 
