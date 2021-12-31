@@ -94,7 +94,7 @@ class SampleHeap : public SuperHeap {
                               bool inPythonAllocator = true) {
     assert(realSize);
     // If this is the special NEWLINE value, trigger an update.
-    if (realSize == NEWLINE) {
+    if (unlikely(realSize == NEWLINE)) {
       std::string filename;
       int lineno;
       int bytei;
@@ -202,8 +202,6 @@ class SampleHeap : public SuperHeap {
   SampleHeap(const SampleHeap&) = delete;
   SampleHeap& operator=(const SampleHeap&) = delete;
 
-  SampleInterval _allocationSampler;
-
   static auto& mallocTriggered() {
     static std::atomic<uint64_t> _mallocTriggered{0};
     return _mallocTriggered;
@@ -218,6 +216,7 @@ class SampleHeap : public SuperHeap {
 
   void* _lastMallocTrigger;
   bool _freedLastMallocTrigger;
+  SampleInterval _allocationSampler;
 
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
