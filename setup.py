@@ -61,7 +61,8 @@ import setuptools.command.egg_info
 class EggInfoCommand(setuptools.command.egg_info.egg_info):
     """Custom command to download vendor libs before creating the egg_info."""
     def run(self):
-        self.spawn([make_command(), 'vendor-deps'])
+        if sys.platform != 'win32':
+            self.spawn([make_command(), 'vendor-deps'])
         super().run()
 
 import setuptools.command.build_ext
