@@ -213,9 +213,7 @@ class Scalene:
         return found_frame
 
     @staticmethod
-    def update_line(
-        fname: Filename, lineno: LineNumber, lasti: ByteCodeIndex
-    ) -> None:
+    def update_line() -> None:
         # Mark a new line by allocating the trigger number of bytes.
         bytearray(NEWLINE_TRIGGER_LENGTH)
 
@@ -245,7 +243,7 @@ class Scalene:
                 return None
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
-            Scalene.update_line(fname, lineno, lasti)
+            Scalene.update_line()
             Scalene.__last_profiled_invalidated = False
             Scalene.__last_profiled = (
                 Filename(ff),
@@ -379,7 +377,7 @@ class Scalene:
             fname == Filename(f.f_code.co_filename)
             and lineno == LineNumber(f.f_lineno)
         ):
-            Scalene.update_line(fname, lineno, lasti)
+            Scalene.update_line()
         Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
             Filename(f.f_code.co_filename),
