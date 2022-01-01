@@ -27,7 +27,6 @@ import os
 import pathlib
 import platform
 import re
-import resource
 import signal
 import stat
 import sys
@@ -55,6 +54,9 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
+
+if sys.platform != "win32":
+    import resource
 
 # For now, disable experimental GPU support for Apple
 if False:  # platform.system() == "Darwin":
@@ -572,9 +574,16 @@ class Scalene:
     ) -> None:
         """Wrapper for CPU signal handlers."""
         # Get current time stats.
-        ru = resource.getrusage(resource.RUSAGE_SELF)
-        now_sys = ru.ru_stime
-        now_user = ru.ru_utime
+        if sys.platform != "win32":
+            # On Linux/Mac, use getrusage, which provides higher
+            # resolution values than os.times() for some reason.
+            ru = resource.getrusage(resource.RUSAGE_SELF)
+            now_sys = ru.ru_stime
+            now_user = ru.ru_utime
+        else:
+            time_info = os.times()
+            now_sys = time_info.system
+            now_user = time_info.user
         now_virtual = time.process_time()
         now_wallclock = time.perf_counter()
         if (
