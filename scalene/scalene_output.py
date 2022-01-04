@@ -558,7 +558,13 @@ class ScaleneOutput:
             # Potentially print a function summary.
             fn_stats = stats.build_function_stats(fname)
             print_fn_summary = False
-            for fn_name in fn_stats.cpu_samples_python:
+            # Check CPU samples and memory samples.
+            all_samples = set()
+            all_samples |= set(fn_stats.cpu_samples_python.keys())
+            all_samples |= set(fn_stats.cpu_samples_c.keys())
+            all_samples |= set(fn_stats.memory_malloc_samples.keys())
+            all_samples |= set(fn_stats.memory_free_samples.keys())
+            for fn_name in all_samples:
                 if fn_name == fname:
                     continue
                 print_fn_summary = True

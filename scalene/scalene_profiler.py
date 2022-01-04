@@ -274,7 +274,11 @@ class Scalene:
 
     @classmethod
     def remove_child_pid(cls, pid: int) -> None:
-        cls.__child_pids.remove(pid)
+        try:
+            cls.__child_pids.remove(pid)
+        except KeyError:
+            # Defensive programming: this should never happen.
+            pass
 
     # Replacement @profile decorator function.
     # We track which functions - in which files - have been decorated,
@@ -358,6 +362,7 @@ class Scalene:
     ) -> None:
         invalidated = Scalene.__last_profiled_invalidated
         (fname, lineno, lasti) = Scalene.__last_profiled
+        Scalene.enter_function_meta(this_frame, Scalene.__stats)
         # Walk the stack till we find a line of code in a file we are tracing.
         found_frame = False
         f = this_frame
@@ -398,6 +403,7 @@ class Scalene:
         ],
         this_frame: Optional[FrameType],
     ) -> None:
+        Scalene.enter_function_meta(this_frame, Scalene.__stats)
         Scalene.__alloc_sigq.put([0])
         del this_frame
 
@@ -926,6 +932,7 @@ class Scalene:
         """Update tracking info so we can correctly report line number info later."""
         fname = Filename(frame.f_code.co_filename)
         lineno = LineNumber(frame.f_lineno)
+
         f = frame
         try:
             while "<" in Filename(f.f_code.co_name):
