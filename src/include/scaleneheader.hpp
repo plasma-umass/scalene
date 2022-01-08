@@ -2,7 +2,15 @@
 #define SCALENE_HEADER_H
 
 #include <stddef.h>
+#if defined(__SVR4)
+extern "C" size_t malloc_usable_size (void *);
+#elif defined(__APPLE__)
+#include <malloc/malloc.h>
+#elif defined(__linux__)
 #include <malloc.h>
+#else
+extern "C" size_t malloc_usable_size (void *) throw ();
+#endif
 #include <assert.h>
 
 #define USE_HEADERS 1
