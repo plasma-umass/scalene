@@ -85,8 +85,7 @@ class SampleHeap : public SuperHeap {
     if (pythonDetected() && !g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
-        if (likely(sz - sizeof(ScaleneHeader) != NEWLINE))
-          register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
+        register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
       }
     }
     return ptr;
@@ -194,8 +193,8 @@ class SampleHeap : public SuperHeap {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
-      if (likely(sz - sizeof(ScaleneHeader) != NEWLINE))
-        register_malloc(realSize, ptr);
+      
+      register_malloc(realSize, ptr);
     }
     return ptr;
   }
