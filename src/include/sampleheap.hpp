@@ -192,10 +192,10 @@ class SampleHeap : public SuperHeap {
       return nullptr;
     }
     if (pythonDetected() && !g.wasInMalloc()) {
-      // auto realSize = SuperHeap::getSize(ptr);
+      auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
-      register_malloc(realSize , ptr);
+      register_malloc(sz , ptr);
     }
     return ptr;
   }
