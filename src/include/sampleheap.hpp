@@ -147,13 +147,13 @@ class SampleHeap : public SuperHeap {
     }
     if (pythonDetected() && !g.wasInMalloc()) {
       // auto realSize = SuperHeap::getSize(ptr);
-      register_free(ptr);
+      register_free(0, ptr);
     }
     SuperHeap::free(ptr);
   }
 
-  inline void register_free(void* ptr) {
-    auto sz = ScaleneHeader::getSize(ptr) ;
+  inline void register_free(size_t realSize, void* ptr) {
+    auto sz = realSize > 0 ? realSize : ScaleneHeader::getSize(ptr) ;
 
     auto sampleFree = _allocationSampler.decrement(sz);
     if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
@@ -192,7 +192,7 @@ class SampleHeap : public SuperHeap {
       return nullptr;
     }
     if (pythonDetected() && !g.wasInMalloc()) {
-      auto realSize = SuperHeap::getSize(ptr);
+      // auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
       register_malloc(realSize , ptr);
