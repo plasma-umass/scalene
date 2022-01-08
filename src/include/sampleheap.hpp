@@ -27,6 +27,7 @@
 #include "pywhere.hpp"
 #include "samplefile.hpp"
 #include "sampleinterval.hpp"
+#include "scaleneheader.hpp"
 
 static SampleFile& getSampleFile() {
   static SampleFile mallocSampleFile("/tmp/scalene-malloc-signal%d",
@@ -82,9 +83,9 @@ class SampleHeap : public SuperHeap {
       return nullptr;
     }
     if (pythonDetected() && !g.wasInMalloc()) {
-      auto realSize = SuperHeap::getSize(ptr);
-      if (realSize > 0) {
-        register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
+      // auto realSize = SuperHeap::getSize(ptr);
+      if (sz > 0) {
+        register_malloc(sz - sizeof(ScaleneHeader), ptr, false);  // false -> invoked from C/C++
       }
     }
     return ptr;
@@ -145,14 +146,16 @@ class SampleHeap : public SuperHeap {
       return;
     }
     if (pythonDetected() && !g.wasInMalloc()) {
-      auto realSize = SuperHeap::getSize(ptr);
-      register_free(realSize, ptr);
+      // auto realSize = SuperHeap::getSize(ptr);
+      register_free(ptr);
     }
     SuperHeap::free(ptr);
   }
 
-  inline void register_free(size_t realSize, void* ptr) {
-    auto sampleFree = _allocationSampler.decrement(realSize);
+  inline void register_free(void* ptr) {
+    auto sz = ScaleneHeader::getSize(ptr) ;
+
+    auto sampleFree = _allocationSampler.decrement(sz);
     if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
       _freedLastMallocTrigger = true;
     }
@@ -192,7 +195,7 @@ class SampleHeap : public SuperHeap {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
-      register_malloc(realSize, ptr);
+      register_malloc(realSize , ptr);
     }
     return ptr;
   }
