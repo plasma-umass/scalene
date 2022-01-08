@@ -27,6 +27,7 @@
 #include "pywhere.hpp"
 #include "samplefile.hpp"
 #include "sampleinterval.hpp"
+#include "scaleneheader.hpp"
 
 static SampleFile& getSampleFile() {
   static SampleFile mallocSampleFile("/tmp/scalene-malloc-signal%d",
@@ -84,7 +85,8 @@ class SampleHeap : public SuperHeap {
     if (pythonDetected() && !g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
-        register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
+        if (likely(sz - sizeof(ScaleneHeader) != NEWLINE))
+          register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
       }
     }
     return ptr;
@@ -192,7 +194,8 @@ class SampleHeap : public SuperHeap {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
-      register_malloc(realSize, ptr);
+      if (likely(sz - sizeof(ScaleneHeader) != NEWLINE))
+        register_malloc(realSize, ptr);
     }
     return ptr;
   }
