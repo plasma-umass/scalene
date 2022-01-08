@@ -1049,7 +1049,7 @@ class Scalene:
             else:
                 assert action == "f" or action == "F"
                 stats.current_footprint -= count
-                assert stats.current_footprint >= 0
+                # assert stats.current_footprint >= 0
                 if action == "f":
                     # Check if pointer actually matches
                     if stats.last_malloc_triggered[2] == pointer:
