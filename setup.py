@@ -150,8 +150,7 @@ setup(
     install_requires=[
         "rich>=9.2.0",
         "cloudpickle>=1.5.0",
-        "nvidia-ml-py==11.450.51",
-        "wheel==0.36.2",
+        "nvidia-ml-py>=11.450.51",
         "numpy"
     ],
     ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),
