@@ -16,6 +16,7 @@
 #include "heapredirect.h"
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
+#include "scaleneheader.hpp"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
@@ -145,43 +146,43 @@ class MakeLocalAllocator {
 #endif
 #if USE_HEADERS
     void *buf = nullptr;
-    const auto allocSize = len + sizeof(Header);
+    const auto allocSize = len + sizeof(ScaleneHeader);
     buf = get_original_allocator()->malloc(ctx, allocSize);
-    auto *header = new (buf) Header(len);
+    auto *header = new (buf) ScaleneHeader(len);
 #else
-    auto *header = (Header *)get_original_allocator()->malloc(ctx, len);
+    auto *header = (ScaleneHeader *)get_original_allocator()->malloc(ctx, len);
 #endif
     assert(header);                  // We expect this to always succeed.
     if (len <= PYMALLOC_MAX_SIZE) {  // don't count allocations pymalloc passes
                                      // to malloc
-      TheHeapWrapper::register_malloc(len, getObject(header));
+      TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
     }
     class Nada {};
     if (len == SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE) {
       // Special case: register the new line execution.
-      TheHeapWrapper::register_malloc(len, getObject(header));
+      TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
     }
 #if USE_HEADERS
-    assert((size_t)getObject(header) - (size_t)header >= sizeof(Header));
+    assert((size_t)ScaleneHeader::getObject(header) - (size_t)header >= sizeof(ScaleneHeader));
 #ifndef NDEBUG
-    if (getSize(getObject(header)) < len) {
-      printf_("Size mismatch: %lu %lu\n", getSize(getObject(header)), len);
+    if (ScaleneHeader::getSize(ScaleneHeader::getObject(header)) < len) {
+      printf_("Size mismatch: %lu %lu\n", ScaleneHeader::getSize(ScaleneHeader::getObject(header)), len);
     }
 #endif
-    assert(getSize(getObject(header)) >= len);
+    assert(ScaleneHeader::getSize(ScaleneHeader::getObject(header)) >= len);
 #endif
-    return getObject(header);
+    return ScaleneHeader::getObject(header);
   }
 
   static inline void local_free(void *ctx, void *ptr) {
     // ignore nullptr
     if (ptr) {
       // printf_("LOCAL FREE %d (%d)\n", Domain, local_allocator_count);
-      const auto sz = getSize(ptr);
+      const auto sz = ScaleneHeader::getSize(ptr);
       if (sz <= PYMALLOC_MAX_SIZE) {
         TheHeapWrapper::register_free(sz, ptr);
       }
-      get_original_allocator()->free(ctx, getHeader(ptr));
+      get_original_allocator()->free(ctx, ScaleneHeader::getHeader(ptr));
     }
   }
 
@@ -192,19 +193,19 @@ class MakeLocalAllocator {
     if (!ptr) {
       return local_malloc(ctx, new_size);
     }
-    const auto sz = getSize(ptr);
+    const auto sz = ScaleneHeader::getSize(ptr);
 
     // printf_("LOCAL REALLOC %d (%lu)\n", Domain, new_size);
 
     void *p = nullptr;
-    const auto allocSize = new_size + sizeof(Header);
+    const auto allocSize = new_size + sizeof(ScaleneHeader);
     void *buf =
-        get_original_allocator()->realloc(ctx, getHeader(ptr), allocSize);
-    Header *result = new (buf) Header(new_size);
+        get_original_allocator()->realloc(ctx, ScaleneHeader::getHeader(ptr), allocSize);
+    ScaleneHeader *result = new (buf) ScaleneHeader(new_size);
     if (result) {
       if (sz < new_size) {
         if (new_size - sz <= PYMALLOC_MAX_SIZE) {
-          TheHeapWrapper::register_malloc(new_size - sz, getObject(result));
+          TheHeapWrapper::register_malloc(new_size - sz, ScaleneHeader::getObject(result));
         }
       } else if (sz > new_size) {
         if (sz - new_size <= PYMALLOC_MAX_SIZE) {
@@ -212,8 +213,8 @@ class MakeLocalAllocator {
         }
       }
     }
-    setSize(getObject(result), new_size);
-    p = getObject(result);
+    ScaleneHeader::setSize(ScaleneHeader::getObject(result), new_size);
+    p = ScaleneHeader::getObject(result);
     return p;
   }
 
@@ -229,76 +230,6 @@ class MakeLocalAllocator {
 
  private:
   static constexpr size_t MAGIC_NUMBER = 0x01020304;
-
-#if USE_HEADERS
-#if DEBUG_HEADER
-  class Header {
-   public:
-    Header(size_t sz) : size(sz), magic(MAGIC_NUMBER) {}
-    alignas(std::max_align_t) size_t size;
-    size_t magic;
-  };
-#else
-  class Header {
-   public:
-    Header(size_t sz) : size(sz) {}
-    size_t size;
-    //    alignas(std::max_align_t) size_t size;
-  };
-#endif
-#else
-  class Header {
-   public:
-    Header(size_t) {}
-  };
-#endif
-
-  static inline size_t getSize(void *ptr) {
-#if USE_HEADERS
-#if DEBUG_HEADER
-    assert(getHeader(ptr)->magic == MAGIC_NUMBER);
-#endif
-    auto sz = getHeader(ptr)->size;
-    if (sz > PYMALLOC_MAX_SIZE) {
-#if defined(__APPLE__)
-      //      printf_("%p: sz = %lu, actual size = %lu\n", getHeader(ptr), sz,
-      //      ::malloc_size(getHeader(ptr)));
-      assert(::malloc_size(getHeader(ptr)) >= sz);
-#else
-      assert(::malloc_usable_size(getHeader(ptr)) >= sz);
-#endif
-    }
-    return sz;
-#else
-    return 123;  // Bogus size.
-#endif
-  }
-
-  static inline void setSize(void *ptr, size_t sz) {
-#if USE_HEADERS
-    auto h = getHeader(ptr);
-#if DEBUG_HEADER
-    h->magic = MAGIC_NUMBER;
-#endif
-    h->size = sz;
-#endif
-  }
-
-  static inline Header *getHeader(void *ptr) {
-#if USE_HEADERS
-    return (Header *)ptr - 1;
-#else
-    return (Header *)ptr;
-#endif
-  }
-
-  static inline void *getObject(Header *header) {
-#if USE_HEADERS
-    return (void *)(header + 1);
-#else
-    return (void *)header;
-#endif
-  }
 };
 
 // from pywhere.hpp
