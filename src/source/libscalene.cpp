@@ -143,11 +143,13 @@ class MakeLocalAllocator {
     // Ensure all allocation requests are multiples of eight,
     // mirroring the actual allocation sizes employed by pymalloc
     // (See https://github.com/python/cpython/blob/main/Objects/obmalloc.c#L807)
-    if (unlikely(len == 0)) {
-      // Handle 0.
-      len = 8;
+    if (len <= PYMALLOC_MAX_SIZE) {
+      if (unlikely(len == 0)) {
+	// Handle 0.
+	len = 8;
+      }
+      len = (len + 7) & ~7;
     }
-    len = (len + 7) & ~7;
 #endif
 #if USE_HEADERS
     void *buf = nullptr;
