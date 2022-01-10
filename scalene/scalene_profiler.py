@@ -500,7 +500,7 @@ class Scalene:
         except:
             # Ignore if we aren't profiling memory; otherwise, exit.
             if not arguments.cpu_only:
-                sys.exit(-1)
+                sys.exit(1)
 
         Scalene.__signals.set_timer_signals(arguments.use_virtual_time)
         if arguments.pid:
@@ -1309,7 +1309,7 @@ class Scalene:
                 "ERROR: Do not try to invoke `start` when you have not called Scalene using one of the methods"
                 "in https://github.com/plasma-umass/scalene#using-scalene"
             )
-            sys.exit(-1)
+            sys.exit(1)
         Scalene.__stats.start_clock()
         Scalene.enable_signals()
         Scalene.__done = False
@@ -1382,7 +1382,7 @@ class Scalene:
         ],
         _this_frame: FrameType,
     ) -> None:
-        sys.exit(-1)
+        sys.exit(1)
 
     def profile_code(
         self,
@@ -1406,6 +1406,7 @@ class Scalene:
         except Exception as e:
             print("Error in program being profiled:\n", e)
             traceback.print_exc()
+            exit_status = 1
         finally:
             self.stop()
             sys.settrace(None)
@@ -1445,7 +1446,7 @@ class Scalene:
                 "ERROR: Do not try to manually invoke `run_profiler`.\n"
                 "To invoke Scalene programmatically, see the usage noted in https://github.com/plasma-umass/scalene#using-scalene"
             )
-            sys.exit(-1)
+            sys.exit(1)
         signal.signal(
             Scalene.__signals.start_profiling_signal,
             Scalene.start_signal_handler,
@@ -1482,6 +1483,7 @@ class Scalene:
         try:
             Scalene.process_args(args)
             progs = None
+            exit_status = 0
             try:
                 # Look for something ending in '.py'. Treat the first one as our executable.
                 progs = [x for x in sys.argv if re.match(".*\.py$", x)]
@@ -1501,7 +1503,7 @@ class Scalene:
                         )
                     except SyntaxError:
                         traceback.print_exc()
-                        sys.exit(-1)
+                        sys.exit(1)
                     # Push the program's path.
                     program_path = os.path.dirname(os.path.abspath(progs[0]))
                     sys.path.insert(0, program_path)
@@ -1558,20 +1560,21 @@ class Scalene:
                     print("Scalene: could not find input file " + progs[0])
                 else:
                     print("Scalene: no input file specified.")
-                sys.exit(-1)
+                sys.exit(1)
         except SystemExit:
             pass
         except StopJupyterExecution:
             pass
         except Exception:
             print("Scalene failed to initialize.\n" + traceback.format_exc())
-            sys.exit(-1)
+            sys.exit(1)
         finally:
             with contextlib.suppress(Exception):
                 Scalene.__malloc_mapfile.close()
                 Scalene.__memcpy_mapfile.close()
                 if not Scalene.__is_child:
                     Scalene.cleanup_files()
+            sys.exit(exit_status)
 
 
 if __name__ == "__main__":
