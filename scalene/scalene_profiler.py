@@ -1306,7 +1306,7 @@ class Scalene:
         # Scalene.clear_mmap_data()
         if not Scalene.__initialized:
             print(
-                "ERROR: Do not try to invoke `start` when you have not called Scalene using one of the methods"
+                "ERROR: Do not try to invoke `start` when you have not called Scalene using one of the methods "
                 "in https://github.com/plasma-umass/scalene#using-scalene"
             )
             sys.exit(1)
