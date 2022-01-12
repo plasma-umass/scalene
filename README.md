@@ -38,7 +38,7 @@ scalene --help                                   # lists all options
 To use Scalene programmatically in your code, invoke using `scalene` as above and then:
 
 ```Python
-import scalene
+from scalene import scalene_profiler
 
 # Turn profiling on
 scalene_profiler.start()
