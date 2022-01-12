@@ -10,7 +10,7 @@ def exp(x):
         num *= x
         s += num / fact
     getcontext().prec -= 2
-    print(s)
+    print(+s)
     return +s
 
 import time
@@ -40,7 +40,7 @@ def exp_opt(x):
         nf *= (x / i) ### update nf to be num / fact
         s += nf ### was: s += num / fact
     getcontext().prec -= 2
-    print(s)
+    print(+s)
     return +s
 
 start = time.time()
