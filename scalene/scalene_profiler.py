@@ -320,7 +320,7 @@ class Scalene:
 
     @staticmethod
     def cleanup_files() -> None:
-        Scalene.__malloc_mapfile.cleanup()
+        # Scalene.__malloc_mapfile.cleanup()
         Scalene.__memcpy_mapfile.cleanup()
 
     @staticmethod
@@ -1007,6 +1007,7 @@ class Scalene:
                     reported_fname,
                     reported_lineno,
                     bytei_str,
+                    _,
                 ) = count_str.split(",")
                 if int(curr_pid) == int(pid):
                     arr.append(
@@ -1049,7 +1050,7 @@ class Scalene:
             else:
                 assert action == "f" or action == "F"
                 stats.current_footprint -= count
-                assert stats.current_footprint >= 0
+                # assert stats.current_footprint >= 0
                 if action == "f":
                     # Check if pointer actually matches
                     if stats.last_malloc_triggered[2] == pointer:
@@ -1410,6 +1411,9 @@ class Scalene:
         finally:
             self.stop()
             sys.settrace(None)
+            Scalene.__malloc_mapfile.close()
+            print(Scalene.__malloc_mapfile._signal_filename)
+            # print("Done")
             # If we've collected any samples, dump them.
             if not Scalene.output_profile():
                 print(
@@ -1570,7 +1574,7 @@ class Scalene:
             sys.exit(1)
         finally:
             with contextlib.suppress(Exception):
-                Scalene.__malloc_mapfile.close()
+                
                 Scalene.__memcpy_mapfile.close()
                 if not Scalene.__is_child:
                     Scalene.cleanup_files()

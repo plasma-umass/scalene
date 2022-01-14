@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>  // for getpid()
 
 #include <atomic>
@@ -111,7 +112,7 @@ class SampleHeap : public SuperHeap {
       _cCount += realSize;
     }
     if (unlikely(sampleMalloc)) {
-      process_malloc(sampleMalloc, ptr);
+      process_malloc(realSize, ptr);
     }
   }
 
@@ -157,12 +158,12 @@ class SampleHeap : public SuperHeap {
       _freedLastMallocTrigger = true;
     }
     if (unlikely(sampleFree)) {
-      process_free(sampleFree);
+      process_free(realSize, ptr);
     }
   }
 
  private:
-  void process_free(size_t sampleFree) {
+  void process_free(size_t sampleFree, void* ptr) {
     std::string filename;
     int lineno = 1;
     int bytei = 0;
@@ -174,7 +175,7 @@ class SampleHeap : public SuperHeap {
     }
 #endif
 
-    writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
+    writeCount(FreeSignal, sampleFree, ptr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
     raise(FreeSignal);  // was FreeSignal
 #endif
@@ -232,13 +233,13 @@ class SampleHeap : public SuperHeap {
 #if defined(__APPLE__)
         "%c,%llu,%llu,%f,%d,%p,%s,%d,%d\n\n",
 #else
-        "%c,%lu,%lu,%f,%d,%p,%s,%d,%d\n\n",
+        "%c,%lu,%lu,%f,%d,%p,%s,%d,%d,%d\n\n",
 #endif
         ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
         mallocTriggered() + freeTriggered(), count,
         (float)_pythonCount / (_pythonCount + _cCount), getpid(),
         _freedLastMallocTrigger ? _lastMallocTrigger : ptr, filename.c_str(),
-        lineno, bytei);
+        lineno, bytei, clock());
     // Ensure we don't report last-malloc-freed multiple times.
     _freedLastMallocTrigger = false;
     getSampleFile().writeToFile(buf);
