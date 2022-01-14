@@ -165,6 +165,7 @@ class MakeLocalAllocator {
       TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
     }
     class Nada {};
+    static_assert(SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE > PYMALLOC_MAX_SIZE, "NEWLINE must be greater than PYMALLOC_MAX_SIZE.");
     if (len == SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE) {
       // Special case: register the new line execution.
       TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
