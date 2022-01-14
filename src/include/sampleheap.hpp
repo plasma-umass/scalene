@@ -112,7 +112,7 @@ class SampleHeap : public SuperHeap {
       _cCount += realSize;
     }
     if (unlikely(sampleMalloc)) {
-      process_malloc(realSize, ptr);
+      process_malloc(sampleMalloc, ptr);
     }
   }
 
@@ -158,7 +158,7 @@ class SampleHeap : public SuperHeap {
       _freedLastMallocTrigger = true;
     }
     if (unlikely(sampleFree)) {
-      process_free(realSize, ptr);
+      process_free(sampleFree, ptr);
     }
   }
 
@@ -231,7 +231,7 @@ class SampleHeap : public SuperHeap {
     snprintf_(
         buf, SampleFile::MAX_BUFSIZE,
 #if defined(__APPLE__)
-        "%c,%llu,%llu,%f,%d,%p,%s,%d,%d\n\n",
+        "%c,%llu,%llu,%f,%d,%p,%s,%d,%d,%d\n\n",
 #else
         "%c,%lu,%lu,%f,%d,%p,%s,%d,%d,%d\n\n",
 #endif
