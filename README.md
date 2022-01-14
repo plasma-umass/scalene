@@ -38,7 +38,7 @@ scalene --help                                   # lists all options
 To use Scalene programmatically in your code, invoke using `scalene` as above and then:
 
 ```Python
-import scalene
+from scalene import scalene_profiler
 
 # Turn profiling on
 scalene_profiler.start()
@@ -233,7 +233,7 @@ code...
 <details open>
 <summary>Using <code>pip</code> (Mac OS X, Linux, Windows, and WSL2)</summary>
 
-Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows port isn't complete yet and should be considered early alpha; it requires Python 3.8 or later.)
+Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows version isn't yet complete; it requires Python 3.8 or later and currently only supports CPU profiling.)
 
 You can install it as follows:
 ```console

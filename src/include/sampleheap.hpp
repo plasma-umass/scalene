@@ -86,10 +86,10 @@ class SampleHeap : public SuperHeap {
     if (pythonDetected() && !g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
-	if (sz == NEWLINE + sizeof(ScaleneHeader)) {
-	  // Don't count these allocations
-	  return ptr;
-	}
+        if (sz == NEWLINE + sizeof(ScaleneHeader)) {
+          // Don't count these allocations
+          return ptr;
+        }
         register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
       }
     }
