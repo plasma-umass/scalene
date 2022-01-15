@@ -9,7 +9,9 @@ class ScaleneArguments(argparse.Namespace):
         # mean seconds between interrupts for CPU sampling.
         self.cpu_sampling_rate = 0.01
         # Size of allocation window (sample when footprint increases or decreases by this amount)
-        self.allocation_sampling_window = 1549351 # sync with src/source/libscalene.cpp
+        self.allocation_sampling_window = (
+            1549351  # sync with src/source/libscalene.cpp
+        )
         self.html = False
         self.json = False
         self.column_width = (

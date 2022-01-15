@@ -269,7 +269,8 @@ class ScaleneStatistics:
             )
             fn_stats.memory_max_footprint[fn_name][first_line_no] = max(
                 fn_stats.memory_max_footprint[fn_name][first_line_no],
-                self.memory_max_footprint[filename][line_no])
+                self.memory_max_footprint[filename][line_no],
+            )
         return fn_stats
 
     payload_contents = [
