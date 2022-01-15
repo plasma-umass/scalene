@@ -213,6 +213,13 @@ for the process ID that Scalene reports. For example:
             help=f"CPU sampling rate (default: every [blue]{defaults.cpu_sampling_rate}s[/blue])",
         )
         parser.add_argument(
+            "--allocation-sampling-window",
+            dest="allocation_sampling_window",
+            type=int,
+            default=defaults.allocation_sampling_window,
+            help=f"Allocation sampling window size, in bytes (default: [blue]{defaults.allocation_sampling_window} bytes[/blue])",
+        )
+        parser.add_argument(
             "--malloc-threshold",
             dest="malloc_threshold",
             type=int,

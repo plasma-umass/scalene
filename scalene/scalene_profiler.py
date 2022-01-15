@@ -1516,7 +1516,7 @@ class Scalene:
                     # Grab local and global variables.
                     if not Scalene.__args.cpu_only:
                         from scalene import pywhere
-
+                        
                         pywhere.register_files_to_profile(
                             list(Scalene.__files_to_profile.keys()),
                             Scalene.__program_path,

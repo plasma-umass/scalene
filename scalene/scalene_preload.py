@@ -16,6 +16,12 @@ class ScalenePreload:
     def get_preload_environ(args: argparse.Namespace) -> Dict[str, str]:
         env = dict()
 
+        # Set allocation sampling window (sync environment variable
+        # name with src/include/sampleheap.hpp).
+        env["SCALENE_ALLOCATION_SAMPLING_WINDOW"] = str(args.allocation_sampling_window)
+
+        # Set environment variables for loading the Scalene dynamic library,
+        # which interposes on allocation and copying functions.
         if sys.platform == "linux":
             if not args.cpu_only:
                 env["LD_PRELOAD"] = os.path.join(
