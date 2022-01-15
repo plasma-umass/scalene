@@ -267,6 +267,9 @@ class ScaleneStatistics:
                 fn_stats.leak_score[fn_name][first_line_no][1]
                 + self.leak_score[filename][line_no][1],
             )
+            fn_stats.memory_max_footprint[fn_name][first_line_no] = max(
+                fn_stats.memory_max_footprint[fn_name][first_line_no],
+                self.memory_max_footprint[filename][line_no])
         return fn_stats
 
     payload_contents = [
