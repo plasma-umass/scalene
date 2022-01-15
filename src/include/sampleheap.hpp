@@ -46,25 +46,24 @@ typedef std::atomic<uint64_t> counterType;
 typedef uint64_t counterType;
 #endif
 
-template <uint64_t DefaultAllocationSamplingRateBytes,
-	  class SuperHeap>
+template <uint64_t DefaultAllocationSamplingRateBytes, class SuperHeap>
 class SampleHeap : public SuperHeap {
+  constexpr static auto sampling_window_envname =
+      "SCALENE_ALLOCATION_SAMPLING_WINDOW";
 
-  constexpr static auto sampling_window_envname = "SCALENE_ALLOCATION_SAMPLING_WINDOW";
-  
  public:
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
 
-  static constexpr uint64_t NEWLINE = 98821; // Sentinel value denoting a new line has executed
+  static constexpr uint64_t NEWLINE =
+      98821;  // Sentinel value denoting a new line has executed
 
   SampleHeap()
       : _lastMallocTrigger(nullptr),
         _freedLastMallocTrigger(false),
-        _allocationSampler(getenv(sampling_window_envname) ?
-			   atol(getenv(sampling_window_envname)) :
-			   DefaultAllocationSamplingRateBytes)
-  {
+        _allocationSampler(getenv(sampling_window_envname)
+                               ? atol(getenv(sampling_window_envname))
+                               : DefaultAllocationSamplingRateBytes) {
     getSampleFile();  // invoked here so the file gets initialized before python
                       // attempts to read from it
 
