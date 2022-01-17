@@ -1433,12 +1433,16 @@ class Scalene:
         Scalene.__parent_pid = args.pid if Scalene.__is_child else os.getpid()
 
     @staticmethod
+    def set_initialized() -> None:
+        Scalene.__initialized = True
+
+    @staticmethod
     def main() -> None:
         (
             args,
             left,
         ) = ScaleneParseArgs.parse_args()
-        Scalene.__initialized = True
+        Scalene.set_initialized()
         Scalene.run_profiler(args, left)
 
     @staticmethod
