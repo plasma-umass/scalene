@@ -1,13 +1,16 @@
-usage: scalene [-h] [--version] [--outfile OUTFILE] [--html] [--json]
-               [--reduced-profile] [--profile-interval PROFILE_INTERVAL]
-               [--cpu-only] [--profile-all] [--profile-only PROFILE_ONLY]
-               [--use-virtual-time]
+usage: scalene [-h] [--version] [--column-width COLUMN_WIDTH]
+               [--outfile OUTFILE] [--html] [--json] [--reduced-profile]
+               [--profile-interval PROFILE_INTERVAL] [--cpu-only]
+               [--profile-all] [--profile-only PROFILE_ONLY]
+               [--profile-exclude PROFILE_EXCLUDE] [--use-virtual-time]
                [--cpu-percent-threshold CPU_PERCENT_THRESHOLD]
                [--cpu-sampling-rate CPU_SAMPLING_RATE]
+               [--allocation-sampling-window ALLOCATION_SAMPLING_WINDOW]
                [--malloc-threshold MALLOC_THRESHOLD]
-               [--program-path PROGRAM_PATH] [--on | --off]
+               [--program-path PROGRAM_PATH] [--memory-leak-detector]
+               [--on | --off]
 
-Scalene: a high-precision CPU and memory profiler, version 1.3.14
+Scalene: a high-precision CPU and memory profiler, version 1.4.0
 https://github.com/plasma-umass/scalene
 
 command-line:
@@ -26,6 +29,8 @@ in Jupyter, cell mode:
 optional arguments:
   -h, --help            show this help message and exit
   --version             prints the version number for this release of Scalene and exits
+  --column-width COLUMN_WIDTH
+                        Column width for profile output (default: 132)
   --outfile OUTFILE     file to hold profiler output (default: stdout)
   --html                output as HTML (default: text)
   --json                output as JSON (default: text)
@@ -36,15 +41,21 @@ optional arguments:
   --profile-all         profile all executed code, not just the target program (default: only the target program)
   --profile-only PROFILE_ONLY
                         profile only code in filenames that contain the given strings, separated by commas (default: no restrictions)
+  --profile-exclude PROFILE_EXCLUDE
+                        do not profile code in filenames that contain the given strings, separated by commas (default: no restrictions)
   --use-virtual-time    measure only CPU time, not time spent in I/O or blocking (default: False)
   --cpu-percent-threshold CPU_PERCENT_THRESHOLD
                         only report profiles with at least this percent of CPU time (default: 1%)
   --cpu-sampling-rate CPU_SAMPLING_RATE
                         CPU sampling rate (default: every 0.01s)
+  --allocation-sampling-window ALLOCATION_SAMPLING_WINDOW
+                        Allocation sampling window size, in bytes (default: 1549351 bytes)
   --malloc-threshold MALLOC_THRESHOLD
                         only report profiles with at least this many allocations (default: 100)
   --program-path PROGRAM_PATH
                         The directory containing the code to profile (default: the path to the profiled program)
+  --memory-leak-detector
+                        EXPERIMENTAL: report likely memory leaks (default: False)
   --on                  start with profiling on (default)
   --off                 start with profiling off
 
