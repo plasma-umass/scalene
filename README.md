@@ -47,6 +47,15 @@ scalene_profiler.start()
 scalene_profiler.stop()
 ```
 
+To use Scalene to profile specific functions, just use the `@profile` decorator and run it with Scalene:
+
+```Python
+@profile
+def slow_function():
+    import time
+    time.sleep(3)
+```
+
 ## Scalene Overview
 
 ### Scalene talk (PyCon US 2021)
