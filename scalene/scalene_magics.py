@@ -72,3 +72,12 @@ with contextlib.suppress(Exception):
                 )
             )
         )
+        if sys.platform == "darwin":
+            print()
+            print(
+                "\n".join(
+                    textwrap.wrap(
+                        "NOTE: in Jupyter notebook on MacOS, Scalene cannot profile child processes. Do not run to try Scalene with multiprocessing in Jupyter Notebook"
+                    )
+                )
+            )

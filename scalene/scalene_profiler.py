@@ -1488,7 +1488,8 @@ class Scalene:
         Scalene.__stats.clear_all()
         sys.argv = left
         with contextlib.suppress(Exception):
-            multiprocessing.set_start_method("fork")
+            if not is_jupyter:
+                multiprocessing.set_start_method("fork")
         try:
             Scalene.process_args(args)
             progs = None
