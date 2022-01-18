@@ -47,7 +47,8 @@ scalene_profiler.start()
 scalene_profiler.stop()
 ```
 
-To use Scalene as a decorator, just use `profile` decorator without any imports
+To use Scalene to profile specific functions, just use the `@profile` decorator and run it with Scalene:
+
 ```Python
 @profile
 def slow_function():
