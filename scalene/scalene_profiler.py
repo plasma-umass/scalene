@@ -1446,7 +1446,7 @@ class Scalene:
         Scalene.run_profiler(args, left)
 
     @staticmethod
-    def run_profiler(args: argparse.Namespace, left: List[str]) -> None:
+    def run_profiler(args: argparse.Namespace, left: List[str], is_jupyter: bool = False) -> None:
         # Set up signal handlers for starting and stopping profiling.
         if not Scalene.__initialized:
             print(
@@ -1469,8 +1469,10 @@ class Scalene:
             signal.siginterrupt(Scalene.__signals.stop_profiling_signal, False)
 
         signal.signal(signal.SIGINT, Scalene.interruption_handler)
-
-        did_preload = ScalenePreload.setup_preload(args)
+        if not is_jupyter:
+            did_preload = ScalenePreload.setup_preload(args)
+        else:
+            did_preload = False
         if not did_preload:
             with contextlib.suppress(Exception):
                 # If running in the background, print the PID.
