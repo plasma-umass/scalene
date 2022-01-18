@@ -49,8 +49,7 @@ scalene_profiler.stop()
 
 To use Scalene as a decorator, import `scalene_redirect_profile`
 ```Python
-from scalene.scalene_profiler import scalene_redirect_profile
-@scalene_redirect_profile
+@profile
 def slow_function():
     import time
     time.sleep(3)
