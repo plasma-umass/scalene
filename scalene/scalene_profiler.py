@@ -1050,7 +1050,10 @@ class Scalene:
             else:
                 assert action == "f" or action == "F"
                 stats.current_footprint -= count
-                assert stats.current_footprint >= 0
+                # Force current footprint to be non-negative; this
+                # code is needed because Scalene can miss some initial
+                # allocations at startup.
+                stats.current_footprint = max(0, stats.current_footprint)
                 if action == "f":
                     # Check if pointer actually matches
                     if stats.last_malloc_triggered[2] == pointer:
@@ -1307,7 +1310,7 @@ class Scalene:
         # Scalene.clear_mmap_data()
         if not Scalene.__initialized:
             print(
-                "ERROR: Do not try to invoke `start` when you have not called Scalene using one of the methods"
+                "ERROR: Do not try to invoke `start` when you have not called Scalene using one of the methods "
                 "in https://github.com/plasma-umass/scalene#using-scalene"
             )
             sys.exit(1)
@@ -1431,16 +1434,20 @@ class Scalene:
         Scalene.__parent_pid = args.pid if Scalene.__is_child else os.getpid()
 
     @staticmethod
+    def set_initialized() -> None:
+        Scalene.__initialized = True
+
+    @staticmethod
     def main() -> None:
         (
             args,
             left,
         ) = ScaleneParseArgs.parse_args()
-        Scalene.__initialized = True
+        Scalene.set_initialized()
         Scalene.run_profiler(args, left)
 
     @staticmethod
-    def run_profiler(args: argparse.Namespace, left: List[str]) -> None:
+    def run_profiler(args: argparse.Namespace, left: List[str], is_jupyter: bool = False) -> None:
         # Set up signal handlers for starting and stopping profiling.
         if not Scalene.__initialized:
             print(
@@ -1463,8 +1470,10 @@ class Scalene:
             signal.siginterrupt(Scalene.__signals.stop_profiling_signal, False)
 
         signal.signal(signal.SIGINT, Scalene.interruption_handler)
-
-        did_preload = ScalenePreload.setup_preload(args)
+        if not is_jupyter:
+            did_preload = ScalenePreload.setup_preload(args)
+        else:
+            did_preload = False
         if not did_preload:
             with contextlib.suppress(Exception):
                 # If running in the background, print the PID.
@@ -1480,7 +1489,8 @@ class Scalene:
         Scalene.__stats.clear_all()
         sys.argv = left
         with contextlib.suppress(Exception):
-            multiprocessing.set_start_method("fork")
+            if not is_jupyter:
+                multiprocessing.set_start_method("fork")
         try:
             Scalene.process_args(args)
             progs = None
@@ -1529,7 +1539,7 @@ class Scalene:
                     the_locals = __main__.__dict__
                     the_globals = __main__.__dict__
                     # Splice in the name of the file being executed instead of the profiler.
-                    the_globals["__file__"] = os.path.basename(progs[0])
+                    the_globals["__file__"] = os.path.abspath(progs[0])
                     # Some mysterious module foo to make this work the same with -m as with `scalene`.
                     the_globals["__spec__"] = None
                     # Start the profiler.

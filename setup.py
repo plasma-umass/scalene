@@ -65,6 +65,15 @@ class EggInfoCommand(setuptools.command.egg_info.egg_info):
             self.spawn([make_command(), 'vendor-deps'])
         super().run()
 
+# Force building platform-specific wheel to avoid the Windows wheel
+# (which doesn't include libscalene, and thus would be considered "pure")
+# being used for other platforms.
+from wheel.bdist_wheel import bdist_wheel as orig_bdist_wheel
+class BdistWheelCommand(orig_bdist_wheel):
+    def finalize_options(self):
+        orig_bdist_wheel.finalize_options(self)
+        self.root_is_pure = False
+
 import setuptools.command.build_ext
 class BuildExtCommand(setuptools.command.build_ext.build_ext):
     """Custom command that runs 'make' to generate libscalene."""
@@ -137,6 +146,7 @@ setup(
     [
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
@@ -144,6 +154,7 @@ setup(
     ],
     packages=find_packages(),
     cmdclass={
+        'bdist_wheel': BdistWheelCommand,
         'egg_info': EggInfoCommand,
         'build_ext': BuildExtCommand,
     },

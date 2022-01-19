@@ -7,6 +7,7 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <sys/errno.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -27,6 +28,7 @@
 #include "pywhere.hpp"
 #include "samplefile.hpp"
 #include "sampleinterval.hpp"
+#include "scaleneheader.hpp"
 
 static SampleFile& getSampleFile() {
   static SampleFile mallocSampleFile("/tmp/scalene-malloc-signal%d",
@@ -44,22 +46,24 @@ typedef std::atomic<uint64_t> counterType;
 typedef uint64_t counterType;
 #endif
 
-template <uint64_t AllocationSamplingRateBytes,  // uint64_t
-                                                 // FreeSamplingRateBytes,
-          class SuperHeap>
+template <uint64_t DefaultAllocationSamplingRateBytes, class SuperHeap>
 class SampleHeap : public SuperHeap {
-  static constexpr int MAX_FILE_SIZE = 4096 * 65536;
+  constexpr static auto sampling_window_envname =
+      "SCALENE_ALLOCATION_SAMPLING_WINDOW";
 
  public:
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
 
-  static constexpr uint64_t NEWLINE = 98821;
+  static constexpr uint64_t NEWLINE =
+      98821;  // Sentinel value denoting a new line has executed
 
   SampleHeap()
       : _lastMallocTrigger(nullptr),
         _freedLastMallocTrigger(false),
-        _allocationSampler(AllocationSamplingRateBytes) {
+        _allocationSampler(getenv(sampling_window_envname)
+                               ? atol(getenv(sampling_window_envname))
+                               : DefaultAllocationSamplingRateBytes) {
     getSampleFile();  // invoked here so the file gets initialized before python
                       // attempts to read from it
 
@@ -84,6 +88,10 @@ class SampleHeap : public SuperHeap {
     if (pythonDetected() && !g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
+        if (sz == NEWLINE + sizeof(ScaleneHeader)) {
+          // Don't count these allocations
+          return ptr;
+        }
         register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
       }
     }
@@ -102,6 +110,7 @@ class SampleHeap : public SuperHeap {
       if (where != nullptr && where(filename, lineno, bytei)) {
         writeCount(MallocSignal, realSize, ptr, filename, lineno, bytei);
       }
+      mallocTriggered()++;
       return;
     }
     auto sampleMalloc = _allocationSampler.increment(realSize);
