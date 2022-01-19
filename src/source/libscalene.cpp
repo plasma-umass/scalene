@@ -29,17 +29,19 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 // https://github.com/mpaland/printf)
 extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
 
-constexpr uint64_t AllocationSamplingRate = 1 * 1549351ULL;   // 1 * 1048576ULL;
-constexpr uint64_t MemcpySamplingRate = AllocationSamplingRate * 7;
+constexpr uint64_t DefaultAllocationSamplingRate =
+    1 * 1549351ULL;  // 1 * 1048576ULL;
+constexpr uint64_t MemcpySamplingRate = DefaultAllocationSamplingRate * 7;
 
 /**
  * @brief the replacement heap for sampling purposes
  *
  */
-class CustomHeapType : public HL::ThreadSpecificHeap<
-                           SampleHeap<AllocationSamplingRate, BaseHeap>> {
-  using super =
-      HL::ThreadSpecificHeap<SampleHeap<AllocationSamplingRate, BaseHeap>>;
+class CustomHeapType
+    : public HL::ThreadSpecificHeap<
+          SampleHeap<DefaultAllocationSamplingRate, BaseHeap>> {
+  using super = HL::ThreadSpecificHeap<
+      SampleHeap<DefaultAllocationSamplingRate, BaseHeap>>;
 
  public:
   void lock() {}
@@ -145,8 +147,8 @@ class MakeLocalAllocator {
     // (See https://github.com/python/cpython/blob/main/Objects/obmalloc.c#L807)
     if (len <= PYMALLOC_MAX_SIZE) {
       if (unlikely(len == 0)) {
-	// Handle 0.
-	len = 8;
+        // Handle 0.
+        len = 8;
       }
       len = (len + 7) & ~7;
     }
@@ -165,16 +167,20 @@ class MakeLocalAllocator {
       TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
     }
     class Nada {};
-    static_assert(SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE > PYMALLOC_MAX_SIZE, "NEWLINE must be greater than PYMALLOC_MAX_SIZE.");
+    static_assert(
+        SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE > PYMALLOC_MAX_SIZE,
+        "NEWLINE must be greater than PYMALLOC_MAX_SIZE.");
     if (len == SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE) {
       // Special case: register the new line execution.
       TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
     }
 #if USE_HEADERS
-    assert((size_t)ScaleneHeader::getObject(header) - (size_t)header >= sizeof(ScaleneHeader));
+    assert((size_t)ScaleneHeader::getObject(header) - (size_t)header >=
+           sizeof(ScaleneHeader));
 #ifndef NDEBUG
     if (ScaleneHeader::getSize(ScaleneHeader::getObject(header)) < len) {
-      printf_("Size mismatch: %lu %lu\n", ScaleneHeader::getSize(ScaleneHeader::getObject(header)), len);
+      printf_("Size mismatch: %lu %lu\n",
+              ScaleneHeader::getSize(ScaleneHeader::getObject(header)), len);
     }
 #endif
     assert(ScaleneHeader::getSize(ScaleneHeader::getObject(header)) >= len);
@@ -208,13 +214,14 @@ class MakeLocalAllocator {
 
     void *p = nullptr;
     const auto allocSize = new_size + sizeof(ScaleneHeader);
-    void *buf =
-        get_original_allocator()->realloc(ctx, ScaleneHeader::getHeader(ptr), allocSize);
+    void *buf = get_original_allocator()->realloc(
+        ctx, ScaleneHeader::getHeader(ptr), allocSize);
     ScaleneHeader *result = new (buf) ScaleneHeader(new_size);
     if (result) {
       if (sz < new_size) {
         if (new_size - sz <= PYMALLOC_MAX_SIZE) {
-          TheHeapWrapper::register_malloc(new_size - sz, ScaleneHeader::getObject(result));
+          TheHeapWrapper::register_malloc(new_size - sz,
+                                          ScaleneHeader::getObject(result));
         }
       } else if (sz > new_size) {
         if (sz - new_size <= PYMALLOC_MAX_SIZE) {
