@@ -472,6 +472,7 @@ class Scalene:
         import scalene.replacement_mp_lock
         import scalene.replacement_pjoin
         import scalene.replacement_thread_join
+        import scalene.replacement_get_context
 
         if sys.platform != "win32":
             import scalene.replacement_fork
