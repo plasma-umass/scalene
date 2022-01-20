@@ -171,7 +171,7 @@ def SparseCompRow_matmult(M, y, val, row, col, x, num_iterations):
     for _ in range_it:
         for r in xrange(M):
             sa = 0.0
-            for i in xrange(row[r], row[r + 1]):
+            for i in xrange(*row[r:r + 2:1]):
                 sa += x[col[i]] * val[i]
             y[r] = sa
 
