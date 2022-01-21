@@ -1416,7 +1416,7 @@ class Scalene:
             self.stop()
             sys.settrace(None)
             Scalene.__malloc_mapfile.close()
-            print(Scalene.__malloc_mapfile._signal_filename)
+            print(Scalene.__malloc_mapfile._signal_filename, file=sys.stderr)
             # print("Done")
             # If we've collected any samples, dump them.
             if not Scalene.output_profile():
