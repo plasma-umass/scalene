@@ -937,12 +937,9 @@ class Scalene:
         f = frame
         try:
             while "<" in Filename(f.f_code.co_name):
-                f = cast(FrameType, frame.f_back)
-                if (
-                    "<genexpr>" in f.f_code.co_name
-                    or "<module>" in f.f_code.co_name
-                    or "<listcomp>" in f.f_code.co_name
-                ):
+                f = cast(FrameType, f.f_back)
+                # Handle case where the function with the name wrapped in triangle brackets is at the bottom of the stack
+                if f is None:
                     return
         except:
             return
