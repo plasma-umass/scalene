@@ -937,8 +937,10 @@ class Scalene:
         f = frame
         try:
             while "<" in Filename(f.f_code.co_name):
-                f = cast(FrameType, f.f_back)
-                
+                f = cast(FrameType, frame.f_back)
+                # Handle case where the <\w+> is at the bottom of the stack
+                if f is None:
+                    return
         except:
             return
         if not Scalene.should_trace(f.f_code.co_filename):
