@@ -938,7 +938,7 @@ class Scalene:
         try:
             while "<" in Filename(f.f_code.co_name):
                 f = cast(FrameType, f.f_back)
-                # Handle case where the <\w+> is at the bottom of the stack
+                # Handle case where the function with the name wrapped in triangle brackets is at the bottom of the stack
                 if f is None:
                     return
         except:
