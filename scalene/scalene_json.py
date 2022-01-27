@@ -279,14 +279,17 @@ class ScaleneJSON:
                         continue
                     o = self.output_profile_line(
                         fname=fn_name,
-                        line_no=stats.firstline_map[fn_name],
+                        line_no=LineNumber(1), # this line where function stats are accumulated
                         stats=fn_stats,
                         profile_this_code=profile_this_code,
                         profile_memory=profile_memory,
                         force_print=True,
                     )
                     if o:
+                        # Change the source code to just the function name.
                         o["line"] = fn_name
+                        # Fix the line number to point to the first line of the function.
+                        o["lineno"] = stats.firstline_map[fn_name]
                         output["files"][fname]["functions"].append(o)
 
         return output
