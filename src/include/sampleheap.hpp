@@ -246,7 +246,7 @@ class SampleHeap : public SuperHeap {
     snprintf_(
         buf, SampleFile::MAX_BUFSIZE,
 #if defined(__APPLE__)
-        "%c,%llu,%llu,%f,%d,%p,%s,%d,%d,%d\n\n",
+        "%c,%llu,%llu,%f,%d,%p,%s,%d,%d,%lld\n\n",
 #else
         "%c,%lu,%lu,%f,%d,%p,%s,%d,%d,%ld\n\n",
 #endif
