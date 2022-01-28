@@ -237,18 +237,24 @@ class SampleHeap : public SuperHeap {
     if (_pythonCount == 0) {
       _pythonCount = 1;  // prevent 0/0
     }
+    struct timespec ts;
+    auto res = clock_gettime(CLOCK_MONOTONIC, &ts);
+    if (res != 0) {
+      printf("ERRNO %d", errno);
+    }
+    auto nanos = ts.tv_sec * 1000000000 + ts.tv_nsec;
     snprintf_(
         buf, SampleFile::MAX_BUFSIZE,
 #if defined(__APPLE__)
         "%c,%llu,%llu,%f,%d,%p,%s,%d,%d,%d\n\n",
 #else
-        "%c,%lu,%lu,%f,%d,%p,%s,%d,%d,%d\n\n",
+        "%c,%lu,%lu,%f,%d,%p,%s,%d,%d,%ld\n\n",
 #endif
         ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
         mallocTriggered() + freeTriggered(), count,
         (float)_pythonCount / (_pythonCount + _cCount), getpid(),
         _freedLastMallocTrigger ? _lastMallocTrigger : ptr, filename.c_str(),
-        lineno, bytei, clock());
+        lineno, bytei, nanos);
     // Ensure we don't report last-malloc-freed multiple times.
     _freedLastMallocTrigger = false;
     getSampleFile().writeToFile(buf);
