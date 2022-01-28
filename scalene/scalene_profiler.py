@@ -1321,6 +1321,9 @@ class Scalene:
         Scalene.__done = True
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
+        if Scalene.__args.web:
+            import webbrowser
+            webbrowser.open_new_tab("http://plasma-umass.org/scalene-gui/")
 
     @staticmethod
     def is_done() -> bool:
@@ -1429,7 +1432,13 @@ class Scalene:
         Scalene.__is_child = args.pid != 0
         # the pid of the primary profiler
         Scalene.__parent_pid = args.pid if Scalene.__is_child else os.getpid()
-
+        if Scalene.__args.web:
+            # Force JSON output to profile.json.
+            Scalene.__args.json = True
+            Scalene.__output.json = True
+            Scalene.__output.html = False
+            Scalene.__output.output_file = 'profile.json'
+            
     @staticmethod
     def set_initialized() -> None:
         Scalene.__initialized = True

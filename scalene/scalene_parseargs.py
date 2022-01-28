@@ -123,6 +123,14 @@ for the process ID that Scalene reports. For example:
             + "[/blue])",
         )
         parser.add_argument(
+            "--web",
+            dest="web",
+            action="store_const",
+            const=True,
+            default=False,
+            help="writes 'profile.json' and opens the web UI (http://plasma-umass.org/scalene-gui/)"
+        )
+        parser.add_argument(
             "--reduced-profile",
             dest="reduced_profile",
             action="store_const",
