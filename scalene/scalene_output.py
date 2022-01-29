@@ -182,7 +182,7 @@ class ScaleneOutput:
             # Randomly downsample to ScaleneOutput.max_sparkline_len_line.
             if len(samples) > ScaleneOutput.max_sparkline_len_line:
                 import random
-                random_samples = random.sample(samples, ScaleneOutput.max_sparkline_len_line)
+                random_samples = sorted(random.sample(samples, ScaleneOutput.max_sparkline_len_line))
             else:
                 random_samples = samples
             sparkline_samples = []
@@ -345,7 +345,7 @@ class ScaleneOutput:
                 # Randomly downsample samples
                 import random
                 if len(samples) > ScaleneOutput.max_sparkline_len_file:
-                    random_samples = random.sample(samples, ScaleneOutput.max_sparkline_len_file)
+                    random_samples = sorted(random.sample(samples, ScaleneOutput.max_sparkline_len_file))
                 else:
                     random_samples = samples
                 sparkline_samples = [item[1] for item in random_samples]
