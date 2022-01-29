@@ -105,6 +105,8 @@ def stop() -> None:
 class Scalene:
     """The Scalene profiler itself."""
 
+    __start_time = 0 # start of profiling, in nanoseconds
+    
     # Whether the current profiler is a child
     __is_child = -1
     # the pid of the primary profiler
@@ -1055,7 +1057,7 @@ class Scalene:
                     # Check if pointer actually matches
                     if stats.last_malloc_triggered[2] == pointer:
                         freed_last_trigger += 1
-            stats.memory_footprint_samples.append([time.monotonic_ns(), stats.current_footprint]) # FIXME
+            stats.memory_footprint_samples.append([time.monotonic_ns() - Scalene.__start_time, stats.current_footprint])
         after = stats.current_footprint
 
         if freed_last_trigger:
@@ -1148,7 +1150,7 @@ class Scalene:
                     0, stats.memory_current_footprint[fname][lineno]
                 )
 
-            stats.per_line_footprint_samples[fname][lineno].append([time.monotonic_ns(), curr]) # FIXME
+            stats.per_line_footprint_samples[fname][lineno].append([time.monotonic_ns() - Scalene.__start_time, curr])
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
                 last_malloc = (
@@ -1313,6 +1315,7 @@ class Scalene:
             sys.exit(1)
         Scalene.__stats.start_clock()
         Scalene.enable_signals()
+        Scalene.__start_time = time.monotonic_ns()
         Scalene.__done = False
 
     @staticmethod
