@@ -109,9 +109,9 @@ class ScaleneJSON:
         else:
             n_copy_mb_s = 0
 
-        samples = stats.per_line_footprint_samples[fname][line_no].get()
-        if not any(samples):
-            samples = []
+        samples = stats.per_line_footprint_samples[fname][line_no] # FIXME
+        #if not any(samples):
+        #    samples = []
         return {
             "lineno": line_no,
             "line": linecache.getline(fname, line_no),
@@ -164,7 +164,7 @@ class ScaleneJSON:
             return {}
         growth_rate = 0.0
         if profile_memory:
-            samples = stats.memory_footprint_samples.get()
+            samples = stats.memory_footprint_samples
             # Compute growth rate (slope), between 0 and 1.
             if stats.allocation_velocity[1] > 0:
                 growth_rate = (

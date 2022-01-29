@@ -7,7 +7,7 @@ from typing import Any, Dict, List, NewType, Set, Tuple, TypeVar
 
 import cloudpickle
 
-from scalene.adaptive import Adaptive
+# from scalene.adaptive import Adaptive
 from scalene.runningstats import RunningStats
 
 Address = NewType("Address", str)
@@ -137,13 +137,13 @@ class ScaleneStatistics:
         # the peak memory footprint
         self.max_footprint: float = 0.0
 
-        # memory footprint samples (time, footprint), using 'Adaptive' sampling.
-        self.memory_footprint_samples = Adaptive(27)
+        # memory footprint samples (time, footprint) FIXME
+        self.memory_footprint_samples = [] # Adaptive(27)
 
         # same, but per line
         self.per_line_footprint_samples: Dict[
-            Filename, Dict[LineNumber, Adaptive]
-        ] = defaultdict(lambda: defaultdict(lambda: Adaptive(9)))
+            Filename, Dict[LineNumber, List[Any]]
+        ] = defaultdict(lambda: defaultdict(list)) # was Adaptive(9)
 
         # maps byte indices to line numbers (collected at runtime)
         # [filename][lineno] -> set(byteindex)

@@ -1055,7 +1055,7 @@ class Scalene:
                     # Check if pointer actually matches
                     if stats.last_malloc_triggered[2] == pointer:
                         freed_last_trigger += 1
-            stats.memory_footprint_samples.add(stats.current_footprint)
+            stats.memory_footprint_samples.append([time.monotonic_ns(), stats.current_footprint]) # FIXME
         after = stats.current_footprint
 
         if freed_last_trigger:
@@ -1148,7 +1148,7 @@ class Scalene:
                     0, stats.memory_current_footprint[fname][lineno]
                 )
 
-            stats.per_line_footprint_samples[fname][lineno].add(curr)
+            stats.per_line_footprint_samples[fname][lineno].append([time.monotonic_ns(), curr]) # FIXME
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
                 last_malloc = (
