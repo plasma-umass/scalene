@@ -21,11 +21,11 @@ Scalene is a high-performance CPU, GPU *and* memory profiler for Python that doe
 pip install -U scalene
 ```
 
-#### **NEW** Web-based GUI
+#### NEW web-based GUI
 
 Scalene now offers a [web-based GUI](http://plasma-umass.org/scalene-gui/). Invoke Scalene with `--web` and upload the resulting `profile.json` file.
 
-![Scalene web GUI](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example.png)
+[![Scalene web GUI](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example.png)](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example-full.png)
 
 #### Using Scalene:
 
