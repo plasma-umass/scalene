@@ -21,6 +21,12 @@ Scalene is a high-performance CPU, GPU *and* memory profiler for Python that doe
 pip install -U scalene
 ```
 
+#### **NEW** Web-based GUI
+
+Scalene now offers a [web-based GUI](http://plasma-umass.org/scalene-gui/). Invoke Scalene with `--web` and upload the resulting `profile.json` file.
+
+![Scalene web GUI](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example.png)
+
 #### Using Scalene:
 
 Commonly used options:
@@ -28,9 +34,9 @@ Commonly used options:
 ```console
 scalene your_prog.py                             # full profile (prints to console)
 python3 -m scalene your_prog.py                  # equivalent alternative
+scalene --web your_prog.py                       # NEW: opens a web tab to upload a profile
 scalene --cpu-only your_prog.py                  # only CPU/GPU
 scalene --reduced-profile your_prog.py           # only profile lines with significant usage
-scalene --html --outfile prof.html your_prog.py  # output HTML profile to 'prof.html'
 scalene --profile-interval 5.0 your_prog.py.     # output a new profile every five seconds
 scalene --help                                   # lists all options
 ```
