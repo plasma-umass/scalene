@@ -1327,7 +1327,8 @@ class Scalene:
         if Scalene.__args.web:
             import webbrowser
             if not webbrowser.open_new_tab("https://plasma-umass.org/scalene-gui/"):
-                print("Could not open web browser.")
+                # Could not open a web browser tab;
+                # act as if --web was not specified.
                 Scalene.__args.web = False
             else:
                 # Force JSON output to profile.json.
