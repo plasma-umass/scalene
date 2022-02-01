@@ -23,7 +23,9 @@ pip install -U scalene
 
 #### NEW web-based GUI
 
-Scalene now offers a [web-based GUI](http://plasma-umass.org/scalene-gui/). Invoke Scalene with `--web` and upload the resulting `profile.json` file.
+Scalene has a new web-based GUI [(demo here)](http://plasma-umass.org/scalene-gui/).
+
+Once Scalene has profiled your program, it will launch a web browser with an interactive user interface (all processing is done locally). Hover over bars to see breakdowns of CPU and memory consumption, and click on underlined column headers to sort the columns.
 
 [![Scalene web GUI](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example.png)](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example-full.png)
 
@@ -34,7 +36,7 @@ Commonly used options:
 ```console
 scalene your_prog.py                             # full profile (prints to console)
 python3 -m scalene your_prog.py                  # equivalent alternative
-scalene --web your_prog.py                       # NEW: opens a web tab to upload a profile
+scalene --cli your_prog.py                       # use the command-line only (no web interface)
 scalene --cpu-only your_prog.py                  # only CPU/GPU
 scalene --reduced-profile your_prog.py           # only profile lines with significant usage
 scalene --profile-interval 5.0 your_prog.py.     # output a new profile every five seconds
