@@ -1326,16 +1326,20 @@ class Scalene:
         Scalene.__stats.stop_clock()
         if Scalene.__args.web and not Scalene.__args.cli:
             import webbrowser
-            if not webbrowser.get():
-                # Could not open a web browser tab;
-                # act as if --web was not specified.
+            try:
+                if not webbrowser.get():
+                    # Could not open a web browser tab;
+                    # act as if --web was not specified.
+                    Scalene.__args.web = False
+                else:
+                    # Force JSON output to profile.json.
+                    Scalene.__args.json = True
+                    Scalene.__output.json = True
+                    Scalene.__output.html = False
+                    Scalene.__output.output_file = 'profile.json'
+            except:
+                # Couldn't find a browser.
                 Scalene.__args.web = False
-            else:
-                # Force JSON output to profile.json.
-                Scalene.__args.json = True
-                Scalene.__output.json = True
-                Scalene.__output.html = False
-                Scalene.__output.output_file = 'profile.json'
 
     @staticmethod
     def is_done() -> bool:
