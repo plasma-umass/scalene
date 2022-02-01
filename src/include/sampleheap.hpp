@@ -15,7 +15,9 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>  // for getpid()
-
+#if defined(__APPLE__)
+#include <mach/mach_time.h>
+#endif
 #include <atomic>
 #include <random>
 
@@ -237,16 +239,22 @@ class SampleHeap : public SuperHeap {
     if (_pythonCount == 0) {
       _pythonCount = 1;  // prevent 0/0
     }
+    #if defined(__APPLE__)
+    uint64_t nanos = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+    #else
+    uint64_t ticks = mach_absolute_time();
     struct timespec ts;
     auto res = clock_gettime(CLOCK_MONOTONIC, &ts);
     if (res != 0) {
       printf("ERRNO %d", errno);
     }
     auto nanos = ts.tv_sec * 1000000000 + ts.tv_nsec;
+    #endif
+    
     snprintf_(
         buf, SampleFile::MAX_BUFSIZE,
 #if defined(__APPLE__)
-        "%c,%llu,%llu,%f,%d,%p,%s,%d,%d,%lld\n\n",
+        "%c,%llu,%llu,%f,%d,%p,%s,%d,%d,%llu\n\n",
 #else
         "%c,%lu,%lu,%f,%d,%p,%s,%d,%d,%ld\n\n",
 #endif
