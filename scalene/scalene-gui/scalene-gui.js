@@ -138,7 +138,7 @@ function makeTableHeader(fname, gpu, functions = false) {
     } else {
 	id = 'lineProfile';
     }
-    s += `<th id=${fname + "-" + id} style="width:10000"><font style="font-variant: small-caps; text-decoration: underline">${tableTitle}</font></th>`;
+    s += `<th id=${fname + "-" + id} style="width:10000"><font style="font-variant: small-caps; text-decoration: underline">${tableTitle}</font><font style="font-size:small; font-style: italic">&nbsp; (click to reset order)</font></th>`;
     s += '</tr>';
     s += '<tr data-sort-method="thead">';
     for (const col of columns) {
@@ -363,7 +363,7 @@ async function display(prof) {
 
 
     for (let i = 0; i < tableID; i++) {
-	new Tablesort(document.getElementById(`table-${i}`), { "descending" : true });
+	new Tablesort(document.getElementById(`table-${i}`), { "ascending" : true });
     }
     memory_sparklines.forEach((p, index) => {
 	if (p) {
