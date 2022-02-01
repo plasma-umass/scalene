@@ -127,7 +127,7 @@ setup(
     keywords="performance memory profiler",
     long_description=read_file("README.md"),
     long_description_content_type="text/markdown",
-    url="https://github.com/emeryberger/scalene",
+    url="https://github.com/plasma-umass/scalene",
     author="Emery Berger",
     author_email="emery@cs.umass.edu",
     license="Apache License 2.0",
