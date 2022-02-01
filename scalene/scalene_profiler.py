@@ -1324,9 +1324,9 @@ class Scalene:
         Scalene.__done = True
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
-        if Scalene.__args.web:
+        if Scalene.__args.web and not Scalene.__args.cli:
             import webbrowser
-            if not webbrowser.open_new_tab("https://plasma-umass.org/scalene-gui/"):
+            if not webbrowser.get():
                 # Could not open a web browser tab;
                 # act as if --web was not specified.
                 Scalene.__args.web = False
@@ -1431,6 +1431,30 @@ class Scalene:
                 print(
                     "Scalene: Program did not run for long enough to profile."
                 )
+            if Scalene.__args.web:
+                # Start up a web server (in a background thread) to host the GUI,
+                # and open a browser tab to the server.
+                import http.server
+                import socketserver
+                import webbrowser
+                PORT = 8088
+                Handler = http.server.SimpleHTTPRequestHandler
+                with socketserver.TCPServer(("", PORT), Handler) as httpd:
+                    import threading
+                    t = threading.Thread(target=lambda: httpd.serve_forever())
+                    # Copy files into a new directory and then point the tab there.
+                    import shutil
+                    webgui_dir = pathlib.Path(
+                        tempfile.mkdtemp(prefix="scalene-gui")
+                    )
+                    shutil.copytree(os.path.join(os.path.dirname(__file__), 'scalene-gui'),
+                                    os.path.join(webgui_dir, 'scalene-gui'))
+                    shutil.copy("profile.json", os.path.join(webgui_dir, 'scalene-gui'))
+                    os.chdir(os.path.join(webgui_dir, 'scalene-gui'))
+                    t.start()
+                    webbrowser.open_new_tab(f"http://localhost:{PORT}/profiler.html")
+                    t.join()
+                
         return exit_status
 
     @staticmethod
