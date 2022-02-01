@@ -123,11 +123,19 @@ for the process ID that Scalene reports. For example:
             + "[/blue])",
         )
         parser.add_argument(
+            "--cli",
+            dest="cli",
+            action="store_const",
+            const=True,
+            default=False,
+            help="forces use of the command-line)"
+        )
+        parser.add_argument(
             "--web",
             dest="web",
             action="store_const",
             const=True,
-            default=False,
+            default=True,
             help="writes 'profile.json' and opens the web UI (http://plasma-umass.org/scalene-gui/)"
         )
         parser.add_argument(
