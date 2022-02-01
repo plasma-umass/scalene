@@ -1431,7 +1431,7 @@ class Scalene:
                 print(
                     "Scalene: Program did not run for long enough to profile."
                 )
-            if Scalene.__args.web:
+            if Scalene.__args.web and not Scalene.__args.cli:
                 # Start up a web server (in a background thread) to host the GUI,
                 # and open a browser tab to the server.
                 import http.server
