@@ -1442,7 +1442,14 @@ class Scalene:
                 import socketserver
                 import webbrowser
                 PORT = 8088
-                Handler = http.server.SimpleHTTPRequestHandler
+
+                # Silence web server output by overriding logging messages.
+                class NoLogs(http.server.SimpleHTTPRequestHandler):
+                    def log_message(self, format, *args):
+                        return
+                    def log_request(code, size):
+                        return
+                Handler = NoLogs
                 with socketserver.TCPServer(("", PORT), Handler) as httpd:
                     import threading
                     t = threading.Thread(target=lambda: httpd.serve_forever())
