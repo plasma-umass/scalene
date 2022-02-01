@@ -105,6 +105,7 @@ def stop() -> None:
 class Scalene:
     """The Scalene profiler itself."""
 
+    __in_jupyter = False # are we running inside a Jupyter notebook
     __start_time = 0 # start of profiling, in nanoseconds
     
     # Whether the current profiler is a child
@@ -191,6 +192,10 @@ class Scalene:
     __memcpy_sigq: ScaleneSigQueue[Any]
     __sigqueues: List[ScaleneSigQueue[Any]]
 
+    @staticmethod
+    def set_jupyter():
+        Scalene.__in_jupyter = True
+        
     @staticmethod
     def interruption_handler(
         signum: Union[
@@ -1324,7 +1329,7 @@ class Scalene:
         Scalene.__done = True
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
-        if Scalene.__args.web and not Scalene.__args.cli:
+        if Scalene.__args.web and not Scalene.__args.cli and not Scalene.__in_jupyter:
             import webbrowser
             try:
                 if not webbrowser.get():
@@ -1435,7 +1440,7 @@ class Scalene:
                 print(
                     "Scalene: Program did not run for long enough to profile."
                 )
-            if Scalene.__args.web and not Scalene.__args.cli:
+            if Scalene.__args.web and not Scalene.__args.cli and not Scalene.__in_jupyter:
                 # Start up a web server (in a background thread) to host the GUI,
                 # and open a browser tab to the server.
                 import http.server

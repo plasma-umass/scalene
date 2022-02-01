@@ -29,6 +29,8 @@ with contextlib.suppress(Exception):
             with open(filename, "w+") as tmpfile:
                 tmpfile.write(newcode)
             args.cpu_only = True  # full Scalene is not yet working, force to use CPU-only mode
+            args.cli = True # use the CLI when in Jupyter
+            scalene_profiler.Scalene.set_jupyter()
             scalene_profiler.Scalene.set_initialized()
             scalene_profiler.Scalene.run_profiler(args, [filename], is_jupyter=True)
 
@@ -77,7 +79,7 @@ with contextlib.suppress(Exception):
             print(
                 "\n".join(
                     textwrap.wrap(
-                        "NOTE: in Jupyter notebook on MacOS, Scalene cannot profile child processes. Do not run to try Scalene with multiprocessing in Jupyter Notebook"
+                        "NOTE: in Jupyter notebook on MacOS, Scalene cannot profile child processes. Do not run to try Scalene with multiprocessing in Jupyter Notebook."
                     )
                 )
             )
