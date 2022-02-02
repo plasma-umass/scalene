@@ -1446,7 +1446,7 @@ class Scalene:
                 import http.server
                 import socketserver
                 import webbrowser
-                PORT = 8088
+                PORT = Scalene.__args.port
 
                 # Silence web server output by overriding logging messages.
                 class NoLogs(http.server.SimpleHTTPRequestHandler):
