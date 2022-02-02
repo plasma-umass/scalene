@@ -236,7 +236,7 @@ class ScaleneJSON:
                 )
 
             # Print out the the profile for the source, line by line.
-            with open(fname, "r") as source_file:
+            with open(fname, "r", encoding="utf-8") as source_file:
                 code_lines = source_file.readlines()
                 output["files"][fname] = {
                     "percent_cpu_time": percent_cpu_time,
