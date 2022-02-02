@@ -35,3 +35,6 @@ class ScaleneArguments(argparse.Namespace):
         # do we use virtual time or wallclock time (capturing system time and blocking)?
         self.use_virtual_time = False
         self.memory_leak_detector = False  # experimental
+        self.web = True
+        self.port = 8088
+        self.cli = False

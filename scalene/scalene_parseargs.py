@@ -127,16 +127,23 @@ for the process ID that Scalene reports. For example:
             dest="cli",
             action="store_const",
             const=True,
-            default=False,
-            help="forces use of the command-line)"
+            default=defaults.cli,
+            help="forces use of the command-line"
         )
         parser.add_argument(
             "--web",
             dest="web",
             action="store_const",
             const=True,
-            default=True,
+            default=defaults.web,
             help="writes 'profile.json' and opens the web UI (http://plasma-umass.org/scalene-gui/)"
+        )
+        parser.add_argument(
+            "--port",
+            dest="port",
+            type=int,
+            default=defaults.port,
+            help=f"binds the web UI server to this port (default: {defaults.port})"
         )
         parser.add_argument(
             "--reduced-profile",
