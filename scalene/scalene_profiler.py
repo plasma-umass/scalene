@@ -1329,7 +1329,7 @@ class Scalene:
         Scalene.__done = True
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
-        if Scalene.__args.web and not Scalene.__args.cli and not Scalene.__in_jupyter:
+        if Scalene.__args.web and not Scalene.__args.cli:
             import webbrowser
             try:
                 if not webbrowser.get():
@@ -1440,9 +1440,10 @@ class Scalene:
                 print(
                     "Scalene: Program did not run for long enough to profile."
                 )
-            if Scalene.__args.web and not Scalene.__args.cli and not Scalene.__in_jupyter:
+            if Scalene.__args.web and not Scalene.__args.cli:
                 # Start up a web server (in a background thread) to host the GUI,
                 # and open a browser tab to the server.
+
                 import http.server
                 import socketserver
                 import webbrowser
@@ -1457,7 +1458,7 @@ class Scalene:
                 Handler = NoLogs
                 with socketserver.TCPServer(("", PORT), Handler) as httpd:
                     import threading
-                    t = threading.Thread(target=lambda: httpd.serve_forever())
+                    t = threading.Thread(target=httpd.serve_forever)
                     # Copy files into a new directory and then point the tab there.
                     import shutil
                     webgui_dir = pathlib.Path(
@@ -1468,8 +1469,15 @@ class Scalene:
                     shutil.copy("profile.json", os.path.join(webgui_dir, 'scalene-gui'))
                     os.chdir(os.path.join(webgui_dir, 'scalene-gui'))
                     t.start()
-                    webbrowser.open_new_tab(f"http://localhost:{PORT}/profiler.html")
-                    t.join()
+                    if Scalene.__in_jupyter:
+                        from IPython.core.display import display, HTML
+                        from IPython.display import IFrame
+                        display(IFrame(src=f"http://localhost:{PORT}/profiler.html", width=700, height=600))
+                    else:
+                        webbrowser.open_new_tab(f"http://localhost:{PORT}/profiler.html")
+                    # Wait long enough for the server to serve the page, and then shut down the server.
+                    time.sleep(5)
+                    httpd.shutdown()
                 
         return exit_status
 

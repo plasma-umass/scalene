@@ -24,7 +24,9 @@ class ScaleneJSON:
     # Profile output methods
     def output_profile_line(
         self,
+        *,
         fname: Filename,
+        fname_print: Filename,
         line_no: LineNumber,
         stats: ScaleneStatistics,
         profile_this_code: Callable[[Filename, LineNumber], bool],
@@ -238,13 +240,15 @@ class ScaleneJSON:
             # Print out the the profile for the source, line by line.
             with open(fname, "r") as source_file:
                 code_lines = source_file.readlines()
-                output["files"][fname] = {
+                
+                output["files"][fname_print] = {
                     "percent_cpu_time": percent_cpu_time,
                     "lines": [],
                 }
                 for line_no, line in enumerate(code_lines, start=1):
                     o = self.output_profile_line(
-                        fname=fname_print,
+                        fname=fname,
+                        fname_print=fname_print,
                         line_no=LineNumber(line_no),
                         stats=stats,
                         profile_this_code=profile_this_code,
@@ -259,7 +263,7 @@ class ScaleneJSON:
                         del o_copy["line"]
                         del o_copy["lineno"]
                         if any(o_copy.values()):
-                            output["files"][fname]["lines"].append(o)
+                            output["files"][fname_print]["lines"].append(o)
             fn_stats = stats.build_function_stats(fname)
             # Check CPU samples and memory samples.
             print_fn_summary = False
@@ -269,7 +273,7 @@ class ScaleneJSON:
             all_samples |= set(fn_stats.memory_malloc_samples.keys())
             all_samples |= set(fn_stats.memory_free_samples.keys())
             print_fn_summary = any(fn != fname for fn in all_samples)
-            output["files"][fname]["functions"] = []
+            output["files"][fname_print]["functions"] = []
             if print_fn_summary:
                 for fn_name in sorted(
                         all_samples,
@@ -279,6 +283,7 @@ class ScaleneJSON:
                         continue
                     o = self.output_profile_line(
                         fname=fn_name,
+                        fname_print=fn_name,
                         line_no=LineNumber(1), # this line where function stats are accumulated
                         stats=fn_stats,
                         profile_this_code=profile_this_code,
@@ -290,6 +295,6 @@ class ScaleneJSON:
                         o["line"] = fn_name
                         # Fix the line number to point to the first line of the function.
                         o["lineno"] = stats.firstline_map[fn_name]
-                        output["files"][fname]["functions"].append(o)
+                        output["files"][fname_print]["functions"].append(o)
 
         return output
