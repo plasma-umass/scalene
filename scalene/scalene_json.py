@@ -183,7 +183,8 @@ class ScaleneJSON:
             "samples": samples,
             "max_footprint_mb": stats.max_footprint,
             "files": {},
-            "gpu": self.gpu
+            "gpu": self.gpu,
+            "memory": profile_memory
         }
 
         # Build a list of files we will actually report on.
