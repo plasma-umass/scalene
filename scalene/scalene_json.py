@@ -285,7 +285,10 @@ class ScaleneJSON:
                     o = self.output_profile_line(
                         fname=fn_name,
                         fname_print=fn_name,
-                        line_no=LineNumber(1), # this line where function stats are accumulated
+                        # line 1 is where function stats are
+                        # accumulated; see
+                        # ScaleneStatistics.build_function_stats
+                        line_no=LineNumber(1),
                         stats=fn_stats,
                         profile_this_code=profile_this_code,
                         profile_memory=profile_memory,
