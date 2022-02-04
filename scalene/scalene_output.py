@@ -535,7 +535,7 @@ class ScaleneOutput:
             if not fname:
                 continue
             # Print out the profile for the source, line by line.
-            with open(fname, "r") as source_file:
+            with open(fname, "r", encoding="utf-8") as source_file:
                 # We track whether we should put in ellipsis (for reduced profiles)
                 # or not.
                 did_print = True  # did we print a profile line last time?
