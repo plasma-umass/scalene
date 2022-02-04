@@ -11,5 +11,5 @@ wheel = "*"
 
 [packages]
 cloudpickle = "*"
-pynvml = "*"
+nvidia-ml-py = "*"
 rich = "*"
