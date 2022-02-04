@@ -193,9 +193,13 @@ class Scalene:
     __sigqueues: List[ScaleneSigQueue[Any]]
 
     @staticmethod
-    def set_jupyter() -> None:
+    def set_in_jupyter() -> None:
         Scalene.__in_jupyter = True
-        
+
+    @staticmethod
+    def in_jupyter() -> bool:
+        return Scalene.__in_jupyter
+    
     @staticmethod
     def interruption_handler(
         signum: Union[
@@ -1330,20 +1334,27 @@ class Scalene:
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
         if Scalene.__args.web and not Scalene.__args.cli:
-            import webbrowser
-            try:
-                if not webbrowser.get():
-                    # Could not open a web browser tab;
-                    # act as if --web was not specified.
+            if Scalene.in_jupyter():
+                # Force JSON output to profile.json.
+                Scalene.__args.json = True
+                Scalene.__output.html = False
+                Scalene.__output.output_file = 'profile.json'
+            else:
+                # Check for a browser.
+                import webbrowser
+                try:
+                    if not webbrowser.get():
+                        # Could not open a web browser tab;
+                        # act as if --web was not specified.
+                        Scalene.__args.web = False
+                    else:
+                        # Force JSON output to profile.json.
+                        Scalene.__args.json = True
+                        Scalene.__output.html = False
+                        Scalene.__output.output_file = 'profile.json'
+                except:
+                    # Couldn't find a browser.
                     Scalene.__args.web = False
-                else:
-                    # Force JSON output to profile.json.
-                    Scalene.__args.json = True
-                    Scalene.__output.html = False
-                    Scalene.__output.output_file = 'profile.json'
-            except:
-                # Couldn't find a browser.
-                Scalene.__args.web = False
 
     @staticmethod
     def is_done() -> bool:
@@ -1468,7 +1479,7 @@ class Scalene:
                     shutil.copy("profile.json", os.path.join(webgui_dir, 'scalene-gui'))
                     os.chdir(os.path.join(webgui_dir, 'scalene-gui'))
                     t.start()
-                    if Scalene.__in_jupyter:
+                    if Scalene.in_jupyter():
                         from IPython.core.display import display, HTML
                         from IPython.display import IFrame
                         display(IFrame(src=f"http://localhost:{PORT}/profiler.html", width=700, height=600))
@@ -1508,6 +1519,8 @@ class Scalene:
     @staticmethod
     def run_profiler(args: argparse.Namespace, left: List[str], is_jupyter: bool = False) -> None:
         # Set up signal handlers for starting and stopping profiling.
+        if is_jupyter:
+            Scalene.set_in_jupyter()
         if not Scalene.__initialized:
             print(
                 "ERROR: Do not try to manually invoke `run_profiler`.\n"
