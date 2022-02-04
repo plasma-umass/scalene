@@ -193,7 +193,7 @@ class Scalene:
     __sigqueues: List[ScaleneSigQueue[Any]]
 
     @staticmethod
-    def set_jupyter():
+    def set_jupyter() -> None:
         Scalene.__in_jupyter = True
         
     @staticmethod
@@ -1339,7 +1339,6 @@ class Scalene:
                 else:
                     # Force JSON output to profile.json.
                     Scalene.__args.json = True
-                    Scalene.__output.json = True
                     Scalene.__output.html = False
                     Scalene.__output.output_file = 'profile.json'
             except:
@@ -1451,9 +1450,9 @@ class Scalene:
 
                 # Silence web server output by overriding logging messages.
                 class NoLogs(http.server.SimpleHTTPRequestHandler):
-                    def log_message(self, format, *args):
+                    def log_message(self, format : str, *args) -> None:
                         return
-                    def log_request(code, size):
+                    def log_request(self, code: Union[int, str] = 0, size: Union[int, str] = 0) -> None:
                         return
                 Handler = NoLogs
                 with socketserver.TCPServer(("", PORT), Handler) as httpd:

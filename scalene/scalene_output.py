@@ -108,6 +108,7 @@ class ScaleneOutput:
         """Print at most one line of the profile (true == printed one)."""
         obj = json.output_profile_line(
             fname=fname,
+            fname_print=fname,
             line_no=line_no,
             stats=stats,
             profile_this_code=profile_this_code,
