@@ -105,6 +105,9 @@ def stop() -> None:
 class Scalene:
     """The Scalene profiler itself."""
 
+    __in_jupyter = False # are we running inside a Jupyter notebook
+    __start_time = 0 # start of profiling, in nanoseconds
+    
     # Whether the current profiler is a child
     __is_child = -1
     # the pid of the primary profiler
@@ -189,6 +192,14 @@ class Scalene:
     __memcpy_sigq: ScaleneSigQueue[Any]
     __sigqueues: List[ScaleneSigQueue[Any]]
 
+    @staticmethod
+    def set_in_jupyter() -> None:
+        Scalene.__in_jupyter = True
+
+    @staticmethod
+    def in_jupyter() -> bool:
+        return Scalene.__in_jupyter
+    
     @staticmethod
     def interruption_handler(
         signum: Union[
@@ -1056,7 +1067,7 @@ class Scalene:
                     # Check if pointer actually matches
                     if stats.last_malloc_triggered[2] == pointer:
                         freed_last_trigger += 1
-            stats.memory_footprint_samples.add(stats.current_footprint)
+            stats.memory_footprint_samples.append([time.monotonic_ns() - Scalene.__start_time, stats.current_footprint])
         after = stats.current_footprint
 
         if freed_last_trigger:
@@ -1149,7 +1160,7 @@ class Scalene:
                     0, stats.memory_current_footprint[fname][lineno]
                 )
 
-            stats.per_line_footprint_samples[fname][lineno].add(curr)
+            stats.per_line_footprint_samples[fname][lineno].append([time.monotonic_ns() - Scalene.__start_time, curr])
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
                 last_malloc = (
@@ -1314,6 +1325,7 @@ class Scalene:
             sys.exit(1)
         Scalene.__stats.start_clock()
         Scalene.enable_signals()
+        Scalene.__start_time = time.monotonic_ns()
         Scalene.__done = False
 
     @staticmethod
@@ -1322,6 +1334,28 @@ class Scalene:
         Scalene.__done = True
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
+        if Scalene.__args.web and not Scalene.__args.cli:
+            if Scalene.in_jupyter():
+                # Force JSON output to profile.json.
+                Scalene.__args.json = True
+                Scalene.__output.html = False
+                Scalene.__output.output_file = 'profile.json'
+            else:
+                # Check for a browser.
+                import webbrowser
+                try:
+                    if not webbrowser.get():
+                        # Could not open a web browser tab;
+                        # act as if --web was not specified.
+                        Scalene.__args.web = False
+                    else:
+                        # Force JSON output to profile.json.
+                        Scalene.__args.json = True
+                        Scalene.__output.html = False
+                        Scalene.__output.output_file = 'profile.json'
+                except:
+                    # Couldn't find a browser.
+                    Scalene.__args.web = False
 
     @staticmethod
     def is_done() -> bool:
@@ -1420,6 +1454,45 @@ class Scalene:
                 print(
                     "Scalene: Program did not run for long enough to profile."
                 )
+            if Scalene.__args.web and not Scalene.__args.cli:
+                # Start up a web server (in a background thread) to host the GUI,
+                # and open a browser tab to the server.
+
+                import http.server
+                import socketserver
+                import webbrowser
+                PORT = Scalene.__args.port
+
+                # Silence web server output by overriding logging messages.
+                class NoLogs(http.server.SimpleHTTPRequestHandler):
+                    def log_message(self, format : str, *args) -> None:
+                        return
+                    def log_request(self, code: Union[int, str] = 0, size: Union[int, str] = 0) -> None:
+                        return
+                Handler = NoLogs
+                with socketserver.TCPServer(("", PORT), Handler) as httpd:
+                    import threading
+                    t = threading.Thread(target=httpd.serve_forever)
+                    # Copy files into a new directory and then point the tab there.
+                    import shutil
+                    webgui_dir = pathlib.Path(
+                        tempfile.mkdtemp(prefix="scalene-gui")
+                    )
+                    shutil.copytree(os.path.join(os.path.dirname(__file__), 'scalene-gui'),
+                                    os.path.join(webgui_dir, 'scalene-gui'))
+                    shutil.copy("profile.json", os.path.join(webgui_dir, 'scalene-gui'))
+                    os.chdir(os.path.join(webgui_dir, 'scalene-gui'))
+                    t.start()
+                    if Scalene.in_jupyter():
+                        from IPython.core.display import display, HTML
+                        from IPython.display import IFrame
+                        display(IFrame(src=f"http://localhost:{PORT}/profiler.html", width=700, height=600))
+                    else:
+                        webbrowser.open_new_tab(f"http://localhost:{PORT}/profiler.html")
+                    # Wait long enough for the server to serve the page, and then shut down the server.
+                    time.sleep(5)
+                    httpd.shutdown()
+                
         return exit_status
 
     @staticmethod
@@ -1433,7 +1506,7 @@ class Scalene:
         Scalene.__is_child = args.pid != 0
         # the pid of the primary profiler
         Scalene.__parent_pid = args.pid if Scalene.__is_child else os.getpid()
-
+            
     @staticmethod
     def set_initialized() -> None:
         Scalene.__initialized = True
@@ -1450,6 +1523,8 @@ class Scalene:
     @staticmethod
     def run_profiler(args: argparse.Namespace, left: List[str], is_jupyter: bool = False) -> None:
         # Set up signal handlers for starting and stopping profiling.
+        if is_jupyter:
+            Scalene.set_in_jupyter()
         if not Scalene.__initialized:
             print(
                 "ERROR: Do not try to manually invoke `run_profiler`.\n"

@@ -20,6 +20,18 @@ from scalene.syntaxline import SyntaxLine
 
 class ScaleneOutput:
 
+    # Maximum entries for sparklines, per file
+    max_sparkline_len_file = 27
+
+    # Maximum entries for sparklines, per line
+    max_sparkline_len_line = 9
+
+    # Only report potential leaks if the allocation velocity is above this threshold
+    growth_rate_threshold = 0.01
+
+    # Only report leaks whose likelihood is 1 minus this threshold
+    leak_reporting_threshold = 0.05
+    
     # Threshold for highlighting lines of code in red.
     highlight_percentage = 33
 
@@ -96,6 +108,7 @@ class ScaleneOutput:
         """Print at most one line of the profile (true == printed one)."""
         obj = json.output_profile_line(
             fname=fname,
+            fname_print=fname,
             line_no=line_no,
             stats=stats,
             profile_this_code=profile_this_code,
@@ -167,11 +180,18 @@ class ScaleneOutput:
             spark_str: str = ""
             # Scale the sparkline by the usage fraction.
             samples = obj["memory_samples"]
-            for i in range(0, len(samples)):
-                samples[i] *= obj["n_usage_fraction"]
-            if samples:
+            # Randomly downsample to ScaleneOutput.max_sparkline_len_line.
+            if len(samples) > ScaleneOutput.max_sparkline_len_line:
+                import random
+                random_samples = sorted(random.sample(samples, ScaleneOutput.max_sparkline_len_line))
+            else:
+                random_samples = samples
+            sparkline_samples = []
+            for i in range(0, len(random_samples)):
+                sparkline_samples.append(random_samples[i][1] * obj["n_usage_fraction"])
+            if random_samples:
                 _, _, spark_str = sparkline.generate(
-                    samples, 0, stats.max_footprint
+                    sparkline_samples, 0, stats.max_footprint
                 )
 
             # Red highlight
@@ -322,10 +342,17 @@ class ScaleneOutput:
         growth_rate = 0.0
         if profile_memory:
             samples = stats.memory_footprint_samples
-            if len(samples.get()) > 0:
+            if len(samples) > 0:
+                # Randomly downsample samples
+                import random
+                if len(samples) > ScaleneOutput.max_sparkline_len_file:
+                    random_samples = sorted(random.sample(samples, ScaleneOutput.max_sparkline_len_file))
+                else:
+                    random_samples = samples
+                sparkline_samples = [item[1] for item in random_samples]
                 # Output a sparkline as a summary of memory usage over time.
                 _, _, spark_str = sparkline.generate(
-                    samples.get()[0 : samples.len()], 0, stats.max_footprint
+                    sparkline_samples[ : ScaleneOutput.max_sparkline_len_file], 0, stats.max_footprint
                 )
                 # Compute growth rate (slope), between 0 and 1.
                 if stats.allocation_velocity[1] > 0:
@@ -508,7 +535,7 @@ class ScaleneOutput:
             if not fname:
                 continue
             # Print out the profile for the source, line by line.
-            with open(fname, "r") as source_file:
+            with open(fname, "r", encoding="utf-8") as source_file:
                 # We track whether we should put in ellipsis (for reduced profiles)
                 # or not.
                 did_print = True  # did we print a profile line last time?
@@ -670,17 +697,15 @@ class ScaleneOutput:
             # Only report potential leaks if the allocation velocity (growth rate) is above some threshold
             # FIXME: fixed at 1% for now.
             # We only report potential leaks where the confidence interval is quite tight and includes 1.
-            growth_rate_threshold = 0.01
-            leak_reporting_threshold = 0.05
             leaks = []
-            if growth_rate / 100 > growth_rate_threshold:
+            if growth_rate / 100 > ScaleneOutput.growth_rate_threshold:
                 keys = list(stats.leak_score[fname].keys())
                 for index, item in enumerate(stats.leak_score[fname].values()):
                     # See https://en.wikipedia.org/wiki/Rule_of_succession
                     frees = item[1]
                     allocs = item[0]
                     expected_leak = (frees + 1) / (frees + allocs + 2)
-                    if expected_leak <= leak_reporting_threshold:
+                    if expected_leak <= ScaleneOutput.leak_reporting_threshold:
                         if keys[index] in avg_mallocs:
                             leaks.append(
                                 (

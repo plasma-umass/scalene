@@ -4,10 +4,12 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+numpy = "*"
 pyperf = "*"
 pytest = "*"
+wheel = "*"
 
 [packages]
 cloudpickle = "*"
-numpy = "*"
+nvidia-ml-py = "*"
 rich = "*"

@@ -38,10 +38,10 @@ jobs:
       run: pip install -e .
 
     - name: cpu-only smoke test
-      run: python -m scalene --cpu-only test/testme.py
+      run: python -m scalene --cli --cpu-only test/testme.py
 
     - name: multiprocessing smoke test
-      run: python -m scalene test/multiprocessing_test.py
+      run: python -m scalene --cli test/multiprocessing_test.py
 
     - name: profile-interval smoke test
-      run: python -m scalene --profile-interval=2 test/testme.py
+      run: python -m scalene --cli --profile-interval=2 test/testme.py

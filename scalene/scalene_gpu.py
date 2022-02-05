@@ -32,16 +32,22 @@ class ScaleneGPU:
         if self.__has_gpu:
             total_load = 0.0
             for i in range(self.__ngpus):
-                with contextlib.suppress(Exception):
-                    total_load += pynvml.nvmlDeviceGetUtilizationRates(
-                        self.__handle[i]
-                    ).gpu
+                try:
+                    with contextlib.suppress(Exception):
+                        total_load += pynvml.nvmlDeviceGetUtilizationRates(
+                            self.__handle[i]
+                        ).gpu
+                except:
+                    pass
             return (total_load / self.__ngpus) / 100.0
         return 0.0
 
     def memory_used(self) -> int:
         mem_used = 0
         for i in range(self.__ngpus):
-            mem_info = pynvml.nvmlDeviceGetMemoryInfo(self.__handle[i])
-            mem_used += mem_info.used
+            try:
+                mem_info = pynvml.nvmlDeviceGetMemoryInfo(self.__handle[i])
+                mem_used += mem_info.used
+            except:
+                pass
         return mem_used
