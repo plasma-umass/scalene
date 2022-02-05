@@ -1219,29 +1219,19 @@ class Scalene:
         with contextlib.suppress(ValueError):
             while Scalene.__memcpy_mapfile.read():
                 count_str = Scalene.__memcpy_mapfile.get_str()
-                (memcpy_time_str, count_str2, pid) = count_str.split(",")
+                (memcpy_time_str, count_str2, pid, filename, lineno, bytei) = count_str.split(",")
                 if int(curr_pid) == int(pid):
-                    arr.append((int(memcpy_time_str), int(count_str2)))
+                    arr.append((filename, lineno, bytei, int(memcpy_time_str), int(count_str2)))
         arr.sort()
 
-        stats = Scalene.__stats
-        new_frames = Scalene.compute_frames_to_record(frame)
-        if not new_frames:
-            del frame
-            return
-
         for item in arr:
-            _memcpy_time, count = item
-            for (the_frame, _tident, _orig_frame) in new_frames:
-                fname = Filename(the_frame.f_code.co_filename)
-                line_no = LineNumber(the_frame.f_lineno)
-                bytei = ByteCodeIndex(the_frame.f_lasti)
-                # Add the byte index to the set for this line.
-                stats.bytei_map[fname][line_no].add(bytei)
-                stats.memcpy_samples[fname][line_no] += count
-        del new_frames[:]
-        del new_frames
-        del frame
+            filename, lineno, byteindex, _memcpy_time, count = item
+            fname = Filename(filename)
+            line_no = int(LineNumber(lineno))
+            bytei = ByteCodeIndex(byteindex)
+            # Add the byte index to the set for this line.
+            Scalene.__stats.bytei_map[fname][line_no].add(bytei)
+            Scalene.__stats.memcpy_samples[fname][line_no] += int(count)
 
     @staticmethod
     @lru_cache(None)

@@ -189,7 +189,7 @@ class MemcpySampler {
     if (old_sig != SIG_DFL) signal(MemcpySignal, old_sig);
     init_lock.unlock();
     auto pid = getpid();
-    snprintf((char *)scalene_memcpy_signal_filename, FILENAME_LENGTH, fname,
+    snprintf_((char *)scalene_memcpy_signal_filename, BUFFER_LENGTH, fname,
              pid);
     // printf("initialized (%s)\n", scalene_memcpy_signal_filename);
   }
@@ -279,13 +279,27 @@ class MemcpySampler {
   uint64_t _interval;
   uint64_t _memcpyOps;
   unsigned long long _memcpyTriggered;
-  static constexpr int FILENAME_LENGTH = 255;
-  char scalene_memcpy_signal_filename[FILENAME_LENGTH];
+  static constexpr int BUFFER_LENGTH = 1024;
+  char scalene_memcpy_signal_filename[BUFFER_LENGTH];
 
   void writeCount() {
-    char buf[FILENAME_LENGTH];
-    snprintf(buf, FILENAME_LENGTH, "%d,%d,%d\n\n", _memcpyTriggered, _memcpyOps,
-             getpid());
+#if 1
+    std::string filename;
+    int lineno = 1;
+    int bytei = 0;
+    decltype(whereInPython)* where = p_whereInPython;
+    if (where != nullptr && where(filename, lineno, bytei)) {
+      ;
+    }
+#endif
+    char buf[BUFFER_LENGTH];
+    snprintf_(buf, BUFFER_LENGTH, "%d,%d,%d,%s,%d,%d\n\n",
+	      _memcpyTriggered,
+	      _memcpyOps,
+	      getpid(),
+	      filename.c_str(),
+	      lineno,
+	      bytei);
     _samplefile.writeToFile(buf);
   }
 };
