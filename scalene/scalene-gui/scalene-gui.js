@@ -83,10 +83,20 @@ function makeSparkline(samples, max_x, max_y, height = 10, width = 75) {
 	    "values": values
 	},
 	"mark" : { "type" : "line", "strokeWidth": strokeWidth, "interpolate" : "step-after" },
+	"selection" : {
+	    "grid" : {
+		"type": "interval",
+		"bind": "scales"
+	    }
+	},
 	"encoding" : {
 	    "x" : {"field": "x",
 		   "type" : "quantitative",
-		   "axis" : false,
+		   "axis" : {
+		       "tickCount" : 10,
+		       "labelExpr" : false,
+		   },
+		   "title" : null,
 		   "scale" : { "domain" : [0, max_x] }},
 	    "y" : {"field": "y",
 		   "type" : "quantitative",
