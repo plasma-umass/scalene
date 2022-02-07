@@ -328,17 +328,17 @@ async function display(prof) {
 	s += '</tbody>';
 	s += '</table>';
 	// Print out function summaries.
-	s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
-	s += makeTableHeader(ff[0], prof.gpu, prof.memory, true);
-	s += '<tbody>';
-	tableID++;
 	if (prof.files[ff[0]].functions) {
+	    s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
+	    s += makeTableHeader(ff[0], prof.gpu, prof.memory, true);
+	    s += '<tbody>';
+	    tableID++;
 	    for (const l in prof.files[ff[0]].functions) {
 		const line = prof.files[ff[0]].functions[l];
 		s += makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines);
 	    }
+	    s += '</table>';
 	}
-	s += '</table>';
 	s += '</div>';
 	fileIteration++;
 	// Insert empty lines between files.
@@ -442,8 +442,3 @@ function loadDemo() {
     load(example_profile);
 }
 
-document.getElementById('demo-text').addEventListener('click', (e) =>
-    {
-	loadDemo();
-	e.preventDefault();
-    });
