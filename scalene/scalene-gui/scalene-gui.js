@@ -137,7 +137,8 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
 	    { title: ["copy", "(MB/s)"], color: CopyColor, width: 0 }]);
     }
     if (gpu) {
-	columns.push({ title: ["gpu", ""], color: CopyColor, width: 0 });
+	columns.push({ title: ["gpu", "time"], color: CopyColor, width: 0 });
+	columns.push({ title: ["gpu", "peak MB"], color: CopyColor, width: 0 });
     }
     columns.push({ title: ["", ""], color: "black", width: 100 });
     let s = '';
@@ -202,7 +203,12 @@ function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines) {
 	if (line.n_gpu_percent < 1.0) {
 	    s += '<td style="width: 100"></td>';
 	} else {
-	    s += `<td style="width: 100" align="right"><font color="${CopyColor}">${line.n_gpu_percent.toFixed(0)}</font></td>`;
+	    s += `<td style="width: 100" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_percent.toFixed(0)}%</font></td>`;
+	}
+	if (line.n_gpu_avg_memory < 1.0) {
+	    s += '<td style="width: 100"></td>';
+	} else {
+	    s += `<td style="width: 100" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_avg_memory.toFixed(0)}MB</font></td>`;
 	}
     }
     s += `<td align="right" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
