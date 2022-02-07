@@ -45,6 +45,7 @@ class ScaleneJSON:
             n_cpu_samples_c = 0
         n_cpu_samples_python = stats.cpu_samples_python[fname][line_no]
         n_gpu_samples = stats.gpu_samples[fname][line_no]
+        n_gpu_mem_samples = stats.gpu_mem_samples[fname][line_no]
 
         # Compute percentages of CPU time.
         if stats.total_cpu_samples:
@@ -121,6 +122,8 @@ class ScaleneJSON:
             "n_cpu_percent_python": n_cpu_percent_python,
             "n_sys_percent": n_sys_percent,
             "n_gpu_percent": n_gpu_percent,
+            "n_gpu_avg_memory" : n_gpu_mem_samples.mean(),
+            "n_gpu_peak_memory" : n_gpu_mem_samples.peak(),
             "n_peak_mb": n_peak_mb,
             "n_growth_mb": n_peak_mb,  # For backwards compatibility
             "n_avg_mb": n_avg_mb,
