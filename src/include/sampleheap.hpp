@@ -242,7 +242,6 @@ class SampleHeap : public SuperHeap {
     #if defined(__APPLE__)
     uint64_t nanos = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
     #else
-    uint64_t ticks = mach_absolute_time();
     struct timespec ts;
     auto res = clock_gettime(CLOCK_MONOTONIC, &ts);
     if (res != 0) {
