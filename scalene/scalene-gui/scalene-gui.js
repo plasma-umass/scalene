@@ -195,7 +195,7 @@ function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines) {
 	if (line.n_copy_mb_s < 1.0) {
 	    s += '<td style="width: 100"></td>';
 	} else {
-	    s += `<td style="width: 100" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_copy_mb_s.toFixed(0)}&nbsp;&nbsp;&nbsp;</font></td>`;
+	    s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_copy_mb_s.toFixed(0)}&nbsp;&nbsp;&nbsp;</font></td>`;
 	}
     }
     if (prof.gpu) {
@@ -328,7 +328,7 @@ async function display(prof) {
 	s += '</tbody>';
 	s += '</table>';
 	// Print out function summaries.
-	if (prof.files[ff[0]].functions) {
+	if (prof.files[ff[0]].functions.length) {
 	    s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
 	    s += makeTableHeader(ff[0], prof.gpu, prof.memory, true);
 	    s += '<tbody>';
