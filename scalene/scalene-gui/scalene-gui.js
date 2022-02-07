@@ -63,7 +63,7 @@ function makeMemoryBar(memory, title, python_percent, total, color) {
 }
 
 
-function makeSparkline(samples, max_x, max_y, height = 10, width = 75) {
+function makeSparkline(samples, max_x, max_y, height = 20, width = 75) {
     const values = samples.map((v, i) => {
 	return {"x": v[0], "y": v[1], "c": 0};
     });
@@ -94,6 +94,7 @@ function makeSparkline(samples, max_x, max_y, height = 10, width = 75) {
 		   "type" : "quantitative",
 		   "axis" : {
 		       "tickCount" : 10,
+		       "tickSize": 0,
 		       "labelExpr" : false,
 		   },
 		   "title" : null,
@@ -167,26 +168,26 @@ function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines) {
     s += '<tr>';
     const total_time = (line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent);
     const total_time_str = String(total_time.toFixed(1)).padStart(10, ' ');
-    s += `<td style="height: 10; width: 100; vertical-align: middle" align="left" data-sort='${total_time_str}'>`;
-    s += `<span style="height: 10; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>`;
+    s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${total_time_str}'>`;
+    s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>`;
     cpu_bars.push(makeBar(line.n_cpu_percent_python, line.n_cpu_percent_c, line.n_sys_percent));
     if (prof.memory) {
-	s += `<td style="height: 10; width: 100; vertical-align: middle" align="left" data-sort='${String(line.n_avg_mb.toFixed(0)).padStart(10, '0')}'>`;
-	s += `<span style="height: 10; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
+	s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(line.n_avg_mb.toFixed(0)).padStart(10, '0')}'>`;
+	s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
 	s += '</td>';
 	memory_bars.push(makeMemoryBar(line.n_avg_mb.toFixed(0), "average memory", parseFloat(line.n_python_fraction), prof.max_footprint_mb.toFixed(2), "darkgreen"));
-	s += `<td style="height: 10; width: 100; vertical-align: middle" align="left" data-sort='${String(line.n_peak_mb.toFixed(0)).padStart(10, '0')}'>`;
-	s += `<span style="height: 10; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
+	s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(line.n_peak_mb.toFixed(0)).padStart(10, '0')}'>`;
+	s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
 	memory_bars.push(makeMemoryBar(line.n_peak_mb.toFixed(0), "peak memory", parseFloat(line.n_python_fraction), prof.max_footprint_mb.toFixed(2), "darkgreen"));
 	s += '</td>';
-	s += `<td style='vertical-align: middle; width: 100'><span style="height:10; width: 100; vertical-align: middle" id="memory_sparkline${memory_sparklines.length}"></span>`;	    
+	s += `<td style='vertical-align: middle; width: 100'><span style="height:25; width: 100; vertical-align: middle" id="memory_sparkline${memory_sparklines.length}"></span>`;	    
 	s += '</td>';
 	if (line.memory_samples.length > 0) {
 	    memory_sparklines.push(makeSparkline(line.memory_samples, prof.elapsed_time_sec * 1e9, prof.max_footprint_mb));
 	} else {
 	    memory_sparklines.push(null);
 	}
-	s += '<td style="width: 100" align="right">';
+	s += '<td style="width: 100; vertical-align: middle" align="right">';
 	if (line.n_usage_fraction >= 0.01) {
 	    s += `<font style="font-size: small">${String((100 * line.n_usage_fraction).toFixed(0)).padStart(10, ' ')}%&nbsp;&nbsp;&nbsp;</font>`;
 	}
@@ -204,7 +205,7 @@ function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines) {
 	    s += `<td style="width: 100" align="right"><font color="${CopyColor}">${line.n_gpu_percent.toFixed(0)}</font></td>`;
 	}
     }
-    s += `<td align="right" style="vertical-align: top; width: 50"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
+    s += `<td align="right" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
     const codeLine = Prism.highlight(line.line, Prism.languages.python, 'python');
     s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}"><pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python">${codeLine}</code></pre></td>`;
     s += '</tr>';
@@ -250,13 +251,13 @@ async function display(prof) {
     }
     s += '</tr>';
     s += '<tr>';
-    s += '<td height="10"><span style="height: 15; width: 200; vertical-align: middle" id="cpu_bar0"></span></td>';
+    s += '<td height="10"><span style="height: 20; width: 200; vertical-align: middle" id="cpu_bar0"></span></td>';
     s += '<td></td>';
     if (prof.memory) {
-	s += '<td height="10"><span style="height: 15; width: 150; vertical-align: middle" id="memory_bar0"></span></td>';
+	s += '<td height="20"><span style="height: 20; width: 150; vertical-align: middle" id="memory_bar0"></span></td>';
 	s += '<td></td>';
-	s += '<td align="left"><span style="vertical-align: top" id="memory_sparkline0"></span></td>';
-	memory_sparklines.push(makeSparkline(prof.samples, prof.elapsed_time_sec * 1e9, prof.max_footprint_mb, 15, 200));
+	s += '<td align="left"><span style="vertical-align: middle" id="memory_sparkline0"></span></td>';
+	memory_sparklines.push(makeSparkline(prof.samples, prof.elapsed_time_sec * 1e9, prof.max_footprint_mb, 20, 200));
     }
     s += '</tr>';
     
@@ -318,7 +319,7 @@ async function display(prof) {
 		for (let i = 0; i < columns.length; i++) {
 		    s += '<td></td>';
 		}
-		s += `<td class="F${ff[0]}-blankline" style="line-height: 1px; background-color: lightgray" data-sort="${line.lineno}">&nbsp;</td>`;
+		s += `<td class="F${ff[0]}-blankline" style="line-height: 1px; background-color: lightgray" data-sort="${prevLineno + 1}">&nbsp;</td>`;
 		s += '</tr>';
 	    }
 	    prevLineno = line.lineno;
