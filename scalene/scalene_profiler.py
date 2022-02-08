@@ -33,6 +33,7 @@ import sys
 import tempfile
 import threading
 import time
+from tkinter import Scale
 import traceback
 from collections import defaultdict
 from functools import lru_cache
@@ -41,6 +42,7 @@ from types import FrameType
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, cast
 
 from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_funcutils import ScaleneFuncUtils
 from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_mapfile import ScaleneMapFile
@@ -184,13 +186,25 @@ class Scalene:
     __is_thread_sleeping: Dict[int, bool] = defaultdict(
         bool
     )  # False by default
-    __child_pids: Set[int] = set()
+    
+    child_pids: Set[int] = set() # Needs to be unmangled to be accessed by shims
 
     # Signal queues for CPU timers, allocations, and memcpy
     __cpu_sigq: ScaleneSigQueue[Any]
     __alloc_sigq: ScaleneSigQueue[Any]
     __memcpy_sigq: ScaleneSigQueue[Any]
     __sigqueues: List[ScaleneSigQueue[Any]]
+
+    client_timer: ScaleneClientTimer = ScaleneClientTimer()
+
+    @staticmethod
+    def get_all_signals_set() -> Set[int]:
+        return set(Scalene.__signals.get_all_signals())
+        
+    @staticmethod
+    def get_timer_signals() -> Tuple[int, signal.Signals]:
+        return Scalene.__signals.get_timer_signals()
+        
 
     @staticmethod
     def set_in_jupyter() -> None:
@@ -277,16 +291,16 @@ class Scalene:
         can start with a clean slate
         """
         cls.__stats.clear()
-        cls.__child_pids.clear()
+        cls.child_pids.clear()
 
     @classmethod
     def add_child_pid(cls, pid: int) -> None:
-        cls.__child_pids.add(pid)
+        cls.child_pids.add(pid)
 
     @classmethod
     def remove_child_pid(cls, pid: int) -> None:
         try:
-            cls.__child_pids.remove(pid)
+            cls.child_pids.remove(pid)
         except KeyError:
             # Defensive programming: this should never happen.
             pass
@@ -484,7 +498,7 @@ class Scalene:
         import scalene.replacement_pjoin
         import scalene.replacement_thread_join
         import scalene.replacement_get_context
-
+        import scalene.replacement_signal_fns
         if sys.platform != "win32":
             import scalene.replacement_fork
             import scalene.replacement_poll_selector
@@ -618,7 +632,6 @@ class Scalene:
                     Scalene.__args.cpu_sampling_rate,
                 )
             return
-
         # Sample GPU load as well.
         gpu_load = Scalene.__gpu.load()
         gpu_mem_used = 0  # Scalene.__gpu.memory_used()
@@ -645,10 +658,27 @@ class Scalene:
         Scalene.__last_signal_time_sys = now_sys
         Scalene.__last_signal_time_user = now_user
         if sys.platform != "win32":
-            signal.setitimer(
-                Scalene.__signals.cpu_timer_signal,
-                Scalene.__args.cpu_sampling_rate,
-            )
+            if Scalene.client_timer.is_set:
+                elapsed = now_virtual - Scalene.__last_signal_time_virtual 
+                should_raise, remaining_time = Scalene.client_timer.yield_next_delay(elapsed)
+                if should_raise:
+                    signal.raise_signal(signal.SIGUSR1)
+                # NOTE-- 0 will only be returned if the 'seconds' have elapsed
+                # and there is no interval
+                if remaining_time > 0:
+                    to_wait = min(remaining_time, Scalene.__args.cpu_sampling_rate)
+                else:
+                    to_wait = Scalene.__args.cpu_sampling_rate
+                    Scalene.client_timer.reset()
+                signal.setitimer(
+                    Scalene.__signals.cpu_timer_signal,
+                    to_wait,
+                )
+            else:
+                signal.setitimer(
+                    Scalene.__signals.cpu_timer_signal,
+                    Scalene.__args.cpu_sampling_rate,
+                )
 
     @staticmethod
     def output_profile() -> bool:
@@ -1357,7 +1387,7 @@ class Scalene:
         ],
         _this_frame: Optional[FrameType],
     ) -> None:
-        for pid in Scalene.__child_pids:
+        for pid in Scalene.child_pids:
             os.kill(pid, Scalene.__signals.start_profiling_signal)
         Scalene.start()
 
@@ -1368,7 +1398,7 @@ class Scalene:
         ],
         _this_frame: Optional[FrameType],
     ) -> None:
-        for pid in Scalene.__child_pids:
+        for pid in Scalene.child_pids:
             os.kill(pid, Scalene.__signals.stop_profiling_signal)
         Scalene.stop()
 
