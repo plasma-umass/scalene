@@ -33,7 +33,6 @@ import sys
 import tempfile
 import threading
 import time
-from tkinter import Scale
 import traceback
 from collections import defaultdict
 from functools import lru_cache
