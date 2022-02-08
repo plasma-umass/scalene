@@ -43,6 +43,7 @@ class ScaleneGPU:
         return 0.0
 
     def memory_used(self) -> int:
+        """Return current memory in use, in bytes."""
         mem_used = 0
         for i in range(self.__ngpus):
             try:

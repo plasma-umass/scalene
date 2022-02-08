@@ -48,7 +48,7 @@ class ScaleneAppleGPU:
             return 0.0
 
     def memory_used(self) -> int:
-        """Return current memory in use, in MB."""
+        """Return current memory in use, in bytes."""
         if not self.has_gpu():
             return 0.0
         try:
@@ -58,7 +58,7 @@ class ScaleneAppleGPU:
                 line = line.decode("utf-8")
                 if "In use system memory" in line:
                     in_use = self.regex2.search(line)
-                    return float(in_use.group(1)) / 1048576
+                    return float(in_use.group(1))
             return 0.0  # Fall-through case
         except:
             return 0.0
