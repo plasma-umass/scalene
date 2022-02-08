@@ -206,10 +206,10 @@ function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines) {
 	    s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_percent.toFixed(0)}%</font></td>`;
 	}
 	if (false) {
-	    if (line.n_gpu_avg_memory < 1.0) {
+	    if (line.n_gpu_avg_memory_mb < 1.0) {
 		s += '<td style="width: 100"></td>';
 	    } else {
-		s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_avg_memory.toFixed(0)}</font></td>`;
+		s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_avg_memory_mb.toFixed(0)}</font></td>`;
 	    }
 	}
     }

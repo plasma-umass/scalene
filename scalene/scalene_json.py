@@ -122,8 +122,8 @@ class ScaleneJSON:
             "n_cpu_percent_python": n_cpu_percent_python,
             "n_sys_percent": n_sys_percent,
             "n_gpu_percent": n_gpu_percent,
-            "n_gpu_avg_memory" : n_gpu_mem_samples.mean() / 1048576,
-            "n_gpu_peak_memory" : n_gpu_mem_samples.peak() / 1048576,
+            "n_gpu_avg_memory_mb" : n_gpu_mem_samples.mean() / 1048576,
+            "n_gpu_peak_memory_mb" : n_gpu_mem_samples.peak() / 1048576,
             "n_peak_mb": n_peak_mb,
             "n_growth_mb": n_peak_mb,  # For backwards compatibility
             "n_avg_mb": n_avg_mb,
