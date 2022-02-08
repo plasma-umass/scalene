@@ -451,6 +451,7 @@ class Scalene:
             signal.signal(
                 Scalene.__signals.cpu_signal,
                 Scalene.cpu_signal_handler,
+                in_scalene=True,
             )
             # On Windows, we simulate timer signals by running a background thread.
             Scalene.timer_signals = True
@@ -461,14 +462,14 @@ class Scalene:
         Scalene.start_signal_queues()
         # Set signal handlers for memory allocation and memcpy events.
         signal.signal(
-            Scalene.__signals.malloc_signal, Scalene.malloc_signal_handler
+            Scalene.__signals.malloc_signal, Scalene.malloc_signal_handler, in_scalene=True
         )
         signal.signal(
-            Scalene.__signals.free_signal, Scalene.free_signal_handler
+            Scalene.__signals.free_signal, Scalene.free_signal_handler, in_scalene=True
         )
         signal.signal(
             Scalene.__signals.memcpy_signal,
-            Scalene.memcpy_signal_handler,
+            Scalene.memcpy_signal_handler, in_scalene=True
         )
         # Set every signal to restart interrupted system calls.
         for s in Scalene.__signals.get_all_signals():
@@ -477,11 +478,13 @@ class Scalene:
         signal.signal(
             Scalene.__signals.cpu_signal,
             Scalene.cpu_signal_handler,
+            in_scalene=True,
         )
         if sys.platform != "win32":
             signal.setitimer(
                 Scalene.__signals.cpu_timer_signal,
                 Scalene.__args.cpu_sampling_rate,
+                in_scalene=True
             )
 
     def __init__(
@@ -630,6 +633,7 @@ class Scalene:
                 signal.setitimer(
                     Scalene.__signals.cpu_timer_signal,
                     Scalene.__args.cpu_sampling_rate,
+                    in_scalene=True
                 )
             return
         # Sample GPU load as well.
@@ -652,6 +656,7 @@ class Scalene:
                 Scalene.__last_signal_time_user,
             )
         )
+        elapsed = now_wallclock - Scalene.__last_signal_time_wallclock
         # Store the latest values as the previously recorded values.
         Scalene.__last_signal_time_virtual = now_virtual
         Scalene.__last_signal_time_wallclock = now_wallclock
@@ -659,10 +664,10 @@ class Scalene:
         Scalene.__last_signal_time_user = now_user
         if sys.platform != "win32":
             if Scalene.client_timer.is_set:
-                elapsed = now_virtual - Scalene.__last_signal_time_virtual 
+                
                 should_raise, remaining_time = Scalene.client_timer.yield_next_delay(elapsed)
                 if should_raise:
-                    signal.raise_signal(signal.SIGUSR1)
+                    signal.raise_signal(signal.SIGUSR1, in_scalene=True)
                 # NOTE-- 0 will only be returned if the 'seconds' have elapsed
                 # and there is no interval
                 if remaining_time > 0:
@@ -673,11 +678,13 @@ class Scalene:
                 signal.setitimer(
                     Scalene.__signals.cpu_timer_signal,
                     to_wait,
+                    in_scalene=True
                 )
             else:
                 signal.setitimer(
                     Scalene.__signals.cpu_timer_signal,
                     Scalene.__args.cpu_sampling_rate,
+                    in_scalene=True
                 )
 
     @staticmethod
@@ -1409,10 +1416,10 @@ class Scalene:
             Scalene.timer_signals = False
             return
         try:
-            signal.setitimer(Scalene.__signals.cpu_timer_signal, 0)
-            signal.signal(Scalene.__signals.malloc_signal, signal.SIG_IGN)
-            signal.signal(Scalene.__signals.free_signal, signal.SIG_IGN)
-            signal.signal(Scalene.__signals.memcpy_signal, signal.SIG_IGN)
+            signal.setitimer(Scalene.__signals.cpu_timer_signal, 0, in_scalene=True)
+            signal.signal(Scalene.__signals.malloc_signal, signal.SIG_IGN, in_scalene=True)
+            signal.signal(Scalene.__signals.free_signal, signal.SIG_IGN, in_scalene=True)
+            signal.signal(Scalene.__signals.memcpy_signal, signal.SIG_IGN, in_scalene=True)
             Scalene.stop_signal_queues()
         except:
             # Retry just in case we get interrupted by one of our own signals.
