@@ -1459,6 +1459,7 @@ class Scalene:
                     def log_request(self, code: Union[int, str] = 0, size: Union[int, str] = 0) -> None:
                         return
                 Handler = NoLogs
+                socketserver.TCPServer.allow_reuse_address = True
                 with socketserver.TCPServer(("", PORT), Handler) as httpd:
                     import threading
                     t = threading.Thread(target=httpd.serve_forever)
