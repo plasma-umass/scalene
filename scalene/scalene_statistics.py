@@ -44,6 +44,11 @@ class ScaleneStatistics:
             Filename, Dict[LineNumber, float]
         ] = defaultdict(lambda: defaultdict(float))
 
+        #   GPU memory samples for each location in the program
+        self.gpu_mem_samples: Dict[
+            Filename, Dict[LineNumber, List[Any]]
+        ] = defaultdict(lambda: defaultdict(RunningStats))
+        
         # Running stats for the fraction of time running on the CPU.
         self.cpu_utilization: Dict[
             Filename, Dict[LineNumber, RunningStats]
@@ -336,6 +341,7 @@ class ScaleneStatistics:
                 dest[filename][lineno] += src[filename][lineno]
 
     def merge_stats(self, the_dir_name: pathlib.Path) -> None:
+        # TODO: update GPU memory samples
         the_dir = pathlib.Path(the_dir_name)
         for f in list(the_dir.glob("**/scalene*")):
             # Skip empty files.

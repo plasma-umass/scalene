@@ -137,7 +137,8 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
 	    { title: ["copy", "(MB/s)"], color: CopyColor, width: 0 }]);
     }
     if (gpu) {
-	columns.push({ title: ["gpu", ""], color: CopyColor, width: 0 });
+	columns.push({ title: ["gpu", "util."], color: CopyColor, width: 0 });
+	// columns.push({ title: ["gpu", "memory"], color: CopyColor, width: 0 });
     }
     columns.push({ title: ["", ""], color: "black", width: 100 });
     let s = '';
@@ -195,14 +196,21 @@ function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines) {
 	if (line.n_copy_mb_s < 1.0) {
 	    s += '<td style="width: 100"></td>';
 	} else {
-	    s += `<td style="width: 100" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_copy_mb_s.toFixed(0)}&nbsp;&nbsp;&nbsp;</font></td>`;
+	    s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_copy_mb_s.toFixed(0)}&nbsp;&nbsp;&nbsp;</font></td>`;
 	}
     }
     if (prof.gpu) {
 	if (line.n_gpu_percent < 1.0) {
 	    s += '<td style="width: 100"></td>';
 	} else {
-	    s += `<td style="width: 100" align="right"><font color="${CopyColor}">${line.n_gpu_percent.toFixed(0)}</font></td>`;
+	    s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_percent.toFixed(0)}%</font></td>`;
+	}
+	if (false) {
+	    if (line.n_gpu_avg_memory_mb < 1.0) {
+		s += '<td style="width: 100"></td>';
+	    } else {
+		s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_avg_memory_mb.toFixed(0)}</font></td>`;
+	    }
 	}
     }
     s += `<td align="right" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
@@ -328,17 +336,17 @@ async function display(prof) {
 	s += '</tbody>';
 	s += '</table>';
 	// Print out function summaries.
-	s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
-	s += makeTableHeader(ff[0], prof.gpu, prof.memory, true);
-	s += '<tbody>';
-	tableID++;
-	if (prof.files[ff[0]].functions) {
+	if (prof.files[ff[0]].functions.length) {
+	    s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
+	    s += makeTableHeader(ff[0], prof.gpu, prof.memory, true);
+	    s += '<tbody>';
+	    tableID++;
 	    for (const l in prof.files[ff[0]].functions) {
 		const line = prof.files[ff[0]].functions[l];
 		s += makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines);
 	    }
+	    s += '</table>';
 	}
-	s += '</table>';
 	s += '</div>';
 	fileIteration++;
 	// Insert empty lines between files.
@@ -442,8 +450,3 @@ function loadDemo() {
     load(example_profile);
 }
 
-document.getElementById('demo-text').addEventListener('click', (e) =>
-    {
-	loadDemo();
-	e.preventDefault();
-    });

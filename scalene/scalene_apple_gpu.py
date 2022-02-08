@@ -9,7 +9,8 @@ class ScaleneAppleGPU:
         self.cmd = (
             'DYLD_INSERT_LIBRARIES="" ioreg -r -d 1 -w 0 -c "IOAccelerator"'
         )
-        self.regex = re.compile(r'"Device Utilization %"=(\d+)')
+        self.regex1 = re.compile(r'"Device Utilization %"=(\d+)')
+        self.regex2 = re.compile(r'"In use system memory"=(\d+)')
         self.last_load = 0.0
         self.sample_count = 0
         self.sample_interval = 10
@@ -35,7 +36,7 @@ class ScaleneAppleGPU:
             for line in s_return:
                 line = line.decode("utf-8")
                 if "Device Utilization %" in line:
-                    util = self.regex.search(line)
+                    util = self.regex1.search(line)
                     if util:
                         self.last_load = int(util.group(1)) / 100.0
                         self.sample_count = 0
@@ -47,5 +48,17 @@ class ScaleneAppleGPU:
             return 0.0
 
     def memory_used(self) -> int:
-        """Not yet implemented."""
-        return 0
+        """Return current memory in use, in bytes."""
+        if not self.has_gpu():
+            return 0.0
+        try:
+            s = subprocess.Popen(self.cmd, shell=True, stdout=subprocess.PIPE)
+            s_return = s.stdout.readlines()
+            for line in s_return:
+                line = line.decode("utf-8")
+                if "In use system memory" in line:
+                    in_use = self.regex2.search(line)
+                    return float(in_use.group(1))
+            return 0.0  # Fall-through case
+        except:
+            return 0.0

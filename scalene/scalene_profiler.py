@@ -61,7 +61,7 @@ if sys.platform != "win32":
     import resource
 
 # For now, disable experimental GPU support for Apple
-if False:  # platform.system() == "Darwin":
+if platform.system() == "Darwin":
     from scalene.scalene_apple_gpu import ScaleneAppleGPU as ScaleneGPU
 else:
     from scalene.scalene_gpu import ScaleneGPU
@@ -638,7 +638,7 @@ class Scalene:
             return
         # Sample GPU load as well.
         gpu_load = Scalene.__gpu.load()
-        gpu_mem_used = 0  # Scalene.__gpu.memory_used()
+        gpu_mem_used = Scalene.__gpu.memory_used()
         # Pass on to the signal queue.
         Scalene.__cpu_sigq.put(
             (
@@ -880,6 +880,9 @@ class Scalene:
                     )
                     Scalene.__stats.gpu_samples[fname][lineno] += (
                         gpu_time / total_frames
+                    )
+                    Scalene.__stats.gpu_mem_samples[fname][lineno].push(
+                        gpu_mem_used
                     )
 
             else:
