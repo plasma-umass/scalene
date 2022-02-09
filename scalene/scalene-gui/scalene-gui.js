@@ -31,6 +31,37 @@ function makeBar(python, native, system) {
 }
 
 
+function makeGPUBar(util) {
+    return {
+	"$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+	"config": {
+	    "view": {
+		"stroke" : "transparent"
+	    }
+	},
+	"autosize" : {
+	    "contains" : "padding"
+	},
+	"width": "container",
+	"height" : "container",
+	"padding": 0,
+	"data": {
+	    "values": [{"x" : 0, "y" : util, "c": "utilization: " + util.toFixed(1) + "%" }]
+	},
+	"mark": { "type" : "bar" },
+	"encoding": {
+	    "x": {"aggregate": "sum", "field": "y", "axis": false,
+		  "scale" : { "domain" : [0, 100] } },
+	    "color": {"field": "c", "type": "nominal", "legend" : false,
+		      "scale": { "range": ["goldenrod"] } },
+	    "tooltip" : [
+		{ "field" : "c", "type" : "nominal", "title" : "GPU" }
+	    ]
+	},
+    };
+}
+
+
 function makeMemoryBar(memory, title, python_percent, total, color) {
     return {
 	"$schema": "https://vega.github.io/schema/vega-lite/v5.json",
@@ -138,7 +169,7 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
     }
     if (gpu) {
 	columns.push({ title: ["gpu", "util."], color: CopyColor, width: 0 });
-	// columns.push({ title: ["gpu", "memory"], color: CopyColor, width: 0 });
+	columns.push({ title: ["gpu", "memory"], color: CopyColor, width: 0 });
     }
     columns.push({ title: ["", ""], color: "black", width: 100 });
     let s = '';
@@ -164,7 +195,7 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
     return s;
 }
 
-function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines) {
+function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines, gpu_bars) {
     let s = '';
     s += '<tr>';
     const total_time = (line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent);
@@ -203,10 +234,14 @@ function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines) {
 	if (line.n_gpu_percent < 1.0) {
 	    s += '<td style="width: 100"></td>';
 	} else {
-	    s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_percent.toFixed(0)}%</font></td>`;
+	    //	    s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_percent.toFixed(0)}%</font></td>`;
+	    s += `<td style="width: 50; vertical-align: middle" align="right">`;
+	    s += `<span style="height: 20; width: 50; vertical-align: middle" id="gpu_bar${gpu_bars.length}"></span>`;
+	    s += '</td>';
+	    gpu_bars.push(makeGPUBar(line.n_gpu_percent));
 	}
-	if (false) {
-	    if (line.n_gpu_avg_memory_mb < 1.0) {
+	if (true) {
+	    if ((line.n_gpu_avg_memory_mb < 1.0) || (line.n_gpu_percent < 1.0)) {
 		s += '<td style="width: 100"></td>';
 	    } else {
 		s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_avg_memory_mb.toFixed(0)}</font></td>`;
@@ -241,6 +276,7 @@ function buildAllocationMaps(prof, f) {
 async function display(prof) {
     let memory_sparklines = [];
     let cpu_bars = [];
+    let gpu_bars = [];
     let memory_bars = [];
     let tableID = 0;
     let s = "";
@@ -331,7 +367,7 @@ async function display(prof) {
 		s += '</tr>';
 	    }
 	    prevLineno = line.lineno;
-	    s += makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines);
+	    s += makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines, gpu_bars);
 	}
 	s += '</tbody>';
 	s += '</table>';
@@ -343,7 +379,7 @@ async function display(prof) {
 	    tableID++;
 	    for (const l in prof.files[ff[0]].functions) {
 		const line = prof.files[ff[0]].functions[l];
-		s += makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines);
+		s += makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines, gpu_bars);
 	    }
 	    s += '</table>';
 	}
@@ -404,6 +440,13 @@ async function display(prof) {
 	if (p) {
 	    (async () => {
 		await vegaEmbed(`#cpu_bar${index}`, p, {"actions" : false });
+	    })();
+	}
+    });
+    gpu_bars.forEach((p, index) => {
+	if (p) {
+	    (async () => {
+		await vegaEmbed(`#gpu_bar${index}`, p, {"actions" : false });
 	    })();
 	}
     });
