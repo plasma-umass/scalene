@@ -475,7 +475,6 @@ class Scalene:
         arguments: argparse.Namespace,
         program_being_profiled: Optional[Filename] = None,
     ) -> None:
-        # gc.set_debug(gc.DEBUG_SAVE)
         import scalene.replacement_exit
 
         # Hijack lock, poll, thread_join, fork, and exit.
@@ -579,7 +578,8 @@ class Scalene:
         # Store relevant names (program, path).
         if program_being_profiled:
             Scalene.__program_being_profiled = Filename(
-                os.path.abspath(program_being_profiled)
+                # os.path.abspath(program_being_profiled)
+                program_being_profiled
             )
 
     @staticmethod
@@ -654,6 +654,7 @@ class Scalene:
     def output_profile() -> bool:
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
+                Scalene.__program_being_profiled,
                 Scalene.__stats,
                 Scalene.__pid,
                 Scalene.profile_this_code,
