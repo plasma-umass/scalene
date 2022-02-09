@@ -457,6 +457,11 @@ async function display(prof) {
 	    })();
 	}
     });
+    if (prof.program) {
+	document.title = 'Scalene - ' + prof.program;
+    } else {
+	document.title = 'Scalene';
+    }
 }
 
 function load(profile) {
