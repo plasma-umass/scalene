@@ -1609,13 +1609,10 @@ class Scalene:
                     the_globals["__file__"] = os.path.abspath(progs[0])
                     # Some mysterious module foo to make this work the same with -m as with `scalene`.
                     the_globals["__spec__"] = None
-                    # Start the profiler.
-                    fullname = os.path.join(
-                        program_path, os.path.basename(progs[0])
-                    )
                     # Do a GC before we start.
                     gc.collect()
-                    profiler = Scalene(args, Filename(fullname))
+                    # Start the profiler.
+                    profiler = Scalene(args, Filename(progs[0]))
                     try:
                         # We exit with this status (returning error code as appropriate).
                         exit_status = profiler.profile_code(
