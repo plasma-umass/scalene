@@ -27,11 +27,11 @@ def replacement_signal_fns(scalene: Scalene) -> None:
             timer_signal, cpu_signal = scalene.get_timer_signals()
             timer_signal_str = "SIGALRM" if timer_signal == signal.SIGALRM else "SIGVTALRM"
             if signum == cpu_signal:
-                print(f"WARNING: Scalene uses {timer_signal_str} to profile. If you manually raise {timer_signal_str} from non-python code, use SIGUSR1."
+                print(f"WARNING: Scalene uses {timer_signal_str} to profile. If you manually raise {timer_signal_str} from non-python code, use SIGUSR1. "
                         "If you raise signals from inside Python code, they will be rerouted." )
                 return old_signal(new_cpu_signal, handler)
             if signum in all_signals:
-                print("Error: Scalene cannot profile your program because it (or one of its packages)"
+                print("Error: Scalene cannot profile your program because it (or one of its packages) "
                     "uses timers or signals that Scalene depends on. If you have encountered this warning, please file an issue using this URL: "
                     "https://github.com/plasma-umass/scalene/issues/new/choose")
 
@@ -65,7 +65,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
                 if signum == cpu_signal:
                     return old_siginterrupt(new_cpu_signal, flag)
                 if signum in all_signals:
-                    print("Error: Scalene cannot profile your program because it (or one of its packages)"
+                    print("Error: Scalene cannot profile your program because it (or one of its packages) "
                         "uses timers or signals that Scalene depends on. If you have encountered this warning, please file an issue using this URL: "
                         "https://github.com/plasma-umass/scalene/issues/new/choose")
                 return old_siginterrupt(signum, flag)

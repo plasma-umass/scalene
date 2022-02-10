@@ -472,7 +472,7 @@ class Scalene:
         )
         # Set every signal to restart interrupted system calls.
         for s in Scalene.__signals.get_all_signals():
-            signal.siginterrupt(s, False)
+            signal.siginterrupt(s, False, in_scalene=True)
         # Turn on the CPU profiling timer to run at the sampling rate (exactly once).
         signal.signal(
             Scalene.__signals.cpu_signal,
