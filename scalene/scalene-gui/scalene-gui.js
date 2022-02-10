@@ -244,7 +244,7 @@ function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines, g
 	    s += '<td style="width: 100"></td>';
 	} else {
 	    //	    s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_percent.toFixed(0)}%</font></td>`;
-	    s += `<td style="width: 50; vertical-align: middle" align="right">`;
+	    s += `<td style="width: 50; vertical-align: middle" align="right" data-sort="${line.n_gpu_percent}">`;
 	    s += `<span style="height: 20; width: 30; vertical-align: middle" id="gpu_pie${gpu_pies.length}"></span>`;
 	    s += '</td>';
 	    gpu_pies.push(makeGPUPie(line.n_gpu_percent));
