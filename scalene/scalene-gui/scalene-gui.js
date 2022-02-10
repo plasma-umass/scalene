@@ -158,25 +158,31 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
     } else {
 	tableTitle = "line profile";
     }
-    columns = [{ title : ["time", ""], color: CPUColor, width: 0 }];
+    columns = [{ title : ["time", ""], color: CPUColor, width: 0, info: "Execution time (Python + native + system)" }];
     if (memory) {
 	columns = columns.concat([
-	    { title: ["memory", "average"], color: MemoryColor, width: 0 },
-	    { title: ["memory", "peak"], color: MemoryColor, width: 0 },
-	    { title: ["memory", "timeline"], color: MemoryColor, width: 0 },
-	    { title: ["memory", "activity"], color: MemoryColor, width: 0 },
-	    { title: ["copy", "(MB/s)"], color: CopyColor, width: 0 }]);
+	    { title: ["memory", "average"], color: MemoryColor, width: 0, info: "Average amount of memory allocated by this line / function" },
+	    { title: ["memory", "peak"], color: MemoryColor, width: 0, info: "Peak amount of memory allocated by this line / function" },
+	    { title: ["memory", "timeline"], color: MemoryColor, width: 0, info: "Memory footprint over time" },
+	    { title: ["memory", "activity"], color: MemoryColor, width: 0, info: "% of bytes allocated by this line / function over the total bytes allocated in that file" },
+	    { title: ["copy", "(MB/s)"], color: CopyColor, width: 0, info: "Rate of copying memory, in megabytes per second"  }]);
     }
     if (gpu) {
-	columns.push({ title: ["gpu", "util."], color: CopyColor, width: 0 });
-	columns.push({ title: ["gpu", "memory"], color: CopyColor, width: 0 });
+	columns.push({ title: ["gpu", "util."], color: CopyColor, width: 0, info: "% utilization of the GPU by this line / function" });
+	columns.push({ title: ["gpu", "memory"], color: CopyColor, width: 0, info: "Average GPU memory allocated by this line / function" });
     }
     columns.push({ title: ["", ""], color: "black", width: 100 });
     let s = '';
     s += '<thead class="thead-light">';
     s += '<tr data-sort-method="thead">';
     for (const col of columns) {
-	s += `<th class="F${fname}-nonline" style="width:${col.width}"><font style="font-variant: small-caps; text-decoration: underline; width:${col.width}" color=${col.color}>${col.title[0]}</font>&nbsp;&nbsp;</th>`;
+	s += `<th class="F${fname}-nonline"><font style="font-variant: small-caps; text-decoration: underline; width:${col.width}" color=${col.color}>`;
+	if (col.info) {
+	    s += `<a style="cursor:pointer;" title="${col.info}">${col.title[0]}</a>`;
+	} else {
+	    s += `<a style="cursor:pointer;">${col.title[0]}</a>`;
+	}
+	s += '</font>&nbsp;&nbsp;</th>';
     }
     let id;
     if (functions) {
@@ -329,7 +335,9 @@ async function display(prof) {
 	mem_python += mp;
     }
     cpu_bars.push(makeBar(cpu_python, cpu_native, cpu_system));
-    memory_bars.push(makeMemoryBar(max_alloc, "memory", mem_python / max_alloc, max_alloc, "darkgreen"));
+    if (prof.memory) {
+	memory_bars.push(makeMemoryBar(max_alloc, "memory", mem_python / max_alloc, max_alloc, "darkgreen"));
+    }
 
     s += '<tr><td colspan="10">';
     s += `<p class="text-center"><font style="font-size: 90%; font-style: italic; font-color: darkgray">hover over bars to see breakdowns; click on <font style="font-variant:small-caps; text-decoration:underline">column headers</font> to sort.</font></p>`;
@@ -351,7 +359,7 @@ async function display(prof) {
 	s += '<div>';
 	s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
 	tableID++;
-	s += makeTableHeader(ff[0], prof.gpu, prof.memory);
+	s += makeTableHeader(ff[0], prof.gpu, prof.memory, false);
 	s += '<tbody>';
 	// Print per-line profiles.
 	let prevLineno = -1;
