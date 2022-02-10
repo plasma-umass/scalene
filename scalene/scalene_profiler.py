@@ -363,7 +363,7 @@ class Scalene:
         Scalene.timer_signals = True
         while Scalene.timer_signals:
             time.sleep(Scalene.__args.cpu_sampling_rate)
-            signal.raise_signal(Scalene.__signals.cpu_signal)
+            signal.raise_signal(Scalene.__signals.cpu_signal, in_scalene=True)
 
     @staticmethod
     def start_signal_queues() -> None:

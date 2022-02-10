@@ -25,7 +25,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         if not in_scalene:
             all_signals = scalene.get_all_signals_set()
             timer_signal, cpu_signal = scalene.get_timer_signals()
-            timer_signal_str = "SIGALRM" if timer_signal == signal.SIGALRM else "SIGVTALRM"
+            timer_signal_str = signal.strsignal(signum)
             if signum == cpu_signal:
                 print(f"WARNING: Scalene uses {timer_signal_str} to profile. If you manually raise {timer_signal_str} from non-python code, use SIGUSR1. "
                         "If you raise signals from inside Python code, they will be rerouted." )
