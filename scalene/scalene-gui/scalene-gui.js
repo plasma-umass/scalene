@@ -31,6 +31,40 @@ function makeBar(python, native, system) {
 }
 
 
+function makeGPUPie(util) {
+    return {
+	"$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+	"config": {
+	    "view": {
+		"stroke" : "transparent"
+	    }
+	},
+	"autosize" : {
+	    "contains" : "padding"
+	},
+	"width": "container",
+	"height" : "container",
+	"padding": 0,
+	"data": {
+	    "values": [{"category" : 1, "value" : util.toFixed(1), "c": "in use: " + util.toFixed(1) + "%" },
+		       {"category" : 2, "value" : 100 - util.toFixed(1), "c": "idle: " + (100 - util).toFixed(1) + "%" }
+		      ]
+	},
+	"mark": "arc",
+	"encoding": {
+	    //"x": {"aggregate": "sum", "field": "y", "axis": false,
+	    //	  "scale" : { "domain" : [0, 100] } },
+	    "theta" : {"field": "value", "type" : "quantitative" },
+	    "color": {"field": "c", "type": "nominal", "legend" : false,
+		      "scale": { "range": ["#f4e6c2", "goldenrod"] } },
+	    "tooltip" : [
+		{ "field" : "c", "type" : "nominal", "title" : "GPU" }
+	    ]
+	},
+    };
+}
+
+
 function makeMemoryBar(memory, title, python_percent, total, color) {
     return {
 	"$schema": "https://vega.github.io/schema/vega-lite/v5.json",
@@ -127,25 +161,31 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
     } else {
 	tableTitle = "line profile";
     }
-    columns = [{ title : ["time", ""], color: CPUColor, width: 0 }];
+    columns = [{ title : ["time", ""], color: CPUColor, width: 0, info: "Execution time (Python + native + system)" }];
     if (memory) {
 	columns = columns.concat([
-	    { title: ["memory", "average"], color: MemoryColor, width: 0 },
-	    { title: ["memory", "peak"], color: MemoryColor, width: 0 },
-	    { title: ["memory", "timeline"], color: MemoryColor, width: 0 },
-	    { title: ["memory", "activity"], color: MemoryColor, width: 0 },
-	    { title: ["copy", "(MB/s)"], color: CopyColor, width: 0 }]);
+	    { title: ["memory", "average"], color: MemoryColor, width: 0, info: "Average amount of memory allocated by this line / function" },
+	    { title: ["memory", "peak"], color: MemoryColor, width: 0, info: "Peak amount of memory allocated by this line / function" },
+	    { title: ["memory", "timeline"], color: MemoryColor, width: 0, info: "Memory footprint over time" },
+	    { title: ["memory", "activity"], color: MemoryColor, width: 0, info: "% of bytes allocated by this line / function over the total bytes allocated in that file" },
+	    { title: ["copy", "(MB/s)"], color: CopyColor, width: 0, info: "Rate of copying memory, in megabytes per second"  }]);
     }
     if (gpu) {
-	columns.push({ title: ["gpu", "util."], color: CopyColor, width: 0 });
-	// columns.push({ title: ["gpu", "memory"], color: CopyColor, width: 0 });
+	columns.push({ title: ["gpu", "util."], color: CopyColor, width: 0, info: "% utilization of the GPU by this line / function" });
+	columns.push({ title: ["gpu", "memory"], color: CopyColor, width: 0, info: "Average GPU memory allocated by this line / function" });
     }
     columns.push({ title: ["", ""], color: "black", width: 100 });
     let s = '';
     s += '<thead class="thead-light">';
     s += '<tr data-sort-method="thead">';
     for (const col of columns) {
-	s += `<th class="F${fname}-nonline" style="width:${col.width}"><font style="font-variant: small-caps; text-decoration: underline; width:${col.width}" color=${col.color}>${col.title[0]}</font>&nbsp;&nbsp;</th>`;
+	s += `<th class="F${fname}-nonline"><font style="font-variant: small-caps; text-decoration: underline; width:${col.width}" color=${col.color}>`;
+	if (col.info) {
+	    s += `<a style="cursor:pointer;" title="${col.info}">${col.title[0]}</a>`;
+	} else {
+	    s += `<a style="cursor:pointer;">${col.title[0]}</a>`;
+	}
+	s += '</font>&nbsp;&nbsp;</th>';
     }
     let id;
     if (functions) {
@@ -164,7 +204,7 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
     return s;
 }
 
-function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines) {
+function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines, gpu_pies) {
     let s = '';
     s += '<tr>';
     const total_time = (line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent);
@@ -203,10 +243,14 @@ function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines) {
 	if (line.n_gpu_percent < 1.0) {
 	    s += '<td style="width: 100"></td>';
 	} else {
-	    s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_percent.toFixed(0)}%</font></td>`;
+	    //	    s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_percent.toFixed(0)}%</font></td>`;
+	    s += `<td style="width: 50; vertical-align: middle" align="right" data-sort="${line.n_gpu_percent}">`;
+	    s += `<span style="height: 20; width: 30; vertical-align: middle" id="gpu_pie${gpu_pies.length}"></span>`;
+	    s += '</td>';
+	    gpu_pies.push(makeGPUPie(line.n_gpu_percent));
 	}
-	if (false) {
-	    if (line.n_gpu_avg_memory_mb < 1.0) {
+	if (true) {
+	    if ((line.n_gpu_avg_memory_mb < 1.0) || (line.n_gpu_percent < 1.0)) {
 		s += '<td style="width: 100"></td>';
 	    } else {
 		s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_avg_memory_mb.toFixed(0)}</font></td>`;
@@ -241,6 +285,7 @@ function buildAllocationMaps(prof, f) {
 async function display(prof) {
     let memory_sparklines = [];
     let cpu_bars = [];
+    let gpu_pies = [];
     let memory_bars = [];
     let tableID = 0;
     let s = "";
@@ -293,7 +338,9 @@ async function display(prof) {
 	mem_python += mp;
     }
     cpu_bars.push(makeBar(cpu_python, cpu_native, cpu_system));
-    memory_bars.push(makeMemoryBar(max_alloc, "memory", mem_python / max_alloc, max_alloc, "darkgreen"));
+    if (prof.memory) {
+	memory_bars.push(makeMemoryBar(max_alloc, "memory", mem_python / max_alloc, max_alloc, "darkgreen"));
+    }
 
     s += '<tr><td colspan="10">';
     s += `<p class="text-center"><font style="font-size: 90%; font-style: italic; font-color: darkgray">hover over bars to see breakdowns; click on <font style="font-variant:small-caps; text-decoration:underline">column headers</font> to sort.</font></p>`;
@@ -315,7 +362,7 @@ async function display(prof) {
 	s += '<div>';
 	s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
 	tableID++;
-	s += makeTableHeader(ff[0], prof.gpu, prof.memory);
+	s += makeTableHeader(ff[0], prof.gpu, prof.memory, false);
 	s += '<tbody>';
 	// Print per-line profiles.
 	let prevLineno = -1;
@@ -331,7 +378,7 @@ async function display(prof) {
 		s += '</tr>';
 	    }
 	    prevLineno = line.lineno;
-	    s += makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines);
+	    s += makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines, gpu_pies);
 	}
 	s += '</tbody>';
 	s += '</table>';
@@ -343,7 +390,7 @@ async function display(prof) {
 	    tableID++;
 	    for (const l in prof.files[ff[0]].functions) {
 		const line = prof.files[ff[0]].functions[l];
-		s += makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines);
+		s += makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines, gpu_pies);
 	    }
 	    s += '</table>';
 	}
@@ -407,6 +454,13 @@ async function display(prof) {
 	    })();
 	}
     });
+    gpu_pies.forEach((p, index) => {
+	if (p) {
+	    (async () => {
+		await vegaEmbed(`#gpu_pie${index}`, p, {"actions" : false });
+	    })();
+	}
+    });
     memory_bars.forEach((p, index) => {
 	if (p) {
 	    (async () => {
@@ -414,6 +468,13 @@ async function display(prof) {
 	    })();
 	}
     });
+    window.onload = () => {
+	if (prof.program) {
+	    document.title = 'Scalene - ' + prof.program;
+	} else {
+	    document.title = 'Scalene';
+	}
+    };
 }
 
 function load(profile) {

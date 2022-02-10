@@ -137,6 +137,7 @@ class ScaleneJSON:
 
     def output_profiles(
         self,
+        program: Filename,
         stats: ScaleneStatistics,
         pid: int,
         profile_this_code: Callable[[Filename, LineNumber], bool],
@@ -181,13 +182,14 @@ class ScaleneJSON:
             samples = []
 
         output: Dict[str, Any] = {
+            "program" : program,
             "elapsed_time_sec": stats.elapsed_time,
             "growth_rate": growth_rate,
-            "samples": samples,
             "max_footprint_mb": stats.max_footprint,
             "files": {},
             "gpu": self.gpu,
-            "memory": profile_memory
+            "memory": profile_memory,
+            "samples": samples
         }
 
         # Build a list of files we will actually report on.

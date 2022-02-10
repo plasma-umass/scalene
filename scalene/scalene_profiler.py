@@ -491,7 +491,6 @@ class Scalene:
         arguments: argparse.Namespace,
         program_being_profiled: Optional[Filename] = None,
     ) -> None:
-        # gc.set_debug(gc.DEBUG_SAVE)
         import scalene.replacement_exit
 
         # Hijack lock, poll, thread_join, fork, and exit.
@@ -595,7 +594,8 @@ class Scalene:
         # Store relevant names (program, path).
         if program_being_profiled:
             Scalene.__program_being_profiled = Filename(
-                os.path.abspath(program_being_profiled)
+                # os.path.abspath(program_being_profiled)
+                program_being_profiled
             )
 
     @staticmethod
@@ -690,6 +690,7 @@ class Scalene:
     def output_profile() -> bool:
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
+                Scalene.__program_being_profiled,
                 Scalene.__stats,
                 Scalene.__pid,
                 Scalene.profile_this_code,
@@ -1495,6 +1496,7 @@ class Scalene:
                     def log_request(self, code: Union[int, str] = 0, size: Union[int, str] = 0) -> None:
                         return
                 Handler = NoLogs
+                socketserver.TCPServer.allow_reuse_address = True
                 with socketserver.TCPServer(("", PORT), Handler) as httpd:
                     import threading
                     t = threading.Thread(target=httpd.serve_forever)
@@ -1643,13 +1645,10 @@ class Scalene:
                     the_globals["__file__"] = os.path.abspath(progs[0])
                     # Some mysterious module foo to make this work the same with -m as with `scalene`.
                     the_globals["__spec__"] = None
-                    # Start the profiler.
-                    fullname = os.path.join(
-                        program_path, os.path.basename(progs[0])
-                    )
                     # Do a GC before we start.
                     gc.collect()
-                    profiler = Scalene(args, Filename(fullname))
+                    # Start the profiler.
+                    profiler = Scalene(args, Filename(progs[0]))
                     try:
                         # We exit with this status (returning error code as appropriate).
                         exit_status = profiler.profile_code(

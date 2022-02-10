@@ -1,4 +1,5 @@
 import dis
+import sys
 from functools import lru_cache
 from types import CodeType
 from typing import FrozenSet
@@ -16,7 +17,10 @@ class ScaleneFuncUtils:
         {
             dis.opmap[op_name]
             for op_name in dis.opmap
-            if op_name.startswith("CALL_FUNCTION")
+            if op_name.startswith("CALL_FUNCTION") or (
+                    sys.version_info >= (3, 11) and
+                    op_name.startswith("CALL")
+            )
         }
     )
 
