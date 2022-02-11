@@ -48,7 +48,7 @@ class ScaleneStatistics:
         self.gpu_mem_samples: Dict[
             Filename, Dict[LineNumber, List[Any]]
         ] = defaultdict(lambda: defaultdict(RunningStats))
-        
+
         # Running stats for the fraction of time running on the CPU.
         self.cpu_utilization: Dict[
             Filename, Dict[LineNumber, RunningStats]
@@ -238,9 +238,9 @@ class ScaleneStatistics:
             fn_stats.gpu_samples[fn_name][first_line_no] += self.gpu_samples[
                 filename
             ][line_no]
-            fn_stats.gpu_mem_samples[fn_name][first_line_no] += self.gpu_mem_samples[
-                filename
-            ][line_no]
+            fn_stats.gpu_mem_samples[fn_name][
+                first_line_no
+            ] += self.gpu_mem_samples[filename][line_no]
             fn_stats.cpu_utilization[fn_name][
                 first_line_no
             ] += self.cpu_utilization[filename][line_no]
@@ -279,9 +279,9 @@ class ScaleneStatistics:
                 fn_stats.memory_max_footprint[fn_name][first_line_no],
                 self.memory_max_footprint[filename][line_no],
             )
-            fn_stats.memory_aggregate_footprint[fn_name][first_line_no] += (
-                self.memory_aggregate_footprint[filename][line_no]
-            )
+            fn_stats.memory_aggregate_footprint[fn_name][
+                first_line_no
+            ] += self.memory_aggregate_footprint[filename][line_no]
         return fn_stats
 
     payload_contents = [

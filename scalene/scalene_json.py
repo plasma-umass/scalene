@@ -112,8 +112,8 @@ class ScaleneJSON:
         else:
             n_copy_mb_s = 0
 
-        samples = stats.per_line_footprint_samples[fname][line_no] # FIXME
-        #if not any(samples):
+        samples = stats.per_line_footprint_samples[fname][line_no]  # FIXME
+        # if not any(samples):
         #    samples = []
         return {
             "lineno": line_no,
@@ -122,8 +122,8 @@ class ScaleneJSON:
             "n_cpu_percent_python": n_cpu_percent_python,
             "n_sys_percent": n_sys_percent,
             "n_gpu_percent": n_gpu_percent,
-            "n_gpu_avg_memory_mb" : n_gpu_mem_samples.mean() / 1048576,
-            "n_gpu_peak_memory_mb" : n_gpu_mem_samples.peak() / 1048576,
+            "n_gpu_avg_memory_mb": n_gpu_mem_samples.mean() / 1048576,
+            "n_gpu_peak_memory_mb": n_gpu_mem_samples.peak() / 1048576,
             "n_peak_mb": n_peak_mb,
             "n_growth_mb": n_peak_mb,  # For backwards compatibility
             "n_avg_mb": n_avg_mb,
@@ -182,14 +182,14 @@ class ScaleneJSON:
             samples = []
 
         output: Dict[str, Any] = {
-            "program" : program,
+            "program": program,
             "elapsed_time_sec": stats.elapsed_time,
             "growth_rate": growth_rate,
             "max_footprint_mb": stats.max_footprint,
             "files": {},
             "gpu": self.gpu,
             "memory": profile_memory,
-            "samples": samples
+            "samples": samples,
         }
 
         # Build a list of files we will actually report on.
@@ -246,7 +246,7 @@ class ScaleneJSON:
             # Print out the the profile for the source, line by line.
             with open(fname, "r", encoding="utf-8") as source_file:
                 code_lines = source_file.readlines()
-                
+
                 output["files"][fname_print] = {
                     "percent_cpu_time": percent_cpu_time,
                     "lines": [],
@@ -282,8 +282,8 @@ class ScaleneJSON:
             output["files"][fname_print]["functions"] = []
             if print_fn_summary:
                 for fn_name in sorted(
-                        all_samples,
-                        key=lambda k: stats.firstline_map[k],
+                    all_samples,
+                    key=lambda k: stats.firstline_map[k],
                 ):
                     if fn_name == fname:
                         continue

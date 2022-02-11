@@ -104,9 +104,9 @@ def stop() -> None:
 class Scalene:
     """The Scalene profiler itself."""
 
-    __in_jupyter = False # are we running inside a Jupyter notebook
-    __start_time = 0 # start of profiling, in nanoseconds
-    
+    __in_jupyter = False  # are we running inside a Jupyter notebook
+    __start_time = 0  # start of profiling, in nanoseconds
+
     # Whether the current profiler is a child
     __is_child = -1
     # the pid of the primary profiler
@@ -198,7 +198,7 @@ class Scalene:
     @staticmethod
     def in_jupyter() -> bool:
         return Scalene.__in_jupyter
-    
+
     @staticmethod
     def interruption_handler(
         signum: Union[
@@ -1069,7 +1069,12 @@ class Scalene:
                     # Check if pointer actually matches
                     if stats.last_malloc_triggered[2] == pointer:
                         freed_last_trigger += 1
-            stats.memory_footprint_samples.append([time.monotonic_ns() - Scalene.__start_time, stats.current_footprint])
+            stats.memory_footprint_samples.append(
+                [
+                    time.monotonic_ns() - Scalene.__start_time,
+                    stats.current_footprint,
+                ]
+            )
         after = stats.current_footprint
 
         if freed_last_trigger:
@@ -1162,7 +1167,9 @@ class Scalene:
                     0, stats.memory_current_footprint[fname][lineno]
                 )
 
-            stats.per_line_footprint_samples[fname][lineno].append([time.monotonic_ns() - Scalene.__start_time, curr])
+            stats.per_line_footprint_samples[fname][lineno].append(
+                [time.monotonic_ns() - Scalene.__start_time, curr]
+            )
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
                 last_malloc = (
@@ -1222,9 +1229,24 @@ class Scalene:
         with contextlib.suppress(ValueError):
             while Scalene.__memcpy_mapfile.read():
                 count_str = Scalene.__memcpy_mapfile.get_str()
-                (memcpy_time_str, count_str2, pid, filename, lineno, bytei) = count_str.split(",")
+                (
+                    memcpy_time_str,
+                    count_str2,
+                    pid,
+                    filename,
+                    lineno,
+                    bytei,
+                ) = count_str.split(",")
                 if int(curr_pid) == int(pid):
-                    arr.append((filename, lineno, bytei, int(memcpy_time_str), int(count_str2)))
+                    arr.append(
+                        (
+                            filename,
+                            lineno,
+                            bytei,
+                            int(memcpy_time_str),
+                            int(count_str2),
+                        )
+                    )
         arr.sort()
 
         for item in arr:
@@ -1331,10 +1353,11 @@ class Scalene:
                 # Force JSON output to profile.json.
                 Scalene.__args.json = True
                 Scalene.__output.html = False
-                Scalene.__output.output_file = 'profile.json'
+                Scalene.__output.output_file = "profile.json"
             else:
                 # Check for a browser.
                 import webbrowser
+
                 try:
                     if not webbrowser.get():
                         # Could not open a web browser tab;
@@ -1344,7 +1367,7 @@ class Scalene:
                         # Force JSON output to profile.json.
                         Scalene.__args.json = True
                         Scalene.__output.html = False
-                        Scalene.__output.output_file = 'profile.json'
+                        Scalene.__output.output_file = "profile.json"
                 except:
                     # Couldn't find a browser.
                     Scalene.__args.web = False
@@ -1450,39 +1473,61 @@ class Scalene:
                 import http.server
                 import socketserver
                 import webbrowser
+
                 PORT = Scalene.__args.port
 
                 # Silence web server output by overriding logging messages.
                 class NoLogs(http.server.SimpleHTTPRequestHandler):
-                    def log_message(self, format : str, *args) -> None:
+                    def log_message(self, format: str, *args) -> None:
                         return
-                    def log_request(self, code: Union[int, str] = 0, size: Union[int, str] = 0) -> None:
+
+                    def log_request(
+                        self,
+                        code: Union[int, str] = 0,
+                        size: Union[int, str] = 0,
+                    ) -> None:
                         return
+
                 Handler = NoLogs
                 socketserver.TCPServer.allow_reuse_address = True
                 with socketserver.TCPServer(("", PORT), Handler) as httpd:
                     import threading
+
                     t = threading.Thread(target=httpd.serve_forever)
                     # Copy files into a new directory and then point the tab there.
                     import shutil
+
                     webgui_dir = pathlib.Path(
                         tempfile.mkdtemp(prefix="scalene-gui")
                     )
-                    shutil.copytree(os.path.join(os.path.dirname(__file__), 'scalene-gui'),
-                                    os.path.join(webgui_dir, 'scalene-gui'))
-                    shutil.copy("profile.json", os.path.join(webgui_dir, 'scalene-gui'))
-                    os.chdir(os.path.join(webgui_dir, 'scalene-gui'))
+                    shutil.copytree(
+                        os.path.join(os.path.dirname(__file__), "scalene-gui"),
+                        os.path.join(webgui_dir, "scalene-gui"),
+                    )
+                    shutil.copy(
+                        "profile.json", os.path.join(webgui_dir, "scalene-gui")
+                    )
+                    os.chdir(os.path.join(webgui_dir, "scalene-gui"))
                     t.start()
                     if Scalene.in_jupyter():
                         from IPython.core.display import display, HTML
                         from IPython.display import IFrame
-                        display(IFrame(src=f"http://localhost:{PORT}/profiler.html", width=700, height=600))
+
+                        display(
+                            IFrame(
+                                src=f"http://localhost:{PORT}/profiler.html",
+                                width=700,
+                                height=600,
+                            )
+                        )
                     else:
-                        webbrowser.open_new_tab(f"http://localhost:{PORT}/profiler.html")
+                        webbrowser.open_new_tab(
+                            f"http://localhost:{PORT}/profiler.html"
+                        )
                     # Wait long enough for the server to serve the page, and then shut down the server.
                     time.sleep(5)
                     httpd.shutdown()
-                
+
         return exit_status
 
     @staticmethod
@@ -1496,7 +1541,7 @@ class Scalene:
         Scalene.__is_child = args.pid != 0
         # the pid of the primary profiler
         Scalene.__parent_pid = args.pid if Scalene.__is_child else os.getpid()
-            
+
     @staticmethod
     def set_initialized() -> None:
         Scalene.__initialized = True
@@ -1511,7 +1556,9 @@ class Scalene:
         Scalene.run_profiler(args, left)
 
     @staticmethod
-    def run_profiler(args: argparse.Namespace, left: List[str], is_jupyter: bool = False) -> None:
+    def run_profiler(
+        args: argparse.Namespace, left: List[str], is_jupyter: bool = False
+    ) -> None:
         # Set up signal handlers for starting and stopping profiling.
         if is_jupyter:
             Scalene.set_in_jupyter()

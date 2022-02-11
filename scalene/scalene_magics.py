@@ -30,7 +30,9 @@ with contextlib.suppress(Exception):
                 tmpfile.write(newcode)
             args.cpu_only = True  # full Scalene is not yet working, force to use CPU-only mode
             scalene_profiler.Scalene.set_initialized()
-            scalene_profiler.Scalene.run_profiler(args, [filename], is_jupyter=True)
+            scalene_profiler.Scalene.run_profiler(
+                args, [filename], is_jupyter=True
+            )
 
         @line_cell_magic
         def scalene(self, line: str, cell: str = "") -> None:

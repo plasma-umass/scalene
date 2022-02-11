@@ -31,7 +31,7 @@ class ScaleneOutput:
 
     # Only report leaks whose likelihood is 1 minus this threshold
     leak_reporting_threshold = 0.05
-    
+
     # Threshold for highlighting lines of code in red.
     highlight_percentage = 33
 
@@ -183,12 +183,19 @@ class ScaleneOutput:
             # Randomly downsample to ScaleneOutput.max_sparkline_len_line.
             if len(samples) > ScaleneOutput.max_sparkline_len_line:
                 import random
-                random_samples = sorted(random.sample(samples, ScaleneOutput.max_sparkline_len_line))
+
+                random_samples = sorted(
+                    random.sample(
+                        samples, ScaleneOutput.max_sparkline_len_line
+                    )
+                )
             else:
                 random_samples = samples
             sparkline_samples = []
             for i in range(0, len(random_samples)):
-                sparkline_samples.append(random_samples[i][1] * obj["n_usage_fraction"])
+                sparkline_samples.append(
+                    random_samples[i][1] * obj["n_usage_fraction"]
+                )
             if random_samples:
                 _, _, spark_str = sparkline.generate(
                     sparkline_samples, 0, stats.max_footprint
@@ -345,14 +352,21 @@ class ScaleneOutput:
             if len(samples) > 0:
                 # Randomly downsample samples
                 import random
+
                 if len(samples) > ScaleneOutput.max_sparkline_len_file:
-                    random_samples = sorted(random.sample(samples, ScaleneOutput.max_sparkline_len_file))
+                    random_samples = sorted(
+                        random.sample(
+                            samples, ScaleneOutput.max_sparkline_len_file
+                        )
+                    )
                 else:
                     random_samples = samples
                 sparkline_samples = [item[1] for item in random_samples]
                 # Output a sparkline as a summary of memory usage over time.
                 _, _, spark_str = sparkline.generate(
-                    sparkline_samples[ : ScaleneOutput.max_sparkline_len_file], 0, stats.max_footprint
+                    sparkline_samples[: ScaleneOutput.max_sparkline_len_file],
+                    0,
+                    stats.max_footprint,
                 )
                 # Compute growth rate (slope), between 0 and 1.
                 if stats.allocation_velocity[1] > 0:
