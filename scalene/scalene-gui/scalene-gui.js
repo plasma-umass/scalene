@@ -172,7 +172,7 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
     }
     if (gpu) {
 	columns.push({ title: ["gpu", "util."], color: CopyColor, width: 0, info: "% utilization of the GPU by this line / function" });
-	columns.push({ title: ["gpu", "memory"], color: CopyColor, width: 0, info: "Average GPU memory allocated by this line / function" });
+	columns.push({ title: ["gpu", "memory"], color: CopyColor, width: 0, info: "Peak GPU memory allocated by this line / function" });
     }
     columns.push({ title: ["", ""], color: "black", width: 100 });
     let s = '';
@@ -250,10 +250,10 @@ function makeProfileLine(line, prof, cpu_bars, memory_bars, memory_sparklines, g
 	    gpu_pies.push(makeGPUPie(line.n_gpu_percent));
 	}
 	if (true) {
-	    if ((line.n_gpu_avg_memory_mb < 1.0) || (line.n_gpu_percent < 1.0)) {
+	    if ((line.n_gpu_peak_memory_mb < 1.0) || (line.n_gpu_percent < 1.0)) {
 		s += '<td style="width: 100"></td>';
 	    } else {
-		s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_avg_memory_mb.toFixed(0)}</font></td>`;
+		s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_peak_memory_mb.toFixed(0)}</font></td>`;
 	    }
 	}
     }
