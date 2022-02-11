@@ -197,10 +197,13 @@ class Scalene:
     client_timer: ScaleneClientTimer = ScaleneClientTimer()
 
     
-    __orig_setitimer = signal.setitimer
+    
     __orig_signal = signal.signal
     __orig_raise_signal = signal.raise_signal
     __orig_kill = os.kill
+    if sys.platform != "win32":
+        __orig_setitimer = signal.setitimer
+        __orig_siginterrupt = signal.siginterrupt
 
     @staticmethod
     def get_all_signals_set() -> Set[int]:
@@ -478,7 +481,7 @@ class Scalene:
         )
         # Set every signal to restart interrupted system calls.
         for s in Scalene.__signals.get_all_signals():
-            signal.siginterrupt(s, False, in_scalene=True)
+            Scalene.__orig_siginterrupt(s, False)
         # Turn on the CPU profiling timer to run at the sampling rate (exactly once).
         Scalene.__orig_signal(
             Scalene.__signals.cpu_signal,
@@ -1572,10 +1575,10 @@ class Scalene:
             Scalene.stop_signal_handler,
         )
         if sys.platform != "win32":
-            signal.siginterrupt(
+            Scalene.__orig_siginterrupt(
                 Scalene.__signals.start_profiling_signal, False
             )
-            signal.siginterrupt(Scalene.__signals.stop_profiling_signal, False)
+            Scalene.__orig_siginterrupt(Scalene.__signals.stop_profiling_signal, False)
 
         Scalene.__orig_signal(signal.SIGINT, Scalene.interruption_handler)
         if not is_jupyter:

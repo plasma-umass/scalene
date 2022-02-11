@@ -2,6 +2,12 @@ from typing import Tuple
 
 
 class ScaleneClientTimer:
+    """
+    A class to wrap the logic of a timer running at 
+    a different frequency than the Scalene timer. Can handle at most
+    one timer. 
+    """
+
     seconds: float
     interval: float
     remaining_seconds: float
@@ -31,6 +37,12 @@ class ScaleneClientTimer:
         return self.seconds, self.interval
 
     def yield_next_delay(self, elapsed) -> Tuple[bool, float]:
+        """
+        Updates remaining_interval or remaining_seconds, returning whether 
+        the timer signal should be passed up to the client and
+        the next delay. If the second return <= 0, then
+        there is no interval and the delay has elapsed. 
+        """
         if self.delay_elapsed:
             self.remaining_interval -= elapsed
 
