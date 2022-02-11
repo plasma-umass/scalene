@@ -3,7 +3,7 @@ import pathlib
 import pickle
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, NewType, Set, Tuple, TypeVar
+from typing import Any, DefaultDict, Dict, List, NewType, Set, Tuple, TypeVar
 
 import cloudpickle
 
@@ -45,8 +45,8 @@ class ScaleneStatistics:
         ] = defaultdict(lambda: defaultdict(float))
 
         #   GPU memory samples for each location in the program
-        self.gpu_mem_samples: Dict[
-            Filename, Dict[LineNumber, List[Any]]
+        self.gpu_mem_samples: DefaultDict[
+            Filename, DefaultDict[LineNumber, RunningStats]
         ] = defaultdict(lambda: defaultdict(RunningStats))
 
         # Running stats for the fraction of time running on the CPU.
@@ -143,7 +143,7 @@ class ScaleneStatistics:
         self.max_footprint: float = 0.0
 
         # memory footprint samples (time, footprint)
-        self.memory_footprint_samples = []
+        self.memory_footprint_samples: List[List[float]] = []
 
         # same, but per line
         self.per_line_footprint_samples: Dict[

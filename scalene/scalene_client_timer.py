@@ -16,12 +16,12 @@ class ScaleneClientTimer:
 
     is_set: bool
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.seconds = 0.0
         self.interval = 0.0
         self.is_set = False
 
-    def set_itimer(self, seconds: float, interval: float):
+    def set_itimer(self, seconds: float, interval: float) -> None:
         self.seconds = seconds
         self.interval = interval
         self.remaining_seconds = seconds
@@ -29,14 +29,14 @@ class ScaleneClientTimer:
         self.delay_elapsed = False
         self.is_set = True
 
-    def reset(self):
+    def reset(self) -> None:
         self.seconds = 0.0
         self.interval = 0.0
         self.is_set = False
     def get_itimer(self) -> Tuple[float, float]:
         return self.seconds, self.interval
 
-    def yield_next_delay(self, elapsed) -> Tuple[bool, float]:
+    def yield_next_delay(self, elapsed: float) -> Tuple[bool, float]:
         """
         Updates remaining_interval or remaining_seconds, returning whether 
         the timer signal should be passed up to the client and

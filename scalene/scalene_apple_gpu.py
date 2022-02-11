@@ -47,7 +47,7 @@ class ScaleneAppleGPU:
         except:
             return 0.0
 
-    def memory_used(self) -> int:
+    def memory_used(self) -> float:
         """Return current memory in use, in bytes."""
         if not self.has_gpu():
             return 0.0

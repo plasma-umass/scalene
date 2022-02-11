@@ -60,9 +60,9 @@ if sys.platform != "win32":
     import resource
 
 if platform.system() == "Darwin":
-    from scalene.scalene_apple_gpu import ScaleneAppleGPU as ScaleneGPU
+    from scalene.scalene_apple_gpu import ScaleneAppleGPU as ScaleneGPU # type: ignore
 else:
-    from scalene.scalene_gpu import ScaleneGPU
+    from scalene.scalene_gpu import ScaleneGPU # type: ignore
 
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
@@ -394,7 +394,7 @@ class Scalene:
     ) -> None:
         invalidated = Scalene.__last_profiled_invalidated
         (fname, lineno, lasti) = Scalene.__last_profiled
-        Scalene.enter_function_meta(this_frame, Scalene.__stats)
+        Scalene.enter_function_meta(this_frame, Scalene.__stats) # type: ignore
         # Walk the stack till we find a line of code in a file we are tracing.
         found_frame = False
         f = this_frame
@@ -435,7 +435,7 @@ class Scalene:
         ],
         this_frame: Optional[FrameType],
     ) -> None:
-        Scalene.enter_function_meta(this_frame, Scalene.__stats)
+        Scalene.enter_function_meta(this_frame, Scalene.__stats) # type: ignore
         Scalene.__alloc_sigq.put([0])
         del this_frame
 
@@ -1268,7 +1268,7 @@ class Scalene:
         frame: FrameType,
     ) -> None:
         curr_pid = os.getpid()
-        arr: List[Tuple[int, int]] = []
+        arr: List[Tuple[str, str, str, int, int]] = []
         # Process the input array.
         with contextlib.suppress(ValueError):
             while Scalene.__memcpy_mapfile.read():
@@ -1522,7 +1522,7 @@ class Scalene:
 
                 # Silence web server output by overriding logging messages.
                 class NoLogs(http.server.SimpleHTTPRequestHandler):
-                    def log_message(self, format: str, *args) -> None:
+                    def log_message(self, format: str, *args: List[Any]) -> None:
                         return
 
                     def log_request(
@@ -1683,7 +1683,7 @@ class Scalene:
                         Scalene.__program_path = program_path
                     # Grab local and global variables.
                     if not Scalene.__args.cpu_only:
-                        from scalene import pywhere
+                        from scalene import pywhere # type: ignore
 
                         pywhere.register_files_to_profile(
                             list(Scalene.__files_to_profile.keys()),

@@ -7,7 +7,7 @@ from typing import Any
 def replacement_mp_get_context(scalene: Scalene) -> None:
     old_get_context = multiprocessing.get_context
 
-    def replacement_get_context(method: Any = None):
+    def replacement_get_context(method: Any = None) -> Any:
         return old_get_context("fork")
 
     multiprocessing.get_context = replacement_get_context
