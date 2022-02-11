@@ -142,13 +142,13 @@ class ScaleneStatistics:
         # the peak memory footprint
         self.max_footprint: float = 0.0
 
-        # memory footprint samples (time, footprint) FIXME
-        self.memory_footprint_samples = [] # Adaptive(27)
+        # memory footprint samples (time, footprint)
+        self.memory_footprint_samples = []
 
         # same, but per line
         self.per_line_footprint_samples: Dict[
             Filename, Dict[LineNumber, List[Any]]
-        ] = defaultdict(lambda: defaultdict(list)) # was Adaptive(9)
+        ] = defaultdict(lambda: defaultdict(list))
 
         # maps byte indices to line numbers (collected at runtime)
         # [filename][lineno] -> set(byteindex)
@@ -236,6 +236,9 @@ class ScaleneStatistics:
                 first_line_no
             ] += self.cpu_samples_python[filename][line_no]
             fn_stats.gpu_samples[fn_name][first_line_no] += self.gpu_samples[
+                filename
+            ][line_no]
+            fn_stats.gpu_mem_samples[fn_name][first_line_no] += self.gpu_mem_samples[
                 filename
             ][line_no]
             fn_stats.cpu_utilization[fn_name][
@@ -341,7 +344,6 @@ class ScaleneStatistics:
                 dest[filename][lineno] += src[filename][lineno]
 
     def merge_stats(self, the_dir_name: pathlib.Path) -> None:
-        # TODO: update GPU memory samples
         the_dir = pathlib.Path(the_dir_name)
         for f in list(the_dir.glob("**/scalene*")):
             # Skip empty files.
