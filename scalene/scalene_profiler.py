@@ -58,7 +58,6 @@ from scalene.scalene_statistics import (
 if sys.platform != "win32":
     import resource
 
-# For now, disable experimental GPU support for Apple
 if platform.system() == "Darwin":
     from scalene.scalene_apple_gpu import ScaleneAppleGPU as ScaleneGPU
 else:
