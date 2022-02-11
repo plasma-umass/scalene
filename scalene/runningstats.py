@@ -16,6 +16,7 @@ class RunningStats:
             # TBD: Fix s._m2 and friends
             # For now, leave at zero.
             s._n = self._n + other._n
+            s._peak = max(self._peak, other._peak)
         else:
             s = self
         return s
