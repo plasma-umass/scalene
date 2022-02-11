@@ -24,7 +24,7 @@ class RunningStats:
         """Reset for new samples"""
         self._n = 0
         self._m1 = self._m2 = self._m3 = self._m4 = 0.0
-        self._peak = 0
+        self._peak = 0.0
 
     def push(self, x: float) -> None:
         """Add a sample"""
