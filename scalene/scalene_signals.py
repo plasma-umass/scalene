@@ -38,6 +38,9 @@ class ScaleneSignals:
                 self.cpu_timer_signal = signal.ITIMER_REAL
                 self.cpu_signal = signal.SIGALRM
 
+    def get_timer_signals(self):
+        return self.cpu_timer_signal, self.cpu_signal
+
     def get_all_signals(self) -> List[int]:
         return [
             self.start_profiling_signal,
