@@ -708,9 +708,7 @@ class ScaleneOutput:
                 "Top PEAK memory consumption, by line:", console, peak_mallocs
             )
 
-            # Only report potential leaks if the allocation velocity (growth rate) is above some threshold
-            # FIXME: fixed at 1% for now.
-            # We only report potential leaks where the confidence interval is quite tight and includes 1.
+            # Only report potential leaks if the allocation velocity (growth rate) is above some threshold.
             leaks = []
             if growth_rate / 100 > ScaleneOutput.growth_rate_threshold:
                 keys = list(stats.leak_score[fname].keys())

@@ -1,22 +1,22 @@
 import contextlib
+import sys
+import textwrap
+
+from typing import Any
+
+from scalene import scalene_profiler
+from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_parseargs import ScaleneParseArgs
 
 with contextlib.suppress(Exception):
-    import sys
-    from typing import Any
 
-    from IPython.core.magic import (
-        Magics,
-        line_cell_magic,
-        line_magic,
-        magics_class,
-    )
-
-    from scalene import scalene_profiler
-    from scalene.scalene_arguments import ScaleneArguments
-    from scalene.scalene_parseargs import ScaleneParseArgs
+    from IPython.core.magic import (Magics, line_cell_magic, line_magic,
+                                    magics_class)
 
     @magics_class
     class ScaleneMagics(Magics):  # type: ignore
+        """IPython (Jupyter) support for magics for Scalene (%scrun and %%scalene)."""
+        
         def run_code(self, args: ScaleneArguments, code: str) -> None:
             import IPython
 
@@ -36,11 +36,11 @@ with contextlib.suppress(Exception):
 
         @line_cell_magic
         def scalene(self, line: str, cell: str = "") -> None:
-            """See https://github.com/plasma-umass/scalene for usage info."""
+            """%%scalene magic: see https://github.com/plasma-umass/scalene for usage info."""
             if line:
                 sys.argv = ["scalene"]
                 sys.argv.extend(line.split(" "))
-                (args, left) = ScaleneParseArgs.parse_args()
+                (args, _left) = ScaleneParseArgs.parse_args()
             else:
                 args = ScaleneArguments()
             if cell:
@@ -48,8 +48,7 @@ with contextlib.suppress(Exception):
 
         @line_magic
         def scrun(self, line: str = "") -> None:
-            """See https://github.com/plasma-umass/scalene for usage info."""
-            from scalene import scalene_profiler
+            """%scrun magic: see https://github.com/plasma-umass/scalene for usage info."""
 
             if line:
                 sys.argv = ["scalene"]
@@ -65,8 +64,6 @@ with contextlib.suppress(Exception):
                 usage_str = usage.read()
             ScaleneMagics.scrun.__doc__ = usage_str
             ScaleneMagics.scalene.__doc__ = usage_str
-        import textwrap
-
         print(
             "\n".join(
                 textwrap.wrap(

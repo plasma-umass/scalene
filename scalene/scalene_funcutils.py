@@ -8,6 +8,7 @@ from scalene.scalene_statistics import ByteCodeIndex
 
 
 class ScaleneFuncUtils:
+    """Utility class to determine whether a bytecode corresponds to function calls."""
 
     # We use these in is_call_function to determine whether a
     # particular bytecode is a function call.  We use this to

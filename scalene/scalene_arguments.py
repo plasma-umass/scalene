@@ -2,8 +2,10 @@ import argparse
 
 
 class ScaleneArguments(argparse.Namespace):
+    """Encapsulates all arguments and default values for Scalene."""
+
     def __init__(self) -> None:
-        super(ScaleneArguments, self).__init__()
+        super().__init__()
         self.cpu_only = False
         self.cpu_percent_threshold = 1
         # mean seconds between interrupts for CPU sampling.

@@ -1,7 +1,7 @@
 import contextlib
-import pynvml
-
 from typing import Tuple
+
+import pynvml
 
 
 class ScaleneGPU:
@@ -19,9 +19,11 @@ class ScaleneGPU:
                 self.__handle.append(pynvml.nvmlDeviceGetHandleByIndex(i))
 
     def has_gpu(self) -> bool:
+        """True iff the system has a detected GPU."""
         return self.__has_gpu
 
     def nvml_reinit(self) -> None:
+        """Reinitialize the nvidia wrapper."""
         self.__handle = []
         with contextlib.suppress(Exception):
             pynvml.nvmlInit()
@@ -30,6 +32,7 @@ class ScaleneGPU:
                 self.__handle.append(pynvml.nvmlDeviceGetHandleByIndex(i))
 
     def get_stats(self) -> Tuple[float, float]:
+        """Returns a tuple of (utilization %, memory in use)."""
         if self.__has_gpu:
             total_load = 0.0
             mem_used = 0
@@ -42,5 +45,4 @@ class ScaleneGPU:
                     mem_used += mem_info.used
             total_load = (total_load / self.__ngpus) / 100.0
             return (total_load, mem_used)
-        else:
-            return (0.0, 0.0)
+        return (0.0, 0.0)

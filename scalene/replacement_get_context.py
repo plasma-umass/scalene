@@ -1,6 +1,7 @@
-from scalene.scalene_profiler import Scalene
 import multiprocessing
 from typing import Any
+
+from scalene.scalene_profiler import Scalene
 
 
 @Scalene.shim

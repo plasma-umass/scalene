@@ -1,5 +1,6 @@
 import copy
 import linecache
+import re
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
@@ -41,8 +42,7 @@ class ScaleneJSON:
         # Correct for negative CPU sample counts. This can happen
         # because of floating point inaccuracies, since we perform
         # subtraction to compute it.
-        if n_cpu_samples_c < 0:
-            n_cpu_samples_c = 0
+        n_cpu_samples_c = max(0, n_cpu_samples_c)
         n_cpu_samples_python = stats.cpu_samples_python[fname][line_no]
         n_gpu_samples = stats.gpu_samples[fname][line_no]
         n_gpu_mem_samples = stats.gpu_mem_samples[fname][line_no]
@@ -229,7 +229,6 @@ class ScaleneJSON:
             # If the file was actually a Jupyter (IPython) cell,
             # restore its name, as in "[12]".
             fname_print = fname
-            import re
 
             result = re.match("<ipython-input-([0-9]+)-.*>", fname_print)
             if result:
@@ -251,8 +250,8 @@ class ScaleneJSON:
                     "percent_cpu_time": percent_cpu_time,
                     "lines": [],
                 }
-                for line_no, line in enumerate(code_lines, start=1):
-                    o = self.output_profile_line(
+                for line_no, _line in enumerate(code_lines, start=1):
+                    profile_line = self.output_profile_line(
                         fname=fname,
                         fname_print=fname_print,
                         line_no=LineNumber(line_no),
@@ -261,15 +260,13 @@ class ScaleneJSON:
                         profile_memory=profile_memory,
                         force_print=False,
                     )
-                    # o["percent_cpu_time"] = percent_cpu_time
-                    # o["elapsed_time"] = stats.elapsed_time
                     # Only output if the payload for the line is non-zero.
-                    if o:
-                        o_copy = copy.copy(o)
-                        del o_copy["line"]
-                        del o_copy["lineno"]
-                        if any(o_copy.values()):
-                            output["files"][fname_print]["lines"].append(o)
+                    if profile_line:
+                        profile_line_copy = copy.copy(profile_line)
+                        del profile_line_copy["line"]
+                        del profile_line_copy["lineno"]
+                        if any(profile_line_copy.values()):
+                            output["files"][fname_print]["lines"].append(profile_line)
             fn_stats = stats.build_function_stats(fname)
             # Check CPU samples and memory samples.
             print_fn_summary = False
@@ -287,7 +284,7 @@ class ScaleneJSON:
                 ):
                     if fn_name == fname:
                         continue
-                    o = self.output_profile_line(
+                    profile_line = self.output_profile_line(
                         fname=fn_name,
                         fname_print=fn_name,
                         # line 1 is where function stats are
@@ -299,11 +296,11 @@ class ScaleneJSON:
                         profile_memory=profile_memory,
                         force_print=True,
                     )
-                    if o:
+                    if profile_line:
                         # Change the source code to just the function name.
-                        o["line"] = fn_name
+                        profile_line["line"] = fn_name
                         # Fix the line number to point to the first line of the function.
-                        o["lineno"] = stats.firstline_map[fn_name]
-                        output["files"][fname_print]["functions"].append(o)
+                        profile_line["lineno"] = stats.firstline_map[fn_name]
+                        output["files"][fname_print]["functions"].append(profile_line)
 
         return output

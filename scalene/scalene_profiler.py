@@ -26,6 +26,7 @@ import multiprocessing
 import os
 import pathlib
 import platform
+import random
 import re
 import signal
 import stat
@@ -48,13 +49,8 @@ from scalene.scalene_mapfile import ScaleneMapFile
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
 from scalene.scalene_signals import ScaleneSignals
-from scalene.scalene_statistics import (
-    Address,
-    ByteCodeIndex,
-    Filename,
-    LineNumber,
-    ScaleneStatistics,
-)
+from scalene.scalene_statistics import (Address, ByteCodeIndex, Filename,
+                                        LineNumber, ScaleneStatistics)
 
 if sys.platform != "win32":
     import resource
@@ -62,7 +58,8 @@ if sys.platform != "win32":
 if platform.system() == "Darwin":
     from scalene.scalene_apple_gpu import ScaleneAppleGPU as ScaleneGPU
 else:
-    from scalene.scalene_gpu import ScaleneGPU # type: ignore
+    from scalene.scalene_gpu import ScaleneGPU  # type: ignore
+
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
@@ -183,8 +180,10 @@ class Scalene:
     __is_thread_sleeping: Dict[int, bool] = defaultdict(
         bool
     )  # False by default
-    
-    child_pids: Set[int] = set() # Needs to be unmangled to be accessed by shims
+
+    child_pids: Set[
+        int
+    ] = set()  # Needs to be unmangled to be accessed by shims
 
     # Signal queues for CPU timers, allocations, and memcpy
     __cpu_sigq: ScaleneSigQueue[Any]
@@ -194,8 +193,6 @@ class Scalene:
 
     client_timer: ScaleneClientTimer = ScaleneClientTimer()
 
-    
-    
     __orig_signal = signal.signal
     __orig_raise_signal = signal.raise_signal
     __orig_kill = os.kill
@@ -206,11 +203,10 @@ class Scalene:
     @staticmethod
     def get_all_signals_set() -> Set[int]:
         return set(Scalene.__signals.get_all_signals())
-        
+
     @staticmethod
     def get_timer_signals() -> Tuple[int, signal.Signals]:
         return Scalene.__signals.get_timer_signals()
-        
 
     @staticmethod
     def set_in_jupyter() -> None:
@@ -459,7 +455,6 @@ class Scalene:
             Scalene.__orig_signal(
                 Scalene.__signals.cpu_signal,
                 Scalene.cpu_signal_handler,
-               
             )
             # On Windows, we simulate timer signals by running a background thread.
             Scalene.timer_signals = True
@@ -476,8 +471,7 @@ class Scalene:
             Scalene.__signals.free_signal, Scalene.free_signal_handler
         )
         Scalene.__orig_signal(
-            Scalene.__signals.memcpy_signal,
-            Scalene.memcpy_signal_handler
+            Scalene.__signals.memcpy_signal, Scalene.memcpy_signal_handler
         )
         # Set every signal to restart interrupted system calls.
         for s in Scalene.__signals.get_all_signals():
@@ -486,12 +480,11 @@ class Scalene:
         Scalene.__orig_signal(
             Scalene.__signals.cpu_signal,
             Scalene.cpu_signal_handler,
-           
         )
         if sys.platform != "win32":
             Scalene.__orig_setitimer(
                 Scalene.__signals.cpu_timer_signal,
-                Scalene.__args.cpu_sampling_rate
+                Scalene.__args.cpu_sampling_rate,
             )
 
     def __init__(
@@ -500,14 +493,14 @@ class Scalene:
         program_being_profiled: Optional[Filename] = None,
     ) -> None:
         import scalene.replacement_exit
-
+        import scalene.replacement_get_context
         # Hijack lock, poll, thread_join, fork, and exit.
         import scalene.replacement_lock
         import scalene.replacement_mp_lock
         import scalene.replacement_pjoin
-        import scalene.replacement_thread_join
-        import scalene.replacement_get_context
         import scalene.replacement_signal_fns
+        import scalene.replacement_thread_join
+
         if sys.platform != "win32":
             import scalene.replacement_fork
             import scalene.replacement_poll_selector
@@ -640,11 +633,9 @@ class Scalene:
                 Scalene.__orig_setitimer(
                     Scalene.__signals.cpu_timer_signal,
                     Scalene.__args.cpu_sampling_rate,
-                   
                 )
             return
-        # Sample GPU load as well.
-        (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
+            
         # Pass on to the signal queue.
         Scalene.__cpu_sigq.put(
             (
@@ -670,27 +661,30 @@ class Scalene:
         Scalene.__last_signal_time_user = now_user
         if sys.platform != "win32":
             if Scalene.client_timer.is_set:
-                
-                should_raise, remaining_time = Scalene.client_timer.yield_next_delay(elapsed)
+
+                (
+                    should_raise,
+                    remaining_time,
+                ) = Scalene.client_timer.yield_next_delay(elapsed)
                 if should_raise:
                     Scalene.__orig_raise_signal(signal.SIGUSR1)
                 # NOTE-- 0 will only be returned if the 'seconds' have elapsed
                 # and there is no interval
                 if remaining_time > 0:
-                    to_wait = min(remaining_time, Scalene.__args.cpu_sampling_rate)
+                    to_wait = min(
+                        remaining_time, Scalene.__args.cpu_sampling_rate
+                    )
                 else:
                     to_wait = Scalene.__args.cpu_sampling_rate
                     Scalene.client_timer.reset()
                 Scalene.__orig_setitimer(
                     Scalene.__signals.cpu_timer_signal,
                     to_wait,
-                   
                 )
             else:
                 Scalene.__orig_setitimer(
                     Scalene.__signals.cpu_timer_signal,
                     Scalene.__args.cpu_sampling_rate,
-                   
                 )
 
     @staticmethod
@@ -1450,9 +1444,15 @@ class Scalene:
             return
         try:
             Scalene.__orig_setitimer(Scalene.__signals.cpu_timer_signal, 0)
-            Scalene.__orig_signal(Scalene.__signals.malloc_signal, signal.SIG_IGN)
-            Scalene.__orig_signal(Scalene.__signals.free_signal, signal.SIG_IGN)
-            Scalene.__orig_signal(Scalene.__signals.memcpy_signal, signal.SIG_IGN)
+            Scalene.__orig_signal(
+                Scalene.__signals.malloc_signal, signal.SIG_IGN
+            )
+            Scalene.__orig_signal(
+                Scalene.__signals.free_signal, signal.SIG_IGN
+            )
+            Scalene.__orig_signal(
+                Scalene.__signals.memcpy_signal, signal.SIG_IGN
+            )
             Scalene.stop_signal_queues()
         except:
             # Retry just in case we get interrupted by one of our own signals.
@@ -1522,7 +1522,9 @@ class Scalene:
 
                 # Silence web server output by overriding logging messages.
                 class NoLogs(http.server.SimpleHTTPRequestHandler):
-                    def log_message(self, format: str, *args: List[Any]) -> None:
+                    def log_message(
+                        self, format: str, *args: List[Any]
+                    ) -> None:
                         return
 
                     def log_request(
@@ -1554,7 +1556,7 @@ class Scalene:
                     os.chdir(os.path.join(webgui_dir, "scalene-gui"))
                     t.start()
                     if Scalene.in_jupyter():
-                        from IPython.core.display import display, HTML
+                        from IPython.core.display import HTML, display
                         from IPython.display import IFrame
 
                         display(
@@ -1624,7 +1626,9 @@ class Scalene:
             Scalene.__orig_siginterrupt(
                 Scalene.__signals.start_profiling_signal, False
             )
-            Scalene.__orig_siginterrupt(Scalene.__signals.stop_profiling_signal, False)
+            Scalene.__orig_siginterrupt(
+                Scalene.__signals.stop_profiling_signal, False
+            )
 
         Scalene.__orig_signal(signal.SIGINT, Scalene.interruption_handler)
         if not is_jupyter:
@@ -1683,7 +1687,7 @@ class Scalene:
                         Scalene.__program_path = program_path
                     # Grab local and global variables.
                     if not Scalene.__args.cpu_only:
-                        from scalene import pywhere # type: ignore
+                        from scalene import pywhere  # type: ignore
 
                         pywhere.register_files_to_profile(
                             list(Scalene.__files_to_profile.keys()),

@@ -63,7 +63,7 @@ def exact_binomial(total: int, observed: int, success: float) -> float:
     c = choose(total, observed)
     return (
         c
-        * (success**observed)  # pow(success, observed)
+        * (success ** observed)  # pow(success, observed)
         * (1.0 - success)
         ** (total - observed)  # pow(1.0 - success, total - observed)
     )
@@ -133,8 +133,8 @@ def harmonic_number(n: int) -> float:
         gamma
         + math.log(n)
         + 0.5 / n
-        - 1.0 / (12 * n**2)
-        + 1.0 / (120 * n**4)
+        - 1.0 / (12 * n ** 2)
+        + 1.0 / (120 * n ** 4)
     )
 
 
