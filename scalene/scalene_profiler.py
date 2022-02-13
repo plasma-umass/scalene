@@ -60,10 +60,9 @@ if sys.platform != "win32":
     import resource
 
 if platform.system() == "Darwin":
-    from scalene.scalene_apple_gpu import ScaleneAppleGPU as ScaleneGPU # type: ignore
+    from scalene.scalene_apple_gpu import ScaleneAppleGPU as ScaleneGPU
 else:
     from scalene.scalene_gpu import ScaleneGPU # type: ignore
-
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
@@ -346,7 +345,7 @@ class Scalene:
 
         @functools.wraps(func)
         def wrapped(*args: Any, **kwargs: Any) -> Any:
-            return func(*args, **kwargs)  # type: ignore
+            return func(*args, **kwargs)
 
         return wrapped
 
@@ -1268,7 +1267,7 @@ class Scalene:
         frame: FrameType,
     ) -> None:
         curr_pid = os.getpid()
-        arr: List[Tuple[str, str, str, int, int]] = []
+        arr: List[Tuple[str, int, int, int, int]] = []
         # Process the input array.
         with contextlib.suppress(ValueError):
             while Scalene.__memcpy_mapfile.read():
@@ -1285,8 +1284,8 @@ class Scalene:
                     arr.append(
                         (
                             filename,
-                            lineno,
-                            bytei,
+                            int(lineno),
+                            int(bytei),
                             int(memcpy_time_str),
                             int(count_str2),
                         )
@@ -1294,12 +1293,12 @@ class Scalene:
         arr.sort()
 
         for item in arr:
-            filename, lineno, byteindex, _memcpy_time, count = item
+            filename, linenum, byteindex, _memcpy_time, count = item
             fname = Filename(filename)
-            line_no = int(LineNumber(lineno))
-            bytei = ByteCodeIndex(byteindex)
+            line_no = LineNumber(linenum)
+            byteidx = ByteCodeIndex(byteindex)
             # Add the byte index to the set for this line.
-            Scalene.__stats.bytei_map[fname][line_no].add(bytei)
+            Scalene.__stats.bytei_map[fname][line_no].add(byteidx)
             Scalene.__stats.memcpy_samples[fname][line_no] += int(count)
 
     @staticmethod
