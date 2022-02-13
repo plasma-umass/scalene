@@ -644,8 +644,7 @@ class Scalene:
                 )
             return
         # Sample GPU load as well.
-        gpu_load = Scalene.__gpu.load()
-        gpu_mem_used = Scalene.__gpu.memory_used()
+        (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
         # Pass on to the signal queue.
         Scalene.__cpu_sigq.put(
             (

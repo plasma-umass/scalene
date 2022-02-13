@@ -1,6 +1,7 @@
 import contextlib
-
 import pynvml
+
+from typing import Tuple
 
 
 class ScaleneGPU:
@@ -28,27 +29,18 @@ class ScaleneGPU:
             for i in range(self.__ngpus):
                 self.__handle.append(pynvml.nvmlDeviceGetHandleByIndex(i))
 
-    def load(self) -> float:
+    def get_stats(self) -> Tuple[float, float]:
         if self.__has_gpu:
             total_load = 0.0
+            mem_used = 0
             for i in range(self.__ngpus):
-                try:
-                    with contextlib.suppress(Exception):
-                        total_load += pynvml.nvmlDeviceGetUtilizationRates(
-                            self.__handle[i]
-                        ).gpu
-                except:
-                    pass
-            return (total_load / self.__ngpus) / 100.0
-        return 0.0
-
-    def memory_used(self) -> int:
-        """Return current memory in use, in bytes."""
-        mem_used = 0
-        for i in range(self.__ngpus):
-            try:
-                mem_info = pynvml.nvmlDeviceGetMemoryInfo(self.__handle[i])
-                mem_used += mem_info.used
-            except:
-                pass
-        return mem_used
+                with contextlib.suppress(Exception):
+                    total_load += pynvml.nvmlDeviceGetUtilizationRates(
+                        self.__handle[i]
+                    ).gpu
+                    mem_info = pynvml.nvmlDeviceGetMemoryInfo(self.__handle[i])
+                    mem_used += mem_info.used
+            total_load = (total_load / self.__ngpus) / 100.0
+            return (total_load, mem_used)
+        else:
+            return (0.0, 0.0)
