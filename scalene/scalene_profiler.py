@@ -635,7 +635,13 @@ class Scalene:
                     Scalene.__args.cpu_sampling_rate,
                 )
             return
-            
+
+        # Periodically sample GPU load as well.
+        if random.randint(0, 9) == 0:
+            (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
+        else:
+            (gpu_load, gpu_mem_used) = (0.0, 0.0)
+        
         # Pass on to the signal queue.
         Scalene.__cpu_sigq.put(
             (
