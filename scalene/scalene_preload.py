@@ -26,8 +26,9 @@ class ScalenePreload:
         # which interposes on allocation and copying functions.
         if sys.platform == "linux":
             if not args.cpu_only:
-                env["LD_PRELOAD"] = os.path.join(
-                    scalene.__path__[0], "libscalene.so"  # type: ignore
+                env["LD_PRELOAD"] = os.path.join( 
+                    scalene.__path__[0],  
+                    "libscalene.so" 
                 )
                 # Disable command-line specified PYTHONMALLOC.
                 if "PYTHONMALLOC" in env:

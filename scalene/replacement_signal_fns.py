@@ -21,7 +21,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
     
     
 
-    def replacement_signal(signum, handler):
+    def replacement_signal(signum: int, handler): # type: ignore
         all_signals = scalene.get_all_signals_set()
         timer_signal, cpu_signal = scalene.get_timer_signals()
         timer_signal_str = signal.strsignal(signum)
@@ -37,25 +37,25 @@ def replacement_signal_fns(scalene: Scalene) -> None:
             exit(-1)
         return old_signal(signum, handler)
     
-    def replacement_raise_signal(signum):
+    def replacement_raise_signal(signum: int) -> None:
         _, cpu_signal = scalene.get_timer_signals()
         if signum == cpu_signal:
             old_raise_signal(new_cpu_signal)
-        return old_raise_signal(signum)
+        old_raise_signal(signum)
 
-    def replacement_kill(pid, signum):
+    def replacement_kill(pid: int, signum: int) -> None:
         _, cpu_signal = scalene.get_timer_signals()
         if pid == os.getpid() or pid in scalene.child_pids:
             if signum == cpu_signal:
                 return old_kill(pid, new_cpu_signal)
-        return old_kill(pid, signum)
+        old_kill(pid, signum)
 
     
     if sys.platform != "win32":
         old_setitimer = signal.setitimer
         old_siginterrupt = signal.siginterrupt
 
-        def replacement_siginterrupt(signum, flag):
+        def replacement_siginterrupt(signum, flag): # type: ignore
             all_signals = scalene.get_all_signals_set()
             timer_signal, cpu_signal = scalene.get_timer_signals()
             if signum == cpu_signal:
@@ -65,7 +65,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
                     "uses timers or signals that Scalene depends on. If you have encountered this warning, please file an issue using this URL: "
                     "https://github.com/plasma-umass/scalene/issues/new/choose")
             return old_siginterrupt(signum, flag)
-        def replacement_setitimer(which, seconds, interval=0.0):
+        def replacement_setitimer(which, seconds, interval=0.0): # type: ignore
             timer_signal, cpu_signal = scalene.get_timer_signals()
             timer_signal_str = "SIGALRM" if timer_signal == signal.SIGALRM else "SIGVTALRM"
             if which == timer_signal:
