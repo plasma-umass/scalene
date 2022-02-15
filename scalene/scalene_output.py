@@ -26,23 +26,11 @@ class ScaleneOutput:
     # Maximum entries for sparklines, per line
     max_sparkline_len_line = 9
 
-    # Only report potential leaks if the allocation velocity is above this threshold
-    growth_rate_threshold = 0.01
-
-    # Only report leaks whose likelihood is 1 minus this threshold
-    leak_reporting_threshold = 0.05
-
     # Threshold for highlighting lines of code in red.
     highlight_percentage = 33
 
     # Color for highlighted text (over the threshold of CPU time)
     highlight_color = "bold red"
-
-    # Default threshold for percent of CPU time to report a file.
-    cpu_percent_threshold = 1
-
-    # Default threshold for number of mallocs to report a file.
-    malloc_threshold = 1  # 100
 
     def __init__(self) -> None:
         # where we write profile info
@@ -420,8 +408,8 @@ class ScaleneOutput:
 
             # Ignore files responsible for less than some percent of execution time and fewer than a threshold # of mallocs.
             if (
-                stats.malloc_samples[fname] < self.malloc_threshold
-                and percent_cpu_time < self.cpu_percent_threshold
+                stats.malloc_samples[fname] < ScaleneJSON.malloc_threshold
+                and percent_cpu_time < ScaleneJSON.cpu_percent_threshold
             ):
                 continue
             report_files.append(fname)
@@ -667,11 +655,7 @@ class ScaleneOutput:
             for line_no in stats.bytei_map[fname]:
                 n_malloc_mb = stats.memory_aggregate_footprint[fname][
                     line_no
-                ]  # 0.0
-                # for bytei in stats.memory_malloc_samples[fname][line_no]:
-                #    n_malloc_mb += stats.memory_malloc_samples[fname][line_no][
-                #        bytei
-                #    ]
+                ]
                 count = stats.memory_malloc_count[fname][line_no]
                 if count:
                     avg_mallocs[line_no] = n_malloc_mb / count
@@ -710,14 +694,14 @@ class ScaleneOutput:
 
             # Only report potential leaks if the allocation velocity (growth rate) is above some threshold.
             leaks = []
-            if growth_rate / 100 > ScaleneOutput.growth_rate_threshold:
+            if growth_rate / 100 > ScaleneJSON.growth_rate_threshold:
                 keys = list(stats.leak_score[fname].keys())
                 for index, item in enumerate(stats.leak_score[fname].values()):
                     # See https://en.wikipedia.org/wiki/Rule_of_succession
                     frees = item[1]
                     allocs = item[0]
                     expected_leak = (frees + 1) / (frees + allocs + 2)
-                    if expected_leak <= ScaleneOutput.leak_reporting_threshold:
+                    if expected_leak <= ScaleneJSON.leak_reporting_threshold:
                         if keys[index] in avg_mallocs:
                             leaks.append(
                                 (
