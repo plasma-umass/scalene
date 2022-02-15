@@ -171,8 +171,8 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
 	    { title: ["copy", "(MB/s)"], color: CopyColor, width: 0, info: "Rate of copying memory, in megabytes per second"  }]);
     }
     if (gpu) {
-	columns.push({ title: ["gpu", "util."], color: CopyColor, width: 0, info: "% utilization of the GPU by this line / function" });
-	columns.push({ title: ["gpu", "memory"], color: CopyColor, width: 0, info: "Peak GPU memory allocated by this line / function" });
+	columns.push({ title: ["gpu", "util."], color: CopyColor, width: 0, info: "% utilization of the GPU by this line / function (may be inaccurate if GPU is not dedicated)" });
+	columns.push({ title: ["gpu", "memory"], color: CopyColor, width: 0, info: "Peak GPU memory allocated by this line / function (may be inaccurate if GPU is not dedicated)" });
     }
     columns.push({ title: ["", ""], color: "black", width: 100 });
     let s = '';
