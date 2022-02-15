@@ -10,7 +10,10 @@ from scalene.scalene_profiler import Scalene
 def replacement_signal_fns(scalene: Scalene) -> None:
 
     old_signal = signal.signal
-    old_raise_signal = signal.raise_signal
+    if sys.version_info < (3, 8):
+        old_raise_signal = lambda s: os.kill(os.getpid(), s)
+    else:
+        old_raise_signal = signal.raise_signal
 
     old_kill = os.kill
 
@@ -87,5 +90,6 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         signal.siginterrupt = replacement_siginterrupt
 
     signal.signal = replacement_signal
-    signal.raise_signal = replacement_raise_signal
+    if sys.version_info >= (3, 8):
+        signal.raise_signal = replacement_raise_signal
     os.kill = replacement_kill

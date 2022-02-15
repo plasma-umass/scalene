@@ -194,7 +194,12 @@ class Scalene:
     client_timer: ScaleneClientTimer = ScaleneClientTimer()
 
     __orig_signal = signal.signal
-    __orig_raise_signal = signal.raise_signal
+
+    if sys.version_info < (3, 8):
+        __orig_raise_signal = lambda s: os.kill(os.getpid(), s)
+    else:
+        __orig_raise_signal = signal.raise_signal
+    
     __orig_kill = os.kill
     if sys.platform != "win32":
         __orig_setitimer = signal.setitimer
