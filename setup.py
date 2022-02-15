@@ -141,9 +141,7 @@ setup(
         "Topic :: Software Development :: Debuggers",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3"
-    ] + (["Programming Language :: Python :: 3.7"] if sys.platform != 'win32' else []) + 
-    [
+        "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
@@ -168,5 +166,5 @@ setup(
     setup_requires=['setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
-    python_requires=">=3.7" if sys.platform != 'win32' else ">=3.8",
+    python_requires=">=3.8",
 )
