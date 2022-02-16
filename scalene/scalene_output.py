@@ -15,6 +15,7 @@ from rich.text import Text
 from scalene import sparkline
 from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
+from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.syntaxline import SyntaxLine
 
 
@@ -693,37 +694,22 @@ class ScaleneOutput:
             )
 
             # Only report potential leaks if the allocation velocity (growth rate) is above some threshold.
-            leaks = []
-            if growth_rate / 100 > ScaleneJSON.growth_rate_threshold:
-                keys = list(stats.leak_score[fname].keys())
-                for index, item in enumerate(stats.leak_score[fname].values()):
-                    # See https://en.wikipedia.org/wiki/Rule_of_succession
-                    frees = item[1]
-                    allocs = item[0]
-                    expected_leak = (frees + 1) / (frees + allocs + 2)
-                    if expected_leak <= ScaleneJSON.leak_reporting_threshold:
-                        if keys[index] in avg_mallocs:
-                            leaks.append(
-                                (
-                                    keys[index],
-                                    1 - expected_leak,
-                                    avg_mallocs[keys[index]],
-                                )
-                            )
-                if len(leaks) > 0:
-                    # Report in descending order by least likelihood
-                    for leak in sorted(leaks, key=itemgetter(1), reverse=True):
-                        output_str = (
-                            "Possible memory leak identified at line "
-                            + str(leak[0])
-                            + " (estimated likelihood: "
-                            + ("%3.0f" % (leak[1] * 100))
-                            + "%"
-                            + ", velocity: "
-                            + ("%3.0f MB/s" % (leak[2] / stats.elapsed_time))
-                            + ")"
-                        )
-                        console.print(output_str)
+            leaks = ScaleneLeakAnalysis.compute_leaks(growth_rate, stats, avg_mallocs, fname)
+            
+            if len(leaks) > 0:
+                # Report in descending order by least likelihood
+                for leak in sorted(leaks, key=itemgetter(1), reverse=True):
+                    output_str = (
+                        "Possible memory leak identified at line "
+                        + str(leak[0])
+                        + " (estimated likelihood: "
+                        + ("%3.0f" % (leak[1] * 100))
+                        + "%"
+                        + ", velocity: "
+                        + ("%3.0f MB/s" % (leak[2] / stats.elapsed_time))
+                        + ")"
+                    )
+                    console.print(output_str)
 
         if self.html:
             # Write HTML file.

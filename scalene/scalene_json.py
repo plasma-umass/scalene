@@ -15,12 +15,6 @@ class ScaleneJSON:
     # Default threshold for number of mallocs to report a file.
     malloc_threshold = 1  # 100
 
-    # Only report potential leaks if the allocation velocity is above this threshold
-    growth_rate_threshold = 0.01
-
-    # Only report leaks whose likelihood is 1 minus this threshold
-    leak_reporting_threshold = 0.05
-
     def __init__(self) -> None:
         # where we write profile info
         self.output_file = ""
