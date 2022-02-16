@@ -66,15 +66,7 @@ class ScaleneOutput:
                 if not printed_header:
                     console.print(title)
                     printed_header = True
-                output_str = (
-                    "("
-                    + str(number)
-                    + ") "
-                    + ("%5.0f" % (malloc_lineno))
-                    + ": "
-                    + ("%5.0f" % (mallocs[malloc_lineno]))
-                    + " MB"
-                )
+                output_str = f"({str(number)}) {malloc_lineno:5.0f}: {(mallocs[malloc_lineno]):5.0f} MB"
                 console.print(Markdown(output_str, style="dark_green"))
                 number += 1
 
@@ -443,8 +435,7 @@ class ScaleneOutput:
                     100 * stats.cpu_samples[fname] / stats.total_cpu_samples
                 )
             new_title = mem_usage_line + (
-                "%s: %% of time = %6.2f%% out of %6.2fs."
-                % (fname_print, percent_cpu_time, stats.elapsed_time)
+                f"{fname_print}: % of time = {percent_cpu_time:6.2f} out of {stats.elapsed_time:6.2f}."
             )
             # Only display total memory usage once.
             mem_usage_line = ""
@@ -654,9 +645,7 @@ class ScaleneOutput:
             # Compute AVERAGE memory consumption.
             avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
-                n_malloc_mb = stats.memory_aggregate_footprint[fname][
-                    line_no
-                ]
+                n_malloc_mb = stats.memory_aggregate_footprint[fname][line_no]
                 count = stats.memory_malloc_count[fname][line_no]
                 if count:
                     avg_mallocs[line_no] = n_malloc_mb / count
@@ -694,21 +683,14 @@ class ScaleneOutput:
             )
 
             # Only report potential leaks if the allocation velocity (growth rate) is above some threshold.
-            leaks = ScaleneLeakAnalysis.compute_leaks(growth_rate, stats, avg_mallocs, fname)
-            
+            leaks = ScaleneLeakAnalysis.compute_leaks(
+                growth_rate, stats, avg_mallocs, fname
+            )
+
             if len(leaks) > 0:
                 # Report in descending order by least likelihood
                 for leak in sorted(leaks, key=itemgetter(1), reverse=True):
-                    output_str = (
-                        "Possible memory leak identified at line "
-                        + str(leak[0])
-                        + " (estimated likelihood: "
-                        + ("%3.0f" % (leak[1] * 100))
-                        + "%"
-                        + ", velocity: "
-                        + ("%3.0f MB/s" % (leak[2] / stats.elapsed_time))
-                        + ")"
-                    )
+                    output_str = f"Possible memory leak identified at line {str(leak[0])} (estimated likelihood: {(leak[1] * 100):3.0f}%, velocity: {(leak[2] / stats.elapsed_time):3.0f})"
                     console.print(output_str)
 
         if self.html:
