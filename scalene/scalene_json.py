@@ -266,7 +266,9 @@ class ScaleneJSON:
                         del profile_line_copy["line"]
                         del profile_line_copy["lineno"]
                         if any(profile_line_copy.values()):
-                            output["files"][fname_print]["lines"].append(profile_line)
+                            output["files"][fname_print]["lines"].append(
+                                profile_line
+                            )
             fn_stats = stats.build_function_stats(fname)
             # Check CPU samples and memory samples.
             print_fn_summary = False
@@ -301,6 +303,8 @@ class ScaleneJSON:
                         profile_line["line"] = fn_name
                         # Fix the line number to point to the first line of the function.
                         profile_line["lineno"] = stats.firstline_map[fn_name]
-                        output["files"][fname_print]["functions"].append(profile_line)
+                        output["files"][fname_print]["functions"].append(
+                            profile_line
+                        )
 
         return output

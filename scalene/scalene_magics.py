@@ -6,8 +6,12 @@ from typing import Any
 
 with contextlib.suppress(Exception):
 
-    from IPython.core.magic import (Magics, line_cell_magic, line_magic,
-                                    magics_class)
+    from IPython.core.magic import (
+        Magics,
+        line_cell_magic,
+        line_magic,
+        magics_class,
+    )
 
     from scalene import scalene_profiler
     from scalene.scalene_arguments import ScaleneArguments
@@ -16,7 +20,7 @@ with contextlib.suppress(Exception):
     @magics_class
     class ScaleneMagics(Magics):  # type: ignore
         """IPython (Jupyter) support for magics for Scalene (%scrun and %%scalene)."""
-        
+
         def run_code(self, args: ScaleneArguments, code: str) -> None:
             import IPython
 

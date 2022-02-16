@@ -49,8 +49,13 @@ from scalene.scalene_mapfile import ScaleneMapFile
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
 from scalene.scalene_signals import ScaleneSignals
-from scalene.scalene_statistics import (Address, ByteCodeIndex, Filename,
-                                        LineNumber, ScaleneStatistics)
+from scalene.scalene_statistics import (
+    Address,
+    ByteCodeIndex,
+    Filename,
+    LineNumber,
+    ScaleneStatistics,
+)
 
 if sys.platform != "win32":
     import resource
@@ -199,7 +204,7 @@ class Scalene:
         __orig_raise_signal = lambda s: os.kill(os.getpid(), s)
     else:
         __orig_raise_signal = signal.raise_signal
-    
+
     __orig_kill = os.kill
     if sys.platform != "win32":
         __orig_setitimer = signal.setitimer
@@ -499,6 +504,7 @@ class Scalene:
     ) -> None:
         import scalene.replacement_exit
         import scalene.replacement_get_context
+
         # Hijack lock, poll, thread_join, fork, and exit.
         import scalene.replacement_lock
         import scalene.replacement_mp_lock
@@ -646,7 +652,7 @@ class Scalene:
             (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
         else:
             (gpu_load, gpu_mem_used) = (0.0, 0.0)
-        
+
         # Pass on to the signal queue.
         Scalene.__cpu_sigq.put(
             (

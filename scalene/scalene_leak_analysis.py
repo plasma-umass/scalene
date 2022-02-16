@@ -1,6 +1,7 @@
 from typing import Any, List, OrderedDict
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 
+
 class ScaleneLeakAnalysis:
 
     # Only report potential leaks if the allocation velocity is above this threshold
@@ -10,10 +11,12 @@ class ScaleneLeakAnalysis:
     leak_reporting_threshold = 0.05
 
     @staticmethod
-    def compute_leaks(growth_rate: float,
-                      stats: ScaleneStatistics,
-                      avg_mallocs: OrderedDict[LineNumber, float],
-                      fname: Filename) -> List[Any]:
+    def compute_leaks(
+        growth_rate: float,
+        stats: ScaleneStatistics,
+        avg_mallocs: OrderedDict[LineNumber, float],
+        fname: Filename,
+    ) -> List[Any]:
         if growth_rate / 100 < ScaleneLeakAnalysis.growth_rate_threshold:
             return []
         leaks = []
