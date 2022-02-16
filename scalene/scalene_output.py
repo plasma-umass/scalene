@@ -690,7 +690,7 @@ class ScaleneOutput:
             if len(leaks) > 0:
                 # Report in descending order by least likelihood
                 for leak in sorted(leaks, key=itemgetter(1), reverse=True):
-                    output_str = f"Possible memory leak identified at line {str(leak[0])} (estimated likelihood: {(leak[1] * 100):3.0f}%, velocity: {(leak[2] / stats.elapsed_time):3.0f})"
+                    output_str = f"Possible memory leak identified at line {str(leak[0])} (estimated likelihood: {(leak[1] * 100):3.0f}%, velocity: {(leak[2] / stats.elapsed_time):3.0f} MB/s)"
                     console.print(output_str)
 
         if self.html:
