@@ -1,3 +1,4 @@
+import random
 import sys
 import tempfile
 from collections import OrderedDict, defaultdict
@@ -163,8 +164,6 @@ class ScaleneOutput:
             samples = obj["memory_samples"]
             # Randomly downsample to ScaleneOutput.max_sparkline_len_line.
             if len(samples) > ScaleneOutput.max_sparkline_len_line:
-                import random
-
                 random_samples = sorted(
                     random.sample(
                         samples, ScaleneOutput.max_sparkline_len_line
@@ -332,8 +331,6 @@ class ScaleneOutput:
             samples = stats.memory_footprint_samples
             if len(samples) > 0:
                 # Randomly downsample samples
-                import random
-
                 if len(samples) > ScaleneOutput.max_sparkline_len_file:
                     random_samples = sorted(
                         random.sample(
