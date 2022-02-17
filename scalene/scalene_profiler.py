@@ -19,6 +19,7 @@ import builtins
 import contextlib
 import functools
 import gc
+import http.server
 import inspect
 import json
 import math
@@ -29,12 +30,14 @@ import platform
 import random
 import re
 import signal
+import socketserver
 import stat
 import sys
 import tempfile
 import threading
 import time
 import traceback
+import webbrowser
 from collections import defaultdict
 from functools import lru_cache
 from signal import Handlers, Signals
@@ -49,13 +52,8 @@ from scalene.scalene_mapfile import ScaleneMapFile
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
 from scalene.scalene_signals import ScaleneSignals
-from scalene.scalene_statistics import (
-    Address,
-    ByteCodeIndex,
-    Filename,
-    LineNumber,
-    ScaleneStatistics,
-)
+from scalene.scalene_statistics import (Address, ByteCodeIndex, Filename,
+                                        LineNumber, ScaleneStatistics)
 
 if sys.platform != "win32":
     import resource
@@ -504,7 +502,6 @@ class Scalene:
     ) -> None:
         import scalene.replacement_exit
         import scalene.replacement_get_context
-
         # Hijack lock, poll, thread_join, fork, and exit.
         import scalene.replacement_lock
         import scalene.replacement_mp_lock
@@ -1411,12 +1408,11 @@ class Scalene:
                 Scalene.__output.output_file = "profile.json"
             else:
                 # Check for a browser.
-                import webbrowser
-
                 try:
-                    if not webbrowser.get():
-                        # Could not open a web browser tab;
-                        # act as if --web was not specified.
+                    if not webbrowser.get() or type(webbrowser.get()).__name__ == "GenericBrowser":
+                        # Could not open a graphical web browser tab;
+                        # act as if --web was not specified
+                        # (GenericBrowser means text-based browsers like Lynx.)
                         Scalene.__args.web = False
                     else:
                         # Force JSON output to profile.json.
@@ -1527,13 +1523,10 @@ class Scalene:
                 print(
                     "Scalene: Program did not run for long enough to profile."
                 )
+                
             if Scalene.__args.web and not Scalene.__args.cli:
                 # Start up a web server (in a background thread) to host the GUI,
                 # and open a browser tab to the server.
-
-                import http.server
-                import socketserver
-                import webbrowser
 
                 PORT = Scalene.__args.port
 
