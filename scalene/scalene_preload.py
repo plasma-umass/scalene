@@ -88,7 +88,7 @@ class ScalenePreload:
             os.environ.update(req_env)
 
             new_args = [
-                os.path.basename(sys.executable),
+                sys.executable,
                 "-m",
                 "scalene",
             ] + sys.argv[1:]
