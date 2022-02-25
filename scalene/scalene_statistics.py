@@ -312,6 +312,7 @@ class ScaleneStatistics:
     # To be added: __malloc_samples
 
     def output_stats(self, pid: int, dir_name: pathlib.Path) -> None:
+        """Output statistics for a particular process to a given directory."""
         payload: List[Any] = []
         for n in ScaleneStatistics.payload_contents:
             payload.append(getattr(self, n))
@@ -329,6 +330,7 @@ class ScaleneStatistics:
         dest: Dict[Filename, Dict[LineNumber, T]],
         src: Dict[Filename, Dict[LineNumber, T]],
     ) -> None:
+        """Increment single-line dest samples by their value in src."""
         for filename in src:
             for lineno in src[filename]:
                 v = src[filename][lineno]
@@ -344,6 +346,7 @@ class ScaleneStatistics:
                 dest[filename][lineno] += src[filename][lineno]
 
     def merge_stats(self, the_dir_name: pathlib.Path) -> None:
+        """Merge all statistics in a given directory."""
         the_dir = pathlib.Path(the_dir_name)
         for f in list(the_dir.glob("**/scalene*")):
             # Skip empty files.
