@@ -17,6 +17,7 @@ import argparse
 import atexit
 import builtins
 import contextlib
+from copy import copy
 import functools
 import gc
 import http.server
@@ -665,6 +666,7 @@ class Scalene:
                 Scalene.__last_signal_time_wallclock,
                 Scalene.__last_signal_time_sys,
                 Scalene.__last_signal_time_user,
+                copy(Scalene.__is_thread_sleeping)
             )
         )
         elapsed = now_wallclock - Scalene.__last_signal_time_wallclock
@@ -784,6 +786,7 @@ class Scalene:
         prev_wallclock: float,
         _prev_sys: float,
         prev_user: float,
+        is_thread_sleeping: Dict[int, bool]
     ) -> None:
         """Handle interrupts for CPU profiling."""
         # We have recorded how long it has been since we received a timer
@@ -864,7 +867,7 @@ class Scalene:
         total_frames = sum(
             1
             for (frame, tident, orig_frame) in new_frames
-            if not Scalene.__is_thread_sleeping[tident]
+            if not is_thread_sleeping[tident]
         )
 
         if total_frames == 0:
@@ -879,7 +882,7 @@ class Scalene:
             Scalene.enter_function_meta(frame, Scalene.__stats)
             if frame == new_frames[0][0]:
                 # Main thread.
-                if not Scalene.__is_thread_sleeping[tident]:
+                if not is_thread_sleeping[tident]:
 
                     Scalene.__stats.cpu_samples_python[fname][lineno] += (
                         python_time / total_frames
@@ -907,7 +910,7 @@ class Scalene:
                 # bytecode instruction being executed is a function
                 # call.  If so, we attribute all the time to native.
                 # NOTE: for now, we don't try to attribute GPU time to threads.
-                if not Scalene.__is_thread_sleeping[tident]:
+                if not is_thread_sleeping[tident]:
                     # Check if the original caller is stuck inside a call.
                     if ScaleneFuncUtils.is_call_function(
                         orig_frame.f_code,
@@ -931,7 +934,7 @@ class Scalene:
         del new_frames[:]
         del new_frames
         del this_frame
-
+        del is_thread_sleeping
         Scalene.__stats.total_cpu_samples += total_time
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
