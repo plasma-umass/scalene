@@ -32,8 +32,8 @@ class ScaleneHeader {
   size_t magic;
 #else
   ScaleneHeader(size_t sz) : size(sz) {}
-  size_t size;
-  //    alignas(std::max_align_t) size_t size;
+  // size_t size;
+  alignas(std::max_align_t) size_t size;
 
 #endif
 #else
