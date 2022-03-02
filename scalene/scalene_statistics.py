@@ -298,6 +298,7 @@ class ScaleneStatistics:
         "memory_python_samples",
         "memory_free_samples",
         "memcpy_samples",
+        "memory_max_footprint",
         "per_line_footprint_samples",
         "total_memory_free_samples",
         "total_memory_malloc_samples",
