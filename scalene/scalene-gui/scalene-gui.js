@@ -143,7 +143,7 @@ function makeMemoryBar(memory, title, python_percent, total, color) {
 
 function makeSparkline(samples, max_x, max_y, height = 20, width = 75) {
   const values = samples.map((v, i) => {
-    return { x: v[0], y: v[1], c: 0 };
+    return { x: v[0], y: v[1], y_text: String(v[1].toFixed(1)) };
   });
   const strokeWidth = 1; // 0.25;
   return {
@@ -154,46 +154,77 @@ function makeSparkline(samples, max_x, max_y, height = 20, width = 75) {
     //		"stroke" : "transparent"
     //	    }
     //	},
+    data: { values: values },
     width: width,
     height: height,
     padding: 0,
-    data: {
-      values: values,
-    },
-    mark: { type: "line", strokeWidth: strokeWidth, interpolate: "step-after" },
-    selection: {
-      grid: {
-        type: "interval",
-        bind: "scales",
-      },
-    },
     encoding: {
       x: {
         field: "x",
         type: "quantitative",
+        title: "",
         axis: {
           tickCount: 10,
           tickSize: 0,
-          labelExpr: false,
+          labelExpr: "",
         },
-        title: null,
-        scale: { domain: [0, max_x] },
-      },
-      y: {
-        field: "y",
-        type: "quantitative",
-        axis: false,
-        scale: { domain: [0, max_y] },
-      },
-      color: {
-        field: "c",
-        type: "nominal",
-        legend: false,
         scale: {
-          range: ["darkgreen"],
+          domain: [0, max_x],
         },
       },
     },
+    layer: [
+      {
+        encoding: {
+          y: {
+            field: "y",
+            type: "quantitative",
+            axis: null,
+            scale: {
+              domain: [0, max_y],
+            },
+          },
+          color: {
+            field: "c",
+            type: "nominal",
+            legend: null,
+            scale: {
+              range: ["darkgreen"],
+            },
+          },
+        },
+        layer: [
+          { mark: "line" },
+          {
+            transform: [{ filter: { param: "hover", empty: false } }],
+            mark: "point",
+          },
+        ],
+      },
+      {
+        // "transform": [{"pivot": "x", "value": "x", "groupby": ["x"]}],
+        mark: "rule",
+        encoding: {
+          opacity: {
+            condition: { value: 0.3, param: "hover", empty: false },
+            value: 0,
+          },
+          tooltip: [{ field: "y_text", type: "quantitative", title: "MB" }],
+        },
+        params: [
+          {
+            name: "hover",
+            select: {
+              type: "point",
+              fields: ["y"],
+              nearest: true,
+              on: "mouseover",
+              clear: "mouseout",
+            },
+          },
+        ],
+      },
+    ],
   };
 }
 
