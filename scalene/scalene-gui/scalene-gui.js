@@ -143,7 +143,7 @@ function makeMemoryBar(memory, title, python_percent, total, color) {
 
 function makeSparkline(samples, max_x, max_y, height = 20, width = 75) {
   const values = samples.map((v, i) => {
-    return { x: v[0], y: v[1], y_text: String(v[1].toFixed(1)) };
+      return { x: v[0], y: v[1], y_text: v[1].toFixed(1)+"MB" };
   });
   const strokeWidth = 1; // 0.25;
   return {
@@ -209,7 +209,7 @@ function makeSparkline(samples, max_x, max_y, height = 20, width = 75) {
             condition: { value: 0.3, param: "hover", empty: false },
             value: 0,
           },
-          tooltip: [{ field: "y_text", type: "quantitative", title: "MB" }],
+          tooltip: [{ field: "y_text", type: "nominal", title: "memory" }],
         },
         params: [
           {
