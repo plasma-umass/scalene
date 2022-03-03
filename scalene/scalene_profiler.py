@@ -74,7 +74,7 @@ def require_python(version: Tuple[int, int]) -> None:
     ), f"Scalene requires Python version {version[0]}.{version[1]} or above."
 
 
-require_python((3, 7) if sys.platform != "win32" else (3, 8))
+require_python((3, 8))
 
 
 # Scalene fully supports Unix-like operating systems; in
