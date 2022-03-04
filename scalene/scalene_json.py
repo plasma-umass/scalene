@@ -15,12 +15,31 @@ class ScaleneJSON:
     # Default threshold for number of mallocs to report a file.
     malloc_threshold = 1  # 100
 
+    # Fraction of the maximum footprint to use as granularity for memory timelines
+    # (used for compression). E.g., 10 => 1/10th of the max.
+    memory_granularity_fraction = 10
+    
     def __init__(self) -> None:
         # where we write profile info
         self.output_file = ""
 
         # if we are on a GPU or not
         self.gpu = False
+
+    def compress_samples(self,
+                         uncompressed_samples: List[Any],
+                         max_footprint: float) -> List[Any]:
+        # Compress the samples so that the granularity is at least
+        # a certain fraction of the maximum footprint.
+        samples = []
+        granularity = max_footprint / self.memory_granularity_fraction
+
+        amount = 0
+        for (t,mem) in uncompressed_samples:
+            if abs(mem - amount) >= granularity:
+                samples.append([t, mem])
+                amount = mem
+        return samples
 
     # Profile output methods
     def output_profile_line(
@@ -112,9 +131,8 @@ class ScaleneJSON:
         else:
             n_copy_mb_s = 0
 
-        samples = stats.per_line_footprint_samples[fname][line_no]  # FIXME
-        # if not any(samples):
-        #    samples = []
+        samples = self.compress_samples(stats.per_line_footprint_samples[fname][line_no], stats.max_footprint)
+
         return {
             "lineno": line_no,
             "line": linecache.getline(fname, line_no),
@@ -170,7 +188,8 @@ class ScaleneJSON:
             return {}
         growth_rate = 0.0
         if profile_memory:
-            samples = stats.memory_footprint_samples
+            samples = self.compress_samples(stats.memory_footprint_samples, stats.max_footprint)
+            
             # Compute growth rate (slope), between 0 and 1.
             if stats.allocation_velocity[1] > 0:
                 growth_rate = (
