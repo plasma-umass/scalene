@@ -1124,12 +1124,29 @@ class Scalene:
                     # Check if pointer actually matches
                     if stats.last_malloc_triggered[2] == pointer:
                         freed_last_trigger += 1
-            stats.memory_footprint_samples.append(
-                [
-                    time.monotonic_ns() - Scalene.__start_time,
-                    stats.current_footprint,
-                ]
-            )
+            timestamp = time.monotonic_ns() - Scalene.__start_time
+            if len(stats.memory_footprint_samples) > 2:
+                # Compress the footprints by discarding intermediate
+                # points along increases and decreases. For example:
+                # if the new point is an increase over the previous
+                # point, and that point was also an increase,
+                # eliminate the previous (intermediate) point.
+                (t1, prior_y) = stats.memory_footprint_samples[-2] 
+                (t2, last_y) = stats.memory_footprint_samples[-1]
+                y = stats.current_footprint
+                if (prior_y < last_y and last_y < y) or (prior_y > last_y and last_y > y):
+                    # Same direction.
+                    # Replace the previous (intermediate) point.
+                    stats.memory_footprint_samples[-1] = [timestamp, y]
+                else:
+                    stats.memory_footprint_samples.append([timestamp, y])
+            else:
+                stats.memory_footprint_samples.append(
+                    [
+                        timestamp,
+                        stats.current_footprint,
+                    ]
+                )
         after = stats.current_footprint
 
         if freed_last_trigger:
