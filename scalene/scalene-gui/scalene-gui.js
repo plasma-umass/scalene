@@ -143,17 +143,11 @@ function makeMemoryBar(memory, title, python_percent, total, color) {
 
 function makeSparkline(samples, max_x, max_y, height = 20, width = 75) {
   const values = samples.map((v, i) => {
-      return { x: v[0], y: v[1], y_text: v[1].toFixed(1)+"MB" };
+      return { x: v[0], y: v[1], y_text: v[1].toFixed(1)+"MB (@ " + (v[0] / 1e9).toFixed(0) + "s)" };
   });
   const strokeWidth = 1; // 0.25;
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-    // "description": "Memory consumption over time.",
-    //"config": {
-    //    "view": {
-    //		"stroke" : "transparent"
-    //	    }
-    //	},
     data: { values: values },
     width: width,
     height: height,
@@ -193,16 +187,17 @@ function makeSparkline(samples, max_x, max_y, height = 20, width = 75) {
             },
           },
         },
+	
         layer: [
-          { mark: "line" },
-          {
-            transform: [{ filter: { param: "hover", empty: false } }],
-            mark: "point",
+            { mark: "line" },
+             {
+		 transform: [{ filter: { param: "hover", empty: false } }],
+		 mark: "point",
           },
         ],
       },
+	
       {
-        // "transform": [{"pivot": "x", "value": "x", "groupby": ["x"]}],
         mark: "rule",
         encoding: {
           opacity: {
@@ -223,6 +218,7 @@ function makeSparkline(samples, max_x, max_y, height = 20, width = 75) {
           },
         ],
       },
+	
     ],
   };
 }
