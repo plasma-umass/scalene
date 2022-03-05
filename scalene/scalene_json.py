@@ -1,5 +1,6 @@
 import copy
 import linecache
+import random
 import re
 from pathlib import Path
 from typing import Any, Callable, Dict, List
@@ -19,6 +20,9 @@ class ScaleneJSON:
     # (used for compression). E.g., 10 => 1/10th of the max.
     memory_granularity_fraction = 10
     
+    # Maximum number of sparkline samples.
+    max_sparkline_samples = 100
+
     def __init__(self) -> None:
         # where we write profile info
         self.output_file = ""
@@ -34,11 +38,29 @@ class ScaleneJSON:
         samples = []
         granularity = max_footprint / self.memory_granularity_fraction
 
-        amount = 0
+        last_mem = 0
         for (t,mem) in uncompressed_samples:
-            if abs(mem - amount) >= granularity:
+            if abs(mem - last_mem) >= granularity:
+                # We're above the granularity.
+                # Force all memory amounts to be positive.
+                mem = max(0, mem)
+                # Add a tiny bit of random noise to force different values (for the GUI).
+                mem += abs(random.gauss(0.01, 0.01))
+                # Now we append it and set the last amount to be the
+                # current footprint.
                 samples.append([t, mem])
-                amount = mem
+                last_mem = mem
+
+        if len(samples) > self.max_sparkline_samples:
+            print("LAST SAMPLE WAS", samples[-1])
+            # Too many samples. We randomly downsample.
+            samples = sorted(
+                random.sample(
+                    samples, self.max_sparkline_samples
+                )
+            )
+            print("LAST SAMPLE IS", samples[-1])
+        
         return samples
 
     # Profile output methods
