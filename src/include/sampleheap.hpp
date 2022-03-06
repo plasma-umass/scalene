@@ -108,7 +108,7 @@ class SampleHeap : public SuperHeap {
 #if defined(__APPLE__)
     // 0 size = free. We return a small object.  This behavior is
     // apparently required under Mac OS X and optional under POSIX.
-    return xxmalloc(1);
+    return SuperHeap::malloc(1);
 #else
     // For POSIX, don't return anything.
     return nullptr;
