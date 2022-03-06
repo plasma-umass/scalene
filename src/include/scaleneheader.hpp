@@ -14,7 +14,7 @@ extern "C" size_t malloc_usable_size(void *) throw();
 #include <assert.h>
 
 #define USE_HEADERS 1
-#define DEBUG_HEADER 0
+#define DEBUG_HEADER 1
 
 // Maximum size allocated internally by pymalloc;
 // aka "SMALL_REQUEST_THRESHOLD" in cpython/Objects/obmalloc.c
@@ -28,12 +28,13 @@ class ScaleneHeader {
 #if USE_HEADERS
 #if DEBUG_HEADER
   ScaleneHeader(size_t sz) : size(sz), magic(MAGIC_NUMBER) {}
-  alignas(std::max_align_t) size_t size;
+  size_t size;
+  size_t padding;
   size_t magic;
 #else
   ScaleneHeader(size_t sz) : size(sz) {}
   // size_t size;
-  alignas(std::max_align_t) size_t size;
+  size_t size;
 
 #endif
 #else
@@ -52,6 +53,9 @@ class ScaleneHeader {
   static inline size_t getSize(void *ptr) {
 #if USE_HEADERS
 #if DEBUG_HEADER
+    if(getHeader(ptr)->magic != MAGIC_NUMBER) {
+      printf_("AAAAA\n");
+    }
     assert(getHeader(ptr)->magic == MAGIC_NUMBER);
 #endif
     auto sz = getHeader(ptr)->size;

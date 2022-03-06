@@ -6,7 +6,7 @@ C_SOURCES = src/source/*.cpp src/include/*.h*
 .PHONY: black clang-format format upload vendor-deps
 
 # CXXFLAGS = -std=c++17 -g -O0 # FIXME
-CXXFLAGS = -std=c++17 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -pipe -fno-builtin-malloc -fvisibility=hidden
+CXXFLAGS = -std=c++17 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -DHL_USE_XXREALLOC=1 -pipe -fno-builtin-malloc -fvisibility=hidden
 CXX = g++
 
 INCLUDES  = -Isrc -Isrc/include

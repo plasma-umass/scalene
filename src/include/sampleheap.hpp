@@ -21,7 +21,6 @@
 // We're unable to use the limited API because, for example,
 // there doesn't seem to be a function returning co_filename
 //#define Py_LIMITED_API 0x03070000
-
 #include "common.hpp"
 #include "mallocrecursionguard.hpp"
 #include "printf.h"
@@ -29,6 +28,8 @@
 #include "samplefile.hpp"
 #include "sampleinterval.hpp"
 #include "scaleneheader.hpp"
+
+#include <execinfo.h>
 
 static SampleFile& getSampleFile() {
   static SampleFile mallocSampleFile("/tmp/scalene-malloc-signal%d",
@@ -39,7 +40,14 @@ static SampleFile& getSampleFile() {
 }
 
 #define USE_ATOMICS 0
-
+#define PRINT_ALL 0
+#define MEMOIZE_LAST 1
+#if MEMOIZE_LAST
+void* last_call[20];
+int n_bt = 0;
+// char** last_call_s;
+void* last_freed;
+#endif 
 #if USE_ATOMICS
 typedef std::atomic<uint64_t> counterType;
 #else
@@ -82,6 +90,9 @@ class SampleHeap : public SuperHeap {
   ATTRIBUTE_ALWAYS_INLINE inline void* malloc(size_t sz) {
     MallocRecursionGuard g;
     auto ptr = SuperHeap::malloc(sz);
+    #if PRINT_ALL
+    printf_("=== MI %p\n", ptr);
+    #endif
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
@@ -97,11 +108,63 @@ class SampleHeap : public SuperHeap {
     }
     return ptr;
   }
+  ATTRIBUTE_ALWAYS_INLINE inline void* realloc(void * ptr, size_t sz) {
+    MallocRecursionGuard g;
+      if (!ptr) {
+    ptr = SuperHeap::malloc (sz);
+    return ptr;
+  }
+  if (sz == 0) {
+    SuperHeap::free (ptr);
+#if defined(__APPLE__)
+    // 0 size = free. We return a small object.  This behavior is
+    // apparently required under Mac OS X and optional under POSIX.
+    return xxmalloc(1);
+#else
+    // For POSIX, don't return anything.
+    return nullptr;
+#endif
+  }
 
+  size_t objSize = SuperHeap::getSize(ptr);
+
+  void * buf = SuperHeap::malloc(sz);
+  size_t buf_size = buf ? SuperHeap::getSize(buf) :  0;
+  if (buf) {
+    if (objSize == buf_size) {
+      // The objects are the same actual size.
+      // Free the new object and return the original.
+      SuperHeap::free (buf);
+      return ptr;
+    }
+    // Copy the contents of the original object
+    // up to the size of the new block.
+    size_t minSize = (objSize < sz) ? objSize : sz;
+    memcpy (buf, ptr, minSize);
+  }
+
+  // Free the old block.
+  SuperHeap::free (ptr);
+  if (buf) {
+      if (sz < buf_size) {
+        if (buf_size - sz <= PYMALLOC_MAX_SIZE) {
+          register_malloc(buf_size - sz,
+                                          buf);
+        }
+      } else if (sz > buf_size) {
+        if (sz - buf_size <= PYMALLOC_MAX_SIZE) {
+          register_free(sz - buf_size, ptr);
+        }
+      }
+    }
+  // Return a pointer to the new one.
+  return buf;
+  }
   inline void register_malloc(size_t realSize, void* ptr,
                               bool inPythonAllocator = true) {
     assert(realSize);
     // If this is the special NEWLINE value, trigger an update.
+    // printf("uwu %p\n", &in_realloc);
     if (unlikely(realSize == NEWLINE)) {
       std::string filename;
       int lineno;
@@ -149,19 +212,36 @@ class SampleHeap : public SuperHeap {
  public:
   ATTRIBUTE_ALWAYS_INLINE inline void free(void* ptr) {
     MallocRecursionGuard g;
-
+    #if PRINT_ALL
+    printf_("=== FI %p\n", ptr);
+    #endif
     if (unlikely(ptr == nullptr)) {
       return;
     }
+    auto realSize = SuperHeap::getSize(ptr);
+    SuperHeap::free(ptr);
+    #if PRINT_ALL || MEMOIZE_LAST
+    // if(last_call_s != nullptr)
+      // SuperHeap::free(last_call_s);
+    // last_call_s = nullptr;
+    n_bt = backtrace(last_call, 20);
+    // last_call_s = backtrace_symbols(last_call, n_bt);
+    last_freed = ptr;
+    #endif
     if (pythonDetected() && !g.wasInMalloc()) {
-      auto realSize = SuperHeap::getSize(ptr);
+      
       register_free(realSize, ptr);
     }
-    SuperHeap::free(ptr);
+    
+    
+    
+    
   }
 
   inline void register_free(size_t realSize, void* ptr) {
+    // printf_("In realloc %p\n", &in_realloc);
     auto sampleFree = _allocationSampler.decrement(realSize);
+    
     if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
       _freedLastMallocTrigger = true;
     }
@@ -194,6 +274,9 @@ class SampleHeap : public SuperHeap {
   void* memalign(size_t alignment, size_t sz) {
     MallocRecursionGuard g;
     auto ptr = SuperHeap::memalign(alignment, sz);
+    #if PRINT_ALL
+    printf_("=== MI %p\n", ptr);
+    #endif
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
