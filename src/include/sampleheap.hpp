@@ -40,14 +40,6 @@ static SampleFile& getSampleFile() {
 }
 
 #define USE_ATOMICS 0
-#define PRINT_ALL 0
-#define MEMOIZE_LAST 1
-#if MEMOIZE_LAST
-void* last_call[20];
-int n_bt = 0;
-// char** last_call_s;
-void* last_freed;
-#endif 
 #if USE_ATOMICS
 typedef std::atomic<uint64_t> counterType;
 #else
@@ -90,9 +82,6 @@ class SampleHeap : public SuperHeap {
   ATTRIBUTE_ALWAYS_INLINE inline void* malloc(size_t sz) {
     MallocRecursionGuard g;
     auto ptr = SuperHeap::malloc(sz);
-    #if PRINT_ALL
-    printf_("=== MI %p\n", ptr);
-    #endif
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
@@ -212,22 +201,11 @@ class SampleHeap : public SuperHeap {
  public:
   ATTRIBUTE_ALWAYS_INLINE inline void free(void* ptr) {
     MallocRecursionGuard g;
-    #if PRINT_ALL
-    printf_("=== FI %p\n", ptr);
-    #endif
     if (unlikely(ptr == nullptr)) {
       return;
     }
     auto realSize = SuperHeap::getSize(ptr);
     SuperHeap::free(ptr);
-    #if PRINT_ALL || MEMOIZE_LAST
-    // if(last_call_s != nullptr)
-      // SuperHeap::free(last_call_s);
-    // last_call_s = nullptr;
-    n_bt = backtrace(last_call, 20);
-    // last_call_s = backtrace_symbols(last_call, n_bt);
-    last_freed = ptr;
-    #endif
     if (pythonDetected() && !g.wasInMalloc()) {
       
       register_free(realSize, ptr);
@@ -274,9 +252,6 @@ class SampleHeap : public SuperHeap {
   void* memalign(size_t alignment, size_t sz) {
     MallocRecursionGuard g;
     auto ptr = SuperHeap::memalign(alignment, sz);
-    #if PRINT_ALL
-    printf_("=== MI %p\n", ptr);
-    #endif
     if (unlikely(ptr == nullptr)) {
       return nullptr;
     }
