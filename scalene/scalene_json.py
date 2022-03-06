@@ -2,9 +2,12 @@ import copy
 import linecache
 import random
 import re
+from collections import OrderedDict, defaultdict
+from operator import itemgetter
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
+from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 
 
@@ -52,14 +55,12 @@ class ScaleneJSON:
                 last_mem = mem
 
         if len(samples) > self.max_sparkline_samples:
-            print("LAST SAMPLE WAS", samples[-1])
             # Too many samples. We randomly downsample.
             samples = sorted(
                 random.sample(
                     samples, self.max_sparkline_samples
                 )
             )
-            print("LAST SAMPLE IS", samples[-1])
         
         return samples
 
@@ -222,6 +223,7 @@ class ScaleneJSON:
         else:
             samples = []
 
+          
         output: Dict[str, Any] = {
             "program": program,
             "elapsed_time_sec": stats.elapsed_time,
@@ -275,6 +277,38 @@ class ScaleneJSON:
             if result:
                 fname_print = Filename("[" + result.group(1) + "]")
 
+            # Leak analysis
+            # First, compute AVERAGE memory consumption.
+            avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
+            for line_no in stats.bytei_map[fname]:
+                n_malloc_mb = stats.memory_aggregate_footprint[fname][line_no]
+                count = stats.memory_malloc_count[fname][line_no]
+                if count:
+                    avg_mallocs[line_no] = n_malloc_mb / count
+                else:
+                    # Setting to n_malloc_mb addresses the edge case where this allocation is the last line executed.
+                    avg_mallocs[line_no] = n_malloc_mb
+
+            avg_mallocs = OrderedDict(
+                sorted(avg_mallocs.items(), key=itemgetter(1), reverse=True)
+            )
+            
+            # Now only report potential leaks if the allocation
+            # velocity (growth rate) is above some threshold.
+            leaks = ScaleneLeakAnalysis.compute_leaks(
+                growth_rate, stats, avg_mallocs, fname
+            )
+
+            # Sort in descending order by least likelihood
+            leaks = sorted(leaks, key=itemgetter(1), reverse=True)
+
+            reported_leaks = []
+            
+            for (leak_lineno, leak_likelihood, leak_velocity) in leaks:
+                reported_leaks.append({ "lineno" : leak_lineno,
+                                        "likelihood" : leak_likelihood,
+                                        "velocity_mb_s" : leak_velocity / stats.elapsed_time })
+
             # Print header.
             if not stats.total_cpu_samples:
                 percent_cpu_time = 0
@@ -290,6 +324,7 @@ class ScaleneJSON:
                 output["files"][fname_print] = {
                     "percent_cpu_time": percent_cpu_time,
                     "lines": [],
+                    "leaks": reported_leaks
                 }
                 for line_no, _line in enumerate(code_lines, start=1):
                     profile_line = self.output_profile_line(
