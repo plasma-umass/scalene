@@ -33,7 +33,6 @@ class ScaleneHeader {
   size_t magic;
 #else
   ScaleneHeader(size_t sz) : size(sz) {}
-  // size_t size;
   size_t size;
 
 #endif
@@ -53,9 +52,6 @@ class ScaleneHeader {
   static inline size_t getSize(void *ptr) {
 #if USE_HEADERS
 #if DEBUG_HEADER
-    if(getHeader(ptr)->magic != MAGIC_NUMBER) {
-      printf_("AAAAA\n");
-    }
     assert(getHeader(ptr)->magic == MAGIC_NUMBER);
 #endif
     auto sz = getHeader(ptr)->size;

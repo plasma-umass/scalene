@@ -217,7 +217,6 @@ class SampleHeap : public SuperHeap {
   }
 
   inline void register_free(size_t realSize, void* ptr) {
-    // printf_("In realloc %p\n", &in_realloc);
     auto sampleFree = _allocationSampler.decrement(realSize);
     
     if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
