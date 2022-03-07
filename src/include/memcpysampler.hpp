@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
+#include "mallocrecursionguard.hpp"
 #if !defined(_WIN32)
 #include <unistd.h>  // for getpid()
 #endif
@@ -207,22 +207,28 @@ class MemcpySampler {
 
   ATTRIBUTE_ALWAYS_INLINE inline void *memcpy(void *dst, const void *src,
                                               size_t n) {
+    MallocRecursionGuard g;                                            
     auto result = local_memcpy(dst, src, n);
-    incrementMemoryOps(n);
+    if (pythonDetected() && !g.wasInMalloc())
+      incrementMemoryOps(n);
     return result;  // always dst
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline void *memmove(void *dst, const void *src,
                                                size_t n) {
+    MallocRecursionGuard g;
     auto result = local_memmove(dst, src, n);
-    incrementMemoryOps(n);
+    if (pythonDetected() && !g.wasInMalloc())
+      incrementMemoryOps(n);
     return result;  // always dst
   }
 
   ATTRIBUTE_ALWAYS_INLINE inline char *strcpy(char *dst, const char *src) {
+    MallocRecursionGuard g;
     auto n = ::strlen(src);
     auto result = local_strcpy(dst, src);
-    incrementMemoryOps(n);
+    if (pythonDetected() && !g.wasInMalloc())
+      incrementMemoryOps(n);
     return result;  // always dst
   }
 
