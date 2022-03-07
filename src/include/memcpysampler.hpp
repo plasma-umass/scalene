@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
 #include "mallocrecursionguard.hpp"
 #if !defined(_WIN32)
 #include <unistd.h>  // for getpid()
@@ -190,7 +191,7 @@ class MemcpySampler {
     init_lock.unlock();
     auto pid = getpid();
     snprintf_((char *)scalene_memcpy_signal_filename, BUFFER_LENGTH, fname,
-             pid);
+              pid);
     // printf("initialized (%s)\n", scalene_memcpy_signal_filename);
   }
 
@@ -207,10 +208,9 @@ class MemcpySampler {
 
   ATTRIBUTE_ALWAYS_INLINE inline void *memcpy(void *dst, const void *src,
                                               size_t n) {
-    MallocRecursionGuard g;                                            
+    MallocRecursionGuard g;
     auto result = local_memcpy(dst, src, n);
-    if (pythonDetected() && !g.wasInMalloc())
-      incrementMemoryOps(n);
+    if (pythonDetected() && !g.wasInMalloc()) incrementMemoryOps(n);
     return result;  // always dst
   }
 
@@ -218,8 +218,7 @@ class MemcpySampler {
                                                size_t n) {
     MallocRecursionGuard g;
     auto result = local_memmove(dst, src, n);
-    if (pythonDetected() && !g.wasInMalloc())
-      incrementMemoryOps(n);
+    if (pythonDetected() && !g.wasInMalloc()) incrementMemoryOps(n);
     return result;  // always dst
   }
 
@@ -227,8 +226,7 @@ class MemcpySampler {
     MallocRecursionGuard g;
     auto n = ::strlen(src);
     auto result = local_strcpy(dst, src);
-    if (pythonDetected() && !g.wasInMalloc())
-      incrementMemoryOps(n);
+    if (pythonDetected() && !g.wasInMalloc()) incrementMemoryOps(n);
     return result;  // always dst
   }
 
@@ -293,19 +291,14 @@ class MemcpySampler {
     std::string filename;
     int lineno = 1;
     int bytei = 0;
-    decltype(whereInPython)* where = p_whereInPython;
+    decltype(whereInPython) *where = p_whereInPython;
     if (where != nullptr && where(filename, lineno, bytei)) {
       ;
     }
 #endif
     char buf[BUFFER_LENGTH];
-    snprintf_(buf, BUFFER_LENGTH, "%d,%d,%d,%s,%d,%d\n\n",
-	      _memcpyTriggered,
-	      _memcpyOps,
-	      getpid(),
-	      filename.c_str(),
-	      lineno,
-	      bytei);
+    snprintf_(buf, BUFFER_LENGTH, "%d,%d,%d,%s,%d,%d\n\n", _memcpyTriggered,
+              _memcpyOps, getpid(), filename.c_str(), lineno, bytei);
     _samplefile.writeToFile(buf);
   }
 };

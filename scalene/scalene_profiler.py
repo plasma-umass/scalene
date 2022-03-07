@@ -53,8 +53,13 @@ from scalene.scalene_mapfile import ScaleneMapFile
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
 from scalene.scalene_signals import ScaleneSignals
-from scalene.scalene_statistics import (Address, ByteCodeIndex, Filename,
-                                        LineNumber, ScaleneStatistics)
+from scalene.scalene_statistics import (
+    Address,
+    ByteCodeIndex,
+    Filename,
+    LineNumber,
+    ScaleneStatistics,
+)
 
 if sys.platform != "win32":
     import resource
@@ -503,6 +508,7 @@ class Scalene:
     ) -> None:
         import scalene.replacement_exit
         import scalene.replacement_get_context
+
         # Hijack lock, poll, thread_join, fork, and exit.
         import scalene.replacement_lock
         import scalene.replacement_mp_lock
@@ -666,7 +672,7 @@ class Scalene:
                 Scalene.__last_signal_time_wallclock,
                 Scalene.__last_signal_time_sys,
                 Scalene.__last_signal_time_user,
-                copy(Scalene.__is_thread_sleeping)
+                copy(Scalene.__is_thread_sleeping),
             )
         )
         elapsed = now_wallclock - Scalene.__last_signal_time_wallclock
@@ -786,7 +792,7 @@ class Scalene:
         prev_wallclock: float,
         _prev_sys: float,
         prev_user: float,
-        is_thread_sleeping: Dict[int, bool]
+        is_thread_sleeping: Dict[int, bool],
     ) -> None:
         """Handle interrupts for CPU profiling."""
         # We have recorded how long it has been since we received a timer
@@ -1131,10 +1137,12 @@ class Scalene:
                 # if the new point is an increase over the previous
                 # point, and that point was also an increase,
                 # eliminate the previous (intermediate) point.
-                (t1, prior_y) = stats.memory_footprint_samples[-2] 
+                (t1, prior_y) = stats.memory_footprint_samples[-2]
                 (t2, last_y) = stats.memory_footprint_samples[-1]
                 y = stats.current_footprint
-                if (prior_y < last_y and last_y < y) or (prior_y > last_y and last_y > y):
+                if (prior_y < last_y and last_y < y) or (
+                    prior_y > last_y and last_y > y
+                ):
                     # Same direction.
                     # Replace the previous (intermediate) point.
                     stats.memory_footprint_samples[-1] = [timestamp, y]
@@ -1429,7 +1437,10 @@ class Scalene:
             else:
                 # Check for a browser.
                 try:
-                    if not webbrowser.get() or type(webbrowser.get()).__name__ == "GenericBrowser":
+                    if (
+                        not webbrowser.get()
+                        or type(webbrowser.get()).__name__ == "GenericBrowser"
+                    ):
                         # Could not open a graphical web browser tab;
                         # act as if --web was not specified
                         # (GenericBrowser means text-based browsers like Lynx.)
@@ -1543,7 +1554,7 @@ class Scalene:
                 print(
                     "Scalene: Program did not run for long enough to profile."
                 )
-                
+
             if Scalene.__args.web and not Scalene.__args.cli:
                 # Start up a web server (in a background thread) to host the GUI,
                 # and open a browser tab to the server.

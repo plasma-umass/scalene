@@ -22,7 +22,7 @@ class ScaleneJSON:
     # Fraction of the maximum footprint to use as granularity for memory timelines
     # (used for compression). E.g., 10 => 1/10th of the max.
     memory_granularity_fraction = 10
-    
+
     # Maximum number of sparkline samples.
     max_sparkline_samples = 100
 
@@ -33,16 +33,16 @@ class ScaleneJSON:
         # if we are on a GPU or not
         self.gpu = False
 
-    def compress_samples(self,
-                         uncompressed_samples: List[Any],
-                         max_footprint: float) -> List[Any]:
+    def compress_samples(
+        self, uncompressed_samples: List[Any], max_footprint: float
+    ) -> List[Any]:
         # Compress the samples so that the granularity is at least
         # a certain fraction of the maximum footprint.
         samples = []
         granularity = max_footprint / self.memory_granularity_fraction
 
         last_mem = 0
-        for (t,mem) in uncompressed_samples:
+        for (t, mem) in uncompressed_samples:
             if abs(mem - last_mem) >= granularity:
                 # We're above the granularity.
                 # Force all memory amounts to be positive.
@@ -57,11 +57,9 @@ class ScaleneJSON:
         if len(samples) > self.max_sparkline_samples:
             # Too many samples. We randomly downsample.
             samples = sorted(
-                random.sample(
-                    samples, self.max_sparkline_samples
-                )
+                random.sample(samples, self.max_sparkline_samples)
             )
-        
+
         return samples
 
     # Profile output methods
@@ -154,7 +152,10 @@ class ScaleneJSON:
         else:
             n_copy_mb_s = 0
 
-        samples = self.compress_samples(stats.per_line_footprint_samples[fname][line_no], stats.max_footprint)
+        samples = self.compress_samples(
+            stats.per_line_footprint_samples[fname][line_no],
+            stats.max_footprint,
+        )
 
         return {
             "lineno": line_no,
@@ -211,8 +212,10 @@ class ScaleneJSON:
             return {}
         growth_rate = 0.0
         if profile_memory:
-            samples = self.compress_samples(stats.memory_footprint_samples, stats.max_footprint)
-            
+            samples = self.compress_samples(
+                stats.memory_footprint_samples, stats.max_footprint
+            )
+
             # Compute growth rate (slope), between 0 and 1.
             if stats.allocation_velocity[1] > 0:
                 growth_rate = (
@@ -223,7 +226,6 @@ class ScaleneJSON:
         else:
             samples = []
 
-          
         output: Dict[str, Any] = {
             "program": program,
             "elapsed_time_sec": stats.elapsed_time,
@@ -292,7 +294,7 @@ class ScaleneJSON:
             avg_mallocs = OrderedDict(
                 sorted(avg_mallocs.items(), key=itemgetter(1), reverse=True)
             )
-            
+
             # Now only report potential leaks if the allocation
             # velocity (growth rate) is above some threshold.
             leaks = ScaleneLeakAnalysis.compute_leaks(
@@ -303,11 +305,12 @@ class ScaleneJSON:
             leaks = sorted(leaks, key=itemgetter(1), reverse=True)
 
             reported_leaks = {}
-            
+
             for (leak_lineno, leak_likelihood, leak_velocity) in leaks:
                 reported_leaks[str(leak_lineno)] = {
-                    "likelihood" : leak_likelihood,
-                    "velocity_mb_s" : leak_velocity / stats.elapsed_time }
+                    "likelihood": leak_likelihood,
+                    "velocity_mb_s": leak_velocity / stats.elapsed_time,
+                }
 
             # Print header.
             if not stats.total_cpu_samples:
@@ -324,7 +327,7 @@ class ScaleneJSON:
                 output["files"][fname_print] = {
                     "percent_cpu_time": percent_cpu_time,
                     "lines": [],
-                    "leaks": reported_leaks
+                    "leaks": reported_leaks,
                 }
                 for line_no, _line in enumerate(code_lines, start=1):
                     profile_line = self.output_profile_line(
