@@ -141,9 +141,25 @@ function makeMemoryBar(memory, title, python_percent, total, color) {
   };
 }
 
-function makeSparkline(samples, max_x, max_y, height = 20, width = 75) {
+function makeSparkline(
+  samples,
+  max_x,
+  max_y,
+  leak_velocity = 0,
+  height = 20,
+  width = 75
+) {
   const values = samples.map((v, i) => {
-      return { x: v[0], y: v[1], y_text: v[1].toFixed(1)+"MB (@ " + (v[0] / 1e9).toFixed(0) + "s)" };
+    let leak_str = "";
+    if (leak_velocity != 0) {
+      leak_str = `; possible leak (${leak_velocity.toFixed(1)} MB/s)`;
+    }
+    return {
+      x: v[0],
+      y: v[1],
+      y_text:
+        v[1].toFixed(1) + "MB (@ " + (v[0] / 1e9).toFixed(0) + "s)" + leak_str,
+    };
   });
   const strokeWidth = 1; // 0.25;
   return {
@@ -187,16 +203,16 @@ function makeSparkline(samples, max_x, max_y, height = 20, width = 75) {
             },
           },
         },
-	
+
         layer: [
-            { mark: "line" },
-             {
-		 transform: [{ filter: { param: "hover", empty: false } }],
-		 mark: "point",
+          { mark: "line" },
+          {
+            transform: [{ filter: { param: "hover", empty: false } }],
+            mark: "point",
           },
         ],
       },
-	
+
       {
         mark: "rule",
         encoding: {
@@ -218,7 +234,6 @@ function makeSparkline(samples, max_x, max_y, height = 20, width = 75) {
           },
         ],
       },
-	
     ],
   };
 }
@@ -325,6 +340,7 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
 
 function makeProfileLine(
   line,
+  filename,
   prof,
   cpu_bars,
   memory_bars,
@@ -373,11 +389,16 @@ function makeProfileLine(
     s += `<td style='vertical-align: middle; width: 100'><span style="height:25; width: 100; vertical-align: middle" id="memory_sparkline${memory_sparklines.length}"></span>`;
     s += "</td>";
     if (line.memory_samples.length > 0) {
+      let leak_velocity = 0;
+      if (line.lineno in prof.files[filename].leaks) {
+        leak_velocity = prof.files[filename].leaks[line.lineno].velocity_mb_s;
+      }
       memory_sparklines.push(
         makeSparkline(
           line.memory_samples,
           prof.elapsed_time_sec * 1e9,
-          prof.max_footprint_mb
+          prof.max_footprint_mb,
+          leak_velocity
         )
       );
     } else {
@@ -481,6 +502,7 @@ async function display(prof) {
         prof.samples,
         prof.elapsed_time_sec * 1e9,
         prof.max_footprint_mb,
+        0,
         20,
         200
       )
@@ -574,6 +596,7 @@ async function display(prof) {
       prevLineno = line.lineno;
       s += makeProfileLine(
         line,
+        ff[0],
         prof,
         cpu_bars,
         memory_bars,
@@ -593,6 +616,7 @@ async function display(prof) {
         const line = prof.files[ff[0]].functions[l];
         s += makeProfileLine(
           line,
+          ff[0],
           prof,
           cpu_bars,
           memory_bars,

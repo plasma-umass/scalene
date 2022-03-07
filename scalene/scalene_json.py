@@ -302,12 +302,12 @@ class ScaleneJSON:
             # Sort in descending order by least likelihood
             leaks = sorted(leaks, key=itemgetter(1), reverse=True)
 
-            reported_leaks = []
+            reported_leaks = {}
             
             for (leak_lineno, leak_likelihood, leak_velocity) in leaks:
-                reported_leaks.append({ "lineno" : leak_lineno,
-                                        "likelihood" : leak_likelihood,
-                                        "velocity_mb_s" : leak_velocity / stats.elapsed_time })
+                reported_leaks[str(leak_lineno)] = {
+                    "likelihood" : leak_likelihood,
+                    "velocity_mb_s" : leak_velocity / stats.elapsed_time }
 
             # Print header.
             if not stats.total_cpu_samples:
