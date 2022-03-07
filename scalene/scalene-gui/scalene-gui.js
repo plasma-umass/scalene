@@ -161,6 +161,12 @@ function makeSparkline(
         v[1].toFixed(1) + "MB (@ " + (v[0] / 1e9).toFixed(0) + "s)" + leak_str,
     };
   });
+  let leak_info = "";
+  if (leak_velocity != 0) {
+    leak_info = "possible leak";
+    height -= 10; // FIXME should be actual height of font
+  }
+
   const strokeWidth = 1; // 0.25;
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
@@ -168,6 +174,15 @@ function makeSparkline(
     width: width,
     height: height,
     padding: 0,
+    title: {
+      text: leak_info,
+      baseline: "line-bottom",
+      color: "red",
+      offset: 0,
+      lineHeight: 10,
+      orient: "bottom",
+      fontStyle: "italic",
+    },
     encoding: {
       x: {
         field: "x",
