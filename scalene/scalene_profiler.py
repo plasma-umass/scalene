@@ -1557,63 +1557,71 @@ class Scalene:
 
             if Scalene.__args.web and not Scalene.__args.cli:
                 # Start up a web server (in a background thread) to host the GUI,
-                # and open a browser tab to the server.
+                # and open a browser tab to the server. If this fails, fail-over
+                # to using the CLI.
 
-                PORT = Scalene.__args.port
+                try:
+                    PORT = Scalene.__args.port
 
-                # Silence web server output by overriding logging messages.
-                class NoLogs(http.server.SimpleHTTPRequestHandler):
-                    def log_message(
-                        self, format: str, *args: List[Any]
-                    ) -> None:
-                        return
+                    # Silence web server output by overriding logging messages.
+                    class NoLogs(http.server.SimpleHTTPRequestHandler):
+                        def log_message(
+                            self, format: str, *args: List[Any]
+                        ) -> None:
+                            return
 
-                    def log_request(
-                        self,
-                        code: Union[int, str] = 0,
-                        size: Union[int, str] = 0,
-                    ) -> None:
-                        return
+                        def log_request(
+                            self,
+                            code: Union[int, str] = 0,
+                            size: Union[int, str] = 0,
+                        ) -> None:
+                            return
 
-                Handler = NoLogs
-                socketserver.TCPServer.allow_reuse_address = True
-                with socketserver.TCPServer(("", PORT), Handler) as httpd:
-                    import threading
+                    Handler = NoLogs
+                    socketserver.TCPServer.allow_reuse_address = True
+                    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+                        import threading
 
-                    t = threading.Thread(target=httpd.serve_forever)
-                    # Copy files into a new directory and then point the tab there.
-                    import shutil
+                        t = threading.Thread(target=httpd.serve_forever)
+                        # Copy files into a new directory and then point the tab there.
+                        import shutil
 
-                    webgui_dir = pathlib.Path(
-                        tempfile.mkdtemp(prefix="scalene-gui")
-                    )
-                    shutil.copytree(
-                        os.path.join(os.path.dirname(__file__), "scalene-gui"),
-                        os.path.join(webgui_dir, "scalene-gui"),
-                    )
-                    shutil.copy(
-                        "profile.json", os.path.join(webgui_dir, "scalene-gui")
-                    )
-                    os.chdir(os.path.join(webgui_dir, "scalene-gui"))
-                    t.start()
-                    if Scalene.in_jupyter():
-                        from IPython.core.display import HTML, display
-                        from IPython.display import IFrame
+                        webgui_dir = pathlib.Path(
+                            tempfile.mkdtemp(prefix="scalene-gui")
+                        )
+                        shutil.copytree(
+                            os.path.join(os.path.dirname(__file__), "scalene-gui"),
+                            os.path.join(webgui_dir, "scalene-gui"),
+                        )
+                        shutil.copy(
+                            "profile.json", os.path.join(webgui_dir, "scalene-gui")
+                        )
+                        os.chdir(os.path.join(webgui_dir, "scalene-gui"))
+                        t.start()
+                        if Scalene.in_jupyter():
+                            from IPython.core.display import HTML, display
+                            from IPython.display import IFrame
 
-                        display(
-                            IFrame(
-                                src=f"http://localhost:{PORT}/profiler.html",
-                                width=700,
-                                height=600,
+                            display(
+                                IFrame(
+                                    src=f"http://localhost:{PORT}/profiler.html",
+                                    width=700,
+                                    height=600,
+                                )
                             )
-                        )
-                    else:
-                        webbrowser.open_new_tab(
-                            f"http://localhost:{PORT}/profiler.html"
-                        )
-                    # Wait long enough for the server to serve the page, and then shut down the server.
-                    time.sleep(5)
-                    httpd.shutdown()
+                        else:
+                            webbrowser.open_new_tab(
+                                f"http://localhost:{PORT}/profiler.html"
+                            )
+                        # Wait long enough for the server to serve the page, and then shut down the server.
+                        time.sleep(5)
+                        httpd.shutdown()
+                except OSError:
+                    print(f"Scalene: unable to run the Scalene GUI on port {PORT}.")
+                    print("Possible solutions:")
+                    print("(1) Use a different port (with --port)")
+                    print("(2) Use the text version (with --cli)")
+                    print("(3) Upload a generated profile.json file to the web GUI: https://plasma-umass.org/scalene-gui/.")
 
         return exit_status
 
