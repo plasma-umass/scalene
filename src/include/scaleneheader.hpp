@@ -34,6 +34,9 @@ class ScaleneHeader {
 #else
   ScaleneHeader(size_t sz) : size(sz) {}
   size_t size;
+  size_t _padding1;
+  size_t _padding2;
+  size_t _padding3;
 
 #endif
 #else
