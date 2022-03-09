@@ -15,7 +15,11 @@ extern "C" size_t malloc_usable_size(void *) throw();
 
 #define USE_HEADERS 1
 #define DEBUG_HEADER 0
-
+#if DEBUG_HEADERS
+const int n_padding = 16 - 2 * sizeof(size_t);
+#else
+const int n_padding = 16 - sizeof(size_t);
+#endif
 // Maximum size allocated internally by pymalloc;
 // aka "SMALL_REQUEST_THRESHOLD" in cpython/Objects/obmalloc.c
 #define PYMALLOC_MAX_SIZE 512
@@ -23,17 +27,22 @@ extern "C" size_t malloc_usable_size(void *) throw();
 class ScaleneHeader {
  private:
   static constexpr size_t MAGIC_NUMBER = 0x01020304;
-
+  // NOTE-- this header MUST be a multiple of 16 bytes in length 
+  // because of the expectation of the Python interpreter. The unmodified interpreter
+  // may opt at compile-time to use 8 or 16 byte alignments, but we opt for 16 to cover
+  // both cases
  public:
 #if USE_HEADERS
 #if DEBUG_HEADER
   ScaleneHeader(size_t sz) : size(sz), magic(MAGIC_NUMBER) {}
-  size_t size;
-  size_t padding;
-  size_t magic;
+  size_t size;      
+                     
+  size_t magic; 
+  uint8_t padding[n_padding];
 #else
   ScaleneHeader(size_t sz) : size(sz) {}
-  size_t size;
+  size_t size;        
+  uint8_t padding[n_padding];
 
 #endif
 #else
