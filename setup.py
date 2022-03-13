@@ -161,7 +161,7 @@ setup(
         "cloudpickle>=1.5.0",
         "nvidia-ml-py>=11.450.51,<375.99999",
         "numpy",
-        "pynvml>=11.4.1"
+        "pynvml>=11.0.0"
     ],
     ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),
     setup_requires=['setuptools_scm'],
