@@ -3,10 +3,8 @@ ipython==7.31.1
 lxml==4.6.5
 numpy~=1.21.2
 packaging==20.9
-pynvml==11.0.0
 pyperf==2.0.0
 rich==10.7.0
 setuptools~=57.0.0
 pip~=21.1.2
 pynvml~=11.0.0
-wheel~=0.36.1
