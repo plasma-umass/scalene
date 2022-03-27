@@ -86,6 +86,7 @@ class SampleHeap : public SuperHeap {
       return nullptr;
     }
     if (pythonDetected() && !g.wasInMalloc()) {
+      // printf_("getting size from %p ... ", ptr);
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
         if (sz == NEWLINE + sizeof(ScaleneHeader)) {
@@ -114,10 +115,11 @@ class SampleHeap : public SuperHeap {
       return nullptr;
 #endif
     }
-
+    // printf_("getting size from %p ... ", ptr);
     size_t objSize = SuperHeap::getSize(ptr);
 
     void* buf = SuperHeap::malloc(sz);
+    // printf_("getting size from %p ... ", ptr);
     size_t buf_size = buf ? SuperHeap::getSize(buf) : 0;
     if (buf) {
       if (objSize == buf_size) {
@@ -203,6 +205,7 @@ class SampleHeap : public SuperHeap {
     if (unlikely(ptr == nullptr)) {
       return;
     }
+    // printf_("getting size from %p ... ", ptr);
     auto realSize = SuperHeap::getSize(ptr);
     SuperHeap::free(ptr);
     if (pythonDetected() && !g.wasInMalloc()) {
@@ -249,6 +252,7 @@ class SampleHeap : public SuperHeap {
       return nullptr;
     }
     if (pythonDetected() && !g.wasInMalloc()) {
+      // printf_("getting size from %p ... ", ptr);
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
