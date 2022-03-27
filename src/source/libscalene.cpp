@@ -163,10 +163,10 @@ class MakeLocalAllocator {
     auto *header = (ScaleneHeader *)get_original_allocator()->malloc(ctx, len);
 #endif
     assert(header);                  // We expect this to always succeed.
-    // if (len <= PYMALLOC_MAX_SIZE) {  // don't count allocations pymalloc passes
+    if (! m.wasInMalloc()) {  // don't count allocations pymalloc passes
                                      // to malloc
       TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
-    // }
+    }
     class Nada {};
     static_assert(
         SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE > PYMALLOC_MAX_SIZE,
@@ -196,9 +196,9 @@ class MakeLocalAllocator {
       // printf_("LOCAL FREE %d (%d)\n", Domain, local_allocator_count);
       const auto sz = ScaleneHeader::getSize(ptr);
 
-      // if (sz <= PYMALLOC_MAX_SIZE) {
+      if (! m.wasInMalloc()) {
         TheHeapWrapper::register_free(sz, ptr);
-      // }
+      }
       get_original_allocator()->free(ctx, ScaleneHeader::getHeader(ptr));
     }
   }
@@ -220,7 +220,7 @@ class MakeLocalAllocator {
     void *buf = get_original_allocator()->realloc(
         ctx, ScaleneHeader::getHeader(ptr), allocSize);
     ScaleneHeader *result = new (buf) ScaleneHeader(new_size);
-    if (result) {
+    if (result && ! m.wasInMalloc()) {
       if (sz < new_size) {
         // if (new_size - sz <= PYMALLOC_MAX_SIZE) {
           TheHeapWrapper::register_malloc(new_size - sz,
