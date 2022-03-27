@@ -1,8 +1,10 @@
 import contextlib
+import sys
+import textwrap
+
+from typing import Any
 
 with contextlib.suppress(Exception):
-    import sys
-    from typing import Any
 
     from IPython.core.magic import (
         Magics,
@@ -17,6 +19,8 @@ with contextlib.suppress(Exception):
 
     @magics_class
     class ScaleneMagics(Magics):  # type: ignore
+        """IPython (Jupyter) support for magics for Scalene (%scrun and %%scalene)."""
+
         def run_code(self, args: ScaleneArguments, code: str) -> None:
             import IPython
 
@@ -30,15 +34,17 @@ with contextlib.suppress(Exception):
                 tmpfile.write(newcode)
             args.cpu_only = True  # full Scalene is not yet working, force to use CPU-only mode
             scalene_profiler.Scalene.set_initialized()
-            scalene_profiler.Scalene.run_profiler(args, [filename], is_jupyter=True)
+            scalene_profiler.Scalene.run_profiler(
+                args, [filename], is_jupyter=True
+            )
 
         @line_cell_magic
         def scalene(self, line: str, cell: str = "") -> None:
-            """See https://github.com/plasma-umass/scalene for usage info."""
+            """%%scalene magic: see https://github.com/plasma-umass/scalene for usage info."""
             if line:
                 sys.argv = ["scalene"]
                 sys.argv.extend(line.split(" "))
-                (args, left) = ScaleneParseArgs.parse_args()
+                (args, _left) = ScaleneParseArgs.parse_args()
             else:
                 args = ScaleneArguments()
             if cell:
@@ -46,8 +52,7 @@ with contextlib.suppress(Exception):
 
         @line_magic
         def scrun(self, line: str = "") -> None:
-            """See https://github.com/plasma-umass/scalene for usage info."""
-            from scalene import scalene_profiler
+            """%scrun magic: see https://github.com/plasma-umass/scalene for usage info."""
 
             if line:
                 sys.argv = ["scalene"]
@@ -63,8 +68,6 @@ with contextlib.suppress(Exception):
                 usage_str = usage.read()
             ScaleneMagics.scrun.__doc__ = usage_str
             ScaleneMagics.scalene.__doc__ = usage_str
-        import textwrap
-
         print(
             "\n".join(
                 textwrap.wrap(

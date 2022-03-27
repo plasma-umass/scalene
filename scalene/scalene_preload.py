@@ -27,7 +27,7 @@ class ScalenePreload:
         if sys.platform == "linux":
             if not args.cpu_only:
                 env["LD_PRELOAD"] = os.path.join(
-                    scalene.__path__[0], "libscalene.so"  # type: ignore
+                    scalene.__path__[0], "libscalene.so"
                 )
                 # Disable command-line specified PYTHONMALLOC.
                 if "PYTHONMALLOC" in env:
@@ -88,7 +88,7 @@ class ScalenePreload:
             os.environ.update(req_env)
 
             new_args = [
-                os.path.basename(sys.executable),
+                sys.executable,
                 "-m",
                 "scalene",
             ] + sys.argv[1:]

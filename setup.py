@@ -141,9 +141,7 @@ setup(
         "Topic :: Software Development :: Debuggers",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3"
-    ] + (["Programming Language :: Python :: 3.7"] if sys.platform != 'win32' else []) + 
-    [
+        "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
@@ -161,12 +159,12 @@ setup(
     install_requires=[
         "rich>=9.2.0",
         "cloudpickle>=1.5.0",
-        "nvidia-ml-py>=11.450.51",
-        "numpy"
+        "numpy",
+        "pynvml>=11.0.0"
     ],
     ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),
     setup_requires=['setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
-    python_requires=">=3.7" if sys.platform != 'win32' else ">=3.8",
+    python_requires=">=3.8",
 )

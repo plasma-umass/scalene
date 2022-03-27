@@ -3,7 +3,7 @@ import pathlib
 import pickle
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, NewType, Set, Tuple, TypeVar
+from typing import Any, DefaultDict, Dict, List, NewType, Set, Tuple, TypeVar
 
 import cloudpickle
 
@@ -43,6 +43,11 @@ class ScaleneStatistics:
         self.gpu_samples: Dict[
             Filename, Dict[LineNumber, float]
         ] = defaultdict(lambda: defaultdict(float))
+
+        #   GPU memory samples for each location in the program
+        self.gpu_mem_samples: DefaultDict[
+            Filename, DefaultDict[LineNumber, RunningStats]
+        ] = defaultdict(lambda: defaultdict(RunningStats))
 
         # Running stats for the fraction of time running on the CPU.
         self.cpu_utilization: Dict[
@@ -137,13 +142,13 @@ class ScaleneStatistics:
         # the peak memory footprint
         self.max_footprint: float = 0.0
 
-        # memory footprint samples (time, footprint) FIXME
-        self.memory_footprint_samples = [] # Adaptive(27)
+        # memory footprint samples (time, footprint)
+        self.memory_footprint_samples: List[List[float]] = []
 
         # same, but per line
         self.per_line_footprint_samples: Dict[
             Filename, Dict[LineNumber, List[Any]]
-        ] = defaultdict(lambda: defaultdict(list)) # was Adaptive(9)
+        ] = defaultdict(lambda: defaultdict(list))
 
         # maps byte indices to line numbers (collected at runtime)
         # [filename][lineno] -> set(byteindex)
@@ -233,6 +238,9 @@ class ScaleneStatistics:
             fn_stats.gpu_samples[fn_name][first_line_no] += self.gpu_samples[
                 filename
             ][line_no]
+            fn_stats.gpu_mem_samples[fn_name][
+                first_line_no
+            ] += self.gpu_mem_samples[filename][line_no]
             fn_stats.cpu_utilization[fn_name][
                 first_line_no
             ] += self.cpu_utilization[filename][line_no]
@@ -271,9 +279,9 @@ class ScaleneStatistics:
                 fn_stats.memory_max_footprint[fn_name][first_line_no],
                 self.memory_max_footprint[filename][line_no],
             )
-            fn_stats.memory_aggregate_footprint[fn_name][first_line_no] += (
-                self.memory_aggregate_footprint[filename][line_no]
-            )
+            fn_stats.memory_aggregate_footprint[fn_name][
+                first_line_no
+            ] += self.memory_aggregate_footprint[filename][line_no]
         return fn_stats
 
     payload_contents = [
@@ -290,6 +298,7 @@ class ScaleneStatistics:
         "memory_python_samples",
         "memory_free_samples",
         "memcpy_samples",
+        "memory_max_footprint",
         "per_line_footprint_samples",
         "total_memory_free_samples",
         "total_memory_malloc_samples",
@@ -304,6 +313,7 @@ class ScaleneStatistics:
     # To be added: __malloc_samples
 
     def output_stats(self, pid: int, dir_name: pathlib.Path) -> None:
+        """Output statistics for a particular process to a given directory."""
         payload: List[Any] = []
         for n in ScaleneStatistics.payload_contents:
             payload.append(getattr(self, n))
@@ -321,6 +331,7 @@ class ScaleneStatistics:
         dest: Dict[Filename, Dict[LineNumber, T]],
         src: Dict[Filename, Dict[LineNumber, T]],
     ) -> None:
+        """Increment single-line dest samples by their value in src."""
         for filename in src:
             for lineno in src[filename]:
                 v = src[filename][lineno]
@@ -336,6 +347,7 @@ class ScaleneStatistics:
                 dest[filename][lineno] += src[filename][lineno]
 
     def merge_stats(self, the_dir_name: pathlib.Path) -> None:
+        """Merge all statistics in a given directory."""
         the_dir = pathlib.Path(the_dir_name)
         for f in list(the_dir.glob("**/scalene*")):
             # Skip empty files.

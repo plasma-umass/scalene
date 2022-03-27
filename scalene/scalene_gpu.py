@@ -1,4 +1,5 @@
 import contextlib
+from typing import Tuple
 
 import pynvml
 
@@ -18,9 +19,11 @@ class ScaleneGPU:
                 self.__handle.append(pynvml.nvmlDeviceGetHandleByIndex(i))
 
     def has_gpu(self) -> bool:
+        """True iff the system has a detected GPU."""
         return self.__has_gpu
 
     def nvml_reinit(self) -> None:
+        """Reinitialize the nvidia wrapper."""
         self.__handle = []
         with contextlib.suppress(Exception):
             pynvml.nvmlInit()
@@ -28,26 +31,18 @@ class ScaleneGPU:
             for i in range(self.__ngpus):
                 self.__handle.append(pynvml.nvmlDeviceGetHandleByIndex(i))
 
-    def load(self) -> float:
+    def get_stats(self) -> Tuple[float, float]:
+        """Returns a tuple of (utilization %, memory in use)."""
         if self.__has_gpu:
             total_load = 0.0
+            mem_used = 0
             for i in range(self.__ngpus):
-                try:
-                    with contextlib.suppress(Exception):
-                        total_load += pynvml.nvmlDeviceGetUtilizationRates(
-                            self.__handle[i]
-                        ).gpu
-                except:
-                    pass
-            return (total_load / self.__ngpus) / 100.0
-        return 0.0
-
-    def memory_used(self) -> int:
-        mem_used = 0
-        for i in range(self.__ngpus):
-            try:
-                mem_info = pynvml.nvmlDeviceGetMemoryInfo(self.__handle[i])
-                mem_used += mem_info.used
-            except:
-                pass
-        return mem_used
+                with contextlib.suppress(Exception):
+                    total_load += pynvml.nvmlDeviceGetUtilizationRates(
+                        self.__handle[i]
+                    ).gpu
+                    mem_info = pynvml.nvmlDeviceGetMemoryInfo(self.__handle[i])
+                    mem_used += mem_info.used
+            total_load = (total_load / self.__ngpus) / 100.0
+            return (total_load, mem_used)
+        return (0.0, 0.0)

@@ -1,3 +1,4 @@
+import random
 import sys
 import tempfile
 from collections import OrderedDict, defaultdict
@@ -15,6 +16,7 @@ from rich.text import Text
 from scalene import sparkline
 from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
+from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.syntaxline import SyntaxLine
 
 
@@ -26,23 +28,11 @@ class ScaleneOutput:
     # Maximum entries for sparklines, per line
     max_sparkline_len_line = 9
 
-    # Only report potential leaks if the allocation velocity is above this threshold
-    growth_rate_threshold = 0.01
-
-    # Only report leaks whose likelihood is 1 minus this threshold
-    leak_reporting_threshold = 0.05
-    
     # Threshold for highlighting lines of code in red.
     highlight_percentage = 33
 
     # Color for highlighted text (over the threshold of CPU time)
     highlight_color = "bold red"
-
-    # Default threshold for percent of CPU time to report a file.
-    cpu_percent_threshold = 1
-
-    # Default threshold for number of mallocs to report a file.
-    malloc_threshold = 1  # 100
 
     def __init__(self) -> None:
         # where we write profile info
@@ -77,15 +67,7 @@ class ScaleneOutput:
                 if not printed_header:
                     console.print(title)
                     printed_header = True
-                output_str = (
-                    "("
-                    + str(number)
-                    + ") "
-                    + ("%5.0f" % (malloc_lineno))
-                    + ": "
-                    + ("%5.0f" % (mallocs[malloc_lineno]))
-                    + " MB"
-                )
+                output_str = f"({str(number)}) {malloc_lineno:5.0f}: {(mallocs[malloc_lineno]):5.0f} MB"
                 console.print(Markdown(output_str, style="dark_green"))
                 number += 1
 
@@ -182,13 +164,18 @@ class ScaleneOutput:
             samples = obj["memory_samples"]
             # Randomly downsample to ScaleneOutput.max_sparkline_len_line.
             if len(samples) > ScaleneOutput.max_sparkline_len_line:
-                import random
-                random_samples = sorted(random.sample(samples, ScaleneOutput.max_sparkline_len_line))
+                random_samples = sorted(
+                    random.sample(
+                        samples, ScaleneOutput.max_sparkline_len_line
+                    )
+                )
             else:
                 random_samples = samples
             sparkline_samples = []
             for i in range(0, len(random_samples)):
-                sparkline_samples.append(random_samples[i][1] * obj["n_usage_fraction"])
+                sparkline_samples.append(
+                    random_samples[i][1] * obj["n_usage_fraction"]
+                )
             if random_samples:
                 _, _, spark_str = sparkline.generate(
                     sparkline_samples, 0, stats.max_footprint
@@ -344,15 +331,20 @@ class ScaleneOutput:
             samples = stats.memory_footprint_samples
             if len(samples) > 0:
                 # Randomly downsample samples
-                import random
                 if len(samples) > ScaleneOutput.max_sparkline_len_file:
-                    random_samples = sorted(random.sample(samples, ScaleneOutput.max_sparkline_len_file))
+                    random_samples = sorted(
+                        random.sample(
+                            samples, ScaleneOutput.max_sparkline_len_file
+                        )
+                    )
                 else:
                     random_samples = samples
                 sparkline_samples = [item[1] for item in random_samples]
                 # Output a sparkline as a summary of memory usage over time.
                 _, _, spark_str = sparkline.generate(
-                    sparkline_samples[ : ScaleneOutput.max_sparkline_len_file], 0, stats.max_footprint
+                    sparkline_samples[: ScaleneOutput.max_sparkline_len_file],
+                    0,
+                    stats.max_footprint,
                 )
                 # Compute growth rate (slope), between 0 and 1.
                 if stats.allocation_velocity[1] > 0:
@@ -406,8 +398,8 @@ class ScaleneOutput:
 
             # Ignore files responsible for less than some percent of execution time and fewer than a threshold # of mallocs.
             if (
-                stats.malloc_samples[fname] < self.malloc_threshold
-                and percent_cpu_time < self.cpu_percent_threshold
+                stats.malloc_samples[fname] < ScaleneJSON.malloc_threshold
+                and percent_cpu_time < ScaleneJSON.cpu_percent_threshold
             ):
                 continue
             report_files.append(fname)
@@ -440,8 +432,7 @@ class ScaleneOutput:
                     100 * stats.cpu_samples[fname] / stats.total_cpu_samples
                 )
             new_title = mem_usage_line + (
-                "%s: %% of time = %6.2f%% out of %6.2fs."
-                % (fname_print, percent_cpu_time, stats.elapsed_time)
+                f"{fname_print}: % of time = {percent_cpu_time:6.2f} out of {stats.elapsed_time:6.2f}."
             )
             # Only display total memory usage once.
             mem_usage_line = ""
@@ -651,13 +642,7 @@ class ScaleneOutput:
             # Compute AVERAGE memory consumption.
             avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
-                n_malloc_mb = stats.memory_aggregate_footprint[fname][
-                    line_no
-                ]  # 0.0
-                # for bytei in stats.memory_malloc_samples[fname][line_no]:
-                #    n_malloc_mb += stats.memory_malloc_samples[fname][line_no][
-                #        bytei
-                #    ]
+                n_malloc_mb = stats.memory_aggregate_footprint[fname][line_no]
                 count = stats.memory_malloc_count[fname][line_no]
                 if count:
                     avg_mallocs[line_no] = n_malloc_mb / count
@@ -694,40 +679,16 @@ class ScaleneOutput:
                 "Top PEAK memory consumption, by line:", console, peak_mallocs
             )
 
-            # Only report potential leaks if the allocation velocity (growth rate) is above some threshold
-            # FIXME: fixed at 1% for now.
-            # We only report potential leaks where the confidence interval is quite tight and includes 1.
-            leaks = []
-            if growth_rate / 100 > ScaleneOutput.growth_rate_threshold:
-                keys = list(stats.leak_score[fname].keys())
-                for index, item in enumerate(stats.leak_score[fname].values()):
-                    # See https://en.wikipedia.org/wiki/Rule_of_succession
-                    frees = item[1]
-                    allocs = item[0]
-                    expected_leak = (frees + 1) / (frees + allocs + 2)
-                    if expected_leak <= ScaleneOutput.leak_reporting_threshold:
-                        if keys[index] in avg_mallocs:
-                            leaks.append(
-                                (
-                                    keys[index],
-                                    1 - expected_leak,
-                                    avg_mallocs[keys[index]],
-                                )
-                            )
-                if len(leaks) > 0:
-                    # Report in descending order by least likelihood
-                    for leak in sorted(leaks, key=itemgetter(1), reverse=True):
-                        output_str = (
-                            "Possible memory leak identified at line "
-                            + str(leak[0])
-                            + " (estimated likelihood: "
-                            + ("%3.0f" % (leak[1] * 100))
-                            + "%"
-                            + ", velocity: "
-                            + ("%3.0f MB/s" % (leak[2] / stats.elapsed_time))
-                            + ")"
-                        )
-                        console.print(output_str)
+            # Only report potential leaks if the allocation velocity (growth rate) is above some threshold.
+            leaks = ScaleneLeakAnalysis.compute_leaks(
+                growth_rate, stats, avg_mallocs, fname
+            )
+
+            if len(leaks) > 0:
+                # Report in descending order by least likelihood
+                for leak in sorted(leaks, key=itemgetter(1), reverse=True):
+                    output_str = f"Possible memory leak identified at line {str(leak[0])} (estimated likelihood: {(leak[1] * 100):3.0f}%, velocity: {(leak[2] / stats.elapsed_time):3.0f} MB/s)"
+                    console.print(output_str)
 
         if self.html:
             # Write HTML file.

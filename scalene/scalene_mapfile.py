@@ -2,10 +2,10 @@ import mmap
 import os
 import sys
 
+from typing import Any, NewType, TextIO
+
 if sys.platform != "win32":
     from scalene import get_line_atomic  # type: ignore
-
-from typing import Any, NewType, TextIO
 
 Filename = NewType("Filename", str)
 
@@ -54,10 +54,12 @@ class ScaleneMapFile:
         )
 
     def close(self) -> None:
+        """Close the map file."""
         self._signal_fd.close()
         self._lock_fd.close()
 
     def cleanup(self) -> None:
+        """Remove all map files."""
         try:
             os.remove(self._init_filename)
             os.remove(self._signal_filename)
@@ -65,6 +67,7 @@ class ScaleneMapFile:
             pass
 
     def read(self) -> Any:
+        """Read a line from the map file."""
         if sys.platform == "win32":
             return False
         if not self._signal_mmap:
@@ -74,5 +77,6 @@ class ScaleneMapFile:
         )
 
     def get_str(self) -> str:
+        """Get the string from the buffer."""
         map_str = self._buf.rstrip(b"\x00").split(b"\n")[0].decode("ascii")
         return map_str

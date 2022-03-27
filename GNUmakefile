@@ -1,12 +1,13 @@
 LIBNAME = scalene
 PYTHON = python3
 PYTHON_SOURCES = scalene/[a-z]*.py
+JS_SOURCES = scalene/scalene-gui/*.js
 C_SOURCES = src/source/*.cpp src/include/*.h*
 
-.PHONY: black clang-format format upload vendor-deps
+.PHONY: black clang-format prettier format upload vendor-deps
 
 # CXXFLAGS = -std=c++17 -g -O0 # FIXME
-CXXFLAGS = -std=c++17 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -pipe -fno-builtin-malloc -fvisibility=hidden
+CXXFLAGS = -std=c++17 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -DHL_USE_XXREALLOC=1 -pipe -fno-builtin-malloc -fvisibility=hidden
 CXX = g++
 
 INCLUDES  = -Isrc -Isrc/include
@@ -65,13 +66,16 @@ vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp
 mypy:
 	-mypy $(PYTHON_SOURCES)
 
-format: black clang-format
+format: black clang-format prettier
 
 clang-format:
 	-clang-format -i $(C_SOURCES) --style=google
 
 black:
 	-black -l 79 $(PYTHON_SOURCES)
+
+prettier:
+	-npx prettier -w $(JS_SOURCES)
 
 ifeq ($(shell uname -s),Darwin)
   PYTHON_PLAT:=-p $(shell $(PYTHON) -c 'from pkg_resources import get_build_platform; p=get_build_platform(); print(p[:p.rindex("-")])')-universal2
