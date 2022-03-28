@@ -189,7 +189,6 @@ class MakeLocalAllocator {
     // ignore nullptr
     if (ptr) {
       MallocRecursionGuard m;
-      // printf_("LOCAL FREE %d (%d)\n", Domain, local_allocator_count);
       const auto sz = ScaleneHeader::getSize(ptr);
 
       if (! m.wasInMalloc()) {
@@ -208,9 +207,6 @@ class MakeLocalAllocator {
     }
     MallocRecursionGuard m;
     const auto sz = ScaleneHeader::getSize(ptr);
-
-    // printf_("LOCAL REALLOC %d (%lu)\n", Domain, new_size);
-
     void *p = nullptr;
     const auto allocSize = new_size + sizeof(ScaleneHeader);
     void *buf = get_original_allocator()->realloc(
@@ -234,7 +230,6 @@ class MakeLocalAllocator {
   }
 
   static inline void *local_calloc(void *ctx, size_t nelem, size_t elsize) {
-    // printf_("CALLOC %lu %lu\n", nelem, elsize);
     const auto nbytes = nelem * elsize;
     void *obj = local_malloc(ctx, nbytes);
     if (true) {  // obj) {
