@@ -30,7 +30,7 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
 
 constexpr uint64_t DefaultAllocationSamplingRate =
-    1 * 1549351ULL;  // 1 * 1048576ULL;
+    0.5 * 1549351ULL;  // 1 * 1048576ULL;
 constexpr uint64_t MemcpySamplingRate = DefaultAllocationSamplingRate * 7;
 
 /**
@@ -159,15 +159,16 @@ class MakeLocalAllocator {
     const auto allocSize = len + sizeof(ScaleneHeader);
     buf = get_original_allocator()->malloc(ctx, allocSize);
     auto *header = new (buf) ScaleneHeader(len);
+    class Nada {};
 #else
     auto *header = (ScaleneHeader *)get_original_allocator()->malloc(ctx, len);
 #endif
     assert(header);                  // We expect this to always succeed.
-    if (! m.wasInMalloc()) {  // don't count allocations pymalloc passes
+    if (! m.wasInMalloc() || len == SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE ) {  // don't count allocations pymalloc passes
                                      // to malloc
       TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
     }
-    class Nada {};
+    
     static_assert(
         SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE > PYMALLOC_MAX_SIZE,
         "NEWLINE must be greater than PYMALLOC_MAX_SIZE.");

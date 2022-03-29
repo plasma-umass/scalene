@@ -135,13 +135,10 @@ class SampleHeap : public SuperHeap {
     SuperHeap::free(ptr);
     if (buf) {
       if (sz < buf_size) {
-        if (buf_size - sz <= PYMALLOC_MAX_SIZE) {
-          register_malloc(buf_size - sz, buf);
-        }
+          register_malloc(buf_size - sz, buf, false);
       } else if (sz > buf_size) {
-        if (sz - buf_size <= PYMALLOC_MAX_SIZE) {
           register_free(sz - buf_size, ptr);
-        }
+
       }
     }
     // Return a pointer to the new one.
@@ -249,7 +246,7 @@ class SampleHeap : public SuperHeap {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
-      register_malloc(realSize, ptr);
+      register_malloc(realSize, ptr, false);
     }
     return ptr;
   }
