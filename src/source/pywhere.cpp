@@ -7,7 +7,7 @@
 #include <mutex>
 #include <vector>
 
-#include "printf.h"
+// #include "printf.h"
 
 class TraceConfig {
  public:
