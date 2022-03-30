@@ -118,7 +118,7 @@ class ScaleneJSON:
         n_python_fraction = (
             0
             if not n_malloc_mb
-            else n_python_malloc_mb / stats.total_memory_malloc_samples
+            else n_python_malloc_mb / n_malloc_mb
         )
 
         # Average memory consumed by this line.
