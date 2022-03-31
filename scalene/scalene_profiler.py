@@ -395,6 +395,16 @@ class Scalene:
             sigq.stop()
 
     @staticmethod
+    def term_signal_handler(
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
+        this_frame: Optional[FrameType],
+    ):
+        raise SystemExit(143)
+
+
+    @staticmethod
     def malloc_signal_handler(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
@@ -486,6 +496,10 @@ class Scalene:
         )
         Scalene.__orig_signal(
             Scalene.__signals.memcpy_signal, Scalene.memcpy_signal_handler
+        )
+        Scalene.__orig_signal(
+            signal.SIGTERM,
+            Scalene.term_signal_handler
         )
         # Set every signal to restart interrupted system calls.
         for s in Scalene.__signals.get_all_signals():
