@@ -1,3 +1,15 @@
-import multiprocessing
-pool = multiprocessing.Pool(processes=1)
-pool.terminate()
+# import logging
+# import multiprocessing
+# log = multiprocessing.get_logger()
+# log.setLevel(logging.DEBUG)
+# log.addHandler(logging.StreamHandler())
+from multiprocessing import Pool
+
+def f(x):
+    print("Start")
+    return [i for i in range(10000000)]
+
+if __name__ == '__main__':
+    with Pool(5) as p:
+        q = p.map(f, [1, 2, 3])
+        print(len(q))
