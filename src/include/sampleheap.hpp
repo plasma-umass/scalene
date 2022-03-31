@@ -54,7 +54,6 @@ class SampleHeap : public SuperHeap {
  public:
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
-
   static constexpr uint64_t NEWLINE =
       98821;  // Sentinel value denoting a new line has executed
 
@@ -114,7 +113,6 @@ class SampleHeap : public SuperHeap {
       return nullptr;
 #endif
     }
-
     size_t objSize = SuperHeap::getSize(ptr);
 
     void* buf = SuperHeap::malloc(sz);
@@ -136,13 +134,10 @@ class SampleHeap : public SuperHeap {
     SuperHeap::free(ptr);
     if (buf) {
       if (sz < buf_size) {
-        if (buf_size - sz <= PYMALLOC_MAX_SIZE) {
-          register_malloc(buf_size - sz, buf);
-        }
+          register_malloc(buf_size - sz, buf, false); // false -> invoked from C/C++
       } else if (sz > buf_size) {
-        if (sz - buf_size <= PYMALLOC_MAX_SIZE) {
           register_free(sz - buf_size, ptr);
-        }
+
       }
     }
     // Return a pointer to the new one.
@@ -183,8 +178,6 @@ class SampleHeap : public SuperHeap {
 
     decltype(whereInPython)* where = p_whereInPython;
     if (where != nullptr && where(filename, lineno, bytei)) {
-      // printf_("MALLOC HANDLED (SAMPLEHEAP): %p -> %lu (%s, %d)\n", ptr,
-      // sampleMalloc, filename.c_str(), lineno);
       writeCount(MallocSignal, sampleMalloc, ptr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
       raise(MallocSignal);
@@ -252,7 +245,7 @@ class SampleHeap : public SuperHeap {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
-      register_malloc(realSize, ptr);
+      register_malloc(realSize, ptr, false); // false -> invoked from C/C++
     }
     return ptr;
   }

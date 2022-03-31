@@ -7,7 +7,10 @@
 #include <mutex>
 #include <vector>
 
-#include "printf.h"
+// NOTE: uncomment for debugging, but this causes issues
+// for production builds on Alpine
+//
+// #include "printf.h"
 
 class TraceConfig {
  public:

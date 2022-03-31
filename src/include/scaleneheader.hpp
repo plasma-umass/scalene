@@ -66,8 +66,6 @@ class ScaleneHeader {
     auto sz = getHeader(ptr)->size;
     if (sz > PYMALLOC_MAX_SIZE) {
 #if defined(__APPLE__)
-      //      printf_("%p: sz = %lu, actual size = %lu\n", getHeader(ptr), sz,
-      //      ::malloc_size(getHeader(ptr)));
       assert(::malloc_size(getHeader(ptr)) >= sz);
 #else
       assert(::malloc_usable_size(getHeader(ptr)) >= sz);
