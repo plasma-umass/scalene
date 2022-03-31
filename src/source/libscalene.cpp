@@ -164,8 +164,7 @@ class MakeLocalAllocator {
     auto *header = (ScaleneHeader *)get_original_allocator()->malloc(ctx, len);
 #endif
     assert(header);                  // We expect this to always succeed.
-    if (! m.wasInMalloc() || len == SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE ) {  // don't count allocations pymalloc passes
-                                     // to malloc
+    if (! m.wasInMalloc() ) {  
       TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
     }
     

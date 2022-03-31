@@ -134,7 +134,7 @@ class SampleHeap : public SuperHeap {
     SuperHeap::free(ptr);
     if (buf) {
       if (sz < buf_size) {
-          register_malloc(buf_size - sz, buf, false);
+          register_malloc(buf_size - sz, buf, false); // false -> invoked from C/C++
       } else if (sz > buf_size) {
           register_free(sz - buf_size, ptr);
 
@@ -245,7 +245,7 @@ class SampleHeap : public SuperHeap {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
-      register_malloc(realSize, ptr, false);
+      register_malloc(realSize, ptr, false); // false -> invoked from C/C++
     }
     return ptr;
   }
