@@ -1569,7 +1569,7 @@ class Scalene:
                     "Scalene: Program did not run for long enough to profile."
                 )
 
-            if Scalene.__args.web and not Scalene.__args.cli:
+            if Scalene.__args.web and not Scalene.__args.cli and not Scalene.__is_child:
                 # Start up a web server (in a background thread) to host the GUI,
                 # and open a browser tab to the server. If this fails, fail-over
                 # to using the CLI.
