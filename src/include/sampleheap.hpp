@@ -54,7 +54,6 @@ class SampleHeap : public SuperHeap {
  public:
   enum { Alignment = SuperHeap::Alignment };
   enum AllocSignal { MallocSignal = SIGXCPU, FreeSignal = SIGXFSZ };
-
   static constexpr uint64_t NEWLINE =
       98821;  // Sentinel value denoting a new line has executed
 

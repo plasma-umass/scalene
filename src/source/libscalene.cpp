@@ -30,7 +30,7 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
 
 constexpr uint64_t DefaultAllocationSamplingRate =
-    0.5 * 1549351ULL;  // 1 * 1048576ULL;
+    1 * 1549351ULL;  // 1 * 1048576ULL;
 constexpr uint64_t MemcpySamplingRate = DefaultAllocationSamplingRate * 7;
 
 /**
@@ -215,14 +215,10 @@ class MakeLocalAllocator {
     ScaleneHeader *result = new (buf) ScaleneHeader(new_size);
     if (result && ! m.wasInMalloc()) {
       if (sz < new_size) {
-        // if (new_size - sz <= PYMALLOC_MAX_SIZE) {
           TheHeapWrapper::register_malloc(new_size - sz,
                                           ScaleneHeader::getObject(result));
-        // }
       } else if (sz > new_size) {
-        // if (sz - new_size <= PYMALLOC_MAX_SIZE) {
           TheHeapWrapper::register_free(sz - new_size, ptr);
-        // }
       }
     }
     ScaleneHeader::setSize(ScaleneHeader::getObject(result), new_size);
