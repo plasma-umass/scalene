@@ -203,7 +203,7 @@ class Scalene:
     client_timer: ScaleneClientTimer = ScaleneClientTimer()
 
     __orig_signal = signal.signal
-
+    __orig_exit = os._exit
     if sys.version_info < (3, 8):
         __orig_raise_signal = lambda s: os.kill(os.getpid(), s)
     else:
@@ -401,7 +401,11 @@ class Scalene:
         ],
         this_frame: Optional[FrameType],
     ):
-        raise SystemExit(143)
+        
+        Scalene.stop()
+        Scalene.output_profile()
+        
+        Scalene.__orig_exit(143)
 
 
     @staticmethod
@@ -1442,7 +1446,7 @@ class Scalene:
         Scalene.__done = True
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
-        if Scalene.__args.web and not Scalene.__args.cli:
+        if Scalene.__args.web and not Scalene.__args.cli and not Scalene.__is_child:
             if Scalene.in_jupyter():
                 # Force JSON output to profile.json.
                 Scalene.__args.json = True
@@ -1554,6 +1558,7 @@ class Scalene:
             # Intercept sys.exit and propagate the error code.
             exit_status = se.code
         except KeyboardInterrupt:
+            traceback.print_exc()
             # Cleanly handle keyboard interrupts (quits execution and dumps the profile).
             print("Scalene execution interrupted.")
         except Exception as e:
@@ -1569,7 +1574,7 @@ class Scalene:
                     "Scalene: Program did not run for long enough to profile."
                 )
 
-            if Scalene.__args.web and not Scalene.__args.cli:
+            if Scalene.__args.web and not Scalene.__args.cli and not Scalene.__is_child:
                 # Start up a web server (in a background thread) to host the GUI,
                 # and open a browser tab to the server. If this fails, fail-over
                 # to using the CLI.
