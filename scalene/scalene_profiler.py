@@ -112,7 +112,7 @@ class Scalene:
 
     __in_jupyter = False  # are we running inside a Jupyter notebook
     __start_time = 0  # start of profiling, in nanoseconds
-
+    __sigterm_exit_code = 143
     # Whether the current profiler is a child
     __is_child = -1
     # the pid of the primary profiler
@@ -405,7 +405,7 @@ class Scalene:
         Scalene.stop()
         Scalene.output_profile()
         
-        Scalene.__orig_exit(143)
+        Scalene.__orig_exit(Scalene.__sigterm_exit_code)
 
 
     @staticmethod
@@ -1558,7 +1558,6 @@ class Scalene:
             # Intercept sys.exit and propagate the error code.
             exit_status = se.code
         except KeyboardInterrupt:
-            traceback.print_exc()
             # Cleanly handle keyboard interrupts (quits execution and dumps the profile).
             print("Scalene execution interrupted.")
         except Exception as e:
