@@ -112,7 +112,7 @@ class Scalene:
 
     __in_jupyter = False  # are we running inside a Jupyter notebook
     __start_time = 0  # start of profiling, in nanoseconds
-
+    __sigterm_exit_code = 143
     # Whether the current profiler is a child
     __is_child = -1
     # the pid of the primary profiler
@@ -203,7 +203,7 @@ class Scalene:
     client_timer: ScaleneClientTimer = ScaleneClientTimer()
 
     __orig_signal = signal.signal
-
+    __orig_exit = os._exit
     if sys.version_info < (3, 8):
         __orig_raise_signal = lambda s: os.kill(os.getpid(), s)
     else:
@@ -395,6 +395,20 @@ class Scalene:
             sigq.stop()
 
     @staticmethod
+    def term_signal_handler(
+        signum: Union[
+            Callable[[Signals, FrameType], None], int, Handlers, None
+        ],
+        this_frame: Optional[FrameType],
+    ):
+        
+        Scalene.stop()
+        Scalene.output_profile()
+        
+        Scalene.__orig_exit(Scalene.__sigterm_exit_code)
+
+
+    @staticmethod
     def malloc_signal_handler(
         signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
@@ -486,6 +500,10 @@ class Scalene:
         )
         Scalene.__orig_signal(
             Scalene.__signals.memcpy_signal, Scalene.memcpy_signal_handler
+        )
+        Scalene.__orig_signal(
+            signal.SIGTERM,
+            Scalene.term_signal_handler
         )
         # Set every signal to restart interrupted system calls.
         for s in Scalene.__signals.get_all_signals():
@@ -1428,7 +1446,7 @@ class Scalene:
         Scalene.__done = True
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
-        if Scalene.__args.web and not Scalene.__args.cli:
+        if Scalene.__args.web and not Scalene.__args.cli and not Scalene.__is_child:
             if Scalene.in_jupyter():
                 # Force JSON output to profile.json.
                 Scalene.__args.json = True
@@ -1555,7 +1573,7 @@ class Scalene:
                     "Scalene: Program did not run for long enough to profile."
                 )
 
-            if Scalene.__args.web and not Scalene.__args.cli:
+            if Scalene.__args.web and not Scalene.__args.cli and not Scalene.__is_child:
                 # Start up a web server (in a background thread) to host the GUI,
                 # and open a browser tab to the server. If this fails, fail-over
                 # to using the CLI.
