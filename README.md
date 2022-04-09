@@ -34,7 +34,7 @@ Once Scalene has profiled your program, it will launch a web browser with an int
 Commonly used options:
 
 ```console
-scalene your_prog.py                             # full profile (prints to console)
+scalene your_prog.py                             # full profile (outputs to web interface)
 python3 -m scalene your_prog.py                  # equivalent alternative
 scalene --cli your_prog.py                       # use the command-line only (no web interface)
 scalene --cpu-only your_prog.py                  # only CPU/GPU
