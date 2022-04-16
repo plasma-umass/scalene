@@ -401,12 +401,11 @@ class Scalene:
         ],
         this_frame: Optional[FrameType],
     ) -> None:
-        
+
         Scalene.stop()
         Scalene.output_profile()
-        
-        Scalene.__orig_exit(Scalene.__sigterm_exit_code)
 
+        Scalene.__orig_exit(Scalene.__sigterm_exit_code)
 
     @staticmethod
     def malloc_signal_handler(
@@ -501,10 +500,7 @@ class Scalene:
         Scalene.__orig_signal(
             Scalene.__signals.memcpy_signal, Scalene.memcpy_signal_handler
         )
-        Scalene.__orig_signal(
-            signal.SIGTERM,
-            Scalene.term_signal_handler
-        )
+        Scalene.__orig_signal(signal.SIGTERM, Scalene.term_signal_handler)
         # Set every signal to restart interrupted system calls.
         for s in Scalene.__signals.get_all_signals():
             Scalene.__orig_siginterrupt(s, False)
@@ -1446,7 +1442,11 @@ class Scalene:
         Scalene.__done = True
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
-        if Scalene.__args.web and not Scalene.__args.cli and not Scalene.__is_child:
+        if (
+            Scalene.__args.web
+            and not Scalene.__args.cli
+            and not Scalene.__is_child
+        ):
             if Scalene.in_jupyter():
                 # Force JSON output to profile.json.
                 Scalene.__args.json = True
@@ -1573,7 +1573,11 @@ class Scalene:
                     "Scalene: Program did not run for long enough to profile."
                 )
 
-            if Scalene.__args.web and not Scalene.__args.cli and not Scalene.__is_child:
+            if (
+                Scalene.__args.web
+                and not Scalene.__args.cli
+                and not Scalene.__is_child
+            ):
                 # Start up a web server (in a background thread) to host the GUI,
                 # and open a browser tab to the server. If this fails, fail-over
                 # to using the CLI.
@@ -1608,11 +1612,14 @@ class Scalene:
                             tempfile.mkdtemp(prefix="scalene-gui")
                         )
                         shutil.copytree(
-                            os.path.join(os.path.dirname(__file__), "scalene-gui"),
+                            os.path.join(
+                                os.path.dirname(__file__), "scalene-gui"
+                            ),
                             os.path.join(webgui_dir, "scalene-gui"),
                         )
                         shutil.copy(
-                            "profile.json", os.path.join(webgui_dir, "scalene-gui")
+                            "profile.json",
+                            os.path.join(webgui_dir, "scalene-gui"),
                         )
                         os.chdir(os.path.join(webgui_dir, "scalene-gui"))
                         t.start()
@@ -1635,11 +1642,15 @@ class Scalene:
                         time.sleep(5)
                         httpd.shutdown()
                 except OSError:
-                    print(f"Scalene: unable to run the Scalene GUI on port {PORT}.")
+                    print(
+                        f"Scalene: unable to run the Scalene GUI on port {PORT}."
+                    )
                     print("Possible solutions:")
                     print("(1) Use a different port (with --port)")
                     print("(2) Use the text version (with --cli)")
-                    print("(3) Upload a generated profile.json file to the web GUI: https://plasma-umass.org/scalene-gui/.")
+                    print(
+                        "(3) Upload a generated profile.json file to the web GUI: https://plasma-umass.org/scalene-gui/."
+                    )
 
         return exit_status
 
