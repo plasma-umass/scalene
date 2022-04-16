@@ -73,7 +73,7 @@ function makeGPUPie(util) {
         },
         {
           category: 2,
-          value: 100 - util.toFixed(1),
+          value: (100 - util).toFixed(1),
           c: "idle: " + (100 - util).toFixed(1) + "%",
         },
       ],
@@ -91,6 +91,40 @@ function makeGPUPie(util) {
       },
       tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
     },
+  };
+}
+
+function makeMemoryPie(native_mem, python_mem) {
+  return {
+      $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+      width: "container",
+      height: "container",
+      padding: 0,
+      data: {
+	  values: [
+              {
+		  category: 1,
+		  value: native_mem.toFixed(1),
+		  c: "native: " + native_mem.toFixed(1) + "%",
+              },
+              {
+		  category: 2,
+		  value: python_mem.toFixed(1),
+		  c: "Python: " + python_mem.toFixed(1) + "%",
+              },
+	  ],
+      },
+      mark: "arc",
+      encoding: {
+	  theta: { field: "value", type: "quantitative", scale : { "domain" : [0, 100] }},
+	  color: {
+              field: "c",
+              type: "nominal",
+              legend: false,
+              scale: { range: ["darkgreen", "#50C878"] },
+	  },
+	  tooltip: [{ field: "c", type: "nominal", title: "memory" }],
+      },
   };
 }
 
@@ -279,13 +313,13 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
         title: ["memory", "average"],
         color: MemoryColor,
         width: 0,
-        info: "Average amount of memory allocated by this line / function",
+        info: "Average amount of memory allocated by line / function",
       },
       {
         title: ["memory", "peak"],
         color: MemoryColor,
         width: 0,
-        info: "Peak amount of memory allocated by this line / function",
+        info: "Peak amount of memory allocated by line / function",
       },
       {
         title: ["memory", "timeline"],
@@ -297,7 +331,7 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
         title: ["memory", "activity"],
         color: MemoryColor,
         width: 0,
-        info: "% of bytes allocated by this line / function over the total bytes allocated in that file",
+        info: "% of bytes allocated by line / function over total bytes allocated in file",
       },
       {
         title: ["copy", "(MB/s)"],
@@ -312,13 +346,13 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
       title: ["gpu", "util."],
       color: CopyColor,
       width: 0,
-      info: "% utilization of the GPU by this line / function (may be inaccurate if GPU is not dedicated)",
+      info: "% utilization of the GPU by line / function (may be inaccurate if GPU is not dedicated)",
     });
     columns.push({
       title: ["gpu", "memory"],
       color: CopyColor,
       width: 0,
-      info: "Peak GPU memory allocated by this line / function (may be inaccurate if GPU is not dedicated)",
+      info: "Peak GPU memory allocated by line / function (may be inaccurate if GPU is not dedicated)",
     });
   }
   columns.push({ title: ["", ""], color: "black", width: 100 });
@@ -360,6 +394,7 @@ function makeProfileLine(
   cpu_bars,
   memory_bars,
   memory_sparklines,
+  memory_activity,
   gpu_pies
 ) {
   let s = "";
@@ -419,12 +454,22 @@ function makeProfileLine(
     } else {
       memory_sparklines.push(null);
     }
-    s += '<td style="width: 100; vertical-align: middle" align="right">';
+    s += '<td style="width: 100; vertical-align: middle" align="center">';
     if (line.n_usage_fraction >= 0.01) {
-      s += `<font style="font-size: small">${String(
-        (100 * line.n_usage_fraction).toFixed(0)
-      ).padStart(10, " ")}%&nbsp;&nbsp;&nbsp;</font>`;
+	s += `<span style="height: 20; width: 30; vertical-align: middle" id="memory_activity${memory_activity.length}"></span>`;
+	console.log(line.lineno, line.n_usage_fraction, line.n_python_fraction);
+      memory_activity.push(
+        makeMemoryPie(
+            100 * line.n_usage_fraction * (1 - parseFloat(line.n_python_fraction)),
+            100 * line.n_usage_fraction * parseFloat(line.n_python_fraction),
+        )
+      );
+    } else {
+      memory_activity.push(null);
     }
+    //      s += `<font style="font-size: small">${String(
+    //        (100 * line.n_usage_fraction).toFixed(0)
+    //      ).padStart(10, " ")}%&nbsp;&nbsp;&nbsp;</font>`;
     s += "</td>";
     if (line.n_copy_mb_s < 1.0) {
       s += '<td style="width: 100"></td>';
@@ -481,6 +526,7 @@ function buildAllocationMaps(prof, f) {
 
 async function display(prof) {
   let memory_sparklines = [];
+  let memory_activity = [];
   let cpu_bars = [];
   let gpu_pies = [];
   let memory_bars = [];
@@ -616,6 +662,7 @@ async function display(prof) {
         cpu_bars,
         memory_bars,
         memory_sparklines,
+        memory_activity,
         gpu_pies
       );
     }
@@ -636,6 +683,7 @@ async function display(prof) {
           cpu_bars,
           memory_bars,
           memory_sparklines,
+          memory_activity,
           gpu_pies
         );
       }
@@ -705,6 +753,13 @@ async function display(prof) {
     if (p) {
       (async () => {
         await vegaEmbed(`#gpu_pie${index}`, p, { actions: false });
+      })();
+    }
+  });
+    memory_activity.forEach((p, index) => {
+    if (p) {
+      (async () => {
+        await vegaEmbed(`#memory_activity${index}`, p, { actions: false });
       })();
     }
   });
