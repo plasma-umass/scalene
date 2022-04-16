@@ -214,7 +214,7 @@ class ScaleneOutput:
                 ngpus = n_gpu_percent_str
                 nufs = spark_str + n_usage_fraction_str
 
-            if not reduced_profile or ncpps + ncpcs + nufs:
+            if not reduced_profile or ncpps + ncpcs + nufs + ngpus:
                 if self.gpu:
                     tbl.add_row(
                         print_line_no,
@@ -266,7 +266,7 @@ class ScaleneOutput:
                 ncpcs = n_cpu_percent_c_str
                 ngpus = n_gpu_percent_str
 
-            if not reduced_profile or ncpps + ncpcs:
+            if not reduced_profile or ncpps + ncpcs + ngpus:
                 if self.gpu:
                     tbl.add_row(
                         print_line_no,
