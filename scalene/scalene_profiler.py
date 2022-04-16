@@ -400,7 +400,7 @@ class Scalene:
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
         this_frame: Optional[FrameType],
-    ):
+    ) -> None:
         
         Scalene.stop()
         Scalene.output_profile()

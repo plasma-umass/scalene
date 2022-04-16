@@ -329,11 +329,11 @@ class ScaleneJSON:
                     "lines": [],
                     "leaks": reported_leaks,
                 }
-                for line_no, _line in enumerate(code_lines, start=1):
+                for lineno, _line in enumerate(code_lines, start=1):
                     profile_line = self.output_profile_line(
                         fname=fname,
                         fname_print=fname_print,
-                        line_no=LineNumber(line_no),
+                        line_no=LineNumber(lineno),
                         stats=stats,
                         profile_this_code=profile_this_code,
                         profile_memory=profile_memory,
