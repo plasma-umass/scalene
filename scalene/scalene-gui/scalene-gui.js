@@ -96,35 +96,39 @@ function makeGPUPie(util) {
 
 function makeMemoryPie(native_mem, python_mem) {
   return {
-      $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-      width: "container",
-      height: "container",
-      padding: 0,
-      data: {
-	  values: [
-              {
-		  category: 1,
-		  value: native_mem.toFixed(1),
-		  c: "native: " + native_mem.toFixed(1) + "%",
-              },
-              {
-		  category: 2,
-		  value: python_mem.toFixed(1),
-		  c: "Python: " + python_mem.toFixed(1) + "%",
-              },
-	  ],
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    width: "container",
+    height: "container",
+    padding: 0,
+    data: {
+      values: [
+        {
+          category: 1,
+          value: native_mem.toFixed(1),
+          c: "native: " + native_mem.toFixed(1) + "%",
+        },
+        {
+          category: 2,
+          value: python_mem.toFixed(1),
+          c: "Python: " + python_mem.toFixed(1) + "%",
+        },
+      ],
+    },
+    mark: "arc",
+    encoding: {
+      theta: {
+        field: "value",
+        type: "quantitative",
+        scale: { domain: [0, 100] },
       },
-      mark: "arc",
-      encoding: {
-	  theta: { field: "value", type: "quantitative", scale : { "domain" : [0, 100] }},
-	  color: {
-              field: "c",
-              type: "nominal",
-              legend: false,
-              scale: { range: ["darkgreen", "#50C878"] },
-	  },
-	  tooltip: [{ field: "c", type: "nominal", title: "memory" }],
+      color: {
+        field: "c",
+        type: "nominal",
+        legend: false,
+        scale: { range: ["darkgreen", "#50C878"] },
       },
+      tooltip: [{ field: "c", type: "nominal", title: "memory" }],
+    },
   };
 }
 
@@ -456,12 +460,14 @@ function makeProfileLine(
     }
     s += '<td style="width: 100; vertical-align: middle" align="center">';
     if (line.n_usage_fraction >= 0.01) {
-	s += `<span style="height: 20; width: 30; vertical-align: middle" id="memory_activity${memory_activity.length}"></span>`;
-	console.log(line.lineno, line.n_usage_fraction, line.n_python_fraction);
+      s += `<span style="height: 20; width: 30; vertical-align: middle" id="memory_activity${memory_activity.length}"></span>`;
+      console.log(line.lineno, line.n_usage_fraction, line.n_python_fraction);
       memory_activity.push(
         makeMemoryPie(
-            100 * line.n_usage_fraction * (1 - parseFloat(line.n_python_fraction)),
-            100 * line.n_usage_fraction * parseFloat(line.n_python_fraction),
+          100 *
+            line.n_usage_fraction *
+            (1 - parseFloat(line.n_python_fraction)),
+          100 * line.n_usage_fraction * parseFloat(line.n_python_fraction)
         )
       );
     } else {
@@ -756,7 +762,7 @@ async function display(prof) {
       })();
     }
   });
-    memory_activity.forEach((p, index) => {
+  memory_activity.forEach((p, index) => {
     if (p) {
       (async () => {
         await vegaEmbed(`#memory_activity${index}`, p, { actions: false });

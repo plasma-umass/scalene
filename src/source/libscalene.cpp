@@ -163,11 +163,11 @@ class MakeLocalAllocator {
 #else
     auto *header = (ScaleneHeader *)get_original_allocator()->malloc(ctx, len);
 #endif
-    assert(header);                  // We expect this to always succeed.
-    if (! m.wasInMalloc() ) {  
+    assert(header);  // We expect this to always succeed.
+    if (!m.wasInMalloc()) {
       TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
     }
-    
+
     static_assert(
         SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE > PYMALLOC_MAX_SIZE,
         "NEWLINE must be greater than PYMALLOC_MAX_SIZE.");
@@ -191,7 +191,7 @@ class MakeLocalAllocator {
       MallocRecursionGuard m;
       const auto sz = ScaleneHeader::getSize(ptr);
 
-      if (! m.wasInMalloc()) {
+      if (!m.wasInMalloc()) {
         TheHeapWrapper::register_free(sz, ptr);
       }
       get_original_allocator()->free(ctx, ScaleneHeader::getHeader(ptr));
@@ -212,12 +212,12 @@ class MakeLocalAllocator {
     void *buf = get_original_allocator()->realloc(
         ctx, ScaleneHeader::getHeader(ptr), allocSize);
     ScaleneHeader *result = new (buf) ScaleneHeader(new_size);
-    if (result && ! m.wasInMalloc()) {
+    if (result && !m.wasInMalloc()) {
       if (sz < new_size) {
-          TheHeapWrapper::register_malloc(new_size - sz,
-                                          ScaleneHeader::getObject(result));
+        TheHeapWrapper::register_malloc(new_size - sz,
+                                        ScaleneHeader::getObject(result));
       } else if (sz > new_size) {
-          TheHeapWrapper::register_free(sz - new_size, ptr);
+        TheHeapWrapper::register_free(sz - new_size, ptr);
       }
     }
     ScaleneHeader::setSize(ScaleneHeader::getObject(result), new_size);
