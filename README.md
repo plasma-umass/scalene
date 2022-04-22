@@ -272,10 +272,6 @@ See https://stackoverflow.com/a/19344978/4954434 for full instructions for all L
 For Ubuntu/Debian:
 
 ```console
-  # Ubuntu 20
-  % sudo apt install git python3-all-dev
-
-  # Ubuntu 18
   % sudo apt install git python3-all-dev
 ```
 </details>
