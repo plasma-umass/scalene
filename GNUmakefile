@@ -23,7 +23,7 @@ ifeq ($(shell uname -s),Darwin)
   else
     ARCH := -arch x86_64
   endif
-  CXXFLAGS := $(CXXFLAGS) -flto -ftls-model=initial-exec -ftemplate-depth=1024 $(ARCH) -compatibility_version 1 -current_version 1 -dynamiclib
+  CXXFLAGS := -std=c++17 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -DHL_USE_XXREALLOC=1 -pipe -fno-builtin-malloc -fvisibility=hidden -flto -ftls-model=initial-exec -ftemplate-depth=1024 $(ARCH) -compatibility_version 1 -current_version 1 -dynamiclib
   SED_INPLACE = -i ''
 
 else # non-Darwin
