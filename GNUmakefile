@@ -8,7 +8,7 @@ C_SOURCES = src/source/*.cpp src/include/*.h*
 
 # CXXFLAGS = -std=c++17 -g -O0 # FIXME
 CXXFLAGS = -std=c++17 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -DHL_USE_XXREALLOC=1 -pipe -fno-builtin-malloc -fvisibility=hidden
-CXX = g++
+# CXX = g++
 
 INCLUDES  = -Isrc -Isrc/include
 INCLUDES := $(INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility
