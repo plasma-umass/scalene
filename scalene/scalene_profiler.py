@@ -1635,7 +1635,15 @@ class Scalene:
                                 )
                             )
                         else:
-                            webbrowser.open_new_tab(
+                            # Disable the preload environment
+                            # variables which are no longer needed
+                            # anyway (for memory/copy volume tracking)
+                            # and which interfere with at least one
+                            # browser on one platform.
+                            os.environ["LD_PRELOAD"] = ""
+                            os.environ["DYLD_INSERT_LIBRARIES"] = ""
+                            # Now open a new tab with the profiler.
+                            result = webbrowser.open_new_tab(
                                 f"http://localhost:{PORT}/profiler.html"
                             )
                         # Wait long enough for the server to serve the page, and then shut down the server.
