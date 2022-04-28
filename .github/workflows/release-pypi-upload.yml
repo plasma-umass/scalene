@@ -44,10 +44,6 @@ jobs:
             python_version: 3.7
 
     container: ${{ matrix.container }}
-    env:
-      # secrets can't be accessed directly in "if:"
-#      GOOGLE_DRIVE_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
-      TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }}
 
     steps:
       - name: get coordinated .devN
@@ -55,13 +51,17 @@ jobs:
         with:
           name: devN
 
-      - name: set up to use .devN name if a test build (Unix version)
-        if: env.TWINE_REPOSITORY == 'testpypi' && matrix.os != 'windows-latest'
-        run: echo "DEV_BUILD=$(cat devN.txt)" >> $GITHUB_ENV  # for setup.py
-  
-      - name: set up to use .devN name if a test build (Windows version)
-        if: env.TWINE_REPOSITORY == 'testpypi' && matrix.os == 'windows-latest'
-        run: ("DEV_BUILD=" + (get-content devN.txt)) >> $env:GITHUB_ENV  # for setup.py
+      - name: make dev build and send to testpypi if not a release (non-Windows version)
+        if: github.event_name != 'release' && matrix.os != 'windows-latest'
+        run: |
+          echo "DEV_BUILD=$(cat devN.txt)" >> $GITHUB_ENV  # for setup.py
+          echo "TWINE_REPOSITORY=testpypi" >> $GITHUB_ENV
+
+      - name: make dev build and send to testpypi if not a release (Windows version)
+        if: github.event_name != 'release' && matrix.os == 'windows-latest'
+        run: |
+          ("DEV_BUILD=" + (get-content devN.txt)) >> $env:GITHUB_ENV  # for setup.py
+          "TWINE_REPOSITORY=testpypi" >> $env:GITHUB_ENV
 
       - uses: actions/checkout@v2
   
@@ -93,22 +93,8 @@ jobs:
       - name: Build binary dist
         run: make bdist
   
-      - name: Figure out google drive upload target
-        if: env.GOOGLE_DRIVE_FOLDER != ''
-        run: |
-          echo "UPLOAD_TARGET=$(ls dist/scalene*.whl)" >> $GITHUB_ENV
-  
-      - name: Upload to google drive
-        if: env.GOOGLE_DRIVE_FOLDER != ''
-        uses: Jodebu/upload-to-drive@master
-        with:
-          target: ${{ env.UPLOAD_TARGET }}
-          credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          folder: ${{ env.GOOGLE_DRIVE_FOLDER }}
-  
       - name: Upload
-        if: env.GOOGLE_DRIVE_FOLDER == ''
         env:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-        run: twine upload dist/*
+        run: twine upload --verbose dist/*
