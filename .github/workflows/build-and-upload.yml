@@ -81,6 +81,9 @@ jobs:
         # https://github.com/actions/virtual-environments/issues/2557
         if: matrix.os == 'macos-latest'
         run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
+
+      - name: See what's going on with git archive
+        run: (cd scalene; git archive --prefix scalene/ HEAD | tar -t)
   
       - name: Build source dist
         if: matrix.upload_source
