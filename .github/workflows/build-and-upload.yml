@@ -72,11 +72,10 @@ jobs:
         run: |
           PYV=`echo "${{ matrix.python_version }}" | tr -d "."`; ls -d -1 /opt/python/cp$PYV*/bin | head -n 1 >> $GITHUB_PATH
           cat $GITHUB_PATH
-          which git
   
       - name: Install dependencies
         run: |
-          pip3 install setuptools wheel twine
+          pip3 install --upgrade setuptools wheel twine
   
       - name: Work around arm64 support on MacOS
         # https://github.com/actions/virtual-environments/issues/2557
