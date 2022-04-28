@@ -30,19 +30,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-#        python_version: ['3.7', '3.8', '3.9', '3.10']
-        python_version: ['3.8']
-#        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
-        os: ['ubuntu-latest']
+        python_version: ['3.7', '3.8', '3.9', '3.10']
+        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
         include:
           - os: ubuntu-latest
             container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
-#          - os: macos-latest
-#            python_version: 3.7
-#            upload_source: true   # just need ONE of them to do it
-#        exclude:
-#          - os: windows-latest
-#            python_version: 3.7
+          - os: macos-latest
+            python_version: 3.7
+            upload_source: true   # just need ONE of them to do it
+        exclude:
+          - os: windows-latest
+            python_version: 3.7
 
     container: ${{ matrix.container }}
 
@@ -65,7 +63,11 @@ jobs:
       - name: Mark workspace safe for git
         # needed for container and self-hosted runners; see https://github.com/actions/checkout/issues/766
         if: matrix.container != ''
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # setuptool's bdist uses 'git archive' to find files, and fails silently if it can't,
+          # leading to missing files in the archive.  Run it separately to force a failure in that case.
+          (cd scalene; git archive --prefix scalene/ HEAD | tar -t > /dev/null)
   
       - name: Set up python (script version)
         if: matrix.container == ''
@@ -88,9 +90,6 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
 
-      - name: See what's going on with git archive
-        run: (cd scalene; git archive --prefix scalene/ HEAD | tar -t)
-  
       - name: Build source dist
         if: matrix.upload_source
         run: make sdist
