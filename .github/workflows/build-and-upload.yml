@@ -72,6 +72,7 @@ jobs:
         run: |
           PYV=`echo "${{ matrix.python_version }}" | tr -d "."`; ls -d -1 /opt/python/cp$PYV*/bin | head -n 1 >> $GITHUB_PATH
           cat $GITHUB_PATH
+          which git
   
       - name: Install dependencies
         run: |
