@@ -1,11 +1,10 @@
 # https://docs.github.com/en/actions/guides/building-and-testing-python#publishing-to-package-registries
 
-# To upload to [test]pypi, define the project secrets PYPI_REPOSITORY (set to "pypi" or
-# "testpypi"), PYPI_USERNAME and PYPI_PASSWORD.
-
-# To have files upload to Google Drive rather than [test]pypi, follow the setup
-# instructions at https://github.com/Jodebu/upload-to-drive and define the
-# GOOGLE_DRIVE_FOLDER and GOOGLE_DRIVE_CREDENTIALS secrets in the project.
+# When executed manually, this will upload a ".devNNN" build to testpypi;
+# when executed upon a release, it will upload a regular build to pypi.
+#
+# For pypi, you need to have the PYPI_USERNAME and PYPI_PASSWORD secrets configured.
+# For testpypi, you'll need TESTPYPI_USERNAME and TESTPYPI_PASSWORD.
 
 name: build & upload
 
@@ -37,12 +36,12 @@ jobs:
         include:
           - os: ubuntu-latest
             container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
-          - os: macos-latest
-            python_version: 3.7
-            upload_source: true   # just need ONE of them to do it
-        exclude:
-          - os: windows-latest
-            python_version: 3.7
+#          - os: macos-latest
+#            python_version: 3.7
+#            upload_source: true   # just need ONE of them to do it
+#        exclude:
+#          - os: windows-latest
+#            python_version: 3.7
 
     container: ${{ matrix.container }}
 
@@ -52,17 +51,13 @@ jobs:
         with:
           name: devN
 
-      - name: make dev build and send to testpypi if not a release (non-Windows version)
+      - name: make dev build if not a release (non-Windows version)
         if: github.event_name != 'release' && matrix.os != 'windows-latest'
-        run: |
-          echo "DEV_BUILD=$(cat devN.txt)" >> $GITHUB_ENV  # for setup.py
-          echo "TWINE_REPOSITORY=testpypi" >> $GITHUB_ENV
+        run: echo "DEV_BUILD=$(cat devN.txt)" >> $GITHUB_ENV  # for setup.py
 
-      - name: make dev build and send to testpypi if not a release (Windows version)
+      - name: make dev build if not a release (Windows version)
         if: github.event_name != 'release' && matrix.os == 'windows-latest'
-        run: |
-          ("DEV_BUILD=" + (get-content devN.txt)) >> $env:GITHUB_ENV  # for setup.py
-          "TWINE_REPOSITORY=testpypi" >> $env:GITHUB_ENV
+        run: ("DEV_BUILD=" + (get-content devN.txt)) >> $env:GITHUB_ENV  # for setup.py
 
       - uses: actions/checkout@v2
   
@@ -94,7 +89,16 @@ jobs:
       - name: Build binary dist
         run: make bdist
   
-      - name: Upload
+      - name: Non-release (dev) upload
+        if: github.event_name != 'release'
+        env:
+          TWINE_REPOSITORY: testpypi
+          TWINE_USERNAME: ${{ secrets.TESTPYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.TESTPYPI_PASSWORD }}
+        run: twine upload --verbose dist/*
+
+      - name: Release upload
+        if: github.event_name == 'release'
         env:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
