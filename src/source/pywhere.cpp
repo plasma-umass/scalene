@@ -10,8 +10,7 @@
 // NOTE: uncomment for debugging, but this causes issues
 // for production builds on Alpine
 //
-#include "printf.h"
-extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
+// #include "printf.h"
 
 class TraceConfig {
  public:
@@ -217,7 +216,6 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
         lineno =  PyFrame_GetLineNumber(frame);
 
         filename = filenameStr;
-        printf_("FOUND IT: %s %d\n", filenameStr, lineno);
         return 1;
       }
     }
