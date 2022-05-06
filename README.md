@@ -42,7 +42,8 @@ python3 -m scalene your_prog.py                  # equivalent alternative
 scalene --cli your_prog.py                       # use the command-line only (no web interface)
 scalene --cpu-only your_prog.py                  # only CPU/GPU
 scalene --reduced-profile your_prog.py           # only profile lines with significant usage
-scalene --profile-interval 5.0 your_prog.py.     # output a new profile every five seconds
+scalene --profile-interval 5.0 your_prog.py      # output a new profile every five seconds
+scalene (Scalene options) --- your_prog.py (...) # use --- to tell Scalene to ignore options after that point
 scalene --help                                   # lists all options
 ```
 
