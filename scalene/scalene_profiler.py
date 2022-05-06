@@ -725,6 +725,7 @@ class Scalene:
 
     @staticmethod
     def output_profile() -> bool:
+        """Outputs the profile. Returns true iff there was any info reported the profile."""
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
                 Scalene.__program_being_profiled,
@@ -734,17 +735,15 @@ class Scalene:
                 Scalene.__python_alias_dir,
                 profile_memory=not Scalene.__args.cpu_only,
             )
-            if json_output:
-                if not Scalene.__output.output_file:
-                    Scalene.__output.output_file = "/dev/stdout"
-                with open(Scalene.__output.output_file, "w") as f:
-                    f.write(
-                        json.dumps(json_output, sort_keys=True, indent=4)
-                        + "\n"
-                    )
-                return True
-            else:
-                return False
+            if not Scalene.__output.output_file:
+                Scalene.__output.output_file = "/dev/stdout"
+            with open(Scalene.__output.output_file, "w") as f:
+                f.write(
+                    json.dumps(json_output, sort_keys=True, indent=4)
+                    + "\n"
+                )
+            return json_output != {}
+        
         else:
             output = Scalene.__output
             column_width = Scalene.__args.column_width
@@ -1568,13 +1567,15 @@ class Scalene:
             self.stop()
             sys.settrace(None)
             # If we've collected any samples, dump them.
-            if not Scalene.output_profile():
+            did_output = Scalene.output_profile()
+            if not did_output:
                 print(
                     "Scalene: Program did not run for long enough to profile."
                 )
 
             if (
-                Scalene.__args.web
+                did_output
+                and Scalene.__args.web
                 and not Scalene.__args.cli
                 and not Scalene.__is_child
             ):
