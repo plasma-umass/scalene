@@ -163,7 +163,6 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   if (!Py_IsInitialized()) {  // No python, no python stack.
     return 0;
   }
-
   // This function walks the Python stack until it finds a frame
   // corresponding to a file we are actually profiling. On success,
   // it updates filename, lineno, and byte code index appropriately,
@@ -214,10 +213,9 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
 #else
         bytei = frame->f_lasti;
 #endif
-        lineno = PyCode_Addr2Line(frame->f_code, bytei);
+        lineno =  PyFrame_GetLineNumber(frame);
 
         filename = filenameStr;
-        // printf_("FOUND IT: %s %d\n", filenameStr, lineno);
         return 1;
       }
     }

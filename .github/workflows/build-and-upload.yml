@@ -1,11 +1,10 @@
 # https://docs.github.com/en/actions/guides/building-and-testing-python#publishing-to-package-registries
 
-# To upload to [test]pypi, define the project secrets PYPI_REPOSITORY (set to "pypi" or
-# "testpypi"), PYPI_USERNAME and PYPI_PASSWORD.
-
-# To have files upload to Google Drive rather than [test]pypi, follow the setup
-# instructions at https://github.com/Jodebu/upload-to-drive and define the
-# GOOGLE_DRIVE_FOLDER and GOOGLE_DRIVE_CREDENTIALS secrets in the project.
+# When executed manually, this will upload a ".devNNN" build to testpypi;
+# when executed upon a release, it will upload a regular build to pypi.
+#
+# For pypi, you need to have the PYPI_USERNAME and PYPI_PASSWORD secrets configured.
+# For testpypi, you'll need TESTPYPI_USERNAME and TESTPYPI_PASSWORD.
 
 name: build & upload
 
@@ -44,10 +43,6 @@ jobs:
             python_version: 3.7
 
     container: ${{ matrix.container }}
-    env:
-      # secrets can't be accessed directly in "if:"
-#      GOOGLE_DRIVE_FOLDER: ${{ secrets.GOOGLE_DRIVE_FOLDER }}
-      TWINE_REPOSITORY: ${{ secrets.PYPI_REPOSITORY }}
 
     steps:
       - name: get coordinated .devN
@@ -55,15 +50,24 @@ jobs:
         with:
           name: devN
 
-      - name: set up to use .devN name if a test build (Unix version)
-        if: env.TWINE_REPOSITORY == 'testpypi' && matrix.os != 'windows-latest'
+      - name: make dev build if not a release (non-Windows version)
+        if: github.event_name != 'release' && matrix.os != 'windows-latest'
         run: echo "DEV_BUILD=$(cat devN.txt)" >> $GITHUB_ENV  # for setup.py
-  
-      - name: set up to use .devN name if a test build (Windows version)
-        if: env.TWINE_REPOSITORY == 'testpypi' && matrix.os == 'windows-latest'
+
+      - name: make dev build if not a release (Windows version)
+        if: github.event_name != 'release' && matrix.os == 'windows-latest'
         run: ("DEV_BUILD=" + (get-content devN.txt)) >> $env:GITHUB_ENV  # for setup.py
 
       - uses: actions/checkout@v2
+
+      - name: Mark workspace safe for git
+        # needed for container and self-hosted runners; see https://github.com/actions/checkout/issues/766
+        if: matrix.container != ''
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # setuptool's bdist uses 'git archive' to find files, and fails silently if it can't,
+          # leading to missing files in the archive.  Run it separately to force a failure in that case.
+          (cd scalene; git archive --prefix scalene/ HEAD | tar -t > /dev/null)
   
       - name: Set up python (script version)
         if: matrix.container == ''
@@ -79,13 +83,13 @@ jobs:
   
       - name: Install dependencies
         run: |
-          pip3 install setuptools wheel twine
+          pip3 install --upgrade setuptools wheel twine
   
       - name: Work around arm64 support on MacOS
         # https://github.com/actions/virtual-environments/issues/2557
         if: matrix.os == 'macos-latest'
         run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
-  
+
       - name: Build source dist
         if: matrix.upload_source
         run: make sdist
@@ -93,22 +97,17 @@ jobs:
       - name: Build binary dist
         run: make bdist
   
-      - name: Figure out google drive upload target
-        if: env.GOOGLE_DRIVE_FOLDER != ''
-        run: |
-          echo "UPLOAD_TARGET=$(ls dist/scalene*.whl)" >> $GITHUB_ENV
-  
-      - name: Upload to google drive
-        if: env.GOOGLE_DRIVE_FOLDER != ''
-        uses: Jodebu/upload-to-drive@master
-        with:
-          target: ${{ env.UPLOAD_TARGET }}
-          credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          folder: ${{ env.GOOGLE_DRIVE_FOLDER }}
-  
-      - name: Upload
-        if: env.GOOGLE_DRIVE_FOLDER == ''
+      - name: Non-release (dev) upload
+        if: github.event_name != 'release'
+        env:
+          TWINE_REPOSITORY: testpypi
+          TWINE_USERNAME: ${{ secrets.TESTPYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.TESTPYPI_PASSWORD }}
+        run: twine upload --verbose dist/*
+
+      - name: Release upload
+        if: github.event_name == 'release'
         env:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-        run: twine upload dist/*
+        run: twine upload --verbose dist/*

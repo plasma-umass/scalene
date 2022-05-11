@@ -42,7 +42,8 @@ python3 -m scalene your_prog.py                  # equivalent alternative
 scalene --cli your_prog.py                       # use the command-line only (no web interface)
 scalene --cpu-only your_prog.py                  # only CPU/GPU
 scalene --reduced-profile your_prog.py           # only profile lines with significant usage
-scalene --profile-interval 5.0 your_prog.py.     # output a new profile every five seconds
+scalene --profile-interval 5.0 your_prog.py      # output a new profile every five seconds
+scalene (Scalene options) --- your_prog.py (...) # use --- to tell Scalene to ignore options after that point
 scalene --help                                   # lists all options
 ```
 
@@ -253,7 +254,7 @@ code...
 <details open>
 <summary>Using <code>pip</code> (Mac OS X, Linux, Windows, and WSL2)</summary>
 
-Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows version isn't yet complete; it requires Python 3.8 or later and currently only supports CPU profiling.)
+Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows version isn't yet complete; it requires Python 3.8 or later and currently only supports CPU profiling.)
 
 You can install it as follows:
 ```console
@@ -272,10 +273,6 @@ See https://stackoverflow.com/a/19344978/4954434 for full instructions for all L
 For Ubuntu/Debian:
 
 ```console
-  # Ubuntu 20
-  % sudo apt install git python3-all-dev
-
-  # Ubuntu 18
   % sudo apt install git python3-all-dev
 ```
 </details>
