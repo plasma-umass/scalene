@@ -166,6 +166,7 @@ class ScaleneStatistics:
         )
 
     def clear(self) -> None:
+        """Reset all statistics except for memory footprint."""
         self.start_time = 0
         self.elapsed_time = 0
         self.cpu_samples_python.clear()
@@ -203,20 +204,24 @@ class ScaleneStatistics:
         # FIXME: leak score, leak velocity
 
     def clear_all(self) -> None:
+        """Clear all statistics."""
         self.clear()
         self.current_footprint = 0
         self.max_footprint = 0
         self.per_line_footprint_samples.clear()
 
     def start_clock(self) -> None:
+        """Start the timer."""
         self.start_time = time.time()
 
     def stop_clock(self) -> None:
+        """Stop the timer."""
         if self.start_time > 0:
             self.elapsed_time += time.time() - self.start_time
         self.start_time = 0
 
     def build_function_stats(self, filename: Filename):  # type: ignore
+        """Produce aggregated statistics for each function."""
         fn_stats = ScaleneStatistics()
         fn_stats.elapsed_time = self.elapsed_time
         fn_stats.total_cpu_samples = self.total_cpu_samples
@@ -342,6 +347,7 @@ class ScaleneStatistics:
         dest: Dict[Filename, Dict[LineNumber, RunningStats]],
         src: Dict[Filename, Dict[LineNumber, RunningStats]],
     ) -> None:
+        """Increment CPU utilization."""
         for filename in src:
             for lineno in src[filename]:
                 dest[filename][lineno] += src[filename][lineno]
