@@ -13,15 +13,15 @@ class ScaleneGPU:
         self.__has_gpu = False
         self.__handle = []
         self.__pid = os.getpid()
-        # with contextlib.suppress(Exception):
-        pynvml.nvmlInit()
         self.__has_gpu = True
         self.__ngpus = pynvml.nvmlDeviceGetCount()
         self.__has_per_pid_accounting = False
-        for i in range(self.__ngpus):
-            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-            self.__handle.append(handle)
-        self.__has_per_pid_accounting = self.set_accounting_mode()
+        with contextlib.suppress(Exception):
+            pynvml.nvmlInit()
+            for i in range(self.__ngpus):
+                handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                self.__handle.append(handle)
+            self.__has_per_pid_accounting = self.set_accounting_mode()
 
     def __del__(self) -> None:
         if not self.__has_per_pid_accounting:
