@@ -14,17 +14,17 @@ class ScaleneGPU:
         self.__handle = []
         self.__pid = os.getpid()
         self.__has_gpu = True
-        self.__ngpus = pynvml.nvmlDeviceGetCount()
         self.__has_per_pid_accounting = False
         with contextlib.suppress(Exception):
             pynvml.nvmlInit()
+            self.__ngpus = pynvml.nvmlDeviceGetCount()
             for i in range(self.__ngpus):
                 handle = pynvml.nvmlDeviceGetHandleByIndex(i)
                 self.__handle.append(handle)
             self.__has_per_pid_accounting = self.set_accounting_mode()
 
     def __del__(self) -> None:
-        if not self.__has_per_pid_accounting:
+        if self.__has_gpu and not self.__has_per_pid_accounting:
             print("NOTE: The GPU is currently running in a mode that reduces Scalene's accuracy when reporting GPU utilization.")
             print("Run once as root (i.e., prefixed with `sudo`) to enable per-process GPU accounting.")
         
