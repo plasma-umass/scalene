@@ -17,6 +17,7 @@ class ScaleneGPU:
         pynvml.nvmlInit()
         self.__has_gpu = True
         self.__ngpus = pynvml.nvmlDeviceGetCount()
+        self.__has_per_pid_accounting = False
         for i in range(self.__ngpus):
             handle = pynvml.nvmlDeviceGetHandleByIndex(i)
             self.__handle.append(handle)
