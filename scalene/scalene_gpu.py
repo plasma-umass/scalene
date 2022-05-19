@@ -13,10 +13,11 @@ class ScaleneGPU:
         self.__has_gpu = False
         self.__handle = []
         self.__pid = os.getpid()
-        self.__has_gpu = True
         self.__has_per_pid_accounting = False
         with contextlib.suppress(Exception):
             pynvml.nvmlInit()
+            # If we make it here, we have an NVIDIA GPU.
+            self.__has_gpu = True
             self.__ngpus = pynvml.nvmlDeviceGetCount()
             for i in range(self.__ngpus):
                 handle = pynvml.nvmlDeviceGetHandleByIndex(i)
