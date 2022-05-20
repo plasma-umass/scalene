@@ -26,7 +26,7 @@ class ScaleneGPU:
 
     def __del__(self) -> None:
         if self.__has_gpu and not self.__has_per_pid_accounting:
-            print("NOTE: The GPU is currently running in a mode that reduces Scalene's accuracy when reporting GPU utilization.")
+            print("NOTE: The GPU is currently running in a mode that can reduce Scalene's accuracy when reporting GPU utilization.")
             print("Run once as root (i.e., prefixed with `sudo`) to enable per-process GPU accounting.")
         
     def set_accounting_mode(self) -> bool:
@@ -37,8 +37,10 @@ class ScaleneGPU:
             # Check if each GPU has accounting mode set.
             h = pynvml.nvmlDeviceGetHandleByIndex(i)
             if pynvml.nvmlDeviceGetAccountingMode(h) != pynvml.NVML_FEATURE_ENABLED:
-                # If not, try to set it.
+                # If not, try to set it. As a side effect, we turn persistence mode on
+                # so the driver is not unloaded (which undoes the accounting mode setting).
                 try:
+                    pynvml.nvmlDeviceSetPersistenceMode(h, pynvml.NVML_FEATURE_ENABLED)
                     pynvml.nvmlDeviceSetAccountingMode(h, pynvml.NVML_FEATURE_ENABLED)
                 except pynvml.NVMLError:
                     # We don't have sufficient permissions.
