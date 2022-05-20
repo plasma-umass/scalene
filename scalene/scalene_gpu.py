@@ -31,11 +31,11 @@ class ScaleneGPU:
         
     def set_accounting_mode(self) -> bool:
         """Returns true iff the accounting mode was set already for all GPUs or is now set."""
-        ngpus = pynvml.nvmlDeviceGetCount()
+        ngpus = self.__ngpus
 
         for i in range(ngpus):
             # Check if each GPU has accounting mode set.
-            h = pynvml.nvmlDeviceGetHandleByIndex(i)
+            h = self.__handle[i]
             if pynvml.nvmlDeviceGetAccountingMode(h) != pynvml.NVML_FEATURE_ENABLED:
                 # If not, try to set it. As a side effect, we turn persistence mode on
                 # so the driver is not unloaded (which undoes the accounting mode setting).
@@ -53,11 +53,11 @@ class ScaleneGPU:
         """Return overall GPU utilization by pid if possible.
 
         Otherwise, returns aggregate utilization across all running processes."""
-        ngpus = pynvml.nvmlDeviceGetCount()
+        ngpus = self.__ngpus
         accounting_on = self.__has_per_pid_accounting
         utilization = 0
         for i in range(ngpus):
-            h = pynvml.nvmlDeviceGetHandleByIndex(i)
+            h = self.__handle[i]
             if accounting_on:
                 try:
                     utilization += pynvml.nvmlDeviceGetAccountingStats(h, pid).gpuUtilization
@@ -84,8 +84,8 @@ class ScaleneGPU:
         """Returns GPU memory used by the process pid, in MB."""
         # Adapted from https://github.com/gpuopenanalytics/pynvml/issues/21#issuecomment-678808658
         total_used_GPU_memory = 0
-        for dev_id in range(pynvml.nvmlDeviceGetCount()):
-            handle = pynvml.nvmlDeviceGetHandleByIndex(dev_id)
+        for i in range(self.__ngpus):
+            handle = self.__handle[i]
             for proc in pynvml.nvmlDeviceGetComputeRunningProcesses(handle):
                 if proc.pid == pid:
                     total_used_GPU_memory += proc.usedGpuMemory / 1048576
