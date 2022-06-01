@@ -273,7 +273,6 @@ class Scalene:
         while f:
             if (f.f_code.co_filename, f.f_lineno) == current_file_and_line:
                 return f
-                break
             f = cast(FrameType, f.f_back)
         return None
 
