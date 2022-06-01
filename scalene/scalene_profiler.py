@@ -930,11 +930,12 @@ Scalene variant.
             normalized_time = total_time / total_frames
 
         # Now attribute execution time.
-        main_thread_frame = new_frames[0][0]
-        average_python_time = python_time / total_frames
-        average_c_time = c_time / total_frames
-        average_gpu_time = gpu_time / total_frames
-        average_cpu_time = (python_time + c_time) / total_frames
+        if new_frames:
+            main_thread_frame = new_frames[0][0]
+            average_python_time = python_time / total_frames
+            average_c_time = c_time / total_frames
+            average_gpu_time = gpu_time / total_frames
+            average_cpu_time = (python_time + c_time) / total_frames
         for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
