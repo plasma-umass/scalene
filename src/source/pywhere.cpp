@@ -175,11 +175,17 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   GIL gil;
 
   PyThreadState* threadState = PyGILState_GetThisThreadState();
-  if (threadState == 0 || threadState->frame == 0) {
+
+#if (PY_MAJOR_VERSION == 3) && (PY_MINOR_VERSION >= 11)
+  #define PYTHON_3_11 1
+  #warning "Version 3.11 experimental support."
+#endif
+
+  if (threadState == nullptr) { // DISABLED for 3.11 ...  || threadState->frame == nullptr) {
     // Various packages may create native threads; attribute what they do
     // to what the main thread is doing, as it's likely to have requested it.
     threadState = findMainPythonThread();
-    if (threadState == 0) {
+    if (threadState == nullptr) {
       return 0;  // No thread, no stack
     }
   }
@@ -189,6 +195,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     return 0;
   }
 
+#if !defined(PYTHON_3_11)
   for (auto frame = threadState->frame; frame != nullptr;
        frame = frame->f_back) {
     auto fname = frame->f_code->co_filename;
@@ -196,7 +203,16 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     if (!encoded) {
       return 0;
     }
-
+#else
+  auto frame = PyThreadState_GetFrame(threadState);
+  while (frame != nullptr) {
+    auto fname = PyFrame_GetCode(frame)->co_filename;
+    PyPtr<> encoded = PyUnicode_AsASCIIString(fname);
+    if (!encoded) {
+      return 0;
+    }
+#endif
+    
     auto filenameStr = PyBytes_AsString(encoded);
     if (strlen(filenameStr) == 0) {
       continue;
@@ -211,7 +227,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
         // we punt and set it to 0.
         bytei = 0;
 #else
-        bytei = frame->f_lasti;
+        bytei = PyFrame_GetLasti(frame);
 #endif
         lineno =  PyFrame_GetLineNumber(frame);
 
@@ -219,6 +235,12 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
         return 1;
       }
     }
+#if defined(PYTHON_3_11)
+    auto f = frame;
+    frame = PyFrame_GetBack(frame);
+    Py_XDECREF(f);
+    printf("WOOT\n");
+#endif
   }
   return 0;
 }
