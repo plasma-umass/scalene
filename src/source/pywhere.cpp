@@ -138,7 +138,29 @@ class PyPtr {
   O* _obj;
 };
 
-static PyThreadState* findMainPythonThread() {
+
+#if PY_VERSION_HEX < 0x03090000 // new in 3.9
+  inline PyFrameObject * PyThreadState_GetFrame(PyThreadState * threadState) {
+    Py_XREFINC(threadState->frame);
+    return threadState->frame;
+  }
+  inline PyCodeObject * PyFrame_GetCode(PyFrameObject * frame) {
+    Py_XREFINC(frame->f_code);
+    return frame->f_code;
+  }
+  inline PyFrameObject * PyFrame_GetBack(PyFrameObject * frame) {
+    Py_XREFINC(frame->f_back);
+    return frame->f_back;
+  }
+#endif
+#if PY_VERSION_HEX < 0x030B0000 // new in 3.11
+  inline int PyFrame_GetLasti(PyFrameObject * frame) {
+    return frame->f_lasti;
+  }
+#endif
+
+
+static PyPtr<PyFrameObject> findMainPythonThread_frame() {
   PyThreadState* main = nullptr;
 
   PyThreadState* t = PyInterpreterState_ThreadHead(PyInterpreterState_Main());
@@ -156,25 +178,9 @@ static PyThreadState* findMainPythonThread() {
     }
   }
 
-  return main;
+  return PyPtr<PyFrameObject>(main ? PyThreadState_GetFrame(main) : nullptr);
 }
 
-#if !((PY_MAJOR_VERSION == 3) && (PY_MINOR_VERSION >= 11))
-  // If we aren't compiling for version 3.11 or higher, define
-  // replacements for the new ABI.
-  inline PyFrameObject * PyThreadState_GetFrame(PyThreadState * threadState) {
-    return threadState->frame;
-  }
-  inline PyCodeObject * PyFrame_GetCode(PyFrameObject * frame) {
-    return frame->f_code;
-  }
-  inline int PyFrame_GetLasti(PyFrameObject * frame) {
-    return frame->f_lasti;
-  }
-  inline PyFrameObject * PyFrame_GetBack(PyFrameObject * frame) {
-    return frame->f_back;
-  }
-#endif
 
 int whereInPython(std::string& filename, int& lineno, int& bytei) {
   if (!Py_IsInitialized()) {  // No python, no python stack.
@@ -192,14 +198,12 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   GIL gil;
 
   PyThreadState* threadState = PyGILState_GetThisThreadState();
+  PyPtr<PyFrameObject> frame = threadState ? PyThreadState_GetFrame(threadState) : nullptr;
 
-  if ((threadState == nullptr) || (PyThreadState_GetFrame(threadState) == nullptr)) {
+  if (frame == nullptr) {
     // Various packages may create native threads; attribute what they do
     // to what the main thread is doing, as it's likely to have requested it.
-    threadState = findMainPythonThread();
-    if (threadState == nullptr) {
-      return 0;  // No thread, no stack
-    }
+    frame = findMainPythonThread_frame();   // note this may be nullptr
   }
 
   auto traceConfig = TraceConfig::getInstance();
@@ -207,15 +211,14 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     return 0;
   }
 
-  auto frame = PyThreadState_GetFrame(threadState);
   while (frame != nullptr) {
-    auto fname = PyFrame_GetCode(frame)->co_filename;
-    PyPtr<> encoded = PyUnicode_AsASCIIString(fname);
-    if (!encoded) {
+    PyPtr<PyCodeObject> code = PyFrame_GetCode(frame);
+    PyPtr<> co_filename = PyUnicode_AsASCIIString(code->co_filename);
+    if (!co_filename) {
       return 0;
     }
     
-    auto filenameStr = PyBytes_AsString(encoded);
+    auto filenameStr = PyBytes_AsString(co_filename);
     if (strlen(filenameStr) == 0) {
       continue;
     }
@@ -237,12 +240,8 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
         return 1;
       }
     }
-    auto f = frame;
+
     frame = PyFrame_GetBack(frame);
-#if ((PY_MAJOR_VERSION == 3) && (PY_MINOR_VERSION >= 11))
-    // Needed by 3.11+.
-    Py_XDECREF(f);
-#endif
   }
   return 0;
 }
