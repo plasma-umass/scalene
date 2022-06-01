@@ -159,6 +159,23 @@ static PyThreadState* findMainPythonThread() {
   return main;
 }
 
+#if !((PY_MAJOR_VERSION == 3) && (PY_MINOR_VERSION >= 11))
+  // If we aren't compiling for version 3.11 or higher, define
+  // replacements for the new ABI.
+  inline PyFrameObject * PyThreadState_GetFrame(PyThreadState * threadState) {
+    return threadState->frame;
+  }
+  inline PyCodeObject * PyFrame_GetCode(PyFrameObject * frame) {
+    return frame->f_code;
+  }
+  inline int PyFrame_GetLasti(PyFrameObject * frame) {
+    return frame->f_lasti;
+  }
+  inline PyFrameObject * PyFrame_GetBack(PyFrameObject * frame) {
+    return frame->f_back;
+  }
+#endif
+
 int whereInPython(std::string& filename, int& lineno, int& bytei) {
   if (!Py_IsInitialized()) {  // No python, no python stack.
     return 0;
@@ -176,12 +193,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
 
   PyThreadState* threadState = PyGILState_GetThisThreadState();
 
-#if (PY_MAJOR_VERSION == 3) && (PY_MINOR_VERSION >= 11)
-  #define PYTHON_3_11 1
-  #warning "Version 3.11 experimental support."
-#endif
-
-  if (threadState == nullptr) { // DISABLED for 3.11 ...  || threadState->frame == nullptr) {
+  if ((threadState == nullptr) || (PyThreadState_GetFrame(threadState) == nullptr)) {
     // Various packages may create native threads; attribute what they do
     // to what the main thread is doing, as it's likely to have requested it.
     threadState = findMainPythonThread();
@@ -195,15 +207,6 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     return 0;
   }
 
-#if !defined(PYTHON_3_11)
-  for (auto frame = threadState->frame; frame != nullptr;
-       frame = frame->f_back) {
-    auto fname = frame->f_code->co_filename;
-    PyPtr<> encoded = PyUnicode_AsASCIIString(fname);
-    if (!encoded) {
-      return 0;
-    }
-#else
   auto frame = PyThreadState_GetFrame(threadState);
   while (frame != nullptr) {
     auto fname = PyFrame_GetCode(frame)->co_filename;
@@ -211,7 +214,6 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     if (!encoded) {
       return 0;
     }
-#endif
     
     auto filenameStr = PyBytes_AsString(encoded);
     if (strlen(filenameStr) == 0) {
@@ -227,11 +229,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
         // we punt and set it to 0.
         bytei = 0;
 #else
-#if defined(PYTHON_3_11)
         bytei = PyFrame_GetLasti(frame);
-#else
-	bytei = frame->f_lasti;
-#endif
 #endif
         lineno =  PyFrame_GetLineNumber(frame);
 
@@ -239,12 +237,9 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
         return 1;
       }
     }
-#if defined(PYTHON_3_11)
-    auto f = frame;
+    // auto f = frame;
     frame = PyFrame_GetBack(frame);
-    Py_XDECREF(f);
-    printf("WOOT\n");
-#endif
+    // Py_XDECREF(f);
   }
   return 0;
 }
