@@ -227,7 +227,11 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
         // we punt and set it to 0.
         bytei = 0;
 #else
+#if defined(PYTHON_3_11)
         bytei = PyFrame_GetLasti(frame);
+#else
+	bytei = frame->f_lasti;
+#endif
 #endif
         lineno =  PyFrame_GetLineNumber(frame);
 
