@@ -159,7 +159,7 @@ setup(
     install_requires=[
         "rich>=9.2.0",
         "cloudpickle>=1.5.0",
-        "numpy",
+#        "numpy",
         "pynvml>=11.0.0"
     ],
     ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),
