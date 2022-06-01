@@ -237,9 +237,12 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
         return 1;
       }
     }
-    // auto f = frame;
+    auto f = frame;
     frame = PyFrame_GetBack(frame);
-    // Py_XDECREF(f);
+#if ((PY_MAJOR_VERSION == 3) && (PY_MINOR_VERSION >= 11))
+    // Needed by 3.11+.
+    Py_XDECREF(f);
+#endif
   }
   return 0;
 }
