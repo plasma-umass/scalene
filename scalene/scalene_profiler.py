@@ -268,14 +268,13 @@ class Scalene:
         of code or not in invalidate_lines (for per-line memory
         accounting).
         """
-        found_frame = None
         f = frame
+        current_file_and_line = (fname, lineno)
         while f:
-            if (f.f_code.co_filename, f.f_lineno) == (fname, lineno):
-                found_frame = f
-                break
+            if (f.f_code.co_filename, f.f_lineno) == current_file_and_line:
+                return f
             f = cast(FrameType, f.f_back)
-        return found_frame
+        return None
 
     @staticmethod
     def update_line() -> None:
@@ -930,28 +929,33 @@ Scalene variant.
             normalized_time = total_time / total_frames
 
         # Now attribute execution time.
+        if new_frames:
+            main_thread_frame = new_frames[0][0]
+            average_python_time = python_time / total_frames
+            average_c_time = c_time / total_frames
+            average_gpu_time = gpu_time / total_frames
+            average_cpu_time = (python_time + c_time) / total_frames
         for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
             Scalene.enter_function_meta(frame, Scalene.__stats)
-            if frame == new_frames[0][0]:
+            if frame == main_thread_frame:
                 # Main thread.
                 if not is_thread_sleeping[tident]:
-
                     Scalene.__stats.cpu_samples_python[fname][lineno] += (
-                        python_time / total_frames
+                        average_python_time
                     )
                     Scalene.__stats.cpu_samples_c[fname][lineno] += (
-                        c_time / total_frames
+                        average_c_time
                     )
                     Scalene.__stats.cpu_samples[fname] += (
-                        python_time + c_time
-                    ) / total_frames
+                        average_cpu_time
+                    )
                     Scalene.__stats.cpu_utilization[fname][lineno].push(
                         cpu_utilization
                     )
                     Scalene.__stats.gpu_samples[fname][lineno] += (
-                        gpu_time / total_frames
+                        average_gpu_time
                     )
                     Scalene.__stats.gpu_mem_samples[fname][lineno].push(
                         gpu_mem_used
