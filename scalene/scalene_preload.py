@@ -27,7 +27,7 @@ class ScalenePreload:
         if sys.platform == "linux":
             if not args.cpu_only:
                 env["LD_PRELOAD"] = os.path.join(
-                    scalene.__path__[0], "libscalene.so"
+                    scalene.__path__[0].replace(" ", "\ "), "libscalene.so"
                 )
                 # Disable command-line specified PYTHONMALLOC.
                 if "PYTHONMALLOC" in env:
@@ -36,7 +36,7 @@ class ScalenePreload:
         elif sys.platform == "darwin":
             if not args.cpu_only:
                 env["DYLD_INSERT_LIBRARIES"] = os.path.join(
-                    scalene.__path__[0], "libscalene.dylib"
+                    scalene.__path__[0].replace(" ", "\ "), "libscalene.dylib"
                 )
                 # Disable command-line specified PYTHONMALLOC.
                 if "PYTHONMALLOC" in env:
