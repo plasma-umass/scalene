@@ -36,26 +36,30 @@ class MallocRecursionGuard {
 
     auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_ACQUIRE);
     if (state != DONE) {
-      slowPathInMalloc(m, inMallocKeyState);
+      if (slowPathInMalloc(m, inMallocKeyState) == CREATING_KEY) {
+        // this happens IFF pthread_key_create allocates memory
+        return true;
+      }
     }
 
     return pthread_getspecific(*getKey()) != 0;
   }
 
-  static void slowPathInMalloc(std::recursive_mutex& m, int& inMallocKeyState) {
+  static int slowPathInMalloc(std::recursive_mutex& m, int& inMallocKeyState) {
     std::lock_guard<decltype(m)> g{m};
     
     auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_RELAXED);
-    if (unlikely(state == CREATING_KEY)) {
-      return;
-    } else if (unlikely(state == NEEDS_KEY)) {
+
+    if (unlikely(state == NEEDS_KEY)) {
       __atomic_store_n(&inMallocKeyState, CREATING_KEY, __ATOMIC_RELAXED);
-      if (pthread_key_create(getKey(), 0) !=
-	  0) {  // may call malloc/calloc/...
-	abort();
+      if (pthread_key_create(getKey(), 0) != 0) {  // may call [cm]alloc
+        abort();
       }
       __atomic_store_n(&inMallocKeyState, DONE, __ATOMIC_RELEASE);
+      return DONE;
     }
+
+    return state;
   }
   
   static inline void setInMalloc(bool state) {
