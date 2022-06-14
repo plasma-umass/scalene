@@ -141,15 +141,15 @@ class PyPtr {
 
 #if PY_VERSION_HEX < 0x03090000 // new in 3.9
   inline PyFrameObject * PyThreadState_GetFrame(PyThreadState * threadState) {
-    Py_XREFINC(threadState->frame);
+    Py_XINCREF(threadState->frame);
     return threadState->frame;
   }
   inline PyCodeObject * PyFrame_GetCode(PyFrameObject * frame) {
-    Py_XREFINC(frame->f_code);
+    Py_XINCREF(frame->f_code);
     return frame->f_code;
   }
   inline PyFrameObject * PyFrame_GetBack(PyFrameObject * frame) {
-    Py_XREFINC(frame->f_back);
+    Py_XINCREF(frame->f_back);
     return frame->f_back;
   }
 #endif
