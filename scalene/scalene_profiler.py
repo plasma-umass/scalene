@@ -98,6 +98,7 @@ def scalene_redirect_profile(func: Any) -> Any:
     """
     return Scalene.profile(func)
 
+
 builtins.profile = scalene_redirect_profile  # type: ignore
 
 # Must equal src/include/sampleheap.hpp NEWLINE *minus 1*
@@ -130,10 +131,10 @@ class Scalene:
 
     # Support for @profile
     # decorated files
-    __files_to_profile: Dict[Filename, bool] = defaultdict(bool)
+    __files_to_profile: Set[Filename] = set()
     # decorated functions
-    __functions_to_profile: Dict[Filename, Dict[Any, bool]] = defaultdict(
-        lambda: {}
+    __functions_to_profile: Dict[Filename, Set[Any]] = defaultdict(
+        lambda: set()
     )
 
     # Cache the original thread join function, which we replace with our own version.
@@ -225,7 +226,7 @@ class Scalene:
     @staticmethod
     def get_all_signals_set() -> Set[int]:
         """Return the set of all signals currently set.
-        
+
         Used by replacement_signal_fns.py to shim signals used by the client program.
         """
         return set(Scalene.__signals.get_all_signals())
@@ -233,7 +234,7 @@ class Scalene:
     @staticmethod
     def get_timer_signals() -> Tuple[int, signal.Signals]:
         """Return the set of all TIMER signals currently set.
-        
+
         Used by replacement_signal_fns.py to shim timers used by the client program.
         """
         return Scalene.__signals.get_timer_signals()
@@ -352,8 +353,8 @@ class Scalene:
         it and only reports stats for those.
 
         """
-        Scalene.__files_to_profile[func.__code__.co_filename] = True
-        Scalene.__functions_to_profile[func.__code__.co_filename][func] = True
+        Scalene.__files_to_profile.add(func.__code__.co_filename)
+        Scalene.__functions_to_profile[func.__code__.co_filename].add(func)
 
         @functools.wraps(func)
         def wrapper_profile(*args: Any, **kwargs: Any) -> Any:
@@ -365,16 +366,16 @@ class Scalene:
     @staticmethod
     def shim(func: Callable[[Any], Any]) -> Any:
         """Provide a decorator that calls the wrapped function with the
-Scalene variant.
+        Scalene variant.
 
-        Wrapped function must be of type (s: Scalene) -> Any.
+                Wrapped function must be of type (s: Scalene) -> Any.
 
-        This decorator allows for marking a function in a separate
-        file as a drop-in replacement for an existing library
-        function. The intention is for these functions to replace a
-        function that indefinitely blocks (which interferes with
-        Scalene) with a function that awakens periodically to allow
-        for signals to be delivered.
+                This decorator allows for marking a function in a separate
+                file as a drop-in replacement for an existing library
+                function. The intention is for these functions to replace a
+                function that indefinitely blocks (which interferes with
+                Scalene) with a function that awakens periodically to allow
+                for signals to be delivered.
 
         """
         func(Scalene)
@@ -699,11 +700,7 @@ Scalene variant.
                 )
             return
 
-        # Periodically sample GPU load as well.
-        if random.randint(0, 9) == 0:
-            (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
-        else:
-            (gpu_load, gpu_mem_used) = (0.0, 0.0)
+        (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
 
         # Pass on to the signal queue.
         Scalene.__cpu_sigq.put(
@@ -773,11 +770,10 @@ Scalene variant.
                 Scalene.__output.output_file = "/dev/stdout"
             with open(Scalene.__output.output_file, "w") as f:
                 f.write(
-                    json.dumps(json_output, sort_keys=True, indent=4)
-                    + "\n"
+                    json.dumps(json_output, sort_keys=True, indent=4) + "\n"
                 )
             return json_output != {}
-        
+
         else:
             output = Scalene.__output
             column_width = Scalene.__args.column_width
@@ -942,21 +938,19 @@ Scalene variant.
             if frame == main_thread_frame:
                 # Main thread.
                 if not is_thread_sleeping[tident]:
-                    Scalene.__stats.cpu_samples_python[fname][lineno] += (
-                        average_python_time
-                    )
-                    Scalene.__stats.cpu_samples_c[fname][lineno] += (
-                        average_c_time
-                    )
-                    Scalene.__stats.cpu_samples[fname] += (
-                        average_cpu_time
-                    )
+                    Scalene.__stats.cpu_samples_python[fname][
+                        lineno
+                    ] += average_python_time
+                    Scalene.__stats.cpu_samples_c[fname][
+                        lineno
+                    ] += average_c_time
+                    Scalene.__stats.cpu_samples[fname] += average_cpu_time
                     Scalene.__stats.cpu_utilization[fname][lineno].push(
                         cpu_utilization
                     )
-                    Scalene.__stats.gpu_samples[fname][lineno] += (
-                        average_gpu_time
-                    )
+                    Scalene.__stats.gpu_samples[fname][
+                        lineno
+                    ] += average_gpu_time
                     Scalene.__stats.gpu_mem_samples[fname][lineno].push(
                         gpu_mem_used
                     )
@@ -1821,7 +1815,7 @@ Scalene variant.
                         from scalene import pywhere  # type: ignore
 
                         pywhere.register_files_to_profile(
-                            list(Scalene.__files_to_profile.keys()),
+                            list(Scalene.__files_to_profile),
                             Scalene.__program_path,
                             Scalene.__args.profile_all,
                         )
