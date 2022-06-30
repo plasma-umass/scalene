@@ -1164,9 +1164,12 @@ Scalene variant.
             count /= 1024 * 1024
             if is_malloc:
                 stats.current_footprint += count
-                stats.max_footprint = max(
-                    stats.current_footprint, stats.max_footprint
-                )
+                # stats.max_footprint = max(
+                #     stats.current_footprint, stats.max_footprint
+                # )
+                if stats.current_footprint > stats.max_footprint:
+                    stats.max_footprint = stats.current_footprint
+                    stats.max_footprint_loc = (fname, lineno)
             else:
                 assert action == "f" or action == "F"
                 stats.current_footprint -= count
