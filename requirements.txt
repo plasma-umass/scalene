@@ -1,7 +1,6 @@
 cloudpickle==1.6.0
 ipython==7.31.1
 lxml==4.6.5
-numpy~=1.21.2
 packaging==20.9
 pyperf==2.0.0
 rich==10.7.0
