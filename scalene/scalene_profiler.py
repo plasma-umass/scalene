@@ -906,7 +906,7 @@ class Scalene:
         # Update counters for every running thread.
 
         new_frames = Scalene.compute_frames_to_record(this_frame)
-
+        
         # Now update counters (weighted) for every frame we are tracking.
         total_time = python_time + c_time
 
@@ -925,12 +925,13 @@ class Scalene:
             normalized_time = total_time / total_frames
 
         # Now attribute execution time.
-        if new_frames:
+        if new_frames :
             main_thread_frame = new_frames[0][0]
-            average_python_time = python_time / total_frames
-            average_c_time = c_time / total_frames
-            average_gpu_time = gpu_time / total_frames
-            average_cpu_time = (python_time + c_time) / total_frames
+            if total_frames:
+                average_python_time = python_time / total_frames
+                average_c_time = c_time / total_frames
+                average_gpu_time = gpu_time / total_frames
+                average_cpu_time = (python_time + c_time) / total_frames
         for (frame, tident, orig_frame) in new_frames:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
