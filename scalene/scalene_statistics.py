@@ -3,7 +3,7 @@ import pathlib
 import pickle
 import time
 from collections import defaultdict
-from typing import Any, DefaultDict, Dict, List, NewType, Set, Tuple, TypeVar
+from typing import Any, DefaultDict, Dict, List, NewType, Optional, Set, Tuple, TypeVar
 
 import cloudpickle
 
@@ -141,7 +141,7 @@ class ScaleneStatistics:
 
         # the peak memory footprint
         self.max_footprint: float = 0.0
-
+        self.max_footprint_loc: Optional[Tuple[Filename, LineNumber]] = None
         # memory footprint samples (time, footprint)
         self.memory_footprint_samples: List[List[float]] = []
 
@@ -208,6 +208,7 @@ class ScaleneStatistics:
         self.clear()
         self.current_footprint = 0
         self.max_footprint = 0
+        self.max_footprint_loc = None
         self.per_line_footprint_samples.clear()
 
     def start_clock(self) -> None:
@@ -291,6 +292,7 @@ class ScaleneStatistics:
 
     payload_contents = [
         "max_footprint",
+        "max_footprint_loc",
         "current_footprint",
         "elapsed_time",
         "total_cpu_samples",
@@ -365,7 +367,10 @@ class ScaleneStatistics:
                 x = ScaleneStatistics()
                 for i, n in enumerate(ScaleneStatistics.payload_contents):
                     setattr(x, n, value[i])
-                self.max_footprint = max(self.max_footprint, x.max_footprint)
+                # self.max_footprint = max(self.max_footprint, x.max_footprint)
+                if x.max_footprint > self.max_footprint:
+                    self.max_footprint = self.max_footprint
+                    self.max_footprint_loc = x.max_footprint_loc
                 self.current_footprint = max(
                     self.current_footprint, x.current_footprint
                 )
