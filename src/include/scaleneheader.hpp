@@ -15,6 +15,7 @@ extern "C" size_t malloc_usable_size(void *) throw();
 
 #define USE_HEADERS 1
 #define DEBUG_HEADER 0
+
 #if DEBUG_HEADERS
 const int n_padding = 16 - 2 * sizeof(size_t);
 #else
@@ -54,7 +55,7 @@ class ScaleneHeader {
 #if USE_HEADERS
     return (ScaleneHeader *)ptr - 1;
 #else
-    return (Header *)ptr;
+    return (ScaleneHeader *)ptr;
 #endif
   }
 
