@@ -9,7 +9,7 @@
 #include "common.hpp"
 
 /**
- * Implements a thread-specific flag to guard against inadventernt recursions
+ * Implements a thread-specific flag to guard against inadvertent recursions
  * when interposing heap functions.
  */
 class MallocRecursionGuard {
@@ -18,41 +18,51 @@ class MallocRecursionGuard {
     return &_inMallocKey;
   }
 
-  static bool isInMalloc() {
-    // modified double-checked locking pattern
-    // (https://en.wikipedia.org/wiki/Double-checked_locking)
-    static enum {
+  enum {
       NEEDS_KEY = 0,
       CREATING_KEY = 1,
       DONE = 2
-    } inMallocKeyState{NEEDS_KEY};
+  };
+  
+  static inline bool isInMalloc() {
+    // modified double-checked locking pattern
+    // (https://en.wikipedia.org/wiki/Double-checked_locking)
     static std::recursive_mutex m;
+    static int inMallocKeyState{NEEDS_KEY};
 
     // We create the thread-specific data store the pthread way because the C++
-    // language based ones all seem to fail when interposing on malloc et al, as
+    // language based ones all seem to fail when interposing on malloc et al., as
     // they are invoked early from within library initialization.
 
     auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_ACQUIRE);
     if (state != DONE) {
-      std::lock_guard<decltype(m)> g{m};
-
-      state = __atomic_load_n(&inMallocKeyState, __ATOMIC_RELAXED);
-      if (unlikely(state == CREATING_KEY)) {
+      if (slowPathInMalloc(m, inMallocKeyState) == CREATING_KEY) {
+        // this happens IFF pthread_key_create allocates memory
         return true;
-      } else if (unlikely(state == NEEDS_KEY)) {
-        __atomic_store_n(&inMallocKeyState, CREATING_KEY, __ATOMIC_RELAXED);
-        if (pthread_key_create(getKey(), 0) !=
-            0) {  // may call malloc/calloc/...
-          abort();
-        }
-        __atomic_store_n(&inMallocKeyState, DONE, __ATOMIC_RELEASE);
       }
     }
 
     return pthread_getspecific(*getKey()) != 0;
   }
 
-  static void setInMalloc(bool state) {
+  static int slowPathInMalloc(std::recursive_mutex& m, int& inMallocKeyState) {
+    std::lock_guard<decltype(m)> g{m};
+    
+    auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_RELAXED);
+
+    if (unlikely(state == NEEDS_KEY)) {
+      __atomic_store_n(&inMallocKeyState, CREATING_KEY, __ATOMIC_RELAXED);
+      if (pthread_key_create(getKey(), 0) != 0) {  // may call [cm]alloc
+        abort();
+      }
+      __atomic_store_n(&inMallocKeyState, DONE, __ATOMIC_RELEASE);
+      return DONE;
+    }
+
+    return state;
+  }
+  
+  static inline void setInMalloc(bool state) {
     pthread_setspecific(*getKey(), state ? (void*)1 : (void*)0);
   }
 
@@ -62,19 +72,19 @@ class MallocRecursionGuard {
   MallocRecursionGuard& operator=(const MallocRecursionGuard&) = delete;
 
  public:
-  MallocRecursionGuard() {
+  inline MallocRecursionGuard() {
     if (!(_wasInMalloc = isInMalloc())) {
       setInMalloc(true);
     }
   }
 
-  ~MallocRecursionGuard() {
+  inline ~MallocRecursionGuard() {
     if (!_wasInMalloc) {
       setInMalloc(false);
     }
   }
 
-  bool wasInMalloc() const { return _wasInMalloc; }
+  inline bool wasInMalloc() const { return _wasInMalloc; }
 };
 
 #endif

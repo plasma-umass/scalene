@@ -159,22 +159,18 @@ class MakeLocalAllocator {
     const auto allocSize = len + sizeof(ScaleneHeader);
     buf = get_original_allocator()->malloc(ctx, allocSize);
     auto *header = new (buf) ScaleneHeader(len);
+    class Nada {};
 #else
     auto *header = (ScaleneHeader *)get_original_allocator()->malloc(ctx, len);
 #endif
-    assert(header);                  // We expect this to always succeed.
-    // if (len <= PYMALLOC_MAX_SIZE) {  // don't count allocations pymalloc passes
-                                     // to malloc
+    assert(header);  // We expect this to always succeed.
+    if (!m.wasInMalloc()) {
       TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
-    // }
-    class Nada {};
+    }
+
     static_assert(
         SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE > PYMALLOC_MAX_SIZE,
         "NEWLINE must be greater than PYMALLOC_MAX_SIZE.");
-    if (len == SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE) {
-      // Special case: register the new line execution.
-      TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
-    }
 #if USE_HEADERS
     assert((size_t)ScaleneHeader::getObject(header) - (size_t)header >=
            sizeof(ScaleneHeader));
@@ -193,12 +189,11 @@ class MakeLocalAllocator {
     // ignore nullptr
     if (ptr) {
       MallocRecursionGuard m;
-      // printf_("LOCAL FREE %d (%d)\n", Domain, local_allocator_count);
       const auto sz = ScaleneHeader::getSize(ptr);
 
-      // if (sz <= PYMALLOC_MAX_SIZE) {
+      if (!m.wasInMalloc()) {
         TheHeapWrapper::register_free(sz, ptr);
-      // }
+      }
       get_original_allocator()->free(ctx, ScaleneHeader::getHeader(ptr));
     }
   }
@@ -213,24 +208,17 @@ class MakeLocalAllocator {
     }
     MallocRecursionGuard m;
     const auto sz = ScaleneHeader::getSize(ptr);
-
-    // printf_("LOCAL REALLOC %d (%lu)\n", Domain, new_size);
-
     void *p = nullptr;
     const auto allocSize = new_size + sizeof(ScaleneHeader);
     void *buf = get_original_allocator()->realloc(
         ctx, ScaleneHeader::getHeader(ptr), allocSize);
     ScaleneHeader *result = new (buf) ScaleneHeader(new_size);
-    if (result) {
+    if (result && !m.wasInMalloc()) {
       if (sz < new_size) {
-        // if (new_size - sz <= PYMALLOC_MAX_SIZE) {
-          TheHeapWrapper::register_malloc(new_size - sz,
-                                          ScaleneHeader::getObject(result));
-        // }
+        TheHeapWrapper::register_malloc(new_size - sz,
+                                        ScaleneHeader::getObject(result));
       } else if (sz > new_size) {
-        // if (sz - new_size <= PYMALLOC_MAX_SIZE) {
-          TheHeapWrapper::register_free(sz - new_size, ptr);
-        // }
+        TheHeapWrapper::register_free(sz - new_size, ptr);
       }
     }
     ScaleneHeader::setSize(ScaleneHeader::getObject(result), new_size);
@@ -239,7 +227,6 @@ class MakeLocalAllocator {
   }
 
   static inline void *local_calloc(void *ctx, size_t nelem, size_t elsize) {
-    // printf_("CALLOC %lu %lu\n", nelem, elsize);
     const auto nbytes = nelem * elsize;
     void *obj = local_malloc(ctx, nbytes);
     if (true) {  // obj) {

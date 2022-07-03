@@ -145,6 +145,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
@@ -159,7 +160,6 @@ setup(
     install_requires=[
         "rich>=9.2.0",
         "cloudpickle>=1.5.0",
-        "numpy",
         "pynvml>=11.0.0"
     ],
     ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),

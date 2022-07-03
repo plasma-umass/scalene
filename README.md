@@ -4,10 +4,13 @@
 
 by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), and [Juan Altmayer Pizzorno](https://github.com/jaltmayerpizzorno).
 
-[Scalene community Slack](https://join.slack.com/t/scaleneprofil-jge3234/shared_invite/zt-110vzrdck-xJh5d4gHnp5vKXIjYD3Uwg)
+[![Scalene community Slack](https://github.com/plasma-umass/scalene/raw/master/docs/images/slack-logo.png)](https://join.slack.com/t/scaleneprofil-jge3234/shared_invite/zt-110vzrdck-xJh5d4gHnp5vKXIjYD3Uwg)[Scalene community Slack](https://join.slack.com/t/scaleneprofil-jge3234/shared_invite/zt-110vzrdck-xJh5d4gHnp5vKXIjYD3Uwg)
 
 [![PyPI Latest Release](https://img.shields.io/pypi/v/scalene.svg)](https://pypi.org/project/scalene/)[![Downloads](https://pepy.tech/badge/scalene)](https://pepy.tech/project/scalene) [![Downloads](https://pepy.tech/badge/scalene/month)](https://pepy.tech/project/scalene) ![Python versions](https://img.shields.io/pypi/pyversions/scalene.svg?style=flat-square) ![License](https://img.shields.io/github/license/plasma-umass/scalene) [![Twitter Follow](https://img.shields.io/twitter/follow/emeryberger.svg?style=social)](https://twitter.com/emeryberger)
 
+![Ozsvald tweet](https://github.com/plasma-umass/scalene/raw/master/docs/Ozsvald-tweet.png)
+
+(tweet from Ian Ozsvald, author of [_High Performance Python_](https://smile.amazon.com/High-Performance-Python-Performant-Programming/dp/1492055026/ref=sr_1_1?crid=texbooks))
 
 ## About Scalene
 
@@ -34,12 +37,13 @@ Once Scalene has profiled your program, it will launch a web browser with an int
 Commonly used options:
 
 ```console
-scalene your_prog.py                             # full profile (prints to console)
+scalene your_prog.py                             # full profile (outputs to web interface)
 python3 -m scalene your_prog.py                  # equivalent alternative
 scalene --cli your_prog.py                       # use the command-line only (no web interface)
 scalene --cpu-only your_prog.py                  # only CPU/GPU
 scalene --reduced-profile your_prog.py           # only profile lines with significant usage
-scalene --profile-interval 5.0 your_prog.py.     # output a new profile every five seconds
+scalene --profile-interval 5.0 your_prog.py      # output a new profile every five seconds
+scalene (Scalene options) --- your_prog.py (...) # use --- to tell Scalene to ignore options after that point
 scalene --help                                   # lists all options
 ```
 
@@ -250,7 +254,7 @@ code...
 <details open>
 <summary>Using <code>pip</code> (Mac OS X, Linux, Windows, and WSL2)</summary>
 
-Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows version isn't yet complete; it requires Python 3.8 or later and currently only supports CPU profiling.)
+Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows version isn't yet complete; it requires Python 3.8 or later and currently only supports CPU profiling.)
 
 You can install it as follows:
 ```console
@@ -269,10 +273,6 @@ See https://stackoverflow.com/a/19344978/4954434 for full instructions for all L
 For Ubuntu/Debian:
 
 ```console
-  # Ubuntu 20
-  % sudo apt install git python3-all-dev
-
-  # Ubuntu 18
   % sudo apt install git python3-all-dev
 ```
 </details>

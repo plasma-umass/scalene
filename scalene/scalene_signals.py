@@ -39,9 +39,11 @@ class ScaleneSignals:
                 self.cpu_signal = signal.SIGALRM
 
     def get_timer_signals(self) -> Tuple[int, signal.Signals]:
+        """Return the signals used for CPU profiling."""
         return self.cpu_timer_signal, self.cpu_signal
 
     def get_all_signals(self) -> List[int]:
+        """Return all the signals used for controlling profiling, except the CPU timer."""
         return [
             self.start_profiling_signal,
             self.stop_profiling_signal,

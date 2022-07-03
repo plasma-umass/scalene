@@ -3,7 +3,7 @@ import pathlib
 import pickle
 import time
 from collections import defaultdict
-from typing import Any, DefaultDict, Dict, List, NewType, Set, Tuple, TypeVar
+from typing import Any, DefaultDict, Dict, List, NewType, Optional, Set, Tuple, TypeVar
 
 import cloudpickle
 
@@ -141,7 +141,7 @@ class ScaleneStatistics:
 
         # the peak memory footprint
         self.max_footprint: float = 0.0
-
+        self.max_footprint_loc: Optional[Tuple[Filename, LineNumber]] = None
         # memory footprint samples (time, footprint)
         self.memory_footprint_samples: List[List[float]] = []
 
@@ -166,6 +166,7 @@ class ScaleneStatistics:
         )
 
     def clear(self) -> None:
+        """Reset all statistics except for memory footprint."""
         self.start_time = 0
         self.elapsed_time = 0
         self.cpu_samples_python.clear()
@@ -203,20 +204,25 @@ class ScaleneStatistics:
         # FIXME: leak score, leak velocity
 
     def clear_all(self) -> None:
+        """Clear all statistics."""
         self.clear()
         self.current_footprint = 0
         self.max_footprint = 0
+        self.max_footprint_loc = None
         self.per_line_footprint_samples.clear()
 
     def start_clock(self) -> None:
+        """Start the timer."""
         self.start_time = time.time()
 
     def stop_clock(self) -> None:
+        """Stop the timer."""
         if self.start_time > 0:
             self.elapsed_time += time.time() - self.start_time
         self.start_time = 0
 
     def build_function_stats(self, filename: Filename):  # type: ignore
+        """Produce aggregated statistics for each function."""
         fn_stats = ScaleneStatistics()
         fn_stats.elapsed_time = self.elapsed_time
         fn_stats.total_cpu_samples = self.total_cpu_samples
@@ -286,6 +292,7 @@ class ScaleneStatistics:
 
     payload_contents = [
         "max_footprint",
+        "max_footprint_loc",
         "current_footprint",
         "elapsed_time",
         "total_cpu_samples",
@@ -342,6 +349,7 @@ class ScaleneStatistics:
         dest: Dict[Filename, Dict[LineNumber, RunningStats]],
         src: Dict[Filename, Dict[LineNumber, RunningStats]],
     ) -> None:
+        """Increment CPU utilization."""
         for filename in src:
             for lineno in src[filename]:
                 dest[filename][lineno] += src[filename][lineno]
@@ -359,7 +367,10 @@ class ScaleneStatistics:
                 x = ScaleneStatistics()
                 for i, n in enumerate(ScaleneStatistics.payload_contents):
                     setattr(x, n, value[i])
-                self.max_footprint = max(self.max_footprint, x.max_footprint)
+                # self.max_footprint = max(self.max_footprint, x.max_footprint)
+                if x.max_footprint > self.max_footprint:
+                    self.max_footprint = self.max_footprint
+                    self.max_footprint_loc = x.max_footprint_loc
                 self.current_footprint = max(
                     self.current_footprint, x.current_footprint
                 )

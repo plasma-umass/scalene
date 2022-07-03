@@ -116,9 +116,7 @@ class ScaleneJSON:
             else n_malloc_mb / stats.total_memory_malloc_samples
         )
         n_python_fraction = (
-            0
-            if not n_malloc_mb
-            else n_python_malloc_mb / stats.total_memory_malloc_samples
+            0 if not n_malloc_mb else n_python_malloc_mb / n_malloc_mb
         )
 
         # Average memory consumed by this line.
@@ -231,6 +229,8 @@ class ScaleneJSON:
             "elapsed_time_sec": stats.elapsed_time,
             "growth_rate": growth_rate,
             "max_footprint_mb": stats.max_footprint,
+            "max_footprint_fname": stats.max_footprint_loc[0] if stats.max_footprint_loc else None,
+            "max_footprint_lineno": stats.max_footprint_loc[1]if stats.max_footprint_loc else None,
             "files": {},
             "gpu": self.gpu,
             "memory": profile_memory,
@@ -329,11 +329,11 @@ class ScaleneJSON:
                     "lines": [],
                     "leaks": reported_leaks,
                 }
-                for line_no, _line in enumerate(code_lines, start=1):
+                for lineno, _line in enumerate(code_lines, start=1):
                     profile_line = self.output_profile_line(
                         fname=fname,
                         fname_print=fname_print,
-                        line_no=LineNumber(line_no),
+                        line_no=LineNumber(lineno),
                         stats=stats,
                         profile_this_code=profile_this_code,
                         profile_memory=profile_memory,

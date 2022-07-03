@@ -84,7 +84,6 @@ class Sampler {
       }
     }
 #endif
-    //    printf_("NEXT = %lu\n", _next);
     if (sz >= SAMPLE_RATE) {
       return sz;
     }
