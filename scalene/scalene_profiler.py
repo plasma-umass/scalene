@@ -203,8 +203,7 @@ class Scalene:
         int
     ] = set()  # Needs to be unmangled to be accessed by shims
 
-    # Signal queues for CPU timers, allocations, and memcpy
-    __cpu_sigq: ScaleneSigQueue[Any]
+    # Signal queues for allocations and memcpy
     __alloc_sigq: ScaleneSigQueue[Any]
     __memcpy_sigq: ScaleneSigQueue[Any]
     __sigqueues: List[ScaleneSigQueue[Any]]
@@ -539,7 +538,7 @@ class Scalene:
         # Set every signal to restart interrupted system calls.
         for s in Scalene.__signals.get_all_signals():
             Scalene.__orig_siginterrupt(s, False)
-        # Turn on the CPU profiling timer to run at the sampling rate (exactly once).
+        # Turn on the CPU profiling timer to run at the sampling rate, exactly once.
         Scalene.__orig_signal(
             Scalene.__signals.cpu_signal,
             Scalene.cpu_signal_handler,
@@ -570,7 +569,6 @@ class Scalene:
             import scalene.replacement_poll_selector
 
         Scalene.__args = cast(ScaleneArguments, arguments)
-        Scalene.__cpu_sigq = ScaleneSigQueue(Scalene.cpu_sigqueue_processor)
         Scalene.__alloc_sigq = ScaleneSigQueue(
             Scalene.alloc_sigqueue_processor
         )
@@ -578,7 +576,6 @@ class Scalene:
             Scalene.memcpy_sigqueue_processor
         )
         Scalene.__sigqueues = [
-            Scalene.__cpu_sigq,
             Scalene.__alloc_sigq,
             Scalene.__memcpy_sigq,
         ]
@@ -702,23 +699,23 @@ class Scalene:
 
         (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
 
-        # Pass on to the signal queue.
-        Scalene.__cpu_sigq.put(
-            (
-                signum,
-                this_frame,
-                now_virtual,
-                now_wallclock,
-                now_sys,
-                now_user,
-                gpu_load,
-                gpu_mem_used,
-                Scalene.__last_signal_time_virtual,
-                Scalene.__last_signal_time_wallclock,
-                Scalene.__last_signal_time_sys,
-                Scalene.__last_signal_time_user,
-                copy(Scalene.__is_thread_sleeping),
-            )
+        # Process these frames immediately (we no longer use sigqueues
+        # because they led to frame "drag", holding down memory until
+        # processed).
+        Scalene.cpu_sigqueue_processor(
+            signum,
+            Scalene.compute_frames_to_record(),
+            now_virtual,
+            now_wallclock,
+            now_sys,
+            now_user,
+            gpu_load,
+            gpu_mem_used,
+            Scalene.__last_signal_time_virtual,
+            Scalene.__last_signal_time_wallclock,
+            Scalene.__last_signal_time_sys,
+            Scalene.__last_signal_time_user,
+            Scalene.__is_thread_sleeping,
         )
         elapsed = now_wallclock - Scalene.__last_signal_time_wallclock
         # Store the latest values as the previously recorded values.
@@ -726,6 +723,7 @@ class Scalene:
         Scalene.__last_signal_time_wallclock = now_wallclock
         Scalene.__last_signal_time_sys = now_sys
         Scalene.__last_signal_time_user = now_user
+        # Restart the timer while handling any timers set by the client.
         if sys.platform != "win32":
             if Scalene.client_timer.is_set:
 
@@ -824,7 +822,7 @@ class Scalene:
         _signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
-        this_frame: FrameType,
+        new_frames: List[Tuple[FrameType, int, FrameType]],
         now_virtual: float,
         now_wallclock: float,
         now_sys: float,
@@ -903,10 +901,6 @@ class Scalene:
         if c_time < 0:
             c_time = 0
 
-        # Update counters for every running thread.
-
-        new_frames = Scalene.compute_frames_to_record(this_frame)
-        
         # Now update counters (weighted) for every frame we are tracking.
         total_time = python_time + c_time
 
@@ -925,7 +919,7 @@ class Scalene:
             normalized_time = total_time / total_frames
 
         # Now attribute execution time.
-        if new_frames :
+        if new_frames:
             main_thread_frame = new_frames[0][0]
             if total_frames:
                 average_python_time = python_time / total_frames
@@ -986,15 +980,12 @@ class Scalene:
         # Clean up all the frames
         del new_frames[:]
         del new_frames
-        del this_frame
         del is_thread_sleeping
         Scalene.__stats.total_cpu_samples += total_time
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
-    def compute_frames_to_record(
-        _this_frame: FrameType,
-    ) -> List[Tuple[FrameType, int, FrameType]]:
+    def compute_frames_to_record() -> List[Tuple[FrameType, int, FrameType]]:
         """Collect all stack frames that Scalene actually processes."""
         frames: List[Tuple[FrameType, int]] = [
             (
