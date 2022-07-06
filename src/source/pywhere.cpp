@@ -106,59 +106,25 @@ class GIL {
   PyGILState_STATE _gstate;
 };
 
-// Implements a mini smart pointer to PyObject.
-// Manages a "strong" reference to the object... to use with a weak reference,
-// Py_IncRef it first. Unfortunately, not all PyObject subclasses (e.g.,
-// PyFrameObject) are declared as such, so we need to make this a template and
-// cast.
-template <class O = PyObject>
-class PyPtr {
- public:
-  PyPtr(O* o) : _obj(o) {}
+#include "pyptr.h"
 
-  O* operator->() { return _obj; }
-
-  operator O*() { return _obj; }
-
-  PyPtr& operator=(O* o) {
-    Py_DecRef((PyObject*)_obj);
-    _obj = o;
-    return *this;
-  }
-
-  PyPtr& operator=(PyPtr& ptr) {
-    Py_IncRef((PyObject*)ptr._obj);
-    *this = ptr._obj;
-    return *this;
-  }
-
-  ~PyPtr() { Py_DecRef((PyObject*)_obj); }
-
- private:
-  O* _obj;
-};
-
-
-#if PY_VERSION_HEX < 0x03090000 // new in 3.9
-  inline PyFrameObject * PyThreadState_GetFrame(PyThreadState * threadState) {
-    Py_XINCREF(threadState->frame);
-    return threadState->frame;
-  }
-  inline PyCodeObject * PyFrame_GetCode(PyFrameObject * frame) {
-    Py_XINCREF(frame->f_code);
-    return frame->f_code;
-  }
-  inline PyFrameObject * PyFrame_GetBack(PyFrameObject * frame) {
-    Py_XINCREF(frame->f_back);
-    return frame->f_back;
-  }
+#if PY_VERSION_HEX < 0x03090000  // new in 3.9
+inline PyFrameObject* PyThreadState_GetFrame(PyThreadState* threadState) {
+  Py_XINCREF(threadState->frame);
+  return threadState->frame;
+}
+inline PyCodeObject* PyFrame_GetCode(PyFrameObject* frame) {
+  Py_XINCREF(frame->f_code);
+  return frame->f_code;
+}
+inline PyFrameObject* PyFrame_GetBack(PyFrameObject* frame) {
+  Py_XINCREF(frame->f_back);
+  return frame->f_back;
+}
 #endif
-#if PY_VERSION_HEX < 0x030B0000 // new in 3.11
-  inline int PyFrame_GetLasti(PyFrameObject * frame) {
-    return frame->f_lasti;
-  }
+#if PY_VERSION_HEX < 0x030B0000  // new in 3.11
+inline int PyFrame_GetLasti(PyFrameObject* frame) { return frame->f_lasti; }
 #endif
-
 
 static PyPtr<PyFrameObject> findMainPythonThread_frame() {
   PyThreadState* main = nullptr;
@@ -181,7 +147,6 @@ static PyPtr<PyFrameObject> findMainPythonThread_frame() {
   return PyPtr<PyFrameObject>(main ? PyThreadState_GetFrame(main) : nullptr);
 }
 
-
 int whereInPython(std::string& filename, int& lineno, int& bytei) {
   if (!Py_IsInitialized()) {  // No python, no python stack.
     return 0;
@@ -198,12 +163,13 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   GIL gil;
 
   PyThreadState* threadState = PyGILState_GetThisThreadState();
-  PyPtr<PyFrameObject> frame = threadState ? PyThreadState_GetFrame(threadState) : nullptr;
+  PyPtr<PyFrameObject> frame =
+      threadState ? PyThreadState_GetFrame(threadState) : nullptr;
 
   if (frame == nullptr) {
     // Various packages may create native threads; attribute what they do
     // to what the main thread is doing, as it's likely to have requested it.
-    frame = findMainPythonThread_frame();   // note this may be nullptr
+    frame = findMainPythonThread_frame();  // note this may be nullptr
   }
 
   auto traceConfig = TraceConfig::getInstance();
@@ -217,7 +183,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     if (!co_filename) {
       return 0;
     }
-    
+
     auto filenameStr = PyBytes_AsString(co_filename);
     if (strlen(filenameStr) == 0) {
       continue;
@@ -234,7 +200,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
 #else
         bytei = PyFrame_GetLasti(frame);
 #endif
-        lineno =  PyFrame_GetLineNumber(frame);
+        lineno = PyFrame_GetLineNumber(frame);
 
         filename = filenameStr;
         return 1;
