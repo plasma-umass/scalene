@@ -93,9 +93,6 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 #include <Python.h>
 
-#define USE_HEADERS 1
-#define DEBUG_HEADER 0
-
 #define DL_FUNCTION(name) \
   static decltype(name) *dl##name = (decltype(name) *)dlsym(RTLD_DEFAULT, #name)
 
