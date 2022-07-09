@@ -18,35 +18,61 @@ function makeBar(python, native, system) {
           x: 0,
           y: python.toFixed(1),
           c: "(Python) " + python.toFixed(1) + "%",
+          d: python.toFixed(0) + "%",
         },
         {
           x: 0,
           y: native.toFixed(1),
           c: "(native) " + native.toFixed(1) + "%",
+          d: native.toFixed(0) + "%",
         },
         {
           x: 0,
           y: system.toFixed(1),
           c: "(system) " + system.toFixed(1) + "%",
+          d: system.toFixed(0) + "%",
         },
       ],
     },
-    mark: { type: "bar" },
-    encoding: {
-      x: {
-        aggregate: "sum",
-        field: "y",
-        axis: false,
-        scale: { domain: [0, 100] },
+    layer: [
+      {
+        mark: { type: "bar" },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "y",
+            axis: false,
+            scale: { domain: [0, 100] },
+          },
+          color: {
+            field: "c",
+            type: "nominal",
+            legend: false,
+            scale: { range: ["darkblue", "#6495ED", "blue"] },
+          },
+          tooltip: [{ field: "c", type: "nominal", title: "time" }],
+        },
       },
-      color: {
-        field: "c",
-        type: "nominal",
-        legend: false,
-        scale: { range: ["darkblue", "#6495ED", "blue"] },
-      },
-      tooltip: [{ field: "c", type: "nominal", title: "time" }],
-    },
+      /*	  ,
+      {
+          mark: {
+              type: "text",
+              opacity: 1.0,
+              color: "white",
+              align: "right",
+              limit: 50,
+          },
+          encoding: {
+              x: { type: "quantitative", field: "y" },
+              text: {
+		  field: "d",
+		  bandPosition: 0.5,
+		  condition: { test: `datum['y'] < 20`, value: "" },
+              },
+          },
+	  },
+	  */
+    ],
   };
 }
 
@@ -441,8 +467,10 @@ function makeProfileLine(
     s += "</td>";
     if (line.memory_samples.length > 0) {
       let leak_velocity = 0;
-      if (line.lineno in prof.files[filename].leaks) {
-        leak_velocity = prof.files[filename].leaks[line.lineno].velocity_mb_s;
+      if ("leaks" in prof.files[filename]) {
+        if (line.lineno in prof.files[filename].leaks) {
+          leak_velocity = prof.files[filename].leaks[line.lineno].velocity_mb_s;
+        }
       }
       memory_sparklines.push(
         makeSparkline(
