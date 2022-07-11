@@ -110,8 +110,16 @@ class GIL {
 
 #if PY_VERSION_HEX < 0x03090000  // new in 3.9
 inline PyFrameObject* PyThreadState_GetFrame(PyThreadState* threadState) {
-  Py_XINCREF(threadState->frame);
-  return threadState->frame;
+  if (threadState != nullptr && threadState->frame != nullptr &&
+      // threadState->frame is a "borrowed" reference.  With Python 3.8.10,
+      // this sometimes refers to a zero-refcount frame that, if we were to
+      // attempt freeing again (when we decrement back to 0), glibc would
+      // abort due to a double free.
+      threadState->frame->ob_base.ob_base.ob_refcnt > 0) {
+    Py_XINCREF(threadState->frame);
+    return threadState->frame;
+  }
+  return nullptr;
 }
 inline PyCodeObject* PyFrame_GetCode(PyFrameObject* frame) {
   Py_XINCREF(frame->f_code);
