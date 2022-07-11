@@ -281,7 +281,7 @@ class SampleHeap : public SuperHeap {
       _pythonCount = 1;  // prevent 0/0
     }
     snprintf_(
-        buf, SampleFile::MAX_BUFSIZE,
+        buf, sizeof(buf),
 #if defined(__APPLE__)
         "%c,%llu,%llu,%f,%d,%p,%s,%d,%d\n\n",
 #else
