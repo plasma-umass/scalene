@@ -22,13 +22,13 @@ class ScaleneMapFile:
         self._buf = bytearray(ScaleneMapFile.MAX_BUFSIZE)
         #   file to communicate samples (+ PID)
         self._signal_filename = Filename(
-            f"/tmp/scalene-{name}-signal{os.getpid()}"
+            f"/people/ster443/files/tmp/scalene-{name}-signal{os.getpid()}"
         )
         self._lock_filename = Filename(
-            f"/tmp/scalene-{name}-lock{os.getpid()}"
+            f"/people/ster443/files/tmp/scalene-{name}-lock{os.getpid()}"
         )
         self._init_filename = Filename(
-            f"/tmp/scalene-{name}-init{os.getpid()}"
+            f"/people/ster443/files/tmp/scalene-{name}-init{os.getpid()}"
         )
         self._signal_position = 0
         self._lastpos = bytearray(8)
@@ -37,7 +37,7 @@ class ScaleneMapFile:
         self._signal_fd: TextIO
         self._lock_fd: TextIO
         self._signal_fd = open(self._signal_filename, "r")
-        os.unlink(self._signal_fd.name)
+        # os.unlink(self._signal_fd.name)
         self._lock_fd = open(self._lock_filename, "r+")
         os.unlink(self._lock_fd.name)
         self._signal_mmap = mmap.mmap(
@@ -62,7 +62,7 @@ class ScaleneMapFile:
         """Remove all map files."""
         try:
             os.remove(self._init_filename)
-            os.remove(self._signal_filename)
+            # os.remove(self._signal_filename)
         except FileNotFoundError:
             pass
 

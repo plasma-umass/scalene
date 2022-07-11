@@ -1,4 +1,4 @@
-#define SCALENE_DISABLE_SIGNALS 0  // for debugging only
+#define SCALENE_DISABLE_SIGNALS 1  // for debugging only
 
 #if !defined(_WIN32)
 #include <execinfo.h>
@@ -17,6 +17,7 @@
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
 #include "scaleneheader.hpp"
+#include "pyrecursionguard.hpp"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
@@ -86,10 +87,26 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
   return result;
 }
 
+extern "C" ATTRIBUTE_EXPORT int xxmunmap(void *addr, size_t length) {
+  // printf_("CALLING MUNMAP\n");
+  return 0;
+}
+
+#define WEAK(x) __attribute__ ((weak, alias(#x)))
+#ifndef __THROW
+#define __THROW
+#endif
+
+// extern "C" ATTRIBUTE_EXPORT int munmap(void*, size_t) __THROW WEAK(xxmunmap);
+
 // Intercept local allocation for tracking when using the (fast, built-in)
 // pymalloc allocator.
 
+
+
 #if !defined(_WIN32)
+
+
 
 #include <Python.h>
 
@@ -105,6 +122,55 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
  *
  * @tparam Domain the Python domain of allocator we replace
  */
+
+// int
+// PyTraceFunction(
+//        PyObject* obj,
+//         PyFrameObject* frame,
+//         int what,
+//         PyObject* arg)
+// {
+//     switch (what) {
+//         case PyTrace_C_CALL: {
+//           auto fname = frame->f_code->co_filename;
+//           PyPtr<> encoded = PyUnicode_AsASCIIString(fname);
+//           auto filenameStr = PyBytes_AsString(encoded);
+//             TheHeapWrapper::writeCallOrRet(true);
+//             printf_("%s")
+//             break;
+//         }
+//         case PyTrace_C_RETURN: {
+//             TheHeapWrapper::writeCallOrRet(false);
+//             break;
+//         }
+//         default:
+//             break;
+//     }
+//     return 0;
+// }
+
+// void
+// install_trace_function()
+// {
+//     // printf_("AAA\n");
+//     assert(PyGILState_Check());
+//     // printf_("BBB\n");
+//     // Don't clear the python stack if we have already registered the tracking
+//     // function with the current thread.
+//     PyThreadState* ts = PyThreadState_Get();
+//     // printf_("CCC\n");
+//     if (ts->c_profilefunc == PyTraceFunction) {
+//       // printf("DDD1\n");
+//         return;
+//     }
+//     // printf_("DDD2\n");
+//     PyEval_SetProfile(PyTraceFunction, PyLong_FromLong(123));
+//     // printf_("EEE\n");
+    
+// }
+
+// decltype(p_installTraceFunction) __attribute((visibility("default")))
+// p_installTraceFunction{install_trace_function};
 
 template <PyMemAllocatorDomain Domain>
 class MakeLocalAllocator {
@@ -125,6 +191,7 @@ class MakeLocalAllocator {
       dlPyMem_GetAllocator(Domain, get_original_allocator());
       dlPyMem_SetAllocator(Domain, &localAlloc);
     }
+    // printf("TRACE %p %p\n", install_trace_function, &p_installTraceFunction);
   }
 
  private:
@@ -138,7 +205,9 @@ class MakeLocalAllocator {
   }
 
   static inline void *local_malloc(void *ctx, size_t len) {
-    MallocRecursionGuard m;
+    // MallocRecursionGuard m;
+    PythonRecursionGuard pp;
+    // printf_("PYTHON THING\n");
 #if 1
     // Ensure all allocation requests are multiples of eight,
     // mirroring the actual allocation sizes employed by pymalloc
@@ -155,15 +224,16 @@ class MakeLocalAllocator {
     void *buf = nullptr;
     const auto allocSize = len + sizeof(ScaleneHeader);
     buf = get_original_allocator()->malloc(ctx, allocSize);
+    // printf_("END PYTHON THING\n");
     auto *header = new (buf) ScaleneHeader(len);
     class Nada {};
 #else
     auto *header = (ScaleneHeader *)get_original_allocator()->malloc(ctx, len);
 #endif
     assert(header);  // We expect this to always succeed.
-    if (!m.wasInMalloc()) {
-      TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
-    }
+    // if (!m.wasInMalloc()) {
+    //   TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
+    // }
 
     static_assert(
         SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE > PYMALLOC_MAX_SIZE,
@@ -185,12 +255,14 @@ class MakeLocalAllocator {
   static inline void local_free(void *ctx, void *ptr) {
     // ignore nullptr
     if (ptr) {
-      MallocRecursionGuard m;
+      // MallocRecursionGuard m;
+      PythonRecursionGuard pp;
+      // printf_("PYTHON THING\n");
       const auto sz = ScaleneHeader::getSize(ptr);
 
-      if (!m.wasInMalloc()) {
-        TheHeapWrapper::register_free(sz, ptr);
-      }
+      // if (!m.wasInMalloc()) {
+      //   TheHeapWrapper::register_free(sz, ptr);
+      // }
       get_original_allocator()->free(ctx, ScaleneHeader::getHeader(ptr));
     }
   }
@@ -202,23 +274,26 @@ class MakeLocalAllocator {
     if (!ptr) {
       return local_malloc(ctx, new_size);
     }
-    MallocRecursionGuard m;
+    // MallocRecursionGuard m;
+    PythonRecursionGuard pp;
+    // printf_("PYTHON THING\n");
     const auto sz = ScaleneHeader::getSize(ptr);
     void *p = nullptr;
     const auto allocSize = new_size + sizeof(ScaleneHeader);
     void *buf = get_original_allocator()->realloc(
         ctx, ScaleneHeader::getHeader(ptr), allocSize);
     ScaleneHeader *result = new (buf) ScaleneHeader(new_size);
-    if (result && !m.wasInMalloc()) {
-      if (sz < new_size) {
-        TheHeapWrapper::register_malloc(new_size - sz,
-                                        ScaleneHeader::getObject(result));
-      } else if (sz > new_size) {
-        TheHeapWrapper::register_free(sz - new_size, ptr);
-      }
-    }
+    // if (result && !m.wasInMalloc()) {
+    //   if (sz < new_size) {
+    //     TheHeapWrapper::register_malloc(new_size - sz,
+    //                                     ScaleneHeader::getObject(result));
+    //   } else if (sz > new_size) {
+    //     TheHeapWrapper::register_free(sz - new_size, ptr);
+    //   }
+    // }
     ScaleneHeader::setSize(ScaleneHeader::getObject(result), new_size);
     p = ScaleneHeader::getObject(result);
+    // printf_("END PYTHON THING\n");
     return p;
   }
 
@@ -238,6 +313,8 @@ class MakeLocalAllocator {
 // from pywhere.hpp
 decltype(p_whereInPython) __attribute((visibility("default")))
 p_whereInPython{nullptr};
+
+
 
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;

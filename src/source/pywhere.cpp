@@ -251,11 +251,19 @@ static PyObject* print_files_to_profile(PyObject* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+// static PyObject* set_profile_function(PyObject* self, PyObject* args) {
+//   auto p_install  =
+//       (decltype(p_installTraceFunction)*)dlsym(RTLD_DEFAULT, "p_installTraceFunction");
+//   (p_install->load())();
+//   Py_RETURN_NONE;
+// }
+
 static PyMethodDef EmbMethods[] = {
     {"register_files_to_profile", register_files_to_profile, METH_VARARGS,
      "Provides list of things into allocator"},
     {"print_files_to_profile", print_files_to_profile, METH_NOARGS,
      "printing for debug"},
+    //  {"install_trace_function", set_profile_function, METH_NOARGS, ""},
     {NULL, NULL, 0, NULL}};
 
 static PyModuleDef EmbedModule = {PyModuleDef_HEAD_INIT,

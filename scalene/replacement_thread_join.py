@@ -9,7 +9,6 @@ from scalene.scalene_profiler import Scalene
 @Scalene.shim
 def replacement_thread_join(scalene: Scalene) -> None:
     orig_thread_join = threading.Thread.join
-
     def thread_join_replacement(
         self: threading.Thread, timeout: Optional[float] = None
     ) -> None:
@@ -28,4 +27,6 @@ def replacement_thread_join(scalene: Scalene) -> None:
                     return None
         return None
 
+
     threading.Thread.join = thread_join_replacement  # type: ignore
+    # threading.Thread._bootstrap = replacement_boostrap # type: ignore

@@ -84,6 +84,7 @@ class ScalenePreload:
         # Start a subprocess with the required environment variables,
         # which may include preloading libscalene
         req_env = ScalenePreload.get_preload_environ(args)
+        return False
         if not all(k_v in os.environ.items() for k_v in req_env.items()):
             os.environ.update(req_env)
 

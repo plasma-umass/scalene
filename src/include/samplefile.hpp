@@ -27,7 +27,7 @@ class SampleFile {
       256;  // actual (and maximum) length of a line passed to writeToFile
  private:
   static constexpr int LOCK_FD_SIZE = 4096;
-  static constexpr int MAX_FILE_SIZE = 4096 * 65536;
+  static constexpr int MAX_FILE_SIZE = INT_MAX; // 1024 * 4096 * 65536;
 
   static char *initializer;
 
@@ -127,7 +127,7 @@ class SampleFile {
   void writeToFile(char *line) {  // , int is_malloc) {
     _spin_lock->lock();
     strncpy(_mmap + *_lastpos, (const char *)line, MAX_BUFSIZE);
-
+    // printf_("LINE %s\n", line);
     *_lastpos += strlen(_mmap + *_lastpos) - 1;
     // tprintf::tprintf("@ wrote @, lastpos=@\n", (void*)_mmap, line,
     // *_lastpos);

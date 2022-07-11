@@ -20,21 +20,27 @@
 
 // We're unable to use the limited API because, for example,
 // there doesn't seem to be a function returning co_filename
-//#define Py_LIMITED_API 0x03070000
+// #define Py_LIMITED_API 0x03070000
 #include <execinfo.h>
 
 #include "common.hpp"
 #include "mallocrecursionguard.hpp"
+#include "pyrecursionguard.hpp"
 #include "printf.h"
 #include "pywhere.hpp"
 #include "samplefile.hpp"
 #include "sampleinterval.hpp"
 #include "scaleneheader.hpp"
 
+#if __GLIBC__ == 2 && __GLIBC_MINOR__ < 30
+#include <sys/syscall.h>
+#define gettid() syscall(SYS_gettid)
+#endif
+
 static SampleFile& getSampleFile() {
-  static SampleFile mallocSampleFile("/tmp/scalene-malloc-signal%d",
-                                     "/tmp/scalene-malloc-lock%d",
-                                     "/tmp/scalene-malloc-init%d");
+  static SampleFile mallocSampleFile("/people/ster443/files/tmp/scalene-malloc-signal%d",
+                                     "/people/ster443/files/tmp/scalene-malloc-lock%d",
+                                     "/people/ster443/files/tmp/scalene-malloc-init%d");
 
   return mallocSampleFile;
 }
@@ -80,6 +86,7 @@ class SampleHeap : public SuperHeap {
 
   ATTRIBUTE_ALWAYS_INLINE inline void* malloc(size_t sz) {
     MallocRecursionGuard g;
+    PythonRecursionGuard pp;
     auto ptr = SuperHeap::malloc(sz);
     if (unlikely(ptr == nullptr)) {
       return nullptr;
@@ -91,19 +98,22 @@ class SampleHeap : public SuperHeap {
           // Don't count these allocations
           return ptr;
         }
-        register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
+        auto ppp = pp.pythonStarted();
+        // printf_("WRITING %d\n", ppp);
+        register_malloc(realSize, ptr, ppp);  // false -> invoked from C/C++
       }
     }
     return ptr;
   }
   ATTRIBUTE_ALWAYS_INLINE inline void* realloc(void* ptr, size_t sz) {
     MallocRecursionGuard g;
+    PythonRecursionGuard pp;
     if (!ptr) {
       ptr = SuperHeap::malloc(sz);
       return ptr;
     }
     if (sz == 0) {
-      SuperHeap::free(ptr);
+      // SuperHeap::free(ptr);
 #if defined(__APPLE__)
       // 0 size = free. We return a small object.  This behavior is
       // apparently required under Mac OS X and optional under POSIX.
@@ -121,7 +131,7 @@ class SampleHeap : public SuperHeap {
       if (objSize == buf_size) {
         // The objects are the same actual size.
         // Free the new object and return the original.
-        SuperHeap::free(buf);
+        // SuperHeap::free(buf);
         return ptr;
       }
       // Copy the contents of the original object
@@ -131,11 +141,12 @@ class SampleHeap : public SuperHeap {
     }
 
     // Free the old block.
-    SuperHeap::free(ptr);
+    // SuperHeap::free(ptr);
     if (buf) {
       if (sz < buf_size) {
-        register_malloc(buf_size - sz, buf,
-                        false);  // false -> invoked from C/C++
+        auto ppp = pp.pythonStarted();
+        // printf_("WRITING %d\n", ppp);
+        register_malloc(buf_size - sz, buf, ppp); // false -> invoked from C/C++
       } else if (sz > buf_size) {
         register_free(sz - buf_size, ptr);
       }
@@ -148,51 +159,52 @@ class SampleHeap : public SuperHeap {
     assert(realSize);
     // If this is the special NEWLINE value, trigger an update.
     // printf("uwu %p\n", &in_realloc);
-    if (unlikely(realSize == NEWLINE)) {
-      std::string filename;
-      int lineno;
-      int bytei;
-      decltype(whereInPython)* where = p_whereInPython;
-      if (where != nullptr && where(filename, lineno, bytei)) {
-        writeCount(MallocSignal, realSize, ptr, filename, lineno, bytei);
-      }
-      mallocTriggered()++;
-      return;
-    }
-    auto sampleMalloc = _allocationSampler.increment(realSize);
-    if (inPythonAllocator) {
-      _pythonCount += realSize;
-    } else {
-      _cCount += realSize;
-    }
-    if (unlikely(sampleMalloc)) {
-      process_malloc(sampleMalloc, ptr);
-    }
+    // if (unlikely(realSize == NEWLINE)) {
+    //   std::string filename;
+    //   int lineno;
+    //   int bytei;
+    //   decltype(whereInPython)* where = p_whereInPython;
+    //   if (where != nullptr && where(filename, lineno, bytei)) {
+    //     writeCount(MallocSignal, realSize, ptr, filename, lineno, bytei);
+    //   }
+    //   mallocTriggered()++;
+    //   return;
+    // }
+    // auto sampleMalloc = _allocationSampler.increment(realSize);
+    // if (inPythonAllocator) {
+    //   _pythonCount += realSize;
+    // } else {
+    //   _cCount += realSize;
+    // }
+    // if (unlikely(sampleMalloc)) {
+    process_malloc(realSize, ptr, inPythonAllocator);
+    // }
   }
 
  private:
-  void process_malloc(size_t sampleMalloc, void* ptr) {
+  void process_malloc(size_t sampleMalloc, void* ptr, bool inPythonAllocator) {
     std::string filename;
     int lineno;
     int bytei;
 
-    decltype(whereInPython)* where = p_whereInPython;
-    if (where != nullptr && where(filename, lineno, bytei)) {
-      writeCount(MallocSignal, sampleMalloc, ptr, filename, lineno, bytei);
+    // decltype(whereInPython)* where = p_whereInPython;
+    if (pythonDetected()) {
+      writeCount(MallocSignal, sampleMalloc, ptr, inPythonAllocator);
 #if !SCALENE_DISABLE_SIGNALS
       raise(MallocSignal);
 #endif
-      _lastMallocTrigger = ptr;
-      _freedLastMallocTrigger = false;
-      _pythonCount = 0;
-      _cCount = 0;
-      mallocTriggered()++;
+      // _lastMallocTrigger = ptr;
+      // _freedLastMallocTrigger = false;
+      // _pythonCount = 0;
+      // _cCount = 0;
+      // mallocTriggered()++;
     }
   }
 
  public:
   ATTRIBUTE_ALWAYS_INLINE inline void free(void* ptr) {
     MallocRecursionGuard g;
+    PythonRecursionGuard pp;
     if (unlikely(ptr == nullptr)) {
       return;
     }
@@ -204,39 +216,40 @@ class SampleHeap : public SuperHeap {
   }
 
   inline void register_free(size_t realSize, void* ptr) {
-    auto sampleFree = _allocationSampler.decrement(realSize);
+    // auto sampleFree = _allocationSampler.decrement(realSize);
 
-    if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
-      _freedLastMallocTrigger = true;
-    }
-    if (unlikely(sampleFree)) {
-      process_free(sampleFree);
-    }
+    // if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
+    //   _freedLastMallocTrigger = true;
+    // }
+    // if (unlikely(sampleFree)) {
+      process_free(ptr, realSize);
+    // }
   }
 
  private:
-  void process_free(size_t sampleFree) {
-    std::string filename;
-    int lineno = 1;
-    int bytei = 0;
+  void process_free(void* ptr, size_t sampleFree) {
+    // std::string filename;
+    // int lineno = 1;
+    // int bytei = 0;
 
-#if 1
+#if 0
     decltype(whereInPython)* where = p_whereInPython;
     if (where != nullptr && where(filename, lineno, bytei)) {
       ;
     }
 #endif
 
-    writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
+    writeCount(FreeSignal, sampleFree, ptr, false);
 #if !SCALENE_DISABLE_SIGNALS
     raise(FreeSignal);
 #endif
-    freeTriggered()++;
+    // freeTriggered()++;
   }
 
  public:
   void* memalign(size_t alignment, size_t sz) {
     MallocRecursionGuard g;
+    PythonRecursionGuard pp;
     auto ptr = SuperHeap::memalign(alignment, sz);
     if (unlikely(ptr == nullptr)) {
       return nullptr;
@@ -245,9 +258,23 @@ class SampleHeap : public SuperHeap {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
       assert((sz < 16) || (realSize <= 2 * sz));
-      register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
+      auto ppp = pp.pythonStarted();
+      // printf_("WRITING %d\n", ppp);
+      register_malloc(realSize, ptr, ppp); // false -> invoked from C/C++
     }
     return ptr;
+  }
+
+  void writeCallOrRet(bool is_call) {
+    char buf[SampleFile::MAX_BUFSIZE];
+    struct timespec res;
+    auto result = clock_gettime(CLOCK_MONOTONIC, &res);
+    snprintf_(
+        buf, SampleFile::MAX_BUFSIZE,
+        "%c,%llu,%p,%d,%i,%li,%lu\n\n",
+        is_call ? 'C' : 'T', 0, 0, 0, res.tv_sec, res.tv_nsec, gettid()
+    );
+    getSampleFile().writeToFile(buf);
   }
 
  private:
@@ -274,28 +301,28 @@ class SampleHeap : public SuperHeap {
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
-  void writeCount(AllocSignal sig, uint64_t count, void* ptr,
-                  const std::string& filename, int lineno, int bytei) {
+  void writeCount(AllocSignal sig, uint64_t count, void* ptr, bool in_python_alloc) {
     char buf[SampleFile::MAX_BUFSIZE];
     if (_pythonCount == 0) {
       _pythonCount = 1;  // prevent 0/0
     }
+    struct timespec res;
+    auto result = clock_gettime(CLOCK_MONOTONIC, &res);
+    // unsigned long time = ((long) res.tv_sec) + (res.tv_nsec / 1e9);
     snprintf_(
         buf, sizeof(buf),
 #if defined(__APPLE__)
-        "%c,%llu,%llu,%f,%d,%p,%s,%d,%d\n\n",
+        "%c,%llu,%p,%d,%i,%li,%lu\n\n",
 #else
-        "%c,%lu,%lu,%f,%d,%p,%s,%d,%d\n\n",
+        "%c,%lu,%p,%d,%i,%li,%lu\n\n",
 #endif
-        ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
-        mallocTriggered() + freeTriggered(), count,
-        (float)_pythonCount / (_pythonCount + _cCount), getpid(),
-        _freedLastMallocTrigger ? _lastMallocTrigger : ptr, filename.c_str(),
-        lineno, bytei);
+        ((sig == MallocSignal) ? 'M' : 'F'), count, ptr, in_python_alloc, res.tv_sec, res.tv_nsec, gettid());
     // Ensure we don't report last-malloc-freed multiple times.
-    _freedLastMallocTrigger = false;
+    // _freedLastMallocTrigger = false;
     getSampleFile().writeToFile(buf);
   }
+
+  
 
   static HL::PosixLock& get_signal_init_lock() {
     static HL::PosixLock signal_init_lock;

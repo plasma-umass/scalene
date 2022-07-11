@@ -1,6 +1,6 @@
 #pragma once
-#ifndef MALLOCRECURSIONGUARD_H
-#define MALLOCRECURSIONGUARD_H
+#ifndef PYTHONRECURSIONGUARD_H
+#define PYTHONRECURSIONGUARD_H
 
 #include <pthread.h>
 
@@ -12,7 +12,7 @@
  * Implements a thread-specific flag to guard against inadvertent recursions
  * when interposing heap functions.
  */
-class MallocRecursionGuard {
+class PythonRecursionGuard {
   static pthread_key_t* getKey() {
     static pthread_key_t _inMallocKey;
     return &_inMallocKey;
@@ -68,23 +68,23 @@ class MallocRecursionGuard {
 
   bool _wasInMalloc;
 
-  MallocRecursionGuard(const MallocRecursionGuard&) = delete;
-  MallocRecursionGuard& operator=(const MallocRecursionGuard&) = delete;
+  PythonRecursionGuard(const PythonRecursionGuard&) = delete;
+  PythonRecursionGuard& operator=(const PythonRecursionGuard&) = delete;
 
  public:
-  inline MallocRecursionGuard() {
+  inline PythonRecursionGuard() {
     if (!(_wasInMalloc = isInMalloc())) {
       setInMalloc(true);
     }
   }
 
-  inline ~MallocRecursionGuard() {
+  inline ~PythonRecursionGuard() {
     if (!_wasInMalloc) {
       setInMalloc(false);
     }
   }
 
-  inline bool wasInMalloc() const { return _wasInMalloc; }
+  inline bool pythonStarted() const { return _wasInMalloc; }
 };
 
 #endif

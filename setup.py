@@ -29,9 +29,9 @@ def multiarch_args():
     if sys.platform == 'darwin':
         args = ['-arch', 'x86_64']
         # ARM support was added in XCode 12, which requires MacOS 10.15.4
-        if clang_version() >= 12: # XCode 12
-            if [int(n) for n in platform.mac_ver()[0].split('.')] >= [10, 15, 4]:
-                args += ['-arch', 'arm64', '-arch', 'arm64e']
+        # if clang_version() >= 12: # XCode 12
+        #     if [int(n) for n in platform.mac_ver()[0].split('.')] >= [10, 15, 4]:
+        #         args += ['-arch', 'arm64', '-arch', 'arm64e']
         return args
     return []
 
@@ -40,7 +40,7 @@ def extra_compile_args():
     if sys.platform == 'win32':
         return ['/std:c++14'] # for Visual Studio C++
 
-    return ['-std=c++14'] + multiarch_args()
+    return ['-std=c++14', '-g'] + multiarch_args()
 
 def make_command():
 #    return 'nmake' if sys.platform == 'win32' else 'make'  # 'nmake' isn't found on github actions' VM

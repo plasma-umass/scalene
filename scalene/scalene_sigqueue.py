@@ -23,9 +23,10 @@ class ScaleneSigQueue(Generic[T]):
     def start(self) -> None:
         """Start processing."""
         # We use a daemon thread to defensively avoid hanging if we never join with it
-        if not self.thread:
-            self.thread = threading.Thread(target=self.run, daemon=True)
-            self.thread.start()
+        pass
+        # if not self.thread:
+        #     self.thread = threading.Thread(target=self.run, daemon=True)
+        #     self.thread.start()
 
     def stop(self) -> None:
         """Stop processing."""

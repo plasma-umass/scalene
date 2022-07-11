@@ -175,12 +175,12 @@ class MemcpySampler {
   static constexpr auto flags =
       O_WRONLY | O_CREAT | O_SYNC | O_APPEND;  // O_TRUNC;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
-  static constexpr auto fname = "/tmp/scalene-memcpy-signal%d";
+  static constexpr auto fname = "/people/ster443/files/tmp/scalene-memcpy-signal%d";
 
  public:
   MemcpySampler()
-      : _samplefile("/tmp/scalene-memcpy-signal%d",
-                    "/tmp/scalene-memcpy-lock%d", "/tmp/scalene-memcpy-init%d"),
+      : _samplefile("/people/ster443/files/tmp/scalene-memcpy-signal%d",
+                    "/people/ster443/files/tmp/scalene-memcpy-lock%d", "/people/ster443/files/tmp/scalene-memcpy-init%d"),
         _interval(MemcpySamplingRateBytes),
         _memcpyOps(0),
         _memcpyTriggered(0) {
@@ -291,10 +291,10 @@ class MemcpySampler {
     std::string filename;
     int lineno = 1;
     int bytei = 0;
-    decltype(whereInPython) *where = p_whereInPython;
-    if (where != nullptr && where(filename, lineno, bytei)) {
-      ;
-    }
+    // decltype(whereInPython) *where = p_whereInPython;
+    // if (where != nullptr && where(filename, lineno, bytei)) {
+    //   ;
+    // }
 #endif
     char buf[BUFFER_LENGTH];
     snprintf_(buf, BUFFER_LENGTH, "%d,%d,%d,%s,%d,%d\n\n", _memcpyTriggered,
