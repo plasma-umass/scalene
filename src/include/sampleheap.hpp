@@ -229,7 +229,7 @@ class SampleHeap : public SuperHeap {
 
     writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
 #if !SCALENE_DISABLE_SIGNALS
-    raise(FreeSignal);  // was FreeSignal
+    raise(FreeSignal);
 #endif
     freeTriggered()++;
   }
