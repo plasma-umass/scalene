@@ -21,6 +21,7 @@ from copy import copy
 import functools
 import gc
 import http.server
+from imp import is_builtin
 import inspect
 import json
 import math
@@ -41,10 +42,11 @@ import time
 import traceback
 import webbrowser
 from collections import defaultdict
-from functools import lru_cache
+from functools import cache, lru_cache
 from signal import Handlers, Signals
 from types import FrameType
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, cast
+import builtins
 
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_client_timer import ScaleneClientTimer
@@ -1583,8 +1585,8 @@ class Scalene:
         # Run the code being profiled.
         exit_status = 0
         try:
-            sys.setprofile(Scalene.profile_func)
-            threading.setprofile(Scalene.profile_func)
+            # sys.setprofile(Scalene.profile_func)
+            # threading.setprofile(Scalene.profile_func)
             exec(code, the_globals, the_locals)
         except SystemExit as se:
             # Intercept sys.exit and propagate the error code.
@@ -1708,22 +1710,43 @@ class Scalene:
             #         )
 
         return exit_status
+    builtins_list = list(builtins.__dict__.values()) + list(str.__dict__.values()) + list(list.__dict__.values())
+    @staticmethod
+    @cache
+    def is_builtin(fn):
+        # print(fn, fn.__class__)
+        return fn in Scalene.builtins_list
 
     @staticmethod 
     def profile_func(frame: FrameType, event, arg):
-        
-        # clk = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
-        # tident = threading.get_ident()
-        # if event == 'c_call':
-        #     if arg == exec:
-        #         return None
-        #     Scalene.__call_record.write(f"C,{clk},{str(arg)},{tident}\n")
+        # if 'call' in event or 'return' in event or 'exception' in event: #event == 'c_return' or event == 'c_exception' or event == 'c_call':
+            # if not Scalene.is_builtin(arg):
+            # if True:
+        clk = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+        tident = threading.get_native_id()
+        # print(event)
+        if 'call' in event:
+            # if arg == exec:
+            #     return None
+            if event == 'call':
+                arg_s = frame.f_code.co_name
+            else:
+                arg_s = str(arg)
+            # print("writing")
+            # Scalene.__call_record.write(f"C,{clk},{arg_s},{tident}\n")
+            print(event, arg_s)
             
-        # elif event == 'c_return' or event == 'c_exception':
-        #     if arg == exec:
-        #         return None
-        #     Scalene.__call_record.write(f"T,{clk},{str(arg)},{tident}\n")
-
+        elif 'return' in event or 'exception' in event:
+            # if arg == exec:
+            #     return None
+            if event == 'return':
+                arg_s = frame.f_code.co_name
+            else:
+                arg_s = str(arg)
+            # print("writing", event)
+            # Scalene.__call_record.write(f"T,{clk},{arg_s},{tident}\n")
+            print(event, arg_s)
+        # print("written")
         return None
     @staticmethod
     def process_args(args: argparse.Namespace) -> None:

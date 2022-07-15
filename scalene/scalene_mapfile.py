@@ -55,8 +55,9 @@ class ScaleneMapFile:
 
     def close(self) -> None:
         """Close the map file."""
-        self._signal_fd.close()
-        self._lock_fd.close()
+        pass
+        # self._signal_fd.close()
+        # self._lock_fd.close()
 
     def cleanup(self) -> None:
         """Remove all map files."""

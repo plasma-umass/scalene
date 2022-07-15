@@ -62,8 +62,8 @@ class SampleFile {
         mmap(0, LOCK_FD_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, lock_fd, 0));
     // tprintf::tprintf("@ SampleFile::SampleFile @ _lastpos=@\n", (void*)_mmap,
     // _signalfile, *_lastpos);
-    close(signal_fd);
-    close(lock_fd);
+    // close(signal_fd);
+    // close(lock_fd);
     if (_mmap == MAP_FAILED) {
       fprintf(stderr, "Scalene: internal error = %d (%s:%d)\n", errno, __FILE__,
               __LINE__);
