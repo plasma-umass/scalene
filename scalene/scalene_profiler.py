@@ -750,6 +750,7 @@ class Scalene:
 
     @staticmethod
     def output_profile() -> bool:
+        # sourcery skip: inline-immediately-returned-variable
         """Output the profile. Returns true iff there was any info reported the profile."""
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
@@ -919,56 +920,58 @@ class Scalene:
             average_c_time = c_time / total_frames
             average_gpu_time = gpu_time / total_frames
             average_cpu_time = (python_time + c_time) / total_frames
+
+        # First, handle the main thread.
+        Scalene.enter_function_meta(main_thread_frame, Scalene.__stats)
+        fname = Filename(main_thread_frame.f_code.co_filename)
+        lineno = LineNumber(main_thread_frame.f_lineno)
+        if not is_thread_sleeping[threading.main_thread().ident]:
+            Scalene.__stats.cpu_samples_python[fname][
+                lineno
+            ] += average_python_time
+            Scalene.__stats.cpu_samples_c[fname][lineno] += average_c_time
+            Scalene.__stats.cpu_samples[fname] += average_cpu_time
+            Scalene.__stats.cpu_utilization[fname][lineno].push(
+                cpu_utilization
+            )
+            Scalene.__stats.gpu_samples[fname][lineno] += average_gpu_time
+            Scalene.__stats.gpu_mem_samples[fname][lineno].push(
+                gpu_mem_used
+            )
+
+        # Now handle the rest of the threads.
         for (frame, tident, orig_frame) in new_frames:
+            if frame == main_thread_frame:
+                continue
+            # In a thread.
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
             Scalene.enter_function_meta(frame, Scalene.__stats)
-            if frame == main_thread_frame:
-                # Main thread.
-                if not is_thread_sleeping[tident]:
-                    Scalene.__stats.cpu_samples_python[fname][
-                        lineno
-                    ] += average_python_time
+            # We can't play the same game here of attributing
+            # time, because we are in a thread, and threads don't
+            # get signals in Python. Instead, we check if the
+            # bytecode instruction being executed is a function
+            # call.  If so, we attribute all the time to native.
+            # NOTE: for now, we don't try to attribute GPU time to threads.
+            if not is_thread_sleeping[tident]:
+                # Check if the original caller is stuck inside a call.
+                if ScaleneFuncUtils.is_call_function(
+                    orig_frame.f_code,
+                    ByteCodeIndex(orig_frame.f_lasti),
+                ):
+                    # It is. Attribute time to native.
                     Scalene.__stats.cpu_samples_c[fname][
                         lineno
-                    ] += average_c_time
-                    Scalene.__stats.cpu_samples[fname] += average_cpu_time
-                    Scalene.__stats.cpu_utilization[fname][lineno].push(
-                        cpu_utilization
-                    )
-                    Scalene.__stats.gpu_samples[fname][
+                    ] += normalized_time
+                else:
+                    # Not in a call function so we attribute the time to Python.
+                    Scalene.__stats.cpu_samples_python[fname][
                         lineno
-                    ] += average_gpu_time
-                    Scalene.__stats.gpu_mem_samples[fname][lineno].push(
-                        gpu_mem_used
-                    )
-
-            else:
-                # We can't play the same game here of attributing
-                # time, because we are in a thread, and threads don't
-                # get signals in Python. Instead, we check if the
-                # bytecode instruction being executed is a function
-                # call.  If so, we attribute all the time to native.
-                # NOTE: for now, we don't try to attribute GPU time to threads.
-                if not is_thread_sleeping[tident]:
-                    # Check if the original caller is stuck inside a call.
-                    if ScaleneFuncUtils.is_call_function(
-                        orig_frame.f_code,
-                        ByteCodeIndex(orig_frame.f_lasti),
-                    ):
-                        # It is. Attribute time to native.
-                        Scalene.__stats.cpu_samples_c[fname][
-                            lineno
-                        ] += normalized_time
-                    else:
-                        # Not in a call function so we attribute the time to Python.
-                        Scalene.__stats.cpu_samples_python[fname][
-                            lineno
-                        ] += normalized_time
-                    Scalene.__stats.cpu_samples[fname] += normalized_time
-                    Scalene.__stats.cpu_utilization[fname][lineno].push(
-                        cpu_utilization
-                    )
+                    ] += normalized_time
+                Scalene.__stats.cpu_samples[fname] += normalized_time
+                Scalene.__stats.cpu_utilization[fname][lineno].push(
+                    cpu_utilization
+                )
 
         # Clean up all the frames
         del new_frames[:]
