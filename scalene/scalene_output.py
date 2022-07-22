@@ -49,16 +49,16 @@ class ScaleneOutput:
     def output_top_memory(
         self, title: str, console: Console, mallocs: Dict[LineNumber, float]
     ) -> None:
-        # Print the top N lines by memory consumption, as long
-        # as they are above some threshold MB in size.
-        print_top_mallocs_count = 5
-        print_top_mallocs_threshold_mb = 1
-        if len(mallocs) > 0:
+        if mallocs:
             printed_header = False
             number = 1
-            for malloc_lineno in mallocs:
+            # Print the top N lines by memory consumption, as long
+            # as they are above some threshold MB in size.
+            print_top_mallocs_count = 5
+            print_top_mallocs_threshold_mb = 1
+            for malloc_lineno, value in mallocs.items():
                 # Don't print lines with less than the threshold MB allocated.
-                if mallocs[malloc_lineno] <= print_top_mallocs_threshold_mb:
+                if value <= print_top_mallocs_threshold_mb:
                     break
                 # Only print the top N.
                 if number > print_top_mallocs_count:
@@ -410,7 +410,7 @@ class ScaleneOutput:
             stats.output_stats(pid, python_alias_dir)
             return True
 
-        if len(report_files) == 0:
+        if not report_files:
             return False
 
         for fname in report_files:
@@ -420,17 +420,16 @@ class ScaleneOutput:
             fname_print = fname
             import re
 
-            result = re.match("<ipython-input-([0-9]+)-.*>", fname_print)
-            if result:
-                fname_print = Filename("[" + result.group(1) + "]")
+            if result := re.match("<ipython-input-([0-9]+)-.*>", fname_print):
+                fname_print = Filename(f"[{result.group(1)}]")
 
             # Print header.
-            if not stats.total_cpu_samples:
-                percent_cpu_time = 0
-            else:
-                percent_cpu_time = (
-                    100 * stats.cpu_samples[fname] / stats.total_cpu_samples
-                )
+            percent_cpu_time = (
+                (100 * stats.cpu_samples[fname] / stats.total_cpu_samples)
+                if stats.total_cpu_samples
+                else 0
+            )
+
             new_title = mem_usage_line + (
                 f"{fname_print}: % of time = {percent_cpu_time:6.2f} out of {stats.elapsed_time:6.2f}."
             )
@@ -507,19 +506,13 @@ class ScaleneOutput:
                     width=6,
                 )
                 other_columns_width = 75 + (6 if self.gpu else 0)
-                tbl.add_column(
-                    "\n" + fname_print,
-                    width=column_width - other_columns_width,
-                    no_wrap=True,
-                )
             else:
                 other_columns_width = 37 + (5 if self.gpu else 0)
-                tbl.add_column(
-                    "\n" + fname_print,
-                    width=column_width - other_columns_width,
-                    no_wrap=True,
-                )
-
+            tbl.add_column(
+                "\n" + fname_print,
+                width=column_width - other_columns_width,
+                no_wrap=True,
+            )
             # Print out the the profile for the source, line by line.
             if fname == "<BOGUS>":
                 continue
@@ -601,11 +594,10 @@ class ScaleneOutput:
                         tbl.add_row("", "", "", "", "", "", "", "", "", txt)
                     else:
                         tbl.add_row("", "", "", "", "", "", "", "", txt)
+                elif self.gpu:
+                    tbl.add_row("", "", "", "", "", txt)
                 else:
-                    if self.gpu:
-                        tbl.add_row("", "", "", "", "", txt)
-                    else:
-                        tbl.add_row("", "", "", "", txt)
+                    tbl.add_row("", "", "", "", txt)
 
                 for fn_name in sorted(
                     fn_stats.cpu_samples_python,
@@ -643,8 +635,7 @@ class ScaleneOutput:
             avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
                 n_malloc_mb = stats.memory_aggregate_footprint[fname][line_no]
-                count = stats.memory_malloc_count[fname][line_no]
-                if count:
+                if count := stats.memory_malloc_count[fname][line_no]:
                     avg_mallocs[line_no] = n_malloc_mb / count
                 else:
                     # Setting to n_malloc_mb addresses the edge case where this allocation is the last line executed.
@@ -699,11 +690,10 @@ class ScaleneOutput:
             if not self.output_file:
                 self.output_file = "/dev/stdout"
             console.save_html(self.output_file, clear=False)
+        elif self.output_file:
+            # Don't output styles to text file.
+            console.save_text(self.output_file, styles=False, clear=False)
         else:
-            if not self.output_file:
-                # No output file specified: write to stdout.
-                sys.stdout.write(console.export_text(styles=True))
-            else:
-                # Don't output styles to text file.
-                console.save_text(self.output_file, styles=False, clear=False)
+            # No output file specified: write to stdout.
+            sys.stdout.write(console.export_text(styles=True))
         return True

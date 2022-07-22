@@ -56,7 +56,6 @@ class ScaleneGPU:
                 except pynvml.NVMLError:
                     # We don't have sufficient permissions.
                     return False
-                    pass
 
         return True
 
@@ -70,12 +69,10 @@ class ScaleneGPU:
         for i in range(ngpus):
             h = self.__handle[i]
             if accounting_on:
-                try:
+                with contextlib.suppress(Exception):
                     utilization += pynvml.nvmlDeviceGetAccountingStats(
                         h, pid
                     ).gpuUtilization
-                except:
-                    pass
             else:
                 utilization += pynvml.nvmlDeviceGetUtilizationRates(h).gpu
         return (utilization / ngpus) / 100.0
@@ -90,8 +87,10 @@ class ScaleneGPU:
         with contextlib.suppress(Exception):
             pynvml.nvmlInit()
             self.__ngpus = pynvml.nvmlDeviceGetCount()
-            for i in range(self.__ngpus):
-                self.__handle.append(pynvml.nvmlDeviceGetHandleByIndex(i))
+            self.__handle.extend(
+                pynvml.nvmlDeviceGetHandleByIndex(i)
+                for i in range(self.__ngpus)
+            )
 
     def gpu_memory_usage(self, pid) -> float:
         """Returns GPU memory used by the process pid, in MB."""

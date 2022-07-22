@@ -3,7 +3,17 @@ import pathlib
 import pickle
 import time
 from collections import defaultdict
-from typing import Any, DefaultDict, Dict, List, NewType, Optional, Set, Tuple, TypeVar
+from typing import (
+    Any,
+    DefaultDict,
+    Dict,
+    List,
+    NewType,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+)
 
 import cloudpickle
 
@@ -321,14 +331,13 @@ class ScaleneStatistics:
 
     def output_stats(self, pid: int, dir_name: pathlib.Path) -> None:
         """Output statistics for a particular process to a given directory."""
-        payload: List[Any] = []
-        for n in ScaleneStatistics.payload_contents:
-            payload.append(getattr(self, n))
+        payload: List[Any] = [
+            getattr(self, n) for n in ScaleneStatistics.payload_contents
+        ]
 
         # Create a file in the Python alias directory with the relevant info.
         out_filename = os.path.join(
-            dir_name,
-            "scalene" + str(pid) + "-" + str(os.getpid()),
+            dir_name, f"scalene{pid}-{str(os.getpid())}"
         )
         with open(out_filename, "wb") as out_file:
             cloudpickle.dump(payload, out_file)
