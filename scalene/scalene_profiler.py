@@ -1,4 +1,4 @@
-"""Scalene: a scripting-language aware profiler for Python.
+"""Scalene: a CPU+memory+GPU (and more) profiler for Python.
 
     https://github.com/plasma-umass/scalene
 
@@ -1115,19 +1115,20 @@ class Scalene:
                     reported_lineno,
                     bytei_str,
                 ) = count_str.split(",")
-                if int(curr_pid) == int(pid):
-                    arr.append(
-                        (
-                            int(alloc_time_str),
-                            action,
-                            float(count_str),
-                            float(python_fraction_str),
-                            pointer,
-                            Filename(reported_fname),
-                            LineNumber(int(reported_lineno)),
-                            ByteCodeIndex(int(bytei_str)),
-                        )
+                if int(curr_pid) != int(pid):
+                    continue
+                arr.append(
+                    (
+                        int(alloc_time_str),
+                        action,
+                        float(count_str),
+                        float(python_fraction_str),
+                        pointer,
+                        Filename(reported_fname),
+                        LineNumber(int(reported_lineno)),
+                        ByteCodeIndex(int(bytei_str)),
                     )
+                )
 
         # Iterate through the array to compute the new current footprint
         # and update the global __memory_footprint_samples. Since on some systems,
@@ -1357,16 +1358,17 @@ class Scalene:
                     lineno,
                     bytei,
                 ) = count_str.split(",")
-                if int(curr_pid) == int(pid):
-                    arr.append(
-                        (
-                            filename,
-                            int(lineno),
-                            int(bytei),
-                            int(memcpy_time_str),
-                            int(count_str2),
-                        )
+                if int(curr_pid) != int(pid):
+                    continue
+                arr.append(
+                    (
+                        filename,
+                        int(lineno),
+                        int(bytei),
+                        int(memcpy_time_str),
+                        int(count_str2),
                     )
+                )
         arr.sort()
 
         for item in arr:
@@ -1464,25 +1466,25 @@ class Scalene:
                 Scalene.__args.json = True
                 Scalene.__output.html = False
                 Scalene.__output.output_file = "profile.json"
-            else:
-                # Check for a browser.
-                try:
-                    if (
-                        not webbrowser.get()
-                        or type(webbrowser.get()).__name__ == "GenericBrowser"
-                    ):
-                        # Could not open a graphical web browser tab;
-                        # act as if --web was not specified
-                        # (GenericBrowser means text-based browsers like Lynx.)
-                        Scalene.__args.web = False
-                    else:
-                        # Force JSON output to profile.json.
-                        Scalene.__args.json = True
-                        Scalene.__output.html = False
-                        Scalene.__output.output_file = "profile.json"
-                except:
-                    # Couldn't find a browser.
+                return
+            # Check for a browser.
+            try:
+                if (
+                    not webbrowser.get()
+                    or type(webbrowser.get()).__name__ == "GenericBrowser"
+                ):
+                    # Could not open a graphical web browser tab;
+                    # act as if --web was not specified
+                    # (GenericBrowser means text-based browsers like Lynx.)
                     Scalene.__args.web = False
+                else:
+                    # Force JSON output to profile.json.
+                    Scalene.__args.json = True
+                    Scalene.__output.html = False
+                    Scalene.__output.output_file = "profile.json"
+            except Exception:
+                # Couldn't find a browser.
+                Scalene.__args.web = False
 
     @staticmethod
     def is_done() -> bool:
@@ -1587,93 +1589,95 @@ class Scalene:
                     "Scalene: Program did not run for long enough to profile."
                 )
 
-            if (
+            if not (
                 did_output
                 and Scalene.__args.web
                 and not Scalene.__args.cli
                 and not Scalene.__is_child
             ):
-                # Start up a web server (in a background thread) to host the GUI,
-                # and open a browser tab to the server. If this fails, fail-over
-                # to using the CLI.
+                return exit_status
+            
+            # Start up a web server (in a background thread) to host the GUI,
+            # and open a browser tab to the server. If this fails, fail-over
+            # to using the CLI.
 
-                try:
-                    PORT = Scalene.__args.port
+            try:
+                PORT = Scalene.__args.port
 
-                    # Silence web server output by overriding logging messages.
-                    class NoLogs(http.server.SimpleHTTPRequestHandler):
-                        def log_message(
-                            self, format: str, *args: List[Any]
-                        ) -> None:
-                            return
+                # Silence web server output by overriding logging messages.
+                class NoLogs(http.server.SimpleHTTPRequestHandler):
+                    def log_message(
+                        self, format: str, *args: List[Any]
+                    ) -> None:
+                        return
 
-                        def log_request(
-                            self,
-                            code: Union[int, str] = 0,
-                            size: Union[int, str] = 0,
-                        ) -> None:
-                            return
+                    def log_request(
+                        self,
+                        code: Union[int, str] = 0,
+                        size: Union[int, str] = 0,
+                    ) -> None:
+                        return
 
-                    Handler = NoLogs
-                    socketserver.TCPServer.allow_reuse_address = True
-                    with socketserver.TCPServer(("", PORT), Handler) as httpd:
-                        import threading
+                Handler = NoLogs
+                socketserver.TCPServer.allow_reuse_address = True
+                with socketserver.TCPServer(("", PORT), Handler) as httpd:
+                    import threading
 
-                        t = threading.Thread(target=httpd.serve_forever)
-                        # Copy files into a new directory and then point the tab there.
-                        import shutil
+                    t = threading.Thread(target=httpd.serve_forever)
+                    # Copy files into a new directory and then point the tab there.
+                    import shutil
 
-                        webgui_dir = pathlib.Path(
-                            tempfile.mkdtemp(prefix="scalene-gui")
-                        )
-                        shutil.copytree(
-                            os.path.join(
-                                os.path.dirname(__file__), "scalene-gui"
-                            ),
-                            os.path.join(webgui_dir, "scalene-gui"),
-                        )
-                        shutil.copy(
-                            "profile.json",
-                            os.path.join(webgui_dir, "scalene-gui"),
-                        )
-                        os.chdir(os.path.join(webgui_dir, "scalene-gui"))
-                        t.start()
-                        if Scalene.in_jupyter():
-                            from IPython.core.display import HTML, display
-                            from IPython.display import IFrame
-
-                            display(
-                                IFrame(
-                                    src=f"http://localhost:{PORT}/profiler.html",
-                                    width=700,
-                                    height=600,
-                                )
-                            )
-                        else:
-                            # Disable the preload environment
-                            # variables which are no longer needed
-                            # anyway (for memory/copy volume tracking)
-                            # and which interfere with at least one
-                            # browser on one platform.
-                            os.environ["LD_PRELOAD"] = ""
-                            os.environ["DYLD_INSERT_LIBRARIES"] = ""
-                            # Now open a new tab with the profiler.
-                            result = webbrowser.open_new_tab(
-                                f"http://localhost:{PORT}/profiler.html"
-                            )
-                        # Wait long enough for the server to serve the page, and then shut down the server.
-                        time.sleep(5)
-                        httpd.shutdown()
-                except OSError:
-                    print(
-                        f"Scalene: unable to run the Scalene GUI on port {PORT}."
+                    webgui_dir = pathlib.Path(
+                        tempfile.mkdtemp(prefix="scalene-gui")
                     )
-                    print("Possible solutions:")
-                    print("(1) Use a different port (with --port)")
-                    print("(2) Use the text version (with --cli)")
-                    print(
-                        "(3) Upload a generated profile.json file to the web GUI: https://plasma-umass.org/scalene-gui/."
+                    shutil.copytree(
+                        os.path.join(
+                            os.path.dirname(__file__), "scalene-gui"
+                        ),
+                        os.path.join(webgui_dir, "scalene-gui"),
                     )
+                    shutil.copy(
+                        "profile.json",
+                        os.path.join(webgui_dir, "scalene-gui"),
+                    )
+                    os.chdir(os.path.join(webgui_dir, "scalene-gui"))
+                    t.start()
+                    if Scalene.in_jupyter():
+                        from IPython.core.display import HTML, display
+                        from IPython.display import IFrame
+
+                        display(
+                            IFrame(
+                                src=f"http://localhost:{PORT}/profiler.html",
+                                width=700,
+                                height=600,
+                            )
+                        )
+                    else:
+                        # Disable the preload environment
+                        # variables which are no longer needed
+                        # anyway (for memory/copy volume tracking)
+                        # and which interfere with at least one
+                        # browser on one platform.
+                        os.environ["LD_PRELOAD"] = ""
+                        os.environ["DYLD_INSERT_LIBRARIES"] = ""
+                        # Now open a new tab with the profiler.
+                        result = webbrowser.open_new_tab(
+                            f"http://localhost:{PORT}/profiler.html"
+                        )
+                    # Wait long enough for the server to serve the page, and then shut down the server.
+                    time.sleep(5)
+                    httpd.shutdown()
+            except OSError:
+                print(
+                    f"Scalene: unable to run the Scalene GUI on port {PORT}."
+                )
+                print("Possible solutions:")
+                print("(1) Use a different port (with --port)")
+                print("(2) Use the text version (with --cli)")
+                print(
+                    "(3) Upload a generated profile.json file to the web GUI: https://plasma-umass.org/scalene-gui/."
+                )
 
         return exit_status
 
