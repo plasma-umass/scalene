@@ -385,7 +385,7 @@ class Scalene:
     def set_thread_sleeping(tid: int) -> None:
         """Indicate the given thread is sleeping.
 
-        Used to attribute CPU time by cpu_sigqueue_processor.
+        Used to attribute CPU time.
         """
         Scalene.__is_thread_sleeping[tid] = True
 
@@ -393,7 +393,7 @@ class Scalene:
     def reset_thread_sleeping(tid: int) -> None:
         """Indicate the given thread is not sleeping.
 
-        Used to attribute CPU time by cpu_sigqueue_processor."""
+        Used to attribute CPU time."""
         Scalene.__is_thread_sleeping[tid] = False
 
     timer_signals = True
@@ -694,10 +694,8 @@ class Scalene:
 
         (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
 
-        # Process these frames immediately (we no longer use sigqueues
-        # because they led to frame "drag", holding down memory until
-        # processed).
-        Scalene.cpu_sigqueue_processor(
+        # Process this CPU sample.
+        Scalene.process_cpu_sample(
             signum,
             Scalene.compute_frames_to_record(),
             now_virtual,
@@ -813,7 +811,7 @@ class Scalene:
         return found_function
 
     @staticmethod
-    def cpu_sigqueue_processor(
+    def process_cpu_sample(
         _signum: Union[
             Callable[[Signals, FrameType], None], int, Handlers, None
         ],
@@ -908,18 +906,19 @@ class Scalene:
             for frame, tident, orig_frame in new_frames
         )
 
-        normalized_time = total_time
-        if total_frames != 0:
-            normalized_time /= total_frames
+        if total_frames == 0:
+            total_frames = 1
+
+        normalized_time = total_time / total_frames
 
         # Now attribute execution time.
 
         main_thread_frame = new_frames[0][0]
-        if total_frames:
-            average_python_time = python_time / total_frames
-            average_c_time = c_time / total_frames
-            average_gpu_time = gpu_time / total_frames
-            average_cpu_time = (python_time + c_time) / total_frames
+
+        average_python_time = python_time / total_frames
+        average_c_time = c_time / total_frames
+        average_gpu_time = gpu_time / total_frames
+        average_cpu_time = (python_time + c_time) / total_frames
 
         # First, handle the main thread.
         Scalene.enter_function_meta(main_thread_frame, Scalene.__stats)
@@ -935,9 +934,7 @@ class Scalene:
                 cpu_utilization
             )
             Scalene.__stats.gpu_samples[fname][lineno] += average_gpu_time
-            Scalene.__stats.gpu_mem_samples[fname][lineno].push(
-                gpu_mem_used
-            )
+            Scalene.__stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
         # Now handle the rest of the threads.
         for (frame, tident, orig_frame) in new_frames:
@@ -953,25 +950,25 @@ class Scalene:
             # bytecode instruction being executed is a function
             # call.  If so, we attribute all the time to native.
             # NOTE: for now, we don't try to attribute GPU time to threads.
-            if not is_thread_sleeping[tident]:
-                # Check if the original caller is stuck inside a call.
-                if ScaleneFuncUtils.is_call_function(
-                    orig_frame.f_code,
-                    ByteCodeIndex(orig_frame.f_lasti),
-                ):
-                    # It is. Attribute time to native.
-                    Scalene.__stats.cpu_samples_c[fname][
-                        lineno
-                    ] += normalized_time
-                else:
-                    # Not in a call function so we attribute the time to Python.
-                    Scalene.__stats.cpu_samples_python[fname][
-                        lineno
-                    ] += normalized_time
-                Scalene.__stats.cpu_samples[fname] += normalized_time
-                Scalene.__stats.cpu_utilization[fname][lineno].push(
-                    cpu_utilization
-                )
+            if is_thread_sleeping[tident]:
+                # Ignore sleeping threads.
+                continue
+            # Check if the original caller is stuck inside a call.
+            if ScaleneFuncUtils.is_call_function(
+                orig_frame.f_code,
+                ByteCodeIndex(orig_frame.f_lasti),
+            ):
+                # It is. Attribute time to native.
+                Scalene.__stats.cpu_samples_c[fname][lineno] += normalized_time
+            else:
+                # Not in a call function so we attribute the time to Python.
+                Scalene.__stats.cpu_samples_python[fname][
+                    lineno
+                ] += normalized_time
+            Scalene.__stats.cpu_samples[fname] += normalized_time
+            Scalene.__stats.cpu_utilization[fname][lineno].push(
+                cpu_utilization
+            )
 
         # Clean up all the frames
         del new_frames[:]
@@ -1151,9 +1148,6 @@ class Scalene:
             count /= 1024 * 1024
             if is_malloc:
                 stats.current_footprint += count
-                # stats.max_footprint = max(
-                #     stats.current_footprint, stats.max_footprint
-                # )
                 if stats.current_footprint > stats.max_footprint:
                     stats.max_footprint = stats.current_footprint
                     stats.max_footprint_loc = (fname, lineno)
@@ -1539,7 +1533,7 @@ class Scalene:
                 Scalene.__signals.memcpy_signal, signal.SIG_IGN
             )
             Scalene.stop_signal_queues()
-        except:
+        except Exception:
             # Retry just in case we get interrupted by one of our own signals.
             if retry:
                 Scalene.disable_signals(retry=False)
@@ -1596,7 +1590,7 @@ class Scalene:
                 and not Scalene.__is_child
             ):
                 return exit_status
-            
+
             # Start up a web server (in a background thread) to host the GUI,
             # and open a browser tab to the server. If this fails, fail-over
             # to using the CLI.
@@ -1631,9 +1625,7 @@ class Scalene:
                         tempfile.mkdtemp(prefix="scalene-gui")
                     )
                     shutil.copytree(
-                        os.path.join(
-                            os.path.dirname(__file__), "scalene-gui"
-                        ),
+                        os.path.join(os.path.dirname(__file__), "scalene-gui"),
                         os.path.join(webgui_dir, "scalene-gui"),
                     )
                     shutil.copy(
