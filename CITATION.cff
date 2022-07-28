@@ -6,6 +6,7 @@ authors:
   orcid: "https://orcid.org/0000-0002-3222-3271"
 - family-names: "Altmayer Pizzorno"
   given-names: "Juan"
+  orcid: "https://orcid.org/0000-0002-1891-2919"
 - family-names: "Stern"
   given-names: "Sam"
 title: "Scalene: a high-performance, high-precision CPU, GPU, and memory profiler for Python"
