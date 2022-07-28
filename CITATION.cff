@@ -12,3 +12,16 @@ title: "Scalene: a high-performance, high-precision CPU, GPU, and memory profile
 version: 1.5.9
 date-released: 2022-07-24
 url: "https://github.com/plasma-umass/scalene"
+preferred-citation:
+  type: unpublished
+  authors:
+  - family-names: "Berger"
+    given-names: "Emery D."
+    orcid: "https://orcid.org/0000-0002-3222-3271"
+  doi: "10.48550/arXiv.2006.03879"
+  journal: "arXiv"
+  month: 7
+  start: 1 # First page number
+  end: 13 # Last page number
+  title: "Scalene: Scripting-Language Aware Profiling for Python"
+  year: 2020
