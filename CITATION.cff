@@ -1,0 +1,14 @@
+cff-version: 1.0.0
+message: "If you use or refer to Scalene, please cite it as below."
+authors:
+- family-names: "Berger"
+  given-names: "Emery D."
+  orcid: "https://orcid.org/0000-0002-3222-3271"
+- family-names: "Altmayer Pizzorno"
+  given-names: "Juan"
+- family-names: "Stern"
+  given-names: "Sam"
+title: "Scalene: a high-performance, high-precision CPU, GPU, and memory profiler for Python"
+version: 1.5.9
+date-released: 2022-07-24
+url: "https://github.com/plasma-umass/scalene"
