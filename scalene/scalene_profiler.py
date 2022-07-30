@@ -129,6 +129,10 @@ class Scalene:
     __last_profiled_invalidated = False
     __gui_dir = "scalene-gui"
     __profile_filename = "profile.json"
+    __localhost = "http://localhost"
+    __profiler_html = "profiler.html"
+    __error_message = "Error in program being profiled"
+    __bytes_per_mb = 1024 * 1024
 
 
     # Support for @profile
@@ -318,7 +322,7 @@ class Scalene:
             # This can happen when Scalene shuts down.
             return None
         except Exception as e:
-            print("Error in program being profiled:\n", e)
+            print(f"{Scalene.__error_message}:\n", e)
             traceback.print_exc()
             return None
 
@@ -730,7 +734,7 @@ class Scalene:
                     Scalene.__orig_raise_signal(signal.SIGUSR1)
                 # NOTE-- 0 will only be returned if the 'seconds' have elapsed
                 # and there is no interval
-                to_wait = 0
+                to_wait = 0.0
                 if remaining_time > 0:
                     to_wait = min(
                         remaining_time, Scalene.__args.cpu_sampling_rate
@@ -926,7 +930,8 @@ class Scalene:
         Scalene.enter_function_meta(main_thread_frame, Scalene.__stats)
         fname = Filename(main_thread_frame.f_code.co_filename)
         lineno = LineNumber(main_thread_frame.f_lineno)
-        if not is_thread_sleeping[threading.main_thread().ident]:
+        main_tid = cast(int, threading.main_thread().ident)
+        if not is_thread_sleeping[main_tid]:
             Scalene.__stats.cpu_samples_python[fname][
                 lineno
             ] += average_python_time
@@ -1067,13 +1072,13 @@ class Scalene:
             if "self" in f.f_locals:
                 prepend_name = f.f_locals["self"].__class__.__name__
                 if "Scalene" not in prepend_name:
-                    fn_name = f"{prepend_name}.{fn_name}"
+                    fn_name = Filename(f"{prepend_name}.{fn_name}")
                 break
             if "cls" in f.f_locals:
                 prepend_name = getattr(f.f_locals["cls"], "__name__", None)
                 if not prepend_name or "Scalene" in prepend_name:
                     break
-                fn_name = f"{prepend_name}.{fn_name}"
+                fn_name = Filename(f"{prepend_name}.{fn_name}")
                 break
             f = f.f_back
 
@@ -1147,7 +1152,7 @@ class Scalene:
                 bytei,
             ) = item
             is_malloc = action == "M"
-            count /= 1024 * 1024
+            count /= Scalene.__bytes_per_mb
             if is_malloc:
                 stats.current_footprint += count
                 if stats.current_footprint > stats.max_footprint:
@@ -1233,7 +1238,7 @@ class Scalene:
 
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
-            count /= 1024 * 1024
+            count /= Scalene.__bytes_per_mb
             if is_malloc:
                 allocs += count
                 curr += count
@@ -1572,7 +1577,7 @@ class Scalene:
             # Cleanly handle keyboard interrupts (quits execution and dumps the profile).
             print("Scalene execution interrupted.")
         except Exception as e:
-            print("Error in program being profiled:\n", e)
+            print(f"{Scalene.__error_message}:\n", e)
             traceback.print_exc()
             exit_status = 1
         finally:
@@ -1642,7 +1647,7 @@ class Scalene:
 
                         display(
                             IFrame(
-                                src=f"http://localhost:{PORT}/profiler.html",
+                                src=f"{Scalene.__localhost}:{PORT}/{Scalene.__profiler_html}",
                                 width=700,
                                 height=600,
                             )
@@ -1655,9 +1660,9 @@ class Scalene:
                         # browser on one platform.
                         os.environ["LD_PRELOAD"] = ""
                         os.environ["DYLD_INSERT_LIBRARIES"] = ""
-                        # Now open a new tab with the profiler.
-                        result = webbrowser.open_new_tab(
-                            f"http://localhost:{PORT}/profiler.html"
+                        # Now open a tab with the profiler.
+                        result = webbrowser.open(
+                            f"{Scalene.__localhost}:{PORT}/{Scalene.__profiler_html}"
                         )
                     # Wait long enough for the server to serve the page, and then shut down the server.
                     time.sleep(5)
