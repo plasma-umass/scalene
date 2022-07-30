@@ -34,6 +34,9 @@ class ScaleneOutput:
     # Color for highlighted text (over the threshold of CPU time)
     highlight_color = "bold red"
 
+    # Color for memory consumption
+    memory_color = "dark_green"
+
     def __init__(self) -> None:
         # where we write profile info
         self.output_file = ""
@@ -68,7 +71,7 @@ class ScaleneOutput:
                     console.print(title)
                     printed_header = True
                 output_str = f"({str(number)}) {malloc_lineno:5.0f}: {(mallocs[malloc_lineno]):5.0f} MB"
-                console.print(Markdown(output_str, style="dark_green"))
+                console.print(Markdown(output_str, style=self.memory_color))
                 number += 1
 
     def output_profile_line(
@@ -132,20 +135,6 @@ class ScaleneOutput:
                 else f"{(obj['n_peak_mb'] / 1024):5.2f}G"
             )
 
-        n_usage_fraction_str: str = (
-            ""
-            if obj["n_usage_fraction"] < 0.01
-            else f"{(100 * obj['n_usage_fraction']):4.0f}%"
-        )
-        n_python_fraction_str: str = (
-            ""
-            if obj["n_python_fraction"] < 0.01
-            else f"{(obj['n_python_fraction'] * 100):4.0f}%"
-        )
-        n_copy_mb_s_str: str = (
-            "" if obj["n_copy_mb_s"] < 0.5 else f"{obj['n_copy_mb_s']:6.0f}"
-        )
-
         # Only report utilization where there is more than 1% CPU total usage.
         sys_str: str = (
             "" if obj["n_sys_percent"] < 1 else f"{obj['n_sys_percent']:4.0f}%"
@@ -171,11 +160,11 @@ class ScaleneOutput:
                 )
             else:
                 random_samples = samples
-            sparkline_samples = []
-            for i in range(0, len(random_samples)):
-                sparkline_samples.append(
-                    random_samples[i][1] * obj["n_usage_fraction"]
-                )
+            sparkline_samples = [
+                random_samples[i][1] * obj["n_usage_fraction"]
+                for i in range(len(random_samples))
+            ]
+
             if random_samples:
                 _, _, spark_str = sparkline.generate(
                     sparkline_samples, 0, stats.max_footprint
@@ -187,6 +176,11 @@ class ScaleneOutput:
             nufs: Any = ""
             ngpus: Any = ""
 
+            n_usage_fraction_str: str = (
+                ""
+                if obj["n_usage_fraction"] < 0.01
+                else f"{(100 * obj['n_usage_fraction']):4.0f}%"
+            )
             if (
                 obj["n_usage_fraction"] >= self.highlight_percentage
                 or (
@@ -214,36 +208,45 @@ class ScaleneOutput:
                 ngpus = n_gpu_percent_str
                 nufs = spark_str + n_usage_fraction_str
 
-            if not reduced_profile or ncpps + ncpcs + nufs + ngpus:
-                if self.gpu:
-                    tbl.add_row(
-                        print_line_no,
-                        ncpps,  # n_cpu_percent_python_str,
-                        ncpcs,  # n_cpu_percent_c_str,
-                        sys_str,
-                        ngpus,
-                        n_python_fraction_str,
-                        n_growth_mem_str,
-                        nufs,  # spark_str + n_usage_fraction_str,
-                        n_copy_mb_s_str,
-                        line,
-                    )
-                else:
-                    tbl.add_row(
-                        print_line_no,
-                        ncpps,  # n_cpu_percent_python_str,
-                        ncpcs,  # n_cpu_percent_c_str,
-                        sys_str,
-                        n_python_fraction_str,
-                        n_growth_mem_str,
-                        nufs,  # spark_str + n_usage_fraction_str,
-                        n_copy_mb_s_str,
-                        line,
-                    )
-                return True
-            else:
+            if reduced_profile and not ncpps + ncpcs + nufs + ngpus:
                 return False
 
+            n_python_fraction_str: str = (
+                ""
+                if obj["n_python_fraction"] < 0.01
+                else f"{(obj['n_python_fraction'] * 100):4.0f}%"
+            )
+            n_copy_mb_s_str: str = (
+                ""
+                if obj["n_copy_mb_s"] < 0.5
+                else f"{obj['n_copy_mb_s']:6.0f}"
+            )
+
+            if self.gpu:
+                tbl.add_row(
+                    print_line_no,
+                    ncpps,  # n_cpu_percent_python_str,
+                    ncpcs,  # n_cpu_percent_c_str,
+                    sys_str,
+                    ngpus,
+                    n_python_fraction_str,
+                    n_growth_mem_str,
+                    nufs,  # spark_str + n_usage_fraction_str,
+                    n_copy_mb_s_str,
+                    line,
+                )
+            else:
+                tbl.add_row(
+                    print_line_no,
+                    ncpps,  # n_cpu_percent_python_str,
+                    ncpcs,  # n_cpu_percent_c_str,
+                    sys_str,
+                    n_python_fraction_str,
+                    n_growth_mem_str,
+                    nufs,  # spark_str + n_usage_fraction_str,
+                    n_copy_mb_s_str,
+                    line,
+                )
         else:
 
             # Red highlight
@@ -266,28 +269,27 @@ class ScaleneOutput:
                 ncpcs = n_cpu_percent_c_str
                 ngpus = n_gpu_percent_str
 
-            if not reduced_profile or ncpps + ncpcs + ngpus:
-                if self.gpu:
-                    tbl.add_row(
-                        print_line_no,
-                        ncpps,  # n_cpu_percent_python_str,
-                        ncpcs,  # n_cpu_percent_c_str,
-                        sys_str,
-                        ngpus,  # n_gpu_percent_str
-                        line,
-                    )
-                else:
-                    tbl.add_row(
-                        print_line_no,
-                        ncpps,  # n_cpu_percent_python_str,
-                        ncpcs,  # n_cpu_percent_c_str,
-                        sys_str,
-                        line,
-                    )
-
-                return True
-            else:
+            if reduced_profile and not ncpps + ncpcs + ngpus:
                 return False
+            if self.gpu:
+                tbl.add_row(
+                    print_line_no,
+                    ncpps,  # n_cpu_percent_python_str,
+                    ncpcs,  # n_cpu_percent_c_str,
+                    sys_str,
+                    ngpus,  # n_gpu_percent_str
+                    line,
+                )
+            else:
+                tbl.add_row(
+                    print_line_no,
+                    ncpps,  # n_cpu_percent_python_str,
+                    ncpcs,  # n_cpu_percent_c_str,
+                    sys_str,
+                    line,
+                )
+
+        return True
 
     def output_profiles(
         self,
@@ -357,7 +359,7 @@ class ScaleneOutput:
                 if stats.max_footprint > 1024:
                     mem_usage_line = Text.assemble(
                         "Memory usage: ",
-                        ((spark_str, "dark_green")),
+                        ((spark_str, self.memory_color)),
                         (
                             f" (max: {(stats.max_footprint / 1024):6.2f}GB, growth rate: {growth_rate:3.0f}%)\n"
                         ),
@@ -366,7 +368,7 @@ class ScaleneOutput:
                     # Otherwise, use MB.
                     mem_usage_line = Text.assemble(
                         "Memory usage: ",
-                        ((spark_str, "dark_green")),
+                        ((spark_str, self.memory_color)),
                         (
                             f" (max: {stats.max_footprint:6.2f}MB, growth rate: {growth_rate:3.0f}%)\n"
                         ),
@@ -480,22 +482,22 @@ class ScaleneOutput:
 
             if profile_memory:
                 tbl.add_column(
-                    Markdown("Memory  \n_Python_", style="dark_green"),
-                    style="dark_green",
+                    Markdown("Memory  \n_Python_", style=self.memory_color),
+                    style=self.memory_color,
                     no_wrap=True,
                     width=7,
                 )
                 tbl.add_column(
-                    Markdown("––––––  \n_peak_", style="dark_green"),
-                    style="dark_green",
+                    Markdown("––––––  \n_peak_", style=self.memory_color),
+                    style=self.memory_color,
                     no_wrap=True,
                     width=6,
                 )
                 tbl.add_column(
                     Markdown(
-                        "–––––––––––  \n_timeline_/%", style="dark_green"
+                        "–––––––––––  \n_timeline_/%", style=self.memory_color
                     ),
-                    style="dark_green",
+                    style=self.memory_color,
                     no_wrap=True,
                     width=15,
                 )
