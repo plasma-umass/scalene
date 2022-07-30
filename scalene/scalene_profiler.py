@@ -28,7 +28,6 @@ import multiprocessing
 import os
 import pathlib
 import platform
-import random
 import re
 import signal
 import socketserver
@@ -128,6 +127,9 @@ class Scalene:
     __initialized: bool = False
     __last_profiled = (Filename("NADA"), LineNumber(0), ByteCodeIndex(0))
     __last_profiled_invalidated = False
+    __gui_dir = "scalene-gui"
+    __profile_filename = "profile.json"
+
 
     # Support for @profile
     # decorated files
@@ -1459,7 +1461,7 @@ class Scalene:
                 # Force JSON output to profile.json.
                 Scalene.__args.json = True
                 Scalene.__output.html = False
-                Scalene.__output.output_file = "profile.json"
+                Scalene.__output.output_file = Scalene.__profile_filename
                 return
             # Check for a browser.
             try:
@@ -1475,7 +1477,7 @@ class Scalene:
                     # Force JSON output to profile.json.
                     Scalene.__args.json = True
                     Scalene.__output.html = False
-                    Scalene.__output.output_file = "profile.json"
+                    Scalene.__output.output_file = Scalene.__profile_filename
             except Exception:
                 # Couldn't find a browser.
                 Scalene.__args.web = False
@@ -1622,17 +1624,17 @@ class Scalene:
                     import shutil
 
                     webgui_dir = pathlib.Path(
-                        tempfile.mkdtemp(prefix="scalene-gui")
+                        tempfile.mkdtemp(prefix=Scalene.__gui_dir)
                     )
                     shutil.copytree(
-                        os.path.join(os.path.dirname(__file__), "scalene-gui"),
-                        os.path.join(webgui_dir, "scalene-gui"),
+                        os.path.join(os.path.dirname(__file__), Scalene.__gui_dir),
+                        os.path.join(webgui_dir, Scalene.__gui_dir),
                     )
                     shutil.copy(
-                        "profile.json",
-                        os.path.join(webgui_dir, "scalene-gui"),
+                        Scalene.__profile_filename,
+                        os.path.join(webgui_dir, Scalene.__gui_dir),
                     )
-                    os.chdir(os.path.join(webgui_dir, "scalene-gui"))
+                    os.chdir(os.path.join(webgui_dir, Scalene.__gui_dir))
                     t.start()
                     if Scalene.in_jupyter():
                         from IPython.core.display import HTML, display
