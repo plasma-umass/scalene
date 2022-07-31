@@ -280,7 +280,7 @@ class ScaleneStatistics:
             ] += self.memory_free_samples[filename][line_no]
             for index in self.bytei_map[filename][line_no]:
                 fn_stats.bytei_map[fn_name][first_line_no].add(
-                    ByteCodeIndex(0)
+                    ByteCodeIndex(index) # was 0
                 )
             fn_stats.memcpy_samples[fn_name][
                 first_line_no
@@ -376,9 +376,8 @@ class ScaleneStatistics:
                 x = ScaleneStatistics()
                 for i, n in enumerate(ScaleneStatistics.payload_contents):
                     setattr(x, n, value[i])
-                # self.max_footprint = max(self.max_footprint, x.max_footprint)
                 if x.max_footprint > self.max_footprint:
-                    self.max_footprint = self.max_footprint
+                    self.max_footprint = x.max_footprint
                     self.max_footprint_loc = x.max_footprint_loc
                 self.current_footprint = max(
                     self.current_footprint, x.current_footprint

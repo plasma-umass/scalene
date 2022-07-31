@@ -58,6 +58,6 @@ class ScaleneAppleGPU:
                     if util and in_use:
                         break
                 return (util, in_use)
-        except:
+        except Exception:
             pass
         return (0.0, 0.0)

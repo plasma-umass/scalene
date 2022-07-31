@@ -1,7 +1,6 @@
 import os
 import signal
 import sys
-import traceback
 
 from scalene.scalene_profiler import Scalene
 

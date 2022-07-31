@@ -17,7 +17,6 @@ import argparse
 import atexit
 import builtins
 import contextlib
-from copy import copy
 import functools
 import gc
 import http.server
@@ -39,8 +38,6 @@ import time
 import traceback
 import webbrowser
 from collections import defaultdict
-from functools import lru_cache
-from signal import Handlers, Signals
 from types import FrameType
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, cast
 
@@ -258,7 +255,7 @@ class Scalene:
     @staticmethod
     def interruption_handler(
         signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
+            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
         ],
         this_frame: Optional[FrameType],
     ) -> None:
@@ -428,7 +425,7 @@ class Scalene:
     @staticmethod
     def term_signal_handler(
         signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
+            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
         ],
         this_frame: Optional[FrameType],
     ) -> None:
@@ -441,7 +438,7 @@ class Scalene:
     @staticmethod
     def malloc_signal_handler(
         signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
+            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
         ],
         this_frame: Optional[FrameType],
     ) -> None:
@@ -486,7 +483,7 @@ class Scalene:
     @staticmethod
     def free_signal_handler(
         signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
+            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
         ],
         this_frame: Optional[FrameType],
     ) -> None:
@@ -499,7 +496,7 @@ class Scalene:
     @staticmethod
     def memcpy_signal_handler(
         signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
+            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
         ],
         this_frame: Optional[FrameType],
     ) -> None:
@@ -663,7 +660,7 @@ class Scalene:
     @staticmethod
     def cpu_signal_handler(
         signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
+            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
         ],
         this_frame: Optional[FrameType],
     ) -> None:
@@ -735,7 +732,7 @@ class Scalene:
                     Scalene.__orig_raise_signal(signal.SIGUSR1)
                 # NOTE-- 0 will only be returned if the 'seconds' have elapsed
                 # and there is no interval
-                to_wait = 0.0
+                to_wait : float
                 if remaining_time > 0:
                     to_wait = min(
                         remaining_time, Scalene.__args.cpu_sampling_rate
@@ -820,7 +817,7 @@ class Scalene:
     @staticmethod
     def process_cpu_sample(
         _signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
+            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
         ],
         new_frames: List[Tuple[FrameType, int, FrameType]],
         now_virtual: float,
@@ -848,7 +845,7 @@ class Scalene:
             stats = Scalene.__stats
             # pause (lock) all the queues to prevent updates while we output
             with contextlib.ExitStack() as stack:
-                locks = [
+                _ = [
                     stack.enter_context(s.lock) for s in Scalene.__sigqueues
                 ]
                 stats.stop_clock()
@@ -1341,7 +1338,7 @@ class Scalene:
     @staticmethod
     def memcpy_sigqueue_processor(
         _signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
+            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
         ],
         frame: FrameType,
     ) -> None:
@@ -1383,7 +1380,7 @@ class Scalene:
             Scalene.__stats.memcpy_samples[fname][line_no] += int(count)
 
     @staticmethod
-    @lru_cache(None)
+    @functools.lru_cache(None)
     def should_trace(filename: str) -> bool:
         """Return true if the filename is one we should trace."""
         if not filename:
@@ -1407,8 +1404,6 @@ class Scalene:
                 return False
             # Profiling code created in a Jupyter cell:
             # create a file to hold the contents.
-            import re
-
             import IPython
 
             if result := re.match("<ipython-input-([0-9]+)-.*>", filename):
@@ -1496,7 +1491,7 @@ class Scalene:
     @staticmethod
     def start_signal_handler(
         _signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
+            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
         ],
         _this_frame: Optional[FrameType],
     ) -> None:
@@ -1511,7 +1506,7 @@ class Scalene:
     @staticmethod
     def stop_signal_handler(
         _signum: Union[
-            Callable[[Signals, FrameType], None], int, Handlers, None
+            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
         ],
         _this_frame: Optional[FrameType],
     ) -> None:
@@ -1623,8 +1618,6 @@ class Scalene:
                 Handler = NoLogs
                 socketserver.TCPServer.allow_reuse_address = True
                 with socketserver.TCPServer(("", PORT), Handler) as httpd:
-                    import threading
-
                     t = threading.Thread(target=httpd.serve_forever)
                     # Copy files into a new directory and then point the tab there.
                     import shutil
@@ -1662,7 +1655,7 @@ class Scalene:
                         os.environ["LD_PRELOAD"] = ""
                         os.environ["DYLD_INSERT_LIBRARIES"] = ""
                         # Now open a tab with the profiler.
-                        result = webbrowser.open(
+                        webbrowser.open(
                             f"{Scalene.__localhost}:{PORT}/{Scalene.__profiler_html}"
                         )
                     # Wait long enough for the server to serve the page, and then shut down the server.
