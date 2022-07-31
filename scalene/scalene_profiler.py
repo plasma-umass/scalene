@@ -71,14 +71,15 @@ else:
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
+MINIMUM_PYTHON_VERSION_MAJOR = 3
+MINIMUM_PYTHON_VERSION_MINOR = 8
 
 def require_python(version: Tuple[int, int]) -> None:
     assert (
         sys.version_info >= version
     ), f"Scalene requires Python version {version[0]}.{version[1]} or above."
 
-
-require_python((3, 8))
+require_python((MINIMUM_PYTHON_VERSION_MAJOR, MINIMUM_PYTHON_VERSION_MINOR))
 
 
 # Scalene fully supports Unix-like operating systems; in
@@ -132,8 +133,11 @@ class Scalene:
     __localhost = "http://localhost"
     __profiler_html = "profiler.html"
     __error_message = "Error in program being profiled"
-    __bytes_per_mb = 1024 * 1024
+    BYTES_PER_MB = 1024 * 1024
 
+    MALLOC_ACTION = "M"
+    FREE_ACTION = "F"
+    FREE_ACTION_SAMPLED = "f"
 
     # Support for @profile
     # decorated files
@@ -218,10 +222,7 @@ class Scalene:
 
     __orig_signal = signal.signal
     __orig_exit = os._exit
-    if sys.version_info < (3, 8):
-        __orig_raise_signal = lambda s: os.kill(os.getpid(), s)
-    else:
-        __orig_raise_signal = signal.raise_signal
+    __orig_raise_signal = signal.raise_signal
 
     __orig_kill = os.kill
     if sys.platform != "win32":
@@ -1151,21 +1152,21 @@ class Scalene:
                 lineno,
                 bytei,
             ) = item
-            is_malloc = action == "M"
-            count /= Scalene.__bytes_per_mb
+            is_malloc = action == Scalene.MALLOC_ACTION
+            count /= Scalene.BYTES_PER_MB
             if is_malloc:
                 stats.current_footprint += count
                 if stats.current_footprint > stats.max_footprint:
                     stats.max_footprint = stats.current_footprint
                     stats.max_footprint_loc = (fname, lineno)
             else:
-                assert action in ["f", "F"]
+                assert action in [Scalene.FREE_ACTION, Scalene.FREE_ACTION_SAMPLED]
                 stats.current_footprint -= count
                 # Force current footprint to be non-negative; this
                 # code is needed because Scalene can miss some initial
                 # allocations at startup.
                 stats.current_footprint = max(0, stats.current_footprint)
-                if action == "f" and stats.last_malloc_triggered[2] == pointer:
+                if action == Scalene.FREE_ACTION_SAMPLED and stats.last_malloc_triggered[2] == pointer:
                     freed_last_trigger += 1
             timestamp = time.monotonic_ns() - Scalene.__start_time
             if len(stats.memory_footprint_samples) > 2:
@@ -1226,7 +1227,7 @@ class Scalene:
                 bytei,
             ) = item
 
-            is_malloc = action == "M"
+            is_malloc = action == Scalene.MALLOC_ACTION
             if is_malloc and count == NEWLINE_TRIGGER_LENGTH + 1:
                 stats.memory_malloc_count[fname][lineno] += 1
                 stats.memory_aggregate_footprint[fname][
@@ -1238,7 +1239,7 @@ class Scalene:
 
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(bytei)
-            count /= Scalene.__bytes_per_mb
+            count /= Scalene.BYTES_PER_MB
             if is_malloc:
                 allocs += count
                 curr += count
@@ -1267,7 +1268,7 @@ class Scalene:
                     stats.memory_max_footprint[fname][lineno],
                 )
             else:
-                assert action in ["f", "F"]
+                assert action in [Scalene.FREE_ACTION, Scalene.FREE_ACTION_SAMPLED]
                 curr -= count
                 stats.memory_free_samples[fname][lineno] += count
                 stats.memory_free_count[fname][lineno] += 1
