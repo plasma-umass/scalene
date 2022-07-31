@@ -118,7 +118,7 @@ class ScaleneOutput:
         )
 
         n_gpu_percent_str: str = (
-            "" if obj["n_gpu_percent"] < 1 else f"{obj['n_gpu_percent']:3.0f"
+            "" if obj["n_gpu_percent"] < 1 else f"{obj['n_gpu_percent']:3.0f}%"
         )
 
         n_cpu_percent_python_str: str = (
@@ -477,8 +477,8 @@ class ScaleneOutput:
             )
             if self.gpu:
                 tbl.add_column(
-                    Markdown("––––––  \n_GPU_", style=gpu_color),
-                    style=gpu_color,
+                    Markdown("––––––  \n_GPU_", style=self.gpu_color),
+                    style=self.gpu_color,
                     no_wrap=True,
                     width=6,
                 )
@@ -507,8 +507,8 @@ class ScaleneOutput:
                     width=15,
                 )
                 tbl.add_column(
-                    Markdown("Copy  \n_(MB/s)_", style=copy_volume_color),
-                    style=copy_volume_color,
+                    Markdown("Copy  \n_(MB/s)_", style=self.copy_volume_color),
+                    style=self.copy_volume_color,
                     no_wrap=True,
                     width=6,
                 )
