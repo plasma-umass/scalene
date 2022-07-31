@@ -19,7 +19,6 @@ from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.syntaxline import SyntaxLine
 
-
 class ScaleneOutput:
 
     # Maximum entries for sparklines, per file
@@ -37,6 +36,12 @@ class ScaleneOutput:
     # Color for memory consumption
     memory_color = "dark_green"
 
+    # Color for GPU activity
+    gpu_color = "yellow4"
+
+    # Color for copy volume
+    copy_volume_color = "yellow4"
+    
     def __init__(self) -> None:
         # where we write profile info
         self.output_file = ""
@@ -113,7 +118,7 @@ class ScaleneOutput:
         )
 
         n_gpu_percent_str: str = (
-            "" if obj["n_gpu_percent"] < 1 else f"{obj['n_gpu_percent']:3.0f}%"
+            "" if obj["n_gpu_percent"] < 1 else f"{obj['n_gpu_percent']:3.0f"
         )
 
         n_cpu_percent_python_str: str = (
@@ -472,8 +477,8 @@ class ScaleneOutput:
             )
             if self.gpu:
                 tbl.add_column(
-                    Markdown("––––––  \n_GPU_", style="yellow4"),
-                    style="yellow4",
+                    Markdown("––––––  \n_GPU_", style=gpu_color),
+                    style=gpu_color,
                     no_wrap=True,
                     width=6,
                 )
@@ -502,8 +507,8 @@ class ScaleneOutput:
                     width=15,
                 )
                 tbl.add_column(
-                    Markdown("Copy  \n_(MB/s)_", style="yellow4"),
-                    style="yellow4",
+                    Markdown("Copy  \n_(MB/s)_", style=copy_volume_color),
+                    style=copy_volume_color,
                     no_wrap=True,
                     width=6,
                 )
