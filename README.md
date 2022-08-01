@@ -133,7 +133,7 @@ Scalene has all of the following features, many of which only Scalene supports:
 
 ## Output
 
-Scalene prints annotated source code for the program being profiled
+If you include the `--cli` option, Scalene prints annotated source code for the program being profiled
 (as text, JSON (`--json`), or HTML (`--html`)) and any modules it
 uses in the same directory or subdirectories (you can optionally have
 it `--profile-all` and only include files with at least a
@@ -313,7 +313,7 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 
 **Q: How do I run Scalene in PyCharm?**
 
-**A:**  In PyCharm, you can run Scalene at the command line by opening the terminal at the bottom of the IDE and running a Scalene command (e.g., `python -m scalene <your program>`). Use the options `--html` and `--outfile <your output.html>` to generate an HTML file that you can then view in the IDE.
+**A:**  In PyCharm, you can run Scalene at the command line by opening the terminal at the bottom of the IDE and running a Scalene command (e.g., `python -m scalene <your program>`). Use the options `--cli`, `--html`, and `--outfile <your output.html>` to generate an HTML file that you can then view in the IDE.
 
 **Q: How do I use Scalene with Django?**
 
