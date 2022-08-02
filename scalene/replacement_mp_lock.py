@@ -3,7 +3,7 @@ import sys
 import threading
 from typing import Any
 
-import _multiprocessing
+# import _multiprocessing
 
 from scalene.scalene_profiler import Scalene
 

@@ -1,7 +1,6 @@
 import os
 
 from scalene.scalene_profiler import Scalene
-from scalene.scalene_signals import ScaleneSignals
 
 
 @Scalene.shim
