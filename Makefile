@@ -20,10 +20,13 @@ all:  # vendor-deps $(SRC) $(OTHER_DEPS)
 mypy:
 	-mypy $(PYTHON_SOURCES)
 
-format: black clang-format
+format: black isort clang-format
 
 clang-format:
 	-clang-format -i $(C_SOURCES) --style=google
+
+isort:
+	-isort $(PYTHON_SOURCES)
 
 black:
 	-black -l 79 $(PYTHON_SOURCES)
