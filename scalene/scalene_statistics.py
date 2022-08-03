@@ -280,7 +280,7 @@ class ScaleneStatistics:
             ] += self.memory_free_samples[filename][line_no]
             for index in self.bytei_map[filename][line_no]:
                 fn_stats.bytei_map[fn_name][first_line_no].add(
-                    ByteCodeIndex(index) # was 0
+                    ByteCodeIndex(index)  # was 0
                 )
             fn_stats.memcpy_samples[fn_name][
                 first_line_no

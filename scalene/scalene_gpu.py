@@ -59,7 +59,7 @@ class ScaleneGPU:
 
         return True
 
-    def gpu_utilization(self, pid : int) -> float:
+    def gpu_utilization(self, pid: int) -> float:
         """Return overall GPU utilization by pid if possible.
 
         Otherwise, returns aggregate utilization across all running processes."""
@@ -92,7 +92,7 @@ class ScaleneGPU:
                 for i in range(self.__ngpus)
             )
 
-    def gpu_memory_usage(self, pid : int) -> float:
+    def gpu_memory_usage(self, pid: int) -> float:
         """Returns GPU memory used by the process pid, in MB."""
         # Adapted from https://github.com/gpuopenanalytics/pynvml/issues/21#issuecomment-678808658
         total_used_GPU_memory = 0

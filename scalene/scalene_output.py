@@ -15,9 +15,10 @@ from rich.text import Text
 
 from scalene import sparkline
 from scalene.scalene_json import ScaleneJSON
-from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
+from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 from scalene.syntaxline import SyntaxLine
+
 
 class ScaleneOutput:
 
@@ -41,7 +42,7 @@ class ScaleneOutput:
 
     # Color for copy volume
     copy_volume_color = "yellow4"
-    
+
     def __init__(self) -> None:
         # where we write profile info
         self.output_file = ""

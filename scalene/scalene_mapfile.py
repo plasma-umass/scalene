@@ -1,7 +1,6 @@
 import mmap
 import os
 import sys
-
 from typing import Any, NewType, TextIO
 
 if sys.platform != "win32":

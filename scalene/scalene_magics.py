@@ -1,7 +1,6 @@
 import contextlib
 import sys
 import textwrap
-
 from typing import Any
 
 with contextlib.suppress(Exception):

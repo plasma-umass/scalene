@@ -71,10 +71,12 @@ from scalene.scalene_sigqueue import ScaleneSigQueue
 MINIMUM_PYTHON_VERSION_MAJOR = 3
 MINIMUM_PYTHON_VERSION_MINOR = 8
 
+
 def require_python(version: Tuple[int, int]) -> None:
     assert (
         sys.version_info >= version
     ), f"Scalene requires Python version {version[0]}.{version[1]} or above."
+
 
 require_python((MINIMUM_PYTHON_VERSION_MAJOR, MINIMUM_PYTHON_VERSION_MINOR))
 
@@ -255,7 +257,10 @@ class Scalene:
     @staticmethod
     def interruption_handler(
         signum: Union[
-            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
+            Callable[[signal.Signals, FrameType], None],
+            int,
+            signal.Handlers,
+            None,
         ],
         this_frame: Optional[FrameType],
     ) -> None:
@@ -425,7 +430,10 @@ class Scalene:
     @staticmethod
     def term_signal_handler(
         signum: Union[
-            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
+            Callable[[signal.Signals, FrameType], None],
+            int,
+            signal.Handlers,
+            None,
         ],
         this_frame: Optional[FrameType],
     ) -> None:
@@ -438,7 +446,10 @@ class Scalene:
     @staticmethod
     def malloc_signal_handler(
         signum: Union[
-            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
+            Callable[[signal.Signals, FrameType], None],
+            int,
+            signal.Handlers,
+            None,
         ],
         this_frame: Optional[FrameType],
     ) -> None:
@@ -483,7 +494,10 @@ class Scalene:
     @staticmethod
     def free_signal_handler(
         signum: Union[
-            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
+            Callable[[signal.Signals, FrameType], None],
+            int,
+            signal.Handlers,
+            None,
         ],
         this_frame: Optional[FrameType],
     ) -> None:
@@ -496,7 +510,10 @@ class Scalene:
     @staticmethod
     def memcpy_signal_handler(
         signum: Union[
-            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
+            Callable[[signal.Signals, FrameType], None],
+            int,
+            signal.Handlers,
+            None,
         ],
         this_frame: Optional[FrameType],
     ) -> None:
@@ -660,7 +677,10 @@ class Scalene:
     @staticmethod
     def cpu_signal_handler(
         signum: Union[
-            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
+            Callable[[signal.Signals, FrameType], None],
+            int,
+            signal.Handlers,
+            None,
         ],
         this_frame: Optional[FrameType],
     ) -> None:
@@ -732,7 +752,7 @@ class Scalene:
                     Scalene.__orig_raise_signal(signal.SIGUSR1)
                 # NOTE-- 0 will only be returned if the 'seconds' have elapsed
                 # and there is no interval
-                to_wait : float
+                to_wait: float
                 if remaining_time > 0:
                     to_wait = min(
                         remaining_time, Scalene.__args.cpu_sampling_rate
@@ -817,7 +837,10 @@ class Scalene:
     @staticmethod
     def process_cpu_sample(
         _signum: Union[
-            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
+            Callable[[signal.Signals, FrameType], None],
+            int,
+            signal.Handlers,
+            None,
         ],
         new_frames: List[Tuple[FrameType, int, FrameType]],
         now_virtual: float,
@@ -845,9 +868,7 @@ class Scalene:
             stats = Scalene.__stats
             # pause (lock) all the queues to prevent updates while we output
             with contextlib.ExitStack() as stack:
-                _ = [
-                    stack.enter_context(s.lock) for s in Scalene.__sigqueues
-                ]
+                _ = [stack.enter_context(s.lock) for s in Scalene.__sigqueues]
                 stats.stop_clock()
                 Scalene.output_profile()
                 stats.start_clock()
@@ -1157,13 +1178,19 @@ class Scalene:
                     stats.max_footprint = stats.current_footprint
                     stats.max_footprint_loc = (fname, lineno)
             else:
-                assert action in [Scalene.FREE_ACTION, Scalene.FREE_ACTION_SAMPLED]
+                assert action in [
+                    Scalene.FREE_ACTION,
+                    Scalene.FREE_ACTION_SAMPLED,
+                ]
                 stats.current_footprint -= count
                 # Force current footprint to be non-negative; this
                 # code is needed because Scalene can miss some initial
                 # allocations at startup.
                 stats.current_footprint = max(0, stats.current_footprint)
-                if action == Scalene.FREE_ACTION_SAMPLED and stats.last_malloc_triggered[2] == pointer:
+                if (
+                    action == Scalene.FREE_ACTION_SAMPLED
+                    and stats.last_malloc_triggered[2] == pointer
+                ):
                     freed_last_trigger += 1
             timestamp = time.monotonic_ns() - Scalene.__start_time
             if len(stats.memory_footprint_samples) > 2:
@@ -1265,7 +1292,10 @@ class Scalene:
                     stats.memory_max_footprint[fname][lineno],
                 )
             else:
-                assert action in [Scalene.FREE_ACTION, Scalene.FREE_ACTION_SAMPLED]
+                assert action in [
+                    Scalene.FREE_ACTION,
+                    Scalene.FREE_ACTION_SAMPLED,
+                ]
                 curr -= count
                 stats.memory_free_samples[fname][lineno] += count
                 stats.memory_free_count[fname][lineno] += 1
@@ -1338,7 +1368,10 @@ class Scalene:
     @staticmethod
     def memcpy_sigqueue_processor(
         _signum: Union[
-            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
+            Callable[[signal.Signals, FrameType], None],
+            int,
+            signal.Handlers,
+            None,
         ],
         frame: FrameType,
     ) -> None:
@@ -1491,7 +1524,10 @@ class Scalene:
     @staticmethod
     def start_signal_handler(
         _signum: Union[
-            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
+            Callable[[signal.Signals, FrameType], None],
+            int,
+            signal.Handlers,
+            None,
         ],
         _this_frame: Optional[FrameType],
     ) -> None:
@@ -1506,7 +1542,10 @@ class Scalene:
     @staticmethod
     def stop_signal_handler(
         _signum: Union[
-            Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None
+            Callable[[signal.Signals, FrameType], None],
+            int,
+            signal.Handlers,
+            None,
         ],
         _this_frame: Optional[FrameType],
     ) -> None:
@@ -1626,7 +1665,9 @@ class Scalene:
                         tempfile.mkdtemp(prefix=Scalene.__gui_dir)
                     )
                     shutil.copytree(
-                        os.path.join(os.path.dirname(__file__), Scalene.__gui_dir),
+                        os.path.join(
+                            os.path.dirname(__file__), Scalene.__gui_dir
+                        ),
                         os.path.join(webgui_dir, Scalene.__gui_dir),
                     )
                     shutil.copy(

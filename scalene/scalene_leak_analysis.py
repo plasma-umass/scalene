@@ -1,4 +1,5 @@
 from typing import Any, List, OrderedDict
+
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 
 

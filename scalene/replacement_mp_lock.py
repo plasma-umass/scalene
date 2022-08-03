@@ -3,9 +3,9 @@ import sys
 import threading
 from typing import Any
 
-# import _multiprocessing
-
 from scalene.scalene_profiler import Scalene
+
+# import _multiprocessing
 
 
 # The _multiprocessing module is entirely undocumented-- the header of the
