@@ -8,7 +8,7 @@ from scalene.scalene_profiler import Scalene
 
 @Scalene.shim
 def replacement_lock(scalene: Scalene) -> None:
-    class ReplacementLock(object):
+    class ReplacementLock:
         """Replace lock with a version that periodically yields and updates sleeping status."""
 
         def __init__(self) -> None:
