@@ -1418,11 +1418,14 @@ class Scalene:
         """Return true if the filename is one we should trace."""
         if not filename:
             return False
-        if "scalene/scalene" in filename:
+        if (
+            "scalene/scalene" in filename
+        ):  # lgtm [py/member-test-non-container]
             # Don't profile the profiler.
             return False
         if (
-            "site-packages" in filename or "/lib/python" in filename
+            "site-packages" in filename
+            or "/lib/python" in filename  # lgtm [py/member-test-non-container]
         ) and not Scalene.__args.profile_all:
             return False
         # Generic handling follows (when no @profile decorator has been used).
@@ -1432,7 +1435,9 @@ class Scalene:
         ):
             return False
         if filename[0] == "<":
-            if "<ipython" not in filename:
+            if (
+                "<ipython" not in filename
+            ):  # lgtm [py/member-test-non-container]
                 # Not a real file and not a function created in Jupyter.
                 return False
             # Profiling code created in a Jupyter cell:
