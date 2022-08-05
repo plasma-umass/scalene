@@ -35,9 +35,15 @@ class ScalenePreload:
 
         elif sys.platform == "linux":
             if not args.cpu_only:
-                env["LD_PRELOAD"] = os.path.join(
+                # Prepend the Scalene library to the LD_PRELOAD list, if any
+                new_ld_preload = os.path.join(
                     scalene.__path__[0].replace(" ", "\ "), "libscalene.so"
                 )
+                if "LD_PRELOAD" in env:
+                    old_ld_preload = env["LD_PRELOAD"]
+                    env["LD_PRELOAD"] = new_ld_preload + ":" + old_ld_preload
+                else:
+                    env["LD_PRELOAD"] = new_ld_preload
                 # Disable command-line specified PYTHONMALLOC.
                 if "PYTHONMALLOC" in env:
                     del env["PYTHONMALLOC"]
