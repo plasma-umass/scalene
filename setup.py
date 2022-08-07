@@ -4,6 +4,7 @@ from scalene.scalene_version import scalene_version
 from os import path, environ
 import platform
 import sys
+import sysconfig
 
 if sys.platform == 'darwin':
     import sysconfig
@@ -26,7 +27,7 @@ def clang_version():
 def multiarch_args():
     """Returns args requesting multi-architecture support, if applicable."""
     # On MacOS we build "universal2" packages, for both x86_64 and arm64/M1
-    if sys.platform == 'darwin':
+    if sys.platform == 'darwin' and 'universal2' in sysconfig.get_platform():
         args = ['-arch', 'x86_64']
         # ARM support was added in XCode 12, which requires MacOS 10.15.4
         if clang_version() >= 12: # XCode 12
