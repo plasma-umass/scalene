@@ -19,6 +19,7 @@ class PyPtr {
     Py_IncRef((PyObject*)_obj);
   }
 
+  // "explicit" to help avoid surprises
   explicit operator O*() { return _obj; }
 
   PyPtr& operator=(const PyPtr& ptr) {
