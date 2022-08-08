@@ -30,10 +30,16 @@ def multiarch_args():
     if sys.platform == 'darwin' and 'universal2' in sysconfig.get_platform():
         args = ['-arch', 'x86_64']
         # ARM support was added in XCode 12, which requires MacOS 10.15.4
-        if clang_version() >= 12: # XCode 12
-            if [int(n) for n in platform.mac_ver()[0].split('.')] >= [10, 15, 4]:
-                args += ['-arch', 'arm64', '-arch', 'arm64e']
+        if clang_version() >= 12 and [int(n) for n in platform.mac_ver()[0].split('.')] >= [10, 15, 4]:
+            args += ['-arch', 'arm64', '-arch', 'arm64e']
         return args
+    # Force arm64 and arm64e builds on MacOS 10.15.4 and later (when universal2 is not available for arm64)
+    if 'arm' in sysconfig.get_platform() and clang_version() >= 12:
+        args = []
+        if [int(n) for n in platform.mac_ver()[0].split('.')] >= [10, 15, 4]:
+            args += ['-arch', 'arm64', '-arch', 'arm64e']
+            return args
+
     return []
 
 def extra_compile_args():
