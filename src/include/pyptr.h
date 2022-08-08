@@ -19,9 +19,9 @@ class PyPtr {
     Py_IncRef((PyObject*)_obj);
   }
 
-  O* operator->() { return _obj; }
+   O* operator->() { return _obj; }
 
-  operator O*() { return _obj; }
+ explicit operator O*() { return _obj; }
 
   PyPtr& operator=(const PyPtr& ptr) {
     // increment first in case self-assigning
