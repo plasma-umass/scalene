@@ -190,8 +190,8 @@ class MemcpySampler {
     if (old_sig != SIG_DFL) signal(MemcpySignal, old_sig);
     init_lock.unlock();
     auto pid = getpid();
-    snprintf_((char *)scalene_memcpy_signal_filename, BUFFER_LENGTH, fname,
-              pid);
+    snprintf_((char *)scalene_memcpy_signal_filename,
+              sizeof(scalene_memcpy_signal_filename), fname, pid);
     // printf("initialized (%s)\n", scalene_memcpy_signal_filename);
   }
 
@@ -297,7 +297,7 @@ class MemcpySampler {
     }
 #endif
     char buf[BUFFER_LENGTH];
-    snprintf_(buf, BUFFER_LENGTH, "%d,%d,%d,%s,%d,%d\n\n", _memcpyTriggered,
+    snprintf_(buf, sizeof(buf), "%d,%d,%d,%s,%d,%d\n\n", _memcpyTriggered,
               _memcpyOps, getpid(), filename.c_str(), lineno, bytei);
     _samplefile.writeToFile(buf);
   }

@@ -24,7 +24,7 @@
 class SampleFile {
  public:
   static constexpr int MAX_BUFSIZE =
-      256;  // actual (and maximum) length of a line passed to writeToFile
+      4096;  // actual (and maximum) length of a line passed to writeToFile
  private:
   static constexpr int LOCK_FD_SIZE = 4096;
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
@@ -35,10 +35,9 @@ class SampleFile {
   SampleFile(const char *filename_template, const char *lockfilename_template,
              const char *init_template) {
     static uint base_pid = getpid();
-    constexpr int FILENAME_LENGTH = 255;
-    snprintf(_init_filename, FILENAME_LENGTH - 1, init_template, base_pid);
-    snprintf(_signalfile, FILENAME_LENGTH - 1, filename_template, base_pid);
-    snprintf(_lockfile, FILENAME_LENGTH - 1, lockfilename_template, base_pid);
+    snprintf(_init_filename, PATH_MAX - 1, init_template, base_pid);
+    snprintf(_signalfile, PATH_MAX - 1, filename_template, base_pid);
+    snprintf(_lockfile, PATH_MAX - 1, lockfilename_template, base_pid);
     int signal_fd = open(_signalfile, flags, perms);
     int lock_fd = open(_lockfile, flags, perms);
     if ((signal_fd == -1) || (lock_fd == -1)) {
