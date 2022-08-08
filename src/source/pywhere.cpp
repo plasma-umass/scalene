@@ -174,7 +174,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   PyPtr<PyFrameObject> frame =
       threadState ? PyThreadState_GetFrame(threadState) : nullptr;
 
-  if (frame == nullptr) {
+  if (static_cast<PyFrameObject*>( frame )== nullptr) {
     // Various packages may create native threads; attribute what they do
     // to what the main thread is doing, as it's likely to have requested it.
     frame = findMainPythonThread_frame();  // note this may be nullptr
@@ -183,16 +183,16 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   auto traceConfig = TraceConfig::getInstance();
   if (!traceConfig) {
     return 0;
-  }
+  } 
 
-  while (frame != nullptr) {
-    PyPtr<PyCodeObject> code = PyFrame_GetCode(frame);
-    PyPtr<> co_filename = PyUnicode_AsASCIIString(code->co_filename);
-    if (!co_filename) {
+  while (static_cast<PyFrameObject*>(frame) != nullptr) {
+    PyPtr<PyCodeObject> code = PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
+    PyPtr<> co_filename = PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
+    if (! (static_cast<PyObject*>(co_filename))) {
       return 0;
     }
 
-    auto filenameStr = PyBytes_AsString(co_filename);
+    auto filenameStr = PyBytes_AsString(static_cast<PyObject*>(co_filename));
     if (strlen(filenameStr) == 0) {
       continue;
     }
@@ -206,16 +206,16 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
         // we punt and set it to 0.
         bytei = 0;
 #else
-        bytei = PyFrame_GetLasti(frame);
+        bytei = PyFrame_GetLasti(static_cast<PyFrameObject*>(frame));
 #endif
-        lineno = PyFrame_GetLineNumber(frame);
+        lineno = PyFrame_GetLineNumber(static_cast<PyFrameObject*>(frame));
 
         filename = filenameStr;
         return 1;
       }
     }
 
-    frame = PyFrame_GetBack(frame);
+    frame = PyFrame_GetBack(static_cast<PyFrameObject*>(frame));
   }
   return 0;
 }
