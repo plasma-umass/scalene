@@ -183,11 +183,11 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   auto traceConfig = TraceConfig::getInstance();
   if (!traceConfig) {
     return 0;
-  }
+  } 
 
   while (static_cast<PyFrameObject*>(frame) != nullptr) {
     PyPtr<PyCodeObject> code = PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
-    PyPtr<> co_filename = PyUnicode_AsASCIIString(code->co_filename);
+    PyPtr<> co_filename = PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
     if (! (static_cast<PyObject*>(co_filename))) {
       return 0;
     }
