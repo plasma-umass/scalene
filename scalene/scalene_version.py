@@ -1,3 +1,3 @@
 """Current version of Scalene; reported by --version."""
 
-scalene_version = "1.5.9"
+scalene_version = "1.5.10"
