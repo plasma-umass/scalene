@@ -78,9 +78,14 @@ def slow_function():
 
 [![Scalene presentation at PyCon 2021](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/images/scalene-video-img.png)](https://youtu.be/5iEf-_7mM1k "Scalene presentation at PyCon 2021")
 
-### Fast and Precise
+### Fast and Accurate
 
 - Scalene is **_fast_**. It uses sampling instead of instrumentation or relying on Python's tracing facilities. Its overhead is typically no more than 10-20% (and often less).
+
+- Scalene is **accurate**. We tested CPU profiler accuracy and found that Scalene is among the most accurate profilers, correctly measuring time taken.
+
+![Profiler accuracy](https://github.com/plasma-umass/scalene/raw/master/docs/cpu-accuracy-comparison.png)
+
 - Scalene performs profiling **_at the line level_** _and_ **_per function_**, pointing to the functions and the specific lines of code responsible for the execution time in your program.
 
 ### CPU profiling
