@@ -23,16 +23,14 @@ Scalene is a high-performance CPU, GPU *and* memory profiler for Python that doe
 #### Installing Scalene:
 
 ```console
-pip install -U scalene
+python3 -m pip install -U scalene
 ```
 
-#### NEW web-based GUI
+or
 
-Scalene has a new web-based GUI [(demo here)](http://plasma-umass.org/scalene-gui/).
-
-Once Scalene has profiled your program, it will launch a web browser with an interactive user interface (all processing is done locally). Hover over bars to see breakdowns of CPU and memory consumption, and click on underlined column headers to sort the columns.
-
-[![Scalene web GUI](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example.png)](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example-full.png)
+```console
+conda install -c conda-forge scalene
+```
 
 #### Using Scalene:
 
@@ -69,6 +67,15 @@ def slow_function():
     import time
     time.sleep(3)
 ```
+
+#### Web-based GUI
+
+Scalene has both a CLI and a web-based GUI [(demo here)](http://plasma-umass.org/scalene-gui/).
+
+Once Scalene has profiled your program, it will launch a web browser with an interactive user interface (all processing is done locally). Hover over bars to see breakdowns of CPU and memory consumption, and click on underlined column headers to sort the columns.
+
+[![Scalene web GUI](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example.png)](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example-full.png)
+
 
 ## Scalene Overview
 
