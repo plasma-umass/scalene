@@ -1,3 +1,4 @@
+import os
 import random
 import sys
 import tempfile
@@ -304,6 +305,7 @@ class ScaleneOutput:
         pid: int,
         profile_this_code: Callable[[Filename, LineNumber], bool],
         python_alias_dir: Path,
+        program_path: Path,
         profile_memory: bool = True,
         reduced_profile: bool = False,
     ) -> bool:
@@ -527,7 +529,8 @@ class ScaleneOutput:
             if not fname:
                 continue
             # Print out the profile for the source, line by line.
-            with open(fname, "r", encoding="utf-8") as source_file:
+            full_fname = os.path.normpath(os.path.join(program_path, fname))
+            with open(full_fname, "r", encoding="utf-8") as source_file:
                 # We track whether we should put in ellipsis (for reduced profiles)
                 # or not.
                 did_print = True  # did we print a profile line last time?

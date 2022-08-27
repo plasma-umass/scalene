@@ -781,6 +781,7 @@ class Scalene:
                 Scalene.__pid,
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
+                Scalene.__program_path,
                 profile_memory=not Scalene.__args.cpu_only,
             )
             if not Scalene.__output.output_file:
@@ -810,6 +811,7 @@ class Scalene:
                 Scalene.__pid,
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
+                Scalene.__program_path,
                 profile_memory=not Scalene.__args.cpu_only,
                 reduced_profile=Scalene.__args.reduced_profile,
             )
@@ -1466,7 +1468,9 @@ class Scalene:
             return True
         # Profile anything in the program's directory or a child directory,
         # but nothing else, unless otherwise specified.
-        filename = os.path.abspath(filename)
+        filename = os.path.normpath(
+            os.path.join(Scalene.__program_path, filename)
+        )
         return Scalene.__program_path in filename
 
     __done = False
