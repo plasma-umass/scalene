@@ -1830,8 +1830,14 @@ class Scalene:
                     # Push the program's path.
                     program_path = os.path.dirname(os.path.abspath(progs[0]))
                     sys.path.insert(0, program_path)
-                    # Save the directory from which Scalene was invoked.
-                    Scalene.__program_path = os.getcwd()
+                    # If a program path was specified at the command-line, use it.
+                    if len(args.program_path) > 0:
+                        Scalene.__program_path = os.path.abspath(
+                            args.program_path
+                        )
+                    else:
+                        # Otherwise, use the invoked directory.
+                        Scalene.__program_path = os.getcwd()
                     # Grab local and global variables.
                     if not Scalene.__args.cpu_only:
                         from scalene import pywhere  # type: ignore
