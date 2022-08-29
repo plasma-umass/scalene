@@ -52,13 +52,25 @@ class TraceConfig {
       }
     }
 
+    // Temporarily change the current working directory to the original program
+    // path.
+    char original_cwd_buf[PATH_MAX];
+    auto oldcwd = getwd(original_cwd_buf);
+    chdir(scalene_base_path);
     char resolved_path[PATH_MAX];
-    if (!realpath(filename, resolved_path)) {
-      fprintf(stderr, "Error getting real path: %d\n", errno);
-      abort();
+
+    // Check to see if the file we are profiling is in the original path.
+    bool did_resolve_path = realpath(filename, resolved_path);
+    bool result = false;
+    if (did_resolve_path) {
+      // True if we found this file in the original path.
+      result = (strstr(resolved_path, scalene_base_path) != nullptr);
     }
 
-    return strstr(resolved_path, scalene_base_path) != nullptr;
+    // Now change back to the original current working directory.
+    chdir(oldcwd);
+
+    return result;
   }
 
   void print() {
@@ -174,7 +186,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   PyPtr<PyFrameObject> frame =
       threadState ? PyThreadState_GetFrame(threadState) : nullptr;
 
-  if (static_cast<PyFrameObject*>( frame )== nullptr) {
+  if (static_cast<PyFrameObject*>(frame) == nullptr) {
     // Various packages may create native threads; attribute what they do
     // to what the main thread is doing, as it's likely to have requested it.
     frame = findMainPythonThread_frame();  // note this may be nullptr
@@ -183,12 +195,14 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   auto traceConfig = TraceConfig::getInstance();
   if (!traceConfig) {
     return 0;
-  } 
+  }
 
   while (static_cast<PyFrameObject*>(frame) != nullptr) {
-    PyPtr<PyCodeObject> code = PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
-    PyPtr<> co_filename = PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
-    if (! (static_cast<PyObject*>(co_filename))) {
+    PyPtr<PyCodeObject> code =
+        PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
+    PyPtr<> co_filename =
+        PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
+    if (!(static_cast<PyObject*>(co_filename))) {
       return 0;
     }
 

@@ -1,5 +1,6 @@
 import copy
 import linecache
+import os
 import random
 import re
 from collections import OrderedDict, defaultdict
@@ -182,6 +183,7 @@ class ScaleneJSON:
         pid: int,
         profile_this_code: Callable[[Filename, LineNumber], bool],
         python_alias_dir: Path,
+        program_path: Path,
         profile_memory: bool = True,
     ) -> Dict[str, Any]:
         """Write the profile out."""
@@ -325,7 +327,8 @@ class ScaleneJSON:
                 )
 
             # Print out the the profile for the source, line by line.
-            with open(fname, "r", encoding="utf-8") as source_file:
+            full_fname = os.path.normpath(os.path.join(program_path, fname))
+            with open(full_fname, "r", encoding="utf-8") as source_file:
                 code_lines = source_file.readlines()
 
                 output["files"][fname_print] = {
