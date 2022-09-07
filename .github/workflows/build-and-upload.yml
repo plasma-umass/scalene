@@ -96,6 +96,10 @@ jobs:
   
       - name: Build binary dist
         run: make bdist
+
+      - name: Check that all required platforms are included
+        if: matrix.os == 'macos-latest'
+        run: for P in x86_64 arm64 arm64e; do for F in build/lib.*/scalene/*.so ; do file $F | grep -q "\\b$P\\b" || exit 1; done; done
   
       - name: Non-release (dev) upload
         if: github.event_name != 'release'
