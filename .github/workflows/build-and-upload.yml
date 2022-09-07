@@ -31,11 +31,10 @@ jobs:
     strategy:
       matrix:
         python_version: ['3.7', '3.8', '3.9', '3.10']
-#        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
-        os: ['macos-latest']
+        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
         include:
-#          - os: ubuntu-latest
-#            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
+          - os: ubuntu-latest
+            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
           - os: macos-latest
             python_version: 3.7
             upload_source: true   # just need ONE of them to do it
@@ -101,8 +100,8 @@ jobs:
       - name: Check that all required platforms are included
         if: matrix.os == 'macos-latest'
         run: |
-          for P in x86_64 arm64 arm64e;
-            do for F in build/lib.*/scalene/*.so ; do
+          for P in x86_64 arm64 arm64e; do
+            for F in build/lib.*/scalene/*.so ; do
               file $F | grep -q "\\b$P\\b"
               if [ $? != 0 ]; then
                 echo "$P missing"
