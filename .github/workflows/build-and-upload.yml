@@ -31,10 +31,10 @@ jobs:
     strategy:
       matrix:
         python_version: ['3.7', '3.8', '3.9', '3.10']
-        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
+        os: ['ubuntu-latest']#, 'macos-latest', 'windows-latest']
         include:
-          - os: ubuntu-latest
-            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
+#          - os: ubuntu-latest
+#            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
           - os: macos-latest
             python_version: 3.7
             upload_source: true   # just need ONE of them to do it
@@ -103,13 +103,10 @@ jobs:
   
       - name: Non-release (dev) upload
         if: github.event_name != 'release'
-#        env:
-#          TWINE_USERNAME: ${{ secrets.TESTPYPI_USERNAME }}
-#          TWINE_PASSWORD: ${{ secrets.TESTPYPI_PASSWORD }}
         env:
           TWINE_REPOSITORY: testpypi
-          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+          TWINE_USERNAME: ${{ secrets.TESTPYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.TESTPYPI_PASSWORD }}
         run: twine upload --verbose dist/*
 
       - name: Release upload
