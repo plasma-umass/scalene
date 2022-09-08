@@ -29,6 +29,7 @@ def multiarch_args():
     # On MacOS we build "universal2" packages, for both x86_64 and arm64/M1
     print(f"sys.platform={sys.platform}")
     print(f"sysconfig.get_platform()={sysconfig.get_platform()}")
+    print(f"platform.mac_ver()[0]={platform.mac_ver()[0]}")
     if sys.platform == 'darwin' and 'universal2' in sysconfig.get_platform():
         args = ['-arch', 'x86_64']
         # ARM support was added in XCode 12, which requires MacOS 10.15.4
