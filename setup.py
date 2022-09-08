@@ -32,7 +32,8 @@ def clang_archs():
             with tempfile.NamedTemporaryFile(mode='w', suffix='.cpp') as cpp:
                 cpp.write('int main() {return 0;}\n')
                 cpp.flush()
-                p = subprocess.run(["clang", "-arch", arch, cpp.name], capture_output=True)
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.out') as obj:
+                    p = subprocess.run(["clang", "-arch", arch, cpp.name, "-o", obj.name], capture_output=True)
                 if p.returncode == 0:
                     arch_flags += ['-arch', arch]
 
