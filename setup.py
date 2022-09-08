@@ -25,16 +25,16 @@ def clang_archs():
     if not clang_archs_cache:
         import tempfile
         import subprocess
+        from pathlib import Path
 
         arch_flags = []
 
         # see also the architectures tested for in .github/workflows/build-and-upload.yml
         for arch in ['x86_64', 'arm64', 'arm64e']:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.cpp') as cpp:
-                cpp.write('int main() {return 0;}\n')
-                cpp.flush()
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.out') as obj:
-                    p = subprocess.run(["clang", "-arch", arch, cpp.name, "-o", obj.name], capture_output=True)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                cpp = Path(tmpdir) / 'test.cpp'; cpp.write_text('int main() {return 0;}\n')
+                out = Path(tmpdir) / 'a.out'
+                p = subprocess.run(["clang", "-arch", arch, str(cpp), "-o", str(out)], capture_output=True)
                 if p.returncode == 0:
                     arch_flags += ['-arch', arch]
 
