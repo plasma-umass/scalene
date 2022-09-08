@@ -28,7 +28,7 @@ def clang_archs():
 
         arch_flags = []
 
-        for arch in ['x86_64', 'arm64', 'arm64e', 'foobar']:
+        for arch in ['x86_64', 'arm64', 'arm64e']:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.cpp') as cpp:
                 cpp.write('int main() {return 0;}\n')
                 cpp.flush()
