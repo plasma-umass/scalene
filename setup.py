@@ -20,21 +20,21 @@ if sys.platform == 'darwin':
 clang_archs_cache = None
 def clang_archs():
     """Discovers what platforms clang supports; intended for MacOS use"""
-    # TODO should we ask Python which compiler it'll use?  It's a bit complicated.
     global clang_archs_cache
     if not clang_archs_cache:
         import tempfile
         import subprocess
         from pathlib import Path
 
+        compiler = sysconfig.get_config_var('CXX')
         arch_flags = []
 
         # see also the architectures tested for in .github/workflows/build-and-upload.yml
         for arch in ['x86_64', 'arm64', 'arm64e']:
             with tempfile.TemporaryDirectory() as tmpdir:
-                cpp = Path(tmpdir) / 'test.cpp'; cpp.write_text('int main() {return 0;}\n')
+                cpp = Path(tmpdir) / 'test.cxx'; cpp.write_text('int main() {return 0;}\n')
                 out = Path(tmpdir) / 'a.out'
-                p = subprocess.run(["clang", "-arch", arch, str(cpp), "-o", str(out)], capture_output=True)
+                p = subprocess.run([compiler, "-arch", arch, str(cpp), "-o", str(out)], capture_output=True)
                 if p.returncode == 0:
                     arch_flags += ['-arch', arch]
 
