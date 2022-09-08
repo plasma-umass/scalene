@@ -28,6 +28,7 @@ def clang_archs():
 
         arch_flags = []
 
+        # see also the architectures tested for in .github/workflows/build-and-upload.yml
         for arch in ['x86_64', 'arm64', 'arm64e']:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.cpp') as cpp:
                 cpp.write('int main() {return 0;}\n')
