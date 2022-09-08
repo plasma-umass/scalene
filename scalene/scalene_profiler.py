@@ -163,6 +163,7 @@ class Scalene:
     __json.gpu = __gpu.has_gpu()
     __invalidate_stack: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
+
     @staticmethod
     def get_original_lock() -> threading.Lock:
         """Return the true lock, which we shim in replacement_lock.py."""
@@ -315,7 +316,9 @@ class Scalene:
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
             with Scalene.__invalidate_mutex:
-                Scalene.__invalidate_stack.append((Scalene.__last_profiled[0], Scalene.__last_profiled[1]))
+                Scalene.__invalidate_stack.append(
+                    (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
+                )
                 Scalene.update_line()
             Scalene.__last_profiled_invalidated = False
             Scalene.__last_profiled = (
@@ -481,7 +484,9 @@ class Scalene:
             and lineno == LineNumber(f.f_lineno)
         ):
             with Scalene.__invalidate_mutex:
-                Scalene.__invalidate_stack.append((Filename(f.f_code.co_filename), LineNumber(f.f_lineno)))
+                Scalene.__invalidate_stack.append(
+                    (Filename(f.f_code.co_filename), LineNumber(f.f_lineno))
+                )
                 Scalene.update_line()
         Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
@@ -598,7 +603,7 @@ class Scalene:
             Scalene.__alloc_sigq,
             Scalene.__memcpy_sigq,
         ]
-        Scalene.__invalidate_mutex =  Scalene.get_original_lock()
+        Scalene.__invalidate_mutex = Scalene.get_original_lock()
 
         # Initialize the malloc related files; if for whatever reason
         # the files don't exist and we are supposed to be profiling
@@ -1262,7 +1267,7 @@ class Scalene:
             is_malloc = action == Scalene.MALLOC_ACTION
             if is_malloc and count == NEWLINE_TRIGGER_LENGTH + 1:
                 last_file, last_line = Scalene.__invalidate_stack.pop()
-                stats.memory_malloc_count[last_file][ last_line] += 1
+                stats.memory_malloc_count[last_file][last_line] += 1
                 stats.memory_aggregate_footprint[last_file][
                     last_line
                 ] += stats.memory_current_footprint[last_file][last_line]
@@ -1292,7 +1297,7 @@ class Scalene:
                 ):
                     stats.memory_current_highwater_mark[fname][
                         lineno
-                    ] = stats.memory_current_footprint  [fname][lineno]
+                    ] = stats.memory_current_footprint[fname][lineno]
                 stats.memory_current_highwater_mark[fname][lineno] = max(
                     stats.memory_current_highwater_mark[fname][lineno],
                     stats.memory_current_footprint[fname][lineno],
