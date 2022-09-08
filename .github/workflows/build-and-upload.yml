@@ -111,13 +111,16 @@ jobs:
             done
           done
   
-      - name: Non-release (dev) upload
-        if: github.event_name != 'release'
-        env:
-          TWINE_REPOSITORY: testpypi
-          TWINE_USERNAME: ${{ secrets.TESTPYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.TESTPYPI_PASSWORD }}
-        run: twine upload --verbose dist/*
+#
+# Disabled until we add the TESTPYPI_... credentials
+#
+#      - name: Non-release (dev) upload
+#        if: github.event_name != 'release'
+#        env:
+#          TWINE_REPOSITORY: testpypi
+#          TWINE_USERNAME: ${{ secrets.TESTPYPI_USERNAME }}
+#          TWINE_PASSWORD: ${{ secrets.TESTPYPI_PASSWORD }}
+#        run: twine upload --verbose dist/*
 
       - name: Release upload
         if: github.event_name == 'release'
