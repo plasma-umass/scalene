@@ -17,46 +17,33 @@ if sys.platform == 'darwin':
         execve(sys.executable, [sys.executable] + sys.argv, newenv)
 
 
-clang_archs_cache = None
-def clang_archs():
-    """Discovers what platforms clang supports; intended for MacOS use"""
-    global clang_archs_cache
-    if not clang_archs_cache:
-        import tempfile
-        import subprocess
-        from pathlib import Path
+def compiler_archs(compiler: str):
+    """Discovers what platforms the given supports; intended for MacOS use"""
+    import tempfile
+    import subprocess
+    from pathlib import Path
 
-        compiler = sysconfig.get_config_var('CXX')
-        arch_flags = []
+    print(f"Compiler: {compiler}")
+    arch_flags = []
 
-        # see also the architectures tested for in .github/workflows/build-and-upload.yml
-        for arch in ['x86_64', 'arm64', 'arm64e']:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                cpp = Path(tmpdir) / 'test.cxx'; cpp.write_text('int main() {return 0;}\n')
-                out = Path(tmpdir) / 'a.out'
-                p = subprocess.run([compiler, "-arch", arch, str(cpp), "-o", str(out)], capture_output=True)
-                if p.returncode == 0:
-                    arch_flags += ['-arch', arch]
+    # see also the architectures tested for in .github/workflows/build-and-upload.yml
+    for arch in ['x86_64', 'arm64', 'arm64e']:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cpp = Path(tmpdir) / 'test.cxx'; cpp.write_text('int main() {return 0;}\n')
+            out = Path(tmpdir) / 'a.out'
+            p = subprocess.run([compiler, "-arch", arch, str(cpp), "-o", str(out)], capture_output=True)
+            if p.returncode == 0:
+                arch_flags += ['-arch', arch]
 
-        print("Discovered clang arch flags:", arch_flags)
-        clang_archs_cache = arch_flags
-
-    return clang_archs_cache
-
-
-def multiarch_args():
-    """Returns args requesting multi-architecture support, if applicable."""
-    if sys.platform == 'darwin':
-        return clang_archs()
-
-    return []
+    print(f"Discovered {compiler} arch flags: {arch_flags}")
+    return arch_flags
 
 def extra_compile_args():
     """Returns extra compiler args for platform."""
     if sys.platform == 'win32':
         return ['/std:c++14'] # for Visual Studio C++
 
-    return ['-std=c++14'] + multiarch_args()
+    return ['-std=c++14']
 
 def make_command():
 #    return 'nmake' if sys.platform == 'win32' else 'make'  # 'nmake' isn't found on github actions' VM
@@ -84,29 +71,46 @@ class EggInfoCommand(setuptools.command.egg_info.egg_info):
 # Force building platform-specific wheel to avoid the Windows wheel
 # (which doesn't include libscalene, and thus would be considered "pure")
 # being used for other platforms.
-from wheel.bdist_wheel import bdist_wheel as orig_bdist_wheel
-class BdistWheelCommand(orig_bdist_wheel):
+from wheel.bdist_wheel import bdist_wheel
+class BdistWheelCommand(bdist_wheel):
     def finalize_options(self):
-        orig_bdist_wheel.finalize_options(self)
+        super().finalize_options()
         self.root_is_pure = False
 
 import setuptools.command.build_ext
 class BuildExtCommand(setuptools.command.build_ext.build_ext):
-    """Custom command that runs 'make' to generate libscalene."""
-    def run(self):
-        super().run()
+    """Custom command that runs 'make' to generate libscalene, and also does MacOS
+       supported --arch flag discovery."""
+
+    def build_extensions(self):
+        arch_flags = []
+        if sys.platform == 'darwin':
+            # The only sure way to tell which compiler build_ext is going to use
+            # seems to be to customize a build_ext and look at its internal flags :(
+            # Also, note that self.plat_name here isn't "...-universal2" even if that
+            # is what we're building; that's only in bdist_wheel.plat_name.
+            arch_flags += compiler_archs(self.compiler.compiler_cxx[0])
+            for ext in self.extensions:
+                # While the flags _could_ be different between the programs used for
+                # C and C++ compilation and linking, we have no way to adapt them here,
+                # so it seems best to just use them and let it error out if not recognized.
+                ext.extra_compile_args += arch_flags
+                ext.extra_link_args += arch_flags
+
+        super().build_extensions()
+
         # No build of DLL for Windows currently.
         if sys.platform != 'win32':
-            self.build_libscalene()
+            self.build_libscalene(arch_flags)   # XXX should we pass compiler_cxx here?
 
-    def build_libscalene(self):
+    def build_libscalene(self, arch_flags):
         scalene_temp = path.join(self.build_temp, 'scalene')
         scalene_lib = path.join(self.build_lib, 'scalene')
         libscalene = 'libscalene' + dll_suffix()
         self.mkpath(scalene_temp)
         self.mkpath(scalene_lib)
-        self.spawn([make_command(), 'OUTDIR=' + scalene_temp,
-                    'ARCH=' + ' '.join(multiarch_args())])
+        self.spawn([make_command(), 'OUTDIR=' + scalene_temp] + \
+                   (['ARCH=' + ' '.join(arch_flags)] if arch_flags else []))
         self.copy_file(path.join(scalene_temp, libscalene),
                        path.join(scalene_lib, libscalene))
         if self.inplace:
@@ -117,7 +121,6 @@ get_line_atomic = Extension('scalene.get_line_atomic',
     include_dirs=['.', 'vendor/Heap-Layers', 'vendor/Heap-Layers/utility'],
     sources=['src/source/get_line_atomic.cpp'],
     extra_compile_args=extra_compile_args(),
-    extra_link_args=multiarch_args(),
     py_limited_api=True, # for binary compatibility
     language="c++"
 )
@@ -126,7 +129,6 @@ pywhere = Extension('scalene.pywhere',
     include_dirs=['.', 'src', 'src/include'],
     sources = ['src/source/pywhere.cpp'],
     extra_compile_args=extra_compile_args(),
-    extra_link_args=multiarch_args(),
     py_limited_api=False,
     language="c++")
 
