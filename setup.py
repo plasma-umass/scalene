@@ -109,8 +109,8 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
         libscalene = 'libscalene' + dll_suffix()
         self.mkpath(scalene_temp)
         self.mkpath(scalene_lib)
-        self.spawn([make_command(), 'OUTDIR=' + scalene_temp] + \
-                   (['ARCH=' + ' '.join(arch_flags)] if arch_flags else []))
+        self.spawn([make_command(), 'OUTDIR=' + scalene_temp,
+                   'ARCH=' + ' '.join(arch_flags)])
         self.copy_file(path.join(scalene_temp, libscalene),
                        path.join(scalene_lib, libscalene))
         if self.inplace:
