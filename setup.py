@@ -2,7 +2,6 @@ from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from scalene.scalene_version import scalene_version
 from os import path, environ
-import platform
 import sys
 import sysconfig
 
@@ -17,28 +16,38 @@ if sys.platform == 'darwin':
         newenv[mdt] = '10.9'
         execve(sys.executable, [sys.executable] + sys.argv, newenv)
 
-def clang_version():
-    import re
-    pat = re.compile('Clang ([0-9]+)')
-    match = pat.search(platform.python_compiler())
-    version = int(match.group(1))
-    return version
+
+clang_archs_cache = None
+def clang_archs():
+    """Discovers what platforms clang supports; intended for MacOS use"""
+    global clang_archs_cache
+    if not clang_archs_cache:
+        import tempfile
+        import subprocess
+        from pathlib import Path
+
+        compiler = sysconfig.get_config_var('CXX')
+        arch_flags = []
+
+        # see also the architectures tested for in .github/workflows/build-and-upload.yml
+        for arch in ['x86_64', 'arm64', 'arm64e']:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                cpp = Path(tmpdir) / 'test.cxx'; cpp.write_text('int main() {return 0;}\n')
+                out = Path(tmpdir) / 'a.out'
+                p = subprocess.run([compiler, "-arch", arch, str(cpp), "-o", str(out)], capture_output=True)
+                if p.returncode == 0:
+                    arch_flags += ['-arch', arch]
+
+        print("Discovered clang arch flags:", arch_flags)
+        clang_archs_cache = arch_flags
+
+    return clang_archs_cache
+
 
 def multiarch_args():
     """Returns args requesting multi-architecture support, if applicable."""
-    # On MacOS we build "universal2" packages, for both x86_64 and arm64/M1
-    if sys.platform == 'darwin' and 'universal2' in sysconfig.get_platform():
-        args = ['-arch', 'x86_64']
-        # ARM support was added in XCode 12, which requires MacOS 10.15.4
-        if clang_version() >= 12 and [int(n) for n in platform.mac_ver()[0].split('.')] >= [10, 15, 4]:
-            args += ['-arch', 'arm64', '-arch', 'arm64e']
-        return args
-    # Force arm64 and arm64e builds on MacOS 10.15.4 and later (when universal2 is not available for arm64)
-    if 'arm' in sysconfig.get_platform() and clang_version() >= 12:
-        args = []
-        if [int(n) for n in platform.mac_ver()[0].split('.')] >= [10, 15, 4]:
-            args += ['-arch', 'arm64', '-arch', 'arm64e']
-            return args
+    if sys.platform == 'darwin':
+        return clang_archs()
 
     return []
 
