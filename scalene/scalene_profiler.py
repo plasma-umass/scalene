@@ -459,9 +459,7 @@ class Scalene:
         ],
         this_frame: Optional[FrameType],
     ) -> None:
-        """Handle allocation signals."""
-        invalidated = Scalene.__last_profiled_invalidated
-        (fname, lineno, lasti) = Scalene.__last_profiled
+        """Handle allocation signals.""" 
         if this_frame:
             Scalene.enter_function_meta(this_frame, Scalene.__stats)
         # Walk the stack till we find a line of code in a file we are tracing.
