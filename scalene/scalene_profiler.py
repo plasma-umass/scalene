@@ -161,6 +161,8 @@ class Scalene:
 
     __output.gpu = __gpu.has_gpu()
     __json.gpu = __gpu.has_gpu()
+    __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
+    __invalidate_mutex: threading.Lock
 
     @staticmethod
     def get_original_lock() -> threading.Lock:
@@ -313,7 +315,11 @@ class Scalene:
                 return None
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
-            Scalene.update_line()
+            with Scalene.__invalidate_mutex:
+                Scalene.__invalidate_queue.append(
+                    (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
+                )
+                Scalene.update_line()
             Scalene.__last_profiled_invalidated = False
             Scalene.__last_profiled = (
                 Filename(ff),
@@ -453,9 +459,7 @@ class Scalene:
         ],
         this_frame: Optional[FrameType],
     ) -> None:
-        """Handle allocation signals."""
-        invalidated = Scalene.__last_profiled_invalidated
-        (fname, lineno, lasti) = Scalene.__last_profiled
+        """Handle allocation signals.""" 
         if this_frame:
             Scalene.enter_function_meta(this_frame, Scalene.__stats)
         # Walk the stack till we find a line of code in a file we are tracing.
@@ -473,11 +477,16 @@ class Scalene:
         # code in a file we are tracking.
         # First, see if we have now executed a different line of code.
         # If so, increment.
-        if invalidated or not (
-            fname == Filename(f.f_code.co_filename)
-            and lineno == LineNumber(f.f_lineno)
-        ):
-            Scalene.update_line()
+        # TODO: assess the necessity of the following block
+        # if invalidated or not (
+        #     fname == Filename(f.f_code.co_filename)
+        #     and lineno == LineNumber(f.f_lineno)
+        # ):
+        #     with Scalene.__invalidate_mutex:
+        #         Scalene.__invalidate_queue.append(
+        #             (Filename(f.f_code.co_filename), LineNumber(f.f_lineno))
+        #         )
+        #         Scalene.update_line()
         Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
             Filename(f.f_code.co_filename),
@@ -593,6 +602,7 @@ class Scalene:
             Scalene.__alloc_sigq,
             Scalene.__memcpy_sigq,
         ]
+        Scalene.__invalidate_mutex = Scalene.get_original_lock()
 
         # Initialize the malloc related files; if for whatever reason
         # the files don't exist and we are supposed to be profiling
@@ -1255,12 +1265,14 @@ class Scalene:
 
             is_malloc = action == Scalene.MALLOC_ACTION
             if is_malloc and count == NEWLINE_TRIGGER_LENGTH + 1:
-                stats.memory_malloc_count[fname][lineno] += 1
-                stats.memory_aggregate_footprint[fname][
-                    lineno
-                ] += stats.memory_current_highwater_mark[fname][lineno]
-                stats.memory_current_footprint[fname][lineno] = 0
-                stats.memory_current_highwater_mark[fname][lineno] = 0
+                last_file, last_line = Scalene.__invalidate_queue.pop(0)
+                stats.memory_malloc_count[last_file][last_line] += 1
+                stats.memory_aggregate_footprint[last_file][
+                    last_line
+                ] += stats.memory_current_highwater_mark[last_file][last_line]
+
+                stats.memory_current_footprint[last_file][last_line] = 0
+                stats.memory_current_highwater_mark[last_file][last_line] = 0
                 continue
 
             # Add the byte index to the set for this line (if it's not there already).
