@@ -113,9 +113,19 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
                    'ARCH=' + ' '.join(arch_flags)])
         self.copy_file(path.join(scalene_temp, libscalene),
                        path.join(scalene_lib, libscalene))
-        if self.inplace:
+
+    def copy_extensions_to_source(self):
+        # self.inplace is temporarily overriden while running build_extensions,
+        # so inplace copying (for pip install -e, setup.py develop) must be done here.
+
+        super().copy_extensions_to_source()
+
+        if sys.platform != 'win32':
+            scalene_lib = path.join(self.build_lib, 'scalene')
+            inplace_dir = self.get_finalized_command('build_py').get_package_dir('scalene')
+            libscalene = 'libscalene' + dll_suffix()
             self.copy_file(path.join(scalene_lib, libscalene),
-                           path.join('scalene', libscalene))
+                           path.join(inplace_dir, libscalene))
 
 get_line_atomic = Extension('scalene.get_line_atomic',
     include_dirs=['.', 'vendor/Heap-Layers', 'vendor/Heap-Layers/utility'],
