@@ -36,7 +36,7 @@ jobs:
         python -m pip install numpy
 
     - name: Build scalene
-      run: pip install -e .
+      run: pip -v install -e .
 
     - name: cpu-only smoke test
       run: python -m scalene --cli --cpu-only test/testme.py
