@@ -319,6 +319,7 @@ class Scalene:
                 Scalene.__invalidate_queue.append(
                     (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
                 )
+                print(Scalene.__last_profiled)
                 Scalene.update_line()
             Scalene.__last_profiled_invalidated = False
             Scalene.__last_profiled = (
@@ -1266,6 +1267,7 @@ class Scalene:
             is_malloc = action == Scalene.MALLOC_ACTION
             if is_malloc and count == NEWLINE_TRIGGER_LENGTH + 1:
                 last_file, last_line = Scalene.__invalidate_queue.pop(0)
+                print(last_file, last_line)
                 stats.memory_malloc_count[last_file][last_line] += 1
                 stats.memory_aggregate_footprint[last_file][
                     last_line
