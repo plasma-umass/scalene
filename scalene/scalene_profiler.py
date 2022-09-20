@@ -488,7 +488,7 @@ class Scalene:
                 Scalene.__invalidate_queue.append(
                     (Filename(f.f_code.co_filename), LineNumber(f.f_lineno))
                 )
-        #         Scalene.update_line()
+                Scalene.update_line()
         Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
             Filename(f.f_code.co_filename),
