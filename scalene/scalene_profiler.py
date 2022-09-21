@@ -320,11 +320,13 @@ class Scalene:
                     (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
                 )
                 Scalene.update_line()
-            Scalene.__last_profiled_invalidated = False
+            Scalene.__last_profiled_invalidated = True
+            
             Scalene.__last_profiled = (
-                Filename(ff),
-                LineNumber(fl),
-                ByteCodeIndex(frame.f_lasti),
+                Filename("NADA"), LineNumber(0), ByteCodeIndex(0)
+            #     Filename(ff),
+            #     LineNumber(fl),
+            #     ByteCodeIndex(frame.f_lasti),
             )
             return None
         except AttributeError:
@@ -480,7 +482,7 @@ class Scalene:
         # TODO: assess the necessity of the following block
         invalidated = Scalene.__last_profiled_invalidated
         (fname, lineno, lasti) = Scalene.__last_profiled
-        if invalidated or not (
+        if not invalidated and not (
             fname == Filename(f.f_code.co_filename)
             and lineno == LineNumber(f.f_lineno)
         ):
@@ -1642,6 +1644,12 @@ class Scalene:
         finally:
             self.stop()
             sys.settrace(None)
+            stats = Scalene.__stats
+            (last_file, last_line, _) = Scalene.__last_profiled
+            stats.memory_malloc_count[last_file][last_line] += 1
+            stats.memory_aggregate_footprint[last_file][
+                last_line
+            ] += stats.memory_current_highwater_mark[last_file][last_line]
             # If we've collected any samples, dump them.
             did_output = Scalene.output_profile()
             if not did_output:
