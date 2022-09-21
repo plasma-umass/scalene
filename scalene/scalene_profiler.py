@@ -486,7 +486,7 @@ class Scalene:
         ):
             with Scalene.__invalidate_mutex:
                 Scalene.__invalidate_queue.append(
-                    (Filename(f.f_code.co_filename), LineNumber(f.f_lineno))
+                    (fname, lineno)
                 )
                 Scalene.update_line()
         Scalene.__last_profiled_invalidated = False
@@ -1267,7 +1267,8 @@ class Scalene:
 
             is_malloc = action == Scalene.MALLOC_ACTION
             if is_malloc and count == NEWLINE_TRIGGER_LENGTH + 1:
-                last_file, last_line = Scalene.__invalidate_queue.pop(0)
+                with Scalene.__invalidate_mutex:
+                    last_file, last_line = Scalene.__invalidate_queue.pop(0)
                 stats.memory_malloc_count[last_file][last_line] += 1
                 stats.memory_aggregate_footprint[last_file][
                     last_line
