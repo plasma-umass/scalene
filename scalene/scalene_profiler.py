@@ -683,10 +683,7 @@ class Scalene:
         atexit.register(Scalene.exit_handler)
         # Store relevant names (program, path).
         if program_being_profiled:
-            Scalene.__program_being_profiled = Filename(
-                # os.path.abspath(program_being_profiled)
-                program_being_profiled
-            )
+            Scalene.__program_being_profiled = Filename(program_being_profiled)
 
     @staticmethod
     def cpu_signal_handler(
@@ -1922,7 +1919,8 @@ class Scalene:
                     # We are done with these files, so remove them.
                     Scalene.__malloc_mapfile.cleanup()
                     Scalene.__memcpy_mapfile.cleanup()
-            sys.exit(exit_status)
+            if not is_jupyter:
+                sys.exit(exit_status)
 
 
 if __name__ == "__main__":
