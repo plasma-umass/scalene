@@ -338,7 +338,6 @@ class ScaleneJSON:
                     "lines": [],
                     "leaks": reported_leaks,
                 }
-                assert os.path.basename(full_fname) == fname
                 for lineno, line in enumerate(code_lines, start=1):
                     profile_line = self.output_profile_line(
                         fname=full_fname,
