@@ -321,12 +321,14 @@ class Scalene:
                 )
                 Scalene.update_line()
             Scalene.__last_profiled_invalidated = True
-            
+
             Scalene.__last_profiled = (
-                Filename("NADA"), LineNumber(0), ByteCodeIndex(0)
-            #     Filename(ff),
-            #     LineNumber(fl),
-            #     ByteCodeIndex(frame.f_lasti),
+                Filename("NADA"),
+                LineNumber(0),
+                ByteCodeIndex(0)
+                #     Filename(ff),
+                #     LineNumber(fl),
+                #     ByteCodeIndex(frame.f_lasti),
             )
             return None
         except AttributeError:
@@ -461,7 +463,7 @@ class Scalene:
         ],
         this_frame: Optional[FrameType],
     ) -> None:
-        """Handle allocation signals.""" 
+        """Handle allocation signals."""
         if this_frame:
             Scalene.enter_function_meta(this_frame, Scalene.__stats)
         # Walk the stack till we find a line of code in a file we are tracing.
@@ -487,9 +489,7 @@ class Scalene:
             and lineno == LineNumber(f.f_lineno)
         ):
             with Scalene.__invalidate_mutex:
-                Scalene.__invalidate_queue.append(
-                    (fname, lineno)
-                )
+                Scalene.__invalidate_queue.append((fname, lineno))
                 Scalene.update_line()
         Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
@@ -1465,12 +1465,13 @@ class Scalene:
 
             if result := re.match("<ipython-input-([0-9]+)-.*>", filename):
                 # Write the cell's contents into the file.
+                cell_contents = (
+                    IPython.get_ipython().history_manager.input_hist_raw[
+                        int(result[1])
+                    ]
+                )
                 with open(filename, "w+") as f:
-                    f.write(
-                        IPython.get_ipython().history_manager.input_hist_raw[
-                            int(result[1])
-                        ]
-                    )
+                    f.write(cell_contents)
             return True
         # If (a) `profile-only` was used, and (b) the file matched
         # NONE of the provided patterns, don't profile it.
@@ -1840,7 +1841,7 @@ class Scalene:
                     raise FileNotFoundError
                 with open(progs[0], "rb") as prog_being_profiled:
                     # Read in the code and compile it.
-                    code: Any
+                    code: Any = ""
                     try:
                         code = compile(
                             prog_being_profiled.read(),
