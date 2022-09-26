@@ -49,11 +49,17 @@
       </p>
     </a>
     <p />
-    <form id="jsonFile" name="jsonFile" enctype="multipart/form-data" method="post">
+    <form id="jsonFile" name="jsonFile" enctype="multipart/form-data" onsubmit=" loadFile(); return false">
+      <div class="d-flex justify-content-center">
+        <textarea id="manual_input"></textarea>
+      </div>
       <div class="form-group">
 	<div class="d-flex justify-content-center">
-	  <label for='fileinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">Select a profile (.json)</label>
-	  <input style="height: 0; width: 10; opacity:0" type='file' id='fileinput' accept='.json' onchange="loadFile();">
+	  <!--  <label for='fileinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">Select a profile (.json)</label> #}
+   
+	  {# <input style="height: 0; width: 10; opacity:0" type='file' id='fileinput' accept='.json' onchange="loadFile();"> #}
+    -->
+    <button  >Load File</button>
 	  <!-- <label for='demoinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">demo</label>
 	  <input style="height: 0; width: 0; opacity:0" type='button' id='demoinput' accept='.json' onclick="loadDemo();">
 -->

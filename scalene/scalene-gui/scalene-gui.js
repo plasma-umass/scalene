@@ -827,11 +827,14 @@ function loadFetch() {
 }
 
 function loadFile() {
-  const input = document.getElementById("fileinput");
-  const file = input.files[0];
-  const fr = new FileReader();
-  fr.onload = doSomething;
-  fr.readAsText(file);
+  // const input = document.getElementById("fileinput");
+  const manual_input = document.getElementById("manual_input");
+  console.log(manual_input)
+  
+  if(manual_input.value.length > 0) {
+    const profile = JSON.parse(manual_input.value);
+    load(profile);
+  } 
 }
 
 function doSomething(e) {
