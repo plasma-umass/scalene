@@ -76,6 +76,8 @@ class ScaleneJSON:
         force_print: bool = False,
     ) -> Dict[str, Any]:
         """Print at most one line of the profile (true == printed one)."""
+        full_fname = fname
+        fname = os.path.basename(full_fname)
         if not force_print and not profile_this_code(fname, line_no):
             return {}
         # Prepare output values.
@@ -158,7 +160,7 @@ class ScaleneJSON:
 
         return {
             "lineno": line_no,
-            "line": linecache.getline(fname, line_no),
+            "line": linecache.getline(full_fname, line_no),
             "n_cpu_percent_c": n_cpu_percent_c,
             "n_cpu_percent_python": n_cpu_percent_python,
             "n_sys_percent": n_sys_percent,
@@ -336,9 +338,9 @@ class ScaleneJSON:
                     "lines": [],
                     "leaks": reported_leaks,
                 }
-                for lineno, _line in enumerate(code_lines, start=1):
+                for lineno, line in enumerate(code_lines, start=1):
                     profile_line = self.output_profile_line(
-                        fname=fname,
+                        fname=full_fname,
                         fname_print=fname_print,
                         line_no=LineNumber(lineno),
                         stats=stats,

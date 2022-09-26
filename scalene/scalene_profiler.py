@@ -320,11 +320,15 @@ class Scalene:
                     (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
                 )
                 Scalene.update_line()
-            Scalene.__last_profiled_invalidated = False
+            Scalene.__last_profiled_invalidated = True
+
             Scalene.__last_profiled = (
-                Filename(ff),
-                LineNumber(fl),
-                ByteCodeIndex(frame.f_lasti),
+                Filename("NADA"),
+                LineNumber(0),
+                ByteCodeIndex(0)
+                #     Filename(ff),
+                #     LineNumber(fl),
+                #     ByteCodeIndex(frame.f_lasti),
             )
             return None
         except AttributeError:
@@ -459,7 +463,7 @@ class Scalene:
         ],
         this_frame: Optional[FrameType],
     ) -> None:
-        """Handle allocation signals.""" 
+        """Handle allocation signals."""
         if this_frame:
             Scalene.enter_function_meta(this_frame, Scalene.__stats)
         # Walk the stack till we find a line of code in a file we are tracing.
@@ -480,14 +484,12 @@ class Scalene:
         # TODO: assess the necessity of the following block
         invalidated = Scalene.__last_profiled_invalidated
         (fname, lineno, lasti) = Scalene.__last_profiled
-        if invalidated or not (
+        if not invalidated and not (
             fname == Filename(f.f_code.co_filename)
             and lineno == LineNumber(f.f_lineno)
         ):
             with Scalene.__invalidate_mutex:
-                Scalene.__invalidate_queue.append(
-                    (fname, lineno)
-                )
+                Scalene.__invalidate_queue.append((fname, lineno))
                 Scalene.update_line()
         Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
@@ -681,10 +683,7 @@ class Scalene:
         atexit.register(Scalene.exit_handler)
         # Store relevant names (program, path).
         if program_being_profiled:
-            Scalene.__program_being_profiled = Filename(
-                # os.path.abspath(program_being_profiled)
-                program_being_profiled
-            )
+            Scalene.__program_being_profiled = Filename(program_being_profiled)
 
     @staticmethod
     def cpu_signal_handler(
@@ -1463,12 +1462,13 @@ class Scalene:
 
             if result := re.match("<ipython-input-([0-9]+)-.*>", filename):
                 # Write the cell's contents into the file.
+                cell_contents = (
+                    IPython.get_ipython().history_manager.input_hist_raw[
+                        int(result[1])
+                    ]
+                )
                 with open(filename, "w+") as f:
-                    f.write(
-                        IPython.get_ipython().history_manager.input_hist_raw[
-                            int(result[1])
-                        ]
-                    )
+                    f.write(cell_contents)
             return True
         # If (a) `profile-only` was used, and (b) the file matched
         # NONE of the provided patterns, don't profile it.
@@ -1642,6 +1642,12 @@ class Scalene:
         finally:
             self.stop()
             sys.settrace(None)
+            stats = Scalene.__stats
+            (last_file, last_line, _) = Scalene.__last_profiled
+            stats.memory_malloc_count[last_file][last_line] += 1
+            stats.memory_aggregate_footprint[last_file][
+                last_line
+            ] += stats.memory_current_highwater_mark[last_file][last_line]
             # If we've collected any samples, dump them.
             did_output = Scalene.output_profile()
             if not did_output:
@@ -1832,7 +1838,7 @@ class Scalene:
                     raise FileNotFoundError
                 with open(progs[0], "rb") as prog_being_profiled:
                     # Read in the code and compile it.
-                    code: Any
+                    code: Any = ""
                     try:
                         code = compile(
                             prog_being_profiled.read(),
@@ -1913,7 +1919,8 @@ class Scalene:
                     # We are done with these files, so remove them.
                     Scalene.__malloc_mapfile.cleanup()
                     Scalene.__memcpy_mapfile.cleanup()
-            sys.exit(exit_status)
+            if not is_jupyter:
+                sys.exit(exit_status)
 
 
 if __name__ == "__main__":
