@@ -5,7 +5,7 @@ from textwrap import dedent
 from typing import Any, List, NoReturn, Optional, Tuple
 
 from scalene.scalene_arguments import ScaleneArguments
-from scalene.scalene_version import scalene_version
+from scalene.scalene_version import scalene_version, scalene_date
 
 
 class RichArgParser(argparse.ArgumentParser):
@@ -44,7 +44,7 @@ class ScaleneParseArgs:
                 sys._exit = ScaleneParseArgs.clean_exit  # type: ignore
         defaults = ScaleneArguments()
         usage = dedent(
-            f"""[b]Scalene[/b]: a high-precision CPU and memory profiler, version {scalene_version}
+            f"""[b]Scalene[/b]: a high-precision CPU and memory profiler, version {scalene_version} ({scalene_date})
 [link=https://github.com/plasma-umass/scalene]https://github.com/plasma-umass/scalene[/link]
 
 
@@ -303,6 +303,6 @@ for the process ID that Scalene reports. For example:
             parser.print_help(sys.stderr)
             sys.exit(-1)
         if args.version:
-            print(f"Scalene version {scalene_version}")
+            print(f"Scalene version {scalene_version} ({scalene_date})")
             sys.exit(-1)
         return args, left
