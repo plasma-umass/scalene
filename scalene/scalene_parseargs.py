@@ -295,7 +295,7 @@ for the process ID that Scalene reports. For example:
         import re
 
         in_jupyter_notebook = len(sys.argv) >= 1 and re.match(
-            "<ipython-input-([0-9]+)-.*>", sys.argv[0]
+            "ipython-input-([0-9]+)-.*", sys.argv[0]
         )
         # If the user did not enter any commands (just `scalene` or `python3 -m scalene`),
         # print the usage information and bail.

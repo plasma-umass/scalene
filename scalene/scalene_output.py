@@ -430,7 +430,7 @@ class ScaleneOutput:
             fname_print = fname
             import re
 
-            if result := re.match("<ipython-input-([0-9]+)-.*>", fname_print):
+            if result := re.match("ipython-input-([0-9]+)-.*", fname_print):
                 fname_print = Filename(f"[{result.group(1)}]")
 
             # Print header.
