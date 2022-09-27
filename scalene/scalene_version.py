@@ -27,4 +27,4 @@ def get_commit_date(fname):
 
 scalene_version = "1.5.13"
 
-scalene_date = datetime.datetime.fromtimestamp(get_commit_date("scalene/scalene_version.py")).strftime("%Y/%m/%d")
+scalene_date = datetime.datetime.fromtimestamp(get_commit_date("scalene/scalene_version.py")).strftime("%x")
