@@ -10,7 +10,11 @@ def get_commit_date(fname):
     import os
     from pathlib import Path
 
-    repo_path = "."
+    import inspect
+
+    full_path = os.path.abspath(os.path.dirname(inspect.getsourcefile(lambda:0)))
+    repo_path = os.path.join(full_path, "..")
+
     repo = git.Repo(repo_path)
 
     n = repo.tree()[fname]
