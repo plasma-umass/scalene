@@ -1450,9 +1450,9 @@ class Scalene:
             prof in filename for prof in profile_exclude_list if prof != ""
         ):
             return False
-        if filename[0] == "<":
+        if filename[0] == "i":
             if (
-                "<ipython" not in filename
+                "ipython" not in filename
             ):  # lgtm [py/member-test-non-container]
                 # Not a real file and not a function created in Jupyter.
                 return False
@@ -1460,7 +1460,7 @@ class Scalene:
             # create a file to hold the contents.
             import IPython
 
-            if result := re.match("<ipython-input-([0-9]+)-.*>", filename):
+            if result := re.match("ipython-input-([0-9]+)-.*", filename):
                 # Write the cell's contents into the file.
                 cell_contents = (
                     IPython.get_ipython().history_manager.input_hist_raw[

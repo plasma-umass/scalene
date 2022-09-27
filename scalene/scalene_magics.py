@@ -26,7 +26,7 @@ with contextlib.suppress(Exception):
             # Create a file to hold the supplied code.
             # We encode the cell number in the string for later recovery.
             # The length of the history buffer lets us find the most recent string (this one).
-            filename = f"<ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile>"
+            filename = f"ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile"
             with open(filename, "w+") as tmpfile:
                 tmpfile.write(code)
             args.cpu_only = True  # full Scalene is not yet working, force to use CPU-only mode
