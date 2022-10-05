@@ -1707,13 +1707,12 @@ class Scalene:
                     os.chdir(os.path.join(webgui_dir, Scalene.__gui_dir))
                     t.start()
                     if Scalene.in_jupyter():
-                        from IPython.core.display import HTML, display
+                        from IPython.core.display import display
                         from IPython.display import IFrame
-
                         display(
                             IFrame(
                                 src=f"{Scalene.__localhost}:{PORT}/{Scalene.__profiler_html}",
-                                width=700,
+                                width="100%",
                                 height=600,
                             )
                         )
