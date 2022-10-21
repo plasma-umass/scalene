@@ -47,6 +47,16 @@ scalene (Scalene options) --- your_prog.py (...) # use --- to tell Scalene to ig
 scalene --help                                   # lists all options
 ```
 
+If you need to run your code like `python -m your.module some_args` then create a small wrapper file like `start.py` with the following content:
+
+```python
+import runpy
+
+runpy.run_module('your.module', run_name='__main__')
+```
+
+and call `scalene start.py some_args`.
+
 To use Scalene programmatically in your code, invoke using `scalene` as above and then:
 
 ```Python
@@ -62,6 +72,8 @@ scalene_profiler.stop()
 To use Scalene to profile specific functions, just use the `@profile` decorator and run it with Scalene:
 
 ```Python
+# do not import profile!
+
 @profile
 def slow_function():
     import time
