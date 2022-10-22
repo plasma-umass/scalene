@@ -1092,7 +1092,33 @@ class Scalene:
         if not Scalene.should_trace(f.f_code.co_filename):
             return
 
-        fn_name = Filename(f.f_code.co_qualname)
+        # Obtain the fully-qualified name.
+        try:
+            # Introduced in Python 3.11
+            fn_name = Filename(f.f_code.co_qualname)
+        except:
+            fn_name = Filename(f.f_code.co_name)
+            # Manually search for an enclosing class.
+            while (
+                f
+                and f.f_back
+                and f.f_back.f_code
+                # NOTE: next line disabled as it is interfering with name resolution for thread run methods
+                # and Scalene.should_trace(f.f_back.f_code.co_filename)
+            ):
+                if "self" in f.f_locals:
+                    prepend_name = f.f_locals["self"].__class__.__name__
+                    if True: # "Scalene" not in prepend_name:
+                        fn_name = Filename(f"{prepend_name}.{fn_name}")
+                    break
+                if "cls" in f.f_locals:
+                    prepend_name = getattr(f.f_locals["cls"], "__name__", None)
+                    if not prepend_name: # or "Scalene" in prepend_name:
+                        break
+                    fn_name = Filename(f"{prepend_name}.{fn_name}")
+                    break
+                f = f.f_back
+
         firstline = f.f_code.co_firstlineno
 
         stats.function_map[fname][lineno] = fn_name
