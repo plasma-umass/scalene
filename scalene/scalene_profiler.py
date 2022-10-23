@@ -1096,7 +1096,7 @@ class Scalene:
         try:
             # Introduced in Python 3.11
             fn_name = Filename(f.f_code.co_qualname)
-        except:
+        except AttributeError:
             fn_name = Filename(f.f_code.co_name)
             # Manually search for an enclosing class.
             while (
