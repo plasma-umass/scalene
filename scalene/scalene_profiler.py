@@ -1248,12 +1248,13 @@ class Scalene:
         allocs = 0.0
         last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
         malloc_pointer = "0x0"
-        # was: curr = before
-        curr = 0
-        try:
-            curr = stats.per_line_footprint_samples[fname][lineno][-1][1]
-        except BaseException:
-            pass
+        curr = before
+        if False:
+            curr = 0
+            try:
+                curr = stats.per_line_footprint_samples[fname][lineno][-1][1]
+            except BaseException:
+                pass
 
         # Go through the array again and add each updated current footprint.
         for item in arr:
@@ -1276,7 +1277,6 @@ class Scalene:
                 stats.memory_aggregate_footprint[last_file][
                     last_line
                 ] += stats.memory_current_highwater_mark[last_file][last_line]
-
                 stats.memory_current_footprint[last_file][last_line] = 0
                 stats.memory_current_highwater_mark[last_file][last_line] = 0
                 continue
