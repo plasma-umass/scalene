@@ -754,7 +754,6 @@ class Scalene:
         # Restart the timer while handling any timers set by the client.
         if sys.platform != "win32":
             if Scalene.client_timer.is_set:
-
                 (
                     should_raise,
                     remaining_time,
@@ -1249,7 +1248,12 @@ class Scalene:
         allocs = 0.0
         last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
         malloc_pointer = "0x0"
-        curr = before
+        # was: curr = before
+        curr = 0
+        try:
+            curr = stats.per_line_footprint_samples[fname][lineno][-1][1]
+        except BaseException:
+            pass
 
         # Go through the array again and add each updated current footprint.
         for item in arr:
@@ -1841,7 +1845,7 @@ class Scalene:
                     try:
                         code = compile(
                             prog_being_profiled.read(),
-                            progs[0],
+                            os.path.basename(progs[0]),
                             "exec",
                         )
                     except SyntaxError:
