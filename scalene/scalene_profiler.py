@@ -1845,7 +1845,7 @@ class Scalene:
                     try:
                         code = compile(
                             prog_being_profiled.read(),
-                            os.path.basename(progs[0]),
+                            progs[0],
                             "exec",
                         )
                     except SyntaxError:
