@@ -754,7 +754,6 @@ class Scalene:
         # Restart the timer while handling any timers set by the client.
         if sys.platform != "win32":
             if Scalene.client_timer.is_set:
-
                 (
                     should_raise,
                     remaining_time,
@@ -1272,7 +1271,6 @@ class Scalene:
                 stats.memory_aggregate_footprint[last_file][
                     last_line
                 ] += stats.memory_current_highwater_mark[last_file][last_line]
-
                 stats.memory_current_footprint[last_file][last_line] = 0
                 stats.memory_current_highwater_mark[last_file][last_line] = 0
                 continue
