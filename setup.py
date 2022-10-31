@@ -177,7 +177,7 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
-        "Operating System :: Microsoft :: Windows :: Windows 10"
+        "Operating System :: Microsoft :: Windows"
     ],
     packages=find_packages(),
     cmdclass={
