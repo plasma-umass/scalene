@@ -77,8 +77,8 @@ class ScaleneJSON:
     ) -> Dict[str, Any]:
         """Print at most one line of the profile (true == printed one)."""
 
-        full_fname = fname
-        fname = os.path.basename(full_fname)
+        full_fname = os.path.abspath(fname)
+        
         if not force_print and not profile_this_code(fname, line_no):
             return {}
         # Prepare output values.
@@ -267,6 +267,7 @@ class ScaleneJSON:
                 and percent_cpu_time < self.cpu_percent_threshold
             ):
                 continue
+
             report_files.append(fname)
 
         # Don't actually output the profile if we are a child process.
@@ -344,7 +345,7 @@ class ScaleneJSON:
             }
             for lineno, line in enumerate(code_lines, start=1):
                 profile_line = self.output_profile_line(
-                    fname=full_fname,
+                    fname=fname,
                     fname_print=fname_print,
                     line_no=LineNumber(lineno),
                     stats=stats,
@@ -361,6 +362,8 @@ class ScaleneJSON:
                         output["files"][fname_print]["lines"].append(
                             profile_line
                         )
+
+
             fn_stats = stats.build_function_stats(fname)
             # Check CPU samples and memory samples.
             print_fn_summary = False
