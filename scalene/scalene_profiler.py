@@ -1249,12 +1249,6 @@ class Scalene:
         last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
         malloc_pointer = "0x0"
         curr = before
-        if False:
-            curr = 0
-            try:
-                curr = stats.per_line_footprint_samples[fname][lineno][-1][1]
-            except BaseException:
-                pass
 
         # Go through the array again and add each updated current footprint.
         for item in arr:
