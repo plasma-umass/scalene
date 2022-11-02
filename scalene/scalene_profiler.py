@@ -56,7 +56,7 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
-
+from scalene import pywhere
 if sys.platform != "win32":
     import resource
 
@@ -125,7 +125,7 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
     __initialized: bool = False
-    __last_profiled = (Filename("NADA"), LineNumber(0), ByteCodeIndex(0))
+    __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
     __last_profiled_invalidated = False
     __gui_dir = "scalene-gui"
     __profile_filename = "profile.json"
@@ -301,31 +301,32 @@ class Scalene:
             fl = frame.f_lineno
             (fname, lineno, lasti) = Scalene.__last_profiled
             if (ff == fname) and (fl == lineno):
-                return None
+                return Scalene.invalidate_lines
             # Different line: stop tracing this frame.
-            frame.f_trace = None
-            frame.f_trace_lines = False
+            
             # If we are not in a file we should be tracing, return.
             if not Scalene.should_trace(ff):
-                return None
+                return Scalene.invalidate_lines
             if f := Scalene.on_stack(frame, fname, lineno):
                 # We are still on the same line, but somewhere up the stack
                 # (since we returned when it was the same line in this
                 # frame). Stop tracing in this frame.
-                return None
+                return Scalene.invalidate_lines
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
+            frame.f_trace = None
+            frame.f_trace_lines = False
             with Scalene.__invalidate_mutex:
                 Scalene.__invalidate_queue.append(
                     (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
                 )
                 Scalene.update_line()
             Scalene.__last_profiled_invalidated = False
-            Scalene.__last_profiled = (
+            Scalene.__last_profiled = [
                 Filename(ff),
                 LineNumber(fl),
                 ByteCodeIndex(frame.f_lasti),
-            )
+            ]
             return None
         except AttributeError:
             # This can happen when Scalene shuts down.
@@ -450,6 +451,13 @@ class Scalene:
         Scalene.__orig_exit(Scalene.__sigterm_exit_code)
 
     @staticmethod
+    def nulltrace(f: FrameType, _event: str, _arg: str):
+        sys.settrace(None)
+        f.f_trace = None
+        f.f_trace_lines = False
+        return None
+
+    @staticmethod
     def malloc_signal_handler(
         signum: Union[
             Callable[[signal.Signals, FrameType], None],
@@ -495,9 +503,16 @@ class Scalene:
         )
         Scalene.__alloc_sigq.put([0])
         # Start tracing.
-        sys.settrace(Scalene.invalidate_lines)
-        f.f_trace = Scalene.invalidate_lines
-        f.f_trace_lines = True
+        # from scalene import pywhere
+        # print("ALLOC")
+        pywhere.enable_settrace()
+        # print("ENABLED")
+        # sys.settrace(Scalene.invalidate_lines)
+        # f.f_trace = Scalene.invalidate_lines
+        # f.f_trace_lines = True
+        # sys.settrace(Scalene.nulltrace)
+        # f.f_trace = Scalene.nulltrace
+        # f.f_trace_lines = True
         del this_frame
 
     @staticmethod
@@ -1067,7 +1082,7 @@ class Scalene:
                     fname = frame.f_code.co_filename
             if frame:
                 new_frames.append((frame, tident, orig_frame))
-        del frames[:]
+        # del frames[:]
         return new_frames
 
     @staticmethod
@@ -1620,10 +1635,13 @@ class Scalene:
     ) -> int:
         """Initiate execution and profiling."""
         # If --off is set, tell all children to not profile and stop profiling before we even start.
+        pywhere.populate_struct()
         if "off" not in Scalene.__args or not Scalene.__args.off:
             self.start()
         # Run the code being profiled.
         exit_status = 0
+        
+        # pywhere.enable_settrace()
         try:
             exec(code, the_globals, the_locals)
         except SystemExit as se:
@@ -1638,7 +1656,11 @@ class Scalene:
             exit_status = 1
         finally:
             self.stop()
-            sys.settrace(None)
+            # sys.settrace(None)
+            # if not Scalene.__args.cpu_only:
+            
+            pywhere.disable_settrace()
+            pywhere.depopulate_struct()
             # If we've collected any samples, dump them.
             did_output = Scalene.output_profile()
             if not did_output:
@@ -1853,13 +1875,14 @@ class Scalene:
                     # Grab local and global variables.
                     if not Scalene.__args.cpu_only:
                         from scalene import pywhere  # type: ignore
-
+                        print("FILES", Scalene.__files_to_profile)
+                        print("PROGRAM PATH", Scalene.__program_path)
                         pywhere.register_files_to_profile(
                             list(Scalene.__files_to_profile),
                             Scalene.__program_path,
                             Scalene.__args.profile_all,
                         )
-
+                        pywhere.print_files_to_profile()
                     import __main__
 
                     the_locals = __main__.__dict__
