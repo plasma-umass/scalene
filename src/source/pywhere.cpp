@@ -6,6 +6,7 @@
 
 #include <mutex>
 #include <vector>
+#include <unordered_map>
 
 // NOTE: uncomment for debugging, but this causes issues
 // for production builds on Alpine
@@ -33,21 +34,29 @@ class TraceConfig {
   }
 
   bool should_trace(char* filename) {
+    auto res = _memoize.find(filename);
+    if ( res != _memoize.end()) {
+      return res->second;
+    }
     if (strstr(filename, "site-packages") || strstr(filename, "/lib/python")) {
+      _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
       return false;
     }
 
     if (*filename == '<' && strstr(filename, "<ipython")) {
+      _memoize.insert(std::pair<std::string, bool>(std::string(filename), true));
       return true;
     }
 
     if (strstr(filename, "scalene/scalene")) {
+      _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
       return false;
     }
 
     if (owner != nullptr) {
       for (char* traceable : items) {
         if (strstr(filename, traceable)) {
+          _memoize.insert(std::pair<std::string, bool>(std::string(filename), true));
           return true;
         }
       }
@@ -70,7 +79,7 @@ class TraceConfig {
 
     // Now change back to the original current working directory.
     chdir(oldcwd);
-
+    _memoize.insert(std::pair<std::string, bool>(std::string(filename), result));
     return result;
   }
 
@@ -104,11 +113,12 @@ class TraceConfig {
 
   static std::mutex _instanceMutex;
   static TraceConfig* _instance;
+  static std::unordered_map<std::string, bool> _memoize;
 };
 
 TraceConfig* TraceConfig::_instance = 0;
 std::mutex TraceConfig::_instanceMutex;
-
+std::unordered_map<std::string, bool> TraceConfig::_memoize;
 // An RAII class to simplify acquiring and releasing the GIL.
 class GIL {
  public:
@@ -397,7 +407,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   Py_INCREF( static_cast<PyCodeObject*>(code)->co_filename);
   auto qqq = PyLong_FromLong(lineno);
   Py_INCREF(qqq);
-  PyList_SetItem(module_pointers.scalene_last_profiled, 1,  qqq);
+  // PyList_SetItem(module_pointers.scalene_last_profiled, 1,  qqq);
   PyObject* last_profiled_ret(PyTuple_Pack(2, static_cast<PyObject*>(co_filename),qqq ));
   PyList_Append(static_cast<PyObject*>(module_pointers.invalidate_queue), last_profiled_ret);
 
