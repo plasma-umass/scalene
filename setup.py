@@ -189,7 +189,6 @@ setup(
         "rich>=9.2.0",
         "cloudpickle>=1.5.0",
         "pynvml>=11.0.0",
-        "gitpython>=3.1.27",
     ],
     ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),
     setup_requires=['setuptools_scm'],
