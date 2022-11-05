@@ -49,9 +49,9 @@ class ScaleneParseArgs:
 
 
 command-line:
-  % [b]scalene \[options] yourprogram.py[/b]
+  % [b]scalene \[options] your_program.py \[--- --your_program_args] [/b]
 or
-  % [b]python3 -m scalene \[options] yourprogram.py[/b]
+  % [b]python3 -m scalene \[options] your_program.py \[--- --your_program_args] [/b]
 
 in Jupyter, line mode:
 [b]  %scrun \[options] statement[/b]
