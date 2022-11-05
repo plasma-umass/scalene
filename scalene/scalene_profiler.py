@@ -1458,7 +1458,7 @@ class Scalene:
             # create a file to hold the contents.
             import IPython
 
-            if result := re.match("ipython-input-([0-9]+)-.*", filename):
+            if result := re.match(r"ipython-input-([0-9]+)-.*", filename):
                 # Write the cell's contents into the file.
                 cell_contents = (
                     IPython.get_ipython().history_manager.input_hist_raw[
@@ -1827,7 +1827,7 @@ class Scalene:
             exit_status = 0
             try:
                 # Look for something ending in '.py'. Treat the first one as our executable.
-                progs = [x for x in sys.argv if re.match(".*\.py$", x)]
+                progs = [x for x in sys.argv if re.match(r".*\.py$", x)]
                 # Just in case that didn't work, try sys.argv[0] and __file__.
                 with contextlib.suppress(Exception):
                     progs.extend((sys.argv[0], __file__))
