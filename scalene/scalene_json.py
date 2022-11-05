@@ -285,7 +285,7 @@ class ScaleneJSON:
             # restore its name, as in "[12]".
             fname_print = fname
 
-            result = re.match("ipython-input-([0-9]+)-.*", fname_print)
+            result = re.match(r"ipython-input-([0-9]+)-.*", fname_print)
             if result:
                 fname_print = Filename("[" + result.group(1) + "]")
 
