@@ -335,7 +335,7 @@ class ScaleneJSON:
             try:
                 with open(full_fname, "r", encoding="utf-8") as source_file:
                     code_lines = source_file.readlines()
-            except FileNotFoundError:
+            except (FileNotFoundError, OSError):
                 continue
 
             output["files"][fname_print] = {
