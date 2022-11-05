@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 15  # on macos-latest, pypy-3.7 it builds numpy and others
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        os: [ ubuntu-latest, macos-latest ] # disabling windows-latest for now
         python: [ '3.9', '3.10' ] # temporarily disabling pypy-3.7
 
     steps:
