@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+import platform
 import sys
 from textwrap import dedent
 from typing import Any, List, NoReturn, Optional, Tuple
@@ -160,18 +161,36 @@ for the process ID that Scalene reports. For example:
             help=f"output profiles every so many seconds (default: [blue]{defaults.profile_interval}[/blue])",
         )
         parser.add_argument(
-            "--cpu-only",
-            dest="cpu_only",
+            "--cpu",
+            dest="cpu",
             action="store_const",
             const=True,
-            default=defaults.cpu_only,
-            help="only profile CPU+GPU time (default: [blue]profile "
+            default=None,
+            help="profile CPU time (default: [blue] True [/blue])",
+        )
+        parser.add_argument(
+            "--gpu",
+            dest="gpu",
+            action="store_const",
+            const=True,
+            default=None,
+            help="profile GPU time and memory (default: [blue]"
             + (
-                "CPU only"
-                if defaults.cpu_only
-                else "CPU+GPU, memory, and copying"
+                str(defaults.gpu)
             )
-            + "[/blue])",
+            + " [/blue])",
+        )
+        parser.add_argument(
+            "--memory",
+            dest="memory",
+            action="store_const",
+            const=True,
+            default=None,
+            help="profile memory (default: [blue]"
+            + (
+                str(defaults.memory)
+            )
+            + " [/blue])",
         )
         parser.add_argument(
             "--profile-all",
@@ -294,6 +313,21 @@ for the process ID that Scalene reports. For example:
         left += args.unused_args
         import re
 
+        # If any of the individual profiling metrics were specified,
+        # disable the unspecified ones (set as None).
+        if args.cpu or args.gpu or args.memory:
+            if not args.memory:
+                args.memory = False
+            if not args.gpu:
+                args.gpu = False
+        else:
+            # Nothing specified; use defaults.
+            args.cpu = defaults.cpu
+            args.gpu = defaults.gpu
+            args.memory = defaults.memory
+            
+        args.cpu = True # Always true
+        
         in_jupyter_notebook = len(sys.argv) >= 1 and re.match(
             r"ipython-input-([0-9]+)-.*", sys.argv[0]
         )

@@ -616,7 +616,7 @@ class Scalene:
             Scalene.__memcpy_mapfile = ScaleneMapFile("memcpy")
         except Exception:
             # Ignore if we aren't profiling memory; otherwise, exit.
-            if not arguments.cpu_only:
+            if arguments.memory:
                 sys.exit(1)
 
         Scalene.__signals.set_timer_signals(arguments.use_virtual_time)
@@ -645,8 +645,12 @@ class Scalene:
                 cmdline += " --use-virtual-time"
             if "off" in arguments and arguments.off:
                 cmdline += " --off"
-            if arguments.cpu_only:
-                cmdline += " --cpu-only"
+            if arguments.cpu:
+                cmdline += " --cpu"
+            if arguments.gpu:
+                cmdline += " --gpu"
+            if arguments.memory:
+                cmdline += " --memory"
 
             environ = ScalenePreload.get_preload_environ(arguments)
             preface = " ".join(
@@ -792,7 +796,7 @@ class Scalene:
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
-                profile_memory=not Scalene.__args.cpu_only,
+                profile_memory=Scalene.__args.memory,
             )
             if not Scalene.__output.output_file:
                 Scalene.__output.output_file = "/dev/stdout"
@@ -822,7 +826,7 @@ class Scalene:
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
-                profile_memory=not Scalene.__args.cpu_only,
+                profile_memory=Scalene.__args.memory,
                 reduced_profile=Scalene.__args.reduced_profile,
             )
             return did_output
@@ -1754,6 +1758,10 @@ class Scalene:
         Scalene.__is_child = args.pid != 0
         # the pid of the primary profiler
         Scalene.__parent_pid = args.pid if Scalene.__is_child else os.getpid()
+        # Don't profile the GPU if not enabled (i.e., either no options or --cpu and/or --memory, but no --gpu).
+        if not Scalene.__args.gpu:
+            Scalene.__output.gpu = False
+            Scalene.__json.gpu = False
 
     @staticmethod
     def set_initialized() -> None:
@@ -1857,7 +1865,7 @@ class Scalene:
                         # Otherwise, use the invoked directory.
                         Scalene.__program_path = os.getcwd()
                     # Grab local and global variables.
-                    if not Scalene.__args.cpu_only:
+                    if Scalene.__args.memory:
                         from scalene import pywhere  # type: ignore
 
                         pywhere.register_files_to_profile(
