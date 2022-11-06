@@ -84,9 +84,20 @@ def slow_function():
 
 Scalene has both a CLI and a web-based GUI [(demo here)](http://plasma-umass.org/scalene-gui/).
 
-Once Scalene has profiled your program, it will launch a web browser with an interactive user interface (all processing is done locally). Hover over bars to see breakdowns of CPU and memory consumption, and click on underlined column headers to sort the columns.
+By default, once Scalene has profiled your program, it will launch a
+web browser with an interactive user interface (all processing is done
+locally). Hover over bars to see breakdowns of CPU and memory
+consumption, and click on underlined column headers to sort the
+columns.
 
 [![Scalene web GUI](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example.png)](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example-full.png)
+
+- **Using the Web GUI without a server:** If you are on a system that cannot launch a browser, you still can use
+the web-based GUI. Tell Scalene to produce a JSON profile as follows:
+
+```python3 -m scalene --cli --json --outfile my_profile.json```
+
+and then view it by uploading it to the on-line GUI at https://plasma-umass.org/scalene-gui/.
 
 
 ## Scalene Overview
