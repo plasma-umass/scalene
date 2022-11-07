@@ -8,6 +8,7 @@ from typing import Any, List, NoReturn, Optional, Tuple
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_version import scalene_version, scalene_date
 
+scalene_gui_url = "https://plasma-umass.org/scalene-gui/"
 
 class RichArgParser(argparse.ArgumentParser):
     def __init__(self, *args: Any, **kwargs: Any):
@@ -137,7 +138,7 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.web,
-            help="writes 'profile.json' and opens the web UI (http://plasma-umass.org/scalene-gui/)",
+            help="writes 'profile.json' and opens the profile in the local web UI",
         )
         parser.add_argument(
             "--port",
@@ -145,6 +146,14 @@ for the process ID that Scalene reports. For example:
             type=int,
             default=defaults.port,
             help=f"binds the web UI server to this port (default: {defaults.port})",
+        )
+        parser.add_argument(
+            "--viewer",
+            dest="viewer",
+            action="store_const",
+            const=True,
+            default=False,
+            help=f"only opens the web UI ({scalene_gui_url})",
         )
         parser.add_argument(
             "--reduced-profile",
@@ -312,6 +321,15 @@ for the process ID that Scalene reports. For example:
         args, left = parser.parse_known_args()
         left += args.unused_args
         import re
+
+        # Launch the UI if `--viewer` was selected.
+        if args.viewer:
+            import webbrowser
+            if webbrowser.get() and type(webbrowser.get()).__name__ != "GenericBrowser":
+                webbrowser.open(scalene_gui_url)
+            else:
+                print(f"Scalene: could not open {scalene_gui_url}.")
+            sys.exit(0)
 
         # If any of the individual profiling metrics were specified,
         # disable the unspecified ones (set as None).
