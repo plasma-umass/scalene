@@ -598,7 +598,7 @@ def gzip_main(field):
                     literal_count = min(literal_count, 0)
                     break
                 elif 257 <= r <= 285:  # dictionary lookup
-                    literal_count = min(literal_count, 0)                        
+                    literal_count = min(literal_count, 0)
                     length_extra = b.readbits(extra_length_bits(r))
                     length = length_base(r) + length_extra
 
