@@ -36,7 +36,8 @@ class ScaleneMapFile:
         self._signal_fd: TextIO
         self._lock_fd: TextIO
         self._signal_fd = open(self._signal_filename, "r")
-        os.unlink(self._signal_fd.name)
+        # os.unlink(self._signal_fd.name)
+        print(self._signal_fd.name)
         self._lock_fd = open(self._lock_filename, "r+")
         os.unlink(self._lock_fd.name)
         self._signal_mmap = mmap.mmap(
@@ -61,7 +62,7 @@ class ScaleneMapFile:
         """Remove all map files."""
         try:
             os.remove(self._init_filename)
-            os.remove(self._signal_filename)
+            # os.remove(self._signal_filename)
         except FileNotFoundError:
             pass
 

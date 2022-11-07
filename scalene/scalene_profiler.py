@@ -307,18 +307,19 @@ class Scalene:
             frame.f_trace_lines = False
             # If we are not in a file we should be tracing, return.
             if not Scalene.should_trace(ff):
-                return None
+                return Scalene.invalidate_lines
             if f := Scalene.on_stack(frame, fname, lineno):
                 # We are still on the same line, but somewhere up the stack
                 # (since we returned when it was the same line in this
                 # frame). Stop tracing in this frame.
-                return None
+                return Scalene.invalidate_lines
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
             with Scalene.__invalidate_mutex:
                 Scalene.__invalidate_queue.append(
                     (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
                 )
+                print(threading.get_ident(), frame.f_code.co_filename, frame.f_lineno)
                 Scalene.update_line()
             Scalene.__last_profiled_invalidated = True
 
@@ -485,6 +486,7 @@ class Scalene:
         invalidated = Scalene.__last_profiled_invalidated
         (fname, lineno, lasti) = Scalene.__last_profiled
         if not invalidated and not (
+        # if not(
             fname == Filename(f.f_code.co_filename)
             and lineno == LineNumber(f.f_lineno)
         ):
@@ -1268,6 +1270,8 @@ class Scalene:
                 with Scalene.__invalidate_mutex:
                     last_file, last_line = Scalene.__invalidate_queue.pop(0)
                 stats.memory_malloc_count[last_file][last_line] += 1
+                if last_line == 12:
+                    print("===")
                 stats.memory_aggregate_footprint[last_file][
                     last_line
                 ] += stats.memory_current_highwater_mark[last_file][last_line]
@@ -1290,6 +1294,8 @@ class Scalene:
                 stats.total_memory_malloc_samples += count
                 # Update current and max footprints for this file & line.
                 stats.memory_current_footprint[fname][lineno] += count
+                if lineno == 12:
+                    print(f"count {count} footprint {stats.memory_current_footprint[fname][lineno]}")
                 if (
                     stats.memory_current_footprint[fname][lineno]
                     > stats.memory_current_highwater_mark[fname][lineno]
@@ -1315,6 +1321,8 @@ class Scalene:
                 stats.memory_free_count[fname][lineno] += 1
                 stats.total_memory_free_samples += count
                 stats.memory_current_footprint[fname][lineno] -= count
+                if lineno == 12:
+                    print(f"count {-count} footprint {stats.memory_current_footprint[fname][lineno]}")
                 # Ensure that we never drop the current footprint below 0.
                 stats.memory_current_footprint[fname][lineno] = max(
                     0, stats.memory_current_footprint[fname][lineno]
