@@ -38,7 +38,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
                 "https://github.com/plasma-umass/scalene/issues/new/choose"
             )
 
-            exit(-1)
+            sys.exit(-1)
         return old_signal(signum, handler)
 
     def replacement_raise_signal(signum: int) -> None:

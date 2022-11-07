@@ -5,12 +5,8 @@ from typing import Any
 
 with contextlib.suppress(Exception):
 
-    from IPython.core.magic import (
-        Magics,
-        line_cell_magic,
-        line_magic,
-        magics_class,
-    )
+    from IPython.core.magic import (Magics, line_cell_magic, line_magic,
+                                    magics_class)
 
     from scalene import scalene_profiler
     from scalene.scalene_arguments import ScaleneArguments

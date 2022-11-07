@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class A:
 
     def __init__(self, n):

@@ -1,7 +1,6 @@
 import signal
 import time
 
-
 start = -1
 loop = 10
 def callback(*args):

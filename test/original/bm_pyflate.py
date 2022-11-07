@@ -24,7 +24,7 @@ import six
 from six.moves import xrange
 
 
-class BitfieldBase(object):
+class BitfieldBase():
 
     def __init__(self, x):
         if isinstance(x, BitfieldBase):
@@ -132,7 +132,7 @@ def printbits(v, n):
     return o
 
 
-class HuffmanLength(object):
+class HuffmanLength():
 
     def __init__(self, code, bits=0):
         self.code = code
@@ -172,7 +172,7 @@ def reverse_bytes(v, n):
     return z
 
 
-class HuffmanTable(object):
+class HuffmanTable():
 
     def __init__(self, bootstrap):
         l = []
@@ -202,7 +202,7 @@ class HuffmanTable(object):
         for x in self.table:
             try:
                 d[x.bits].append(x)
-            except:   # noqa
+            except Exception:
                 d[x.bits] = [x]
 
     def min_max_bits(self):
@@ -595,12 +595,10 @@ def gzip_main(field):
                     literal_count += 1
                     out.append(six.int2byte(r))
                 elif r == 256:
-                    if literal_count > 0:
-                        literal_count = 0
+                    literal_count = min(literal_count, 0)
                     break
                 elif 257 <= r <= 285:  # dictionary lookup
-                    if literal_count > 0:
-                        literal_count = 0
+                    literal_count = min(literal_count, 0)                        
                     length_extra = b.readbits(extra_length_bits(r))
                     length = length_base(r) + length_extra
 

@@ -5,7 +5,7 @@ from textwrap import dedent
 from typing import Any, List, NoReturn, Optional, Tuple
 
 from scalene.scalene_arguments import ScaleneArguments
-from scalene.scalene_version import scalene_version, scalene_date
+from scalene.scalene_version import scalene_date, scalene_version
 
 
 class RichArgParser(argparse.ArgumentParser):

@@ -1,11 +1,11 @@
-from array import array
 import math
+from array import array
 
 import pyperf
 from six.moves import xrange
 
 
-class Array2D(object):
+class Array2D():
 
     def __init__(self, w, h, data=None):
         self.width = w
@@ -44,7 +44,7 @@ class Array2D(object):
         self.data[:] = other.data[:]
 
 
-class Random(object):
+class Random():
     MDIG = 32
     ONE = 1
     m1 = (ONE << (MDIG - 2)) + ((ONE << (MDIG - 2)) - ONE)
@@ -63,7 +63,7 @@ class Random(object):
         self.seed = seed
         seed = abs(seed)
         jseed = min(seed, self.m1)
-        if (jseed % 2 == 0):
+        if jseed % 2 == 0:
             jseed -= 1
         k0 = 9069 % self.m2
         k1 = 9069 / self.m2
@@ -81,23 +81,23 @@ class Random(object):
     def nextDouble(self):
         I, J, m = self.i, self.j, self.m
         k = m[I] - m[J]
-        if (k < 0):
+        if k < 0:
             k += self.m1
         self.m[J] = k
 
-        if (I == 0):
+        if I == 0:
             I = 16
         else:
             I -= 1
         self.i = I
 
-        if (J == 0):
+        if J == 0:
             J = 16
         else:
             J -= 1
         self.j = J
 
-        if (self.haveRange):
+        if self.haveRange:
             return self.left + self.dm1 * float(k) * self.width
         else:
             return self.dm1 * float(k)
@@ -193,8 +193,7 @@ def bench_SparseMatMult(cycles, N, nz):
         rowr = row[r]
         step = r // nr
         row[r + 1] = rowr + nr
-        if step < 1:
-            step = 1
+        step = max(step,1)
         for i in xrange(nr):
             col[rowr + i] = i * step
 

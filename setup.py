@@ -1,9 +1,11 @@
-from setuptools import setup, find_packages
-from setuptools.extension import Extension
-from scalene.scalene_version import scalene_version
-from os import path, environ
 import sys
 import sysconfig
+from os import environ, path
+
+from setuptools import find_packages, setup
+from setuptools.extension import Extension
+
+from scalene.scalene_version import scalene_version
 
 if sys.platform == 'darwin':
     import sysconfig
@@ -19,8 +21,8 @@ if sys.platform == 'darwin':
 
 def compiler_archs(compiler: str):
     """Discovers what platforms the given supports; intended for MacOS use"""
-    import tempfile
     import subprocess
+    import tempfile
     from pathlib import Path
 
     print(f"Compiler: {compiler}")
@@ -51,8 +53,10 @@ def make_command():
 
 def dll_suffix():
     """Returns the file suffix ("extension") of a DLL"""
-    if (sys.platform == 'win32'): return '.dll'
-    if (sys.platform == 'darwin'): return '.dylib'
+    if sys.platform == 'win32':
+        return '.dll'
+    if sys.platform == 'darwin':
+        return '.dylib'
     return '.so'
 
 def read_file(name):
@@ -61,6 +65,8 @@ def read_file(name):
         return f.read()
 
 import setuptools.command.egg_info
+
+
 class EggInfoCommand(setuptools.command.egg_info.egg_info):
     """Custom command to download vendor libs before creating the egg_info."""
     def run(self):
@@ -72,12 +78,16 @@ class EggInfoCommand(setuptools.command.egg_info.egg_info):
 # (which doesn't include libscalene, and thus would be considered "pure")
 # being used for other platforms.
 from wheel.bdist_wheel import bdist_wheel
+
+
 class BdistWheelCommand(bdist_wheel):
     def finalize_options(self):
         super().finalize_options()
         self.root_is_pure = False
 
 import setuptools.command.build_ext
+
+
 class BuildExtCommand(setuptools.command.build_ext.build_ext):
     """Custom command that runs 'make' to generate libscalene, and also does MacOS
        supported --arch flag discovery."""

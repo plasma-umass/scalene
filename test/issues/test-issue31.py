@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def main1():
     # Before optimization
     x = np.array(range(10**7))
@@ -12,5 +13,3 @@ def main2():
 
 main1()
 main2()
-
-

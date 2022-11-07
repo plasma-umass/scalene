@@ -1,9 +1,10 @@
-import multiprocessing
 import faulthandler
+import multiprocessing
 import os
 import signal
-from time import sleep
 import threading
+from time import sleep
+
 
 def do_very_little():
     sleep(1)

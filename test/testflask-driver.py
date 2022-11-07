@@ -1,7 +1,7 @@
 import os
 import time
-
 from random import random
+
 from requests import get
 
 iter = 1

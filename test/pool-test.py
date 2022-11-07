@@ -6,6 +6,7 @@ import multiprocessing
 # log.addHandler(logging.StreamHandler())
 from multiprocessing import Pool
 
+
 def f(x):
     print("Start")
     return [i for i in range(1000000)]

@@ -1,5 +1,6 @@
-import numpy as np
 import sys
+
+import numpy as np
 
 x = np.ones((1,1))
 print(sys.getsizeof(x) / 1048576)
@@ -31,4 +32,3 @@ def allocate():
         x += 1
 
 allocate()
-

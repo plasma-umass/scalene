@@ -1,5 +1,7 @@
-import tensorflow as tf
 from time import perf_counter
+
+import tensorflow as tf
+
 
 def config():
     num_threads = 16

@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
-from time import sleep, perf_counter
+from time import perf_counter, sleep
+
 # import faulthandler
 # faulthandler.enable()
 # import signal
@@ -10,7 +11,7 @@ from time import sleep, perf_counter
 # import scalene.replacement_pjoin
 # Stolen from https://stackoverflow.com/questions/15347174/python-finding-prime-factors
 
-class Integer(object):
+class Integer():
     def __init__(self, x):
         self.x = x
 
@@ -30,12 +31,12 @@ if __name__ == "__main__":
     t0 = perf_counter()
     handles = [multiprocessing.Process(target=largest_prime_factor, args=(i,)) for i in range_obj]
     # handles = [multiprocessing.Process(target=largest_prime_factor, args=(1000000181,))]
-    
+
     for handle in handles:
         print("Starting", handle)
         handle.start()
     # multiprocessing.popen_fork.Popen
-    
+
     # try:
     for handle in handles:
         print("Joining", handle)

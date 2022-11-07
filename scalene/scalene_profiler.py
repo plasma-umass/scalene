@@ -49,13 +49,8 @@ from scalene.scalene_mapfile import ScaleneMapFile
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
 from scalene.scalene_signals import ScaleneSignals
-from scalene.scalene_statistics import (
-    Address,
-    ByteCodeIndex,
-    Filename,
-    LineNumber,
-    ScaleneStatistics,
-)
+from scalene.scalene_statistics import (Address, ByteCodeIndex, Filename,
+                                        LineNumber, ScaleneStatistics)
 
 if sys.platform != "win32":
     import resource
@@ -583,7 +578,6 @@ class Scalene:
     ) -> None:
         import scalene.replacement_exit
         import scalene.replacement_get_context
-
         # Hijack lock, poll, thread_join, fork, and exit.
         import scalene.replacement_lock
         import scalene.replacement_mp_lock
@@ -800,7 +794,7 @@ class Scalene:
                 f.write(
                     json.dumps(json_output, sort_keys=True, indent=4) + "\n"
                 )
-            return json_output != {}
+            return json_output
 
         else:
             output = Scalene.__output

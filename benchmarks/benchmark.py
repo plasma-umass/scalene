@@ -1,9 +1,9 @@
 import os
-import sys
 import re
-import subprocess
-import traceback
 import statistics
+import subprocess
+import sys
+import traceback
 
 python = "python3"
 progname = os.path.join(os.path.dirname(__file__), "julia1_nopil.py")
@@ -178,4 +178,3 @@ for bench in benchmarks:
             print("err = " + str(err))
             print("WOOPS")
 #    print(bench[1] + " = " + str(sum_time / 5.0))
-    

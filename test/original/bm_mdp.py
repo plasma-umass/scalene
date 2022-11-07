@@ -43,7 +43,7 @@ def topoSort(roots, getParents):
                 stack.extend((parent, 0) for parent in getParents(current))
         else:
             # after recursing
-            assert(current in visited)
+            assert current in visited
             results.append(current)
     return results
 
@@ -143,7 +143,7 @@ def _applyAction(state, side, act):
         return {(k[1], k[0], k[2]): v for k, v in dist.items()}
 
 
-class Battle(object):
+class Battle():
 
     @profile
     def __init__(self):
@@ -300,4 +300,3 @@ if __name__ == "__main__":
     bench_mdp(1)
     stop = time.perf_counter()
     print("Time elapsed: ", stop - start)
-    

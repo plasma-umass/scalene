@@ -14,7 +14,6 @@ from __future__ import print_function
 import pyperf
 from six.moves import xrange
 
-
 # Task IDs
 I_IDLE = 1
 I_WORK = 2
@@ -34,7 +33,7 @@ BUFSIZE = 4
 BUFSIZE_RANGE = range(BUFSIZE)
 
 
-class Packet(object):
+class Packet():
 
     def __init__(self, l, i, k):
         self.link = l
@@ -59,7 +58,7 @@ class Packet(object):
 # Task Records
 
 
-class TaskRec(object):
+class TaskRec():
     pass
 
 
@@ -99,7 +98,7 @@ class WorkerTaskRec(TaskRec):
 # Task
 
 
-class TaskState(object):
+class TaskState():
 
     def __init__(self):
         self.packet_pending = True
@@ -162,7 +161,7 @@ def trace(a):
 TASKTABSIZE = 10
 
 
-class TaskWorkArea(object):
+class TaskWorkArea():
 
     def __init__(self):
         self.taskTab = [None] * TASKTABSIZE
@@ -378,7 +377,7 @@ def schedule():
             t = t.runTask()
 
 
-class Richards(object):
+class Richards():
 
     def run(self, iterations):
         for i in xrange(iterations):

@@ -1,5 +1,6 @@
 from decimal import *
 
+
 def exp(x):
     getcontext().prec += 2
     i, lasts, s, fact, num = 0, 0, 1, 1, 1
@@ -61,4 +62,3 @@ assert d2_orig == d2_opt
 assert d3_orig == d3_opt
 
 print("All equivalent? ", d1_orig == d1_opt and d2_orig == d2_opt and d3_orig == d3_opt)
-

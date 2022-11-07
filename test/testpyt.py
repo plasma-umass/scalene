@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import random
+
 import torch
 
 
@@ -9,7 +10,7 @@ class DynamicNet(torch.nn.Module):
         In the constructor we construct three nn.Linear instances that we will use
         in the forward pass.
         """
-        super(DynamicNet, self).__init__()
+        super().__init__()
         self.input_linear = torch.nn.Linear(D_in, H)
         self.middle_linear = torch.nn.Linear(H, H)
         self.output_linear = torch.nn.Linear(H, D_out)

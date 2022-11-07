@@ -14,13 +14,12 @@ import math
 import pyperf
 from six.moves import xrange
 
-
 DEFAULT_WIDTH = 100
 DEFAULT_HEIGHT = 100
 EPSILON = 0.00001
 
 
-class Vector(object):
+class Vector():
 
     def __init__(self, initx, inity, initz):
         self.x = initx
@@ -95,7 +94,7 @@ assert Vector.RIGHT.reflectThrough(Vector.UP) == Vector.RIGHT
 assert Vector(-1, -1, 0).reflectThrough(Vector.UP) == Vector(-1, 1, 0)
 
 
-class Point(object):
+class Point():
 
     def __init__(self, initx, inity, initz):
         self.x = initx
@@ -131,7 +130,7 @@ class Point(object):
         return self
 
 
-class Sphere(object):
+class Sphere():
 
     def __init__(self, centre, radius):
         centre.mustBePoint()
@@ -156,7 +155,7 @@ class Sphere(object):
         return (p - self.centre).normalized()
 
 
-class Halfspace(object):
+class Halfspace():
 
     def __init__(self, point, normal):
         self.point = point
@@ -176,7 +175,7 @@ class Halfspace(object):
         return self.normal
 
 
-class Ray(object):
+class Ray():
 
     def __init__(self, point, vector):
         self.point = point
@@ -192,7 +191,7 @@ class Ray(object):
 Point.ZERO = Point(0, 0, 0)
 
 
-class Canvas(object):
+class Canvas():
 
     def __init__(self, width, height):
         self.bytes = array.array('B', [0] * (width * height * 3))
@@ -224,7 +223,7 @@ def firstIntersection(intersections):
     return result
 
 
-class Scene(object):
+class Scene():
 
     def __init__(self):
         self.objects = []
@@ -305,7 +304,7 @@ def addColours(a, scale, b):
             a[2] + scale * b[2])
 
 
-class SimpleSurface(object):
+class SimpleSurface():
 
     def __init__(self, **kwargs):
         self.baseColour = kwargs.get('baseColour', (1, 1, 1))

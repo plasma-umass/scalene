@@ -1,6 +1,5 @@
 import pyperf
-
-from sympy import expand, symbols, integrate, tan, summation
+from sympy import expand, integrate, summation, symbols, tan
 from sympy.core.cache import clear_cache
 
 

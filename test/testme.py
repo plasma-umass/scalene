@@ -1,7 +1,8 @@
 import numpy as np
+from numpy import linalg as LA
+
 #import math
 
-from numpy import linalg as LA
 
 arr = [i for i in range(1,1000)]
 
@@ -55,7 +56,7 @@ def stuff():
     return x
 
 import sys
+
 print("TESTME")
 print(sys.argv)
 stuff()
-

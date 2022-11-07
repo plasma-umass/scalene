@@ -1,9 +1,11 @@
 import multiprocessing
-from time import sleep, perf_counter
+from time import perf_counter, sleep
+
+
 # from multiprocessing.spawn import spawn_main
 # import scalene.replacement_pjoin
 # Stolen from https://stackoverflow.com/questions/15347174/python-finding-prime-factors
-class Integer(object):
+class Integer():
     def __init__(self, x):
         self.x = x
 def largest_prime_factor(n):

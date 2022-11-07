@@ -1,5 +1,6 @@
-import time
 import argparse
+import time
+
 
 def do_work_fn(x, i):
     return (x >> 2) | (i & x)

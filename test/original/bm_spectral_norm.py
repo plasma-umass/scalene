@@ -12,7 +12,8 @@ Dirtily sped up by Simon Descarpentries
 Concurrency by Jason Stitt
 """
 
-from six.moves import xrange, zip as izip
+from six.moves import xrange
+from six.moves import zip as izip
 
 DEFAULT_N = 130
 

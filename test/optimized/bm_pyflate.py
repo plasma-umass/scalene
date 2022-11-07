@@ -25,7 +25,7 @@ import six
 from six.moves import xrange
 
 
-class BitfieldBase(object):
+class BitfieldBase():
 
     def __init__(self, x):
         if isinstance(x, BitfieldBase):
@@ -133,7 +133,7 @@ def printbits(v, n):
     return o
 
 
-class HuffmanLength(object):
+class HuffmanLength():
 
     def __init__(self, code, bits=0):
         self.code = code
@@ -173,7 +173,7 @@ def reverse_bytes(v, n):
     return z
 
 
-class HuffmanTable(object):
+class HuffmanTable():
 
     def __init__(self, bootstrap):
         l = []
@@ -203,7 +203,7 @@ class HuffmanTable(object):
         for x in self.table:
             try:
                 d[x.bits].append(x)
-            except:   # noqa
+            except Exception:
                 d[x.bits] = [x]
 
     def min_max_bits(self):
@@ -238,7 +238,7 @@ class HuffmanTable(object):
             if 0 <= r:
                 field.readbits(bits)
                 return r
-            elif bits == self.max_bits:
+            if bits == self.max_bits:
                 raise "unfound symbol, even after max_bits"
 
 
@@ -269,19 +269,17 @@ def length_base(i):
 def extra_distance_bits(n):
     if 0 <= n <= 1:
         return 0
-    elif 2 <= n <= 29:
+    if 2 <= n <= 29:
         return (n >> 1) - 1
-    else:
-        raise "illegal distance code"
+    raise "illegal distance code"
 
 
 def extra_length_bits(n):
     if 257 <= n <= 260 or n == 285:
         return 0
-    elif 261 <= n <= 284:
+    if 261 <= n <= 284:
         return ((n - 257) >> 2) - 1
-    else:
-        raise "illegal length code"
+    raise "illegal length code"
 
 
 def move_to_front(l, c):
@@ -602,12 +600,10 @@ def gzip_main(field):
                     literal_count += 1
                     out.append(six.int2byte(r))
                 elif r == 256:
-                    if literal_count > 0:
-                        literal_count = 0
+                    literal_count = min(literal_count, 0)      
                     break
                 elif 257 <= r <= 285:  # dictionary lookup
-                    if literal_count > 0:
-                        literal_count = 0
+                    literal_count = min(literal_count, 0)
                     length_extra = b.readbits(extra_length_bits(r))
                     length = length_base(r) + length_extra
 

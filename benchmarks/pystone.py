@@ -34,7 +34,7 @@ Version History:
 
 LOOPS = 500000
 
-import time # from time import clock
+import time  # from time import clock
 
 __version__ = "1.1"
 
@@ -249,7 +249,8 @@ def Func2(StrParI1, StrParI2):
 
 def Func3(EnumParIn):
     EnumLoc = EnumParIn
-    if EnumLoc == Ident3: return TRUE
+    if EnumLoc == Ident3:
+        return TRUE
     return FALSE
 
 if __name__ == '__main__':
@@ -262,7 +263,8 @@ if __name__ == '__main__':
     if nargs > 1:
         error("%d arguments are too many;" % nargs)
     elif nargs == 1:
-        try: loops = int(sys.argv[1])
+        try:
+            loops = int(sys.argv[1])
         except ValueError:
             error("Invalid argument %r;" % sys.argv[1])
     else:

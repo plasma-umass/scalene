@@ -3,17 +3,8 @@ import pathlib
 import pickle
 import time
 from collections import defaultdict
-from typing import (
-    Any,
-    DefaultDict,
-    Dict,
-    List,
-    NewType,
-    Optional,
-    Set,
-    Tuple,
-    TypeVar,
-)
+from typing import (Any, DefaultDict, Dict, List, NewType, Optional, Set,
+                    Tuple, TypeVar)
 
 import cloudpickle
 

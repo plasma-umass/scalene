@@ -1,5 +1,6 @@
-import threading
 import sys
+import threading
+
 import numpy as np
 
 # Disable the @profile decorator if none has been declared.
@@ -23,7 +24,7 @@ class MyThread(threading.Thread):
     @profile
     def run(self):
         z = 0
-        z = np.random.uniform(0,100,size=2 * 50000000);
+        z = np.random.uniform(0,100,size=2 * 50000000)
         print("thread1")
 
 
@@ -34,7 +35,7 @@ class MyThread2(threading.Thread):
         for i in range(50000000 // 2):
             z += 1
         print("thread2")
-            
+
 
 use_threads = True
 # use_threads = False
@@ -51,4 +52,3 @@ else:
     t1.run()
     t2 = MyThread2()
     t2.run()
-        

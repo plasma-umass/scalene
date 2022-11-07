@@ -1,4 +1,4 @@
-ret_value = dict()
+ret_value = {}
 
 for k in range(10**7):
     temp = k*2

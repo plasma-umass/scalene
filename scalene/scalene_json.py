@@ -78,7 +78,7 @@ class ScaleneJSON:
         """Print at most one line of the profile (true == printed one)."""
 
         full_fname = os.path.abspath(fname)
-        
+
         if not force_print and not profile_this_code(fname, line_no):
             return {}
         # Prepare output values.
@@ -136,8 +136,7 @@ class ScaleneJSON:
         # Force the reporting of average to be no more than peak.
         # In principle, this should never happen, but...
         # assert n_avg_mb <= n_peak_mb
-        if n_avg_mb > n_peak_mb:
-            n_avg_mb = n_peak_mb
+        n_avg_mb = min(n_avg_mb, n_peak_mb)
 
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
 

@@ -1,4 +1,5 @@
 import time
+
 import numpy as np
 import pandas as pd
 
@@ -7,7 +8,7 @@ import pandas as pd
 # if not, we can ignore it with a pass-through decorator
 if 'profile' not in dir():
     def profile(fn):
-        return fn 
+        return fn
 
 SIZE = 10_000_000
 
@@ -44,7 +45,7 @@ def run():
     df = pd.concat((df2, df), axis=1) # PART OF DEMO - unexpected copy=True forces an expensive copy
     print("Head of our df:")
     print(df.head())
-    
+
     print("Print results to check that we get the result")
     indicator = 2
     print(f"Mean for indicator {indicator} on better implementation {get_mean_for_indicator_better(df, indicator, rnd_cols):0.5f}")
