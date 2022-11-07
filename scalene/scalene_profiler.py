@@ -495,7 +495,6 @@ class Scalene:
         #             (Filename(f.f_code.co_filename), LineNumber(f.f_lineno))
         #         )
         #         Scalene.update_line()
-        Scalene.__last_profiled_invalidated = False
         Scalene.__last_profiled = (
             Filename(f.f_code.co_filename),
             LineNumber(f.f_lineno),
@@ -1281,7 +1280,11 @@ class Scalene:
             is_malloc = action == Scalene.MALLOC_ACTION
             if is_malloc and count == NEWLINE_TRIGGER_LENGTH + 1:
                 last_file, last_line = Scalene.__invalidate_queue.pop(0)
+                # print(last_file, last_line, stats.memory_malloc_count[last_file][last_line])
                 stats.memory_malloc_count[last_file][last_line] += 1
+                if last_line == 12:
+                    print("===")
+                    # print(stats.memory_current_highwater_mark[last_file][last_line])
                 stats.memory_aggregate_footprint[last_file][
                     last_line
                 ] += stats.memory_current_highwater_mark[last_file][last_line]
@@ -1301,10 +1304,14 @@ class Scalene:
                 stats.memory_python_samples[fname][lineno] += (
                     python_fraction * count
                 )
+                # if lineno == 12:
+                #     print(fname, lineno, stats.memory_current_footprint[fname][lineno])
                 stats.malloc_samples[fname] += 1
                 stats.total_memory_malloc_samples += count
                 # Update current and max footprints for this file & line.
                 stats.memory_current_footprint[fname][lineno] += count
+                if lineno == 12:
+                    print(f"count {count} footprint {stats.memory_current_footprint[fname][lineno]}")
                 if (
                     stats.memory_current_footprint[fname][lineno]
                     > stats.memory_current_highwater_mark[fname][lineno]
@@ -1330,6 +1337,8 @@ class Scalene:
                 stats.memory_free_count[fname][lineno] += 1
                 stats.total_memory_free_samples += count
                 stats.memory_current_footprint[fname][lineno] -= count
+                if lineno == 12:
+                    print(f"count {-count} footprint {stats.memory_current_footprint[fname][lineno]}")
                 # Ensure that we never drop the current footprint below 0.
                 stats.memory_current_footprint[fname][lineno] = max(
                     0, stats.memory_current_footprint[fname][lineno]
