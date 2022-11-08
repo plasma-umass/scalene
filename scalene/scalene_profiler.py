@@ -292,49 +292,48 @@ class Scalene:
         """Mark a new line by allocating the trigger number of bytes."""
         bytearray(NEWLINE_TRIGGER_LENGTH)
 
-    @staticmethod
-    def invalidate_lines(frame: FrameType, _event: str, _arg: str) -> Any:
-        """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
-        try:
-            # If we are still on the same line, return.
-            ff = frame.f_code.co_filename
-            fl = frame.f_lineno
-            (fname, lineno, lasti) = Scalene.__last_profiled
-            if (ff == fname) and (fl == lineno):
-                return Scalene.invalidate_lines
-            # Different line: stop tracing this frame.
-            
-            # If we are not in a file we should be tracing, return.
-            if not Scalene.should_trace(ff):
-                return Scalene.invalidate_lines
-            if f := Scalene.on_stack(frame, fname, lineno):
-                # We are still on the same line, but somewhere up the stack
-                # (since we returned when it was the same line in this
-                # frame). Stop tracing in this frame.
-                return Scalene.invalidate_lines
-            # We are on a different line; stop tracing and increment the count.
-            sys.settrace(None)
-            frame.f_trace = None
-            frame.f_trace_lines = False
-            with Scalene.__invalidate_mutex:
-                Scalene.__invalidate_queue.append(
-                    (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
-                )
-                Scalene.update_line()
-            Scalene.__last_profiled_invalidated = False
-            Scalene.__last_profiled = [
-                Filename(ff),
-                LineNumber(fl),
-                ByteCodeIndex(frame.f_lasti),
-            ]
-            return None
-        except AttributeError:
-            # This can happen when Scalene shuts down.
-            return None
-        except Exception as e:
-            print(f"{Scalene.__error_message}:\n", e)
-            traceback.print_exc()
-            return None
+    # @staticmethod
+    # def invalidate_lines(frame: FrameType, _event: str, _arg: str) -> Any:
+    #     """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
+    #     try:
+    #         # If we are still on the same line, return.
+    #         ff = frame.f_code.co_filename
+    #         fl = frame.f_lineno
+    #         (fname, lineno, lasti) = Scalene.__last_profiled
+    #         if (ff == fname) and (fl == lineno):
+    #             return Scalene.invalidate_lines
+    #         # Different line: stop tracing this frame.
+    #         # If we are not in a file we should be tracing, return.
+    #         if not Scalene.should_trace(ff):
+    #             return Scalene.invalidate_lines
+    #         if f := Scalene.on_stack(frame, fname, lineno):
+    #             # We are still on the same line, but somewhere up the stack
+    #             # (since we returned when it was the same line in this
+    #             # frame). Stop tracing in this frame.
+    #             return Scalene.invalidate_lines
+    #         # We are on a different line; stop tracing and increment the count.
+    #         sys.settrace(None)
+    #         frame.f_trace = None
+    #         frame.f_trace_lines = False
+    #         with Scalene.__invalidate_mutex:
+    #             Scalene.__invalidate_queue.append(
+    #                 (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
+    #             )
+    #             Scalene.update_line()
+    #         Scalene.__last_profiled_invalidated = False
+    #         Scalene.__last_profiled = [
+    #             Filename(ff),
+    #             LineNumber(fl),
+    #             ByteCodeIndex(frame.f_lasti),
+    #         ]
+    #         return None
+    #     except AttributeError:
+    #         # This can happen when Scalene shuts down.
+    #         return None
+    #     except Exception as e:
+    #         print(f"{Scalene.__error_message}:\n", e)
+    #         traceback.print_exc()
+    #         return None
 
     @classmethod
     def clear_metrics(cls) -> None:
@@ -495,23 +494,11 @@ class Scalene:
         #             (Filename(f.f_code.co_filename), LineNumber(f.f_lineno))
         #         )
         #         Scalene.update_line()
-        Scalene.__last_profiled = (
-            Filename(f.f_code.co_filename),
-            LineNumber(f.f_lineno),
-            ByteCodeIndex(f.f_lasti),
-        )
+        Scalene.__last_profiled[0] = Filename(f.f_code.co_filename)
+        Scalene.__last_profiled[1] = LineNumber(f.f_lineno)
+        Scalene.__last_profiled[2] = ByteCodeIndex(f.f_lasti)
         Scalene.__alloc_sigq.put([0])
-        # Start tracing.
-        # from scalene import pywhere
-        # print("ALLOC")
         pywhere.enable_settrace()
-        # print("ENABLED")
-        # sys.settrace(Scalene.invalidate_lines)
-        # f.f_trace = Scalene.invalidate_lines
-        # f.f_trace_lines = True
-        # sys.settrace(Scalene.nulltrace)
-        # f.f_trace = Scalene.nulltrace
-        # f.f_trace_lines = True
         del this_frame
 
     @staticmethod
@@ -1310,8 +1297,6 @@ class Scalene:
                 stats.total_memory_malloc_samples += count
                 # Update current and max footprints for this file & line.
                 stats.memory_current_footprint[fname][lineno] += count
-                if lineno == 12:
-                    print(f"count {count} footprint {stats.memory_current_footprint[fname][lineno]}")
                 if (
                     stats.memory_current_footprint[fname][lineno]
                     > stats.memory_current_highwater_mark[fname][lineno]

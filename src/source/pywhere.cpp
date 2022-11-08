@@ -382,11 +382,11 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
         PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
     
   auto current_fname_s = PyBytes_AsString(static_cast<PyObject*>(current_fname_unicode));
-  printf("%d NEWLINE AT %s:%d\n", gettid(), current_fname_s, lineno);
+
+  PyList_SetItem(module_pointers.scalene_last_profiled, 2, PyLong_FromLong(PyFrame_GetLasti(static_cast<PyFrameObject*>(frame))));
   allocate_newline();
   PyList_Append(static_cast<PyObject*>(module_pointers.invalidate_queue), last_profiled_ret);
 
-  PyList_SetItem(module_pointers.scalene_last_profiled, 2, PyLong_FromLong(PyFrame_GetLasti(static_cast<PyFrameObject*>(frame))));
   return 0;
 }
 
