@@ -16,13 +16,17 @@ class ScaleneGPU:
         self.__has_per_pid_accounting = False
         with contextlib.suppress(Exception):
             pynvml.nvmlInit()
-            # If we make it here, we have an NVIDIA GPU.
-            self.__has_gpu = True
+            # Try to actually get utilization and memory usage.
+            # If this fails, we disable GPU profiling.
             self.__ngpus = pynvml.nvmlDeviceGetCount()
             for i in range(self.__ngpus):
                 handle = pynvml.nvmlDeviceGetHandleByIndex(i)
                 self.__handle.append(handle)
             self.__has_per_pid_accounting = self.set_accounting_mode()
+            total_load = self.gpu_utilization(self.__pid)
+            mem_used = self.gpu_memory_usage(self.__pid)
+            # If we make it this far, everything is working, so we can profile GPU usage.
+            self.__has_gpu = True
 
     def __del__(self) -> None:
         if self.__has_gpu and not self.__has_per_pid_accounting:

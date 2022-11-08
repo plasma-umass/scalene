@@ -430,7 +430,7 @@ class ScaleneOutput:
             fname_print = fname
             import re
 
-            if result := re.match("<ipython-input-([0-9]+)-.*>", fname_print):
+            if result := re.match("ipython-input-([0-9]+)-.*", fname_print):
                 fname_print = Filename(f"[{result.group(1)}]")
 
             # Print header.
@@ -530,52 +530,56 @@ class ScaleneOutput:
                 continue
             # Print out the profile for the source, line by line.
             full_fname = os.path.normpath(os.path.join(program_path, fname))
-            with open(full_fname, "r", encoding="utf-8") as source_file:
-                # We track whether we should put in ellipsis (for reduced profiles)
-                # or not.
-                did_print = True  # did we print a profile line last time?
-                code_lines = source_file.read()
-                # Generate syntax highlighted version for the whole file,
-                # which we will consume a line at a time.
-                # See https://github.com/willmcgugan/rich/discussions/965#discussioncomment-314233
-                syntax_highlighted = Syntax(
-                    code_lines,
-                    "python",
-                    theme="default" if self.html else "vim",
-                    line_numbers=False,
-                    code_width=None,
+            try:
+                with open(full_fname, "r", encoding="utf-8") as source_file:
+                    code_lines = source_file.read()
+            except FileNotFoundError:
+                continue
+
+            # We track whether we should put in ellipsis (for reduced profiles)
+            # or not.
+            did_print = True  # did we print a profile line last time?
+            # Generate syntax highlighted version for the whole file,
+            # which we will consume a line at a time.
+            # See https://github.com/willmcgugan/rich/discussions/965#discussioncomment-314233
+            syntax_highlighted = Syntax(
+                code_lines,
+                "python",
+                theme="default" if self.html else "vim",
+                line_numbers=False,
+                code_width=None,
+            )
+            capture_console = Console(
+                width=column_width - other_columns_width,
+                force_terminal=True,
+            )
+            formatted_lines = [
+                SyntaxLine(segments)
+                for segments in capture_console.render_lines(
+                    syntax_highlighted
                 )
-                capture_console = Console(
-                    width=column_width - other_columns_width,
-                    force_terminal=True,
+            ]
+            for line_no, line in enumerate(formatted_lines, start=1):
+                old_did_print = did_print
+                did_print = self.output_profile_line(
+                    json=json,
+                    fname=fname,
+                    line_no=LineNumber(line_no),
+                    line=line,
+                    console=console,
+                    tbl=tbl,
+                    stats=stats,
+                    profile_this_code=profile_this_code,
+                    profile_memory=profile_memory,
+                    force_print=False,
+                    suppress_lineno_print=False,
+                    is_function_summary=False,
+                    reduced_profile=reduced_profile,
                 )
-                formatted_lines = [
-                    SyntaxLine(segments)
-                    for segments in capture_console.render_lines(
-                        syntax_highlighted
-                    )
-                ]
-                for line_no, line in enumerate(formatted_lines, start=1):
-                    old_did_print = did_print
-                    did_print = self.output_profile_line(
-                        json=json,
-                        fname=fname,
-                        line_no=LineNumber(line_no),
-                        line=line,
-                        console=console,
-                        tbl=tbl,
-                        stats=stats,
-                        profile_this_code=profile_this_code,
-                        profile_memory=profile_memory,
-                        force_print=False,
-                        suppress_lineno_print=False,
-                        is_function_summary=False,
-                        reduced_profile=reduced_profile,
-                    )
-                    if old_did_print and not did_print:
-                        # We are skipping lines, so add an ellipsis.
-                        tbl.add_row("...")
-                    old_did_print = did_print
+                if old_did_print and not did_print:
+                    # We are skipping lines, so add an ellipsis.
+                    tbl.add_row("...")
+                old_did_print = did_print
 
             # Potentially print a function summary.
             fn_stats = stats.build_function_stats(fname)

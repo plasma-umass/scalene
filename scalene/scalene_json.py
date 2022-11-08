@@ -76,6 +76,9 @@ class ScaleneJSON:
         force_print: bool = False,
     ) -> Dict[str, Any]:
         """Print at most one line of the profile (true == printed one)."""
+
+        full_fname = os.path.abspath(fname)
+        
         if not force_print and not profile_this_code(fname, line_no):
             return {}
         # Prepare output values.
@@ -158,7 +161,7 @@ class ScaleneJSON:
 
         return {
             "lineno": line_no,
-            "line": linecache.getline(fname, line_no),
+            "line": linecache.getline(full_fname, line_no),
             "n_cpu_percent_c": n_cpu_percent_c,
             "n_cpu_percent_python": n_cpu_percent_python,
             "n_sys_percent": n_sys_percent,
@@ -264,6 +267,7 @@ class ScaleneJSON:
                 and percent_cpu_time < self.cpu_percent_threshold
             ):
                 continue
+
             report_files.append(fname)
 
         # Don't actually output the profile if we are a child process.
@@ -281,7 +285,7 @@ class ScaleneJSON:
             # restore its name, as in "[12]".
             fname_print = fname
 
-            result = re.match("<ipython-input-([0-9]+)-.*>", fname_print)
+            result = re.match(r"ipython-input-([0-9]+)-.*", fname_print)
             if result:
                 fname_print = Filename("[" + result.group(1) + "]")
 
@@ -328,33 +332,38 @@ class ScaleneJSON:
 
             # Print out the the profile for the source, line by line.
             full_fname = os.path.normpath(os.path.join(program_path, fname))
-            with open(full_fname, "r", encoding="utf-8") as source_file:
-                code_lines = source_file.readlines()
+            try:
+                with open(full_fname, "r", encoding="utf-8") as source_file:
+                    code_lines = source_file.readlines()
+            except (FileNotFoundError, OSError):
+                continue
 
-                output["files"][fname_print] = {
-                    "percent_cpu_time": percent_cpu_time,
-                    "lines": [],
-                    "leaks": reported_leaks,
-                }
-                for lineno, _line in enumerate(code_lines, start=1):
-                    profile_line = self.output_profile_line(
-                        fname=fname,
-                        fname_print=fname_print,
-                        line_no=LineNumber(lineno),
-                        stats=stats,
-                        profile_this_code=profile_this_code,
-                        profile_memory=profile_memory,
-                        force_print=False,
-                    )
-                    # Only output if the payload for the line is non-zero.
-                    if profile_line:
-                        profile_line_copy = copy.copy(profile_line)
-                        del profile_line_copy["line"]
-                        del profile_line_copy["lineno"]
-                        if any(profile_line_copy.values()):
-                            output["files"][fname_print]["lines"].append(
-                                profile_line
-                            )
+            output["files"][fname_print] = {
+                "percent_cpu_time": percent_cpu_time,
+                "lines": [],
+                "leaks": reported_leaks,
+            }
+            for lineno, line in enumerate(code_lines, start=1):
+                profile_line = self.output_profile_line(
+                    fname=fname,
+                    fname_print=fname_print,
+                    line_no=LineNumber(lineno),
+                    stats=stats,
+                    profile_this_code=profile_this_code,
+                    profile_memory=profile_memory,
+                    force_print=False,
+                )
+                # Only output if the payload for the line is non-zero.
+                if profile_line:
+                    profile_line_copy = copy.copy(profile_line)
+                    del profile_line_copy["line"]
+                    del profile_line_copy["lineno"]
+                    if any(profile_line_copy.values()):
+                        output["files"][fname_print]["lines"].append(
+                            profile_line
+                        )
+
+
             fn_stats = stats.build_function_stats(fname)
             # Check CPU samples and memory samples.
             print_fn_summary = False

@@ -26,11 +26,9 @@ with contextlib.suppress(Exception):
             # Create a file to hold the supplied code.
             # We encode the cell number in the string for later recovery.
             # The length of the history buffer lets us find the most recent string (this one).
-            filename = f"<ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile>"
-            # Drop the first line (%%scalene).
-            newcode = "\n" + code
+            filename = f"ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile"
             with open(filename, "w+") as tmpfile:
-                tmpfile.write(newcode)
+                tmpfile.write(code)
             args.cpu_only = True  # full Scalene is not yet working, force to use CPU-only mode
             scalene_profiler.Scalene.set_initialized()
             scalene_profiler.Scalene.run_profiler(
@@ -41,19 +39,20 @@ with contextlib.suppress(Exception):
         def scalene(self, line: str, cell: str = "") -> None:
             """%%scalene magic: see https://github.com/plasma-umass/scalene for usage info."""
             if line:
-                sys.argv = ["scalene", *line.split(" ")]
+                sys.argv = ["scalene", *line.split()]
                 (args, _left) = ScaleneParseArgs.parse_args()
             else:
                 args = ScaleneArguments()
             if cell:
-                self.run_code(args, cell)  # type: ignore
+                # Preface with a "\n" to drop the first line (%%scalene).
+                self.run_code(args, "\n" + cell)  # type: ignore
 
         @line_magic
         def scrun(self, line: str = "") -> None:
             """%scrun magic: see https://github.com/plasma-umass/scalene for usage info."""
 
             if line:
-                sys.argv = ["scalene", *line.split(" ")]
+                sys.argv = ["scalene", *line.split()]
                 (args, left) = ScaleneParseArgs.parse_args()
                 self.run_code(args, " ".join(left))  # type: ignore
 

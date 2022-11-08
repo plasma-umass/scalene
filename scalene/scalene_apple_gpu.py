@@ -21,7 +21,8 @@ class ScaleneAppleGPU:
 
     def has_gpu(self) -> bool:
         """Returns true: as far as I am aware, all Macs have had integrated GPUs for some time."""
-        return True
+        # Disabling Apple GPU, since it does not collect per-process statistics.
+        return False
 
     def nvml_reinit(self) -> None:
         """A NOP, here for compatibility with the nvidia wrapper."""

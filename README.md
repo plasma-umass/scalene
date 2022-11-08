@@ -6,7 +6,7 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 
 [![Scalene community Slack](https://github.com/plasma-umass/scalene/raw/master/docs/images/slack-logo.png)](https://join.slack.com/t/scaleneprofil-jge3234/shared_invite/zt-110vzrdck-xJh5d4gHnp5vKXIjYD3Uwg)[Scalene community Slack](https://join.slack.com/t/scaleneprofil-jge3234/shared_invite/zt-110vzrdck-xJh5d4gHnp5vKXIjYD3Uwg)
 
-[![PyPI Latest Release](https://img.shields.io/pypi/v/scalene.svg)](https://pypi.org/project/scalene/)[![Anaconda-Server Badge](https://anaconda.org/conda-forge/scalene/badges/installer/conda.svg)](https://conda.anaconda.org/conda-forge)[![Downloads](https://pepy.tech/badge/scalene)](https://pepy.tech/project/scalene) [![Downloads](https://pepy.tech/badge/scalene/month)](https://pepy.tech/project/scalene) ![Python versions](https://img.shields.io/pypi/pyversions/scalene.svg?style=flat-square) ![License](https://img.shields.io/github/license/plasma-umass/scalene) [![Twitter Follow](https://img.shields.io/twitter/follow/emeryberger.svg?style=social)](https://twitter.com/emeryberger)
+[![PyPI Latest Release](https://img.shields.io/pypi/v/scalene.svg)](https://pypi.org/project/scalene/)[![Anaconda-Server Badge](https://anaconda.org/conda-forge/scalene/badges/version.svg)](https://conda.anaconda.org/conda-forge/scalene)[![Downloads](https://pepy.tech/badge/scalene)](https://pepy.tech/project/scalene) [![Downloads](https://pepy.tech/badge/scalene/month)](https://pepy.tech/project/scalene) ![Python versions](https://img.shields.io/pypi/pyversions/scalene.svg?style=flat-square) ![License](https://img.shields.io/github/license/plasma-umass/scalene) [![Twitter Follow](https://img.shields.io/twitter/follow/emeryberger.svg?style=social)](https://twitter.com/emeryberger)
 
 ![Ozsvald tweet](https://github.com/plasma-umass/scalene/raw/master/docs/Ozsvald-tweet.png)
 
@@ -47,6 +47,16 @@ scalene (Scalene options) --- your_prog.py (...) # use --- to tell Scalene to ig
 scalene --help                                   # lists all options
 ```
 
+If you need to run your code like `python -m your.module some_args` then create a small wrapper file like `start.py` with the following content:
+
+```python
+import runpy
+
+runpy.run_module('your.module', run_name='__main__')
+```
+
+and call `scalene start.py some_args`.
+
 To use Scalene programmatically in your code, invoke using `scalene` as above and then:
 
 ```Python
@@ -62,6 +72,8 @@ scalene_profiler.stop()
 To use Scalene to profile specific functions, just use the `@profile` decorator and run it with Scalene:
 
 ```Python
+# do not import profile!
+
 @profile
 def slow_function():
     import time
@@ -72,9 +84,20 @@ def slow_function():
 
 Scalene has both a CLI and a web-based GUI [(demo here)](http://plasma-umass.org/scalene-gui/).
 
-Once Scalene has profiled your program, it will launch a web browser with an interactive user interface (all processing is done locally). Hover over bars to see breakdowns of CPU and memory consumption, and click on underlined column headers to sort the columns.
+By default, once Scalene has profiled your program, it will launch a
+web browser with an interactive user interface (all processing is done
+locally). Hover over bars to see breakdowns of CPU and memory
+consumption, and click on underlined column headers to sort the
+columns.
 
 [![Scalene web GUI](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example.png)](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example-full.png)
+
+- **Using the Web GUI without a server:** If you are on a system that cannot launch a browser, you still can use
+the web-based GUI. Tell Scalene to produce a JSON profile as follows:
+
+```python3 -m scalene --cli --json --outfile my_profile.json```
+
+and then view it by uploading it to the on-line GUI at https://plasma-umass.org/scalene-gui/.
 
 
 ## Scalene Overview

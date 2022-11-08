@@ -5,7 +5,7 @@ from textwrap import dedent
 from typing import Any, List, NoReturn, Optional, Tuple
 
 from scalene.scalene_arguments import ScaleneArguments
-from scalene.scalene_version import scalene_version
+from scalene.scalene_version import scalene_version, scalene_date
 
 
 class RichArgParser(argparse.ArgumentParser):
@@ -44,14 +44,14 @@ class ScaleneParseArgs:
                 sys._exit = ScaleneParseArgs.clean_exit  # type: ignore
         defaults = ScaleneArguments()
         usage = dedent(
-            f"""[b]Scalene[/b]: a high-precision CPU and memory profiler, version {scalene_version}
+            f"""[b]Scalene[/b]: a high-precision CPU and memory profiler, version {scalene_version} ({scalene_date})
 [link=https://github.com/plasma-umass/scalene]https://github.com/plasma-umass/scalene[/link]
 
 
 command-line:
-  % [b]scalene \[options] yourprogram.py[/b]
+  % [b]scalene \[options] your_program.py \[--- --your_program_args] [/b]
 or
-  % [b]python3 -m scalene \[options] yourprogram.py[/b]
+  % [b]python3 -m scalene \[options] your_program.py \[--- --your_program_args] [/b]
 
 in Jupyter, line mode:
 [b]  %scrun \[options] statement[/b]
@@ -295,7 +295,7 @@ for the process ID that Scalene reports. For example:
         import re
 
         in_jupyter_notebook = len(sys.argv) >= 1 and re.match(
-            "<ipython-input-([0-9]+)-.*>", sys.argv[0]
+            r"ipython-input-([0-9]+)-.*", sys.argv[0]
         )
         # If the user did not enter any commands (just `scalene` or `python3 -m scalene`),
         # print the usage information and bail.
@@ -303,6 +303,6 @@ for the process ID that Scalene reports. For example:
             parser.print_help(sys.stderr)
             sys.exit(-1)
         if args.version:
-            print(f"Scalene version {scalene_version}")
+            print(f"Scalene version {scalene_version} ({scalene_date})")
             sys.exit(-1)
         return args, left

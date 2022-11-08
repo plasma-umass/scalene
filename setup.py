@@ -177,7 +177,7 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
-        "Operating System :: Microsoft :: Windows :: Windows 10"
+        "Operating System :: Microsoft :: Windows"
     ],
     packages=find_packages(),
     cmdclass={
@@ -188,7 +188,7 @@ setup(
     install_requires=[
         "rich>=9.2.0",
         "cloudpickle>=1.5.0",
-        "pynvml>=11.0.0"
+        "pynvml>=11.0.0",
     ],
     ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),
     setup_requires=['setuptools_scm'],

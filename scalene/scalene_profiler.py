@@ -335,6 +335,7 @@ class Scalene:
     #         traceback.print_exc()
     #         return None
 
+
     @classmethod
     def clear_metrics(cls) -> None:
         """Clear the various states for forked processes."""
@@ -466,7 +467,7 @@ class Scalene:
         ],
         this_frame: Optional[FrameType],
     ) -> None:
-        """Handle allocation signals.""" 
+        """Handle allocation signals."""
         if this_frame:
             Scalene.enter_function_meta(this_frame, Scalene.__stats)
         # Walk the stack till we find a line of code in a file we are tracing.
@@ -497,6 +498,7 @@ class Scalene:
         Scalene.__last_profiled[0] = Filename(f.f_code.co_filename)
         Scalene.__last_profiled[1] = LineNumber(f.f_lineno)
         Scalene.__last_profiled[2] = ByteCodeIndex(f.f_lasti)
+
         Scalene.__alloc_sigq.put([0])
         pywhere.enable_settrace()
         del this_frame
@@ -680,10 +682,7 @@ class Scalene:
         atexit.register(Scalene.exit_handler)
         # Store relevant names (program, path).
         if program_being_profiled:
-            Scalene.__program_being_profiled = Filename(
-                # os.path.abspath(program_being_profiled)
-                program_being_profiled
-            )
+            Scalene.__program_being_profiled = Filename(program_being_profiled)
 
     @staticmethod
     def cpu_signal_handler(
@@ -754,7 +753,6 @@ class Scalene:
         # Restart the timer while handling any timers set by the client.
         if sys.platform != "win32":
             if Scalene.client_timer.is_set:
-
                 (
                     should_raise,
                     remaining_time,
@@ -1266,14 +1264,14 @@ class Scalene:
 
             is_malloc = action == Scalene.MALLOC_ACTION
             if is_malloc and count == NEWLINE_TRIGGER_LENGTH + 1:
-                last_file, last_line = Scalene.__invalidate_queue.pop(0)
-                # print(last_file, last_line, stats.memory_malloc_count[last_file][last_line])
+                with Scalene.__invalidate_mutex:
+                    last_file, last_line = Scalene.__invalidate_queue.pop(0)
+
                 stats.memory_malloc_count[last_file][last_line] += 1
                     # print(stats.memory_current_highwater_mark[last_file][last_line])
                 stats.memory_aggregate_footprint[last_file][
                     last_line
                 ] += stats.memory_current_highwater_mark[last_file][last_line]
-
                 stats.memory_current_footprint[last_file][last_line] = 0
                 stats.memory_current_highwater_mark[last_file][last_line] = 0
                 continue
@@ -1453,9 +1451,9 @@ class Scalene:
             prof in filename for prof in profile_exclude_list if prof != ""
         ):
             return False
-        if filename[0] == "<":
+        if filename[0] == "i":
             if (
-                "<ipython" not in filename
+                "ipython" not in filename
             ):  # lgtm [py/member-test-non-container]
                 # Not a real file and not a function created in Jupyter.
                 return False
@@ -1463,14 +1461,15 @@ class Scalene:
             # create a file to hold the contents.
             import IPython
 
-            if result := re.match("<ipython-input-([0-9]+)-.*>", filename):
+            if result := re.match(r"ipython-input-([0-9]+)-.*", filename):
                 # Write the cell's contents into the file.
+                cell_contents = (
+                    IPython.get_ipython().history_manager.input_hist_raw[
+                        int(result[1])
+                    ]
+                )
                 with open(filename, "w+") as f:
-                    f.write(
-                        IPython.get_ipython().history_manager.input_hist_raw[
-                            int(result[1])
-                        ]
-                    )
+                    f.write(cell_contents)
             return True
         # If (a) `profile-only` was used, and (b) the file matched
         # NONE of the provided patterns, don't profile it.
@@ -1646,11 +1645,15 @@ class Scalene:
             exit_status = 1
         finally:
             self.stop()
-            # sys.settrace(None)
-            # if not Scalene.__args.cpu_only:
-            
             pywhere.disable_settrace()
             pywhere.depopulate_struct()
+
+            stats = Scalene.__stats
+            (last_file, last_line, _) = Scalene.__last_profiled
+            stats.memory_malloc_count[last_file][last_line] += 1
+            stats.memory_aggregate_footprint[last_file][
+                last_line
+            ] += stats.memory_current_highwater_mark[last_file][last_line]
             # If we've collected any samples, dump them.
             did_output = Scalene.output_profile()
             if not did_output:
@@ -1710,13 +1713,12 @@ class Scalene:
                     os.chdir(os.path.join(webgui_dir, Scalene.__gui_dir))
                     t.start()
                     if Scalene.in_jupyter():
-                        from IPython.core.display import HTML, display
+                        from IPython.core.display import display
                         from IPython.display import IFrame
-
                         display(
                             IFrame(
                                 src=f"{Scalene.__localhost}:{PORT}/{Scalene.__profiler_html}",
-                                width=700,
+                                width="100%",
                                 height=600,
                             )
                         )
@@ -1833,7 +1835,7 @@ class Scalene:
             exit_status = 0
             try:
                 # Look for something ending in '.py'. Treat the first one as our executable.
-                progs = [x for x in sys.argv if re.match(".*\.py$", x)]
+                progs = [x for x in sys.argv if re.match(r".*\.py$", x)]
                 # Just in case that didn't work, try sys.argv[0] and __file__.
                 with contextlib.suppress(Exception):
                     progs.extend((sys.argv[0], __file__))
@@ -1841,7 +1843,7 @@ class Scalene:
                     raise FileNotFoundError
                 with open(progs[0], "rb") as prog_being_profiled:
                     # Read in the code and compile it.
-                    code: Any
+                    code: Any = ""
                     try:
                         code = compile(
                             prog_being_profiled.read(),
@@ -1923,7 +1925,8 @@ class Scalene:
                     # We are done with these files, so remove them.
                     Scalene.__malloc_mapfile.cleanup()
                     Scalene.__memcpy_mapfile.cleanup()
-            sys.exit(exit_status)
+            if not is_jupyter:
+                sys.exit(exit_status)
 
 
 if __name__ == "__main__":
