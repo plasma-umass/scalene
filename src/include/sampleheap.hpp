@@ -28,6 +28,7 @@
 #include "printf.h"
 #include "pywhere.hpp"
 #include "samplefile.hpp"
+#include "poissonsampleinterval.hpp"
 #include "sampleinterval.hpp"
 #include "scaleneheader.hpp"
 
@@ -269,7 +270,13 @@ class SampleHeap : public SuperHeap {
 
   void* _lastMallocTrigger;
   bool _freedLastMallocTrigger;
-  SampleInterval _allocationSampler;
+  #if 0
+  typedef PoissonSampleInterval Sampler;
+  #else
+  typedef SampleInterval Sampler;
+  #endif
+  
+  Sampler _allocationSampler;
 
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
