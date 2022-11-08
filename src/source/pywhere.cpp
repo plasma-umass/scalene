@@ -343,6 +343,9 @@ static void allocate_newline() {
 }
 
 static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg) {
+  if (what != PyTrace_LINE) {
+    return 0;
+  }
   int lineno = PyFrame_GetLineNumber(frame);
   PyPtr<PyCodeObject> code =
         PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
@@ -373,17 +376,21 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   PyList_SetItem(module_pointers.scalene_last_profiled, 0, static_cast<PyCodeObject*>(code)->co_filename);
   Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
   auto qqq = PyLong_FromLong(lineno);
-  Py_IncRef(qqq);
+  
   PyList_SetItem(module_pointers.scalene_last_profiled, 1,  qqq);
-  PyObject* last_profiled_ret(PyTuple_Pack(2, static_cast<PyCodeObject*>(code)->co_filename,qqq ));
-  Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
   Py_IncRef(qqq);
+  PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname,last_lineno ));
+  Py_IncRef(last_fname);
+  Py_IncRef(last_lineno);
+  // Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
+  // Py_IncRef(qqq);
     PyPtr<> current_fname_unicode =
         PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
     
   auto current_fname_s = PyBytes_AsString(static_cast<PyObject*>(current_fname_unicode));
 
   PyList_SetItem(module_pointers.scalene_last_profiled, 2, PyLong_FromLong(PyFrame_GetLasti(static_cast<PyFrameObject*>(frame))));
+  // printf("NEWLINE REACHED, WAS ON %s %d, NOW ON %s %d\n", last_fname_s, lineno_l, current_fname_s, lineno);
   allocate_newline();
   PyList_Append(static_cast<PyObject*>(module_pointers.invalidate_queue), last_profiled_ret);
 
