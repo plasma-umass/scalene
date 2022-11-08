@@ -183,7 +183,7 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=None,
-            help="profile CPU time ([red] deprecated - use --cpu [/red])",
+            help="profile CPU time ([red]deprecated: use --cpu [/red])",
         )
         parser.add_argument(
             "--gpu",
