@@ -19,7 +19,6 @@ import builtins
 import contextlib
 import functools
 import gc
-import http.server
 import inspect
 import json
 import math
@@ -129,8 +128,7 @@ class Scalene:
     __last_profiled_invalidated = False
     __gui_dir = "scalene-gui"
     __profile_filename = "profile.json"
-    __localhost = "http://localhost"
-    __profiler_html = "profiler.html"
+    __profiler_html = "profile.html"
     __error_message = "Error in program being profiled"
     BYTES_PER_MB = 1024 * 1024
 
@@ -1618,7 +1616,7 @@ class Scalene:
             os.remove(f"/tmp/scalene-malloc-lock{os.getpid()}")
 
     @staticmethod
-    def generate_html(profile_fname="profile.json", output_fname="profile.html"):
+    def generate_html(profile_fname, output_fname):
         """Apply a template to generate a single HTML payload containing the current profile."""
 
         import os
@@ -1697,9 +1695,9 @@ class Scalene:
             ):
                 return exit_status
 
-            Scalene.generate_html(profile_fname="profile.json", output_fname="profile.html")
+            Scalene.generate_html(profile_fname=Scalene.__profile_filename, output_fname=Scalene.__profiler_html)
             webbrowser.open(
-                f"file:///{os.getcwd()}/profile.html"
+                f"file:///{os.getcwd()}/{Scalene.__profiler_html}"
             )
 
         return exit_status
