@@ -1269,8 +1269,6 @@ class Scalene:
                 last_file, last_line = Scalene.__invalidate_queue.pop(0)
                 # print(last_file, last_line, stats.memory_malloc_count[last_file][last_line])
                 stats.memory_malloc_count[last_file][last_line] += 1
-                if last_line == 12:
-                    print("===")
                     # print(stats.memory_current_highwater_mark[last_file][last_line])
                 stats.memory_aggregate_footprint[last_file][
                     last_line
@@ -1322,8 +1320,6 @@ class Scalene:
                 stats.memory_free_count[fname][lineno] += 1
                 stats.total_memory_free_samples += count
                 stats.memory_current_footprint[fname][lineno] -= count
-                if lineno == 12:
-                    print(f"count {-count} footprint {stats.memory_current_footprint[fname][lineno]}")
                 # Ensure that we never drop the current footprint below 0.
                 stats.memory_current_footprint[fname][lineno] = max(
                     0, stats.memory_current_footprint[fname][lineno]

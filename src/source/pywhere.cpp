@@ -321,6 +321,7 @@ static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
   // printf("BEGIN ITERATION\n");
   while(frame != nullptr) {
     int iter_lineno = PyFrame_GetLineNumber(frame);
+    Py_DECREF(frame);
     PyPtr<PyCodeObject> code =
           PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
     PyPtr<> co_filename =
@@ -367,7 +368,8 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   if(! x) {
     return 0;
   }
-
+  // Needed because decref will be called later
+  Py_INCREF(frame);
   if (on_stack(last_fname_s, lineno_l, static_cast<PyFrameObject*>(frame))) {
     return 0;
   }
