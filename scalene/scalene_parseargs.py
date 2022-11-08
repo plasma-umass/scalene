@@ -178,6 +178,14 @@ for the process ID that Scalene reports. For example:
             help="profile CPU time (default: [blue] True [/blue])",
         )
         parser.add_argument(
+            "--cpu-only",
+            dest="cpu",
+            action="store_const",
+            const=True,
+            default=None,
+            help="profile CPU time ([red] deprecated - use --cpu [/red])",
+        )
+        parser.add_argument(
             "--gpu",
             dest="gpu",
             action="store_const",
