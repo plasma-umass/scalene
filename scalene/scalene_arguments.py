@@ -1,12 +1,15 @@
 import argparse
-
+import platform
+import sys
 
 class ScaleneArguments(argparse.Namespace):
     """Encapsulates all arguments and default values for Scalene."""
 
     def __init__(self) -> None:
         super().__init__()
-        self.cpu_only = False
+        self.cpu = True
+        self.gpu = platform.system() != "Darwin"
+        self.memory = sys.platform != "win32"
         self.cpu_percent_threshold = 1
         # mean seconds between interrupts for CPU sampling.
         self.cpu_sampling_rate = 0.01

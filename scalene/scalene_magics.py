@@ -29,7 +29,7 @@ with contextlib.suppress(Exception):
             filename = f"ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile"
             with open(filename, "w+") as tmpfile:
                 tmpfile.write(code)
-            args.cpu_only = True  # full Scalene is not yet working, force to use CPU-only mode
+            args.memory = False  # full Scalene is not yet working, force to not profile memory
             scalene_profiler.Scalene.set_initialized()
             scalene_profiler.Scalene.run_profiler(
                 args, [filename], is_jupyter=True

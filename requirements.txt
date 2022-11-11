@@ -1,5 +1,6 @@
 cloudpickle==1.6.0
 ipython==7.31.1
+Jinja2==3.0.3
 lxml==4.9.1
 packaging==20.9
 pyperf==2.0.0
