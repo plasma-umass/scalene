@@ -321,7 +321,7 @@ static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
   // printf("BEGIN ITERATION\n");
   while(frame != NULL) {
     int iter_lineno = PyFrame_GetLineNumber(frame);
-    Py_DECREF(frame);
+    // Py_DecRef((PyObject*) frame);
     PyPtr<PyCodeObject> code =
           PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
     PyPtr<> co_filename =
