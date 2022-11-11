@@ -319,7 +319,7 @@ static unchanging_modules module_pointers;
 
 static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
   // printf("BEGIN ITERATION\n");
-  while(frame != nullptr) {
+  while(frame != NULL) {
     int iter_lineno = PyFrame_GetLineNumber(frame);
     Py_DECREF(frame);
     PyPtr<PyCodeObject> code =
