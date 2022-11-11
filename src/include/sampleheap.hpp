@@ -148,7 +148,6 @@ class SampleHeap : public SuperHeap {
                               bool inPythonAllocator = true) {
     assert(realSize);
     // If this is the special NEWLINE value, trigger an update.
-    // printf("uwu %p\n", &in_realloc);
     if (unlikely(realSize == NEWLINE)) {
       std::string filename;
       int lineno;
@@ -160,7 +159,7 @@ class SampleHeap : public SuperHeap {
       mallocTriggered()++;
       return;
     }
-    auto sampleMalloc = _allocationSampler.increment(realSize);
+    auto sampleMalloc = _allocationSampler.increment(realSize, ptr);
     if (inPythonAllocator) {
       _pythonCount += realSize;
     } else {
@@ -205,7 +204,7 @@ class SampleHeap : public SuperHeap {
   }
 
   inline void register_free(size_t realSize, void* ptr) {
-    auto sampleFree = _allocationSampler.decrement(realSize);
+    auto sampleFree = _allocationSampler.decrement(realSize, ptr);
 
     if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
       _freedLastMallocTrigger = true;

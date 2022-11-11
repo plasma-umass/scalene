@@ -24,7 +24,7 @@ class SampleInterval {
    * @param sample the amount to decrement the sample interval by
    * @return uint64_t the previous sample interval if we crossed it; 0 otherwise
    */
-  inline uint64_t decrement(uint64_t sample) {
+  inline uint64_t decrement(uint64_t sample, void *) {
     _decrements += sample;
     if (unlikely(_decrements >= _increments + _sampleInterval)) {
       auto ret = _decrements - _increments;
@@ -41,7 +41,7 @@ class SampleInterval {
    * @param sample the amount to decrement the sample interval by
    * @return uint64_t the previous sample interval if we crossed it; 0 otherwise
    */
-  inline uint64_t increment(uint64_t sample) {
+  inline uint64_t increment(uint64_t sample, void *) {
     _increments += sample;
     if (unlikely(_increments >= _decrements + _sampleInterval)) {
       auto ret = _increments - _decrements;
