@@ -159,14 +159,15 @@ class SampleHeap : public SuperHeap {
       mallocTriggered()++;
       return;
     }
-    auto sampleMalloc = _allocationSampler.increment(realSize, ptr);
+    size_t sampleMallocSize;
+    auto sampleMalloc = _allocationSampler.increment(realSize, ptr, sampleMallocSize);
     if (inPythonAllocator) {
       _pythonCount += realSize;
     } else {
       _cCount += realSize;
     }
     if (unlikely(sampleMalloc)) {
-      process_malloc(sampleMalloc, ptr);
+      process_malloc(sampleMallocSize, ptr);
     }
   }
 
@@ -204,13 +205,14 @@ class SampleHeap : public SuperHeap {
   }
 
   inline void register_free(size_t realSize, void* ptr) {
-    auto sampleFree = _allocationSampler.decrement(realSize, ptr);
+    size_t sampleFreeSize;
+    auto sampleFree = _allocationSampler.decrement(realSize, ptr, sampleFreeSize);
 
     if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
       _freedLastMallocTrigger = true;
     }
     if (unlikely(sampleFree)) {
-      process_free(sampleFree);
+      process_free(sampleFreeSize);
     }
   }
 
@@ -269,8 +271,9 @@ class SampleHeap : public SuperHeap {
 
   void* _lastMallocTrigger;
   bool _freedLastMallocTrigger;
-  #if 0
+  #if 1
   typedef PoissonSampleInterval Sampler;
+  #warning "Experimental use only: Poisson sampler"
   #else
   typedef SampleInterval Sampler;
   #endif

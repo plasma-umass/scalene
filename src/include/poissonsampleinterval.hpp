@@ -17,26 +17,31 @@ class PoissonSampleInterval {
    * @brief Construct a new SampleInterval object
    *
    */
-  PoissonSampleInterval(uint64_t SAMPLE_INTERVAL) : gen(rd()), d(1.0 / SAMPLE_INTERVAL) {
+  PoissonSampleInterval(uint64_t SAMPLE_INTERVAL) : gen(rd()), d(1.0 / SAMPLE_INTERVAL), allocs(0), frees(0) {
     resetAlloc();
   }
 
+  uint64_t allocs;
+  uint64_t frees;
+  
   /**
    * @brief Deallocate an object; if sampled, return the size of the recorded sampling interval, else 0.
    *
    * @param sample 
    * @return uint64_t the previous sample interval if we crossed it; 0 otherwise
    */
-  inline uint64_t decrement(uint64_t, void * ptr = nullptr) {
+  inline bool decrement(uint64_t, void * ptr, size_t& ret) {
     auto found = _allocSize.find(ptr) != _allocSize.end();
     if (!found) {
       // Not found
-      return 0;
+      return false;
     } else {
       // It was sampled. Return the recorded size, removing the object first.
-      auto sz = _allocSize[ptr];
+      ret = _allocSize[ptr];
       _allocSize.erase(ptr);
-      return sz;
+      frees += ret;
+      printf_("DEALLOC %p %lu (%lu)\n", ptr, ret, (allocs - frees) / 1048576);
+      return true;
     }
   }
 
@@ -47,17 +52,19 @@ class PoissonSampleInterval {
    * @param sample the amount to decrement the sample interval by
    * @return uint64_t the previous sample interval if we crossed it; 0 otherwise
    */
-  inline uint64_t increment(uint64_t sample, void * ptr = nullptr) {
+  inline bool increment(uint64_t sample, void * ptr, size_t& ret) {
     if (unlikely(sample > _tillNextAlloc)) {
       auto prev = _countdownAlloc;
       auto diff = sample - _tillNextAlloc;
       resetAlloc();
-      const auto incrementAmount = prev + diff;
-      _allocSize[ptr] = incrementAmount;
-      return incrementAmount;
+      ret = prev + diff;
+      _allocSize[ptr] = ret;
+      allocs += ret;
+      printf_("ALLOC %p %lu (%lu)\n", ptr, ret, (allocs - frees) / 1048576);
+      return true;
     }
     _tillNextAlloc -= sample;
-    return 0;
+    return false;
   }
 
  private:
