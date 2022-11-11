@@ -23,7 +23,7 @@ class ScalenePreload:
         # Set environment variables for loading the Scalene dynamic library,
         # which interposes on allocation and copying functions.
         if sys.platform == "darwin":
-            if not args.cpu_only:
+            if args.memory:
                 env["DYLD_INSERT_LIBRARIES"] = os.path.join(
                     scalene.__path__[0].replace(" ", r"\ "), "libscalene.dylib"
                 )
@@ -34,7 +34,7 @@ class ScalenePreload:
             env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
 
         elif sys.platform == "linux":
-            if not args.cpu_only:
+            if args.memory:
                 # Prepend the Scalene library to the LD_PRELOAD list, if any
                 new_ld_preload = os.path.join(
                     scalene.__path__[0].replace(" ", r"\ "), "libscalene.so"
@@ -49,8 +49,8 @@ class ScalenePreload:
                     del env["PYTHONMALLOC"]
 
         elif sys.platform == "win32":
-            # Force CPU only on Windows for now.
-            args.cpu_only = True
+            # Force no memory profiling on Windows for now.
+            args.memory = False
 
         return env
 
@@ -64,11 +64,11 @@ class ScalenePreload:
 
         # First, check that we are on a supported platform.
         # (x86-64 and ARM only for now.)
-        if not args.cpu_only and (
+        if args.memory and (
             platform.machine() not in ["x86_64", "AMD64", "arm64", "aarch64"]
             or struct.calcsize("P") != 8
         ):
-            args.cpu_only = True
+            args.memory = False
             print(
                 "Scalene warning: currently only 64-bit x86-64 and ARM platforms are supported for memory and copy profiling."
             )
