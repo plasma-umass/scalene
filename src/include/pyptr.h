@@ -32,7 +32,7 @@ class PyPtr {
   }
 
   ~PyPtr() {
-    Py_DecRef((PyObject*)_obj);
+    // Py_DecRef((PyObject*)_obj);
   }
 
  private:
