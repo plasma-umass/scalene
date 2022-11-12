@@ -388,14 +388,14 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   Py_IncRef(last_fname);
   Py_IncRef(last_lineno);
   PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname,last_lineno ));
-  return 0;
+  
   // Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
   // Py_IncRef(qqq);
     PyPtr<> current_fname_unicode =
         PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
     
   auto current_fname_s = PyBytes_AsString(static_cast<PyObject*>(current_fname_unicode));
-
+  return 0;
   PyList_SetItem(module_pointers.scalene_last_profiled, 2, PyLong_FromLong(PyFrame_GetLasti(static_cast<PyFrameObject*>(frame))));
   // printf("NEWLINE REACHED, WAS ON %s %d, NOW ON %s %d\n", last_fname_s, lineno_l, current_fname_s, lineno);
   allocate_newline();
