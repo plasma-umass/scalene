@@ -39,8 +39,8 @@ jobs:
       run: pip -v install -e .
 
     - name: Install gdb
-      run: apt-get install gdb
-      
+      run: sudo apt-get install gdb
+
     - name: Debugging with ssh
       uses: lhotari/action-upterm@v1
       with:
