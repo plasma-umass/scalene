@@ -38,13 +38,13 @@ jobs:
     - name: Build scalene
       run: pip -v install -e .
 
-    - name: Install gdb
-      run: sudo apt-get install gdb
+    # - name: Install gdb
+    #   run: sudo apt-get install gdb
 
-    - name: Debugging with ssh
-      uses: lhotari/action-upterm@v1
-      with:
-        limit-access-to-actor: true
+    # - name: Debugging with ssh
+    #   uses: lhotari/action-upterm@v1
+    #   with:
+    #     limit-access-to-actor: true
 
     - name: cpu-only smoke test
       run: python -m scalene --cli --cpu-only test/testme.py
