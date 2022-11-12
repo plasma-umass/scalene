@@ -375,9 +375,9 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   if (on_stack(last_fname_s, lineno_l, static_cast<PyFrameObject*>(frame))) {
     return 0;
   }
-
-  PyEval_SetTrace(NULL, NULL);
   
+  PyEval_SetTrace(NULL, NULL);
+  return 0;
   PyList_SetItem(module_pointers.scalene_last_profiled, 0, static_cast<PyCodeObject*>(code)->co_filename);
   Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
   
