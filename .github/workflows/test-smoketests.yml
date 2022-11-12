@@ -40,6 +40,8 @@ jobs:
 
     - name: Debugging with ssh
       uses: lhotari/action-upterm@v1
+      with:
+        limit-access-to-actor: true
 
     - name: cpu-only smoke test
       run: python -m scalene --cli --cpu-only test/testme.py
