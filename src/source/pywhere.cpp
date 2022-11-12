@@ -377,10 +377,10 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   }
   
   PyEval_SetTrace(NULL, NULL);
-  return 0;
-  PyList_SetItem(module_pointers.scalene_last_profiled, 0, static_cast<PyCodeObject*>(code)->co_filename);
   Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
+  PyList_SetItem(module_pointers.scalene_last_profiled, 0, static_cast<PyCodeObject*>(code)->co_filename);
   
+  return 0;
   auto qqq = PyLong_FromLong(lineno);
   // Py_IncRef(qqq);
   PyList_SetItem(module_pointers.scalene_last_profiled, 1,  qqq);
