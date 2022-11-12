@@ -28,8 +28,8 @@
 #include "printf.h"
 #include "pywhere.hpp"
 #include "samplefile.hpp"
-#include "poissonsampleinterval.hpp"
-#include "sampleinterval.hpp"
+#include "poissonsampler.hpp"
+#include "thresholdsampler.hpp"
 #include "scaleneheader.hpp"
 
 static SampleFile& getSampleFile() {
@@ -272,10 +272,10 @@ class SampleHeap : public SuperHeap {
   void* _lastMallocTrigger;
   bool _freedLastMallocTrigger;
   #if 0
-  typedef PoissonSampleInterval Sampler;
+  typedef PoissonSampler Sampler;
   #warning "Experimental use only: Poisson sampler"
   #else
-  typedef SampleInterval Sampler;
+  typedef ThresholdSampler Sampler;
   #endif
   
   Sampler _allocationSampler;
