@@ -111,7 +111,7 @@ for the process ID that Scalene reports. For example:
             const=True,
             default=defaults.html,
             help="output as HTML (default: [blue]"
-            + str("html" if defaults.html else "text")
+            + str("html" if defaults.html else "web")
             + "[/blue])",
         )
         parser.add_argument(
@@ -121,7 +121,7 @@ for the process ID that Scalene reports. For example:
             const=True,
             default=defaults.json,
             help="output as JSON (default: [blue]"
-            + str("json" if defaults.json else "text")
+            + str("json" if defaults.json else "web")
             + "[/blue])",
         )
         parser.add_argument(
@@ -138,14 +138,7 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.web,
-            help="writes 'profile.json' and opens the profile in the local web UI",
-        )
-        parser.add_argument(
-            "--port",
-            dest="port",
-            type=int,
-            default=defaults.port,
-            help=f"binds the web UI server to this port (default: {defaults.port})",
+            help="opens a web tab to view the profile (saved as 'profile.html')",
         )
         parser.add_argument(
             "--viewer",
