@@ -8,6 +8,8 @@
  *
  */
 
+#define PRINT_STATS 0
+
 class SampleInterval {
  public:
   /**
@@ -28,7 +30,9 @@ class SampleInterval {
   inline bool decrement(uint64_t sample, void *, size_t& ret) {
     _decrements += sample;
     if (unlikely(_decrements >= _increments + _sampleInterval)) {
+#if PRINT_STATS
       printf_("[%d] DEALLOC DECREMENT: %lu, %lu -> %lu\n", getpid(), _decrements, _increments, _decrements - _increments);
+#endif
       ret = _decrements - _increments;
       reset();
       frees += ret;
@@ -48,7 +52,9 @@ class SampleInterval {
     _increments += sample;
     if (unlikely(_increments >= _decrements + _sampleInterval)) {
       ret = _increments - _decrements;
+#if PRINT_STATS
       printf_("[%d] ALLOC INCREMENT: %lu, %lu -> %lu\n", getpid(), _decrements, _increments, _increments - _decrements);
+#endif
       reset();
       allocs += ret;
       return true;
@@ -60,15 +66,17 @@ class SampleInterval {
   void reset() {
     _increments = 0;
     _decrements = 0;
+#if PRINT_STATS
     printf_("FOOTPRINT = %lu\n", allocs - frees);
+#endif
   }
-
-  uint64_t frees;
-  uint64_t allocs;
 
   const uint64_t _sampleInterval;  /// the current sample interval
   uint64_t _increments;  /// the number of increments since the last sample
                          /// interval reset
   uint64_t _decrements;  /// the number of decrements since the last sample
                          /// interval reset
+  uint64_t allocs;
+  uint64_t frees;
+
 };

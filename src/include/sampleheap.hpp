@@ -271,7 +271,7 @@ class SampleHeap : public SuperHeap {
 
   void* _lastMallocTrigger;
   bool _freedLastMallocTrigger;
-  #if 1
+  #if 0
   typedef PoissonSampleInterval Sampler;
   #warning "Experimental use only: Poisson sampler"
   #else

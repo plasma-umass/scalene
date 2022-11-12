@@ -10,6 +10,8 @@
  *
  */
 
+#define PRINT_STATS 0
+
 class PoissonSampleInterval {
  public:
   /**
@@ -20,9 +22,6 @@ class PoissonSampleInterval {
     resetAlloc();
   }
 
-  uint64_t allocs;
-  uint64_t frees;
-  
   /**
    * @brief Deallocate an object; if sampled, return the size of the recorded sampling interval, else 0.
    *
@@ -39,7 +38,9 @@ class PoissonSampleInterval {
       ret = _allocSize[ptr];
       _allocSize.erase(ptr);
       frees += ret;
+#if PRINT_STATS
       printf_("DEALLOC %p %lu (%lu)\n", ptr, ret, (allocs - frees) / 1048576);
+#endif
       return true;
     }
   }
@@ -59,7 +60,9 @@ class PoissonSampleInterval {
       ret = prev + diff;
       _allocSize[ptr] = ret;
       allocs += ret;
+#if PRINT_STATS
       printf_("ALLOC %p %lu (%lu)\n", ptr, ret, (allocs - frees) / 1048576);
+#endif
       return true;
     }
     _tillNextAlloc -= sample;
@@ -74,7 +77,9 @@ class PoissonSampleInterval {
 
   uint64_t _tillNextAlloc;
   uint64_t _countdownAlloc;  /// the number of frees since the last sample interval
-
+  uint64_t allocs;
+  uint64_t frees;
+  
   std::unordered_map<void *, uint64_t> _allocSize;
   
   void resetAlloc() {
