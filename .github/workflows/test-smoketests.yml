@@ -38,6 +38,9 @@ jobs:
     - name: Build scalene
       run: pip -v install -e .
 
+    - name: Debugging with ssh
+      uses: lhotari/action-upterm@v1
+
     - name: cpu-only smoke test
       run: python -m scalene --cli --cpu-only test/testme.py
 
