@@ -402,7 +402,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   
   allocate_newline();
   // return 0;  
-  Py_IncRef(last_profiled_ret);
+  // Py_IncRef(last_profiled_ret);
   PyList_Append(static_cast<PyObject*>(module_pointers.invalidate_queue), last_profiled_ret);
 
   return 0;
@@ -421,6 +421,7 @@ static PyObject* populate_struct(PyObject* self, PyObject* args) {
   PyObject* last_profiled(PyObject_GetAttrString(scalene_class, "_Scalene__last_profiled"));
   Py_IncRef(last_profiled);
   PyObject* invalidate_queue(PyObject_GetAttrString(scalene_class, "_Scalene__invalidate_queue"));
+  Py_IncRef(invalidate_queue);
   module_pointers = {
     scalene_module,
     scalene_dict,
