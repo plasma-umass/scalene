@@ -40,24 +40,24 @@ class TraceConfig {
       return res->second;
     }
     if (strstr(filename, "site-packages") || strstr(filename, "/lib/python")) {
-      _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
+      _memoize.insert(std::pair<std::string, bool>(new std::string(filename), false));
       return false;
     }
 
     if (*filename == '<' && strstr(filename, "<ipython")) {
-      _memoize.insert(std::pair<std::string, bool>(std::string(filename), true));
+      _memoize.insert(std::pair<std::string, bool>(new std::string(filename), true));
       return true;
     }
 
     if (strstr(filename, "scalene/scalene")) {
-      _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
+      _memoize.insert(std::pair<std::string, bool>(new std::string(filename), false));
       return false;
     }
 
     if (owner != nullptr) {
       for (char* traceable : items) {
         if (strstr(filename, traceable)) {
-          _memoize.insert(std::pair<std::string, bool>(std::string(filename), true));
+          _memoize.insert(std::pair<std::string, bool>(new std::string(filename), true));
           return true;
         }
       }
@@ -80,7 +80,7 @@ class TraceConfig {
 
     // Now change back to the original current working directory.
     chdir(oldcwd);
-    _memoize.insert(std::pair<std::string, bool>(std::string(filename), result));
+    _memoize.insert(std::pair<std::string, bool>(new std::string(filename), result));
     return result;
   }
 
@@ -380,12 +380,13 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   PyList_SetItem(module_pointers.scalene_last_profiled, 0, static_cast<PyCodeObject*>(code)->co_filename);
   Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
   auto qqq = PyLong_FromLong(lineno);
-  
+  // Py_IncRef(qqq);
   PyList_SetItem(module_pointers.scalene_last_profiled, 1,  qqq);
-  Py_IncRef(qqq);
-  PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname,last_lineno ));
+  
   Py_IncRef(last_fname);
   Py_IncRef(last_lineno);
+  PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname,last_lineno ));
+  
   // Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
   // Py_IncRef(qqq);
     PyPtr<> current_fname_unicode =
