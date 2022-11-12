@@ -388,7 +388,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   Py_IncRef(last_fname);
   Py_IncRef(last_lineno);
   PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname,last_lineno ));
-  // return 0;
+  return 0;
   // Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
   // Py_IncRef(qqq);
     PyPtr<> current_fname_unicode =
