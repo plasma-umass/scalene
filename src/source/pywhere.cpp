@@ -402,6 +402,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   
   allocate_newline();
   // return 0;  
+  Py_IncRef(last_profiled_ret);
   PyList_Append(static_cast<PyObject*>(module_pointers.invalidate_queue), last_profiled_ret);
 
   return 0;
