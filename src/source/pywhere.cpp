@@ -402,8 +402,8 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   
   allocate_newline();
   // return 0;  
-  // Py_IncRef(last_profiled_ret);
-  PyList_Append(static_cast<PyObject*>(module_pointers.invalidate_queue), last_profiled_ret);
+  Py_IncRef(last_profiled_ret);
+  PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
 
   return 0;
 }
@@ -442,6 +442,7 @@ static PyObject* depopulate_struct(PyObject* self, PyObject* args) {
   Py_DECREF(m.scalene_class);
   Py_DECREF(m.scalene_class_dict);
   Py_DECREF(m.scalene_last_profiled);
+  Py_DECREF(m.invalidate_queue);
   module_pointers = {};
   Py_RETURN_NONE;
 }
