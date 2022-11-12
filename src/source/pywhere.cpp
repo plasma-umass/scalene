@@ -380,11 +380,11 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
   PyList_SetItem(module_pointers.scalene_last_profiled, 0, static_cast<PyCodeObject*>(code)->co_filename);
   
-  return 0;
+  
   auto qqq = PyLong_FromLong(lineno);
   // Py_IncRef(qqq);
   PyList_SetItem(module_pointers.scalene_last_profiled, 1,  qqq);
-  
+  return 0;
   Py_IncRef(last_fname);
   Py_IncRef(last_lineno);
   PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname,last_lineno ));
