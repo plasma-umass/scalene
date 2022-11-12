@@ -397,11 +397,11 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   auto current_fname_s = PyBytes_AsString(static_cast<PyObject*>(current_fname_unicode));
   
   PyList_SetItem(module_pointers.scalene_last_profiled, 2, PyLong_FromLong(PyFrame_GetLasti(static_cast<PyFrameObject*>(frame))));
-  return 0;  
+  
   // printf("NEWLINE REACHED, WAS ON %s %d, NOW ON %s %d\n", last_fname_s, lineno_l, current_fname_s, lineno);
   
   allocate_newline();
-
+  return 0;  
   PyList_Append(static_cast<PyObject*>(module_pointers.invalidate_queue), last_profiled_ret);
 
   return 0;
