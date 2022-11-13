@@ -409,7 +409,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   // return 0;  
   Py_IncRef(last_profiled_ret);
   PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
-  Py_DecRef(newline);
+  // Py_DecRef(newline);
   return 0;
 }
 
