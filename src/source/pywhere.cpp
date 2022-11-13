@@ -417,11 +417,11 @@ static PyObject* populate_struct(PyObject* self, PyObject* args) {
   PyObject* scalene_class(PyDict_GetItemString(PyModule_GetDict(scalene_profiler_module), "Scalene"));
   Py_IncRef(scalene_class);
   PyObject* scalene_class_dict(PyObject_GenericGetDict(scalene_class, NULL));
-  Py_IncRef(scalene_class_dict);
+  // Py_IncRef(scalene_class_dict);
   PyObject* last_profiled(PyObject_GetAttrString(scalene_class, "_Scalene__last_profiled"));
-  Py_IncRef(last_profiled);
+  // Py_IncRef(last_profiled);
   PyObject* invalidate_queue(PyObject_GetAttrString(scalene_class, "_Scalene__invalidate_queue"));
-  Py_IncRef(invalidate_queue);
+  // Py_IncRef(invalidate_queue);
   module_pointers = {
     scalene_module,
     scalene_dict,
