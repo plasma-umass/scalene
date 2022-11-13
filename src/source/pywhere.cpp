@@ -341,8 +341,10 @@ static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
 }
 
 static void allocate_newline() {
-  PyPtr<> abc(PyLong_FromLong(NEWLINE_TRIGGER_LENGTH));
-  PyPtr<PyObject> tmp(PyByteArray_FromObject(static_cast<PyObject*>(abc)));
+  PyObject* abc(PyLong_FromLong(NEWLINE_TRIGGER_LENGTH));
+  PyObject* tmp(PyByteArray_FromObject(static_cast<PyObject*>(abc)));
+  
+
 }
 
 static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg) {
@@ -400,7 +402,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   
   // printf("NEWLINE REACHED, WAS ON %s %d, NOW ON %s %d\n", last_fname_s, lineno_l, current_fname_s, lineno);
   
-  // allocate_newline();
+  allocate_newline();
   // return 0;  
   Py_IncRef(last_profiled_ret);
   PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
