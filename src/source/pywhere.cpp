@@ -344,6 +344,8 @@ static void allocate_newline() {
   PyObject* abc(PyLong_FromLong(NEWLINE_TRIGGER_LENGTH));
   PyObject* tmp(PyByteArray_FromObject(static_cast<PyObject*>(abc)));
   Py_DecRef(tmp);
+  PyObject* def(PyLong_FromLong(5));
+  Py_DecRef(def);
   // Py_DecRef(abc);
   // return tmp;
   
