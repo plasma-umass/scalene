@@ -340,16 +340,15 @@ static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
   return false;
 }
 
-static void allocate_newline() {
+static PyObject* allocate_newline() {
   PyObject* abc(PyLong_FromLong(NEWLINE_TRIGGER_LENGTH));
   PyObject* tmp(PyByteArray_FromObject(static_cast<PyObject*>(abc)));
   Py_DecRef(tmp);
-  PyObject* def(PyLong_FromLong(5));
-  Py_DecRef(def);
+
   // Py_DecRef(abc);
   // return tmp;
   
-
+  return abc;
 }
 
 static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg) {
@@ -407,11 +406,12 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   
   // printf("NEWLINE REACHED, WAS ON %s %d, NOW ON %s %d\n", last_fname_s, lineno_l, current_fname_s, lineno);
   
-  allocate_newline();
+  auto x = allocate_newline();
   // return 0;  
   Py_IncRef(last_profiled_ret);
   PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
   // Py_DecRef(newline);
+  Py_DecRef(x);
   return 0;
 }
 
