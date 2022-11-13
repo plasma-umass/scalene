@@ -343,7 +343,7 @@ static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
 static PyObject* allocate_newline() {
   PyObject* abc(PyLong_FromLong(NEWLINE_TRIGGER_LENGTH));
   PyObject* tmp(PyByteArray_FromObject(static_cast<PyObject*>(abc)));
-  Py_DecRef(abc);
+  // Py_DecRef(abc);
   return tmp;
   
 
@@ -408,7 +408,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   // return 0;  
   Py_IncRef(last_profiled_ret);
   PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
-  // Py_DecRef(newline);
+  Py_DecRef(newline);
   return 0;
 }
 
