@@ -400,7 +400,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   
   // printf("NEWLINE REACHED, WAS ON %s %d, NOW ON %s %d\n", last_fname_s, lineno_l, current_fname_s, lineno);
   
-  allocate_newline();
+  // allocate_newline();
   // return 0;  
   Py_IncRef(last_profiled_ret);
   PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
