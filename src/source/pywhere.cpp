@@ -379,7 +379,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
     
   auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
   auto x = TraceConfig::getInstance()->should_trace(fname);
-  Py_DecRef(co_filename);
+  
   if(! x) {
     return 0;
   }
@@ -409,7 +409,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   allocate_newline();
   Py_IncRef(last_profiled_ret);
   PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
-  
+  Py_DecRef(co_filename);
   return 0;
 }
 
