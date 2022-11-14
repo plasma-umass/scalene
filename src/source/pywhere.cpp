@@ -328,9 +328,7 @@ static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
           PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
     
     // doesn't work
-    PyPtr<> co_filename =
-    // PyObject* co_filename =
-          PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
+    PyPtr<> co_filename(PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename));
     auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
     // printf("\tITERATION %s %d: %s %d\n", outer_filename, lineno, fname, iter_lineno);
     if (iter_lineno == lineno && strstr(fname, outer_filename)) {
@@ -358,9 +356,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   }
   int lineno = PyFrame_GetLineNumber(frame);
   // WORKS
-  PyPtr<PyCodeObject> code =
-  // PyCodeObject* code = 
-        PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
+  PyPtr<PyCodeObject> code(PyFrame_GetCode(static_cast<PyFrameObject*>(frame)));
   PyObject* last_fname(PyList_GetItem(static_cast<PyObject*>(module_pointers.scalene_last_profiled), 0));
   
   PyObject* last_lineno(PyList_GetItem(static_cast<PyObject*>(module_pointers.scalene_last_profiled), 1));
@@ -369,13 +365,10 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
     return 0;
   }
   // WORKS
-  PyPtr<> last_fname_unicode =
-  // PyObject* last_fname_unicode =
-        PyUnicode_AsASCIIString(last_fname);
+  PyPtr<> last_fname_unicode( PyUnicode_AsASCIIString(last_fname));
   auto last_fname_s = PyBytes_AsString(static_cast<PyObject*>(last_fname_unicode));
     //  PyPtr<> co_filename =
-    PyObject* co_filename =
-        PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
+    PyPtr<> co_filename(PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename));
     
   auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
   auto x = TraceConfig::getInstance()->should_trace(fname);
@@ -390,7 +383,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   }
 
   PyEval_SetTrace(NULL, NULL);
-    Py_DecRef(co_filename);
+    // Py_DecRef(co_filename);
   Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
   PyList_SetItem(module_pointers.scalene_last_profiled, 0, static_cast<PyCodeObject*>(code)->co_filename);
   
@@ -402,11 +395,11 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname,last_lineno ));
   
     // Doesn't work
-    PyPtr<> current_fname_unicode =
-    // PyObject* current_fname_unicode =
-        PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
+    // PyPtr<> current_fname_unicode(PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename));
+
+        
   
-  auto current_fname_s = PyBytes_AsString(static_cast<PyObject*>(current_fname_unicode));
+  // auto current_fname_s = PyBytes_AsString(static_cast<PyObject*>(current_fname_unicode));
   PyList_SetItem(module_pointers.scalene_last_profiled, 2, PyLong_FromLong(PyFrame_GetLasti(static_cast<PyFrameObject*>(frame))));
   allocate_newline();
   Py_IncRef(last_profiled_ret);
