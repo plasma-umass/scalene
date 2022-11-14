@@ -322,10 +322,13 @@ static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
   while(frame != NULL) {
     int iter_lineno = PyFrame_GetLineNumber(frame);
     
-    // PyPtr<PyCodeObject> code =
-    PyCodeObject* code = 
+    // Doesn't work
+    PyPtr<PyCodeObject> code =
+    // PyCodeObject* code = 
           PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
-    PyPtr<> co_filename =
+    
+    // PyPtr<> co_filename =
+    PyObject* co_filename =
           PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
     auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
     // printf("\tITERATION %s %d: %s %d\n", outer_filename, lineno, fname, iter_lineno);
