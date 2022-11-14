@@ -301,7 +301,7 @@ class Scalene:
             fl = frame.f_lineno
             (fname, lineno, lasti) = Scalene.__last_profiled
             if (ff == fname) and (fl == lineno):
-                return None
+                return Scalene.invalidate_lines
             # Different line: stop tracing this frame.
             frame.f_trace = None
             frame.f_trace_lines = False
@@ -319,7 +319,6 @@ class Scalene:
                 Scalene.__invalidate_queue.append(
                     (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
                 )
-                print(threading.get_ident(), frame.f_code.co_filename, frame.f_lineno)
                 Scalene.update_line()
             Scalene.__last_profiled_invalidated = True
 
@@ -1270,8 +1269,6 @@ class Scalene:
                 with Scalene.__invalidate_mutex:
                     last_file, last_line = Scalene.__invalidate_queue.pop(0)
                 stats.memory_malloc_count[last_file][last_line] += 1
-                if last_line == 12:
-                    print("===")
                 stats.memory_aggregate_footprint[last_file][
                     last_line
                 ] += stats.memory_current_highwater_mark[last_file][last_line]
@@ -1294,8 +1291,6 @@ class Scalene:
                 stats.total_memory_malloc_samples += count
                 # Update current and max footprints for this file & line.
                 stats.memory_current_footprint[fname][lineno] += count
-                if lineno == 12:
-                    print(f"count {count} footprint {stats.memory_current_footprint[fname][lineno]}")
                 if (
                     stats.memory_current_footprint[fname][lineno]
                     > stats.memory_current_highwater_mark[fname][lineno]
@@ -1320,9 +1315,7 @@ class Scalene:
                 stats.memory_free_samples[fname][lineno] += count
                 stats.memory_free_count[fname][lineno] += 1
                 stats.total_memory_free_samples += count
-                stats.memory_current_footprint[fname][lineno] -= count
-                if lineno == 12:
-                    print(f"count {-count} footprint {stats.memory_current_footprint[fname][lineno]}")
+                stats.memory_current_footprint[fname][lineno] -= count∂
                 # Ensure that we never drop the current footprint below 0.
                 stats.memory_current_footprint[fname][lineno] = max(
                     0, stats.memory_current_footprint[fname][lineno]
