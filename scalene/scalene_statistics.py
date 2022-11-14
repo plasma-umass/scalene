@@ -37,6 +37,9 @@ class ScaleneStatistics:
         # total time spent in program being profiled
         self.elapsed_time: float = 0
 
+        # total allocation samples taken
+        self.alloc_samples: int = 0
+
         #   CPU samples for each location in the program
         #   spent in the interpreter
         self.cpu_samples_python: Dict[
@@ -179,6 +182,7 @@ class ScaleneStatistics:
         """Reset all statistics except for memory footprint."""
         self.start_time = 0
         self.elapsed_time = 0
+        self.alloc_samples = 0
         self.cpu_samples_python.clear()
         self.cpu_samples_c.clear()
         self.cpu_utilization.clear()
@@ -305,6 +309,7 @@ class ScaleneStatistics:
         "max_footprint_loc",
         "current_footprint",
         "elapsed_time",
+        "alloc_samples",
         "total_cpu_samples",
         "cpu_samples_c",
         "cpu_samples_python",
@@ -386,6 +391,7 @@ class ScaleneStatistics:
                     self.cpu_utilization, x.cpu_utilization
                 )
                 self.elapsed_time = max(self.elapsed_time, x.elapsed_time)
+                self.alloc_samples += x.alloc_samples
                 self.total_cpu_samples += x.total_cpu_samples
                 self.total_gpu_samples += x.total_gpu_samples
                 self.increment_per_line_samples(
