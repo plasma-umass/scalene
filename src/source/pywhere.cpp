@@ -352,8 +352,8 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
     return 0;
   }
   int lineno = PyFrame_GetLineNumber(frame);
-  // PyPtr<PyCodeObject> code =
-  PyCodeObject* code = 
+  PyPtr<PyCodeObject> code =
+  // PyCodeObject* code = 
         PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
   PyObject* last_fname(PyList_GetItem(static_cast<PyObject*>(module_pointers.scalene_last_profiled), 0));
   
