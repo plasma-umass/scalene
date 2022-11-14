@@ -388,10 +388,11 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   if (on_stack(last_fname_s, lineno_l, static_cast<PyFrameObject*>(frame))) {
     return 0;
   }
+  Py_DecRef(co_filename);
   PyEval_SetTrace(NULL, NULL);
   Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
   PyList_SetItem(module_pointers.scalene_last_profiled, 0, static_cast<PyCodeObject*>(code)->co_filename);
-  Py_DecRef(co_filename);
+  
   
   auto qqq = PyLong_FromLong(lineno);
   PyList_SetItem(module_pointers.scalene_last_profiled, 1,  qqq);
