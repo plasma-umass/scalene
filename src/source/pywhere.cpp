@@ -408,8 +408,9 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   PyList_SetItem(module_pointers.scalene_last_profiled, 2, PyLong_FromLong(PyFrame_GetLasti(static_cast<PyFrameObject*>(frame))));
   allocate_newline();
   Py_IncRef(last_profiled_ret);
-  PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
   Py_DecRef(co_filename);
+  PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
+  
   return 0;
 }
 
