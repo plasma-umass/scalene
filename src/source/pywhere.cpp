@@ -327,8 +327,9 @@ static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
     // PyCodeObject* code = 
           PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
     
-    // PyPtr<> co_filename =
-    PyObject* co_filename =
+    // doesn't work
+    PyPtr<> co_filename =
+    // PyObject* co_filename =
           PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
     auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
     // printf("\tITERATION %s %d: %s %d\n", outer_filename, lineno, fname, iter_lineno);
@@ -372,7 +373,8 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   // PyObject* last_fname_unicode =
         PyUnicode_AsASCIIString(last_fname);
   auto last_fname_s = PyBytes_AsString(static_cast<PyObject*>(last_fname_unicode));
-     PyPtr<> co_filename =
+    //  PyPtr<> co_filename =
+    PyObject* co_filename =
         PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
     
   auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
