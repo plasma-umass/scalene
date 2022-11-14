@@ -362,8 +362,8 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   if (lineno == lineno_l && PyUnicode_Compare(static_cast<PyObject*>(last_fname), static_cast<PyCodeObject*>(code)->co_filename) == 0) {
     return 0;
   }
-  // PyPtr<> last_fname_unicode =
-  PyObject* last_fname_unicode =
+  PyPtr<> last_fname_unicode =
+  // PyObject* last_fname_unicode =
         PyUnicode_AsASCIIString(last_fname);
   auto last_fname_s = PyBytes_AsString(static_cast<PyObject*>(last_fname_unicode));
      PyPtr<> co_filename =
@@ -390,7 +390,8 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   Py_IncRef(last_lineno);
   PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname,last_lineno ));
   
-    PyPtr<> current_fname_unicode =
+    // PyPtr<> current_fname_unicode =
+    PyObject* current_fname_unicode =
         PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
   
   auto current_fname_s = PyBytes_AsString(static_cast<PyObject*>(current_fname_unicode));
