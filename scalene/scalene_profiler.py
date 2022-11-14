@@ -40,6 +40,7 @@ import webbrowser
 from collections import defaultdict
 from importlib.abc import SourceLoader
 from importlib.machinery import ModuleSpec
+from jinja2 import Environment, FileSystemLoader
 from types import CodeType, FrameType
 from typing import (
     Any,
@@ -1705,10 +1706,6 @@ class Scalene:
     @staticmethod
     def generate_html(profile_fname, output_fname):
         """Apply a template to generate a single HTML payload containing the current profile."""
-
-        import os
-        import pathlib
-        from jinja2 import Environment, FileSystemLoader
 
         try:
             # Load the profile
