@@ -379,6 +379,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
     
   auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
   auto x = TraceConfig::getInstance()->should_trace(fname);
+  Py_DecRef(co_filename);
   if(! x) {
     return 0;
   }
