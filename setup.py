@@ -186,10 +186,10 @@ setup(
         'build_ext': BuildExtCommand,
     },
     install_requires=[
+        "wheel>=0.36.1",
         "rich>=9.2.0",
         "cloudpickle>=1.5.0",
         "pynvml>=11.0.0",
-        "wheel>=0.36.1",
         "Jinja2>=3.0.3",
     ],
     ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),
