@@ -71,11 +71,16 @@ class EggInfoCommand(setuptools.command.egg_info.egg_info):
 # Force building platform-specific wheel to avoid the Windows wheel
 # (which doesn't include libscalene, and thus would be considered "pure")
 # being used for other platforms.
-from wheel.bdist_wheel import bdist_wheel
-class BdistWheelCommand(bdist_wheel):
-    def finalize_options(self):
-        super().finalize_options()
-        self.root_is_pure = False
+try:
+    from wheel.bdist_wheel import bdist_wheel
+    class BdistWheelCommand(bdist_wheel):
+        def finalize_options(self):
+            super().finalize_options()
+            self.root_is_pure = False
+except ModuleNotFoundError:
+    # Ignore when wheel isn't installed.
+    class BdistWheelCommand():
+        pass
 
 import setuptools.command.build_ext
 class BuildExtCommand(setuptools.command.build_ext.build_ext):
