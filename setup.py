@@ -193,7 +193,7 @@ setup(
         "Jinja2>=3.0.3",
     ],
     ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),
-    setup_requires=['setuptools_scm'],
+    setup_requires=['wheel', 'setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
     python_requires=">=3.8",
