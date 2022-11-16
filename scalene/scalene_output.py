@@ -533,7 +533,7 @@ class ScaleneOutput:
             try:
                 with open(full_fname, "r", encoding="utf-8") as source_file:
                     code_lines = source_file.read()
-            except FileNotFoundError:
+            except FileNotFoundError, OSError:
                 continue
 
             # We track whether we should put in ellipsis (for reduced profiles)
