@@ -231,6 +231,7 @@ class ScaleneJSON:
 
         output: Dict[str, Any] = {
             "program": program,
+            "alloc_samples" : stats.alloc_samples,
             "elapsed_time_sec": stats.elapsed_time,
             "growth_rate": growth_rate,
             "max_footprint_mb": stats.max_footprint,

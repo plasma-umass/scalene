@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+import platform
 import sys
 from textwrap import dedent
 from typing import Any, List, NoReturn, Optional, Tuple
@@ -7,6 +8,7 @@ from typing import Any, List, NoReturn, Optional, Tuple
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_version import scalene_version, scalene_date
 
+scalene_gui_url = "https://plasma-umass.org/scalene-gui/"
 
 class RichArgParser(argparse.ArgumentParser):
     def __init__(self, *args: Any, **kwargs: Any):
@@ -109,7 +111,7 @@ for the process ID that Scalene reports. For example:
             const=True,
             default=defaults.html,
             help="output as HTML (default: [blue]"
-            + str("html" if defaults.html else "text")
+            + str("html" if defaults.html else "web")
             + "[/blue])",
         )
         parser.add_argument(
@@ -119,7 +121,7 @@ for the process ID that Scalene reports. For example:
             const=True,
             default=defaults.json,
             help="output as JSON (default: [blue]"
-            + str("json" if defaults.json else "text")
+            + str("json" if defaults.json else "web")
             + "[/blue])",
         )
         parser.add_argument(
@@ -136,14 +138,15 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.web,
-            help="writes 'profile.json' and opens the web UI (http://plasma-umass.org/scalene-gui/)",
+            help="opens a web tab to view the profile (saved as 'profile.html')",
         )
         parser.add_argument(
-            "--port",
-            dest="port",
-            type=int,
-            default=defaults.port,
-            help=f"binds the web UI server to this port (default: {defaults.port})",
+            "--viewer",
+            dest="viewer",
+            action="store_const",
+            const=True,
+            default=False,
+            help=f"only opens the web UI ({scalene_gui_url})",
         )
         parser.add_argument(
             "--reduced-profile",
@@ -160,18 +163,44 @@ for the process ID that Scalene reports. For example:
             help=f"output profiles every so many seconds (default: [blue]{defaults.profile_interval}[/blue])",
         )
         parser.add_argument(
-            "--cpu-only",
-            dest="cpu_only",
+            "--cpu",
+            dest="cpu",
             action="store_const",
             const=True,
-            default=defaults.cpu_only,
-            help="only profile CPU+GPU time (default: [blue]profile "
+            default=None,
+            help="profile CPU time (default: [blue] True [/blue])",
+        )
+        parser.add_argument(
+            "--cpu-only",
+            dest="cpu",
+            action="store_const",
+            const=True,
+            default=None,
+            help="profile CPU time ([red]deprecated: use --cpu [/red])",
+        )
+        parser.add_argument(
+            "--gpu",
+            dest="gpu",
+            action="store_const",
+            const=True,
+            default=None,
+            help="profile GPU time and memory (default: [blue]"
             + (
-                "CPU only"
-                if defaults.cpu_only
-                else "CPU+GPU, memory, and copying"
+                str(defaults.gpu)
             )
-            + "[/blue])",
+            + " [/blue])",
+        )
+        parser.add_argument(
+            "--memory",
+            dest="memory",
+            action="store_const",
+            const=True,
+            default=None,
+            help="profile memory (default: [blue]"
+            + (
+                str(defaults.memory)
+            )
+            + " [/blue])",
         )
         parser.add_argument(
             "--profile-all",
@@ -294,6 +323,30 @@ for the process ID that Scalene reports. For example:
         left += args.unused_args
         import re
 
+        # Launch the UI if `--viewer` was selected.
+        if args.viewer:
+            import webbrowser
+            if webbrowser.get() and type(webbrowser.get()).__name__ != "GenericBrowser":
+                webbrowser.open(scalene_gui_url)
+            else:
+                print(f"Scalene: could not open {scalene_gui_url}.")
+            sys.exit(0)
+
+        # If any of the individual profiling metrics were specified,
+        # disable the unspecified ones (set as None).
+        if args.cpu or args.gpu or args.memory:
+            if not args.memory:
+                args.memory = False
+            if not args.gpu:
+                args.gpu = False
+        else:
+            # Nothing specified; use defaults.
+            args.cpu = defaults.cpu
+            args.gpu = defaults.gpu
+            args.memory = defaults.memory
+            
+        args.cpu = True # Always true
+        
         in_jupyter_notebook = len(sys.argv) >= 1 and re.match(
             r"ipython-input-([0-9]+)-.*", sys.argv[0]
         )

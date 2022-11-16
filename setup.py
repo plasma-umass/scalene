@@ -71,11 +71,15 @@ class EggInfoCommand(setuptools.command.egg_info.egg_info):
 # Force building platform-specific wheel to avoid the Windows wheel
 # (which doesn't include libscalene, and thus would be considered "pure")
 # being used for other platforms.
-from wheel.bdist_wheel import bdist_wheel
-class BdistWheelCommand(bdist_wheel):
-    def finalize_options(self):
-        super().finalize_options()
-        self.root_is_pure = False
+try:
+    from wheel.bdist_wheel import bdist_wheel
+    class BdistWheelCommand(bdist_wheel):
+        def finalize_options(self):
+            super().finalize_options()
+            self.root_is_pure = False
+except ModuleNotFoundError:
+    print("You need to install the wheel package, as in `pip install wheel`.")
+    sys.exit(1)
 
 import setuptools.command.build_ext
 class BuildExtCommand(setuptools.command.build_ext.build_ext):
@@ -186,12 +190,14 @@ setup(
         'build_ext': BuildExtCommand,
     },
     install_requires=[
+        "wheel>=0.36.1",
         "rich>=9.2.0",
         "cloudpickle>=1.5.0",
         "pynvml>=11.0.0",
+        "Jinja2>=3.0.3",
     ],
     ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),
-    setup_requires=['setuptools_scm'],
+    setup_requires=['wheel', 'setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
     python_requires=">=3.8",

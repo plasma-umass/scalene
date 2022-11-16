@@ -19,7 +19,7 @@ import builtins
 import contextlib
 import functools
 import gc
-import http.server
+import importlib
 import inspect
 import json
 import math
@@ -38,8 +38,22 @@ import time
 import traceback
 import webbrowser
 from collections import defaultdict
-from types import FrameType
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, cast
+from importlib.abc import SourceLoader
+from importlib.machinery import ModuleSpec
+from jinja2 import Environment, FileSystemLoader
+from types import CodeType, FrameType
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_client_timer import ScaleneClientTimer
@@ -114,6 +128,73 @@ def stop() -> None:
     Scalene.stop()
 
 
+def _get_module_details(
+    mod_name: str,
+    error: Type[Exception] = ImportError,
+) -> Tuple[str, ModuleSpec, CodeType]:
+    """Copy of `runpy._get_module_details`, but not private."""
+    if mod_name.startswith("."):
+        raise error("Relative module names not supported")
+    pkg_name, _, _ = mod_name.rpartition(".")
+    if pkg_name:
+        # Try importing the parent to avoid catching initialization errors
+        try:
+            __import__(pkg_name)
+        except ImportError as e:
+            # If the parent or higher ancestor package is missing, let the
+            # error be raised by find_spec() below and then be caught. But do
+            # not allow other errors to be caught.
+            if e.name is None or (e.name != pkg_name and
+                    not pkg_name.startswith(e.name + ".")):
+                raise
+        # Warn if the module has already been imported under its normal name
+        existing = sys.modules.get(mod_name)
+        if existing is not None and not hasattr(existing, "__path__"):
+            from warnings import warn
+            msg = "{mod_name!r} found in sys.modules after import of " \
+                "package {pkg_name!r}, but prior to execution of " \
+                "{mod_name!r}; this may result in unpredictable " \
+                "behaviour".format(mod_name=mod_name, pkg_name=pkg_name)
+            warn(RuntimeWarning(msg))
+
+    try:
+        spec = importlib.util.find_spec(mod_name)
+    except (ImportError, AttributeError, TypeError, ValueError) as ex:
+        # This hack fixes an impedance mismatch between pkgutil and
+        # importlib, where the latter raises other errors for cases where
+        # pkgutil previously raised ImportError
+        msg = "Error while finding module specification for {!r} ({}: {})"
+        if mod_name.endswith(".py"):
+            msg += (f". Try using '{mod_name[:-3]}' instead of "
+                    f"'{mod_name}' as the module name.")
+        raise error(msg.format(mod_name, type(ex).__name__, ex)) from ex
+    if spec is None:
+        raise error("No module named %s" % mod_name)
+    if spec.submodule_search_locations is not None:
+        if mod_name == "__main__" or mod_name.endswith(".__main__"):
+            raise error("Cannot use package as __main__ module")
+        try:
+            pkg_main_name = mod_name + ".__main__"
+            return _get_module_details(pkg_main_name, error)
+        except error as e:
+            if mod_name not in sys.modules:
+                raise  # No module loaded; being a package is irrelevant
+            raise error(("%s; %r is a package and cannot " +
+                               "be directly executed") %(e, mod_name))
+    loader = spec.loader
+    # use isinstance instead of `is None` to placate mypy
+    if not isinstance(loader, SourceLoader):
+        raise error("%r is a namespace package and cannot be executed"
+                                                                 % mod_name)
+    try:
+        code = loader.get_code(mod_name)
+    except ImportError as e:
+        raise error(format(e)) from e
+    if code is None:
+        raise error("No code object available for %s" % mod_name)
+    return mod_name, spec, code
+
+
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -129,8 +210,7 @@ class Scalene:
     __last_profiled_invalidated = False
     __gui_dir = "scalene-gui"
     __profile_filename = "profile.json"
-    __localhost = "http://localhost"
-    __profiler_html = "profiler.html"
+    __profiler_html = "profile.html"
     __error_message = "Error in program being profiled"
     BYTES_PER_MB = 1024 * 1024
 
@@ -615,7 +695,7 @@ class Scalene:
             Scalene.__memcpy_mapfile = ScaleneMapFile("memcpy")
         except Exception:
             # Ignore if we aren't profiling memory; otherwise, exit.
-            if not arguments.cpu_only:
+            if arguments.memory:
                 sys.exit(1)
 
         Scalene.__signals.set_timer_signals(arguments.use_virtual_time)
@@ -644,8 +724,12 @@ class Scalene:
                 cmdline += " --use-virtual-time"
             if "off" in arguments and arguments.off:
                 cmdline += " --off"
-            if arguments.cpu_only:
-                cmdline += " --cpu-only"
+            if arguments.cpu:
+                cmdline += " --cpu"
+            if arguments.gpu:
+                cmdline += " --gpu"
+            if arguments.memory:
+                cmdline += " --memory"
 
             environ = ScalenePreload.get_preload_environ(arguments)
             preface = " ".join(
@@ -676,7 +760,10 @@ class Scalene:
                 + os.environ["PATH"]
             )
             # Force the executable (if anyone invokes it later) to point to one of our aliases.
-            sys.executable = Scalene.__all_python_names[0]
+            sys.executable = os.path.join(
+                Scalene.__python_alias_dir,
+                Scalene.__all_python_names[0],
+            )
 
         # Register the exit handler to run when the program terminates or we quit.
         atexit.register(Scalene.exit_handler)
@@ -791,7 +878,7 @@ class Scalene:
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
-                profile_memory=not Scalene.__args.cpu_only,
+                profile_memory=Scalene.__args.memory,
             )
             if not Scalene.__output.output_file:
                 Scalene.__output.output_file = "/dev/stdout"
@@ -821,7 +908,7 @@ class Scalene:
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
-                profile_memory=not Scalene.__args.cpu_only,
+                profile_memory=Scalene.__args.memory,
                 reduced_profile=Scalene.__args.reduced_profile,
             )
             return did_output
@@ -1164,6 +1251,8 @@ class Scalene:
                     )
                 )
 
+        stats.alloc_samples += len(arr)
+        
         # Iterate through the array to compute the new current footprint
         # and update the global __memory_footprint_samples. Since on some systems,
         # we get free events before mallocs, force `before` to always be at least 0.
@@ -1204,21 +1293,22 @@ class Scalene:
                 ):
                     freed_last_trigger += 1
             timestamp = time.monotonic_ns() - Scalene.__start_time
-            if len(stats.memory_footprint_samples) > 2:
-                # Compress the footprints by discarding intermediate
-                # points along increases and decreases. For example:
-                # if the new point is an increase over the previous
-                # point, and that point was also an increase,
-                # eliminate the previous (intermediate) point.
-                (t1, prior_y) = stats.memory_footprint_samples[-2]
-                (t2, last_y) = stats.memory_footprint_samples[-1]
-                y = stats.current_footprint
-                if prior_y < last_y < y or prior_y > last_y > y:
-                    # Same direction.
-                    # Replace the previous (intermediate) point.
-                    stats.memory_footprint_samples[-1] = [timestamp, y]
-                else:
-                    stats.memory_footprint_samples.append([timestamp, y])
+            if False:
+                if len(stats.memory_footprint_samples) > 2:
+                    # Compress the footprints by discarding intermediate
+                    # points along increases and decreases. For example:
+                    # if the new point is an increase over the previous
+                    # point, and that point was also an increase,
+                    # eliminate the previous (intermediate) point.
+                    (t1, prior_y) = stats.memory_footprint_samples[-2]
+                    (t2, last_y) = stats.memory_footprint_samples[-1]
+                    y = stats.current_footprint
+                    if prior_y < last_y < y or prior_y > last_y > y:
+                        # Same direction.
+                        # Replace the previous (intermediate) point.
+                        stats.memory_footprint_samples[-1] = [timestamp, y]
+                    else:
+                        stats.memory_footprint_samples.append([timestamp, y])
             else:
                 stats.memory_footprint_samples.append(
                     [
@@ -1435,14 +1525,12 @@ class Scalene:
         """Return true if the filename is one we should trace."""
         if not filename:
             return False
-        if (
-            "scalene/scalene" in filename
-        ):  # lgtm [py/member-test-non-container]
+        if os.path.join("scalene", "scalene") in filename:
             # Don't profile the profiler.
             return False
         if (
             "site-packages" in filename
-            or "/lib/python" in filename  # lgtm [py/member-test-non-container]
+            or f"{os.sep}lib{os.sep}python" in filename
         ) and not Scalene.__args.profile_all:
             return False
         # Generic handling follows (when no @profile decorator has been used).
@@ -1616,6 +1704,35 @@ class Scalene:
         with contextlib.suppress(Exception):
             os.remove(f"/tmp/scalene-malloc-lock{os.getpid()}")
 
+    @staticmethod
+    def generate_html(profile_fname, output_fname):
+        """Apply a template to generate a single HTML payload containing the current profile."""
+
+        try:
+            # Load the profile
+            profile_file = pathlib.Path(profile_fname)
+            profile = profile_file.read_text()
+        except FileNotFoundError:
+            return
+
+        # Load the GUI JavaScript file.
+        scalene_dir = os.path.dirname(__file__)
+        gui_fname = os.path.join(scalene_dir, "scalene-gui", "scalene-gui.js")
+        gui_file = pathlib.Path(gui_fname)
+        gui_js = gui_file.read_text()
+
+        # Put the profile and everything else into the template.
+        environment = Environment(loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui")))
+        template = environment.get_template("index.html.template")
+        rendered_content = template.render(profile=profile,gui_js=gui_js)
+
+        # Write the rendered content to the specified output file.
+        try:
+            with open(output_fname, "w") as f:
+                f.write(rendered_content)
+        except OSError:
+            pass
+    
     def profile_code(
         self,
         code: str,
@@ -1669,84 +1786,10 @@ class Scalene:
             ):
                 return exit_status
 
-            # Start up a web server (in a background thread) to host the GUI,
-            # and open a browser tab to the server. If this fails, fail-over
-            # to using the CLI.
-
-            try:
-                PORT = Scalene.__args.port
-
-                # Silence web server output by overriding logging messages.
-                class NoLogs(http.server.SimpleHTTPRequestHandler):
-                    def log_message(
-                        self, format: str, *args: List[Any]
-                    ) -> None:
-                        return
-
-                    def log_request(
-                        self,
-                        code: Union[int, str] = 0,
-                        size: Union[int, str] = 0,
-                    ) -> None:
-                        return
-
-                Handler = NoLogs
-                socketserver.TCPServer.allow_reuse_address = True
-                with socketserver.TCPServer(("", PORT), Handler) as httpd:
-                    t = threading.Thread(target=httpd.serve_forever)
-                    # Copy files into a new directory and then point the tab there.
-                    import shutil
-
-                    webgui_dir = pathlib.Path(
-                        tempfile.mkdtemp(prefix=Scalene.__gui_dir)
-                    )
-                    shutil.copytree(
-                        os.path.join(
-                            os.path.dirname(__file__), Scalene.__gui_dir
-                        ),
-                        os.path.join(webgui_dir, Scalene.__gui_dir),
-                    )
-                    shutil.copy(
-                        Scalene.__profile_filename,
-                        os.path.join(webgui_dir, Scalene.__gui_dir),
-                    )
-                    os.chdir(os.path.join(webgui_dir, Scalene.__gui_dir))
-                    t.start()
-                    if Scalene.in_jupyter():
-                        from IPython.core.display import display
-                        from IPython.display import IFrame
-                        display(
-                            IFrame(
-                                src=f"{Scalene.__localhost}:{PORT}/{Scalene.__profiler_html}",
-                                width="100%",
-                                height=600,
-                            )
-                        )
-                    else:
-                        # Disable the preload environment
-                        # variables which are no longer needed
-                        # anyway (for memory/copy volume tracking)
-                        # and which interfere with at least one
-                        # browser on one platform.
-                        os.environ["LD_PRELOAD"] = ""
-                        os.environ["DYLD_INSERT_LIBRARIES"] = ""
-                        # Now open a tab with the profiler.
-                        webbrowser.open(
-                            f"{Scalene.__localhost}:{PORT}/{Scalene.__profiler_html}"
-                        )
-                    # Wait long enough for the server to serve the page, and then shut down the server.
-                    time.sleep(5)
-                    httpd.shutdown()
-            except OSError:
-                print(
-                    f"Scalene: unable to run the Scalene GUI on port {PORT}."
-                )
-                print("Possible solutions:")
-                print("(1) Use a different port (with --port)")
-                print("(2) Use the text version (with --cli)")
-                print(
-                    "(3) Upload a generated profile.json file to the web GUI: https://plasma-umass.org/scalene-gui/."
-                )
+            Scalene.generate_html(profile_fname=Scalene.__profile_filename, output_fname=Scalene.__profiler_html)
+            webbrowser.open(
+                f"file:///{os.getcwd()}/{Scalene.__profiler_html}"
+            )
 
         return exit_status
 
@@ -1762,6 +1805,10 @@ class Scalene:
         Scalene.__is_child = args.pid != 0
         # the pid of the primary profiler
         Scalene.__parent_pid = args.pid if Scalene.__is_child else os.getpid()
+        # Don't profile the GPU if not enabled (i.e., either no options or --cpu and/or --memory, but no --gpu).
+        if not Scalene.__args.gpu:
+            Scalene.__output.gpu = False
+            Scalene.__json.gpu = False
 
     @staticmethod
     def set_initialized() -> None:
@@ -1834,6 +1881,23 @@ class Scalene:
             progs = None
             exit_status = 0
             try:
+                if len(sys.argv) >= 2 and sys.argv[0] == "-m":
+                    module = True
+
+                    # Remove -m and the provided module name
+                    _, mod_name, *sys.argv = sys.argv
+
+                    # Given `some.module`, find the path of the corresponding
+                    # some/module/__main__.py or some/module.py file to run.
+                    _, spec, _ = _get_module_details(mod_name)
+                    if not spec.origin:
+                        raise FileNotFoundError
+
+                    # Prepend the found .py file to arguments
+                    sys.argv.insert(0, spec.origin)
+                else:
+                    module = False
+
                 # Look for something ending in '.py'. Treat the first one as our executable.
                 progs = [x for x in sys.argv if re.match(r".*\.py$", x)]
                 # Just in case that didn't work, try sys.argv[0] and __file__.
@@ -1855,7 +1919,9 @@ class Scalene:
                         sys.exit(1)
                     # Push the program's path.
                     program_path = os.path.dirname(os.path.abspath(progs[0]))
-                    sys.path.insert(0, program_path)
+                    if not module:
+                        sys.path.insert(0, program_path)
+
                     # If a program path was specified at the command-line, use it.
                     if len(args.program_path) > 0:
                         Scalene.__program_path = os.path.abspath(
@@ -1865,7 +1931,7 @@ class Scalene:
                         # Otherwise, use the invoked directory.
                         Scalene.__program_path = os.getcwd()
                     # Grab local and global variables.
-                    if not Scalene.__args.cpu_only:
+                    if Scalene.__args.memory:
                         from scalene import pywhere  # type: ignore
                         print("FILES", Scalene.__files_to_profile)
                         print("PROGRAM PATH", Scalene.__program_path)
