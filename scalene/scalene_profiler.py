@@ -1522,15 +1522,12 @@ class Scalene:
         """Return true if the filename is one we should trace."""
         if not filename:
             return False
-        if (
-            "scalene/scalene" in filename
-            or "scalene\scalene" in filename
-        ):  # lgtm [py/member-test-non-container]
+        if os.path.join("scalene", "scalene") in filename:
             # Don't profile the profiler.
             return False
         if (
             "site-packages" in filename
-            or "/lib/python" in filename  # lgtm [py/member-test-non-container]
+            or f"{os.sep}lib{os.sep}python" in filename
         ) and not Scalene.__args.profile_all:
             return False
         # Generic handling follows (when no @profile decorator has been used).
