@@ -1524,6 +1524,7 @@ class Scalene:
             return False
         if (
             "scalene/scalene" in filename
+            or "scalene\scalene" in filename
         ):  # lgtm [py/member-test-non-container]
             # Don't profile the profiler.
             return False
