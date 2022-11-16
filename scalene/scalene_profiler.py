@@ -1715,12 +1715,13 @@ class Scalene:
             return
 
         # Load the GUI JavaScript file.
-        gui_fname = os.path.join("scalene", "scalene-gui", "scalene-gui.js")
+        scalene_dir = os.path.dirname(__file__)
+        gui_fname = os.path.join(scalene_dir, "scalene-gui", "scalene-gui.js")
         gui_file = pathlib.Path(gui_fname)
         gui_js = gui_file.read_text()
 
         # Put the profile and everything else into the template.
-        environment = Environment(loader=FileSystemLoader(os.path.join("scalene", "scalene-gui")))
+        environment = Environment(loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui")))
         template = environment.get_template("index.html.template")
         rendered_content = template.render(profile=profile,gui_js=gui_js)
 
