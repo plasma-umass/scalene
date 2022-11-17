@@ -181,7 +181,8 @@ static PyPtr<PyFrameObject> findMainPythonThread_frame() {
 
   return PyPtr<PyFrameObject>(main ? PyThreadState_GetFrame(main) : nullptr);
 }
-
+// I'm not sure whether last_profiled_invalidated is quite needed, so I'm leaving this infrastructure here
+//
 // PyObject* get_last_profiled_invalidated(PyObject* self, PyObject* args) {
 //   if (last_profiled_invalidated) {
 //     Py_RETURN_TRUE;
@@ -308,39 +309,26 @@ typedef struct {
 } unchanging_modules;
 
 static unchanging_modules module_pointers;
-// static PyPtr<PyObject> scalene_module(PyImport_GetModule(PyUnicode_FromString("scalene")));
 
-// static PyObject* scalene_dict(PyModule_GetDict(static_cast<PyObject*>(scalene_module)));
-
-// static PyObject* scalene_profiler_module(PyDict_GetItemString(scalene_dict, "scalene_profiler"));
-
-// static PyObject* scalene_class(PyDict_GetItemString(PyModule_GetDict(scalene_profiler_module), "Scalene"));
-
-// static PyObject* scalene_class_dict(PyObject_GenericGetDict(scalene_class, NULL));
 
 static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
   // printf("BEGIN ITERATION\n");
   while(frame != NULL) {
     int iter_lineno = PyFrame_GetLineNumber(frame);
     
-    // Doesn't work
+
     PyPtr<PyCodeObject> code =
-    // PyCodeObject* code = 
           PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
-    
-    // doesn't work
+
     PyPtr<> co_filename(PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename));
     auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
-    // printf("\tITERATION %s %d: %s %d\n", outer_filename, lineno, fname, iter_lineno);
     if (iter_lineno == lineno && strstr(fname, outer_filename)) {
-      // printf("END ITERATION\n");
       Py_XDECREF(frame);
       return true;
     }
     Py_XDECREF(frame);
-     frame = PyFrame_GetBack(frame);
+    frame = PyFrame_GetBack(frame);
   }
-  // printf("END ITERATION\n");
   return false;
 }
 
@@ -367,10 +355,8 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   if (lineno == lineno_l && PyUnicode_Compare(static_cast<PyObject*>(last_fname), static_cast<PyCodeObject*>(code)->co_filename) == 0) {
     return 0;
   }
-  // WORKS
   PyPtr<> last_fname_unicode( PyUnicode_AsASCIIString(last_fname));
   auto last_fname_s = PyBytes_AsString(static_cast<PyObject*>(last_fname_unicode));
-    //  PyPtr<> co_filename =
     PyPtr<> co_filename(PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename));
     
   auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
@@ -379,7 +365,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   if(! x) {
     return 0;
   }
-  // Needed because decref will be called later
+  // Needed because decref will be called in on_stack
   Py_INCREF(frame);
   if (on_stack(last_fname_s, lineno_l, static_cast<PyFrameObject*>(frame))) {
     return 0;
@@ -394,12 +380,6 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
 
   PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname,last_lineno ));
 
-    // Doesn't work
-    // PyPtr<> current_fname_unicode(PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename));
-
-        
-  
-  // auto current_fname_s = PyBytes_AsString(static_cast<PyObject*>(current_fname_unicode));
   res = PyList_SetItem(module_pointers.scalene_last_profiled, 2, PyLong_FromLong(PyFrame_GetLasti(static_cast<PyFrameObject*>(frame))));
 
   allocate_newline();

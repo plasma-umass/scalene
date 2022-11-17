@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 15  # on macos-latest, pypy-3.7 it builds numpy and others
     strategy:
       matrix:
-        os: [ ubuntu-latest] #, macos-latest ] # disabling windows-latest for now
+        os: [ ubuntu-latest, macos-latest ] # disabling windows-latest for now
         python: [ '3.9', '3.10' ] # temporarily disabling pypy-3.7
 
     steps:
@@ -37,14 +37,6 @@ jobs:
 
     - name: Build scalene
       run: pip -v install -e .
-
-    # - name: Install gdb
-    #   run: sudo apt-get install gdb
-
-    # - name: Debugging with ssh
-    #   uses: lhotari/action-upterm@v1
-    #   with:
-    #     limit-access-to-actor: true
 
     - name: cpu-only smoke test
       run: python -m scalene --cli --cpu-only test/testme.py
