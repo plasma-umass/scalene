@@ -402,14 +402,14 @@ class Scalene:
                 Scalene.update_line()
             Scalene.__last_profiled_invalidated = True
 
-            Scalene.__last_profiled = (
+            Scalene.__last_profiled = [
                 Filename("NADA"),
                 LineNumber(0),
                 ByteCodeIndex(0)
                 #     Filename(ff),
                 #     LineNumber(fl),
                 #     ByteCodeIndex(frame.f_lasti),
-            )
+            ]
             return None
         except AttributeError:
             # This can happen when Scalene shuts down.
