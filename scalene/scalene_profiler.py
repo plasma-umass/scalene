@@ -381,13 +381,13 @@ class Scalene:
             fl = frame.f_lineno
             (fname, lineno, lasti) = Scalene.__last_profiled
             if (ff == fname) and (fl == lineno):
-                return None
+                return Scalene.invalidate_lines_python
             # Different line: stop tracing this frame.
             frame.f_trace = None
             frame.f_trace_lines = False
             # If we are not in a file we should be tracing, return.
-            if not Scalene.should_trace(ff):
-                return None
+            # if not Scalene.should_trace(ff):
+            #     return None
             if f := Scalene.on_stack(frame, fname, lineno):
                 # We are still on the same line, but somewhere up the stack
                 # (since we returned when it was the same line in this
