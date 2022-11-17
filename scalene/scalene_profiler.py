@@ -564,7 +564,7 @@ class Scalene:
         # TODO: assess the necessity of the following block
         invalidated = Scalene.__last_profiled_invalidated
         (fname, lineno, lasti) = Scalene.__last_profiled
-        if invalidated or not (
+        if not invalidated and not (
             fname == Filename(f.f_code.co_filename)
             and lineno == LineNumber(f.f_lineno)
         ):
