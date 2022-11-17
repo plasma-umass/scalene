@@ -562,21 +562,26 @@ class Scalene:
         # First, see if we have now executed a different line of code.
         # If so, increment.
         # TODO: assess the necessity of the following block
-        # if invalidated or not (
-        #     fname == Filename(f.f_code.co_filename)
-        #     and lineno == LineNumber(f.f_lineno)
-        # ):
-        #     with Scalene.__invalidate_mutex:
-        #         Scalene.__invalidate_queue.append(
-        #             (Filename(f.f_code.co_filename), LineNumber(f.f_lineno))
-        #         )
-        #         Scalene.update_line()
+        invalidated = Scalene.__last_profiled_invalidated
+        (fname, lineno, lasti) = Scalene.__last_profiled
+        if invalidated or not (
+            fname == Filename(f.f_code.co_filename)
+            and lineno == LineNumber(f.f_lineno)
+        ):
+            with Scalene.__invalidate_mutex:
+                Scalene.__invalidate_queue.append(
+                    (Filename(f.f_code.co_filename), LineNumber(f.f_lineno))
+                )
+                Scalene.update_line()
         Scalene.__last_profiled[0] = Filename(f.f_code.co_filename)
         Scalene.__last_profiled[1] = LineNumber(f.f_lineno)
         Scalene.__last_profiled[2] = ByteCodeIndex(f.f_lasti)
+        sys.settrace(Scalene.invalidate_lines_python)
+        f.f_trace = Scalene.invalidate_lines_python
 
+        f.f_trace_lines = True
         Scalene.__alloc_sigq.put([0])
-        pywhere.enable_settrace()
+        # pywhere.enable_settrace()
         del this_frame
 
     @staticmethod
@@ -1734,7 +1739,7 @@ class Scalene:
     ) -> int:
         """Initiate execution and profiling."""
         # If --off is set, tell all children to not profile and stop profiling before we even start.
-        pywhere.populate_struct()
+        # pywhere.populate_struct()
         if "off" not in Scalene.__args or not Scalene.__args.off:
             self.start()
         # Run the code being profiled.
@@ -1754,9 +1759,9 @@ class Scalene:
             exit_status = 1
         finally:
             self.stop()
-            pywhere.disable_settrace()
-            pywhere.depopulate_struct()
-
+            # pywhere.disable_settrace()
+            # pywhere.depopulate_struct()
+            sys.settrace(None)
             stats = Scalene.__stats
             (last_file, last_line, _) = Scalene.__last_profiled
             stats.memory_malloc_count[last_file][last_line] += 1
