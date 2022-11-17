@@ -1,0 +1,178 @@
+================================
+ Docutils_ Internationalization
+================================
+
+:Author: David Goodger
+:Contact: docutils-develop@lists.sourceforge.net
+:Date: $Date$
+:Revision: $Revision$
+:Copyright: This document has been placed in the public domain.
+
+
+.. contents::
+
+
+This document describes the internationalization facilities of the
+Docutils_ project.  `Introduction to i18n`_ by Tomohiro KUBOTA is a
+good general reference.  "Internationalization" is often abbreviated
+as "i18n": "i" + 18 letters + "n".
+
+.. Note::
+
+   The i18n facilities of Docutils should be considered a "first
+   draft".  They work so far, but improvements are welcome.
+   Specifically, standard i18n facilities like "gettext" have yet to
+   be explored.
+
+Docutils is designed to work flexibly with text in multiple languages
+(one language at a time).  Language-specific features are (or should
+be [#]_) fully parameterized.  To enable a new language, two modules
+have to be added to the project: one for Docutils itself (the
+`Docutils Language Module`_) and one for the reStructuredText parser
+(the `reStructuredText Language Module`_). Users may add local language
+support via a module in the PYTHONPATH root (e.g. the working directory).
+
+.. [#] If anything in Docutils is insufficiently parameterized, it
+   should be considered a bug.  Please report bugs to the Docutils
+   project bug tracker on SourceForge at
+   https://sourceforge.net/p/docutils/bugs/
+
+.. _Docutils: https://docutils.sourceforge.io/
+.. _Introduction to i18n:
+   http://www.debian.org/doc/manuals/intro-i18n/
+
+
+Language Module Names
+=====================
+
+Language modules are named using `language tags`_ as defined in
+`BCP 47`_. [#]_ in lowercase, converting hyphens to underscores [#]_.
+
+A typical language identifier consists of a 2-letter language code
+from `ISO 639`_ (3-letter codes can be used if no 2-letter code
+exists). The language identifier can have an optional subtag,
+typically for variations based on country (from `ISO 3166`_ 2-letter
+country codes).  If no language identifier is specified, the default
+is "en" for English.  Examples of module names include ``en.py``,
+``fr.py``, ``ja.py``, and ``pt_br.py``.
+
+.. [#] BCP stands for 'Best Current Practice', and is a persistent
+   name for a series of RFCs whose numbers change as they are updated.
+   The latest RFC describing language tag syntax is RFC 5646, Tags for
+   the Identification of Languages, and it obsoletes the older RFCs
+   4646, 3066 and 1766.
+
+.. [#] Subtags are separated from primary tags by underscores instead
+   of hyphens, to conform to Python naming rules.
+
+.. _language tags: https://www.w3.org/International/articles/language-tags/
+.. _BCP 47: https://www.rfc-editor.org/rfc/bcp/bcp47.txt
+.. _ISO 639: http://www.loc.gov/standards/iso639-2/php/English_list.php
+.. _ISO 3166: http://www.iso.ch/iso/en/prods-services/iso3166ma/
+   02iso-3166-code-lists/index.html
+
+
+Docutils Language Module
+========================
+
+Modules in ``docutils/languages`` contain language mappings for
+markup-independent language-specific features of Docutils.  To make a
+new language module, just copy the ``en.py`` file, rename it with the
+code for your language (see `Language Module Names`_ above), and
+translate the terms as described below.
+
+Each Docutils language module contains three module attributes:
+
+``labels``
+    This is a mapping of node class names to language-dependent
+    boilerplate label text.  The label text is used by Writer
+    components when they encounter document tree elements whose class
+    names are the mapping keys.
+
+    The entry values (*not* the keys) should be translated to the
+    target language.
+
+``bibliographic_fields``
+    This is a mapping of language-dependent field names (converted to
+    lower case) to canonical field names (keys of
+    ``DocInfo.biblio_notes`` in ``docutils.transforms.frontmatter``).
+    It is used when transforming bibliographic fields.
+
+    The keys should be translated to the target language.
+
+``author_separators``
+    This is a list of strings used to parse the 'Authors'
+    bibliographic field.  They separate individual authors' names, and
+    are tried in order (i.e., earlier items take priority, and the
+    first item that matches wins).  The English-language module
+    defines them as ``[';', ',']``; semi-colons can be used to
+    separate names like "Arthur Pewtie, Esq.".
+
+    Most languages won't have to "translate" this list.
+
+
+reStructuredText Language Module
+================================
+
+Modules in ``docutils/parsers/rst/languages`` contain language
+mappings for language-specific features of the reStructuredText
+parser.  To make a new language module, just copy the ``en.py`` file,
+rename it with the code for your language (see `Language Module
+Names`_ above), and translate the terms as described below.
+
+Each reStructuredText language module contains two module attributes:
+
+``directives``
+    This is a mapping from language-dependent directive names to
+    canonical directive names.  The canonical directive names are
+    registered in ``docutils/parsers/rst/directives/__init__.py``, in
+    ``_directive_registry``.
+
+    The keys should be translated to the target language.  Synonyms
+    (multiple keys with the same values) are allowed; this is useful
+    for abbreviations.
+
+``roles``
+    This is a mapping language-dependent role names to canonical role
+    names for interpreted text.  The canonical directive names are
+    registered in ``docutils/parsers/rst/states.py``, in
+    ``Inliner._interpreted_roles`` (this may change).
+
+    The keys should be translated to the target language.  Synonyms
+    (multiple keys with the same values) are allowed; this is useful
+    for abbreviations.
+
+
+Testing the Language Modules
+============================
+
+Whenever a new language module is added or an existing one modified,
+the unit tests should be run.  The test modules can be found in the
+docutils/test directory from code_ or from the `latest snapshot`_.
+
+The ``test_language.py`` module can be run as a script.  With no
+arguments, it will test all language modules.  With one or more
+language codes, it will test just those languages.  For example::
+
+    $ python test_language.py en
+    ..
+    ----------------------------------------
+    Ran 2 tests in 0.095s
+
+    OK
+
+Use the "alltests.py" script to run all test modules, exhaustively
+testing the parser and other parts of the Docutils system.
+
+.. _code: https://sourceforge.net/p/docutils/code/HEAD/tree/trunk/
+.. _latest snapshot: https://sourceforge.net/p/docutils/code/HEAD/tarball
+
+
+Submitting the Language Modules
+===============================
+
+If you do not have repository write access and want to contribute your
+language modules, feel free to submit them via the `SourceForge patch
+tracker`__.
+
+__ https://sourceforge.net/p/docutils/patches/

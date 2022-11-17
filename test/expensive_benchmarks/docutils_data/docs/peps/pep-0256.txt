@@ -1,0 +1,303 @@
+PEP: 256
+Title: Docstring Processing System Framework
+Version: $Revision$
+Last-Modified: $Date$
+Author: David Goodger <goodger@python.org>
+Discussions-To: <doc-sig@python.org>
+Status: Rejected
+Type: Standards Track
+Content-Type: text/x-rst
+Created: 01-Jun-2001
+Post-History: 13-Jun-2001
+
+
+Rejection Notice
+================
+
+This proposal seems to have run out of steam.
+
+
+Abstract
+========
+
+Python lends itself to inline documentation.  With its built-in
+docstring syntax, a limited form of `Literate Programming`_ is easy to
+do in Python.  However, there are no satisfactory standard tools for
+extracting and processing Python docstrings.  The lack of a standard
+toolset is a significant gap in Python's infrastructure; this PEP aims
+to fill the gap.
+
+The issues surrounding docstring processing have been contentious and
+difficult to resolve.  This PEP proposes a generic Docstring
+Processing System (DPS) framework, which separates out the components
+(program and conceptual), enabling the resolution of individual issues
+either through consensus (one solution) or through divergence (many).
+It promotes standard interfaces which will allow a variety of plug-in
+components (input context readers, markup parsers, and output format
+writers) to be used.
+
+The concepts of a DPS framework are presented independently of
+implementation details.
+
+
+Road Map to the Docstring PEPs
+==============================
+
+There are many aspects to docstring processing.  The "Docstring PEPs"
+have broken up the issues in order to deal with each of them in
+isolation, or as close as possible.  The individual aspects and
+associated PEPs are as follows:
+
+* Docstring syntax.  PEP 287, "reStructuredText Docstring Format"
+  [#PEP-287]_, proposes a syntax for Python docstrings, PEPs, and
+  other uses.
+
+* Docstring semantics consist of at least two aspects:
+
+  - Conventions: the high-level structure of docstrings.  Dealt with
+    in PEP 257, "Docstring Conventions" [#PEP-257]_.
+
+  - Methodology: rules for the informational content of docstrings.
+    Not addressed.
+
+* Processing mechanisms.  This PEP (PEP 256) outlines the high-level
+  issues and specification of an abstract docstring processing system
+  (DPS).  PEP 258, "Docutils Design Specification" [#PEP-258]_, is an
+  overview of the design and implementation of one DPS under
+  development.
+
+* Output styles: developers want the documentation generated from
+  their source code to look good, and there are many different ideas
+  about what that means.  PEP 258 touches on "Stylist Transforms".
+  This aspect of docstring processing has yet to be fully explored.
+
+By separating out the issues, we can form consensus more easily
+(smaller fights ;-), and accept divergence more readily.
+
+
+Rationale
+=========
+
+There are standard inline documentation systems for some other
+languages.  For example, Perl has POD_ ("Plain Old Documentation") and
+Java has Javadoc_, but neither of these mesh with the Pythonic way.
+POD syntax is very explicit, but takes after Perl in terms of
+readability.  Javadoc is HTML-centric; except for "``@field``" tags,
+raw HTML is used for markup.  There are also general tools such as
+Autoduck_ and Web_ (Tangle & Weave), useful for multiple languages.
+
+There have been many attempts to write auto-documentation systems
+for Python (not an exhaustive list):
+
+- Marc-Andre Lemburg's doc.py_
+
+- Daniel Larsson's pythondoc_ & gendoc_
+
+- Doug Hellmann's HappyDoc_
+
+- Laurence Tratt's Crystal (no longer available on the web)
+
+- Ka-Ping Yee's pydoc_ (pydoc.py is now part of the Python standard
+  library; see below)
+
+- Tony Ibbs' docutils_ (Tony has donated this name to the `Docutils
+  project`_)
+
+- Edward Loper's STminus_ formalization and related efforts
+
+These systems, each with different goals, have had varying degrees of
+success.  A problem with many of the above systems was over-ambition
+combined with inflexibility.  They provided a self-contained set of
+components: a docstring extraction system, a markup parser, an
+internal processing system and one or more output format writers with
+a fixed style.  Inevitably, one or more aspects of each system had
+serious shortcomings, and they were not easily extended or modified,
+preventing them from being adopted as standard tools.
+
+It has become clear (to this author, at least) that the "all or
+nothing" approach cannot succeed, since no monolithic self-contained
+system could possibly be agreed upon by all interested parties.  A
+modular component approach designed for extension, where components
+may be multiply implemented, may be the only chance for success.
+Standard inter-component APIs will make the DPS components
+comprehensible without requiring detailed knowledge of the whole,
+lowering the barrier for contributions, and ultimately resulting in a
+rich and varied system.
+
+Each of the components of a docstring processing system should be
+developed independently.  A "best of breed" system should be chosen,
+either merged from existing systems, and/or developed anew.  This
+system should be included in Python's standard library.
+
+
+PyDoc & Other Existing Systems
+------------------------------
+
+PyDoc became part of the Python standard library as of release 2.1.
+It extracts and displays docstrings from within the Python interactive
+interpreter, from the shell command line, and from a GUI window into a
+web browser (HTML).  Although a very useful tool, PyDoc has several
+deficiencies, including:
+
+- In the case of the GUI/HTML, except for some heuristic hyperlinking
+  of identifier names, no formatting of the docstrings is done.  They
+  are presented within ``<p><small><tt>`` tags to avoid unwanted line
+  wrapping.  Unfortunately, the result is not attractive.
+
+- PyDoc extracts docstrings and structural information (class
+  identifiers, method signatures, etc.) from imported module objects.
+  There are security issues involved with importing untrusted code.
+  Also, information from the source is lost when importing, such as
+  comments, "additional docstrings" (string literals in non-docstring
+  contexts; see PEP 258 [#PEP-258]_), and the order of definitions.
+
+The functionality proposed in this PEP could be added to or used by
+PyDoc when serving HTML pages.  The proposed docstring processing
+system's functionality is much more than PyDoc needs in its current
+form.  Either an independent tool will be developed (which PyDoc may
+or may not use), or PyDoc could be expanded to encompass this
+functionality and *become* the docstring processing system (or one
+such system).  That decision is beyond the scope of this PEP.
+
+Similarly for other existing docstring processing systems, their
+authors may or may not choose compatibility with this framework.
+However, if this framework is accepted and adopted as the Python
+standard, compatibility will become an important consideration in
+these systems' future.
+
+
+Specification
+=============
+
+The docstring processing system framework is broken up as follows:
+
+1. Docstring conventions.  Documents issues such as:
+
+   - What should be documented where.
+
+   - First line is a one-line synopsis.
+
+   PEP 257 [#PEP-257]_ documents some of these issues.
+
+2. Docstring processing system design specification.  Documents
+   issues such as:
+
+   - High-level spec: what a DPS does.
+
+   - Command-line interface for executable script.
+
+   - System Python API.
+
+   - Docstring extraction rules.
+
+   - Readers, which encapsulate the input context.
+
+   - Parsers.
+
+   - Document tree: the intermediate internal data structure.  The
+     output of the Parser and Reader, and the input to the Writer all
+     share the same data structure.
+
+   - Transforms, which modify the document tree.
+
+   - Writers for output formats.
+
+   - Distributors, which handle output management (one file, many
+     files, or objects in memory).
+
+   These issues are applicable to any docstring processing system
+   implementation.  PEP 258 [#PEP-258]_ documents these issues.
+
+3. Docstring processing system implementation.
+
+4. Input markup specifications: docstring syntax.  PEP 287 [#PEP-287]_
+   proposes a standard syntax.
+
+5. Input parser implementations.
+
+6. Input context readers ("modes": Python source code, PEP, standalone
+   text file, email, etc.) and implementations.
+
+7. Stylists: certain input context readers may have associated
+   stylists which allow for a variety of output document styles.
+
+8. Output formats (HTML, XML, TeX, DocBook, info, etc.) and writer
+   implementations.
+
+Components 1, 2/3/5, and 4 are the subject of individual companion
+PEPs.  If there is another implementation of the framework or
+syntax/parser, additional PEPs may be required.  Multiple
+implementations of each of components 6 and 7 will be required; the
+PEP mechanism may be overkill for these components.
+
+
+Project Web Site
+================
+
+A SourceForge project has been set up for this work at
+https://docutils.sourceforge.io/.
+
+
+References and Footnotes
+========================
+
+.. [#PEP-287] PEP 287, reStructuredText Docstring Format, Goodger
+   (http://www.python.org/peps/pep-0287.html)
+
+.. [#PEP-257] PEP 257, Docstring Conventions, Goodger, Van Rossum
+   (http://www.python.org/peps/pep-0257.html)
+
+.. [#PEP-258] PEP 258, Docutils Design Specification, Goodger
+   (http://www.python.org/peps/pep-0258.html)
+
+.. _Literate Programming: http://www.literateprogramming.com/
+
+.. _POD: http://perldoc.perl.org/perlpod.html
+
+.. _Javadoc: http://java.sun.com/j2se/javadoc/
+
+.. _Autoduck:
+   http://www.helpmaster.com/hlp-developmentaids-autoduck.htm
+
+.. _Web: http://www-cs-faculty.stanford.edu/~knuth/cweb.html
+
+.. _doc.py:
+   http://www.egenix.com/files/python/SoftwareDescriptions.html#doc.py
+
+.. _pythondoc:
+.. _gendoc: http://starship.python.net/crew/danilo/pythondoc/
+
+.. _HappyDoc: http://happydoc.sourceforge.net/
+
+.. _pydoc: http://www.python.org/doc/current/lib/module-pydoc.html
+
+.. _docutils: http://www.tibsnjoan.co.uk/docutils.html
+
+.. _Docutils project: https://docutils.sourceforge.io/
+
+.. _STMinus: http://www.cis.upenn.edu/~edloper/pydoc/
+
+.. _Python Doc-SIG: http://www.python.org/sigs/doc-sig/
+
+
+Copyright
+=========
+
+This document has been placed in the public domain.
+
+
+Acknowledgements
+================
+
+This document borrows ideas from the archives of the `Python
+Doc-SIG`_.  Thanks to all members past & present.
+
+
+
+..
+   Local Variables:
+   mode: indented-text
+   indent-tabs-mode: nil
+   sentence-end-double-space: t
+   fill-column: 70
+   End:

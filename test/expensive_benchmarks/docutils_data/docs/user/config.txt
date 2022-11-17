@@ -1,0 +1,2336 @@
+========================
+ Docutils Configuration
+========================
+
+:Author: David Goodger
+:Contact: docutils-develop@lists.sourceforge.net
+:Revision: $Revision$
+:Date: $Date$
+:Copyright: This document has been placed in the public domain.
+
+.. sidebar:: Docutils Security for Web Applications
+
+   For details about securing web applications, please see `Deploying
+   Docutils Securely <../howto/security.html>`_.
+
+.. contents::
+
+
+-------------------
+Configuration Files
+-------------------
+
+Configuration files are used for persistent customization;
+they can be set once and take effect every time you use a component,
+e.g., via a `front-end tool`_.
+Configuration file settings override the built-in defaults, and
+command-line options override all.
+For the technicalities, see `Docutils Runtime Settings`_.
+
+By default, Docutils checks the following places for configuration
+files, in the following order:
+
+1. ``/etc/docutils.conf``: This is a system-wide configuration file,
+   applicable to all Docutils processing on the system.
+
+2. ``./docutils.conf``: This is a project-specific configuration file,
+   located in the current directory.  The Docutils front end has to be
+   executed from the directory containing this configuration file for
+   it to take effect (note that this may have nothing to do with the
+   location of the source files).  Settings in the project-specific
+   configuration file will override corresponding settings in the
+   system-wide file.
+
+3. ``~/.docutils``: This is a user-specific configuration file,
+   located in the user's home directory.  Settings in this file will
+   override corresponding settings in both the system-wide and
+   project-specific configuration files.
+
+If more than one configuration file is found, all will be read but
+later entries will override earlier ones.  For example, a "stylesheet"
+entry in a user-specific configuration file will override a
+"stylesheet" entry in the system-wide file.
+
+The default implicit config file paths can be overridden by the
+``DOCUTILSCONFIG`` environment variable.  ``DOCUTILSCONFIG`` should
+contain a colon-separated (semicolon-separated on Windows) sequence of
+config file paths to search for; leave it empty to disable implicit
+config files altogether.  Tilde-expansion is performed on paths.
+Paths are interpreted relative to the current working directory.
+Empty path items are ignored.
+
+In addition, a configuration file may be explicitly specified with the
+``--config`` command-line option.  This configuration file is read after
+the three implicit ones listed above (or the ones defined by the
+``DOCUTILSCONFIG`` environment variable), and its entries will have
+priority.
+
+.. _Docutils Runtime Settings: ../api/runtime-settings.html
+
+
+-------------------------
+Configuration File Syntax
+-------------------------
+
+Configuration files are UTF-8-encoded text files.  The
+ConfigParser.py_ module from Python_'s standard library is used to
+read them.  From its documentation:
+
+    The configuration file consists of sections, lead by a "[section]"
+    header and followed by "name: value" entries, with continuations
+    in the style of `RFC 822`_; "name=value" is also accepted.  Note
+    that leading whitespace is removed from values.  ...  Lines
+    beginning with "#" or ";" are ignored and may be used to provide
+    comments.
+
+.. Note:: No format string interpolation is done.
+
+Configuration file entry names correspond to internal runtime
+settings.  Underscores ("_") and hyphens ("-") can be used
+interchangeably in entry names; hyphens are automatically converted to
+underscores.
+
+For on/off switch settings (_`booleans`), the following values are
+recognized:
+
+:On: "true", "yes", "on", "1"
+:Off: "false", "no", "off", "0", "" (no value)
+
+.. _list:
+
+List values can be comma- or colon-delimited.
+
+strip_classes_, strip_elements_with_classes_, stylesheet, and
+stylesheet_path use the comma as delimiter,
+whitespace around list values is stripped. ::
+
+    strip-classes: ham,eggs,
+    strip-elements-with-classes: sugar, salt, flour
+    stylesheet: html4css1.css,
+                math.css,
+                style with spaces.css
+    stylesheet-path: ../styles/my.css, ../styles/funny.css
+
+expose_internals_, ignore_ and prune_ use the colon as delimiter and do not
+strip whitespace::
+
+    expose_internals: b:c:d
+
+
+Example
+=======
+
+This is from the ``tools/docutils.conf`` configuration file supplied
+with Docutils::
+
+    # These entries affect all processing:
+    [general]
+    source-link: yes
+    datestamp: %Y-%m-%d %H:%M UTC
+    generator: on
+
+    # These entries affect HTML output:
+    [html writers]
+    embed-stylesheet: no
+
+    [html4css1 writer]
+    stylesheet-path: docutils/writers/html4css1/html4css1.css
+    field-name-limit: 20
+
+    [html5 writer]
+    stylesheet-dirs: docutils/writers/html5_polyglot/
+    stylesheet-path: minimal.css, responsive.css
+
+Individual configuration sections and settings are described in the
+following section.
+
+
+-------------------------------------
+Configuration File Sections & Entries
+-------------------------------------
+
+Below are the Docutils runtime settings, listed by config file
+section.  **Any setting may be specified in any section, but only
+settings from active sections will be used.**  Sections correspond to
+Docutils components (module name or alias; section names are always in
+lowercase letters).  Each `Docutils application`_ uses a specific set
+of components; corresponding configuration file sections are applied
+when the application is used.  Configuration sections are applied in
+general-to-specific order, as follows:
+
+1. `[general]`_
+
+2. `[parsers]`_, parser dependencies, and the section specific to the
+   Parser used ("[... parser]").
+
+3. `[readers]`_, reader dependencies, and the section specific to the
+   Reader used ("[... reader]").  For example, `[pep reader]`_ depends
+   on `[standalone reader]`_.
+
+4. `[writers]`_, writer family ("[... writers]"; if applicable),
+   writer dependencies, and the section specific to the writer used
+   ("[... writer]").  For example, `[pep_html writer]`_ depends
+   on `[html writers]`_ and `[html4css1 writer]`_.
+
+5. `[applications]`_, application dependencies, and the section
+   specific to the Application (front-end tool) in use
+   ("[... application]").
+
+Since any setting may be specified in any section, this ordering
+allows component- or application-specific overrides of earlier
+settings.  For example, there may be Reader-specific overrides of
+general settings; Writer-specific overrides of Parser settings;
+Application-specific overrides of Writer settings; and so on.
+
+If multiple configuration files are applicable, the process is
+completed (all sections are applied in the order given) for each one
+before going on to the next.  For example, a "[pep_html writer]
+stylesheet" setting in an earlier configuration file would be
+overridden by an "[html4css1 writer] stylesheet" setting in a later
+file.
+
+Some knowledge of Python_ is assumed for some attributes.
+
+.. _ConfigParser.py:
+   https://docs.python.org/3/library/configparser.html
+.. _Python: https://www.python.org/
+.. _RFC 822: https://www.rfc-editor.org/rfc/rfc822.txt
+.. _front-end tool:
+.. _Docutils application: tools.html
+
+
+[general]
+=========
+
+Settings in the "[general]" section are always applied.
+
+auto_id_prefix
+--------------
+
+Prefix prepended to all auto-generated `identifier keys` generated within
+the document, after id_prefix_. Ensure the value conforms to the
+restrictions on identifiers in the output format, as it is not subjected to
+the `identifier normalization`_.
+
+A trailing "%" is replaced with the tag name (new in Docutils 0.16).
+
+Default: "%" (changed in 0.18 from "id").
+Option: ``--auto-id-prefix`` (hidden, intended mainly for programmatic use).
+
+.. _identifier normalization:
+   ../ref/rst/directives.html#identifier-normalization
+
+datestamp
+---------
+
+Include a time/datestamp in the document footer.  Contains a
+format string for Python's `time.strftime()`__.
+
+Default: None.
+Options: ``--date, -d, --time, -t, --no-datestamp``.
+
+Configuration file entry examples::
+
+    # Equivalent to --date command-line option, results in
+    # ISO 8601 extended format datestamp, e.g. "2001-12-21":
+    datestamp: %Y-%m-%d
+
+    # Equivalent to --time command-line option, results in
+    # date/timestamp like "2001-12-21 18:43 UTC":
+    datestamp: %Y-%m-%d %H:%M UTC
+
+    # Disables datestamp; equivalent to --no-datestamp:
+    datestamp:
+
+__ https://docs.python.org/3/library/time.html#time.strftime
+
+debug
+-----
+
+Report debug-level system messages.
+
+Default: don't (None).  Options: ``--debug, --no-debug``.
+
+dump_internals
+--------------
+
+At the end of processing, write all internal attributes of the
+document (``document.__dict__``) to stderr.
+
+Default: don't (None).
+Option: ``--dump-internals`` (hidden, for development use only).
+
+dump_pseudo_xml
+---------------
+
+At the end of processing, write the pseudo-XML representation of
+the document to stderr.
+
+Default: don't (None).
+Option: ``--dump-pseudo-xml`` (hidden, for development use only).
+
+dump_settings
+-------------
+
+At the end of processing, write all Docutils settings to stderr.
+
+Default: don't (None).
+Option: ``--dump-settings`` (hidden, for development use only).
+
+dump_transforms
+---------------
+
+At the end of processing, write a list of all transforms applied
+to the document to stderr.
+
+Default: don't (None).
+Option: ``--dump-transforms`` (hidden, for development use only).
+
+error_encoding
+--------------
+
+The text encoding for error output.
+
+Default: "ascii".  Options: ``--error-encoding, -e``.
+
+error_encoding_error_handler
+----------------------------
+
+The error handler for unencodable characters in error output.  See
+output_encoding_error_handler_ for acceptable values.
+
+Default: "backslashreplace"
+Options: ``--error-encoding-error-handler, --error-encoding, -e``.
+
+exit_status_level
+-----------------
+
+A system message level threshold; non-halting system messages at
+or above this level will produce a non-zero exit status at normal
+exit.  Exit status is the maximum system message level plus 10 (11
+for INFO, etc.).
+
+Default: disabled (5).  Option: ``--exit-status``.
+
+expose_internals
+----------------
+
+List_ of internal attributes to expose as external attributes (with
+"internal:" namespace prefix).  To specify multiple attributes in
+configuration files, use colons to separate names; on the command
+line, the option may be used more than once.
+
+Default: don't (None).
+Option: ``--expose-internal-attribute`` (hidden, for development use only).
+
+footnote_backlinks
+------------------
+
+Enable or disable backlinks from footnotes_ and citations_ to their
+references.
+
+Default: enabled (True).
+Options: ``--footnote-backlinks, --no-footnote-backlinks``.
+
+generator
+---------
+
+Include a "Generated by Docutils" credit and link in the document footer.
+
+Default: off (None).  Options: ``--generator, -g, --no-generator``.
+
+halt_level
+----------
+
+The threshold at or above which system messages are converted to
+exceptions, halting execution immediately.  If `traceback`_ is set, the
+exception will propagate; otherwise, Docutils will exit.
+
+See also report_level_.
+
+Default: severe (4).  Options: ``--halt, --strict``.
+
+id_prefix
+---------
+
+Prefix prepended to all identifier keys generated within the document.
+Ensure the value conforms to the restrictions on identifiers in the output
+format, as it is not subjected to the `identifier normalization`_.
+See also auto_id_prefix_.
+
+Default: "" (empty).
+Option: ``--id-prefix`` (hidden, intended mainly for programmatic use).
+
+input_encoding
+--------------
+
+The text encoding for input.
+
+Default: auto-detect (None).  Options: ``--input-encoding, -i``.
+
+input_encoding_error_handler
+----------------------------
+
+The error handler for undecodable characters in the input. Acceptable
+values include:
+
+strict
+    Raise an exception in case of an encoding error.
+replace
+    Replace malformed data with the official Unicode replacement
+    character, U+FFFD.
+ignore
+    Ignore malformed data and continue without further notice.
+
+Acceptable values are the same as for the "error" parameter of
+Python's ``unicode`` function; other values may be defined in
+applications or in future versions of Python.
+
+Default: "strict".
+Options: ``--input-encoding-error-handler, --input-encoding, -i``.
+
+language_code
+-------------
+
+Case-insensitive `language tag`_ as defined in `BCP 47`_.
+
+Sets the document language, also used for localized directive and
+role names as well as Docutils-generated text.
+
+A typical language identifier consists of a 2-letter language code
+from `ISO 639`_ (3-letter codes can be used if no 2-letter code
+exists). The language identifier can have an optional subtag,
+typically for variations based on country (from `ISO 3166`_
+2-letter country codes).  Avoid subtags except where they add
+useful distinguishing information. Examples of language tags
+include "fr", "en-GB", "pt-br" (the same as "pt-BR"), and
+"de-1901" (German with pre-1996 spelling).
+
+The language of document parts can be specified with a
+"language-<language tag>" `class attribute`_, e.g.
+``.. class:: language-el-polyton`` for a quote in polytonic Greek.
+
+Default: English ("en").  Options: ``--language, -l``.
+
+.. _class attribute: ../ref/doctree.html#classes
+
+output_encoding
+---------------
+
+The text encoding for output.
+
+Default: "UTF-8".  Options: ``--output-encoding, -o``.
+
+output_encoding_error_handler
+-----------------------------
+
+The error handler for unencodable characters in the output. Acceptable
+values include:
+
+strict
+    Raise an exception in case of an encoding error.
+replace
+    Replace malformed data with a suitable replacement marker,
+    such as "?".
+ignore
+    Ignore malformed data and continue without further notice.
+xmlcharrefreplace
+    Replace with the appropriate XML character reference, such as
+    "``&#8224;``".
+backslashreplace
+    Replace with backslash escape sequences, such as "``\u2020``".
+
+Acceptable values are the same as for the "error" parameter of
+Python's ``encode`` string method; other values may be defined in
+applications or in future versions of Python.
+
+Default: "strict".
+Options: ``--output-encoding-error-handler, --output-encoding, -o``.
+
+record_dependencies
+-------------------
+
+Path to a file where Docutils will write a list of files that were
+required to generate the output, e.g. included files or embedded
+stylesheets [#dependencies]_. [#pwd]_ The format is one path per
+line with forward slashes as separator, the encoding is ``utf8``.
+
+Set to ``-`` in order to write dependencies to stdout.
+
+This option is particularly useful in conjunction with programs like
+``make`` using ``Makefile`` rules like::
+
+  ham.html: ham.txt $(shell cat hamdeps.txt)
+    rst2html.py --record-dependencies=hamdeps.txt ham.txt ham.html
+
+If the filesystem encoding differs from utf8, replace the ``cat``
+command with a call to a converter, e.g.::
+
+  $(shell iconv -f utf8 -t latin1 hamdeps.txt)
+
+Default: None.  Option: ``--record-dependencies``.
+
+.. [#dependencies] Images are only added to the dependency list if they
+   are embedded into the output or the reStructuredText parser extracted
+   image dimensions from the file.
+
+report_level
+------------
+
+Report system messages at or higher than <level>:
+
+1  info
+2  warning
+3  error
+4  severe
+5  none
+
+See also halt_level_.
+
+Default: warning (2).
+Options: ``--report, -r, --verbose, -v, --quiet, -q``.
+
+sectnum_xform
+-------------
+
+Enable or disable automatic section numbering by Docutils
+(docutils.transforms.parts.SectNum) associated with the `sectnum
+directive`_.
+
+If disabled, section numbers might be added to the output by the
+renderer (e.g. by LaTeX or via a CSS style definition).
+
+Default: enabled (True).
+Options: ``--section-numbering``, ``--no-section-numbering``.
+
+.. _sectnum directive: ../ref/rst/directives.html#sectnum
+
+source_link
+-----------
+
+Include a "View document source" link in the document footer.  URL will
+be relative to the destination.
+
+Default: don't (None).
+Options: ``--source-link, -s, --no-source-link``.
+
+source_url
+----------
+
+An explicit URL for a "View document source" link, used verbatim.
+
+Default: compute if source_link (None).
+Options: ``--source-url, --no-source-link``.
+
+strict_visitor
+--------------
+
+When processing a document tree with the Visitor pattern, raise an
+error if a writer does not support a node type listed as optional. For
+transitional development use.
+
+Default: disabled (None).
+Option: ``--strict-visitor`` (hidden, for development use only).
+
+strip_classes
+-------------
+
+Comma-separated list_ of "classes" attribute values to remove from all
+elements in the document tree. The command line option may be used more
+than once.
+
+.. WARNING:: Potentially dangerous; use with caution.
+
+Default: disabled (None).  Option: ``--strip-class``.
+
+strip_comments
+--------------
+
+Enable the removal of comment elements from the document tree.
+
+Default: disabled (None).
+Options: ``--strip-comments``, ``--leave-comments``.
+
+strip_elements_with_classes
+---------------------------
+
+Comma-separated list_ of "classes" attribute values;
+matching elements are removed from the document tree.
+The command line option may be used more than once.
+
+.. WARNING:: Potentially dangerous; use with caution.
+
+Default: disabled (None).  Option: ``--strip-element-with-class``.
+
+title
+-----
+
+The `document title` as metadata which does not become part of the
+document body. Stored as the document's `title attribute`_.
+For example, in HTML output the metadata document title
+appears in the title bar of the browser window.
+
+This setting overrides a displayed `document title`_ and
+is overridden by a `"title" directive`_.
+
+Default: none.  Option: ``--title``.
+
+.. _title attribute: ../ref/doctree.html#title-attribute
+.. _document title: ../ref/rst/restructuredtext.html#document-title
+.. _"title" directive: ../ref/rst/directives.html#metadata-document-title
+
+toc_backlinks
+-------------
+
+Enable backlinks from section titles to table of contents entries
+("entry"), to the top of the TOC ("top"), or disable ("none").
+
+Default: "entry".
+Options: ``--toc-entry-backlinks, --toc-top-backlinks, --no-toc-backlinks``.
+
+traceback
+---------
+
+Enable Python tracebacks when halt-level system messages and other
+exceptions occur.  Useful for debugging, and essential for issue
+reports.  Exceptions are allowed to propagate, instead of being
+caught and reported (in a user-friendly way) by Docutils.
+
+Default: disabled (None) unless Docutils is run programmatically
+using the `Publisher Interface`_.
+Options: ``--traceback, --no-traceback``.
+
+.. _Publisher Interface: ../api/publisher.html
+
+warning_stream
+--------------
+
+Path to a file for the output of system messages (warnings). [#pwd]_
+
+Default: stderr (None).  Option: ``--warnings``.
+
+
+[parsers]
+=========
+
+Generic parser options:
+
+file_insertion_enabled
+----------------------
+
+Enable or disable directives or directive that insert the contents of
+external files, such as "include_" or "raw_" with option "url".
+A "warning" system message (including the directive text) is inserted
+instead.  (See also raw_enabled_ for another security-relevant setting.)
+
+Default: enabled (True).
+Options: ``--file-insertion-enabled, --no-file-insertion``.
+
+.. _include: ../ref/rst/directives.html#include
+.. _raw: ../ref/rst/directives.html#raw
+
+line_length_limit
+-----------------
+
+Maximal number of characters in an input line or `substitution`_
+definition. To prevent extraordinary high processing times or memory
+usage for certain input constructs, a "warning" system message is
+inserted instead.
+
+Default: 10 000.
+Option: ``--line-length-limit``
+
+New in Docutils 0.17.
+
+.. _substitution: ../ref/rst/directives.html#substitution
+
+raw_enabled
+-----------
+
+Enable or disable the "raw_" directive.  A "warning" system message
+(including the directive text) is inserted instead.  See also
+file_insertion_enabled_ for another security-relevant setting.
+
+Default: enabled (True).  Options: ``--raw-enabled, --no-raw``.
+
+
+[restructuredtext parser]
+-------------------------
+
+character_level_inline_markup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Relax the `inline markup recognition rules`_
+requiring whitespace or punctuation around inline markup.
+
+Allows character level inline markup without escaped whithespace and is
+especially suited for languages that do not use whitespace to separate words
+(e.g. Japanese, Chinese).
+
+.. WARNING:: Potentially dangerous; use with caution.
+
+   When changing this setting to "True", inline markup characters in
+   URLs, names and formulas must be escaped to prevent recognition and
+   possible errors. Examples::
+
+     http://rST_for_all.html (hyperlinks to rST_ and for_)
+     x_2, inline_markup      (hyperlinks to x_ and inline_)
+     2*x                     (starts emphasised text)
+     a|b                     (starts a substitution reference)
+
+Default: disabled (False).
+Options: ``--character-level-inline-markup, --word-level-inline-markup``.
+
+New in Docutils 0.13.
+
+pep_references
+~~~~~~~~~~~~~~
+
+Recognize and link to standalone PEP references (like "PEP 258").
+
+Default: disabled (None); enabled (True) in PEP Reader.
+Option: ``--pep-references``.
+
+pep_base_url
+~~~~~~~~~~~~
+Base URL for PEP references.
+
+Default: "https://peps.python.org/".
+Option: ``--pep-base-url``.
+
+pep_file_url_template
+~~~~~~~~~~~~~~~~~~~~~
+
+Template for PEP file part of URL, interpolated with the PEP
+number and appended to pep_base_url_.
+
+Default: "pep-%04d".  Option: ``--pep-file-url``.
+
+rfc_references
+~~~~~~~~~~~~~~
+
+Recognize and link to standalone RFC references (like "RFC 822").
+
+Default: disabled (None); enabled (True) in PEP Reader.
+Option: ``--rfc-references``.
+
+rfc_base_url
+~~~~~~~~~~~~
+
+Base URL for RFC references.
+
+Default: "http://www.faqs.org/rfcs/".  Option: ``--rfc-base-url``.
+
+smart_quotes
+~~~~~~~~~~~~
+
+Activate the SmartQuotes_ transform to
+change straight quotation marks to typographic form. `Quote characters`_
+are selected according to the language of the current block element (see
+language_code_, smartquotes_locales_, and the `pre-defined quote sets`__).
+
+Also changes consecutive runs of hyphen-minus and full stops (``---``,
+``--``, ``...``) to em-dash, en-dash, and ellipsis Unicode characters
+respectively.
+
+Supported values:
+
+booleans_ (yes/no)
+  Use smart quotes?
+
+alt (or "alternative")
+  Use alternative quote set (if defined for the language).
+
+Default: "no". Option: ``--smart-quotes``.
+
+New in Docutils 0.10.
+
+.. _SmartQuotes: smartquotes.html
+__ smartquotes.html#localization
+.. _quote characters:
+   https://en.wikipedia.org/wiki/Non-English_usage_of_quotation_marks
+
+
+smartquotes_locales
+~~~~~~~~~~~~~~~~~~~
+
+Typographical quotes used by the SmartQuotes_ transform.
+
+A comma-separated list_ with language tag and a set of four quotes (primary
+open/close, secondary open/close)smartquotes_locales. (If more than one
+character shall be used for a quote (e.g. padding in French quotes), a
+colon-separated list may be used.)
+
+Example:
+  Ensure a correct leading apostrophe in ``'s Gravenhage`` in Dutch (at the
+  cost of incorrect opening single quotes) and set French quotes to double
+  and single guillemets with inner padding::
+
+          smartquote-locales: nl: „”’’,
+                              fr: « : »:‹ : ›
+
+Default: None. Option: ``--smartquotes-locales``.
+
+New in Docutils 0.14.
+
+syntax_highlight
+~~~~~~~~~~~~~~~~
+
+Token type names used by Pygments_ when parsing contents of the code_
+directive and role.
+
+Supported values:
+
+long
+  Use hierarchy of long token type names.
+short
+  Use short token type names. (For use with
+  `Pygments-generated stylesheets`_.)
+none
+  No code parsing. Use this to avoid the "Pygments not
+  found" warning when Pygments is not installed.
+
+Default: "long".  Option: ``--syntax-highlight``.
+
+New in Docutils 0.9.
+
+.. _Pygments: https://pygments.org/
+.. _code: ../ref/rst/directives.html#code
+.. _Pygments-generated stylesheets:
+   https://pygments.org/docs/cmdline/#generating-styles
+
+tab_width
+~~~~~~~~~
+
+Number of spaces for hard tab expansion.
+
+Default: 8.  Option: ``--tab-width``.
+
+trim_footnote_reference_space
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Remove spaces before `footnote references`_?
+
+Default: None [#]_
+
+Options: ``--trim-footnote-reference-space, --leave-footnote-reference-space``.
+
+.. [#] Depending on the writer-specific `footnote_references setting`_.
+   The footnote space is trimmed if the reference style is "superscript",
+   and it is left if the reference style is "brackets".
+
+
+.. _myst:
+
+[myst parser]
+-------------
+
+Provided by the 3rd party package `myst-docutils`_.
+See `MyST with Docutils`_ and its `Sphinx configuration options`_
+(some settings are not available with Docutils).
+
+.. _myst-docutils: https://pypi.org/project/myst-docutils/
+.. _MyST with Docutils:
+   https://myst-parser.readthedocs.io/en/latest/docutils.html
+.. _Sphinx configuration options:
+   https://myst-parser.readthedocs.io/en/latest/sphinx/reference.html#sphinx-config-options
+
+
+.. _pycmark:
+
+[pycmark parser]
+----------------
+
+Provided by the 3rd party package `pycmark`__.
+Currently no configuration settings.
+
+__ https://pypi.org/project/pycmark/
+
+
+.. _recommonmark:
+
+[recommonmark parser]
+---------------------
+
+Provisional, depends on (deprecated) 3rd-party package recommonmark__.
+Currently no configuration settings.
+
+__ https://pypi.org/project/recommonmark/
+
+
+[readers]
+=========
+
+
+[standalone reader]
+-------------------
+
+docinfo_xform
+~~~~~~~~~~~~~
+
+Enable or disable the `bibliographic field list`_ transform
+(docutils.transforms.frontmatter.DocInfo).
+
+Default: enabled (True).  Options: ``--no-doc-info``.
+
+doctitle_xform
+~~~~~~~~~~~~~~
+
+Enable or disable the promotion of a lone top-level section title
+to `document title`_ (and subsequent section title to document
+subtitle promotion; docutils.transforms.frontmatter.DocTitle).
+
+Default: enabled (True).  Options: ``--no-doc-title``.
+
+sectsubtitle_xform
+~~~~~~~~~~~~~~~~~~
+
+Enable or disable the promotion of the title of a lone subsection
+to a subtitle (docutils.transforms.frontmatter.SectSubTitle).
+
+Default: disabled (False).
+Options: ``--section-subtitles, --no-section-subtitles``.
+
+
+[pep reader]
+------------
+
+The `pep_references`_ and `rfc_references`_ settings
+(`[restructuredtext parser]`_) are set on by default.
+
+
+.. [python reader]
+   ---------------
+
+   Not implemented.
+
+
+[writers]
+=========
+
+[docutils_xml writer]
+---------------------
+
+.. Caution::
+
+   * The XML declaration carries text encoding information. If the encoding
+     is not UTF-8 or ASCII and the XML declaration is missing, standard
+     tools may be unable to read the generated XML.
+
+doctype_declaration
+~~~~~~~~~~~~~~~~~~~
+
+Generate XML with a DOCTYPE declaration.
+
+Default: do (True).  Options: ``--no-doctype``.
+
+indents
+~~~~~~~
+
+Generate XML with indents and newlines.
+
+Default: don't (None).  Options: ``--indents``.
+
+newlines
+~~~~~~~~
+
+Generate XML with newlines before and after tags.
+
+Default: don't (None).  Options: ``--newlines``.
+
+
+.. _xml_declaration [docutils_xml writer]:
+
+xml_declaration
+~~~~~~~~~~~~~~~
+
+Generate XML with an XML declaration.
+See also `xml_declaration [html writers]`_.
+
+Default: do (True).  Option: ``--no-xml-declaration``.
+
+
+[html writers]
+--------------
+
+.. _attribution [html writers]:
+
+attribution
+~~~~~~~~~~~
+
+Format for `block quote`_ attributions: one of "dash" (em-dash
+prefix), "parentheses"/"parens", or "none".
+See also `attribution [latex writers]`_.
+
+Default: "dash".  Option: ``--attribution``.
+
+
+cloak_email_addresses
+~~~~~~~~~~~~~~~~~~~~~
+
+Scramble email addresses to confuse harvesters.  In the reference
+URI, the "@" will be replaced by %-escapes (as of RFC 1738).  In
+the visible text (link text) of an email reference, the "@" and
+all periods (".") will be surrounded by ``<span>`` tags.
+Furthermore, HTML entities are used to encode these characters in
+order to further complicate decoding the email address.  For
+example, "abc@example.org" will be output as::
+
+    <a class="reference" href="mailto:abc&#37;&#52;&#48;example&#46;org">
+    abc<span>&#64;</span>example<span>&#46;</span>org</a>
+
+.. Note:: While cloaking email addresses will have little to no
+   impact on the rendering and usability of email links in most
+   browsers, some browsers (e.g. the ``links`` browser) may decode
+   cloaked email addresses incorrectly.
+
+Default: don't cloak (None).  Option: ``--cloak-email-addresses``.
+
+compact_lists
+~~~~~~~~~~~~~
+
+Remove extra vertical whitespace between items of `bullet lists`_ and
+`enumerated lists`_, when list items are all "simple" (i.e., items
+each contain one paragraph and/or one "simple" sub-list only).  The
+behaviour can be specified directly via "class" attributes (values
+"compact" and "open") in the document.
+
+Default: enabled (True).
+Options: ``--compact-lists, --no-compact-lists``.
+
+compact_field_lists
+~~~~~~~~~~~~~~~~~~~
+
+Remove extra vertical whitespace between items of `field lists`_ that
+are "simple" (i.e., all field bodies each contain at most one
+paragraph).  The behaviour can be specified directly via "class"
+attributes (values "compact" and "open") in the document.
+
+Default: enabled (True).
+Options: ``--compact-field-lists, --no-compact-field-lists``.
+
+
+.. _embed_stylesheet [html writers]:
+
+embed_stylesheet
+~~~~~~~~~~~~~~~~
+
+Embed the stylesheet in the output HTML file.  The stylesheet file
+must specified by the stylesheet_path_ setting and must be
+accessible during processing.
+See also `embed_stylesheet [latex writers]`_.
+
+Default: enabled.
+Options: ``--embed-stylesheet, --link-stylesheet``.
+
+
+.. _footnote_references setting:
+.. _footnote_references [html writers]:
+
+footnote_references
+~~~~~~~~~~~~~~~~~~~
+
+Format for `footnote references`_, one of "superscript" or "brackets".
+See also `footnote_references [latex writers]`_.
+
+Overrides [#override]_ trim_footnote_reference_space_,
+if the parser supports this option.
+
+Default: "brackets".  Option: ``--footnote-references``.
+
+initial_header_level
+~~~~~~~~~~~~~~~~~~~~
+
+The initial level for header elements.  This does not affect the
+document title & subtitle; see doctitle_xform_.
+
+Default: writer dependent (see `[html4css1 writer]`_, `[html5 writer]`_,
+`[pep_html writer]`_).
+Option: ``--initial-header-level``.
+
+
+math_output
+~~~~~~~~~~~
+
+The format of mathematical content (`math directive`_ and role) in
+the output document. Supported values are (case insensitive):
+
+:HTML:
+  Format math in standard HTML enhanced by CSS rules.
+  Requires the ``math.css`` stylesheet (in the system
+  `stylesheet directory <stylesheet_dirs [html writers]_>`__)
+
+  A `stylesheet_path <stylesheet_path [html writers]_>`__
+  can be appended after whitespace. The specified
+  stylesheet(s) will only be referenced or embedded if required
+  (i.e. if there is mathematical content in the document).
+
+:MathJax:
+  Format math for display with MathJax_, a JavaScript-based math rendering
+  engine.
+
+  Pro:
+    Works across multiple browsers and platforms.
+
+    Large set of `supported LaTeX math commands and constructs`__
+
+    __ http://docs.mathjax.org/en/latest/input/tex/macros/index.html
+
+  Con:
+    Rendering requires JavaScript and an Internet connection or local
+    MathJax installation.
+
+  A URL pointing to a MathJax library should be appended after whitespace.
+  A warning is given if this is missing.
+
+  * It is recommended to install__ the MathJax library on the same
+    server as the rest of the deployed site files.
+
+    __ https://www.mathjax.org/#installnow
+
+    Example: Install the library at the top level of the web
+    server’s hierarchy in the directory ``MathJax`` and set::
+
+      math-output: mathjax /MathJax/MathJax.js
+
+  * The easiest way to use MathJax is to link directly to a public
+    installation. In that case, there is no need to install MathJax locally.
+
+    Downside: Downloads JavaScript code from a third-party site --- opens
+    the door to cross-site scripting attacks!
+
+    Example: MathJax `getting started`__ documentation uses::
+
+      math-output: mathjax
+         https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+    See https://www.jsdelivr.com/ for details and terms of use.
+
+    __ https://www.mathjax.org/#gettingstarted
+
+  * Use a local MathJax installation on the *client* machine, e.g.::
+
+      math-output: MathJax file:/usr/share/javascript/mathjax/MathJax.js
+
+    This is the fallback if no URL is specified.
+
+:MathML:
+  Embed math content as presentational MathML_.
+
+  Pro:
+    The W3C recommendation for math on the web.
+
+    Self-contained documents (no JavaScript, no external downloads).
+
+  Con:
+    Limited `browser support`__.
+
+    Docutil's latex2mathml converter supports only a
+    `subset of LaTeX math syntax`__.
+
+    With the "html4css1" writer, the resulting HTML document does
+    not validate, as there is no DTD for `MathML + XHTML Transitional`.
+    However, MathML-enabled browsers will render it fine.
+
+    __ https://developer.mozilla.org/en-US/docs/Web/MathML
+       #browser_compatibility
+    __ ../ref/rst/mathematics.html
+
+
+  An external converter can be appended after whitespace, e.g.,
+  ``--math-output="MathML latexml"``:
+
+  blahtexml_
+    Fast conversion, support for many symbols and environments, but no
+    "align" (or other equation-aligning) environment. (C++)
+
+  LaTeXML_
+    Comprehensive macro support but *very* slow. (Perl)
+
+  TtM_
+    No "matrix", "align" and  "cases" environments. Support may be removed.
+
+:LaTeX:
+  Include literal LaTeX code.
+
+  The failsafe fallback.
+
+Default: HTML math.css.  Option: ``--math-output``.
+
+New in Docutils 0.8.
+
+.. _math directive: ../ref/rst/directives.html#math
+.. _MathJax: http://www.mathjax.org/
+.. _MathPlayer: http://www.dessci.com/en/products/mathplayer/
+.. _MathML: https://www.w3.org/TR/MathML/
+.. _blahtexml: http://gva.noekeon.org/blahtexml/
+.. _LaTeXML: http://dlmf.nist.gov/LaTeXML/
+.. _TtM: http://hutchinson.belmont.ma.us/tth/mml/
+
+
+.. _stylesheet [html writers]:
+
+stylesheet
+~~~~~~~~~~
+
+A comma-separated list of CSS stylesheet URLs, used verbatim.
+See also `stylesheet [latex writers]`_.
+
+Overrides also stylesheet_path_. [#override]_
+
+Default: None.  Option: ``--stylesheet``.
+
+
+.. _stylesheet_dirs [html writers]:
+
+stylesheet_dirs
+~~~~~~~~~~~~~~~
+
+A comma-separated list of directories where stylesheets can be found.
+Used by the stylesheet_path_ setting when expanding relative path arguments.
+
+Note: This setting defines a "search path" (similar to the PATH variable for
+executables). However, the term "path" is already used in the
+stylesheet_path_ setting with the meaning of a file location.
+
+
+Default: the working directory of the process at launch and the directory
+with default stylesheet files (writer and installation specific).
+Use the ``--help`` option to get the exact value.
+Option: ``--stylesheet-dirs``.
+
+
+.. _stylesheet_path:
+.. _stylesheet_path [html writers]:
+
+stylesheet_path
+~~~~~~~~~~~~~~~
+
+A comma-separated list of paths to CSS stylesheets. Relative paths are
+expanded if a matching file is found in the stylesheet_dirs__.
+If embed_stylesheet__ is False, paths are rewritten relative to the
+output HTML file.
+See also `stylesheet_path [latex writers]`_.
+
+Also overrides "stylesheet". [#override]_
+Pass an empty string (to either "stylesheet" or "stylesheet_path") to
+deactivate stylesheet inclusion.
+
+Default: writer dependent (see `[html4css1 writer]`_, `[html5 writer]`_,
+`[pep_html writer]`_).
+Option: ``--stylesheet-path``.
+
+__ `embed_stylesheet [html writers]`_
+__ `stylesheet_dirs [html writers]`_
+
+
+.. _table_style [html writers]:
+
+table_style
+~~~~~~~~~~~
+
+Class value(s) added to all tables_.
+See also `table_style [latex writers]`_.
+
+The default CSS sylesheets define:
+
+  borderless
+    No borders around the table.
+
+  align-left, align-center, align-right
+    Align the tables
+
+The HTML5 stylesheets also define:
+
+  booktabs
+    Only lines above and below the table and a thin line after the head.
+
+  captionbelow
+    Place the table caption below the table
+    (New in Docutils 0.17).
+
+In addition, the HTML writers support:
+
+  colwidths-auto
+    Delegate the determination of table column widths to the back-end
+    (leave out the ``<colgroup>`` column specification).
+    Overridden by the "widths" option of the `table directive`_.
+
+  colwidths-grid
+    Backwards compatibility setting. Write column widths
+    determined from the source to the HTML file.
+    Overridden by the "widths" option of the `table directive`_.
+
+Default: "".  Option: ``--table-style``.
+
+.. _table directive: ../ref/rst/directives.html#table
+
+
+.. _template [html writers]:
+
+template
+~~~~~~~~
+
+Path to template file, which must be encoded in UTF-8. [#pwd]_
+See also `template [latex writers]`_.
+
+Default: "template.txt" in the writer's directory (installed automatically;
+for the exact machine-specific path, use the ``--help`` option).
+Option: ``--template``.
+
+
+.. _xml_declaration [html writers]:
+
+xml_declaration
+~~~~~~~~~~~~~~~
+
+Prepend an XML declaration.
+See also `xml_declaration [docutils_xml writer]`_.
+
+.. Caution:: The XML declaration carries text encoding information.  If the
+   encoding is not UTF-8 or ASCII and the XML declaration is missing,
+   standard XML tools may be unable to read the generated XHTML.
+
+Default: writer dependent.
+Options: ``--xml-declaration``, ``--no-xml-declaration``.
+
+
+[html4css1 writer]
+~~~~~~~~~~~~~~~~~~
+
+The `HTML4/CSS1 Writer`_ generates output that conforms to the
+`XHTML 1 Transitional`_ specification.
+It shares all settings defined in the `[html writers]`_
+`configuration section`_.
+
+
+Writer Specific Defaults
+""""""""""""""""""""""""
+
+`initial_header_level`_
+  1 (for "<h1>")
+
+`stylesheet_path <stylesheet_path [html writers]_>`__:
+  "html4css1.css"
+
+`xml_declaration <xml_declaration [html writers]_>`__
+  enabled (True)
+
+.. _HTML4/CSS1 Writer: html.html#html4css1
+.. _XHTML 1 Transitional: https://www.w3.org/TR/xhtml1/
+
+
+field_name_limit
+""""""""""""""""
+
+The maximum width (in characters) for one-column `field names`_. Longer
+field names will span an entire row of the table used to render the field
+list.  0 indicates "no limit".  See also option_limit_.
+
+Default: 14 (i.e. 14 characters).  Option: ``--field-name-limit``.
+
+
+option_limit
+""""""""""""
+
+The maximum width (in characters) for options in `option lists`_.
+Longer options will span an entire row of the table used to render
+the option list.  0 indicates "no limit".
+See also field_name_limit_.
+
+Default: 14 (i.e. 14 characters).  Option: ``--option-limit``.
+
+
+[html5 writer]
+~~~~~~~~~~~~~~
+
+The `HTML5 Writer`_ generates valid XML that is compatible with `HTML5`_.
+It shares all settings defined in the `[html writers]`_
+`configuration section`_.
+
+New in Docutils 0.13.
+
+.. _HTML5 Writer: html.html#html5-polyglot
+.. _HTML5: https://www.w3.org/TR/2014/REC-html5-20141028/
+
+Writer Specific Defaults
+""""""""""""""""""""""""
+
+`initial_header_level`_
+  2 (for "<h2>", cf. the "`The h1, h2, h3, h4, h5, and h6 elements`__"
+  in the HTML Standard)
+
+`stylesheet_path <stylesheet_path [html writers]_>`__:
+  "minimal.css, plain.css"
+
+__ https://html.spec.whatwg.org/multipage/sections.html
+   #the-h1,-h2,-h3,-h4,-h5,-and-h6-elements
+
+embed_images
+""""""""""""
+
+Deprecated. Obsoleted by image_loading_.
+
+
+image_loading
+"""""""""""""
+
+Suggest at which point images should be loaded.
+
+:embed: If the image can be read from the local file system,
+        the image data is embedded into the HTML document.
+
+:link: Link to image in the HTML document (default).
+
+:lazy: Link to image. Specify the `lazy loading attribute`_ to defer
+       fetching the image.
+
+Default: "link". Option: ``--image-loading``.
+
+New in Docutils 0.18.
+
+.. _base64: https://en.wikipedia.org/wiki/Base64
+.. _data URI: https://en.wikipedia.org/wiki/Data_URI_scheme
+.. _lazy loading attribute: https://html.spec.whatwg.org/multipage/
+    urls-and-fetching.html#lazy-loading-attributes
+
+
+section_self_link
+"""""""""""""""""
+
+Append an empty anchor element with a ``href`` to the section to
+section headings. See ``responsive.css`` for an example how this can be
+styled to show a symbol allowing users to copy the section's URL.
+
+Default: disabled (False).
+Options: ``--section-self-link``, ``--no-section-self-link``.
+
+New in Docutils 0.18.
+
+
+[pep_html writer]
+~~~~~~~~~~~~~~~~~
+
+The PEP/HTML Writer derives from the HTML4/CSS1 Writer, and shares
+all settings defined in the `[html writers]`_ and `[html4css1 writer]`_
+`configuration sections`_.
+
+Writer Specific Defaults
+""""""""""""""""""""""""
+
+`initial_header_level`_
+  1 (for "<h1>")
+
+`stylesheet_path <stylesheet_path [html writers]_>`__:
+  "pep.css"
+
+`template <template [html writers]_>`__:
+  ``docutils/writers/pep_html/template.txt`` in the installation
+  directory.  For the exact machine-specific path, use the ``--help``
+  option.
+
+no_random
+"""""""""
+Do not use a random banner image.  Mainly used to get predictable
+results when testing.
+
+Default: random enabled (None).  Options: ``--no-random`` (hidden).
+
+pep_home
+""""""""
+
+Home URL prefix for PEPs.
+
+Default: current directory (".").  Option: ``--pep-home``.
+
+python_home
+"""""""""""
+Python's home URL.
+
+Default: parent directory ("..").  Option: ``--python-home``.
+
+
+[s5_html writer]
+~~~~~~~~~~~~~~~~
+
+The S5/HTML Writer derives from the HTML4/CSS1 Writer, and shares
+all settings defined in the `[html writers]`_ and `[html4css1 writer]`_
+`configuration sections`_.
+
+Writer Specific Defaults
+""""""""""""""""""""""""
+
+compact_lists_:
+  disable compact lists.
+
+template__:
+  ``docutils/writers/s5_html/template.txt`` in the installation
+  directory.  For the exact machine-specific path, use the ``--help``
+  option.
+
+__ `template [html writers]`_
+
+
+hidden_controls
+"""""""""""""""
+
+Auto-hide the presentation controls in slideshow mode, or or keep
+them visible at all times.
+
+Default: auto-hide (True).
+Options: ``--hidden-controls``, ``--visible-controls``.
+
+current_slide
+"""""""""""""
+
+Enable or disable the current slide indicator ("1/15").
+
+Default: disabled (None).
+Options: ``--current-slide``, ``--no-current-slide``.
+
+overwrite_theme_files
+"""""""""""""""""""""
+
+Allow or prevent the overwriting of existing theme files in the
+``ui/<theme>`` directory.  This has no effect if "theme_url_" is
+used.
+
+Default: keep existing theme files (None).
+Options: ``--keep-theme-files``, ``--overwrite-theme-files``.
+
+theme
+"""""
+
+Name of an installed S5 theme, to be copied into a ``ui/<theme>``
+subdirectory, beside the destination file (output HTML).  Note
+that existing theme files will not be overwritten; the existing
+theme directory must be deleted manually.
+Also overrides the "theme_url_" setting. [#override]_
+
+Default: "default".  Option: ``--theme``.
+
+theme_url
+"""""""""
+
+The URL of an S5 theme directory.  The destination file (output
+HTML) will link to this theme; nothing will be copied.  Also overrides
+the "theme_" setting. [#override]_
+
+Default: None.  Option: ``--theme-url``.
+
+view_mode
+"""""""""
+
+The initial view mode, either "slideshow" or "outline".
+
+Default: "slidewhow".  Option: ``--view-mode``.
+
+.. ------------------------------------------------------------
+
+[latex writers]
+----------------
+
+Common settings for the `LaTeX writers`_
+`[latex2e writer]`_ and `[xetex writer]`_.
+
+.. _LaTeX writers: latex.html
+
+
+.. _attribution [latex writers]:
+
+attribution
+~~~~~~~~~~~
+
+See `attribution [html writers]`_.
+
+compound_enumerators
+~~~~~~~~~~~~~~~~~~~~
+
+Enable or disable compound enumerators for nested `enumerated lists`_
+(e.g. "1.2.a.ii").
+
+Default: disabled (None).
+Options: ``--compound-enumerators``, ``--no-compound-enumerators``.
+
+documentclass
+~~~~~~~~~~~~~
+
+Specify LaTeX documentclass.
+
+Default: "article".  Option: ``--documentclass``.
+
+documentoptions
+~~~~~~~~~~~~~~~
+
+Specify document options.  Multiple options can be given, separated by
+commas.
+
+Default: "a4paper".  Option: ``--documentoptions``.
+
+
+docutils_footnotes
+~~~~~~~~~~~~~~~~~~
+Use the Docutils-specific macros ``\DUfootnote`` and
+``\DUfootnotetext`` for footnotes_.
+
+TODO: The alternative, "use_latex_footnotes" is not implemented yet.
+
+Default: on.  Option: ``--docutils-footnotes``.
+
+
+.. _embed_stylesheet [latex writers]:
+
+embed_stylesheet
+~~~~~~~~~~~~~~~~
+
+Embed the stylesheet(s) in the header of the output file.  The
+stylesheets must be accessible during processing.  Currently, this
+fails if the file is not available via the given path (i.e. the
+file is *not* searched in the `TeX input path`_).
+See also `embed_stylesheet [html writers]`_.
+
+Default: off.  Options: ``--embed-stylesheet, --link-stylesheet``.
+
+
+.. _footnote_references [latex writers]:
+
+footnote_references
+~~~~~~~~~~~~~~~~~~~
+
+Format for `footnote references`_: one of "superscript" or "brackets".
+See also `footnote_references [html writers]`_.
+
+Overrides [#override]_ trim_footnote_reference_space_,
+if the parser supports this option.
+
+Default: "superscript".  Option: ``--footnote-references``.
+
+
+graphicx_option
+~~~~~~~~~~~~~~~
+
+LaTeX graphicx package option.
+
+Possible values are "dvips", "pdftex", "dvipdfmx".
+
+Default: "".  Option: ``--graphicx-option``.
+
+hyperlink_color
+~~~~~~~~~~~~~~~
+
+Color of any hyperlinks embedded in text.
+
+* "0" or "false" disable coloring of links. (Links will be marked
+  by red boxes that are not printed),
+* "black" results in “invisible“ links,
+
+Set hyperref_options_ to "draft" to completely disable hyperlinking.
+
+Default: "blue".  Option: ``--hyperlink-color``.
+
+hyperref_options
+~~~~~~~~~~~~~~~~
+
+Options for the `hyperref TeX package`_. If hyperlink_color_ is
+not "false", the expansion of ::
+
+  'colorlinks=true,linkcolor=%s,urlcolor=%s' % (
+     hyperlink_color, self.hyperlink_color
+
+is prepended.
+
+Default: "".   Option: ``--hyperref-options``.
+
+.. _hyperref TeX package: http://tug.org/applications/hyperref/
+
+
+latex_preamble
+~~~~~~~~~~~~~~
+
+LaTeX code that will be inserted in the document preamble.
+Can be used to load packages with options or (re-) define LaTeX
+macros without writing a custom style file (new in Docutils 0.7).
+
+Default: writer dependent (see `[latex2e writer]`_, `[xetex writer]`_).
+Option: ``--latex-preamble``.
+
+
+legacy_class_functions
+~~~~~~~~~~~~~~~~~~~~~~
+
+Use legacy functions ``\DUtitle`` and ``\DUadmonition`` with a
+comma-separated list of class values as optional argument. If `False`, class
+values are handled with wrappers and admonitions use the ``DUadmonition``
+environment. See `Generating LaTeX with Docutils`__ for details.
+
+Default: False (changed in Docutils 0.18).
+Options: ``--legacy-class-functions``, ``--new-class-functions``.
+
+New in Docutils 0.17.
+
+__ latex.html#classes
+
+
+legacy_column_widths
+~~~~~~~~~~~~~~~~~~~~
+
+Use "legacy algorithm" or new algorithm to determine table column widths.
+
+The new algorithm limits the table width to the text width or specified
+table width and keeps the ratio of specified column widths.
+
+Custom table and/or column widths can be set with the respective options
+of the `table directive`_. See also `Generating LaTeX with Docutils`__.
+
+Default: True (will change to False in 0.19).
+Options: ``--legacy-column-widths``, ``--new-column-widths``.
+
+New in Docutils 0.18.
+
+__ latex.html#table-style
+
+
+literal_block_env
+~~~~~~~~~~~~~~~~~
+
+When possible\ [#]_, use the specified environment for `literal blocks`_.
+
+Default: "" (quoting of whitespace and special chars).
+Option: ``--literal-block-env``.
+
+.. [#] A literal-block element may originate from a `parsed literal`_.
+   A LaTeX verbatim environment is only usable it does not contain
+   inline elements.
+
+.. _parsed literal: ../ref/rst/directives.html#parsed-literal
+
+
+reference_label
+~~~~~~~~~~~~~~~
+
+Per default the latex-writer puts the reference title into
+hyper references. Specify "ref*" or "pageref*" to get the section
+number or the page number.
+
+Default: "" (use hyper references).  Option: ``--reference-label``.
+
+section_enumerator_separator
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The separator between section number prefix and enumerator for
+compound enumerated lists (see `compound_enumerators`_).
+
+Generally it isn't recommended to use both sub-sections and nested
+enumerated lists with compound enumerators.  This setting avoids
+ambiguity in the situation where a section "1" has a list item
+enumerated "1.1", and subsection "1.1" has list item "1".  With a
+separator of ".", these both would translate into a final compound
+enumerator of "1.1.1".  With a separator of "-", we get the
+unambiguous "1-1.1" and "1.1-1".
+
+Default: "-".  Option: ``--section-enumerator-separator``.
+
+
+
+section_prefix_for_enumerators
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Enable or disable section ("." subsection ...) prefixes for
+compound enumerators.  This has no effect unless
+`compound_enumerators`_ are enabled.
+
+Default: disabled (None).
+Options: ``--section-prefix-for-enumerators``,
+``--no-section-prefix-for-enumerators``.
+
+
+.. _stylesheet [latex writers]:
+
+stylesheet
+~~~~~~~~~~
+
+A comma-separated list_ of style files.
+See also `stylesheet [html writers]`_.
+
+Overrides also stylesheet_path__. [#override]_
+
+If `embed_stylesheet`__ is False (default), the stylesheet files are
+referenced with ``\usepackage`` (extension ``.sty`` or no extension) or
+``\input`` (any other extension).
+
+LaTeX will search the specified files in the `TeX input path`_.
+
+Default: no stylesheet ("").  Option: ``--stylesheet``.
+
+__ `stylesheet_path [latex writers]`_
+__ `embed_stylesheet [latex writers]`_
+.. _TeX input path:
+   http://www.tex.ac.uk/cgi-bin/texfaq2html?label=what-TDS
+
+
+.. _stylesheet_dirs [latex writers]:
+
+stylesheet_dirs
+~~~~~~~~~~~~~~~
+
+A comma-separated list of directories where stylesheets can be found.
+Used by the stylesheet_path__ setting.
+
+Note: This setting defines a "search path" (similar to the PATH variable for
+executables). However, the term "path" is already used in the
+stylesheet_path__ setting with the meaning of a file location.
+
+__
+__ `stylesheet_path [latex writers]`_
+
+Default: the working directory of the process at launch and the directory
+with default stylesheet files (writer and installation specific).
+Use the ``--help`` option to get the exact value.
+Option: ``--stylesheet-dirs``.
+
+
+.. _stylesheet_path [latex writers]:
+
+stylesheet_path
+~~~~~~~~~~~~~~~
+
+A comma-separated list of style files. Relative paths are expanded if a
+matching file is found in the stylesheet_dirs__.
+If embed_stylesheet__ is False, paths are rewritten relative to the
+output file path. Run ``latex`` from the directory containing
+the output file.
+See also `stylesheet_path [html writers]`_.
+
+The stylesheet__  option is preferred for files in the `TeX input path`_.
+
+Also overrides stylesheet__. [#override]_
+
+Default: no stylesheet ("").  Option: ``--stylesheet-path``.
+
+__ `stylesheet_dirs [latex writers]`_
+__ `embed_stylesheet [latex writers]`_
+__
+__ `stylesheet [latex writers]`_
+
+
+.. _table_style [latex writers]:
+
+table_style
+~~~~~~~~~~~
+
+Specify the default style for tables_.
+See also `table_style [html writers]`_.
+
+Supported values: "booktabs", "borderless", "colwidths-auto", and "standard".
+See `Generating LaTeX with Docutils`__ for details.
+
+Default: "standard".  Option: ``--table-style``.
+
+__ latex.html#tables
+
+
+.. _template [latex writers]:
+
+template
+~~~~~~~~
+
+Path [#pwd]_ to template file, which must be encoded in UTF-8.
+See also `template [html writers]`_.
+
+Default: writer dependent (see `[latex2e writer]`_, `[xetex writer]`_).
+Option: ``--template``.
+
+
+use_bibtex
+~~~~~~~~~~
+Specify style and database for the experimental `BibTeX` support, for
+example::
+
+  --use-bibtex=mystyle,mydb1,mydb2
+
+Default: "" (don't use BibTeX).  Option ``--use-bibtex``.
+
+use_latex_abstract
+~~~~~~~~~~~~~~~~~~
+
+Use LaTeX abstract environment for the document's abstract_.
+
+Default: off.  Options: ``--use-latex-abstract, --topic-abstract``.
+
+use_latex_citations
+~~~~~~~~~~~~~~~~~~~
+
+Use \cite for citations_ instead of a simulation with figure-floats.
+
+Default: off.  Options: ``--use-latex-citations, --figure-citations``.
+
+use_latex_docinfo
+~~~~~~~~~~~~~~~~~
+
+Attach author and date to the `document title`_
+instead of the `bibliographic fields`_.
+
+Default: off.  Options: ``--use-latex-docinfo, --use-docutils-docinfo``.
+
+use_latex_toc
+~~~~~~~~~~~~~
+
+To get page numbers in the `table of contents`_, it
+must be generated by LaTeX. Usually latex must be run twice to get
+numbers correct.
+
+Default: on.  Options: ``--use-latex-toc, --use-docutils-toc``.
+
+use_part_section
+~~~~~~~~~~~~~~~~
+
+Add parts on top of the section hierarchy.
+
+Default: don't (None).  Option: ``--use-part-section``.
+
+[latex2e writer]
+~~~~~~~~~~~~~~~~
+
+The `LaTeX2e writer`_ generates a LaTeX source for compilation with 8-bit
+LaTeX (pdfTeX_). It shares all settings defined in the `[latex writers]`_
+`configuration section`_.
+
+.. _LaTeX2e writer: latex.html#latex2e-writer
+.. _pdfTeX: https://www.tug.org/applications/pdftex/
+.. _configuration section: `Configuration File Sections & Entries`_
+
+
+Writer Specific Defaults
+""""""""""""""""""""""""
+
+latex_preamble_
+   Load the "PDF standard fonts" (Times, Helvetica, Courier)::
+
+    \usepackage{mathptmx} % Times
+    \usepackage[scaled=.90]{helvet}
+    \usepackage{courier}
+
+template__
+  "default.tex" in the ``docutils/writers/latex2e/`` directory
+  (installed automatically).
+
+  __ `template [latex writers]`_
+
+
+font_encoding
+"""""""""""""
+
+Specify `LaTeX font encoding`_. Multiple options can be given, separated by
+commas. The last value becomes the document default.
+Possible values are "", "T1", "OT1", "LGR,T1" or any other combination of
+`LaTeX font encodings`_.
+
+Default: "T1".  Option: ``--font-encoding``.
+
+.. _LaTeX font encoding: latex.html#font-encoding
+.. _LaTeX font encodings:
+   http://mirror.ctan.org/macros/latex/doc/encguide.pdf
+
+[xetex writer]
+~~~~~~~~~~~~~~
+
+The `XeTeX writer`_ generates a LaTeX source for compilation with `XeTeX or
+LuaTeX`_. It derives from the latex2e writer, and shares all settings
+defined in the `[latex writers]`_ and `[latex2e writer]`_ `configuration
+sections`_.
+
+.. _XeTeX writer: latex.html#xetex-writer
+.. _XeTeX or LuaTeX: https://texfaq.org/FAQ-xetex-luatex
+.. _configuration sections: `Configuration File Sections & Entries`_
+
+Writer Specific Defaults
+""""""""""""""""""""""""
+
+latex_preamble_:
+  Font setup for `Linux Libertine`_,::
+
+      % Linux Libertine (free, wide coverage, not only for Linux)
+      \setmainfont{Linux Libertine O}
+      \setsansfont{Linux Biolinum O}
+      \setmonofont[HyphenChar=None]{DejaVu Sans Mono}
+
+  The optional argument ``HyphenChar=None`` to the monospace font
+  prevents word hyphenation in literal text.
+
+.. _Linux Libertine: http://www.linuxlibertine.org/
+
+template__:
+  "xelatex.tex" in the ``docutils/writers/latex2e/`` directory
+  (installed automatically).
+
+  .. TODO: show full path with ``--help`` (like in the HTML writers)
+     and add the following line:
+     for the exact machine-specific path, use the ``--help`` option).
+
+  __ `template [latex writers]`_
+
+
+[odf_odt writer]
+----------------
+
+The following command line options are specific to ``odtwriter``:
+
+stylesheet
+~~~~~~~~~~
+
+Specify a stylesheet URL, used verbatim.
+
+Default: writers/odf_odt/styles.odt in the installation directory.
+
+odf-config-file
+~~~~~~~~~~~~~~~
+
+Specify a configuration/mapping file relative to the current working
+directory for additional ODF options. In particular, this file may
+contain a section named "Formats" that maps default style names to names
+to be used in the resulting output file allowing for adhering to external
+standards. For more info and the format of the configuration/mapping
+file, see the `Odt Writer for Docutils`_ document.
+
+cloak-email-addresses
+~~~~~~~~~~~~~~~~~~~~~
+
+Obfuscate email addresses to confuse harvesters while still
+keeping email links usable with standards-compliant browsers.
+
+no-cloak-email-addresses
+~~~~~~~~~~~~~~~~~~~~~~~~
+Do not obfuscate email addresses.
+
+table-border-thickness
+~~~~~~~~~~~~~~~~~~~~~~
+
+Specify the thickness of table borders in thousands of a cm.
+Default is 35.
+
+add-syntax-highlighting
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Add syntax highlighting in literal code blocks.
+
+no-syntax-highlighting
+~~~~~~~~~~~~~~~~~~~~~~
+
+Do not add syntax highlighting in literal code blocks.
+(default)
+
+create-sections
+~~~~~~~~~~~~~~~
+
+Create sections for headers.  (default)
+
+no-sections
+~~~~~~~~~~~
+
+Do not create sections for headers.
+
+create-links
+~~~~~~~~~~~~
+Create links.
+
+no-links
+~~~~~~~~
+
+Do not create links.  (default)
+
+endnotes-end-doc
+~~~~~~~~~~~~~~~~
+
+Generate endnotes at end of document, not footnotes at bottom of page.
+
+no-endnotes-end-doc
+~~~~~~~~~~~~~~~~~~~
+
+Generate footnotes at bottom of page, not endnotes at end of
+document. (default)
+
+generate-list-toc
+~~~~~~~~~~~~~~~~~
+
+Generate a bullet list table of contents, not an
+ODF/``oowriter`` table of contents.
+
+generate-oowriter-toc
+~~~~~~~~~~~~~~~~~~~~~
+
+Generate an ODF/``oowriter`` table of contents, not a bullet
+list.  (default) **Note:** ``odtwriter`` is not able to
+determine page numbers, so you will need to open the generated
+document in ``oowriter``, then right-click on the table of
+contents and select "Update" to insert page numbers.
+
+custom-odt-header
+~~~~~~~~~~~~~~~~~
+
+Specify the contents of a custom header line.  For details about
+custom headers and about special field character sequences, see
+section "Custom header/footers: inserting page numbers, date,
+time, etc" in the `Odt Writer for Docutils`_ document for
+details.
+
+custom-odt-footer
+~~~~~~~~~~~~~~~~~
+
+Specify the contents of a custom footer line.  For details about
+custom footers and about special field character sequences, see
+section "Custom header/footers: inserting page numbers, date,
+time, etc" in the `Odt Writer for Docutils`_ document for
+details.
+
+.. _Odt Writer for Docutils: odt.html
+
+
+[pseudoxml writer]
+------------------
+
+detailed
+~~~~~~~~~
+
+Pretty-print <#text> nodes.
+
+Default:  False.  Option: ``--detailed``.
+
+
+[applications]
+==============
+
+[buildhtml application]
+-----------------------
+
+dry_run
+~~~~~~~
+
+Do not process files, show files that would be processed.
+
+Default:  False.  Option: ``--dry-run``.
+
+ignore
+~~~~~~
+
+List_ of wildcard (shell globing) patterns, specifying files to silently
+ignore.  To specify multiple patterns, use colon-separated patterns (in
+configuration files or on the command line); on the command line, the
+option may also be used more than once.
+
+Default: None.  Option: ``--ignore``.
+
+prune
+~~~~~
+
+List_ of directories not to process.  To specify multiple
+directories, use colon-separated paths (in configuration files or
+on the command line); on the command line, the option may also be
+used more than once.
+
+Default: ['.hg', '.bzr', '.git', '.svn', 'CVS'].  Option:
+``--prune``.
+
+recurse
+~~~~~~~
+
+Recursively scan subdirectories, or ignore subdirectories.
+
+Default: recurse (True).  Options: ``--recurse, --local``.
+
+silent
+~~~~~~
+
+Work silently (no progress messages).  Independent of
+"report_level".
+
+Default: show progress (None).  Option: ``--silent``.
+
+.. _html_writer:
+.. _writer [buildhtml application]:
+
+writer
+~~~~~~
+
+`HTML writer`_ version. One of "html", "html4", "html5".
+
+Default: "html" (use Docutils' default HTML writer).
+Option: ``--writer``
+
+New in 0.17. Obsoletes the ``html_writer`` option.
+
+.. _HTML writer: html.html
+
+
+[docutils application]
+--------------------------
+
+New in 0.17. Config file support added in 0.18.
+Renamed in 0.19 (the old name "docutils-cli application" is kept as alias).
+Support for reader/parser import names added in 0.19.
+
+reader
+~~~~~~
+Reader component name.
+One of "standalone", "pep",
+or the import name of a drop-in reader module.
+
+Default: "standalone".
+Option: ``--reader``
+
+parser
+~~~~~~
+Parser component name.
+Either "rst" (default) or the import name of a drop-in parser module.
+
+Parsers for CommonMark_ known to work with Docutils include "pycmark_",
+"myst_", and "recommonmark_".
+
+Default: "rst".
+Option: ``--parser``
+
+.. _CommonMark: https://spec.commonmark.org/0.30/
+
+
+.. _writer [docutils application]:
+
+writer
+~~~~~~
+Writer component name.
+One of "html", "html4", "html5", "latex", "xelatex", "odt", "xml",
+"pseudoxml", "manpage", "pep_html", "s5", an alias,
+or the import name of a drop-in writer module.
+
+Default: "html5".
+Option: ``--writer``
+
+
+Other Settings
+==============
+
+Command-Line Only
+-----------------
+
+These settings are only effective as command-line options; setting
+them in configuration files has no effect.
+
+config
+~~~~~~
+
+Path to a configuration file to read (if it exists). [#pwd]_
+Settings may override defaults and earlier settings.  The config
+file is processed immediately.  Multiple ``--config`` options may
+be specified; each will be processed in turn.
+
+Filesystem path settings contained within the config file will be
+interpreted relative to the config file's location (*not* relative
+to the current working directory).
+
+Default: None.  Option: ``--config``.
+
+
+Internal Settings
+-----------------
+
+These settings are for internal use only; setting them in
+configuration files has no effect, and there are no corresponding
+command-line options.
+
+_config_files
+~~~~~~~~~~~~~
+
+List of paths of applied configuration files.
+
+Default: None.  No command-line options.
+
+_directories
+~~~~~~~~~~~~
+
+(``buildhtml.py`` front end.)  List of paths to source
+directories, set from positional arguments.
+
+Default: current working directory (None).  No command-line
+options.
+
+_disable_config
+~~~~~~~~~~~~~~~
+
+Prevent standard configuration files from being read.  For
+programmatic use only.
+
+Default: config files enabled (None).  No command-line options.
+
+_destination
+~~~~~~~~~~~~
+
+Path to output destination, set from positional arguments.
+
+Default: stdout (None).  No command-line options.
+
+_source
+~~~~~~~
+
+Path to input source, set from positional arguments.
+
+Default: stdin (None).  No command-line options.
+
+--------------------------------------------------------------------------
+
+.. _language tag: https://www.w3.org/International/articles/language-tags/
+.. _BCP 47: https://www.rfc-editor.org/rfc/bcp/bcp47.txt
+.. _ISO 639: http://www.loc.gov/standards/iso639-2/php/English_list.php
+.. _ISO 3166: http://www.iso.ch/iso/en/prods-services/iso3166ma/
+   02iso-3166-code-lists/index.html
+
+.. [#pwd] Path relative to the working directory of the process at
+   launch.
+
+.. [#override] The overridden setting will automatically be set to
+   ``None`` for command-line options and config file settings.  Client
+   programs which specify defaults that override other settings must
+   do the overriding explicitly, by assigning ``None`` to the other
+   settings.
+
+
+------------------------------
+Old-Format Configuration Files
+------------------------------
+
+Formerly, Docutils configuration files contained a single "[options]"
+section only.  This was found to be inflexible, and in August 2003
+Docutils adopted the current component-based configuration file
+sections as described above.
+Up to version 2.0, Docutils will still recognize the old "[options]"
+section, but complain with a deprecation warning.
+
+To convert existing config files, the easiest way is to change the
+section title: change "[options]" to "[general]".  Most settings
+haven't changed.  The only ones to watch out for are these:
+
+=====================  =====================================
+Old-Format Setting     New Section & Setting
+=====================  =====================================
+pep_stylesheet         [pep_html writer] stylesheet
+pep_stylesheet_path    [pep_html writer] stylesheet_path
+pep_template           [pep_html writer] template
+=====================  =====================================
+
+.. References
+
+.. _abstract:
+.. _bibliographic field list:
+.. _bibliographic fields:
+   ../ref/rst/restructuredtext.html#bibliographic-fields
+.. _block quote: ../ref/rst/restructuredtext.html#block-quotes
+.. _citations: ../ref/rst/restructuredtext.html#citations
+.. _bullet lists: ../ref/rst/restructuredtext.html#bullet-lists
+.. _enumerated lists: ../ref/rst/restructuredtext.html#enumerated-lists
+.. _field lists: ../ref/rst/restructuredtext.html#field-lists
+.. _field names: ../ref/rst/restructuredtext.html#field-names
+.. _footnotes: ../ref/rst/restructuredtext.html#footnotes
+.. _footnote references: ../ref/rst/restructuredtext.html#footnote-references
+.. _inline markup recognition rules:
+    ../ref/rst/restructuredtext.html#inline-markup-recognition-rules
+.. _literal blocks: ../ref/rst/restructuredtext.html#literal-blocks
+.. _option lists: ../ref/rst/restructuredtext.html#option-lists
+.. _tables: ../ref/rst/restructuredtext.html#tables
+.. _table of contents: ../ref/rst/directives.html#contents

@@ -1,0 +1,1034 @@
+PEP: 258
+Title: Docutils Design Specification
+Version: $Revision$
+Last-Modified: $Date$
+Author: David Goodger <goodger@python.org>
+Discussions-To: <doc-sig@python.org>
+Status: Rejected
+Type: Standards Track
+Content-Type: text/x-rst
+Requires: 256, 257
+Created: 31-May-2001
+Post-History: 13-Jun-2001
+
+
+================
+Rejection Notice
+================
+
+While this may serve as an interesting design document for the
+now-independent docutils, it is no longer slated for inclusion in the
+standard library.
+
+
+==========
+ Abstract
+==========
+
+This PEP documents design issues and implementation details for
+Docutils, a Python Docstring Processing System (DPS).  The rationale
+and high-level concepts of a DPS are documented in PEP 256, "Docstring
+Processing System Framework" [#PEP-256]_.  Also see PEP 256 for a
+"Road Map to the Docstring PEPs".
+
+Docutils is being designed modularly so that any of its components can
+be replaced easily.  In addition, Docutils is not limited to the
+processing of Python docstrings; it processes standalone documents as
+well, in several contexts.
+
+No changes to the core Python language are required by this PEP.  Its
+deliverables consist of a package for the standard library and its
+documentation.
+
+
+===============
+ Specification
+===============
+
+Docutils Project Model
+======================
+
+Project components and data flow::
+
+                     +---------------------------+
+                     |        Docutils:          |
+                     | docutils.core.Publisher,  |
+                     | docutils.core.publish_*() |
+                     +---------------------------+
+                      /            |            \
+                     /             |             \
+            1,3,5   /        6     |              \ 7
+           +--------+       +-------------+       +--------+
+           | READER | ----> | TRANSFORMER | ====> | WRITER |
+           +--------+       +-------------+       +--------+
+            /     \\                                  |
+           /       \\                                 |
+     2    /      4  \\                             8  |
+    +-------+   +--------+                        +--------+
+    | INPUT |   | PARSER |                        | OUTPUT |
+    +-------+   +--------+                        +--------+
+
+The numbers above each component indicate the path a document's data
+takes.  Double-width lines between Reader & Parser and between
+Transformer & Writer indicate that data sent along these paths should
+be standard (pure & unextended) Docutils doc trees.  Single-width
+lines signify that internal tree extensions or completely unrelated
+representations are possible, but they must be supported at both ends.
+
+
+Publisher
+---------
+
+The ``docutils.core`` module contains a "Publisher" facade class and
+several convenience functions: "publish_cmdline()" (for command-line
+front ends), "publish_file()" (for programmatic use with file-like
+I/O), and "publish_string()" (for programmatic use with string I/O).
+The Publisher class encapsulates the high-level logic of a Docutils
+system.  The Publisher class has overall responsibility for
+processing, controlled by the ``Publisher.publish()`` method:
+
+1. Set up internal settings (may include config files & command-line
+   options) and I/O objects.
+
+2. Call the Reader object to read data from the source Input object
+   and parse the data with the Parser object.  A document object is
+   returned.
+
+3. Set up and apply transforms via the Transformer object attached to
+   the document.
+
+4. Call the Writer object which translates the document to the final
+   output format and writes the formatted data to the destination
+   Output object.  Depending on the Output object, the output may be
+   returned from the Writer, and then from the ``publish()`` method.
+
+Calling the "publish" function (or instantiating a "Publisher" object)
+with component names will result in default behavior.  For custom
+behavior (customizing component settings), create custom component
+objects first, and pass *them* to the Publisher or ``publish_*``
+convenience functions.
+
+
+Readers
+-------
+
+Readers understand the input context (where the data is coming from),
+send the whole input or discrete "chunks" to the parser, and provide
+the context to bind the chunks together back into a cohesive whole.
+
+Each reader is a module or package exporting a "Reader" class with a
+"read" method.  The base "Reader" class can be found in the
+``docutils/readers/__init__.py`` module.
+
+Most Readers will have to be told what parser to use.  So far (see the
+list of examples below), only the Python Source Reader ("PySource";
+still incomplete) will be able to determine the parser on its own.
+
+Responsibilities:
+
+* Get input text from the source I/O.
+
+* Pass the input text to the parser, along with a fresh `document
+  tree`_ root.
+
+Examples:
+
+* Standalone (Raw/Plain): Just read a text file and process it.
+  The reader needs to be told which parser to use.
+
+  The "Standalone Reader" has been implemented in module
+  ``docutils.readers.standalone``.
+
+* Python Source: See `Python Source Reader`_ below.  This Reader is
+  currently in development in the Docutils sandbox.
+
+* Email: RFC-822 headers, quoted excerpts, signatures, MIME parts.
+
+* PEP: RFC-822 headers, "PEP xxxx" and "RFC xxxx" conversion to URIs.
+  The "PEP Reader" has been implemented in module
+  ``docutils.readers.pep``; see PEP 287 and PEP 12.
+
+* Wiki: Global reference lookups of "wiki links" incorporated into
+  transforms.  (CamelCase only or unrestricted?)  Lazy
+  indentation?
+
+* Web Page: As standalone, but recognize meta fields as meta tags.
+  Support for templates of some sort?  (After ``<body>``, before
+  ``</body>``?)
+
+* FAQ: Structured "question & answer(s)" constructs.
+
+* Compound document: Merge chapters into a book.  Master manifest
+  file?
+
+
+Parsers
+-------
+
+Parsers analyze their input and produce a Docutils `document tree`_.
+They don't know or care anything about the source or destination of
+the data.
+
+Each input parser is a module or package exporting a "Parser" class
+with a "parse" method.  The base "Parser" class can be found in the
+``docutils/parsers/__init__.py`` module.
+
+Responsibilities: Given raw input text and a doctree root node,
+populate the doctree by parsing the input text.
+
+Example: The only parser implemented so far is for the
+reStructuredText markup.  It is implemented in the
+``docutils/parsers/rst/`` package.
+
+The development and integration of other parsers is possible and
+encouraged.
+
+
+.. _transforms:
+
+Transformer
+-----------
+
+The Transformer class, in ``docutils/transforms/__init__.py``, stores
+transforms and applies them to documents.  A transformer object is
+attached to every new document tree.  The Publisher_ calls
+``Transformer.apply_transforms()`` to apply all stored transforms to
+the document tree.  Transforms change the document tree from one form
+to another, add to the tree, or prune it.  Transforms resolve
+references and footnote numbers, process interpreted text, and do
+other context-sensitive processing.
+
+Some transforms are specific to components (Readers, Parser, Writers,
+Input, Output).  Standard component-specific transforms are specified
+in the ``default_transforms`` attribute of component classes.  After
+the Reader has finished processing, the Publisher_ calls
+``Transformer.populate_from_components()`` with a list of components
+and all default transforms are stored.
+
+Each transform is a class in a module in the ``docutils/transforms/``
+package, a subclass of ``docutils.tranforms.Transform``.  Transform
+classes each have a ``default_priority`` attribute which is used by
+the Transformer to apply transforms in order (low to high).  The
+default priority can be overridden when adding transforms to the
+Transformer object.
+
+Transformer responsibilities:
+
+* Apply transforms to the document tree, in priority order.
+
+* Store a mapping of component type name ('reader', 'writer', etc.) to
+  component objects.  These are used by certain transforms (such as
+  "components.Filter") to determine suitability.
+
+Transform responsibilities:
+
+* Modify a doctree in-place, either purely transforming one structure
+  into another, or adding new structures based on the doctree and/or
+  external data.
+
+Examples of transforms (in the ``docutils/transforms/`` package):
+
+* frontmatter.DocInfo: Conversion of document metadata (bibliographic
+  information).
+
+* references.AnonymousHyperlinks: Resolution of anonymous references
+  to corresponding targets.
+
+* parts.Contents: Generates a table of contents for a document.
+
+* document.Merger: Combining multiple populated doctrees into one.
+  (Not yet implemented or fully understood.)
+
+* document.Splitter: Splits a document into a tree-structure of
+  subdocuments, perhaps by section.  It will have to transform
+  references appropriately.  (Neither implemented not remotely
+  understood.)
+
+* components.Filter: Includes or excludes elements which depend on a
+  specific Docutils component.
+
+
+Writers
+-------
+
+Writers produce the final output (HTML, XML, TeX, etc.).  Writers
+translate the internal `document tree`_ structure into the final data
+format, possibly running Writer-specific transforms_ first.
+
+By the time the document gets to the Writer, it should be in final
+form.  The Writer's job is simply (and only) to translate from the
+Docutils doctree structure to the target format.  Some small
+transforms may be required, but they should be local and
+format-specific.
+
+Each writer is a module or package exporting a "Writer" class with a
+"write" method.  The base "Writer" class can be found in the
+``docutils/writers/__init__.py`` module.
+
+Responsibilities:
+
+* Translate doctree(s) into specific output formats.
+
+  - Transform references into format-native forms.
+
+* Write the translated output to the destination I/O.
+
+Examples:
+
+* XML: Various forms, such as:
+
+  - Docutils XML (an expression of the internal document tree,
+    implemented as ``docutils.writers.docutils_xml``).
+
+  - DocBook (being implemented in the Docutils sandbox).
+
+* HTML (XHTML 1.4 transitional implemented as ``docutils.writers.html4css1``).
+
+* PDF (a ReportLabs interface is being developed in the Docutils
+  sandbox).
+
+* LaTeX (implemented as ``docutils.writers.latex2e``).
+
+* Docutils-native pseudo-XML (implemented as
+  ``docutils.writers.pseudoxml``, used for testing).
+
+* Plain text
+
+* reStructuredText?
+
+
+Input/Output
+------------
+
+I/O classes provide a uniform API for low-level input and output.
+Subclasses will exist for a variety of input/output mechanisms.
+However, they can be considered an implementation detail.  Most
+applications should be satisfied using one of the convenience
+functions associated with the Publisher_.
+
+I/O classes are currently in the preliminary stages; there's a lot of
+work yet to be done.  Issues:
+
+* How to represent multi-file input (files & directories) in the API?
+
+* How to represent multi-file output?  Perhaps "Writer" variants, one
+  for each output distribution type?  Or Output objects with
+  associated transforms?
+
+Responsibilities:
+
+* Read data from the input source (Input objects) or write data to the
+  output destination (Output objects).
+
+Examples of input sources:
+
+* A single file on disk or a stream (implemented as
+  ``docutils.io.FileInput``).
+
+* Multiple files on disk (``MultiFileInput``?).
+
+* Python source files: modules and packages.
+
+* Python strings, as received from a client application
+  (implemented as ``docutils.io.StringInput``).
+
+Examples of output destinations:
+
+* A single file on disk or a stream (implemented as
+  ``docutils.io.FileOutput``).
+
+* A tree of directories and files on disk.
+
+* A Python string, returned to a client application (implemented as
+  ``docutils.io.StringOutput``).
+
+* No output; useful for programmatic applications where only a portion
+  of the normal output is to be used (implemented as
+  ``docutils.io.NullOutput``).
+
+* A single tree-shaped data structure in memory.
+
+* Some other set of data structures in memory.
+
+
+Docutils Package Structure
+==========================
+
+* Package "docutils".
+
+  - Module "__init__.py" contains: class "Component", a base class for
+    Docutils components; class "SettingsSpec", a base class for
+    specifying runtime settings (used by docutils.frontend); and class
+    "TransformSpec", a base class for specifying transforms.
+
+  - Module "docutils.core" contains facade class "Publisher" and
+    convenience functions.  See `Publisher`_ above.
+
+  - Module "docutils.frontend" provides runtime settings support, for
+    programmatic use and front-end tools (including configuration file
+    support, and command-line argument and option processing).
+
+  - Module "docutils.io" provides a uniform API for low-level input
+    and output.  See `Input/Output`_ above.
+
+  - Module "docutils.nodes" contains the Docutils document tree
+    element class library plus tree-traversal Visitor pattern base
+    classes.  See `Document Tree`_ below.
+
+  - Module "docutils.statemachine" contains a finite state machine
+    specialized for regular-expression-based text filters and parsers.
+    The reStructuredText parser implementation is based on this
+    module.
+
+  - Module "docutils.urischemes" contains a mapping of known URI
+    schemes ("http", "ftp", "mail", etc.).
+
+  - Module "docutils.utils" contains utility functions and classes,
+    including a logger class ("Reporter"; see `Error Handling`_
+    below).
+
+  - Package "docutils.parsers": markup parsers_.
+
+    - Function "get_parser_class(parser_name)" returns a parser module
+      by name.  Class "Parser" is the base class of specific parsers.
+      (``docutils/parsers/__init__.py``)
+
+    - Package "docutils.parsers.rst": the reStructuredText parser.
+
+    - Alternate markup parsers may be added.
+
+    See `Parsers`_ above.
+
+  - Package "docutils.readers": context-aware input readers.
+
+    - Function "get_reader_class(reader_name)" returns a reader module
+      by name or alias.  Class "Reader" is the base class of specific
+      readers.  (``docutils/readers/__init__.py``)
+
+    - Module "docutils.readers.standalone" reads independent document
+      files.
+
+    - Module "docutils.readers.pep" reads PEPs (Python Enhancement
+      Proposals).
+
+    - Module "docutils.readers.doctree" is used to re-read a
+      previously stored document tree for reprocessing.
+
+    - Readers to be added for: Python source code (structure &
+      docstrings), email, FAQ, and perhaps Wiki and others.
+
+    See `Readers`_ above.
+
+  - Package "docutils.writers": output format writers.
+
+    - Function "get_writer_class(writer_name)" returns a writer module
+      by name.  Class "Writer" is the base class of specific writers.
+      (``docutils/writers/__init__.py``)
+
+    - Package "docutils.writers.html4css1" is a simple HyperText
+      Markup Language document tree writer for HTML 4.01 and CSS1.
+
+    - Package "docutils.writers.pep_html" generates HTML from
+      reStructuredText PEPs.
+
+    - Package "docutils.writers.s5_html" generates S5/HTML slide
+      shows.
+
+    - Package "docutils.writers.latex2e" writes LaTeX.
+
+    - Package "docutils.writers.newlatex2e" also writes LaTeX; it is a
+      new implementation.
+
+    - Module "docutils.writers.docutils_xml" writes the internal
+      document tree in XML form.
+
+    - Module "docutils.writers.pseudoxml" is a simple internal
+      document tree writer; it writes indented pseudo-XML.
+
+    - Module "docutils.writers.null" is a do-nothing writer; it is
+      used for specialized purposes such as storing the internal
+      document tree.
+
+    - Writers to be added: HTML 3.2 or 4.01-loose, XML (various forms,
+      such as DocBook), PDF, plaintext, reStructuredText, and perhaps
+      others.
+
+    Subpackages of "docutils.writers" contain modules and data files
+    (such as stylesheets) that support the individual writers.
+
+    See `Writers`_ above.
+
+  - Package "docutils.transforms": tree transform classes.
+
+    - Class "Transformer" stores transforms and applies them to
+      document trees.  (``docutils/transforms/__init__.py``)
+
+    - Class "Transform" is the base class of specific transforms.
+      (``docutils/transforms/__init__.py``)
+
+    - Each module contains related transform classes.
+
+    See `Transforms`_ above.
+
+  - Package "docutils.languages": Language modules contain
+    language-dependent strings and mappings.  They are named for their
+    language identifier (as defined in `Choice of Docstring Format`_
+    below), converting dashes to underscores.
+
+    - Function "get_language(language_code)", returns matching
+      language module.  (``docutils/languages/__init__.py``)
+
+    - Modules: en.py (English), de.py (German), fr.py (French), it.py
+      (Italian), sk.py (Slovak), sv.py (Swedish).
+
+    - Other languages to be added.
+
+* Third-party modules: "extras" directory.  These modules are
+  installed only if they're not already present in the Python
+  installation.
+
+  - ``extras/roman.py`` contains Roman numeral conversion routines.
+
+
+Front-End Tools
+===============
+
+The ``tools/`` directory contains several front ends for common
+Docutils processing.  See `Docutils Front-End Tools`_ for details.
+
+.. _Docutils Front-End Tools:
+   https://docutils.sourceforge.io/docs/user/tools.html
+
+
+Document Tree
+=============
+
+A single intermediate data structure is used internally by Docutils,
+in the interfaces between components; it is defined in the
+``docutils.nodes`` module.  It is not required that this data
+structure be used *internally* by any of the components, just
+*between* components as outlined in the diagram in the `Docutils
+Project Model`_ above.
+
+Custom node types are allowed, provided that either (a) a transform
+converts them to standard Docutils nodes before they reach the Writer
+proper, or (b) the custom node is explicitly supported by certain
+Writers, and is wrapped in a filtered "pending" node.  An example of
+condition (a) is the `Python Source Reader`_ (see below), where a
+"stylist" transform converts custom nodes.  The HTML ``<meta>`` tag is
+an example of condition (b); it is supported by the HTML Writer but
+not by others.  The reStructuredText "meta" directive creates a
+"pending" node, which contains knowledge that the embedded "meta" node
+can only be handled by HTML-compatible writers.  The "pending" node is
+resolved by the ``docutils.transforms.components.Filter`` transform,
+which checks that the calling writer supports HTML; if it doesn't, the
+"pending" node (and enclosed "meta" node) is removed from the
+document.
+
+The document tree data structure is similar to a DOM tree, but with
+specific node names (classes) instead of DOM's generic nodes. The
+schema is documented in an XML DTD (eXtensible Markup Language
+Document Type Definition), which comes in two parts:
+
+* the Docutils Generic DTD, docutils.dtd_, and
+
+* the OASIS Exchange Table Model, soextbl.dtd_.
+
+The DTD defines a rich set of elements, suitable for many input and
+output formats.  The DTD retains all information necessary to
+reconstruct the original input text, or a reasonable facsimile
+thereof.
+
+See `The Docutils Document Tree`_ for details (incomplete).
+
+
+Error Handling
+==============
+
+When the parser encounters an error in markup, it inserts a system
+message (DTD element "system_message").  There are five levels of
+system messages:
+
+* Level-0, "DEBUG": an internal reporting issue.  There is no effect
+  on the processing.  Level-0 system messages are handled separately
+  from the others.
+
+* Level-1, "INFO": a minor issue that can be ignored.  There is little
+  or no effect on the processing.  Typically level-1 system messages
+  are not reported.
+
+* Level-2, "WARNING": an issue that should be addressed.  If ignored,
+  there may be minor problems with the output.  Typically level-2
+  system messages are reported but do not halt processing.
+
+* Level-3, "ERROR": a major issue that should be addressed.  If
+  ignored, the output will contain unpredictable errors.  Typically
+  level-3 system messages are reported but do not halt processing.
+
+* Level-4, "SEVERE": a critical error that must be addressed.
+  Typically level-4 system messages are turned into exceptions which
+  do halt processing.  If ignored, the output will contain severe
+  errors.
+
+Although the initial message levels were devised independently, they
+have a strong correspondence to `VMS error condition severity
+levels`_; the names in quotes for levels 1 through 4 were borrowed
+from VMS.  Error handling has since been influenced by the `log4j
+project`_.
+
+
+Python Source Reader
+====================
+
+The Python Source Reader ("PySource") is the Docutils component that
+reads Python source files, extracts docstrings in context, then
+parses, links, and assembles the docstrings into a cohesive whole.  It
+is a major and non-trivial component, currently under experimental
+development in the Docutils sandbox.  High-level design issues are
+presented here.
+
+
+Processing Model
+----------------
+
+This model will evolve over time, incorporating experience and
+discoveries.
+
+1. The PySource Reader uses an Input class to read in Python packages
+   and modules, into a tree of strings.
+
+2. The Python modules are parsed, converting the tree of strings into
+   a tree of abstract syntax trees with docstring nodes.
+
+3. The abstract syntax trees are converted into an internal
+   representation of the packages/modules.  Docstrings are extracted,
+   as well as code structure details.  See `AST Mining`_ below.
+   Namespaces are constructed for lookup in step 6.
+
+4. One at a time, the docstrings are parsed, producing standard
+   Docutils doctrees.
+
+5. PySource assembles all the individual docstrings' doctrees into a
+   Python-specific custom Docutils tree paralleling the
+   package/module/class structure; this is a custom Reader-specific
+   internal representation (see the `Docutils Python Source DTD`_).
+   Namespaces must be merged: Python identifiers, hyperlink targets.
+
+6. Cross-references from docstrings (interpreted text) to Python
+   identifiers are resolved according to the Python namespace lookup
+   rules.  See `Identifier Cross-References`_ below.
+
+7. A "Stylist" transform is applied to the custom doctree (by the
+   Transformer_), custom nodes are rendered using standard nodes as
+   primitives, and a standard document tree is emitted.  See `Stylist
+   Transforms`_ below.
+
+8. Other transforms are applied to the standard doctree by the
+   Transformer_.
+
+9. The standard doctree is sent to a Writer, which translates the
+   document into a concrete format (HTML, PDF, etc.).
+
+10. The Writer uses an Output class to write the resulting data to its
+    destination (disk file, directories and files, etc.).
+
+
+AST Mining
+----------
+
+Abstract Syntax Tree mining code will be written (or adapted) that
+scans a parsed Python module, and returns an ordered tree containing
+the names, docstrings (including attribute and additional docstrings;
+see below), and additional info (in parentheses below) of all of the
+following objects:
+
+* packages
+* modules
+* module attributes (+ initial values)
+* classes (+ inheritance)
+* class attributes (+ initial values)
+* instance attributes (+ initial values)
+* methods (+ parameters & defaults)
+* functions (+ parameters & defaults)
+
+(Extract comments too?  For example, comments at the start of a module
+would be a good place for bibliographic field lists.)
+
+In order to evaluate interpreted text cross-references, namespaces for
+each of the above will also be required.
+
+See the python-dev/docstring-develop thread "AST mining", started on
+2001-08-14.
+
+
+Docstring Extraction Rules
+--------------------------
+
+1. What to examine:
+
+   a) If the "``__all__``" variable is present in the module being
+      documented, only identifiers listed in "``__all__``" are
+      examined for docstrings.
+
+   b) In the absence of "``__all__``", all identifiers are examined,
+      except those whose names are private (names begin with "_" but
+      don't begin and end with "__").
+
+   c) 1a and 1b can be overridden by runtime settings.
+
+2. Where:
+
+   Docstrings are string literal expressions, and are recognized in
+   the following places within Python modules:
+
+   a) At the beginning of a module, function definition, class
+      definition, or method definition, after any comments.  This is
+      the standard for Python ``__doc__`` attributes.
+
+   b) Immediately following a simple assignment at the top level of a
+      module, class definition, or ``__init__`` method definition,
+      after any comments.  See `Attribute Docstrings`_ below.
+
+   c) Additional string literals found immediately after the
+      docstrings in (a) and (b) will be recognized, extracted, and
+      concatenated.  See `Additional Docstrings`_ below.
+
+   d) @@@ 2.2-style "properties" with attribute docstrings?  Wait for
+      syntax?
+
+3. How:
+
+   Whenever possible, Python modules should be parsed by Docutils, not
+   imported.  There are several reasons:
+
+   - Importing untrusted code is inherently insecure.
+
+   - Information from the source is lost when using introspection to
+     examine an imported module, such as comments and the order of
+     definitions.
+
+   - Docstrings are to be recognized in places where the byte-code
+     compiler ignores string literal expressions (2b and 2c above),
+     meaning importing the module will lose these docstrings.
+
+   Of course, standard Python parsing tools such as the "parser"
+   library module should be used.
+
+   When the Python source code for a module is not available
+   (i.e. only the ``.pyc`` file exists) or for C extension modules, to
+   access docstrings the module can only be imported, and any
+   limitations must be lived with.
+
+Since attribute docstrings and additional docstrings are ignored by
+the Python byte-code compiler, no namespace pollution or runtime bloat
+will result from their use.  They are not assigned to ``__doc__`` or
+to any other attribute.  The initial parsing of a module may take a
+slight performance hit.
+
+
+Attribute Docstrings
+''''''''''''''''''''
+
+(This is a simplified version of PEP 224 [#PEP-224]_.)
+
+A string literal immediately following an assignment statement is
+interpreted by the docstring extraction machinery as the docstring of
+the target of the assignment statement, under the following
+conditions:
+
+1. The assignment must be in one of the following contexts:
+
+   a) At the top level of a module (i.e., not nested inside a compound
+      statement such as a loop or conditional): a module attribute.
+
+   b) At the top level of a class definition: a class attribute.
+
+   c) At the top level of the "``__init__``" method definition of a
+      class: an instance attribute.  Instance attributes assigned in
+      other methods are assumed to be implementation details.  (@@@
+      ``__new__`` methods?)
+
+   d) A function attribute assignment at the top level of a module or
+      class definition.
+
+   Since each of the above contexts are at the top level (i.e., in the
+   outermost suite of a definition), it may be necessary to place
+   dummy assignments for attributes assigned conditionally or in a
+   loop.
+
+2. The assignment must be to a single target, not to a list or a tuple
+   of targets.
+
+3. The form of the target:
+
+   a) For contexts 1a and 1b above, the target must be a simple
+      identifier (not a dotted identifier, a subscripted expression,
+      or a sliced expression).
+
+   b) For context 1c above, the target must be of the form
+      "``self.attrib``", where "``self``" matches the "``__init__``"
+      method's first parameter (the instance parameter) and "attrib"
+      is a simple identifier as in 3a.
+
+   c) For context 1d above, the target must be of the form
+      "``name.attrib``", where "``name``" matches an already-defined
+      function or method name and "attrib" is a simple identifier as
+      in 3a.
+
+Blank lines may be used after attribute docstrings to emphasize the
+connection between the assignment and the docstring.
+
+Examples::
+
+    g = 'module attribute (module-global variable)'
+    """This is g's docstring."""
+
+    class AClass:
+
+        c = 'class attribute'
+        """This is AClass.c's docstring."""
+
+        def __init__(self):
+            """Method __init__'s docstring."""
+
+            self.i = 'instance attribute'
+            """This is self.i's docstring."""
+
+    def f(x):
+        """Function f's docstring."""
+        return x**2
+
+    f.a = 1
+    """Function attribute f.a's docstring."""
+
+
+Additional Docstrings
+'''''''''''''''''''''
+
+(This idea was adapted from PEP 216 [#PEP-216]_.)
+
+Many programmers would like to make extensive use of docstrings for
+API documentation.  However, docstrings do take up space in the
+running program, so some programmers are reluctant to "bloat up" their
+code.  Also, not all API documentation is applicable to interactive
+environments, where ``__doc__`` would be displayed.
+
+Docutils' docstring extraction tools will concatenate all string
+literal expressions which appear at the beginning of a definition or
+after a simple assignment.  Only the first strings in definitions will
+be available as ``__doc__``, and can be used for brief usage text
+suitable for interactive sessions; subsequent string literals and all
+attribute docstrings are ignored by the Python byte-code compiler and
+may contain more extensive API information.
+
+Example::
+
+    def function(arg):
+        """This is __doc__, function's docstring."""
+        """
+        This is an additional docstring, ignored by the byte-code
+        compiler, but extracted by Docutils.
+        """
+        pass
+
+.. topic:: Issue: ``from __future__ import``
+
+   This would break "``from __future__ import``" statements introduced
+   in Python 2.1 for multiple module docstrings (main docstring plus
+   additional docstring(s)).  The Python Reference Manual specifies:
+
+       A future statement must appear near the top of the module.  The
+       only lines that can appear before a future statement are:
+
+       * the module docstring (if any),
+       * comments,
+       * blank lines, and
+       * other future statements.
+
+   Resolution?
+
+   1. Should we search for docstrings after a ``__future__``
+      statement?  Very ugly.
+
+   2. Redefine ``__future__`` statements to allow multiple preceding
+      string literals?
+
+   3. Or should we not even worry about this?  There probably
+      shouldn't be ``__future__`` statements in production code, after
+      all.  Perhaps modules with ``__future__`` statements will simply
+      have to put up with the single-docstring limitation.
+
+
+Choice of Docstring Format
+--------------------------
+
+Rather than force everyone to use a single docstring format, multiple
+input formats are allowed by the processing system.  A special
+variable, ``__docformat__``, may appear at the top level of a module
+before any function or class definitions.  Over time or through
+decree, a standard format or set of formats should emerge.
+
+A module's ``__docformat__`` variable only applies to the objects
+defined in the module's file.  In particular, the ``__docformat__``
+variable in a package's ``__init__.py`` file does not apply to objects
+defined in subpackages and submodules.
+
+The ``__docformat__`` variable is a string containing the name of the
+format being used, a case-insensitive string matching the input
+parser's module or package name (i.e., the same name as required to
+"import" the module or package), or a registered alias.  If no
+``__docformat__`` is specified, the default format is "plaintext" for
+now; this may be changed to the standard format if one is ever
+established.
+
+The ``__docformat__`` string may contain an optional second field,
+separated from the format name (first field) by a single space: a
+case-insensitive language identifier as defined in RFC 1766.  A
+typical language identifier consists of a 2-letter language code from
+`ISO 639`_ (3-letter codes used only if no 2-letter code exists; RFC
+1766 is currently being revised to allow 3-letter codes).  If no
+language identifier is specified, the default is "en" for English.
+The language identifier is passed to the parser and can be used for
+language-dependent markup features.
+
+
+Identifier Cross-References
+---------------------------
+
+In Python docstrings, interpreted text is used to classify and mark up
+program identifiers, such as the names of variables, functions,
+classes, and modules.  If the identifier alone is given, its role is
+inferred implicitly according to the Python namespace lookup rules.
+For functions and methods (even when dynamically assigned),
+parentheses ('()') may be included::
+
+    This function uses `another()` to do its work.
+
+For class, instance and module attributes, dotted identifiers are used
+when necessary.  For example (using reStructuredText markup)::
+
+    class Keeper(Storer):
+
+        """
+        Extend `Storer`.  Class attribute `instances` keeps track
+        of the number of `Keeper` objects instantiated.
+        """
+
+        instances = 0
+        """How many `Keeper` objects are there?"""
+
+        def __init__(self):
+            """
+            Extend `Storer.__init__()` to keep track of instances.
+
+            Keep count in `Keeper.instances`, data in `self.data`.
+            """
+            Storer.__init__(self)
+            Keeper.instances += 1
+
+            self.data = []
+            """Store data in a list, most recent last."""
+
+        def store_data(self, data):
+            """
+            Extend `Storer.store_data()`; append new `data` to a
+            list (in `self.data`).
+            """
+            self.data = data
+
+Each of the identifiers quoted with backquotes ("`") will become
+references to the definitions of the identifiers themselves.
+
+
+Stylist Transforms
+------------------
+
+Stylist transforms are specialized transforms specific to the PySource
+Reader.  The PySource Reader doesn't have to make any decisions as to
+style; it just produces a logically constructed document tree, parsed
+and linked, including custom node types.  Stylist transforms
+understand the custom nodes created by the Reader and convert them
+into standard Docutils nodes.
+
+Multiple Stylist transforms may be implemented and one can be chosen
+at runtime (through a "--style" or "--stylist" command-line option).
+Each Stylist transform implements a different layout or style; thus
+the name.  They decouple the context-understanding part of the Reader
+from the layout-generating part of processing, resulting in a more
+flexible and robust system.  This also serves to "separate style from
+content", the SGML/XML ideal.
+
+By keeping the piece of code that does the styling small and modular,
+it becomes much easier for people to roll their own styles.  The
+"barrier to entry" is too high with existing tools; extracting the
+stylist code will lower the barrier considerably.
+
+
+==========================
+ References and Footnotes
+==========================
+
+.. [#PEP-256] PEP 256, Docstring Processing System Framework, Goodger
+   (http://www.python.org/peps/pep-0256.html)
+
+.. [#PEP-224] PEP 224, Attribute Docstrings, Lemburg
+   (http://www.python.org/peps/pep-0224.html)
+
+.. [#PEP-216] PEP 216, Docstring Format, Zadka
+   (http://www.python.org/peps/pep-0216.html)
+
+.. _docutils.dtd:
+   https://docutils.sourceforge.io/docs/ref/docutils.dtd
+
+.. _soextbl.dtd:
+   https://docutils.sourceforge.io/docs/ref/soextblx.dtd
+
+.. _The Docutils Document Tree:
+   https://docutils.sourceforge.io/docs/ref/doctree.html
+
+.. _VMS error condition severity levels:
+   http://www.openvms.compaq.com:8000/73final/5841/841pro_027.html
+   #error_cond_severity
+
+.. _log4j project: http://logging.apache.org/log4j/docs/index.html
+
+.. _Docutils Python Source DTD:
+   https://docutils.sourceforge.io/docs/dev/pysource.dtd
+
+.. _ISO 639: http://www.loc.gov/standards/iso639-2/englangn.html
+
+.. _Python Doc-SIG: http://www.python.org/sigs/doc-sig/
+
+
+
+==================
+ Project Web Site
+==================
+
+A SourceForge project has been set up for this work at
+https://docutils.sourceforge.io/.
+
+
+===========
+ Copyright
+===========
+
+This document has been placed in the public domain.
+
+
+==================
+ Acknowledgements
+==================
+
+This document borrows ideas from the archives of the `Python
+Doc-SIG`_.  Thanks to all members past & present.
+
+
+
+..
+   Local Variables:
+   mode: indented-text
+   indent-tabs-mode: nil
+   sentence-end-double-space: t
+   fill-column: 70
+   End:
