@@ -32,7 +32,6 @@ class TraceConfig {
       items.push_back(s);
     }
     scalene_base_path = PyBytes_AsString(PyUnicode_AsASCIIString(base_path));
-    printf("BASE PATH IN C %s\n", scalene_base_path);
   }
 
   bool should_trace(char* filename) {
@@ -312,7 +311,6 @@ static unchanging_modules module_pointers;
 
 
 static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
-  // printf("BEGIN ITERATION\n");
   while(frame != NULL) {
     int iter_lineno = PyFrame_GetLineNumber(frame);
     
