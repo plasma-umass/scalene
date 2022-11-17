@@ -331,10 +331,9 @@ static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
 }
 
 static void allocate_newline() {
-  PyObject* abc(PyLong_FromLong(NEWLINE_TRIGGER_LENGTH));
-  PyObject* tmp(PyByteArray_FromObject(static_cast<PyObject*>(abc)));
-  Py_DecRef(tmp);
-  Py_DecRef(abc);
+  PyPtr<> abc(PyLong_FromLong(NEWLINE_TRIGGER_LENGTH));
+  PyPtr<> tmp(PyByteArray_FromObject(static_cast<PyObject*>(abc)));
+
 }
 
 static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg) {
