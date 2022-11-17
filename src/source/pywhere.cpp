@@ -27,8 +27,9 @@ class TraceConfig {
     items.reserve(size);
     for (int i = 0; i < size; i++) {
       auto item = PyList_GetItem(owner, i);
-
-      items.push_back(PyBytes_AsString(PyUnicode_AsASCIIString(item)));
+      auto unic = PyUnicode_AsASCIIString(item);
+      auto s = PyBytes_AsString(unic);
+      items.push_back(s);
     }
     scalene_base_path = PyBytes_AsString(PyUnicode_AsASCIIString(base_path));
     printf("BASE PATH IN C %s\n", scalene_base_path);
@@ -238,7 +239,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     }
 
     auto filenameStr = PyBytes_AsString(static_cast<PyObject*>(co_filename));
-    if (strlen(filenameStr) == 0) {
+    if (filenameStr == NULL || strlen(filenameStr) == 0) {
       continue;
     }
 
@@ -355,11 +356,13 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
     return 0;
   }
   int lineno = PyFrame_GetLineNumber(frame);
-  // WORKS
+
   PyPtr<PyCodeObject> code(PyFrame_GetCode(static_cast<PyFrameObject*>(frame)));
+  // Take ownership of these right now
   PyObject* last_fname(PyList_GetItem(static_cast<PyObject*>(module_pointers.scalene_last_profiled), 0));
-  
+  Py_IncRef(last_fname);
   PyObject* last_lineno(PyList_GetItem(static_cast<PyObject*>(module_pointers.scalene_last_profiled), 1));
+  Py_IncRef(last_lineno);
   auto lineno_l = PyLong_AsLong(static_cast<PyObject*>(last_lineno));
   if (lineno == lineno_l && PyUnicode_Compare(static_cast<PyObject*>(last_fname), static_cast<PyCodeObject*>(code)->co_filename) == 0) {
     return 0;
@@ -372,7 +375,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
     
   auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
   auto x = TraceConfig::getInstance()->should_trace(fname);
-  
+
   if(! x) {
     return 0;
   }
@@ -383,28 +386,27 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   }
 
   PyEval_SetTrace(NULL, NULL);
-    // Py_DecRef(co_filename);
   Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
-  PyList_SetItem(module_pointers.scalene_last_profiled, 0, static_cast<PyCodeObject*>(code)->co_filename);
   
-  
-  auto qqq = PyLong_FromLong(lineno);
-  PyList_SetItem(module_pointers.scalene_last_profiled, 1,  qqq);
-  Py_IncRef(last_fname);
-  Py_IncRef(last_lineno);
+  auto res = PyList_SetItem(module_pointers.scalene_last_profiled, 0, static_cast<PyCodeObject*>(code)->co_filename);
+
+  res = PyList_SetItem(module_pointers.scalene_last_profiled, 1,  PyLong_FromLong(lineno));
+
   PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname,last_lineno ));
-  
+
     // Doesn't work
     // PyPtr<> current_fname_unicode(PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename));
 
         
   
   // auto current_fname_s = PyBytes_AsString(static_cast<PyObject*>(current_fname_unicode));
-  PyList_SetItem(module_pointers.scalene_last_profiled, 2, PyLong_FromLong(PyFrame_GetLasti(static_cast<PyFrameObject*>(frame))));
+  res = PyList_SetItem(module_pointers.scalene_last_profiled, 2, PyLong_FromLong(PyFrame_GetLasti(static_cast<PyFrameObject*>(frame))));
+
   allocate_newline();
   Py_IncRef(last_profiled_ret);
   
-  PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
+  res = PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
+
   
   return 0;
 }
