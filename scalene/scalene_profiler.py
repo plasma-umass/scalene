@@ -372,6 +372,53 @@ class Scalene:
         """Mark a new line by allocating the trigger number of bytes."""
         bytearray(NEWLINE_TRIGGER_LENGTH)
 
+    @staticmethod
+    def invalidate_lines_python(frame: FrameType, _event: str, _arg: str) -> Any:
+        """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
+        try:
+            # If we are still on the same line, return.
+            ff = frame.f_code.co_filename
+            fl = frame.f_lineno
+            (fname, lineno, lasti) = Scalene.__last_profiled
+            if (ff == fname) and (fl == lineno):
+                return None
+            # Different line: stop tracing this frame.
+            frame.f_trace = None
+            frame.f_trace_lines = False
+            # If we are not in a file we should be tracing, return.
+            if not Scalene.should_trace(ff):
+                return None
+            if f := Scalene.on_stack(frame, fname, lineno):
+                # We are still on the same line, but somewhere up the stack
+                # (since we returned when it was the same line in this
+                # frame). Stop tracing in this frame.
+                return None
+            # We are on a different line; stop tracing and increment the count.
+            sys.settrace(None)
+            with Scalene.__invalidate_mutex:
+                Scalene.__invalidate_queue.append(
+                    (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
+                )
+                Scalene.update_line()
+            Scalene.__last_profiled_invalidated = True
+
+            Scalene.__last_profiled = (
+                Filename("NADA"),
+                LineNumber(0),
+                ByteCodeIndex(0)
+                #     Filename(ff),
+                #     LineNumber(fl),
+                #     ByteCodeIndex(frame.f_lasti),
+            )
+            return None
+        except AttributeError:
+            # This can happen when Scalene shuts down.
+            return None
+        except Exception as e:
+            print(f"{Scalene.__error_message}:\n", e)
+            traceback.print_exc()
+            return None
+
     @classmethod
     def clear_metrics(cls) -> None:
         """Clear the various states for forked processes."""
