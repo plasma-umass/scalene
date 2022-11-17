@@ -6,47 +6,59 @@
 
 #include <mutex>
 #include <vector>
+#include <unordered_map>
+#include <unistd.h>
 
 // NOTE: uncomment for debugging, but this causes issues
 // for production builds on Alpine
 //
 // #include "printf.h"
-
+const int NEWLINE_TRIGGER_LENGTH = 98820;
 class TraceConfig {
  public:
   TraceConfig(PyObject* list_wrapper, PyObject* base_path, bool profile_all_b) {
     // Assumes that each item is a bytes object
     owner = list_wrapper;
     path_owner = base_path;
-    Py_INCREF(owner);
-    Py_INCREF(path_owner);
+    Py_IncRef(owner);
+    Py_IncRef(path_owner);
     profile_all = profile_all_b;
     auto size = PyList_Size(owner);
     items.reserve(size);
     for (int i = 0; i < size; i++) {
       auto item = PyList_GetItem(owner, i);
-
-      items.push_back(PyBytes_AsString(PyUnicode_AsASCIIString(item)));
+      auto unic = PyUnicode_AsASCIIString(item);
+      auto s = PyBytes_AsString(unic);
+      items.push_back(s);
     }
     scalene_base_path = PyBytes_AsString(PyUnicode_AsASCIIString(base_path));
+    printf("BASE PATH IN C %s\n", scalene_base_path);
   }
 
   bool should_trace(char* filename) {
+    auto res = _memoize.find(filename);
+    if ( res != _memoize.end()) {
+      return res->second;
+    }
     if (strstr(filename, "site-packages") || strstr(filename, "/lib/python")) {
+      _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
       return false;
     }
 
     if (*filename == '<' && strstr(filename, "<ipython")) {
+      _memoize.insert(std::pair<std::string, bool>(std::string(filename), true));
       return true;
     }
 
     if (strstr(filename, "scalene/scalene")) {
+      _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
       return false;
     }
 
     if (owner != nullptr) {
       for (char* traceable : items) {
         if (strstr(filename, traceable)) {
+          _memoize.insert(std::pair<std::string, bool>(std::string(filename), true));
           return true;
         }
       }
@@ -69,7 +81,7 @@ class TraceConfig {
 
     // Now change back to the original current working directory.
     chdir(oldcwd);
-
+    _memoize.insert(std::pair<std::string, bool>(std::string(filename), result));
     return result;
   }
 
@@ -103,11 +115,14 @@ class TraceConfig {
 
   static std::mutex _instanceMutex;
   static TraceConfig* _instance;
+  static std::unordered_map<std::string, bool> _memoize;
 };
 
 TraceConfig* TraceConfig::_instance = 0;
 std::mutex TraceConfig::_instanceMutex;
+std::unordered_map<std::string, bool> TraceConfig::_memoize;
 
+static bool last_profiled_invalidated = false;
 // An RAII class to simplify acquiring and releasing the GIL.
 class GIL {
  public:
@@ -128,17 +143,17 @@ inline PyFrameObject* PyThreadState_GetFrame(PyThreadState* threadState) {
       // attempt freeing again (when we decrement back to 0), glibc would
       // abort due to a double free.
       threadState->frame->ob_base.ob_base.ob_refcnt > 0) {
-    Py_XINCREF(threadState->frame);
+    Py_XIncRef(threadState->frame);
     return threadState->frame;
   }
   return nullptr;
 }
 inline PyCodeObject* PyFrame_GetCode(PyFrameObject* frame) {
-  Py_XINCREF(frame->f_code);
+  Py_XIncRef(frame->f_code);
   return frame->f_code;
 }
 inline PyFrameObject* PyFrame_GetBack(PyFrameObject* frame) {
-  Py_XINCREF(frame->f_back);
+  Py_XIncRef(frame->f_back);
   return frame->f_back;
 }
 #endif
@@ -166,7 +181,25 @@ static PyPtr<PyFrameObject> findMainPythonThread_frame() {
 
   return PyPtr<PyFrameObject>(main ? PyThreadState_GetFrame(main) : nullptr);
 }
+// I'm not sure whether last_profiled_invalidated is quite needed, so I'm leaving this infrastructure here
+//
+// PyObject* get_last_profiled_invalidated(PyObject* self, PyObject* args) {
+//   if (last_profiled_invalidated) {
+//     Py_RETURN_TRUE;
+//   }
+//   Py_RETURN_FALSE;
+// }
 
+// PyObject* set_last_profiled_invalidated_true(PyObject* self, PyObject* args) {
+//   last_profiled_invalidated = true;
+//   Py_RETURN_NONE;
+// }
+
+
+// PyObject* set_last_profiled_invalidated_true(PyObject* self, PyObject* args) {
+//   last_profiled_invalidated = true;
+//   Py_RETURN_NONE;
+// }
 int whereInPython(std::string& filename, int& lineno, int& bytei) {
   if (!Py_IsInitialized()) {  // No python, no python stack.
     return 0;
@@ -207,7 +240,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     }
 
     auto filenameStr = PyBytes_AsString(static_cast<PyObject*>(co_filename));
-    if (strlen(filenameStr) == 0) {
+    if (filenameStr == NULL || strlen(filenameStr) == 0) {
       continue;
     }
 
@@ -255,6 +288,7 @@ static PyObject* register_files_to_profile(PyObject* self, PyObject* args) {
   }
   *p_where = whereInPython;
 
+
   Py_RETURN_NONE;
 }
 
@@ -264,12 +298,159 @@ static PyObject* print_files_to_profile(PyObject* self, PyObject* args) {
   }
   Py_RETURN_NONE;
 }
+typedef struct {
+  PyObject* scalene_module;
+  PyObject* scalene_dict;
+  PyObject* scalene_profiler_module;
+  PyObject* scalene_class;
+  PyObject* scalene_class_dict;
+  PyObject* scalene_last_profiled;
+  PyObject* invalidate_queue;
+} unchanging_modules;
+
+static unchanging_modules module_pointers;
+
+
+static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
+  // printf("BEGIN ITERATION\n");
+  while(frame != NULL) {
+    int iter_lineno = PyFrame_GetLineNumber(frame);
+    
+
+    PyPtr<PyCodeObject> code =
+          PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
+
+    PyPtr<> co_filename(PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename));
+    auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
+    if (iter_lineno == lineno && strstr(fname, outer_filename)) {
+      Py_XDECREF(frame);
+      return true;
+    }
+    Py_XDECREF(frame);
+    frame = PyFrame_GetBack(frame);
+  }
+  return false;
+}
+
+static void allocate_newline() {
+  PyObject* abc(PyLong_FromLong(NEWLINE_TRIGGER_LENGTH));
+  PyObject* tmp(PyByteArray_FromObject(static_cast<PyObject*>(abc)));
+  Py_DecRef(tmp);
+  Py_DecRef(abc);
+}
+
+static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg) {
+  if (what != PyTrace_LINE) {
+    return 0;
+  }
+  int lineno = PyFrame_GetLineNumber(frame);
+
+  PyPtr<PyCodeObject> code(PyFrame_GetCode(static_cast<PyFrameObject*>(frame)));
+  // Take ownership of these right now
+  PyObject* last_fname(PyList_GetItem(static_cast<PyObject*>(module_pointers.scalene_last_profiled), 0));
+  Py_IncRef(last_fname);
+  PyObject* last_lineno(PyList_GetItem(static_cast<PyObject*>(module_pointers.scalene_last_profiled), 1));
+  Py_IncRef(last_lineno);
+  auto lineno_l = PyLong_AsLong(static_cast<PyObject*>(last_lineno));
+  if (lineno == lineno_l && PyUnicode_Compare(static_cast<PyObject*>(last_fname), static_cast<PyCodeObject*>(code)->co_filename) == 0) {
+    return 0;
+  }
+  PyPtr<> last_fname_unicode( PyUnicode_AsASCIIString(last_fname));
+  auto last_fname_s = PyBytes_AsString(static_cast<PyObject*>(last_fname_unicode));
+    PyPtr<> co_filename(PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename));
+    
+  auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
+  auto x = TraceConfig::getInstance()->should_trace(fname);
+
+  if(! x) {
+    return 0;
+  }
+  // Needed because decref will be called in on_stack
+  Py_INCREF(frame);
+  if (on_stack(last_fname_s, lineno_l, static_cast<PyFrameObject*>(frame))) {
+    return 0;
+  }
+
+  PyEval_SetTrace(NULL, NULL);
+  Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
+  
+  auto res = PyList_SetItem(module_pointers.scalene_last_profiled, 0, static_cast<PyCodeObject*>(code)->co_filename);
+
+  res = PyList_SetItem(module_pointers.scalene_last_profiled, 1,  PyLong_FromLong(lineno));
+
+  PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname,last_lineno ));
+
+  res = PyList_SetItem(module_pointers.scalene_last_profiled, 2, PyLong_FromLong(PyFrame_GetLasti(static_cast<PyFrameObject*>(frame))));
+
+  allocate_newline();
+  Py_IncRef(last_profiled_ret);
+  
+  res = PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
+
+  
+  return 0;
+}
+
+static PyObject* populate_struct(PyObject* self, PyObject* args) {
+  PyObject* scalene_module(PyImport_GetModule(PyUnicode_FromString("scalene"))); // New reference
+  PyObject* scalene_dict(PyModule_GetDict(static_cast<PyObject*>(scalene_module)));
+  Py_IncRef(scalene_dict);
+  PyObject* scalene_profiler_module(PyDict_GetItemString(scalene_dict, "scalene_profiler"));
+  Py_IncRef(scalene_profiler_module);
+  PyObject* scalene_class(PyDict_GetItemString(PyModule_GetDict(scalene_profiler_module), "Scalene"));
+  Py_IncRef(scalene_class);
+  PyObject* scalene_class_dict(PyObject_GenericGetDict(scalene_class, NULL));
+  PyObject* last_profiled(PyObject_GetAttrString(scalene_class, "_Scalene__last_profiled"));
+  PyObject* invalidate_queue(PyObject_GetAttrString(scalene_class, "_Scalene__invalidate_queue"));
+  module_pointers = {
+    scalene_module,
+    scalene_dict,
+    scalene_profiler_module,
+    scalene_class,
+    scalene_class_dict,
+    last_profiled, 
+    invalidate_queue
+  };
+  Py_RETURN_NONE;
+}
+
+static PyObject* depopulate_struct(PyObject* self, PyObject* args) {
+  auto m = module_pointers;
+  Py_DECREF(m.scalene_module);
+  Py_DECREF(m.scalene_dict);
+  Py_DECREF(m.scalene_profiler_module);
+  Py_DECREF(m.scalene_class);
+  Py_DECREF(m.scalene_class_dict);
+  Py_DECREF(m.scalene_last_profiled);
+  Py_DECREF(m.invalidate_queue);
+  module_pointers = {};
+  Py_RETURN_NONE;
+}
+
+static PyObject* enable_settrace(PyObject* self, PyObject* args) {
+  PyEval_SetTrace(trace_func, NULL);
+  Py_RETURN_NONE;
+}
+
+static PyObject* disable_settrace(PyObject* self, PyObject* args) {
+  PyEval_SetTrace(NULL, NULL);
+  Py_RETURN_NONE;
+}
+
+// static PyObject* return_buffer(PyObject* self, PyObject* args) {
+//   return PyByteArray_FromObject(PyLong_FromLong(50));
+// }
 
 static PyMethodDef EmbMethods[] = {
     {"register_files_to_profile", register_files_to_profile, METH_VARARGS,
      "Provides list of things into allocator"},
     {"print_files_to_profile", print_files_to_profile, METH_NOARGS,
      "printing for debug"},
+    //  {"return_buffer", return_buffer, METH_NOARGS, ""},
+    {"enable_settrace", enable_settrace, METH_NOARGS, ""},
+    {"disable_settrace", disable_settrace, METH_NOARGS, ""},
+    {"populate_struct", populate_struct, METH_NOARGS, ""},
+    {"depopulate_struct", depopulate_struct, METH_NOARGS, ""},
     {NULL, NULL, 0, NULL}};
 
 static PyModuleDef EmbedModule = {PyModuleDef_HEAD_INIT,

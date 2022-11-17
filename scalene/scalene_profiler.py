@@ -70,7 +70,7 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
-
+from scalene import pywhere
 if sys.platform != "win32":
     import resource
 
@@ -206,7 +206,7 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
     __initialized: bool = False
-    __last_profiled = (Filename("NADA"), LineNumber(0), ByteCodeIndex(0))
+    __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
     __last_profiled_invalidated = False
     __gui_dir = "scalene-gui"
     __profile_filename = "profile.json"
@@ -373,7 +373,7 @@ class Scalene:
         bytearray(NEWLINE_TRIGGER_LENGTH)
 
     @staticmethod
-    def invalidate_lines(frame: FrameType, _event: str, _arg: str) -> Any:
+    def invalidate_lines_python(frame: FrameType, _event: str, _arg: str) -> Any:
         """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
         try:
             # If we are still on the same line, return.
@@ -562,26 +562,21 @@ class Scalene:
         # First, see if we have now executed a different line of code.
         # If so, increment.
         # TODO: assess the necessity of the following block
-        invalidated = Scalene.__last_profiled_invalidated
-        (fname, lineno, lasti) = Scalene.__last_profiled
-        if not invalidated and not (
-            fname == Filename(f.f_code.co_filename)
-            and lineno == LineNumber(f.f_lineno)
-        ):
-            with Scalene.__invalidate_mutex:
-                Scalene.__invalidate_queue.append((fname, lineno))
-                Scalene.update_line()
-        Scalene.__last_profiled_invalidated = False
-        Scalene.__last_profiled = (
-            Filename(f.f_code.co_filename),
-            LineNumber(f.f_lineno),
-            ByteCodeIndex(f.f_lasti),
-        )
+        # if invalidated or not (
+        #     fname == Filename(f.f_code.co_filename)
+        #     and lineno == LineNumber(f.f_lineno)
+        # ):
+        #     with Scalene.__invalidate_mutex:
+        #         Scalene.__invalidate_queue.append(
+        #             (Filename(f.f_code.co_filename), LineNumber(f.f_lineno))
+        #         )
+        #         Scalene.update_line()
+        Scalene.__last_profiled[0] = Filename(f.f_code.co_filename)
+        Scalene.__last_profiled[1] = LineNumber(f.f_lineno)
+        Scalene.__last_profiled[2] = ByteCodeIndex(f.f_lasti)
+
         Scalene.__alloc_sigq.put([0])
-        # Start tracing.
-        sys.settrace(Scalene.invalidate_lines)
-        f.f_trace = Scalene.invalidate_lines
-        f.f_trace_lines = True
+        pywhere.enable_settrace()
         del this_frame
 
     @staticmethod
@@ -1357,6 +1352,7 @@ class Scalene:
             if is_malloc and count == NEWLINE_TRIGGER_LENGTH + 1:
                 with Scalene.__invalidate_mutex:
                     last_file, last_line = Scalene.__invalidate_queue.pop(0)
+
                 stats.memory_malloc_count[last_file][last_line] += 1
                 stats.memory_aggregate_footprint[last_file][
                     last_line
@@ -1738,10 +1734,12 @@ class Scalene:
     ) -> int:
         """Initiate execution and profiling."""
         # If --off is set, tell all children to not profile and stop profiling before we even start.
+        pywhere.populate_struct()
         if "off" not in Scalene.__args or not Scalene.__args.off:
             self.start()
         # Run the code being profiled.
         exit_status = 0
+        
         try:
             exec(code, the_globals, the_locals)
         except SystemExit as se:
@@ -1756,7 +1754,9 @@ class Scalene:
             exit_status = 1
         finally:
             self.stop()
-            sys.settrace(None)
+            pywhere.disable_settrace()
+            pywhere.depopulate_struct()
+
             stats = Scalene.__stats
             (last_file, last_line, _) = Scalene.__last_profiled
             stats.memory_malloc_count[last_file][last_line] += 1
@@ -1925,13 +1925,11 @@ class Scalene:
                     # Grab local and global variables.
                     if Scalene.__args.memory:
                         from scalene import pywhere  # type: ignore
-
                         pywhere.register_files_to_profile(
                             list(Scalene.__files_to_profile),
                             Scalene.__program_path,
                             Scalene.__args.profile_all,
                         )
-
                     import __main__
 
                     the_locals = __main__.__dict__
