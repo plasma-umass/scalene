@@ -1526,9 +1526,11 @@ class Scalene:
         if os.path.join("scalene", "scalene") in filename:
             # Don't profile the profiler.
             return False
+        # Don't profile the Python libraries, unless overridden by --profile-all
         if (
             "site-packages" in filename
             or f"{os.sep}lib{os.sep}python" in filename
+            or f"{os.sep}anaconda3{os.sep}lib" in filename
         ) and not Scalene.__args.profile_all:
             return False
         # Generic handling follows (when no @profile decorator has been used).
