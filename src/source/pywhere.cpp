@@ -160,6 +160,23 @@ inline PyFrameObject* PyFrame_GetBack(PyFrameObject* frame) {
 inline int PyFrame_GetLasti(PyFrameObject* frame) { return frame->f_lasti; }
 #endif
 
+#if PY_VERSION_HEX >= 0x030B0000
+typedef struct _frame {
+    PyObject_HEAD
+    PyFrameObject *f_back;      /* previous frame, or NULL */
+    void *f_frame; /* points to the frame data */
+    PyObject *f_trace;          /* Trace function */
+    int f_lineno;               /* Current line number. Only valid if non-zero */
+    char f_trace_lines;         /* Emit per-line trace events? */
+    char f_trace_opcodes;       /* Emit per-opcode trace events? */
+    char f_fast_as_locals;      /* Have the fast locals of this frame been converted to a dict? */
+    /* The frame data, if this frame object owns the frame */
+    PyObject *_f_frame_data[1];
+} PyFrameType;
+#else
+typedef  PyFrameObject PyFrameType;
+#endif
+
 static PyPtr<PyFrameObject> findMainPythonThread_frame() {
   PyThreadState* main = nullptr;
 
@@ -182,23 +199,23 @@ static PyPtr<PyFrameObject> findMainPythonThread_frame() {
 }
 // I'm not sure whether last_profiled_invalidated is quite needed, so I'm leaving this infrastructure here
 //
-// PyObject* get_last_profiled_invalidated(PyObject* self, PyObject* args) {
-//   if (last_profiled_invalidated) {
-//     Py_RETURN_TRUE;
-//   }
-//   Py_RETURN_FALSE;
-// }
+PyObject* get_last_profiled_invalidated(PyObject* self, PyObject* args) {
+  if (last_profiled_invalidated) {
+    Py_RETURN_TRUE;
+  }
+  Py_RETURN_FALSE;
+}
 
-// PyObject* set_last_profiled_invalidated_true(PyObject* self, PyObject* args) {
-//   last_profiled_invalidated = true;
-//   Py_RETURN_NONE;
-// }
+PyObject* set_last_profiled_invalidated_true(PyObject* self, PyObject* args) {
+  last_profiled_invalidated = true;
+  Py_RETURN_NONE;
+}
 
 
-// PyObject* set_last_profiled_invalidated_true(PyObject* self, PyObject* args) {
-//   last_profiled_invalidated = true;
-//   Py_RETURN_NONE;
-// }
+PyObject* set_last_profiled_invalidated_false(PyObject* self, PyObject* args) {
+  last_profiled_invalidated = false;
+  Py_RETURN_NONE;
+}
 int whereInPython(std::string& filename, int& lineno, int& bytei) {
   if (!Py_IsInitialized()) {  // No python, no python stack.
     return 0;
@@ -305,6 +322,8 @@ typedef struct {
   PyObject* scalene_class_dict;
   PyObject* scalene_last_profiled;
   PyObject* invalidate_queue;
+  PyObject* nada;
+  PyObject* zero;
 } unchanging_modules;
 
 static unchanging_modules module_pointers;
@@ -340,6 +359,7 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   if (what != PyTrace_LINE) {
     return 0;
   }
+  auto cast_frame = static_cast<PyFrameType*>(frame);
   int lineno = PyFrame_GetLineNumber(frame);
 
   PyPtr<PyCodeObject> code(PyFrame_GetCode(static_cast<PyFrameObject*>(frame)));
@@ -355,31 +375,26 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what, PyObject* a
   PyPtr<> last_fname_unicode( PyUnicode_AsASCIIString(last_fname));
   auto last_fname_s = PyBytes_AsString(static_cast<PyObject*>(last_fname_unicode));
     PyPtr<> co_filename(PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename));
-    
-  auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
-  auto x = TraceConfig::getInstance()->should_trace(fname);
 
-  if(! x) {
-    return 0;
-  }
   // Needed because decref will be called in on_stack
   Py_INCREF(frame);
   if (on_stack(last_fname_s, lineno_l, static_cast<PyFrameObject*>(frame))) {
+    frame->f_trace_lines = 0;
     return 0;
   }
 
   PyEval_SetTrace(NULL, NULL);
-  Py_IncRef( static_cast<PyCodeObject*>(code)->co_filename);
-  
-  auto res = PyList_SetItem(module_pointers.scalene_last_profiled, 0, static_cast<PyCodeObject*>(code)->co_filename);
-
-  res = PyList_SetItem(module_pointers.scalene_last_profiled, 1,  PyLong_FromLong(lineno));
+  Py_IncRef(module_pointers.nada);
+  auto res = PyList_SetItem(module_pointers.scalene_last_profiled, 0, module_pointers.nada);
+  Py_IncRef(module_pointers.zero);
+  res = PyList_SetItem(module_pointers.scalene_last_profiled, 1,  module_pointers.zero);
 
   PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname,last_lineno ));
-
-  res = PyList_SetItem(module_pointers.scalene_last_profiled, 2, PyLong_FromLong(PyFrame_GetLasti(static_cast<PyFrameObject*>(frame))));
+  Py_IncRef(module_pointers.zero);
+  res = PyList_SetItem(module_pointers.scalene_last_profiled, 2, module_pointers.zero);
 
   allocate_newline();
+  last_profiled_invalidated = true;
   Py_IncRef(last_profiled_ret);
   
   res = PyList_Append(module_pointers.invalidate_queue, last_profiled_ret);
@@ -399,6 +414,8 @@ static PyObject* populate_struct(PyObject* self, PyObject* args) {
   PyObject* scalene_class_dict(PyObject_GenericGetDict(scalene_class, NULL));
   PyObject* last_profiled(PyObject_GetAttrString(scalene_class, "_Scalene__last_profiled"));
   PyObject* invalidate_queue(PyObject_GetAttrString(scalene_class, "_Scalene__invalidate_queue"));
+  PyObject* zero(PyLong_FromSize_t(0));
+  PyObject* nada(PyUnicode_FromString("NADA"));
   module_pointers = {
     scalene_module,
     scalene_dict,
@@ -406,7 +423,9 @@ static PyObject* populate_struct(PyObject* self, PyObject* args) {
     scalene_class,
     scalene_class_dict,
     last_profiled, 
-    invalidate_queue
+    invalidate_queue,
+    nada,
+    zero
   };
   Py_RETURN_NONE;
 }
@@ -420,6 +439,8 @@ static PyObject* depopulate_struct(PyObject* self, PyObject* args) {
   Py_DECREF(m.scalene_class_dict);
   Py_DECREF(m.scalene_last_profiled);
   Py_DECREF(m.invalidate_queue);
+  Py_DECREF(m.nada);
+  Py_DECREF(m.zero);
   module_pointers = {};
   Py_RETURN_NONE;
 }
@@ -448,6 +469,9 @@ static PyMethodDef EmbMethods[] = {
     {"disable_settrace", disable_settrace, METH_NOARGS, ""},
     {"populate_struct", populate_struct, METH_NOARGS, ""},
     {"depopulate_struct", depopulate_struct, METH_NOARGS, ""},
+    {"get_last_profiled_invalidated", get_last_profiled_invalidated, METH_NOARGS, ""},
+    {"set_last_profiled_invalidated_true", set_last_profiled_invalidated_true, METH_NOARGS, ""},
+    {"set_last_profiled_invalidated_false", set_last_profiled_invalidated_false, METH_NOARGS, ""},
     {NULL, NULL, 0, NULL}};
 
 static PyModuleDef EmbedModule = {PyModuleDef_HEAD_INIT,
