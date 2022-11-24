@@ -8,6 +8,7 @@ from operator import itemgetter
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
+from rdp import rdp
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 
@@ -55,17 +56,15 @@ class ScaleneJSON:
                 samples.append([t, mem])
                 last_mem = mem
 
-        if len(samples) > 1:
+        if len(samples) > self.max_sparkline_samples:
             # Try to reduce the number of samples with the Ramer-Douglas-Peucker algorithm,
             # which attempts to preserve the shape of the graph. If that fails to bring
             # the number of samples below our maximum, randomly downsample.
-            from rdp import rdp
-            epsilon = 2.0 # Start with 2MB, end at 32MB.
-            while len(samples) > self.max_sparkline_samples and epsilon < 64.0:
+            epsilon = 3.0 # 3MB
+            if len(samples) < 500: # Longer takes too much execution time
                 samples = rdp(samples, epsilon=epsilon)
-                epsilon *= 2.0
             if len(samples) > self.max_sparkline_samples:
-                # We didn't get enough compression: randomly downsample.
+                # We still didn't get enough compression: randomly downsample.
                 samples = sorted(
                     random.sample(samples, self.max_sparkline_samples)
                 )
@@ -163,7 +162,7 @@ class ScaleneJSON:
         else:
             n_copy_mb_s = 0
 
-        samples = self.compress_samples(
+        stats.per_line_footprint_samples[fname][line_no] = self.compress_samples(
             stats.per_line_footprint_samples[fname][line_no],
             stats.max_footprint,
         )
@@ -185,7 +184,7 @@ class ScaleneJSON:
             "n_usage_fraction": n_usage_fraction,
             "n_python_fraction": n_python_fraction,
             "n_copy_mb_s": n_copy_mb_s,
-            "memory_samples": samples,
+            "memory_samples": stats.per_line_footprint_samples[fname][line_no],
         }
 
     def output_profiles(
@@ -224,7 +223,7 @@ class ScaleneJSON:
             return {}
         growth_rate = 0.0
         if profile_memory:
-            samples = self.compress_samples(
+            stats.memory_footprint_samples = self.compress_samples(
                 stats.memory_footprint_samples, stats.max_footprint
             )
 
@@ -236,7 +235,7 @@ class ScaleneJSON:
                     / stats.allocation_velocity[1]
                 )
         else:
-            samples = []
+            stats.memory_footprint_samples = []
 
         output: Dict[str, Any] = {
             "program": program,
@@ -253,7 +252,7 @@ class ScaleneJSON:
             "files": {},
             "gpu": self.gpu,
             "memory": profile_memory,
-            "samples": samples,
+            "samples": stats.memory_footprint_samples
         }
 
         # Build a list of files we will actually report on.
