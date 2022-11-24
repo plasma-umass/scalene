@@ -55,11 +55,20 @@ class ScaleneJSON:
                 samples.append([t, mem])
                 last_mem = mem
 
-        if len(samples) > self.max_sparkline_samples:
-            # Too many samples. We randomly downsample.
-            samples = sorted(
-                random.sample(samples, self.max_sparkline_samples)
-            )
+        if len(samples) > 1:
+            # Try to reduce the number of samples with the Ramer-Douglas-Peucker algorithm,
+            # which attempts to preserve the shape of the graph. If that fails to bring
+            # the number of samples below our maximum, randomly downsample.
+            from rdp import rdp
+            epsilon = 2.0 # Start with 2MB, end at 32MB.
+            while len(samples) > self.max_sparkline_samples and epsilon < 64.0:
+                samples = rdp(samples, epsilon=epsilon)
+                epsilon *= 2.0
+            if len(samples) > self.max_sparkline_samples:
+                # We didn't get enough compression: randomly downsample.
+                samples = sorted(
+                    random.sample(samples, self.max_sparkline_samples)
+                )
 
         return samples
 
