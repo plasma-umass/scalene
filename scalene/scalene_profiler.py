@@ -1786,6 +1786,10 @@ class Scalene:
                 return exit_status
 
             Scalene.generate_html(profile_fname=Scalene.__profile_filename, output_fname=Scalene.__profiler_html)
+            # Remove any interposition libraries from the environment before opening the browser.
+            # See also scalene/scalene_preload.py
+            os.environ.update({"DYLD_INSERT_LIBRARIES" : "",
+                               "LD_PRELOAD" : ""})
             webbrowser.open(
                 f"file:///{os.getcwd()}/{Scalene.__profiler_html}"
             )
