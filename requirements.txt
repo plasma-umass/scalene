@@ -1,10 +1,10 @@
 cloudpickle==1.6.0
+crdp>=0.0.2
 ipython==7.31.1
 Jinja2==3.0.3
 lxml==4.9.1
 packaging==20.9
 pyperf==2.0.0
-rdp>=0.8
 rich>=10.7.0
 setuptools~=57.0.0
 pip~=21.1.2

@@ -3,12 +3,14 @@ import linecache
 import os
 import random
 import re
+import statistics
+
 from collections import OrderedDict, defaultdict
+from crdp import rdp
 from operator import itemgetter
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
-from rdp import rdp
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 
@@ -57,17 +59,22 @@ class ScaleneJSON:
                 last_mem = mem
 
         if len(samples) > self.max_sparkline_samples:
-            # Try to reduce the number of samples with the Ramer-Douglas-Peucker algorithm,
-            # which attempts to preserve the shape of the graph. If that fails to bring
-            # the number of samples below our maximum, randomly downsample.
-            epsilon = 3.0 # 3MB
-            if len(samples) < 500: # Longer takes too much execution time
-                samples = rdp(samples, epsilon=epsilon)
-            if len(samples) > self.max_sparkline_samples:
-                # We still didn't get enough compression: randomly downsample.
-                samples = sorted(
-                    random.sample(samples, self.max_sparkline_samples)
+            # Try to reduce the number of samples with the
+            # Ramer-Douglas-Peucker algorithm, which attempts to
+            # preserve the shape of the graph. If that fails to bring
+            # the number of samples below our maximum, randomly
+            # downsample (epsilon calculation from
+            # https://stackoverflow.com/questions/57052434/can-i-guess-the-appropriate-epsilon-for-rdp-ramer-douglas-peucker)
+            epsilon = (len(samples) / (3 * self.max_sparkline_samples)) * 2
+            # print("BEFORE len = ", len(samples))
+            new_samples = rdp(samples, epsilon=epsilon)
+            # print("AFTER len = ", len(new_samples))
+            if len(new_samples) > self.max_sparkline_samples:
+                # We still didn't get enough compression; randomly downsample.
+                new_samples = sorted(
+                    random.sample(new_samples, self.max_sparkline_samples)
                 )
+            samples = new_samples
 
         return samples
 
