@@ -195,6 +195,7 @@ setup(
         "cloudpickle>=1.5.0",
         "pynvml>=11.0.0",
         "crdp>=0.0.2",
+        "Cython>=0.29.28",
         "Jinja2>=3.0.3",
     ],
     ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),

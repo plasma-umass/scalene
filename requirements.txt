@@ -1,5 +1,6 @@
 cloudpickle==1.6.0
 crdp>=0.0.2
+Cython>=0.29.28
 ipython==7.31.1
 Jinja2==3.0.3
 lxml==4.9.1
