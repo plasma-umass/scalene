@@ -78,9 +78,9 @@ try:
             super().finalize_options()
             self.root_is_pure = False
 except (ImportError, ModuleNotFoundError):
+    # Disable wheel if `wheel` not installed.
+    print("If this installation does not work, run `pip install wheel` and try again.")
     BdistWheelCommand = None
-    #print("You need to install the wheel package, as in `pip install wheel`.")
-    #sys.exit(1)
 
 import setuptools.command.build_ext
 class BuildExtCommand(setuptools.command.build_ext.build_ext):
