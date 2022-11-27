@@ -13,7 +13,7 @@ def replacement_mp_get_context(scalene: Scalene) -> None:
     def replacement_get_context(method: Any = None) -> Any:
         if sys.platform == "win32":
             print(
-            "Scalene currently only supports the `multiprocessing` library on Mac and Unix platforms."
+                "Scalene currently only supports the `multiprocessing` library on Mac and Unix platforms."
             )
             sys.exit(1)
         return old_get_context("fork")

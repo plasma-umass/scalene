@@ -93,7 +93,7 @@ class ScaleneJSON:
         """Print at most one line of the profile (true == printed one)."""
 
         full_fname = os.path.abspath(fname)
-        
+
         if not force_print and not profile_this_code(fname, line_no):
             return {}
         # Prepare output values.
@@ -169,7 +169,9 @@ class ScaleneJSON:
         else:
             n_copy_mb_s = 0
 
-        stats.per_line_footprint_samples[fname][line_no] = self.compress_samples(
+        stats.per_line_footprint_samples[fname][
+            line_no
+        ] = self.compress_samples(
             stats.per_line_footprint_samples[fname][line_no],
             stats.max_footprint,
         )
@@ -246,7 +248,7 @@ class ScaleneJSON:
 
         output: Dict[str, Any] = {
             "program": program,
-            "alloc_samples" : stats.alloc_samples,
+            "alloc_samples": stats.alloc_samples,
             "elapsed_time_sec": stats.elapsed_time,
             "growth_rate": growth_rate,
             "max_footprint_mb": stats.max_footprint,
@@ -259,7 +261,7 @@ class ScaleneJSON:
             "files": {},
             "gpu": self.gpu,
             "memory": profile_memory,
-            "samples": stats.memory_footprint_samples
+            "samples": stats.memory_footprint_samples,
         }
 
         # Build a list of files we will actually report on.
@@ -378,7 +380,6 @@ class ScaleneJSON:
                         output["files"][fname_print]["lines"].append(
                             profile_line
                         )
-
 
             fn_stats = stats.build_function_stats(fname)
             # Check CPU samples and memory samples.

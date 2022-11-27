@@ -18,17 +18,19 @@ class PoissonSampler {
    * @brief Construct a new SampleInterval object
    *
    */
-  PoissonSampler(uint64_t SAMPLE_INTERVAL) : gen(rd()), d(1.0 / SAMPLE_INTERVAL), allocs(0), frees(0) {
+  PoissonSampler(uint64_t SAMPLE_INTERVAL)
+      : gen(rd()), d(1.0 / SAMPLE_INTERVAL), allocs(0), frees(0) {
     resetAlloc();
   }
 
   /**
-   * @brief Deallocate an object; if sampled, return the size of the recorded sampling interval, else 0.
+   * @brief Deallocate an object; if sampled, return the size of the recorded
+   * sampling interval, else 0.
    *
-   * @param sample 
+   * @param sample
    * @return uint64_t the previous sample interval if we crossed it; 0 otherwise
    */
-  inline bool decrement(uint64_t sample, void * ptr, size_t& ret) {
+  inline bool decrement(uint64_t sample, void* ptr, size_t& ret) {
 #if 0
     auto found = _allocSize.find(ptr) != _allocSize.end();
     if (!found) {
@@ -66,7 +68,7 @@ class PoissonSampler {
    * @param sample the amount to decrement the sample interval by
    * @return uint64_t the previous sample interval if we crossed it; 0 otherwise
    */
-  inline bool increment(uint64_t sample, void * ptr, size_t& ret) {
+  inline bool increment(uint64_t sample, void* ptr, size_t& ret) {
     if (unlikely(sample > _tillNextAlloc)) {
       auto prev = _countdownAlloc;
       auto diff = sample - _tillNextAlloc;
@@ -85,18 +87,18 @@ class PoissonSampler {
   }
 
  private:
-
   std::random_device rd;
   std::mt19937 gen;
   std::geometric_distribution<uint64_t> d;
 
   uint64_t _tillNextAlloc;
-  uint64_t _countdownAlloc;  /// the number of frees since the last sample interval
+  uint64_t
+      _countdownAlloc;  /// the number of frees since the last sample interval
   uint64_t allocs;
   uint64_t frees;
-  
-  std::unordered_map<void *, uint64_t> _allocSize;
-  
+
+  std::unordered_map<void*, uint64_t> _allocSize;
+
   void resetAlloc() {
     // Generate a new sample from the exponential distribution.
     _countdownAlloc = d(gen);

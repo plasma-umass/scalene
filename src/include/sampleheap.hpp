@@ -25,12 +25,12 @@
 
 #include "common.hpp"
 #include "mallocrecursionguard.hpp"
+#include "poissonsampler.hpp"
 #include "printf.h"
 #include "pywhere.hpp"
 #include "samplefile.hpp"
-#include "poissonsampler.hpp"
-#include "thresholdsampler.hpp"
 #include "scaleneheader.hpp"
+#include "thresholdsampler.hpp"
 
 static SampleFile& getSampleFile() {
   static SampleFile mallocSampleFile("/tmp/scalene-malloc-signal%d",
@@ -160,7 +160,8 @@ class SampleHeap : public SuperHeap {
       return;
     }
     size_t sampleMallocSize;
-    auto sampleMalloc = _allocationSampler.increment(realSize, ptr, sampleMallocSize);
+    auto sampleMalloc =
+        _allocationSampler.increment(realSize, ptr, sampleMallocSize);
     if (inPythonAllocator) {
       _pythonCount += realSize;
     } else {
@@ -206,7 +207,8 @@ class SampleHeap : public SuperHeap {
 
   inline void register_free(size_t realSize, void* ptr) {
     size_t sampleFreeSize;
-    auto sampleFree = _allocationSampler.decrement(realSize, ptr, sampleFreeSize);
+    auto sampleFree =
+        _allocationSampler.decrement(realSize, ptr, sampleFreeSize);
 
     if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
       _freedLastMallocTrigger = true;
@@ -271,13 +273,13 @@ class SampleHeap : public SuperHeap {
 
   void* _lastMallocTrigger;
   bool _freedLastMallocTrigger;
-  #if 0
+#if 0
   typedef PoissonSampler Sampler;
-  #warning "Experimental use only: Poisson sampler"
-  #else
+#warning "Experimental use only: Poisson sampler"
+#else
   typedef ThresholdSampler Sampler;
-  #endif
-  
+#endif
+
   Sampler _allocationSampler;
 
   static constexpr auto flags = O_RDWR | O_CREAT;

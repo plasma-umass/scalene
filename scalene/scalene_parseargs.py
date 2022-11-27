@@ -10,6 +10,7 @@ from scalene.scalene_version import scalene_version, scalene_date
 
 scalene_gui_url = "https://plasma-umass.org/scalene-gui/"
 
+
 class RichArgParser(argparse.ArgumentParser):
     def __init__(self, *args: Any, **kwargs: Any):
         from rich.console import Console
@@ -185,9 +186,7 @@ for the process ID that Scalene reports. For example:
             const=True,
             default=None,
             help="profile GPU time and memory (default: [blue]"
-            + (
-                str(defaults.gpu)
-            )
+            + (str(defaults.gpu))
             + " [/blue])",
         )
         parser.add_argument(
@@ -197,9 +196,7 @@ for the process ID that Scalene reports. For example:
             const=True,
             default=None,
             help="profile memory (default: [blue]"
-            + (
-                str(defaults.memory)
-            )
+            + (str(defaults.memory))
             + " [/blue])",
         )
         parser.add_argument(
@@ -326,7 +323,11 @@ for the process ID that Scalene reports. For example:
         # Launch the UI if `--viewer` was selected.
         if args.viewer:
             import webbrowser
-            if webbrowser.get() and type(webbrowser.get()).__name__ != "GenericBrowser":
+
+            if (
+                webbrowser.get()
+                and type(webbrowser.get()).__name__ != "GenericBrowser"
+            ):
                 webbrowser.open(scalene_gui_url)
             else:
                 print(f"Scalene: could not open {scalene_gui_url}.")
@@ -344,9 +345,9 @@ for the process ID that Scalene reports. For example:
             args.cpu = defaults.cpu
             args.gpu = defaults.gpu
             args.memory = defaults.memory
-            
-        args.cpu = True # Always true
-        
+
+        args.cpu = True  # Always true
+
         in_jupyter_notebook = len(sys.argv) >= 1 and re.match(
             r"ipython-input-([0-9]+)-.*", sys.argv[0]
         )

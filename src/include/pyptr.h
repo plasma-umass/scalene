@@ -15,15 +15,13 @@ class PyPtr {
  public:
   PyPtr(O* o) : _obj(o) {}
 
-  PyPtr(const PyPtr& ptr) : _obj(ptr._obj) {
-    Py_IncRef((PyObject*)_obj);
-  }
+  PyPtr(const PyPtr& ptr) : _obj(ptr._obj) { Py_IncRef((PyObject*)_obj); }
 
   // "explicit" to help avoid surprises
   explicit operator O*() { return _obj; }
 
   PyPtr& operator=(const PyPtr& ptr) {
-    if (this != &ptr) { // self-assignment is a no-op
+    if (this != &ptr) {  // self-assignment is a no-op
       Py_IncRef((PyObject*)ptr._obj);
       Py_DecRef((PyObject*)_obj);
       _obj = ptr._obj;
@@ -31,9 +29,7 @@ class PyPtr {
     return *this;
   }
 
-  ~PyPtr() {
-    Py_DecRef((PyObject*)_obj);
-  }
+  ~PyPtr() { Py_DecRef((PyObject*)_obj); }
 
  private:
   O* _obj;

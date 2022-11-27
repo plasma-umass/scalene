@@ -71,6 +71,7 @@ from scalene.scalene_statistics import (
     ScaleneStatistics,
 )
 from scalene import pywhere
+
 if sys.platform != "win32":
     import resource
 
@@ -144,17 +145,21 @@ def _get_module_details(
             # If the parent or higher ancestor package is missing, let the
             # error be raised by find_spec() below and then be caught. But do
             # not allow other errors to be caught.
-            if e.name is None or (e.name != pkg_name and
-                    not pkg_name.startswith(e.name + ".")):
+            if e.name is None or (
+                e.name != pkg_name and not pkg_name.startswith(e.name + ".")
+            ):
                 raise
         # Warn if the module has already been imported under its normal name
         existing = sys.modules.get(mod_name)
         if existing is not None and not hasattr(existing, "__path__"):
             from warnings import warn
-            msg = "{mod_name!r} found in sys.modules after import of " \
-                "package {pkg_name!r}, but prior to execution of " \
-                "{mod_name!r}; this may result in unpredictable " \
+
+            msg = (
+                "{mod_name!r} found in sys.modules after import of "
+                "package {pkg_name!r}, but prior to execution of "
+                "{mod_name!r}; this may result in unpredictable "
                 "behaviour".format(mod_name=mod_name, pkg_name=pkg_name)
+            )
             warn(RuntimeWarning(msg))
 
     try:
@@ -165,8 +170,10 @@ def _get_module_details(
         # pkgutil previously raised ImportError
         msg = "Error while finding module specification for {!r} ({}: {})"
         if mod_name.endswith(".py"):
-            msg += (f". Try using '{mod_name[:-3]}' instead of "
-                    f"'{mod_name}' as the module name.")
+            msg += (
+                f". Try using '{mod_name[:-3]}' instead of "
+                f"'{mod_name}' as the module name."
+            )
         raise error(msg.format(mod_name, type(ex).__name__, ex)) from ex
     if spec is None:
         raise error("No module named %s" % mod_name)
@@ -179,13 +186,16 @@ def _get_module_details(
         except error as e:
             if mod_name not in sys.modules:
                 raise  # No module loaded; being a package is irrelevant
-            raise error(("%s; %r is a package and cannot " +
-                               "be directly executed") %(e, mod_name))
+            raise error(
+                ("%s; %r is a package and cannot " + "be directly executed")
+                % (e, mod_name)
+            )
     loader = spec.loader
     # use isinstance instead of `is None` to placate mypy
     if not isinstance(loader, SourceLoader):
-        raise error("%r is a namespace package and cannot be executed"
-                                                                 % mod_name)
+        raise error(
+            "%r is a namespace package and cannot be executed" % mod_name
+        )
     try:
         code = loader.get_code(mod_name)
     except ImportError as e:
@@ -373,7 +383,9 @@ class Scalene:
         bytearray(NEWLINE_TRIGGER_LENGTH)
 
     @staticmethod
-    def invalidate_lines_python(frame: FrameType, _event: str, _arg: str) -> Any:
+    def invalidate_lines_python(
+        frame: FrameType, _event: str, _arg: str
+    ) -> Any:
         """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
         try:
             # If we are still on the same line, return.
@@ -571,7 +583,7 @@ class Scalene:
             # fname == Filename(f.f_code.co_filename)
             # and lineno == LineNumber(f.f_lineno)
         ):
-            
+
             with Scalene.__invalidate_mutex:
                 Scalene.__invalidate_queue.append(
                     (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
@@ -1257,7 +1269,7 @@ class Scalene:
                 )
 
         stats.alloc_samples += len(arr)
-        
+
         # Iterate through the array to compute the new current footprint
         # and update the global __memory_footprint_samples. Since on some systems,
         # we get free events before mallocs, force `before` to always be at least 0.
@@ -1726,9 +1738,11 @@ class Scalene:
         gui_js = gui_file.read_text()
 
         # Put the profile and everything else into the template.
-        environment = Environment(loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui")))
+        environment = Environment(
+            loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
+        )
         template = environment.get_template("index.html.template")
-        rendered_content = template.render(profile=profile,gui_js=gui_js)
+        rendered_content = template.render(profile=profile, gui_js=gui_js)
 
         # Write the rendered content to the specified output file.
         try:
@@ -1736,7 +1750,7 @@ class Scalene:
                 f.write(rendered_content)
         except OSError:
             pass
-    
+
     def profile_code(
         self,
         code: str,
@@ -1750,7 +1764,7 @@ class Scalene:
             self.start()
         # Run the code being profiled.
         exit_status = 0
-        
+
         try:
             exec(code, the_globals, the_locals)
         except SystemExit as se:
@@ -1790,18 +1804,19 @@ class Scalene:
             ):
                 return exit_status
 
-            Scalene.generate_html(profile_fname=Scalene.__profile_filename, output_fname=Scalene.__profiler_html)
+            Scalene.generate_html(
+                profile_fname=Scalene.__profile_filename,
+                output_fname=Scalene.__profiler_html,
+            )
             # Remove any interposition libraries from the environment before opening the browser.
             # See also scalene/scalene_preload.py
             old_dyld = os.environ.get("DYLD_INSERT_LIBRARIES", "")
             old_ld = os.environ.get("LD_PRELOAD", "")
-            os.environ.update({"DYLD_INSERT_LIBRARIES" : "",
-                               "LD_PRELOAD" : ""})
-            webbrowser.open(
-                f"file:///{os.getcwd()}/{Scalene.__profiler_html}"
+            os.environ.update({"DYLD_INSERT_LIBRARIES": "", "LD_PRELOAD": ""})
+            webbrowser.open(f"file:///{os.getcwd()}/{Scalene.__profiler_html}")
+            os.environ.update(
+                {"DYLD_INSERT_LIBRARIES": old_dyld, "LD_PRELOAD": old_ld}
             )
-            os.environ.update({"DYLD_INSERT_LIBRARIES" : old_dyld,
-                               "LD_PRELOAD" : old_ld})
 
         return exit_status
 
@@ -1945,6 +1960,7 @@ class Scalene:
                     # Grab local and global variables.
                     if Scalene.__args.memory:
                         from scalene import pywhere  # type: ignore
+
                         pywhere.register_files_to_profile(
                             list(Scalene.__files_to_profile),
                             Scalene.__program_path,

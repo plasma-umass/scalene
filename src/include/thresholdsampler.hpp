@@ -1,6 +1,7 @@
 #pragma once
-#include <random>
 #include <unistd.h>
+
+#include <random>
 
 /**
  * @brief "triggers" samples periodically when |increments-decrements| >
@@ -16,7 +17,8 @@ class ThresholdSampler {
    * @brief Construct a new ThresholdSampler object
    *
    */
-  ThresholdSampler(uint64_t SAMPLE_INTERVAL) : _sampleInterval(SAMPLE_INTERVAL), allocs(0), frees(0) {
+  ThresholdSampler(uint64_t SAMPLE_INTERVAL)
+      : _sampleInterval(SAMPLE_INTERVAL), allocs(0), frees(0) {
     reset();
   }
 
@@ -27,11 +29,12 @@ class ThresholdSampler {
    * @param sample the amount to decrement the sample interval by
    * @return bool true iff sampled
    */
-  inline bool decrement(uint64_t sample, void *, size_t& ret) {
+  inline bool decrement(uint64_t sample, void*, size_t& ret) {
     _decrements += sample;
     if (unlikely(_decrements >= _increments + _sampleInterval)) {
 #if PRINT_STATS
-      printf_("[%d] DEALLOC DECREMENT: %lu, %lu -> %lu\n", getpid(), _decrements, _increments, _decrements - _increments);
+      printf_("[%d] DEALLOC DECREMENT: %lu, %lu -> %lu\n", getpid(),
+              _decrements, _increments, _decrements - _increments);
 #endif
       ret = _decrements - _increments;
       reset();
@@ -48,12 +51,13 @@ class ThresholdSampler {
    * @param sample the amount to decrement the sample interval by
    * @return bool true iff sampled
    */
-  inline bool increment(uint64_t sample, void *, size_t& ret) {
+  inline bool increment(uint64_t sample, void*, size_t& ret) {
     _increments += sample;
     if (unlikely(_increments >= _decrements + _sampleInterval)) {
       ret = _increments - _decrements;
 #if PRINT_STATS
-      printf_("[%d] ALLOC INCREMENT: %lu, %lu -> %lu\n", getpid(), _decrements, _increments, _increments - _decrements);
+      printf_("[%d] ALLOC INCREMENT: %lu, %lu -> %lu\n", getpid(), _decrements,
+              _increments, _increments - _decrements);
 #endif
       reset();
       allocs += ret;
@@ -78,5 +82,4 @@ class ThresholdSampler {
                          /// interval reset
   uint64_t allocs;
   uint64_t frees;
-
 };

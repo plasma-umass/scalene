@@ -2,6 +2,7 @@ import argparse
 import platform
 import sys
 
+
 class ScaleneArguments(argparse.Namespace):
     """Encapsulates all arguments and default values for Scalene."""
 
