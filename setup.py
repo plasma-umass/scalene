@@ -77,9 +77,10 @@ try:
         def finalize_options(self):
             super().finalize_options()
             self.root_is_pure = False
-except ModuleNotFoundError:
-    print("You need to install the wheel package, as in `pip install wheel`.")
-    sys.exit(1)
+except (ImportError, ModuleNotFoundError):
+    BdistWheelCommand = None
+    #print("You need to install the wheel package, as in `pip install wheel`.")
+    #sys.exit(1)
 
 import setuptools.command.build_ext
 class BuildExtCommand(setuptools.command.build_ext.build_ext):
