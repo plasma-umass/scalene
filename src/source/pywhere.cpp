@@ -142,17 +142,17 @@ inline PyFrameObject* PyThreadState_GetFrame(PyThreadState* threadState) {
       // attempt freeing again (when we decrement back to 0), glibc would
       // abort due to a double free.
       threadState->frame->ob_base.ob_base.ob_refcnt > 0) {
-    Py_XIncRef(threadState->frame);
+    Py_XINCREF(threadState->frame);
     return threadState->frame;
   }
   return nullptr;
 }
 inline PyCodeObject* PyFrame_GetCode(PyFrameObject* frame) {
-  Py_XIncRef(frame->f_code);
+  Py_XINCREF(frame->f_code);
   return frame->f_code;
 }
 inline PyFrameObject* PyFrame_GetBack(PyFrameObject* frame) {
-  Py_XIncRef(frame->f_back);
+  Py_XINCREF(frame->f_back);
   return frame->f_back;
 }
 #endif
