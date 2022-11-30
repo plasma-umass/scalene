@@ -250,7 +250,7 @@ for the process ID that Scalene reports. For example:
         parser.add_argument(
             "--cpu-percent-threshold",
             dest="cpu_percent_threshold",
-            type=int,
+            type=float,
             default=defaults.cpu_percent_threshold,
             help=f"only report profiles with at least this percent of CPU time (default: [blue]{defaults.cpu_percent_threshold}%%[/blue])",
         )
