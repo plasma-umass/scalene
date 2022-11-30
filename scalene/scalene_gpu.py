@@ -34,7 +34,7 @@ class ScaleneGPU:
                 "NOTE: The GPU is currently running in a mode that can reduce Scalene's accuracy when reporting GPU utilization."
             )
             print(
-                "Run once as root (i.e., prefixed with `sudo`) to enable per-process GPU accounting."
+                "Run once as Administrator or root (i.e., prefixed with `sudo`) to enable per-process GPU accounting."
             )
 
     def set_accounting_mode(self) -> bool:
