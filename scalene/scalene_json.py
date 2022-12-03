@@ -18,7 +18,7 @@ from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 class ScaleneJSON:
 
     @staticmethod
-    def memory_consumed_str(size_in_mb):
+    def memory_consumed_str(size_in_mb: float) -> str:
         """Return a string corresponding to amount of memory consumed."""
         gigabytes = size_in_mb // 1024
         terabytes = gigabytes // 1024
@@ -30,7 +30,7 @@ class ScaleneJSON:
             return(f"{size_in_mb:3.3f} MB")
 
     @staticmethod
-    def time_consumed_str(time_in_ms):
+    def time_consumed_str(time_in_ms: float) -> str:
         hours = time_in_ms // 3600000
         minutes = (time_in_ms % 3600000) // 60000
         seconds = (time_in_ms % 60000) // 1000
