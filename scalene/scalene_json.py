@@ -17,6 +17,35 @@ from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 
 class ScaleneJSON:
 
+    @staticmethod
+    def memory_consumed_str(size_in_mb):
+        """Return a string corresponding to amount of memory consumed."""
+        gigabytes = size_in_mb // 1024
+        terabytes = gigabytes // 1024
+        if terabytes > 0:
+            return(f"{(size_in_mb / 1048576):3.3f} TB")
+        elif gigabytes > 0:
+            return(f"{(size_in_mb / 1024):3.3f} GB")
+        else:
+            return(f"{size_in_mb:3.3f} MB")
+
+    @staticmethod
+    def time_consumed_str(time_in_ms):
+        hours = time_in_ms // 3600000
+        minutes = (time_in_ms % 3600000) // 60000
+        seconds = (time_in_ms % 60000) // 1000
+        hours_exact = time_in_ms / 3600000
+        minutes_exact = (time_in_ms % 3600000) / 60000
+        seconds_exact = (time_in_ms % 60000) / 1000
+        if hours > 0:
+            return(f"{hours_exact:.0f}h:{minutes_exact:.0f}m:{seconds_exact:3.3f}s")
+        elif minutes > 0:
+            return(f"{minutes_exact:.0f}m:{seconds_exact:3.3f}s")
+        elif seconds > 0:
+            return(f"{seconds_exact:3.3f}s")
+        else:
+            return(f"{time_in_ms:3.3f}ms")    
+        
     # Default threshold for percent of CPU time to report a file.
     cpu_percent_threshold = 1
 

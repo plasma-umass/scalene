@@ -363,25 +363,14 @@ class ScaleneOutput:
                         * stats.allocation_velocity[0]
                         / stats.allocation_velocity[1]
                     )
-                # If memory used is > 1GB, use GB as the unit.
-                if stats.max_footprint > 1024:
-                    mem_usage_line = Text.assemble(
-                        "Memory usage: ",
-                        ((spark_str, self.memory_color)),
-                        (
-                            f" (max: {(stats.max_footprint / 1024):6.2f}GB, growth rate: {growth_rate:3.0f}%)\n"
-                        ),
-                    )
-                else:
-                    # Otherwise, use MB.
-                    mem_usage_line = Text.assemble(
-                        "Memory usage: ",
-                        ((spark_str, self.memory_color)),
-                        (
-                            f" (max: {stats.max_footprint:6.2f}MB, growth rate: {growth_rate:3.0f}%)\n"
-                        ),
-                    )
-
+                mem_usage_line = Text.assemble(
+                    "Memory usage: ",
+                    ((spark_str, self.memory_color)),
+                    (
+                        f" (max: {ScaleneJSON.memory_consumed_str(stats.max_footprint)}, growth rate: {growth_rate:3.0f}%)\n"
+                    ),
+                )
+                
         null = tempfile.TemporaryFile(mode="w+")
 
         console = Console(
@@ -441,7 +430,7 @@ class ScaleneOutput:
             )
 
             new_title = mem_usage_line + (
-                f"{fname_print}: % of time = {percent_cpu_time:6.2f} out of {stats.elapsed_time:6.2f}."
+                f"{fname_print}: % of time = {percent_cpu_time:6.2f}% ({ScaleneJSON.time_consumed_str(percent_cpu_time / 100.0 * stats.elapsed_time * 1e3)}) out of {ScaleneJSON.time_consumed_str(stats.elapsed_time * 1e3)}."
             )
             # Only display total memory usage once.
             mem_usage_line = ""
