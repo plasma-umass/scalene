@@ -103,7 +103,10 @@ class ScaleneGPU:
         for i in range(self.__ngpus):
             handle = self.__handle[i]
             for proc in pynvml.nvmlDeviceGetComputeRunningProcesses(handle):
-                if proc.pid == pid:
+                # Only accumulate memory stats for the current pid.
+                if proc.usedGpuMemory and proc.pid == pid:
+                    # First check is to protect against return of None
+                    # from incompatible NVIDIA drivers.
                     total_used_GPU_memory += proc.usedGpuMemory / 1048576
         return total_used_GPU_memory
 
