@@ -18,7 +18,7 @@ class ThresholdSampler {
    *
    */
   ThresholdSampler(uint64_t SAMPLE_INTERVAL)
-      : _sampleInterval(SAMPLE_INTERVAL), allocs(0), frees(0) {
+    : gen(rd()), d(1.0 / SAMPLE_INTERVAL), _nextSampleInterval(SAMPLE_INTERVAL), allocs(0), frees(0) {
     reset();
   }
 
@@ -31,7 +31,7 @@ class ThresholdSampler {
    */
   inline bool decrement(uint64_t sample, void*, size_t& ret) {
     _decrements += sample;
-    if (unlikely(_decrements >= _increments + _sampleInterval)) {
+    if (unlikely(_decrements >= _increments + _nextSampleInterval)) {
 #if PRINT_STATS
       printf_("[%d] DEALLOC DECREMENT: %lu, %lu -> %lu\n", getpid(),
               _decrements, _increments, _decrements - _increments);
@@ -53,7 +53,7 @@ class ThresholdSampler {
    */
   inline bool increment(uint64_t sample, void*, size_t& ret) {
     _increments += sample;
-    if (unlikely(_increments >= _decrements + _sampleInterval)) {
+    if (unlikely(_increments >= _decrements + _nextSampleInterval)) {
       ret = _increments - _decrements;
 #if PRINT_STATS
       printf_("[%d] ALLOC INCREMENT: %lu, %lu -> %lu\n", getpid(), _decrements,
@@ -67,15 +67,21 @@ class ThresholdSampler {
   }
 
  private:
+
+  std::random_device rd;
+  std::mt19937 gen;
+  std::geometric_distribution<uint64_t> d;
+
   void reset() {
     _increments = 0;
     _decrements = 0;
+    // _nextSampleInterval = d(gen);
 #if PRINT_STATS
     printf_("FOOTPRINT = %lu\n", allocs - frees);
 #endif
   }
 
-  const uint64_t _sampleInterval;  /// the current sample interval
+  uint64_t _nextSampleInterval;  /// the next sample interval
   uint64_t _increments;  /// the number of increments since the last sample
                          /// interval reset
   uint64_t _decrements;  /// the number of decrements since the last sample
