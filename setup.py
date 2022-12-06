@@ -153,6 +153,20 @@ pywhere = Extension('scalene.pywhere',
 # Numbering scheme: https://www.python.org/dev/peps/pep-0440
 dev_build = ('.dev' + environ['DEV_BUILD']) if 'DEV_BUILD' in environ else ''
 
+install_requires = [
+        "wheel>=0.36.1",
+        "rich>=10.7.0",
+        "cloudpickle>=1.5.0",
+        "pynvml>=11.0.0",
+        "Jinja2>=3.0.3",
+    ]
+
+non_win_requires = [ "Cython>=0.29.28",
+                     "crdp>=0.0.2" ]
+
+if sys.platform != 'win32':
+    install_requires += non_win_requires
+
 setup(
     name="scalene",
     version=scalene_version + dev_build,
@@ -190,15 +204,7 @@ setup(
         'egg_info': EggInfoCommand,
         'build_ext': BuildExtCommand,
     },
-    install_requires=[
-        "wheel>=0.36.1",
-        "rich>=10.7.0",
-        "cloudpickle>=1.5.0",
-        "pynvml>=11.0.0",
-        "Cython>=0.29.28",
-        "crdp>=0.0.2",
-        "Jinja2>=3.0.3",
-    ],
+    install_requires=install_requires,
     ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),
     setup_requires=['wheel', 'Cython', 'setuptools_scm'],
     include_package_data=True,
