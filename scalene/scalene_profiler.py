@@ -70,7 +70,6 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
-from scalene import pywhere
 
 if sys.platform != "win32":
     import resource
@@ -556,6 +555,10 @@ class Scalene:
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle allocation signals."""
+        if not Scalene.__args.memory:
+            # This should never happen, but we fail gracefully.
+            return
+        from scalene import pywhere
         if this_frame:
             Scalene.enter_function_meta(this_frame, Scalene.__stats)
         # Walk the stack till we find a line of code in a file we are tracing.
@@ -1758,8 +1761,10 @@ class Scalene:
         the_locals: Dict[str, str],
     ) -> int:
         """Initiate execution and profiling."""
+        if Scalene.__args.memory:
+            from scalene import pywhere
+            pywhere.populate_struct()
         # If --off is set, tell all children to not profile and stop profiling before we even start.
-        pywhere.populate_struct()
         if "off" not in Scalene.__args or not Scalene.__args.off:
             self.start()
         # Run the code being profiled.
@@ -1779,8 +1784,9 @@ class Scalene:
             exit_status = 1
         finally:
             self.stop()
-            pywhere.disable_settrace()
-            pywhere.depopulate_struct()
+            if Scalene.__args.memory:
+                pywhere.disable_settrace()
+                pywhere.depopulate_struct()
             # Leaving here in case of reversion
             # sys.settrace(None)
             stats = Scalene.__stats
