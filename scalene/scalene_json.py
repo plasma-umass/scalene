@@ -4,9 +4,9 @@ import os
 import random
 import re
 import statistics
+import sys
 
 from collections import OrderedDict, defaultdict
-from crdp import rdp
 from operator import itemgetter
 from pathlib import Path
 from typing import Any, Callable, Dict, List
@@ -14,6 +14,8 @@ from typing import Any, Callable, Dict, List
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 
+if sys.platform != 'win32':
+    from crdp import rdp
 
 class ScaleneJSON:
 
