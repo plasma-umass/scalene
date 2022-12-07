@@ -161,8 +161,8 @@ install_requires = [
         "Jinja2>=3.0.3",
     ]
 
-non_win_requires = [ "Cython>=0.29.28",
-                     "crdp>=0.0.2" ]
+non_win_requires = [ "Cython==0.29.32",
+                     "crdp @ git+https://github.com/plasma-umass/crdp.git#egg=crdp" ]
 
 if sys.platform != 'win32':
     install_requires += non_win_requires
