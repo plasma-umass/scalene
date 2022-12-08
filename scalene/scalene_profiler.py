@@ -559,6 +559,7 @@ class Scalene:
             # This should never happen, but we fail gracefully.
             return
         from scalene import pywhere
+
         if this_frame:
             Scalene.enter_function_meta(this_frame, Scalene.__stats)
         # Walk the stack till we find a line of code in a file we are tracing.
@@ -1763,6 +1764,7 @@ class Scalene:
         """Initiate execution and profiling."""
         if Scalene.__args.memory:
             from scalene import pywhere
+
             pywhere.populate_struct()
         # If --off is set, tell all children to not profile and stop profiling before we even start.
         if "off" not in Scalene.__args or not Scalene.__args.off:
