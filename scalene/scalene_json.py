@@ -15,7 +15,7 @@ from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 
 if sys.platform != "win32":
-    from crdp import rdp
+    from scalene.crdp import rdp
 
 
 class ScaleneJSON:
