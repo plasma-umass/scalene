@@ -66,7 +66,11 @@ class TraceConfig {
     // Temporarily change the current working directory to the original program
     // path.
     char original_cwd_buf[PATH_MAX];
-    auto oldcwd = getwd(original_cwd_buf);
+#ifdef _WIN32
+    auto oldcwd = _getcwd(original_cwd_buf, PATH_MAX);
+#else
+    auto oldcwd = getcwd(original_cwd_buf, PATH_MAX);
+#endif
     chdir(scalene_base_path);
     char resolved_path[PATH_MAX];
 
