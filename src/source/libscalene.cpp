@@ -1,7 +1,6 @@
 #define SCALENE_DISABLE_SIGNALS 0  // for debugging only
 
 #if !defined(_WIN32)
-#include <execinfo.h>
 #include <unistd.h>
 #endif
 
