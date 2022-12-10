@@ -33,6 +33,8 @@ classifiers = [
 readme = "README.md"
 authors = [
     {name = "Emery Berger", email = "emery@cs.umass.edu"},
+    {name = "Sam Stern"},
+    {name = "Juan Altmayer Pizzorno"},
 ]
 dependencies = [
     "cloudpickle>=1.5.0",
