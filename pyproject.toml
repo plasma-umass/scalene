@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "setuptools_scm", "wheel>=0.36.1", "Cython>=0.29.28"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scalene"
+description = "Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python"
+license = {text = "Apache License 2.0"}
+keywords = ["performance memory profiler"]
+# version is computed by setup.py
+dynamic = ["version"]
+requires-python = ">= 3.8"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: IPython",
+    "Framework :: Jupyter",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Debuggers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+]
+readme = "README.md"
+authors = [
+    {name = "Emery Berger", email = "emery@cs.umass.edu"},
+]
+dependencies = [
+    "cloudpickle>=1.5.0",
+    "ipython==7.31.1",
+    "Jinja2>=3.0.3",
+    "rich>=10.7.0",
+    "pynvml>=11.0.0",
+    "pyperf==2.0.0",
+    "lxml==4.9.1",
+    "packaging==20.9",
+]
+
+[project.urls]
+"Source code" = "https://github.com/plasma-umass/scalene"
+
+[project.scripts]
+scalene = "scalene.__main__:main"
+
+[tool.setuptools]
+packages = ["scalene"]
