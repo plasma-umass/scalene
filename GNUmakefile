@@ -42,7 +42,7 @@ OUTDIR=scalene
 
 all: $(OUTDIR)/$(LIBFILE)
 
-$(OUTDIR)/$(LIBFILE): vendor/Heap-Layers $(SRC) $(C_SOURCES) GNUmakefile
+$(OUTDIR)/$(LIBFILE): vendor-deps $(SRC) $(C_SOURCES) GNUmakefile
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread
 
 clean:
