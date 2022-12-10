@@ -92,7 +92,7 @@ PYTHON_API_VER:=$(shell $(PYTHON) -c 'from pip._vendor.packaging.tags import int
 bdist: vendor-deps
 	$(PYTHON) setup.py bdist_wheel $(PYTHON_PLAT)
 ifeq ($(shell uname -s),Linux)
-	auditwheel repair dist/*.whl
+	$(PYTHON) -m auditwheel repair dist/*.whl
 	rm -f dist/*.whl
 	mv wheelhouse/*.whl dist/
 endif
