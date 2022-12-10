@@ -61,10 +61,13 @@ vendor/printf/printf.cpp:
 	cd vendor/printf && ln -s printf.c printf.cpp
 	sed $(SED_INPLACE) -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h
 
+clear-vendor-dirs:
+	rm -fr vendor/
+
 vendor/crdp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/plasma-umass/crdp
 
-vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp vendor/crdp
+vendor-deps: clear-vendor-dirs vendor/Heap-Layers vendor/printf/printf.cpp vendor/crdp
 
 mypy:
 	-mypy $(PYTHON_SOURCES)
