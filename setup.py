@@ -1,9 +1,18 @@
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
-from scalene.scalene_version import scalene_version
 from os import path, environ
+from pathlib import Path
 import sys
 import sysconfig
+
+
+HERE = Path(__file__).parent.resolve()
+
+# NOTE: sys.path must be modified to make the following import work if the
+# package is being built in an isolated environment
+sys.path.insert(0, str(HERE))
+from scalene.scalene_version import scalene_version
+
 
 if sys.platform == 'darwin':
     import sysconfig
