@@ -89,16 +89,21 @@ endif
 
 PYTHON_API_VER:=$(shell $(PYTHON) -c 'from pip._vendor.packaging.tags import interpreter_name, interpreter_version; print(interpreter_name()+interpreter_version())')
 
-bdist: vendor-deps
-	$(PYTHON) setup.py bdist_wheel $(PYTHON_PLAT)
+python-deps:
+	$(PYTHON) -m pip install \
+		build \
+		auditwheel
+
+bdist: python-deps vendor-deps
+	$(PYTHON) -m build --wheel
 ifeq ($(shell uname -s),Linux)
 	$(PYTHON) -m auditwheel repair dist/*.whl
 	rm -f dist/*.whl
 	mv wheelhouse/*.whl dist/
 endif
 
-sdist: vendor-deps
-	$(PYTHON) setup.py sdist
+sdist: vendor-deps python-deps
+	$(PYTHON) -m build --sdist
 
 upload: sdist bdist # to pypi
 	$(PYTHON) -m twine upload dist/*
