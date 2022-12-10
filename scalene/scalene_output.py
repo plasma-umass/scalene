@@ -370,7 +370,7 @@ class ScaleneOutput:
                         f" (max: {ScaleneJSON.memory_consumed_str(stats.max_footprint)}, growth rate: {growth_rate:3.0f}%)\n"
                     ),
                 )
-                
+
         null = tempfile.TemporaryFile(mode="w+")
 
         console = Console(

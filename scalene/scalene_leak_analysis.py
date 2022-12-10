@@ -24,16 +24,19 @@ class ScaleneLeakAnalysis:
         keys = list(stats.leak_score[fname].keys())
         for index, item in enumerate(stats.leak_score[fname].values()):
             # See https://en.wikipedia.org/wiki/Rule_of_succession
-            frees = item[1]
             allocs = item[0]
-            expected_leak = (frees + 1) / (frees + allocs + 2)
+            frees = item[1]
+            # Successful reclamations are given by the number of frees.
+            # Failures - no reclamations seen - are given by the number of allocs with no matching frees (allocs - frees).
+            expected_leak = 1.0 - (frees + 1) / (allocs - frees + 2)
+            print(allocs, frees, expected_leak)
 
-            if expected_leak <= ScaleneLeakAnalysis.leak_reporting_threshold:
+            if expected_leak >= 1.0 - ScaleneLeakAnalysis.leak_reporting_threshold:
                 if keys[index] in avg_mallocs:
                     leaks.append(
                         (
                             keys[index],
-                            1 - expected_leak,
+                            expected_leak,
                             avg_mallocs[keys[index]],
                         )
                     )

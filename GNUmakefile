@@ -42,7 +42,7 @@ OUTDIR=scalene
 
 all: $(OUTDIR)/$(LIBFILE)
 
-$(OUTDIR)/$(LIBFILE): vendor/Heap-Layers $(SRC) $(C_SOURCES) GNUmakefile
+$(OUTDIR)/$(LIBFILE): vendor-deps $(SRC) $(C_SOURCES) GNUmakefile
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread
 
 clean:
@@ -64,7 +64,10 @@ vendor/printf/printf.cpp:
 clear-vendor-dirs:
 	rm -fr vendor/
 
-vendor-deps: clear-vendor-dirs vendor/Heap-Layers vendor/printf/printf.cpp
+vendor/crdp:
+	mkdir -p vendor && cd vendor && git clone https://github.com/plasma-umass/crdp
+
+vendor-deps: clear-vendor-dirs vendor/Heap-Layers vendor/printf/printf.cpp vendor/crdp
 
 mypy:
 	-mypy $(PYTHON_SOURCES)
