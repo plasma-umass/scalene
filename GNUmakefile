@@ -61,7 +61,10 @@ vendor/printf/printf.cpp:
 	cd vendor/printf && ln -s printf.c printf.cpp
 	sed $(SED_INPLACE) -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h
 
-vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp
+clear-vendor-dirs:
+	rm -fr vendor/
+
+vendor-deps: clear-vendor-dirs vendor/Heap-Layers vendor/printf/printf.cpp
 
 mypy:
 	-mypy $(PYTHON_SOURCES)
