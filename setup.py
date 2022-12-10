@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 from setuptools.extension import Extension
 from os import path, environ
 from pathlib import Path
