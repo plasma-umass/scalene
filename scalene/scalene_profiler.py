@@ -13,6 +13,7 @@
     usage help: scalene --help
 
 """
+
 import argparse
 import atexit
 import builtins
@@ -94,6 +95,18 @@ def require_python(version: Tuple[int, int]) -> None:
 
 require_python((MINIMUM_PYTHON_VERSION_MAJOR, MINIMUM_PYTHON_VERSION_MINOR))
 
+
+# These are here to simplify print debugging, a la C.
+class LineNo:
+    def __str__(self):
+        return str(inspect.currentframe().f_back.f_lineno)
+
+class FileName:
+    def __str__(self):
+        return str(inspect.currentframe().f_back.f_code.co_filename)
+
+__LINE__ = LineNo()
+__FILE__ = FileName()
 
 # Scalene fully supports Unix-like operating systems; in
 # particular, Linux, Mac OS X, and WSL 2 (Windows Subsystem for Linux 2 = Ubuntu).
@@ -1568,6 +1581,9 @@ class Scalene:
         if not_found_in_profile_only := profile_only_set and all(
             prof not in filename for prof in profile_only_set
         ):
+            return False
+        if filename[0] == "<" and filename[-1] == ">":
+            # Special non-file
             return False
         # Now we've filtered out any non matches to profile-only patterns.
         # If `profile-all` is specified, profile this file.
