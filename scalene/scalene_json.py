@@ -324,7 +324,9 @@ class ScaleneJSON:
         # Instead, write info to disk for the main process to collect.
         if pid:
             stats.output_stats(pid, python_alias_dir)
-            return {}
+            # Return a value to indicate that the stats were successfully 
+            # output to the proper directory
+            return {"is_child": True}
 
         if len(report_files) == 0:
             return {}
