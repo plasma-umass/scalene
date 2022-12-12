@@ -10,14 +10,14 @@ from time import perf_counter
 from pprint import PrettyPrinter
 
 
-printable = [('string', (1, 2), [3, 4], {5: 6, 7: 8})] * 100_000 * 8
+printable = [('string', (1, 2), [3, 4], {5: 6, 7: 8})] * 100_000
 p = PrettyPrinter()
 
 
 if __name__ == '__main__':
 
-    start = perf_counter()
-    # for i in range(7):
-    p.pformat(printable)
-    stop = perf_counter()
-    print("Time elapsed: ", stop - start)
+    start_p = perf_counter()
+    for i in range(7):
+        p.pformat(printable)
+    stop_p = perf_counter()
+    print("Time elapsed: ", stop_p - start_p)

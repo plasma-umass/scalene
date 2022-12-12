@@ -52,10 +52,10 @@ def fannkuch(n):
 if __name__ == "__main__":
     # runner = pyperf.Runner()
     arg = DEFAULT_ARG
-    start = time.perf_counter()
+    start_p = time.perf_counter()
     # runner.bench_func('fannkuch', fannkuch, arg)
-    for i in range(2):
+    for i in range(3):
         fannkuch(arg)
-    stop = time.perf_counter()
+    stop_p = time.perf_counter()
 
-    print("Time elapsed: ", stop - start)
+    print("Time elapsed: ", stop_p - start_p)

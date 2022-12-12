@@ -56,11 +56,11 @@ if __name__ == "__main__":
     import gc
     gc.disable()
 
-    start = time.perf_counter()
-    for _ in range(20):
+    start_p = time.perf_counter()
+    for _ in range(25):
         # Don't benchmark clear_cache(), exclude it of the benchmark
         clear_cache()
         bench_expand()
     
-    stop = time.perf_counter()
-    print("Time elapsed: ", stop - start)
+    stop_p = time.perf_counter()
+    print("Time elapsed: ", stop_p - start_p)

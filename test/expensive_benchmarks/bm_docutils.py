@@ -18,7 +18,7 @@ except ImportError:
 else:
     Trace.show = lambda message, channel: ...  # don't print to console
 
-DOC_ROOT = (Path(__file__).parent / "docutils_data" / "docs").resolve()
+DOC_ROOT = (Path('/home/sam/scalene/test/expensive_benchmarks/bm_docutils.py').parent / "docutils_data" / "docs").resolve()
 
 
 def build_html(doc_root):
@@ -48,8 +48,8 @@ def bench_docutils(loops, doc_root):
 
 if __name__ == "__main__":
     # runner = pyperf.Runner()
-    start = time.perf_counter()
+    start_p = time.perf_counter()
     bench_docutils(5, DOC_ROOT)
-    stop = time.perf_counter()
-    print("Time elapsed: ", stop - start)
+    stop_p = time.perf_counter()
+    print("Time elapsed: ", stop_p - start_p)
 

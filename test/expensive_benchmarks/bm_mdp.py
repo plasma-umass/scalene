@@ -266,8 +266,8 @@ def bench_mdp(loops):
 if __name__ == "__main__":
     runner = pyperf.Runner()
     runner.metadata['description'] = "MDP benchmark"
-    start = time.perf_counter()
+    start_p = time.perf_counter()
     # runner.bench_time_func('mdp', bench_mdp)
     bench_mdp(5)
-    stop = time.perf_counter()
-    print("Time elapsed: ", stop - start)
+    stop_p = time.perf_counter()
+    print("Time elapsed: ", stop_p - start_p)

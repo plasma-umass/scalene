@@ -55,13 +55,19 @@ class AsyncTree:
         await asyncio.gather(
             *[self.recurse(recurse_level - 1) for _ in range(NUM_RECURSE_BRANCHES)]
         )
-
+    
     async def run(self):
-        if self.__class__ == IOAsyncTree:
+        if isinstance(self, IOAsyncTree):
             num_iters = 9
+        elif isinstance(self, MemoizationAsyncTree):
+            num_iters = 16
+        elif isinstance(self, NoneAsyncTree):
+            num_iters = 22
         else:
-            num_iters = 20
+            num_iters = 14
         for i in range(num_iters):
+            if isinstance(self, MemoizationAsyncTree):
+                self.cache = {}
             await self.recurse(NUM_RECURSE_LEVELS)
 
 
@@ -165,9 +171,9 @@ Determines which benchmark to run. Options:
 
     async_tree_class = BENCHMARKS[benchmark]
     async_tree = async_tree_class()
-    start = time.perf_counter()
+    start_p = time.perf_counter()
     asyncio.run(async_tree.run())
-    stop = time.perf_counter()
-    print("Time elapsed: ", stop - start)
+    stop_p = time.perf_counter()
+    print("Time elapsed: ", stop_p - start_p)
     # runner.bench_async_func(f"async_tree_{benchmark}", async_tree.run)
 

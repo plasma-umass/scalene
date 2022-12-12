@@ -402,7 +402,7 @@ if __name__ == "__main__":
     cmd.add_argument("--filename", metavar="FILENAME.PPM",
                      help="Output filename of the PPM picture")
     args = cmd.parse_args()
-    start = perf_counter()
-    bench_raytrace(20, args.width, args.height, args.filename)
-    stop = perf_counter()
-    print("Time elapsed: ", stop - start)
+    start_p = perf_counter()
+    bench_raytrace(25, args.width, args.height, args.filename)
+    stop_p = perf_counter()
+    print("Time elapsed: ", stop_p - start_p)
