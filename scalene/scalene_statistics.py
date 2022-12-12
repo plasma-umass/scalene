@@ -410,6 +410,10 @@ class ScaleneStatistics:
                     self.per_line_footprint_samples,
                     x.per_line_footprint_samples,
                 )
+                self.per_line_footprint_samples
+                for filename in self.per_line_footprint_samples:
+                    for lineno in self.per_line_footprint_samples[filename]:
+                        self.per_line_footprint_samples[filename][lineno].sort(key=lambda x : x[0])
                 self.increment_per_line_samples(
                     self.memory_malloc_count, x.memory_malloc_count
                 )
@@ -440,6 +444,7 @@ class ScaleneStatistics:
                     x.total_memory_malloc_samples
                 )
                 self.memory_footprint_samples += x.memory_footprint_samples
+                self.memory_footprint_samples.sort(key=lambda x : x[0])
                 for k, val in x.function_map.items():
                     if k in self.function_map:
                         self.function_map[k].update(val)

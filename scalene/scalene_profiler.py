@@ -901,6 +901,8 @@ class Scalene:
                 Scalene.__program_path,
                 profile_memory=Scalene.__args.memory,
             )
+            if "is_child" in json_output:
+                return True
             if not Scalene.__output.output_file:
                 Scalene.__output.output_file = "/dev/stdout"
             with open(Scalene.__output.output_file, "w") as f:
