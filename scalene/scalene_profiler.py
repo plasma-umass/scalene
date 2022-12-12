@@ -901,6 +901,11 @@ class Scalene:
                 Scalene.__program_path,
                 profile_memory=Scalene.__args.memory,
             )
+            # Since the default value returned for "there are no samples"
+            # is `{}`, we use a sentinel value `{"is_child": True}`
+            # when inside a child process to indicate that there are samples, but they weren't
+            # turned into a JSON file because they'll later
+            # be used by the parent process
             if "is_child" in json_output:
                 return True
             if not Scalene.__output.output_file:
