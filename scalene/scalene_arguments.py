@@ -16,7 +16,8 @@ class ScaleneArguments(argparse.Namespace):
         self.cpu_sampling_rate = 0.01
         # Size of allocation window (sample when footprint increases or decreases by this amount)
         self.allocation_sampling_window = (
-            1549351  # sync with src/source/libscalene.cpp
+            10485767  # sync with src/source/libscalene.cpp
+            # was 1549351
         )
         self.html = False
         self.json = False

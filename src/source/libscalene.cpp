@@ -29,7 +29,7 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
 
 constexpr uint64_t DefaultAllocationSamplingRate =
-    1 * 1549351ULL;  // 1 * 1048576ULL;
+    1 * 10485767ULL; // was 1 * 1549351ULL;
 constexpr uint64_t MemcpySamplingRate = DefaultAllocationSamplingRate * 7;
 
 /**
