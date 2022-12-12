@@ -71,23 +71,24 @@ class ScaleneJSON:
     def compress_samples(
         self, uncompressed_samples: List[Any], max_footprint: float
     ) -> List[Any]:
-        # Compress the samples so that the granularity is at least
-        # a certain fraction of the maximum footprint.
-        samples = []
-        granularity = max_footprint / self.memory_granularity_fraction
+        samples = uncompressed_samples
+        # Commented out old compression which is now obsolete.
+        # Will remove.
+        #
+        # granularity = max_footprint / self.memory_granularity_fraction
 
-        last_mem = 0
-        for (t, mem) in uncompressed_samples:
-            if abs(mem - last_mem) >= granularity:
-                # We're above the granularity.
-                # Force all memory amounts to be positive.
-                mem = max(0, mem)
-                # Add a tiny bit of random noise to force different values (for the GUI).
-                mem += abs(random.gauss(0.01, 0.01))
-                # Now we append it and set the last amount to be the
-                # current footprint.
-                samples.append([t, mem])
-                last_mem = mem
+        # last_mem = 0
+        # for (t, mem) in uncompressed_samples:
+        #     if abs(mem - last_mem) >= granularity:
+        #         # We're above the granularity.
+        #         # Force all memory amounts to be positive.
+        #         mem = max(0, mem)
+        #         # Add a tiny bit of random noise to force different values (for the GUI).
+        #         mem += abs(random.gauss(0.01, 0.01))
+        #         # Now we append it and set the last amount to be the
+        #         # current footprint.
+        #         samples.append([t, mem])
+        #         last_mem = mem
 
         if len(samples) > self.max_sparkline_samples:
             # Try to reduce the number of samples with the
