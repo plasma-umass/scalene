@@ -1435,7 +1435,7 @@ class Scalene:
                 )
 
             stats.per_line_footprint_samples[fname][lineno].append(
-                [time.monotonic_ns() - Scalene.__start_time, curr]
+                [time.monotonic_ns() - Scalene.__start_time, max(0, curr)]
             )
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
