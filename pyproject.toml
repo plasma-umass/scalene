@@ -43,8 +43,6 @@ dependencies = [
     "rich>=10.7.0",
     "pynvml>=11.0.0",
     "pyperf==2.0.0",
-    "lxml==4.9.1",
-    "packaging==20.9",
 ]
 
 [project.urls]
