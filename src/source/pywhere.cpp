@@ -6,8 +6,11 @@
 
 #include <mutex>
 #include <vector>
+#include <filesystem>
 #include <unordered_map>
+
 #include <unistd.h>
+
 
 // NOTE: uncomment for debugging, but this causes issues
 // for production builds on Alpine
@@ -39,7 +42,13 @@ class TraceConfig {
     if ( res != _memoize.end()) {
       return res->second;
     }
-    if (strstr(filename, "site-packages") || strstr(filename, "/lib/python")) {
+    // Build up the paths that we filter out (the Python and Scalene libraries).
+    auto python_lib_path = std::filesystem::path("lib");
+    python_lib_path /= std::filesystem::path("python");
+    auto scalene_path = std::filesystem::path("scalene");
+    scalene_path /= std::filesystem::path("scalene");
+
+    if (strstr(filename, "site-packages") || strstr(filename, python_lib_path.c_str())) {
       _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
       return false;
     }
@@ -49,7 +58,7 @@ class TraceConfig {
       return true;
     }
 
-    if (strstr(filename, "scalene/scalene")) {
+    if (strstr(filename, scalene_path.c_str())) {
       _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
       return false;
     }
