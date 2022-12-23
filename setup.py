@@ -41,9 +41,9 @@ def compiler_archs(compiler: str):
 def extra_compile_args():
     """Returns extra compiler args for platform."""
     if sys.platform == 'win32':
-        return ['/std:c++17'] # for Visual Studio C++
+        return ['/std:c++14'] # for Visual Studio C++
 
-    return ['-std=c++17']
+    return ['-std=c++14']
 
 def make_command():
 #    return 'nmake' if sys.platform == 'win32' else 'make'  # 'nmake' isn't found on github actions' VM

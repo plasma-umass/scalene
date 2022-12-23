@@ -6,7 +6,6 @@
 
 #include <mutex>
 #include <vector>
-#include <filesystem>
 #include <unordered_map>
 
 #include <unistd.h>
@@ -42,23 +41,27 @@ class TraceConfig {
     if ( res != _memoize.end()) {
       return res->second;
     }
-    // Build up the paths that we filter out (the Python and Scalene libraries).
-    auto python_lib_path = std::filesystem::path("lib");
-    python_lib_path /= std::filesystem::path("python");
-    auto scalene_path = std::filesystem::path("scalene");
-    scalene_path /= std::filesystem::path("scalene");
+    // Return false if filename contains paths corresponding to the native Python libraries.
+    // This is to avoid profiling the Python interpreter itself.
+    // Also exclude site-packages and any IPython files.
 
-    if (strstr(filename, "site-packages") || strstr(filename, python_lib_path.c_str())) {
-      _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
-      return false;
-    }
+#if defined(_WIN32)
+    // If on Windows, use \\ as the path separator.
+    const auto PATH_SEP = "\\";
+#else
+    // Assume all others are POSIX.
+    const auto PATH_SEP = "/";
+#endif
 
-    if (*filename == '<' && strstr(filename, "<ipython")) {
-      _memoize.insert(std::pair<std::string, bool>(std::string(filename), true));
-      return true;
-    }
+    auto python_lib = std::string("lib") + std::string(PATH_SEP) + std::string("python");
+    auto scalene_lib = std::string("scalene") + std::string(PATH_SEP) + std::string("scalene");
+    auto anaconda_lib = std::string("anaconda3") + std::string(PATH_SEP) + std::string("lib");
 
-    if (strstr(filename, scalene_path.c_str())) {
+    if (strstr(filename, python_lib.c_str()) != nullptr ||
+        strstr(filename, scalene_lib.c_str()) != nullptr ||
+        strstr(filename, anaconda_lib.c_str()) != nullptr ||
+        strstr(filename, "site-packages") != nullptr ||
+        (*filename == '<' && strstr(filename, "<ipython") != nullptr)) {
       _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
       return false;
     }
