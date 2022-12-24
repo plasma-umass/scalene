@@ -1,5 +1,4 @@
 import copy
-import linecache
 import os
 import random
 import re
@@ -117,6 +116,7 @@ class ScaleneJSON:
         fname: Filename,
         fname_print: Filename,
         line_no: LineNumber,
+        line: str,
         stats: ScaleneStatistics,
         profile_this_code: Callable[[Filename, LineNumber], bool],
         profile_memory: bool = False,
@@ -210,7 +210,7 @@ class ScaleneJSON:
 
         return {
             "lineno": line_no,
-            "line": linecache.getline(full_fname, line_no),
+            "line": line,
             "n_cpu_percent_c": n_cpu_percent_c,
             "n_cpu_percent_python": n_cpu_percent_python,
             "n_sys_percent": n_sys_percent,
@@ -385,7 +385,7 @@ class ScaleneJSON:
             # Print out the the profile for the source, line by line.
             full_fname = os.path.normpath(os.path.join(program_path, fname))
             try:
-                with open(full_fname, "r", encoding="utf-8") as source_file:
+                with open(full_fname, "r") as source_file:
                     code_lines = source_file.readlines()
             except (FileNotFoundError, OSError):
                 continue
@@ -400,6 +400,7 @@ class ScaleneJSON:
                     fname=fname,
                     fname_print=fname_print,
                     line_no=LineNumber(lineno),
+                    line=line,
                     stats=stats,
                     profile_this_code=profile_this_code,
                     profile_memory=profile_memory,
@@ -439,14 +440,13 @@ class ScaleneJSON:
                         # accumulated; see
                         # ScaleneStatistics.build_function_stats
                         line_no=LineNumber(1),
+                        line=fn_name, # Set the source line to just the function name.
                         stats=fn_stats,
                         profile_this_code=profile_this_code,
                         profile_memory=profile_memory,
                         force_print=True,
                     )
                     if profile_line:
-                        # Change the source code to just the function name.
-                        profile_line["line"] = fn_name
                         # Fix the line number to point to the first line of the function.
                         profile_line["lineno"] = stats.firstline_map[fn_name]
                         output["files"][fname_print]["functions"].append(
