@@ -102,6 +102,7 @@ class ScaleneOutput:
             fname=fname,
             fname_print=fname,
             line_no=line_no,
+            line=line,
             stats=stats,
             profile_this_code=profile_this_code,
             force_print=force_print,
@@ -520,7 +521,7 @@ class ScaleneOutput:
             # Print out the profile for the source, line by line.
             full_fname = os.path.normpath(os.path.join(program_path, fname))
             try:
-                with open(full_fname, "r", encoding="utf-8") as source_file:
+                with open(full_fname, "r") as source_file:
                     code_lines = source_file.read()
             except (FileNotFoundError, OSError):
                 continue
