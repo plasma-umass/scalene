@@ -592,7 +592,7 @@ class ScaleneOutput:
                 except TypeError:  # rich < 9.4.0 compatibility
                     tbl.add_row(None)
                 txt = Text.assemble(
-                    f"function summary for {fname}", style="bold italic"
+                    f"function summary for {fname_print}", style="bold italic"
                 )
                 if profile_memory:
                     if self.gpu:
