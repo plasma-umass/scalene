@@ -65,6 +65,7 @@ in Jupyter, cell mode:
 [/b]
 """
         )
+        # NOTE: below is only displayed on non-Windows platforms.
         epilog = dedent(
             """When running Scalene in the background, you can suspend/resume profiling
 for the process ID that Scalene reports. For example:
@@ -79,7 +80,7 @@ for the process ID that Scalene reports. For example:
         parser = RichArgParser(  # argparse.ArgumentParser(
             prog="scalene",
             description=usage,
-            epilog=epilog,
+            epilog=epilog if sys.platform != "win32" else "",
             formatter_class=argparse.RawTextHelpFormatter,
             allow_abbrev=False,
         )
@@ -293,19 +294,21 @@ for the process ID that Scalene reports. For example:
             + "[/blue])",
         )
 
-        group = parser.add_mutually_exclusive_group(required=False)
-        group.add_argument(
-            "--on",
-            action="store_true",
-            help="start with profiling on (default)",
-        )
-        group.add_argument(
-            "--off", action="store_true", help="start with profiling off"
-        )
-        # the PID of the profiling process (for internal use only)
-        parser.add_argument(
-            "--pid", type=int, default=0, help=argparse.SUPPRESS
-        )
+        if sys.platform != "win32":
+            # Turning profiling on and off from another process is currently not supported on Windows.
+            group = parser.add_mutually_exclusive_group(required=False)
+            group.add_argument(
+                "--on",
+                action="store_true",
+                help="start with profiling on (default)",
+            )
+            group.add_argument(
+                "--off", action="store_true", help="start with profiling off"
+            )
+            # the PID of the profiling process (for internal use only)
+            parser.add_argument(
+                "--pid", type=int, default=0, help=argparse.SUPPRESS
+            )
         # collect all arguments after "---", which Scalene will ignore
         parser.add_argument(
             "---",
