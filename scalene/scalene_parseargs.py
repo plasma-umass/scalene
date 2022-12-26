@@ -320,6 +320,10 @@ for the process ID that Scalene reports. For example:
         # Parse out all Scalene arguments.
         # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
         args, left = parser.parse_known_args()
+        # Hack to simplify functionality for Windows platforms.
+        if sys.platform == "win32":
+            args.on = True
+            args.pid = 0
         left += args.unused_args
         import re
 

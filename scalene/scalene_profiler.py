@@ -1880,15 +1880,15 @@ class Scalene:
                 "To invoke Scalene programmatically, see the usage noted in https://github.com/plasma-umass/scalene#using-scalene"
             )
             sys.exit(1)
-        Scalene.__orig_signal(
-            Scalene.__signals.start_profiling_signal,
-            Scalene.start_signal_handler,
-        )
-        Scalene.__orig_signal(
-            Scalene.__signals.stop_profiling_signal,
-            Scalene.stop_signal_handler,
-        )
         if sys.platform != "win32":
+            Scalene.__orig_signal(
+                Scalene.__signals.start_profiling_signal,
+                Scalene.start_signal_handler,
+            )
+            Scalene.__orig_signal(
+                Scalene.__signals.stop_profiling_signal,
+                Scalene.stop_signal_handler,
+            )
             Scalene.__orig_siginterrupt(
                 Scalene.__signals.start_profiling_signal, False
             )
