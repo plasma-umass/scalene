@@ -717,7 +717,7 @@ async function display(prof) {
   s += "</span>";
   s += "</span>";
 
-    s += '<br class="text-left"><span style="font-size: 80%; color: blue" onClick="expandAll()">&nbsp;show all</span> | <span style="font-size: 80%; color: blue" onClick="collapseAll()">hide all</span></br>';
+    s += '<br class="text-left"><span style="font-size: 80%; color: blue; cursor : pointer;" onClick="expandAll()">&nbsp;show all</span> | <span style="font-size: 80%; color: blue; cursor : pointer;" onClick="collapseAll()">hide all</span></br>';
   s += '<div class="container-fluid">';
 
   // Convert files to an array and sort it in descending order by percent of CPU time.
