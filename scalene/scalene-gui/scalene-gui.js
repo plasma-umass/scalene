@@ -730,9 +730,10 @@ async function display(prof) {
     let fileIteration = 0;
     allIds = [];
     for (const ff of files) {
-	allIds.push(ff[0]);
+	const id = `file-${fileIteration}`;
+	allIds.push(id);
       s += '<p class="text-left">';
-      s += `<span id="button-${ff[0]}" title="Click to show or hide profile." style="cursor: pointer; color: blue" onClick="toggleDisplay('${ff[0]}')">`;
+      s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue" onClick="toggleDisplay('${id}')">`;
       // Always have the first file's profile opened.
       if (fileIteration == 0) {
 	  s += `${DownTriangle}`;
@@ -747,9 +748,9 @@ async function display(prof) {
     )}% (${time_consumed_str(ff[1].percent_cpu_time / 100.0 * prof.elapsed_time_sec * 1e3)}) out of ${time_consumed_str(prof.elapsed_time_sec * 1e3)}.</font></p>`;
       // Always have the first file's profile opened.
       if (fileIteration == 0) {
-	  s += `<div style="display:block;" id="profile-${ff[0]}">`;
+	  s += `<div style="display:block;" id="profile-${id}">`;
       } else {
-	  s += `<div style="display:none;" id="profile-${ff[0]}">`;
+	  s += `<div style="display:none;" id="profile-${id}">`;
       }
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
