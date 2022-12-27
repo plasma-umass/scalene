@@ -33,6 +33,7 @@ import signal
 import socketserver
 import stat
 import sys
+import sysconfig
 import tempfile
 import threading
 import time
@@ -1550,10 +1551,14 @@ class Scalene:
             # Don't profile the profiler.
             return False
         # Don't profile the Python libraries, unless overridden by --profile-all
+        python_library_path = str(pathlib.Path(sysconfig.get_path('stdlib')).resolve())
         if (
-            "site-packages" in filename
-            or f"{os.sep}lib{os.sep}python" in filename
-            or f"{os.sep}anaconda3{os.sep}lib" in filename
+            python_library_path in filename
+                # Below currently disabled, hopefully subsumed by above.
+                # TODO: match functionality in C should_trace code.
+                #"site-packages" in filename
+                #or f"{os.sep}lib{os.sep}python" in filename
+                #or f"{os.sep}anaconda3{os.sep}lib" in filename
         ) and not Scalene.__args.profile_all:
             return False
         # Generic handling follows (when no @profile decorator has been used).
