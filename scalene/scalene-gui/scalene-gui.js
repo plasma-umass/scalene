@@ -1,3 +1,6 @@
+const RightTriangle = '&#9658';   // right-facing triangle symbol (collapsed view)
+const DownTriangle = '&#9660';   // downward-facing triangle symbol (expanded view)
+
 function memory_consumed_str(size_in_mb) {
   // Return a string corresponding to amount of memory consumed.
   let gigabytes = Math.floor(size_in_mb / 1024);
@@ -586,6 +589,17 @@ function buildAllocationMaps(prof, f) {
   return [averageMallocs, peakMallocs];
 }
 
+function toggleDisplay(id) {
+    let d = document.getElementById(`profile-${id}`);
+    if (d.style.display == 'block') {
+	d.style.display = 'none';
+	document.getElementById(`button-${id}`).innerHTML = RightTriangle;
+    } else {
+	d.style.display = 'block';
+	document.getElementById(`button-${id}`).innerHTML = DownTriangle;
+    }
+}
+
 async function display(prof) {
   let memory_sparklines = [];
   let memory_activity = [];
@@ -687,12 +701,26 @@ async function display(prof) {
   // Print profile for each file
   let fileIteration = 0;
   for (const ff of files) {
-    s += `<p class="text-left"><font style="font-size: 90%"><code>${
+      s += '<p class="text-left">';
+      s += `<span id="button-${ff[0]}" title="Click to show or hide profile." style="cursor: pointer; color: blue" onClick="toggleDisplay('${ff[0]}')">`;
+      // Always have the first file's profile opened.
+      if (fileIteration == 0) {
+	  s += `${DownTriangle}`;
+      } else {
+	  s += `${RightTriangle}`;
+      }
+      s += '</span>';
+      s += `<font style="font-size: 90%"><code>${
       ff[0]
     }</code>: % of time = ${ff[1].percent_cpu_time.toFixed(
       1
     )}% (${time_consumed_str(ff[1].percent_cpu_time / 100.0 * prof.elapsed_time_sec * 1e3)}) out of ${time_consumed_str(prof.elapsed_time_sec * 1e3)}.</font></p>`;
-    s += "<div>";
+      // Always have the first file's profile opened.
+      if (fileIteration == 0) {
+	  s += `<div style="display:block;" id="profile-${ff[0]}">`;
+      } else {
+	  s += `<div style="display:none;" id="profile-${ff[0]}">`;
+      }
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
     s += makeTableHeader(ff[0], prof.gpu, prof.memory, false);
@@ -753,7 +781,7 @@ async function display(prof) {
     fileIteration++;
     // Insert empty lines between files.
     if (fileIteration < files.length) {
-      s += "<p />&nbsp;<hr><p />&nbsp;<p />";
+      s += "<hr>";
     }
   }
   s += "</div>";
