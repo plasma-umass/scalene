@@ -30,7 +30,6 @@ import pathlib
 import platform
 import re
 import signal
-import socketserver
 import stat
 import sys
 import sysconfig
