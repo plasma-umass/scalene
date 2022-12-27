@@ -1551,13 +1551,14 @@ class Scalene:
             return False
         # Don't profile the Python libraries, unless overridden by --profile-all
         python_library_path = str(pathlib.Path(sysconfig.get_path('stdlib')).resolve())
+        python_user_lib_path = str(pathlib.Path(sysconfig.get_path('stdlib', sysconfig.get_preferred_scheme('user'))).resolve())
         if (
+            # TODO: match functionality in C should_trace code.
             python_library_path in filename
-                # Below currently disabled, hopefully subsumed by above.
-                # TODO: match functionality in C should_trace code.
-                #"site-packages" in filename
-                #or f"{os.sep}lib{os.sep}python" in filename
-                #or f"{os.sep}anaconda3{os.sep}lib" in filename
+            or python_user_lib_path in filename
+            #or "site-packages" in filename
+            #or f"{os.sep}lib{os.sep}python" in filename
+            #or f"{os.sep}anaconda3{os.sep}lib" in filename
         ) and not Scalene.__args.profile_all:
             return False
         # Generic handling follows (when no @profile decorator has been used).
