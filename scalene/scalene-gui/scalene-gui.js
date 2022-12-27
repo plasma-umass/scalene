@@ -589,8 +589,35 @@ function buildAllocationMaps(prof, f) {
   return [averageMallocs, peakMallocs];
 }
 
+// Track all profile ids so we can collapse and expand them en masse.
+let allIDs = [];
+
+function collapseAll() {
+    for (const id of allIds) {
+	collapseDisplay(id);
+    }
+}
+
+function expandAll() {
+    for (const id of allIds) {
+	expandDisplay(id);
+    }
+}
+
+function collapseDisplay(id) {
+    const d = document.getElementById(`profile-${id}`);
+    d.style.display = 'none';
+    document.getElementById(`button-${id}`).innerHTML = RightTriangle;
+}
+
+function expandDisplay(id) {
+    const d = document.getElementById(`profile-${id}`);
+    d.style.display = 'block';
+    document.getElementById(`button-${id}`).innerHTML = DownTriangle;
+}
+
 function toggleDisplay(id) {
-    let d = document.getElementById(`profile-${id}`);
+    const d = document.getElementById(`profile-${id}`);
     if (d.style.display == 'block') {
 	d.style.display = 'none';
 	document.getElementById(`button-${id}`).innerHTML = RightTriangle;
@@ -608,8 +635,8 @@ async function display(prof) {
   let memory_bars = [];
   let tableID = 0;
   let s = "";
-  s += '<div class="row justify-content-center">';
-  s += '<div class="col-auto">';
+  s += '<span class="row justify-content-center">';
+  s += '<span class="col-auto">';
   s += '<table width="50%" class="table text-center table-condensed">';
   s += "<tr>";
   s += `<td><font style="font-size: small"><b>Time:</b> <font color="darkblue">Python</font> | <font color="#6495ED">native</font> | <font color="blue">system</font><br /></font></td>`;
@@ -684,12 +711,13 @@ async function display(prof) {
   }
 
   s += '<tr><td colspan="10">';
-  s += `<p class="text-center"><font style="font-size: 90%; font-style: italic; font-color: darkgray">hover over bars to see breakdowns; click on <font style="font-variant:small-caps; text-decoration:underline">column headers</font> to sort.</font></p>`;
+  s += `<span class="text-center"><font style="font-size: 90%; font-style: italic; font-color: darkgray">hover over bars to see breakdowns; click on <font style="font-variant:small-caps; text-decoration:underline">column headers</font> to sort.</font></span>`;
   s += "</td></tr>";
   s += "</table>";
-  s += "</div>";
-  s += "</div>";
+  s += "</span>";
+  s += "</span>";
 
+    s += '<br class="text-left"><span style="font-size: 80%; color: blue" onClick="expandAll()">&nbsp;show all</span> | <span style="font-size: 80%; color: blue" onClick="collapseAll()">hide all</span></br>';
   s += '<div class="container-fluid">';
 
   // Convert files to an array and sort it in descending order by percent of CPU time.
@@ -699,8 +727,10 @@ async function display(prof) {
   });
 
   // Print profile for each file
-  let fileIteration = 0;
-  for (const ff of files) {
+    let fileIteration = 0;
+    allIds = [];
+    for (const ff of files) {
+	allIds.push(ff[0]);
       s += '<p class="text-left">';
       s += `<span id="button-${ff[0]}" title="Click to show or hide profile." style="cursor: pointer; color: blue" onClick="toggleDisplay('${ff[0]}')">`;
       // Always have the first file's profile opened.
