@@ -913,6 +913,7 @@ class Scalene:
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
                 profile_memory=Scalene.__args.memory,
+                reduced_profile=Scalene.__args.reduced_profile,
             )
             # Since the default value returned for "there are no samples"
             # is `{}`, we use a sentinel value `{"is_child": True}`

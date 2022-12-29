@@ -237,6 +237,7 @@ class ScaleneJSON:
         python_alias_dir: Path,
         program_path: Path,
         profile_memory: bool = True,
+        reduced_profile: bool = False,
     ) -> Dict[str, Any]:
         """Write the profile out."""
         # Get the children's stats, if any.
@@ -406,15 +407,17 @@ class ScaleneJSON:
                     profile_memory=profile_memory,
                     force_print=False,
                 )
-                # Only output if the payload for the line is non-zero.
                 if profile_line:
-                    profile_line_copy = copy.copy(profile_line)
-                    del profile_line_copy["line"]
-                    del profile_line_copy["lineno"]
-                    if any(profile_line_copy.values()):
-                        output["files"][fname_print]["lines"].append(
-                            profile_line
-                        )
+                    # When reduced-profile set, only output if the payload for the line is non-zero.
+                    if reduced_profile:
+                        profile_line_copy = copy.copy(profile_line)
+                        del profile_line_copy["line"]
+                        del profile_line_copy["lineno"]
+                        if not any(profile_line_copy.values()):
+                            continue
+                    output["files"][fname_print]["lines"].append(
+                        profile_line
+                    )
 
             fn_stats = stats.build_function_stats(fname)
             # Check CPU samples and memory samples.
