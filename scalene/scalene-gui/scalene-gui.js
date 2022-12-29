@@ -464,63 +464,74 @@ function makeProfileLine(
     line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
   const total_time_str = String(total_time.toFixed(1)).padStart(10, " ");
   s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${total_time_str}'>`;
-  s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>`;
-  cpu_bars.push(
-    makeBar(line.n_cpu_percent_python, line.n_cpu_percent_c, line.n_sys_percent)
-  );
-  if (prof.memory) {
-    s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
+    s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>`;
+    if (total_time) {
+	cpu_bars.push(
+	    makeBar(line.n_cpu_percent_python, line.n_cpu_percent_c, line.n_sys_percent)
+	);
+    } else {
+	cpu_bars.push(null);
+    }
+    if (prof.memory) {
+	s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
       line.n_avg_mb.toFixed(0)
     ).padStart(10, "0")}'>`;
-    s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
-    s += "</td>";
-    memory_bars.push(
-      makeMemoryBar(
-        line.n_avg_mb.toFixed(0),
-        "average memory",
-        parseFloat(line.n_python_fraction),
-        prof.max_footprint_mb.toFixed(2),
-        "darkgreen"
-      )
-    );
-    s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
+	s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
+	s += "</td>";
+	if (line.n_avg_mb) {
+	    memory_bars.push(
+		makeMemoryBar(
+		    line.n_avg_mb.toFixed(0),
+		    "average memory",
+		    parseFloat(line.n_python_fraction),
+		    prof.max_footprint_mb.toFixed(2),
+		    "darkgreen"
+		)
+	    );
+	} else {
+	    memory_bars.push(null);
+	}
+	s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
       line.n_peak_mb.toFixed(0)
     ).padStart(10, "0")}'>`;
-    s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
-    memory_bars.push(
-      makeMemoryBar(
-        line.n_peak_mb.toFixed(0),
-        "peak memory",
-        parseFloat(line.n_python_fraction),
-        prof.max_footprint_mb.toFixed(2),
-        "darkgreen"
-      )
-    );
-    s += "</td>";
-    s += `<td style='vertical-align: middle; width: 100'><span style="height:25; width: 100; vertical-align: middle" id="memory_sparkline${memory_sparklines.length}"></span>`;
-    s += "</td>";
-    if (line.memory_samples.length > 0) {
-      let leak_velocity = 0;
-      if ("leaks" in prof.files[filename]) {
-        if (line.lineno in prof.files[filename].leaks) {
-          leak_velocity = prof.files[filename].leaks[line.lineno].velocity_mb_s;
-        }
-      }
-      memory_sparklines.push(
-        makeSparkline(
-          line.memory_samples,
-          prof.elapsed_time_sec * 1e9,
-          prof.max_footprint_mb,
-          leak_velocity
-        )
-      );
-    } else {
-      memory_sparklines.push(null);
-    }
+	s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
+	if (line.n_peak_mb) {
+	    memory_bars.push(
+		makeMemoryBar(
+		    line.n_peak_mb.toFixed(0),
+		    "peak memory",
+		    parseFloat(line.n_python_fraction),
+		    prof.max_footprint_mb.toFixed(2),
+		    "darkgreen"
+		)
+	    );
+	} else {
+	    memory_bars.push(null);
+	}
+	s += "</td>";
+	s += `<td style='vertical-align: middle; width: 100'><span style="height:25; width: 100; vertical-align: middle" id="memory_sparkline${memory_sparklines.length}"></span>`;
+	s += "</td>";
+	if (line.memory_samples.length > 0) {
+	    let leak_velocity = 0;
+	    if ("leaks" in prof.files[filename]) {
+		if (line.lineno in prof.files[filename].leaks) {
+		    leak_velocity = prof.files[filename].leaks[line.lineno].velocity_mb_s;
+		}
+	    }
+	    memory_sparklines.push(
+		makeSparkline(
+		    line.memory_samples,
+		    prof.elapsed_time_sec * 1e9,
+		    prof.max_footprint_mb,
+		    leak_velocity
+		)
+	    );
+	} else {
+	    memory_sparklines.push(null);
+	}
     s += '<td style="width: 100; vertical-align: middle" align="center">';
     if (line.n_usage_fraction >= 0.01) {
-      s += `<span style="height: 20; width: 30; vertical-align: middle" id="memory_activity${memory_activity.length}"></span>`;
-      console.log(line.lineno, line.n_usage_fraction, line.n_python_fraction);
+	s += `<span style="height: 20; width: 30; vertical-align: middle" id="memory_activity${memory_activity.length}"></span>`;
       memory_activity.push(
         makeMemoryPie(
           100 *
