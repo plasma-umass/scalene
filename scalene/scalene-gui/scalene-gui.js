@@ -756,7 +756,7 @@ async function display(prof) {
   s += "</span>";
 
     s += '<br class="text-left"><span style="font-size: 80%; color: blue; cursor : pointer;" onClick="expandAll()">&nbsp;show all</span> | <span style="font-size: 80%; color: blue; cursor : pointer;" onClick="collapseAll()">hide all</span>';
-    s += ' | <span style="font-size: 80%; color: blue">only display profiled lines&nbsp;<input type="checkbox" checked onClick="toggleReduced()" /></span></br>';
+    s += ` | <span style="font-size: 80%; color: blue" onClick="document.getElementById('reduce-checkbox').click()">only display profiled lines&nbsp;</span><input type="checkbox" id="reduce-checkbox" checked onClick="toggleReduced()" /></br>`;
   s += '<div class="container-fluid">';
 
   // Convert files to an array and sort it in descending order by percent of CPU time.
