@@ -480,7 +480,7 @@ function makeProfileLine(
 ) {
     const total_time =
 	  line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
-    const has_memory_results = line.n_avg_mb + line.n_peak_mb + line.memory_samples.length;
+    const has_memory_results = line.n_avg_mb + line.n_peak_mb + line.memory_samples.length + (line.n_usage_fraction >= 0.01);
     const has_gpu_results = line.n_gpu_percent >= 1.0;
     let s = "";
     if (total_time || has_memory_results || has_gpu_results) {
@@ -602,7 +602,7 @@ function makeProfileLine(
     }
   }
     const empty_profile =  (total_time || has_memory_results || has_gpu_results) ? "" : 'empty-profile';
-    s += `<td align="right" class="${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
+    s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
     const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
     s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}"><pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}</code></pre></td>`;
   s += "</tr>";
@@ -785,12 +785,7 @@ async function display(prof) {
     }</code>: % of time = ${ff[1].percent_cpu_time.toFixed(
       1
     )}% (${time_consumed_str(ff[1].percent_cpu_time / 100.0 * prof.elapsed_time_sec * 1e3)}) out of ${time_consumed_str(prof.elapsed_time_sec * 1e3)}.</font></p>`;
-      // Always have the first file's profile opened.
-      if (fileIteration == 0) {
-	  s += `<div style="display:block;" id="profile-${id}">`;
-      } else {
-	  s += `<div style="display:none;" id="profile-${id}">`;
-      }
+	s += `<div style="" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
     s += makeTableHeader(ff[0], prof.gpu, prof.memory, false);
@@ -857,7 +852,6 @@ async function display(prof) {
   s += "</div>";
   const p = document.getElementById("profile");
     p.innerHTML = s;
-    hideEmptyProfiles();
 
   // Logic for turning on and off the gray line separators.
 
@@ -903,7 +897,7 @@ async function display(prof) {
   });
   cpu_bars.forEach((p, index) => {
     if (p) {
-      (async () => {
+	(async () => {
         await vegaEmbed(`#cpu_bar${index}`, p, { actions: false });
       })();
     }
@@ -929,13 +923,13 @@ async function display(prof) {
       })();
     }
   });
-  window.onload = () => {
+    // Hide all empty profiles by default.
+    hideEmptyProfiles();
     if (prof.program) {
-      document.title = "Scalene - " + prof.program;
+	document.title = "Scalene - " + prof.program;
     } else {
-      document.title = "Scalene";
+	document.title = "Scalene";
     }
-  };
 }
 
 function load(profile) {
