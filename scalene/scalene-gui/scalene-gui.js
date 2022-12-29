@@ -448,6 +448,26 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
   return s;
 }
 
+function hideEmptyProfiles() {
+    const elts = document.getElementsByClassName('empty-profile');
+    for (elt of elts) {
+	s = elt.style;
+	s.display = 'none';
+    }
+}
+
+function toggleReduced() {
+    const elts = document.getElementsByClassName('empty-profile');
+    for (elt of elts) {
+	s = elt.style;
+	if (s.display == '') {
+	    s.display = 'none';
+	} else {
+	    s.display = '';
+	}
+    }
+}
+
 function makeProfileLine(
   line,
   filename,
@@ -458,10 +478,16 @@ function makeProfileLine(
   memory_activity,
   gpu_pies
 ) {
-  let s = "";
-  s += "<tr>";
-  const total_time =
-    line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
+    const total_time =
+	  line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
+    const has_memory_results = line.n_avg_mb + line.n_peak_mb + line.memory_samples.length;
+    const has_gpu_results = line.n_gpu_percent >= 1.0;
+    let s = "";
+    if (total_time || has_memory_results || has_gpu_results) {
+	s += "<tr>";
+    } else {
+	s += "<tr class='empty-profile'>";
+    }
   const total_time_str = String(total_time.toFixed(1)).padStart(10, " ");
   s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${total_time_str}'>`;
     s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>`;
@@ -575,9 +601,10 @@ function makeProfileLine(
       }
     }
   }
-  s += `<td align="right" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
-  const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
-  s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}"><pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python">${codeLine}</code></pre></td>`;
+    const empty_profile =  (total_time || has_memory_results || has_gpu_results) ? "" : 'empty-profile';
+    s += `<td align="right" class="${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
+    const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
+    s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}"><pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}</code></pre></td>`;
   s += "</tr>";
   return s;
 }
@@ -728,7 +755,8 @@ async function display(prof) {
   s += "</span>";
   s += "</span>";
 
-    s += '<br class="text-left"><span style="font-size: 80%; color: blue; cursor : pointer;" onClick="expandAll()">&nbsp;show all</span> | <span style="font-size: 80%; color: blue; cursor : pointer;" onClick="collapseAll()">hide all</span></br>';
+    s += '<br class="text-left"><span style="font-size: 80%; color: blue; cursor : pointer;" onClick="expandAll()">&nbsp;show all</span> | <span style="font-size: 80%; color: blue; cursor : pointer;" onClick="collapseAll()">hide all</span>';
+    s += ' | <span style="font-size: 80%; color: blue">only display profiled lines&nbsp;<input type="checkbox" checked onClick="toggleReduced()" /></span></br>';
   s += '<div class="container-fluid">';
 
   // Convert files to an array and sort it in descending order by percent of CPU time.
@@ -828,7 +856,8 @@ async function display(prof) {
   }
   s += "</div>";
   const p = document.getElementById("profile");
-  p.innerHTML = s;
+    p.innerHTML = s;
+    hideEmptyProfiles();
 
   // Logic for turning on and off the gray line separators.
 
