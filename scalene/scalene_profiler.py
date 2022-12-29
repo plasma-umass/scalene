@@ -1553,8 +1553,10 @@ class Scalene:
         # Don't profile the Python libraries, unless overridden by --profile-all
         resolved_filename = str(pathlib.Path(filename).resolve()).lower()
         for n in sysconfig.get_scheme_names():
-            if str(pathlib.Path(sysconfig.get_path('stdlib', n)).resolve()).lower() in filename and not Scalene.__args.profile_all:
-                return False
+            for p in sysconfig.get_path_names():
+                libdir = str(pathlib.Path(sysconfig.get_path(p, n)).resolve()).lower()
+                if libdir in resolved_filename:
+                    return False
         # Generic handling follows (when no @profile decorator has been used).
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
         if any(
