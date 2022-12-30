@@ -68,45 +68,26 @@ class ScaleneJSON:
         self.gpu = False
 
     def compress_samples(
-        self, uncompressed_samples: List[Any], max_footprint: float
+        self, samples: List[Any], max_footprint: float
     ) -> List[Any]:
-        samples = uncompressed_samples
-        # Commented out old compression which is now obsolete.
-        # Will remove.
-        #
-        # granularity = max_footprint / self.memory_granularity_fraction
-
-        # last_mem = 0
-        # for (t, mem) in uncompressed_samples:
-        #     if abs(mem - last_mem) >= granularity:
-        #         # We're above the granularity.
-        #         # Force all memory amounts to be positive.
-        #         mem = max(0, mem)
-        #         # Add a tiny bit of random noise to force different values (for the GUI).
-        #         mem += abs(random.gauss(0.01, 0.01))
-        #         # Now we append it and set the last amount to be the
-        #         # current footprint.
-        #         samples.append([t, mem])
-        #         last_mem = mem
-
-        if len(samples) > self.max_sparkline_samples:
-            # Try to reduce the number of samples with the
-            # Ramer-Douglas-Peucker algorithm, which attempts to
-            # preserve the shape of the graph. If that fails to bring
-            # the number of samples below our maximum, randomly
-            # downsample (epsilon calculation from
-            # https://stackoverflow.com/questions/57052434/can-i-guess-the-appropriate-epsilon-for-rdp-ramer-douglas-peucker)
-            epsilon = (len(samples) / (3 * self.max_sparkline_samples)) * 2
-            # print("BEFORE len = ", len(samples))
-            new_samples = rdp(samples, epsilon=epsilon)
-            # print("AFTER len = ", len(new_samples))
-            if len(new_samples) > self.max_sparkline_samples:
-                # We still didn't get enough compression; randomly downsample.
-                new_samples = sorted(
-                    random.sample(new_samples, self.max_sparkline_samples)
-                )
-            samples = new_samples
-
+        if len(samples) <= self.max_sparkline_samples:
+            return samples
+        # Try to reduce the number of samples with the
+        # Ramer-Douglas-Peucker algorithm, which attempts to
+        # preserve the shape of the graph. If that fails to bring
+        # the number of samples below our maximum, randomly
+        # downsample (epsilon calculation from
+        # https://stackoverflow.com/questions/57052434/can-i-guess-the-appropriate-epsilon-for-rdp-ramer-douglas-peucker)
+        epsilon = (len(samples) / (3 * self.max_sparkline_samples)) * 2
+        # print("BEFORE len = ", len(samples))
+        new_samples = rdp(samples, epsilon=epsilon)
+        # print("AFTER len = ", len(new_samples))
+        if len(new_samples) > self.max_sparkline_samples:
+            # We still didn't get enough compression; randomly downsample.
+            new_samples = sorted(
+                random.sample(new_samples, self.max_sparkline_samples)
+            )
+        samples = new_samples
         return samples
 
     # Profile output methods
