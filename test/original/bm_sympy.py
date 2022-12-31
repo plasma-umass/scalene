@@ -6,7 +6,7 @@ from sympy.core.cache import clear_cache
 
 def bench_expand():
     x, y, z = symbols('x y z')
-    expand((1 + x + y + z) ** 20)
+    return expand((1 + x + y + z) ** 20)
 
 
 def bench_integrate():
