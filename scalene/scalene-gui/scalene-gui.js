@@ -1,6 +1,76 @@
 const RightTriangle = '&#9658';   // right-facing triangle symbol (collapsed view)
 const DownTriangle = '&#9660';   // downward-facing triangle symbol (expanded view)
 
+async function sendPromptToOpenAI(prompt, len, apiKey) {
+    const endpoint = 'https://api.openai.com/v1/completions';
+
+    const response = await fetch(endpoint, {
+	method: 'POST',
+	headers: {
+	    'Content-Type': 'application/json',
+	    'Authorization': `Bearer ${apiKey}`
+	},
+	body: JSON.stringify({
+	    'model': 'text-davinci-003',
+	    'prompt': prompt,
+	    "temperature": 0.2,
+	    "max_tokens": len,
+	    "top_p": 1,
+	    "frequency_penalty": 0,
+	    "presence_penalty": 0,
+	    // 'response_format': 'url'
+	})
+    });
+
+    const data = await response.json();
+    return data.choices[0].text;
+}
+
+function countSpaces(str) {
+  // Use a regular expression to match any whitespace character at the start of the string
+  const match = str.match(/^\s+/);
+
+  // If there was a match, return the length of the match
+  if (match) {
+    return match[0].length;
+  }
+
+  // Otherwise, return 0
+  return 0;
+}
+
+
+async function optimizeCode(code) {
+    const apiKey = document.getElementById('api-key').value;
+    if (apiKey) {
+	const prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code, formatted to fit in 40 columns:\n\n`;
+	return await sendPromptToOpenAI(prompt, code.length * 4, apiKey);
+    } else {
+	return null;
+    }
+}
+
+function proposeOptimization(filename, file_number, lineno) {
+    const prof = globalThis.profile;
+    const code_line = prof.files[filename].lines[lineno-1]['line'];
+    const elt = document.getElementById(`code-${file_number}-${lineno}`);
+    (async () => {
+	let message = await optimizeCode(code_line);
+	if (!message) {
+	    return;
+	}
+	// Count the number of leading spaces to match indentation level on output
+	let leadingSpaceCount = countSpaces(code_line);
+	// Canonicalize newlines
+	message = message.replace(new RegExp('\r?\n','g'), '\n');
+	// Indent every line and format it
+	const formattedCode = message.split('\n')
+	      .map((line) => '&nbsp;'.repeat(leadingSpaceCount) + Prism.highlight(line, Prism.languages.python, "python"))
+	      .join('<br />');
+	elt.innerHTML = `<hr>${formattedCode}`;
+    })();
+}
+
 function memory_consumed_str(size_in_mb) {
   // Return a string corresponding to amount of memory consumed.
   let gigabytes = Math.floor(size_in_mb / 1024);
@@ -470,7 +540,8 @@ function toggleReduced() {
 
 function makeProfileLine(
   line,
-  filename,
+    filename,
+    file_number,
   prof,
   cpu_bars,
   memory_bars,
@@ -604,7 +675,7 @@ function makeProfileLine(
     const empty_profile =  (total_time || has_memory_results || has_gpu_results) ? "" : 'empty-profile';
     s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
     const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
-    s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}"><pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}</code></pre></td>`;
+    s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}"><pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}" onclick="proposeOptimization('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
   s += "</tr>";
   return s;
 }
@@ -666,6 +737,11 @@ function toggleDisplay(id) {
 }
 
 async function display(prof) {
+    const old_key = window.localStorage.getItem('api-key');
+    if (old_key) {
+	document.getElementById("api-key").value = old_key;
+    }
+    globalThis.profile = prof;
   let memory_sparklines = [];
   let memory_activity = [];
   let cpu_bars = [];
@@ -773,19 +849,14 @@ async function display(prof) {
 	allIds.push(id);
       s += '<p class="text-left">';
       s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue" onClick="toggleDisplay('${id}')">`;
-      // Always have the first file's profile opened.
-      if (fileIteration == 0) {
-	  s += `${DownTriangle}`;
-      } else {
-	  s += `${RightTriangle}`;
-      }
+	s += `${DownTriangle}`;
       s += '</span>';
       s += `<font style="font-size: 90%"><code>${
       ff[0]
     }</code>: % of time = ${ff[1].percent_cpu_time.toFixed(
       1
     )}% (${time_consumed_str(ff[1].percent_cpu_time / 100.0 * prof.elapsed_time_sec * 1e3)}) out of ${time_consumed_str(prof.elapsed_time_sec * 1e3)}.</font></p>`;
-	s += `<div style="" id="profile-${id}">`;
+	s += `<div style="display: block" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
     s += makeTableHeader(ff[0], prof.gpu, prof.memory, false);
@@ -794,7 +865,9 @@ async function display(prof) {
     let prevLineno = -1;
     for (const l in ff[1].lines) {
       const line = ff[1].lines[l];
-      // Add a space whenever we skip a line.
+	if (false) {
+	    // Disabling spacers
+	// Add a space whenever we skip a line.
       if (line.lineno > prevLineno + 1) {
         s += "<tr>";
         for (let i = 0; i < columns.length; i++) {
@@ -807,10 +880,12 @@ async function display(prof) {
         }">&nbsp;</td>`;
         s += "</tr>";
       }
+	}
       prevLineno = line.lineno;
       s += makeProfileLine(
         line,
-        ff[0],
+          ff[0],
+	  fileIteration,
         prof,
         cpu_bars,
         memory_bars,
@@ -831,7 +906,8 @@ async function display(prof) {
         const line = prof.files[ff[0]].functions[l];
         s += makeProfileLine(
           line,
-          ff[0],
+            ff[0],
+	    fileIteration,
           prof,
           cpu_bars,
           memory_bars,
