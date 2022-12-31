@@ -2595,17 +2595,33 @@ Prism.languages.py = Prism.languages.python;
       </p>
     </a>
     <p />
-    <form id="jsonFile" name="jsonFile" enctype="multipart/form-data" method="post">
-      <div class="form-group">
 	<div class="d-flex justify-content-center">
-	  <label for='fileinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">Select a profile (.json)</label>
-	  <input style="height: 0; width: 10; opacity:0" type='file' id='fileinput' accept='.json' onchange="loadFile();">
+	  <details>
+	    <summary style="font-size:0.8rem; color: blue">advanced options</summary>
 	  <!-- <label for='demoinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">demo</label>
 	  <input style="height: 0; width: 0; opacity:0" type='button' id='demoinput' accept='.json' onclick="loadDemo();">
--->
-	</div>
+	  -->
+	  <label for='api-key' style="font-size: 0.8rem">Enter an <a href="https://beta.openai.com/signup">OpenAI key</a> to enable proposed optimizations:</label>
+	  <input type="text" style="font-size: 0.8rem" size="22" placeholder="(OpenAI API key)" id="api-key" oninput="window.localStorage.setItem('api-key', event.target.value)"></input>
+	  <br />
+	  <font style="font-size: 0.8rem">
+	    Once a valid key is entered, click on any line to see proposed optimizations.<br />
+	    Clicking again will generate another proposed optimization.<br />
+	    <em>Note that optimizations are AI-generated and may not be correct.</em>
+	    <br />
+	  </font>
+	  <br />
+	  <!--
+	      <br />
+    <form id="jsonFile" name="jsonFile" enctype="multipart/form-data" method="post">
+      <div class="form-group">
+	      <label for='fileinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">Load a profile (.json)</label>
+	      <input style="height: 0; width: 10; opacity:0" type='file' id='fileinput' accept='.json' onchange="loadFile();"></input>
       </div>
     </form>
+    -->
+	  </details>
+	</div>
     <div id="profile">
     </div>
     <script type="text/javascript">
