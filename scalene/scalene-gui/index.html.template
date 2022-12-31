@@ -2598,11 +2598,16 @@ Prism.languages.py = Prism.languages.python;
     <form id="jsonFile" name="jsonFile" enctype="multipart/form-data" method="post">
       <div class="form-group">
 	<div class="d-flex justify-content-center">
+	  <details>
+	    <summary style="font-size:0.8rem; color: blue">advanced options</summary>
 	  <label for='fileinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">Select a profile (.json)</label>
 	  <input style="height: 0; width: 10; opacity:0" type='file' id='fileinput' accept='.json' onchange="loadFile();">
 	  <!-- <label for='demoinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">demo</label>
 	  <input style="height: 0; width: 0; opacity:0" type='button' id='demoinput' accept='.json' onclick="loadDemo();">
--->
+	  -->
+	  <label for='api-key' style="font-size: 0.8rem">OpenAI key:</label>
+	  <input type="text" style="font-size: 0.8rem" size="22" placeholder="(optional OpenAI API key)" id="api-key" oninput="window.localStorage.setItem('api-key', event.target.value)"></input>
+	  </details>
 	</div>
       </div>
     </form>
