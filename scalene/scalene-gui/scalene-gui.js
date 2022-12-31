@@ -13,7 +13,7 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
 	body: JSON.stringify({
 	    'model': 'text-davinci-003',
 	    'prompt': prompt,
-	    "temperature": 0.7,
+	    "temperature": 0.2,
 	    "max_tokens": len,
 	    "top_p": 1,
 	    "frequency_penalty": 0,
@@ -42,7 +42,7 @@ function countSpaces(str) {
 
 async function optimizeCode(code) {
     const apiKey = document.getElementById('api-key').value;
-    const prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment after the code, starting with the text "# Explanation:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code:\n\n`;
+    const prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code:\n\n`;
     return await sendPromptToOpenAI(prompt, code.length * 4, apiKey);
 }
 
@@ -54,6 +54,7 @@ function proposeOptimization(filename, file_number, lineno) {
     // return;
     (async () => {
 	let message = await optimizeCode(code_line);
+	// Count the number of leading spaces to match indentation level on output
 	let leadingSpaceCount = countSpaces(code_line);
 	message = message.replace(new RegExp('\r?\n','g'), '\n');
 	const formattedCode = message.split('\n')
@@ -61,7 +62,9 @@ function proposeOptimization(filename, file_number, lineno) {
 	      .join('<br />');
 	console.log("Message = " + formattedCode);
 	// const formattedCode = Prism.highlight(message, Prism.languages.python, "python");
-	elt.innerHTML = elt.innerHTML + `<span style="font-size:0.8rem"><i>proposed optimization:</i><br /><code class="language-python">${formattedCode}</code></span><br />`;
+//	<i>proposed optimization:</i><br />
+	// elt.innerHTML = elt.innerHTML + `<span style="font-size:0.8rem"><code class="language-python">${formattedCode}</code></span><br />`;
+	elt.innerHTML = `<hr>${formattedCode}`;
 //	alert(`Proposed optimization for "${code_line}":\n${message}`);
     })();
 }
@@ -670,7 +673,7 @@ function makeProfileLine(
     const empty_profile =  (total_time || has_memory_results || has_gpu_results) ? "" : 'empty-profile';
     s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
     const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
-    s += `<td id="code-${file_number}-${line.lineno}" style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}"><pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}" oncontextmenu="proposeOptimization('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${codeLine}</code></pre></td>`;
+    s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}"><pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}" onclick="proposeOptimization('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
   s += "</tr>";
   return s;
 }
