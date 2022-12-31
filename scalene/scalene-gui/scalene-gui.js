@@ -42,30 +42,32 @@ function countSpaces(str) {
 
 async function optimizeCode(code) {
     const apiKey = document.getElementById('api-key').value;
-    const prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code:\n\n`;
-    return await sendPromptToOpenAI(prompt, code.length * 4, apiKey);
+    if (apiKey) {
+	const prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code, formatted to fit in 40 columns:\n\n`;
+	return await sendPromptToOpenAI(prompt, code.length * 4, apiKey);
+    } else {
+	return null;
+    }
 }
 
 function proposeOptimization(filename, file_number, lineno) {
     const prof = globalThis.profile;
     const code_line = prof.files[filename].lines[lineno-1]['line'];
     const elt = document.getElementById(`code-${file_number}-${lineno}`);
-    // alert('Proposed optimization for ' + code_line + ':   \n\n'); // globalThis.profile.memory); // code_line);
-    // return;
     (async () => {
 	let message = await optimizeCode(code_line);
+	if (!message) {
+	    return;
+	}
 	// Count the number of leading spaces to match indentation level on output
 	let leadingSpaceCount = countSpaces(code_line);
+	// Canonicalize newlines
 	message = message.replace(new RegExp('\r?\n','g'), '\n');
+	// Indent every line and format it
 	const formattedCode = message.split('\n')
 	      .map((line) => '&nbsp;'.repeat(leadingSpaceCount) + Prism.highlight(line, Prism.languages.python, "python"))
 	      .join('<br />');
-	console.log("Message = " + formattedCode);
-	// const formattedCode = Prism.highlight(message, Prism.languages.python, "python");
-//	<i>proposed optimization:</i><br />
-	// elt.innerHTML = elt.innerHTML + `<span style="font-size:0.8rem"><code class="language-python">${formattedCode}</code></span><br />`;
 	elt.innerHTML = `<hr>${formattedCode}`;
-//	alert(`Proposed optimization for "${code_line}":\n${message}`);
     })();
 }
 
