@@ -26,6 +26,20 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
     return data.choices[0].text;
 }
 
+function countSpaces(str) {
+  // Use a regular expression to match any whitespace character at the start of the string
+  const match = str.match(/^\s+/);
+
+  // If there was a match, return the length of the match
+  if (match) {
+    return match[0].length;
+  }
+
+  // Otherwise, return 0
+  return 0;
+}
+
+
 async function optimizeCode(code) {
     const apiKey = document.getElementById('api-key').value;
     const prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment after the code, starting with the text "# Explanation:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code:\n\n`;
@@ -40,13 +54,14 @@ function proposeOptimization(filename, file_number, lineno) {
     // return;
     (async () => {
 	let message = await optimizeCode(code_line);
+	let leadingSpaceCount = countSpaces(code_line);
 	message = message.replace(new RegExp('\r?\n','g'), '\n');
 	const formattedCode = message.split('\n')
-	      .map((line) => Prism.highlight(line, Prism.languages.python, "python"))
+	      .map((line) => '&nbsp;'.repeat(leadingSpaceCount) + Prism.highlight(line, Prism.languages.python, "python"))
 	      .join('<br />');
 	console.log("Message = " + formattedCode);
 	// const formattedCode = Prism.highlight(message, Prism.languages.python, "python");
-	elt.innerHTML = elt.innerHTML + `<i>proposed optimization:</i><br /><code class="language-python">${formattedCode}</code><br />`;
+	elt.innerHTML = elt.innerHTML + `<span style="font-size:0.8rem"><i>proposed optimization:</i><br /><code class="language-python">${formattedCode}</code></span><br />`;
 //	alert(`Proposed optimization for "${code_line}":\n${message}`);
     })();
 }
