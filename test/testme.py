@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import numpy as np
-import a
 #import math
 
 # from numpy import linalg as LA
@@ -47,7 +46,7 @@ def doit3(x):
 def stuff():
 #    y = np.random.randint(1, 100, size=50000000)[49999999]
     x = 1.01
-    for i in range(1,2):
+    for i in range(1,10):
         print(i)
         for j in range(1,10):
             x = doit1(x)
