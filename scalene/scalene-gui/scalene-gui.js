@@ -23,7 +23,8 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
     });
 
     const data = await response.json();
-    return data.choices[0].text;
+    // Chop off any blank lines in the header.
+    return data.choices[0].text.replace(/^\s*[\r\n]/gm, '');
 }
 
 function countSpaces(str) {
@@ -39,33 +40,35 @@ function countSpaces(str) {
   return 0;
 }
 
-
+  // Push the final line to the reformatted lines array
 async function optimizeCode(code) {
     const apiKey = document.getElementById('api-key').value;
-    if (apiKey) {
-	const prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code, formatted to fit in 40 columns:\n\n`;
-	return await sendPromptToOpenAI(prompt, code.length * 4, apiKey);
-    } else {
+    if (!apiKey) {
 	return null;
     }
+    const prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and try to quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code. Format all comments to be less than 40 columns wide:\n\n`;
+    return await sendPromptToOpenAI(prompt, code.length * 4, apiKey);
 }
 
 function proposeOptimization(filename, file_number, lineno) {
     const prof = globalThis.profile;
-    const code_line = prof.files[filename].lines[lineno-1]['line'];
+    const this_file = prof.files[filename].lines;
+    const code_line = this_file[lineno-1]['line'];
+    // Count the number of leading spaces to match indentation level on output
+    let leadingSpaceCount = countSpaces(code_line);
+    let indent = '&nbsp;'.repeat(leadingSpaceCount);
     const elt = document.getElementById(`code-${file_number}-${lineno}`);
     (async () => {
+	elt.innerHTML = `<em>${indent}working...</em>`;
 	let message = await optimizeCode(code_line);
 	if (!message) {
 	    return;
 	}
-	// Count the number of leading spaces to match indentation level on output
-	let leadingSpaceCount = countSpaces(code_line);
 	// Canonicalize newlines
 	message = message.replace(new RegExp('\r?\n','g'), '\n');
 	// Indent every line and format it
 	const formattedCode = message.split('\n')
-	      .map((line) => '&nbsp;'.repeat(leadingSpaceCount) + Prism.highlight(line, Prism.languages.python, "python"))
+	      .map((line) => indent + Prism.highlight(line, Prism.languages.python, "python"))
 	      .join('<br />');
 	elt.innerHTML = `<hr>${formattedCode}`;
     })();
