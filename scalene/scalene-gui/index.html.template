@@ -2605,7 +2605,7 @@ Prism.languages.py = Prism.languages.python;
 	  <input type="text" style="font-size: 0.8rem" size="22" placeholder="(OpenAI API key)" id="api-key" oninput="window.localStorage.setItem('api-key', event.target.value)"></input>
 	  <br />
 	  <font style="font-size: 0.8rem">
-	    Once a valid key is entered, click on any line to see proposed optimizations.<br />
+	    Once a valid key is entered, click on a lightning bolt (&#9889;) to see proposed optimizations.<br />
 	    Clicking again will generate another proposed optimization.<br />
 	    <em>Note that optimizations are AI-generated and may not be correct.</em>
 	    <br />

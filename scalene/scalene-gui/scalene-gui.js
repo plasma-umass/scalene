@@ -1,5 +1,7 @@
 const RightTriangle = '&#9658';   // right-facing triangle symbol (collapsed view)
-const DownTriangle = '&#9660';   // downward-facing triangle symbol (expanded view)
+const DownTriangle = '&#9660';    // downward-facing triangle symbol (expanded view)
+const Lightning = '&#9889;';      // lightning bolt (for optimization)
+const WhiteLightning = `<span style="opacity:0">${Lightning}</span>`; // invisible but same width as lightning bolt
 
 async function sendPromptToOpenAI(prompt, len, apiKey) {
     const endpoint = 'https://api.openai.com/v1/completions';
@@ -44,6 +46,7 @@ function countSpaces(str) {
 async function optimizeCode(code) {
     const apiKey = document.getElementById('api-key').value;
     if (!apiKey) {
+	alert('To activate proposed optimizations, enter an OpenAI API key in advanced options.');
 	return null;
     }
     const prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and try to quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code. Format all comments to be less than 40 columns wide:\n\n`;
@@ -55,13 +58,14 @@ function proposeOptimization(filename, file_number, lineno) {
     const this_file = prof.files[filename].lines;
     const code_line = this_file[lineno-1]['line'];
     // Count the number of leading spaces to match indentation level on output
-    let leadingSpaceCount = countSpaces(code_line);
-    let indent = '&nbsp;'.repeat(leadingSpaceCount);
+    let leadingSpaceCount = countSpaces(code_line) + 2; // including the lightning bolt
+    let indent = WhiteLightning + '&nbsp;'.repeat(leadingSpaceCount - 1);
     const elt = document.getElementById(`code-${file_number}-${lineno}`);
     (async () => {
 	elt.innerHTML = `<em>${indent}working...</em>`;
 	let message = await optimizeCode(code_line);
 	if (!message) {
+	    elt.innerHTML = '';
 	    return;
 	}
 	// Canonicalize newlines
@@ -550,10 +554,15 @@ function makeProfileLine(
   memory_bars,
   memory_sparklines,
   memory_activity,
-  gpu_pies
+    gpu_pies,
+    propose_optimizations
 ) {
     const total_time =
 	  line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
+    // Disable optimization proposals for low CPU runtime lines.
+    if (total_time < 1.0) {
+	propose_optimizations = false;
+    }
     const has_memory_results = line.n_avg_mb + line.n_peak_mb + line.memory_samples.length + (line.n_usage_fraction >= 0.01);
     const has_gpu_results = line.n_gpu_percent >= 1.0;
     let s = "";
@@ -677,8 +686,16 @@ function makeProfileLine(
   }
     const empty_profile =  (total_time || has_memory_results || has_gpu_results) ? "" : 'empty-profile';
     s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
+
+    const optimizationString = propose_optimizations ? `${Lightning}&nbsp;` : `${WhiteLightning}&nbsp;`;
     const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
-    s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}"><pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}" onclick="proposeOptimization('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
+    s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
+    if (propose_optimizations) {
+	s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimization('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${optimizationString}</span>`
+    } else {
+	s += optimizationString;
+    }
+    s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;    
   s += "</tr>";
   return s;
 }
@@ -894,7 +911,8 @@ async function display(prof) {
         memory_bars,
         memory_sparklines,
         memory_activity,
-        gpu_pies
+          gpu_pies,
+	  true
       );
     }
     s += "</tbody>";
@@ -916,7 +934,8 @@ async function display(prof) {
           memory_bars,
           memory_sparklines,
           memory_activity,
-          gpu_pies
+            gpu_pies,
+	    false // no optimizations here
         );
       }
       s += "</table>";
