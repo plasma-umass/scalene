@@ -3,6 +3,21 @@ const DownTriangle = '&#9660';    // downward-facing triangle symbol (expanded v
 const Lightning = '&#9889;';      // lightning bolt (for optimization)
 const WhiteLightning = `<span style="opacity:0">${Lightning}</span>`; // invisible but same width as lightning bolt
 
+async function isValidApiKey(apiKey) {
+    const response = await fetch('https://api.openai.com/v1/completions', {
+	method: 'GET',
+	headers: {
+	    'Authorization': `Bearer ${apiKey}`
+	}
+    });
+    const data = await response.json();
+    if (data.error && data.error.code === 'invalid_api_key') {
+	return false;
+    } else {
+	return true;
+    }
+}
+
 function checkApiKey(apiKey) {
     (async () => {
 	window.localStorage.setItem('api-key', apiKey);
@@ -84,6 +99,11 @@ function proposeOptimization(filename, file_number, lineno) {
     let indent = WhiteLightning + '&nbsp;'.repeat(leadingSpaceCount - 1);
     const elt = document.getElementById(`code-${file_number}-${lineno}`);
     (async () => {
+	const isValid = await isValidApiKey(document.getElementById("api-key").value);
+	if (!isValid) {
+	    alert('You must enter a valid OpenAI API key to activate proposed optimizations.');
+	    return;
+	}
 	elt.innerHTML = `<em>${indent}working...</em>`;
 	let message = await optimizeCode(code_line);
 	if (!message) {
@@ -779,9 +799,12 @@ function toggleDisplay(id) {
 }
 
 async function display(prof) {
+    // Restore the API key from local storage (if any).
     const old_key = window.localStorage.getItem('api-key');
     if (old_key) {
 	document.getElementById("api-key").value = old_key;
+	// Update the status.
+	checkApiKey(old_key);
     }
     globalThis.profile = prof;
   let memory_sparklines = [];

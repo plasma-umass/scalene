@@ -2608,7 +2608,7 @@ Prism.languages.py = Prism.languages.python;
 	  <br />
 	  <font style="font-size: 0.8rem">
 	    Click on a lightning bolt (&#9889;) to see proposed optimizations.<br />
-	    Click again to generate a different proposed optimization.<br />
+	    Click again to generate a different one.<br />
 	    <em>Note that optimizations are AI-generated and may not be correct.</em>
 	    <br />
 	  </font>
