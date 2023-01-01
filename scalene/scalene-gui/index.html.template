@@ -2601,12 +2601,13 @@ Prism.languages.py = Prism.languages.python;
 	  <!-- <label for='demoinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">demo</label>
 	  <input style="height: 0; width: 0; opacity:0" type='button' id='demoinput' accept='.json' onclick="loadDemo();">
 	  -->
-	  <label for='api-key' style="font-size: 0.8rem">Enter an <a href="https://beta.openai.com/signup">OpenAI key</a> to enable proposed optimizations:</label>
+	  <B style="font-size:0.8rem">Alpha version: proposed optimizations</B><BR />
+	  <label for='api-key' style="font-size: 0.8rem">Enter an <a href="https://beta.openai.com/signup">OpenAI key</a> to enable:</label>
 	  <input type="text" style="font-size: 0.8rem" size="22" placeholder="(OpenAI API key)" id="api-key" oninput="window.localStorage.setItem('api-key', event.target.value)"></input>
 	  <br />
 	  <font style="font-size: 0.8rem">
-	    Once a valid key is entered, click on a lightning bolt (&#9889;) to see proposed optimizations.<br />
-	    Clicking again will generate another proposed optimization.<br />
+	    Click on a lightning bolt (&#9889;) to see proposed optimizations.<br />
+	    Click again to generate a different proposed optimization.<br />
 	    <em>Note that optimizations are AI-generated and may not be correct.</em>
 	    <br />
 	  </font>
