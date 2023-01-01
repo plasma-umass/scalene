@@ -3,9 +3,31 @@ const DownTriangle = '&#9660';    // downward-facing triangle symbol (expanded v
 const Lightning = '&#9889;';      // lightning bolt (for optimization)
 const WhiteLightning = `<span style="opacity:0">${Lightning}</span>`; // invisible but same width as lightning bolt
 
+function checkApiKey(apiKey) {
+    (async () => {
+	window.localStorage.setItem('api-key', apiKey);
+	// If the API key is empty, clear the status indicator.
+	if (apiKey.length === 0) {
+	    document.getElementById('valid-api-key').innerHTML = '';
+	    return;
+	}
+	const response = await fetch('https://api.openai.com/v1/completions', {
+	    method: 'GET',
+	    headers: {
+		'Authorization': `Bearer ${apiKey}`
+	    }
+	});
+	const data = await response.json();
+	if (data.error && data.error.code === 'invalid_api_key') {
+	    document.getElementById('valid-api-key').innerHTML = '⨯';    
+	} else {
+	    document.getElementById('valid-api-key').innerHTML = '&check;';
+	}
+    })();
+}
+
 async function sendPromptToOpenAI(prompt, len, apiKey) {
     const endpoint = 'https://api.openai.com/v1/completions';
-
     const response = await fetch(endpoint, {
 	method: 'POST',
 	headers: {

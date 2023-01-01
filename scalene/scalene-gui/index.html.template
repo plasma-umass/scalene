@@ -2603,7 +2603,8 @@ Prism.languages.py = Prism.languages.python;
 	  -->
 	  <B style="font-size:0.8rem">Alpha version: proposed optimizations</B><BR />
 	  <label for='api-key' style="font-size: 0.8rem">Enter an <a href="https://beta.openai.com/signup">OpenAI key</a> to enable:</label>
-	  <input type="text" style="font-size: 0.8rem" size="22" placeholder="(OpenAI API key)" id="api-key" oninput="window.localStorage.setItem('api-key', event.target.value)"></input>
+	  <input type="text" style="font-size: 0.8rem" size="22" placeholder="(OpenAI API key)" id="api-key" oninput="checkApiKey(event.target.value)"></input>
+	  <span id='valid-api-key'></span>
 	  <br />
 	  <font style="font-size: 0.8rem">
 	    Click on a lightning bolt (&#9889;) to see proposed optimizations.<br />
