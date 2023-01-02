@@ -71,6 +71,7 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
+from scalene.scalene_version import (scalene_version, scalene_date)
 
 if sys.platform != "win32":
     import resource
@@ -1753,7 +1754,7 @@ class Scalene:
             loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
         )
         template = environment.get_template("index.html.template")
-        rendered_content = template.render(profile=profile, gui_js=gui_js)
+        rendered_content = template.render(profile=profile, gui_js=gui_js, scalene_version=scalene_version, scalene_date=scalene_date)
 
         # Write the rendered content to the specified output file.
         try:

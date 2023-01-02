@@ -2631,5 +2631,16 @@ Prism.languages.py = Prism.languages.python;
       window.addEventListener("load", () => load(profile));
       //load(profile);
     </script>
+      <nav class="navbar fixed-bottom navbar-default justify-content-center bg-light">
+	<div class="container justify-content-center">
+	  <p class="text-center">
+	    <font style="font-size:small">
+	      <a href="https://github.com/plasma-umass/scalene">Scalene</a> version {{ scalene_version }}, released {{ scalene_date }}
+	      &nbsp;|&nbsp;
+	      <a href="https://github.com/plasma-umass/scalene/issues/58">share your Scalene success stories here</a>
+	    </font>
+	  </p>
+	</div>
+      </nav>
   </body>
 </html>
