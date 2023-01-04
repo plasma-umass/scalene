@@ -392,10 +392,9 @@ class ScaleneJSON:
                     profile_memory=profile_memory,
                     force_print=False,
                 )
-                profile_line["start_region_line"] = enclosing_regions[lineno][0]
-                profile_line["end_region_line"] = enclosing_regions[lineno][1]
-
                 if profile_line:
+                    profile_line["start_region_line"] = enclosing_regions[lineno][0]
+                    profile_line["end_region_line"] = enclosing_regions[lineno][1]
                     # When reduced-profile set, only output if the payload for the line is non-zero.
                     if reduced_profile:
                         profile_line_copy = copy.copy(profile_line)
