@@ -4,6 +4,7 @@ const Lightning = '&#9889;';      // lightning bolt (for optimizing a line)
 const Explosion = '&#128165;';      // explosion (for optimizing a region)
 const WhiteLightning = `<span style="opacity:0">${Lightning}</span>`; // invisible but same width as lightning bolt
 const WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`; // invisible but same width as lightning bolt
+const maxLinesPerRegion = 50; // Only show regions that are no more than this many lines.
 
 let showedExplosion = {}; // Used so we only show one explosion per region.
 
@@ -67,7 +68,12 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
 
     const data = await response.json();
     // Chop off any blank lines in the header.
-    return data.choices[0].text.replace(/^\s*[\r\n]/gm, '');
+
+    try {
+	return data.choices[0].text.replace(/^\s*[\r\n]/gm, '');
+    } catch {
+	return "# Query failed.\n";
+    }
 }
 
 function countSpaces(str) {
@@ -110,8 +116,6 @@ function proposeOptimization(filename, file_number, lineno, useRegion) {
     const code_line = this_file[lineno-1]['line'];
     const start_region_line = this_file[lineno-1]['start_region_line'];
     const end_region_line = this_file[lineno-1]['end_region_line'];
-    // TODO: we should limit the size of the region
-    // TODO: have only one region optimization choice for each visible region
     let code_region;
     if (useRegion) {
 	code_region = (this_file.slice(start_region_line - 1,
@@ -754,8 +758,6 @@ function makeProfileLine(
     const empty_profile =  (total_time || has_memory_results || has_gpu_results) ? "" : 'empty-profile';
     s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
 
-    const lineOptimizationString = propose_optimizations ? `${Lightning}` : `${WhiteLightning}`;
-
     // Only show the explosion (optimizing a whole region) once.
     const start_region_line = line.start_region_line;
     const end_region_line = line.end_region_line;
@@ -767,12 +769,14 @@ function makeProfileLine(
 	showExplosion = false;
     } else {
 	explosionString = Explosion;
-	showedExplosion[[start_region_line - 1, end_region_line]] = true;
-	showExplosion = true;
+	if (start_region_line && end_region_line) {
+	    showedExplosion[[start_region_line - 1, end_region_line]] = true;
+	    showExplosion = true;
+	}
     }
 
     // If the region is too big, for some definition of "too big", don't show it.
-    showExplosion &= (end_region_line - start_region_line <= 25);
+    showExplosion &= (end_region_line - start_region_line <= maxLinesPerRegion);
     
     const regionOptimizationString = (propose_optimizations && showExplosion) ? `${explosionString}&nbsp;` : `${WhiteExplosion}&nbsp;`;
     
@@ -783,6 +787,8 @@ function makeProfileLine(
     } else {
 	s += regionOptimizationString;
     }
+    
+    const lineOptimizationString = propose_optimizations ? `${Lightning}` : `${WhiteLightning}`;
     if (propose_optimizations) {
 	s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimizationLine('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${lineOptimizationString}</span>`
     } else {
@@ -999,7 +1005,7 @@ async function display(prof) {
         s += "</tr>";
       }
 	}
-      prevLineno = line.lineno;
+	prevLineno = line.lineno;
       s += makeProfileLine(
         line,
           ff[0],
