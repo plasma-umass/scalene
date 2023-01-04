@@ -5,6 +5,8 @@ const Explosion = '&#128165;';      // explosion (for optimizing a region)
 const WhiteLightning = `<span style="opacity:0">${Lightning}</span>`; // invisible but same width as lightning bolt
 const WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`; // invisible but same width as lightning bolt
 
+let showedExplosion = {}; // Used so we only show one explosion per region.
+
 async function isValidApiKey(apiKey) {
     const response = await fetch('https://api.openai.com/v1/completions', {
 	method: 'GET',
@@ -753,14 +755,38 @@ function makeProfileLine(
     s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
 
     const lineOptimizationString = propose_optimizations ? `${Lightning}` : `${WhiteLightning}`;
-    const regionOptimizationString = propose_optimizations ? `${Explosion}&nbsp;` : `${WhiteExplosion}&nbsp;`;
+
+    // Only show the explosion (optimizing a whole region) once.
+    const start_region_line = line.start_region_line;
+    const end_region_line = line.end_region_line;
+    
+    let explosionString;
+    let showExplosion;
+    if ([[start_region_line - 1, end_region_line]] in showedExplosion) {
+	explosionString = WhiteExplosion;
+	showExplosion = false;
+    } else {
+	explosionString = Explosion;
+	showedExplosion[[start_region_line - 1, end_region_line]] = true;
+	showExplosion = true;
+    }
+
+    // If the region is too big, for some definition of "too big", don't show it.
+    showExplosion &= (end_region_line - start_region_line <= 25);
+    
+    const regionOptimizationString = (propose_optimizations && showExplosion) ? `${explosionString}&nbsp;` : `${WhiteExplosion}&nbsp;`;
+    
     const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
     s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
+    if (propose_optimizations && showExplosion) {
+	s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimizationRegion('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${regionOptimizationString}</span>`;
+    } else {
+	s += regionOptimizationString;
+    }
     if (propose_optimizations) {
-	s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimizationRegion('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${regionOptimizationString}</span>`
 	s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimizationLine('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${lineOptimizationString}</span>`
     } else {
-	s += lineOptimizationString + regionOptimizationString;
+	s += lineOptimizationString;
     }
     s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;    
   s += "</tr>";
@@ -824,6 +850,8 @@ function toggleDisplay(id) {
 }
 
 async function display(prof) {
+    // Clear explosions.
+    showedExplosion = {};
     // Restore the API key from local storage (if any).
     const old_key = window.localStorage.getItem('api-key');
     if (old_key) {
