@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List
 
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
+from scalene.scalene_analysis import ScaleneAnalysis
 
 if sys.platform != "win32":
     from scalene.crdp import rdp
@@ -372,6 +373,9 @@ class ScaleneJSON:
             except (FileNotFoundError, OSError):
                 continue
 
+            # Find all enclosing regions (loops or function defs) for each line of code.
+            enclosing_regions = ScaleneAnalysis.find_regions(''.join(code_lines))
+
             output["files"][fname_print] = {
                 "percent_cpu_time": percent_cpu_time,
                 "lines": [],
@@ -388,6 +392,9 @@ class ScaleneJSON:
                     profile_memory=profile_memory,
                     force_print=False,
                 )
+                profile_line["start_region_line"] = enclosing_regions[lineno][0]
+                profile_line["end_region_line"] = enclosing_regions[lineno][1]
+
                 if profile_line:
                     # When reduced-profile set, only output if the payload for the line is non-zero.
                     if reduced_profile:
