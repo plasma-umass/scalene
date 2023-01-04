@@ -1,7 +1,9 @@
 const RightTriangle = '&#9658';   // right-facing triangle symbol (collapsed view)
 const DownTriangle = '&#9660';    // downward-facing triangle symbol (expanded view)
-const Lightning = '&#9889;';      // lightning bolt (for optimization)
+const Lightning = '&#9889;';      // lightning bolt (for optimizing a line)
+const Explosion = '&#128165;';      // explosion (for optimizing a region)
 const WhiteLightning = `<span style="opacity:0">${Lightning}</span>`; // invisible but same width as lightning bolt
+const WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`; // invisible but same width as lightning bolt
 
 async function isValidApiKey(apiKey) {
     const response = await fetch('https://api.openai.com/v1/completions', {
@@ -91,19 +93,33 @@ async function optimizeCode(code) {
     return await sendPromptToOpenAI(prompt, code.length * 4, apiKey);
 }
 
-function proposeOptimization(filename, file_number, lineno) {
+function proposeOptimizationRegion(filename, file_number, lineno) {
+    proposeOptimization(filename, file_number, lineno, true);
+}
+
+function proposeOptimizationLine(filename, file_number, lineno) {
+    proposeOptimization(filename, file_number, lineno, false);
+}
+
+
+function proposeOptimization(filename, file_number, lineno, useRegion) {
     const prof = globalThis.profile;
     const this_file = prof.files[filename].lines;
     const code_line = this_file[lineno-1]['line'];
     const start_region_line = this_file[lineno-1]['start_region_line'];
     const end_region_line = this_file[lineno-1]['end_region_line'];
     // TODO: we should limit the size of the region
-    // TODO: this will require some UI tuning
-    const code_region = (this_file.slice(start_region_line - 1,
-					 end_region_line)).map((e) => e['line']).join('\n');
+    // TODO: have only one region optimization choice for each visible region
+    let code_region;
+    if (useRegion) {
+	code_region = (this_file.slice(start_region_line - 1,
+				       end_region_line)).map((e) => e['line']).join('\n');
+    } else {
+	code_region = code_line;
+    }
     // Count the number of leading spaces to match indentation level on output
-    let leadingSpaceCount = countSpaces(code_line) + 2; // including the lightning bolt
-    let indent = WhiteLightning + '&nbsp;'.repeat(leadingSpaceCount - 1);
+    let leadingSpaceCount = countSpaces(code_line) + 3; // including the lightning bolt and explosion
+    let indent = WhiteLightning + WhiteExplosion + '&nbsp;'.repeat(leadingSpaceCount - 1);
     const elt = document.getElementById(`code-${file_number}-${lineno}`);
     (async () => {
 	const isValid = await isValidApiKey(document.getElementById("api-key").value);
@@ -736,13 +752,15 @@ function makeProfileLine(
     const empty_profile =  (total_time || has_memory_results || has_gpu_results) ? "" : 'empty-profile';
     s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
 
-    const optimizationString = propose_optimizations ? `${Lightning}&nbsp;` : `${WhiteLightning}&nbsp;`;
+    const lineOptimizationString = propose_optimizations ? `${Lightning}` : `${WhiteLightning}`;
+    const regionOptimizationString = propose_optimizations ? `${Explosion}&nbsp;` : `${WhiteExplosion}&nbsp;`;
     const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
     s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
     if (propose_optimizations) {
-	s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimization('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${optimizationString}</span>`
+	s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimizationRegion('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${regionOptimizationString}</span>`
+	s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimizationLine('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${lineOptimizationString}</span>`
     } else {
-	s += optimizationString;
+	s += lineOptimizationString + regionOptimizationString;
     }
     s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;    
   s += "</tr>";
