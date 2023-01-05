@@ -10,7 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
     <style>
 body { 
-  padding: 0 0 45px 0;
+  padding: 0 0 90px 0;
 }
     </style>
     <style>
@@ -2612,7 +2612,8 @@ Prism.languages.py = Prism.languages.python;
 	  <span id='valid-api-key'></span>
 	  <br />
 	  <font style="font-size: 0.8rem">
-	    Click on a lightning bolt (&#9889;) to see proposed optimizations.<br />
+	    Click on an explosion (&#128165;) to see proposed optimizations for a region of code,<br />
+	    or on a lightning bolt (&#9889;) to propose optimizations for a specific line.<br />
 	    Click again to generate a different one.<br />
 	    <em>Note that optimizations are AI-generated and may not be correct.</em>
 	    <br />

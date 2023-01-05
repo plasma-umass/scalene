@@ -1,7 +1,12 @@
 const RightTriangle = '&#9658';   // right-facing triangle symbol (collapsed view)
 const DownTriangle = '&#9660';    // downward-facing triangle symbol (expanded view)
-const Lightning = '&#9889;';      // lightning bolt (for optimization)
+const Lightning = '&#9889;';      // lightning bolt (for optimizing a line)
+const Explosion = '&#128165;';      // explosion (for optimizing a region)
 const WhiteLightning = `<span style="opacity:0">${Lightning}</span>`; // invisible but same width as lightning bolt
+const WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`; // invisible but same width as lightning bolt
+const maxLinesPerRegion = 50; // Only show regions that are no more than this many lines.
+
+let showedExplosion = {}; // Used so we only show one explosion per region.
 
 async function isValidApiKey(apiKey) {
     const response = await fetch('https://api.openai.com/v1/completions', {
@@ -52,7 +57,7 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
 	body: JSON.stringify({
 	    'model': 'text-davinci-003',
 	    'prompt': prompt,
-	    "temperature": 0.2,
+	    "temperature": 0.7,
 	    "max_tokens": len,
 	    "top_p": 1,
 	    "frequency_penalty": 0,
@@ -63,7 +68,12 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
 
     const data = await response.json();
     // Chop off any blank lines in the header.
-    return data.choices[0].text.replace(/^\s*[\r\n]/gm, '');
+
+    try {
+	return data.choices[0].text.replace(/^\s*[\r\n]/gm, '');
+    } catch {
+	return "# Query failed.\n";
+    }
 }
 
 function countSpaces(str) {
@@ -80,23 +90,46 @@ function countSpaces(str) {
 }
 
   // Push the final line to the reformatted lines array
-async function optimizeCode(code) {
+async function optimizeCode(imports, code) {
     const apiKey = document.getElementById('api-key').value;
     if (!apiKey) {
 	alert('To activate proposed optimizations, enter an OpenAI API key in advanced options.');
 	return null;
     }
-    const prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and try to quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code. Format all comments to be less than 40 columns wide:\n\n`;
+    const prompt = `Below is some Python code to optimize, from "Start of code" to "End of code":\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Assume the code has already executed these imports. Do NOT include them in the optimized code:\n\n${imports}\n\nUse fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output  the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Optimized code:`;
+
+    // console.log(prompt);
+    
+    const prev_prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and try to quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code. Format all comments to be less than 40 columns wide:\n\n`;
     return await sendPromptToOpenAI(prompt, code.length * 4, apiKey);
 }
 
-function proposeOptimization(filename, file_number, lineno) {
+function proposeOptimizationRegion(filename, file_number, lineno) {
+    proposeOptimization(filename, file_number, lineno, true);
+}
+
+function proposeOptimizationLine(filename, file_number, lineno) {
+    proposeOptimization(filename, file_number, lineno, false);
+}
+
+
+function proposeOptimization(filename, file_number, lineno, useRegion) {
     const prof = globalThis.profile;
     const this_file = prof.files[filename].lines;
+    const imports = prof.files[filename].imports.join('\n');
     const code_line = this_file[lineno-1]['line'];
+    const start_region_line = this_file[lineno-1]['start_region_line'];
+    const end_region_line = this_file[lineno-1]['end_region_line'];
+    let code_region;
+    if (useRegion) {
+	code_region = (this_file.slice(start_region_line - 1,
+				       end_region_line)).map((e) => e['line']).join('');
+    } else {
+	code_region = code_line;
+    }
     // Count the number of leading spaces to match indentation level on output
-    let leadingSpaceCount = countSpaces(code_line) + 2; // including the lightning bolt
-    let indent = WhiteLightning + '&nbsp;'.repeat(leadingSpaceCount - 1);
+    let leadingSpaceCount = countSpaces(code_line) + 3; // including the lightning bolt and explosion
+    let indent = WhiteLightning + WhiteExplosion + '&nbsp;'.repeat(leadingSpaceCount - 1);
     const elt = document.getElementById(`code-${file_number}-${lineno}`);
     (async () => {
 	const isValid = await isValidApiKey(document.getElementById("api-key").value);
@@ -105,7 +138,7 @@ function proposeOptimization(filename, file_number, lineno) {
 	    return;
 	}
 	elt.innerHTML = `<em>${indent}working...</em>`;
-	let message = await optimizeCode(code_line);
+	let message = await optimizeCode(imports, code_region);
 	if (!message) {
 	    elt.innerHTML = '';
 	    return;
@@ -729,13 +762,41 @@ function makeProfileLine(
     const empty_profile =  (total_time || has_memory_results || has_gpu_results) ? "" : 'empty-profile';
     s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
 
-    const optimizationString = propose_optimizations ? `${Lightning}&nbsp;` : `${WhiteLightning}&nbsp;`;
+    // Only show the explosion (optimizing a whole region) once.
+    const start_region_line = line.start_region_line;
+    const end_region_line = line.end_region_line;
+    
+    let explosionString;
+    let showExplosion;
+    if ([[start_region_line - 1, end_region_line]] in showedExplosion) {
+	explosionString = WhiteExplosion;
+	showExplosion = false;
+    } else {
+	explosionString = Explosion;
+	if (start_region_line && end_region_line) {
+	    showedExplosion[[start_region_line - 1, end_region_line]] = true;
+	    showExplosion = true;
+	}
+    }
+
+    // If the region is too big, for some definition of "too big", don't show it.
+    showExplosion &= (end_region_line - start_region_line <= maxLinesPerRegion);
+    
+    const regionOptimizationString = (propose_optimizations && showExplosion) ? `${explosionString}&nbsp;` : `${WhiteExplosion}&nbsp;`;
+    
     const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
     s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
-    if (propose_optimizations) {
-	s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimization('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${optimizationString}</span>`
+    if (propose_optimizations && showExplosion) {
+	s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimizationRegion('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${regionOptimizationString}</span>`;
     } else {
-	s += optimizationString;
+	s += regionOptimizationString;
+    }
+    
+    const lineOptimizationString = propose_optimizations ? `${Lightning}` : `${WhiteLightning}`;
+    if (propose_optimizations) {
+	s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimizationLine('${filename}', ${file_number}, ${parseInt(line.lineno)}); event.preventDefault()">${lineOptimizationString}</span>`
+    } else {
+	s += lineOptimizationString;
     }
     s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;    
   s += "</tr>";
@@ -799,6 +860,8 @@ function toggleDisplay(id) {
 }
 
 async function display(prof) {
+    // Clear explosions.
+    showedExplosion = {};
     // Restore the API key from local storage (if any).
     const old_key = window.localStorage.getItem('api-key');
     if (old_key) {
@@ -946,7 +1009,7 @@ async function display(prof) {
         s += "</tr>";
       }
 	}
-      prevLineno = line.lineno;
+	prevLineno = line.lineno;
       s += makeProfileLine(
         line,
           ff[0],
