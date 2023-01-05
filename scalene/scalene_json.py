@@ -374,12 +374,17 @@ class ScaleneJSON:
                 continue
 
             # Find all enclosing regions (loops or function defs) for each line of code.
-            enclosing_regions = ScaleneAnalysis.find_regions(''.join(code_lines))
+
+            code_str = ''.join(code_lines)
+            
+            enclosing_regions = ScaleneAnalysis.find_regions(code_str)
+            imports = ScaleneAnalysis.get_imported_modules(code_str)
 
             output["files"][fname_print] = {
                 "percent_cpu_time": percent_cpu_time,
                 "lines": [],
                 "leaks": reported_leaks,
+                "imports": imports
             }
             for lineno, line in enumerate(code_lines, start=1):
                 profile_line = self.output_profile_line(
