@@ -90,13 +90,16 @@ function countSpaces(str) {
 }
 
   // Push the final line to the reformatted lines array
-async function optimizeCode(code) {
+async function optimizeCode(imports, code) {
     const apiKey = document.getElementById('api-key').value;
     if (!apiKey) {
 	alert('To activate proposed optimizations, enter an OpenAI API key in advanced options.');
 	return null;
     }
-    const prompt = `Below is some Python code to optimize, from "Start of code" to "End of code":\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output  the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Optimized code:`;
+    const prompt = `Below is some Python code to optimize, from "Start of code" to "End of code":\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Assume the code has already executed these imports. Do NOT include them in the optimized code:\n\n${imports}\n\nUse fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output  the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Optimized code:`;
+
+    console.log(prompt);
+    
     const prev_prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and try to quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code. Format all comments to be less than 40 columns wide:\n\n`;
     return await sendPromptToOpenAI(prompt, code.length * 4, apiKey);
 }
@@ -113,13 +116,14 @@ function proposeOptimizationLine(filename, file_number, lineno) {
 function proposeOptimization(filename, file_number, lineno, useRegion) {
     const prof = globalThis.profile;
     const this_file = prof.files[filename].lines;
+    const imports = prof.files[filename].imports.join('\n');
     const code_line = this_file[lineno-1]['line'];
     const start_region_line = this_file[lineno-1]['start_region_line'];
     const end_region_line = this_file[lineno-1]['end_region_line'];
     let code_region;
     if (useRegion) {
 	code_region = (this_file.slice(start_region_line - 1,
-				       end_region_line)).map((e) => e['line']).join('\n');
+				       end_region_line)).map((e) => e['line']).join('');
     } else {
 	code_region = code_line;
     }
@@ -134,7 +138,7 @@ function proposeOptimization(filename, file_number, lineno, useRegion) {
 	    return;
 	}
 	elt.innerHTML = `<em>${indent}working...</em>`;
-	let message = await optimizeCode(code_region);
+	let message = await optimizeCode(imports, code_region);
 	if (!message) {
 	    elt.innerHTML = '';
 	    return;
