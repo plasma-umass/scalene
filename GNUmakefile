@@ -59,7 +59,8 @@ vendor/Heap-Layers:
 vendor/printf/printf.cpp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
-	sed $(SED_INPLACE) -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h
+	sed -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h > /tmp/printf.h.$$ && mv /tmp/printf.h.$$ vendor/printf/printf.h
+	#	sed $(SED_INPLACE) -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h
 
 clear-vendor-dirs:
 	rm -fr vendor/
