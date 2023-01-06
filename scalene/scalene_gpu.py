@@ -26,7 +26,8 @@ class ScaleneGPU:
             total_load = self.gpu_utilization(self.__pid)
             mem_used = self.gpu_memory_usage(self.__pid)
             # If we make it this far, everything is working, so we can profile GPU usage.
-            self.__has_gpu = True
+            # Handle the case when GPUs are disabled. See https://github.com/plasma-umass/scalene/issues/536.
+            self.__has_gpu = self.__ngpus > 0
 
     def disable(self) -> None:
         """Turn off GPU accounting."""
