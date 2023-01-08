@@ -21,19 +21,8 @@ class ScaleneAnalysis:
         # Iterate through the nodes in the syntax tree
         for node in ast.walk(tree):
             # Check if the node represents an import statement
-            if isinstance(node, ast.Import):
-                # Iterate through the imported modules in the statement
-                for alias in node.names:
-                    # If the module has an alias, add the alias to the list
-                    if alias.asname:
-                        imported_modules.append(f"import {alias.name} as {alias.asname}")
-                    else:
-                        # Add the module name to the list
-                        imported_modules.append(f"import {alias.name}")
-            # Check if the node represents an import from statement
-            elif isinstance(node, ast.ImportFrom):
-                # Add the module name to the list
-                imported_modules.append(f"import {node.module}")
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                imported_modules.append(ast.unparse(node))
 
         return imported_modules
 
