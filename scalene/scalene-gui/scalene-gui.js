@@ -104,15 +104,16 @@ async function optimizeCode(imports, code) {
 }
 
 function proposeOptimizationRegion(filename, file_number, lineno) {
-    proposeOptimization(filename, file_number, lineno, true);
+    proposeOptimization(filename, file_number, lineno, { "regions" : true });
 }
 
 function proposeOptimizationLine(filename, file_number, lineno) {
-    proposeOptimization(filename, file_number, lineno, false);
+    proposeOptimization(filename, file_number, lineno, { "regions" : false });
 }
 
 
-function proposeOptimization(filename, file_number, lineno, useRegion) {
+function proposeOptimization(filename, file_number, lineno, params) {
+    const useRegion = params["regions"];
     const prof = globalThis.profile;
     const this_file = prof.files[filename].lines;
     const imports = prof.files[filename].imports.join('\n');
@@ -504,9 +505,9 @@ const MemoryColor = "green";
 const CopyColor = "goldenrod";
 let columns = [];
 
-function makeTableHeader(fname, gpu, memory, functions = false) {
+function makeTableHeader(fname, gpu, memory, params) {
   let tableTitle;
-  if (functions) {
+  if (params["functions"]) {
     tableTitle = "function profile";
   } else {
     tableTitle = "line profile";
@@ -581,7 +582,7 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
     s += "</font>&nbsp;&nbsp;</th>";
   }
   let id;
-  if (functions) {
+  if (params["functions"]) {
     id = "functionProfile";
   } else {
     id = "lineProfile";
@@ -988,7 +989,7 @@ async function display(prof) {
 	s += `<div style="display: block" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
-    s += makeTableHeader(ff[0], prof.gpu, prof.memory, false);
+	s += makeTableHeader(ff[0], prof.gpu, prof.memory, { "functions" : false });
     s += "<tbody>";
     // Print per-line profiles.
     let prevLineno = -1;
@@ -1029,7 +1030,7 @@ async function display(prof) {
     // Print out function summaries.
     if (prof.files[ff[0]].functions.length) {
       s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
-      s += makeTableHeader(ff[0], prof.gpu, prof.memory, true);
+	s += makeTableHeader(ff[0], prof.gpu, prof.memory, { "functions" : true });
       s += "<tbody>";
       tableID++;
       for (const l in prof.files[ff[0]].functions) {
