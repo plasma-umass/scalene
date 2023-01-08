@@ -1,7 +1,25 @@
 import ast
+import importlib
 
 class ScaleneAnalysis:
 
+    @staticmethod
+    def is_native(package_name: str) -> bool:
+        """
+        Returns whether a package is native or not.
+        """
+        result = False
+        try:
+            package = importlib.import_module(package_name)
+            result = package.__file__.endswith('.so')
+        except ImportError:
+            result = False
+        except AttributeError:
+            # No __file__, meaning it's built-in. Let's call it native.
+            result = True
+        return result
+        
+    
     @staticmethod
     def get_imported_modules(source):
         """
@@ -26,6 +44,37 @@ class ScaleneAnalysis:
 
         return imported_modules
 
+
+    @staticmethod
+    def get_native_imported_modules(source):
+        """
+        Extracts a list of **native** imported modules from the given source code.
+
+        Parameters:
+        - source (str): The source code to be analyzed.
+
+        Returns:
+        - imported_modules (list[str]): A list of import statements.
+        """
+
+        # Parse the source code into an abstract syntax tree
+        tree = ast.parse(source)
+        imported_modules = []
+
+        # Add the module name to the list if it's native.
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                # Iterate through the imported modules in the statement
+                for alias in node.names:
+                    if ScaleneAnalysis.is_native(alias.name):
+                        imported_modules.append(ast.unparse(node))
+            # Check if the node represents an import from statement
+            elif isinstance(node, ast.ImportFrom):
+                if ScaleneAnalysis.is_native(node.module):
+                    imported_modules.append(ast.unparse(node))
+
+        return imported_modules
+    
    
     @staticmethod
     def find_regions(src):

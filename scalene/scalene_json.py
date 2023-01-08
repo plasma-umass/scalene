@@ -378,7 +378,7 @@ class ScaleneJSON:
             code_str = ''.join(code_lines)
             
             enclosing_regions = ScaleneAnalysis.find_regions(code_str)
-            imports = ScaleneAnalysis.get_imported_modules(code_str)
+            imports = ScaleneAnalysis.get_native_imported_modules(code_str)
 
             output["files"][fname_print] = {
                 "percent_cpu_time": percent_cpu_time,
