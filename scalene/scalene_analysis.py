@@ -1,5 +1,6 @@
 import ast
 import importlib
+import os
 
 class ScaleneAnalysis:
 
@@ -11,13 +12,20 @@ class ScaleneAnalysis:
         result = False
         try:
             package = importlib.import_module(package_name)
-            result = package.__file__.endswith('.so')
+            package_dir = os.path.dirname(package.__file__)
+            for root, dirs, files in os.walk(package_dir):
+                for filename in files:
+                    if filename.endswith('.so') or filename.endswith('.pyd'):
+                        return True
+            result = False
         except ImportError:
             result = False
         except AttributeError:
             # No __file__, meaning it's built-in. Let's call it native.
             result = True
-        return result
+        except ModuleNotFoundError:
+            # This module is not installed; fail gracefully.
+            result = False
         
     
     @staticmethod
