@@ -1,6 +1,6 @@
 ![scalene](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-image.png)
 
-# Scalene: a high-performance CPU, GPU and memory profiler for Python
+# Scalene: a Python CPU+GPU+memory profiler with AI-powered optimization proposals
 
 by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), and [Juan Altmayer Pizzorno](https://github.com/jaltmayerpizzorno).
 
@@ -16,17 +16,21 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 
 ## About Scalene
 
-Scalene is a high-performance CPU, GPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
-
-**NEW**: Scalene now incorporates AI-powered proposed optimizations. To enable these, you need to enter an [OpenAI key](https://openai.com/api/):
+Scalene is a high-performance CPU, GPU *and* memory profiler for
+Python that does a number of things that other Python profilers do not
+and cannot do.  It runs orders of magnitude faster than other
+profilers while delivering far more detailed information. It is also
+the first profiler to incorporate AI-powered proposed
+optimizations. To enable these, you need to enter an [OpenAI
+key](https://openai.com/api/):
 
   <img width="411" alt="advanced settings screen" src="https://user-images.githubusercontent.com/1612723/210187555-d9334cf4-251b-425e-8a07-261441805591.png">
 
-  Once a valid key is entered, click on the lightning bolt (⚡) beside any line to generate a proposed optimization.
+Once a valid key is entered, click on the lightning bolt (⚡) beside any line or the explosion (💥) for an entire region of code to generate a proposed optimization.
 
-  <img width="590" alt="example of proposed optimization" src="https://user-images.githubusercontent.com/1612723/210187583-290b94f5-52fe-40c9-8725-8f5109552646.png">
+<img width="590" alt="example of proposed optimization" src="https://user-images.githubusercontent.com/1612723/210187583-290b94f5-52fe-40c9-8725-8f5109552646.png">
 
-  You can click as many times as you like on the lightning bolt, and it will generate different suggested optimizations. Your mileage may vary, but in some cases, the suggestions are quite impressive. While this is currently limited to optimizing a single line, we anticipate broadening this to groups of lines or even functions in the near future. To our knowledge, this is the first integration of AI into a profiler.
+You can click as many times as you like on the lightning bolt or explosion, and it will generate different suggested optimizations. Your mileage may vary, but in some cases, the suggestions are quite impressive. Click on a proposed optimization to copy it to the clipboard.
   
 ### Quick Start
 
