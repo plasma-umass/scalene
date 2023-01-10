@@ -18,19 +18,20 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 
 Scalene is a high-performance CPU, GPU *and* memory profiler for
 Python that does a number of things that other Python profilers do not
-and cannot do.  It runs orders of magnitude faster than other
+and cannot do.  It runs orders of magnitude faster than many other
 profilers while delivering far more detailed information. It is also
-the first profiler to incorporate AI-powered proposed
+the first profiler ever to incorporate AI-powered proposed
 optimizations. To enable these, you need to enter an [OpenAI
 key](https://openai.com/api/):
 
-  <img width="411" alt="advanced settings screen" src="https://user-images.githubusercontent.com/1612723/210187555-d9334cf4-251b-425e-8a07-261441805591.png">
+<img width="487" alt="Scalene advanced options" src="https://user-images.githubusercontent.com/1612723/211639253-ec926b38-3efe-4a20-8514-e10dde94ec01.png">
 
 Once a valid key is entered, click on the lightning bolt (⚡) beside any line or the explosion (💥) for an entire region of code to generate a proposed optimization.
+Click on a proposed optimization to copy it to the clipboard.
 
-<img width="590" alt="example of proposed optimization" src="https://user-images.githubusercontent.com/1612723/210187583-290b94f5-52fe-40c9-8725-8f5109552646.png">
+<img width="571" alt="example proposed optimization" src="https://user-images.githubusercontent.com/1612723/211639968-37cf793f-3290-43d1-9282-79e579558388.png">
 
-You can click as many times as you like on the lightning bolt or explosion, and it will generate different suggested optimizations. Your mileage may vary, but in some cases, the suggestions are quite impressive. Click on a proposed optimization to copy it to the clipboard.
+You can click as many times as you like on the lightning bolt or explosion, and it will generate different suggested optimizations. Your mileage may vary, but in some cases, the suggestions are quite impressive (e.g., order-of-magnitude improvements). 
   
 ### Quick Start
 
