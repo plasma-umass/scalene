@@ -160,10 +160,16 @@ function proposeOptimization(filename, file_number, lineno, params) {
         (line) =>
           indent + Prism.highlight(line, Prism.languages.python, "python")
       )
-      .join("<br />");
-      elt.innerHTML = `<hr><span title="click to copy" style="cursor: pointer" id="opt-${file_number}-${lineno}">${formattedCode}</span>`;
-      document.getElementById(`opt-${file_number}-${lineno}`).addEventListener("click",
-									       (e) => copyOnClick(e, message));
+	  .join("<br />");
+      // Display the proposed optimization, with click-to-copy functionality.
+      elt.innerHTML = `<hr><span title="click to copy" style="cursor: copy" id="opt-${file_number}-${lineno}">${formattedCode}</span>`;
+      thisElt = document.getElementById(`opt-${file_number}-${lineno}`);
+      thisElt.addEventListener("click",
+			       (e) => {
+				   copyOnClick(e, message);
+				   // After copying, change the cursor back to the default.
+				   thisElt.style = "cursor: auto";
+			       });
   })();
 }
 
