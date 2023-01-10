@@ -364,7 +364,7 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 
 # Technical Information
 
-For technical details on Scalene, please see the following paper: [Scalene: Scripting-Language Aware Profiling for Python](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-paper.pdf) ([arXiv link](https://arxiv.org/abs/2006.03879)).
+For details about how Scalene works, please see the following paper: [Triangulating Python Performance Issues with Scalene](https://arxiv.org/pdf/2212.07597). Note that this paper currently does not include information about the AI-driven proposed optimizations.
 
 # Success Stories
 
