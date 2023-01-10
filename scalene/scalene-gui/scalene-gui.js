@@ -161,8 +161,16 @@ function proposeOptimization(filename, file_number, lineno, params) {
           indent + Prism.highlight(line, Prism.languages.python, "python")
       )
       .join("<br />");
-    elt.innerHTML = `<hr>${formattedCode}`;
+      elt.innerHTML = `<hr><span title="click to copy" style="cursor: pointer" id="opt-${file_number}-${lineno}">${formattedCode}</span>`;
+      document.getElementById(`opt-${file_number}-${lineno}`).addEventListener("click",
+									       (e) => copyOnClick(e, message));
   })();
+}
+
+async function copyOnClick(event, message) {
+    event.preventDefault();
+    event.stopPropagation();
+    await navigator.clipboard.writeText(message);
 }
 
 function memory_consumed_str(size_in_mb) {
@@ -672,7 +680,10 @@ function makeProfileLine(
       (currline.n_usage_fraction >= 0.01);
     region_has_gpu_results |= line.n_gpu_percent >= 1.0;
   }
-  // Disable optimization proposals for low CPU runtime lines.
+    // Disable optimization proposals for low CPU runtime lines.
+
+    // TODO: tailor prompt for memory optimization when that's the only inefficiency.
+    // ALSO propose optimizations not just for execution time but also for memory usage.
   if (propose_optimizations) {
     if (total_time < 1.0 && line.start_region_line === line.end_region_line) {
       propose_optimizations = false;
