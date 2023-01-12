@@ -50,7 +50,7 @@ class ScaleneAnalysis:
         """
 
         # Parse the source code into an abstract syntax tree
-        ScaleneAnalysis.strip_magic_line(source)
+        source = ScaleneAnalysis.strip_magic_line(source)
         tree = ast.parse(source)
         imported_modules = []
 
@@ -76,7 +76,7 @@ class ScaleneAnalysis:
         """
 
         # Parse the source code into an abstract syntax tree
-        ScaleneAnalysis.strip_magic_line(source)
+        source = ScaleneAnalysis.strip_magic_line(source)
         tree = ast.parse(source)
         imported_modules = []
 
@@ -125,9 +125,10 @@ class ScaleneAnalysis:
         return regions
 
     @staticmethod
-    def strip_magic_line(source: str) -> None:
+    def strip_magic_line(source: str) -> str:
         # Filter out the first line if in a Jupyter notebook and it starts with a magic (% or %%).
         if "ipykernel" in sys.modules and source[0] == '%':
             srclines = source.split("\n")
             srclines.pop(0)
             source = '\n'.join(srclines)
+        return source
