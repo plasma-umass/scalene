@@ -47,6 +47,11 @@ class ScaleneAnalysis:
         """
 
         # Parse the source code into an abstract syntax tree
+        # Filter out the first line if in a Jupyter notebook and it starts with a magic (% or %%).
+        if "ipykernel" in sys.modules and source[0] == '%':
+            srclines = source.split("\n")
+            srclines.pop(0)
+            source = '\n'.join(srclines)
         tree = ast.parse(source)
         imported_modules = []
 
