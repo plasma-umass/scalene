@@ -3,7 +3,7 @@ import importlib
 import os
 import sys
 
-from typing import cast,Tuple
+from typing import cast,Dict,Tuple
 
 if sys.version_info < (3,9):
     # ast.unparse only supported as of 3.9
