@@ -94,6 +94,10 @@ class ScaleneAnalysis:
     def find_regions(src):
         """This function collects the start and end lines of all loops and functions in the AST, and then uses these to determine the narrowest region containing each line in the source code (that is, loops take precedence over functions."""
         srclines = src.split("\n")
+        # Filter out the first line if in a Jupyter notebook and it starts with a magic (% or %%).
+        if "ipykernel" in sys.modules and srclines[0][0] == '%':
+            srclines.pop(0)
+            src = ''.join(srclines)
         tree = ast.parse(src)
         regions = {}
         loops = {}
