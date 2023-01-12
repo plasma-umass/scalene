@@ -97,7 +97,7 @@ class ScaleneAnalysis:
         # Filter out the first line if in a Jupyter notebook and it starts with a magic (% or %%).
         if "ipykernel" in sys.modules and srclines[0][0] == '%':
             srclines.pop(0)
-            src = ''.join(srclines)
+            src = '\n'.join(srclines)
         tree = ast.parse(src)
         regions = {}
         loops = {}
