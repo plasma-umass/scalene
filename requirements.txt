@@ -1,3 +1,4 @@
+astunparse>=1.6.3
 cloudpickle==1.6.0
 Cython>=0.29.28
 git+https://github.com/plasma-umass/crdp.git#egg=crdp
