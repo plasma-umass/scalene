@@ -3,7 +3,7 @@ import importlib
 import os
 import sys
 
-from typing import cast,Dict,Tuple
+from typing import cast,Dict,List,Tuple
 
 if sys.version_info < (3,9):
     # ast.unparse only supported as of 3.9
@@ -38,7 +38,7 @@ class ScaleneAnalysis:
         
     
     @staticmethod
-    def get_imported_modules(source : str) -> list[str]:
+    def get_imported_modules(source : str) -> List[str]:
         """
         Extracts a list of imported modules from the given source code.
 
@@ -64,7 +64,7 @@ class ScaleneAnalysis:
 
 
     @staticmethod
-    def get_native_imported_modules(source: str) -> list[str]:
+    def get_native_imported_modules(source: str) -> List[str]:
         """
         Extracts a list of **native** imported modules from the given source code.
 
@@ -97,7 +97,7 @@ class ScaleneAnalysis:
     
    
     @staticmethod
-    def find_regions(src: str) -> dict[int, Tuple[int, int]]:
+    def find_regions(src: str) -> Dict[int, Tuple[int, int]]:
         """This function collects the start and end lines of all loops and functions in the AST, and then uses these to determine the narrowest region containing each line in the source code (that is, loops take precedence over functions."""
         srclines = src.split("\n")
         # Filter out the first line if in a Jupyter notebook and it starts with a magic (% or %%).
