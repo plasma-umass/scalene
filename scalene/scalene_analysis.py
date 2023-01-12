@@ -3,6 +3,8 @@ import importlib
 import os
 import sys
 
+from typing import cast,Tuple
+
 if sys.version_info < (3,9):
     # ast.unparse only supported as of 3.9
     import astunparse
@@ -32,10 +34,11 @@ class ScaleneAnalysis:
         except ModuleNotFoundError:
             # This module is not installed; fail gracefully.
             result = False
+        return result
         
     
     @staticmethod
-    def get_imported_modules(source):
+    def get_imported_modules(source : str) -> list[str]:
         """
         Extracts a list of imported modules from the given source code.
 
@@ -47,11 +50,7 @@ class ScaleneAnalysis:
         """
 
         # Parse the source code into an abstract syntax tree
-        # Filter out the first line if in a Jupyter notebook and it starts with a magic (% or %%).
-        if "ipykernel" in sys.modules and source[0] == '%':
-            srclines = source.split("\n")
-            srclines.pop(0)
-            source = '\n'.join(srclines)
+        ScaleneAnalysis.strip_magic_line(source)
         tree = ast.parse(source)
         imported_modules = []
 
@@ -65,7 +64,7 @@ class ScaleneAnalysis:
 
 
     @staticmethod
-    def get_native_imported_modules(source):
+    def get_native_imported_modules(source: str) -> list[str]:
         """
         Extracts a list of **native** imported modules from the given source code.
 
@@ -77,6 +76,7 @@ class ScaleneAnalysis:
         """
 
         # Parse the source code into an abstract syntax tree
+        ScaleneAnalysis.strip_magic_line(source)
         tree = ast.parse(source)
         imported_modules = []
 
@@ -89,6 +89,7 @@ class ScaleneAnalysis:
                         imported_modules.append(ast.unparse(node))
             # Check if the node represents an import from statement
             elif isinstance(node, ast.ImportFrom):
+                node.module = cast(str, node.module)
                 if ScaleneAnalysis.is_native(node.module):
                     imported_modules.append(ast.unparse(node))
 
@@ -96,7 +97,7 @@ class ScaleneAnalysis:
     
    
     @staticmethod
-    def find_regions(src):
+    def find_regions(src: str) -> dict[int, Tuple[int, int]]:
         """This function collects the start and end lines of all loops and functions in the AST, and then uses these to determine the narrowest region containing each line in the source code (that is, loops take precedence over functions."""
         srclines = src.split("\n")
         # Filter out the first line if in a Jupyter notebook and it starts with a magic (% or %%).
@@ -122,4 +123,11 @@ class ScaleneAnalysis:
             else:
                 regions[lineno] = (lineno, lineno)
         return regions
-    
+
+    @staticmethod
+    def strip_magic_line(source: str) -> None:
+        # Filter out the first line if in a Jupyter notebook and it starts with a magic (% or %%).
+        if "ipykernel" in sys.modules and source[0] == '%':
+            srclines = source.split("\n")
+            srclines.pop(0)
+            source = '\n'.join(srclines)
