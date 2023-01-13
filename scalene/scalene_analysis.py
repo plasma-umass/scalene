@@ -99,11 +99,9 @@ class ScaleneAnalysis:
     @staticmethod
     def find_regions(src: str) -> Dict[int, Tuple[int, int]]:
         """This function collects the start and end lines of all loops and functions in the AST, and then uses these to determine the narrowest region containing each line in the source code (that is, loops take precedence over functions."""
-        srclines = src.split("\n")
         # Filter out the first line if in a Jupyter notebook and it starts with a magic (% or %%).
-        if "ipykernel" in sys.modules and srclines[0][0] == '%':
-            srclines.pop(0)
-            src = '\n'.join(srclines)
+        src = ScaleneAnalysis.strip_magic_line(src)
+        srclines = src.split("\n")
         tree = ast.parse(src)
         regions = {}
         loops = {}
@@ -128,7 +126,6 @@ class ScaleneAnalysis:
     def strip_magic_line(source: str) -> str:
         # Filter out any magic lines (starting with %) if in a Jupyter notebook
         import re
-        if "ipykernel" in sys.modules:
-            srclines = list(map(lambda x: re.sub(r'^\%.*','',x), source.split('\n')))
-            source = '\n'.join(srclines)
+        srclines = list(map(lambda x: re.sub(r'^\%.*','',x), source.split('\n')))
+        source = '\n'.join(srclines)
         return source
