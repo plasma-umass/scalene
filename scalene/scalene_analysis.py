@@ -126,9 +126,9 @@ class ScaleneAnalysis:
 
     @staticmethod
     def strip_magic_line(source: str) -> str:
-        # Filter out the first line if in a Jupyter notebook and it starts with a magic (% or %%).
-        if "ipykernel" in sys.modules and source[0] == '%':
-            srclines = source.split("\n")
-            srclines.pop(0)
+        # Filter out any magic lines (starting with %) if in a Jupyter notebook
+        import re
+        if "ipykernel" in sys.modules:
+            srclines = list(map(lambda x: re.sub(r'^\%.*','',x), source.split('\n')))
             source = '\n'.join(srclines)
         return source
