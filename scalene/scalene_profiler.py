@@ -1638,6 +1638,8 @@ class Scalene:
                 Scalene.__args.json = True
                 Scalene.__output.html = False
                 Scalene.__output.output_file = Scalene.__profile_filename
+                from scalene.scalene_jupyter import ScaleneJupyter
+                ScaleneJupyter.display_profile(8181, Scalene.__profiler_html) # hard-coded port, hopefully available
                 return
             # Check for a browser.
             try:
@@ -1825,15 +1827,25 @@ class Scalene:
                 profile_fname=Scalene.__profile_filename,
                 output_fname=Scalene.__profiler_html,
             )
-            # Remove any interposition libraries from the environment before opening the browser.
-            # See also scalene/scalene_preload.py
-            old_dyld = os.environ.get("DYLD_INSERT_LIBRARIES", "")
-            old_ld = os.environ.get("LD_PRELOAD", "")
-            os.environ.update({"DYLD_INSERT_LIBRARIES": "", "LD_PRELOAD": ""})
-            webbrowser.open(f"file:///{os.getcwd()}/{Scalene.__profiler_html}")
-            os.environ.update(
-                {"DYLD_INSERT_LIBRARIES": old_dyld, "LD_PRELOAD": old_ld}
-            )
+            if Scalene.in_jupyter():
+                # from IPython.core.display import HTML
+                from IPython.core.display import display
+                from IPython.display import IFrame
+                display(
+                    IFrame(src=Scalene.__profiler_html,
+                           width="100%",
+                           height="100%")
+                )
+            else:
+                # Remove any interposition libraries from the environment before opening the browser.
+                # See also scalene/scalene_preload.py
+                old_dyld = os.environ.get("DYLD_INSERT_LIBRARIES", "")
+                old_ld = os.environ.get("LD_PRELOAD", "")
+                os.environ.update({"DYLD_INSERT_LIBRARIES": "", "LD_PRELOAD": ""})
+                webbrowser.open(f"file:///{os.getcwd()}/{Scalene.__profiler_html}")
+                os.environ.update(
+                    {"DYLD_INSERT_LIBRARIES": old_dyld, "LD_PRELOAD": old_ld}
+                )
 
         return exit_status
 
