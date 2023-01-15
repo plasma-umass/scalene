@@ -261,6 +261,12 @@ class ScaleneJSON:
         else:
             stats.memory_footprint_samples = []
 
+        # Adjust the program name if it was a Jupyter cell.
+        result = re.match(r"ipython-input-([0-9]+)-.*", program)
+        if result:
+            program = Filename("[" + result.group(1) + "]")
+
+        
         output: Dict[str, Any] = {
             "program": program,
             "alloc_samples": stats.alloc_samples,
