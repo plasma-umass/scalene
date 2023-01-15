@@ -24,8 +24,11 @@ async function isValidApiKey(apiKey) {
 }
 
 function checkApiKey(apiKey) {
-  (async () => {
-    window.localStorage.setItem("api-key", apiKey);
+    (async () => {
+	try {	
+	    window.localStorage.setItem("api-key", apiKey);
+	} catch {
+	}
     // If the API key is empty, clear the status indicator.
     if (apiKey.length === 0) {
       document.getElementById("valid-api-key").innerHTML = "";
@@ -39,7 +42,7 @@ function checkApiKey(apiKey) {
     });
     const data = await response.json();
     if (data.error && data.error.code === "invalid_api_key") {
-      document.getElementById("valid-api-key").innerHTML = "⨯";
+      document.getElementById("valid-api-key").innerHTML = "&#10005;";
     } else {
       document.getElementById("valid-api-key").innerHTML = "&check;";
     }
@@ -977,8 +980,11 @@ function toggleDisplay(id) {
 async function display(prof) {
   // Clear explosions.
   showedExplosion = {};
-  // Restore the API key from local storage (if any).
-  const old_key = window.localStorage.getItem("api-key");
+    // Restore the API key from local storage (if any).
+    let old_key = '';
+    try {
+	old_key = window.localStorage.getItem("api-key");
+    } catch {}
   if (old_key) {
     document.getElementById("api-key").value = old_key;
     // Update the status.
