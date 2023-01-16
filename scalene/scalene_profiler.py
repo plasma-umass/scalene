@@ -1556,9 +1556,13 @@ class Scalene:
             resolved_filename = str(pathlib.Path(filename).resolve()).lower()
             for n in sysconfig.get_scheme_names():
                 for p in sysconfig.get_path_names():
-                    libdir = str(pathlib.Path(sysconfig.get_path(p, n)).resolve()).lower()
-                    if libdir in resolved_filename:
-                        return False
+                    try:
+                        libdir = str(pathlib.Path(sysconfig.get_path(p, n)).resolve()).lower()
+                        if libdir in resolved_filename:
+                            return False
+                    except:
+                        pass
+                    
         # Generic handling follows (when no @profile decorator has been used).
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
         if any(
