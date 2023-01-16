@@ -116,7 +116,10 @@ async function optimizeCode(imports, code, context) {
     
   // const prev_prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and try to quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code. Format all comments to be less than 40 columns wide:\n\n`;
 
-  return await sendPromptToOpenAI(prompt, code.length * 4, apiKey);
+    // Use number of words in the original code as a proxy for the number of tokens.
+    const numWords = (code.match(/\b\w+\b/g)).length;
+    
+  return await sendPromptToOpenAI(prompt, numWords * 4, apiKey);
 }
 
 function proposeOptimizationRegion(filename, file_number, lineno) {
