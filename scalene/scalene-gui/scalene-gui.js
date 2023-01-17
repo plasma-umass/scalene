@@ -106,9 +106,15 @@ async function optimizeCode(imports, code, context) {
     );
     return null;
   }
+    // If the code to be optimized is just one line of code, say so.
+    let lineOf = " ";
+    if (code.split("\n").length <= 2) {
+	lineOf = " line of ";
+    }
+    
     // Construct the prompt.
 
-    const prompt = `Optimize the following Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized code:`
+    const prompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
 
     // const prompt = `Below is some Python code to optimize, from "Start of code" to "End of code":\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code to make it more efficient without changing the results. Assume the code has already executed these imports. Do NOT include them in the optimized code:\n\n${imports}\n\nUse fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Check carefully by generating inputs to see that the output is identical for both the original and optimized versions. Correctly-optimized code:`;
 
@@ -119,7 +125,7 @@ async function optimizeCode(imports, code, context) {
     // Use number of words in the original code as a proxy for the number of tokens.
     const numWords = (code.match(/\b\w+\b/g)).length;
     
-  return await sendPromptToOpenAI(prompt, numWords * 4, apiKey);
+    return await sendPromptToOpenAI(prompt, Math.max(numWords * 4, 500), apiKey);
 }
 
 function proposeOptimizationRegion(filename, file_number, lineno) {
@@ -148,13 +154,11 @@ function proposeOptimization(filename, file_number, lineno, params) {
     context = this_file.slice(Math.max(0, start_region_line - 10), Math.min(start_region_line - 1, this_file.length))
 	  .map((e) => e["line"])
 	  .join("");
-      console.log("CONTEXT = ", context);
   } else {
     code_region = code_line;
     context = this_file.slice(Math.max(0, lineno - 10), Math.min(lineno - 1, this_file.length))
 	  .map((e) => e["line"])
 	  .join("");
-      console.log("LINE CONTEXT = ", context);
   }
   // Count the number of leading spaces to match indentation level on output
   let leadingSpaceCount = countSpaces(code_line) + 3; // including the lightning bolt and explosion
@@ -193,9 +197,9 @@ function proposeOptimization(filename, file_number, lineno, params) {
       thisElt.addEventListener("click",
 			       async (e) => {
 				   await copyOnClick(e, message);
-				   // After copying, change the cursor back to the default for 0.5 seconds to provide some visual feedback..
+				   // After copying, briefly change the cursor back to the default to provide some visual feedback..
 				   thisElt.style = "cursor: auto";
-				   await new Promise(resolve => setTimeout(resolve, 500));
+				   await new Promise(resolve => setTimeout(resolve, 125));
 				   thisElt.style = "cursor: copy";
 			       });
   })();
