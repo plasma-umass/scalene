@@ -25,7 +25,7 @@ class ScalenePreload:
         if sys.platform == "darwin":
             if args.memory:
                 env["DYLD_INSERT_LIBRARIES"] = os.path.join(
-                    scalene.__path__[0].replace(" ", r"\ "), "libscalene.dylib"
+                    scalene.__path__[0], "libscalene.dylib"
                 )
                 # Disable command-line specified PYTHONMALLOC.
                 if "PYTHONMALLOC" in env:
