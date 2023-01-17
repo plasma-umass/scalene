@@ -191,10 +191,12 @@ function proposeOptimization(filename, file_number, lineno, params) {
       elt.innerHTML = `<hr><span title="click to copy" style="cursor: copy" id="opt-${file_number}-${lineno}">${formattedCode}</span>`;
       thisElt = document.getElementById(`opt-${file_number}-${lineno}`);
       thisElt.addEventListener("click",
-			       (e) => {
-				   copyOnClick(e, message);
-				   // After copying, change the cursor back to the default.
+			       async (e) => {
+				   await copyOnClick(e, message);
+				   // After copying, change the cursor back to the default for 0.5 seconds to provide some visual feedback..
 				   thisElt.style = "cursor: auto";
+				   await new Promise(resolve => setTimeout(resolve, 500));
+				   thisElt.style = "cursor: copy";
 			       });
   })();
 }
