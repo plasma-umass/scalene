@@ -1,4 +1,5 @@
 import hashlib
+from typing import Any, List
 
 class HashableList(list):
     """
@@ -10,7 +11,7 @@ class HashableList(list):
     The exception is the `append` and `extend` methods, which incrementally build up the hash instead of recomputing it.
 
     """
-    def __init__(self, *args) -> None:
+    def __init__(self, *args : List[Any]) -> None:
         super().__init__(*args)
         self._hash = None
 
@@ -25,37 +26,37 @@ class HashableList(list):
             h.update(str(item).encode())
         return int(h.hexdigest(), 16)
 
-    def __setitem__(self, key, value) -> None:
+    def __setitem__(self, key: int, value: Any) -> None:
         super().__setitem__(key, value)
         self._hash = None
 
-    def __delitem__(self, key) -> None:
+    def __delitem__(self, key: int) -> None:
         super().__delitem__(key)
         self._hash = None
 
-    def append(self, item) -> None:
+    def append(self, item: Any) -> None:
         # Ensure we have a hash value.
-        self.hash()
+        self.__hash__()
         super().append(item)
         self._hash.update(str(hash(item)).encode())
 
-    def extend(self, items) -> None:
+    def extend(self, items: List[Any]) -> None:
         # Ensure we have a hash value.
-        self.hash()
+        self.__hash__()
         super().extend(items)
         for item in items:
             self._hash.update(str(hash(item)).encode())
 
-    def insert(self, index: int, item) -> None:
+    def insert(self, index: int, item: Any) -> None:
         self._hash = None
         super().insert(index, item)
 
-    def remove(self, item) -> None:
+    def remove(self, item: Any) -> None:
         self._hash = None
         index = self.index(item)
         super().remove(item)
 
-    def pop(self, index=-1) -> any:
+    def pop(self, index: int = -1) -> Any:
         self._hash = None
         item = super().pop(index)
         return item
@@ -64,7 +65,7 @@ class HashableList(list):
         self._hash = None
         super().reverse()
 
-    def sort(self, key=None, reverse=False) -> None:
+    def sort(self, key: Any =None, reverse: bool = False) -> None:
         self._hash = None
         super().sort(key, reverse)
        
