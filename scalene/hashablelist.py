@@ -7,49 +7,64 @@ class HashableList(list):
     This class overrides the various methods that modify the list so that they set the _hash attribute to None after modification,
     and overrides the `__hash__` method to use the SHA-1 hash of the string representation of the list.
     This way, the next time `__hash__` is invoked, it will recalculate the hash only if the list was modified.
+    The exception is the `append` and `extend` methods, which incrementally build up the hash instead of recomputing it.
 
     """
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         super().__init__(*args)
         self._hash = None
 
-    def __hash__(self):
-        if self._hash is None:
-            self._hash = int(hashlib.sha1(str(self).encode()).hexdigest(), 16)
+    def __hash__(self) -> int:
+        if not self._hash:
+            self._hash = self._calculate_hash()
         return self._hash
 
-    def __setitem__(self, index, value):
-        super().__setitem__(index, value)
+    def _calculate_hash(self) -> int:
+        h = hashlib.sha256()
+        for item in self:
+            h.update(str(item).encode())
+        return int(h.hexdigest(), 16)
+
+    def __setitem__(self, key, value) -> None:
+        super().__setitem__(key, value)
         self._hash = None
 
-    def __delitem__(self, index):
-        super().__delitem__(index)
+    def __delitem__(self, key) -> None:
+        super().__delitem__(key)
         self._hash = None
 
-    def append(self, value):
-        super().append(value)
-        self._hash = None
+    def append(self, item) -> None:
+        # Ensure we have a hash value.
+        self.hash()
+        super().append(item)
+        self._hash.update(str(hash(item)).encode())
 
-    def extend(self, iterable):
-        super().extend(iterable)
-        self._hash = None
+    def extend(self, items) -> None:
+        # Ensure we have a hash value.
+        self.hash()
+        super().extend(items)
+        for item in items:
+            self._hash.update(str(hash(item)).encode())
 
-    def insert(self, index, value):
-        super().insert(index, value)
+    def insert(self, index: int, item) -> None:
         self._hash = None
+        super().insert(index, item)
 
-    def pop(self, index=-1):
-        super().pop(index)
+    def remove(self, item) -> None:
         self._hash = None
+        index = self.index(item)
+        super().remove(item)
 
-    def remove(self, value):
-        super().remove(value)
+    def pop(self, index=-1) -> any:
         self._hash = None
+        item = super().pop(index)
+        return item
 
-    def reverse(self):
+    def reverse(self) -> None:
+        self._hash = None
         super().reverse()
-        self._hash = None
 
-    def sort(self, key=None, reverse=False):
-        super().sort(key, reverse)
+    def sort(self, key=None, reverse=False) -> None:
         self._hash = None
+        super().sort(key, reverse)
+       
