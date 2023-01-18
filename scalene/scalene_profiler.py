@@ -1761,7 +1761,7 @@ class Scalene:
 
         # Write the rendered content to the specified output file.
         try:
-            with open(output_fname, "w") as f:
+            with open(output_fname, "w", encoding="utf-8") as f:
                 f.write(rendered_content)
         except OSError:
             pass
