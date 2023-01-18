@@ -56,6 +56,7 @@ from typing import (
     cast,
 )
 
+from scalene.hashablelist import HashableList
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_funcutils import ScaleneFuncUtils
@@ -266,6 +267,8 @@ class Scalene:
     __json.gpu = __gpu.has_gpu()
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
+
+    __stacks : Dict[HashableList, int] = defaultdict(int)
 
     @staticmethod
     def get_original_lock() -> threading.Lock:
@@ -910,8 +913,20 @@ class Scalene:
                 Scalene.__windows_queue.put(None)
 
     @staticmethod
+    def flamechart_format() -> None:
+        output = ""
+        for stk in Scalene.__stacks.keys():
+            for item in stk:
+                (fname, lineno) = item
+                output += f"{fname}:{lineno};"
+            output += " " + str(Scalene.__stacks[stk])
+            output += "\n"
+        return output
+                
+    @staticmethod
     def output_profile() -> bool:
         # sourcery skip: inline-immediately-returned-variable
+        print(Scalene.flamechart_format())
         """Output the profile. Returns true iff there was any info reported the profile."""
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
@@ -983,6 +998,23 @@ class Scalene:
         )
         return found_function
 
+    @staticmethod
+    def add_stack(frame: FrameType) -> None:
+        # Experiment in progress: collect stacks
+        stk = HashableList()
+        f = frame
+        while f:
+            if not f.f_back:
+                break
+            f = f.f_back
+            if Scalene.should_trace(f.f_code.co_filename):
+                stk.insert(0, (f.f_code.co_filename, f.f_lineno))
+        Scalene.__stacks[stk] += 1
+
+    @staticmethod
+    def print_stacks() -> None:
+        print(Scalene.__stacks)
+        
     @staticmethod
     def process_cpu_sample(
         _signum: Union[
@@ -1089,6 +1121,8 @@ class Scalene:
 
         main_thread_frame = new_frames[0][0]
 
+        Scalene.add_stack(main_thread_frame)
+        
         average_python_time = python_time / total_frames
         average_c_time = c_time / total_frames
         average_gpu_time = gpu_time / total_frames
@@ -1115,6 +1149,8 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             if frame == main_thread_frame:
                 continue
+            Scalene.add_stack(frame)
+            
             # In a thread.
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
