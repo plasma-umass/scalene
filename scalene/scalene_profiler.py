@@ -1004,11 +1004,9 @@ class Scalene:
         stk = HashableList()
         f = frame
         while f:
-            if not f.f_back:
-                break
-            f = f.f_back
             if Scalene.should_trace(f.f_code.co_filename):
                 stk.insert(0, (f.f_code.co_filename, f.f_lineno))
+            f = f.f_back
         Scalene.__stacks[stk] += 1
 
     @staticmethod
