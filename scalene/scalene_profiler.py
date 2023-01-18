@@ -527,6 +527,7 @@ class Scalene:
         """For Windows, send periodic timer signals; launch as a background thread."""
         Scalene.timer_signals = True
         while Scalene.timer_signals:
+            Scalene.__windows_queue.get()
             time.sleep(Scalene.__args.cpu_sampling_rate)
             Scalene.__orig_raise_signal(Scalene.__signals.cpu_signal)
 
@@ -662,6 +663,7 @@ class Scalene:
             Scalene.timer_signals = True
             t = threading.Thread(target=Scalene.windows_timer_loop)
             t.start()
+            Scalene.__windows_queue.put(None)
             Scalene.start_signal_queues()
             return
         Scalene.start_signal_queues()
@@ -721,7 +723,9 @@ class Scalene:
             Scalene.__memcpy_sigq,
         ]
         Scalene.__invalidate_mutex = Scalene.get_original_lock()
-
+        if sys.platform == "win32":
+            import queue
+            Scalene.__windows_queue = queue.Queue() 
         # Initialize the malloc related files; if for whatever reason
         # the files don't exist and we are supposed to be profiling
         # memory, exit.
@@ -817,89 +821,93 @@ class Scalene:
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle CPU signals."""
-        # Get current time stats.
-        now_sys: float = 0
-        now_user: float = 0
-        if sys.platform != "win32":
-            # On Linux/Mac, use getrusage, which provides higher
-            # resolution values than os.times() for some reason.
-            ru = resource.getrusage(resource.RUSAGE_SELF)
-            now_sys = ru.ru_stime
-            now_user = ru.ru_utime
-        else:
-            time_info = os.times()
-            now_sys = time_info.system
-            now_user = time_info.user
-        now_virtual = time.process_time()
-        now_wallclock = time.perf_counter()
-        if (
-            Scalene.__last_signal_time_virtual == 0
-            or Scalene.__last_signal_time_wallclock == 0
-        ):
-            # Initialization: store values and update on the next pass.
+        try: 
+            # Get current time stats.
+            now_sys: float = 0
+            now_user: float = 0
+            if sys.platform != "win32":
+                # On Linux/Mac, use getrusage, which provides higher
+                # resolution values than os.times() for some reason.
+                ru = resource.getrusage(resource.RUSAGE_SELF)
+                now_sys = ru.ru_stime
+                now_user = ru.ru_utime
+            else:
+                time_info = os.times()
+                now_sys = time_info.system
+                now_user = time_info.user
+            now_virtual = time.process_time()
+            now_wallclock = time.perf_counter()
+            if (
+                Scalene.__last_signal_time_virtual == 0
+                or Scalene.__last_signal_time_wallclock == 0
+            ):
+                # Initialization: store values and update on the next pass.
+                Scalene.__last_signal_time_virtual = now_virtual
+                Scalene.__last_signal_time_wallclock = now_wallclock
+                Scalene.__last_signal_time_sys = now_sys
+                Scalene.__last_signal_time_user = now_user
+                if sys.platform != "win32":
+                    Scalene.__orig_setitimer(
+                        Scalene.__signals.cpu_timer_signal,
+                        Scalene.__args.cpu_sampling_rate,
+                    )
+                return
+
+            (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
+
+            # Process this CPU sample.
+            Scalene.process_cpu_sample(
+                signum,
+                Scalene.compute_frames_to_record(),
+                now_virtual,
+                now_wallclock,
+                now_sys,
+                now_user,
+                gpu_load,
+                gpu_mem_used,
+                Scalene.__last_signal_time_virtual,
+                Scalene.__last_signal_time_wallclock,
+                Scalene.__last_signal_time_sys,
+                Scalene.__last_signal_time_user,
+                Scalene.__is_thread_sleeping,
+            )
+            elapsed = now_wallclock - Scalene.__last_signal_time_wallclock
+            # Store the latest values as the previously recorded values.
             Scalene.__last_signal_time_virtual = now_virtual
             Scalene.__last_signal_time_wallclock = now_wallclock
             Scalene.__last_signal_time_sys = now_sys
             Scalene.__last_signal_time_user = now_user
+            # Restart the timer while handling any timers set by the client.
             if sys.platform != "win32":
-                Scalene.__orig_setitimer(
-                    Scalene.__signals.cpu_timer_signal,
-                    Scalene.__args.cpu_sampling_rate,
-                )
-            return
-
-        (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
-
-        # Process this CPU sample.
-        Scalene.process_cpu_sample(
-            signum,
-            Scalene.compute_frames_to_record(),
-            now_virtual,
-            now_wallclock,
-            now_sys,
-            now_user,
-            gpu_load,
-            gpu_mem_used,
-            Scalene.__last_signal_time_virtual,
-            Scalene.__last_signal_time_wallclock,
-            Scalene.__last_signal_time_sys,
-            Scalene.__last_signal_time_user,
-            Scalene.__is_thread_sleeping,
-        )
-        elapsed = now_wallclock - Scalene.__last_signal_time_wallclock
-        # Store the latest values as the previously recorded values.
-        Scalene.__last_signal_time_virtual = now_virtual
-        Scalene.__last_signal_time_wallclock = now_wallclock
-        Scalene.__last_signal_time_sys = now_sys
-        Scalene.__last_signal_time_user = now_user
-        # Restart the timer while handling any timers set by the client.
-        if sys.platform != "win32":
-            if Scalene.client_timer.is_set:
-                (
-                    should_raise,
-                    remaining_time,
-                ) = Scalene.client_timer.yield_next_delay(elapsed)
-                if should_raise:
-                    Scalene.__orig_raise_signal(signal.SIGUSR1)
-                # NOTE-- 0 will only be returned if the 'seconds' have elapsed
-                # and there is no interval
-                to_wait: float
-                if remaining_time > 0:
-                    to_wait = min(
-                        remaining_time, Scalene.__args.cpu_sampling_rate
+                if Scalene.client_timer.is_set:
+                    (
+                        should_raise,
+                        remaining_time,
+                    ) = Scalene.client_timer.yield_next_delay(elapsed)
+                    if should_raise:
+                        Scalene.__orig_raise_signal(signal.SIGUSR1)
+                    # NOTE-- 0 will only be returned if the 'seconds' have elapsed
+                    # and there is no interval
+                    to_wait: float
+                    if remaining_time > 0:
+                        to_wait = min(
+                            remaining_time, Scalene.__args.cpu_sampling_rate
+                        )
+                    else:
+                        to_wait = Scalene.__args.cpu_sampling_rate
+                        Scalene.client_timer.reset()
+                    Scalene.__orig_setitimer(
+                        Scalene.__signals.cpu_timer_signal,
+                        to_wait,
                     )
                 else:
-                    to_wait = Scalene.__args.cpu_sampling_rate
-                    Scalene.client_timer.reset()
-                Scalene.__orig_setitimer(
-                    Scalene.__signals.cpu_timer_signal,
-                    to_wait,
-                )
-            else:
-                Scalene.__orig_setitimer(
-                    Scalene.__signals.cpu_timer_signal,
-                    Scalene.__args.cpu_sampling_rate,
-                )
+                    Scalene.__orig_setitimer(
+                        Scalene.__signals.cpu_timer_signal,
+                        Scalene.__args.cpu_sampling_rate,
+                    )
+        finally:
+            if sys.platform == 'win32':
+                Scalene.__windows_queue.put(None)
 
     @staticmethod
     def output_profile() -> bool:
@@ -1559,6 +1567,7 @@ class Scalene:
                     libdir = str(pathlib.Path(sysconfig.get_path(p, n)).resolve()).lower()
                     if libdir in resolved_filename:
                         return False
+                    
         # Generic handling follows (when no @profile decorator has been used).
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
         if any(
