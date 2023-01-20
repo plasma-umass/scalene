@@ -10,6 +10,13 @@ import time
 import docutils
 from docutils import core
 import pyperf
+import builtins
+try:
+    builtins.profile
+except AttributeError:
+    # No line profiler, provide a pass-through version
+    def profile(func): return func
+    builtins.profile = profile
 
 try:
     from docutils.utils.math.math2html import Trace
@@ -20,7 +27,7 @@ else:
 
 DOC_ROOT = (Path('/home/sam/scalene/test/expensive_benchmarks/bm_docutils.py').parent / "docutils_data" / "docs").resolve()
 
-
+@profile
 def build_html(doc_root):
     elapsed = 0
     for file in doc_root.rglob("*.txt"):
@@ -39,7 +46,7 @@ def build_html(doc_root):
         # elapsed += pyperf.perf_counter() - t0
     # return elapsed
 
-
+@profile
 def bench_docutils(loops, doc_root):
 
     for _ in range(loops):
