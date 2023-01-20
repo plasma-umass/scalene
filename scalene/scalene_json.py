@@ -2,7 +2,6 @@ import copy
 import os
 import random
 import re
-import statistics
 import sys
 
 from collections import OrderedDict, defaultdict
@@ -105,8 +104,6 @@ class ScaleneJSON:
         force_print: bool = False,
     ) -> Dict[str, Any]:
         """Print at most one line of the profile (true == printed one)."""
-
-        full_fname = os.path.abspath(fname)
 
         if not force_print and not profile_this_code(fname, line_no):
             return {}
@@ -266,7 +263,13 @@ class ScaleneJSON:
         if result:
             program = Filename("[" + result.group(1) + "]")
 
-        
+        # Convert stacks into a representation suitable for JSON dumping.
+        stks = []
+        for stk in stats.stacks.keys():
+            this_stk = []
+            this_stk.extend(stk)
+            stks.append((this_stk, stats.stacks[stk]))
+            
         output: Dict[str, Any] = {
             "program": program,
             "alloc_samples": stats.alloc_samples,
@@ -283,6 +286,7 @@ class ScaleneJSON:
             "gpu": self.gpu,
             "memory": profile_memory,
             "samples": stats.memory_footprint_samples,
+            "stacks" : stks
         }
 
         # Build a list of files we will actually report on.
@@ -390,7 +394,7 @@ class ScaleneJSON:
                 "percent_cpu_time": percent_cpu_time,
                 "lines": [],
                 "leaks": reported_leaks,
-                "imports": imports
+                "imports": imports,
             }
             for lineno, line in enumerate(code_lines, start=1):
                 profile_line = self.output_profile_line(

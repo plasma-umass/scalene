@@ -17,7 +17,7 @@ from typing import (
 
 import cloudpickle
 
-# from scalene.adaptive import Adaptive
+from scalene.hashablelist import HashableList
 from scalene.runningstats import RunningStats
 
 Address = NewType("Address", str)
@@ -40,6 +40,9 @@ class ScaleneStatistics:
         # total allocation samples taken
         self.alloc_samples: int = 0
 
+        #  full stacks taken during CPU samples, together with number of hits
+        self.stacks : Dict[HashableList, int] = defaultdict(int)
+        
         #   CPU samples for each location in the program
         #   spent in the interpreter
         self.cpu_samples_python: Dict[
@@ -183,6 +186,7 @@ class ScaleneStatistics:
         self.start_time = 0
         self.elapsed_time = 0
         self.alloc_samples = 0
+        self.stacks.clear()
         self.cpu_samples_python.clear()
         self.cpu_samples_c.clear()
         self.cpu_utilization.clear()
@@ -310,6 +314,7 @@ class ScaleneStatistics:
         "current_footprint",
         "elapsed_time",
         "alloc_samples",
+        "stacks",
         "total_cpu_samples",
         "cpu_samples_c",
         "cpu_samples_python",
@@ -392,6 +397,7 @@ class ScaleneStatistics:
                 )
                 self.elapsed_time = max(self.elapsed_time, x.elapsed_time)
                 self.alloc_samples += x.alloc_samples
+                self.stacks.extend(x.stacks)
                 self.total_cpu_samples += x.total_cpu_samples
                 self.total_gpu_samples += x.total_gpu_samples
                 self.increment_per_line_samples(

@@ -56,6 +56,7 @@ from typing import (
     cast,
 )
 
+from scalene.hashablelist import HashableList
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_funcutils import ScaleneFuncUtils
@@ -267,6 +268,8 @@ class Scalene:
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
 
+    # __stacks : Dict[HashableList, int] = defaultdict(int)
+
     @staticmethod
     def get_original_lock() -> threading.Lock:
         """Return the true lock, which we shim in replacement_lock.py."""
@@ -413,7 +416,7 @@ class Scalene:
             # If we are not in a file we should be tracing, return.
             # if not Scalene.should_trace(ff):
             #     return None
-            if f := Scalene.on_stack(frame, fname, lineno):
+            if Scalene.on_stack(frame, fname, lineno):
                 # We are still on the same line, but somewhere up the stack
                 # (since we returned when it was the same line in this
                 # frame). Stop tracing in this frame.
@@ -697,19 +700,11 @@ class Scalene:
         arguments: argparse.Namespace,
         program_being_profiled: Optional[Filename] = None,
     ) -> None:
-        import scalene.replacement_exit
-        import scalene.replacement_get_context
 
         # Hijack lock, poll, thread_join, fork, and exit.
-        import scalene.replacement_lock
-        import scalene.replacement_mp_lock
-        import scalene.replacement_pjoin
-        import scalene.replacement_signal_fns
-        import scalene.replacement_thread_join
 
         if sys.platform != "win32":
-            import scalene.replacement_fork
-            import scalene.replacement_poll_selector
+            pass
 
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.__alloc_sigq = ScaleneSigQueue(
@@ -910,8 +905,21 @@ class Scalene:
                 Scalene.__windows_queue.put(None)
 
     @staticmethod
+    def flamechart_format() -> None:
+        """Converts stacks to a string suitable for input to Brendan Gregg's flamegraph.pl script."""
+        output = ""
+        for stk in Scalene.__stats.stacks.keys():
+            for item in stk:
+                (fname, lineno) = item
+                output += f"{fname}:{lineno};"
+            output += " " + str(Scalene.__stats.stacks[stk])
+            output += "\n"
+        return output
+                
+    @staticmethod
     def output_profile() -> bool:
         # sourcery skip: inline-immediately-returned-variable
+        # print(Scalene.flamechart_format())
         """Output the profile. Returns true iff there was any info reported the profile."""
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
@@ -983,6 +991,21 @@ class Scalene:
         )
         return found_function
 
+    @staticmethod
+    def add_stack(frame: FrameType) -> None:
+        """Add one to the stack starting from this frame."""
+        stk = HashableList()
+        f = frame
+        while f:
+            if Scalene.should_trace(f.f_code.co_filename):
+                stk.insert(0, (f.f_code.co_filename, f.f_lineno))
+            f = f.f_back
+        Scalene.__stats.stacks[stk] += 1
+
+    @staticmethod
+    def print_stacks() -> None:
+        print(Scalene.__stats.stacks)
+        
     @staticmethod
     def process_cpu_sample(
         _signum: Union[
@@ -1089,6 +1112,8 @@ class Scalene:
 
         main_thread_frame = new_frames[0][0]
 
+        Scalene.add_stack(main_thread_frame)
+        
         average_python_time = python_time / total_frames
         average_c_time = c_time / total_frames
         average_gpu_time = gpu_time / total_frames
@@ -1115,6 +1140,8 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             if frame == main_thread_frame:
                 continue
+            Scalene.add_stack(frame)
+            
             # In a thread.
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
@@ -1597,7 +1624,7 @@ class Scalene:
         # If (a) `profile-only` was used, and (b) the file matched
         # NONE of the provided patterns, don't profile it.
         profile_only_set = set(Scalene.__args.profile_only.split(","))
-        if not_found_in_profile_only := profile_only_set and all(
+        if profile_only_set and all(
             prof not in filename for prof in profile_only_set
         ):
             return False
