@@ -416,7 +416,7 @@ class Scalene:
             # If we are not in a file we should be tracing, return.
             # if not Scalene.should_trace(ff):
             #     return None
-            if f := Scalene.on_stack(frame, fname, lineno):
+            if Scalene.on_stack(frame, fname, lineno):
                 # We are still on the same line, but somewhere up the stack
                 # (since we returned when it was the same line in this
                 # frame). Stop tracing in this frame.
@@ -700,19 +700,11 @@ class Scalene:
         arguments: argparse.Namespace,
         program_being_profiled: Optional[Filename] = None,
     ) -> None:
-        import scalene.replacement_exit
-        import scalene.replacement_get_context
 
         # Hijack lock, poll, thread_join, fork, and exit.
-        import scalene.replacement_lock
-        import scalene.replacement_mp_lock
-        import scalene.replacement_pjoin
-        import scalene.replacement_signal_fns
-        import scalene.replacement_thread_join
 
         if sys.platform != "win32":
-            import scalene.replacement_fork
-            import scalene.replacement_poll_selector
+            pass
 
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.__alloc_sigq = ScaleneSigQueue(
@@ -1631,7 +1623,7 @@ class Scalene:
         # If (a) `profile-only` was used, and (b) the file matched
         # NONE of the provided patterns, don't profile it.
         profile_only_set = set(Scalene.__args.profile_only.split(","))
-        if not_found_in_profile_only := profile_only_set and all(
+        if profile_only_set and all(
             prof not in filename for prof in profile_only_set
         ):
             return False

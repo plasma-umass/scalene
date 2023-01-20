@@ -2,7 +2,6 @@ import copy
 import os
 import random
 import re
-import statistics
 import sys
 
 from collections import OrderedDict, defaultdict
@@ -105,8 +104,6 @@ class ScaleneJSON:
         force_print: bool = False,
     ) -> Dict[str, Any]:
         """Print at most one line of the profile (true == printed one)."""
-
-        full_fname = os.path.abspath(fname)
 
         if not force_print and not profile_this_code(fname, line_no):
             return {}

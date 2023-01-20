@@ -53,7 +53,6 @@ class HashableList(list):
 
     def remove(self, item: Any) -> None:
         self._hash = None
-        index = self.index(item)
         super().remove(item)
 
     def pop(self, index: int = -1) -> Any:

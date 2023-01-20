@@ -1,6 +1,5 @@
 import argparse
 import contextlib
-import platform
 import sys
 from textwrap import dedent
 from typing import Any, List, NoReturn, Optional, Tuple
