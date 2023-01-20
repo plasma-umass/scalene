@@ -15,6 +15,16 @@ class HashableList(list):
         super().__init__(*args)
         self._hash = None
 
+    def __eq__(self, other) -> bool:
+        if self.__hash__() != other.__hash__():
+            return False
+        if len(self) != len(other):
+            return False
+        for (index, value) in enumerate(self):
+            if value != other[index]:
+                return False
+        return True
+        
     def __hash__(self) -> int:
         if not self._hash:
             self._hash = self._calculate_hash()
