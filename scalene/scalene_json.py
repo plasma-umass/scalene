@@ -1,9 +1,7 @@
 import copy
-import linecache
 import os
 import random
 import re
-import statistics
 import sys
 
 from collections import OrderedDict, defaultdict
@@ -13,6 +11,7 @@ from typing import Any, Callable, Dict, List
 
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
+from scalene.scalene_analysis import ScaleneAnalysis
 
 if sys.platform != "win32":
     from scalene.crdp import rdp
@@ -69,45 +68,26 @@ class ScaleneJSON:
         self.gpu = False
 
     def compress_samples(
-        self, uncompressed_samples: List[Any], max_footprint: float
+        self, samples: List[Any], max_footprint: float
     ) -> List[Any]:
-        samples = uncompressed_samples
-        # Commented out old compression which is now obsolete.
-        # Will remove.
-        #
-        # granularity = max_footprint / self.memory_granularity_fraction
-
-        # last_mem = 0
-        # for (t, mem) in uncompressed_samples:
-        #     if abs(mem - last_mem) >= granularity:
-        #         # We're above the granularity.
-        #         # Force all memory amounts to be positive.
-        #         mem = max(0, mem)
-        #         # Add a tiny bit of random noise to force different values (for the GUI).
-        #         mem += abs(random.gauss(0.01, 0.01))
-        #         # Now we append it and set the last amount to be the
-        #         # current footprint.
-        #         samples.append([t, mem])
-        #         last_mem = mem
-
-        if len(samples) > self.max_sparkline_samples:
-            # Try to reduce the number of samples with the
-            # Ramer-Douglas-Peucker algorithm, which attempts to
-            # preserve the shape of the graph. If that fails to bring
-            # the number of samples below our maximum, randomly
-            # downsample (epsilon calculation from
-            # https://stackoverflow.com/questions/57052434/can-i-guess-the-appropriate-epsilon-for-rdp-ramer-douglas-peucker)
-            epsilon = (len(samples) / (3 * self.max_sparkline_samples)) * 2
-            # print("BEFORE len = ", len(samples))
-            new_samples = rdp(samples, epsilon=epsilon)
-            # print("AFTER len = ", len(new_samples))
-            if len(new_samples) > self.max_sparkline_samples:
-                # We still didn't get enough compression; randomly downsample.
-                new_samples = sorted(
-                    random.sample(new_samples, self.max_sparkline_samples)
-                )
-            samples = new_samples
-
+        if len(samples) <= self.max_sparkline_samples:
+            return samples
+        # Try to reduce the number of samples with the
+        # Ramer-Douglas-Peucker algorithm, which attempts to
+        # preserve the shape of the graph. If that fails to bring
+        # the number of samples below our maximum, randomly
+        # downsample (epsilon calculation from
+        # https://stackoverflow.com/questions/57052434/can-i-guess-the-appropriate-epsilon-for-rdp-ramer-douglas-peucker)
+        epsilon = (len(samples) / (3 * self.max_sparkline_samples)) * 2
+        # print("BEFORE len = ", len(samples))
+        new_samples = rdp(samples, epsilon=epsilon)
+        # print("AFTER len = ", len(new_samples))
+        if len(new_samples) > self.max_sparkline_samples:
+            # We still didn't get enough compression; randomly downsample.
+            new_samples = sorted(
+                random.sample(new_samples, self.max_sparkline_samples)
+            )
+        samples = new_samples
         return samples
 
     # Profile output methods
@@ -117,14 +97,13 @@ class ScaleneJSON:
         fname: Filename,
         fname_print: Filename,
         line_no: LineNumber,
+        line: str,
         stats: ScaleneStatistics,
         profile_this_code: Callable[[Filename, LineNumber], bool],
         profile_memory: bool = False,
         force_print: bool = False,
     ) -> Dict[str, Any]:
         """Print at most one line of the profile (true == printed one)."""
-
-        full_fname = os.path.abspath(fname)
 
         if not force_print and not profile_this_code(fname, line_no):
             return {}
@@ -210,7 +189,7 @@ class ScaleneJSON:
 
         return {
             "lineno": line_no,
-            "line": linecache.getline(full_fname, line_no),
+            "line": line,
             "n_cpu_percent_c": n_cpu_percent_c,
             "n_cpu_percent_python": n_cpu_percent_python,
             "n_sys_percent": n_sys_percent,
@@ -237,6 +216,7 @@ class ScaleneJSON:
         python_alias_dir: Path,
         program_path: Path,
         profile_memory: bool = True,
+        reduced_profile: bool = False,
     ) -> Dict[str, Any]:
         """Write the profile out."""
         # Get the children's stats, if any.
@@ -278,6 +258,18 @@ class ScaleneJSON:
         else:
             stats.memory_footprint_samples = []
 
+        # Adjust the program name if it was a Jupyter cell.
+        result = re.match(r"ipython-input-([0-9]+)-.*", program)
+        if result:
+            program = Filename("[" + result.group(1) + "]")
+
+        # Convert stacks into a representation suitable for JSON dumping.
+        stks = []
+        for stk in stats.stacks.keys():
+            this_stk = []
+            this_stk.extend(stk)
+            stks.append((this_stk, stats.stacks[stk]))
+            
         output: Dict[str, Any] = {
             "program": program,
             "alloc_samples": stats.alloc_samples,
@@ -294,6 +286,7 @@ class ScaleneJSON:
             "gpu": self.gpu,
             "memory": profile_memory,
             "samples": stats.memory_footprint_samples,
+            "stacks" : stks
         }
 
         # Build a list of files we will actually report on.
@@ -385,35 +378,48 @@ class ScaleneJSON:
             # Print out the the profile for the source, line by line.
             full_fname = os.path.normpath(os.path.join(program_path, fname))
             try:
-                with open(full_fname, "r", encoding="utf-8") as source_file:
+                with open(full_fname, "r") as source_file:
                     code_lines = source_file.readlines()
             except (FileNotFoundError, OSError):
                 continue
+
+            # Find all enclosing regions (loops or function defs) for each line of code.
+
+            code_str = ''.join(code_lines)
+            
+            enclosing_regions = ScaleneAnalysis.find_regions(code_str)
+            imports = ScaleneAnalysis.get_native_imported_modules(code_str)
 
             output["files"][fname_print] = {
                 "percent_cpu_time": percent_cpu_time,
                 "lines": [],
                 "leaks": reported_leaks,
+                "imports": imports,
             }
             for lineno, line in enumerate(code_lines, start=1):
                 profile_line = self.output_profile_line(
                     fname=fname,
                     fname_print=fname_print,
                     line_no=LineNumber(lineno),
+                    line=line,
                     stats=stats,
                     profile_this_code=profile_this_code,
                     profile_memory=profile_memory,
                     force_print=False,
                 )
-                # Only output if the payload for the line is non-zero.
                 if profile_line:
-                    profile_line_copy = copy.copy(profile_line)
-                    del profile_line_copy["line"]
-                    del profile_line_copy["lineno"]
-                    if any(profile_line_copy.values()):
-                        output["files"][fname_print]["lines"].append(
-                            profile_line
-                        )
+                    profile_line["start_region_line"] = enclosing_regions[lineno][0]
+                    profile_line["end_region_line"] = enclosing_regions[lineno][1]
+                    # When reduced-profile set, only output if the payload for the line is non-zero.
+                    if reduced_profile:
+                        profile_line_copy = copy.copy(profile_line)
+                        del profile_line_copy["line"]
+                        del profile_line_copy["lineno"]
+                        if not any(profile_line_copy.values()):
+                            continue
+                    output["files"][fname_print]["lines"].append(
+                        profile_line
+                    )
 
             fn_stats = stats.build_function_stats(fname)
             # Check CPU samples and memory samples.
@@ -439,14 +445,13 @@ class ScaleneJSON:
                         # accumulated; see
                         # ScaleneStatistics.build_function_stats
                         line_no=LineNumber(1),
+                        line=fn_name, # Set the source line to just the function name.
                         stats=fn_stats,
                         profile_this_code=profile_this_code,
                         profile_memory=profile_memory,
                         force_print=True,
                     )
                     if profile_line:
-                        # Change the source code to just the function name.
-                        profile_line["line"] = fn_name
                         # Fix the line number to point to the first line of the function.
                         profile_line["lineno"] = stats.firstline_map[fn_name]
                         output["files"][fname_print]["functions"].append(

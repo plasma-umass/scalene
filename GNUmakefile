@@ -6,8 +6,8 @@ C_SOURCES = src/source/*.cpp src/include/*.h*
 
 .PHONY: black clang-format prettier format upload vendor-deps
 
-# CXXFLAGS = -std=c++17 -g -O0 # FIXME
-CXXFLAGS = -std=c++17 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -DHL_USE_XXREALLOC=1 -pipe -fno-builtin-malloc -fvisibility=hidden
+# CXXFLAGS = -std=c++14 -g -O0 # FIXME
+CXXFLAGS = -std=c++14 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -DHL_USE_XXREALLOC=1 -pipe -fno-builtin-malloc -fvisibility=hidden
 # CXX = g++
 
 INCLUDES  = -Isrc -Isrc/include
@@ -23,7 +23,7 @@ ifeq ($(shell uname -s),Darwin)
   else
     ARCH := -arch x86_64
   endif
-  CXXFLAGS := -std=c++17 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -DHL_USE_XXREALLOC=1 -pipe -fno-builtin-malloc -fvisibility=hidden -flto -ftls-model=initial-exec -ftemplate-depth=1024 $(ARCH) -compatibility_version 1 -current_version 1 -dynamiclib
+  CXXFLAGS := -std=c++14 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -DHL_USE_XXREALLOC=1 -pipe -fno-builtin-malloc -fvisibility=hidden -flto -ftls-model=initial-exec -ftemplate-depth=1024 $(ARCH) -compatibility_version 1 -current_version 1 -dynamiclib
   SED_INPLACE = -i ''
 
 else # non-Darwin
@@ -59,7 +59,8 @@ vendor/Heap-Layers:
 vendor/printf/printf.cpp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
-	sed $(SED_INPLACE) -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h
+	sed -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h > /tmp/printf.h.$$ && mv /tmp/printf.h.$$ vendor/printf/printf.h
+	#	sed $(SED_INPLACE) -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h
 
 clear-vendor-dirs:
 	rm -fr vendor/

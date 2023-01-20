@@ -1,6 +1,5 @@
 import argparse
 import contextlib
-import platform
 import sys
 from textwrap import dedent
 from typing import Any, List, NoReturn, Optional, Tuple
@@ -65,6 +64,7 @@ in Jupyter, cell mode:
 [/b]
 """
         )
+        # NOTE: below is only displayed on non-Windows platforms.
         epilog = dedent(
             """When running Scalene in the background, you can suspend/resume profiling
 for the process ID that Scalene reports. For example:
@@ -79,7 +79,7 @@ for the process ID that Scalene reports. For example:
         parser = RichArgParser(  # argparse.ArgumentParser(
             prog="scalene",
             description=usage,
-            epilog=epilog,
+            epilog=epilog if sys.platform != "win32" else "",
             formatter_class=argparse.RawTextHelpFormatter,
             allow_abbrev=False,
         )
@@ -293,19 +293,21 @@ for the process ID that Scalene reports. For example:
             + "[/blue])",
         )
 
-        group = parser.add_mutually_exclusive_group(required=False)
-        group.add_argument(
-            "--on",
-            action="store_true",
-            help="start with profiling on (default)",
-        )
-        group.add_argument(
-            "--off", action="store_true", help="start with profiling off"
-        )
-        # the PID of the profiling process (for internal use only)
-        parser.add_argument(
-            "--pid", type=int, default=0, help=argparse.SUPPRESS
-        )
+        if sys.platform != "win32":
+            # Turning profiling on and off from another process is currently not supported on Windows.
+            group = parser.add_mutually_exclusive_group(required=False)
+            group.add_argument(
+                "--on",
+                action="store_true",
+                help="start with profiling on (default)",
+            )
+            group.add_argument(
+                "--off", action="store_true", help="start with profiling off"
+            )
+            # the PID of the profiling process (for internal use only)
+            parser.add_argument(
+                "--pid", type=int, default=0, help=argparse.SUPPRESS
+            )
         # collect all arguments after "---", which Scalene will ignore
         parser.add_argument(
             "---",
@@ -317,6 +319,10 @@ for the process ID that Scalene reports. For example:
         # Parse out all Scalene arguments.
         # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
         args, left = parser.parse_known_args()
+        # Hack to simplify functionality for Windows platforms.
+        if sys.platform == "win32":
+            args.on = True
+            args.pid = 0
         left += args.unused_args
         import re
 

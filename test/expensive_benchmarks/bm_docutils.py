@@ -25,7 +25,7 @@ except ImportError:
 else:
     Trace.show = lambda message, channel: ...  # don't print to console
 
-DOC_ROOT = (Path('/home/sam/scalene/test/expensive_benchmarks/bm_docutils.py').parent / "docutils_data" / "docs").resolve()
+DOC_ROOT = (Path(__file__).parent / "docutils_data" / "docs").resolve()
 
 @profile
 def build_html(doc_root):

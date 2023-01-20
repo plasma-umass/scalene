@@ -10,7 +10,8 @@ def replacement_signal_fns(scalene: Scalene) -> None:
 
     old_signal = signal.signal
     if sys.version_info < (3, 8):
-        old_raise_signal = lambda s: os.kill(os.getpid(), s)
+        def old_raise_signal(s):
+            return os.kill(os.getpid(), s)
     else:
         old_raise_signal = signal.raise_signal
 
@@ -75,9 +76,6 @@ def replacement_signal_fns(scalene: Scalene) -> None:
 
         def replacement_setitimer(which, seconds, interval=0.0):  # type: ignore
             timer_signal, cpu_signal = scalene.get_timer_signals()
-            timer_signal_str = (
-                "SIGALRM" if timer_signal == signal.SIGALRM else "SIGVTALRM"
-            )
             if which == timer_signal:
                 old = scalene.client_timer.get_itimer()
                 if seconds == 0:

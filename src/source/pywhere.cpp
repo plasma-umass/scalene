@@ -7,7 +7,9 @@
 #include <mutex>
 #include <vector>
 #include <unordered_map>
+
 #include <unistd.h>
+
 
 // NOTE: uncomment for debugging, but this causes issues
 // for production builds on Alpine
@@ -39,17 +41,27 @@ class TraceConfig {
     if ( res != _memoize.end()) {
       return res->second;
     }
-    if (strstr(filename, "site-packages") || strstr(filename, "/lib/python")) {
-      _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
-      return false;
-    }
+    // Return false if filename contains paths corresponding to the native Python libraries.
+    // This is to avoid profiling the Python interpreter itself.
+    // Also exclude site-packages and any IPython files.
 
-    if (*filename == '<' && strstr(filename, "<ipython")) {
-      _memoize.insert(std::pair<std::string, bool>(std::string(filename), true));
-      return true;
-    }
+#if defined(_WIN32)
+    // If on Windows, use \\ as the path separator.
+    const auto PATH_SEP = "\\";
+#else
+    // Assume all others are POSIX.
+    const auto PATH_SEP = "/";
+#endif
 
-    if (strstr(filename, "scalene/scalene")) {
+    auto python_lib = std::string("lib") + std::string(PATH_SEP) + std::string("python");
+    auto scalene_lib = std::string("scalene") + std::string(PATH_SEP) + std::string("scalene");
+    auto anaconda_lib = std::string("anaconda3") + std::string(PATH_SEP) + std::string("lib");
+
+    if (strstr(filename, python_lib.c_str()) != nullptr ||
+        strstr(filename, scalene_lib.c_str()) != nullptr ||
+        strstr(filename, anaconda_lib.c_str()) != nullptr ||
+        strstr(filename, "site-packages") != nullptr ||
+        (*filename == '<' && strstr(filename, "<ipython") != nullptr)) {
       _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
       return false;
     }
