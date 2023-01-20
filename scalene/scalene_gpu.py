@@ -23,8 +23,8 @@ class ScaleneGPU:
                 handle = pynvml.nvmlDeviceGetHandleByIndex(i)
                 self.__handle.append(handle)
             self.__has_per_pid_accounting = self._set_accounting_mode()
-            total_load = self.gpu_utilization(self.__pid)
-            mem_used = self.gpu_memory_usage(self.__pid)
+            self.gpu_utilization(self.__pid)
+            self.gpu_memory_usage(self.__pid)
             # If we make it this far, everything is working, so we can profile GPU usage.
             # Handle the case when GPUs are disabled. See https://github.com/plasma-umass/scalene/issues/536.
             self.__has_gpu = self.__ngpus > 0

@@ -111,10 +111,16 @@ async function optimizeCode(imports, code, context) {
     if (code.split("\n").length <= 2) {
 	lineOf = " line of ";
     }
+
+    let libraries = 'import sklearn';
+    if (useGPUs) {
+	// Suggest cupy if we are using the GPU.
+	libraries += '\nimport cupy';
+    }
     
     // Construct the prompt.
 
-    const prompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
+    const prompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it faster than pure Python. Consider using the following libraries:\n\n${libraries}\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
 
     // const prompt = `Below is some Python code to optimize, from "Start of code" to "End of code":\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code to make it more efficient without changing the results. Assume the code has already executed these imports. Do NOT include them in the optimized code:\n\n${imports}\n\nUse fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Check carefully by generating inputs to see that the output is identical for both the original and optimized versions. Correctly-optimized code:`;
 
@@ -908,7 +914,7 @@ function makeProfileLine(
   const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
   s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
   if (propose_optimizations && showExplosion) {
-    s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimizationRegion('${filename}', ${file_number}, ${parseInt(
+    s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for the entire region starting here." onclick="proposeOptimizationRegion('${filename}', ${file_number}, ${parseInt(
       line.lineno
     )}); event.preventDefault()">${regionOptimizationString}</span>`;
   } else {
@@ -919,7 +925,7 @@ function makeProfileLine(
     ? `${Lightning}`
     : `${WhiteLightning}`;
   if (propose_optimizations) {
-    s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimizationLine('${filename}', ${file_number}, ${parseInt(
+    s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${filename}', ${file_number}, ${parseInt(
       line.lineno
     )}); event.preventDefault()">${lineOptimizationString}</span>`;
   } else {
