@@ -134,6 +134,14 @@ for the process ID that Scalene reports. For example:
             help="forces use of the command-line",
         )
         parser.add_argument(
+            "--stacks",
+            dest="stacks",
+            action="store_const",
+            const=True,
+            default=defaults.stacks,
+            help="collect stack traces",
+        )
+        parser.add_argument(
             "--web",
             dest="web",
             action="store_const",

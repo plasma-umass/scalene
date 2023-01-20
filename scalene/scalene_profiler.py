@@ -268,8 +268,6 @@ class Scalene:
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
 
-    # __stacks : Dict[HashableList, int] = defaultdict(int)
-
     @staticmethod
     def get_original_lock() -> threading.Lock:
         """Return the true lock, which we shim in replacement_lock.py."""
@@ -1112,7 +1110,8 @@ class Scalene:
 
         main_thread_frame = new_frames[0][0]
 
-        Scalene.add_stack(main_thread_frame)
+        if Scalene.__args.stacks:
+            Scalene.add_stack(main_thread_frame)
         
         average_python_time = python_time / total_frames
         average_c_time = c_time / total_frames
