@@ -268,7 +268,7 @@ class Scalene:
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
 
-    __stacks : Dict[HashableList, int] = defaultdict(int)
+    # __stacks : Dict[HashableList, int] = defaultdict(int)
 
     @staticmethod
     def get_original_lock() -> threading.Lock:
@@ -906,19 +906,20 @@ class Scalene:
 
     @staticmethod
     def flamechart_format() -> None:
+        """Converts stacks to a string suitable for input to Brendan Gregg's flamegraph.pl script."""
         output = ""
-        for stk in Scalene.__stacks.keys():
+        for stk in Scalene.__stats.stacks.keys():
             for item in stk:
                 (fname, lineno) = item
                 output += f"{fname}:{lineno};"
-            output += " " + str(Scalene.__stacks[stk])
+            output += " " + str(Scalene.__stats.stacks[stk])
             output += "\n"
         return output
                 
     @staticmethod
     def output_profile() -> bool:
         # sourcery skip: inline-immediately-returned-variable
-        print(Scalene.flamechart_format())
+        # print(Scalene.flamechart_format())
         """Output the profile. Returns true iff there was any info reported the profile."""
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
@@ -992,18 +993,18 @@ class Scalene:
 
     @staticmethod
     def add_stack(frame: FrameType) -> None:
-        # Experiment in progress: collect stacks
+        """Add one to the stack starting from this frame."""
         stk = HashableList()
         f = frame
         while f:
             if Scalene.should_trace(f.f_code.co_filename):
                 stk.insert(0, (f.f_code.co_filename, f.f_lineno))
             f = f.f_back
-        Scalene.__stacks[stk] += 1
+        Scalene.__stats.stacks[stk] += 1
 
     @staticmethod
     def print_stacks() -> None:
-        print(Scalene.__stacks)
+        print(Scalene.__stats.stacks)
         
     @staticmethod
     def process_cpu_sample(

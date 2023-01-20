@@ -263,7 +263,15 @@ class ScaleneJSON:
         if result:
             program = Filename("[" + result.group(1) + "]")
 
-        
+        # Convert stacks into a representation suitable for JSON dumping.
+        stks = []
+        for stk in stats.stacks.keys():
+            this_stk = []
+            for item in stk:
+                (stk_fname, stk_lineno) = item
+                this_stk.append(item)
+            stks.append((this_stk, stats.stacks[stk]))
+            
         output: Dict[str, Any] = {
             "program": program,
             "alloc_samples": stats.alloc_samples,
@@ -280,6 +288,7 @@ class ScaleneJSON:
             "gpu": self.gpu,
             "memory": profile_memory,
             "samples": stats.memory_footprint_samples,
+            "stacks" : stks
         }
 
         # Build a list of files we will actually report on.
@@ -387,7 +396,7 @@ class ScaleneJSON:
                 "percent_cpu_time": percent_cpu_time,
                 "lines": [],
                 "leaks": reported_leaks,
-                "imports": imports
+                "imports": imports,
             }
             for lineno, line in enumerate(code_lines, start=1):
                 profile_line = self.output_profile_line(
