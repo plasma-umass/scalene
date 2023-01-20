@@ -267,9 +267,7 @@ class ScaleneJSON:
         stks = []
         for stk in stats.stacks.keys():
             this_stk = []
-            for item in stk:
-                (stk_fname, stk_lineno) = item
-                this_stk.append(item)
+            this_stk.extend(stk)
             stks.append((this_stk, stats.stacks[stk]))
             
         output: Dict[str, Any] = {
