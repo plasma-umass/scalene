@@ -2637,7 +2637,7 @@ Prism.languages.py = Prism.languages.python;
       window.addEventListener("load", () => load(profile));
       //load(profile);
     </script>
-      <nav class="navbar fixed-bottom navbar-default justify-content-center bg-light">
+      <nav class="navbar fixed-bottom navbar-default justify-content-center bg-light bg-opacity-75" style="backdrop-filter: blur(2px);">
 	<div class="container justify-content-center">
 	  <p class="text-center">
 	    <font style="font-size:small">
