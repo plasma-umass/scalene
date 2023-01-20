@@ -908,7 +908,7 @@ function makeProfileLine(
   const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
   s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
   if (propose_optimizations && showExplosion) {
-    s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimizationRegion('${filename}', ${file_number}, ${parseInt(
+    s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for the entire region starting here." onclick="proposeOptimizationRegion('${filename}', ${file_number}, ${parseInt(
       line.lineno
     )}); event.preventDefault()">${regionOptimizationString}</span>`;
   } else {
@@ -919,7 +919,7 @@ function makeProfileLine(
     ? `${Lightning}`
     : `${WhiteLightning}`;
   if (propose_optimizations) {
-    s += `<span style="vertical-align: middle; cursor: pointer" onclick="proposeOptimizationLine('${filename}', ${file_number}, ${parseInt(
+    s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${filename}', ${file_number}, ${parseInt(
       line.lineno
     )}); event.preventDefault()">${lineOptimizationString}</span>`;
   } else {
