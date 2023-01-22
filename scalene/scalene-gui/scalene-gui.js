@@ -26,7 +26,7 @@ async function isValidApiKey(apiKey) {
 function checkApiKey(apiKey) {
     (async () => {
 	try {	
-	    window.localStorage.setItem("api-key", apiKey);
+	    window.localStorage.setItem("scalene-api-key", apiKey);
 	} catch {
 	}
     // If the API key is empty, clear the status indicator.
@@ -94,9 +94,7 @@ function countSpaces(str) {
 
 async function optimizeCode(imports, code, context) {
     // Tailor prompt to request GPU optimizations or not.
-    // For now, if the profile didn't indicate the presence of a GPU,
-    // we don't request GPU-specific optimizations.
-    const useGPUs = globalThis.profile.gpu;
+    const useGPUs = document.getElementById('use-gpu').checked; // globalThis.profile.gpu;
     const useGPUstring = useGPUs ? " or the GPU " : " ";
     // Check for a valid API key.
   const apiKey = document.getElementById("api-key").value;
@@ -997,14 +995,27 @@ async function display(prof) {
   showedExplosion = {};
     // Restore the API key from local storage (if any).
     let old_key = '';
-    try {
-	old_key = window.localStorage.getItem("api-key");
-    } catch {}
+    old_key = window.localStorage.getItem("scalene-api-key");
+    
   if (old_key) {
     document.getElementById("api-key").value = old_key;
     // Update the status.
     checkApiKey(old_key);
   }
+
+    // Restore the old GPU toggle from local storage (if any).
+    const gpu_checkbox = document.getElementById('use-gpu-checkbox')
+    old_gpu_checkbox = window.localStorage.getItem("scalene-gpu-checkbox");
+    if (old_gpu_checkbox) {
+	if (gpu_checkbox.checked.toString() != old_gpu_checkbox) {
+	    gpu_checkbox.click();
+	}
+    } else {
+	// Set the GPU checkbox on if the profile indicated the presence of a GPU.
+	if (gpu_checkbox.checked != prof.gpu) {
+	    gpu_checkbox.click();
+	}
+    }
   globalThis.profile = prof;
   let memory_sparklines = [];
   let memory_activity = [];
