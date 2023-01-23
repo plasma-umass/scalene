@@ -2613,18 +2613,18 @@ Prism.languages.py = Prism.languages.python;
 	  <br />
 	  <div>
 	    <input type="radio" name="optimize-radio" id="optimize-performance" value="performance" checked>
-	    <label style="font-size: 0.8rem" for="performance">
+	    <label style="font-size: 0.8rem" for="optimize-performance">
 	      Optimize runtime performance
 	    </label>
 	  </div>
 	  <div>
 	    <input type="radio" name="optimize-radio" id="optimize-memory" value="memory">
-	    <label style="font-size: 0.8rem" for="memory">
+	    <label style="font-size: 0.8rem" for="optimize-memory">
 	      Optimize memory efficiency
 	    </label>
 	  </div>
 	  <input type="checkbox" id="use-gpu-checkbox" name="use-gpu-checkbox-label" onclick="try { window.localStorage.setItem('scalene-gpu-checkbox', document.getElementById('use-gpu-checkbox').checked); } catch {}">
-	  <label style="font-size: 0.8rem" for="use-gpu-checkbox-label">
+	  <label style="font-size: 0.8rem" for="use-gpu-checkbox">
 	    Include GPU optimizations
 	  </label>
 	  <br />
