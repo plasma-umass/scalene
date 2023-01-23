@@ -2611,6 +2611,18 @@ Prism.languages.py = Prism.languages.python;
 	  <input type="text" style="font-size: 0.8rem" size="22" placeholder="(OpenAI API key)" id="api-key" oninput="checkApiKey(event.target.value)"></input>
 	  <span id='valid-api-key'></span>
 	  <br />
+	  <div>
+	    <input type="radio" name="optimize-radio" id="optimize-performance" value="performance" checked>
+	    <label style="font-size: 0.8rem" for="performance">
+	      Optimize runtime performance
+	    </label>
+	  </div>
+	  <div>
+	    <input type="radio" name="optimize-radio" id="optimize-memory" value="memory">
+	    <label style="font-size: 0.8rem" for="memory">
+	      Optimize memory efficiency
+	    </label>
+	  </div>
 	  <input type="checkbox" id="use-gpu-checkbox" name="use-gpu-checkbox-label" onclick="try { window.localStorage.setItem('scalene-gpu-checkbox', document.getElementById('use-gpu-checkbox').checked); } catch {}">
 	  <label style="font-size: 0.8rem" for="use-gpu-checkbox-label">
 	    Include GPU optimizations
