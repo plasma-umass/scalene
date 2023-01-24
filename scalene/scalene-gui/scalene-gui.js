@@ -1136,7 +1136,7 @@ async function display(prof) {
   for (const ff of files) {
     const id = `file-${fileIteration}`;
     allIds.push(id);
-    s += '<p class="text-left sticky-top bg-white">';
+      s += '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px);">';
     s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue" onClick="toggleDisplay('${id}')">`;
     s += `${DownTriangle}`;
     s += "</span>";
