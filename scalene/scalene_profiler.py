@@ -700,7 +700,14 @@ class Scalene:
     ) -> None:
 
         # Hijack lock, poll, thread_join, fork, and exit.
-
+        import scalene.replacement_exit
+        import scalene.replacement_get_context
+        import scalene.replacement_lock
+        import scalene.replacement_mp_lock
+        import scalene.replacement_pjoin
+        import scalene.replacement_signal_fns
+        import scalene.replacement_thread_join
+        
         if sys.platform != "win32":
             pass
 
