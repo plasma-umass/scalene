@@ -474,11 +474,7 @@ class Scalene:
         Scalene.__files_to_profile.add(func.__code__.co_filename)
         Scalene.__functions_to_profile[func.__code__.co_filename].add(func)
 
-        @functools.wraps(func)
-        def wrapper_profile(*args: Any, **kwargs: Any) -> Any:
-            return func(*args, **kwargs)
-
-        return wrapper_profile
+        return func
 
     @staticmethod
     def shim(func: Callable[[Any], Any]) -> Any:
