@@ -247,13 +247,13 @@ function time_consumed_str(time_in_ms) {
   let minutes_exact = (time_in_ms % 3600000) / 60000;
   let seconds_exact = (time_in_ms % 60000) / 1000;
   if (hours > 0) {
-    return `${hours_exact.toFixed(0)}h:${minutes_exact.toFixed(
+    return `${hours.toFixed(0)}h:${minutes_exact.toFixed(
       0
     )}m:${seconds_exact.toFixed(3)}s`;
-  } else if (minutes > 0) {
-    return `${minutes_exact.toFixed(0)}m:${seconds_exact.toFixed(3)}s`;
-  } else if (seconds > 0) {
-    return `${seconds_exact.toFixed(3)}s`;
+  } else if (minutes >= 1) {
+    return `${minutes.toFixed(0)}m:${seconds_exact.toFixed(3)}s`;
+  } else if (seconds >= 1) {
+    return `${seconds.toFixed(3)}s`;
   } else {
     return `${time_in_ms.toFixed(3)}ms`;
   }
