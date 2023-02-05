@@ -114,6 +114,9 @@ async function optimizeCode(imports, code, context) {
     if (useGPUs) {
 	// Suggest cupy if we are using the GPU.
 	libraries += '\nimport cupy';
+    } else {
+	// Suggest numpy otherwise.
+	libraries += '\nimport numpy as np';
     }
     
     // Construct the prompt.
