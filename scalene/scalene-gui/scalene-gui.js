@@ -256,7 +256,7 @@ function time_consumed_str(time_in_ms) {
   } else if (minutes >= 1) {
     return `${minutes.toFixed(0)}m:${seconds_exact.toFixed(3)}s`;
   } else if (seconds >= 1) {
-    return `${seconds.toFixed(3)}s`;
+    return `${seconds_exact.toFixed(3)}s`;
   } else {
     return `${time_in_ms.toFixed(3)}ms`;
   }
