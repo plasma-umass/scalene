@@ -906,7 +906,7 @@ class Scalene:
                 Scalene.__windows_queue.put(None)
 
     @staticmethod
-    def flamechart_format() -> None:
+    def flamegraph_format() -> None:
         """Converts stacks to a string suitable for input to Brendan Gregg's flamegraph.pl script."""
         output = ""
         for stk in Scalene.__stats.stacks.keys():
@@ -916,11 +916,11 @@ class Scalene:
             output += " " + str(Scalene.__stats.stacks[stk])
             output += "\n"
         return output
-                
+    
     @staticmethod
     def output_profile() -> bool:
         # sourcery skip: inline-immediately-returned-variable
-        # print(Scalene.flamechart_format())
+        # print(Scalene.flamegraph_format())
         """Output the profile. Returns true iff there was any info reported the profile."""
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
@@ -1877,10 +1877,10 @@ class Scalene:
             else:
                 # Remove any interposition libraries from the environment before opening the browser.
                 # See also scalene/scalene_preload.py
-                old_dyld = os.environ.get("DYLD_INSERT_LIBRARIES", "")
-                old_ld = os.environ.get("LD_PRELOAD", "")
-                os.environ.update({"DYLD_INSERT_LIBRARIES": "", "LD_PRELOAD": ""})
+                old_dyld = os.environ.pop("DYLD_INSERT_LIBRARIES", "")
+                old_ld = os.environ.pop("LD_PRELOAD", "")
                 webbrowser.open(f"file:///{os.getcwd()}/{Scalene.__profiler_html}")
+                # Restore them.
                 os.environ.update(
                     {"DYLD_INSERT_LIBRARIES": old_dyld, "LD_PRELOAD": old_ld}
                 )
