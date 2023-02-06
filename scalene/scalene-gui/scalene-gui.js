@@ -655,7 +655,7 @@ function makeTableHeader(fname, gpu, memory, params) {
   s += '<thead class="thead-light">';
   s += '<tr data-sort-method="thead">';
   for (const col of columns) {
-    s += `<th class="F${fname}-nonline"><font style="font-variant: small-caps; text-decoration: underline; width:${col.width}" color=${col.color}>`;
+      s += `<th class="F${escape(fname)}-nonline"><font style="font-variant: small-caps; text-decoration: underline; width:${col.width}" color=${col.color}>`;
     if (col.info) {
       s += `<a style="cursor:pointer;" title="${col.info}">${col.title[0]}</a>`;
     } else {
@@ -670,7 +670,7 @@ function makeTableHeader(fname, gpu, memory, params) {
     id = "lineProfile";
   }
   s += `<th id=${
-    fname + "-" + id
+    escape(fname) + "-" + id
   } style="width:10000"><font style="font-variant: small-caps; text-decoration: underline">${tableTitle}</font><font style="font-size:small; font-style: italic">&nbsp; (click to reset order)</font></th>`;
   s += "</tr>";
   s += '<tr data-sort-method="thead">';
@@ -1153,7 +1153,7 @@ async function display(prof) {
     s += `<div style="display: block" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
-    s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: false });
+      s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: false });
     s += "<tbody>";
     // Print per-line profiles.
     let prevLineno = -1;
@@ -1168,7 +1168,7 @@ async function display(prof) {
             s += "<td></td>";
           }
           s += `<td class="F${
-            ff[0]
+            escape(ff[0])
           }-blankline" style="line-height: 1px; background-color: lightgray" data-sort="${
             prevLineno + 1
           }">&nbsp;</td>`;
@@ -1194,7 +1194,7 @@ async function display(prof) {
     // Print out function summaries.
     if (prof.files[ff[0]].functions.length) {
       s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
-      s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: true });
+	s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: true });
       s += "<tbody>";
       tableID++;
       for (const l in prof.files[ff[0]].functions) {
@@ -1229,10 +1229,10 @@ async function display(prof) {
 
   // If you click on any header to sort (except line profiles), turn gray lines off.
   for (const ff of files) {
-    const allHeaders = document.getElementsByClassName(`F${ff[0]}-nonline`);
+      const allHeaders = document.getElementsByClassName(`F${escape(ff[0])}-nonline`);
     for (let i = 0; i < allHeaders.length; i++) {
       allHeaders[i].addEventListener("click", (e) => {
-        const all = document.getElementsByClassName(`F${ff[0]}-blankline`);
+          const all = document.getElementsByClassName(`F${escape(ff[0])}-blankline`);
         for (let i = 0; i < all.length; i++) {
           all[i].style.display = "none";
         }
@@ -1243,9 +1243,9 @@ async function display(prof) {
   // If you click on the line profile header, and gray lines are off, turn them back on.
   for (const ff of files) {
     document
-      .getElementById(`${ff[0]}-lineProfile`)
+	  .getElementById(`${escape(ff[0])}-lineProfile`)
       .addEventListener("click", (e) => {
-        const all = document.getElementsByClassName(`F${ff[0]}-blankline`);
+          const all = document.getElementsByClassName(`F${escape(ff[0])}-blankline`);
         for (let i = 0; i < all.length; i++) {
           if (all[i].style.display === "none") {
             all[i].style.display = "block";
