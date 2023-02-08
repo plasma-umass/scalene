@@ -775,7 +775,7 @@ class Scalene:
             cmdline += f" --pid={os.getpid()} ---"
             payload = """#!/bin/bash
     echo $$
-    %s %s -m scalene %s $@
+    %s %s -m scalene %s "$@"
     """ % (
                 preface,
                 sys.executable,
