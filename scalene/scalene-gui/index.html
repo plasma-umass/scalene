@@ -60,6 +60,53 @@
 	</div>
       </div>
     </form>
+	<div class="d-flex justify-content-center">
+	  <details>
+	    <summary style="font-size:0.8rem; color: blue">advanced options</summary>
+	  <!-- <label for='demoinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">demo</label>
+	  <input style="height: 0; width: 0; opacity:0" type='button' id='demoinput' accept='.json' onclick="loadDemo();">
+	  -->
+	  <B style="font-size:0.8rem">Proposed optimizations</B><BR />
+	  <label for='api-key' style="font-size: 0.8rem">Enter an <a href="https://beta.openai.com/signup">OpenAI key</a> to enable:</label>
+	  <input type="text" style="font-size: 0.8rem" size="22" placeholder="(OpenAI API key)" id="api-key" oninput="checkApiKey(event.target.value)"></input>
+	  <span id='valid-api-key'></span>
+	  <br />
+	  <div>
+	    <input type="radio" name="optimize-radio" id="optimize-performance" value="performance" checked>
+	    <label style="font-size: 0.8rem" for="optimize-performance">
+	      Optimize runtime performance
+	    </label>
+	  </div>
+	  <div>
+	    <input type="radio" name="optimize-radio" id="optimize-memory" value="memory">
+	    <label style="font-size: 0.8rem" for="optimize-memory">
+	      Optimize memory efficiency
+	    </label>
+	  </div>
+	  <input type="checkbox" id="use-gpu-checkbox" name="use-gpu-checkbox-label" onclick="try { window.localStorage.setItem('scalene-gpu-checkbox', document.getElementById('use-gpu-checkbox').checked); } catch {}">
+	  <label style="font-size: 0.8rem" for="use-gpu-checkbox">
+	    Include GPU optimizations
+	  </label>
+	  <br />
+	  <font style="font-size: 0.8rem">
+	    Click on an explosion (&#128165;) to see proposed optimizations for a region of code,<br />
+	    or on a lightning bolt (&#9889;) to propose optimizations for a specific line.<br />
+	    Click again to generate a different one.<br />
+	    <em>Note that optimizations are AI-generated and may not be correct.</em>
+	    <br />
+	  </font>
+	  <br />
+	  <!--
+	      <br />
+    <form id="jsonFile" name="jsonFile" enctype="multipart/form-data" method="post">
+      <div class="form-group">
+	      <label for='fileinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">Load a profile (.json)</label>
+	      <input style="height: 0; width: 10; opacity:0" type='file' id='fileinput' accept='.json' onchange="loadFile();"></input>
+      </div>
+    </form>
+    -->
+	  </details>
+	</div>
     <div id="profile">
       <p class="text-center">
 	Profile your Python code
