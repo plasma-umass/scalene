@@ -169,6 +169,7 @@ class ScaleneJSON:
 
         # Adjust CPU time by utilization.
         mean_cpu_util = stats.cpu_utilization[fname][line_no].mean()
+        mean_core_util = stats.core_utilization[fname][line_no].mean()
         n_sys_percent = n_cpu_percent * (1.0 - mean_cpu_util)
         n_cpu_percent_python *= mean_cpu_util
         n_cpu_percent_c *= mean_cpu_util
@@ -190,6 +191,7 @@ class ScaleneJSON:
         return {
             "lineno": line_no,
             "line": line,
+            "n_core_utilization" : mean_core_util,
             "n_cpu_percent_c": n_cpu_percent_c,
             "n_cpu_percent_python": n_cpu_percent_python,
             "n_sys_percent": n_sys_percent,

@@ -222,6 +222,12 @@ def _get_module_details(
 class Scalene:
     """The Scalene profiler itself."""
 
+    # Get the number of available CPUs (preferring `os.sched_getaffinity`, if available).
+    try:
+        __availableCPUs = len(os.sched_getaffinity(0))
+    except AttributeError:
+        __availableCPUs = os.cpu_count()
+
     __in_jupyter = False  # are we running inside a Jupyter notebook
     __start_time = 0  # start of profiling, in nanoseconds
     __sigterm_exit_code = 143
@@ -1080,6 +1086,7 @@ class Scalene:
         # utilization can exceed 1; that is, elapsed user time is
         # longer than elapsed wallclock time. If this occurs, set
         # wall clock time to user time and set CPU utilization to 100%.
+        core_utilization = cpu_utilization / Scalene.__availableCPUs
         if cpu_utilization > 1.0:
             cpu_utilization = 1.0
             elapsed_wallclock = elapsed_user
@@ -1135,6 +1142,9 @@ class Scalene:
             Scalene.__stats.cpu_utilization[fname][lineno].push(
                 cpu_utilization
             )
+            Scalene.__stats.core_utilization[fname][lineno].push(
+                core_utilization
+            )
             Scalene.__stats.gpu_samples[fname][lineno] += average_gpu_time
             Scalene.__stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
@@ -1172,6 +1182,9 @@ class Scalene:
             Scalene.__stats.cpu_samples[fname] += normalized_time
             Scalene.__stats.cpu_utilization[fname][lineno].push(
                 cpu_utilization
+            )
+            Scalene.__stats.core_utilization[fname][lineno].push(
+                core_utilization
             )
 
         # Clean up all the frames

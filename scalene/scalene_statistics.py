@@ -70,6 +70,11 @@ class ScaleneStatistics:
             Filename, Dict[LineNumber, RunningStats]
         ] = defaultdict(lambda: defaultdict(RunningStats))
 
+        # Running stats for core utilization.
+        self.core_utilization: Dict[
+            Filename, Dict[LineNumber, RunningStats]
+        ] = defaultdict(lambda: defaultdict(RunningStats))
+
         # Running count of total CPU samples per file. Used to prune reporting.
         self.cpu_samples: Dict[Filename, float] = defaultdict(float)
 
@@ -190,6 +195,7 @@ class ScaleneStatistics:
         self.cpu_samples_python.clear()
         self.cpu_samples_c.clear()
         self.cpu_utilization.clear()
+        self.core_utilization.clear()
         self.cpu_samples.clear()
         self.gpu_samples.clear()
         self.malloc_samples.clear()
@@ -268,6 +274,9 @@ class ScaleneStatistics:
             fn_stats.cpu_utilization[fn_name][
                 first_line_no
             ] += self.cpu_utilization[filename][line_no]
+            fn_stats.core_utilization[fn_name][
+                first_line_no
+            ] += self.core_utilization[filename][line_no]
             fn_stats.per_line_footprint_samples[fn_name][
                 first_line_no
             ] += self.per_line_footprint_samples[filename][line_no]
@@ -321,6 +330,7 @@ class ScaleneStatistics:
         "bytei_map",
         "cpu_samples",
         "cpu_utilization",
+        "core_utilization",
         "memory_malloc_samples",
         "memory_python_samples",
         "memory_free_samples",
@@ -373,6 +383,16 @@ class ScaleneStatistics:
             for lineno in src[filename]:
                 dest[filename][lineno] += src[filename][lineno]
 
+    @staticmethod
+    def increment_core_utilization(
+        dest: Dict[Filename, Dict[LineNumber, RunningStats]],
+        src: Dict[Filename, Dict[LineNumber, RunningStats]],
+    ) -> None:
+        """Increment core utilization."""
+        for filename in src:
+            for lineno in src[filename]:
+                dest[filename][lineno] += src[filename][lineno]
+
     def merge_stats(self, the_dir_name: pathlib.Path) -> None:
         """Merge all statistics in a given directory."""
         the_dir = pathlib.Path(the_dir_name)
@@ -394,6 +414,9 @@ class ScaleneStatistics:
                 )
                 self.increment_cpu_utilization(
                     self.cpu_utilization, x.cpu_utilization
+                )
+                self.increment_core_utilization(
+                    self.core_utilization, x.core_utilization
                 )
                 self.elapsed_time = max(self.elapsed_time, x.elapsed_time)
                 self.alloc_samples += x.alloc_samples
