@@ -420,7 +420,7 @@ class ScaleneStatistics:
                 )
                 self.elapsed_time = max(self.elapsed_time, x.elapsed_time)
                 self.alloc_samples += x.alloc_samples
-                self.stacks.extend(x.stacks)
+                self.stacks.update(x.stacks)
                 self.total_cpu_samples += x.total_cpu_samples
                 self.total_gpu_samples += x.total_gpu_samples
                 self.increment_per_line_samples(
