@@ -47,9 +47,12 @@ class ScaleneJupyter:
             
             def do_GET(self) -> None:
                 if self.path == "/":
-                    with open(profile_fname) as f:
-                      content = f.read()
-                    self._send_response(content)
+                    try:
+                        with open(profile_fname) as f:
+                          content = f.read()
+                        self._send_response(content)
+                    except FileNotFoundError:
+                        print("Scalene error: profile file not found.")
                 elif self.path == "/shutdown":
                     self.server.should_shutdown = True
                     self.send_response(204)
