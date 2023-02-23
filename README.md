@@ -341,7 +341,21 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 
 # Asked Questions
 
-**Q: Is there any way to get shorter profiles or do more targeted profiling?**
+<details>
+<summary>
+Can I use Scalene with PyTest?
+</summary>
+
+**A:** Yes! You can run it as follows (for example):
+
+`python3 -m scalene --- -m pytest your_test.py` 
+
+</details>
+
+<details>
+<summary>
+Is there any way to get shorter profiles or do more targeted profiling?
+</summary>
 
 **A:** Yes! There are several options:
 
@@ -349,18 +363,31 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 2. Use `--profile-only` to include only filenames containing specific strings (as in, `--profile-only foo,bar,baz`).
 3. Decorate functions of interest with `@profile` to have Scalene report _only_ those functions.
 4. Turn profiling on and off programmatically by importing Scalene (`import scalene`) and then turning profiling on and off via `scalene_profiler.start()` and `scalene_profiler.stop()`. By default, Scalene runs with profiling on, so to delay profiling until desired, use the `--off` command-line option (`python3 -m scalene --off yourprogram.py`).
+</details>
 
-**Q: How do I run Scalene in PyCharm?**
+<details>
+<summary>
+How do I run Scalene in PyCharm?
+</summary>
 
 **A:**  In PyCharm, you can run Scalene at the command line by opening the terminal at the bottom of the IDE and running a Scalene command (e.g., `python -m scalene <your program>`). Use the options `--cli`, `--html`, and `--outfile <your output.html>` to generate an HTML file that you can then view in the IDE.
+</details>
 
-**Q: How do I use Scalene with Django?**
+<details>
+<summary>
+How do I use Scalene with Django?
+</summary>
 
 **A:** Pass in the `--noreload` option (see https://github.com/plasma-umass/scalene/issues/178).
+</details>
 
-**Q: How do I use Scalene with PyTorch on the Mac?**
+<details>
+<summary>
+How do I use Scalene with PyTorch on the Mac?
+</summary>
 
 **A:** Scalene works with PyTorch version 1.5.1 on Mac OS X. There's a bug in newer versions of PyTorch (https://github.com/pytorch/pytorch/issues/57185) that interferes with Scalene (discussion here: https://github.com/plasma-umass/scalene/issues/110), but only on Macs.
+</details>
 
 # Technical Information
 
