@@ -106,7 +106,11 @@ class ScaleneAnalysis:
         regions = {}
         loops = {}
         functions = {}
+        classes = {}
         for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                for line in range(node.lineno, node.end_lineno+1):
+                    classes[line] = (node.lineno, node.end_lineno)
             if isinstance(node, (ast.For, ast.While)):
                 for line in range(node.lineno, node.end_lineno+1):
                     loops[line] = (node.lineno, node.end_lineno)
@@ -118,6 +122,8 @@ class ScaleneAnalysis:
                 regions[lineno] = loops[lineno]
             elif lineno in functions:
                 regions[lineno] = functions[lineno]
+            elif lineno in classes:
+                regions[lineno] = classes[lineno]
             else:
                 regions[lineno] = (lineno, lineno)
         return regions
