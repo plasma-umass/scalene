@@ -1689,13 +1689,6 @@ class Scalene:
                 Scalene.__args.json = True
                 Scalene.__output.html = False
                 Scalene.__output.output_file = Scalene.__profile_filename
-                from scalene.scalene_jupyter import ScaleneJupyter
-                port = ScaleneJupyter.find_available_port(8181,9000)
-                if not port:
-                    print("Scalene error: could not find an available port.")
-                    return
-                ScaleneJupyter.display_profile(port, Scalene.__profiler_html)
-                return
             # Check for a browser.
             try:
                 if (
@@ -1883,14 +1876,12 @@ class Scalene:
                 output_fname=Scalene.__profiler_html,
             )
             if Scalene.in_jupyter():
-                # from IPython.core.display import HTML
-                from IPython.core.display import display
-                from IPython.display import IFrame
-                display(
-                    IFrame(src=Scalene.__profiler_html,
-                           width="100%",
-                           height="100%")
-                )
+                from scalene.scalene_jupyter import ScaleneJupyter
+                port = ScaleneJupyter.find_available_port(8181,9000)
+                if not port:
+                    print("Scalene error: could not find an available port.")
+                    return
+                ScaleneJupyter.display_profile(port, Scalene.__profiler_html)
             else:
                 # Remove any interposition libraries from the environment before opening the browser.
                 # See also scalene/scalene_preload.py
