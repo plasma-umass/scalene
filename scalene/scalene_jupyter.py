@@ -1,7 +1,30 @@
+import socket
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from threading import Thread
 
 class ScaleneJupyter:
+
+    @staticmethod
+    def find_available_port(start_port, end_port):
+        """
+        Finds an available port within a given range.
+        
+        Parameters:
+        - start_port (int): the starting port number to search from
+        - end_port (int): the ending port number to search up to (inclusive)
+        
+        Returns:
+        - int: the first available port number found in the given range, or None if no ports are available
+        """
+
+        for port in range(start_port, end_port+1):
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.bind(('', port))
+                    return port
+            except OSError:
+                continue
+        return None
 
     @staticmethod
     def display_profile(port: int, profile_fname: str) -> None:
@@ -59,7 +82,7 @@ class ScaleneJupyter:
         display(IFrame(src=f"http://localhost:{port}", width="100%", height="400"))
         Thread(target=lambda: server_thread.join()).start()
 
-        # Wait 5 seconds to ensure that the page is rendered, then kill the cell.
+        # Wait 2 seconds to ensure that the page is rendered, then kill the cell.
         import time
         time.sleep(2)
         import sys

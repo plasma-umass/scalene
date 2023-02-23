@@ -1690,7 +1690,11 @@ class Scalene:
                 Scalene.__output.html = False
                 Scalene.__output.output_file = Scalene.__profile_filename
                 from scalene.scalene_jupyter import ScaleneJupyter
-                ScaleneJupyter.display_profile(8181, Scalene.__profiler_html) # hard-coded port, hopefully available
+                port = ScaleneJupyter.find_available_port(8181,9000)
+                if not port:
+                    print("Scalene error: could not find an available port.")
+                    return
+                ScaleneJupyter.display_profile(port, Scalene.__profiler_html)
                 return
             # Check for a browser.
             try:
