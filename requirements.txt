@@ -8,7 +8,7 @@ lxml==4.9.1
 packaging==20.9
 pyperf==2.0.0
 rich>=10.7.0
-setuptools~=57.0.0
+setuptools>=65.5.1
 pip~=21.1.2
 pynvml~=11.0.0
 wheel~=0.38.1
