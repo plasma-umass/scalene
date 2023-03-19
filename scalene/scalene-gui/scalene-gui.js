@@ -64,9 +64,9 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
 	    }
 	],
 	temperature: 0.3,
-	top_p: 1,
 	frequency_penalty: 0,
 	presence_penalty: 0,
+	user: "scalene-user"
     });
 
     console.log(body);
