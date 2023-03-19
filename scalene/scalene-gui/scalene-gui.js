@@ -49,10 +49,44 @@ function checkApiKey(apiKey) {
   })();
 }
 
+function extractCode(text) {
+  /**
+  * Extracts code block from the given completion text.
+  *
+  * @param {string} text - A string containing text and other data.
+  * @returns {string} Extracted code block from the completion object.
+  */
+  const lines = text.split('\n');
+  let i = 0;
+  while (i < lines.length && lines[i].trim() === '') {
+    i++;
+  }
+    const first_line = lines[i].trim();
+  let code_block;
+  if (first_line === '```') {
+    code_block = text.slice(3);
+  } else if (first_line.startsWith('```')) {
+    const word = first_line.slice(3).trim();
+    if (word.length > 0 && !word.includes(' ')) {
+      code_block = text.slice(first_line.length);
+    } else {
+      code_block = text;
+    }
+  } else {
+    code_block = text;
+  }
+  const end_index = code_block.indexOf('```');
+  if (end_index !== -1) {
+    code_block = code_block.slice(0, end_index);
+  }
+  return code_block;
+}
+
 async function sendPromptToOpenAI(prompt, len, apiKey) {
     const endpoint = "https://api.openai.com/v1/chat/completions";
     const body = JSON.stringify({
-	model: 'gpt-3.5-turbo',
+	// model: 'gpt-3.5-turbo',
+	model: 'gpt-4',
 	messages: [
 	    {
 		role: 'system',
@@ -115,7 +149,7 @@ async function optimizeCode(imports, code, context) {
     alert(
       "To activate proposed optimizations, enter an OpenAI API key in advanced options."
     );
-    return null;
+    return '';
   }
     // If the code to be optimized is just one line of code, say so.
     let lineOf = " ";
@@ -157,8 +191,9 @@ async function optimizeCode(imports, code, context) {
 
     // Use number of words in the original code as a proxy for the number of tokens.
     const numWords = (code.match(/\b\w+\b/g)).length;
-    
-    return await sendPromptToOpenAI(prompt, Math.max(numWords * 4, 500), apiKey);
+
+    const result = await sendPromptToOpenAI(prompt, Math.max(numWords * 4, 500), apiKey);
+    return extractCode(result);
 }
 
 function proposeOptimizationRegion(filename, file_number, lineno) {
