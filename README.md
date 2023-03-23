@@ -410,7 +410,7 @@ How do I use Scalene with PyTorch on the Mac?
 
 # Technical Information
 
-For details about how Scalene works, please see the following paper: [Triangulating Python Performance Issues with Scalene](https://arxiv.org/pdf/2212.07597). Note that this paper currently does not include information about the AI-driven proposed optimizations.
+For details about how Scalene works, please see the following paper, accepted to appear at [OSDI 2023](https://www.usenix.org/conference/osdi23): [Triangulating Python Performance Issues with Scalene](https://arxiv.org/pdf/2212.07597). Note that this paper currently does not include information about the AI-driven proposed optimizations.
 
 # Success Stories
 
