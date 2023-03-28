@@ -31,6 +31,9 @@ class ScaleneAnalysis:
         except AttributeError:
             # No __file__, meaning it's built-in. Let's call it native.
             result = True
+        except TypeError:
+            # __file__ is there, but empty (os.path.dirname() returns TypeError).  Let's call it native.
+            result = True
         except ModuleNotFoundError:
             # This module is not installed; fail gracefully.
             result = False
