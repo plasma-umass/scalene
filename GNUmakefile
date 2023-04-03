@@ -103,6 +103,8 @@ ifeq ($(shell uname -s),WindowsNT)
 endif
 
 bdist: python-deps vendor-deps
+	uname -s
+	$(PYTHON) --version
 	$(PYTHON) -m build --wheel $(NO_ISOLATION)
 ifeq ($(shell uname -s),Linux)
 	$(PYTHON) -m auditwheel repair dist/*.whl
