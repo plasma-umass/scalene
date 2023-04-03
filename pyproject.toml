@@ -39,7 +39,6 @@ authors = [
 dependencies = [
     "astunparse>=1.6.3",
     "cloudpickle==1.6.0",
-    "git @ git+https://github.com/plasma-umass/crdp.git#egg=crdp",
     "ipython>=8.10",
     "Jinja2>=3.0.3",
     "lxml==4.9.1",
