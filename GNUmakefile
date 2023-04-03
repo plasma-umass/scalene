@@ -95,8 +95,15 @@ python-deps:
 		build \
 		auditwheel
 
+# isolation is broken with pip on Python 3.8 on Windows
+ifeq ($(shell uname -s),WindowsNT)
+  ifeq ($(findstring($(shell uname -s), 3.8),3.8))
+    NO_ISOLATION= --no-isolation
+  endif
+endif
+
 bdist: python-deps vendor-deps
-	$(PYTHON) -m build --wheel
+	$(PYTHON) -m build --wheel $(NO_ISOLATION)
 ifeq ($(shell uname -s),Linux)
 	$(PYTHON) -m auditwheel repair dist/*.whl
 	rm -f dist/*.whl
