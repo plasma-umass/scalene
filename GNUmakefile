@@ -97,7 +97,7 @@ python-deps:
 
 # isolation is broken with pip on Python 3.8 on Windows
 ifeq ($(shell uname -s),WindowsNT)
-  ifeq ($(findstring($(shell python --version), 3.8),3.8))
+  ifeq ($(findstring($(shell $(PYTHON) --version), 3.8),3.8))
     NO_ISOLATION= --no-isolation
   endif
 endif
