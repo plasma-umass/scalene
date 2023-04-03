@@ -31,13 +31,14 @@ jobs:
     strategy:
       matrix:
         python_version: ['3.7', '3.8', '3.9', '3.10', '3.11']
-        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
-        include:
-          - os: ubuntu-latest
-            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
-          - os: macos-latest
-            python_version: 3.7
-            upload_source: true   # just need ONE of them to do it
+#        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
+        os: ['windows-latest']
+#        include:
+#          - os: ubuntu-latest
+#            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
+#          - os: macos-latest
+#            python_version: 3.7
+#            upload_source: true   # just need ONE of them to do it
         exclude:
           - os: windows-latest
             python_version: 3.7
