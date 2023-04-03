@@ -44,9 +44,14 @@ clear-vendor-dirs:
 	if exist vendor\ (rmdir /Q /S vendor)
 	mkdir vendor
 
-pkg: vendor/Heap-Layers vendor/printf/printf.cpp
+python-deps:
+	$(PYTHON) -m pip install \
+		build \
+		auditwheel
+
+pkg: python-deps vendor/Heap-Layers vendor/printf/printf.cpp
 	-rm -rf dist build *egg-info
-	$(PYTHON) setup.py sdist bdist_wheel
+	$(PYTHON) -m build
 
 upload: pkg # to pypi
 	$(PYTHON) -m twine upload dist/*
