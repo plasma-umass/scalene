@@ -117,11 +117,16 @@ class SampleFile {
     close(init_fd);
   }
   ~SampleFile() {
-    munmap(_mmap, MAX_FILE_SIZE);
-    munmap(_lastpos, LOCK_FD_SIZE);
-    // unlink(_signalfile);
-    // unlink(_lockfile);
-    // unlink(_init_filename);
+    // NOTE: These unmaps were causing issues
+    // sometimes leading to a SIGSEGV when BLAS
+    // threads were tearing down.
+    // Removing these unmaps resolved the issue
+    //
+    // munmap(_mmap, MAX_FILE_SIZE);
+    // munmap(_lastpos, LOCK_FD_SIZE);
+    unlink(_signalfile);
+    unlink(_lockfile);
+    unlink(_init_filename);
   }
   void writeToFile(char *line) {  // , int is_malloc) {
     _spin_lock->lock();

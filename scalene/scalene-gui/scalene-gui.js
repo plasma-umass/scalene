@@ -1,3 +1,234 @@
+const RightTriangle = "&#9658"; // right-facing triangle symbol (collapsed view)
+const DownTriangle = "&#9660"; // downward-facing triangle symbol (expanded view)
+const Lightning = "&#9889;"; // lightning bolt (for optimizing a line)
+const Explosion = "&#128165;"; // explosion (for optimizing a region)
+const WhiteLightning = `<span style="opacity:0">${Lightning}</span>`; // invisible but same width as lightning bolt
+const WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`; // invisible but same width as lightning bolt
+const maxLinesPerRegion = 50; // Only show regions that are no more than this many lines.
+
+let showedExplosion = {}; // Used so we only show one explosion per region.
+
+async function isValidApiKey(apiKey) {
+  const response = await fetch("https://api.openai.com/v1/completions", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+  const data = await response.json();
+  if (data.error && data.error.code === "invalid_api_key") {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+function checkApiKey(apiKey) {
+    (async () => {
+	try {	
+	    window.localStorage.setItem("scalene-api-key", apiKey);
+	} catch {
+	}
+    // If the API key is empty, clear the status indicator.
+    if (apiKey.length === 0) {
+      document.getElementById("valid-api-key").innerHTML = "";
+      return;
+    }
+    const response = await fetch("https://api.openai.com/v1/completions", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+    const data = await response.json();
+    if (data.error && data.error.code === "invalid_api_key") {
+      document.getElementById("valid-api-key").innerHTML = "&#10005;";
+    } else {
+      document.getElementById("valid-api-key").innerHTML = "&check;";
+    }
+  })();
+}
+
+async function sendPromptToOpenAI(prompt, len, apiKey) {
+  const endpoint = "https://api.openai.com/v1/completions";
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "text-davinci-003",
+      prompt: prompt,
+      temperature: 0.3,
+      max_tokens: len,
+      top_p: 1,
+      frequency_penalty: 0,
+      presence_penalty: 0,
+      // 'response_format': 'url'
+    }),
+  });
+
+  const data = await response.json();
+  // Chop off any blank lines in the header.
+
+  try {
+    return data.choices[0].text.replace(/^\s*[\r\n]/gm, "");
+  } catch {
+    return "# Query failed.\n";
+  }
+}
+
+function countSpaces(str) {
+  // Use a regular expression to match any whitespace character at the start of the string
+  const match = str.match(/^\s+/);
+
+  // If there was a match, return the length of the match
+  if (match) {
+    return match[0].length;
+  }
+
+  // Otherwise, return 0
+  return 0;
+}
+
+async function optimizeCode(imports, code, context) {
+    // Tailor prompt to request GPU optimizations or not.
+    const useGPUs = document.getElementById('use-gpu-checkbox').checked; // globalThis.profile.gpu;
+    const useGPUstring = useGPUs ? " or the GPU " : " ";
+    // Check for a valid API key.
+  const apiKey = document.getElementById("api-key").value;
+  if (!apiKey) {
+    alert(
+      "To activate proposed optimizations, enter an OpenAI API key in advanced options."
+    );
+    return null;
+  }
+    // If the code to be optimized is just one line of code, say so.
+    let lineOf = " ";
+    if (code.split("\n").length <= 2) {
+	lineOf = " line of ";
+    }
+
+    let libraries = 'import sklearn';
+    if (useGPUs) {
+	// Suggest cupy if we are using the GPU.
+	libraries += '\nimport cupy';
+    } else {
+	// Suggest numpy otherwise.
+	libraries += '\nimport numpy as np';
+    }
+    
+    // Construct the prompt.
+
+    const optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it faster than pure Python. Consider using the following other libraries, if appropriate:\n\n${libraries}\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
+
+    const memoryEfficiencyPrompt = `Optimize the following${lineOf} Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more memory-efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it more space efficient than pure Python. Consider using the following other libraries, if appropriate:\n\n${libraries}\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use native libraries whenever possible to reduce memory consumption; invoke del on variables and array elements as soon as it is safe to do so. If the memory consumption is not likely to be reduced, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
+
+    const optimizePerf = document.getElementById('optimize-performance').checked;
+
+    let prompt;
+    if (optimizePerf) {
+	prompt = optimizePerformancePrompt;
+    } else {
+	prompt = memoryEfficiencyPrompt;
+    }
+    
+    // const prompt = `Below is some Python code to optimize, from "Start of code" to "End of code":\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code to make it more efficient without changing the results. Assume the code has already executed these imports. Do NOT include them in the optimized code:\n\n${imports}\n\nUse fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Check carefully by generating inputs to see that the output is identical for both the original and optimized versions. Correctly-optimized code:`;
+
+    console.log(prompt);
+    
+  // const prev_prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and try to quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code. Format all comments to be less than 40 columns wide:\n\n`;
+
+    // Use number of words in the original code as a proxy for the number of tokens.
+    const numWords = (code.match(/\b\w+\b/g)).length;
+    
+    return await sendPromptToOpenAI(prompt, Math.max(numWords * 4, 500), apiKey);
+}
+
+function proposeOptimizationRegion(filename, file_number, lineno) {
+  proposeOptimization(filename, file_number, lineno, { regions: true });
+}
+
+function proposeOptimizationLine(filename, file_number, lineno) {
+  proposeOptimization(filename, file_number, lineno, { regions: false });
+}
+
+function proposeOptimization(filename, file_number, lineno, params) {
+  const useRegion = params["regions"];
+  const prof = globalThis.profile;
+  const this_file = prof.files[filename].lines;
+  const imports = prof.files[filename].imports.join("\n");
+  const start_region_line = this_file[lineno - 1]["start_region_line"];
+  const end_region_line = this_file[lineno - 1]["end_region_line"];
+    let context; 
+  const code_line = this_file[lineno - 1]["line"];
+  let code_region;
+  if (useRegion) {
+    code_region = this_file
+      .slice(start_region_line - 1, end_region_line)
+      .map((e) => e["line"])
+      .join("");
+    context = this_file.slice(Math.max(0, start_region_line - 10), Math.min(start_region_line - 1, this_file.length))
+	  .map((e) => e["line"])
+	  .join("");
+  } else {
+    code_region = code_line;
+    context = this_file.slice(Math.max(0, lineno - 10), Math.min(lineno - 1, this_file.length))
+	  .map((e) => e["line"])
+	  .join("");
+  }
+  // Count the number of leading spaces to match indentation level on output
+  let leadingSpaceCount = countSpaces(code_line) + 3; // including the lightning bolt and explosion
+  let indent =
+    WhiteLightning + WhiteExplosion + "&nbsp;".repeat(leadingSpaceCount - 1);
+  const elt = document.getElementById(`code-${file_number}-${lineno}`);
+  (async () => {
+    const isValid = await isValidApiKey(
+      document.getElementById("api-key").value
+    );
+    if (!isValid) {
+      alert(
+        "You must enter a valid OpenAI API key to activate proposed optimizations."
+      );
+      return;
+    }
+    elt.innerHTML = `<em>${indent}working...</em>`;
+      let message = await optimizeCode(imports, code_region, context);
+    if (!message) {
+      elt.innerHTML = "";
+      return;
+    }
+    // Canonicalize newlines
+    message = message.replace(new RegExp("\r?\n", "g"), "\n");
+    // Indent every line and format it
+    const formattedCode = message
+      .split("\n")
+      .map(
+        (line) =>
+          indent + Prism.highlight(line, Prism.languages.python, "python")
+      )
+	  .join("<br />");
+      // Display the proposed optimization, with click-to-copy functionality.
+      elt.innerHTML = `<hr><span title="click to copy" style="cursor: copy" id="opt-${file_number}-${lineno}">${formattedCode}</span>`;
+      thisElt = document.getElementById(`opt-${file_number}-${lineno}`);
+      thisElt.addEventListener("click",
+			       async (e) => {
+				   await copyOnClick(e, message);
+				   // After copying, briefly change the cursor back to the default to provide some visual feedback..
+				   thisElt.style = "cursor: auto";
+				   await new Promise(resolve => setTimeout(resolve, 125));
+				   thisElt.style = "cursor: copy";
+			       });
+  })();
+}
+
+async function copyOnClick(event, message) {
+    event.preventDefault();
+    event.stopPropagation();
+    await navigator.clipboard.writeText(message);
+}
+
 function memory_consumed_str(size_in_mb) {
   // Return a string corresponding to amount of memory consumed.
   let gigabytes = Math.floor(size_in_mb / 1024);
@@ -19,10 +250,12 @@ function time_consumed_str(time_in_ms) {
   let minutes_exact = (time_in_ms % 3600000) / 60000;
   let seconds_exact = (time_in_ms % 60000) / 1000;
   if (hours > 0) {
-    return `${hours_exact.toFixed(0)}h:${minutes_exact.toFixed(0)}m:${seconds_exact.toFixed(3)}s`;
-  } else if (minutes > 0) {
-    return `${minutes_exact.toFixed(0)}m:${seconds_exact.toFixed(3)}s`;
-  } else if (seconds > 0) {
+    return `${hours.toFixed(0)}h:${minutes_exact.toFixed(
+      0
+    )}m:${seconds_exact.toFixed(3)}s`;
+  } else if (minutes >= 1) {
+    return `${minutes.toFixed(0)}m:${seconds_exact.toFixed(3)}s`;
+  } else if (seconds >= 1) {
     return `${seconds_exact.toFixed(3)}s`;
   } else {
     return `${time_in_ms.toFixed(3)}ms`;
@@ -244,13 +477,17 @@ function makeSparkline(
   const values = samples.map((v, i) => {
     let leak_str = "";
     if (leak_velocity != 0) {
-	leak_str = `; possible leak (${memory_consumed_str(leak_velocity)}/s)`;
+      leak_str = `; possible leak (${memory_consumed_str(leak_velocity)}/s)`;
     }
     return {
       x: v[0],
       y: v[1],
       y_text:
-        memory_consumed_str(v[1]) + " (@ " + time_consumed_str(v[0] / 1e6) + ")" + leak_str,
+        memory_consumed_str(v[1]) +
+        " (@ " +
+        time_consumed_str(v[0] / 1e6) +
+        ")" +
+        leak_str,
     };
   });
   let leak_info = "";
@@ -350,9 +587,9 @@ const MemoryColor = "green";
 const CopyColor = "goldenrod";
 let columns = [];
 
-function makeTableHeader(fname, gpu, memory, functions = false) {
+function makeTableHeader(fname, gpu, memory, params) {
   let tableTitle;
-  if (functions) {
+  if (params["functions"]) {
     tableTitle = "function profile";
   } else {
     tableTitle = "line profile";
@@ -418,7 +655,7 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
   s += '<thead class="thead-light">';
   s += '<tr data-sort-method="thead">';
   for (const col of columns) {
-    s += `<th class="F${fname}-nonline"><font style="font-variant: small-caps; text-decoration: underline; width:${col.width}" color=${col.color}>`;
+      s += `<th class="F${escape(fname)}-nonline"><font style="font-variant: small-caps; text-decoration: underline; width:${col.width}" color=${col.color}>`;
     if (col.info) {
       s += `<a style="cursor:pointer;" title="${col.info}">${col.title[0]}</a>`;
     } else {
@@ -427,13 +664,13 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
     s += "</font>&nbsp;&nbsp;</th>";
   }
   let id;
-  if (functions) {
+  if (params["functions"]) {
     id = "functionProfile";
   } else {
     id = "lineProfile";
   }
   s += `<th id=${
-    fname + "-" + id
+    escape(fname) + "-" + id
   } style="width:10000"><font style="font-variant: small-caps; text-decoration: underline">${tableTitle}</font><font style="font-size:small; font-style: italic">&nbsp; (click to reset order)</font></th>`;
   s += "</tr>";
   s += '<tr data-sort-method="thead">';
@@ -445,54 +682,166 @@ function makeTableHeader(fname, gpu, memory, functions = false) {
   return s;
 }
 
+function hideEmptyProfiles() {
+  const elts = document.getElementsByClassName("empty-profile");
+  for (elt of elts) {
+    s = elt.style;
+    s.display = "none";
+  }
+}
+
+function toggleReduced() {
+  const elts = document.getElementsByClassName("empty-profile");
+  for (elt of elts) {
+    s = elt.style;
+    if (s.display == "") {
+      s.display = "none";
+    } else {
+      s.display = "";
+    }
+  }
+}
+
 function makeProfileLine(
   line,
   filename,
+  file_number,
   prof,
   cpu_bars,
   memory_bars,
   memory_sparklines,
   memory_activity,
-  gpu_pies
+  gpu_pies,
+  propose_optimizations
 ) {
-  let s = "";
-  s += "<tr>";
-  const total_time =
+  let total_time =
     line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
+  let total_region_time = 0;
+  let region_has_memory_results = 0;
+  let region_has_gpu_results = 0;
+  for (
+    let lineno = line.start_region_line;
+    lineno < line.end_region_line;
+    lineno++
+  ) {
+    currline = prof["files"][filename]["lines"][lineno];
+    total_region_time +=
+      currline.n_cpu_percent_python +
+      currline.n_cpu_percent_c +
+      currline.n_sys_percent;
+    region_has_memory_results +=
+      currline.n_avg_mb +
+      currline.n_peak_mb +
+      currline.memory_samples.length +
+      (currline.n_usage_fraction >= 0.01);
+    region_has_gpu_results |= line.n_gpu_percent >= 1.0;
+  }
+    // Disable optimization proposals for low CPU runtime lines.
+
+    // TODO: tailor prompt for memory optimization when that's the only inefficiency.
+    // ALSO propose optimizations not just for execution time but also for memory usage.
+  if (propose_optimizations) {
+    if (total_time < 1.0 && line.start_region_line === line.end_region_line) {
+      propose_optimizations = false;
+    }
+    if (line.start_region_line != line.end_region_line) {
+      if (total_region_time < 1.0) {
+        propose_optimizations = false;
+      }
+    }
+  }
+  const has_memory_results =
+    line.n_avg_mb +
+    line.n_peak_mb +
+    line.memory_samples.length +
+    (line.n_usage_fraction >= 0.01);
+  const has_gpu_results = line.n_gpu_percent >= 1.0;
+  const start_region_line = line.start_region_line;
+  const end_region_line = line.end_region_line;
+  // Only show the explosion (optimizing a whole region) once.
+  let explosionString;
+  let showExplosion;
+  if (
+    start_region_line === end_region_line ||
+    [[start_region_line - 1, end_region_line]] in showedExplosion
+  ) {
+    explosionString = WhiteExplosion;
+    showExplosion = false;
+  } else {
+    explosionString = Explosion;
+    if (start_region_line && end_region_line) {
+      showedExplosion[[start_region_line - 1, end_region_line]] = true;
+      showExplosion = true;
+    }
+  }
+  // If the region is too big, for some definition of "too big", don't show it.
+  showExplosion &= end_region_line - start_region_line <= maxLinesPerRegion;
+
+  let s = "";
+  if (
+    total_time ||
+    has_memory_results ||
+    has_gpu_results ||
+    (showExplosion &&
+      start_region_line != end_region_line &&
+      (total_region_time >= 1.0 ||
+        region_has_memory_results ||
+        region_has_gpu_results))
+  ) {
+    s += "<tr>";
+  } else {
+    s += "<tr class='empty-profile'>";
+  }
   const total_time_str = String(total_time.toFixed(1)).padStart(10, " ");
   s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${total_time_str}'>`;
   s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>`;
-  cpu_bars.push(
-    makeBar(line.n_cpu_percent_python, line.n_cpu_percent_c, line.n_sys_percent)
-  );
+  if (total_time) {
+    cpu_bars.push(
+      makeBar(
+        line.n_cpu_percent_python,
+        line.n_cpu_percent_c,
+        line.n_sys_percent
+      )
+    );
+  } else {
+    cpu_bars.push(null);
+  }
   if (prof.memory) {
     s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
       line.n_avg_mb.toFixed(0)
     ).padStart(10, "0")}'>`;
     s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
     s += "</td>";
-    memory_bars.push(
-      makeMemoryBar(
-        line.n_avg_mb.toFixed(0),
-        "average memory",
-        parseFloat(line.n_python_fraction),
-        prof.max_footprint_mb.toFixed(2),
-        "darkgreen"
-      )
-    );
+    if (line.n_avg_mb) {
+      memory_bars.push(
+        makeMemoryBar(
+          line.n_avg_mb.toFixed(0),
+          "average memory",
+          parseFloat(line.n_python_fraction),
+          prof.max_footprint_mb.toFixed(2),
+          "darkgreen"
+        )
+      );
+    } else {
+      memory_bars.push(null);
+    }
     s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
       line.n_peak_mb.toFixed(0)
     ).padStart(10, "0")}'>`;
     s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
-    memory_bars.push(
-      makeMemoryBar(
-        line.n_peak_mb.toFixed(0),
-        "peak memory",
-        parseFloat(line.n_python_fraction),
-        prof.max_footprint_mb.toFixed(2),
-        "darkgreen"
-      )
-    );
+    if (line.n_peak_mb) {
+      memory_bars.push(
+        makeMemoryBar(
+          line.n_peak_mb.toFixed(0),
+          "peak memory",
+          parseFloat(line.n_python_fraction),
+          prof.max_footprint_mb.toFixed(2),
+          "darkgreen"
+        )
+      );
+    } else {
+      memory_bars.push(null);
+    }
     s += "</td>";
     s += `<td style='vertical-align: middle; width: 100'><span style="height:25; width: 100; vertical-align: middle" id="memory_sparkline${memory_sparklines.length}"></span>`;
     s += "</td>";
@@ -517,7 +866,6 @@ function makeProfileLine(
     s += '<td style="width: 100; vertical-align: middle" align="center">';
     if (line.n_usage_fraction >= 0.01) {
       s += `<span style="height: 20; width: 30; vertical-align: middle" id="memory_activity${memory_activity.length}"></span>`;
-      console.log(line.lineno, line.n_usage_fraction, line.n_python_fraction);
       memory_activity.push(
         makeMemoryPie(
           100 *
@@ -561,9 +909,41 @@ function makeProfileLine(
       }
     }
   }
-  s += `<td align="right" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
+  const empty_profile =
+    total_time ||
+    has_memory_results ||
+    has_gpu_results ||
+    end_region_line != start_region_line
+      ? ""
+      : "empty-profile";
+  s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
+
+  const regionOptimizationString =
+    propose_optimizations && showExplosion
+      ? `${explosionString}&nbsp;`
+      : `${WhiteExplosion}&nbsp;`;
+
   const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
-  s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}"><pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python">${codeLine}</code></pre></td>`;
+  s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
+  if (propose_optimizations && showExplosion) {
+    s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for the entire region starting here." onclick="proposeOptimizationRegion('${filename}', ${file_number}, ${parseInt(
+      line.lineno
+    )}); event.preventDefault()">${regionOptimizationString}</span>`;
+  } else {
+    s += regionOptimizationString;
+  }
+
+  const lineOptimizationString = propose_optimizations
+    ? `${Lightning}`
+    : `${WhiteLightning}`;
+  if (propose_optimizations) {
+    s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${filename}', ${file_number}, ${parseInt(
+      line.lineno
+    )}); event.preventDefault()">${lineOptimizationString}</span>`;
+  } else {
+    s += lineOptimizationString;
+  }
+  s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
   s += "</tr>";
   return s;
 }
@@ -586,7 +966,71 @@ function buildAllocationMaps(prof, f) {
   return [averageMallocs, peakMallocs];
 }
 
+// Track all profile ids so we can collapse and expand them en masse.
+let allIDs = [];
+
+function collapseAll() {
+  for (const id of allIds) {
+    collapseDisplay(id);
+  }
+}
+
+function expandAll() {
+  for (const id of allIds) {
+    expandDisplay(id);
+  }
+}
+
+function collapseDisplay(id) {
+  const d = document.getElementById(`profile-${id}`);
+  d.style.display = "none";
+  document.getElementById(`button-${id}`).innerHTML = RightTriangle;
+}
+
+function expandDisplay(id) {
+  const d = document.getElementById(`profile-${id}`);
+  d.style.display = "block";
+  document.getElementById(`button-${id}`).innerHTML = DownTriangle;
+}
+
+function toggleDisplay(id) {
+  const d = document.getElementById(`profile-${id}`);
+  if (d.style.display == "block") {
+    d.style.display = "none";
+    document.getElementById(`button-${id}`).innerHTML = RightTriangle;
+  } else {
+    d.style.display = "block";
+    document.getElementById(`button-${id}`).innerHTML = DownTriangle;
+  }
+}
+
 async function display(prof) {
+  // Clear explosions.
+  showedExplosion = {};
+    // Restore the API key from local storage (if any).
+    let old_key = '';
+    old_key = window.localStorage.getItem("scalene-api-key");
+    
+  if (old_key) {
+    document.getElementById("api-key").value = old_key;
+    // Update the status.
+    checkApiKey(old_key);
+  }
+
+    // Restore the old GPU toggle from local storage (if any).
+    const gpu_checkbox = document.getElementById('use-gpu-checkbox')
+    old_gpu_checkbox = window.localStorage.getItem("scalene-gpu-checkbox");
+    if (old_gpu_checkbox) {
+	if (gpu_checkbox.checked.toString() != old_gpu_checkbox) {
+	    gpu_checkbox.click();
+	}
+    } else {
+	// Set the GPU checkbox on if the profile indicated the presence of a GPU.
+	if (gpu_checkbox.checked != prof.gpu) {
+	    gpu_checkbox.click();
+	}
+    }
+  globalThis.profile = prof;
   let memory_sparklines = [];
   let memory_activity = [];
   let cpu_bars = [];
@@ -594,8 +1038,8 @@ async function display(prof) {
   let memory_bars = [];
   let tableID = 0;
   let s = "";
-  s += '<div class="row justify-content-center">';
-  s += '<div class="col-auto">';
+  s += '<span class="row justify-content-center">';
+  s += '<span class="col-auto">';
   s += '<table width="50%" class="table text-center table-condensed">';
   s += "<tr>";
   s += `<td><font style="font-size: small"><b>Time:</b> <font color="darkblue">Python</font> | <font color="#6495ED">native</font> | <font color="blue">system</font><br /></font></td>`;
@@ -604,7 +1048,9 @@ async function display(prof) {
     s += `<td><font style="font-size: small"><b>Memory:</b> <font color="darkgreen">Python</font> | <font color="#50C878">native</font><br /></font></td>`;
     s += '<td width="10"></td>';
     s += '<td valign="middle" style="vertical-align: middle">';
-      s += `<font style="font-size: small"><b>Memory timeline: </b>(max: ${memory_consumed_str(prof.max_footprint_mb)}, growth: ${prof.growth_rate.toFixed(1)}%)</font>`;
+    s += `<font style="font-size: small"><b>Memory timeline: </b>(max: ${memory_consumed_str(
+      prof.max_footprint_mb
+    )}, growth: ${prof.growth_rate.toFixed(1)}%)</font>`;
     s += "</td>";
   }
   s += "</tr>";
@@ -670,12 +1116,15 @@ async function display(prof) {
   }
 
   s += '<tr><td colspan="10">';
-  s += `<p class="text-center"><font style="font-size: 90%; font-style: italic; font-color: darkgray">hover over bars to see breakdowns; click on <font style="font-variant:small-caps; text-decoration:underline">column headers</font> to sort.</font></p>`;
+  s += `<span class="text-center"><font style="font-size: 90%; font-style: italic; font-color: darkgray">hover over bars to see breakdowns; click on <font style="font-variant:small-caps; text-decoration:underline">column headers</font> to sort.</font></span>`;
   s += "</td></tr>";
   s += "</table>";
-  s += "</div>";
-  s += "</div>";
+  s += "</span>";
+  s += "</span>";
 
+  s +=
+    '<br class="text-left"><span style="font-size: 80%; color: blue; cursor : pointer;" onClick="expandAll()">&nbsp;show all</span> | <span style="font-size: 80%; color: blue; cursor : pointer;" onClick="collapseAll()">hide all</span>';
+  s += ` | <span style="font-size: 80%; color: blue" onClick="document.getElementById('reduce-checkbox').click()">only display profiled lines&nbsp;</span><input type="checkbox" id="reduce-checkbox" checked onClick="toggleReduced()" /></br>`;
   s += '<div class="container-fluid">';
 
   // Convert files to an array and sort it in descending order by percent of CPU time.
@@ -686,44 +1135,58 @@ async function display(prof) {
 
   // Print profile for each file
   let fileIteration = 0;
+  allIds = [];
   for (const ff of files) {
-    s += `<p class="text-left"><font style="font-size: 90%"><code>${
+    const id = `file-${fileIteration}`;
+    allIds.push(id);
+      s += '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px);">';
+    s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue" onClick="toggleDisplay('${id}')">`;
+    s += `${DownTriangle}`;
+    s += "</span>";
+    s += `<font style="font-size: 90%"><code>${
       ff[0]
     }</code>: % of time = ${ff[1].percent_cpu_time.toFixed(
       1
-    )}% (${time_consumed_str(ff[1].percent_cpu_time / 100.0 * prof.elapsed_time_sec * 1e3)}) out of ${time_consumed_str(prof.elapsed_time_sec * 1e3)}.</font></p>`;
-    s += "<div>";
+    )}% (${time_consumed_str(
+      (ff[1].percent_cpu_time / 100.0) * prof.elapsed_time_sec * 1e3
+    )}) out of ${time_consumed_str(prof.elapsed_time_sec * 1e3)}.</font></p>`;
+    s += `<div style="display: block" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
-    s += makeTableHeader(ff[0], prof.gpu, prof.memory, false);
+      s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: false });
     s += "<tbody>";
     // Print per-line profiles.
     let prevLineno = -1;
     for (const l in ff[1].lines) {
       const line = ff[1].lines[l];
-      // Add a space whenever we skip a line.
-      if (line.lineno > prevLineno + 1) {
-        s += "<tr>";
-        for (let i = 0; i < columns.length; i++) {
-          s += "<td></td>";
+      if (false) {
+        // Disabling spacers
+        // Add a space whenever we skip a line.
+        if (line.lineno > prevLineno + 1) {
+          s += "<tr>";
+          for (let i = 0; i < columns.length; i++) {
+            s += "<td></td>";
+          }
+          s += `<td class="F${
+            escape(ff[0])
+          }-blankline" style="line-height: 1px; background-color: lightgray" data-sort="${
+            prevLineno + 1
+          }">&nbsp;</td>`;
+          s += "</tr>";
         }
-        s += `<td class="F${
-          ff[0]
-        }-blankline" style="line-height: 1px; background-color: lightgray" data-sort="${
-          prevLineno + 1
-        }">&nbsp;</td>`;
-        s += "</tr>";
       }
       prevLineno = line.lineno;
       s += makeProfileLine(
         line,
         ff[0],
+        fileIteration,
         prof,
         cpu_bars,
         memory_bars,
         memory_sparklines,
         memory_activity,
-        gpu_pies
+        gpu_pies,
+        true
       );
     }
     s += "</tbody>";
@@ -731,7 +1194,7 @@ async function display(prof) {
     // Print out function summaries.
     if (prof.files[ff[0]].functions.length) {
       s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
-      s += makeTableHeader(ff[0], prof.gpu, prof.memory, true);
+	s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: true });
       s += "<tbody>";
       tableID++;
       for (const l in prof.files[ff[0]].functions) {
@@ -739,12 +1202,14 @@ async function display(prof) {
         s += makeProfileLine(
           line,
           ff[0],
+          fileIteration,
           prof,
           cpu_bars,
           memory_bars,
           memory_sparklines,
           memory_activity,
-          gpu_pies
+          gpu_pies,
+          false // no optimizations here
         );
       }
       s += "</table>";
@@ -753,7 +1218,7 @@ async function display(prof) {
     fileIteration++;
     // Insert empty lines between files.
     if (fileIteration < files.length) {
-      s += "<p />&nbsp;<hr><p />&nbsp;<p />";
+      s += "<hr>";
     }
   }
   s += "</div>";
@@ -764,10 +1229,10 @@ async function display(prof) {
 
   // If you click on any header to sort (except line profiles), turn gray lines off.
   for (const ff of files) {
-    const allHeaders = document.getElementsByClassName(`F${ff[0]}-nonline`);
+      const allHeaders = document.getElementsByClassName(`F${escape(ff[0])}-nonline`);
     for (let i = 0; i < allHeaders.length; i++) {
       allHeaders[i].addEventListener("click", (e) => {
-        const all = document.getElementsByClassName(`F${ff[0]}-blankline`);
+          const all = document.getElementsByClassName(`F${escape(ff[0])}-blankline`);
         for (let i = 0; i < all.length; i++) {
           all[i].style.display = "none";
         }
@@ -778,9 +1243,9 @@ async function display(prof) {
   // If you click on the line profile header, and gray lines are off, turn them back on.
   for (const ff of files) {
     document
-      .getElementById(`${ff[0]}-lineProfile`)
+	  .getElementById(`${escape(ff[0])}-lineProfile`)
       .addEventListener("click", (e) => {
-        const all = document.getElementsByClassName(`F${ff[0]}-blankline`);
+          const all = document.getElementsByClassName(`F${escape(ff[0])}-blankline`);
         for (let i = 0; i < all.length; i++) {
           if (all[i].style.display === "none") {
             all[i].style.display = "block";
@@ -830,13 +1295,13 @@ async function display(prof) {
       })();
     }
   });
-  window.onload = () => {
-    if (prof.program) {
-      document.title = "Scalene - " + prof.program;
-    } else {
-      document.title = "Scalene";
-    }
-  };
+  // Hide all empty profiles by default.
+  hideEmptyProfiles();
+  if (prof.program) {
+    document.title = "Scalene - " + prof.program;
+  } else {
+    document.title = "Scalene";
+  }
 }
 
 function load(profile) {

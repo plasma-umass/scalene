@@ -11,6 +11,7 @@ class ScaleneArguments(argparse.Namespace):
         self.cpu = True
         self.gpu = platform.system() != "Darwin"
         self.memory = sys.platform != "win32"
+        self.stacks = False # default - don't collect stack traces
         self.cpu_percent_threshold = 1
         # mean seconds between interrupts for CPU sampling.
         self.cpu_sampling_rate = 0.01

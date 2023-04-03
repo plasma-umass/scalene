@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0.0", "wheel>=0.36.1", "Cython>=0.29.28"]
+requires = ["setuptools>=65.5.1", "wheel~=0.38.1", "Cython>=0.29.28"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,7 +9,7 @@ license = {text = "Apache License 2.0"}
 keywords = ["performance memory profiler"]
 # version is computed by setup.py
 dynamic = ["version"]
-requires-python = ">= 3.8"
+requires-python = ">=3.8, !=3.11.0"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Framework :: IPython",
@@ -37,11 +37,16 @@ authors = [
     {name = "Juan Altmayer Pizzorno"},
 ]
 dependencies = [
-    "cloudpickle>=1.5.0",
-    "ipython==7.31.1",
+    "astunparse>=1.6.3",
+    "cloudpickle==1.6.0",
+    "git+https://github.com/plasma-umass/crdp.git#egg=crdp",
+    "ipython>=8.10",
     "Jinja2>=3.0.3",
+    "lxml==4.9.1",
+    "packaging==20.9",
     "rich>=10.7.0",
-    "pynvml>=11.0.0",
+    "pip~=21.1.2",
+    "pynvml~=11.0.0",
     "pyperf==2.0.0",
 ]
 

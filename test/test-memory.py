@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import numpy as np
 import sys
 
@@ -13,7 +14,7 @@ print(sys.getsizeof(x) / 1048576)
 x = np.ones((1000,20000))
 print(sys.getsizeof(x) / 1048576)
 
-@profile
+# @profile
 def allocate():
     for i in range(100):
         x = np.ones((1000,1000))
