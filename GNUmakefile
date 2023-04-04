@@ -100,7 +100,7 @@ python-deps:
 ifeq ($(findstring MSYS, $(shell uname -s)),MSYS)
   ifeq ($(findstring 3.8, $(shell $(PYTHON) --version)),3.8)
     NO_ISOLATION= --no-isolation
-    BUILD_DEPS= $(shell $(PYTHON) -c 'import toml; t = toml.load("pyproject.toml"); print(" ".join(t["project"]["dependencies"]))')
+    BUILD_DEPS= $(shell $(PYTHON) -c 'import toml; t = toml.load("pyproject.toml"); print(" ".join(t["build-system"]["requires"]))')
   endif
 endif
 
