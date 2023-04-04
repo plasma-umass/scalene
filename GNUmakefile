@@ -93,20 +93,19 @@ PYTHON_API_VER:=$(shell $(PYTHON) -c 'from pip._vendor.packaging.tags import int
 python-deps:
 	$(PYTHON) -m pip install \
 		build \
-		auditwheel \
-		toml
+		auditwheel
 
 # isolation is broken with pip on Python 3.8 on Windows
 ifeq ($(findstring MSYS, $(shell uname -s)),MSYS)
   ifeq ($(findstring 3.8, $(shell $(PYTHON) --version)),3.8)
     NO_ISOLATION= --no-isolation
-    BUILD_DEPS= $(shell $(PYTHON) -c 'import toml; t = toml.load("pyproject.toml"); print(" ".join(t["build-system"]["requires"]))')
   endif
 endif
 
 bdist: python-deps vendor-deps
-ifdef BUILD_DEPS
-	$(PYTHON) -m pip install $(BUILD_DEPS)
+ifdef NO_ISOLATION
+	$(PYTHON) -m pip install toml
+	$(PYTHON) -m pip install `$(PYTHON) -c 'import toml; t = toml.load("pyproject.toml"); print(" ".join(t["build-system"]["requires"]))'`
 endif
 	$(PYTHON) -m build --wheel $(NO_ISOLATION)
 ifeq ($(shell uname -s),Linux)
