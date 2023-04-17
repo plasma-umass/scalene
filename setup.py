@@ -200,7 +200,7 @@ setup(
         "wheel>=0.36.1",
         "rich>=10.7.0",
         "cloudpickle>=1.5.0",
-        "pynvml>=11.0.0",
+        "pynvml>=11.0.0,<11.5",
         "Jinja2>=3.0.3",
         "astunparse>=1.6.3"
     ],
