@@ -159,6 +159,18 @@ crdp = Extension('scalene.crdp',
 # Numbering scheme: https://www.python.org/dev/peps/pep-0440
 dev_build = ('.dev' + environ['DEV_BUILD']) if 'DEV_BUILD' in environ else ''
 
+install_requires_list = [
+    "wheel>=0.36.1",
+    "rich>=10.7.0",
+    "cloudpickle>=1.5.0",
+    "pynvml>=11.0.0,<11.5",
+    "Jinja2>=3.0.3",
+    "psutil>=5.9.2"
+]
+
+if (sys.version_info.major == 3) and (sys.version_info.minor < 3.9):
+    install_requires_list.append("astunparse>=1.6.3")
+
 setup(
     name="scalene",
     version=scalene_version + dev_build,
@@ -196,14 +208,7 @@ setup(
         'egg_info': EggInfoCommand,
         'build_ext': BuildExtCommand,
     },
-    install_requires=[
-        "wheel>=0.36.1",
-        "rich>=10.7.0",
-        "cloudpickle>=1.5.0",
-        "pynvml>=11.0.0,<11.5",
-        "Jinja2>=3.0.3",
-        "astunparse>=1.6.3"
-    ],
+    install_requires=install_requires_list,
     ext_modules=([get_line_atomic, pywhere, crdp] if sys.platform != 'win32' else []),
     setup_requires=['wheel', 'cython', 'setuptools_scm'],
     include_package_data=True,
