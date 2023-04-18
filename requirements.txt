@@ -1,4 +1,4 @@
-astunparse>=1.6.3
+astunparse>=1.6.3; python_version < '3.9'
 cloudpickle==1.6.0
 Cython>=0.29.28
 git+https://github.com/plasma-umass/crdp.git#egg=crdp
@@ -6,6 +6,7 @@ ipython>=8.10
 Jinja2==3.0.3
 lxml==4.9.1
 packaging==20.9
+psutil>=5.9.2
 pyperf==2.0.0
 rich>=10.7.0
 setuptools>=65.5.1
