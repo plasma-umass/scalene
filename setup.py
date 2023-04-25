@@ -168,7 +168,7 @@ install_requires_list = [
     "psutil>=5.9.2"
 ]
 
-if (sys.version_info.major == 3) and (sys.version_info.minor < 3.9):
+if sys.version_info < (3, 9):
     install_requires_list.append("astunparse>=1.6.3")
 
 setup(
