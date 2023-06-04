@@ -141,7 +141,6 @@ class MakeLocalAllocator {
   class Nada {};
   
   static inline void *local_malloc(void *ctx, size_t len) {
-    std::cerr << "local_malloc " << len << std::endl;
     static_assert(
         SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE > PYMALLOC_MAX_SIZE,
         "NEWLINE must be greater than PYMALLOC_MAX_SIZE.");
