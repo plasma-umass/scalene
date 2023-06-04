@@ -9,7 +9,6 @@ public:
   SizeManager() {
   }
   void setSize(void * ptr, size_t sz) {
-    std::cerr << "setSize(" << ptr << ", " << sz << ")" << std::endl;
     sizeMap[ptr] = sz;
   }
   size_t getSize(void * ptr) const {
@@ -18,7 +17,6 @@ public:
     if (it != sizeMap.end()) {
       sz = it->second;
     }
-    std::cerr << "getSize(" << ptr << ") = " << sz << std::endl;
     return sz;
   }
   void clearSize(void * ptr) {
