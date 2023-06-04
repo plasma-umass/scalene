@@ -15,11 +15,13 @@
 #include "heapredirect.h"
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
-#include "scaleneheader.hpp"
+#include "sizemanager.hpp"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
 #endif
+
+SizeManager sizeManager;
 
 // Allocate exactly one system heap.
 using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
@@ -136,9 +138,14 @@ class MakeLocalAllocator {
     return &original_allocator;
   }
 
+  class Nada {};
+  
   static inline void *local_malloc(void *ctx, size_t len) {
+    std::cerr << "local_malloc " << len << std::endl;
+    static_assert(
+        SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE > PYMALLOC_MAX_SIZE,
+        "NEWLINE must be greater than PYMALLOC_MAX_SIZE.");
     MallocRecursionGuard m;
-#if 1
     // Ensure all allocation requests are multiples of eight,
     // mirroring the actual allocation sizes employed by pymalloc
     // (See https://github.com/python/cpython/blob/main/Objects/obmalloc.c#L807)
@@ -149,48 +156,25 @@ class MakeLocalAllocator {
       }
       len = (len + 7) & ~7;
     }
-#endif
-#if USE_HEADERS
-    void *buf = nullptr;
-    const auto allocSize = len + sizeof(ScaleneHeader);
-    buf = get_original_allocator()->malloc(get_original_allocator()->ctx, allocSize);
-    auto *header = new (buf) ScaleneHeader(len);
-    class Nada {};
-#else
-    auto *header = (ScaleneHeader *)get_original_allocator()->malloc(get_original_allocator()->ctx, len);
-#endif
-    assert(header);  // We expect this to always succeed.
+    auto * ptr = get_original_allocator()->malloc(get_original_allocator()->ctx, len);
+    sizeManager.setSize(ptr, len);
+    assert(ptr);  // We expect this to always succeed.
     if (!m.wasInMalloc()) {
-      TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
+      TheHeapWrapper::register_malloc(len, ptr);
     }
-
-    static_assert(
-        SampleHeap<1, HL::NullHeap<Nada>>::NEWLINE > PYMALLOC_MAX_SIZE,
-        "NEWLINE must be greater than PYMALLOC_MAX_SIZE.");
-#if USE_HEADERS
-    assert((size_t)ScaleneHeader::getObject(header) - (size_t)header >=
-           sizeof(ScaleneHeader));
-#ifndef NDEBUG
-    if (ScaleneHeader::getSize(ScaleneHeader::getObject(header)) < len) {
-      printf_("Size mismatch: %lu %lu\n",
-              ScaleneHeader::getSize(ScaleneHeader::getObject(header)), len);
-    }
-#endif
-    assert(ScaleneHeader::getSize(ScaleneHeader::getObject(header)) >= len);
-#endif
-    return ScaleneHeader::getObject(header);
+    return ptr;
   }
 
   static inline void local_free(void *ctx, void *ptr) {
     // ignore nullptr
     if (ptr) {
       MallocRecursionGuard m;
-      const auto sz = ScaleneHeader::getSize(ptr);
+      const auto sz = sizeManager.getSize(ptr);
 
       if (!m.wasInMalloc()) {
         TheHeapWrapper::register_free(sz, ptr);
       }
-      get_original_allocator()->free(get_original_allocator()->ctx, ScaleneHeader::getHeader(ptr));
+      get_original_allocator()->free(get_original_allocator()->ctx, ptr);
     }
   }
 
@@ -202,23 +186,20 @@ class MakeLocalAllocator {
       return local_malloc(ctx, new_size);
     }
     MallocRecursionGuard m;
-    const auto sz = ScaleneHeader::getSize(ptr);
-    void *p = nullptr;
-    const auto allocSize = new_size + sizeof(ScaleneHeader);
-    void *buf = get_original_allocator()->realloc(
-        get_original_allocator()->ctx, ScaleneHeader::getHeader(ptr), allocSize);
-    ScaleneHeader *result = new (buf) ScaleneHeader(new_size);
+    const auto sz = sizeManager.getSize(ptr);
+    const auto allocSize = new_size;
+    void *result = get_original_allocator()->realloc(
+        get_original_allocator()->ctx, ptr, allocSize);
     if (result && !m.wasInMalloc()) {
       if (sz < new_size) {
         TheHeapWrapper::register_malloc(new_size - sz,
-                                        ScaleneHeader::getObject(result));
+                                        result);
       } else if (sz > new_size) {
         TheHeapWrapper::register_free(sz - new_size, ptr);
       }
     }
-    ScaleneHeader::setSize(ScaleneHeader::getObject(result), new_size);
-    p = ScaleneHeader::getObject(result);
-    return p;
+    sizeManager.setSize(result, new_size);
+    return result;
   }
 
   static inline void *local_calloc(void *ctx, size_t nelem, size_t elsize) {
