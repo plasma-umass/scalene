@@ -148,13 +148,12 @@ class MakeLocalAllocator {
     // Ensure all allocation requests are multiples of eight,
     // mirroring the actual allocation sizes employed by pymalloc
     // (See https://github.com/python/cpython/blob/main/Objects/obmalloc.c#L807)
-    if (len <= PYMALLOC_MAX_SIZE) {
-      if (unlikely(len == 0)) {
-        // Handle 0.
-        len = 8;
-      }
-      len = (len + 7) & ~7;
+
+    if (unlikely(len == 0)) {
+      // Handle 0.
+      len = 8;
     }
+    len = (len + 7) & ~7;
     auto * ptr = get_original_allocator()->malloc(get_original_allocator()->ctx, len);
     sizeManager.setSize(ptr, len);
     assert(ptr);  // We expect this to always succeed.
@@ -178,9 +177,11 @@ class MakeLocalAllocator {
   }
 
   static inline void *local_realloc(void *ctx, void *ptr, size_t new_size) {
-    if (new_size < 8) {
+    if (unlikely(new_size < 8)) {
+      // Handle 0.
       new_size = 8;
     }
+    new_size = (new_size + 7) & ~7;
     if (!ptr) {
       return local_malloc(ctx, new_size);
     }
