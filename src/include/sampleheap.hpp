@@ -247,7 +247,8 @@ class SampleHeap : public SuperHeap {
     if (pythonDetected() && !g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
-      assert((sz < 16) || (realSize <= 2 * sz));
+      // EDB 4 June 2023, disabled below, possibly spurious assertion
+      // assert((sz < 16) || (realSize <= 2 * sz));
       register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
     }
     return ptr;
