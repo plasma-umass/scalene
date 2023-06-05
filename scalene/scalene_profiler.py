@@ -701,17 +701,18 @@ class Scalene:
         program_being_profiled: Optional[Filename] = None,
     ) -> None:
 
-        # Hijack lock, poll, thread_join, fork, and exit.
         import scalene.replacement_exit
         import scalene.replacement_get_context
+
+        # Hijack lock, poll, thread_join, fork, and exit.
         import scalene.replacement_lock
         import scalene.replacement_mp_lock
         import scalene.replacement_pjoin
         import scalene.replacement_signal_fns
         import scalene.replacement_thread_join
-        
         if sys.platform != "win32":
-            pass
+            import scalene.replacement_fork
+            import scalene.replacement_poll_selector
 
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.__alloc_sigq = ScaleneSigQueue(
