@@ -11,6 +11,7 @@ def smoketest(fname, rest):
         exit(proc.returncode)
 
     stderr = proc.stderr.decode('utf-8')
+    print(stderr)
     try:
         scalene_json = json.loads(stderr)
     except json.JSONDecodeError:
