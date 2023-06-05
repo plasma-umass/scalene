@@ -39,10 +39,11 @@ jobs:
       run: pip -v install -e .
 
     - name: cpu-only smoke test
-      run: python -m scalene --cli --cpu-only test/testme.py
+      run: python test/smoketest.py test/testme.py --cpu-only
 
     - name: multiprocessing smoke test
-      run: python -m scalene --cli test/multiprocessing_test.py
+      run: python test/smoketest.py test/multiprocessing_test.py
 
+      # Note: test/smoketest.py only handles single JSON, rather than multiple in sequence.
     - name: profile-interval smoke test
       run: python -m scalene --cli --profile-interval=2 test/testme.py
