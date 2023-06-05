@@ -17,6 +17,9 @@ def smoketest(fname, rest):
     except json.JSONDecodeError:
         print("Invalid JSON", stderr)
         exit(1)
+    if len(scalene_json) == 0:
+        print("No JSON output")
+        exit(1)
     files = scalene_json['files']
     if not len(files) > 0:
         print("No files found in output")
