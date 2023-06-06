@@ -9,9 +9,10 @@ def smoketest(fname, rest):
         print("Exited with a non-zero code:", proc.returncode)
         print("Stdout:", sys.stdout.decode('utf-8'))
         exit(proc.returncode)
-
+    stdout = proc.stdout.decode('utf-8')
     stderr = proc.stderr.decode('utf-8')
-    print(stderr)
+    print("STDOUT", stdout)
+    print("\nSTDERR", stderr)
     try:
         scalene_json = json.loads(stderr)
     except json.JSONDecodeError:
