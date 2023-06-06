@@ -1,5 +1,5 @@
 astunparse>=1.6.3; python_version < '3.9'
-cloudpickle==1.6.0
+cloudpickle==2.2.1
 Cython>=0.29.28
 git+https://github.com/plasma-umass/crdp.git#egg=crdp
 ipython>=8.10
