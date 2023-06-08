@@ -1604,7 +1604,11 @@ class Scalene:
             return False
         # Don't profile the Python libraries, unless overridden by --profile-all
         if not Scalene.__args.profile_all:
-            resolved_filename = str(pathlib.Path(filename).resolve()).lower()
+            try:
+                resolved_filename = str(pathlib.Path(filename).resolve()).lower()
+            except OSError:
+                # Not a file
+                return False
             for n in sysconfig.get_scheme_names():
                 for p in sysconfig.get_path_names():
                     libdir = str(pathlib.Path(sysconfig.get_path(p, n)).resolve()).lower()
