@@ -2036,7 +2036,7 @@ class Scalene:
                         )
                     else:
                         # Otherwise, use the invoked directory.
-                        Scalene.__program_path = os.getcwd()
+                        Scalene.__program_path = program_path
                     # Grab local and global variables.
                     if Scalene.__args.memory:
                         from scalene import pywhere  # type: ignore
