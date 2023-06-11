@@ -84,8 +84,11 @@ black:
 prettier:
 	-npx prettier -w $(JS_SOURCES)
 
+# On MacOS >= 11, all builds are compatible for a major MacOS version, so Python "floors"
+# all minor versions to 0, leading to tags like like "macosx_11_0_universal2". If you use
+# the actual (non-0) minor name in the build platform, it isn't recognized.
 ifeq ($(shell uname -s),Darwin)
-  PYTHON_PLAT:=-p $(shell $(PYTHON) -c 'from pkg_resources import get_build_platform; p=get_build_platform(); print(p[:p.rindex("-")])')-universal2
+  PYTHON_PLAT:=-p $(shell $(PYTHON) -c 'import platform as p; v = p.mac_ver()[0].split("."); v = f"{v[0]}.0" if int(v[0]) >= 11 else ".".join(v); print(f"macosx-{v}-universal2")')
 endif
 
 PYTHON_API_VER:=$(shell $(PYTHON) -c 'from pip._vendor.packaging.tags import interpreter_name, interpreter_version; print(interpreter_name()+interpreter_version())')
