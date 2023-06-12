@@ -7,13 +7,15 @@ def smoketest(fname, rest):
     cmd = [sys.executable, "-m", "scalene", "--cli", "--json", "--outfile", "/dev/stderr", *rest, fname]
     print("COMMAND", ' '.join(cmd))
     proc = subprocess.run(cmd ,capture_output=True)
-    if proc.returncode != 0:
-        print("Exited with a non-zero code:", proc.returncode)
-        print("Stdout:", proc.stdout.decode('utf-8'))
-        exit(proc.returncode)
     stdout = proc.stdout.decode('utf-8')
     stderr = proc.stderr.decode('utf-8')
-#    print("STDOUT", stdout)
+
+    if proc.returncode != 0:
+        print("Exited with a non-zero code:", proc.returncode)
+        print("STDOUT", stdout)
+        print("STDERR", stderr)
+        exit(proc.returncode)
+   #    print("STDOUT", stdout)
 #    print("\nSTDERR", stderr)
     try:
         scalene_json = json.loads(stderr)

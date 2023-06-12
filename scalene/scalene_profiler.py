@@ -700,7 +700,6 @@ class Scalene:
         arguments: argparse.Namespace,
         program_being_profiled: Optional[Filename] = None,
     ) -> None:
-        print("Profiling", program_being_profiled)
         import scalene.replacement_exit
         import scalene.replacement_get_context
 
