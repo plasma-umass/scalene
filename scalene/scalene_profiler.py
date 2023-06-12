@@ -1610,6 +1610,7 @@ class Scalene:
             # Not a file
             return False
         print("FQN", resolved_filename)
+        print("PROGPATH", Scalene.__program_path)
         if not Scalene.__args.profile_all:
             for n in sysconfig.get_scheme_names():
                 for p in sysconfig.get_path_names():
@@ -1662,7 +1663,7 @@ class Scalene:
         filename = os.path.normpath(
             os.path.join(Scalene.__program_path, filename)
         )
-        print("PROGPATH", Scalene.__program_path)
+
         return Scalene.__program_path in resolved_filename
 
 
