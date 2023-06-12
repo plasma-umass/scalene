@@ -788,7 +788,7 @@ class Scalene:
                 sys.executable,
                 cmdline,
             )
-            Scalene.__profiler_base = os.path.dirname(__file__)
+            Scalene.__profiler_base = str(os.path.dirname(__file__))
             # Now create all the files.
             for name in Scalene.__all_python_names:
                 fname = os.path.join(Scalene.__python_alias_dir, name)
