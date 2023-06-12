@@ -273,7 +273,7 @@ class Scalene:
     __json.gpu = __gpu.has_gpu()
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
-
+    __profiler_base: str
     @staticmethod
     def get_original_lock() -> threading.Lock:
         """Return the true lock, which we shim in replacement_lock.py."""
