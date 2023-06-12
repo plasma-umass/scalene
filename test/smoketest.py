@@ -9,7 +9,7 @@ def smoketest(fname, rest):
         print("Exited with a non-zero code:", proc.returncode)
         print("Stdout:", sys.stdout.decode('utf-8'))
         exit(proc.returncode)
-    # stdout = proc.stdout.decode('utf-8')
+    stdout = proc.stdout.decode('utf-8')
     stderr = proc.stderr.decode('utf-8')
 #    print("STDOUT", stdout)
 #    print("\nSTDERR", stderr)
@@ -17,9 +17,13 @@ def smoketest(fname, rest):
         scalene_json = json.loads(stderr)
     except json.JSONDecodeError:
         print("Invalid JSON", stderr)
+        print("STDOUT", stdout)
+        print("STDERR", stderr)
         exit(1)
     if len(scalene_json) == 0:
         print("No JSON output")
+        print("STDOUT", stdout)
+        print("STDERR", stderr)
         exit(1)
     files = scalene_json['files']
     if not len(files) > 0:
