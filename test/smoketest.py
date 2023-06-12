@@ -26,7 +26,8 @@ def smoketest(fname, rest):
         print("No files found in output")
         exit(1)
     for _fname in files:
-        if not any( (line['n_cpu_percent_c'] > 0 or line['n_cpu_percent_python'] > 0) for line in files[fname]['lines']):
+
+        if not any( (line['n_cpu_percent_c'] > 0 or line['n_cpu_percent_python'] > 0) for line in files[_fname]['lines']):
             print("No non-zero lines in", _fname)
             exit(1)
 
