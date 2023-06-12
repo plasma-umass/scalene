@@ -1612,7 +1612,7 @@ class Scalene:
         if not Scalene.__args.profile_all:
             for n in sysconfig.get_scheme_names():
                 for p in sysconfig.get_path_names():
-                    libdir = str(pathlib.Path(sysconfig.get_path(p, n)).resolve()).lower()
+                    libdir = str(pathlib.Path(sysconfig.get_path(p, n)).resolve())
                     if libdir in resolved_filename:
                         return False
 
