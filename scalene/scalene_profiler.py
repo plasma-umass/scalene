@@ -788,6 +788,7 @@ class Scalene:
                 sys.executable,
                 cmdline,
             )
+            Scalene.__profiler_base = os.path.dirname(__file__)
             # Now create all the files.
             for name in Scalene.__all_python_names:
                 fname = os.path.join(Scalene.__python_alias_dir, name)
@@ -1599,8 +1600,7 @@ class Scalene:
         """Return true if the filename is one we should trace."""
         if not filename:
             return False
-        print("Checking should trace", filename)
-        if os.path.join("scalene", "scalene") in filename:
+        if Scalene.__profiler_base in filename:
             # Don't profile the profiler.
             return False
         # Don't profile the Python libraries, unless overridden by --profile-all
@@ -1609,8 +1609,6 @@ class Scalene:
         except OSError:
             # Not a file
             return False
-        print("FQN", resolved_filename)
-        print("PROGPATH", Scalene.__program_path)
         if not Scalene.__args.profile_all:
             for n in sysconfig.get_scheme_names():
                 for p in sysconfig.get_path_names():
