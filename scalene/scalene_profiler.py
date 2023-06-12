@@ -1605,7 +1605,7 @@ class Scalene:
         # Don't profile the Python libraries, unless overridden by --profile-all
         if not Scalene.__args.profile_all:
             try:
-                resolved_filename = str(pathlib.Path(filename).resolve()).lower()
+                resolved_filename = str(pathlib.Path(filename).resolve())
             except OSError:
                 # Not a file
                 return False
@@ -1614,7 +1614,7 @@ class Scalene:
                     libdir = str(pathlib.Path(sysconfig.get_path(p, n)).resolve()).lower()
                     if libdir in resolved_filename:
                         return False
-                    
+
         # Generic handling follows (when no @profile decorator has been used).
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
         if any(
@@ -1660,7 +1660,8 @@ class Scalene:
         filename = os.path.normpath(
             os.path.join(Scalene.__program_path, filename)
         )
-        return Scalene.__program_path in filename
+        return Scalene.__program_path in resolved_filename
+
 
     __done = False
 
@@ -2018,7 +2019,7 @@ class Scalene:
                     try:
                         code = compile(
                             prog_being_profiled.read(),
-                            progs[0],
+                            os.path.abspath(progs[0]),
                             "exec",
                         )
                     except SyntaxError:
@@ -2057,7 +2058,7 @@ class Scalene:
                     # Do a GC before we start.
                     gc.collect()
                     # Start the profiler.
-                    profiler = Scalene(args, Filename(progs[0]))
+                    profiler = Scalene(args, Filename(os.path.abspath(progs[0])))
                     try:
                         # We exit with this status (returning error code as appropriate).
                         exit_status = profiler.profile_code(
