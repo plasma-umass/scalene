@@ -700,7 +700,7 @@ class Scalene:
         arguments: argparse.Namespace,
         program_being_profiled: Optional[Filename] = None,
     ) -> None:
-
+        print("Profiling", program_being_profiled)
         import scalene.replacement_exit
         import scalene.replacement_get_context
 
@@ -1599,6 +1599,7 @@ class Scalene:
         """Return true if the filename is one we should trace."""
         if not filename:
             return False
+        print("Checking should trace", filename)
         if os.path.join("scalene", "scalene") in filename:
             # Don't profile the profiler.
             return False
@@ -1608,7 +1609,7 @@ class Scalene:
         except OSError:
             # Not a file
             return False
-
+        print("FQN", resolved_filename)
         if not Scalene.__args.profile_all:
             for n in sysconfig.get_scheme_names():
                 for p in sysconfig.get_path_names():
@@ -1661,6 +1662,7 @@ class Scalene:
         filename = os.path.normpath(
             os.path.join(Scalene.__program_path, filename)
         )
+        print("PROGPATH", Scalene.__program_path)
         return Scalene.__program_path in resolved_filename
 
 
