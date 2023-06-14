@@ -314,7 +314,7 @@ code...
 <details>
 <summary>Using <code>pip</code> (Mac OS X, Linux, Windows, and WSL2)</summary>
 
-Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows version isn't yet complete; it currently only supports CPU profiling.)
+Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows version isn't yet complete; it currently only supports CPU and GPU profiling, but not memory profiling.)
 
 You can install it as follows:
 ```console
