@@ -8,6 +8,12 @@ const maxLinesPerRegion = 50; // Only show regions that are no more than this ma
 
 let showedExplosion = {}; // Used so we only show one explosion per region.
 
+function unescapeUnicode(s) {
+  return s.replace(/\\u([\dA-F]{4})/gi, function (match, p1) {
+    return String.fromCharCode(parseInt(p1, 16));
+  });
+}
+
 async function isValidApiKey(apiKey) {
   const response = await fetch("https://api.openai.com/v1/completions", {
     method: "GET",
@@ -923,6 +929,9 @@ function makeProfileLine(
       ? `${explosionString}&nbsp;`
       : `${WhiteExplosion}&nbsp;`;
 
+    // Convert back any escaped Unicode.
+  line.line = unescapeUnicode(line.line);
+
   const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
   s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
   if (propose_optimizations && showExplosion) {
@@ -1115,6 +1124,7 @@ async function display(prof) {
     );
   }
 
+    
   s += '<tr><td colspan="10">';
   s += `<span class="text-center"><font style="font-size: 90%; font-style: italic; font-color: darkgray">hover over bars to see breakdowns; click on <font style="font-variant:small-caps; text-decoration:underline">column headers</font> to sort.</font></span>`;
   s += "</td></tr>";
@@ -1158,7 +1168,8 @@ async function display(prof) {
     // Print per-line profiles.
     let prevLineno = -1;
     for (const l in ff[1].lines) {
-      const line = ff[1].lines[l];
+	const line = ff[1].lines[l];
+	
       if (false) {
         // Disabling spacers
         // Add a space whenever we skip a line.

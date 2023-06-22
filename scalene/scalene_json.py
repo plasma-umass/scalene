@@ -18,6 +18,7 @@ if sys.platform != "win32":
 
 
 class ScaleneJSON:
+
     @staticmethod
     def memory_consumed_str(size_in_mb: float) -> str:
         """Return a string corresponding to amount of memory consumed."""
@@ -382,6 +383,7 @@ class ScaleneJSON:
             try:
                 with open(full_fname, "r") as source_file:
                     code_lines = source_file.readlines()
+
             except (FileNotFoundError, OSError):
                 continue
 
@@ -399,6 +401,11 @@ class ScaleneJSON:
                 "imports": imports,
             }
             for lineno, line in enumerate(code_lines, start=1):
+                # Protect against JS 'injection' in Python comments by replacing some characters with Unicode.
+                # This gets unescaped in scalene-gui.js.
+                line = line.replace('&', '\\u0026')
+                line = line.replace('<', '\\u003c')
+                line = line.replace('>', '\\u003e')
                 profile_line = self.output_profile_line(
                     fname=fname,
                     fname_print=fname_print,
@@ -412,6 +419,7 @@ class ScaleneJSON:
                 if profile_line:
                     profile_line["start_region_line"] = enclosing_regions[lineno][0]
                     profile_line["end_region_line"] = enclosing_regions[lineno][1]
+
                     # When reduced-profile set, only output if the payload for the line is non-zero.
                     if reduced_profile:
                         profile_line_copy = copy.copy(profile_line)
