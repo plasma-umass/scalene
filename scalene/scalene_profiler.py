@@ -1621,22 +1621,21 @@ class Scalene:
             prof in filename for prof in profile_exclude_list if prof != ""
         ):
             return False
-        if filename[0] == "_":
-            if filename.startswith("_ipython-input-"):
-                # Profiling code created in a Jupyter cell:
-                # create a file to hold the contents.
-                import IPython
+        if filename.startswith("_ipython-input-"):
+            # Profiling code created in a Jupyter cell:
+            # create a file to hold the contents.
+            import IPython
 
-                if result := re.match(r"_ipython-input-([0-9]+)-.*", filename):
-                    # Write the cell's contents into the file.
-                    cell_contents = (
-                        IPython.get_ipython().history_manager.input_hist_raw[
-                            int(result[1])
-                        ]
-                    )
-                    with open(filename, "w+") as f:
-                        f.write(cell_contents)
-                    return True
+            if result := re.match(r"_ipython-input-([0-9]+)-.*", filename):
+                # Write the cell's contents into the file.
+                cell_contents = (
+                    IPython.get_ipython().history_manager.input_hist_raw[
+                        int(result[1])
+                    ]
+                )
+                with open(filename, "w+") as f:
+                    f.write(cell_contents)
+                return True
         # If (a) `profile-only` was used, and (b) the file matched
         # NONE of the provided patterns, don't profile it.
         profile_only_set = set(Scalene.__args.profile_only.split(","))
@@ -2059,7 +2058,8 @@ class Scalene:
                         exit_status = profiler.profile_code(
                             code, the_locals, the_globals
                         )
-                        sys.exit(exit_status)
+                        if not is_jupyter:
+                            sys.exit(exit_status)
                     except StopJupyterExecution:
                         # Running in Jupyter notebooks
                         pass

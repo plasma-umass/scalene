@@ -39,11 +39,11 @@ with contextlib.suppress(Exception):
         def scalene(self, line: str, cell: str = "") -> None:
             """%%scalene magic: see https://github.com/plasma-umass/scalene for usage info."""
             if line:
-                sys.argv = ["scalene", *line.split()]
+                sys.argv = ["scalene", "--ipython", *line.split()]
                 (args, _left) = ScaleneParseArgs.parse_args()
             else:
                 args = ScaleneArguments()
-            if cell:
+            if args and cell:
                 # Preface with a "\n" to drop the first line (%%scalene).
                 self.run_code(args, "\n" + cell)  # type: ignore
 
@@ -52,9 +52,10 @@ with contextlib.suppress(Exception):
             """%scrun magic: see https://github.com/plasma-umass/scalene for usage info."""
 
             if line:
-                sys.argv = ["scalene", *line.split()]
+                sys.argv = ["scalene", "--ipython", *line.split()]
                 (args, left) = ScaleneParseArgs.parse_args()
-                self.run_code(args, " ".join(left))  # type: ignore
+                if args:
+                    self.run_code(args, " ".join(left))  # type: ignore
 
     def load_ipython_extension(ip: Any) -> None:
         ip.register_magics(ScaleneMagics)
