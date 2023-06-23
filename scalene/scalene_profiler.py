@@ -1621,26 +1621,22 @@ class Scalene:
             prof in filename for prof in profile_exclude_list if prof != ""
         ):
             return False
-        if filename[0] == "i":
-            if (
-                "ipython" not in filename
-            ):  # lgtm [py/member-test-non-container]
-                # Not a real file and not a function created in Jupyter.
-                return False
-            # Profiling code created in a Jupyter cell:
-            # create a file to hold the contents.
-            import IPython
+        if filename[0] == "_":
+            if filename.startswith("_ipython-input-"):
+                # Profiling code created in a Jupyter cell:
+                # create a file to hold the contents.
+                import IPython
 
-            if result := re.match(r"ipython-input-([0-9]+)-.*", filename):
-                # Write the cell's contents into the file.
-                cell_contents = (
-                    IPython.get_ipython().history_manager.input_hist_raw[
-                        int(result[1])
-                    ]
-                )
-                with open(filename, "w+") as f:
-                    f.write(cell_contents)
-            return True
+                if result := re.match(r"_ipython-input-([0-9]+)-.*", filename):
+                    # Write the cell's contents into the file.
+                    cell_contents = (
+                        IPython.get_ipython().history_manager.input_hist_raw[
+                            int(result[1])
+                        ]
+                    )
+                    with open(filename, "w+") as f:
+                        f.write(cell_contents)
+                    return True
         # If (a) `profile-only` was used, and (b) the file matched
         # NONE of the provided patterns, don't profile it.
         profile_only_set = set(Scalene.__args.profile_only.split(","))
