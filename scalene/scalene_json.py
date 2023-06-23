@@ -262,7 +262,7 @@ class ScaleneJSON:
             stats.memory_footprint_samples = []
 
         # Adjust the program name if it was a Jupyter cell.
-        result = re.match(r"ipython-input-([0-9]+)-.*", program)
+        result = re.match(r"_ipython-input-([0-9]+)-.*", program)
         if result:
             program = Filename("[" + result.group(1) + "]")
 
@@ -333,7 +333,7 @@ class ScaleneJSON:
             # restore its name, as in "[12]".
             fname_print = fname
 
-            result = re.match(r"ipython-input-([0-9]+)-.*", fname_print)
+            result = re.match(r"_ipython-input-([0-9]+)-.*", fname_print)
             if result:
                 fname_print = Filename("[" + result.group(1) + "]")
 

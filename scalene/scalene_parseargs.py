@@ -300,7 +300,9 @@ for the process ID that Scalene reports. For example:
             + (str(defaults.memory_leak_detector))
             + "[/blue])",
         )
-
+        parser.add_argument(
+            "--ipython", dest="ipython", action="store_const", const=True, default=False, help=argparse.SUPPRESS
+        )
         if sys.platform != "win32":
             # Turning profiling on and off from another process is currently not supported on Windows.
             group = parser.add_mutually_exclusive_group(required=False)
@@ -363,7 +365,7 @@ for the process ID that Scalene reports. For example:
         args.cpu = True  # Always true
 
         in_jupyter_notebook = len(sys.argv) >= 1 and re.match(
-            r"ipython-input-([0-9]+)-.*", sys.argv[0]
+            r"_ipython-input-([0-9]+)-.*", sys.argv[0]
         )
         # If the user did not enter any commands (just `scalene` or `python3 -m scalene`),
         # print the usage information and bail.
@@ -372,5 +374,7 @@ for the process ID that Scalene reports. For example:
             sys.exit(-1)
         if args.version:
             print(f"Scalene version {scalene_version} ({scalene_date})")
-            sys.exit(-1)
+            if not args.ipython:
+                sys.exit(-1)
+            args = [] # We use this to indicate that we should not run further in IPython.
         return args, left
