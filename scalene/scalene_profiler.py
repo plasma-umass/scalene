@@ -2007,7 +2007,7 @@ class Scalene:
                     progs.extend((sys.argv[0], __file__))
                 if not progs:
                     raise FileNotFoundError
-                with open(progs[0], "r") as prog_being_profiled:
+                with open(progs[0], "r", encoding="utf-8") as prog_being_profiled:
                     # Read in the code and compile it.
                     code: Any = ""
                     try:
