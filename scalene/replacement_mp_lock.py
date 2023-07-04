@@ -28,5 +28,6 @@ def replacement_mp_semlock(scalene: Scalene) -> None:
 
         def __exit__(self, *args: Any) -> None:
             super().__exit__(*args)
-
+    ReplacementSemLock.__qualname__ = 'replacement_mp_semlock.ReplacementSemLock'
     multiprocessing.synchronize.Lock = ReplacementSemLock  # type: ignore
+
