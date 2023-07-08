@@ -107,7 +107,27 @@ class ScaleneJSON:
         """Print at most one line of the profile (true == printed one)."""
 
         if not force_print and not profile_this_code(fname, line_no):
-            return {}
+            return {
+                "lineno": line_no,
+                "line": line,
+                "n_core_utilization" : 0,
+                "n_cpu_percent_c": 0,
+                "n_cpu_percent_python": 0,
+                "n_sys_percent": 0,
+                "n_gpu_percent": 0,
+                "n_gpu_avg_memory_mb": 0,
+                "n_gpu_peak_memory_mb": 0,
+                "n_peak_mb": 0,
+                "n_growth_mb": 0,
+                "n_avg_mb": 0,
+                "n_mallocs": 0,
+                "n_malloc_mb": 0,
+                "n_usage_fraction": 0, 
+                "n_python_fraction": 0,
+                "n_copy_mb_s": 0,
+                "memory_samples": [],
+            }
+
         # Prepare output values.
         n_cpu_samples_c = stats.cpu_samples_c[fname][line_no]
         # Correct for negative CPU sample counts. This can happen
@@ -219,7 +239,7 @@ class ScaleneJSON:
         python_alias_dir: Path,
         program_path: Path,
         profile_memory: bool = True,
-        reduced_profile: bool = False,
+        reduced_profile: bool = False
     ) -> Dict[str, Any]:
         """Write the profile out."""
         # Get the children's stats, if any.
@@ -302,7 +322,8 @@ class ScaleneJSON:
             fname = Filename(fname)
             try:
                 percent_cpu_time = (
-                    100 * stats.cpu_samples[fname] / stats.total_cpu_samples
+                    100 * stats.cpu_samples[fname] / stats.elapsed_time
+                    # 100 * stats.cpu_samples[fname] / stats.total_cpu_samples
                 )
             except ZeroDivisionError:
                 percent_cpu_time = 0
