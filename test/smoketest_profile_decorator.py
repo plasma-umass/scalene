@@ -28,13 +28,15 @@ def smoketest(fname):
         print("No files found in output")
         exit(1)
     _fname = list(files.keys())[0]
-    function_dict = files[_fname]['functions']
+    function_list = files[_fname]['functions']
     exit_code = 0
 
-    if 'doit1' not in function_dict:
+    # if 'doit1' not in function_dict:
+    if not any('doit1' in f['line'] for f in function_list):
         print("Expected function 'doit1' not returned")
         exit_code = 1
-    if 'doit2' not in function_dict:
+
+    if not any('doit2' in f['line'] for f in function_list):
         print("Expected function 'doit2' not returned")
         exit_code = 1
     if exit_code != 0:
