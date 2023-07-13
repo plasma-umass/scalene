@@ -40,7 +40,8 @@ def smoketest(fname):
         print("Expected function 'doit2' not returned")
         exit_code = 1
     if exit_code != 0:
-        print(files)
+        # print(files)
+        print(function_list)
         exit(exit_code)
 
 if __name__ == '__main__':
