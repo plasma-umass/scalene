@@ -30,6 +30,7 @@ def smoketest(fname):
     _fname = list(files.keys())[0]
     function_dict = files[_fname]['functions']
     exit_code = 0
+
     if 'doit1' not in function_dict:
         print("Expected function 'doit1' not returned")
         exit_code = 1
@@ -37,6 +38,7 @@ def smoketest(fname):
         print("Expected function 'doit2' not returned")
         exit_code = 1
     if exit_code != 0:
+        print(files)
         exit(exit_code)
 
 if __name__ == '__main__':
