@@ -417,9 +417,6 @@ class Scalene:
             # Different line: stop tracing this frame.
             frame.f_trace = None
             frame.f_trace_lines = False
-            # If we are not in a file we should be tracing, return.
-            # if not Scalene.should_trace(ff):
-            #     return None
             if Scalene.on_stack(frame, fname, lineno):
                 # We are still on the same line, but somewhere up the stack
                 # (since we returned when it was the same line in this
@@ -1606,7 +1603,7 @@ class Scalene:
     @staticmethod
     @functools.lru_cache(None)
     def should_trace(filename: str, func : str) -> bool:
-        """Return true if the filename is one we should trace."""
+        """Return true if we should trace this filename and function."""
         if not filename:
             return False
         if os.path.join("scalene", "scalene") in filename:
