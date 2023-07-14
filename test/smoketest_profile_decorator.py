@@ -11,10 +11,8 @@ def smoketest(fname):
         print("Stderr:", proc.stderr.decode('utf-8'))
 
         exit(proc.returncode)
-    # stdout = proc.stdout.decode('utf-8')
+
     stderr = proc.stderr.decode('utf-8')
-#    print("STDOUT", stdout)
-#    print("\nSTDERR", stderr)
     try:
         scalene_json = json.loads(stderr)
     except json.JSONDecodeError:
@@ -32,15 +30,17 @@ def smoketest(fname):
     exit_code = 0
 
     # if 'doit1' not in function_dict:
-    if not any('doit1' in f['line'] for f in function_list):
-        print("Expected function 'doit1' not returned")
-        exit_code = 1
-
-    if not any('doit2' in f['line'] for f in function_list):
-        print("Expected function 'doit2' not returned")
-        exit_code = 1
+    expected_functions = ['doit1', 'doit3']
+    unexpected_functions = ['doit2']
+    for fn_name in expected_functions:
+        if not any(fn_name in f['line'] for f in function_list):
+            print(f"Expected function '{fn_name}' not returned")
+            exit_code = 1
+    for fn_name in unexpected_functions:
+        if any(fn_name in f['line'] for f in function_list):
+            print(f"Unexpected function '{fn_name}' returned")
+            exit_code = 1
     if exit_code != 0:
-        # print(files)
         print(function_list)
         exit(exit_code)
 

@@ -7,7 +7,7 @@ def smoketest(fname, rest):
     proc = subprocess.run( [sys.executable, "-m", "scalene", "--cli", "--json", "--outfile", "/dev/stderr", *rest, fname] ,capture_output=True)
     if proc.returncode != 0:
         print("Exited with a non-zero code:", proc.returncode)
-        print("Stdout:", sys.stdout.decode('utf-8'))
+        print("Stdout:", proc.stdout.decode('utf-8'))
         exit(proc.returncode)
     # stdout = proc.stdout.decode('utf-8')
     stderr = proc.stderr.decode('utf-8')

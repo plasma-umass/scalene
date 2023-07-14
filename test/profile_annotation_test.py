@@ -38,11 +38,12 @@ def doit2(x):
 
 @profile
 def doit3(x):
-    z = x + 1
-    z = x + 1
-    z = x + 1
-    z = x + z
-    z = x + z
+    for i in range(1000000):
+        z = x + 1
+        z = x + 1
+        z = x + 1
+        z = x + z
+        z = x + z
 #    z = np.cos(x)
     return z
 
@@ -50,7 +51,7 @@ def stuff():
 #    y = np.random.randint(1, 100, size=50000000)[49999999]
     x = 1.01
     for i in range(1,3):
-        print(i)
+        # print(i)
         for j in range(1,3):
             x = doit1(x)
             x = doit2(x)
@@ -59,7 +60,7 @@ def stuff():
     return x
 
 import sys
-print("TESTME")
-print(sys.argv)
+# print("TESTME")
+# print(sys.argv)
 stuff()
 
