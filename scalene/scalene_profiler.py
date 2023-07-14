@@ -417,9 +417,6 @@ class Scalene:
             # Different line: stop tracing this frame.
             frame.f_trace = None
             frame.f_trace_lines = False
-            # If we are not in a file we should be tracing, return.
-            # if not Scalene.should_trace(ff):
-            #     return None
             if Scalene.on_stack(frame, fname, lineno):
                 # We are still on the same line, but somewhere up the stack
                 # (since we returned when it was the same line in this
@@ -480,6 +477,14 @@ class Scalene:
         Scalene.__files_to_profile.add(func.__code__.co_filename)
         Scalene.__functions_to_profile[func.__code__.co_filename].add(func)
 
+        if Scalene.__args.memory:
+            from scalene import pywhere  # type: ignore
+            pywhere.register_files_to_profile(
+                list(Scalene.__files_to_profile),
+                Scalene.__program_path,
+                Scalene.__args.profile_all,
+            )
+            
         return func
 
     @staticmethod
@@ -584,8 +589,7 @@ class Scalene:
         found_frame = False
         f = this_frame
         while f:
-            if Scalene.should_trace(f.f_code.co_filename):
-                found_frame = True
+            if found_frame := Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
                 break
             f = cast(FrameType, f.f_back)
         if not found_frame:
@@ -934,7 +938,7 @@ class Scalene:
                 Scalene.__program_being_profiled,
                 Scalene.__stats,
                 Scalene.__pid,
-                lambda x,y: True if Scalene.__args.web else Scalene.profile_this_code,
+                Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
                 profile_memory=Scalene.__args.memory,
@@ -972,7 +976,7 @@ class Scalene:
                 column_width,
                 Scalene.__stats,
                 Scalene.__pid,
-                lambda x,y: True if Scalene.__args.web else Scalene.profile_this_code,
+                Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
                 profile_memory=Scalene.__args.memory,
@@ -1005,7 +1009,7 @@ class Scalene:
         stk = HashableList()
         f = frame
         while f:
-            if Scalene.should_trace(f.f_code.co_filename):
+            if Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
                 stk.insert(0, (f.f_code.co_filename, f.f_lineno))
             f = f.f_back
         Scalene.__stats.stacks[stk] += 1
@@ -1227,6 +1231,7 @@ class Scalene:
             if not frame:
                 continue
             fname = frame.f_code.co_filename
+            func = frame.f_code.co_name
             # Record samples only for files we care about.
             if not fname:
                 # 'eval/compile' gives no f_code.co_filename.  We have
@@ -1234,7 +1239,8 @@ class Scalene:
                 # the co_filename.
                 back = cast(FrameType, frame.f_back)
                 fname = Filename(back.f_code.co_filename)
-            while not Scalene.should_trace(fname):
+                func = back.f_code.co_name
+            while not Scalene.should_trace(fname, func):
                 # Walk the stack backwards until we hit a frame that
                 # IS one we should trace (if there is one).  i.e., if
                 # it's in the code being profiled, and it is just
@@ -1245,6 +1251,7 @@ class Scalene:
                     break
                 if frame:
                     fname = frame.f_code.co_filename
+                    func = frame.f_code.co_name
             if frame:
                 new_frames.append((frame, tident, orig_frame))
         del frames[:]
@@ -1267,7 +1274,7 @@ class Scalene:
                     return
         except Exception:
             return
-        if not Scalene.should_trace(f.f_code.co_filename):
+        if not Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
             return
 
         fn_name = Filename(f.f_code.co_name)
@@ -1595,12 +1602,17 @@ class Scalene:
 
     @staticmethod
     @functools.lru_cache(None)
-    def should_trace(filename: str) -> bool:
-        """Return true if the filename is one we should trace."""
+    def should_trace(filename: str, func : str) -> bool:
+        """Return true if we should trace this filename and function."""
         if not filename:
             return False
         if os.path.join("scalene", "scalene") in filename:
             # Don't profile the profiler.
+            return False
+        if Scalene.__functions_to_profile:
+            if filename in Scalene.__functions_to_profile:
+                if func in { fn.__code__.co_name for fn in Scalene.__functions_to_profile[filename] }:
+                    return True
             return False
         # Don't profile the Python libraries, unless overridden by --profile-all
         if not Scalene.__args.profile_all:
