@@ -948,8 +948,13 @@ class Scalene:
             if "is_child" in json_output:
                 return True
             outfile = Scalene.__output.output_file
+            # If there was no output file specified, print to the console.
             if not outfile:
-                outfile = "/dev/stdout"
+                if sys.platform == "win32":
+                    outfile = "CON"
+                else:
+                    outfile = "/dev/stdout"
+            # Write the JSON to the output file (or console).
             with open(outfile, "w") as f:
                 f.write(
                     json.dumps(json_output, sort_keys=True, indent=4) + "\n"
