@@ -55,34 +55,81 @@ function checkApiKey(apiKey) {
   })();
 }
 
-async function sendPromptToOpenAI(prompt, len, apiKey) {
-  const endpoint = "https://api.openai.com/v1/completions";
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "text-davinci-003",
-      prompt: prompt,
-      temperature: 0.3,
-      max_tokens: len,
-      top_p: 1,
-      frequency_penalty: 0,
-      presence_penalty: 0,
-      // 'response_format': 'url'
-    }),
-  });
-
-  const data = await response.json();
-  // Chop off any blank lines in the header.
-
-  try {
-    return data.choices[0].text.replace(/^\s*[\r\n]/gm, "");
-  } catch {
-    return "# Query failed.\n";
+function extractCode(text) {
+  /**
+  * Extracts code block from the given completion text.
+  *
+  * @param {string} text - A string containing text and other data.
+  * @returns {string} Extracted code block from the completion object.
+  */
+  const lines = text.split('\n');
+  let i = 0;
+  while (i < lines.length && lines[i].trim() === '') {
+    i++;
   }
+    const first_line = lines[i].trim();
+  let code_block;
+  if (first_line === '```') {
+    code_block = text.slice(3);
+  } else if (first_line.startsWith('```')) {
+    const word = first_line.slice(3).trim();
+    if (word.length > 0 && !word.includes(' ')) {
+      code_block = text.slice(first_line.length);
+    } else {
+      code_block = text;
+    }
+  } else {
+    code_block = text;
+  }
+  const end_index = code_block.indexOf('```');
+  if (end_index !== -1) {
+    code_block = code_block.slice(0, end_index);
+  }
+  return code_block;
+}
+
+async function sendPromptToOpenAI(prompt, len, apiKey) {
+    const endpoint = "https://api.openai.com/v1/chat/completions";
+    const body = JSON.stringify({
+	// model: 'gpt-3.5-turbo',
+	model: 'gpt-4',
+	messages: [
+	    {
+		role: 'system',
+		content: 'You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, starting with ``` and ending with ```.'
+	    },
+	    {
+		role: 'user',
+		content: prompt
+	    }
+	],
+	temperature: 0.3,
+	frequency_penalty: 0,
+	presence_penalty: 0,
+	user: "scalene-user"
+    });
+
+    console.log(body);
+    
+    const response = await fetch(endpoint, {
+	method: "POST",
+	headers: {
+	    "Content-Type": "application/json",
+	    Authorization: `Bearer ${apiKey}`,
+	},
+	body: body,
+    });
+
+    const data = await response.json();
+    // Chop off any blank lines in the header.
+    
+    try {
+	// WAS (GPT-3): return data.choices[0].text.replace(/^\s*[\r\n]/gm, "");
+	return data.choices[0].message.content.replace(/^\s*[\r\n]/gm, "");
+    } catch {
+	return "# Query failed.\n";
+	
+    }
 }
 
 function countSpaces(str) {
@@ -108,7 +155,7 @@ async function optimizeCode(imports, code, context) {
     alert(
       "To activate proposed optimizations, enter an OpenAI API key in advanced options."
     );
-    return null;
+    return '';
   }
     // If the code to be optimized is just one line of code, say so.
     let lineOf = " ";
@@ -129,13 +176,15 @@ async function optimizeCode(imports, code, context) {
 
     const optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it faster than pure Python. Consider using the following other libraries, if appropriate:\n\n${libraries}\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
 
+    const pure_optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nONLY USE PURE PYTHON.\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
+
     const memoryEfficiencyPrompt = `Optimize the following${lineOf} Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more memory-efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it more space efficient than pure Python. Consider using the following other libraries, if appropriate:\n\n${libraries}\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use native libraries whenever possible to reduce memory consumption; invoke del on variables and array elements as soon as it is safe to do so. If the memory consumption is not likely to be reduced, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
 
     const optimizePerf = document.getElementById('optimize-performance').checked;
 
     let prompt;
     if (optimizePerf) {
-	prompt = optimizePerformancePrompt;
+ 	prompt = optimizePerformancePrompt;
     } else {
 	prompt = memoryEfficiencyPrompt;
     }
@@ -148,8 +197,9 @@ async function optimizeCode(imports, code, context) {
 
     // Use number of words in the original code as a proxy for the number of tokens.
     const numWords = (code.match(/\b\w+\b/g)).length;
-    
-    return await sendPromptToOpenAI(prompt, Math.max(numWords * 4, 500), apiKey);
+
+    const result = await sendPromptToOpenAI(prompt, Math.max(numWords * 4, 500), apiKey);
+    return extractCode(result);
 }
 
 function proposeOptimizationRegion(filename, file_number, lineno) {
