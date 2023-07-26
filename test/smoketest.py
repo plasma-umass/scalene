@@ -14,6 +14,7 @@ def smoketest(fname, rest):
         print("Exited with a non-zero code:", proc.returncode)
         print("STDOUT", stdout)
         print("STDERR", stderr)
+
         exit(proc.returncode)
    #    print("STDOUT", stdout)
 #    print("\nSTDERR", stderr)

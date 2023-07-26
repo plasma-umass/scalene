@@ -314,7 +314,7 @@ code...
 <details>
 <summary>Using <code>pip</code> (Mac OS X, Linux, Windows, and WSL2)</summary>
 
-Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows version isn't yet complete; it currently only supports CPU profiling.)
+Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows version isn't yet complete; it currently only supports CPU and GPU profiling, but not memory profiling.)
 
 You can install it as follows:
 ```console
@@ -410,7 +410,7 @@ How do I use Scalene with PyTorch on the Mac?
 
 # Technical Information
 
-For details about how Scalene works, please see the following paper, accepted to appear at [OSDI 2023](https://www.usenix.org/conference/osdi23): [Triangulating Python Performance Issues with Scalene](https://arxiv.org/pdf/2212.07597). Note that this paper currently does not include information about the AI-driven proposed optimizations.
+For details about how Scalene works, please see the following paper, which won the Jay Lepreau Best Paper Award at [OSDI 2023](https://www.usenix.org/conference/osdi23/presentation/berger): [Triangulating Python Performance Issues with Scalene](https://arxiv.org/pdf/2212.07597). (Note that this paper does not include information about the AI-driven proposed optimizations.)
 
 # Success Stories
 

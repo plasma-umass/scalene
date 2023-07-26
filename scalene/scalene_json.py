@@ -18,6 +18,7 @@ if sys.platform != "win32":
 
 
 class ScaleneJSON:
+
     @staticmethod
     def memory_consumed_str(size_in_mb: float) -> str:
         """Return a string corresponding to amount of memory consumed."""
@@ -106,7 +107,27 @@ class ScaleneJSON:
         """Print at most one line of the profile (true == printed one)."""
 
         if not force_print and not profile_this_code(fname, line_no):
-            return {}
+            return {
+                "lineno": line_no,
+                "line": line,
+                "n_core_utilization" : 0,
+                "n_cpu_percent_c": 0,
+                "n_cpu_percent_python": 0,
+                "n_sys_percent": 0,
+                "n_gpu_percent": 0,
+                "n_gpu_avg_memory_mb": 0,
+                "n_gpu_peak_memory_mb": 0,
+                "n_peak_mb": 0,
+                "n_growth_mb": 0,
+                "n_avg_mb": 0,
+                "n_mallocs": 0,
+                "n_malloc_mb": 0,
+                "n_usage_fraction": 0, 
+                "n_python_fraction": 0,
+                "n_copy_mb_s": 0,
+                "memory_samples": [],
+            }
+
         # Prepare output values.
         n_cpu_samples_c = stats.cpu_samples_c[fname][line_no]
         # Correct for negative CPU sample counts. This can happen
@@ -218,7 +239,7 @@ class ScaleneJSON:
         python_alias_dir: Path,
         program_path: Path,
         profile_memory: bool = True,
-        reduced_profile: bool = False,
+        reduced_profile: bool = False
     ) -> Dict[str, Any]:
         """Write the profile out."""
         # Get the children's stats, if any.
@@ -261,7 +282,7 @@ class ScaleneJSON:
             stats.memory_footprint_samples = []
 
         # Adjust the program name if it was a Jupyter cell.
-        result = re.match(r"ipython-input-([0-9]+)-.*", program)
+        result = re.match(r"_ipython-input-([0-9]+)-.*", program)
         if result:
             program = Filename("[" + result.group(1) + "]")
 
@@ -301,7 +322,8 @@ class ScaleneJSON:
             fname = Filename(fname)
             try:
                 percent_cpu_time = (
-                    100 * stats.cpu_samples[fname] / stats.total_cpu_samples
+                    100 * stats.cpu_samples[fname] / stats.elapsed_time
+                    # 100 * stats.cpu_samples[fname] / stats.total_cpu_samples
                 )
             except ZeroDivisionError:
                 percent_cpu_time = 0
@@ -332,7 +354,7 @@ class ScaleneJSON:
             # restore its name, as in "[12]".
             fname_print = fname
 
-            result = re.match(r"ipython-input-([0-9]+)-.*", fname_print)
+            result = re.match(r"_ipython-input-([0-9]+)-.*", fname_print)
             if result:
                 fname_print = Filename("[" + result.group(1) + "]")
 
@@ -380,8 +402,9 @@ class ScaleneJSON:
             # Print out the the profile for the source, line by line.
             full_fname = program
             try:
-                with open(full_fname, "r") as source_file:
+                with open(full_fname, "r", encoding="utf-8") as source_file:
                     code_lines = source_file.readlines()
+
             except (FileNotFoundError, OSError):
                 continue
             # Find all enclosing regions (loops or function defs) for each line of code.
@@ -398,6 +421,11 @@ class ScaleneJSON:
                 "imports": imports,
             }
             for lineno, line in enumerate(code_lines, start=1):
+                # Protect against JS 'injection' in Python comments by replacing some characters with Unicode.
+                # This gets unescaped in scalene-gui.js.
+                line = line.replace('&', '\\u0026')
+                line = line.replace('<', '\\u003c')
+                line = line.replace('>', '\\u003e')
                 profile_line = self.output_profile_line(
                     fname=fname,
                     fname_print=fname_print,
@@ -411,6 +439,7 @@ class ScaleneJSON:
                 if profile_line:
                     profile_line["start_region_line"] = enclosing_regions[lineno][0]
                     profile_line["end_region_line"] = enclosing_regions[lineno][1]
+
                     # When reduced-profile set, only output if the payload for the line is non-zero.
                     if reduced_profile:
                         profile_line_copy = copy.copy(profile_line)

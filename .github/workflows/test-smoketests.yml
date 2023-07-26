@@ -47,3 +47,6 @@ jobs:
       # Note: test/smoketest.py only handles single JSON, rather than multiple in sequence.
     - name: profile-interval smoke test
       run: python -m scalene --cli --profile-interval=2 test/testme.py
+
+    - name: decorator smoke test
+      run: python test/smoketest_profile_decorator.py

@@ -417,9 +417,6 @@ class Scalene:
             # Different line: stop tracing this frame.
             frame.f_trace = None
             frame.f_trace_lines = False
-            # If we are not in a file we should be tracing, return.
-            # if not Scalene.should_trace(ff):
-            #     return None
             if Scalene.on_stack(frame, fname, lineno):
                 # We are still on the same line, but somewhere up the stack
                 # (since we returned when it was the same line in this
@@ -480,6 +477,14 @@ class Scalene:
         Scalene.__files_to_profile.add(func.__code__.co_filename)
         Scalene.__functions_to_profile[func.__code__.co_filename].add(func)
 
+        if Scalene.__args.memory:
+            from scalene import pywhere  # type: ignore
+            pywhere.register_files_to_profile(
+                list(Scalene.__files_to_profile),
+                Scalene.__program_path,
+                Scalene.__args.profile_all,
+            )
+            
         return func
 
     @staticmethod
@@ -584,8 +589,7 @@ class Scalene:
         found_frame = False
         f = this_frame
         while f:
-            if Scalene.should_trace(f.f_code.co_filename):
-                found_frame = True
+            if found_frame := Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
                 break
             f = cast(FrameType, f.f_back)
         if not found_frame:
@@ -934,7 +938,7 @@ class Scalene:
                 Scalene.__program_being_profiled,
                 Scalene.__stats,
                 Scalene.__pid,
-                lambda x,y: True if Scalene.__args.web else Scalene.profile_this_code,
+                Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
                 profile_memory=Scalene.__args.memory,
@@ -947,9 +951,15 @@ class Scalene:
             # be used by the parent process
             if "is_child" in json_output:
                 return True
-            if not Scalene.__output.output_file:
-                Scalene.__output.output_file = "/dev/stdout"
-            with open(Scalene.__output.output_file, "w") as f:
+            outfile = Scalene.__output.output_file
+            # If there was no output file specified, print to the console.
+            if not outfile:
+                if sys.platform == "win32":
+                    outfile = "CON"
+                else:
+                    outfile = "/dev/stdout"
+            # Write the JSON to the output file (or console).
+            with open(outfile, "w") as f:
                 f.write(
                     json.dumps(json_output, sort_keys=True, indent=4) + "\n"
                 )
@@ -972,7 +982,7 @@ class Scalene:
                 column_width,
                 Scalene.__stats,
                 Scalene.__pid,
-                lambda x,y: True if Scalene.__args.web else Scalene.profile_this_code,
+                Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
                 profile_memory=Scalene.__args.memory,
@@ -1005,7 +1015,7 @@ class Scalene:
         stk = HashableList()
         f = frame
         while f:
-            if Scalene.should_trace(f.f_code.co_filename):
+            if Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
                 stk.insert(0, (f.f_code.co_filename, f.f_lineno))
             f = f.f_back
         Scalene.__stats.stacks[stk] += 1
@@ -1227,6 +1237,7 @@ class Scalene:
             if not frame:
                 continue
             fname = frame.f_code.co_filename
+            func = frame.f_code.co_name
             # Record samples only for files we care about.
             if not fname:
                 # 'eval/compile' gives no f_code.co_filename.  We have
@@ -1234,7 +1245,8 @@ class Scalene:
                 # the co_filename.
                 back = cast(FrameType, frame.f_back)
                 fname = Filename(back.f_code.co_filename)
-            while not Scalene.should_trace(fname):
+                func = back.f_code.co_name
+            while not Scalene.should_trace(fname, func):
                 # Walk the stack backwards until we hit a frame that
                 # IS one we should trace (if there is one).  i.e., if
                 # it's in the code being profiled, and it is just
@@ -1245,6 +1257,7 @@ class Scalene:
                     break
                 if frame:
                     fname = frame.f_code.co_filename
+                    func = frame.f_code.co_name
             if frame:
                 new_frames.append((frame, tident, orig_frame))
         del frames[:]
@@ -1267,7 +1280,7 @@ class Scalene:
                     return
         except Exception:
             return
-        if not Scalene.should_trace(f.f_code.co_filename):
+        if not Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
             return
 
         fn_name = Filename(f.f_code.co_name)
@@ -1595,12 +1608,17 @@ class Scalene:
 
     @staticmethod
     @functools.lru_cache(None)
-    def should_trace(filename: str) -> bool:
-        """Return true if the filename is one we should trace."""
+    def should_trace(filename: str, func : str) -> bool:
+        """Return true if we should trace this filename and function."""
         if not filename:
             return False
         if Scalene.__profiler_base in filename:
             # Don't profile the profiler.
+            return False
+        if Scalene.__functions_to_profile:
+            if filename in Scalene.__functions_to_profile:
+                if func in { fn.__code__.co_name for fn in Scalene.__functions_to_profile[filename] }:
+                    return True
             return False
         # Don't profile the Python libraries, unless overridden by --profile-all
         try:
@@ -1621,17 +1639,12 @@ class Scalene:
             prof in filename for prof in profile_exclude_list if prof != ""
         ):
             return False
-        if filename[0] == "i":
-            if (
-                "ipython" not in filename
-            ):  # lgtm [py/member-test-non-container]
-                # Not a real file and not a function created in Jupyter.
-                return False
+        if filename.startswith("_ipython-input-"):
             # Profiling code created in a Jupyter cell:
             # create a file to hold the contents.
             import IPython
 
-            if result := re.match(r"ipython-input-([0-9]+)-.*", filename):
+            if result := re.match(r"_ipython-input-([0-9]+)-.*", filename):
                 # Write the cell's contents into the file.
                 cell_contents = (
                     IPython.get_ipython().history_manager.input_hist_raw[
@@ -1640,7 +1653,7 @@ class Scalene:
                 )
                 with open(filename, "w+") as f:
                     f.write(cell_contents)
-            return True
+                return True
         # If (a) `profile-only` was used, and (b) the file matched
         # NONE of the provided patterns, don't profile it.
         profile_only_set = set(Scalene.__args.profile_only.split(","))
@@ -1755,6 +1768,9 @@ class Scalene:
         for pid in Scalene.child_pids:
             Scalene.__orig_kill(pid, Scalene.__signals.stop_profiling_signal)
         Scalene.stop()
+        # Output the profile if `--outfile` was set to a file.
+        if Scalene.__output.output_file:
+            Scalene.output_profile()
 
     @staticmethod
     def disable_signals(retry: bool = True) -> None:
@@ -2014,7 +2030,7 @@ class Scalene:
                     progs.extend((sys.argv[0], __file__))
                 if not progs:
                     raise FileNotFoundError
-                with open(progs[0], "r") as prog_being_profiled:
+                with open(progs[0], "r", encoding="utf-8") as prog_being_profiled:
                     # Read in the code and compile it.
                     code: Any = ""
                     try:
@@ -2065,7 +2081,8 @@ class Scalene:
                         exit_status = profiler.profile_code(
                             code, the_locals, the_globals
                         )
-                        sys.exit(exit_status)
+                        if not is_jupyter:
+                            sys.exit(exit_status)
                     except StopJupyterExecution:
                         # Running in Jupyter notebooks
                         pass
