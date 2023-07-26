@@ -400,14 +400,13 @@ class ScaleneJSON:
                 )
 
             # Print out the the profile for the source, line by line.
-            full_fname = os.path.normpath(os.path.join(program_path, fname))
+            full_fname = program
             try:
                 with open(full_fname, "r", encoding="utf-8") as source_file:
                     code_lines = source_file.readlines()
 
             except (FileNotFoundError, OSError):
                 continue
-
             # Find all enclosing regions (loops or function defs) for each line of code.
 
             code_str = ''.join(code_lines)

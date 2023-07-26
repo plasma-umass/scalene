@@ -273,7 +273,7 @@ class Scalene:
     __json.gpu = __gpu.has_gpu()
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
-
+    __profiler_base: str
     @staticmethod
     def get_original_lock() -> threading.Lock:
         """Return the true lock, which we shim in replacement_lock.py."""
@@ -704,7 +704,6 @@ class Scalene:
         arguments: argparse.Namespace,
         program_being_profiled: Optional[Filename] = None,
     ) -> None:
-
         import scalene.replacement_exit
         import scalene.replacement_get_context
 
@@ -792,6 +791,7 @@ class Scalene:
                 sys.executable,
                 cmdline,
             )
+            Scalene.__profiler_base = str(os.path.dirname(__file__))
             # Now create all the files.
             for name in Scalene.__all_python_names:
                 fname = os.path.join(Scalene.__python_alias_dir, name)
@@ -1612,7 +1612,7 @@ class Scalene:
         """Return true if we should trace this filename and function."""
         if not filename:
             return False
-        if os.path.join("scalene", "scalene") in filename:
+        if Scalene.__profiler_base in filename:
             # Don't profile the profiler.
             return False
         if Scalene.__functions_to_profile:
@@ -1621,18 +1621,18 @@ class Scalene:
                     return True
             return False
         # Don't profile the Python libraries, unless overridden by --profile-all
+        try:
+            resolved_filename = str(pathlib.Path(filename).resolve())
+        except OSError:
+            # Not a file
+            return False
         if not Scalene.__args.profile_all:
-            try:
-                resolved_filename = str(pathlib.Path(filename).resolve()).lower()
-            except OSError:
-                # Not a file
-                return False
             for n in sysconfig.get_scheme_names():
                 for p in sysconfig.get_path_names():
-                    libdir = str(pathlib.Path(sysconfig.get_path(p, n)).resolve()).lower()
+                    libdir = str(pathlib.Path(sysconfig.get_path(p, n)).resolve())
                     if libdir in resolved_filename:
                         return False
-                    
+
         # Generic handling follows (when no @profile decorator has been used).
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
         if any(
@@ -1673,7 +1673,9 @@ class Scalene:
         filename = os.path.normpath(
             os.path.join(Scalene.__program_path, filename)
         )
-        return Scalene.__program_path in filename
+
+        return Scalene.__program_path in resolved_filename
+
 
     __done = False
 
@@ -2034,7 +2036,7 @@ class Scalene:
                     try:
                         code = compile(
                             prog_being_profiled.read(),
-                            progs[0],
+                            os.path.abspath(progs[0]),
                             "exec",
                         )
                     except SyntaxError:
@@ -2052,7 +2054,7 @@ class Scalene:
                         )
                     else:
                         # Otherwise, use the invoked directory.
-                        Scalene.__program_path = os.getcwd()
+                        Scalene.__program_path = program_path
                     # Grab local and global variables.
                     if Scalene.__args.memory:
                         from scalene import pywhere  # type: ignore
@@ -2073,7 +2075,7 @@ class Scalene:
                     # Do a GC before we start.
                     gc.collect()
                     # Start the profiler.
-                    profiler = Scalene(args, Filename(progs[0]))
+                    profiler = Scalene(args, Filename(os.path.abspath(progs[0])))
                     try:
                         # We exit with this status (returning error code as appropriate).
                         exit_status = profiler.profile_code(
