@@ -1673,8 +1673,7 @@ class Scalene:
         filename = os.path.normpath(
             os.path.join(Scalene.__program_path, filename)
         )
-
-        return Scalene.__program_path in resolved_filename
+        return Scalene.__program_path in filename
 
 
     __done = False
