@@ -90,9 +90,10 @@ function extractCode(text) {
 
 async function sendPromptToOpenAI(prompt, len, apiKey) {
     const endpoint = "https://api.openai.com/v1/chat/completions";
+    const model = document.getElementById('language-model').value;
+    
     const body = JSON.stringify({
-	// model: 'gpt-3.5-turbo',
-	model: 'gpt-4',
+	model: model,
 	messages: [
 	    {
 		role: 'system',

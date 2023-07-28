@@ -2611,6 +2611,13 @@ Prism.languages.py = Prism.languages.python;
 	  <input type="text" style="font-size: 0.8rem" size="22" placeholder="(OpenAI API key)" id="api-key" oninput="checkApiKey(event.target.value)"></input>
 	  <span id='valid-api-key'></span>
 	  <br />
+	  <label style="font-size: 0.8rem" for="language-model">
+	    Language model:
+	  </label>
+	  <select style="font-size: 0.8rem" id="language-model" name="language-model-label">
+	    <option style="font-size: 0.8rem" value="gpt-3.5-turbo">GPT 3.5</option>
+	    <option style="font-size: 0.8rem" value="gpt-4" selected>GPT 4.0</option>
+	  </select>
 	  <div>
 	    <input type="radio" name="optimize-radio" id="optimize-performance" value="performance" checked>
 	    <label style="font-size: 0.8rem" for="optimize-performance">
