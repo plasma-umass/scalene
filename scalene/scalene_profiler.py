@@ -800,6 +800,10 @@ class Scalene:
                 os.chmod(fname, stat.S_IXUSR | stat.S_IRUSR | stat.S_IWUSR)
             # Finally, insert this directory into the path.
             sys.path.insert(0, str(Scalene.__python_alias_dir))
+            # print("PACKJAGE", __package__)w
+            # print(builtins.__dict__)
+            # bu# iltins.__package__= 'salesforce_functions'
+            # __package__ = 'salesforce_functions'
             os.environ["PATH"] = (
                 str(Scalene.__python_alias_dir)
                 + os.pathsep
@@ -1852,7 +1856,6 @@ class Scalene:
             self.start()
         # Run the code being profiled.
         exit_status = 0
-
         try:
             exec(code, the_globals, the_locals)
         except SystemExit as se:
@@ -2016,7 +2019,6 @@ class Scalene:
                     _, spec, _ = _get_module_details(mod_name)
                     if not spec.origin:
                         raise FileNotFoundError
-
                     # Prepend the found .py file to arguments
                     sys.argv.insert(0, spec.origin)
                 else:
@@ -2045,7 +2047,6 @@ class Scalene:
                     program_path = os.path.dirname(os.path.abspath(progs[0]))
                     if not module:
                         sys.path.insert(0, program_path)
-
                     # If a program path was specified at the command-line, use it.
                     if len(args.program_path) > 0:
                         Scalene.__program_path = os.path.abspath(
@@ -2070,7 +2071,14 @@ class Scalene:
                     # Splice in the name of the file being executed instead of the profiler.
                     the_globals["__file__"] = os.path.abspath(progs[0])
                     # Some mysterious module foo to make this work the same with -m as with `scalene`.
-                    the_globals["__spec__"] = None
+                    # the_globals["__spec__"] = spec
+                    # print("NAME", spec.name)
+                    if spec is not None:
+                        name = spec.name
+                        # MAIN_MOD = '.__name__'
+                        # if name.endswith(MAIN_MOD):
+                            # name = name[:-len(MAIN_MOD)]
+                        the_globals['__package__'] = name.split('.')[0]
                     # Do a GC before we start.
                     gc.collect()
                     # Start the profiler.
