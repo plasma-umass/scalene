@@ -2003,6 +2003,7 @@ class Scalene:
         with contextlib.suppress(Exception):
             if not is_jupyter:
                 multiprocessing.set_start_method("fork")
+        spec = None
         try:
             Scalene.process_args(args)
             progs = None
