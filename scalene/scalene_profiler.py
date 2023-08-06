@@ -2100,7 +2100,8 @@ class Scalene:
                     print("Scalene: no input file specified.")
                 sys.exit(1)
         except SystemExit:
-            pass
+            exit_status = 1
+
         except StopJupyterExecution:
             pass
         except Exception:
