@@ -2071,14 +2071,17 @@ class Scalene:
                     the_globals = __main__.__dict__
                     # Splice in the name of the file being executed instead of the profiler.
                     the_globals["__file__"] = os.path.abspath(progs[0])
-                    # Some mysterious module foo to make this work the same with -m as with `scalene`.
-                    # the_globals["__spec__"] = spec
-                    # print("NAME", spec.name)
+                    # This part works because of the order in which Python attempts to resolve names--
+                    # Within a given context, it first tries to look for __package__, and then for __spec__.
+                    # __spec__ is a ModuleSpec object that carries a lot of extra machinery and requires
+                    # extra effort to create (it seems, at least).
+                    #
+                    # __spec__ was originally set to none because the __globals__ here has the Scalene ModuleSpec
+                    # but it doesn't seem like that was enough. Setting the __package__, as below, seems to be enough to make
+                    # it look in the right place
+                    the_globals["__spec__"] = None 
                     if spec is not None:
-                        name = spec.name
-                        # MAIN_MOD = '.__name__'
-                        # if name.endswith(MAIN_MOD):
-                            # name = name[:-len(MAIN_MOD)]
+                        name = spec.name 
                         the_globals['__package__'] = name.split('.')[0]
                     # Do a GC before we start.
                     gc.collect()
