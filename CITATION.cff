@@ -14,7 +14,7 @@ version: 1.5.9
 date-released: 2022-07-24
 url: "https://github.com/plasma-umass/scalene"
 preferred-citation:
-  type: published
+  type: conference-paper
   authors:
   - family-names: "Berger"
     given-names: "Emery D."
@@ -29,4 +29,4 @@ preferred-citation:
   start: 51 # First page number
   end: 64 # Last page number
   title: "Triangulating Python Performance Issues with Scalene"
-  year: 2021
+  year: 2023
