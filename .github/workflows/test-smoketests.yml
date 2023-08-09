@@ -56,6 +56,5 @@ jobs:
     # or anything related if relative imports are used.
     - name: -m invocation smoketest
       run: |
-      python -m pip install git+https://github.com/sternj/import_stress_test
-      python -m scalene --cli --- -m import_stress_test
-  
+        python -m pip install git+https://github.com/sternj/import_stress_test
+        python -m scalene --cli --- -m import_stress_test
