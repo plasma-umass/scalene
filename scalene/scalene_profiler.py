@@ -800,10 +800,6 @@ class Scalene:
                 os.chmod(fname, stat.S_IXUSR | stat.S_IRUSR | stat.S_IWUSR)
             # Finally, insert this directory into the path.
             sys.path.insert(0, str(Scalene.__python_alias_dir))
-            # print("PACKJAGE", __package__)w
-            # print(builtins.__dict__)
-            # bu# iltins.__package__= 'salesforce_functions'
-            # __package__ = 'salesforce_functions'
             os.environ["PATH"] = (
                 str(Scalene.__python_alias_dir)
                 + os.pathsep
