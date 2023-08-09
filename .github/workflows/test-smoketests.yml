@@ -50,3 +50,12 @@ jobs:
 
     - name: decorator smoke test
       run: python test/smoketest_profile_decorator.py
+
+    # Note: This test doesn't need to read an output,
+    # it is meant to determine if there is an ImportError
+    # or anything related if relative imports are used.
+    - name: -m invocation smoketest
+      run: |
+      python -m pip install git+https://github.com/sternj/import_stress_test
+      python -m scalene --cli --- -m import_stress_test
+  
