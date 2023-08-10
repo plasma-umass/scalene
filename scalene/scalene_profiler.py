@@ -2029,20 +2029,22 @@ class Scalene:
                     progs.extend((sys.argv[0], __file__))
                 if not progs:
                     raise FileNotFoundError
-                with open(progs[0], "r", encoding="utf-8") as prog_being_profiled:
+                # Use the full absolute path of the program being profiled, expanding ~ if need be.
+                prog_name = os.path.abspath(os.path.expanduser(progs[0]))
+                with open(prog_name, "r", encoding="utf-8") as prog_being_profiled:
                     # Read in the code and compile it.
                     code: Any = ""
                     try:
                         code = compile(
                             prog_being_profiled.read(),
-                            os.path.abspath(progs[0]),
+                            prog_name,
                             "exec",
                         )
                     except SyntaxError:
                         traceback.print_exc()
                         sys.exit(1)
                     # Push the program's path.
-                    program_path = os.path.dirname(os.path.abspath(progs[0]))
+                    program_path = os.path.dirname(prog_name)
                     if not module:
                         sys.path.insert(0, program_path)
 
@@ -2068,13 +2070,13 @@ class Scalene:
                     the_locals = __main__.__dict__
                     the_globals = __main__.__dict__
                     # Splice in the name of the file being executed instead of the profiler.
-                    the_globals["__file__"] = os.path.abspath(progs[0])
+                    the_globals["__file__"] = prog_name
                     # Some mysterious module foo to make this work the same with -m as with `scalene`.
                     the_globals["__spec__"] = None
                     # Do a GC before we start.
                     gc.collect()
                     # Start the profiler.
-                    profiler = Scalene(args, Filename(os.path.abspath(progs[0])))
+                    profiler = Scalene(args, Filename(prog_name))
                     try:
                         # We exit with this status (returning error code as appropriate).
                         exit_status = profiler.profile_code(
@@ -2095,7 +2097,7 @@ class Scalene:
                         print(traceback.format_exc())
             except (FileNotFoundError, IOError):
                 if progs:
-                    print(f"Scalene: could not find input file {progs[0]}")
+                    print(f"Scalene: could not find input file {prog_name}")
                 else:
                     print("Scalene: no input file specified.")
                 sys.exit(1)
