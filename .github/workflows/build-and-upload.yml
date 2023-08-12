@@ -36,11 +36,11 @@ jobs:
           - os: ubuntu-latest
             container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
           - os: macos-latest
-            python_version: 3.7
+            python_version: 3.11
             upload_source: true   # just need ONE of them to do it
         exclude:
           - os: windows-latest
-            python_version: 3.7
+            python_version: 3.11
 
     container: ${{ matrix.container }}
 
