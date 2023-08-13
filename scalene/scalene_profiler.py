@@ -1852,7 +1852,6 @@ class Scalene:
             self.start()
         # Run the code being profiled.
         exit_status = 0
-
         try:
             exec(code, the_globals, the_locals)
         except SystemExit as se:
@@ -2000,6 +1999,7 @@ class Scalene:
         with contextlib.suppress(Exception):
             if not is_jupyter:
                 multiprocessing.set_start_method("fork")
+        spec = None
         try:
             Scalene.process_args(args)
             progs = None
@@ -2016,7 +2016,6 @@ class Scalene:
                     _, spec, _ = _get_module_details(mod_name)
                     if not spec.origin:
                         raise FileNotFoundError
-
                     # Prepend the found .py file to arguments
                     sys.argv.insert(0, spec.origin)
                 else:
@@ -2047,7 +2046,6 @@ class Scalene:
                     program_path = os.path.dirname(prog_name)
                     if not module:
                         sys.path.insert(0, program_path)
-
                     # If a program path was specified at the command-line, use it.
                     if len(args.program_path) > 0:
                         Scalene.__program_path = os.path.abspath(
@@ -2071,8 +2069,18 @@ class Scalene:
                     the_globals = __main__.__dict__
                     # Splice in the name of the file being executed instead of the profiler.
                     the_globals["__file__"] = prog_name
-                    # Some mysterious module foo to make this work the same with -m as with `scalene`.
-                    the_globals["__spec__"] = None
+                    # This part works because of the order in which Python attempts to resolve names--
+                    # Within a given context, it first tries to look for __package__, and then for __spec__.
+                    # __spec__ is a ModuleSpec object that carries a lot of extra machinery and requires
+                    # extra effort to create (it seems, at least).
+                    #
+                    # __spec__ was originally set to none because the __globals__ here has the Scalene ModuleSpec
+                    # but it doesn't seem like that was enough. Setting the __package__, as below, seems to be enough to make
+                    # it look in the right place
+                    the_globals["__spec__"] = None 
+                    if spec is not None:
+                        name = spec.name 
+                        the_globals['__package__'] = name.split('.')[0]
                     # Do a GC before we start.
                     gc.collect()
                     # Start the profiler.
