@@ -90,6 +90,7 @@ ifeq ($(filter $(shell uname -s),Linux Darwin),)
 NO_ISOLATION=--no-isolation
 else
 NO_ISOLATION=
+endif
 
 bdist: vendor-deps
 	$(PYTHON) -m build $(NO_ISOLATION) --wheel
