@@ -173,12 +173,18 @@ if sys.version_info < (3, 9):
 
 if sys.argv[1].startswith('bdist') and sys.platform == 'darwin':
     # Build universal wheels on MacOS.
+    # ---
+    # On MacOS >= 11, all builds are compatible for a major MacOS version, so Python "floors"
+    # all minor versions to 0, leading to tags like like "macosx_11_0_universal2". If you use
+    # the actual (non-0) minor name in the build platform, it isn't recognized.
+    # ---
     # It would be nice to check whether we're actually building multi-architecture,
     # but that depends on the platforms supported by the compiler build_ext wants to use,
     # which is hard to obtain (see BuildExtCommand above).
-    import pkg_resources as pr
-    p = pr.get_build_platform()
-    sys.argv.extend(['--plat-name', p[:p.rindex("-")] + "-universal2"])
+    import platform as p
+    v = p.mac_ver()[0].split(".")
+    v = f"{v[0]}.0" if int(v[0]) >= 11 else ".".join(v)
+    sys.argv.extend(['--plat-name', f"macosx-{v}-universal2"])
 
 setup(
     name="scalene",
