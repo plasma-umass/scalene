@@ -83,7 +83,7 @@ jobs:
   
       - name: Install dependencies
         run: |
-          pip3 install --upgrade setuptools wheel twine build
+          pip3 install --upgrade setuptools wheel twine build virtualenv
   
       - name: Work around arm64 support on MacOS
         # https://github.com/actions/virtual-environments/issues/2557
