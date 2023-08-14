@@ -1264,15 +1264,16 @@ class Scalene:
         return new_frames
 
     @staticmethod
-    def get_fully_qualified_name(frame : FrameType) -> str:
+    def get_fully_qualified_name(frame: FrameType) -> str:
         # Obtain the fully-qualified name.
         version = sys.version_info
         if version.major >= 3 and version.minor >= 3.11:
             # Introduced in Python 3.11
-            fn_name = Filename(f.f_code.co_qualname)
+            fn_name = Filename(frame.f_code.co_qualname)
         else:
-            fn_name = Filename(f.f_code.co_name)
+            fn_name = Filename(frame.f_code.co_name)
             # Manually search for an enclosing class.
+            f = frame
             while (
                 f
                 and f.f_back
@@ -1290,7 +1291,7 @@ class Scalene:
                     fn_name = Filename(f"{prepend_name}.{fn_name}")
                     break
                 f = f.f_back
-
+        return fn_name
 
         
     @staticmethod
