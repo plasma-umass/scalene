@@ -85,8 +85,14 @@ black:
 prettier:
 	-npx prettier -w $(JS_SOURCES)
 
+# venv is brittle on Windows
+ifeq ($(filter $(shell uname -s),Linux Darwin),)
+NO_ISOLATION=--no-isolation
+else
+NO_ISOLATION=
+
 bdist: vendor-deps
-	$(PYTHON) -m build --wheel
+	$(PYTHON) -m build $(NO_ISOLATION) --wheel
 ifeq ($(shell uname -s),Linux)
 	auditwheel repair dist/*.whl
 	rm -f dist/*.whl
@@ -94,7 +100,7 @@ ifeq ($(shell uname -s),Linux)
 endif
 
 sdist: vendor-deps
-	$(PYTHON) -m build --sdist
+	$(PYTHON) -m build $(NO_ISOLATION) --sdist
 
 upload: sdist bdist # to pypi
 	$(PYTHON) -m twine upload dist/*
