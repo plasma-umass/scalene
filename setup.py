@@ -18,7 +18,7 @@ if sys.platform == 'darwin':
 
 
 def compiler_archs(compiler: str):
-    """Discovers what platforms the given supports; intended for MacOS use"""
+    """Discovers what platforms the given compiler supports; intended for MacOS use"""
     import tempfile
     import subprocess
     from pathlib import Path
@@ -170,6 +170,15 @@ install_requires_list = [
 
 if sys.version_info < (3, 9):
     install_requires_list.append("astunparse>=1.6.3")
+
+if sys.argv[1].startswith('bdist') and sys.platform == 'darwin':
+    # Build universal wheels on MacOS.
+    # It would be nice to check whether we're actually building multi-architecture,
+    # but that depends on the platforms supported by the compiler build_ext wants to use,
+    # which is hard to obtain (see BuildExtCommand above).
+    import pkg_resources as pr
+    p = pr.get_build_platform()
+    sys.argv.extend(['--plat-name', p[:p.rindex("-")] + "-universal2"])
 
 setup(
     name="scalene",
