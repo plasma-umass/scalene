@@ -1267,7 +1267,7 @@ class Scalene:
     def get_fully_qualified_name(frame: FrameType) -> str:
         # Obtain the fully-qualified name.
         version = sys.version_info
-        if version.major >= 3 and version.minor >= 3.11:
+        if version.major >= 3 and version.minor >= 11:
             # Introduced in Python 3.11
             fn_name = Filename(frame.f_code.co_qualname)
         else:
