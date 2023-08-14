@@ -102,6 +102,7 @@ class ScaleneOutput:
             fname=fname,
             fname_print=fname,
             line_no=line_no,
+            line=line,
             stats=stats,
             profile_this_code=profile_this_code,
             force_print=force_print,
@@ -363,24 +364,13 @@ class ScaleneOutput:
                         * stats.allocation_velocity[0]
                         / stats.allocation_velocity[1]
                     )
-                # If memory used is > 1GB, use GB as the unit.
-                if stats.max_footprint > 1024:
-                    mem_usage_line = Text.assemble(
-                        "Memory usage: ",
-                        ((spark_str, self.memory_color)),
-                        (
-                            f" (max: {(stats.max_footprint / 1024):6.2f}GB, growth rate: {growth_rate:3.0f}%)\n"
-                        ),
-                    )
-                else:
-                    # Otherwise, use MB.
-                    mem_usage_line = Text.assemble(
-                        "Memory usage: ",
-                        ((spark_str, self.memory_color)),
-                        (
-                            f" (max: {stats.max_footprint:6.2f}MB, growth rate: {growth_rate:3.0f}%)\n"
-                        ),
-                    )
+                mem_usage_line = Text.assemble(
+                    "Memory usage: ",
+                    ((spark_str, self.memory_color)),
+                    (
+                        f" (max: {ScaleneJSON.memory_consumed_str(stats.max_footprint)}, growth rate: {growth_rate:3.0f}%)\n"
+                    ),
+                )
 
         null = tempfile.TemporaryFile(mode="w+")
 
@@ -430,7 +420,7 @@ class ScaleneOutput:
             fname_print = fname
             import re
 
-            if result := re.match("ipython-input-([0-9]+)-.*", fname_print):
+            if result := re.match("_ipython-input-([0-9]+)-.*", fname_print):
                 fname_print = Filename(f"[{result.group(1)}]")
 
             # Print header.
@@ -441,7 +431,7 @@ class ScaleneOutput:
             )
 
             new_title = mem_usage_line + (
-                f"{fname_print}: % of time = {percent_cpu_time:6.2f} out of {stats.elapsed_time:6.2f}."
+                f"{fname_print}: % of time = {percent_cpu_time:6.2f}% ({ScaleneJSON.time_consumed_str(percent_cpu_time / 100.0 * stats.elapsed_time * 1e3)}) out of {ScaleneJSON.time_consumed_str(stats.elapsed_time * 1e3)}."
             )
             # Only display total memory usage once.
             mem_usage_line = ""
@@ -530,52 +520,56 @@ class ScaleneOutput:
                 continue
             # Print out the profile for the source, line by line.
             full_fname = os.path.normpath(os.path.join(program_path, fname))
-            with open(full_fname, "r", encoding="utf-8") as source_file:
-                # We track whether we should put in ellipsis (for reduced profiles)
-                # or not.
-                did_print = True  # did we print a profile line last time?
-                code_lines = source_file.read()
-                # Generate syntax highlighted version for the whole file,
-                # which we will consume a line at a time.
-                # See https://github.com/willmcgugan/rich/discussions/965#discussioncomment-314233
-                syntax_highlighted = Syntax(
-                    code_lines,
-                    "python",
-                    theme="default" if self.html else "vim",
-                    line_numbers=False,
-                    code_width=None,
+            try:
+                with open(full_fname, "r") as source_file:
+                    code_lines = source_file.read()
+            except (FileNotFoundError, OSError):
+                continue
+
+            # We track whether we should put in ellipsis (for reduced profiles)
+            # or not.
+            did_print = True  # did we print a profile line last time?
+            # Generate syntax highlighted version for the whole file,
+            # which we will consume a line at a time.
+            # See https://github.com/willmcgugan/rich/discussions/965#discussioncomment-314233
+            syntax_highlighted = Syntax(
+                code_lines,
+                "python",
+                theme="default" if self.html else "vim",
+                line_numbers=False,
+                code_width=None,
+            )
+            capture_console = Console(
+                width=column_width - other_columns_width,
+                force_terminal=True,
+            )
+            formatted_lines = [
+                SyntaxLine(segments)
+                for segments in capture_console.render_lines(
+                    syntax_highlighted
                 )
-                capture_console = Console(
-                    width=column_width - other_columns_width,
-                    force_terminal=True,
+            ]
+            for line_no, line in enumerate(formatted_lines, start=1):
+                old_did_print = did_print
+                did_print = self.output_profile_line(
+                    json=json,
+                    fname=fname,
+                    line_no=LineNumber(line_no),
+                    line=line,
+                    console=console,
+                    tbl=tbl,
+                    stats=stats,
+                    profile_this_code=profile_this_code,
+                    profile_memory=profile_memory,
+                    force_print=False,
+                    suppress_lineno_print=False,
+                    is_function_summary=False,
+                    reduced_profile=reduced_profile,
                 )
-                formatted_lines = [
-                    SyntaxLine(segments)
-                    for segments in capture_console.render_lines(
-                        syntax_highlighted
-                    )
-                ]
-                for line_no, line in enumerate(formatted_lines, start=1):
-                    old_did_print = did_print
-                    did_print = self.output_profile_line(
-                        json=json,
-                        fname=fname,
-                        line_no=LineNumber(line_no),
-                        line=line,
-                        console=console,
-                        tbl=tbl,
-                        stats=stats,
-                        profile_this_code=profile_this_code,
-                        profile_memory=profile_memory,
-                        force_print=False,
-                        suppress_lineno_print=False,
-                        is_function_summary=False,
-                        reduced_profile=reduced_profile,
-                    )
-                    if old_did_print and not did_print:
-                        # We are skipping lines, so add an ellipsis.
-                        tbl.add_row("...")
-                    old_did_print = did_print
+                if old_did_print and not did_print:
+                    # We are skipping lines, so add an ellipsis.
+                    tbl.add_row("...")
+                old_did_print = did_print
 
             # Potentially print a function summary.
             fn_stats = stats.build_function_stats(fname)
@@ -598,7 +592,7 @@ class ScaleneOutput:
                 except TypeError:  # rich < 9.4.0 compatibility
                     tbl.add_row(None)
                 txt = Text.assemble(
-                    f"function summary for {fname}", style="bold italic"
+                    f"function summary for {fname_print}", style="bold italic"
                 )
                 if profile_memory:
                     if self.gpu:

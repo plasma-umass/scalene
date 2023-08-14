@@ -7,6 +7,8 @@ from typing import Any, List, NoReturn, Optional, Tuple
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_version import scalene_version, scalene_date
 
+scalene_gui_url = "https://plasma-umass.org/scalene-gui/"
+
 
 class RichArgParser(argparse.ArgumentParser):
     def __init__(self, *args: Any, **kwargs: Any):
@@ -49,9 +51,9 @@ class ScaleneParseArgs:
 
 
 command-line:
-  % [b]scalene \[options] yourprogram.py[/b]
+  % [b]scalene \[options] your_program.py \[--- --your_program_args] [/b]
 or
-  % [b]python3 -m scalene \[options] yourprogram.py[/b]
+  % [b]python3 -m scalene \[options] your_program.py \[--- --your_program_args] [/b]
 
 in Jupyter, line mode:
 [b]  %scrun \[options] statement[/b]
@@ -62,6 +64,7 @@ in Jupyter, cell mode:
 [/b]
 """
         )
+        # NOTE: below is only displayed on non-Windows platforms.
         epilog = dedent(
             """When running Scalene in the background, you can suspend/resume profiling
 for the process ID that Scalene reports. For example:
@@ -76,7 +79,7 @@ for the process ID that Scalene reports. For example:
         parser = RichArgParser(  # argparse.ArgumentParser(
             prog="scalene",
             description=usage,
-            epilog=epilog,
+            epilog=epilog if sys.platform != "win32" else "",
             formatter_class=argparse.RawTextHelpFormatter,
             allow_abbrev=False,
         )
@@ -109,7 +112,7 @@ for the process ID that Scalene reports. For example:
             const=True,
             default=defaults.html,
             help="output as HTML (default: [blue]"
-            + str("html" if defaults.html else "text")
+            + str("html" if defaults.html else "web")
             + "[/blue])",
         )
         parser.add_argument(
@@ -119,7 +122,7 @@ for the process ID that Scalene reports. For example:
             const=True,
             default=defaults.json,
             help="output as JSON (default: [blue]"
-            + str("json" if defaults.json else "text")
+            + str("json" if defaults.json else "web")
             + "[/blue])",
         )
         parser.add_argument(
@@ -131,19 +134,28 @@ for the process ID that Scalene reports. For example:
             help="forces use of the command-line",
         )
         parser.add_argument(
+            "--stacks",
+            dest="stacks",
+            action="store_const",
+            const=True,
+            default=defaults.stacks,
+            help="collect stack traces",
+        )
+        parser.add_argument(
             "--web",
             dest="web",
             action="store_const",
             const=True,
             default=defaults.web,
-            help="writes 'profile.json' and opens the web UI (http://plasma-umass.org/scalene-gui/)",
+            help="opens a web tab to view the profile (saved as 'profile.html')",
         )
         parser.add_argument(
-            "--port",
-            dest="port",
-            type=int,
-            default=defaults.port,
-            help=f"binds the web UI server to this port (default: {defaults.port})",
+            "--viewer",
+            dest="viewer",
+            action="store_const",
+            const=True,
+            default=False,
+            help=f"only opens the web UI ({scalene_gui_url})",
         )
         parser.add_argument(
             "--reduced-profile",
@@ -160,18 +172,40 @@ for the process ID that Scalene reports. For example:
             help=f"output profiles every so many seconds (default: [blue]{defaults.profile_interval}[/blue])",
         )
         parser.add_argument(
-            "--cpu-only",
-            dest="cpu_only",
+            "--cpu",
+            dest="cpu",
             action="store_const",
             const=True,
-            default=defaults.cpu_only,
-            help="only profile CPU+GPU time (default: [blue]profile "
-            + (
-                "CPU only"
-                if defaults.cpu_only
-                else "CPU+GPU, memory, and copying"
-            )
-            + "[/blue])",
+            default=None,
+            help="profile CPU time (default: [blue] True [/blue])",
+        )
+        parser.add_argument(
+            "--cpu-only",
+            dest="cpu",
+            action="store_const",
+            const=True,
+            default=None,
+            help="profile CPU time ([red]deprecated: use --cpu [/red])",
+        )
+        parser.add_argument(
+            "--gpu",
+            dest="gpu",
+            action="store_const",
+            const=True,
+            default=None,
+            help="profile GPU time and memory (default: [blue]"
+            + (str(defaults.gpu))
+            + " [/blue])",
+        )
+        parser.add_argument(
+            "--memory",
+            dest="memory",
+            action="store_const",
+            const=True,
+            default=None,
+            help="profile memory (default: [blue]"
+            + (str(defaults.memory))
+            + " [/blue])",
         )
         parser.add_argument(
             "--profile-all",
@@ -224,7 +258,7 @@ for the process ID that Scalene reports. For example:
         parser.add_argument(
             "--cpu-percent-threshold",
             dest="cpu_percent_threshold",
-            type=int,
+            type=float,
             default=defaults.cpu_percent_threshold,
             help=f"only report profiles with at least this percent of CPU time (default: [blue]{defaults.cpu_percent_threshold}%%[/blue])",
         )
@@ -266,20 +300,24 @@ for the process ID that Scalene reports. For example:
             + (str(defaults.memory_leak_detector))
             + "[/blue])",
         )
-
-        group = parser.add_mutually_exclusive_group(required=False)
-        group.add_argument(
-            "--on",
-            action="store_true",
-            help="start with profiling on (default)",
-        )
-        group.add_argument(
-            "--off", action="store_true", help="start with profiling off"
-        )
-        # the PID of the profiling process (for internal use only)
         parser.add_argument(
-            "--pid", type=int, default=0, help=argparse.SUPPRESS
+            "--ipython", dest="ipython", action="store_const", const=True, default=False, help=argparse.SUPPRESS
         )
+        if sys.platform != "win32":
+            # Turning profiling on and off from another process is currently not supported on Windows.
+            group = parser.add_mutually_exclusive_group(required=False)
+            group.add_argument(
+                "--on",
+                action="store_true",
+                help="start with profiling on (default)",
+            )
+            group.add_argument(
+                "--off", action="store_true", help="start with profiling off"
+            )
+            # the PID of the profiling process (for internal use only)
+            parser.add_argument(
+                "--pid", type=int, default=0, help=argparse.SUPPRESS
+            )
         # collect all arguments after "---", which Scalene will ignore
         parser.add_argument(
             "---",
@@ -291,11 +329,43 @@ for the process ID that Scalene reports. For example:
         # Parse out all Scalene arguments.
         # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
         args, left = parser.parse_known_args()
+        # Hack to simplify functionality for Windows platforms.
+        if sys.platform == "win32":
+            args.on = True
+            args.pid = 0
         left += args.unused_args
         import re
 
+        # Launch the UI if `--viewer` was selected.
+        if args.viewer:
+            import webbrowser
+
+            if (
+                webbrowser.get()
+                and type(webbrowser.get()).__name__ != "GenericBrowser"
+            ):
+                webbrowser.open(scalene_gui_url)
+            else:
+                print(f"Scalene: could not open {scalene_gui_url}.")
+            sys.exit(0)
+
+        # If any of the individual profiling metrics were specified,
+        # disable the unspecified ones (set as None).
+        if args.cpu or args.gpu or args.memory:
+            if not args.memory:
+                args.memory = False
+            if not args.gpu:
+                args.gpu = False
+        else:
+            # Nothing specified; use defaults.
+            args.cpu = defaults.cpu
+            args.gpu = defaults.gpu
+            args.memory = defaults.memory
+
+        args.cpu = True  # Always true
+
         in_jupyter_notebook = len(sys.argv) >= 1 and re.match(
-            "ipython-input-([0-9]+)-.*", sys.argv[0]
+            r"_ipython-input-([0-9]+)-.*", sys.argv[0]
         )
         # If the user did not enter any commands (just `scalene` or `python3 -m scalene`),
         # print the usage information and bail.
@@ -304,5 +374,7 @@ for the process ID that Scalene reports. For example:
             sys.exit(-1)
         if args.version:
             print(f"Scalene version {scalene_version} ({scalene_date})")
-            sys.exit(-1)
+            if not args.ipython:
+                sys.exit(-1)
+            args = [] # We use this to indicate that we should not run further in IPython.
         return args, left

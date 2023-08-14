@@ -18,12 +18,8 @@ class MallocRecursionGuard {
     return &_inMallocKey;
   }
 
-  enum {
-      NEEDS_KEY = 0,
-      CREATING_KEY = 1,
-      DONE = 2
-  };
-  
+  enum { NEEDS_KEY = 0, CREATING_KEY = 1, DONE = 2 };
+
   static inline bool isInMalloc() {
     // modified double-checked locking pattern
     // (https://en.wikipedia.org/wiki/Double-checked_locking)
@@ -31,8 +27,8 @@ class MallocRecursionGuard {
     static int inMallocKeyState{NEEDS_KEY};
 
     // We create the thread-specific data store the pthread way because the C++
-    // language based ones all seem to fail when interposing on malloc et al., as
-    // they are invoked early from within library initialization.
+    // language based ones all seem to fail when interposing on malloc et al.,
+    // as they are invoked early from within library initialization.
 
     auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_ACQUIRE);
     if (state != DONE) {
@@ -47,7 +43,7 @@ class MallocRecursionGuard {
 
   static int slowPathInMalloc(std::recursive_mutex& m, int& inMallocKeyState) {
     std::lock_guard<decltype(m)> g{m};
-    
+
     auto state = __atomic_load_n(&inMallocKeyState, __ATOMIC_RELAXED);
 
     if (unlikely(state == NEEDS_KEY)) {
@@ -61,7 +57,7 @@ class MallocRecursionGuard {
 
     return state;
   }
-  
+
   static inline void setInMalloc(bool state) {
     pthread_setspecific(*getKey(), state ? (void*)1 : (void*)0);
   }

@@ -17,7 +17,7 @@ from typing import (
 
 import cloudpickle
 
-# from scalene.adaptive import Adaptive
+from scalene.hashablelist import HashableList
 from scalene.runningstats import RunningStats
 
 Address = NewType("Address", str)
@@ -37,6 +37,12 @@ class ScaleneStatistics:
         # total time spent in program being profiled
         self.elapsed_time: float = 0
 
+        # total allocation samples taken
+        self.alloc_samples: int = 0
+
+        #  full stacks taken during CPU samples, together with number of hits
+        self.stacks : Dict[HashableList, int] = defaultdict(int)
+        
         #   CPU samples for each location in the program
         #   spent in the interpreter
         self.cpu_samples_python: Dict[
@@ -61,6 +67,11 @@ class ScaleneStatistics:
 
         # Running stats for the fraction of time running on the CPU.
         self.cpu_utilization: Dict[
+            Filename, Dict[LineNumber, RunningStats]
+        ] = defaultdict(lambda: defaultdict(RunningStats))
+
+        # Running stats for core utilization.
+        self.core_utilization: Dict[
             Filename, Dict[LineNumber, RunningStats]
         ] = defaultdict(lambda: defaultdict(RunningStats))
 
@@ -179,9 +190,12 @@ class ScaleneStatistics:
         """Reset all statistics except for memory footprint."""
         self.start_time = 0
         self.elapsed_time = 0
+        self.alloc_samples = 0
+        self.stacks.clear()
         self.cpu_samples_python.clear()
         self.cpu_samples_c.clear()
         self.cpu_utilization.clear()
+        self.core_utilization.clear()
         self.cpu_samples.clear()
         self.gpu_samples.clear()
         self.malloc_samples.clear()
@@ -260,6 +274,9 @@ class ScaleneStatistics:
             fn_stats.cpu_utilization[fn_name][
                 first_line_no
             ] += self.cpu_utilization[filename][line_no]
+            fn_stats.core_utilization[fn_name][
+                first_line_no
+            ] += self.core_utilization[filename][line_no]
             fn_stats.per_line_footprint_samples[fn_name][
                 first_line_no
             ] += self.per_line_footprint_samples[filename][line_no]
@@ -305,12 +322,15 @@ class ScaleneStatistics:
         "max_footprint_loc",
         "current_footprint",
         "elapsed_time",
+        "alloc_samples",
+        "stacks",
         "total_cpu_samples",
         "cpu_samples_c",
         "cpu_samples_python",
         "bytei_map",
         "cpu_samples",
         "cpu_utilization",
+        "core_utilization",
         "memory_malloc_samples",
         "memory_python_samples",
         "memory_free_samples",
@@ -363,6 +383,16 @@ class ScaleneStatistics:
             for lineno in src[filename]:
                 dest[filename][lineno] += src[filename][lineno]
 
+    @staticmethod
+    def increment_core_utilization(
+        dest: Dict[Filename, Dict[LineNumber, RunningStats]],
+        src: Dict[Filename, Dict[LineNumber, RunningStats]],
+    ) -> None:
+        """Increment core utilization."""
+        for filename in src:
+            for lineno in src[filename]:
+                dest[filename][lineno] += src[filename][lineno]
+
     def merge_stats(self, the_dir_name: pathlib.Path) -> None:
         """Merge all statistics in a given directory."""
         the_dir = pathlib.Path(the_dir_name)
@@ -385,7 +415,12 @@ class ScaleneStatistics:
                 self.increment_cpu_utilization(
                     self.cpu_utilization, x.cpu_utilization
                 )
+                self.increment_core_utilization(
+                    self.core_utilization, x.core_utilization
+                )
                 self.elapsed_time = max(self.elapsed_time, x.elapsed_time)
+                self.alloc_samples += x.alloc_samples
+                self.stacks.update(x.stacks)
                 self.total_cpu_samples += x.total_cpu_samples
                 self.total_gpu_samples += x.total_gpu_samples
                 self.increment_per_line_samples(
@@ -404,6 +439,11 @@ class ScaleneStatistics:
                     self.per_line_footprint_samples,
                     x.per_line_footprint_samples,
                 )
+                # Sorting each of the per_line_footprint_sample lists by time, since per_line_footprint_samples
+                # is sent between processes. Samples are in the format [time, footprint]
+                for filename in self.per_line_footprint_samples:
+                    for lineno in self.per_line_footprint_samples[filename]:
+                        self.per_line_footprint_samples[filename][lineno].sort(key=lambda x : x[0])
                 self.increment_per_line_samples(
                     self.memory_malloc_count, x.memory_malloc_count
                 )
@@ -434,6 +474,9 @@ class ScaleneStatistics:
                     x.total_memory_malloc_samples
                 )
                 self.memory_footprint_samples += x.memory_footprint_samples
+                # Sorting footprint samples by time when sample was taken. 
+                # Samples are in the format [time, footprint]
+                self.memory_footprint_samples.sort(key=lambda x : x[0])
                 for k, val in x.function_map.items():
                     if k in self.function_map:
                         self.function_map[k].update(val)

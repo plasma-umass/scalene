@@ -14,15 +14,19 @@ version: 1.5.9
 date-released: 2022-07-24
 url: "https://github.com/plasma-umass/scalene"
 preferred-citation:
-  type: unpublished
+  type: conference-paper
   authors:
   - family-names: "Berger"
     given-names: "Emery D."
     orcid: "https://orcid.org/0000-0002-3222-3271"
-  doi: "10.48550/arXiv.2006.03879"
-  journal: "arXiv"
+  - family-names: "Stern"
+    given-names: "Sam"
+  - family-names: "Altmayer Pizzorno"
+    given-names: "Juan"
+    orcid: "https://orcid.org/0000-0002-1891-2919"
+  journal: "17th USENIX Symposium on Operating Systems Design and Implementation (OSDI 2023)"
   month: 7
-  start: 1 # First page number
-  end: 13 # Last page number
-  title: "Scalene: Scripting-Language Aware Profiling for Python"
-  year: 2020
+  start: 51 # First page number
+  end: 64 # Last page number
+  title: "Triangulating Python Performance Issues with Scalene"
+  year: 2023

@@ -71,11 +71,16 @@ class EggInfoCommand(setuptools.command.egg_info.egg_info):
 # Force building platform-specific wheel to avoid the Windows wheel
 # (which doesn't include libscalene, and thus would be considered "pure")
 # being used for other platforms.
-from wheel.bdist_wheel import bdist_wheel
-class BdistWheelCommand(bdist_wheel):
-    def finalize_options(self):
-        super().finalize_options()
-        self.root_is_pure = False
+try:
+    from wheel.bdist_wheel import bdist_wheel
+    class BdistWheelCommand(bdist_wheel):
+        def finalize_options(self):
+            super().finalize_options()
+            self.root_is_pure = False
+except (ImportError, ModuleNotFoundError):
+    # Disable wheel if `wheel` not installed.
+    print("If this installation does not work, run `pip install wheel` and try again.")
+    BdistWheelCommand = None
 
 import setuptools.command.build_ext
 class BuildExtCommand(setuptools.command.build_ext.build_ext):
@@ -142,11 +147,29 @@ pywhere = Extension('scalene.pywhere',
     py_limited_api=False,
     language="c++")
 
+crdp = Extension('scalene.crdp',
+    include_dirs=[],
+    sources = ['vendor/crdp/crdp.c'],
+    py_limited_api=True,
+    language="c")
+
 # If we're testing packaging, build using a ".devN" suffix in the version number,
 # so that we can upload new files (as testpypi/pypi don't allow re-uploading files with
 # the same name as previously uploaded).
 # Numbering scheme: https://www.python.org/dev/peps/pep-0440
 dev_build = ('.dev' + environ['DEV_BUILD']) if 'DEV_BUILD' in environ else ''
+
+install_requires_list = [
+    "wheel>=0.36.1",
+    "rich>=10.7.0",
+    "cloudpickle>=2.2.1",
+    "pynvml>=11.0.0,<11.5",
+    "Jinja2>=3.0.3",
+    "psutil>=5.9.2"
+]
+
+if sys.version_info < (3, 9):
+    install_requires_list.append("astunparse>=1.6.3")
 
 setup(
     name="scalene",
@@ -174,10 +197,11 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
-        "Operating System :: Microsoft :: Windows :: Windows 10"
+        "Operating System :: Microsoft :: Windows"
     ],
     packages=find_packages(),
     cmdclass={
@@ -185,15 +209,10 @@ setup(
         'egg_info': EggInfoCommand,
         'build_ext': BuildExtCommand,
     },
-    install_requires=[
-        "rich>=9.2.0",
-        "cloudpickle>=1.5.0",
-        "pynvml>=11.0.0",
-        "gitpython>=3.1.27",
-    ],
-    ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),
-    setup_requires=['setuptools_scm'],
+    install_requires=install_requires_list,
+    ext_modules=([get_line_atomic, pywhere, crdp] if sys.platform != 'win32' else []),
+    setup_requires=['wheel', 'cython', 'setuptools_scm'],
     include_package_data=True,
     entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
-    python_requires=">=3.8",
+    python_requires=">=3.8,!=3.11.0",
 )

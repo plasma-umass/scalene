@@ -13,13 +13,14 @@
     usage help: scalene --help
 
 """
+
 import argparse
 import atexit
 import builtins
 import contextlib
 import functools
 import gc
-import http.server
+import importlib
 import inspect
 import json
 import math
@@ -29,18 +30,33 @@ import pathlib
 import platform
 import re
 import signal
-import socketserver
 import stat
 import sys
+import sysconfig
 import tempfile
 import threading
 import time
 import traceback
 import webbrowser
 from collections import defaultdict
-from types import FrameType
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, cast
+from importlib.abc import SourceLoader
+from importlib.machinery import ModuleSpec
+from jinja2 import Environment, FileSystemLoader
+from types import CodeType, FrameType
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 
+from scalene.hashablelist import HashableList
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_funcutils import ScaleneFuncUtils
@@ -56,6 +72,7 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
+from scalene.scalene_version import (scalene_version, scalene_date)
 
 if sys.platform != "win32":
     import resource
@@ -80,6 +97,18 @@ def require_python(version: Tuple[int, int]) -> None:
 
 require_python((MINIMUM_PYTHON_VERSION_MAJOR, MINIMUM_PYTHON_VERSION_MINOR))
 
+
+# These are here to simplify print debugging, a la C.
+class LineNo:
+    def __str__(self):
+        return str(inspect.currentframe().f_back.f_lineno)
+
+class FileName:
+    def __str__(self):
+        return str(inspect.currentframe().f_back.f_code.co_filename)
+
+__LINE__ = LineNo()
+__FILE__ = FileName()
 
 # Scalene fully supports Unix-like operating systems; in
 # particular, Linux, Mac OS X, and WSL 2 (Windows Subsystem for Linux 2 = Ubuntu).
@@ -114,8 +143,90 @@ def stop() -> None:
     Scalene.stop()
 
 
+def _get_module_details(
+    mod_name: str,
+    error: Type[Exception] = ImportError,
+) -> Tuple[str, ModuleSpec, CodeType]:
+    """Copy of `runpy._get_module_details`, but not private."""
+    if mod_name.startswith("."):
+        raise error("Relative module names not supported")
+    pkg_name, _, _ = mod_name.rpartition(".")
+    if pkg_name:
+        # Try importing the parent to avoid catching initialization errors
+        try:
+            __import__(pkg_name)
+        except ImportError as e:
+            # If the parent or higher ancestor package is missing, let the
+            # error be raised by find_spec() below and then be caught. But do
+            # not allow other errors to be caught.
+            if e.name is None or (
+                e.name != pkg_name and not pkg_name.startswith(e.name + ".")
+            ):
+                raise
+        # Warn if the module has already been imported under its normal name
+        existing = sys.modules.get(mod_name)
+        if existing is not None and not hasattr(existing, "__path__"):
+            from warnings import warn
+
+            msg = (
+                "{mod_name!r} found in sys.modules after import of "
+                "package {pkg_name!r}, but prior to execution of "
+                "{mod_name!r}; this may result in unpredictable "
+                "behaviour".format(mod_name=mod_name, pkg_name=pkg_name)
+            )
+            warn(RuntimeWarning(msg))
+
+    try:
+        spec = importlib.util.find_spec(mod_name)
+    except (ImportError, AttributeError, TypeError, ValueError) as ex:
+        # This hack fixes an impedance mismatch between pkgutil and
+        # importlib, where the latter raises other errors for cases where
+        # pkgutil previously raised ImportError
+        msg = "Error while finding module specification for {!r} ({}: {})"
+        if mod_name.endswith(".py"):
+            msg += (
+                f". Try using '{mod_name[:-3]}' instead of "
+                f"'{mod_name}' as the module name."
+            )
+        raise error(msg.format(mod_name, type(ex).__name__, ex)) from ex
+    if spec is None:
+        raise error("No module named %s" % mod_name)
+    if spec.submodule_search_locations is not None:
+        if mod_name == "__main__" or mod_name.endswith(".__main__"):
+            raise error("Cannot use package as __main__ module")
+        try:
+            pkg_main_name = mod_name + ".__main__"
+            return _get_module_details(pkg_main_name, error)
+        except error as e:
+            if mod_name not in sys.modules:
+                raise  # No module loaded; being a package is irrelevant
+            raise error(
+                ("%s; %r is a package and cannot " + "be directly executed")
+                % (e, mod_name)
+            )
+    loader = spec.loader
+    # use isinstance instead of `is None` to placate mypy
+    if not isinstance(loader, SourceLoader):
+        raise error(
+            "%r is a namespace package and cannot be executed" % mod_name
+        )
+    try:
+        code = loader.get_code(mod_name)
+    except ImportError as e:
+        raise error(format(e)) from e
+    if code is None:
+        raise error("No code object available for %s" % mod_name)
+    return mod_name, spec, code
+
+
 class Scalene:
     """The Scalene profiler itself."""
+
+    # Get the number of available CPUs (preferring `os.sched_getaffinity`, if available).
+    try:
+        __availableCPUs = len(os.sched_getaffinity(0))
+    except AttributeError:
+        __availableCPUs = os.cpu_count()
 
     __in_jupyter = False  # are we running inside a Jupyter notebook
     __start_time = 0  # start of profiling, in nanoseconds
@@ -125,12 +236,11 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
     __initialized: bool = False
-    __last_profiled = (Filename("NADA"), LineNumber(0), ByteCodeIndex(0))
+    __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
     __last_profiled_invalidated = False
     __gui_dir = "scalene-gui"
     __profile_filename = "profile.json"
-    __localhost = "http://localhost"
-    __profiler_html = "profiler.html"
+    __profiler_html = "profile.html"
     __error_message = "Error in program being profiled"
     BYTES_PER_MB = 1024 * 1024
 
@@ -163,7 +273,7 @@ class Scalene:
     __json.gpu = __gpu.has_gpu()
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
-
+    __profiler_base: str
     @staticmethod
     def get_original_lock() -> threading.Lock:
         """Return the true lock, which we shim in replacement_lock.py."""
@@ -293,7 +403,9 @@ class Scalene:
         bytearray(NEWLINE_TRIGGER_LENGTH)
 
     @staticmethod
-    def invalidate_lines(frame: FrameType, _event: str, _arg: str) -> Any:
+    def invalidate_lines_python(
+        frame: FrameType, _event: str, _arg: str
+    ) -> Any:
         """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
         try:
             # If we are still on the same line, return.
@@ -301,14 +413,11 @@ class Scalene:
             fl = frame.f_lineno
             (fname, lineno, lasti) = Scalene.__last_profiled
             if (ff == fname) and (fl == lineno):
-                return None
+                return Scalene.invalidate_lines_python
             # Different line: stop tracing this frame.
             frame.f_trace = None
             frame.f_trace_lines = False
-            # If we are not in a file we should be tracing, return.
-            if not Scalene.should_trace(ff):
-                return None
-            if f := Scalene.on_stack(frame, fname, lineno):
+            if Scalene.on_stack(frame, fname, lineno):
                 # We are still on the same line, but somewhere up the stack
                 # (since we returned when it was the same line in this
                 # frame). Stop tracing in this frame.
@@ -322,14 +431,14 @@ class Scalene:
                 Scalene.update_line()
             Scalene.__last_profiled_invalidated = True
 
-            Scalene.__last_profiled = (
+            Scalene.__last_profiled = [
                 Filename("NADA"),
                 LineNumber(0),
                 ByteCodeIndex(0)
                 #     Filename(ff),
                 #     LineNumber(fl),
                 #     ByteCodeIndex(frame.f_lasti),
-            )
+            ]
             return None
         except AttributeError:
             # This can happen when Scalene shuts down.
@@ -368,11 +477,15 @@ class Scalene:
         Scalene.__files_to_profile.add(func.__code__.co_filename)
         Scalene.__functions_to_profile[func.__code__.co_filename].add(func)
 
-        @functools.wraps(func)
-        def wrapper_profile(*args: Any, **kwargs: Any) -> Any:
-            return func(*args, **kwargs)
-
-        return wrapper_profile
+        if Scalene.__args.memory:
+            from scalene import pywhere  # type: ignore
+            pywhere.register_files_to_profile(
+                list(Scalene.__files_to_profile),
+                Scalene.__program_path,
+                Scalene.__args.profile_all,
+            )
+            
+        return func
 
     @staticmethod
     def shim(func: Callable[[Any], Any]) -> Any:
@@ -422,6 +535,7 @@ class Scalene:
         """For Windows, send periodic timer signals; launch as a background thread."""
         Scalene.timer_signals = True
         while Scalene.timer_signals:
+            Scalene.__windows_queue.get()
             time.sleep(Scalene.__args.cpu_sampling_rate)
             Scalene.__orig_raise_signal(Scalene.__signals.cpu_signal)
 
@@ -464,14 +578,18 @@ class Scalene:
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle allocation signals."""
+        if not Scalene.__args.memory:
+            # This should never happen, but we fail gracefully.
+            return
+        from scalene import pywhere
+
         if this_frame:
             Scalene.enter_function_meta(this_frame, Scalene.__stats)
         # Walk the stack till we find a line of code in a file we are tracing.
         found_frame = False
         f = this_frame
         while f:
-            if Scalene.should_trace(f.f_code.co_filename):
-                found_frame = True
+            if found_frame := Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
                 break
             f = cast(FrameType, f.f_back)
         if not found_frame:
@@ -482,26 +600,30 @@ class Scalene:
         # First, see if we have now executed a different line of code.
         # If so, increment.
         # TODO: assess the necessity of the following block
-        invalidated = Scalene.__last_profiled_invalidated
+        invalidated = pywhere.get_last_profiled_invalidated()
         (fname, lineno, lasti) = Scalene.__last_profiled
+        # Requesting review on this, I think this is semantically more correct
+        # but I'm not fully sure
         if not invalidated and not (
-            fname == Filename(f.f_code.co_filename)
-            and lineno == LineNumber(f.f_lineno)
+            Scalene.on_stack(this_frame, fname, lineno)
+            # fname == Filename(f.f_code.co_filename)
+            # and lineno == LineNumber(f.f_lineno)
         ):
+
             with Scalene.__invalidate_mutex:
-                Scalene.__invalidate_queue.append((fname, lineno))
+                Scalene.__invalidate_queue.append(
+                    (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
+                )
                 Scalene.update_line()
-        Scalene.__last_profiled_invalidated = False
-        Scalene.__last_profiled = (
-            Filename(f.f_code.co_filename),
-            LineNumber(f.f_lineno),
-            ByteCodeIndex(f.f_lasti),
-        )
+        pywhere.set_last_profiled_invalidated_false()
+        Scalene.__last_profiled[0] = Filename(f.f_code.co_filename)
+        Scalene.__last_profiled[1] = LineNumber(f.f_lineno)
+        Scalene.__last_profiled[2] = ByteCodeIndex(f.f_lasti)
+        # sys.settrace(Scalene.invalidate_lines_python)
+        # f.f_trace = Scalene.invalidate_lines_python
+        # f.f_trace_lines = True
         Scalene.__alloc_sigq.put([0])
-        # Start tracing.
-        sys.settrace(Scalene.invalidate_lines)
-        f.f_trace = Scalene.invalidate_lines
-        f.f_trace_lines = True
+        pywhere.enable_settrace()
         del this_frame
 
     @staticmethod
@@ -548,6 +670,7 @@ class Scalene:
             Scalene.timer_signals = True
             t = threading.Thread(target=Scalene.windows_timer_loop)
             t.start()
+            Scalene.__windows_queue.put(None)
             Scalene.start_signal_queues()
             return
         Scalene.start_signal_queues()
@@ -590,7 +713,6 @@ class Scalene:
         import scalene.replacement_pjoin
         import scalene.replacement_signal_fns
         import scalene.replacement_thread_join
-
         if sys.platform != "win32":
             import scalene.replacement_fork
             import scalene.replacement_poll_selector
@@ -607,7 +729,9 @@ class Scalene:
             Scalene.__memcpy_sigq,
         ]
         Scalene.__invalidate_mutex = Scalene.get_original_lock()
-
+        if sys.platform == "win32":
+            import queue
+            Scalene.__windows_queue = queue.Queue() 
         # Initialize the malloc related files; if for whatever reason
         # the files don't exist and we are supposed to be profiling
         # memory, exit.
@@ -616,7 +740,7 @@ class Scalene:
             Scalene.__memcpy_mapfile = ScaleneMapFile("memcpy")
         except Exception:
             # Ignore if we aren't profiling memory; otherwise, exit.
-            if not arguments.cpu_only:
+            if arguments.memory:
                 sys.exit(1)
 
         Scalene.__signals.set_timer_signals(arguments.use_virtual_time)
@@ -645,8 +769,12 @@ class Scalene:
                 cmdline += " --use-virtual-time"
             if "off" in arguments and arguments.off:
                 cmdline += " --off"
-            if arguments.cpu_only:
-                cmdline += " --cpu-only"
+            if arguments.cpu:
+                cmdline += " --cpu"
+            if arguments.gpu:
+                cmdline += " --gpu"
+            if arguments.memory:
+                cmdline += " --memory"
 
             environ = ScalenePreload.get_preload_environ(arguments)
             preface = " ".join(
@@ -657,12 +785,13 @@ class Scalene:
             cmdline += f" --pid={os.getpid()} ---"
             payload = """#!/bin/bash
     echo $$
-    %s %s -m scalene %s $@
+    %s %s -m scalene %s "$@"
     """ % (
                 preface,
                 sys.executable,
                 cmdline,
             )
+            Scalene.__profiler_base = str(os.path.dirname(__file__))
             # Now create all the files.
             for name in Scalene.__all_python_names:
                 fname = os.path.join(Scalene.__python_alias_dir, name)
@@ -677,7 +806,10 @@ class Scalene:
                 + os.environ["PATH"]
             )
             # Force the executable (if anyone invokes it later) to point to one of our aliases.
-            sys.executable = Scalene.__all_python_names[0]
+            sys.executable = os.path.join(
+                Scalene.__python_alias_dir,
+                Scalene.__all_python_names[0],
+            )
 
         # Register the exit handler to run when the program terminates or we quit.
         atexit.register(Scalene.exit_handler)
@@ -696,94 +828,110 @@ class Scalene:
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle CPU signals."""
-        # Get current time stats.
-        now_sys: float = 0
-        now_user: float = 0
-        if sys.platform != "win32":
-            # On Linux/Mac, use getrusage, which provides higher
-            # resolution values than os.times() for some reason.
-            ru = resource.getrusage(resource.RUSAGE_SELF)
-            now_sys = ru.ru_stime
-            now_user = ru.ru_utime
-        else:
-            time_info = os.times()
-            now_sys = time_info.system
-            now_user = time_info.user
-        now_virtual = time.process_time()
-        now_wallclock = time.perf_counter()
-        if (
-            Scalene.__last_signal_time_virtual == 0
-            or Scalene.__last_signal_time_wallclock == 0
-        ):
-            # Initialization: store values and update on the next pass.
+        try: 
+            # Get current time stats.
+            now_sys: float = 0
+            now_user: float = 0
+            if sys.platform != "win32":
+                # On Linux/Mac, use getrusage, which provides higher
+                # resolution values than os.times() for some reason.
+                ru = resource.getrusage(resource.RUSAGE_SELF)
+                now_sys = ru.ru_stime
+                now_user = ru.ru_utime
+            else:
+                time_info = os.times()
+                now_sys = time_info.system
+                now_user = time_info.user
+            now_virtual = time.process_time()
+            now_wallclock = time.perf_counter()
+            if (
+                Scalene.__last_signal_time_virtual == 0
+                or Scalene.__last_signal_time_wallclock == 0
+            ):
+                # Initialization: store values and update on the next pass.
+                Scalene.__last_signal_time_virtual = now_virtual
+                Scalene.__last_signal_time_wallclock = now_wallclock
+                Scalene.__last_signal_time_sys = now_sys
+                Scalene.__last_signal_time_user = now_user
+                if sys.platform != "win32":
+                    Scalene.__orig_setitimer(
+                        Scalene.__signals.cpu_timer_signal,
+                        Scalene.__args.cpu_sampling_rate,
+                    )
+                return
+
+            (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
+
+            # Process this CPU sample.
+            Scalene.process_cpu_sample(
+                signum,
+                Scalene.compute_frames_to_record(),
+                now_virtual,
+                now_wallclock,
+                now_sys,
+                now_user,
+                gpu_load,
+                gpu_mem_used,
+                Scalene.__last_signal_time_virtual,
+                Scalene.__last_signal_time_wallclock,
+                Scalene.__last_signal_time_sys,
+                Scalene.__last_signal_time_user,
+                Scalene.__is_thread_sleeping,
+            )
+            elapsed = now_wallclock - Scalene.__last_signal_time_wallclock
+            # Store the latest values as the previously recorded values.
             Scalene.__last_signal_time_virtual = now_virtual
             Scalene.__last_signal_time_wallclock = now_wallclock
             Scalene.__last_signal_time_sys = now_sys
             Scalene.__last_signal_time_user = now_user
+            # Restart the timer while handling any timers set by the client.
             if sys.platform != "win32":
-                Scalene.__orig_setitimer(
-                    Scalene.__signals.cpu_timer_signal,
-                    Scalene.__args.cpu_sampling_rate,
-                )
-            return
-
-        (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
-
-        # Process this CPU sample.
-        Scalene.process_cpu_sample(
-            signum,
-            Scalene.compute_frames_to_record(),
-            now_virtual,
-            now_wallclock,
-            now_sys,
-            now_user,
-            gpu_load,
-            gpu_mem_used,
-            Scalene.__last_signal_time_virtual,
-            Scalene.__last_signal_time_wallclock,
-            Scalene.__last_signal_time_sys,
-            Scalene.__last_signal_time_user,
-            Scalene.__is_thread_sleeping,
-        )
-        elapsed = now_wallclock - Scalene.__last_signal_time_wallclock
-        # Store the latest values as the previously recorded values.
-        Scalene.__last_signal_time_virtual = now_virtual
-        Scalene.__last_signal_time_wallclock = now_wallclock
-        Scalene.__last_signal_time_sys = now_sys
-        Scalene.__last_signal_time_user = now_user
-        # Restart the timer while handling any timers set by the client.
-        if sys.platform != "win32":
-            if Scalene.client_timer.is_set:
-
-                (
-                    should_raise,
-                    remaining_time,
-                ) = Scalene.client_timer.yield_next_delay(elapsed)
-                if should_raise:
-                    Scalene.__orig_raise_signal(signal.SIGUSR1)
-                # NOTE-- 0 will only be returned if the 'seconds' have elapsed
-                # and there is no interval
-                to_wait: float
-                if remaining_time > 0:
-                    to_wait = min(
-                        remaining_time, Scalene.__args.cpu_sampling_rate
+                if Scalene.client_timer.is_set:
+                    (
+                        should_raise,
+                        remaining_time,
+                    ) = Scalene.client_timer.yield_next_delay(elapsed)
+                    if should_raise:
+                        Scalene.__orig_raise_signal(signal.SIGUSR1)
+                    # NOTE-- 0 will only be returned if the 'seconds' have elapsed
+                    # and there is no interval
+                    to_wait: float
+                    if remaining_time > 0:
+                        to_wait = min(
+                            remaining_time, Scalene.__args.cpu_sampling_rate
+                        )
+                    else:
+                        to_wait = Scalene.__args.cpu_sampling_rate
+                        Scalene.client_timer.reset()
+                    Scalene.__orig_setitimer(
+                        Scalene.__signals.cpu_timer_signal,
+                        to_wait,
                     )
                 else:
-                    to_wait = Scalene.__args.cpu_sampling_rate
-                    Scalene.client_timer.reset()
-                Scalene.__orig_setitimer(
-                    Scalene.__signals.cpu_timer_signal,
-                    to_wait,
-                )
-            else:
-                Scalene.__orig_setitimer(
-                    Scalene.__signals.cpu_timer_signal,
-                    Scalene.__args.cpu_sampling_rate,
-                )
+                    Scalene.__orig_setitimer(
+                        Scalene.__signals.cpu_timer_signal,
+                        Scalene.__args.cpu_sampling_rate,
+                    )
+        finally:
+            if sys.platform == 'win32':
+                Scalene.__windows_queue.put(None)
 
+    @staticmethod
+    def flamegraph_format() -> None:
+        """Converts stacks to a string suitable for input to Brendan Gregg's flamegraph.pl script."""
+        output = ""
+        for stk in Scalene.__stats.stacks.keys():
+            for item in stk:
+                (fname, lineno) = item
+                output += f"{fname}:{lineno};"
+            output += " " + str(Scalene.__stats.stacks[stk])
+            output += "\n"
+        return output
+    
     @staticmethod
     def output_profile() -> bool:
         # sourcery skip: inline-immediately-returned-variable
+        # print(Scalene.flamegraph_format())
         """Output the profile. Returns true iff there was any info reported the profile."""
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
@@ -793,11 +941,25 @@ class Scalene:
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
-                profile_memory=not Scalene.__args.cpu_only,
+                profile_memory=Scalene.__args.memory,
+                reduced_profile=Scalene.__args.reduced_profile,
             )
-            if not Scalene.__output.output_file:
-                Scalene.__output.output_file = "/dev/stdout"
-            with open(Scalene.__output.output_file, "w") as f:
+            # Since the default value returned for "there are no samples"
+            # is `{}`, we use a sentinel value `{"is_child": True}`
+            # when inside a child process to indicate that there are samples, but they weren't
+            # turned into a JSON file because they'll later
+            # be used by the parent process
+            if "is_child" in json_output:
+                return True
+            outfile = Scalene.__output.output_file
+            # If there was no output file specified, print to the console.
+            if not outfile:
+                if sys.platform == "win32":
+                    outfile = "CON"
+                else:
+                    outfile = "/dev/stdout"
+            # Write the JSON to the output file (or console).
+            with open(outfile, "w") as f:
                 f.write(
                     json.dumps(json_output, sort_keys=True, indent=4) + "\n"
                 )
@@ -823,7 +985,7 @@ class Scalene:
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
-                profile_memory=not Scalene.__args.cpu_only,
+                profile_memory=Scalene.__args.memory,
                 reduced_profile=Scalene.__args.reduced_profile,
             )
             return did_output
@@ -847,6 +1009,21 @@ class Scalene:
         )
         return found_function
 
+    @staticmethod
+    def add_stack(frame: FrameType) -> None:
+        """Add one to the stack starting from this frame."""
+        stk = HashableList()
+        f = frame
+        while f:
+            if Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
+                stk.insert(0, (f.f_code.co_filename, f.f_lineno))
+            f = f.f_back
+        Scalene.__stats.stacks[stk] += 1
+
+    @staticmethod
+    def print_stacks() -> None:
+        print(Scalene.__stats.stacks)
+        
     @staticmethod
     def process_cpu_sample(
         _signum: Union[
@@ -920,6 +1097,7 @@ class Scalene:
         # utilization can exceed 1; that is, elapsed user time is
         # longer than elapsed wallclock time. If this occurs, set
         # wall clock time to user time and set CPU utilization to 100%.
+        core_utilization = cpu_utilization / Scalene.__availableCPUs
         if cpu_utilization > 1.0:
             cpu_utilization = 1.0
             elapsed_wallclock = elapsed_user
@@ -953,6 +1131,9 @@ class Scalene:
 
         main_thread_frame = new_frames[0][0]
 
+        if Scalene.__args.stacks:
+            Scalene.add_stack(main_thread_frame)
+        
         average_python_time = python_time / total_frames
         average_c_time = c_time / total_frames
         average_gpu_time = gpu_time / total_frames
@@ -972,6 +1153,9 @@ class Scalene:
             Scalene.__stats.cpu_utilization[fname][lineno].push(
                 cpu_utilization
             )
+            Scalene.__stats.core_utilization[fname][lineno].push(
+                core_utilization
+            )
             Scalene.__stats.gpu_samples[fname][lineno] += average_gpu_time
             Scalene.__stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
@@ -979,6 +1163,8 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             if frame == main_thread_frame:
                 continue
+            Scalene.add_stack(frame)
+            
             # In a thread.
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
@@ -1007,6 +1193,9 @@ class Scalene:
             Scalene.__stats.cpu_samples[fname] += normalized_time
             Scalene.__stats.cpu_utilization[fname][lineno].push(
                 cpu_utilization
+            )
+            Scalene.__stats.core_utilization[fname][lineno].push(
+                core_utilization
             )
 
         # Clean up all the frames
@@ -1048,6 +1237,7 @@ class Scalene:
             if not frame:
                 continue
             fname = frame.f_code.co_filename
+            func = frame.f_code.co_name
             # Record samples only for files we care about.
             if not fname:
                 # 'eval/compile' gives no f_code.co_filename.  We have
@@ -1055,7 +1245,8 @@ class Scalene:
                 # the co_filename.
                 back = cast(FrameType, frame.f_back)
                 fname = Filename(back.f_code.co_filename)
-            while not Scalene.should_trace(fname):
+                func = back.f_code.co_name
+            while not Scalene.should_trace(fname, func):
                 # Walk the stack backwards until we hit a frame that
                 # IS one we should trace (if there is one).  i.e., if
                 # it's in the code being profiled, and it is just
@@ -1066,6 +1257,7 @@ class Scalene:
                     break
                 if frame:
                     fname = frame.f_code.co_filename
+                    func = frame.f_code.co_name
             if frame:
                 new_frames.append((frame, tident, orig_frame))
         del frames[:]
@@ -1089,7 +1281,7 @@ class Scalene:
                     return
         except Exception:
             return
-        if not Scalene.should_trace(f.f_code.co_filename):
+        if not Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
             return
 
         # Obtain the fully-qualified name.
@@ -1173,6 +1365,8 @@ class Scalene:
                     )
                 )
 
+        stats.alloc_samples += len(arr)
+
         # Iterate through the array to compute the new current footprint
         # and update the global __memory_footprint_samples. Since on some systems,
         # we get free events before mallocs, force `before` to always be at least 0.
@@ -1213,28 +1407,12 @@ class Scalene:
                 ):
                     freed_last_trigger += 1
             timestamp = time.monotonic_ns() - Scalene.__start_time
-            if len(stats.memory_footprint_samples) > 2:
-                # Compress the footprints by discarding intermediate
-                # points along increases and decreases. For example:
-                # if the new point is an increase over the previous
-                # point, and that point was also an increase,
-                # eliminate the previous (intermediate) point.
-                (t1, prior_y) = stats.memory_footprint_samples[-2]
-                (t2, last_y) = stats.memory_footprint_samples[-1]
-                y = stats.current_footprint
-                if prior_y < last_y < y or prior_y > last_y > y:
-                    # Same direction.
-                    # Replace the previous (intermediate) point.
-                    stats.memory_footprint_samples[-1] = [timestamp, y]
-                else:
-                    stats.memory_footprint_samples.append([timestamp, y])
-            else:
-                stats.memory_footprint_samples.append(
-                    [
-                        timestamp,
-                        stats.current_footprint,
-                    ]
-                )
+            stats.memory_footprint_samples.append(
+                [
+                    timestamp,
+                    stats.current_footprint,
+                ]
+            )
         after = stats.current_footprint
 
         if freed_last_trigger:
@@ -1275,11 +1453,11 @@ class Scalene:
             if is_malloc and count == NEWLINE_TRIGGER_LENGTH + 1:
                 with Scalene.__invalidate_mutex:
                     last_file, last_line = Scalene.__invalidate_queue.pop(0)
+
                 stats.memory_malloc_count[last_file][last_line] += 1
                 stats.memory_aggregate_footprint[last_file][
                     last_line
                 ] += stats.memory_current_highwater_mark[last_file][last_line]
-
                 stats.memory_current_footprint[last_file][last_line] = 0
                 stats.memory_current_highwater_mark[last_file][last_line] = 0
                 continue
@@ -1330,7 +1508,7 @@ class Scalene:
                 )
 
             stats.per_line_footprint_samples[fname][lineno].append(
-                [time.monotonic_ns() - Scalene.__start_time, curr]
+                [time.monotonic_ns() - Scalene.__start_time, max(0, curr)]
             )
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
@@ -1437,37 +1615,43 @@ class Scalene:
 
     @staticmethod
     @functools.lru_cache(None)
-    def should_trace(filename: str) -> bool:
-        """Return true if the filename is one we should trace."""
+    def should_trace(filename: str, func : str) -> bool:
+        """Return true if we should trace this filename and function."""
         if not filename:
             return False
-        if (
-            "scalene/scalene" in filename
-        ):  # lgtm [py/member-test-non-container]
+        if Scalene.__profiler_base in filename:
             # Don't profile the profiler.
             return False
-        if (
-            "site-packages" in filename
-            or "/lib/python" in filename  # lgtm [py/member-test-non-container]
-        ) and not Scalene.__args.profile_all:
+        if Scalene.__functions_to_profile:
+            if filename in Scalene.__functions_to_profile:
+                if func in { fn.__code__.co_name for fn in Scalene.__functions_to_profile[filename] }:
+                    return True
             return False
+        # Don't profile the Python libraries, unless overridden by --profile-all
+        try:
+            resolved_filename = str(pathlib.Path(filename).resolve())
+        except OSError:
+            # Not a file
+            return False
+        if not Scalene.__args.profile_all:
+            for n in sysconfig.get_scheme_names():
+                for p in sysconfig.get_path_names():
+                    libdir = str(pathlib.Path(sysconfig.get_path(p, n)).resolve())
+                    if libdir in resolved_filename:
+                        return False
+
         # Generic handling follows (when no @profile decorator has been used).
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
         if any(
             prof in filename for prof in profile_exclude_list if prof != ""
         ):
             return False
-        if filename[0] == "i":
-            if (
-                "ipython" not in filename
-            ):  # lgtm [py/member-test-non-container]
-                # Not a real file and not a function created in Jupyter.
-                return False
+        if filename.startswith("_ipython-input-"):
             # Profiling code created in a Jupyter cell:
             # create a file to hold the contents.
             import IPython
 
-            if result := re.match("ipython-input-([0-9]+)-.*", filename):
+            if result := re.match(r"_ipython-input-([0-9]+)-.*", filename):
                 # Write the cell's contents into the file.
                 cell_contents = (
                     IPython.get_ipython().history_manager.input_hist_raw[
@@ -1476,13 +1660,16 @@ class Scalene:
                 )
                 with open(filename, "w+") as f:
                     f.write(cell_contents)
-            return True
+                return True
         # If (a) `profile-only` was used, and (b) the file matched
         # NONE of the provided patterns, don't profile it.
         profile_only_set = set(Scalene.__args.profile_only.split(","))
-        if not_found_in_profile_only := profile_only_set and all(
+        if profile_only_set and all(
             prof not in filename for prof in profile_only_set
         ):
+            return False
+        if filename[0] == "<" and filename[-1] == ">":
+            # Special non-file
             return False
         # Now we've filtered out any non matches to profile-only patterns.
         # If `profile-all` is specified, profile this file.
@@ -1494,6 +1681,7 @@ class Scalene:
             os.path.join(Scalene.__program_path, filename)
         )
         return Scalene.__program_path in filename
+
 
     __done = False
 
@@ -1527,7 +1715,6 @@ class Scalene:
                 Scalene.__args.json = True
                 Scalene.__output.html = False
                 Scalene.__output.output_file = Scalene.__profile_filename
-                return
             # Check for a browser.
             try:
                 if (
@@ -1587,6 +1774,9 @@ class Scalene:
         for pid in Scalene.child_pids:
             Scalene.__orig_kill(pid, Scalene.__signals.stop_profiling_signal)
         Scalene.stop()
+        # Output the profile if `--outfile` was set to a file.
+        if Scalene.__output.output_file:
+            Scalene.output_profile()
 
     @staticmethod
     def disable_signals(retry: bool = True) -> None:
@@ -1622,6 +1812,37 @@ class Scalene:
         with contextlib.suppress(Exception):
             os.remove(f"/tmp/scalene-malloc-lock{os.getpid()}")
 
+    @staticmethod
+    def generate_html(profile_fname, output_fname):
+        """Apply a template to generate a single HTML payload containing the current profile."""
+
+        try:
+            # Load the profile
+            profile_file = pathlib.Path(profile_fname)
+            profile = profile_file.read_text()
+        except FileNotFoundError:
+            return
+
+        # Load the GUI JavaScript file.
+        scalene_dir = os.path.dirname(__file__)
+        gui_fname = os.path.join(scalene_dir, "scalene-gui", "scalene-gui.js")
+        gui_file = pathlib.Path(gui_fname)
+        gui_js = gui_file.read_text()
+
+        # Put the profile and everything else into the template.
+        environment = Environment(
+            loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
+        )
+        template = environment.get_template("index.html.template")
+        rendered_content = template.render(profile=profile, gui_js=gui_js, scalene_version=scalene_version, scalene_date=scalene_date)
+
+        # Write the rendered content to the specified output file.
+        try:
+            with open(output_fname, "w", encoding="utf-8") as f:
+                f.write(rendered_content)
+        except OSError:
+            pass
+
     def profile_code(
         self,
         code: str,
@@ -1629,6 +1850,10 @@ class Scalene:
         the_locals: Dict[str, str],
     ) -> int:
         """Initiate execution and profiling."""
+        if Scalene.__args.memory:
+            from scalene import pywhere
+
+            pywhere.populate_struct()
         # If --off is set, tell all children to not profile and stop profiling before we even start.
         if "off" not in Scalene.__args or not Scalene.__args.off:
             self.start()
@@ -1648,7 +1873,11 @@ class Scalene:
             exit_status = 1
         finally:
             self.stop()
-            sys.settrace(None)
+            if Scalene.__args.memory:
+                pywhere.disable_settrace()
+                pywhere.depopulate_struct()
+            # Leaving here in case of reversion
+            # sys.settrace(None)
             stats = Scalene.__stats
             (last_file, last_line, _) = Scalene.__last_profiled
             stats.memory_malloc_count[last_file][last_line] += 1
@@ -1670,83 +1899,26 @@ class Scalene:
             ):
                 return exit_status
 
-            # Start up a web server (in a background thread) to host the GUI,
-            # and open a browser tab to the server. If this fails, fail-over
-            # to using the CLI.
-
-            try:
-                PORT = Scalene.__args.port
-
-                # Silence web server output by overriding logging messages.
-                class NoLogs(http.server.SimpleHTTPRequestHandler):
-                    def log_message(
-                        self, format: str, *args: List[Any]
-                    ) -> None:
-                        return
-
-                    def log_request(
-                        self,
-                        code: Union[int, str] = 0,
-                        size: Union[int, str] = 0,
-                    ) -> None:
-                        return
-
-                Handler = NoLogs
-                socketserver.TCPServer.allow_reuse_address = True
-                with socketserver.TCPServer(("", PORT), Handler) as httpd:
-                    t = threading.Thread(target=httpd.serve_forever)
-                    # Copy files into a new directory and then point the tab there.
-                    import shutil
-
-                    webgui_dir = pathlib.Path(
-                        tempfile.mkdtemp(prefix=Scalene.__gui_dir)
-                    )
-                    shutil.copytree(
-                        os.path.join(
-                            os.path.dirname(__file__), Scalene.__gui_dir
-                        ),
-                        os.path.join(webgui_dir, Scalene.__gui_dir),
-                    )
-                    shutil.copy(
-                        Scalene.__profile_filename,
-                        os.path.join(webgui_dir, Scalene.__gui_dir),
-                    )
-                    os.chdir(os.path.join(webgui_dir, Scalene.__gui_dir))
-                    t.start()
-                    if Scalene.in_jupyter():
-                        from IPython.core.display import display
-                        from IPython.display import IFrame
-                        display(
-                            IFrame(
-                                src=f"{Scalene.__localhost}:{PORT}/{Scalene.__profiler_html}",
-                                width="100%",
-                                height=600,
-                            )
-                        )
-                    else:
-                        # Disable the preload environment
-                        # variables which are no longer needed
-                        # anyway (for memory/copy volume tracking)
-                        # and which interfere with at least one
-                        # browser on one platform.
-                        os.environ["LD_PRELOAD"] = ""
-                        os.environ["DYLD_INSERT_LIBRARIES"] = ""
-                        # Now open a tab with the profiler.
-                        webbrowser.open(
-                            f"{Scalene.__localhost}:{PORT}/{Scalene.__profiler_html}"
-                        )
-                    # Wait long enough for the server to serve the page, and then shut down the server.
-                    time.sleep(5)
-                    httpd.shutdown()
-            except OSError:
-                print(
-                    f"Scalene: unable to run the Scalene GUI on port {PORT}."
-                )
-                print("Possible solutions:")
-                print("(1) Use a different port (with --port)")
-                print("(2) Use the text version (with --cli)")
-                print(
-                    "(3) Upload a generated profile.json file to the web GUI: https://plasma-umass.org/scalene-gui/."
+            Scalene.generate_html(
+                profile_fname=Scalene.__profile_filename,
+                output_fname=Scalene.__profiler_html,
+            )
+            if Scalene.in_jupyter():
+                from scalene.scalene_jupyter import ScaleneJupyter
+                port = ScaleneJupyter.find_available_port(8181,9000)
+                if not port:
+                    print("Scalene error: could not find an available port.")
+                    return
+                ScaleneJupyter.display_profile(port, Scalene.__profiler_html)
+            else:
+                # Remove any interposition libraries from the environment before opening the browser.
+                # See also scalene/scalene_preload.py
+                old_dyld = os.environ.pop("DYLD_INSERT_LIBRARIES", "")
+                old_ld = os.environ.pop("LD_PRELOAD", "")
+                webbrowser.open(f"file:///{os.getcwd()}/{Scalene.__profiler_html}")
+                # Restore them.
+                os.environ.update(
+                    {"DYLD_INSERT_LIBRARIES": old_dyld, "LD_PRELOAD": old_ld}
                 )
 
         return exit_status
@@ -1763,6 +1935,10 @@ class Scalene:
         Scalene.__is_child = args.pid != 0
         # the pid of the primary profiler
         Scalene.__parent_pid = args.pid if Scalene.__is_child else os.getpid()
+        # Don't profile the GPU if not enabled (i.e., either no options or --cpu and/or --memory, but no --gpu).
+        if not Scalene.__args.gpu:
+            Scalene.__output.gpu = False
+            Scalene.__json.gpu = False
 
     @staticmethod
     def set_initialized() -> None:
@@ -1793,15 +1969,15 @@ class Scalene:
                 "To invoke Scalene programmatically, see the usage noted in https://github.com/plasma-umass/scalene#using-scalene"
             )
             sys.exit(1)
-        Scalene.__orig_signal(
-            Scalene.__signals.start_profiling_signal,
-            Scalene.start_signal_handler,
-        )
-        Scalene.__orig_signal(
-            Scalene.__signals.stop_profiling_signal,
-            Scalene.stop_signal_handler,
-        )
         if sys.platform != "win32":
+            Scalene.__orig_signal(
+                Scalene.__signals.start_profiling_signal,
+                Scalene.start_signal_handler,
+            )
+            Scalene.__orig_signal(
+                Scalene.__signals.stop_profiling_signal,
+                Scalene.stop_signal_handler,
+            )
             Scalene.__orig_siginterrupt(
                 Scalene.__signals.start_profiling_signal, False
             )
@@ -1830,33 +2006,53 @@ class Scalene:
         with contextlib.suppress(Exception):
             if not is_jupyter:
                 multiprocessing.set_start_method("fork")
+        spec = None
         try:
             Scalene.process_args(args)
             progs = None
             exit_status = 0
             try:
+                if len(sys.argv) >= 2 and sys.argv[0] == "-m":
+                    module = True
+
+                    # Remove -m and the provided module name
+                    _, mod_name, *sys.argv = sys.argv
+
+                    # Given `some.module`, find the path of the corresponding
+                    # some/module/__main__.py or some/module.py file to run.
+                    _, spec, _ = _get_module_details(mod_name)
+                    if not spec.origin:
+                        raise FileNotFoundError
+                    # Prepend the found .py file to arguments
+                    sys.argv.insert(0, spec.origin)
+                else:
+                    module = False
+
                 # Look for something ending in '.py'. Treat the first one as our executable.
-                progs = [x for x in sys.argv if re.match(".*\.py$", x)]
+                progs = [x for x in sys.argv if re.match(r".*\.py$", x)]
                 # Just in case that didn't work, try sys.argv[0] and __file__.
                 with contextlib.suppress(Exception):
                     progs.extend((sys.argv[0], __file__))
                 if not progs:
                     raise FileNotFoundError
-                with open(progs[0], "rb") as prog_being_profiled:
+                # Use the full absolute path of the program being profiled, expanding ~ if need be.
+                prog_name = os.path.abspath(os.path.expanduser(progs[0]))
+                with open(prog_name, "r", encoding="utf-8") as prog_being_profiled:
                     # Read in the code and compile it.
                     code: Any = ""
                     try:
                         code = compile(
                             prog_being_profiled.read(),
-                            progs[0],
+                            prog_name,
                             "exec",
                         )
                     except SyntaxError:
                         traceback.print_exc()
                         sys.exit(1)
                     # Push the program's path.
-                    program_path = os.path.dirname(os.path.abspath(progs[0]))
-                    sys.path.insert(0, program_path)
+                    program_path = os.path.dirname(prog_name)
+                    if not module:
+                        sys.path.insert(0, program_path)
                     # If a program path was specified at the command-line, use it.
                     if len(args.program_path) > 0:
                         Scalene.__program_path = os.path.abspath(
@@ -1864,9 +2060,9 @@ class Scalene:
                         )
                     else:
                         # Otherwise, use the invoked directory.
-                        Scalene.__program_path = os.getcwd()
+                        Scalene.__program_path = program_path
                     # Grab local and global variables.
-                    if not Scalene.__args.cpu_only:
+                    if Scalene.__args.memory:
                         from scalene import pywhere  # type: ignore
 
                         pywhere.register_files_to_profile(
@@ -1874,25 +2070,35 @@ class Scalene:
                             Scalene.__program_path,
                             Scalene.__args.profile_all,
                         )
-
                     import __main__
 
                     the_locals = __main__.__dict__
                     the_globals = __main__.__dict__
                     # Splice in the name of the file being executed instead of the profiler.
-                    the_globals["__file__"] = os.path.abspath(progs[0])
-                    # Some mysterious module foo to make this work the same with -m as with `scalene`.
-                    the_globals["__spec__"] = None
+                    the_globals["__file__"] = prog_name
+                    # This part works because of the order in which Python attempts to resolve names--
+                    # Within a given context, it first tries to look for __package__, and then for __spec__.
+                    # __spec__ is a ModuleSpec object that carries a lot of extra machinery and requires
+                    # extra effort to create (it seems, at least).
+                    #
+                    # __spec__ was originally set to none because the __globals__ here has the Scalene ModuleSpec
+                    # but it doesn't seem like that was enough. Setting the __package__, as below, seems to be enough to make
+                    # it look in the right place
+                    the_globals["__spec__"] = None 
+                    if spec is not None:
+                        name = spec.name 
+                        the_globals['__package__'] = name.split('.')[0]
                     # Do a GC before we start.
                     gc.collect()
                     # Start the profiler.
-                    profiler = Scalene(args, Filename(progs[0]))
+                    profiler = Scalene(args, Filename(prog_name))
                     try:
                         # We exit with this status (returning error code as appropriate).
                         exit_status = profiler.profile_code(
                             code, the_locals, the_globals
                         )
-                        sys.exit(exit_status)
+                        if not is_jupyter:
+                            sys.exit(exit_status)
                     except StopJupyterExecution:
                         # Running in Jupyter notebooks
                         pass
@@ -1906,12 +2112,13 @@ class Scalene:
                         print(traceback.format_exc())
             except (FileNotFoundError, IOError):
                 if progs:
-                    print(f"Scalene: could not find input file {progs[0]}")
+                    print(f"Scalene: could not find input file {prog_name}")
                 else:
                     print("Scalene: no input file specified.")
                 sys.exit(1)
-        except SystemExit:
-            pass
+        except SystemExit as e:
+            exit_status = e.code
+
         except StopJupyterExecution:
             pass
         except Exception:

@@ -1,7 +1,6 @@
 #define SCALENE_DISABLE_SIGNALS 0  // for debugging only
 
 #if !defined(_WIN32)
-#include <execinfo.h>
 #include <unistd.h>
 #endif
 
@@ -30,7 +29,7 @@ using BaseHeap = HL::OneHeap<HL::SysMallocHeap>;
 extern "C" void _putchar(char ch) { ::write(1, (void *)&ch, 1); }
 
 constexpr uint64_t DefaultAllocationSamplingRate =
-    1 * 1549351ULL;  // 1 * 1048576ULL;
+    1 * 10485767ULL; // was 1 * 1549351ULL;
 constexpr uint64_t MemcpySamplingRate = DefaultAllocationSamplingRate * 7;
 
 /**
@@ -131,7 +130,7 @@ class MakeLocalAllocator {
   /// @brief the actual allocator we use to satisfy object allocations
   PyMemAllocatorEx localAlloc;
 
-  static inline PyMemAllocatorEx *get_original_allocator() {
+  static inline PyMemAllocatorEx* get_original_allocator() {
     // poor man's "static inline" member
     static PyMemAllocatorEx original_allocator;
     return &original_allocator;
@@ -154,11 +153,11 @@ class MakeLocalAllocator {
 #if USE_HEADERS
     void *buf = nullptr;
     const auto allocSize = len + sizeof(ScaleneHeader);
-    buf = get_original_allocator()->malloc(ctx, allocSize);
+    buf = get_original_allocator()->malloc(get_original_allocator()->ctx, allocSize);
     auto *header = new (buf) ScaleneHeader(len);
     class Nada {};
 #else
-    auto *header = (ScaleneHeader *)get_original_allocator()->malloc(ctx, len);
+    auto *header = (ScaleneHeader *)get_original_allocator()->malloc(get_original_allocator()->ctx, len);
 #endif
     assert(header);  // We expect this to always succeed.
     if (!m.wasInMalloc()) {
@@ -191,7 +190,7 @@ class MakeLocalAllocator {
       if (!m.wasInMalloc()) {
         TheHeapWrapper::register_free(sz, ptr);
       }
-      get_original_allocator()->free(ctx, ScaleneHeader::getHeader(ptr));
+      get_original_allocator()->free(get_original_allocator()->ctx, ScaleneHeader::getHeader(ptr));
     }
   }
 
@@ -207,7 +206,7 @@ class MakeLocalAllocator {
     void *p = nullptr;
     const auto allocSize = new_size + sizeof(ScaleneHeader);
     void *buf = get_original_allocator()->realloc(
-        ctx, ScaleneHeader::getHeader(ptr), allocSize);
+        get_original_allocator()->ctx, ScaleneHeader::getHeader(ptr), allocSize);
     ScaleneHeader *result = new (buf) ScaleneHeader(new_size);
     if (result && !m.wasInMalloc()) {
       if (sz < new_size) {

@@ -10,7 +10,8 @@ def replacement_signal_fns(scalene: Scalene) -> None:
 
     old_signal = signal.signal
     if sys.version_info < (3, 8):
-        old_raise_signal = lambda s: os.kill(os.getpid(), s)
+        def old_raise_signal(s):
+            return os.kill(os.getpid(), s)
     else:
         old_raise_signal = signal.raise_signal
 
@@ -27,14 +28,16 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         timer_signal_str = signal.strsignal(signum)
         if signum == cpu_signal:
             print(
-                f"WARNING: Scalene uses {timer_signal_str} to profile. If your code raises {timer_signal_str} from non-Python code, use SIGUSR1. "
+                f"WARNING: Scalene uses {timer_signal_str} to profile.\n"
+                f"If your code raises {timer_signal_str} from non-Python code, use SIGUSR1.\n"
                 "Code that raises signals from within Python code will be rerouted."
             )
             return old_signal(new_cpu_signal, handler)
         if signum in all_signals:
             print(
-                "Error: Scalene cannot profile your program because it (or one of its packages) "
-                "uses timers or signals that Scalene depends on. If you have encountered this warning, please file an issue using this URL: "
+                "Error: Scalene cannot profile your program because it (or one of its packages)\n"
+                f"uses timers or a signal that Scalene depends on ({timer_signal_str}).\n"
+                "If you have encountered this warning, please file an issue using this URL:\n"
                 "https://github.com/plasma-umass/scalene/issues/new/choose"
             )
 
@@ -73,9 +76,6 @@ def replacement_signal_fns(scalene: Scalene) -> None:
 
         def replacement_setitimer(which, seconds, interval=0.0):  # type: ignore
             timer_signal, cpu_signal = scalene.get_timer_signals()
-            timer_signal_str = (
-                "SIGALRM" if timer_signal == signal.SIGALRM else "SIGVTALRM"
-            )
             if which == timer_signal:
                 old = scalene.client_timer.get_itimer()
                 if seconds == 0:

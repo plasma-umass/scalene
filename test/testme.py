@@ -1,7 +1,8 @@
+#!/usr/bin/env python3
 import numpy as np
 #import math
 
-from numpy import linalg as LA
+# from numpy import linalg as LA
 
 arr = [i for i in range(1,1000)]
 
@@ -43,7 +44,7 @@ def doit3(x):
     return z
 
 def stuff():
-    y = np.random.randint(1, 100, size=5000000)[4999999]
+#    y = np.random.randint(1, 100, size=50000000)[49999999]
     x = 1.01
     for i in range(1,10):
         print(i)

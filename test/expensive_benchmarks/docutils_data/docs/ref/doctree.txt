@@ -1,0 +1,5418 @@
+============================
+ The Docutils Document Tree
+============================
+
+A Guide to the Docutils DTD
+***************************
+
+:Author: David Goodger
+:Contact: docutils-develop@lists.sourceforge.net
+:Revision: $Revision$
+:Date: $Date$
+:Copyright: This document has been placed in the public domain.
+
+
+.. contents:: :depth: 1
+
+
+This document describes the XML data structure of Docutils_ documents:
+the relationships and semantics of elements and attributes.  The
+Docutils document structure is formally defined by the `Docutils
+Generic DTD`_ XML document type definition, docutils.dtd_, which is
+the definitive source for details of element structural relationships.
+
+This document does not discuss implementation details.  Those can be
+found in internal documentation (docstrings) for the
+``docutils.nodes`` module, where the document tree data structure is
+implemented in a class library.
+
+The reader is assumed to have some familiarity with XML or SGML, and
+an understanding of the data structure meaning of "tree".  For a list
+of introductory articles, see `Introducing the Extensible Markup
+Language (XML)`_.
+
+The reStructuredText_ markup is used for illustrative examples
+throughout this document.  For a gentle introduction, see `A
+ReStructuredText Primer`_.  For complete technical details, see the
+`reStructuredText Markup Specification`_.
+
+.. _Docutils: https://docutils.sourceforge.io/
+.. _Docutils Generic DTD:
+.. _Docutils DTD:
+.. _docutils.dtd: docutils.dtd
+.. _Introducing the Extensible Markup Language (XML):
+   http://xml.coverpages.org/xmlIntro.html
+.. _reStructuredText: https://docutils.sourceforge.io/rst.html
+.. _A ReStructuredText Primer: ../user/rst/quickstart.html
+.. _reStructuredText Markup Specification: rst/restructuredtext.html
+
+
+-------------------
+ Element Hierarchy
+-------------------
+
+.. contents:: :local:
+
+Below is a simplified diagram of the hierarchy of elements in the
+Docutils document tree structure.  An element may contain any other
+elements immediately below it in the diagram.  Notes are written in
+square brackets.  Element types in parentheses indicate recursive or
+one-to-many relationships; sections may contain (sub)sections, tables
+contain further body elements, etc. ::
+
+  +--------------------------------------------------------------------+
+  | document  [may begin with a title, subtitle, decoration, docinfo]  |
+  |                             +--------------------------------------+
+  |                             | sections  [each begins with a title] |
+  +-----------------------------+-------------------------+------------+
+  | [body elements:]                                      | (sections) |
+  |         | - literal | - lists  |       | - hyperlink  +------------+
+  |         |   blocks  | - tables |       |   targets    |
+  | para-   | - doctest | - block  | foot- | - sub. defs  |
+  | graphs  |   blocks  |   quotes | notes | - comments   |
+  +---------+-----------+----------+-------+--------------+
+  | [text]+ | [text]    | (body elements)  | [text]       |
+  | (inline +-----------+------------------+--------------+
+  | markup) |
+  +---------+
+
+The Docutils document model uses a simple, recursive model for section
+structure.  A document_ node may contain body elements and section_
+elements.  Sections in turn may contain body elements and sections.
+The level (depth) of a section element is determined from its physical
+nesting level; unlike other document models (``<h1>`` in HTML_,
+``<sect1>`` in DocBook_, ``<div1>`` in XMLSpec_) the level is not
+incorporated into the element name.
+
+The Docutils document model uses strict element content models.  Every
+element has a unique structure and semantics, but elements may be
+classified into general categories (below).  Only elements which are
+meant to directly contain text data have a mixed content model, where
+text data and inline elements may be intermixed.  This is unlike the
+much looser HTML_ document model, where paragraphs and text data may
+occur at the same level.
+
+.. _HTML: https://www.w3.org/TR/html52/
+.. _DocBook: https://tdg.docbook.org/tdg/5.1/
+.. _XMLSpec: https://www.w3.org/XML/1998/06/xmlspec-report.htm
+
+
+Structural Elements
+===================
+
+Structural elements may only contain child elements; they do not
+directly contain text data.  Structural elements may contain body
+elements or further structural elements.  Structural elements can only
+be child elements of other structural elements.
+
+Category members: document_, section_, topic_, sidebar_
+
+
+Structural Subelements
+----------------------
+
+Structural subelements are child elements of structural elements.
+Simple structuctural subelements (title_, subtitle_) contain text
+data; the others are compound and do not directly contain text data.
+
+Category members: title_, subtitle_, decoration_, docinfo_, meta_,
+transition_
+
+
+Bibliographic Elements
+``````````````````````
+
+The docinfo_ element is an optional child of document_.  It groups
+bibliographic elements together.  All bibliographic elements except
+authors_ and field_ contain text data.  authors_ contains further
+bibliographic elements (most notably author_).  field_ contains
+field_name_ and field_body_ body subelements.
+
+Category members: address_, author_, authors_, contact_, copyright_,
+date_, field_, organization_, revision_, status_, version_
+
+
+Decorative Elements
+```````````````````
+
+The decoration_ element is also an optional child of document_.  It
+groups together elements used to generate page headers and footers.
+
+Category members: footer_, header_
+
+
+Body Elements
+=============
+
+Body elements are contained within structural elements and compound
+body elements.  There are two subcategories of body elements: simple
+and compound.
+
+Category members: admonition_, attention_, block_quote_, bullet_list_,
+caution_, citation_, comment_, compound_, container_, danger_,
+definition_list_, doctest_block_, enumerated_list_, error_,
+field_list_, figure_, footnote_, hint_, image_, important_,
+line_block_, literal_block_, note_, option_list_, paragraph_,
+pending_, raw_, rubric_, substitution_definition_, system_message_,
+table_, target_, tip_, warning_
+
+
+Simple Body Elements
+--------------------
+
+Simple body elements are empty or directly contain text data.  Those
+that contain text data may also contain inline elements.  Such
+elements therefore have a "mixed content model".
+
+Category members: comment_, doctest_block_, image_, literal_block_,
+math_block_, paragraph_, pending_, raw_, rubric_, substitution_definition_,
+target_
+
+
+Compound Body Elements
+----------------------
+
+Compound body elements contain local substructure (body subelements)
+and further body elements.  They do not directly contain text data.
+
+Category members: admonition_, attention_, block_quote_, bullet_list_,
+caution_, citation_, compound_, container_, danger_, definition_list_,
+enumerated_list_, error_, field_list_, figure_, footnote_, hint_,
+important_, line_block, note_, option_list_, system_message_, table_,
+tip_, warning_
+
+
+Body Subelements
+````````````````
+
+Compound body elements contain specific subelements (e.g. bullet_list_
+contains list_item_).  Subelements may themselves be compound elements
+(containing further child elements, like field_) or simple data
+elements (containing text data, like field_name_).  These subelements
+always occur within specific parent elements, never at the body
+element level (beside paragraphs, etc.).
+
+Category members (simple): attribution_, caption_, classifier_,
+colspec_, field_name_, label_, line_, option_argument_,
+option_string_, term_
+
+Category members (compound): definition_, definition_list_item_,
+description_, entry_, field_, field_body_, legend_, list_item_,
+option_, option_group_, option_list_item_, row_, tbody_, tgroup_,
+thead_
+
+
+Inline Elements
+===============
+
+Inline elements directly contain text data, and may also contain
+further inline elements.  Inline elements are contained within simple
+body elements.  Most inline elements have a "mixed content model".
+
+Category members: abbreviation_, acronym_, citation_reference_,
+emphasis_, footnote_reference_, generated_, image_, inline_, literal_,
+math_, problematic_, reference_, strong_, subscript_,
+substitution_reference_, superscript_, target_, title_reference_, raw_
+
+
+-------------------
+ Element Reference
+-------------------
+
+.. contents:: :local:
+              :depth: 1
+
+Each element in the DTD (document type definition) is described in its
+own section below.  Each section contains an introduction plus the
+following subsections:
+
+* Details (of element relationships and semantics):
+
+  - Category: One or more references to the element categories in
+    `Element Hierarchy`_ above.  Some elements belong to more than one
+    category.
+
+  - Analogues: Describes analogous elements in well-known document
+    models such as HTML_ or DocBook_.  Lists similarities and
+    differences.
+
+  - Processing: Lists formatting or rendering recommendations for the
+    element.
+
+  - Parents: A list of elements which may contain the element.
+
+  - Children: A list of elements which may occur within the element
+    followed by the formal XML content model from the `Docutils DTD`_.
+
+  - Attributes: Describes (or refers to descriptions of) the possible
+    values and semantics of each attribute.
+
+  - Parameter Entities: Lists the parameter entities which directly or
+    indirectly include the element.
+
+* Examples: reStructuredText_ examples are shown along with
+  fragments of the document trees resulting from parsing.
+  _`Pseudo-XML` is used for the results of parsing and processing.
+  Pseudo-XML is a representation of XML where nesting is indicated by
+  indentation and end-tags are not shown.  Some of the precision of
+  real XML is given up in exchange for easier readability.  For
+  example, the following are equivalent:
+
+  - Real XML::
+
+        <document>
+        <section ids="a-title" names="a title">
+        <title>A Title</title>
+        <paragraph>A paragraph.</paragraph>
+        </section>
+        </document>
+
+  - Pseudo-XML::
+
+        <document>
+            <section ids="a-title" names="a title">
+                <title>
+                    A Title
+                <paragraph>
+                    A paragraph.
+
+--------------------
+
+Many of the element reference sections below are marked "_`to be
+completed`".  Please help complete this document by contributing to
+its writing.
+
+
+``abbreviation``
+================
+
+The ``abbreviation`` element is an inline element used to represent an
+abbreviation being used in the document. An example of an abbreviation is 'St'
+being used instead of 'Street'.
+
+
+Details
+-------
+
+:Category:
+    `Inline Elements`_
+
+:Analogues:
+    ``abbreviation`` is analogous to the HTML "abbr" element.
+
+:Parents:
+     All elements employing the `%inline.elements;`_ parameter entity in their
+     content models may contain ``abbreviation``.
+
+:Children:
+    ``abbreviation`` elements may contain text data plus `inline elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``abbreviation`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+The ``abbreviation`` element is not exposed in default restructured text. It
+can only be accessed through custom roles.
+
+Pseudo-XML_ example from a custom `:abbr:` role::
+
+    <paragraph>
+        <abbreviation explanation="Street">
+            St
+        is a common abbreviation for "street".
+
+
+``acronym``
+===========
+
+`To be completed`_.
+
+
+``address``
+===========
+
+The ``address`` element holds the surface mailing address information
+for the author (individual or group) of the document, or a third-party
+contact address.  Its structure is identical to that of the
+literal_block_ element: whitespace is significant, especially
+newlines.
+
+
+Details
+-------
+
+:Category:
+    `Bibliographic Elements`_
+
+:Analogues:
+    ``address`` is analogous to the DocBook "address" element.
+
+:Processing:
+    As with the literal_block_ element, newlines and other whitespace
+    is significant and must be preserved.  However, a monospaced
+    typeface need not be used.
+
+    See also docinfo_.
+
+:Parents:
+    The following elements may contain ``address``: docinfo_, authors_
+
+:Children:
+    ``address`` elements contain text data plus `inline elements`_.
+
+     .. parsed-literal::
+
+         `%text.model;`_
+
+:Attributes:
+    The ``address`` element contains the `common attributes`_ plus
+    `xml:space`_.
+
+:Parameter Entities:
+    The `%bibliographic.elements;`_ parameter entity directly includes
+    ``address``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Document Title
+    ==============
+
+    :Address: 123 Example Ave.
+              Example, EX
+
+Complete pseudo-XML_ result after parsing and applying transforms::
+
+    <document ids="document-title" names="document title">
+        <title>
+            Document Title
+        <docinfo>
+            <address>
+                123 Example Ave.
+                Example, EX
+
+See docinfo_ for a more complete example, including processing
+context.
+
+
+``admonition``
+==============
+
+This element is a generic, titled admonition.  Also see the specific
+admonition elements Docutils offers (in alphabetical order): caution_,
+danger_, error_, hint_, important_, note_, tip_, warning_.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``admonition`` has no direct analogues in common DTDs.  It can be
+    emulated with primitives and type effects.
+
+:Processing:
+    Rendered distinctly (inset and/or in a box, etc.).
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``admonition``.
+
+:Children:
+    ``admonition`` elements begin with a title_ and may contain one or
+    more `body elements`_. ::
+
+        (title_, (`%body.elements;`_)+)
+
+:Attributes:
+    The ``admonition`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``admonition``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``admonition``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    .. admonition:: And, by the way...
+
+       You can make up your own admonition too.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <admonition class="admonition-and-by-the-way">
+        <title>
+            And, by the way...
+        <paragraph>
+            You can make up your own admonition too.
+
+
+``attention``
+=============
+
+The ``attention`` element is an admonition, a distinctive and
+self-contained notice.  Also see the other admonition elements
+Docutils offers (in alphabetical order): caution_, danger_, error_,
+hint_, important_, note_, tip_, warning_, and the generic admonition_.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``attention`` has no direct analogues in common DTDs.  It can be
+    emulated with primitives and type effects.
+
+:Processing:
+    Rendered distinctly (inset and/or in a box, etc.), with the
+    generated title "Attention!" (or similar).
+
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``attention``.
+
+:Children:
+    ``attention`` elements contain one or more `body elements`_.
+
+     .. parsed-literal::
+
+         (`%body.elements;`_)+
+
+:Attributes:
+    The ``attention`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``attention``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``attention``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    .. Attention:: All your base are belong to us.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <attention>
+        <paragraph>
+            All your base are belong to us.
+
+
+``attribution``
+===============
+
+`To be completed`_.
+
+
+``author``
+==========
+
+The ``author`` element holds the name of the author of the document.
+
+
+Details
+-------
+
+:Category:
+    `Bibliographic Elements`_
+
+:Analogues:
+    ``author`` is analogous to the DocBook "author" element.
+
+:Processing:
+    See docinfo_.
+
+:Parents:
+    The following elements may contain ``author``: docinfo_, authors_
+
+:Children:
+    ``author`` elements may contain text data plus `inline elements`_.
+
+     .. parsed-literal::
+
+         `%text.model;`_
+
+:Attributes:
+    The ``author`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%bibliographic.elements;`_ parameter entity directly includes
+    ``author``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Document Title
+    ==============
+
+    :Author: J. Random Hacker
+
+Complete pseudo-XML_ result after parsing and applying transforms::
+
+    <document ids="document-title" names="document title">
+        <title>
+            Document Title
+        <docinfo>
+            <author>
+                J. Random Hacker
+
+See docinfo_ for a more complete example, including processing
+context.
+
+
+``authors``
+===========
+
+The ``authors`` element is a container for author information for
+documents with multiple authors.
+
+
+Details
+-------
+
+:Category:
+    `Bibliographic Elements`_
+
+:Analogues:
+    ``authors`` is analogous to the DocBook "authors" element.
+
+:Processing:
+    See docinfo_.
+
+:Parents:
+    Only the docinfo_ element contains ``authors``.
+
+:Children:
+    ``authors`` elements may contain the following elements: author_,
+    organization_, address_, contact_::
+
+        ((author, organization?, address?, contact?)+)
+
+:Attributes:
+    The ``authors`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%bibliographic.elements;`_ parameter entity directly includes
+    ``authors``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Document Title
+    ==============
+
+    :Authors: J. Random Hacker; Jane Doe
+
+Complete pseudo-XML_ result after parsing and applying transforms::
+
+    <document ids="document-title" names="document title">
+        <title>
+            Document Title
+        <docinfo>
+            <authors>
+                <author>
+                    J. Random Hacker
+                <author>
+                    Jane Doe
+
+In reStructuredText, multiple author's names are separated with
+semicolons (";") or commas (","); semicolons take precedence.  There
+is currently no way to represent the author's organization, address,
+or contact in a reStructuredText "Authors" field.
+
+See docinfo_ for a more complete example, including processing
+context.
+
+
+``block_quote``
+===============
+
+The ``block_quote`` element is used for quotations set off from the
+main text (standalone).
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``block_quote`` is analogous to the "blockquote" element in both
+    HTML and DocBook.
+
+:Processing:
+    ``block_quote`` elements serve to set their contents off from the
+    main text, typically with indentation and/or other decoration.
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``block_quote``.
+
+:Children:
+    ``block_quote`` elements contain `body elements`_ followed by an
+    optional attribution_ element.
+
+     .. parsed-literal::
+
+         ((`%body.elements;`_)+, attribution?)
+
+:Attributes:
+    The ``block_quote`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``block_quote``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``block_quote``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    As a great paleontologist once said,
+
+        This theory, that is mine, is mine.
+
+        -- Anne Elk (Miss)
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <paragraph>
+        As a great paleontologist once said,
+    <block_quote>
+        <paragraph>
+            This theory, that is mine, is mine.
+        <attribution>
+            Anne Elk (Miss)
+
+
+``bullet_list``
+===============
+
+The ``bullet_list`` element contains list_item_ elements which are
+uniformly marked with bullets.  Bullets are typically simple dingbats
+(symbols) such as circles and squares.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``bullet_list`` is analogous to the HTML "ul" element and to the
+    DocBook "itemizedlist" element.  HTML's "ul" is short for
+    "unordered list", which we consider to be a misnomer.  "Unordered"
+    implies that the list items may be randomly rearranged without
+    affecting the meaning of the list.  Bullet lists *are* often
+    ordered; the ordering is simply left implicit.
+
+:Processing:
+    Each list item should begin a new vertical block, prefaced by a
+    bullet/dingbat.
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``bullet_list``.
+
+:Children:
+    ``bullet_list`` elements contain one or more list_item_ elements::
+
+        (list_item_+)
+
+:Attributes:
+    The ``bullet_list`` element contains the `common attributes`_
+    plus bullet_.
+
+    ``bullet`` is used to record the style of bullet from the input
+    data.  In documents processed from reStructuredText_, it contains
+    one of "-", "+", or "*".  It may be ignored in processing.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``bullet_list``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``bullet_list``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    - Item 1, paragraph 1.
+
+      Item 1, paragraph 2.
+
+    - Item 2.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <bullet_list bullet="-">
+        <list_item>
+            <paragraph>
+                Item 1, paragraph 1.
+            <paragraph>
+                Item 1, paragraph 2.
+        <list_item>
+            <paragraph>
+                Item 2.
+
+See list_item_ for another example.
+
+
+``caption``
+===========
+
+`To be completed`_.
+
+
+``caution``
+===========
+
+The ``caution`` element is an admonition, a distinctive and
+self-contained notice.  Also see the other admonition elements
+Docutils offers (in alphabetical order): attention_, danger_, error_,
+hint_, important_, note_, tip_, warning_, and the generic admonition_.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``caution`` is analogous to the `DocBook "caution"`_ element.
+
+:Processing:
+    Rendered distinctly (inset and/or in a box, etc.), with the
+    generated title "Caution" (or similar).
+
+.. _DocBook "caution": https://tdg.docbook.org/tdg/5.1/caution.html
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``caution``.
+
+:Children:
+    ``caution`` elements contain one or more `body elements`_.
+
+     .. parsed-literal::
+
+        (`%body.elements;`_)+
+
+:Attributes:
+    The ``caution`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``caution``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``caution``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    .. Caution:: Don't take any wooden nickels.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <caution>
+        <paragraph>
+            Don't take any wooden nickels.
+
+
+``citation``
+============
+
+`To be completed`_.
+
+
+``citation_reference``
+======================
+
+`To be completed`_.
+
+
+``classifier``
+==============
+
+The ``classifier`` element contains the classification or type of the
+term_ being defined in a definition_list_.  For example, it can be
+used to indicate the type of a variable.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_ (simple)
+
+:Analogues:
+    ``classifier`` has no direct analogues in common DTDs.  It can be
+    emulated with primitives or type effects.
+
+:Processing:
+    See definition_list_item_.
+
+:Parents:
+    Only the definition_list_item_ element contains ``classifier``.
+
+:Children:
+    ``classifier`` elements may contain text data plus `inline elements`_.
+
+     .. parsed-literal::
+
+         `%text.model;`_
+
+:Attributes:
+    The ``classifier`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+Here is a hypothetical data dictionary.  reStructuredText_ source::
+
+    name : string
+        Customer name.
+    i : int
+        Temporary index variable.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <definition_list>
+        <definition_list_item>
+            <term>
+                name
+            <classifier>
+                string
+            <definition>
+                <paragraph>
+                    Customer name.
+        <definition_list_item>
+            <term>
+                i
+            <classifier>
+                int
+            <definition>
+                <paragraph>
+                    Temporary index variable.
+
+
+``colspec``
+===========
+
+Specifications for a column in a table_.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_ (simple)
+
+:Analogues:
+    ``colspec`` is based on the [exchange-table-model]_ and
+    analogous to the DocBook "colspec" element.
+
+:Processing:
+    The ``colspec`` element contains layout information for the parent
+    table_.
+
+:Parents:
+    Only the tgroup_ element contains ``colspec``.
+
+:Children:
+    ``colspec`` is an empty element and has no children.
+
+:Attributes:
+    The ``colspec`` element contains the optional "colnum", "colname",
+    "colwidth", "colsep", "rowsep", "align", "char", and "charoff"
+    attributes defined in the exchange-table-model_ plus the
+    `common attributes`_ and `stub`_.
+
+    Docutils uses only colwidth_ and stub_.
+
+    .. attention::
+
+       In contrast to the definition in the exchange-table-model_,
+       unitless values of the "colwidth" are interpreted as proportional
+       values, not fixed values with unit "pt".
+
+       .. The reference implementation `html4css2` converts column
+          widths values to percentages.
+
+       Future versions of Docutils may use the standard form
+       ``number*``, e.g., “5*” for 5 times the proportion.
+
+Examples
+--------
+
+See table_.
+
+
+``comment``
+===========
+
+`To be completed`_.
+
+
+``compound``
+============
+
+`To be completed`_.
+
+
+``contact``
+===========
+
+The ``contact`` element holds contact information for the author
+(individual or group) of the document, or a third-party contact.  It
+is typically used for an email or web address.
+
+
+Details
+-------
+
+:Category:
+    `Bibliographic Elements`_
+
+:Analogues:
+    ``contact`` is analogous to the DocBook "email" element.  The HTML
+    "address" element serves a similar purpose.
+
+:Processing:
+    See docinfo_.
+
+:Parents:
+    The following elements may contain ``contact``: docinfo_, authors_
+
+:Children:
+    ``contact`` elements may contain text data plus `inline
+    elements`_.
+
+     .. parsed-literal::
+
+         `%text.model;`_
+
+:Attributes:
+    The ``contact`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%bibliographic.elements;`_ parameter entity directly includes
+    ``contact``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Document Title
+    ==============
+
+    :Contact: jrh@example.com
+
+Complete pseudo-XML_ result after parsing and applying transforms::
+
+    <document ids="document-title" names="document title">
+        <title>
+            Document Title
+        <docinfo>
+            <contact>
+                <reference refuri="mailto:jrh@example.com">
+                    jrh@example.com
+
+See docinfo_ for a more complete example, including processing
+context.
+
+
+``container``
+=============
+
+`To be completed`_.
+
+
+``copyright``
+=============
+
+The ``copyright`` element contains the document's copyright statement.
+
+
+Details
+-------
+
+:Category:
+    `Bibliographic Elements`_
+
+:Analogues:
+    ``copyright`` is analogous to the DocBook "copyright" element.
+
+:Processing:
+    See docinfo_.
+
+:Parents:
+    Only the docinfo_ element contains ``copyright``.
+
+:Children:
+    ``copyright`` elements may contain text data plus `inline
+    elements`_.
+
+     .. parsed-literal::
+
+         `%text.model;`_
+
+:Attributes:
+    The ``copyright`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%bibliographic.elements;`_ parameter entity directly includes
+    ``copyright``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Document Title
+    ==============
+
+    :Copyright: This document has been placed in the public domain.
+
+Complete pseudo-XML_ result after parsing and applying transforms::
+
+    <document ids="document-title" names="document title">
+        <title>
+            Document Title
+        <docinfo>
+            <copyright>
+                This document has been placed in the public domain.
+
+See docinfo_ for a more complete example, including processing
+context.
+
+
+``danger``
+==========
+
+The ``danger`` element is an admonition, a distinctive and
+self-contained notice.  Also see the other admonition elements
+Docutils offers (in alphabetical order): attention_, caution_, error_,
+hint_, important_, note_, tip_, warning_, and the generic admonition_.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``danger`` has no direct analogues in common DTDs.  It can be
+    emulated with primitives and type effects.
+
+:Processing:
+    Rendered distinctly (inset and/or in a box, etc.), with the
+    generated title "!DANGER!" (or similar).
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``danger``.
+
+:Children:
+    ``danger`` elements contain one or more `body elements`_.
+
+     .. parsed-literal::
+
+        (`%body.elements;`_)+
+
+:Attributes:
+    The ``danger`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``danger``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``danger``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    .. DANGER:: Mad scientist at work!
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <danger>
+        <paragraph>
+            Mad scientist at work!
+
+
+``date``
+========
+
+The ``date`` element contains the date of publication, release, or
+last modification of the document.
+
+
+Details
+-------
+
+:Category:
+    `Bibliographic Elements`_
+
+:Analogues:
+    ``date`` is analogous to the DocBook "date" element.
+
+:Processing:
+    Often used with the RCS/CVS keyword "Date".  See docinfo_.
+
+:Parents:
+    Only the docinfo_ element contains ``date``.
+
+:Children:
+    ``date`` elements may contain text data plus `inline elements`_.
+
+     .. parsed-literal::
+
+         `%text.model;`_
+
+:Attributes:
+    The ``date`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%bibliographic.elements;`_ parameter entity directly includes
+    ``date``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Document Title
+    ==============
+
+    :Date: 2002-08-20
+
+Complete pseudo-XML_ result after parsing and applying transforms::
+
+    <document ids="document-title" names="document title">
+        <title>
+            Document Title
+        <docinfo>
+            <date>
+                2002-08-20
+
+See docinfo_ for a more complete example, including processing
+context.
+
+
+``decoration``
+==============
+
+The ``decoration`` element is a container for header_ and footer_
+elements and potential future extensions.  These elements are used for
+notes, time/datestamp, processing information, etc.
+
+
+Details
+-------
+
+:Category:
+    `Structural Subelements`_
+
+:Analogues:
+    There are no direct analogies to ``decoration`` in HTML or in
+    DocBook.  Equivalents are typically constructed from primitives
+    and/or generated by the processing system.
+
+:Processing:
+    See the individual `decorative elements`_.
+
+:Parents:
+    Only the document_ element contains ``decoration``.
+
+:Children:
+    ``decoration`` elements may contain `decorative elements`_.
+
+     .. parsed-literal::
+
+         (header_?, footer_?)
+
+Although the content model doesn't specifically require contents, no
+empty ``decoration`` elements are ever created.
+
+:Attributes:
+    The ``decoration`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    A paragraph.
+
+Complete pseudo-XML_ result after parsing and applying transforms,
+assuming that the datestamp command-line option or configuration
+setting has been supplied::
+
+    <document>
+        <decoration>
+            <footer>
+                <paragraph>
+                    Generated on: 2002-08-20.
+        <paragraph>
+            A paragraph.
+
+
+``definition``
+==============
+
+The ``definition`` element is a container for the body elements used
+to define a term_ in a definition_list_.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_ (compound)
+
+:Analogues:
+    ``definition`` is analogous to the HTML "dd" element and to the
+    DocBook "listitem" element (inside a "variablelistentry" element).
+
+:Processing:
+    See definition_list_item_.
+
+:Parents:
+    Only definition_list_item_ elements contain ``definition``.
+
+:Children:
+    ``definition`` elements contain `body elements`_.
+
+     .. parsed-literal::
+
+         (`%body.elements;`_)+
+
+:Attributes:
+    The ``definition`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+See the examples for the definition_list_, definition_list_item_, and
+classifier_ elements.
+
+
+``definition_list``
+===================
+
+The ``definition_list`` element contains a list of terms and their
+definitions.  It can be used for glossaries or dictionaries, to
+describe or classify things, for dialogues, or to itemize subtopics
+(such as in this reference).
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``definition_list``.
+
+:Children:
+    ``definition_list`` elements contain one or more
+    definition_list_item_ elements.
+
+:Analogues:
+    ``definition_list`` is analogous to the HTML "dl" element and to
+    the DocBook "variablelist" element.
+
+:Processing:
+    See definition_list_item_.
+
+:Attributes:
+    The ``definition_list`` element contains only the `common
+    attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``definition_list``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``definition_list``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Term
+      Definition.
+
+    Term : classifier
+        The ' : ' indicates a classifier in
+        definition list item terms only.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <definition_list>
+        <definition_list_item>
+            <term>
+                Term
+            <definition>
+                <paragraph>
+                    Definition.
+        <definition_list_item>
+            <term>
+                Term
+            <classifier>
+                classifier
+            <definition>
+                <paragraph>
+                    The ' : ' indicates a classifier in
+                    definition list item terms only.
+
+See definition_list_item_ and classifier_ for further examples.
+
+
+``definition_list_item``
+========================
+
+The ``definition_list_item`` element contains a single
+term_/definition_ pair (with optional classifier_).
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_ (compound)
+
+:Analogues:
+    ``definition_list_item`` is analogous to the DocBook
+    "variablelistentry" element.
+
+:Processing:
+    The optional classifier_ can be rendered differently from the
+    term_.  They should be separated visually, typically by spaces
+    plus a colon or dash.
+
+:Parents:
+    Only the definition_list_ element contains
+    ``definition_list_item``.
+
+:Children:
+    ``definition_list_item`` elements each contain a single term_,
+    an optional classifier_, and a definition_::
+
+        (term, classifier?, definition)
+
+:Attributes:
+    The ``definition_list_item`` element contains only the `common
+    attributes`_.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Tyrannosaurus Rex : carnivore
+        Big and scary; the "Tyrant King".
+
+    Brontosaurus : herbivore
+        All brontosauruses are thin at one end,
+        much much thicker in the middle
+        and then thin again at the far end.
+
+        -- Anne Elk (Miss)
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <definition_list>
+        <definition_list_item>
+            <term>
+                Tyrannosaurus Rex
+            <classifier>
+                carnivore
+            <definition>
+                <paragraph>
+                    Big and scary; the "Tyrant King".
+        <definition_list_item>
+            <term>
+                Brontosaurus
+            <classifier>
+                herbivore
+            <definition>
+                <paragraph>
+                    All brontosauruses are thin at one end,
+                    much much thicker in the middle
+                    and then thin again at the far end.
+                <paragraph>
+                    -- Anne Elk (Miss)
+
+See definition_list_ and classifier_ for further examples.
+
+
+``description``
+===============
+
+The ``description`` element contains body elements, describing the
+purpose or effect of a command-line option or group of options.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_
+
+:Analogues:
+    ``description`` has no direct analogues in common DTDs.
+
+:Processing:
+    See option_list_.
+
+:Parents:
+    Only the option_list_item_ element contains ``description``.
+
+:Children:
+    ``description`` elements may contain `body elements`_.
+
+    .. parsed-literal::
+
+       (`%body.elements;`_)+
+
+:Attributes:
+    The ``description`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+See the examples for the option_list_ element.
+
+
+``docinfo``
+===========
+
+The ``docinfo`` element is a container for displayed document bibliographic
+data, or meta-data (data about the document).  It corresponds to the
+front matter of a book, such as the title page and copyright page.
+
+See also the meta_ element (for "hidden" meta-data).
+
+Details
+-------
+
+:Category:
+    `Structural Subelements`_
+
+:Analogues:
+    ``docinfo`` is analogous to DocBook "info" elements ("bookinfo"
+    etc.).  There are no directly analogous HTML elements; the "meta"
+    element carries some of the same information, albeit invisibly.
+
+:Processing:
+    The ``docinfo`` element may be rendered as a two-column table or
+    in other styles.  It may even be invisible or omitted from the
+    processed output.  Meta-data may be extracted from ``docinfo``
+    children; for example, HTML ``<meta>`` tags may be constructed.
+
+    When Docutils_ transforms a reStructuredText_ field_list_ into a
+    ``docinfo`` element (see the examples below), RCS/CVS keywords are
+    normally stripped from simple (one paragraph) field bodies.  For
+    complete details, please see `RCS Keywords`_ in the
+    `reStructuredText Markup Specification`_.
+
+    .. _RCS Keywords: rst/restructuredtext.html#rcs-keywords
+
+:Parents:
+    Only the document_ element contains ``docinfo``.
+
+:Children:
+    ``docinfo`` elements contain `bibliographic elements`_.
+
+    .. parsed-literal::
+
+        (`%bibliographic.elements;`_)+
+
+:Attributes:
+    The ``docinfo`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+Docinfo is represented in reStructuredText_ by a field_list_ in a
+bibliographic context: the first non-comment element of a document_,
+after any document title_/subtitle_.  The field list is transformed
+into a ``docinfo`` element and its children by a transform.  Source::
+
+    Docinfo Example
+    ===============
+
+    :Author: J. Random Hacker
+    :Contact: jrh@example.com
+    :Date: 2002-08-18
+    :Status: Work In Progress
+    :Version: 1
+    :Filename: $RCSfile$
+    :Copyright: This document has been placed in the public domain.
+
+Complete pseudo-XML_ result after parsing and applying transforms::
+
+    <document ids="docinfo-example" names="docinfo example">
+        <title>
+            Docinfo Example
+        <docinfo>
+            <author>
+                J. Random Hacker
+            <contact>
+                <reference refuri="mailto:jrh@example.com">
+                    jrh@example.com
+            <date>
+                2002-08-18
+            <status>
+                Work In Progress
+            <version>
+                1
+            <field>
+                <field_name>
+                    Filename
+                <field_body>
+                    <paragraph>
+                        doctree.txt
+            <copyright>
+                This document has been placed in the public domain.
+
+Note that "Filename" is a non-standard ``docinfo`` field, so becomes a
+generic ``field`` element.  Also note that the "RCSfile" keyword
+syntax has been stripped from the "Filename" data.
+
+See field_list_ for an example in a non-bibliographic context.  Also
+see the individual examples for the various `bibliographic elements`_.
+
+
+``doctest_block``
+=================
+
+The ``doctest_block`` element is a Python-specific variant of
+literal_block_.  It is a block of text where line breaks and
+whitespace are significant and must be preserved.  ``doctest_block``
+elements are used for interactive Python interpreter sessions, which
+are distinguished by their input prompt: ``>>>``.  They are meant to
+illustrate usage by example, and provide an elegant and powerful
+testing environment via the `doctest module`_ in the Python standard
+library.
+
+.. _doctest module:
+   https://docs.python.org/3/library/doctest.html
+
+
+Details
+-------
+
+:Category:
+    `Simple Body Elements`_
+
+:Analogues:
+    ``doctest_block`` is analogous to the HTML "pre" element and to
+    the DocBook "programlisting" and "screen" elements.
+
+:Processing:
+    As with literal_block_, ``doctest_block`` elements are typically
+    rendered in a monospaced typeface.  It is crucial that all
+    whitespace and line breaks are preserved in the rendered form.
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``doctest_block``.
+
+:Children:
+    ``doctest_block`` elements may contain text data plus `inline
+    elements`_.
+
+    .. parsed-literal::
+
+       `%text.model;`_
+
+:Attributes:
+    The ``doctest_block`` element contains the `common attributes`_
+    plus `xml:space`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``doctest_block``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``doctest_block``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    This is an ordinary paragraph.
+
+    >>> print 'this is a Doctest block'
+    this is a Doctest block
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <paragraph>
+        This is an ordinary paragraph.
+    <doctest_block xml:space="preserve">
+        >>> print 'this is a Doctest block'
+        this is a Doctest block
+
+
+``document``
+============
+
+The ``document`` element is the root (topmost) element of the Docutils
+document tree.  ``document`` is the direct or indirect ancestor of
+every other element in the tree.  It encloses the entire document
+tree.  It is the starting point for a document.
+
+
+Details
+-------
+
+:Category:
+    `Structural Elements`_
+
+:Analogues:
+    ``document`` is analogous to the HTML "html" element and to
+    several DocBook elements such as "book".
+
+:Parents:
+    The ``document`` element has no parents.
+
+:Children:
+    ``document`` elements may contain `structural subelements`_,
+    `structural elements`_, and `body elements`_.
+
+    .. parsed-literal::
+
+        ( (title_, subtitle_?)?,
+          decoration_?,
+          (docinfo_, transition_?)?,
+          `%structure.model;`_ )
+
+Depending on the source of the data and the stage of processing, the
+"document" may not initially contain a "title".  A document title is
+not directly representable in reStructuredText_.  Instead, a lone
+top-level section may have its title promoted to become the document
+title_, and similarly for a lone second-level (sub)section's title to
+become the document subtitle_.
+
+The contents of "decoration_" may be specified in a document,
+constructed programmatically, or both.  The "docinfo_" may be
+transformed from an initial field_list_.
+
+See the `%structure.model;`_ parameter entity for details of the body
+of a ``document``.
+
+:Attributes:
+    The ``document`` element contains the `common attributes`_ (ids_,
+    names_, dupnames_, source_, and classes_), plus an optional
+    `title attribute`_ which stores the document title metadata.
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    A Title
+    =======
+
+    A paragraph.
+
+Complete pseudo-XML_ result from simple parsing::
+
+    <document>
+        <section ids="a-title" names="a title">
+            <title>
+                A Title
+            <paragraph>
+                A paragraph.
+
+After applying transforms, the section title is promoted to become the
+document title::
+
+    <document ids="a-title" names="a title">
+        <title>
+            A Title
+        <paragraph>
+            A paragraph.
+
+
+``emphasis``
+============
+
+`To be completed`_.
+
+
+``entry``
+=========
+
+`To be completed`_.
+
+
+``enumerated_list``
+===================
+
+The ``enumerated_list`` element contains list_item_ elements which are
+uniformly marked with enumerator labels.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``enumerated_list`` is analogous to the HTML "ol" element and to
+    the DocBook "orderedlist" element.
+
+:Processing:
+    Each list item should begin a new vertical block, prefaced by a
+    enumeration marker (such as "1.").
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``enumerated_list``.
+
+:Children:
+    ``enumerated_list`` elements contain one or more list_item_
+    elements::
+
+        (list_item+)
+
+:Attributes:
+    The ``enumerated_list`` element contains the `common attributes`_
+    plus enumtype_,
+    prefix_, suffix_, and start_.
+
+    ``enumtype`` is used to record the intended enumeration sequence,
+    one of "arabic" (1, 2, 3, ...), "loweralpha" (a, b, c, ..., z),
+    "upperalpha" (A, B, C, ..., Z), "lowerroman" (i, ii, iii, iv, ...,
+    mmmmcmxcix [4999]), or "upperroman" (I, II, III, IV, ...,
+    MMMMCMXCIX [4999]).
+
+    ``prefix`` stores the formatting characters used before the
+    enumerator.  In documents originating from reStructuredText_ data,
+    it will contain either "" (empty string) or "(" (left
+    parenthesis).  It may or may not affect processing.
+
+    ``suffix`` stores the formatting characters used after the
+    enumerator.  In documents originating from reStructuredText_ data,
+    it will contain either "." (period) or ")" (right parenthesis).
+    Depending on the capabilities of the output format, this attribute
+    may or may not affect processing.
+
+    ``start`` contains the ordinal value of the first item in the
+    list, in decimal.  For lists beginning at value 1 ("1", "a", "A",
+    "i", or "I"), this attribute may be omitted.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``enumerated_list``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``enumerated_list``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    1. Item 1.
+
+       (A) Item A.
+       (B) Item B.
+       (C) Item C.
+
+    2. Item 2.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <enumerated_list enumtype="arabic" prefix="" suffix=".">
+        <list_item>
+            <paragraph>
+                Item 1.
+            <enumerated_list enumtype="upperalpha" prefix="(" suffix=")">
+                <list_item>
+                    <paragraph>
+                        Item A.
+                <list_item>
+                    <paragraph>
+                        Item B.
+                <list_item>
+                    <paragraph>
+                        Item C.
+        <list_item>
+            <paragraph>
+                Item 2.
+
+See list_item_ for another example.
+
+
+``error``
+=========
+
+The ``error`` element is an admonition, a distinctive and
+self-contained notice.  Also see the other admonition elements
+Docutils offers (in alphabetical order): attention_, caution_,
+danger_, hint_, important_, note_, tip_, warning_, and the generic
+admonition_.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``error`` has no direct analogues in common DTDs.  It can be
+    emulated with primitives and type effects.
+
+:Processing:
+    Rendered distinctly (inset and/or in a box, etc.), with the
+    generated title "Error" (or similar).
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``error``.
+
+:Children:
+    ``error`` elements contain one or more `body elements`_.
+
+    .. parsed-literal::
+
+       (`%body.elements;`_)+
+
+:Attributes:
+    The ``error`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``error``.  The `%structure.model;`_ parameter entity indirectly
+    includes ``error``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    .. Error:: Does not compute.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <error>
+        <paragraph>
+            Does not compute.
+
+
+``field``
+=========
+
+The ``field`` element contains a pair of field_name_ and field_body_
+elements.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_
+
+:Analogues:
+    ``field`` has no direct analogues in common DTDs.
+
+:Processing:
+    See field_list_.
+
+:Parents:
+    The following elements may contain ``field``: docinfo_,
+    field_list_
+
+:Children:
+    Each ``field`` element contains one field_name_ and one
+    field_body_ element::
+
+        (field_name, field_body)
+
+:Attributes:
+    The ``field`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%bibliographic.elements;`_ parameter entity directly includes
+    ``field``.
+
+
+Examples
+--------
+
+See the examples for the field_list_ and docinfo_ elements.
+
+
+``field_body``
+==============
+
+The ``field_body`` element contains body elements.  It is analogous to
+a database field's data.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_
+
+:Analogues:
+    ``field_body`` has no direct analogues in common DTDs.
+
+:Processing:
+    See field_list_.
+
+:Parents:
+    Only the field_ element contains ``field_body``.
+
+:Children:
+    ``field_body`` elements may contain `body elements`_.
+
+    .. parsed-literal::
+
+        (`%body.elements;`_)*
+
+:Attributes:
+    The ``field_body`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+See the examples for the field_list_ and docinfo_ elements.
+
+
+``field_list``
+==============
+
+The ``field_list`` element contains two-column table-like structures
+resembling database records (label & data pairs).  Field lists are
+often meant for further processing.  In reStructuredText_, field lists
+are used to represent bibliographic fields (contents of the docinfo_
+element) and `directive options`_.
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``field_list`` has no direct analogues in common DTDs.  It can be
+    emulated with primitives such as tables.
+
+:Processing:
+    A ``field_list`` is typically rendered as a two-column list, where
+    the first column contains "labels" (usually with a colon suffix).
+    However, field lists are often used for extension syntax or
+    special processing.  Such structures do not survive as field lists
+    to be rendered.
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``field_list``.
+
+:Children:
+    ``field_list`` elements contain one or more field_ elements. ::
+
+        (field+)
+
+:Attributes:
+    The ``field_list`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``field_list``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``field_list``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    :Author: Me
+    :Version: 1
+    :Date: 2001-08-11
+    :Parameter i: integer
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <field_list>
+        <field>
+            <field_name>
+                Author
+            <field_body>
+                <paragraph>
+                    Me
+        <field>
+            <field_name>
+                Version
+            <field_body>
+                <paragraph>
+                    1
+        <field>
+            <field_name>
+                Date
+            <field_body>
+                <paragraph>
+                    2001-08-11
+        <field>
+            <field_name>
+                Parameter i
+            <field_body>
+                <paragraph>
+                    integer
+
+.. _directive options: rst/restructuredtext.html#directive-options
+
+
+``field_name``
+==============
+
+The ``field_name`` element contains text; it is analogous to a
+database field's name.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_ (simple)
+
+:Analogues:
+    ``field_name`` has no direct analogues in common DTDs.
+
+:Processing:
+    See field_list_.
+
+:Parents:
+    Only the field_ element contains ``field_name``.
+
+:Children:
+    ``field_name`` elements may contain text data plus `inline elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``field_name`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+See the examples for the field_list_ and docinfo_ elements.
+
+
+``figure``
+==========
+
+`To be completed`_.
+
+
+``footer``
+==========
+
+The ``footer`` element is a container element whose contents are meant
+to appear at the bottom of a web page, or repeated at the bottom of
+every printed page.  The ``footer`` element may contain processing
+information (datestamp, a link to Docutils_, etc.) as well as custom
+content.
+
+
+Details
+-------
+
+:Category:
+    `Decorative Elements`_
+
+:Analogues:
+    ``footer`` is analogous to the HTML5 "footer" element.
+    There are no direct analogies to ``footer`` in HTML4 or DocBook.
+    Equivalents are typically constructed from primitives and/or
+    generated by the processing system.
+
+:Parents:
+    Only the decoration_ element contains ``footer``.
+
+:Children:
+    ``footer`` elements may contain `body elements`_.
+
+    .. parsed-literal::
+
+        (`%body.elements;`_)+
+
+:Attributes:
+    The ``footer`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    A paragraph.
+
+Complete pseudo-XML_ result after parsing and applying transforms,
+assuming that the datestamp command-line option or configuration
+setting has been supplied::
+
+    <document>
+        <decoration>
+            <footer>
+                <paragraph>
+                    Generated on: 2002-08-20.
+        <paragraph>
+            A paragraph.
+
+
+``footnote``
+============
+
+The ``footnote`` element is used for labeled notes_ that provide
+additional context to a passage of text (*footnotes* or *endnotes*).
+The corresponding footnote mark in running text is set by the
+`footnote_reference`_ element.
+
+.. _notes: https://en.wikipedia.org/wiki/Note_(typography)
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``footnote`` has no direct analogues in DocBook or HTML.
+
+    The `DocBook "footnote"`_ element combines features of ``footnote``
+    and footnote_reference_.
+
+    The `ARIA role "note"`__ may be used to mark a (conforming__)
+    `HTML emulation`__ as "a section whose content is parenthetic or
+    ancillary to the main content of the resource".
+
+    Depending on the note's position, the `epub:type`__ *footnote* or
+    *endnote* and the DPub ARIA role `"doc-footnote"`__ or
+    `"doc-endnote"`__ may be applicable.
+
+    .. _DocBook "footnote": https://tdg.docbook.org/tdg/5.1/footnote.html
+    __ https://www.w3.org/TR/wai-aria-1.1/#note
+    __ https://www.w3.org/TR/html-aria/#docconformance
+    __ https://www.w3.org/TR/html51/
+       common-idioms-without-dedicated-elements.html#footnotes
+    __ https://idpf.github.io/epub-vocabs/structure/#notes
+    __ https://www.w3.org/TR/dpub-aria-1.0/#doc-footnote
+    __ https://www.w3.org/TR/dpub-aria-1.0/#doc-endnote
+
+:Processing:
+    A ``footnote`` element should be set off from the rest of the
+    document, e.g. with a border or using a smaller font size.
+
+    Footnotes may "float" to the bottom or margin of a page or a
+    dedicated section.
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``footnote``.
+
+:Children:
+    ``footnote`` elements begin with an optional label_
+    and contain `body elements`_.
+
+    .. parsed-literal::
+
+        (label?, (`%body.elements;`_)+)
+
+:Attributes:
+    The ``footnote`` element contains the `common attributes`_
+    plus auto_ and backrefs_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``footnote``.  The `%structure.model;`_ parameter entity indirectly
+    includes ``footnote``.
+
+
+Examples
+--------
+
+reStructuredText_ uses `explicit markup blocks`_ for footnotes::
+
+    .. [1] This is a footnote.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <footnote ids="id1" names="1">
+        <label>
+            1
+        <paragraph>
+            This is a footnote.
+
+.. _explicit markup blocks: rst/restructuredtext.html#explicit-markup-blocks
+
+
+``footnote_reference``
+======================
+
+The ``footnote_reference`` element is an inline element representing a
+cross reference to a footnote_ (a footnote mark).
+
+
+Details
+-------
+
+:Category:
+    `Inline Elements`_
+
+:Analogues:
+    The ``footnote_reference`` element resembles the `DocBook
+    "footnoteref"`_ element or the LaTeX ``\footnotemark`` command.
+
+    There is no equivalent in HTML. The ``<a>`` element can be used
+    to provide a link to the corresponding footnote.
+
+    .. _DocBook "footnoteref": https://tdg.docbook.org/tdg/5.1/footnoteref.html
+
+:Processing:
+    A ``footnote_reference`` should generate a mark matching the label_
+    of the referenced footnote. The mark is typically formatted as
+    superscript or enclosed i square brackets.
+
+:Parents:
+    All elements employing the `%inline.elements;`_ parameter entities in
+    their content models may contain ``footnote-reference``.
+
+:Children:
+    ``footnote_reference`` elements may contain text data. ::
+
+        (#PCDATA)
+
+:Attributes:
+    The ``footnote_reference`` element contains the `common attributes`_
+    plus auto_, refid_, and refname_.
+
+
+Examples
+--------
+
+reStructuredText source fragment::
+
+    [#]_ is an auto-numbered footnote reference.
+
+    .. [#] Auto-numbered footnote 1.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <paragraph>
+        <footnote_reference auto="1" ids="id1">
+         is an auto-numbered footnote reference.
+    <footnote auto="1" ids="id3">
+        <paragraph>
+            Auto-numbered footnote 1.
+
+The ``references.Footnotes`` Docutils transform_ resolves this to::
+
+    <paragraph>
+        <footnote_reference auto="1" ids="id1" refid="id2">
+            1
+         is an auto-numbered footnote reference.
+    <footnote auto="1" backrefs="id1" ids="id2" names="1">
+        <label>
+            1
+        <paragraph>
+            Auto-numbered footnote 1.
+
+.. _transform: api/.html
+
+
+``generated``
+=============
+
+Docutils wraps ``generated`` elements around text that is inserted
+(generated) by Docutils; i.e., text that was not in the document, like
+section numbers inserted by the "sectnum" directive.
+
+`To be completed`_.
+
+
+``header``
+==========
+
+The ``header`` element is a container element whose contents are meant
+to appear at the top of a web page, or at the top of every printed
+page.
+
+
+Details
+-------
+
+:Category:
+    `Decorative Elements`_
+
+:Analogues:
+    ``header`` is analogous to the HTML5 "header" element.
+    There are no direct analogies to ``header`` in HTML4 or DocBook.
+    Equivalents are typically constructed from primitives and/or
+    generated by the processing system.
+
+:Parents:
+    Only the decoration_ element contains ``header``.
+
+:Children:
+    ``header`` elements may contain `body elements`_.
+
+    .. parsed-literal::
+
+        (`%body.elements;`_)+
+
+:Attributes:
+    The ``header`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+reStructuredText source fragment::
+
+    .. header:: This space for rent.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <document>
+        <decoration>
+            <header>
+                <paragraph>
+                    This space for rent.
+
+
+``hint``
+========
+
+The ``hint`` element is an admonition, a distinctive and
+self-contained notice.  Also see the other admonition elements
+Docutils offers (in alphabetical order): attention_, caution_,
+danger_, error_, important_, note_, tip_, warning_, and the generic
+admonition_.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``hint`` has no direct analogues in common DTDs.  It can be
+    emulated with primitives and type effects.
+
+:Processing:
+    Rendered distinctly (inset and/or in a box, etc.), with the
+    generated title "Hint" (or similar).
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``hint``.
+
+:Children:
+    ``hint`` elements contain one or more `body elements`_.
+
+    .. parsed-literal::
+
+        (`%body.elements;`_)+
+
+:Attributes:
+    The ``hint`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``hint``.  The `%structure.model;`_ parameter entity indirectly
+    includes ``hint``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    .. Hint:: It's bigger than a bread box.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <hint>
+        <paragraph>
+            It's bigger than a bread box.
+
+
+``image``
+=========
+
+:Attributes:
+    The ``image`` element contains the `common attributes`_
+    plus uri, align_, alt, height_, width_, and scale_.
+
+`To be completed`_.
+
+
+``important``
+=============
+
+The ``important`` element is an admonition, a distinctive and
+self-contained notice.  Also see the other admonition elements
+Docutils offers (in alphabetical order): attention_, caution_,
+danger_, error_, hint_, note_, tip_, warning_, and the generic
+admonition_.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``important`` is analogous to the `DocBook "important"`_ element.
+
+:Processing:
+    Rendered distinctly (inset and/or in a box, etc.), with the
+    generated title "Important" (or similar).
+
+.. _DocBook "important": https://tdg.docbook.org/tdg/5.1/important.html
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``important``.
+
+:Children:
+    ``important`` elements contain one or more `body elements`_.
+
+    .. parsed-literal::
+
+        (`%body.elements;`_)+
+
+:Attributes:
+    The ``important`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``important``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``important``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    .. Important::
+
+       * Wash behind your ears.
+       * Clean up your room.
+       * Back up your data.
+       * Call your mother.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <important>
+        <bullet_list>
+            <list_item>
+                <paragraph>
+                    Wash behind your ears.
+            <list_item>
+                <paragraph>
+                    Clean up your room.
+            <list_item>
+                <paragraph>
+                    Back up your data.
+            <list_item>
+                <paragraph>
+                    Call your mother.
+
+
+``inline``
+==========
+
+The ``inline`` element is a generic inline container.
+
+Details
+-------
+
+:Category:
+    `Inline Elements`_
+
+:Analogues:
+    ``inline`` is analogous to the HTML "span" element.
+
+:Processing:
+    Writers typically pass the classes_ attribute to the output document
+    and leave styling to the backend or a custom stylesheet_. They may
+    also process the classes_ attribute and convert the ``inline``
+    element to a specific element or render the content distinctly
+    for specific class values. Moreover, writers may ignore the classes
+    attribute and render the content as ordinary text.
+
+:Parents:
+    All elements employing the `%inline.elements;`_ parameter entities in
+    their content models may contain ``inline``.
+
+:Children:
+    ``inline`` elements may contain text data plus `inline elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``inline`` element contains the `common attributes`_.
+
+
+Examples
+--------
+
+`Custom interpreted text roles`_ create ``inline`` elements (unless they
+are based on a `standard role`_).
+
+reStructuredText source fragment::
+
+    .. role:: custom
+
+    An example of using :custom:`interpreted text`
+
+Pseudo-XML_ fragment from simple parsing::
+
+
+    <paragraph>
+        An example of using
+        <inline classes="custom">
+            interpreted text
+
+.. _stylesheet: ../user/config.html#stylesheet
+.. _custom interpreted text roles:
+   rst/directives.html#custom-interpreted-text-roles
+.. _standard role: rst/roles.html
+
+
+``label``
+=========
+
+`To be completed`_.
+
+
+``legend``
+==========
+
+`To be completed`_.
+
+
+``line``
+========
+
+The ``line`` element contains a single line of text, part of a
+`line_block`_.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_ (simple)
+
+:Parents:
+    Only the `line_block`_ element contains ``line``.
+
+:Children:
+    ``line`` elements may contain text data plus `inline elements`_.
+
+:Analogues:
+    ``line`` has no direct analogues in common DTDs.  It can be
+    emulated with primitives or type effects.
+
+:Processing:
+    See `line_block`_.
+
+:Parents:
+    All elements employing the `%inline.elements;`_ parameter entities in
+    their content models may contain ``inline``.
+
+:Children:
+    ``inline`` elements may contain text data plus `inline elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``line`` element contains the `common attributes`_.
+
+
+Examples
+--------
+
+See `line_block`_.
+
+
+``line_block``
+==============
+
+The ``line_block`` element contains a sequence of lines and nested
+line blocks.  Line breaks (implied between elements) and leading
+whitespace (indicated by nesting) is significant and must be
+preserved.  ``line_block`` elements are commonly used for verse and
+addresses.  See `literal_block`_ for an alternative useful for program
+listings and interactive computer sessions.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``line_block`` is analogous to the DocBook "literallayout" element
+    and to the HTML "pre" element (with modifications to typeface
+    styles).
+
+:Processing:
+    Unlike ``literal_block``, ``line_block`` elements are typically
+    rendered in an ordinary text typeface.  It is crucial that leading
+    whitespace and line breaks are preserved in the rendered form.
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``line_block``.
+
+:Children:
+    ``line_block`` elements may contain line_ elements and nested
+    line_block_ elements. ::
+
+        (line | line_block)+
+
+:Attributes:
+    The ``line_block`` element contains the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``line_block``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``line_block``.
+
+
+Examples
+--------
+
+Example source::
+
+    Take it away, Eric the Orchestra Leader!
+
+    | A one, two, a one two three four
+    |
+    | Half a bee, philosophically,
+    |     must, *ipso facto*, half not be.
+    | But half the bee has got to be,
+    |     *vis a vis* its entity.  D'you see?
+    |
+    | But can a bee be said to be
+    |     or not to be an entire bee,
+    |         when half the bee is not a bee,
+    |             due to some ancient injury?
+    |
+    | Singing...
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <paragraph>
+        Take it away, Eric the Orchestra Leader!
+    <line_block>
+        <line>
+            A one, two, a one two three four
+        <line>
+        <line>
+            Half a bee, philosophically,
+        <line_block>
+            <line>
+                must,
+                <emphasis>
+                    ipso facto
+                , half not be.
+        <line>
+            But half the bee has got to be,
+        <line_block>
+            <line>
+                <emphasis>
+                    vis a vis
+                 its entity.  D'you see?
+            <line>
+        <line>
+            But can a bee be said to be
+        <line_block>
+            <line>
+                or not to be an entire bee,
+            <line_block>
+                <line>
+                    when half the bee is not a bee,
+                <line_block>
+                    <line>
+                        due to some ancient injury?
+                    <line>
+        <line>
+            Singing...
+
+
+``list_item``
+=============
+
+The ``list_item`` element is a container for the elements of a list
+item.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_ (compound)
+
+:Analogues:
+    ``list_item`` is analogous to the HTML "li" element and to the
+    DocBook "listitem" element.
+
+:Processing:
+    See bullet_list_ or enumerated_list_.
+
+:Parents:
+    The bullet_list_ and enumerated_list_ elements contain
+    ``list_item``.
+
+:Children:
+    ``list_item`` elements may contain `body elements`_.
+
+    .. parsed-literal::
+
+        (`%body.elements;`_)*
+
+:Attributes:
+    The ``list_item`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    1. Outer list, item 1.
+
+       * Inner list, item 1.
+       * Inner list, item 2.
+
+    2. Outer list, item 2.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <enumerated_list enumtype="arabic" prefix="" suffix=".">
+        <list_item>
+            <paragraph>
+                Outer list, item 1.
+            <bullet_list bullet="*">
+                <list_item>
+                    <paragraph>
+                        Inner list, item 1.
+                <list_item>
+                    <paragraph>
+                        Inner list, item 2.
+        <list_item>
+            <paragraph>
+                Outer list, item 2.
+
+See bullet_list_ or enumerated_list_ for further examples.
+
+
+``literal``
+===========
+
+`To be completed`_.
+
+
+``literal_block``
+=================
+
+The ``literal_block`` element contains a block of text where line
+breaks and whitespace are significant and must be preserved.
+``literal_block`` elements are commonly used for program listings and
+interactive computer sessions.  See `line_block`_ for an alternative
+useful for verse and addresses.
+
+
+Details
+-------
+
+:Category:
+    `Simple Body Elements`_
+
+:Analogues:
+    ``literal_block`` is analogous to the HTML "pre" element and to
+    the DocBook "programlisting" and "screen" elements.
+
+:Processing:
+    ``literal_block`` elements are typically rendered in a monospaced
+    typeface.  It is crucial that all whitespace and line breaks are
+    preserved in the rendered form.
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``literal_block``.
+
+:Children:
+    ``literal_block`` elements may contain text data plus `inline
+    elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``literal_block`` element contains the `common attributes`_
+    plus `xml:space`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``literal_block``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``literal_block``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    Here is a literal block::
+
+        if literal_block:
+            text = 'is left as-is'
+            spaces_and_linebreaks = 'are preserved'
+            markup_processing = None
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <paragraph>
+        Here is a literal block:
+    <literal_block xml:space="preserve">
+        if literal_block:
+            text = 'is left as-is'
+            spaces_and_linebreaks = 'are preserved'
+            markup_processing = None
+
+``math``
+========
+
+The ``math`` element contains text in `LaTeX math format` [#latex-math]_
+that is typeset as mathematical notation (inline formula).
+
+If the output format does not support math typesetting, the content is
+inserted verbatim.
+
+Details
+-------
+
+:Category:
+    `Inline Elements`_
+
+:Analogues:
+    ``math`` is analogous to a MathML "math" element or
+    the LaTeX (``$ math $``) mode.
+
+:Processing:
+    Rendered as mathematical notation.
+
+:Parents:
+    All elements employing the `%inline.elements;`_ parameter entities in
+    their content models may contain ``math``.
+
+:Children:
+    ``math`` elements may contain text data.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``math`` element contains the `common attributes`_.
+
+.. [#latex-math] For details of the supported mathematical language, see
+   the `"math" directive`_
+
+.. _"math" directive: rst/directives.html#math
+
+
+``math_block``
+==============
+
+The ``math_block`` element contains a block of text in `LaTeX math
+format` [#latex-math]_ that is typeset as mathematical notation
+(display formula). The ``math_block`` element is generated during
+the initial parse from a `"math" directive`_.
+
+If the output format does not support math typesetting, the content is
+inserted verbatim.
+
+Details
+-------
+
+:Category:
+    `Simple Body Elements`_
+
+:Analogues:
+    ``math_block`` is analogous to a LaTeX "equation*" environment or
+    a MathML "math" element displayed as block-level element.
+
+:Processing:
+    Rendered in a block as mathematical notation, typically centered or with
+    indentation
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``math_block``.
+
+:Children:
+    ``math_block`` elements may contain text data. ::
+
+        (#PCDATA)
+
+:Attributes:
+    The ``math`` element contains the `common attributes`_.
+
+``meta``
+========
+
+The ``meta`` element is a container for "hidden" document
+bibliographic data, or meta-data (data about the document).
+It corresponds to HTML META tags.
+
+See also the docinfo_ element for displayed meta-data.
+The document's `title attribute`_ stores the metadate document title.
+
+
+Details
+-------
+
+:Category:
+    `Structural Subelements`_
+
+:Analogues:
+    ``meta`` is analogous to the HTML "meta" element
+    or the file properties in ODT or PDF documents.
+
+:Processing:
+    The ``meta`` element is stored as metadata if the export format
+    supports this. It is typically invisible and may be omitted from
+    the processed output.
+
+    Meta-data may also be extracted from docinfo_ children
+    or the document_ attributes (title).
+
+:Parents:
+    Only the document_ element contains ``meta``.
+
+:Children:
+    None.
+
+
+Example
+-------
+
+The `"meta" directive`_ is used to create a ``meta`` element.
+reStructuredText_ source::
+
+    .. meta::
+       :description lang=en: An amusing story
+       :description lang=fr: Un histoire amusant
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <meta content="An amusing story" lang="en" name="description">
+    <meta content="Un histoire amusant" lang="fr" name="description">
+
+.. _"meta" directive: rst/directives.html#meta
+
+
+``note``
+========
+
+The ``note`` element is an admonition, a distinctive and
+self-contained notice.  Also see the other admonition elements
+Docutils offers (in alphabetical order): attention_, caution_,
+danger_, error_, hint_, important_, tip_, warning_, and the generic
+admonition_.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``note`` is analogous to the `DocBook "note"`_ element.
+
+    .. _DocBook "note": https://tdg.docbook.org/tdg/5.1/note.html
+
+:Processing:
+    Rendered distinctly (inset and/or in a box, etc.), with the
+    generated title "Note" (or similar).
+
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``note``.
+
+:Children:
+    ``note`` elements contain one or more `body elements`_.
+
+    .. parsed-literal::
+
+        (`%body.elements;`_)+
+
+:Attributes:
+    The ``note`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``note``.  The `%structure.model;`_ parameter entity indirectly
+    includes ``note``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    .. Note:: Admonitions can be handy to break up a
+       long boring technical document.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <note>
+        <paragraph>
+            Admonitions can be handy to break up a
+            long boring technical document.
+
+``option``
+==========
+
+The ``option`` element groups an option string together with zero or
+more option argument placeholders.  Note that reStructuredText_
+currently supports only one argument per option.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_
+
+:Analogues:
+    ``option`` has no direct analogues in common DTDs.
+
+:Processing:
+    See option_list_.
+
+:Parents:
+    Only the option_group_ element contains ``option``.
+
+:Children:
+    Each ``option`` element contains one option_string_ and zero or
+    more option_argument_ elements. ::
+
+        (option_string, option_argument*)
+
+:Attributes:
+    The ``option`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+See the examples for the option_list_ element.
+
+
+``option_argument``
+===================
+
+The ``option_argument`` element contains placeholder text for option
+arguments.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_
+
+:Analogues:
+    ``option_argument`` has no direct analogues in common DTDs.
+
+:Processing:
+    The value of the "delimiter" attribute is prefixed to the
+    ``option_argument``, separating it from its option_string_ or a
+    preceding ``option_argument``.  The ``option_argument`` text is
+    typically rendered in a monospaced typeface, possibly italicized
+    or otherwise altered to indicate its placeholder nature.
+
+:Parents:
+    Only the option_ element contains ``option_argument``.
+
+:Children:
+    ``option_argument`` elements contain text data only. ::
+
+        (#PCDATA)
+
+:Attributes:
+    The ``option_argument`` element contains the `common attributes`_
+    plus delimiter_.
+
+    ``delimiter`` contains the text preceding the ``option_argument``:
+    either the text separating it from the option_string_ (typically
+    either "=" or " ") or the text between option arguments (typically
+    either "," or " ").
+
+
+Examples
+--------
+
+See the examples for the option_list_ element.
+
+
+``option_group``
+================
+
+The ``option_group`` element groups together one or more option_
+elements, all synonyms.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_
+
+:Analogues:
+    ``option_group`` has no direct analogues in common DTDs.
+
+:Processing:
+    Typically option_ elements within an ``option_group`` are joined
+    together in a comma-separated list.
+
+:Parents:
+    Only the option_list_item_ element contains ``option_group``.
+
+:Children:
+    ``option_group`` elements contain one or more option_ elements. ::
+
+        (option+)
+
+:Attributes:
+    The ``option_group`` element contains only the `common attributes`_.
+
+Examples
+--------
+
+See the examples for the option_list_ element.
+
+
+``option_list``
+===============
+
+Each ``option_list`` element contains a two-column list of
+command-line options and descriptions, documenting a program's
+options.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``option_list`` has no direct analogues in common DTDs.  It can be
+    emulated with primitives such as tables.
+
+:Processing:
+    An ``option_list`` is typically rendered as a two-column list,
+    where the first column contains option strings and arguments, and
+    the second column contains descriptions.
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``option_list``.
+
+:Children:
+    ``option_list`` elements contain one or more option_list_item_
+    elements. ::
+
+        (option_list_item+)
+
+:Attributes:
+    The ``option_list`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``option_list``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``option_list``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    -a            command-line option "a"
+    -1 file, --one=file, --two file
+                  Multiple options with arguments.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <option_list>
+        <option_list_item>
+            <option_group>
+                <option>
+                    <option_string>
+                        -a
+            <description>
+                <paragraph>
+                    command-line option "a"
+        <option_list_item>
+            <option_group>
+                <option>
+                    <option_string>
+                        -1
+                    <option_argument delimiter=" ">
+                        file
+                <option>
+                    <option_string>
+                        --one
+                    <option_argument delimiter="=">
+                        file
+                <option>
+                    <option_string>
+                        --two
+                    <option_argument delimiter=" ">
+                        file
+            <description>
+                <paragraph>
+                    Multiple options with arguments.
+
+
+``option_list_item``
+====================
+
+The ``option_list_item`` element is a container for a pair of
+option_group_ and description_ elements.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_
+
+:Analogues:
+    ``option_list_item`` has no direct analogues in common DTDs.
+
+:Processing:
+    See option_list_.
+
+:Parents:
+    Only the option_list_ element contains ``option_list_item``.
+
+:Children:
+    Each ``option_list_item`` element contains one option_group_ and
+    one description_ element. ::
+
+        (option_group, description)
+
+:Attributes:
+    The ``option_list_item`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+See the examples for the option_list_ element.
+
+
+``option_string``
+=================
+
+The ``option_string`` element contains the text of a command-line
+option.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_
+
+:Analogues:
+    ``option_string`` has no direct analogues in common DTDs.
+
+:Processing:
+    The ``option_string`` text is typically rendered in a monospaced
+    typeface.
+
+:Parents:
+    Only the option_ element contains ``option_string``.
+
+:Children:
+    ``option_string`` elements contain text data only. ::
+
+        (#PCDATA)
+
+:Attributes:
+    The ``option_string`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+See the examples for the option_list_ element.
+
+
+``organization``
+================
+
+The ``organization`` element contains the name of document author's
+organization, or the organization responsible for the document.
+
+
+Details
+-------
+
+:Category:
+    `Bibliographic Elements`_
+
+:Analogues:
+    ``organization`` is analogous to the DocBook "orgname",
+    "corpname", or "publishername" elements.
+
+:Processing:
+    See docinfo_.
+
+:Parents:
+    Only the docinfo_ element contains ``organization``.
+
+:Children:
+    ``organization`` elements may contain text data plus `inline
+    elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``organization`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%bibliographic.elements;`_ parameter entity directly includes
+    ``organization``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Document Title
+    ==============
+
+    :Organization: Humankind
+
+Complete pseudo-XML_ result after parsing and applying transforms::
+
+    <document ids="document-title" names="document title">
+        <title>
+            Document Title
+        <docinfo>
+            <organization>
+                Humankind
+
+See docinfo_ for a more complete example, including processing
+context.
+
+
+``paragraph``
+=============
+
+The ``paragraph`` element contains the text and inline elements of a
+single paragraph, a fundamental building block of documents.
+
+
+Details
+-------
+
+:Category:
+    `Simple Body Elements`_
+
+:Analogues:
+    ``paragraph`` is analogous to the HTML "p" element and to the
+    DocBook "para" elements.
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``paragraph``.
+
+:Children:
+    ``paragraph`` elements may contain text data plus `inline
+    elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``paragraph`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``paragraph``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``paragraph``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    A paragraph.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <paragraph>
+        A paragraph.
+
+
+``pending``
+===========
+
+`To be completed`_.
+
+
+``problematic``
+===============
+
+`To be completed`_.
+
+
+``raw``
+=======
+
+`To be completed`_.
+
+
+``reference``
+=============
+
+`To be completed`_.
+
+
+``revision``
+============
+
+The ``revision`` element contains the revision number of the document.
+It can be used alone or in conjunction with version_.
+
+
+Details
+-------
+
+:Category:
+    `Bibliographic Elements`_
+
+:Analogues:
+    ``revision`` is analogous to but simpler than the DocBook
+    "revision" element.  It closely matches the DocBook "revnumber"
+    element, but in a simpler context.
+
+:Processing:
+    Often used with the RCS/CVS keyword "Revision".  See docinfo_.
+
+:Parents:
+    Only the docinfo_ element contains ``revision``.
+
+:Children:
+    ``revision`` elements may contain text data plus `inline
+    elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``revision`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%bibliographic.elements;`_ parameter entity directly includes
+    ``revision``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Document Title
+    ==============
+
+    :Version: 1
+    :Revision: b
+
+Complete pseudo-XML_ result after parsing and applying transforms::
+
+    <document ids="document-title" names="document title">
+        <title>
+            Document Title
+        <docinfo>
+            <version>
+                1
+            <revision>
+                b
+
+See docinfo_ for a more complete example, including processing
+context.
+
+
+``row``
+=======
+
+`To be completed`_.
+
+
+``rubric``
+==========
+
+     rubric n. 1. a title, heading, or the like, in a manuscript,
+     book, statute, etc., written or printed in red or otherwise
+     distinguished from the rest of the text. ...
+
+     -- Random House Webster's College Dictionary, 1991
+
+A rubric is like an informal heading that doesn't correspond to the
+document's structure.
+
+`To be completed`_.
+
+
+``section``
+===========
+
+The ``section`` element is the main unit of hierarchy for Docutils
+documents.  Docutils ``section`` elements are a recursive structure; a
+``section`` may contain other ``section`` elements, without limit.
+Paragraphs and other body elements may occur before a ``section``, but
+not after it.
+
+
+Details
+-------
+
+:Category:
+    `Structural Elements`_
+
+:Analogues:
+    ``section`` is analogous to the recursive "section" elements in
+    DocBook and HTML5.
+
+:Parents:
+    The following elements may contain ``section``: document_,
+    section_
+
+:Children:
+    ``section`` elements begin with a title_, and may contain `body
+    elements`_ as well as transition_, topic_, and sidebar_ elements.
+
+    .. parsed-literal::
+
+        (title_, `%structure.model;`_)
+
+    See the `%structure.model;`_ parameter entity for details of the body
+    of a ``section``.
+
+:Attributes:
+    The ``section`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%section.elements;`_ parameter entity directly includes
+    ``section``.  The `%structure.model;`_ parameter entity indirectly
+    includes ``section``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Title 1
+    =======
+    Paragraph 1.
+
+    Title 2
+    -------
+    Paragraph 2.
+
+    Title 3
+    =======
+    Paragraph 3.
+
+    Title 4
+    -------
+    Paragraph 4.
+
+Complete pseudo-XML_ result after parsing::
+
+    <document>
+        <section ids="title-1" names="title 1">
+            <title>
+                Title 1
+            <paragraph>
+                Paragraph 1.
+            <section ids="title-2" names="title 2">
+                <title>
+                    Title 2
+                <paragraph>
+                    Paragraph 2.
+        <section ids="title-3" names="title 3">
+            <title>
+                Title 3
+            <paragraph>
+                Paragraph 3.
+            <section ids="title-4" names="title 4">
+                <title>
+                    Title 4
+                <paragraph>
+                    Paragraph 4.
+
+
+``sidebar``
+===========
+
+Sidebars are like miniature, parallel documents that occur inside
+other documents, providing related or reference material.  A
+``sidebar`` is typically offset by a border and "floats" to the side
+of the page; the document's main text may flow around it.  Sidebars
+can also be likened to super-footnotes; their content is outside of
+the flow of the document's main text.
+
+The ``sidebar`` element is a nonrecursive section_-like construct
+which may occur at the top level of a section_ wherever a body element
+(list, table, etc.) is allowed.  In other words, ``sidebar`` elements
+cannot nest inside body elements, so you can't have a ``sidebar``
+inside a ``table`` or a ``list``, or inside another ``sidebar`` (or
+topic_).
+
+
+Details
+-------
+
+:Category:
+    `Structural Elements`_
+
+:Analogues:
+    ``sidebar`` is analogous to the DocBook "sidebar" element.
+
+:Processing:
+    A ``sidebar`` element should be set off from the rest of the
+    document somehow, typically with a border.  Sidebars typically
+    "float" to the side of the page and the document's main text flows
+    around them.
+
+:Parents:
+    The following elements may contain ``sidebar``: document_,
+    section_
+
+:Children:
+    ``sidebar`` elements begin with optional title_ and subtitle_
+    and contain `body elements`_ and topic_ elements.
+
+    .. parsed-literal::
+
+        (title, subtitle?,
+         (`%body.elements;`_ | topic)+)
+
+:Attributes:
+    The ``sidebar`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%structure.model;`_ parameter entity directly includes
+    ``sidebar``.
+
+
+Examples
+--------
+
+The `"sidebar" directive`_ is used to create a ``sidebar`` element.
+reStructuredText_ source::
+
+    .. sidebar:: Optional Title
+       :subtitle: If Desired
+
+       Body.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <sidebar>
+        <title>
+            Optional Title
+        <subtitle>
+            If Desired
+        <paragraph>
+            Body.
+
+.. _"sidebar" directive: rst/directives.html#sidebar
+
+
+``status``
+==========
+
+The ``status`` element contains a status statement for the document,
+such as "Draft", "Final", "Work In Progress", etc.
+
+
+Details
+-------
+
+:Category:
+    `Bibliographic Elements`_
+
+:Analogues:
+    ``status`` is analogous to the DocBook "status" element.
+
+:Processing:
+    See docinfo_.
+
+:Parents:
+    Only the docinfo_ element contains ``status``.
+
+:Children:
+    ``status`` elements may contain text data plus `inline elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``status`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%bibliographic.elements;`_ parameter entity directly includes
+    ``status``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Document Title
+    ==============
+
+    :Status: Work In Progress
+
+Complete pseudo-XML_ result after parsing and applying transforms::
+
+    <document ids="document-title" names="document title">
+        <title>
+            Document Title
+        <docinfo>
+            <status>
+                Work In Progress
+
+See docinfo_ for a more complete example, including processing
+context.
+
+
+``strong``
+==========
+
+`To be completed`_.
+
+
+``subscript``
+=============
+
+`To be completed`_.
+
+
+``substitution_definition``
+===========================
+
+`To be completed`_.
+
+
+``substitution_reference``
+==========================
+
+`To be completed`_.
+
+
+``subtitle``
+============
+
+The ``subtitle`` element stores the subtitle of a document_.
+
+
+Details
+-------
+
+:Category:
+    `Structural Subelements`_
+
+:Analogues:
+    ``subtitle`` is analogous to HTML header elements ("h2" etc.) and
+    to the DocBook "subtitle" element.
+
+:Processing:
+    A document's subtitle is usually rendered smaller than its title_.
+
+:Parents:
+    The document_ and sidebar_ elements may contain ``subtitle``.
+
+:Children:
+    ``subtitle`` elements may contain text data plus `inline
+    elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``subtitle`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    =======
+     Title
+    =======
+    ----------
+     Subtitle
+    ----------
+
+    A paragraph.
+
+Complete pseudo-XML_ result after parsing and applying transforms::
+
+    <document ids="title" names="title">
+        <title>
+            Title
+        <subtitle ids="subtitle" names="subtitle">
+            Subtitle
+        <paragraph>
+            A paragraph.
+
+Note how two section levels have collapsed, promoting their titles to
+become the document's title and subtitle.  Since there is only one
+structural element (document), the subsection's ``ids`` and ``names``
+attributes are stored in the ``subtitle`` element.
+
+
+``superscript``
+===============
+
+`To be completed`_.
+
+
+``system_message``
+==================
+
+`To be completed`_.
+
+
+``table``
+=========
+
+The ``table`` element identifies a data arrangement with rows and columns.
+
+Docutils tables are based on the `Exchange subset of the CALS-table
+model` [exchange-table-model]_. [#]_
+
+.. [#] The interpretation of column widths in colspec_ differs from the
+   specification.
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``table`` is analogous to the HTML "table" element.
+
+:Processing:
+    Content is rendered in rows and columns.
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``table``.
+
+:Children:
+    ``table`` elements begin with an optional title_ (caption) and may
+    contain one or more `tgroup`_ elements. ::
+
+        (title?, tgroup+)
+
+:Attributes:
+    The ``table`` element contains the attributes frame, colsep, rowsep,
+    and pgwide defined in the exchange-table-model_, the
+    `common attributes`_, align_, and width_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``table``.  The `%structure.model;`_ parameter entity
+    indirectly includes ``table``.
+
+Examples
+--------
+
+In reStructuredText, tables can specified via the
+table__, csv-table_, or list-table_ directives or directly as
+`grid table`_ or `simple table`_, e.g. ::
+
+    ======== ====
+     bread   £2
+     butter  £30
+    ======== ====
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <table>
+        <tgroup cols="2">
+            <colspec colwidth="8">
+            <colspec colwidth="4">
+            <tbody>
+                <row>
+                    <entry>
+                        <paragraph>
+                            bread
+                    <entry>
+                        <paragraph>
+                            £2
+                <row>
+                    <entry>
+                        <paragraph>
+                            butter
+                    <entry>
+                        <paragraph>
+                            £30
+
+__ rst/directives.html#table
+.. _csv-table: rst/directives.html#csv-table
+.. _list-table: rst/directives.html#list-table
+.. _grid table: rst/restructuredtext.html#grid-tables
+.. _simple table: rst/restructuredtext.html#simple-tables
+
+.. [exchange-table-model] `XML Exchange Table Model DTD`, OASIS Technical
+   Memorandum 9901:1999, http://www.oasis-open.org/html/tm9901.html.
+
+``target``
+==========
+
+`To be completed`_.
+
+
+``tbody``
+=========
+
+`To be completed`_.
+
+
+``term``
+========
+
+The ``term`` element contains a word or phrase being defined in a
+definition_list_.
+
+
+Details
+-------
+
+:Category:
+    `Body Subelements`_ (simple)
+
+:Analogues:
+    ``term`` is analogous to the HTML "dt" element and to the DocBook
+    "term" element.
+
+:Processing:
+    See definition_list_item_.
+
+:Parents:
+    Only the definition_list_item_ element contains ``term``.
+
+:Children:
+    ``term`` elements may contain text data plus `inline elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``term`` element contains only the `common attributes`_.
+
+
+Examples
+--------
+
+See the examples for the definition_list_, definition_list_item_, and
+classifier_ elements.
+
+
+``tgroup``
+==========
+
+See [exchange-table-model]_.
+.. parsed-literal::
+
+    (colspec_\*, thead_\?, tbody_)
+
+
+`To be completed`_.
+
+
+``thead``
+=========
+
+`To be completed`_.
+
+
+``tip``
+=======
+
+The ``tip`` element is an admonition, a distinctive and self-contained
+notice.  Also see the other admonition elements Docutils offers (in
+alphabetical order): attention_, caution_, danger_, error_, hint_,
+important_, note_, warning_, and the generic admonition_.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``tip`` is analogous to the `DocBook "tip"`_ element.
+
+  .. _DocBook "tip": https://tdg.docbook.org/tdg/5.1/tip.html
+
+:Processing:
+    Rendered distinctly (inset and/or in a box, etc.), with the
+    generated title "Tip" (or similar).
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``tip``.
+
+:Children:
+    ``tip`` elements contain one or more `body elements`_.
+
+    .. parsed-literal::
+
+        (`%body.elements;`_)+
+
+:Attributes:
+    The ``tip`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes ``tip``.
+    The `%structure.model;`_ parameter entity indirectly includes
+    ``tip``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    .. Tip:: 15% if the service is good.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <tip>
+        <paragraph>
+            15% if the service is good.
+
+
+.. _title:
+
+``title``
+=========
+
+The ``title`` element stores the title of a document_, section_,
+sidebar_, table_, topic_, or generic admonition_.
+
+
+Details
+-------
+
+:Category:
+    `Structural Subelements`_
+
+:Analogues:
+    ``title`` is analogous to HTML "title" and header ("h1" etc.)
+    elements, and to the DocBook "title" element.
+
+:Parents:
+    The following elements may contain ``title``: admonition_, document_,
+    section_, sidebar_, table_, topic_.
+
+:Children:
+    ``title`` elements may contain text data plus `inline elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``title`` element contains the `common attributes`_
+    plus refid_ and auto_.
+
+    ``refid`` is used as a backlink to a table of contents entry.
+
+    ``auto`` is used to indicate (with value "1") that the ``title``
+    has been numbered automatically.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    A Title
+    =======
+
+    A paragraph.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <section ids="a-title" names="a title">
+        <title>
+            A Title
+        <paragraph>
+            A paragraph.
+
+
+``title_reference``
+===================
+
+`To be completed`_.
+
+
+``topic``
+=========
+
+The ``topic`` element is a nonrecursive section_-like construct which
+may occur at the top level of a section_ wherever a body element
+(list, table, etc.) is allowed.  In other words, ``topic`` elements
+cannot nest inside body elements, so you can't have a ``topic`` inside
+a ``table`` or a ``list``, or inside another ``topic``.
+
+
+Details
+-------
+
+:Category:
+    `Structural Elements`_
+
+:Analogues:
+    ``topic`` is analogous to the DocBook "simplesect" element.
+
+:Processing:
+    A ``topic`` element should be set off from the rest of the
+    document somehow, such as with indentation or a border.
+
+:Parents:
+    The following elements may contain ``topic``: document_, section_,
+    sidebar_
+
+:Children:
+    ``topic`` elements begin with a title_ and may contain `body
+    elements`_.
+
+    .. parsed-literal::
+
+        (title?, (`%body.elements;`_)+)
+
+:Attributes:
+    The ``topic`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%structure.model;`_ parameter entity directly includes
+    ``topic``.
+
+
+Examples
+--------
+
+The `"topic" directive`_ is used to create a ``topic`` element.
+reStructuredText_ source::
+
+    .. topic:: Title
+
+       Body.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <topic>
+        <title>
+            Title
+        <paragraph>
+            Body.
+
+.. _"topic" directive: rst/directives.html#topic
+
+
+``transition``
+==============
+
+The ``transition`` element is commonly seen in novels and short
+fiction, as a gap spanning one or more lines, with or without a type
+ornament such as a row of asterisks.  Transitions separate body
+elements and sections, dividing a section into untitled divisions.  A
+transition may not begin or end a section [#]_ or document, nor may
+two transitions be immediately adjacent.
+
+See `Doctree Representation of Transitions`__ in `A Record of
+reStructuredText Syntax Alternatives`__.
+
+.. [#] In reStructuredText markup, a transition may appear to fall at
+   the end of a section immediately before another section.  A
+   transform recognizes this case and moves the transition so it
+   separates the sections.
+
+__ ../dev/rst/alternatives.html#doctree-representation-of-transitions
+__ ../dev/rst/alternatives.html
+
+
+Details
+-------
+
+:Category:
+    `Structural Subelements`_
+
+:Analogues:
+    ``transition`` is analogous to the HTML "hr" element.
+
+:Processing:
+    The ``transition`` element is typically rendered as vertical
+    whitespace (more than that separating paragraphs), with or without
+    a horizontal line or row of asterisks.  In novels, transitions are
+    often represented as a row of three well-spaced asterisks with
+    vertical space above and below.
+
+:Parents:
+    The following elements may contain ``transition``: document_,
+    section_
+
+:Children:
+    The ``transition`` element has no content.
+
+:Attributes:
+    The ``transition`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%structure.model;`_ parameter entity directly includes
+    ``transition``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Paragraph 1.
+
+    --------
+
+    Paragraph 2.
+
+Complete pseudo-XML_ result after parsing::
+
+    <document>
+        <paragraph>
+            Paragraph 1.
+        <transition>
+        <paragraph>
+            Paragraph 2.
+
+
+``version``
+===========
+
+The ``version`` element contains the version number of the document.
+It can be used alone or in conjunction with revision_.
+
+
+Details
+-------
+
+:Category:
+    `Bibliographic Elements`_
+
+:Analogues:
+    ``version`` may be considered analogous to the DocBook "revision",
+    "revnumber", or "biblioid" elements.
+
+:Processing:
+    Sometimes used with the RCS/CVS keyword "Revision".  See docinfo_
+    and revision_.
+
+:Parents:
+    Only the docinfo_ element contains ``version``.
+
+:Children:
+    ``version`` elements may contain text data plus `inline
+    elements`_.
+
+    .. parsed-literal::
+
+        `%text.model;`_
+
+:Attributes:
+    The ``version`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%bibliographic.elements;`_ parameter entity directly includes
+    ``version``.
+
+
+Examples
+--------
+
+reStructuredText_ source::
+
+    Document Title
+    ==============
+
+    :Version: 1.1
+
+Complete pseudo-XML_ result after parsing and applying transforms::
+
+    <document ids="document-title" names="document title">
+        <title>
+            Document Title
+        <docinfo>
+            <version>
+                1.1
+
+See docinfo_ for a more complete example, including processing
+context.
+
+
+``warning``
+===========
+
+The ``warning`` element is an admonition, a distinctive and
+self-contained notice.  Also see the other admonition elements
+Docutils offers (in alphabetical order): attention_, caution_,
+danger_, error_, hint_, important_, note_, tip_.
+
+
+Details
+-------
+
+:Category:
+    `Compound Body Elements`_
+
+:Analogues:
+    ``warning`` is analogous to the `DocBook "warning"`_ element.
+
+    .. _DocBook "warning": https://tdg.docbook.org/tdg/5.1/warning.html
+
+:Processing:
+    Rendered distinctly (inset and/or in a box, etc.), with the
+    generated title "Warning" (or similar).
+
+:Parents:
+    All elements employing the `%body.elements;`_ or
+    `%structure.model;`_ parameter entities in their content models
+    may contain ``warning``.
+
+:Children:
+    ``warning`` elements contain one or more `body elements`_.
+
+    .. parsed-literal::
+
+        (`%body.elements;`_)+
+
+:Attributes:
+    The ``warning`` element contains only the `common attributes`_.
+
+:Parameter Entities:
+    The `%body.elements;`_ parameter entity directly includes
+    ``warning``.  The `%structure.model;`_ parameter entity indirectly
+    includes ``warning``.
+
+
+Examples
+--------
+
+reStructuredText source::
+
+    .. WARNING:: Reader discretion is strongly advised.
+
+Pseudo-XML_ fragment from simple parsing::
+
+    <warning>
+        <paragraph>
+            Reader discretion is strongly advised.
+
+
+.. _attribute type:
+
+---------------
+Attribute types
+---------------
+
+.. contents:: :local:
+              :depth: 1
+
+Standard attribute types
+========================
+
+Attribute types defined in the `attribute types`__ section of the
+`XML 1.0 specification`_:
+
+_`CDATA`
+    Character data.  CDATA attributes may contain arbitrary text.
+
+_`NMTOKEN`
+    A "name token".  One or more of letters, digits, ".", "-", and
+    "_".
+
+_`NMTOKENS`
+    One or more space-separated NMTOKEN values.
+
+_`EnumeratedType`
+    The attribute value may be one of a specified list of values.
+
+Docutils uses `custom attribute types`_ instead of the ID, IDREF, and IDREFS
+standard types, because it does not adhere to the `One ID per Element Type`_
+validity constraint.
+
+__ `XML attribute types`_
+
+
+Custom attribute types
+======================
+
+The Docutils DTD defines `parameter entities`_ that resolve to standard
+attribute types to highlight specific attribute value constraints.
+
+_`yesorno`
+    Boolean: no if zero ("0"), yes if any other value.
+    Resolves to ``NMTOKEN``.
+
+    Used in the `anonymous`_ and `stub`_ attributes.
+
+_`number`
+    The attribute value must be a number. Resolves to ``NMTOKEN``.
+
+    Used in the `level`_, `morecols`_, `scale`_, and `start`_ attributes.
+
+_`measure`
+    A number which may be immediately followed by a unit or percent sign.
+    Resolves to CDATA.
+
+    Used in the `height`_ and `width`_ attributes.
+
+_`classnames.type`
+    A space-separated list of `class names` [#classname]_. Resolves to NMTOKEN.
+
+    Used in the `classes`_ attribute.
+
+_`refname.type`
+    A normalized_ `reference name`_. Resolves to CDATA (in contrast to
+    NMTOKENS, `reference names`_ may consist of any text).
+
+    Used in the `refname`_ attribute.
+
+_`refnames.type`
+    A space-separated list of `reference names`_. Resolves to CDATA.
+
+    `Backslash escaping`_ is used for space characters inside a `reference
+    name`.
+
+    Used in the `names`_ and `dupnames`_ attributes.
+
+_`ids.type`
+    A space-separated list of unique `identifier keys` [#identifier]_.
+    Resolves to NMTOKENS (the XML `standard attribute types`_ do not provide
+    for a list of IDs).
+
+    Used in the `ids`_ attribute.
+
+_`idref.type`
+    A reference to an `identifier key`_.
+    Resolves to NMTOKEN (Docutils identifier keys do not use the ID standard
+    type as required by the `IDREF Validity constraint`_).
+
+    Used in the `refid`_ attribute.
+
+_`idrefs.type`
+    A list of references to element identifiers.
+    Resolves to NMTOKENS.
+
+    Used in the `backrefs`_ attribute.
+
+.. _`class names`:
+
+.. [#classname] `Class names` define sub-classes of existing elements.
+
+   In reStructuredText, custom `class names` can be specified using
+   the `"class" directive`_, a directive's `:class: option`_, or
+   `custom interpreted text roles`_.
+   Docutils normalizes them to conform to both, HTML4.1 and CSS1.0 `name`
+   requirements (the regular expression ``[a-z](-?[a-z0-9]+)*``) via the
+   `identifier normalization`_.
+
+.. _identifiers:
+.. _identifier key:
+.. _identifier keys:
+
+.. [#identifier] `Identifier keys` are used for cross references in
+   generated documents. Therefore, they must comply with restrictions in the
+   respective output formats (HTML4.1__, HTML5__, `polyglot HTML`__,
+   LaTeX__, ODT__, troff (manpage), XML__).
+
+   Identifier keys cannot be specified directly in reStructuredText.
+   Docutils generates them by applying the `identifier normalization`_ to
+   `reference names`_ or from the auto_id_prefix_, prepending the id_prefix_
+   and potentially appending numbers for disambiguation.
+
+   __ https://www.w3.org/TR/html401/types.html#type-name
+   __ https://www.w3.org/TR/html50/dom.html#the-id-attribute
+   __ https://www.w3.org/TR/html-polyglot/#id-attribute
+   __ https://tex.stackexchange.com/questions/18311/what-are-the-valid-names-as-labels
+   __ https://help.libreoffice.org/6.3/en-US/text/swriter/01/04040000.html?DbPAR=WRITER#bm_id4974211
+   __ https://www.w3.org/TR/REC-xml/#id
+
+
+.. _XML 1.0 specification: https://www.w3.org/TR/REC-xml
+.. _XML attribute types: https://www.w3.org/TR/REC-xml/#sec-attribute-types
+.. _One ID per Element Type: https://www.w3.org/TR/REC-xml/#one-id-per-el
+.. .. _ID attribute type: https://www.w3.org/TR/REC-xml/#id
+.. _parameter entities: https://www.w3.org/TR/REC-xml/#dt-PE
+.. _IDREF Validity constraint: https://www.w3.org/TR/REC-xml/#idref
+
+.. _reference names:
+.. _reference name: rst/restructuredtext.html#reference-names
+.. _backslash escaping: rst/restructuredtext.html#escaping-mechanism
+.. _id_prefix: ../user/config.html#id-prefix
+.. _auto_id_prefix: ../user/config.html#auto-id-prefix
+.. _identifier normalization:
+    rst/directives.html#identifier-normalization
+.. _`:class: option`: rst/directives.html#class-option
+.. _custom interpreted text roles:
+    rst/directives.html#custom-interpreted-text-roles
+
+
+---------------------
+ Attribute Reference
+---------------------
+
+.. contents:: :local:
+              :depth: 1
+
+_`Common Attributes`:
+    Through the `%basic.atts;`_ parameter entity, all elements support
+    the following attributes: ids_, names_ or dupnames_, source_, and
+    classes_.
+
+``align``
+=========
+
+Attribute type: `CDATA`_.  Default value: none (inherit).
+
+The ``align`` attribute is used in the figure_, image_, and table_ elements
+(via the `%align-h.att;`_ and `%align-hv.att;`_ parameter entities).
+
+``anonymous``
+=============
+
+Attribute type: `yesorno`_.  Default value: none (implies no).
+
+The ``anonymous`` attribute is used for unnamed hyperlinks in the
+target_ and reference_ elements (via the `%anonymous.att;`_ parameter
+entity).
+
+
+``auto``
+========
+
+Attribute type: `CDATA`_.  Default value: none.
+
+The ``auto`` attribute is used to indicate automatically-numbered
+footnote_, footnote_reference_ and title_ elements (via the
+`%auto.att;`_ parameter entity).
+
+
+``backrefs``
+============
+
+Attribute type: `idrefs.type`_.  Default value: none.
+
+The ``backrefs`` attribute contains a space-separated list of identifier_
+references, used for backlinks from footnote_, citation_, and
+system_message_ elements (via the `%backrefs.att;`_ parameter entity).
+
+
+``bullet``
+==========
+
+Attribute type: `CDATA`_.  Default value: none.
+
+The ``bullet`` attribute is used in the bullet_list_ element.
+
+
+``classes``
+===========
+
+Attribute type: `classnames.type`_.  Default value: none.
+
+The ``classes`` attribute is a space separated list containing zero or more
+`class names`_.
+
+The purpose of the attribute is to indicate an "is-a" variant relationship,
+to allow an extensible way of defining sub-classes of existing elements.  It
+can be used to carry context forward between a Docutils Reader and Writer,
+when a custom structure is reduced to a standardized document tree.  One
+common use is in conjunction with stylesheets, to add selection criteria.
+It should not be used to carry formatting instructions or arbitrary content.
+
+The ``classes`` attribute's contents should be ignorable.  Writers that
+are not familiar with the variant expressed should be able to ignore
+the attribute.
+
+``classes`` is one of the `common attributes`_, shared by all Docutils
+elements.
+
+.. _"class" directive: rst/directives.html#class
+
+
+``colwidth``
+============
+
+Attribute type: `CDATA`_. Default value: "1*"
+
+Column width specification used in the colspec_ element.
+Defined in the exchange-table-model_.
+
+Either proportional measure of the form number*, e.g., “5*” for 5 times
+the proportion, or “*” (which is equivalent to “1*”); fixed measure,
+e.g., 2pt for 2 point, 3pi for 3 pica.
+
+The fixed unit values are case insensitive. The standard list of allowed
+unit values is “pt” (points), “cm” (centimeters), “mm” (millimeters),
+“pi” (picas), and “in” (inches). The default fixed unit should be
+interpreted as “pt” if neither a proportion nor a fixed unit is
+specified.
+
+.. important:: Currently, Docutils interprets unitless numbers as
+   proportions.
+
+
+``delimiter``
+=============
+
+Attribute type: `CDATA`_.  Default value: none.
+
+The ``delimiter`` attribute is used in the option_argument_ element.
+
+
+``dupnames``
+============
+
+Attribute type: `refnames.type`_.  Default value: none.
+
+The ``dupnames`` attribute replaces the `names`_ attribute
+when there has been a naming conflict.
+``dupnames`` is one of the `common attributes`_, shared by all
+Docutils elements.
+
+
+``enumtype``
+============
+
+Attribute type: EnumeratedType_, one of "arabic", "loweralpha",
+"upperalpha", "lowerroman", or "upperroman".  Default value: none.
+
+The ``enumtype`` attribute is used in the enumerated_list_ element.
+
+
+``height``
+==========
+
+Attribute type: measure_.  Default value: none.
+
+The ``height`` attribute is used in the image_ element.
+
+
+``ids``
+=======
+
+Attribute type: `ids.type`_.  Default value: none.
+
+The ``ids`` attribute is a space separated list containing one or more
+unique `identifier keys`_, typically assigned by the system.
+
+``ids`` is one of the `common attributes`_, shared by all Docutils
+elements.
+
+.. TODO:
+   * Use 'id' for primary identifier key?
+   * Keep additional keys in `ids`
+     or in the preceding target elements?
+
+``level``
+=========
+
+Attribute type: number_.  Default value: none.
+
+The ``level`` attribute is used in the system_message_ element.
+
+``morecols``
+============
+
+Attribute type: number_.  Default value: none.
+
+The ``morecols`` attribute is used in the table_ element.
+
+``names``
+=========
+
+Attribute type: `refnames.type`_.  Default value: none.
+
+The ``names`` attribute is a space-separated list containing
+`normalized`_ `reference names`_ of an element. Whitespace inside a
+name is backslash escaped.
+Each name in the list must be unique; if there are name conflicts
+(two or more elements want to the same name), the contents will be
+transferred to the `dupnames`_ attribute on the duplicate elements.
+An element may have at most one of the ``names`` or ``dupnames``
+attributes, but not both.
+
+`Reference names`_ are identifiers assigned in the markup. They
+originate from `internal hyperlink targets`_, a directive's `name
+option`_, or the element's title or content and are used for
+internal cross-references (cf. refname_).
+
+``names`` is one of the `common attributes`_, shared by all
+Docutils elements.
+
+.. _normalized:
+   rst/restructuredtext.html#normalized-reference-names
+.. _internal hyperlink targets:
+   rst/restructuredtext.html#internal-hyperlink-targets
+.. _name option: rst/directives.html#name
+
+
+``prefix``
+==========
+
+Attribute type: `CDATA`_.  Default value: none.
+
+The ``prefix`` attribute is used in the enumerated_list_ element.
+
+
+``refid``
+=========
+
+Attribute type: `idref.type`_.  Default value: none.
+
+The ``refid`` attribute contains a reference to an `identifier key`_
+
+``refid`` is used by the target_, reference_, footnote_reference_,
+citation_reference_, title_ and problematic_ elements (via the
+`%refid.att;`_ and `%reference.atts;`_ parameter entities).
+
+
+``refname``
+===========
+
+Attribute type: `refname.type`_.  Default value: none.
+
+The ``refname`` attribute contains a reference to one of the
+`reference names`_ in the `names`_ attribute of another element.  On
+a `target`_ element, ``refname`` indicates an `indirect target`_ which
+may resolve to either an internal or external reference.  Docutils
+"transforms_" replace the ``refname`` attribute with a refid_ pointing
+to the same element.
+
+``refname`` is used by the target_, reference_, footnote_reference_,
+citation_reference_, and substitution_reference_ elements (via the
+`%refname.att;`_ and `%reference.atts;`_ parameter entities).
+
+.. _indirect target: rst/restructuredtext.html#indirect-hyperlink-targets
+.. _transforms: api/.html
+
+
+``refuri``
+==========
+
+Attribute type: `CDATA`_.  Default value: none.
+
+The ``refuri`` attribute contains an external reference to a URI/URL.
+It is used by the target_, reference_, footnote_reference_, and
+citation_reference_ elements (via the `%reference.atts;`_ parameter
+entity).
+
+
+``scale``
+==========
+
+Attribute type: number_.  Default value: none.
+
+The ``scale`` attribute is used in the image_ element.
+
+
+``source``
+==========
+
+Attribute type: `CDATA`_.  Default value: none.
+
+The ``source`` attribute is used to store the path or URL to the
+source text that was used to produce the document tree.  It is one of
+the `common attributes`_, declared for all Docutils elements.
+
+
+``start``
+=========
+
+Attribute type: `number`_.  Default value: none.
+
+The ``start`` attribute is used in the enumerated_list_ element.
+
+
+``stub``
+=========
+
+Attribute type: `yesorno`_.  Default value: none.
+
+The ``stub`` attribute is used in the colspec_ element.
+It marks a table column containing "stubs" (row titles, on the left).
+See also the csv-table_ and list-table_ directives.
+
+``suffix``
+==========
+
+Attribute type: `CDATA`_.  Default value: none.
+
+The ``suffix`` attribute is used in the enumerated_list_ element.
+
+
+.. _title attribute:
+
+``title``
+=========
+
+Attribute type: `CDATA`_.  Default value: none.
+
+The ``title`` attribute stores the title metadata of a document_.  This
+title is typically not part of the rendered document.  It may for
+example be used in HTML's ``title`` element.
+
+
+``width``
+==========
+
+Attribute type: measure_.  Default value: none.
+
+The ``width`` attribute is used in the figure_, image_, and table_ element.
+
+
+``xml:space``
+=============
+
+`Attribute type`: `EnumeratedType`_, one of "default" or "preserve".
+Default value: "preserve" (fixed).
+
+The ``xml:space`` attribute is a standard XML attribute for
+whitespace-preserving elements.  It is used by the literal_block_,
+line_block_, doctest_block_, comment_, and raw_ elements (via the
+`%fixedspace.att;`_ parameter entity).  It is a fixed attribute, meant
+to communicate to an XML parser that the element contains significant
+whitespace.  The attribute value should not be set in a document
+instance.
+
+
+----------------------------
+ Parameter Entity Reference
+----------------------------
+
+.. contents:: :local:
+              :depth: 1
+
+Parameter entities are used to simplify the DTD (to share definitions
+and reduce duplication) and to allow the DTD to be customized by
+wrapper DTDs (external client DTDs that use or import the Docutils
+DTD).  Parameter entities may be overridden by wrapper DTDs, replacing
+the definitions below with custom definitions.  Parameter entities
+whose names begin with "additional" are meant to allow easy extension
+by wrapper DTDs.
+
+``%align-h.att;``
+=================
+
+The ``%align-h.att;`` parameter entity contains the align_
+attribute for horizontal alignment.
+
+Entity definition::
+
+    align     (left | center | right) #IMPLIED
+
+The figure_ and table_ elements directly employ the
+``%align-h.att;`` parameter entity in their attribute lists.
+
+``%align-hv.att;``
+==================
+
+The ``%align-hv.att;`` parameter entity contains the align_
+attribute for horizontal and vertical alignment.
+
+Entity definition::
+
+    align     (top | middle | bottom | left | center | right) #IMPLIED
+
+The image_ element directly employs the ``%align-hv.att;`` parameter
+entity in its attribute list.
+
+``%anonymous.att;``
+===================
+
+The ``%anonymous.att;`` parameter entity contains the anonymous_
+attribute, used for unnamed hyperlinks.
+
+Entity definition::
+
+    anonymous %yesorno; #IMPLIED
+
+The reference_ and target_ elements directly employ the
+``%anonymous.att;`` parameter entity in their attribute lists.
+
+
+``%auto.att;``
+==============
+
+The ``%auto.att;`` parameter entity contains the auto_ attribute, used
+to indicate an automatically-numbered footnote or title.
+
+Entity definition::
+
+    auto     CDATA     #IMPLIED
+
+The footnote_, footnote_reference_, and title_ elements directly
+employ the ``%auto.att;`` parameter entity in their attribute lists.
+
+
+``%backrefs.att;``
+==================
+
+The ``%backrefs.att;`` parameter entity contains the backrefs_
+attribute, a space-separated list of id references, for backlinks.
+
+Entity definition::
+
+    backrefs_  %idrefs.type;    #IMPLIED
+
+The citation_, footnote_, and system_message_ elements directly employ
+the ``%backrefs.att;`` parameter entity in their attribute lists.
+
+
+``%basic.atts;``
+================
+
+The ``%basic.atts;`` parameter entity lists the `common attributes`_.
+
+Entity definition:
+
+.. parsed-literal::
+
+    ids_      NMTOKENS  #IMPLIED
+    names_    CDATA     #IMPLIED
+    dupnames_ CDATA     #IMPLIED
+    source_   CDATA     #IMPLIED
+    classes_  NMTOKENS  #IMPLIED
+    %additional.basic.atts;
+
+The ``%additional.basic.atts;`` parameter entity can be used by
+wrapper DTDs to extend ``%basic.atts;``.
+
+
+``%bibliographic.elements;``
+============================
+
+The ``%bibliographic.elements;`` parameter entity contains an OR-list of all
+`bibliographic elements`_.
+
+Entity definition:
+
+.. parsed-literal::
+
+    author_ | authors_ | organization_ | contact_ | address_
+    | version_ | revision_ | status_ | date_ | copyright_
+    | field_
+    %additional.bibliographic.elements;
+
+The ``%additional.bibliographic.elements;`` parameter entity can be used by
+wrapper DTDs to extend ``%bibliographic.elements;``.
+
+Only the docinfo_ element directly employs the
+``%bibliographic.elements;`` parameter entity in its content model.
+
+
+``%body.elements;``
+===================
+
+The ``%body.elements;`` parameter entity contains an OR-list of all
+`body elements`_.  ``%body.elements;`` is itself contained within the
+`%structure.model;`_ parameter entity.
+
+Entity definition:
+
+.. parsed-literal::
+
+    admonition_ | attention_ | block_quote_ | bullet_list_ | caution_
+    | citation_ | compound_ | comment_ | container_ | danger_
+    | definition_list_ | doctest_block_ | enumerated_list_ | error_
+    | field_list_ | figure_ | footnote_ | hint_ | image_ | important_
+    | line_block_ | literal_block_ | note_ | option_list_
+    | paragraph_ | pending_ | raw_ reference_ | rubric_
+    | substitution_definition_ | system_message_ | table_ | target_
+    | tip_ | warning_ %additional.body.elements;
+
+The ``%additional.body.elements;`` parameter entity can be used by
+wrapper DTDs to extend ``%body.elements;``.
+
+The ``%body.elements;`` parameter entity is directly employed in the
+content models of the following elements: admonition_, attention_,
+block_quote_, caution_, citation_, compound_, danger_, definition_,
+description_, entry_, error_, field_body_, footer_, footnote_,
+header_, hint_, important_, legend_, list_item_, note_, sidebar_,
+system_message_, tip_, topic_, warning_
+
+Via `%structure.model;`_, the ``%body.elements;`` parameter entity is
+indirectly employed in the content models of the document_ and
+section_ elements.
+
+
+``%fixedspace.att;``
+====================
+
+The ``%fixedspace.att;`` parameter entity contains the `xml:space`_
+attribute, a standard XML attribute for whitespace-preserving
+elements.
+
+Entity definition:
+
+.. parsed-literal::
+
+    `xml:space`_ (default | preserve) #FIXED 'preserve'
+
+The ``%fixedspace.att;`` parameter entity is directly employed in the
+attribute lists of the following elements: address_, comment_,
+doctest_block_, line_block_, literal_block_, raw_
+
+
+``%inline.elements;``
+=====================
+
+The ``%inline.elements;`` parameter entity contains an OR-list of all
+`inline elements`_.
+
+Entity definition:
+
+.. parsed-literal::
+
+    abbreviation_ | acronym_ | citation_reference_ | emphasis_
+    | footnote_reference_ | generated_ | image_ | inline_ | literal_
+    | problematic_ | raw_ | reference_ | strong_ | substitution_reference_
+    | subscript_ | superscript_ | target_ | title_reference_
+    %additional.inline.elements;
+
+The ``%additional.inline.elements;`` parameter entity can be used by
+wrapper DTDs to extend ``%inline.elements;``.
+
+Via `%text.model;`_, the ``%inline.elements;`` parameter entity is
+indirectly employed in the content models of the following elements:
+abbreviation_, acronym_, address_, attribution_, author_, caption_,
+classifier_, contact_, copyright_, date_, doctest_block_, emphasis_,
+generated_, inline_, line_block_, literal_block_, math_, math_block_,
+organization_,
+paragraph_, problematic_, raw_, reference_, revision_, rubric_,
+status_, strong_, subscript_, substitution_definition_,
+substitution_reference_, subtitle_, superscript_, target_, term_,
+title_, title_reference_, version_
+
+
+``%reference.atts;``
+====================
+
+The ``%reference.atts;`` parameter entity groups together the refuri_,
+refid_, and refname_ attributes.
+
+Entity definition:
+
+.. parsed-literal::
+
+    `%refuri.att;`_
+    `%refid.att;`_
+    `%refname.att;`_
+    %additional.reference.atts;
+
+The ``%additional.reference.atts;`` parameter entity can be used by
+wrapper DTDs to extend ``%additional.reference.atts;``.
+
+The citation_reference_, footnote_reference_, reference_, and target_
+elements directly employ the ``%reference.att;`` parameter entity in
+their attribute lists.
+
+
+``%refid.att;``
+================
+
+The ``%refid.att;`` parameter entity contains the refid_ attribute, an
+internal reference to the `ids`_ attribute of another element.
+
+Entity definition:
+
+.. parsed-literal::
+
+    refid_   %idref.type;    #IMPLIED
+
+The title_ and problematic_ elements directly employ the
+``%refid.att;`` parameter entity in their attribute lists.
+
+Via `%reference.atts;`_, the ``%refid.att;`` parameter entity is
+indirectly employed in the attribute lists of the citation_reference_,
+footnote_reference_, reference_, and target_ elements.
+
+
+``%refname.att;``
+=================
+
+The ``%refname.att;`` parameter entity contains the refname_
+attribute, an internal reference to the `names`_ attribute of another
+element.  On a `target`_ element, ``refname`` indicates an indirect
+target which may resolve to either an internal or external
+reference.
+
+Entity definition:
+
+.. parsed-literal::
+
+    refname_  %refname.type;  #IMPLIED
+
+The substitution_reference_ element directly employs the
+``%refname.att;`` parameter entity in its attribute list.
+
+Via `%reference.atts;`_, the ``%refname.att;`` parameter entity is
+indirectly employed in the attribute lists of the citation_reference_,
+footnote_reference_, reference_, and target_ elements.
+
+
+``%refuri.att;``
+================
+
+The ``%refuri.att;`` parameter entity contains the refuri_ attribute,
+an external reference to a URI/URL.
+
+Entity definition:
+
+.. parsed-literal::
+
+    refuri_   CDATA     #IMPLIED
+
+Via `%reference.atts;`_, the ``%refuri.att;`` parameter entity is
+indirectly employed in the attribute lists of the citation_reference_,
+footnote_reference_, reference_, and target_ elements.
+
+
+``%section.elements;``
+======================
+
+The ``%section.elements;`` parameter entity contains an OR-list of all
+section_-equivalent elements.  ``%section.elements;`` is itself
+contained within the `%structure.model;`_ parameter entity.
+
+Entity definition:
+
+.. parsed-literal::
+
+    section_
+    %additional.section.elements;
+
+The ``%additional.section.elements;`` parameter entity can be used
+by wrapper DTDs to extend ``%section.elements;``.
+
+Via `%structure.model;`_, the ``%section.elements;`` parameter entity
+is indirectly employed in the content models of the document_ and
+section_ elements.
+
+
+``%structure.model;``
+=====================
+
+The ``%structure.model;`` parameter entity encapsulates the
+hierarchical structure of a document and of its constituent parts.
+See the discussion of the `element hierarchy`_ above.
+
+Entity definition:
+
+.. parsed-literal::
+
+   ( ( (`%body.elements;`_ | topic_ | sidebar_)+, transition_? )*,
+     ( (`%section.elements;`_), (transition_?, (`%section.elements;`_) )* )? )
+
+Each document_ or section_ contains zero or more body elements,
+topics, and/or sidebars, optionally interspersed with single
+transitions, followed by zero or more sections (whose contents are
+recursively the same as this model) optionally interspersed with
+transitions.
+
+The following restrictions are imposed by this model:
+
+* Transitions must be separated by other elements (body elements,
+  sections, etc.).  In other words, a transition may not be
+  immediately adjacent to another transition.
+
+* A transition may not occur at the beginning of a document or
+  section.
+
+.. The following is not the case with Docutils (since at least 2004)
+   (cf. test/functional/input/data/standard.txt)
+
+   An additional restriction, which cannot be expressed in the language
+   of DTDs, is imposed by software:
+
+   * A transition may not occur at the end of a document or section.
+
+The `%structure.model;`_ parameter entity is directly employed in the
+content models of the document_ and section_ elements.
+
+
+``%text.model;``
+================
+
+The ``%text.model;`` parameter entity is used by many elements to
+represent text data mixed with `inline elements`_.
+
+Entity definition:
+
+.. parsed-literal::
+
+    (#PCDATA | `%inline.elements;`_)*
+
+The ``%text.model;`` parameter entity is directly employed in the
+content models of the following elements: abbreviation_, acronym_,
+address_, author_, caption_, classifier_, contact_, copyright_, date_,
+doctest_block_, emphasis_, field_name_, generated_, line_block_,
+literal_block_, organization_, paragraph_, problematic_, raw_,
+reference_, revision_, status_, strong_, substitution_definition_,
+substitution_reference_, subtitle_, target_, term_, title_, version_
+
+
+
+..
+   Local Variables:
+   mode: indented-text
+   indent-tabs-mode: nil
+   sentence-end-double-space: t
+   fill-column: 70
+   End:

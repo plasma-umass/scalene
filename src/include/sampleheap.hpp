@@ -21,15 +21,15 @@
 // We're unable to use the limited API because, for example,
 // there doesn't seem to be a function returning co_filename
 //#define Py_LIMITED_API 0x03070000
-#include <execinfo.h>
 
 #include "common.hpp"
 #include "mallocrecursionguard.hpp"
+#include "poissonsampler.hpp"
 #include "printf.h"
 #include "pywhere.hpp"
 #include "samplefile.hpp"
-#include "sampleinterval.hpp"
 #include "scaleneheader.hpp"
+#include "thresholdsampler.hpp"
 
 static SampleFile& getSampleFile() {
   static SampleFile mallocSampleFile("/tmp/scalene-malloc-signal%d",
@@ -147,7 +147,6 @@ class SampleHeap : public SuperHeap {
                               bool inPythonAllocator = true) {
     assert(realSize);
     // If this is the special NEWLINE value, trigger an update.
-    // printf("uwu %p\n", &in_realloc);
     if (unlikely(realSize == NEWLINE)) {
       std::string filename;
       int lineno;
@@ -159,14 +158,16 @@ class SampleHeap : public SuperHeap {
       mallocTriggered()++;
       return;
     }
-    auto sampleMalloc = _allocationSampler.increment(realSize);
+    size_t sampleMallocSize;
+    auto sampleMalloc =
+        _allocationSampler.increment(realSize, ptr, sampleMallocSize);
     if (inPythonAllocator) {
       _pythonCount += realSize;
     } else {
       _cCount += realSize;
     }
     if (unlikely(sampleMalloc)) {
-      process_malloc(sampleMalloc, ptr);
+      process_malloc(sampleMallocSize, ptr);
     }
   }
 
@@ -204,13 +205,15 @@ class SampleHeap : public SuperHeap {
   }
 
   inline void register_free(size_t realSize, void* ptr) {
-    auto sampleFree = _allocationSampler.decrement(realSize);
+    size_t sampleFreeSize;
+    auto sampleFree =
+        _allocationSampler.decrement(realSize, ptr, sampleFreeSize);
 
     if (unlikely(ptr && (ptr == _lastMallocTrigger))) {
       _freedLastMallocTrigger = true;
     }
     if (unlikely(sampleFree)) {
-      process_free(sampleFree);
+      process_free(sampleFreeSize);
     }
   }
 
@@ -244,7 +247,8 @@ class SampleHeap : public SuperHeap {
     if (pythonDetected() && !g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       assert(realSize >= sz);
-      assert((sz < 16) || (realSize <= 2 * sz));
+      // EDB 4 June 2023, disabled below, possibly spurious assertion
+      // assert((sz < 16) || (realSize <= 2 * sz));
       register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
     }
     return ptr;
@@ -269,7 +273,14 @@ class SampleHeap : public SuperHeap {
 
   void* _lastMallocTrigger;
   bool _freedLastMallocTrigger;
-  SampleInterval _allocationSampler;
+#if 0
+  typedef PoissonSampler Sampler;
+#warning "Experimental use only: Poisson sampler"
+#else
+  typedef ThresholdSampler Sampler;
+#endif
+
+  Sampler _allocationSampler;
 
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;

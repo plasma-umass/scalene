@@ -1,4 +1,6 @@
 #pragma once
+#include <unistd.h>
+
 #include <random>
 
 /**
@@ -7,13 +9,16 @@
  *
  */
 
-class SampleInterval {
+#define PRINT_STATS 0
+
+class ThresholdSampler {
  public:
   /**
-   * @brief Construct a new SampleInterval object
+   * @brief Construct a new ThresholdSampler object
    *
    */
-  SampleInterval(uint64_t SAMPLE_INTERVAL) : _sampleInterval(SAMPLE_INTERVAL) {
+  ThresholdSampler(uint64_t SAMPLE_INTERVAL)
+      : _sampleInterval(SAMPLE_INTERVAL), allocs(0), frees(0) {
     reset();
   }
 
@@ -22,16 +27,21 @@ class SampleInterval {
    * cross the threshold
    *
    * @param sample the amount to decrement the sample interval by
-   * @return uint64_t the previous sample interval if we crossed it; 0 otherwise
+   * @return bool true iff sampled
    */
-  inline uint64_t decrement(uint64_t sample) {
+  inline bool decrement(uint64_t sample, void*, size_t& ret) {
     _decrements += sample;
     if (unlikely(_decrements >= _increments + _sampleInterval)) {
-      auto ret = _decrements - _increments;
+#if PRINT_STATS
+      printf_("[%d] DEALLOC DECREMENT: %lu, %lu -> %lu\n", getpid(),
+              _decrements, _increments, _decrements - _increments);
+#endif
+      ret = _decrements - _increments;
       reset();
-      return ret;
+      frees += ret;
+      return true;
     }
-    return 0;
+    return false;
   }
 
   /**
@@ -39,22 +49,30 @@ class SampleInterval {
    * cross the threshold
    *
    * @param sample the amount to decrement the sample interval by
-   * @return uint64_t the previous sample interval if we crossed it; 0 otherwise
+   * @return bool true iff sampled
    */
-  inline uint64_t increment(uint64_t sample) {
+  inline bool increment(uint64_t sample, void*, size_t& ret) {
     _increments += sample;
     if (unlikely(_increments >= _decrements + _sampleInterval)) {
-      auto ret = _increments - _decrements;
+      ret = _increments - _decrements;
+#if PRINT_STATS
+      printf_("[%d] ALLOC INCREMENT: %lu, %lu -> %lu\n", getpid(), _decrements,
+              _increments, _increments - _decrements);
+#endif
       reset();
-      return ret;
+      allocs += ret;
+      return true;
     }
-    return 0;
+    return false;
   }
 
  private:
   void reset() {
     _increments = 0;
     _decrements = 0;
+#if PRINT_STATS
+    printf_("FOOTPRINT = %lu\n", allocs - frees);
+#endif
   }
 
   const uint64_t _sampleInterval;  /// the current sample interval
@@ -62,4 +80,6 @@ class SampleInterval {
                          /// interval reset
   uint64_t _decrements;  /// the number of decrements since the last sample
                          /// interval reset
+  uint64_t allocs;
+  uint64_t frees;
 };

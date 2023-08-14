@@ -1,12 +1,12 @@
 ![scalene](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-image.png)
 
-# Scalene: a high-performance CPU, GPU and memory profiler for Python
+# Scalene: a Python CPU+GPU+memory profiler with AI-powered optimization proposals
 
 by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), and [Juan Altmayer Pizzorno](https://github.com/jaltmayerpizzorno).
 
 [![Scalene community Slack](https://github.com/plasma-umass/scalene/raw/master/docs/images/slack-logo.png)](https://join.slack.com/t/scaleneprofil-jge3234/shared_invite/zt-110vzrdck-xJh5d4gHnp5vKXIjYD3Uwg)[Scalene community Slack](https://join.slack.com/t/scaleneprofil-jge3234/shared_invite/zt-110vzrdck-xJh5d4gHnp5vKXIjYD3Uwg)
 
-[![PyPI Latest Release](https://img.shields.io/pypi/v/scalene.svg)](https://pypi.org/project/scalene/)[![Anaconda-Server Badge](https://anaconda.org/conda-forge/scalene/badges/version.svg)](https://conda.anaconda.org/conda-forge/scalene)[![Downloads](https://pepy.tech/badge/scalene)](https://pepy.tech/project/scalene) [![Downloads](https://pepy.tech/badge/scalene/month)](https://pepy.tech/project/scalene) ![Python versions](https://img.shields.io/pypi/pyversions/scalene.svg?style=flat-square) ![License](https://img.shields.io/github/license/plasma-umass/scalene) [![Twitter Follow](https://img.shields.io/twitter/follow/emeryberger.svg?style=social)](https://twitter.com/emeryberger)
+[![PyPI Latest Release](https://img.shields.io/pypi/v/scalene.svg)](https://pypi.org/project/scalene/)[![Anaconda-Server Badge](https://anaconda.org/conda-forge/scalene/badges/version.svg)](https://anaconda.org/conda-forge/scalene)[![Downloads](https://pepy.tech/badge/scalene)](https://pepy.tech/project/scalene) [![Downloads](https://pepy.tech/badge/scalene/month)](https://pepy.tech/project/scalene) ![Python versions](https://img.shields.io/pypi/pyversions/scalene.svg?style=flat-square) ![License](https://img.shields.io/github/license/plasma-umass/scalene)
 
 ![Ozsvald tweet](https://github.com/plasma-umass/scalene/raw/master/docs/Ozsvald-tweet.png)
 
@@ -16,8 +16,23 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 
 ## About Scalene
 
-Scalene is a high-performance CPU, GPU *and* memory profiler for Python that does a number of things that other Python profilers do not and cannot do.  It runs orders of magnitude faster than other profilers while delivering far more detailed information.
+Scalene is a high-performance CPU, GPU *and* memory profiler for
+Python that does a number of things that other Python profilers do not
+and cannot do.  It runs orders of magnitude faster than many other
+profilers while delivering far more detailed information. It is also
+the first profiler ever to incorporate AI-powered proposed
+optimizations. To enable these, you need to enter an [OpenAI
+key](https://openai.com/api/):
 
+<img width="487" alt="Scalene advanced options" src="https://user-images.githubusercontent.com/1612723/211639253-ec926b38-3efe-4a20-8514-e10dde94ec01.png">
+
+Once a valid key is entered, click on the lightning bolt (⚡) beside any line or the explosion (💥) for an entire region of code to generate a proposed optimization.
+Click on a proposed optimization to copy it to the clipboard.
+
+<img width="571" alt="example proposed optimization" src="https://user-images.githubusercontent.com/1612723/211639968-37cf793f-3290-43d1-9282-79e579558388.png">
+
+You can click as many times as you like on the lightning bolt or explosion, and it will generate different suggested optimizations. Your mileage may vary, but in some cases, the suggestions are quite impressive (e.g., order-of-magnitude improvements). 
+  
 ### Quick Start
 
 #### Installing Scalene:
@@ -34,20 +49,36 @@ conda install -c conda-forge scalene
 
 #### Using Scalene:
 
+<details>
+<summary>
 Commonly used options:
+</summary>
 
 ```console
 scalene your_prog.py                             # full profile (outputs to web interface)
 python3 -m scalene your_prog.py                  # equivalent alternative
+
 scalene --cli your_prog.py                       # use the command-line only (no web interface)
-scalene --cpu-only your_prog.py                  # only CPU/GPU
+
+scalene --cpu your_prog.py                       # only profile CPU
+scalene --cpu --gpu your_prog.py                 # only profile CPU and GPU
+scalene --cpu --gpu --memory your_prog.py        # profile everything (same as no options)
+
 scalene --reduced-profile your_prog.py           # only profile lines with significant usage
 scalene --profile-interval 5.0 your_prog.py      # output a new profile every five seconds
+
 scalene (Scalene options) --- your_prog.py (...) # use --- to tell Scalene to ignore options after that point
 scalene --help                                   # lists all options
 ```
 
-To use Scalene programmatically in your code, invoke using `scalene` as above and then:
+</details>
+
+<details>
+<summary>
+Using Scalene programmatically in your code:
+</summary>
+
+Invoke using `scalene` as above and then:
 
 ```Python
 from scalene import scalene_profiler
@@ -59,20 +90,35 @@ scalene_profiler.start()
 scalene_profiler.stop()
 ```
 
-To use Scalene to profile specific functions, just use the `@profile` decorator and run it with Scalene:
+</details>
+
+<details>
+<summary>
+Using Scalene to profile only specific functions via <code>@profile</code>:
+</summary>
+
+Just preface any functions you want to profile with the `@profile` decorator and run it with Scalene:
 
 ```Python
+# do not import profile!
+
 @profile
 def slow_function():
     import time
     time.sleep(3)
 ```
 
+</details>
+
 #### Web-based GUI
 
 Scalene has both a CLI and a web-based GUI [(demo here)](http://plasma-umass.org/scalene-gui/).
 
-Once Scalene has profiled your program, it will launch a web browser with an interactive user interface (all processing is done locally). Hover over bars to see breakdowns of CPU and memory consumption, and click on underlined column headers to sort the columns.
+By default, once Scalene has profiled your program, it will open a
+tab in a web browser with an interactive user interface (all processing is done
+locally). Hover over bars to see breakdowns of CPU and memory
+consumption, and click on underlined column headers to sort the
+columns. The generated file `profile.html` is self-contained and can be saved for later use.
 
 [![Scalene web GUI](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example.png)](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example-full.png)
 
@@ -164,7 +210,7 @@ it `--profile-all` and only include files with at least a
 * **"timeline / %"**: Visualized by "sparklines", memory consumption generated by this line over the program runtime, and the percentages of total memory activity this line represents.
 * **"Copy (MB/s)"**: The amount of megabytes being copied per second (see "About Scalene").
 
-## Using Scalene
+##  Scalene
 
 The following command runs Scalene on a provided example program.
 
@@ -265,10 +311,10 @@ code...
 
 ## Installation
 
-<details open>
+<details>
 <summary>Using <code>pip</code> (Mac OS X, Linux, Windows, and WSL2)</summary>
 
-Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows version isn't yet complete; it currently only supports CPU profiling.)
+Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows version isn't yet complete; it currently only supports CPU and GPU profiling, but not memory profiling.)
 
 You can install it as follows:
 ```console
@@ -314,7 +360,21 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 
 # Asked Questions
 
-**Q: Is there any way to get shorter profiles or do more targeted profiling?**
+<details>
+<summary>
+Can I use Scalene with PyTest?
+</summary>
+
+**A:** Yes! You can run it as follows (for example):
+
+`python3 -m scalene --- -m pytest your_test.py` 
+
+</details>
+
+<details>
+<summary>
+Is there any way to get shorter profiles or do more targeted profiling?
+</summary>
 
 **A:** Yes! There are several options:
 
@@ -322,22 +382,35 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 2. Use `--profile-only` to include only filenames containing specific strings (as in, `--profile-only foo,bar,baz`).
 3. Decorate functions of interest with `@profile` to have Scalene report _only_ those functions.
 4. Turn profiling on and off programmatically by importing Scalene (`import scalene`) and then turning profiling on and off via `scalene_profiler.start()` and `scalene_profiler.stop()`. By default, Scalene runs with profiling on, so to delay profiling until desired, use the `--off` command-line option (`python3 -m scalene --off yourprogram.py`).
+</details>
 
-**Q: How do I run Scalene in PyCharm?**
+<details>
+<summary>
+How do I run Scalene in PyCharm?
+</summary>
 
 **A:**  In PyCharm, you can run Scalene at the command line by opening the terminal at the bottom of the IDE and running a Scalene command (e.g., `python -m scalene <your program>`). Use the options `--cli`, `--html`, and `--outfile <your output.html>` to generate an HTML file that you can then view in the IDE.
+</details>
 
-**Q: How do I use Scalene with Django?**
+<details>
+<summary>
+How do I use Scalene with Django?
+</summary>
 
 **A:** Pass in the `--noreload` option (see https://github.com/plasma-umass/scalene/issues/178).
+</details>
 
-**Q: How do I use Scalene with PyTorch on the Mac?**
+<details>
+<summary>
+How do I use Scalene with PyTorch on the Mac?
+</summary>
 
 **A:** Scalene works with PyTorch version 1.5.1 on Mac OS X. There's a bug in newer versions of PyTorch (https://github.com/pytorch/pytorch/issues/57185) that interferes with Scalene (discussion here: https://github.com/plasma-umass/scalene/issues/110), but only on Macs.
+</details>
 
 # Technical Information
 
-For technical details on Scalene, please see the following paper: [Scalene: Scripting-Language Aware Profiling for Python](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-paper.pdf) ([arXiv link](https://arxiv.org/abs/2006.03879)).
+For details about how Scalene works, please see the following paper, which won the Jay Lepreau Best Paper Award at [OSDI 2023](https://www.usenix.org/conference/osdi23/presentation/berger): [Triangulating Python Performance Issues with Scalene](https://arxiv.org/pdf/2212.07597). (Note that this paper does not include information about the AI-driven proposed optimizations.)
 
 # Success Stories
 

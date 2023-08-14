@@ -16,24 +16,33 @@ class ScaleneGPU:
         self.__has_per_pid_accounting = False
         with contextlib.suppress(Exception):
             pynvml.nvmlInit()
-            # If we make it here, we have an NVIDIA GPU.
-            self.__has_gpu = True
+            # Try to actually get utilization and memory usage.
+            # If this fails, we disable GPU profiling.
             self.__ngpus = pynvml.nvmlDeviceGetCount()
             for i in range(self.__ngpus):
                 handle = pynvml.nvmlDeviceGetHandleByIndex(i)
                 self.__handle.append(handle)
-            self.__has_per_pid_accounting = self.set_accounting_mode()
+            self.__has_per_pid_accounting = self._set_accounting_mode()
+            self.gpu_utilization(self.__pid)
+            self.gpu_memory_usage(self.__pid)
+            # If we make it this far, everything is working, so we can profile GPU usage.
+            # Handle the case when GPUs are disabled. See https://github.com/plasma-umass/scalene/issues/536.
+            self.__has_gpu = self.__ngpus > 0
+
+    def disable(self) -> None:
+        """Turn off GPU accounting."""
+        self.__has_gpu = False
 
     def __del__(self) -> None:
-        if self.__has_gpu and not self.__has_per_pid_accounting:
+        if self.has_gpu() and not self.__has_per_pid_accounting:
             print(
                 "NOTE: The GPU is currently running in a mode that can reduce Scalene's accuracy when reporting GPU utilization."
             )
             print(
-                "Run once as root (i.e., prefixed with `sudo`) to enable per-process GPU accounting."
+                "Run once as Administrator or root (i.e., prefixed with `sudo`) to enable per-process GPU accounting."
             )
 
-    def set_accounting_mode(self) -> bool:
+    def _set_accounting_mode(self) -> bool:
         """Returns true iff the accounting mode was set already for all GPUs or is now set."""
         ngpus = self.__ngpus
 
@@ -61,8 +70,9 @@ class ScaleneGPU:
 
     def gpu_utilization(self, pid: int) -> float:
         """Return overall GPU utilization by pid if possible.
-
         Otherwise, returns aggregate utilization across all running processes."""
+        if not self.has_gpu():
+            return 0
         ngpus = self.__ngpus
         accounting_on = self.__has_per_pid_accounting
         utilization = 0
@@ -74,7 +84,11 @@ class ScaleneGPU:
                         h, pid
                     ).gpuUtilization
             else:
-                utilization += pynvml.nvmlDeviceGetUtilizationRates(h).gpu
+                try:
+                    utilization += pynvml.nvmlDeviceGetUtilizationRates(h).gpu
+                except pynvml.nvml.NVMLError_Unknown:
+                    # Silently ignore NVML errors. "Fixes" https://github.com/plasma-umass/scalene/issues/471.
+                    pass
         return (utilization / ngpus) / 100.0
 
     def has_gpu(self) -> bool:
@@ -83,6 +97,8 @@ class ScaleneGPU:
 
     def nvml_reinit(self) -> None:
         """Reinitialize the nvidia wrapper."""
+        if not self.has_gpu():
+            return
         self.__handle = []
         with contextlib.suppress(Exception):
             pynvml.nvmlInit()
@@ -95,17 +111,22 @@ class ScaleneGPU:
     def gpu_memory_usage(self, pid: int) -> float:
         """Returns GPU memory used by the process pid, in MB."""
         # Adapted from https://github.com/gpuopenanalytics/pynvml/issues/21#issuecomment-678808658
+        if not self.has_gpu():
+            return 0
         total_used_GPU_memory = 0
         for i in range(self.__ngpus):
             handle = self.__handle[i]
             for proc in pynvml.nvmlDeviceGetComputeRunningProcesses(handle):
-                if proc.pid == pid:
+                # Only accumulate memory stats for the current pid.
+                if proc.usedGpuMemory and proc.pid == pid:
+                    # First check is to protect against return of None
+                    # from incompatible NVIDIA drivers.
                     total_used_GPU_memory += proc.usedGpuMemory / 1048576
         return total_used_GPU_memory
 
     def get_stats(self) -> Tuple[float, float]:
         """Returns a tuple of (utilization %, memory in use)."""
-        if self.__has_gpu:
+        if self.has_gpu():
             total_load = self.gpu_utilization(self.__pid)
             mem_used = self.gpu_memory_usage(self.__pid)
             return (total_load, mem_used)

@@ -1,0 +1,168 @@
+==============================
+ manpage writer for Docutils_
+==============================
+
+:Author: Engelbert Gruber
+:Contact: docutils-develop@lists.sourceforge.net
+:Revision: $Revision$
+:Date: $Date$
+:Copyright: This document has been placed in the public domain.
+
+This writer explores the possibilities to generate man-pages from
+reStructuredText. Man pages are the way for Unix systems to provide
+help to the user. GNU does this with (TeX)info-pages.
+
+.. contents::
+
+
+Module information
+''''''''''''''''''
+
+Unix man page belong into a numbered section, 1 is user commands, 8 contains
+administrator commands, the headlines of all manpages are collected into a
+database, queryable with the program ``apropos``, therefore the headline
+should contain a short text describing into which group this command belongs.
+
+That information is collected from the title, subtitle and docinfo.
+
+Also man pages have a defined set of sections, that are more or less
+mandatory, see References_.
+
+man pages look like::
+
+   man(1)     Man Pager Utils     man(1)
+
+   NAME
+       man - an interface to the on-line reference manuals
+
+   SYNOPSIS
+       man [-c|-w|-tZT device] [-adhu7V] [-m system[,...]] [-L locale]
+
+in roff formatting::
+
+     .TH man 1 "14 May 2001" "2.3.19" "Manual pager utils"
+     .SH NAME
+     man \- an interface to the on-line reference manuals
+     .SH SYNOPSIS
+     .\" The general command line
+     .B man
+     .RB [\| \-c \||\| \-w \||\| \-tZT
+     .IR device \|]
+
+This means we have
+
+* a title "man"
+* a subtitle "an interface to the on-line reference manuals"
+* a manual section "1"
+* a manual group "Manual pager utils"
+* a date "14 May 2001"
+* a version "2.3.19"
+
+References
+''''''''''
+
+man pages from section 7, ``man`` and ``man-pages``.
+
+.. [LMHT] `Linux Man Page Howto <https://tldp.org/HOWTO/Man-Page/>`__.
+
+Conventions
+'''''''''''
+
+* man pages have a special structure and organization. From the manpage
+  to *man*::
+
+    The table below shows the section numbers of the manual followed  by  the
+    types of pages they contain.
+
+    1   Executable programs or shell commands
+    2   System calls (functions provided by the kernel)
+    3   Library calls (functions within program libraries)
+    4   Special files (usually found in /dev)
+    5   File formats and conventions eg /etc/passwd
+    6   Games
+    7   Miscellaneous  (including  macro  packages and conven-
+        tions), e.g. man(7), groff(7)
+    8   System administration commands (usually only for root)
+    9   Kernel routines [Non standard]
+
+    A manual page consists of several parts.
+
+    They  may  be  labelled  NAME,  SYNOPSIS,  DESCRIPTION,  OPTIONS,  FILES,
+    SEE ALSO, BUGS, and AUTHOR.
+
+    The  following  conventions apply to the SYNOPSIS section and can be used
+    as a guide in other sections.
+
+    bold text          type exactly as shown.
+    italic text        replace with appropriate argument.
+    [-abc]             any or all arguments within [ ] are optional.
+    -a|-b              options delimited by | cannot be used together.
+    argument ...       argument is repeatable.
+    [expression] ...   entire expression within [ ] is repeatable.
+
+    The command or function illustration is a pattern that should  match  all
+    possible  invocations.   In some cases it is advisable to illustrate sev-
+    eral exclusive invocations as is shown in the SYNOPSIS  section  of  this
+    manual page.
+
+* new lines in general.
+
+  Consecutive blank lines are merged by the viewer but not on printouts.
+  So one has to be cautious. This is most disturbing when printing
+  postscript.
+
+  .. NOTE::
+
+    1. Roff requests only work when at line start.
+    2. But consecutive blank lines are merged by the viewer but not on
+       printouts.
+
+    So try the rule start new lines in ``visit_``-functions, but only if
+    necessary. E.g. ``field-names`` are already on a new line because of
+    docutils structure.
+
+* Indentation, left margin:
+
+  - The writer includes two macros ``.INDENT`` and ``.UNINDENT`` that
+    keep track of the indentation in roff-code, for line-blocks python
+    keeps track of it. WHAT should be the preferred way ?
+
+    But standard macros like ``.PP`` might reset it.
+
+  - Why do ``.RE`` and ``.RS`` not work?
+
+  .. Note::
+     Current indent is in register ``.i``.
+
+* [LMHT]_ Filenames are always in italics, except in the SYNOPSIS section,
+  use::
+
+    .I /usr/include/stdio.h
+
+  and::
+
+    .B #include <stdio.h>
+
+* Tables are possible, via the external processor tbl, although one should
+  avoid them.
+
+TODO - Open issues
+''''''''''''''''''
+
+* How to escape double quotes in macro arguments ?
+* Typeset URLs : ``man 7 man`` on linux says use ``.UR`` and ``.UE``.
+* How to typeset command/manpage names in text.
+* How to write long syntax lines.
+* Line ends around email or web addresses in texts.
+  How to distinguish something is inline or not ?
+
+* Images and equations are discouraged.
+* Lists in admonitions are not intended.
+* Encoding declaration ``'\" t -*- coding: ISO-8859-1 -*-``
+  in first line.
+
+  BUT if UTF-8 is declared tables are no longer processed.
+
+* Input and output encoding are problematic at least.
+
+.. _Docutils: https://docutils.sourceforge.io/

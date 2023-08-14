@@ -1,0 +1,569 @@
+==========================
+ Docutils Front-End Tools
+==========================
+
+:Author: David Goodger
+:Contact: docutils-develop@lists.sourceforge.net
+:Revision: $Revision$
+:Date: $Date$
+:Copyright: This document has been placed in the public domain.
+
+.. contents::
+
+
+--------------
+ Introduction
+--------------
+
+Once the Docutils package is unpacked, you will discover a ``tools/``
+directory containing several front ends for common Docutils
+processing.
+In addition to the `generic command line front end`_, Docutils has
+many small front ends, each specialized for a specific "Reader" (which
+knows how to interpret a file in context), a "Parser" (which
+understands the syntax of the text), and a "Writer" (which knows how
+to generate a specific data format).
+
+Most [#]_ front ends have common options and the same command-line usage
+pattern (see `the tools`_ below for concrete examples)::
+
+    toolname [options] [<source> [<destination>]]
+
+Each tool has a "``--help``" option which lists the
+`command-line options`_ and arguments it supports.
+Processing can also be customized with `configuration files`_.
+
+The two arguments, "source" and "destination", are optional.  If only
+one argument (source) is specified, the standard output (stdout) is
+used for the destination.  If no arguments are specified, the standard
+input (stdin) is used for the source.
+
+.. note::
+   Docutils front-end tool support is currently under discussion.
+   Tool names, install details and the set of auto-installed tools
+   may change in future Docutils versions.
+
+.. [#] The exceptions are buildhtml.py_ and rst2odt_prepstyles.py_.
+
+Getting Help
+============
+
+First, try the "``--help``" option each front-end tool has.
+
+Command line options and their corresponding configuration file entries
+are detailed in `Docutils Configuration`_.
+
+Users who have questions or need assistance with Docutils or
+reStructuredText should post a message to the Docutils-users_ mailing
+list.
+
+.. _Docutils-users: mailing-lists.html#docutils-users
+
+
+-----------
+ The Tools
+-----------
+
+Generic Command Line Front End
+==============================
+
+:Readers: Standalone, PEP
+:Parsers: reStructuredText, Markdown (requires 3rd party packages)
+:Writers: html_, html4css1_, html5_, latex__, manpage_,
+          odt_, pep_html_, pseudo-xml_, s5_html_, xelatex_, xml_,
+:Config_: See `[docutils application]`_
+
+The generic front end allows combining "reader", "parser", and
+"writer" components from the Docutils package or 3rd party plug-ins.
+
+Since Docutils 0.19, it can be called by Python's ``-m`` option,
+the ``docutils`` script installed in the binary PATH, or the
+``docutils-cli.py`` script in the ``tools/`` directory.
+
+For example, to process a Markdown_ file "``test.md``" into
+Pseudo-XML_ ::
+
+    python3 -m docutils --parser=markdown --writer=pseudoxml\
+      test.md test.txt
+
+Use the "--help" option together with the component-selection options
+to get the correct list of supported command-line options. Example::
+
+    docutils --parser=markdown --writer=xml --help
+
+
+
+__
+.. _latex2e:
+.. _Generating LaTeX with Docutils: latex.html
+.. _manpage: manpage.html
+.. _Markdown: https://www.markdownguide.org/
+.. _[docutils application]: config.html#docutils-application
+
+
+HTML-Generating Tools
+=====================
+
+buildhtml.py
+------------
+
+:Readers: Standalone, PEP
+:Parser: reStructuredText
+:Writers: html_, html5_, pep_html_
+:Config_: `[buildhtml application]`_
+
+Use ``buildhtml.py`` to generate ``*.html`` from all the ``*.txt`` files
+(including PEPs) in each <directory> given, and their subdirectories
+too.  (Use the ``--local`` option to skip subdirectories.)
+
+Usage::
+
+    buildhtml.py [options] [<directory> ...]
+
+After unpacking the Docutils package, the following shell commands
+will generate HTML for all included documentation::
+
+    cd docutils/tools
+    buildhtml.py ..
+
+For official releases, the directory may be called "docutils-X.Y",
+where "X.Y" is the release version.  Alternatively::
+
+    cd docutils
+    tools/buildhtml.py --config=tools/docutils.conf
+
+The current directory (and all subdirectories) is chosen by default if
+no directory is named.  Some files may generate system messages
+(docs/user/rst/demo.txt contains intentional errors); use the
+``--quiet`` option to suppress all warnings.  The ``--config`` option
+ensures that the correct settings are in place (a ``docutils.conf``
+`configuration file`_ in the current directory is picked up
+automatically).  Command-line options may be used to override config
+file settings or replace them altogether.
+
+.. _[buildhtml application]: config.html#buildhtml-application
+.. _configuration file: `configuration files`_
+
+
+rst2html.py
+-----------
+
+:Reader: Standalone
+:Parser: reStructuredText
+:Writer: html_
+
+`rst2html.py` is the front-end for the default Docutils HTML writer.
+The default writer may change with the development of HTML, browsers,
+Docutils, and the web. Currently, it is html4css1_.
+
+.. caution::
+   Use a specific front end like rst2html4.py_ or rst2html5.py_,
+   if you depend on stability of the generated HTML code
+   (e.g., because you use a custom style sheet or post-processing
+   that may break otherwise).
+
+
+rst2html4.py
+------------
+
+:Reader: Standalone
+:Parser: reStructuredText
+:Writer: html4css1_
+
+The ``rst2html4.py`` front end reads standalone reStructuredText source
+files and produces `XHTML 1.0 Transitional`_ output.
+A CSS stylesheet is required for proper rendering; a simple but
+complete stylesheet is installed and used by default (see Stylesheets_
+below).
+
+For example, to process a reStructuredText file "``test.txt``" into
+HTML::
+
+    rst2html.py test.txt test.html
+
+Now open the "``test.html``" file in your favorite browser to see the
+results.  To get a footer with a link to the source file, date & time
+of processing, and links to the Docutils project, add some options::
+
+    rst2html.py -stg test.txt test.html
+
+
+Stylesheets
+```````````
+
+``rst2html.py`` inserts into the generated HTML a cascading stylesheet
+(or a link to a stylesheet, when passing the "``--link-stylesheet``"
+option).  A stylesheet is required for proper rendering.  The default
+stylesheet (``docutils/writers/html4css1/html4css1.css``, located in
+the installation directory) is provided for basic use.  To use
+different stylesheet(s), specify the stylesheets' location(s)
+as comma-separated list with the "``--stylesheet``" (for a URL)
+or "``--stylesheet-path``" (for a local file) command-line option,
+or with `configuration file`_ settings (e.g. ``./docutils.conf``
+or ``~/.docutils``).  To experiment with styles, please see the
+`guide to writing HTML (CSS) stylesheets for Docutils`__.
+
+__ ../howto/html-stylesheets.html
+.. _html4css1: html.html#html4css1
+.. _html: html.html#html
+
+
+rst2html5.py
+------------
+
+:Reader: Standalone
+:Parser: reStructuredText
+:Writer: html5_
+
+The ``rst2html5.py`` front end reads standalone reStructuredText source
+files and produces `HTML 5`_ output.
+Correct rendering of elements not directly supported by HTML depends on a
+CSS style sheet. The provided style sheets ``minimal.css`` and ``plain.css``
+define required and optional styling rules respectively.
+
+.. _html5: html.html#html5-polyglot
+
+rstpep2html.py
+--------------
+
+:Reader: PEP
+:Parser: reStructuredText
+:Writer: pep_html_
+
+``rstpep2html.py`` reads a new-style PEP (marked up with reStructuredText)
+and produces `XHTML 1.0 Transitional`_.  It requires a template file and a
+stylesheet.  By default, it makes use of a "``pep-html-template``" file and
+the "``pep.css``" stylesheet (both in the ``docutils/writers/pep_html/``
+directory), but these can be overridden by command-line options or
+configuration files.
+
+For example, to process a PEP into HTML::
+
+    cd <path-to-docutils>/docs/peps
+    rstpep2html.py pep-0287.txt pep-0287.html
+
+.. _pep_html: html.html#pep-html
+
+rst2s5.py
+---------
+
+:Reader: Standalone
+:Parser: reStructuredText
+:Writer: s5_html_
+
+The ``rst2s5.py`` front end reads standalone reStructuredText source
+files and produces (X)HTML output compatible with S5_, the "Simple
+Standards-based Slide Show System" by Eric Meyer.  A theme is required
+for proper rendering; several are distributed with Docutils and others
+are available; see Themes_ below.
+
+For example, to process a reStructuredText file "``slides.txt``" into
+S5/HTML::
+
+    rst2s5.py slides.txt slides.html
+
+Now open the "``slides.html``" file in your favorite browser, switch
+to full-screen mode, and enjoy the results.
+
+.. _S5: http://meyerweb.com/eric/tools/s5/
+.. _s5_html: html.html#s5-html
+
+Themes
+``````
+
+Each S5 theme consists of a directory containing several files:
+stylesheets, JavaScript, and graphics.  These are copied into a
+``ui/<theme>`` directory beside the generated HTML.  A theme is chosen
+using the "``--theme``" option (for themes that come with Docutils) or
+the "``--theme-url``" option (for themes anywhere).  For example, the
+"medium-black" theme can be specified as follows::
+
+    rst2s5.py --theme medium-black slides.txt slides.html
+
+The theme will be copied to the ``ui/medium-black`` directory.
+
+Several themes are included with Docutils:
+
+``default``
+    This is a simplified version of S5's default theme.
+
+    :Main content: black serif text on a white background
+    :Text capacity: about 13 lines
+    :Headers: light blue, bold sans-serif text on a dark blue
+              background; titles are limited to one line
+    :Footers: small, gray, bold sans-serif text on a dark blue
+              background
+
+``small-white``
+    (Small text on a white background.)
+
+    :Main content: black serif text on a white background
+    :Text capacity: about 15 lines
+    :Headers: black, bold sans-serif text on a white background;
+              titles wrap
+    :Footers: small, dark gray, bold sans-serif text on a white
+              background
+
+``small-black``
+    :Main content: white serif text on a black background
+    :Text capacity: about 15 lines
+    :Headers: white, bold sans-serif text on a black background;
+              titles wrap
+    :Footers: small, light gray, bold sans-serif text on a black
+              background
+
+``medium-white``
+    :Main content: black serif text on a white background
+    :Text capacity: about 9 lines
+    :Headers: black, bold sans-serif text on a white background;
+              titles wrap
+    :Footers: small, dark gray, bold sans-serif text on a white
+              background
+
+``medium-black``
+    :Main content: white serif text on a black background
+    :Text capacity: about 9 lines
+    :Headers: white, bold sans-serif text on a black background;
+              titles wrap
+    :Footers: small, light gray, bold sans-serif text on a black
+              background
+
+``big-white``
+    :Main content: black, bold sans-serif text on a white background
+    :Text capacity: about 5 lines
+    :Headers: black, bold sans-serif text on a white background;
+              titles wrap
+    :Footers: not displayed
+
+``big-black``
+    :Main content: white, bold sans-serif text on a black background
+    :Text capacity: about 5 lines
+    :Headers: white, bold sans-serif text on a black background;
+              titles wrap
+    :Footers: not displayed
+
+If a theme directory contains a file named ``__base__``, the name of
+the theme's base theme will be read from it.  Files are accumulated
+from the named theme, any base themes, and the "default" theme (which
+is the implicit base of all themes).
+
+For details, please see `Easy Slide Shows With reStructuredText &
+S5 <slide-shows.html>`_.
+
+
+.. _HTML 5: https://www.w3.org/TR/html5/
+.. _HTML 4.1: https://www.w3.org/TR/html401/
+.. _XHTML 1.0 Transitional: https://www.w3.org/TR/xhtml1/
+.. _XHTML 1.1: https://www.w3.org/TR/xhtml1/
+
+
+LaTeX-Generating Tools
+======================
+
+rst2latex.py
+------------
+
+:Reader: Standalone
+:Parser: reStructuredText
+:Writer: latex2e_
+
+The ``rst2latex.py`` front end reads standalone reStructuredText
+source files and produces LaTeX_ output. For example, to process a
+reStructuredText file "``test.txt``" into LaTeX::
+
+    rst2latex.py test.txt test.tex
+
+The output file "``test.tex``" should then be processed with ``latex``
+or ``pdflatex`` to get a document in DVI, PostScript or PDF format for
+printing or on-screen viewing.
+
+For details see `Generating LaTeX with Docutils`_.
+
+rst2xetex.py
+------------
+
+:Reader: Standalone
+:Parser: reStructuredText
+:Writer: _`xelatex`
+
+The ``rst2xetex.py`` front end reads standalone reStructuredText source
+files and produces `LaTeX` output for processing with Unicode-aware
+TeX engines (`LuaTeX`_ or `XeTeX`_). For example, to process a
+reStructuredText file "``test.txt``" into LaTeX::
+
+    rst2xetex.py test.txt test.tex
+
+The output file "``test.tex``" should then be processed with ``xelatex`` or
+``lualatex`` to get a document in PDF format for printing or on-screen
+viewing.
+
+For details see `Generating LaTeX with Docutils`_.
+
+.. _LaTeX: https://en.wikipedia.org/wiki/LaTeX
+.. _XeTeX: https://en.wikipedia.org/wiki/XeTeX
+.. _LuaTeX: https://en.wikipedia.org/wiki/LuaTeX
+
+
+Man-Page-Generating Tools
+=========================
+
+rst2man.py
+----------
+
+:Reader: Standalone
+:Parser: reStructuredText
+:Writer: manpage_
+
+The ``rst2man.py`` front end reads standalone reStructuredText source
+files and produces troff_ sources for Unix man pages.
+
+.. _troff: https://troff.org/
+
+
+ODF/OpenOffice-Generating Tools
+===============================
+
+rst2odt.py
+----------
+
+:Reader: Standalone
+:Parser: reStructuredText
+:Writer: odt_
+
+The ``rst2odt.py`` front end reads standalone reStructuredText
+source files and produces ODF/.odt files that can be read, edited,
+printed, etc with OpenOffice_ ``oowriter`` or LibreOffice_ ``lowriter``.
+A stylesheet file is required.  A
+stylesheet file is an OpenOffice .odt file containing definitions
+of the styles required for ``rst2odt.py``.
+For details, see `Odt Writer for Docutils`_.
+
+.. _OpenOffice: https://www.openoffice.org/
+.. _LibreOffice: https://www.libreoffice.org/
+.. _odt:
+.. _Odt Writer for Docutils: odt.html
+
+rst2odt_prepstyles.py
+`````````````````````
+
+A helper tool to fix a word-processor-generated STYLE_FILE.odt for
+odtwriter use::
+
+  rst2odt_prepstyles STYLE_FILE.odt
+
+See `Odt Writer for Docutils`__ for details.
+
+__ odt.html#page-size
+
+
+reStructuredText-Generating Tools
+=================================
+
+Currently, there is no reStructuredText writer in Docutils and therefore
+an ``rst2rst.py`` tool is still missing.
+
+To generate reStructuredText documents with Docutils, you can use
+the XML (Docutils native) writer and the xml2rst_ processor.
+
+
+XML-Generating Tools
+====================
+
+rst2xml.py
+----------
+
+:Reader: Standalone
+:Parser: reStructuredText
+:Writer: _`XML` (Docutils native)
+
+The ``rst2xml.py`` front end produces Docutils-native XML output.
+This can be transformed with standard XML tools such as XSLT
+processors into arbitrary final forms. An example is the xml2rst_ processor
+in the Docutils sandbox.
+
+.. _xml2rst: ../../../sandbox/xml2rst
+
+
+Testing/Debugging Tools
+=======================
+
+rst2pseudoxml.py
+----------------
+
+:Reader: Standalone
+:Parser: reStructuredText
+:Writer: _`Pseudo-XML`
+
+``rst2pseudoxml.py`` is used for debugging the Docutils "Reader to
+Transform to Writer" pipeline.  It produces a compact pretty-printed
+"pseudo-XML", where nesting is indicated by indentation (no end-tags).
+External attributes for all elements are output, and internal
+attributes for any leftover "pending" elements are also given.
+
+
+quicktest.py
+------------
+
+:Reader: N/A
+:Parser: reStructuredText
+:Writer: N/A
+
+The ``quicktest.py`` tool is used for testing the reStructuredText
+parser.  It does not use a Docutils Reader or Writer or the standard
+Docutils command-line options.  Rather, it does its own I/O and calls
+the parser directly.  No transforms are applied to the parsed
+document.  Possible output forms output include:
+
+--pretty  Pretty-printed pseudo-XML (default)
+
+--test    Test data (Python list of input and pseudo-XML output strings;
+          useful for creating new test cases)
+--xml     Pretty-printed native XML
+--rawxml  Raw native XML (with or without a stylesheet reference)
+--help    Usage hint and complete list of supported options.
+
+
+---------------
+ Customization
+---------------
+
+Most front-end tools support the options/settings from the generic
+`configuration file sections`_ plus the sections of their components
+(reader, writer, parser). [#]_
+Some front-end tools also add application-specific settings.
+
+.. [#] The exceptions are quicktest.py_ and rst2odt_prepstyles.py_.
+
+
+Command-Line Options
+====================
+
+Command-line options are intended for one-off customization.
+They take priority over configuration file settings.
+
+Use the "--help" option on each of the front ends to list the
+command-line options it supports.
+
+
+Configuration Files
+===================
+
+Configuration files are used for persistent customization; they can be
+set once and take effect every time you use a front-end tool.
+
+Command-line options and their corresponding configuration file entry
+names are listed in the `Docutils Configuration`_ document.
+
+.. _Docutils Configuration: config.html
+.. _Config:
+.. _configuration file sections:
+   config.html#configuration-file-sections-entries
+
+
+..
+   Local Variables:
+   mode: indented-text
+   indent-tabs-mode: nil
+   sentence-end-double-space: t
+   fill-column: 70
+   End:
