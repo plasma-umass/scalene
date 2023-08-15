@@ -1264,6 +1264,36 @@ class Scalene:
         return new_frames
 
     @staticmethod
+    def get_fully_qualified_name(frame: FrameType) -> str:
+        # Obtain the fully-qualified name.
+        version = sys.version_info
+        if version.major >= 3 and version.minor >= 11:
+            # Introduced in Python 3.11
+            fn_name = Filename(frame.f_code.co_qualname)
+            return fn_name
+        f = frame
+        # Manually search for an enclosing class.
+        fn_name = Filename(f.f_code.co_name)
+        while (
+            f
+            and f.f_back
+            and f.f_back.f_code
+        ):
+            if "self" in f.f_locals:
+                prepend_name = f.f_locals["self"].__class__.__name__
+                fn_name = Filename(f"{prepend_name}.{fn_name}")
+                break
+            if "cls" in f.f_locals:
+                prepend_name = getattr(f.f_locals["cls"], "__name__", None)
+                if not prepend_name:
+                    break
+                fn_name = Filename(f"{prepend_name}.{fn_name}")
+                break
+            f = f.f_back
+        return fn_name
+
+        
+    @staticmethod
     def enter_function_meta(
         frame: FrameType, stats: ScaleneStatistics
     ) -> None:
@@ -1275,7 +1305,8 @@ class Scalene:
         try:
             while "<" in Filename(f.f_code.co_name):
                 f = cast(FrameType, f.f_back)
-                # Handle case where the function with the name wrapped in triangle brackets is at the bottom of the stack
+                # Handle case where the function with the name wrapped
+                # in triangle brackets is at the bottom of the stack
                 if f is None:
                     return
         except Exception:
@@ -1283,28 +1314,8 @@ class Scalene:
         if not Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
             return
 
-        fn_name = Filename(f.f_code.co_name)
+        fn_name = Scalene.get_fully_qualified_name(f)
         firstline = f.f_code.co_firstlineno
-        # Prepend the class, if any
-        while (
-            f
-            and f.f_back
-            and f.f_back.f_code
-            # NOTE: next line disabled as it is interfering with name resolution for thread run methods
-            # and Scalene.should_trace(f.f_back.f_code.co_filename)
-        ):
-            if "self" in f.f_locals:
-                prepend_name = f.f_locals["self"].__class__.__name__
-                if "Scalene" not in prepend_name:
-                    fn_name = Filename(f"{prepend_name}.{fn_name}")
-                break
-            if "cls" in f.f_locals:
-                prepend_name = getattr(f.f_locals["cls"], "__name__", None)
-                if not prepend_name or "Scalene" in prepend_name:
-                    break
-                fn_name = Filename(f"{prepend_name}.{fn_name}")
-                break
-            f = f.f_back
 
         stats.function_map[fname][lineno] = fn_name
         stats.firstline_map[fn_name] = LineNumber(firstline)
