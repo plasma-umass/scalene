@@ -1270,27 +1270,26 @@ class Scalene:
         if version.major >= 3 and version.minor >= 11:
             # Introduced in Python 3.11
             fn_name = Filename(frame.f_code.co_qualname)
-        else:
-            fn_name = Filename(frame.f_code.co_name)
-            # Manually search for an enclosing class.
-            f = frame
-            while (
-                f
-                and f.f_back
-                and f.f_back.f_code
-            ):
-                if "self" in f.f_locals:
-                    prepend_name = f.f_locals["self"].__class__.__name__
-                    if True:
-                        fn_name = Filename(f"{prepend_name}.{fn_name}")
+            return fn_name
+        f = frame
+        # Manually search for an enclosing class.
+        fn_name = Filename(f.f_code.co_name)
+        while (
+            f
+            and f.f_back
+            and f.f_back.f_code
+        ):
+            if "self" in f.f_locals:
+                prepend_name = f.f_locals["self"].__class__.__name__
+                fn_name = Filename(f"{prepend_name}.{fn_name}")
+                break
+            if "cls" in f.f_locals:
+                prepend_name = getattr(f.f_locals["cls"], "__name__", None)
+                if not prepend_name:
                     break
-                if "cls" in f.f_locals:
-                    prepend_name = getattr(f.f_locals["cls"], "__name__", None)
-                    if not prepend_name:
-                        break
-                    fn_name = Filename(f"{prepend_name}.{fn_name}")
-                    break
-                f = f.f_back
+                fn_name = Filename(f"{prepend_name}.{fn_name}")
+                break
+            f = f.f_back
         return fn_name
 
         
