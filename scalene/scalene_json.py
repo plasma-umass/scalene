@@ -103,10 +103,12 @@ class ScaleneJSON:
         profile_this_code: Callable[[Filename, LineNumber], bool],
         profile_memory: bool = False,
         force_print: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any] | bool:
         """Print at most one line of the profile (true == printed one)."""
 
-        if not force_print and not profile_this_code(fname, line_no):
+        if not profile_this_code(fname, line_no):
+            if not force_print:
+                return False
             return {
                 "lineno": line_no,
                 "line": line,
