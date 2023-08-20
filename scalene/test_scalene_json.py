@@ -3,12 +3,18 @@ from . import scalene_json
 from hypothesis import given
 from hypothesis.strategies import floats, lists
 
+
 class TestScaleneJSON:
     # Define strategies for the input variables
     size_in_mb = floats(min_value=0.0, allow_nan=False, allow_infinity=False)
     time_in_ms = floats(min_value=0.0, allow_nan=False, allow_infinity=False)
-    max_footprint = floats(min_value=0.0, allow_nan=False, allow_infinity=False)
-    samples = lists(elements=floats(min_value=0.0, allow_nan=False, allow_infinity=False), min_size=0)
+    max_footprint = floats(
+        min_value=0.0, allow_nan=False, allow_infinity=False
+    )
+    samples = lists(
+        elements=floats(min_value=0.0, allow_nan=False, allow_infinity=False),
+        min_size=0,
+    )
 
     @given(size_in_mb)
     def test_memory_consumed_str(self, size_in_mb):
@@ -34,10 +40,11 @@ class TestScaleneJSON:
         else:
             assert formatted.endswith("s")
             assert not formatted.startswith("0")
-            
+
     @given(samples, max_footprint)
     def test_compress_samples(self, samples, max_footprint):
-        compressed = scalene_json.ScaleneJSON().compress_samples(samples, max_footprint)
+        compressed = scalene_json.ScaleneJSON().compress_samples(
+            samples, max_footprint
+        )
         assert isinstance(compressed, list)
         assert all(isinstance(x, float) for x in compressed)
-    

@@ -30,7 +30,10 @@ class ScaleneLeakAnalysis:
             # Failures - no reclamations seen - are given by the number of allocs with no matching frees (allocs - frees).
             expected_leak = 1.0 - (frees + 1) / (allocs - frees + 2)
 
-            if expected_leak >= 1.0 - ScaleneLeakAnalysis.leak_reporting_threshold:
+            if (
+                expected_leak
+                >= 1.0 - ScaleneLeakAnalysis.leak_reporting_threshold
+            ):
                 if keys[index] in avg_mallocs:
                     leaks.append(
                         (

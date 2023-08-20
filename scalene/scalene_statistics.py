@@ -41,8 +41,8 @@ class ScaleneStatistics:
         self.alloc_samples: int = 0
 
         #  full stacks taken during CPU samples, together with number of hits
-        self.stacks : Dict[HashableList, int] = defaultdict(int)
-        
+        self.stacks: Dict[HashableList, int] = defaultdict(int)
+
         #   CPU samples for each location in the program
         #   spent in the interpreter
         self.cpu_samples_python: Dict[
@@ -443,7 +443,9 @@ class ScaleneStatistics:
                 # is sent between processes. Samples are in the format [time, footprint]
                 for filename in self.per_line_footprint_samples:
                     for lineno in self.per_line_footprint_samples[filename]:
-                        self.per_line_footprint_samples[filename][lineno].sort(key=lambda x : x[0])
+                        self.per_line_footprint_samples[filename][lineno].sort(
+                            key=lambda x: x[0]
+                        )
                 self.increment_per_line_samples(
                     self.memory_malloc_count, x.memory_malloc_count
                 )
@@ -474,9 +476,9 @@ class ScaleneStatistics:
                     x.total_memory_malloc_samples
                 )
                 self.memory_footprint_samples += x.memory_footprint_samples
-                # Sorting footprint samples by time when sample was taken. 
+                # Sorting footprint samples by time when sample was taken.
                 # Samples are in the format [time, footprint]
-                self.memory_footprint_samples.sort(key=lambda x : x[0])
+                self.memory_footprint_samples.sort(key=lambda x: x[0])
                 for k, val in x.function_map.items():
                     if k in self.function_map:
                         self.function_map[k].update(val)

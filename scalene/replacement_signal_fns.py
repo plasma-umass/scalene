@@ -10,8 +10,10 @@ def replacement_signal_fns(scalene: Scalene) -> None:
 
     old_signal = signal.signal
     if sys.version_info < (3, 8):
+
         def old_raise_signal(s):
             return os.kill(os.getpid(), s)
+
     else:
         old_raise_signal = signal.raise_signal
 

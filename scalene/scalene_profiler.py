@@ -72,7 +72,7 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
-from scalene.scalene_version import (scalene_version, scalene_date)
+from scalene.scalene_version import scalene_version, scalene_date
 
 if sys.platform != "win32":
     import resource
@@ -103,9 +103,11 @@ class LineNo:
     def __str__(self):
         return str(inspect.currentframe().f_back.f_lineno)
 
+
 class FileName:
     def __str__(self):
         return str(inspect.currentframe().f_back.f_code.co_filename)
+
 
 __LINE__ = LineNo()
 __FILE__ = FileName()
@@ -274,6 +276,7 @@ class Scalene:
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
     __profiler_base: str
+
     @staticmethod
     def get_original_lock() -> threading.Lock:
         """Return the true lock, which we shim in replacement_lock.py."""
@@ -479,12 +482,13 @@ class Scalene:
 
         if Scalene.__args.memory:
             from scalene import pywhere  # type: ignore
+
             pywhere.register_files_to_profile(
                 list(Scalene.__files_to_profile),
                 Scalene.__program_path,
                 Scalene.__args.profile_all,
             )
-            
+
         return func
 
     @staticmethod
@@ -589,7 +593,9 @@ class Scalene:
         found_frame = False
         f = this_frame
         while f:
-            if found_frame := Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
+            if found_frame := Scalene.should_trace(
+                f.f_code.co_filename, f.f_code.co_name
+            ):
                 break
             f = cast(FrameType, f.f_back)
         if not found_frame:
@@ -713,6 +719,7 @@ class Scalene:
         import scalene.replacement_pjoin
         import scalene.replacement_signal_fns
         import scalene.replacement_thread_join
+
         if sys.platform != "win32":
             import scalene.replacement_fork
             import scalene.replacement_poll_selector
@@ -731,7 +738,8 @@ class Scalene:
         Scalene.__invalidate_mutex = Scalene.get_original_lock()
         if sys.platform == "win32":
             import queue
-            Scalene.__windows_queue = queue.Queue() 
+
+            Scalene.__windows_queue = queue.Queue()
         # Initialize the malloc related files; if for whatever reason
         # the files don't exist and we are supposed to be profiling
         # memory, exit.
@@ -828,7 +836,7 @@ class Scalene:
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle CPU signals."""
-        try: 
+        try:
             # Get current time stats.
             now_sys: float = 0
             now_user: float = 0
@@ -913,7 +921,7 @@ class Scalene:
                         Scalene.__args.cpu_sampling_rate,
                     )
         finally:
-            if sys.platform == 'win32':
+            if sys.platform == "win32":
                 Scalene.__windows_queue.put(None)
 
     @staticmethod
@@ -927,7 +935,7 @@ class Scalene:
             output += " " + str(Scalene.__stats.stacks[stk])
             output += "\n"
         return output
-    
+
     @staticmethod
     def output_profile() -> bool:
         # sourcery skip: inline-immediately-returned-variable
@@ -1023,7 +1031,7 @@ class Scalene:
     @staticmethod
     def print_stacks() -> None:
         print(Scalene.__stats.stacks)
-        
+
     @staticmethod
     def process_cpu_sample(
         _signum: Union[
@@ -1133,7 +1141,7 @@ class Scalene:
 
         if Scalene.__args.stacks:
             Scalene.add_stack(main_thread_frame)
-        
+
         average_python_time = python_time / total_frames
         average_c_time = c_time / total_frames
         average_gpu_time = gpu_time / total_frames
@@ -1164,7 +1172,7 @@ class Scalene:
             if frame == main_thread_frame:
                 continue
             Scalene.add_stack(frame)
-            
+
             # In a thread.
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
@@ -1274,11 +1282,7 @@ class Scalene:
         f = frame
         # Manually search for an enclosing class.
         fn_name = Filename(f.f_code.co_name)
-        while (
-            f
-            and f.f_back
-            and f.f_back.f_code
-        ):
+        while f and f.f_back and f.f_back.f_code:
             if "self" in f.f_locals:
                 prepend_name = f.f_locals["self"].__class__.__name__
                 fn_name = Filename(f"{prepend_name}.{fn_name}")
@@ -1292,7 +1296,6 @@ class Scalene:
             f = f.f_back
         return fn_name
 
-        
     @staticmethod
     def enter_function_meta(
         frame: FrameType, stats: ScaleneStatistics
@@ -1619,7 +1622,7 @@ class Scalene:
 
     @staticmethod
     @functools.lru_cache(None)
-    def should_trace(filename: str, func : str) -> bool:
+    def should_trace(filename: str, func: str) -> bool:
         """Return true if we should trace this filename and function."""
         if not filename:
             return False
@@ -1628,7 +1631,10 @@ class Scalene:
             return False
         if Scalene.__functions_to_profile:
             if filename in Scalene.__functions_to_profile:
-                if func in { fn.__code__.co_name for fn in Scalene.__functions_to_profile[filename] }:
+                if func in {
+                    fn.__code__.co_name
+                    for fn in Scalene.__functions_to_profile[filename]
+                }:
                     return True
             return False
         # Don't profile the Python libraries, unless overridden by --profile-all
@@ -1640,7 +1646,9 @@ class Scalene:
         if not Scalene.__args.profile_all:
             for n in sysconfig.get_scheme_names():
                 for p in sysconfig.get_path_names():
-                    libdir = str(pathlib.Path(sysconfig.get_path(p, n)).resolve())
+                    libdir = str(
+                        pathlib.Path(sysconfig.get_path(p, n)).resolve()
+                    )
                     if libdir in resolved_filename:
                         return False
 
@@ -1685,7 +1693,6 @@ class Scalene:
             os.path.join(Scalene.__program_path, filename)
         )
         return Scalene.__program_path in filename
-
 
     __done = False
 
@@ -1838,7 +1845,12 @@ class Scalene:
             loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
         )
         template = environment.get_template("index.html.template")
-        rendered_content = template.render(profile=profile, gui_js=gui_js, scalene_version=scalene_version, scalene_date=scalene_date)
+        rendered_content = template.render(
+            profile=profile,
+            gui_js=gui_js,
+            scalene_version=scalene_version,
+            scalene_date=scalene_date,
+        )
 
         # Write the rendered content to the specified output file.
         try:
@@ -1909,7 +1921,8 @@ class Scalene:
             )
             if Scalene.in_jupyter():
                 from scalene.scalene_jupyter import ScaleneJupyter
-                port = ScaleneJupyter.find_available_port(8181,9000)
+
+                port = ScaleneJupyter.find_available_port(8181, 9000)
                 if not port:
                     print("Scalene error: could not find an available port.")
                     return
@@ -1919,7 +1932,9 @@ class Scalene:
                 # See also scalene/scalene_preload.py
                 old_dyld = os.environ.pop("DYLD_INSERT_LIBRARIES", "")
                 old_ld = os.environ.pop("LD_PRELOAD", "")
-                webbrowser.open(f"file:///{os.getcwd()}/{Scalene.__profiler_html}")
+                webbrowser.open(
+                    f"file:///{os.getcwd()}/{Scalene.__profiler_html}"
+                )
                 # Restore them.
                 os.environ.update(
                     {"DYLD_INSERT_LIBRARIES": old_dyld, "LD_PRELOAD": old_ld}
@@ -2041,7 +2056,9 @@ class Scalene:
                     raise FileNotFoundError
                 # Use the full absolute path of the program being profiled, expanding ~ if need be.
                 prog_name = os.path.abspath(os.path.expanduser(progs[0]))
-                with open(prog_name, "r", encoding="utf-8") as prog_being_profiled:
+                with open(
+                    prog_name, "r", encoding="utf-8"
+                ) as prog_being_profiled:
                     # Read in the code and compile it.
                     code: Any = ""
                     try:
@@ -2088,10 +2105,10 @@ class Scalene:
                     # __spec__ was originally set to none because the __globals__ here has the Scalene ModuleSpec
                     # but it doesn't seem like that was enough. Setting the __package__, as below, seems to be enough to make
                     # it look in the right place
-                    the_globals["__spec__"] = None 
+                    the_globals["__spec__"] = None
                     if spec is not None:
-                        name = spec.name 
-                        the_globals['__package__'] = name.split('.')[0]
+                        name = spec.name
+                        the_globals["__package__"] = name.split(".")[0]
                     # Do a GC before we start.
                     gc.collect()
                     # Start the profiler.

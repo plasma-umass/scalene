@@ -301,7 +301,12 @@ for the process ID that Scalene reports. For example:
             + "[/blue])",
         )
         parser.add_argument(
-            "--ipython", dest="ipython", action="store_const", const=True, default=False, help=argparse.SUPPRESS
+            "--ipython",
+            dest="ipython",
+            action="store_const",
+            const=True,
+            default=False,
+            help=argparse.SUPPRESS,
         )
         if sys.platform != "win32":
             # Turning profiling on and off from another process is currently not supported on Windows.
@@ -376,5 +381,7 @@ for the process ID that Scalene reports. For example:
             print(f"Scalene version {scalene_version} ({scalene_date})")
             if not args.ipython:
                 sys.exit(-1)
-            args = [] # We use this to indicate that we should not run further in IPython.
+            args = (
+                []
+            )  # We use this to indicate that we should not run further in IPython.
         return args, left

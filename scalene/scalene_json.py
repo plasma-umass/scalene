@@ -18,7 +18,6 @@ if sys.platform != "win32":
 
 
 class ScaleneJSON:
-
     @staticmethod
     def memory_consumed_str(size_in_mb: float) -> str:
         """Return a string corresponding to amount of memory consumed."""
@@ -110,7 +109,7 @@ class ScaleneJSON:
             return {
                 "lineno": line_no,
                 "line": line,
-                "n_core_utilization" : 0,
+                "n_core_utilization": 0,
                 "n_cpu_percent_c": 0,
                 "n_cpu_percent_python": 0,
                 "n_sys_percent": 0,
@@ -122,7 +121,7 @@ class ScaleneJSON:
                 "n_avg_mb": 0,
                 "n_mallocs": 0,
                 "n_malloc_mb": 0,
-                "n_usage_fraction": 0, 
+                "n_usage_fraction": 0,
                 "n_python_fraction": 0,
                 "n_copy_mb_s": 0,
                 "memory_samples": [],
@@ -212,7 +211,7 @@ class ScaleneJSON:
         return {
             "lineno": line_no,
             "line": line,
-            "n_core_utilization" : mean_core_util,
+            "n_core_utilization": mean_core_util,
             "n_cpu_percent_c": n_cpu_percent_c,
             "n_cpu_percent_python": n_cpu_percent_python,
             "n_sys_percent": n_sys_percent,
@@ -239,7 +238,7 @@ class ScaleneJSON:
         python_alias_dir: Path,
         program_path: Path,
         profile_memory: bool = True,
-        reduced_profile: bool = False
+        reduced_profile: bool = False,
     ) -> Dict[str, Any]:
         """Write the profile out."""
         # Get the children's stats, if any.
@@ -292,7 +291,7 @@ class ScaleneJSON:
             this_stk = []
             this_stk.extend(stk)
             stks.append((this_stk, stats.stacks[stk]))
-            
+
         output: Dict[str, Any] = {
             "program": program,
             "alloc_samples": stats.alloc_samples,
@@ -309,7 +308,7 @@ class ScaleneJSON:
             "gpu": self.gpu,
             "memory": profile_memory,
             "samples": stats.memory_footprint_samples,
-            "stacks" : stks
+            "stacks": stks,
         }
 
         # Build a list of files we will actually report on.
@@ -322,7 +321,9 @@ class ScaleneJSON:
             fname = Filename(fname)
             try:
                 percent_cpu_time = (
-                    100 * stats.cpu_samples[fname] / stats.elapsed_time
+                    100
+                    * stats.cpu_samples[fname]
+                    / stats.elapsed_time
                     # 100 * stats.cpu_samples[fname] / stats.total_cpu_samples
                 )
             except ZeroDivisionError:
@@ -341,7 +342,7 @@ class ScaleneJSON:
         # Instead, write info to disk for the main process to collect.
         if pid:
             stats.output_stats(pid, python_alias_dir)
-            # Return a value to indicate that the stats were successfully 
+            # Return a value to indicate that the stats were successfully
             # output to the proper directory
             return {"is_child": True}
 
@@ -409,8 +410,8 @@ class ScaleneJSON:
                 continue
             # Find all enclosing regions (loops or function defs) for each line of code.
 
-            code_str = ''.join(code_lines)
-            
+            code_str = "".join(code_lines)
+
             enclosing_regions = ScaleneAnalysis.find_regions(code_str)
             imports = ScaleneAnalysis.get_native_imported_modules(code_str)
 
@@ -423,9 +424,9 @@ class ScaleneJSON:
             for lineno, line in enumerate(code_lines, start=1):
                 # Protect against JS 'injection' in Python comments by replacing some characters with Unicode.
                 # This gets unescaped in scalene-gui.js.
-                line = line.replace('&', '\\u0026')
-                line = line.replace('<', '\\u003c')
-                line = line.replace('>', '\\u003e')
+                line = line.replace("&", "\\u0026")
+                line = line.replace("<", "\\u003c")
+                line = line.replace(">", "\\u003e")
                 profile_line = self.output_profile_line(
                     fname=fname,
                     fname_print=fname_print,
@@ -437,8 +438,12 @@ class ScaleneJSON:
                     force_print=False,
                 )
                 if profile_line:
-                    profile_line["start_region_line"] = enclosing_regions[lineno][0]
-                    profile_line["end_region_line"] = enclosing_regions[lineno][1]
+                    profile_line["start_region_line"] = enclosing_regions[
+                        lineno
+                    ][0]
+                    profile_line["end_region_line"] = enclosing_regions[
+                        lineno
+                    ][1]
 
                     # When reduced-profile set, only output if the payload for the line is non-zero.
                     if reduced_profile:
@@ -447,9 +452,7 @@ class ScaleneJSON:
                         del profile_line_copy["lineno"]
                         if not any(profile_line_copy.values()):
                             continue
-                    output["files"][fname_print]["lines"].append(
-                        profile_line
-                    )
+                    output["files"][fname_print]["lines"].append(profile_line)
 
             fn_stats = stats.build_function_stats(fname)
             # Check CPU samples and memory samples.
@@ -475,7 +478,7 @@ class ScaleneJSON:
                         # accumulated; see
                         # ScaleneStatistics.build_function_stats
                         line_no=LineNumber(1),
-                        line=fn_name, # Set the source line to just the function name.
+                        line=fn_name,  # Set the source line to just the function name.
                         stats=fn_stats,
                         profile_this_code=profile_this_code,
                         profile_memory=profile_memory,

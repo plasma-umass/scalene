@@ -2,25 +2,25 @@ import socket
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from threading import Thread
 
-class ScaleneJupyter:
 
+class ScaleneJupyter:
     @staticmethod
     def find_available_port(start_port, end_port):
         """
         Finds an available port within a given range.
-        
+
         Parameters:
         - start_port (int): the starting port number to search from
         - end_port (int): the ending port number to search up to (inclusive)
-        
+
         Returns:
         - int: the first available port number found in the given range, or None if no ports are available
         """
 
-        for port in range(start_port, end_port+1):
+        for port in range(start_port, end_port + 1):
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.bind(('', port))
+                    s.bind(("", port))
                     return port
             except OSError:
                 continue
@@ -33,7 +33,7 @@ class ScaleneJupyter:
         # tears down the server.
         from IPython.core.display import display
         from IPython.display import IFrame
-    
+
         class RequestHandler(BaseHTTPRequestHandler):
             def _send_response(self, content: str) -> None:
                 self.send_response(200)
@@ -44,12 +44,12 @@ class ScaleneJupyter:
             def log_message(self, format, *args):
                 """overriding log_message to disable all messages from webserver"""
                 pass
-            
+
             def do_GET(self) -> None:
                 if self.path == "/":
                     try:
                         with open(profile_fname) as f:
-                          content = f.read()
+                            content = f.read()
                         self._send_response(content)
                     except FileNotFoundError:
                         print("Scalene error: profile file not found.")
@@ -62,6 +62,7 @@ class ScaleneJupyter:
 
         class MyHTTPServer(HTTPServer):
             """Redefine to check `should_shutdown` flag."""
+
             def serve_forever(self) -> None:
                 self.should_shutdown = False
                 while not self.should_shutdown:
@@ -76,19 +77,21 @@ class ScaleneJupyter:
                 except BaseException as be:
                     print("server failure", be)
                     pass
-                
+
         the_server = local_server()
         server_thread = Thread(target=the_server.run_server)
         server_thread.start()
 
         # Display the profile and then shutdown the server.
-        display(IFrame(src=f"http://localhost:{port}", width="100%", height="400"))
+        display(
+            IFrame(src=f"http://localhost:{port}", width="100%", height="400")
+        )
         Thread(target=lambda: server_thread.join()).start()
 
         # Wait 2 seconds to ensure that the page is rendered, then kill the cell.
         import time
+
         time.sleep(2)
         import sys
-        sys.exit()
 
-    
+        sys.exit()

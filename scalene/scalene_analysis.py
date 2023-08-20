@@ -3,15 +3,16 @@ import importlib
 import os
 import sys
 
-from typing import cast,Dict,List,Tuple
+from typing import cast, Dict, List, Tuple
 
-if sys.version_info < (3,9):
+if sys.version_info < (3, 9):
     # ast.unparse only supported as of 3.9
     import astunparse
+
     ast.unparse = astunparse.unparse
 
-class ScaleneAnalysis:
 
+class ScaleneAnalysis:
     @staticmethod
     def is_native(package_name: str) -> bool:
         """
@@ -23,7 +24,7 @@ class ScaleneAnalysis:
             package_dir = os.path.dirname(package.__file__)
             for root, dirs, files in os.walk(package_dir):
                 for filename in files:
-                    if filename.endswith('.so') or filename.endswith('.pyd'):
+                    if filename.endswith(".so") or filename.endswith(".pyd"):
                         return True
             result = False
         except ImportError:
@@ -38,10 +39,9 @@ class ScaleneAnalysis:
             # This module is not installed; fail gracefully.
             result = False
         return result
-        
-    
+
     @staticmethod
-    def get_imported_modules(source : str) -> List[str]:
+    def get_imported_modules(source: str) -> List[str]:
         """
         Extracts a list of imported modules from the given source code.
 
@@ -64,7 +64,6 @@ class ScaleneAnalysis:
                 imported_modules.append(ast.unparse(node))
 
         return imported_modules
-
 
     @staticmethod
     def get_native_imported_modules(source: str) -> List[str]:
@@ -97,8 +96,7 @@ class ScaleneAnalysis:
                     imported_modules.append(ast.unparse(node))
 
         return imported_modules
-    
-   
+
     @staticmethod
     def find_regions(src: str) -> Dict[int, Tuple[int, int]]:
         """This function collects the start and end lines of all loops and functions in the AST, and then uses these to determine the narrowest region containing each line in the source code (that is, loops take precedence over functions."""
@@ -112,13 +110,13 @@ class ScaleneAnalysis:
         classes = {}
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                for line in range(node.lineno, node.end_lineno+1):
+                for line in range(node.lineno, node.end_lineno + 1):
                     classes[line] = (node.lineno, node.end_lineno)
             if isinstance(node, (ast.For, ast.While)):
-                for line in range(node.lineno, node.end_lineno+1):
+                for line in range(node.lineno, node.end_lineno + 1):
                     loops[line] = (node.lineno, node.end_lineno)
             if isinstance(node, ast.FunctionDef):
-                for line in range(node.lineno, node.end_lineno+1):
+                for line in range(node.lineno, node.end_lineno + 1):
                     functions[line] = (node.lineno, node.end_lineno)
         for lineno, line in enumerate(srclines, 1):
             if lineno in loops:
@@ -135,6 +133,9 @@ class ScaleneAnalysis:
     def strip_magic_line(source: str) -> str:
         # Filter out any magic lines (starting with %) if in a Jupyter notebook
         import re
-        srclines = list(map(lambda x: re.sub(r'^\%.*','',x), source.split('\n')))
-        source = '\n'.join(srclines)
+
+        srclines = list(
+            map(lambda x: re.sub(r"^\%.*", "", x), source.split("\n"))
+        )
+        source = "\n".join(srclines)
         return source

@@ -1,6 +1,7 @@
 import hashlib
 from typing import Any, List
 
+
 class HashableList(list):
     """
     A child class of the built-in list class that is hashable, making it suitable for use as a key in a dictionary.
@@ -11,7 +12,8 @@ class HashableList(list):
     The exception is the `append` and `extend` methods, which incrementally build up the hash instead of recomputing it.
 
     """
-    def __init__(self, *args : List[Any]) -> None:
+
+    def __init__(self, *args: List[Any]) -> None:
         super().__init__(*args)
         self._hash = None
 
@@ -24,7 +26,7 @@ class HashableList(list):
             if value != other[index]:
                 return False
         return True
-        
+
     def __hash__(self) -> int:
         if not self._hash:
             self._hash = self._calculate_hash()
@@ -74,7 +76,6 @@ class HashableList(list):
         self._hash = None
         super().reverse()
 
-    def sort(self, key: Any =None, reverse: bool = False) -> None:
+    def sort(self, key: Any = None, reverse: bool = False) -> None:
         self._hash = None
         super().sort(key, reverse)
-       
