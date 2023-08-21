@@ -1926,8 +1926,8 @@ class Scalene:
                 port = ScaleneJupyter.find_available_port(8181, 9000)
                 if not port:
                     print("Scalene error: could not find an available port.")
-                    return 1
-                ScaleneJupyter.display_profile(port, Scalene.__profiler_html)
+                else:
+                    ScaleneJupyter.display_profile(port, Scalene.__profiler_html)
             else:
                 # Remove any interposition libraries from the environment before opening the browser.
                 # See also scalene/scalene_preload.py
