@@ -42,7 +42,6 @@ from collections import defaultdict
 from importlib.abc import SourceLoader
 from importlib.machinery import ModuleSpec
 from jinja2 import Environment, FileSystemLoader
-from pathlib import Path
 from types import CodeType, FrameType
 from typing import (
     Any,
@@ -309,7 +308,7 @@ class Scalene:
     __last_signal_time_user: float = 0
 
     # path for the program being profiled
-    __program_path: Path = Path("")
+    __program_path = Filename("")
     # temporary directory to hold aliases to Python
 
     __python_alias_dir: pathlib.Path
@@ -1693,7 +1692,7 @@ class Scalene:
         filename = Filename(os.path.normpath(
             os.path.join(Scalene.__program_path, filename)
         ))
-        return str(Scalene.__program_path) in filename
+        return Scalene.__program_path in filename
 
     __done = False
 
@@ -1838,7 +1837,7 @@ class Scalene:
         # Load the GUI JavaScript file.
         scalene_dir = os.path.dirname(__file__)
         gui_fname = os.path.join(scalene_dir, "scalene-gui", "scalene-gui.js")
-        gui_file = pathlib.Path(gui_fname)
+        gui_file = gui_fname
         gui_js = gui_file.read_text()
 
         # Put the profile and everything else into the template.
@@ -2072,14 +2071,14 @@ class Scalene:
                         traceback.print_exc()
                         sys.exit(1)
                     # Push the program's path.
-                    program_path = Path(os.path.dirname(prog_name))
+                    program_path = Filename(os.path.dirname(prog_name))
                     if not module:
-                        sys.path.insert(0, str(program_path))
+                        sys.path.insert(0, program_path)
                     # If a program path was specified at the command-line, use it.
                     if len(args.program_path) > 0:
-                        Scalene.__program_path = os.path.abspath(
+                        Scalene.__program_path = Filename(os.path.abspath(
                             args.program_path
-                        )
+                        ))
                     else:
                         # Otherwise, use the invoked directory.
                         Scalene.__program_path = program_path
@@ -2092,6 +2091,7 @@ class Scalene:
                             Scalene.__program_path,
                             Scalene.__args.profile_all,
                         )
+                        print("YOOO", program_path)
                     import __main__
 
                     the_locals = __main__.__dict__
