@@ -1837,7 +1837,7 @@ class Scalene:
         # Load the GUI JavaScript file.
         scalene_dir = os.path.dirname(__file__)
         gui_fname = os.path.join(scalene_dir, "scalene-gui", "scalene-gui.js")
-        gui_file = gui_fname
+        gui_file = pathlib.Path(gui_fname)
         gui_js = gui_file.read_text()
 
         # Put the profile and everything else into the template.
@@ -2091,7 +2091,6 @@ class Scalene:
                             Scalene.__program_path,
                             Scalene.__args.profile_all,
                         )
-                        print("YOOO", program_path)
                     import __main__
 
                     the_locals = __main__.__dict__
