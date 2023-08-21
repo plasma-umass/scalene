@@ -1,11 +1,11 @@
 import socket
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from threading import Thread
-
+from typing import Any, Optional
 
 class ScaleneJupyter:
     @staticmethod
-    def find_available_port(start_port, end_port):
+    def find_available_port(start_port: int, end_port: int) -> Optional[int]:
         """
         Finds an available port within a given range.
 
@@ -41,7 +41,7 @@ class ScaleneJupyter:
                 self.end_headers()
                 self.wfile.write(bytes(content, "utf8"))
 
-            def log_message(self, format, *args):
+            def log_message(self, format: str, *args: Any) -> None:
                 """overriding log_message to disable all messages from webserver"""
                 pass
 
@@ -63,9 +63,10 @@ class ScaleneJupyter:
         class MyHTTPServer(HTTPServer):
             """Redefine to check `should_shutdown` flag."""
 
-            def serve_forever(self) -> None:
+            def serve_forever(self, poll_interval: float = 0.5) -> None:
                 self.should_shutdown = False
                 while not self.should_shutdown:
+                    time.sleep(poll_interval)
                     self.handle_request()
 
         class local_server:
