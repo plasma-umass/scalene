@@ -247,7 +247,7 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
     __initialized: bool = False
-    __last_profiled = (Filename("NADA"), LineNumber(0), ByteCodeIndex(0))
+    __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
     __last_profiled_invalidated = False
     __gui_dir = "scalene-gui"
     __profile_filename = Filename("profile.json")
@@ -443,14 +443,14 @@ class Scalene:
                 Scalene.update_line()
             Scalene.__last_profiled_invalidated = True
 
-            Scalene.__last_profiled = (
+            Scalene.__last_profiled = [
                 Filename("NADA"),
                 LineNumber(0),
                 ByteCodeIndex(0)
                 #     Filename(ff),
                 #     LineNumber(fl),
                 #     ByteCodeIndex(frame.f_lasti),
-            )
+            ]
             return None
         except AttributeError:
             # This can happen when Scalene shuts down.
@@ -625,9 +625,9 @@ class Scalene:
                 )
                 Scalene.update_line()
         pywhere.set_last_profiled_invalidated_false()
-        Scalene.__last_profiled = (Filename(f.f_code.co_filename),
+        Scalene.__last_profiled = [Filename(f.f_code.co_filename),
                                    LineNumber(f.f_lineno),
-                                   ByteCodeIndex(f.f_lasti))
+                                   ByteCodeIndex(f.f_lasti)]
         Scalene.__alloc_sigq.put([0])
         pywhere.enable_settrace()
         del this_frame
