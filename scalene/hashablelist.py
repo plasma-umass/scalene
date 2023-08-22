@@ -1,8 +1,9 @@
+import collections
 import hashlib
 from typing import Any, List
 
 
-class HashableList(list):
+class HashableList(collections.UserList):
     """
     A child class of the built-in list class that is hashable, making it suitable for use as a key in a dictionary.
 
