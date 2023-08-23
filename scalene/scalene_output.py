@@ -307,6 +307,7 @@ class ScaleneOutput:
         profile_this_code: Callable[[Filename, LineNumber], bool],
         python_alias_dir: Path,
         program_path: Path,
+        left: List[str],
         profile_memory: bool = True,
         reduced_profile: bool = False,
     ) -> bool:
