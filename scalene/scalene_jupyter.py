@@ -66,7 +66,9 @@ class ScaleneJupyter:
             def serve_forever(self, poll_interval: float = 0.5) -> None:
                 self.should_shutdown = False
                 while not self.should_shutdown:
-                    time.sleep(poll_interval)
+                    # Poll interval currently disabled below to avoid
+                    # interfering with existing functionality.
+                    # time.sleep(poll_interval)
                     self.handle_request()
 
         class local_server:
