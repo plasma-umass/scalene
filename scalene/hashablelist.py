@@ -18,7 +18,7 @@ class HashableList(collections.UserList):
         super().__init__(*args)
         self._hash = None
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: Any) -> bool:
         if self.__hash__() != other.__hash__():
             return False
         if len(self) != len(other):

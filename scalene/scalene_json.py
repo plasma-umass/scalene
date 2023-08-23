@@ -288,7 +288,7 @@ class ScaleneJSON:
         # Convert stacks into a representation suitable for JSON dumping.
         stks = []
         for stk in stats.stacks.keys():
-            this_stk = []
+            this_stk : List[str] = []
             this_stk.extend(stk)
             stks.append((this_stk, stats.stacks[stk]))
 

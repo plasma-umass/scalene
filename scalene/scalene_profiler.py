@@ -100,13 +100,20 @@ require_python((MINIMUM_PYTHON_VERSION_MAJOR, MINIMUM_PYTHON_VERSION_MINOR))
 
 # These are here to simplify print debugging, a la C.
 class LineNo:
-    def __str__(self):
-        return str(inspect.currentframe().f_back.f_lineno)
+    def __str__(self) -> str:
+        frame = inspect.currentframe()
+        assert frame
+        assert frame.f_back
+        return str(frame.f_back.f_lineno)
 
 
 class FileName:
-    def __str__(self):
-        return str(inspect.currentframe().f_back.f_code.co_filename)
+    def __str__(self) -> str:
+        frame = inspect.currentframe()
+        assert frame
+        assert frame.f_back
+        assert frame.f_back.f_code
+        return str(frame.f_back.f_code.co_filename)
 
 
 __LINE__ = LineNo()
@@ -225,10 +232,12 @@ class Scalene:
     """The Scalene profiler itself."""
 
     # Get the number of available CPUs (preferring `os.sched_getaffinity`, if available).
+    __availableCPUs: int
     try:
         __availableCPUs = len(os.sched_getaffinity(0))
     except AttributeError:
-        __availableCPUs = os.cpu_count()
+        cpu_count = os.cpu_count()
+        __availableCPUs = cpu_count if cpu_count else 1
 
     __in_jupyter = False  # are we running inside a Jupyter notebook
     __start_time = 0  # start of profiling, in nanoseconds
@@ -241,8 +250,8 @@ class Scalene:
     __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
     __last_profiled_invalidated = False
     __gui_dir = "scalene-gui"
-    __profile_filename = "profile.json"
-    __profiler_html = "profile.html"
+    __profile_filename = Filename("profile.json")
+    __profiler_html = Filename("profile.html")
     __error_message = "Error in program being profiled"
     BYTES_PER_MB = 1024 * 1024
 
@@ -299,7 +308,7 @@ class Scalene:
     __last_signal_time_user: float = 0
 
     # path for the program being profiled
-    __program_path: str = ""
+    __program_path = Filename("")
     # temporary directory to hold aliases to Python
 
     __python_alias_dir: pathlib.Path
@@ -605,29 +614,20 @@ class Scalene:
         # code in a file we are tracking.
         # First, see if we have now executed a different line of code.
         # If so, increment.
-        # TODO: assess the necessity of the following block
         invalidated = pywhere.get_last_profiled_invalidated()
         (fname, lineno, lasti) = Scalene.__last_profiled
-        # Requesting review on this, I think this is semantically more correct
-        # but I'm not fully sure
-        if not invalidated and not (
+        if not invalidated and this_frame and not (
             Scalene.on_stack(this_frame, fname, lineno)
-            # fname == Filename(f.f_code.co_filename)
-            # and lineno == LineNumber(f.f_lineno)
         ):
-
             with Scalene.__invalidate_mutex:
                 Scalene.__invalidate_queue.append(
                     (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
                 )
                 Scalene.update_line()
         pywhere.set_last_profiled_invalidated_false()
-        Scalene.__last_profiled[0] = Filename(f.f_code.co_filename)
-        Scalene.__last_profiled[1] = LineNumber(f.f_lineno)
-        Scalene.__last_profiled[2] = ByteCodeIndex(f.f_lasti)
-        # sys.settrace(Scalene.invalidate_lines_python)
-        # f.f_trace = Scalene.invalidate_lines_python
-        # f.f_trace_lines = True
+        Scalene.__last_profiled = [Filename(f.f_code.co_filename),
+                                   LineNumber(f.f_lineno),
+                                   ByteCodeIndex(f.f_lasti)]
         Scalene.__alloc_sigq.put([0])
         pywhere.enable_settrace()
         del this_frame
@@ -925,7 +925,7 @@ class Scalene:
                 Scalene.__windows_queue.put(None)
 
     @staticmethod
-    def flamegraph_format() -> None:
+    def flamegraph_format() -> str:
         """Converts stacks to a string suitable for input to Brendan Gregg's flamegraph.pl script."""
         output = ""
         for stk in Scalene.__stats.stacks.keys():
@@ -1021,7 +1021,7 @@ class Scalene:
     def add_stack(frame: FrameType) -> None:
         """Add one to the stack starting from this frame."""
         stk = HashableList()
-        f = frame
+        f : Optional[FrameType] = frame
         while f:
             if Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
                 stk.insert(0, (f.f_code.co_filename, f.f_lineno))
@@ -1272,7 +1272,7 @@ class Scalene:
         return new_frames
 
     @staticmethod
-    def get_fully_qualified_name(frame: FrameType) -> str:
+    def get_fully_qualified_name(frame: FrameType) -> Filename:
         # Obtain the fully-qualified name.
         version = sys.version_info
         if version.major >= 3 and version.minor >= 11:
@@ -1622,7 +1622,7 @@ class Scalene:
 
     @staticmethod
     @functools.lru_cache(None)
-    def should_trace(filename: str, func: str) -> bool:
+    def should_trace(filename: Filename, func: str) -> bool:
         """Return true if we should trace this filename and function."""
         if not filename:
             return False
@@ -1689,9 +1689,9 @@ class Scalene:
             return True
         # Profile anything in the program's directory or a child directory,
         # but nothing else, unless otherwise specified.
-        filename = os.path.normpath(
+        filename = Filename(os.path.normpath(
             os.path.join(Scalene.__program_path, filename)
-        )
+        ))
         return Scalene.__program_path in filename
 
     __done = False
@@ -1824,7 +1824,7 @@ class Scalene:
             os.remove(f"/tmp/scalene-malloc-lock{os.getpid()}")
 
     @staticmethod
-    def generate_html(profile_fname, output_fname):
+    def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         """Apply a template to generate a single HTML payload containing the current profile."""
 
         try:
@@ -1925,8 +1925,8 @@ class Scalene:
                 port = ScaleneJupyter.find_available_port(8181, 9000)
                 if not port:
                     print("Scalene error: could not find an available port.")
-                    return
-                ScaleneJupyter.display_profile(port, Scalene.__profiler_html)
+                else:
+                    ScaleneJupyter.display_profile(port, Scalene.__profiler_html)
             else:
                 # Remove any interposition libraries from the environment before opening the browser.
                 # See also scalene/scalene_preload.py
@@ -2071,14 +2071,14 @@ class Scalene:
                         traceback.print_exc()
                         sys.exit(1)
                     # Push the program's path.
-                    program_path = os.path.dirname(prog_name)
+                    program_path = Filename(os.path.dirname(prog_name))
                     if not module:
                         sys.path.insert(0, program_path)
                     # If a program path was specified at the command-line, use it.
                     if len(args.program_path) > 0:
-                        Scalene.__program_path = os.path.abspath(
+                        Scalene.__program_path = Filename(os.path.abspath(
                             args.program_path
-                        )
+                        ))
                     else:
                         # Otherwise, use the invoked directory.
                         Scalene.__program_path = program_path
