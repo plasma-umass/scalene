@@ -1950,7 +1950,7 @@ class Scalene:
         )
         Scalene.__output.html = args.html
         if args.outfile:
-            Scalene.__output.output_file = str(pathlib.Path(args.outfile).resolve())
+            Scalene.__output.output_file = os.path.abspath(os.path.expanduser(args.outfile))
         Scalene.__is_child = args.pid != 0
         # the pid of the primary profiler
         Scalene.__parent_pid = args.pid if Scalene.__is_child else os.getpid()
