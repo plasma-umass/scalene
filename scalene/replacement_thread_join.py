@@ -22,7 +22,7 @@ def replacement_thread_join(scalene: Scalene) -> None:
             orig_thread_join(self, interval)
             scalene.reset_thread_sleeping(threading.get_ident())
             # If a timeout was specified, check to see if it's expired.
-            if timeout:
+            if timeout is not None:
                 end_time = time.perf_counter()
                 if end_time - start_time >= timeout:
                     return None
