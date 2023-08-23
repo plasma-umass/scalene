@@ -14,23 +14,11 @@ from scalene.scalene_profiler import Scalene
 #
 # timeout_obj is parsed as a double
 
-class ReplacementSemLock(multiprocessing.synchronize.Lock):
-    def __enter__(self) -> bool:
-        timeout = sys.getswitchinterval()
-        tident = threading.get_ident()
-        while True:
-            Scalene.set_thread_sleeping(tident)
-            acquired = self._semlock.acquire(timeout=timeout)  # type: ignore
-            Scalene.reset_thread_sleeping(tident)
-            if acquired:
-                return True
-
-    def __exit__(self, *args: Any) -> None:
-        super().__exit__(*args)
-
+from scalene.replacement_sem_lock import ReplacementSemLock
+    
 @Scalene.shim
 def replacement_mp_semlock(scalene: Scalene) -> None:
     ReplacementSemLock.__qualname__ = (
-        "replacement_mp_semlock.ReplacementSemLock"
+        "replacement_semlock.ReplacementSemLock"
     )
     multiprocessing.synchronize.Lock = ReplacementSemLock  # type: ignore
