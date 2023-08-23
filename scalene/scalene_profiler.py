@@ -56,7 +56,6 @@ from typing import (
     cast,
 )
 
-from scalene.hashablelist import HashableList
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_funcutils import ScaleneFuncUtils
@@ -1020,13 +1019,13 @@ class Scalene:
     @staticmethod
     def add_stack(frame: FrameType) -> None:
         """Add one to the stack starting from this frame."""
-        stk = HashableList()
+        stk = list()
         f : Optional[FrameType] = frame
         while f:
             if Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
                 stk.insert(0, (f.f_code.co_filename, f.f_lineno))
             f = f.f_back
-        Scalene.__stats.stacks[stk] += 1
+        Scalene.__stats.stacks[tuple(stk)] += 1
 
     @staticmethod
     def print_stacks() -> None:
