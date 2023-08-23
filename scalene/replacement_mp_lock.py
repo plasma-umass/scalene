@@ -19,9 +19,9 @@ class ReplacementSemLock(multiprocessing.synchronize.Lock):
         timeout = sys.getswitchinterval()
         tident = threading.get_ident()
         while True:
-            scalene.set_thread_sleeping(tident)
+            Scalene.set_thread_sleeping(tident)
             acquired = self._semlock.acquire(timeout=timeout)  # type: ignore
-            scalene.reset_thread_sleeping(tident)
+            Scalene.reset_thread_sleeping(tident)
             if acquired:
                 return True
 
