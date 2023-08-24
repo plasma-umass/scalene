@@ -1740,7 +1740,7 @@ class Scalene:
             except Exception:
                 # Couldn't find a browser.
                 Scalene.__args.web = False
-)
+
             # Now if we are in Jupyter and we are going to output to a web browser.
             # If so, set variables appropriately.
             if Scalene.__args.web and Scalene.in_jupyter():
