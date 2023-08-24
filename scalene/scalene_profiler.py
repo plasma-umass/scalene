@@ -1722,12 +1722,7 @@ class Scalene:
             and not Scalene.__args.cli
             and not Scalene.__is_child
         ):
-            if Scalene.in_jupyter():
-                # Force JSON output to profile.json.
-                Scalene.__args.json = True
-                Scalene.__output.html = False
-                Scalene.__output.output_file = Scalene.__profile_filename
-            # Check for a browser.
+            # First, check for a browser.
             try:
                 if (
                     not webbrowser.get()
@@ -1745,6 +1740,13 @@ class Scalene:
             except Exception:
                 # Couldn't find a browser.
                 Scalene.__args.web = False
+            # Now if we are in Jupyter and we are going to output to a web browser.
+            # If so, set variables appropriately.
+            if Scalene.__args.web and Scalene.in_jupyter():
+                # Force JSON output to profile.json.
+                Scalene.__args.json = True
+                Scalene.__output.html = False
+                Scalene.__output.output_file = Scalene.__profile_filename
 
     @staticmethod
     def is_done() -> bool:
