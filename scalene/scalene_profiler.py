@@ -936,7 +936,7 @@ class Scalene:
         return output
 
     @staticmethod
-    def output_profile() -> bool:
+    def output_profile(program_args: Optional[List[str]] = None) -> bool:
         # sourcery skip: inline-immediately-returned-variable
         # print(Scalene.flamegraph_format())
         """Output the profile. Returns true iff there was any info reported the profile."""
@@ -948,6 +948,7 @@ class Scalene:
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
+                program_args,
                 profile_memory=Scalene.__args.memory,
                 reduced_profile=Scalene.__args.reduced_profile,
             )
@@ -1786,7 +1787,7 @@ class Scalene:
         Scalene.stop()
         # Output the profile if `--outfile` was set to a file.
         if Scalene.__output.output_file:
-            Scalene.output_profile()
+            Scalene.output_profile(sys.argv)
 
     @staticmethod
     def disable_signals(retry: bool = True) -> None:
@@ -1863,6 +1864,7 @@ class Scalene:
         code: str,
         the_globals: Dict[str, str],
         the_locals: Dict[str, str],
+        left: List[str],
     ) -> int:
         """Initiate execution and profiling."""
         if Scalene.__args.memory:
@@ -1900,7 +1902,7 @@ class Scalene:
                 last_line
             ] += stats.memory_current_highwater_mark[last_file][last_line]
             # If we've collected any samples, dump them.
-            did_output = Scalene.output_profile()
+            did_output = Scalene.output_profile(left)
             if not did_output:
                 print(
                     "Scalene: Program did not run for long enough to profile."
@@ -2116,7 +2118,7 @@ class Scalene:
                     try:
                         # We exit with this status (returning error code as appropriate).
                         exit_status = profiler.profile_code(
-                            code, the_locals, the_globals
+                            code, the_locals, the_globals, left
                         )
                         if not is_jupyter:
                             sys.exit(exit_status)
