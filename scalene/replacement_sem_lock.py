@@ -1,6 +1,8 @@
 import multiprocessing
+import random
 import sys
 import threading
+from multiprocessing.synchronize import Lock
 from scalene.scalene_profiler import Scalene
 from typing import Any
 
@@ -9,14 +11,17 @@ def _recreate_replacement_sem_lock():
 
 class ReplacementSemLock(multiprocessing.synchronize.Lock):
     def __enter__(self) -> bool:
-        timeout = sys.getswitchinterval()
+        max_timeout = sys.getswitchinterval()
         tident = threading.get_ident()
         while True:
             Scalene.set_thread_sleeping(tident)
+            timeout = random.random() * max_timeout
             acquired = self._semlock.acquire(timeout=timeout)  # type: ignore
             Scalene.reset_thread_sleeping(tident)
             if acquired:
                 return True
+            else:
+                max_timeout *= 2 # Exponential backoff
     def __exit__(self, *args: Any) -> None:
         super().__exit__(*args)
     def __reduce__(self):
