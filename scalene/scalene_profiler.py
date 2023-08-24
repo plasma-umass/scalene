@@ -993,6 +993,7 @@ class Scalene:
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
+                program_args,
                 profile_memory=Scalene.__args.memory,
                 reduced_profile=Scalene.__args.reduced_profile,
             )

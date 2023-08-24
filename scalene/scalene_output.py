@@ -5,7 +5,7 @@ import tempfile
 from collections import OrderedDict, defaultdict
 from operator import itemgetter
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from rich import box
 from rich.console import Console
@@ -307,7 +307,7 @@ class ScaleneOutput:
         profile_this_code: Callable[[Filename, LineNumber], bool],
         python_alias_dir: Path,
         program_path: Path,
-        left: List[str],
+        program_args: Optional[List[str]],
         profile_memory: bool = True,
         reduced_profile: bool = False,
     ) -> bool:
