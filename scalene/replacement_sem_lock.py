@@ -10,6 +10,11 @@ def _recreate_replacement_sem_lock():
     return ReplacementSemLock()
 
 class ReplacementSemLock(multiprocessing.synchronize.Lock):
+    def __init__(self, ctx=None):
+        # Ensure to use the appropriate context while initializing
+        if ctx is None:
+            ctx = multiprocessing.get_context()
+        super().__init__(ctx=ctx)
     def __enter__(self) -> bool:
         max_timeout = sys.getswitchinterval()
         tident = threading.get_ident()
