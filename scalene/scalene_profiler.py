@@ -1740,7 +1740,7 @@ class Scalene:
             except Exception:
                 # Couldn't find a browser.
                 Scalene.__args.web = False
-            print(f"before: {Scalene.__args.web=}, {Scalene.in_jupyter()=}, {Scalene.__output.html=}")
+)
             # Now if we are in Jupyter and we are going to output to a web browser.
             # If so, set variables appropriately.
             if Scalene.__args.web and Scalene.in_jupyter():
@@ -1748,7 +1748,6 @@ class Scalene:
                 Scalene.__args.json = True
                 Scalene.__output.html = False
                 Scalene.__output.output_file = Scalene.__profile_filename
-            print(f"after: {Scalene.__args.web=}, {Scalene.in_jupyter()=}, {Scalene.__output.html=}")
 
     @staticmethod
     def is_done() -> bool:
