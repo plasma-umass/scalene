@@ -7,7 +7,7 @@ import sys
 from collections import OrderedDict, defaultdict
 from operator import itemgetter
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
@@ -237,7 +237,7 @@ class ScaleneJSON:
         profile_this_code: Callable[[Filename, LineNumber], bool],
         python_alias_dir: Path,
         program_path: Path,
-        args: List[str],
+        program_args: Optional[List[str]],
         profile_memory: bool = True,
         reduced_profile: bool = False,
     ) -> Dict[str, Any]:
@@ -295,7 +295,7 @@ class ScaleneJSON:
 
         output: Dict[str, Any] = {
             "program": program,
-            "args": args,
+            "args": program_args,
             "filename": program_path,
             "alloc_samples": stats.alloc_samples,
             "elapsed_time_sec": stats.elapsed_time,

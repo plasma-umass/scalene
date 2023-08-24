@@ -936,7 +936,7 @@ class Scalene:
         return output
 
     @staticmethod
-    def output_profile(left: List[str]) -> bool:
+    def output_profile(program_args: Optional[List[str]] = None) -> bool:
         # sourcery skip: inline-immediately-returned-variable
         # print(Scalene.flamegraph_format())
         """Output the profile. Returns true iff there was any info reported the profile."""
@@ -948,7 +948,7 @@ class Scalene:
                 Scalene.profile_this_code,
                 Scalene.__python_alias_dir,
                 Scalene.__program_path,
-                left,
+                program_args,
                 profile_memory=Scalene.__args.memory,
                 reduced_profile=Scalene.__args.reduced_profile,
             )
