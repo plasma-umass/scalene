@@ -41,11 +41,14 @@ with contextlib.suppress(Exception):
             if line:
                 sys.argv = ["scalene", "--ipython", *line.split()]
                 (args, _left) = ScaleneParseArgs.parse_args()
+                print(f"{args=}, {_left=}")
             else:
                 args = ScaleneArguments()
+                print(f"{args=}")
             if args and cell:
                 # Preface with a "\n" to drop the first line (%%scalene).
                 self.run_code(args, "\n" + cell)  # type: ignore
+                print(f"{cell=}")
 
         @line_magic
         def scrun(self, line: str = "") -> None:
