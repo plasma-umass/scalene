@@ -62,6 +62,7 @@ with contextlib.suppress(Exception):
                     self.run_code(args, " ".join(left))  # type: ignore
 
     def load_ipython_extension(ip: Any) -> None:
+        print("LOADING")
         ip.register_magics(ScaleneMagics)
         with contextlib.suppress(Exception):
             # For some reason, this isn't loading correctly on the web.
