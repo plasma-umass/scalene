@@ -38,6 +38,7 @@ with contextlib.suppress(Exception):
         @line_cell_magic
         def scalene(self, line: str, cell: str = "") -> None:
             """%%scalene magic: see https://github.com/plasma-umass/scalene for usage info."""
+            print("SCALENE MAGIC")
             if line:
                 sys.argv = ["scalene", "--ipython", *line.split()]
                 (args, _left) = ScaleneParseArgs.parse_args()
@@ -53,7 +54,7 @@ with contextlib.suppress(Exception):
         @line_magic
         def scrun(self, line: str = "") -> None:
             """%scrun magic: see https://github.com/plasma-umass/scalene for usage info."""
-
+            print("SCRUN MAGIC")
             if line:
                 sys.argv = ["scalene", "--ipython", *line.split()]
                 (args, left) = ScaleneParseArgs.parse_args()
