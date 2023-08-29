@@ -38,19 +38,23 @@ with contextlib.suppress(Exception):
         @line_cell_magic
         def scalene(self, line: str, cell: str = "") -> None:
             """%%scalene magic: see https://github.com/plasma-umass/scalene for usage info."""
+            print("SCALENE MAGIC")
             if line:
                 sys.argv = ["scalene", "--ipython", *line.split()]
                 (args, _left) = ScaleneParseArgs.parse_args()
+                print(f"{args=}, {_left=}")
             else:
                 args = ScaleneArguments()
+                print(f"{args=}")
             if args and cell:
                 # Preface with a "\n" to drop the first line (%%scalene).
                 self.run_code(args, "\n" + cell)  # type: ignore
+                print(f"{cell=}")
 
         @line_magic
         def scrun(self, line: str = "") -> None:
             """%scrun magic: see https://github.com/plasma-umass/scalene for usage info."""
-
+            print("SCRUN MAGIC")
             if line:
                 sys.argv = ["scalene", "--ipython", *line.split()]
                 (args, left) = ScaleneParseArgs.parse_args()
@@ -58,6 +62,7 @@ with contextlib.suppress(Exception):
                     self.run_code(args, " ".join(left))  # type: ignore
 
     def load_ipython_extension(ip: Any) -> None:
+        print("LOADING")
         ip.register_magics(ScaleneMagics)
         with contextlib.suppress(Exception):
             # For some reason, this isn't loading correctly on the web.
