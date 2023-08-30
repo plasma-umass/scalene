@@ -27,21 +27,35 @@ jobs:
 
   build-and-upload:
     needs: pick-devN
-    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         python_version: ['3.8', '3.9', '3.10', '3.11']
-        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
+        plat: ['manylinux2014', 'manylinux_2_28', 'macos-latest', 'windows-latest']
         include:
-          - os: ubuntu-latest
-            container: quay.io/pypa/manylinux_2_24_x86_64  # https://github.com/pypa/manylinux
-          - os: macos-latest
+          - plat: manylinux2014
+            os: ubuntu-latest
+            container: quay.io/pypa/manylinux2014_x86_64  # https://github.com/pypa/manylinux
+
+          - plat: manylinux_2_28
+            os: ubuntu-latest
+            container: quay.io/pypa/manylinux_2_28_x86_64  # https://github.com/pypa/manylinux
+
+          - plat: macos-latest
+            os: macos-latest
+
+          - plat: macos-latest
+            os: macos-latest
             python_version: 3.11
             upload_source: true   # just need ONE of them to do it
+
+          - plat: windows-latest
+            os: windows-latest
+
         exclude:
-          - os: windows-latest
+          - plat: windows-latest
             python_version: 3.11
 
+    runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
 
     steps:
