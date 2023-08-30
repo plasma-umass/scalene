@@ -189,7 +189,7 @@ if sys.argv[1].startswith('bdist') and sys.platform == 'darwin':
 setup(
     name="scalene",
     version=scalene_version + dev_build,
-    description="Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python",
+    description="Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python with AI-powered optimization suggestions",
     keywords="performance memory profiler",
     long_description=read_file("README.md"),
     long_description_content_type="text/markdown",
