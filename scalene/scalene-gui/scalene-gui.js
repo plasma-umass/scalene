@@ -125,11 +125,14 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
     // Chop off any blank lines in the header.
     
     try {
-	// WAS (GPT-3): return data.choices[0].text.replace(/^\s*[\r\n]/gm, "");
-	return data.choices[0].message.content.replace(/^\s*[\r\n]/gm, "");
+	if (model === "gpt-3.5-turbo") {
+	    return data.choices[0].text.replace(/^\s*[\r\n]/gm, "");
+	} else {
+	    return data.choices[0].message.content.replace(/^\s*[\r\n]/gm, "");
+	}
     } catch {
+	console.log(`Debugging info: ${data.choices[0]}`);
 	return "# Query failed.\n";
-	
     }
 }
 
