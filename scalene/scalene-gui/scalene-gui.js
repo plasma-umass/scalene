@@ -122,17 +122,17 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
     });
 
     const data = await response.json();
-    // Chop off any blank lines in the header.
+
+    try {
+	console.log(`Debugging info: Retrieved ${JSON.stringify(data.choices[0], null, 4)}`);
+    } catch {
+	console.log(`Debugging info: Failed to retrieve data.choices from the server. data = {JSON.stringify(data)}`);
+    }
     
     try {
-	if (model === "gpt-3.5-turbo") {
-	    return data.choices[0].text.replace(/^\s*[\r\n]/gm, "");
-	} else {
-	    return data.choices[0].message.content.replace(/^\s*[\r\n]/gm, "");
-	}
+	return data.choices[0].message.content.replace(/^\s*[\r\n]/gm, "");
     } catch {
-	console.log(`Debugging info: ${data.choices[0]}`);
-	return "# Query failed.\n";
+	return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
     }
 }
 
