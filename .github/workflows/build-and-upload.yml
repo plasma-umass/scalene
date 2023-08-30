@@ -27,7 +27,6 @@ jobs:
 
   build-and-upload:
     needs: pick-devN
-    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         python_version: ['3.8', '3.9', '3.10', '3.11']
@@ -56,6 +55,7 @@ jobs:
           - plat: windows-latest
             python_version: 3.11
 
+    runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
 
     steps:
