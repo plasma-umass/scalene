@@ -1702,8 +1702,9 @@ class Scalene:
         """Initiate profiling."""
         if not Scalene.__initialized:
             print(
-                "ERROR: Do not try to invoke `start` when you have not called Scalene using one of the methods "
+                "ERROR: Do not try to invoke `start` if you have not called Scalene using one of the methods "
                 "in https://github.com/plasma-umass/scalene#using-scalene"
+                "(The most likely issue is that you need to run your code with `scalene`, not `python`)."
             )
             sys.exit(1)
         Scalene.__stats.start_clock()
