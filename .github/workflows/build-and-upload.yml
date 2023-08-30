@@ -32,11 +32,11 @@ jobs:
         python_version: ['3.8', '3.9', '3.10', '3.11']
         plat: ['manylinux2014', 'manylinux_2_28', 'macos-latest', 'windows-latest']
         include:
-          - os: manylinux2014
+          - plat: manylinux2014
             os: ubuntu-latest
             container: quay.io/pypa/manylinux2014_x86_64  # https://github.com/pypa/manylinux
 
-          - os: manylinux_2_28
+          - plat: manylinux_2_28
             os: ubuntu-latest
             container: quay.io/pypa/manylinux_2_28_x86_64  # https://github.com/pypa/manylinux
 
