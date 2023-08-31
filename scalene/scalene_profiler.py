@@ -751,6 +751,7 @@ class Scalene:
                 sys.exit(1)
 
         Scalene.__signals.set_timer_signals(arguments.use_virtual_time)
+        Scalene.__profiler_base = str(os.path.dirname(__file__))
         if arguments.pid:
             # Child process.
             # We need to use the same directory as the parent.
@@ -798,7 +799,6 @@ class Scalene:
                 sys.executable,
                 cmdline,
             )
-            Scalene.__profiler_base = str(os.path.dirname(__file__))
             # Now create all the files.
             for name in Scalene.__all_python_names:
                 fname = os.path.join(Scalene.__python_alias_dir, name)
