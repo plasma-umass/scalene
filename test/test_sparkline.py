@@ -1,27 +1,22 @@
 import pytest
 
-from scalene.sparkline import SparkLine
+import scalene.sparkline as sl
 
 
-@pytest.fixture(name="sl")
-def sparkline() -> SparkLine:
-    return SparkLine()
-
-
-def test_get_bars(sl):
+def test_get_bars():
     bar = sl._get_bars()
 
     assert bar == "▁▂▃▄▅▆▇█"
 
 
-def test_get_bars___in_wsl(sl, monkeypatch):
+def test_get_bars___in_wsl(monkeypatch):
     monkeypatch.setenv("WSL_DISTRO_NAME", "Some WSL distro name")
     bar = sl._get_bars()
 
     assert bar == "▄▄■■■▀▀▀"
 
 
-def test_get_bars__in_wsl_and_windows_terminal(sl, monkeypatch):
+def test_get_bars__in_wsl_and_windows_terminal(monkeypatch):
     monkeypatch.setenv("WSL_DISTRO_NAME", "Some WSL distro name")
     monkeypatch.setenv("WT_PROFILE_ID", "Some Windows Terminal id")
     bar = sl._get_bars()
@@ -29,7 +24,7 @@ def test_get_bars__in_wsl_and_windows_terminal(sl, monkeypatch):
     assert bar == "▁▂▃▄▅▆▇█"
 
 
-def test_generate(sl):
+def test_generate():
     numbers = [1, 2, 3, 4, 5, 6, 7, 8]
 
     result = sl.generate(numbers)
@@ -37,7 +32,7 @@ def test_generate(sl):
     assert result == (1, 8, "▁▂▃▄▅▆▇█")
 
 
-def test_generate__up_and_down(sl):
+def test_generate__up_and_down():
     numbers = [1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1]
 
     result = sl.generate(numbers)
@@ -45,7 +40,7 @@ def test_generate__up_and_down(sl):
     assert result == (1, 8, "▁▂▃▄▅▆▇█▇▆▅▄▃▂▁")
 
 
-def test_generate__all_zeroes(sl):
+def test_generate__all_zeroes():
     numbers = [0, 0, 0]
 
     result = sl.generate(numbers)
@@ -53,7 +48,7 @@ def test_generate__all_zeroes(sl):
     assert result == (0, 0, '')
 
 
-def test_generate__with_negative_values(sl):
+def test_generate__with_negative_values():
     numbers = [1, 2, 3, -4, 5, -6, 7, 8]
 
     result = sl.generate(numbers)
@@ -61,7 +56,7 @@ def test_generate__with_negative_values(sl):
     assert result == (0.0, 8.0, '▂▃▄▁▆▁██')
 
 
-def test_generate__with_min(sl):
+def test_generate__with_min():
     numbers = [1, 2, 3, 4, 5, 6, 7, 8]
 
     result = sl.generate(numbers, minimum=0)
@@ -69,7 +64,7 @@ def test_generate__with_min(sl):
     assert result == (0, 8.0, '▂▃▄▅▆▇██')
 
 
-def test_generate__with_max_same_as_actual_max(sl):
+def test_generate__with_max_same_as_actual_max():
     numbers = [1, 2, 3, 4, 5, 6, 7, 8]
 
     result = sl.generate(numbers, maximum=8)
@@ -77,7 +72,7 @@ def test_generate__with_max_same_as_actual_max(sl):
     assert result == (1.0, 8, '▁▂▃▄▅▆▇█')
 
 
-def test_generate__with_max_below_actual_max(sl):
+def test_generate__with_max_below_actual_max():
     numbers = [1, 2, 3, 4, 5, 6, 7, 8]
 
     result = sl.generate(numbers, maximum=6)
