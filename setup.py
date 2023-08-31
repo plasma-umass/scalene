@@ -120,7 +120,7 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
                        path.join(scalene_lib, libscalene))
 
     def copy_extensions_to_source(self):
-        # self.inplace is temporarily overriden while running build_extensions,
+        # self.inplace is temporarily overridden while running build_extensions,
         # so inplace copying (for pip install -e, setup.py develop) must be done here.
 
         super().copy_extensions_to_source()
