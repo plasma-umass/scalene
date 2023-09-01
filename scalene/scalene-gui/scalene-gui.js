@@ -14,19 +14,28 @@ function unescapeUnicode(s) {
   });
 }
 
-async function isValidApiKey(apiKey) {
+async function tryApi(apiKey) {
   const response = await fetch("https://api.openai.com/v1/completions", {
     method: "GET",
     headers: {
+	  "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-    },
+    }
   });
-  const data = await response.json();
-  if (data.error && data.error.code === "invalid_api_key") {
-    return false;
-  } else {
-    return true;
-  }
+    return response;
+}
+
+async function isValidApiKey(apiKey) {
+    const response = await tryApi(apiKey);
+    const data = await response.json();
+    if (data.error && (data.error.code in { "invalid_api_key" : true,
+					    "invalid_request_error" : true,
+					    "model_not_found" : true,
+					    "insufficient_quota" : true })) {
+	return false;
+    } else {
+	return true;
+    }
 }
 
 function checkApiKey(apiKey) {
@@ -40,19 +49,13 @@ function checkApiKey(apiKey) {
       document.getElementById("valid-api-key").innerHTML = "";
       return;
     }
-    const response = await fetch("https://api.openai.com/v1/completions", {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-    });
-    const data = await response.json();
-    if (data.error && data.error.code === "invalid_api_key") {
-      document.getElementById("valid-api-key").innerHTML = "&#10005;";
-    } else {
-      document.getElementById("valid-api-key").innerHTML = "&check;";
-    }
-  })();
+	const isValid = await isValidApiKey(apiKey);
+	if (!isValid) {
+	    document.getElementById("valid-api-key").innerHTML = "&#10005;";
+	} else {
+	    document.getElementById("valid-api-key").innerHTML = "&check;";
+	}
+    })();
 }
 
 function extractCode(text) {
@@ -62,6 +65,9 @@ function extractCode(text) {
   * @param {string} text - A string containing text and other data.
   * @returns {string} Extracted code block from the completion object.
   */
+    if (!text) {
+	return text;
+    }
   const lines = text.split('\n');
   let i = 0;
   while (i < lines.length && lines[i].trim() === '') {
@@ -122,14 +128,31 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
     });
 
     const data = await response.json();
-    // Chop off any blank lines in the header.
+    if (data.error) {
+	if (data.error.code in { "invalid_request_error" : true,
+				 "model_not_found" : true,
+				 "insufficient_quota" : true }) {
+	    if ((data.error.code === "model_not_found") && (model === "gpt-4")) {
+		// Technically, model_not_found applies only for GPT-4.0
+		// if an account has not been funded with at least $1.
+		alert("You either need to add funds to your OpenAI account to use this feature, or you need to switch to GPT-3.5 if you are using free credits.");
+	    } else {
+		alert("You need to add funds to your OpenAI account to use this feature.");
+	    }
+	    return "";
+	}
+    }
+    try {
+	console.log(`Debugging info: Retrieved ${JSON.stringify(data.choices[0], null, 4)}`);
+    } catch {
+	console.log(`Debugging info: Failed to retrieve data.choices from the server. data = ${JSON.stringify(data)}`);
+    }
     
     try {
-	// WAS (GPT-3): return data.choices[0].text.replace(/^\s*[\r\n]/gm, "");
 	return data.choices[0].message.content.replace(/^\s*[\r\n]/gm, "");
     } catch {
-	return "# Query failed.\n";
-	
+	// return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
+	return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
     }
 }
 
@@ -246,10 +269,8 @@ function proposeOptimization(filename, file_number, lineno, params) {
       document.getElementById("api-key").value
     );
     if (!isValid) {
-      alert(
-        "You must enter a valid OpenAI API key to activate proposed optimizations."
-      );
-      return;
+	alert("You must enter a valid OpenAI API key to activate proposed optimizations.");
+	return;
     }
     elt.innerHTML = `<em>${indent}working...</em>`;
       let message = await optimizeCode(imports, code_region, context);
