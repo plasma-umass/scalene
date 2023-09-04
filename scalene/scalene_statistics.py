@@ -401,7 +401,11 @@ class ScaleneStatistics:
                 continue
             with open(f, "rb") as file:
                 unpickler = pickle.Unpickler(file)
-                value = unpickler.load()
+                try:
+                    value = unpickler.load()
+                except EOFError:
+                    # Empty file for some reason.
+                    continue
                 x = ScaleneStatistics()
                 for i, n in enumerate(ScaleneStatistics.payload_contents):
                     setattr(x, n, value[i])
