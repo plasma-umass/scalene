@@ -1097,6 +1097,11 @@ class Scalene:
         # CPU utilization is the fraction of time spent on the CPU
         # over the total time.
         elapsed_user = now_user - prev_user
+        if any([elapsed_virtual < 0, elapsed_wallclock < 0, elapsed_user < 0]):
+            # If we get negative values, which appear to arise in some
+            # multi-process settings (seen in gunicorn), skip this
+            # sample.
+            return
         cpu_utilization = 0.0
         if elapsed_wallclock != 0:
             cpu_utilization = elapsed_user / elapsed_wallclock
