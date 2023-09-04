@@ -32,10 +32,8 @@ def _create(
     spark = "".join(
         __bars[
             min(
-                [
-                    __bar_count - 1,
-                    int((n - min_) / extent * __bar_count),
-                ]
+                __bar_count - 1,
+                int((n - min_) / extent * __bar_count),
             )
         ]
         for n in numbers
