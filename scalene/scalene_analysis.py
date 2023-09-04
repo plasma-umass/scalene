@@ -134,8 +134,6 @@ class ScaleneAnalysis:
         # Filter out any magic lines (starting with %) if in a Jupyter notebook
         import re
 
-        srclines = list(
-            map(lambda x: re.sub(r"^\%.*", "", x), source.split("\n"))
-        )
+        srclines = map(lambda x: re.sub(r"^\%.*", "", x), source.split("\n"))
         source = "\n".join(srclines)
         return source
