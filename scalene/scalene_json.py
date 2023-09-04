@@ -87,8 +87,7 @@ class ScaleneJSON:
             new_samples = sorted(
                 random.sample(new_samples, self.max_sparkline_samples)
             )
-        samples = new_samples
-        return samples
+        return new_samples
 
     # Profile output methods
     def output_profile_line(
