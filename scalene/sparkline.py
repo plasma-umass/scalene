@@ -18,7 +18,7 @@ def generate(
 
     # Prevent negative memory output due to sampling error.
     samples = [i if i > 0 else 0.0 for i in arr]
-    return _create(samples[: len(arr)], minimum, maximum)
+    return _create(samples, minimum, maximum)
 
 
 def _create(
