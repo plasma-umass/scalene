@@ -262,9 +262,7 @@ class Scalene:
     # decorated files
     __files_to_profile: Set[Filename] = set()
     # decorated functions
-    __functions_to_profile: Dict[Filename, Set[Any]] = defaultdict(
-        lambda: set()
-    )
+    __functions_to_profile: Dict[Filename, Set[Any]] = defaultdict(set)
 
     # Cache the original thread join function, which we replace with our own version.
     __original_thread_join = threading.Thread.join
