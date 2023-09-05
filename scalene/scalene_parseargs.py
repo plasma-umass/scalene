@@ -47,7 +47,7 @@ class ScaleneParseArgs:
                 sys._exit = ScaleneParseArgs.clean_exit  # type: ignore
         defaults = ScaleneArguments()
         usage = dedent(
-            f"""[b]Scalene[/b]: a high-precision CPU and memory profiler, version {scalene_version} ({scalene_date})
+            rf"""[b]Scalene[/b]: a high-precision CPU and memory profiler, version {scalene_version} ({scalene_date})
 [link=https://github.com/plasma-umass/scalene]https://github.com/plasma-umass/scalene[/link]
 
 
