@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+import os
 import sys
 from textwrap import dedent
 from typing import Any, List, NoReturn, Optional, Tuple
@@ -7,7 +8,7 @@ from typing import Any, List, NoReturn, Optional, Tuple
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_version import scalene_version, scalene_date
 
-scalene_gui_url = "https://plasma-umass.org/scalene-gui/"
+scalene_gui_url = f'file:{os.path.join(os.path.dirname(__file__), "scalene-gui", "index.html")}'
 
 
 class RichArgParser(argparse.ArgumentParser):
@@ -155,7 +156,7 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=False,
-            help=f"only opens the web UI ({scalene_gui_url})",
+            help=f"opens the Scalene web UI and exits.",
         )
         parser.add_argument(
             "--reduced-profile",
