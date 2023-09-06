@@ -929,17 +929,19 @@ class Scalene:
         output = ""
         for stk in Scalene.__stats.stacks.keys():
             for item in stk:
-                (fname, lineno) = item
-                output += f"{fname}:{lineno};"
+                (fname, fn_name, lineno) = item
+                output += f"{fname} {fn_name}:{lineno};"
             output += " " + str(Scalene.__stats.stacks[stk])
             output += "\n"
         return output
 
     @staticmethod
     def output_profile(program_args: Optional[List[str]] = None) -> bool:
+        """Output the profile. Returns true iff there was any info reported the profile."""
         # sourcery skip: inline-immediately-returned-variable
         # print(Scalene.flamegraph_format())
-        """Output the profile. Returns true iff there was any info reported the profile."""
+        with open(f'{os.getcwd()}/flamegraph.out', 'w+') as f:
+            f.write(Scalene.flamegraph_format())
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
                 Scalene.__program_being_profiled,
@@ -1025,7 +1027,7 @@ class Scalene:
         f : Optional[FrameType] = frame
         while f:
             if Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
-                stk.insert(0, (f.f_code.co_filename, f.f_lineno))
+                stk.insert(0, (f.f_code.co_filename, f.f_code.co_name, f.f_lineno))
             f = f.f_back
         Scalene.__stats.stacks[tuple(stk)] += 1
 
