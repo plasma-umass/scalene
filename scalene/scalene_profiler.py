@@ -940,8 +940,6 @@ class Scalene:
         """Output the profile. Returns true iff there was any info reported the profile."""
         # sourcery skip: inline-immediately-returned-variable
         # print(Scalene.flamegraph_format())
-        with open(f'{os.getcwd()}/flamegraph.out', 'w+') as f:
-            f.write(Scalene.flamegraph_format())
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
                 Scalene.__program_being_profiled,
