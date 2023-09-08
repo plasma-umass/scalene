@@ -198,15 +198,17 @@ for the process ID that Scalene reports. For example:
             + (str(defaults.gpu))
             + " [/blue])",
         )
+        if sys.platform == "win32":
+            memory_profile_message = "profile memory (not supported on this platform)" 
+        else:
+            memory_profile_message = "profile memory (default: [blue]" + (str(defaults.memory)) + " [/blue])"
         parser.add_argument(
             "--memory",
             dest="memory",
             action="store_const",
             const=True,
             default=None,
-            help="profile memory (default: [blue]"
-            + (str(defaults.memory))
-            + " [/blue])",
+            help= memory_profile_message
         )
         parser.add_argument(
             "--profile-all",

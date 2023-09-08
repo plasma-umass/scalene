@@ -737,6 +737,10 @@ class Scalene:
             import queue
 
             Scalene.__windows_queue = queue.Queue()
+            if arguments.memory:
+                print(f"Scalene warning: Memory profiling is not currently supported for Windows.")
+                arguments.memory = False
+                
         # Initialize the malloc related files; if for whatever reason
         # the files don't exist and we are supposed to be profiling
         # memory, exit.
