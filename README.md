@@ -315,10 +315,15 @@ code...
 
 ## Installation
 
-<details>
+<details open>
 <summary>Using <code>pip</code> (Mac OS X, Linux, Windows, and WSL2)</summary>
 
-Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms. (**Note**: the Windows version isn't yet complete; it currently only supports CPU and GPU profiling, but not memory profiling.)
+Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms.
+
+> **Note**
+>
+> The Windows version currently only supports CPU and GPU profiling, but not memory or copy profiling.
+> 
 
 You can install it as follows:
 ```console
@@ -341,6 +346,20 @@ For Ubuntu/Debian:
 ```
 </details>
 
+<details>
+<summary>Using <code>conda</code> (Mac OS X, Linux, Windows, and WSL2)</summary>
+
+```console
+  % conda install -c conda-forge scalene
+```
+
+Scalene is distributed as a `conda` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms.
+
+> **Note**
+>
+> The Windows version currently only supports CPU and GPU profiling, but not memory or copy profiling.
+> 
+</details>
 
 <details>
 <summary>Using <code>Homebrew</code> (Mac OS X)</summary>
