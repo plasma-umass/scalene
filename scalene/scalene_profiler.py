@@ -1725,6 +1725,9 @@ class Scalene:
         Scalene.__done = True
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
+        if Scalene.__args.outfile:
+            Scalene.__profile_filename = os.path.join(os.path.dirname(Scalene.__args.outfile),
+                                                      os.path.basename(Scalene.__profile_filename))
         if (
             Scalene.__args.web
             and not Scalene.__args.cli
@@ -1749,9 +1752,8 @@ class Scalene:
                 # Couldn't find a browser.
                 Scalene.__args.web = False
 
-            # Now if we are in Jupyter and we are going to output to a web browser.
             # If so, set variables appropriately.
-            if Scalene.__args.web and Scalene.in_jupyter():
+            if (Scalene.__args.web and Scalene.in_jupyter()):
                 # Force JSON output to profile.json.
                 Scalene.__args.json = True
                 Scalene.__output.html = False
@@ -1930,7 +1932,7 @@ class Scalene:
 
             Scalene.generate_html(
                 profile_fname=Scalene.__profile_filename,
-                output_fname=Scalene.__profiler_html,
+                output_fname=Scalene.__args.outfile if Scalene.__args.outfile else Scalene.__profiler_html,
             )
             if Scalene.in_jupyter():
                 from scalene.scalene_jupyter import ScaleneJupyter
@@ -1941,17 +1943,22 @@ class Scalene:
                 else:
                     ScaleneJupyter.display_profile(port, Scalene.__profiler_html)
             else:
-                # Remove any interposition libraries from the environment before opening the browser.
-                # See also scalene/scalene_preload.py
-                old_dyld = os.environ.pop("DYLD_INSERT_LIBRARIES", "")
-                old_ld = os.environ.pop("LD_PRELOAD", "")
-                webbrowser.open(
-                    f"file:///{os.getcwd()}/{Scalene.__profiler_html}"
-                )
-                # Restore them.
-                os.environ.update(
-                    {"DYLD_INSERT_LIBRARIES": old_dyld, "LD_PRELOAD": old_ld}
-                )
+                if not Scalene.__args.no_browser:
+                    # Remove any interposition libraries from the environment before opening the browser.
+                    # See also scalene/scalene_preload.py
+                    old_dyld = os.environ.pop("DYLD_INSERT_LIBRARIES", "")
+                    old_ld = os.environ.pop("LD_PRELOAD", "")
+                    if Scalene.__args.outfile:
+                        output_fname=Scalene.__args.outfile
+                    else:
+                        output_fname=f"{os.getcwd()}/{Scalene.__profiler_html}"
+                    webbrowser.open(
+                        f"file:///{output_fname}"
+                    )
+                    # Restore them.
+                    os.environ.update(
+                        {"DYLD_INSERT_LIBRARIES": old_dyld, "LD_PRELOAD": old_ld}
+                    )
 
         return exit_status
 
