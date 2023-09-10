@@ -1,6 +1,7 @@
 {# index.html.template #}
 <html>
   <head>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://jsdeliver.net https://code.jquery.com https://jquery.com https://www.googletagmanager.com ;">
     <title>Scalene</title>
     <link rel="icon" href="https://raw.githubusercontent.com/plasma-umass/scalene/master/scalene/scalene-gui/favicon.ico" type="image/x-icon">
     <!-- Latest compiled and minified CSS -->
