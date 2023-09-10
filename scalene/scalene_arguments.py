@@ -44,5 +44,6 @@ class ScaleneArguments(argparse.Namespace):
         self.use_virtual_time = False
         self.memory_leak_detector = True  # experimental
         self.web = True
+        self.no_browser = False
         self.port = 8088
         self.cli = False
