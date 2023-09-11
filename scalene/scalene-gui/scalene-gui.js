@@ -341,7 +341,7 @@ function time_consumed_str(time_in_ms) {
   }
 }
 
-function makeBar(python, native, system) {
+function makeBar(python, native, system, params) {
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -352,8 +352,8 @@ function makeBar(python, native, system) {
     autosize: {
       contains: "padding",
     },
-    width: "container",
-    height: "container",
+      width: params.width,
+      height: params.height,
     padding: 0,
     data: {
       values: [
@@ -430,8 +430,8 @@ function makeGPUPie(util) {
     autosize: {
       contains: "padding",
     },
-    width: "container",
-    height: "container",
+      width: 100,
+      height: 20,
     padding: 0,
     data: {
       values: [
@@ -460,11 +460,11 @@ function makeGPUPie(util) {
   };
 }
 
-function makeMemoryPie(native_mem, python_mem) {
+function makeMemoryPie(native_mem, python_mem, params) {
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-    width: "container",
-    height: "container",
+      width: params.width,
+    height: 20,
     padding: 0,
     data: {
       values: [
@@ -498,7 +498,7 @@ function makeMemoryPie(native_mem, python_mem) {
   };
 }
 
-function makeMemoryBar(memory, title, python_percent, total, color) {
+function makeMemoryBar(memory, title, python_percent, total, color, params) {
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -509,8 +509,8 @@ function makeMemoryBar(memory, title, python_percent, total, color) {
     autosize: {
       contains: "padding",
     },
-    width: "container",
-    height: "container",
+      width: params.width,
+      height: params.height,
     padding: 0,
     data: {
       values: [
@@ -549,9 +549,8 @@ function makeSparkline(
   samples,
   max_x,
   max_y,
-  leak_velocity = 0,
-  height = 20,
-  width = 75
+    leak_velocity = 0,
+    params
 ) {
   const values = samples.map((v, i) => {
     let leak_str = "";
@@ -572,15 +571,15 @@ function makeSparkline(
   let leak_info = "";
   if (leak_velocity != 0) {
     leak_info = "possible leak";
-    height -= 10; // FIXME should be actual height of font
+      params.height -= 10; // FIXME should be actual height of font
   }
 
   const strokeWidth = 1; // 0.25;
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     data: { values: values },
-    width: width,
-    height: height,
+    width: params.width,
+    height: params.height,
     padding: 0,
     title: {
       text: leak_info,
@@ -879,7 +878,8 @@ function makeProfileLine(
       makeBar(
         line.n_cpu_percent_python,
         line.n_cpu_percent_c,
-        line.n_sys_percent
+          line.n_sys_percent,
+	  { height: 20, width: 100 }
       )
     );
   } else {
@@ -898,7 +898,8 @@ function makeProfileLine(
           "average memory",
           parseFloat(line.n_python_fraction),
           prof.max_footprint_mb.toFixed(2),
-          "darkgreen"
+            "darkgreen",
+	    { height: 20, width: 100 }
         )
       );
     } else {
@@ -915,14 +916,15 @@ function makeProfileLine(
           "peak memory",
           parseFloat(line.n_python_fraction),
           prof.max_footprint_mb.toFixed(2),
-          "darkgreen"
+            "darkgreen",
+	    { height: 20, width: 100 }
         )
       );
     } else {
       memory_bars.push(null);
     }
     s += "</td>";
-    s += `<td style='vertical-align: middle; width: 100'><span style="height:25; width: 100; vertical-align: middle" id="memory_sparkline${memory_sparklines.length}"></span>`;
+    s += `<td style='vertical-align: middle; width: 100'><span style="height:20; width: 100; vertical-align: middle" id="memory_sparkline${memory_sparklines.length}"></span>`;
     s += "</td>";
     if (line.memory_samples.length > 0) {
       let leak_velocity = 0;
@@ -936,7 +938,8 @@ function makeProfileLine(
           line.memory_samples,
           prof.elapsed_time_sec * 1e9,
           prof.max_footprint_mb,
-          leak_velocity
+            leak_velocity,
+	    {height: 20, width: 75 }
         )
       );
     } else {
@@ -950,7 +953,8 @@ function makeProfileLine(
           100 *
             line.n_usage_fraction *
             (1 - parseFloat(line.n_python_fraction)),
-          100 * line.n_usage_fraction * parseFloat(line.n_python_fraction)
+            100 * line.n_usage_fraction * parseFloat(line.n_python_fraction),
+	    { width: 30 }
         )
       );
     } else {
@@ -1152,8 +1156,7 @@ async function display(prof) {
         prof.elapsed_time_sec * 1e9,
         prof.max_footprint_mb,
         0,
-        20,
-        200
+          { height: 20, width: 200 }
       )
     );
   }
@@ -1184,7 +1187,7 @@ async function display(prof) {
     cpu_system += cs;
     mem_python += mp;
   }
-  cpu_bars.push(makeBar(cpu_python, cpu_native, cpu_system));
+    cpu_bars.push(makeBar(cpu_python, cpu_native, cpu_system, { height: 20, width: 200 }));
   if (prof.memory) {
     memory_bars.push(
       makeMemoryBar(
@@ -1192,7 +1195,8 @@ async function display(prof) {
         "memory",
         mem_python / max_alloc,
         max_alloc,
-        "darkgreen"
+          "darkgreen",
+	  { height: 20, width: 150 }
       )
     );
   }
@@ -1353,8 +1357,8 @@ async function display(prof) {
   });
   cpu_bars.forEach((p, index) => {
     if (p) {
-      (async () => {
-        await vegaEmbed(`#cpu_bar${index}`, p, { actions: false });
+	(async () => {
+            await vegaEmbed(`#cpu_bar${index}`, p, { actions: false });
       })();
     }
   });

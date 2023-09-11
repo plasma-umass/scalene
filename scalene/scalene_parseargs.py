@@ -151,6 +151,14 @@ for the process ID that Scalene reports. For example:
             help="opens a web tab to view the profile (saved as 'profile.html')",
         )
         parser.add_argument(
+            "--no-browser",
+            dest="no_browser",
+            action="store_const",
+            const=True,
+            default=defaults.no_browser,
+            help="doesn't open a web tab; just saves the profile ('profile.html')",
+        )
+        parser.add_argument(
             "--viewer",
             dest="viewer",
             action="store_const",

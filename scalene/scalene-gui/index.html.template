@@ -1,6 +1,10 @@
 {# index.html.template #}
+<!DOCTYPE html>
 <html>
   <head>
+<!--    <meta http-equiv="Content-Security-Policy" content="script-src *  'self' 'unsafe-inline' 'unsafe-eval' default-src * data: blob: vscode-webview-resource: ;"> -->
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval' data: blob:; style-src * 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src * 'unsafe-inline' 'unsafe-eval' data: blob:; font-src * 'unsafe-inline' 'unsafe-eval' data: blob:; object-src * 'unsafe-inline' 'unsafe-eval' data: blob:; media-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+<!--    <meta http-equiv="Content-Security-Policy" content="default-src * data: blob: vscode-webview-resource: 'unsafe-inline' 'unsafe-eval' ; script-src * data: blob: vscode-webview-resource: 'unsafe-inline' 'unsafe-eval';"> -->
     <title>Scalene</title>
     <link rel="icon" href="https://raw.githubusercontent.com/plasma-umass/scalene/master/scalene/scalene-gui/favicon.ico" type="image/x-icon">
     <!-- Latest compiled and minified CSS -->
@@ -2589,9 +2593,14 @@ Prism.languages.py = Prism.languages.python;
     <script>
       const profile = {{ profile }}
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/vega@5.21.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5.2.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.20.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!--
+	<script src="https://cdn.jsdelivr.net/npm/vega@5.21.0"></script>
+	<script src="https://cdn.jsdelivr.net/npm/vega-lite@5.2.0"></script>
+	<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.20.0"></script>
+	-->
   </head>
   <body>
     <a href="https://github.com/plasma-umass/scalene">
@@ -2658,7 +2667,9 @@ Prism.languages.py = Prism.languages.python;
     </div>
     <script type="text/javascript">
       {{ gui_js }}
-      window.addEventListener("load", () => load(profile));
+      window.addEventListener("load", () => {
+	  load(profile);
+      });
       //load(profile);
     </script>
       <nav class="navbar fixed-bottom navbar-default justify-content-center bg-light bg-opacity-75" style="backdrop-filter: blur(2px);">
@@ -2667,7 +2678,7 @@ Prism.languages.py = Prism.languages.python;
 	    <font style="font-size:small">
 	      <a href="https://github.com/plasma-umass/scalene">Scalene</a> version {{ scalene_version }}, released {{ scalene_date }}
 	      &nbsp;|&nbsp;
-	      <a href="https://github.com/plasma-umass/scalene/issues/58">share your Scalene success stories here</a>
+	      <a href="https://github.com/plasma-umass/scalene/issues/58">share your Scalene success stories</a>
 	    </font>
 	  </p>
 	</div>
