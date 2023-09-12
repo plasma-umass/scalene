@@ -1,3 +1,17 @@
+function vsNavigate(filename, lineno) {
+    // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
+    try {
+	const vscode = acquireVsCodeApi();
+        vscode.postMessage({
+            command: 'jumpToLine',
+            filePath: filename,
+            lineNumber: lineno
+        });
+    } catch {
+    }
+    
+}
+
 const RightTriangle = "&#9658"; // right-facing triangle symbol (collapsed view)
 const DownTriangle = "&#9660"; // downward-facing triangle symbol (expanded view)
 const Lightning = "&#9889;"; // lightning bolt (for optimizing a line)
@@ -999,7 +1013,7 @@ function makeProfileLine(
     end_region_line != start_region_line
       ? ""
       : "empty-profile";
-  s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></td>`;
+    s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><span onclick="vsNavigate('${escape(filename)}',${line.lineno})"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></span></td>`;
 
   const regionOptimizationString =
     propose_optimizations && showExplosion
@@ -1029,7 +1043,7 @@ function makeProfileLine(
   } else {
     s += lineOptimizationString;
   }
-  s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
+    s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
   s += "</tr>";
   return s;
 }
