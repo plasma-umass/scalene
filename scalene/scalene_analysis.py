@@ -167,15 +167,16 @@ class ScaleneAnalysis:
 
                 for line in range(node.lineno, node.end_lineno + 1):
                     # NOTE: we update child nodes first (in the recursive call),
-                    # so what we want this statement to do is attribute any lines that we haven't alre
+                    # so what we want this statement to do is attribute any lines that we haven't already
+                    # attributed a region to.
                     if line not in regions:
                         if current_outermost_region and outermost_is_loop:
-                            # NOTE: this accounts for the case in which `node`
+                            # NOTE: this additionally accounts for the case in which `node`
                             # is a loop. Any loop within another loop should take on the entirety of the
                             # outermost loop too
                             regions[
                                 line
-                            ] = current_outermost_region  # if  current_outermost_region else (line, line)
+                            ] = current_outermost_region
                         elif (
                             curr_is_block_not_loop
                             and len(srclines[line - 1].strip()) > 0
