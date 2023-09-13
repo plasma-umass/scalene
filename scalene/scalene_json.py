@@ -415,6 +415,7 @@ class ScaleneJSON:
             code_str = "".join(code_lines)
 
             enclosing_regions = ScaleneAnalysis.find_regions(code_str)
+            outer_loop = ScaleneAnalysis.find_outermost_loop(code_str)
             imports = ScaleneAnalysis.get_native_imported_modules(code_str)
 
             output["files"][fname_print] = {
@@ -446,7 +447,8 @@ class ScaleneJSON:
                     profile_line["end_region_line"] = enclosing_regions[
                         lineno
                     ][1]
-
+                    profile_line["start_outermost_loop"] = outer_loop[lineno][0]
+                    profile_line["end_outermost_loop"] = outer_loop[lineno][1]
                     # When reduced-profile set, only output if the payload for the line is non-zero.
                     if reduced_profile:
                         profile_line_copy = copy.copy(profile_line)
