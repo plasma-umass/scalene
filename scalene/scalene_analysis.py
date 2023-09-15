@@ -130,6 +130,71 @@ class ScaleneAnalysis:
         return regions
 
     @staticmethod
+    def find_outermost_loop(src: str) -> Dict[int, Tuple[int, int]]:
+        # Filter out the first line if in a Jupyter notebook and it starts with a magic (% or %%).
+        src = ScaleneAnalysis.strip_magic_line(src)
+        srclines = src.split("\n")
+        tree = ast.parse(src)
+        regions = {}
+
+        def walk(node, current_outermost_region, outer_class):
+            nonlocal regions
+            if isinstance(
+                node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+            ) or (
+                isinstance(node, (ast.For, ast.While, ast.AsyncFor, ast.If))
+                and (
+                    outer_class is ast.FunctionDef
+                    or outer_class is ast.AsyncFunctionDef
+                    or outer_class is ast.ClassDef
+                    or outer_class is None
+                )
+            ):
+                current_outermost_region = (node.lineno, node.end_lineno)
+                outer_class = node.__class__
+
+            for child_node in ast.iter_child_nodes(node):
+                walk(child_node, current_outermost_region, outer_class)
+            if isinstance(node, ast.stmt):
+                outermost_is_loop = outer_class in [ast.For, ast.AsyncFor, ast.While]
+                curr_is_block_not_loop = node.__class__ in [
+                    ast.With,
+                    ast.If,
+                    ast.ClassDef,
+                    ast.FunctionDef,
+                    ast.AsyncFunctionDef,
+                ]
+
+                for line in range(node.lineno, node.end_lineno + 1):
+                    # NOTE: we update child nodes first (in the recursive call),
+                    # so what we want this statement to do is attribute any lines that we haven't already
+                    # attributed a region to.
+                    if line not in regions:
+                        if current_outermost_region and outermost_is_loop:
+                            # NOTE: this additionally accounts for the case in which `node`
+                            # is a loop. Any loop within another loop should take on the entirety of the
+                            # outermost loop too
+                            regions[
+                                line
+                            ] = current_outermost_region
+                        elif (
+                            curr_is_block_not_loop
+                            and len(srclines[line - 1].strip()) > 0
+                        ):
+                            # This deals with the case in which the current block is the header of another block, like
+                            # a function or a class. Since the children are iterated over beforehand, if they're not
+                            # in a loop, they are already in the region table.
+                            regions[line] = (node.lineno, node.end_lineno)
+                        else:
+                            regions[line] = (line, line)
+
+        walk(tree, None, None)
+        for lineno, line in enumerate(srclines, 1):
+            regions[lineno] = regions.get(lineno, (lineno, lineno))
+
+        return regions
+
+    @staticmethod
     def strip_magic_line(source: str) -> str:
         # Filter out any magic lines (starting with %) if in a Jupyter notebook
         import re
