@@ -444,7 +444,7 @@ function makeGPUPie(util) {
     autosize: {
       contains: "padding",
     },
-      width: 100,
+      width: 30,
       height: 20,
     padding: 0,
     data: {
