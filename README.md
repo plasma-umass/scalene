@@ -53,6 +53,8 @@ conda install -c conda-forge scalene
 
 #### Using Scalene:
 
+After installing Scalene, you can use Scalene at the command line, or as a Visual Studio Code extension <a href="https://marketplace.visualstudio.com/items?itemName=EmeryBerger.scalene">by installing it from the VS Code Marketplace</a> or by searching for the extension within VS Code by typing Command-Shift-X (Mac, Linux) or Ctrl-Shift-X (Windows).
+
 <details>
 <summary>
 Commonly used options:
