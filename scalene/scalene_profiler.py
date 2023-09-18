@@ -38,6 +38,15 @@ import threading
 import time
 import traceback
 import webbrowser
+
+# For debugging purposes
+from rich.console import Console
+console = Console(style="white on blue")
+def nada(*args):
+    pass
+# Assigning to `nada` disables any console.log commands.
+console.log = nada
+
 from collections import defaultdict
 from importlib.abc import SourceLoader
 from importlib.machinery import ModuleSpec
@@ -785,25 +794,41 @@ class Scalene:
                 cmdline += " --gpu"
             if arguments.memory:
                 cmdline += " --memory"
+            if arguments.cli:
+                cmdline += " --cli"
+            if arguments.web:
+                cmdline += " --web"
+            if arguments.no_browser:
+                cmdline += " --no-browser"
 
+            # Build the commands to pass along other arguments
             environ = ScalenePreload.get_preload_environ(arguments)
-            preface = " ".join(
-                "=".join((k, str(v))) for (k, v) in environ.items()
-            )
+            if sys.platform == "win32":
+                preface = "\n".join(
+                    f"set {k}={str(v)}\n" for (k, v) in environ.items()
+                )
+            else:
+                preface = " ".join(
+                    "=".join((k, str(v))) for (k, v) in environ.items()
+                )
 
+            # Don't show commands on Windows; regular shebang for
+            # shell scripts on Linux/OS X
+            shebang = "@echo off" if sys.platform == "win32" else "#!/bin/bash"
+            executable = sys.executable
             # Add the --pid field so we can propagate it to the child.
             cmdline += f" --pid={os.getpid()} ---"
-            payload = """#!/bin/bash
-    echo $$
-    %s %s -m scalene %s "$@"
-    """ % (
-                preface,
-                sys.executable,
-                cmdline,
-            )
+            # Get all arguments, platform specific
+            all_args = "%* & exit 0" if sys.platform == "win32" else '"$@"'
+
+            payload = f"""{shebang}
+{preface} {executable} -m scalene {cmdline} {all_args}
+"""
             # Now create all the files.
             for name in Scalene.__all_python_names:
                 fname = os.path.join(Scalene.__python_alias_dir, name)
+                if sys.platform == "win32":
+                    fname = re.sub(r'\.exe$', '.bat', fname)
                 with open(fname, "w") as file:
                     file.write(payload)
                 os.chmod(fname, stat.S_IXUSR | stat.S_IRUSR | stat.S_IWUSR)
@@ -819,6 +844,8 @@ class Scalene:
                 Scalene.__python_alias_dir,
                 Scalene.__all_python_names[0],
             )
+            if sys.platform == "win32" and sys.executable.endswith(".exe"):
+                sys.executable = re.sub(r'\.exe$', '.bat', sys.executable)
 
         # Register the exit handler to run when the program terminates or we quit.
         atexit.register(Scalene.exit_handler)
@@ -1077,7 +1104,7 @@ class Scalene:
         if not new_frames:
             # No new frames, so nothing to update.
             return
-
+        
         # Here we take advantage of an ostensible limitation of Python:
         # it only delivers signals after the interpreter has given up
         # control. This seems to mean that sampling is limited to code
@@ -1952,9 +1979,11 @@ class Scalene:
                         output_fname=Scalene.__args.outfile
                     else:
                         output_fname=f"{os.getcwd()}/{Scalene.__profiler_html}"
-                    webbrowser.open(
-                        f"file:///{output_fname}"
-                    )
+                    if Scalene.__pid == 0:
+                        # Only open a browser tab for the parent.
+                        webbrowser.open(
+                            f"file:///{output_fname}"
+                        )
                     # Restore them.
                     os.environ.update(
                         {"DYLD_INSERT_LIBRARIES": old_dyld, "LD_PRELOAD": old_ld}
