@@ -236,6 +236,7 @@ class ScaleneJSON:
         profile_this_code: Callable[[Filename, LineNumber], bool],
         python_alias_dir: Path,
         program_path: Path,
+        entrypoint_dir: Path,
         program_args: Optional[List[str]],
         profile_memory: bool = True,
         reduced_profile: bool = False,
@@ -294,6 +295,7 @@ class ScaleneJSON:
 
         output: Dict[str, Any] = {
             "program": program,
+            "entrypoint_dir": entrypoint_dir,
             "args": program_args,
             "filename": program_path,
             "alloc_samples": stats.alloc_samples,
