@@ -2097,6 +2097,13 @@ class Scalene:
                     program_path = Filename(os.path.dirname(prog_name))
                     if not module:
                         sys.path.insert(0, program_path)
+                        # NOTE: Python, in its standard mode of operation,
+                        # places the root of the module tree at the directory of
+                        # the entrypoint script. This is different in how things
+                        # work with the `-m` mode of operation, so for now we do not
+                        # surface this in Scalene
+                        #
+                        # TODO: Add in entrypoint_dir logic for `-m` operation
                         Scalene.__entrypoint_dir = program_path
                     # If a program path was specified at the command-line, use it.
                     if len(args.program_path) > 0:
