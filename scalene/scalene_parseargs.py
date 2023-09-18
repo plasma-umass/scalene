@@ -330,10 +330,10 @@ for the process ID that Scalene reports. For example:
             group.add_argument(
                 "--off", action="store_true", help="start with profiling off"
             )
-            # the PID of the profiling process (for internal use only)
-            parser.add_argument(
-                "--pid", type=int, default=0, help=argparse.SUPPRESS
-            )
+        # the PID of the profiling process (for internal use only)
+        parser.add_argument(
+            "--pid", type=int, default=0, help=argparse.SUPPRESS
+        )
         # collect all arguments after "---", which Scalene will ignore
         parser.add_argument(
             "---",
