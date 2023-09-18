@@ -39,10 +39,12 @@ import time
 import traceback
 import webbrowser
 
+# For debugging purposes
 from rich.console import Console
 console = Console(style="white on blue")
 def nada(*args):
     pass
+# Assigning to `nada` disables any console.log commands.
 console.log = nada
 
 from collections import defaultdict
@@ -1977,9 +1979,11 @@ class Scalene:
                         output_fname=Scalene.__args.outfile
                     else:
                         output_fname=f"{os.getcwd()}/{Scalene.__profiler_html}"
-                    webbrowser.open(
-                        f"file:///{output_fname}"
-                    )
+                    if Scalene.__pid == 0:
+                        # Only open a browser tab for the parent.
+                        webbrowser.open(
+                            f"file:///{output_fname}"
+                        )
                     # Restore them.
                     os.environ.update(
                         {"DYLD_INSERT_LIBRARIES": old_dyld, "LD_PRELOAD": old_ld}
