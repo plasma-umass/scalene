@@ -56,6 +56,8 @@ $(WRAPPER) : vendor/Heap-Layers
 vendor/Heap-Layers:
 	mkdir -p vendor && cd vendor && git clone https://github.com/emeryberger/Heap-Layers
 
+TMPDIR ?= $(TMPDIR),$(dirname $(mktemp -u))
+
 vendor/printf/printf.cpp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
