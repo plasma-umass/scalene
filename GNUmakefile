@@ -41,7 +41,6 @@ SRC := src/source/lib$(LIBNAME).cpp $(WRAPPER) vendor/printf/printf.cpp
 OUTDIR=scalene
 
 all: $(OUTDIR)/$(LIBFILE)
-	$(eval TMPDIR := $(shell mktemp -u))
 
 $(OUTDIR)/$(LIBFILE): vendor-deps $(SRC) $(C_SOURCES) GNUmakefile
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(OUTDIR)/$(LIBFILE) -ldl -lpthread
@@ -60,8 +59,8 @@ vendor/Heap-Layers:
 vendor/printf/printf.cpp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
-	sed -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h > $(TMPDIR)/printf.h.$$ && mv $(TMPDIR)/printf.h.$$ vendor/printf/printf.h
-	sed -e 's/^#define vsnprintf vsnprintf_/\/\/&/' vendor/printf/printf.h > $(TMPDIR)/printf.h.$$ && mv $(TMPDIR)/printf.h.$$ vendor/printf/printf.h
+	sed -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h > ${TMPDIR}/printf.h.$$ && mv ${TMPDIR}/printf.h.$$ vendor/printf/printf.h
+	sed -e 's/^#define vsnprintf vsnprintf_/\/\/&/' vendor/printf/printf.h > ${TMPDIR}/printf.h.$$ && mv ${TMPDIR}/printf.h.$$ vendor/printf/printf.h
 
 clear-vendor-dirs:
 	rm -fr vendor/
