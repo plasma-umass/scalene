@@ -56,13 +56,13 @@ $(WRAPPER) : vendor/Heap-Layers
 vendor/Heap-Layers:
 	mkdir -p vendor && cd vendor && git clone https://github.com/emeryberger/Heap-Layers
 
-TMPDIR ?= $(TMPDIR),$(dirname $(mktemp -u))
+TMP := $(shell mktemp -d || echo /tmp)
 
 vendor/printf/printf.cpp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
-	sed -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h > ${TMPDIR}/printf.h.$$ && mv ${TMPDIR}/printf.h.$$ vendor/printf/printf.h
-	sed -e 's/^#define vsnprintf vsnprintf_/\/\/&/' vendor/printf/printf.h > ${TMPDIR}/printf.h.$$ && mv ${TMPDIR}/printf.h.$$ vendor/printf/printf.h
+	sed -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h > $(TMP)/printf.h.$$ && mv $(TMP)/printf.h.$$ vendor/printf/printf.h
+	sed -e 's/^#define vsnprintf vsnprintf_/\/\/&/' vendor/printf/printf.h > $(TMP)/printf.h.$$ && mv $(TMP)/printf.h.$$ vendor/printf/printf.h
 
 clear-vendor-dirs:
 	rm -fr vendor/
