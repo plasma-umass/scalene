@@ -53,11 +53,23 @@ conda install -c conda-forge scalene
 
 #### Using Scalene:
 
-After installing Scalene, you can use Scalene at the command line, or as a Visual Studio Code extension <a href="https://marketplace.visualstudio.com/items?itemName=EmeryBerger.scalene">by installing it from the VS Code Marketplace</a> or by searching for the extension within VS Code by typing Command-Shift-X (Mac, Linux) or Ctrl-Shift-X (Windows).
+After installing Scalene, you can use Scalene at the command line, or as a Visual Studio Code extension.
+
+<details>
+  <summary>
+    Using the Scalene VS Code Extension:
+  </summary>
+  
+
+First, install <a href="https://marketplace.visualstudio.com/items?itemName=EmeryBerger.scalene">the Scalene extension from the VS Code Marketplace</a> or by searching for it within VS Code by typing Command-Shift-X (Mac) or Ctrl-Shift-X (Windows). Once that's installed, click Command-Shift-P or Ctrl-Shift-P to open the <a href="https://code.visualstudio.com/docs/getstarted/userinterface">Command Palette</a>. Then select <b>"Scalene: AI-powered profiling..."</b> (you can start typing Scalene and it will pop up if it's installed). Run that and, assuming your code runs for at least a second, a Scalene profile will appear in a webview.
+  
+<img width="734" alt="Screenshot 2023-09-20 at 7 09 06 PM" src="https://github.com/plasma-umass/scalene/assets/1612723/7e78e3d2-e649-4f02-86fd-0da2a259a1a4">
+
+</details>
 
 <details>
 <summary>
-Commonly used options:
+Commonly used command-line options:
 </summary>
 
 ```console
