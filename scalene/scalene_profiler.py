@@ -1764,7 +1764,7 @@ class Scalene:
         ):
             # First, check for a browser.
             try:
-                if (
+                if not Scalene.__args.no_browser and (
                     not webbrowser.get()
                     or type(webbrowser.get()).__name__ == "GenericBrowser"
                 ):
