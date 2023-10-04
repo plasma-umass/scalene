@@ -18,9 +18,8 @@ class ScaleneFuncUtils:
         {
             dis.opmap[op_name]
             for op_name in dis.opmap
-            if op_name.startswith("CALL_FUNCTION")
-            or op_name.startswith("CALL_METHOD")
-            or (sys.version_info >= (3, 11) and op_name.startswith("CALL"))
+            if op_name.startswith("CALL")
+            and not op_name.startswith("CALL_INTRINSIC")
         }
     )
 
