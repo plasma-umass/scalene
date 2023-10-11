@@ -251,12 +251,16 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   PyPtr<PyFrameObject> frame =
       threadState ? PyThreadState_GetFrame(threadState) : nullptr;
 
+  // EDB: Below commented out to allow correct attribution to individual threads.
+  // As long as the frames contain file and line number information, we are good.
+#if 0
   if (static_cast<PyFrameObject*>(frame) == nullptr) {
     // Various packages may create native threads; attribute what they do
     // to what the main thread is doing, as it's likely to have requested it.
     frame = findMainPythonThread_frame();  // note this may be nullptr
   }
-
+#endif
+  
   auto traceConfig = TraceConfig::getInstance();
   if (!traceConfig) {
     return 0;
