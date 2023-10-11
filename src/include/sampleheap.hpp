@@ -291,14 +291,19 @@ class SampleHeap : public SuperHeap {
     if (_pythonCount == 0) {
       _pythonCount = 1;  // prevent 0/0
     }
+    // Get the thread ID, which must match the logic used by Python.
     uint64_t thread_id;
-#if defined(__APPLE__)
-    // Use OS X / BSD thread identifier function to get "actual" thread ID.
+#if defined(__APPLE__) || defined(BSD)
+    // Use the OS X / BSD thread identifier function to get "actual" thread ID.
     pthread_threadid_np(pthread_self(), &thread_id);
+#elif defined(__linux__)
+    // On Linux, use gettid().
+    thread_id = (uint64_t) gettid();
 #else
-    // On Linux, we cast pthread_self and hope for the best.
+    // On other systems, cast pthread_self and hope for the best.
     thread_id = (uint64_t) pthread_self();
 #endif
+   
     snprintf_(
         buf, sizeof(buf),
 #if defined(__APPLE__)
