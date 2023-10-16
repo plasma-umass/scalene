@@ -13,7 +13,8 @@ CXXFLAGS = -std=c++14 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -DHL_USE_XXREALLOC=1 
 INCLUDES  = -Isrc -Isrc/include
 INCLUDES := $(INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility
 INCLUDES := $(INCLUDES) -Ivendor/printf
-INCLUDES := $(INCLUDES) $(shell python3-config --includes)
+# python3-config may not be available in venv and such
+INCLUDES := $(INCLUDES) -I$(shell python3 -c "import sysconfig; print(sysconfig.get_path('include'))")
 
 ifeq ($(shell uname -s),Darwin)
   LIBFILE := lib$(LIBNAME).dylib
