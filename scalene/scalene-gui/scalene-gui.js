@@ -323,15 +323,16 @@ async function copyOnClick(event, message) {
 }
 
 function memory_consumed_str(size_in_mb) {
+    console.log(`size in mb = ${size_in_mb}`);
   // Return a string corresponding to amount of memory consumed.
   let gigabytes = Math.floor(size_in_mb / 1024);
   let terabytes = Math.floor(gigabytes / 1024);
   if (terabytes > 0) {
-    return `${(size_in_mb / 1048576).toFixed(3)} TB`;
+    return `${(size_in_mb / 1048576).toFixed(0)}T`;
   } else if (gigabytes > 0) {
-    return `${(size_in_mb / 1024).toFixed(3)} GB`;
+    return `${(size_in_mb / 1024).toFixed(0)}G`;
   } else {
-    return `${size_in_mb.toFixed(3)} MB`;
+    return `${size_in_mb.toFixed(0)}M`;
   }
 }
 
@@ -356,6 +357,18 @@ function time_consumed_str(time_in_ms) {
 }
 
 function makeBar(python, native, system, params) {
+    let sequence = 0;
+    const computeValues = (value, segment) => {
+	sequence += 1;
+        return {
+	    x: 0,
+	    order: sequence,
+	    y: value,
+	    label: value.toFixed(0) >= 20 ? value.toFixed(0) + '%' : '',
+	    c: "(" + segment + "): " + value.toFixed(0) + '%',
+        };
+    };
+
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -366,29 +379,14 @@ function makeBar(python, native, system, params) {
     autosize: {
       contains: "padding",
     },
-      width: params.width,
-      height: params.height,
+    width: params.width,
+    height: params.height,
     padding: 0,
     data: {
-      values: [
-        {
-          x: 0,
-          y: python.toFixed(1),
-          c: "(Python) " + python.toFixed(1) + "%",
-          d: python.toFixed(0) + "%",
-        },
-        {
-          x: 0,
-          y: native.toFixed(1),
-          c: "(native) " + native.toFixed(1) + "%",
-          d: native.toFixed(0) + "%",
-        },
-        {
-          x: 0,
-          y: system.toFixed(1),
-          c: "(system) " + system.toFixed(1) + "%",
-          d: system.toFixed(0) + "%",
-        },
+	values: [
+	    computeValues(python, "Python"),
+	    computeValues(native, "native"),
+	    computeValues(system, "system"),
       ],
     },
     layer: [
@@ -400,38 +398,116 @@ function makeBar(python, native, system, params) {
             field: "y",
             axis: false,
             scale: { domain: [0, 100] },
+            stack: "zero",
           },
+          order: { field: 'order', type: 'ordinal' },  // Ensure the stacking order
           color: {
-            field: "c",
-            type: "nominal",
+            field: "y",
+            type: "quantitative",
             legend: false,
             scale: { range: ["darkblue", "#6495ED", "blue"] },
           },
-          tooltip: [{ field: "c", type: "nominal", title: "time" }],
+          tooltip: [
+            {
+		field: "c",
+		type: "nominal",
+              title: "time",
+            },
+          ],
         },
       },
-      /*	  ,
       {
-          mark: {
-              type: "text",
-              opacity: 1.0,
-              color: "white",
-              align: "right",
-              limit: 50,
-          },
-          encoding: {
-              x: { type: "quantitative", field: "y" },
-              text: {
-		  field: "d",
-		  bandPosition: 0.5,
-		  condition: { test: `datum['y'] < 20`, value: "" },
-              },
-          },
-	  },
-	  */
+          mark: { type: "text", align: "right", baseline: "middle", fontSize: 9 },
+        encoding: {
+          x: { aggregate: "sum", field: "y", stack: "zero" },
+          order: { field: 'order', type: 'ordinal' },  // Ensure the stacking order
+            text: { field: "label" },
+	    color: { value: "white" }
+        },
+      },
     ],
   };
 }
+
+
+function makeMemoryBar(memory, title, python_percent, total, color, params) {
+    let sequence = 0;
+    const computeValues = (value, segment) => {
+	console.log(`${value}, ${segment}`);
+	sequence += 1;
+	rounded = parseFloat(value.toFixed(0));
+	console.log(`${rounded}, ${typeof rounded}`);
+        return {
+	    x: 0,
+	    order: sequence,
+	    y: value * memory,
+	    label: (value * memory) / total >= 0.2 ? memory_consumed_str(value * memory) : '',
+	    c: "(" + segment + "): " + memory_consumed_str(value * memory),
+        };
+    };
+
+  return {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    config: {
+      view: {
+        stroke: "transparent",
+      },
+    },
+    autosize: {
+      contains: "padding",
+    },
+    width: params.width,
+    height: params.height,
+    padding: 0,
+    data: {
+	values: [
+	    computeValues(python_percent, "Python"),
+	    computeValues((1.0 - python_percent), "native"),
+      ],
+    },
+    layer: [
+      {
+        mark: { type: "bar" },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "y",
+            axis: false,
+              scale: { domain: [0, total] },
+            stack: "zero",
+          },
+          order: { field: 'order', type: 'ordinal' },  // Ensure the stacking order
+          color: {
+            field: "y",
+            type: "quantitative",
+            legend: false,
+              scale: { range: [color, "#50C878", "green"] },
+          },
+          tooltip: [
+            {
+		field: "c",
+		type: "nominal",
+		// type: "quantitative",
+		// format: ".1%",
+              title: title,
+            },
+          ],
+        },
+      },
+      {
+          // mark: { type: "text", align: "left", dx: 5, dy: -5 },
+          mark: { type: "text", align: "right", baseline: "middle", fontSize: 9 },
+        encoding: {
+          x: { aggregate: "sum", field: "y", stack: "zero" },
+          order: { field: 'order', type: 'ordinal' },  // Ensure the stacking order
+            text: { field: "label" },
+	    color: { value: "white" }
+        },
+      },
+    ],
+  };
+}
+
 
 function makeGPUPie(util) {
   return {
@@ -508,53 +584,6 @@ function makeMemoryPie(native_mem, python_mem, params) {
         scale: { range: ["darkgreen", "#50C878"] },
       },
       tooltip: [{ field: "c", type: "nominal", title: "memory" }],
-    },
-  };
-}
-
-function makeMemoryBar(memory, title, python_percent, total, color, params) {
-  return {
-    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-    config: {
-      view: {
-        stroke: "transparent",
-      },
-    },
-    autosize: {
-      contains: "padding",
-    },
-      width: params.width,
-      height: params.height,
-    padding: 0,
-    data: {
-      values: [
-        {
-          x: 0,
-          y: python_percent * memory,
-          c: "(Python) " + memory_consumed_str(python_percent * memory),
-        },
-        {
-          x: 0,
-          y: (1.0 - python_percent) * memory,
-          c: "(native) " + memory_consumed_str((1.0 - python_percent) * memory),
-        },
-      ],
-    },
-    mark: { type: "bar" },
-    encoding: {
-      x: {
-        aggregate: "sum",
-        field: "y",
-        axis: false,
-        scale: { domain: [0, total] },
-      },
-      color: {
-        field: "c",
-        type: "nominal",
-        legend: false,
-        scale: { range: [color, "#50C878", "green"] },
-      },
-      tooltip: [{ field: "c", type: "nominal", title: title }],
     },
   };
 }
@@ -908,10 +937,10 @@ function makeProfileLine(
     if (line.n_avg_mb) {
       memory_bars.push(
         makeMemoryBar(
-          line.n_avg_mb.toFixed(0),
+            parseFloat(line.n_avg_mb.toFixed(0)),
           "average memory",
           parseFloat(line.n_python_fraction),
-          prof.max_footprint_mb.toFixed(2),
+            parseFloat(prof.max_footprint_mb.toFixed(2)),
             "darkgreen",
 	    { height: 20, width: 100 }
         )
@@ -926,10 +955,10 @@ function makeProfileLine(
     if (line.n_peak_mb) {
       memory_bars.push(
         makeMemoryBar(
-          line.n_peak_mb.toFixed(0),
+            parseFloat(line.n_peak_mb.toFixed(0)),
           "peak memory",
           parseFloat(line.n_python_fraction),
-          prof.max_footprint_mb.toFixed(2),
+            parseFloat(prof.max_footprint_mb.toFixed(2)),
             "darkgreen",
 	    { height: 20, width: 100 }
         )
@@ -1205,10 +1234,10 @@ async function display(prof) {
   if (prof.memory) {
     memory_bars.push(
       makeMemoryBar(
-        max_alloc,
+          parseFloat(max_alloc),
         "memory",
-        mem_python / max_alloc,
-        max_alloc,
+          parseFloat(mem_python) / parseFloat(max_alloc),
+          parseFloat(max_alloc),
           "darkgreen",
 	  { height: 20, width: 150 }
       )
