@@ -5,6 +5,7 @@ import sys
 from textwrap import dedent
 from typing import Any, List, NoReturn, Optional, Tuple
 
+from scalene.find_browser import find_browser
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_version import scalene_version, scalene_date
 
@@ -354,13 +355,8 @@ for the process ID that Scalene reports. For example:
 
         # Launch the UI if `--viewer` was selected.
         if args.viewer:
-            import webbrowser
-
-            if (
-                webbrowser.get()
-                and type(webbrowser.get()).__name__ != "GenericBrowser"
-            ):
-                webbrowser.open(scalene_gui_url)
+            if browser := find_browser():
+                browser.open(scalene_gui_url)
             else:
                 print(f"Scalene: could not open {scalene_gui_url}.")
             sys.exit(0)
