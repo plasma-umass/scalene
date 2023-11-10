@@ -7,6 +7,9 @@ def find_browser():
     # See https://github.com/plasma-umass/scalene/issues/723.
     incompatible_browsers = {"www-browser", "links", "elinks", "lynx", "w3m", "links2", "links-g"}
 
-    browser = webbrowser.get()
+    try:
+        browser = webbrowser.get()
+    except webbrowser.Error:
+        return None
 
     return None if browser.name in incompatible_browsers else browser
