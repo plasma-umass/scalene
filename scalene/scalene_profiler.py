@@ -41,6 +41,9 @@ import webbrowser
 
 # For debugging purposes
 from rich.console import Console
+
+from scalene.find_browser import find_browser
+
 console = Console(style="white on blue")
 def nada(*args):
     pass
@@ -1765,13 +1768,9 @@ class Scalene:
         ):
             # First, check for a browser.
             try:
-                if (
-                    not webbrowser.get()
-                    or type(webbrowser.get()).__name__ == "GenericBrowser"
-                ):
+                if not find_browser():
                     # Could not open a graphical web browser tab;
                     # act as if --web was not specified
-                    # (GenericBrowser means text-based browsers like Lynx.)
                     Scalene.__args.web = False
                 else:
                     # Force JSON output to profile.json.
