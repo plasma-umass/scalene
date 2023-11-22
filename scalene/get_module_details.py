@@ -1,3 +1,7 @@
+import importlib
+import sys
+
+from importlib.abc import SourceLoader
 from importlib.machinery import ModuleSpec
 from types import CodeType
 from typing import (
@@ -57,7 +61,7 @@ def get_module_details(
             raise error("Cannot use package as __main__ module")
         try:
             pkg_main_name = mod_name + ".__main__"
-            return _get_module_details(pkg_main_name, error)
+            return get_module_details(pkg_main_name, error)
         except error as e:
             if mod_name not in sys.modules:
                 raise  # No module loaded; being a package is irrelevant
