@@ -52,7 +52,6 @@ def nada(*args):
 console.log = nada
 
 from collections import defaultdict
-from importlib.abc import SourceLoader
 from jinja2 import Environment, FileSystemLoader
 from types import FrameType
 from typing import (
