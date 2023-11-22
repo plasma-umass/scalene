@@ -2013,7 +2013,7 @@ class Scalene:
 
                     # Given `some.module`, find the path of the corresponding
                     # some/module/__main__.py or some/module.py file to run.
-                    _, spec, _ = _get_module_details(mod_name)
+                    _, spec, _ = get_module_details(mod_name)
                     if not spec.origin:
                         raise FileNotFoundError
                     # Prepend the found .py file to arguments
