@@ -2,9 +2,8 @@
 
     https://github.com/plasma-umass/scalene
 
-    See the paper "docs/scalene-paper.pdf" in this repository for technical
-    details on an earlier version of Scalene's design; note that a
-    number of these details have changed.
+    See the paper "docs/osdi23-berger.pdf" in this repository for technical
+    details on Scalene's design.
 
     by Emery Berger
     https://emeryberger.com

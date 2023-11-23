@@ -449,9 +449,31 @@ How do I use Scalene with PyTorch on the Mac?
 
 For details about how Scalene works, please see the following paper, which won the Jay Lepreau Best Paper Award at [OSDI 2023](https://www.usenix.org/conference/osdi23/presentation/berger): [Triangulating Python Performance Issues with Scalene](https://arxiv.org/pdf/2212.07597). (Note that this paper does not include information about the AI-driven proposed optimizations.)
 
+<details>
+<summary>
+To cite Scalene in an academic paper, please use the following:
+</summary>
+```latex
+@inproceedings{288540,
+author = {Emery D. Berger and Sam Stern and Juan Altmayer Pizzorno},
+title = {Triangulating Python Performance Issues with {S}calene}},
+booktitle = {{17th USENIX Symposium on Operating Systems Design and Implementation (OSDI 23)}},
+year = {2023},
+isbn = {978-1-939133-34-2},
+address = {Boston, MA},
+pages = {51--64},
+url = {https://www.usenix.org/conference/osdi23/presentation/berger},
+publisher = {USENIX Association},
+month = jul
+}
+```
+</details>
+
+
 # Success Stories
 
 If you use Scalene to successfully debug a performance problem, please [add a comment to this issue](https://github.com/plasma-umass/scalene/issues/58)!
+
 
 # Acknowledgements
 
