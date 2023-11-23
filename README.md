@@ -453,6 +453,7 @@ For details about how Scalene works, please see the following paper, which won t
 <summary>
 To cite Scalene in an academic paper, please use the following:
 </summary>
+
 ```latex
 @inproceedings{288540,
 author = {Emery D. Berger and Sam Stern and Juan Altmayer Pizzorno},
