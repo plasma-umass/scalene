@@ -299,6 +299,9 @@ class Scalene:
 
     # Likely names for the Python interpreter.
     __all_python_names = [
+        "python",
+        "python" + str(sys.version_info.major),
+        "python" + str(sys.version_info.major) + "." + str(sys.version_info.minor),
         os.path.basename(sys.executable),
         os.path.basename(sys.executable) + str(sys.version_info.major),
         os.path.basename(sys.executable)
