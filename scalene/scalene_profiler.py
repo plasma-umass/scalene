@@ -2085,6 +2085,15 @@ class Scalene:
             progs = None
             exit_status = 0
             try:
+                # Handle direct invocation of a string by executing the string and returning.
+                if len(sys.argv) >= 2 and sys.argv[0] == "-c":
+                    try:
+                        exec(sys.argv[1])
+                    except SyntaxError:
+                        traceback.print_exc()
+                        sys.exit(1)
+                    sys.exit(0)
+
                 if len(sys.argv) >= 2 and sys.argv[0] == "-m":
                     module = True
 
