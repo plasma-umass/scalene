@@ -45,9 +45,10 @@ from scalene.get_module_details import _get_module_details
 from scalene.find_browser import find_browser
 
 console = Console(style="white on blue")
-def nada(*args):
-    pass
+
 # Assigning to `nada` disables any console.log commands.
+def nada(*args: Any) -> None:
+    pass
 console.log = nada
 
 from collections import defaultdict
