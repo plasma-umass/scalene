@@ -1,3 +1,23 @@
+import importlib
+import sys
+
+from importlib.abc import SourceLoader
+from importlib.machinery import ModuleSpec
+from types import CodeType, FrameType
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
+
+
 def _get_module_details(
     mod_name: str,
     error: Type[Exception] = ImportError,
