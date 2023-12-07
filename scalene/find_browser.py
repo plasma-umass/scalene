@@ -1,6 +1,8 @@
-def find_browser():
+import webbrowser
+from typing import Optional
+
+def find_browser() -> Optional[webbrowser.BaseBrowser]:
     """Find the default browser if possible and if compatible."""
-    import webbrowser
 
     # Mostly taken from the standard library webbrowser module. Search "console browsers" in there.
     # In general, a browser belongs on this list of the scalene web GUI doesn't work in it.
