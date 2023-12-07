@@ -44,13 +44,6 @@ from rich.console import Console
 from scalene.get_module_details import _get_module_details
 from scalene.find_browser import find_browser
 
-console = Console(style="white on blue")
-
-# Assigning to `nada` disables any console.log commands.
-def nada(*args: Any) -> None:
-    pass
-console.log = nada
-
 from collections import defaultdict
 from importlib.abc import SourceLoader
 from importlib.machinery import ModuleSpec
@@ -96,6 +89,12 @@ else:
 
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
+
+console = Console(style="white on blue")
+# Assigning to `nada` disables any console.log commands.
+def nada(*args: Any) -> None:
+    pass
+console.log = nada
 
 MINIMUM_PYTHON_VERSION_MAJOR = 3
 MINIMUM_PYTHON_VERSION_MINOR = 8
