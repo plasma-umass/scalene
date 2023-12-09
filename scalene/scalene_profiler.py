@@ -77,6 +77,7 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
+from scalene.scalene_utility import *
 from scalene.scalene_version import scalene_version, scalene_date
 
 if sys.platform != "win32":
@@ -107,28 +108,6 @@ def require_python(version: Tuple[int, int]) -> None:
 
 
 require_python((MINIMUM_PYTHON_VERSION_MAJOR, MINIMUM_PYTHON_VERSION_MINOR))
-
-
-# These are here to simplify print debugging, a la C.
-class LineNo:
-    def __str__(self) -> str:
-        frame = inspect.currentframe()
-        assert frame
-        assert frame.f_back
-        return str(frame.f_back.f_lineno)
-
-
-class FileName:
-    def __str__(self) -> str:
-        frame = inspect.currentframe()
-        assert frame
-        assert frame.f_back
-        assert frame.f_back.f_code
-        return str(frame.f_back.f_code.co_filename)
-
-
-__LINE__ = LineNo()
-__FILE__ = FileName()
 
 # Scalene fully supports Unix-like operating systems; in
 # particular, Linux, Mac OS X, and WSL 2 (Windows Subsystem for Linux 2 = Ubuntu).
@@ -328,24 +307,6 @@ class Scalene:
         raise KeyboardInterrupt
 
     @staticmethod
-    def on_stack(
-        frame: FrameType, fname: Filename, lineno: LineNumber
-    ) -> Optional[FrameType]:
-        """Find a frame matching the given filename and line number, if any.
-
-        Used for checking whether we are still executing the same line
-        of code or not in invalidate_lines (for per-line memory
-        accounting).
-        """
-        f = frame
-        current_file_and_line = (fname, lineno)
-        while f:
-            if (f.f_code.co_filename, f.f_lineno) == current_file_and_line:
-                return f
-            f = cast(FrameType, f.f_back)
-        return None
-
-    @staticmethod
     def update_line() -> None:
         """Mark a new line by allocating the trigger number of bytes."""
         bytearray(NEWLINE_TRIGGER_LENGTH)
@@ -365,7 +326,7 @@ class Scalene:
             # Different line: stop tracing this frame.
             frame.f_trace = None
             frame.f_trace_lines = False
-            if Scalene.on_stack(frame, fname, lineno):
+            if on_stack(frame, fname, lineno):
                 # We are still on the same line, but somewhere up the stack
                 # (since we returned when it was the same line in this
                 # frame). Stop tracing in this frame.
@@ -553,7 +514,7 @@ class Scalene:
         invalidated = pywhere.get_last_profiled_invalidated()
         (fname, lineno, lasti) = Scalene.__last_profiled
         if not invalidated and this_frame and not (
-            Scalene.on_stack(this_frame, fname, lineno)
+            on_stack(this_frame, fname, lineno)
         ):
             with Scalene.__invalidate_mutex:
                 Scalene.__invalidate_queue.append(
@@ -979,17 +940,6 @@ class Scalene:
         return found_function
 
     @staticmethod
-    def add_stack(frame: FrameType) -> None:
-        """Add one to the stack starting from this frame."""
-        stk = list()
-        f : Optional[FrameType] = frame
-        while f:
-            if Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
-                stk.insert(0, (f.f_code.co_filename, f.f_code.co_name, f.f_lineno))
-            f = f.f_back
-        Scalene.__stats.stacks[tuple(stk)] += 1
-
-    @staticmethod
     def print_stacks() -> None:
         print(Scalene.__stats.stacks)
 
@@ -1106,7 +1056,7 @@ class Scalene:
         main_thread_frame = new_frames[0][0]
 
         if Scalene.__args.stacks:
-            Scalene.add_stack(main_thread_frame)
+            add_stack(main_thread_frame, Scalene.should_trace, Scalene.__stats.stacks)
 
         average_python_time = python_time / total_frames
         average_c_time = c_time / total_frames
@@ -1137,7 +1087,7 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             if frame == main_thread_frame:
                 continue
-            Scalene.add_stack(frame)
+            add_stack(frame, Scalene.should_trace, Scalene.__stats.stacks)
 
             # In a thread.
             fname = Filename(frame.f_code.co_filename)
@@ -1238,32 +1188,6 @@ class Scalene:
         return new_frames
 
     @staticmethod
-    def get_fully_qualified_name(frame: FrameType) -> Filename:
-        # Obtain the fully-qualified name.
-        version = sys.version_info
-        if version.major >= 3 and version.minor >= 11:
-            # Introduced in Python 3.11
-            fn_name = Filename(frame.f_code.co_qualname)
-            return fn_name
-        f = frame
-        # Manually search for an enclosing class.
-        fn_name = Filename(f.f_code.co_name)
-        while f and f.f_back and f.f_back.f_code:
-            if "self" in f.f_locals:
-                prepend_name = f.f_locals["self"].__class__.__name__
-                if "Scalene" not in prepend_name:
-                    fn_name = Filename(f"{prepend_name}.{fn_name}")
-                break
-            if "cls" in f.f_locals:
-                prepend_name = getattr(f.f_locals["cls"], "__name__", None)
-                if not prepend_name or "Scalene" in prepend_name:
-                    break
-                fn_name = Filename(f"{prepend_name}.{fn_name}")
-                break
-            f = f.f_back
-        return fn_name
-
-    @staticmethod
     def enter_function_meta(
         frame: FrameType, stats: ScaleneStatistics
     ) -> None:
@@ -1284,7 +1208,7 @@ class Scalene:
         if not Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
             return
 
-        fn_name = Scalene.get_fully_qualified_name(f)
+        fn_name = get_fully_qualified_name(f)
         firstline = f.f_code.co_firstlineno
 
         stats.function_map[fname][lineno] = fn_name
