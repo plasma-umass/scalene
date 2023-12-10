@@ -3,15 +3,18 @@ from typing import Optional
 
 def find_browser() -> Optional[webbrowser.BaseBrowser]:
     """Find the default browser if possible and if compatible."""
-
-    # Mostly taken from the standard library webbrowser module. Search "console browsers" in there.
-    # In general, a browser belongs on this list of the scalene web GUI doesn't work in it.
-    # See https://github.com/plasma-umass/scalene/issues/723.
-    incompatible_browsers = {"www-browser", "links", "elinks", "lynx", "w3m", "links2", "links-g"}
-
+    # Names of known graphical browsers as per Python's webbrowser documentation
+    graphical_browsers = ["windows-default", "macosx", "safari", "google-chrome", 
+                          "chrome", "chromium", "firefox", "opera", "edge", "mozilla", "netscape"]
     try:
+        # Get the default browser object
         browser = webbrowser.get()
+        # Check if the browser's class name matches any of the known graphical browsers
+        browser_class_name = str(type(browser)).lower()
+        if any(graphical_browser in browser_class_name for graphical_browser in graphical_browsers):
+            return browser
+        else:
+            return None
     except webbrowser.Error:
+        # Return None if there is an error in getting the browser
         return None
-
-    return None if browser.name in incompatible_browsers else browser
