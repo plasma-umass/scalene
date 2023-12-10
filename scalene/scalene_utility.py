@@ -1,5 +1,9 @@
 import inspect
+import os
+import pathlib
 import sys
+
+from jinja2 import Environment, FileSystemLoader
 from types import FrameType
 from typing import (
     Any,
@@ -14,6 +18,7 @@ from scalene.scalene_statistics import (
     Filename,
     LineNumber
 )
+from scalene.scalene_version import scalene_version, scalene_date
 
 # These are here to simplify print debugging, a la C.
 class LineNo:
@@ -87,3 +92,49 @@ def get_fully_qualified_name(frame: FrameType) -> Filename:
             break
         f = f.f_back
     return fn_name
+
+def flamegraph_format(stacks: Dict[Tuple[Any], int]) -> str:
+    """Converts stacks to a string suitable for input to Brendan Gregg's flamegraph.pl script."""
+    output = ""
+    for stk in stacks.keys():
+        for item in stk:
+            (fname, fn_name, lineno) = item
+            output += f"{fname} {fn_name}:{lineno};"
+        output += " " + str(stacks[stk])
+        output += "\n"
+    return output
+
+def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
+    """Apply a template to generate a single HTML payload containing the current profile."""
+
+    try:
+        # Load the profile
+        profile_file = pathlib.Path(profile_fname)
+        profile = profile_file.read_text()
+    except FileNotFoundError:
+        return
+
+    # Load the GUI JavaScript file.
+    scalene_dir = os.path.dirname(__file__)
+    gui_fname = os.path.join(scalene_dir, "scalene-gui", "scalene-gui.js")
+    gui_file = pathlib.Path(gui_fname)
+    gui_js = gui_file.read_text()
+
+    # Put the profile and everything else into the template.
+    environment = Environment(
+        loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
+    )
+    template = environment.get_template("index.html.template")
+    rendered_content = template.render(
+        profile=profile,
+        gui_js=gui_js,
+        scalene_version=scalene_version,
+        scalene_date=scalene_date,
+    )
+
+    # Write the rendered content to the specified output file.
+    try:
+        with open(output_fname, "w", encoding="utf-8") as f:
+            f.write(rendered_content)
+    except OSError:
+        pass
