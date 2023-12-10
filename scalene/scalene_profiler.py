@@ -47,7 +47,6 @@ from scalene.find_browser import find_browser
 from collections import defaultdict
 from importlib.abc import SourceLoader
 from importlib.machinery import ModuleSpec
-from jinja2 import Environment, FileSystemLoader
 from types import CodeType, FrameType
 from typing import (
     Any,
@@ -844,22 +843,10 @@ class Scalene:
                 Scalene.__windows_queue.put(None)
 
     @staticmethod
-    def flamegraph_format() -> str:
-        """Converts stacks to a string suitable for input to Brendan Gregg's flamegraph.pl script."""
-        output = ""
-        for stk in Scalene.__stats.stacks.keys():
-            for item in stk:
-                (fname, fn_name, lineno) = item
-                output += f"{fname} {fn_name}:{lineno};"
-            output += " " + str(Scalene.__stats.stacks[stk])
-            output += "\n"
-        return output
-
-    @staticmethod
     def output_profile(program_args: Optional[List[str]] = None) -> bool:
         """Output the profile. Returns true iff there was any info reported the profile."""
         # sourcery skip: inline-immediately-returned-variable
-        # print(Scalene.flamegraph_format())
+        # print(Scalene.flamegraph_format(Scalene.__stats.stacks))
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
                 Scalene.__program_being_profiled,
@@ -1611,8 +1598,8 @@ class Scalene:
         if Scalene.__args.outfile:
             Scalene.__profile_filename = os.path.join(os.path.dirname(Scalene.__args.outfile),
                                                       os.path.basename(Scalene.__profile_filename))
-        if (
-            Scalene.__args.web
+
+        if (Scalene.__args.web
             and not Scalene.__args.cli
             and not Scalene.__is_child
         ):
@@ -1716,42 +1703,6 @@ class Scalene:
         with contextlib.suppress(Exception):
             os.remove(f"/tmp/scalene-malloc-lock{os.getpid()}")
 
-    @staticmethod
-    def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
-        """Apply a template to generate a single HTML payload containing the current profile."""
-
-        try:
-            # Load the profile
-            profile_file = pathlib.Path(profile_fname)
-            profile = profile_file.read_text()
-        except FileNotFoundError:
-            return
-
-        # Load the GUI JavaScript file.
-        scalene_dir = os.path.dirname(__file__)
-        gui_fname = os.path.join(scalene_dir, "scalene-gui", "scalene-gui.js")
-        gui_file = pathlib.Path(gui_fname)
-        gui_js = gui_file.read_text()
-
-        # Put the profile and everything else into the template.
-        environment = Environment(
-            loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
-        )
-        template = environment.get_template("index.html.template")
-        rendered_content = template.render(
-            profile=profile,
-            gui_js=gui_js,
-            scalene_version=scalene_version,
-            scalene_date=scalene_date,
-        )
-
-        # Write the rendered content to the specified output file.
-        try:
-            with open(output_fname, "w", encoding="utf-8") as f:
-                f.write(rendered_content)
-        except OSError:
-            pass
-
     def profile_code(
         self,
         code: str,
@@ -1809,7 +1760,7 @@ class Scalene:
             ):
                 return exit_status
 
-            Scalene.generate_html(
+            generate_html(
                 profile_fname=Scalene.__profile_filename,
                 output_fname=Scalene.__args.outfile if Scalene.__args.outfile else Scalene.__profiler_html,
             )
