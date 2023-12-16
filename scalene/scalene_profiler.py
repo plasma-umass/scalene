@@ -43,6 +43,7 @@ from rich.console import Console
 
 from scalene.get_module_details import _get_module_details
 from scalene.find_browser import find_browser
+from scalene.redirect_python import redirect_python
 
 from collections import defaultdict
 from importlib.abc import SourceLoader
@@ -200,19 +201,6 @@ class Scalene:
     def get_original_lock() -> threading.Lock:
         """Return the true lock, which we shim in replacement_lock.py."""
         return Scalene.__original_lock()
-
-    # Likely names for the Python interpreter.
-    __all_python_names = [
-        "python",
-        "python" + str(sys.version_info.major),
-        "python" + str(sys.version_info.major) + "." + str(sys.version_info.minor),
-        os.path.basename(sys.executable),
-        os.path.basename(sys.executable) + str(sys.version_info.major),
-        os.path.basename(sys.executable)
-        + str(sys.version_info.major)
-        + "."
-        + str(sys.version_info.minor),
-    ]
 
     # when did we last receive a signal?
     __last_signal_time_virtual: float = 0
@@ -664,12 +652,12 @@ class Scalene:
 
         else:
             # Parent process.
-            Scalene.__python_alias_dir = pathlib.Path(
-                tempfile.mkdtemp(prefix="scalene")
-            )
             # Create a temporary directory to hold aliases to the Python
             # executable, so scalene can handle multiple processes; each
             # one is a shell script that redirects to Scalene.
+            Scalene.__python_alias_dir = pathlib.Path(
+                tempfile.mkdtemp(prefix="scalene")
+            )
             Scalene.__pid = 0
             cmdline = ""
             # Pass along commands from the invoking command line.
@@ -702,40 +690,11 @@ class Scalene:
                     "=".join((k, str(v))) for (k, v) in environ.items()
                 )
 
-            # Don't show commands on Windows; regular shebang for
-            # shell scripts on Linux/OS X
-            shebang = "@echo off" if sys.platform == "win32" else "#!/bin/bash"
-            executable = sys.executable
             # Add the --pid field so we can propagate it to the child.
             cmdline += f" --pid={os.getpid()} ---"
-            # Get all arguments, platform specific
-            all_args = "%* & exit 0" if sys.platform == "win32" else '"$@"'
 
-            payload = f"""{shebang}
-{preface} {executable} -m scalene {cmdline} {all_args}
-"""
-            # Now create all the files.
-            for name in Scalene.__all_python_names:
-                fname = os.path.join(Scalene.__python_alias_dir, name)
-                if sys.platform == "win32":
-                    fname = re.sub(r'\.exe$', '.bat', fname)
-                with open(fname, "w") as file:
-                    file.write(payload)
-                os.chmod(fname, stat.S_IXUSR | stat.S_IRUSR | stat.S_IWUSR)
-            # Finally, insert this directory into the path.
-            sys.path.insert(0, str(Scalene.__python_alias_dir))
-            os.environ["PATH"] = (
-                str(Scalene.__python_alias_dir)
-                + os.pathsep
-                + os.environ["PATH"]
-            )
-            # Force the executable (if anyone invokes it later) to point to one of our aliases.
-            sys.executable = os.path.join(
-                Scalene.__python_alias_dir,
-                Scalene.__all_python_names[0],
-            )
-            if sys.platform == "win32" and sys.executable.endswith(".exe"):
-                sys.executable = re.sub(r'\.exe$', '.bat', sys.executable)
+            redirect_python(preface, cmdline, Scalene.__python_alias_dir)
+            
 
         # Register the exit handler to run when the program terminates or we quit.
         atexit.register(Scalene.exit_handler)
