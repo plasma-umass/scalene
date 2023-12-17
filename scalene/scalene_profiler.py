@@ -13,6 +13,13 @@
 
 """
 
+# Import cysignals early so it doesn't disrupt Scalene's use of signals; this allows Scalene to profile Sage.
+# See https://github.com/plasma-umass/scalene/issues/740.
+try:
+    import cysignals
+except ModuleNotFoundError:
+    pass
+
 import argparse
 import atexit
 import builtins
@@ -666,24 +673,12 @@ class Scalene:
             Scalene.__pid = 0
             cmdline = ""
             # Pass along commands from the invoking command line.
-            cmdline += f" --cpu-sampling-rate={arguments.cpu_sampling_rate}"
-            if arguments.use_virtual_time:
-                cmdline += " --use-virtual-time"
             if "off" in arguments and arguments.off:
                 cmdline += " --off"
-            if arguments.cpu:
-                cmdline += " --cpu"
-            if arguments.gpu:
-                cmdline += " --gpu"
-            if arguments.memory:
-                cmdline += " --memory"
-            if arguments.cli:
-                cmdline += " --cli"
-            if arguments.web:
-                cmdline += " --web"
-            if arguments.no_browser:
-                cmdline += " --no-browser"
-
+            for arg in ["use_virtual_time", "cpu_sampling_rate", "cpu", "gpu", "memory",
+                        "cli", "web", "no_browser", "reduced_profile"]:
+                if getattr(arguments, arg):
+                    cmdline += f'  --{arg.replace("_", "-")}'
             # Build the commands to pass along other arguments
             environ = ScalenePreload.get_preload_environ(arguments)
             if sys.platform == "win32":
