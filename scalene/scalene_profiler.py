@@ -13,6 +13,13 @@
 
 """
 
+# Import cysignals early so it doesn't disrupt Scalene's use of signals; this allows Scalene to profile Sage.
+# See https://github.com/plasma-umass/scalene/issues/740.
+try:
+    import cysignals
+except ModuleNotFoundError:
+    pass
+
 import argparse
 import atexit
 import builtins
@@ -46,6 +53,7 @@ from scalene.find_browser import find_browser
 from scalene.redirect_python import redirect_python
 
 from collections import defaultdict
+from dataclasses import dataclass
 from importlib.abc import SourceLoader
 from importlib.machinery import ModuleSpec
 from types import CodeType, FrameType
@@ -99,6 +107,13 @@ console.log = nada
 
 MINIMUM_PYTHON_VERSION_MAJOR = 3
 MINIMUM_PYTHON_VERSION_MINOR = 8
+
+@dataclass
+class time_info:
+    virtual : float
+    wallclock : float
+    sys : float
+    user : float
 
 
 def require_python(version: Tuple[int, int]) -> None:
@@ -203,10 +218,7 @@ class Scalene:
         return Scalene.__original_lock()
 
     # when did we last receive a signal?
-    __last_signal_time_virtual: float = 0
-    __last_signal_time_wallclock: float = 0
-    __last_signal_time_sys: float = 0
-    __last_signal_time_user: float = 0
+    __last_signal_time = time_info(0.0, 0.0, 0.0, 0.0)
 
     # path for the program being profiled
     __program_path = Filename("")
@@ -661,24 +673,12 @@ class Scalene:
             Scalene.__pid = 0
             cmdline = ""
             # Pass along commands from the invoking command line.
-            cmdline += f" --cpu-sampling-rate={arguments.cpu_sampling_rate}"
-            if arguments.use_virtual_time:
-                cmdline += " --use-virtual-time"
             if "off" in arguments and arguments.off:
                 cmdline += " --off"
-            if arguments.cpu:
-                cmdline += " --cpu"
-            if arguments.gpu:
-                cmdline += " --gpu"
-            if arguments.memory:
-                cmdline += " --memory"
-            if arguments.cli:
-                cmdline += " --cli"
-            if arguments.web:
-                cmdline += " --web"
-            if arguments.no_browser:
-                cmdline += " --no-browser"
-
+            for arg in ["use_virtual_time", "cpu_sampling_rate", "cpu", "gpu", "memory",
+                        "cli", "web", "no_browser", "reduced_profile"]:
+                if getattr(arguments, arg):
+                    cmdline += f'  --{arg.replace("_", "-")}'
             # Build the commands to pass along other arguments
             environ = ScalenePreload.get_preload_environ(arguments)
             if sys.platform == "win32":
@@ -730,14 +730,14 @@ class Scalene:
             now_virtual = time.process_time()
             now_wallclock = time.perf_counter()
             if (
-                Scalene.__last_signal_time_virtual == 0
-                or Scalene.__last_signal_time_wallclock == 0
+                Scalene.__last_signal_time.virtual == 0
+                or Scalene.__last_signal_time.wallclock == 0
             ):
                 # Initialization: store values and update on the next pass.
-                Scalene.__last_signal_time_virtual = now_virtual
-                Scalene.__last_signal_time_wallclock = now_wallclock
-                Scalene.__last_signal_time_sys = now_sys
-                Scalene.__last_signal_time_user = now_user
+                Scalene.__last_signal_time.virtual = now_virtual
+                Scalene.__last_signal_time.wallclock = now_wallclock
+                Scalene.__last_signal_time.sys = now_sys
+                Scalene.__last_signal_time.user = now_user
                 if sys.platform != "win32":
                     Scalene.__orig_setitimer(
                         Scalene.__signals.cpu_timer_signal,
@@ -757,18 +757,18 @@ class Scalene:
                 now_user,
                 gpu_load,
                 gpu_mem_used,
-                Scalene.__last_signal_time_virtual,
-                Scalene.__last_signal_time_wallclock,
-                Scalene.__last_signal_time_sys,
-                Scalene.__last_signal_time_user,
+                Scalene.__last_signal_time.virtual,
+                Scalene.__last_signal_time.wallclock,
+                Scalene.__last_signal_time.sys,
+                Scalene.__last_signal_time.user,
                 Scalene.__is_thread_sleeping,
             )
-            elapsed = now_wallclock - Scalene.__last_signal_time_wallclock
+            elapsed = now_wallclock - Scalene.__last_signal_time.wallclock
             # Store the latest values as the previously recorded values.
-            Scalene.__last_signal_time_virtual = now_virtual
-            Scalene.__last_signal_time_wallclock = now_wallclock
-            Scalene.__last_signal_time_sys = now_sys
-            Scalene.__last_signal_time_user = now_user
+            Scalene.__last_signal_time.virtual = now_virtual
+            Scalene.__last_signal_time.wallclock = now_wallclock
+            Scalene.__last_signal_time.sys = now_sys
+            Scalene.__last_signal_time.user = now_user
             # Restart the timer while handling any timers set by the client.
             if sys.platform != "win32":
                 if Scalene.client_timer.is_set:
@@ -1636,15 +1636,10 @@ class Scalene:
             return
         try:
             Scalene.__orig_setitimer(Scalene.__signals.cpu_timer_signal, 0)
-            Scalene.__orig_signal(
-                Scalene.__signals.malloc_signal, signal.SIG_IGN
-            )
-            Scalene.__orig_signal(
-                Scalene.__signals.free_signal, signal.SIG_IGN
-            )
-            Scalene.__orig_signal(
-                Scalene.__signals.memcpy_signal, signal.SIG_IGN
-            )
+            for sig in [Scalene.__signals.malloc_signal,
+                        Scalene.__signals.free_signal,
+                        Scalene.__signals.memcpy_signal]:
+                Scalene.__orig_signal(sig, signal.SIG_IGN)
             Scalene.stop_signal_queues()
         except Exception:
             # Retry just in case we get interrupted by one of our own signals.
@@ -1809,12 +1804,9 @@ class Scalene:
                 Scalene.__signals.stop_profiling_signal,
                 Scalene.stop_signal_handler,
             )
-            Scalene.__orig_siginterrupt(
-                Scalene.__signals.start_profiling_signal, False
-            )
-            Scalene.__orig_siginterrupt(
-                Scalene.__signals.stop_profiling_signal, False
-            )
+            for sig in [Scalene.__signals.start_profiling_signal,
+                        Scalene.__signals.stop_profiling_signal]:
+                Scalene.__orig_siginterrupt(sig, False)
 
         Scalene.__orig_signal(signal.SIGINT, Scalene.interruption_handler)
         did_preload = (
