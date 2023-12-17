@@ -559,47 +559,43 @@ class Scalene:
         del this_frame
 
     @staticmethod
-    def enable_signals() -> None:
-        """Set up the signal handlers to handle interrupts for profiling and start the
-        timer interrupts."""
-        if sys.platform == "win32":
-            Scalene.timer_signals = True
-            Scalene.__orig_signal(
-                Scalene.__signals.cpu_signal,
-                Scalene.cpu_signal_handler,
-            )
-            # On Windows, we simulate timer signals by running a background thread.
-            Scalene.timer_signals = True
-            t = threading.Thread(target=Scalene.windows_timer_loop)
-            t.start()
-            Scalene.__windows_queue.put(None)
-            Scalene.start_signal_queues()
-            return
-        Scalene.start_signal_queues()
-        # Set signal handlers for memory allocation and memcpy events.
-        Scalene.__orig_signal(
-            Scalene.__signals.malloc_signal, Scalene.malloc_signal_handler
-        )
-        Scalene.__orig_signal(
-            Scalene.__signals.free_signal, Scalene.free_signal_handler
-        )
-        Scalene.__orig_signal(
-            Scalene.__signals.memcpy_signal, Scalene.memcpy_signal_handler
-        )
-        Scalene.__orig_signal(signal.SIGTERM, Scalene.term_signal_handler)
-        # Set every signal to restart interrupted system calls.
-        for s in Scalene.__signals.get_all_signals():
-            Scalene.__orig_siginterrupt(s, False)
-        # Turn on the CPU profiling timer to run at the sampling rate, exactly once.
+    def enable_signals_win32() -> None:
+        assert sys.platform == "win32"
+        Scalene.timer_signals = True
         Scalene.__orig_signal(
             Scalene.__signals.cpu_signal,
             Scalene.cpu_signal_handler,
         )
-        if sys.platform != "win32":
-            Scalene.__orig_setitimer(
-                Scalene.__signals.cpu_timer_signal,
-                Scalene.__args.cpu_sampling_rate,
-            )
+        # On Windows, we simulate timer signals by running a background thread.
+        Scalene.timer_signals = True
+        t = threading.Thread(target=Scalene.windows_timer_loop)
+        t.start()
+        Scalene.__windows_queue.put(None)
+        Scalene.start_signal_queues()
+        return
+        
+    @staticmethod
+    def enable_signals() -> None:
+        """Set up the signal handlers to handle interrupts for profiling and start the
+        timer interrupts."""
+        if sys.platform == "win32":
+            Scalene.enable_signals_win32()
+            return
+        Scalene.start_signal_queues()
+        # Set signal handlers for various events.
+        for sig, handler in [(Scalene.__signals.malloc_signal, Scalene.malloc_signal_handler),
+                             (Scalene.__signals.free_signal, Scalene.free_signal_handler),
+                             (Scalene.__signals.memcpy_signal, Scalene.memcpy_signal_handler),
+                             (signal.SIGTERM, Scalene.term_signal_handler),
+                             (Scalene.__signals.cpu_signal, Scalene.cpu_signal_handler)]:
+            Scalene.__orig_signal(sig, handler)
+        # Set every signal to restart interrupted system calls.
+        for s in Scalene.__signals.get_all_signals():
+            Scalene.__orig_siginterrupt(s, False)
+        Scalene.__orig_setitimer(
+            Scalene.__signals.cpu_timer_signal,
+            Scalene.__args.cpu_sampling_rate,
+        )
 
     def __init__(
         self,
