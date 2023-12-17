@@ -395,7 +395,7 @@ class ScaleneStatistics:
     def merge_stats(self, the_dir_name: pathlib.Path) -> None:
         """Merge all statistics in a given directory."""
         the_dir = pathlib.Path(the_dir_name)
-        for f in list(the_dir.glob("**/scalene*")):
+        for f in list(the_dir.glob(os.path.join("**", "scalene*"))):
             # Skip empty files.
             if os.path.getsize(f) == 0:
                 continue
