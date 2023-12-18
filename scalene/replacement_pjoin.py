@@ -43,9 +43,9 @@ def replacement_pjoin(scalene: Scalene) -> None:
             if timeout != -1:
                 end_time = time.perf_counter()
                 if end_time - start_time >= timeout:
-                    from multiprocessing.process import (
+                    from multiprocessing.process import (  # type: ignore
                         _children,
-                    )  # type: ignore
+                    )
 
                     _children.discard(self)
                     return

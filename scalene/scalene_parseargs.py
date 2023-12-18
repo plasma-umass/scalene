@@ -208,16 +208,22 @@ for the process ID that Scalene reports. For example:
             + " [/blue])",
         )
         if sys.platform == "win32":
-            memory_profile_message = "profile memory (not supported on this platform)" 
+            memory_profile_message = (
+                "profile memory (not supported on this platform)"
+            )
         else:
-            memory_profile_message = "profile memory (default: [blue]" + (str(defaults.memory)) + " [/blue])"
+            memory_profile_message = (
+                "profile memory (default: [blue]"
+                + (str(defaults.memory))
+                + " [/blue])"
+            )
         parser.add_argument(
             "--memory",
             dest="memory",
             action="store_const",
             const=True,
             default=None,
-            help= memory_profile_message
+            help=memory_profile_message,
         )
         parser.add_argument(
             "--profile-all",

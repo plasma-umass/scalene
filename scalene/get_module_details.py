@@ -92,4 +92,3 @@ def _get_module_details(
     if code is None:
         raise error("No code object available for %s" % mod_name)
     return mod_name, spec, code
-

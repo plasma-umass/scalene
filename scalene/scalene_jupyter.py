@@ -3,6 +3,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from threading import Thread
 from typing import Any, Optional
 
+
 class ScaleneJupyter:
     @staticmethod
     def find_available_port(start_port: int, end_port: int) -> Optional[int]:

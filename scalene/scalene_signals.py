@@ -29,7 +29,7 @@ class ScaleneSignals:
             self.malloc_signal = None
             self.free_signal = None
 
-    def set_timer_signals(self, use_virtual_time: bool=True) -> None:
+    def set_timer_signals(self, use_virtual_time: bool = True) -> None:
         """
         Set up timer signals for CPU profiling.
 

@@ -235,8 +235,8 @@ class ScaleneJSON:
         pid: int,
         profile_this_code: Callable[[Filename, LineNumber], bool],
         python_alias_dir: Path,
-        program_path: Path,
-        entrypoint_dir: Path,
+        program_path: Filename,
+        entrypoint_dir: Filename,
         program_args: Optional[List[str]],
         profile_memory: bool = True,
         reduced_profile: bool = False,
@@ -289,7 +289,7 @@ class ScaleneJSON:
         # Convert stacks into a representation suitable for JSON dumping.
         stks = []
         for stk in stats.stacks.keys():
-            this_stk : List[str] = []
+            this_stk: List[str] = []
             this_stk.extend(stk)
             stks.append((this_stk, stats.stacks[stk]))
 
@@ -449,7 +449,9 @@ class ScaleneJSON:
                     profile_line["end_region_line"] = enclosing_regions[
                         lineno
                     ][1]
-                    profile_line["start_outermost_loop"] = outer_loop[lineno][0]
+                    profile_line["start_outermost_loop"] = outer_loop[lineno][
+                        0
+                    ]
                     profile_line["end_outermost_loop"] = outer_loop[lineno][1]
                     # When reduced-profile set, only output if the payload for the line is non-zero.
                     if reduced_profile:
