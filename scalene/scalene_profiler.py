@@ -16,7 +16,7 @@
 # Import cysignals early so it doesn't disrupt Scalene's use of signals; this allows Scalene to profile Sage.
 # See https://github.com/plasma-umass/scalene/issues/740.
 try:
-    import cysignals
+    import cysignals # type: ignore
 except ModuleNotFoundError:
     pass
 
@@ -34,6 +34,7 @@ import multiprocessing
 import os
 import pathlib
 import platform
+import queue
 import re
 import signal
 import stat
@@ -48,8 +49,9 @@ import webbrowser
 # For debugging purposes
 from rich.console import Console
 
-from scalene.get_module_details import _get_module_details
 from scalene.find_browser import find_browser
+from scalene.get_module_details import _get_module_details
+from scalene.time_info import get_times, TimeInfo
 from scalene.redirect_python import redirect_python
 
 from collections import defaultdict
@@ -61,6 +63,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Generator,
     List,
     Optional,
     Set,
@@ -103,18 +106,10 @@ console = Console(style="white on blue")
 # Assigning to `nada` disables any console.log commands.
 def nada(*args: Any) -> None:
     pass
-console.log = nada
+console.log = nada # type: ignore
 
 MINIMUM_PYTHON_VERSION_MAJOR = 3
 MINIMUM_PYTHON_VERSION_MINOR = 8
-
-@dataclass
-class time_info:
-    virtual : float
-    wallclock : float
-    sys : float
-    user : float
-
 
 def require_python(version: Tuple[int, int]) -> None:
     assert (
@@ -129,8 +124,6 @@ require_python((MINIMUM_PYTHON_VERSION_MAJOR, MINIMUM_PYTHON_VERSION_MINOR))
 # It also has partial support for Windows.
 
 # Install our profile decorator.
-
-
 def scalene_redirect_profile(func: Any) -> Any:
     """Handle @profile decorators.
 
@@ -155,14 +148,14 @@ def start() -> None:
 def stop() -> None:
     """Stop profiling."""
     Scalene.stop()
-    
+
 class Scalene:
     """The Scalene profiler itself."""
 
     # Get the number of available CPUs (preferring `os.sched_getaffinity`, if available).
     __availableCPUs: int
     try:
-        __availableCPUs = len(os.sched_getaffinity(0))
+        __availableCPUs = len(os.sched_getaffinity(0)) # type: ignore
     except AttributeError:
         cpu_count = os.cpu_count()
         __availableCPUs = cpu_count if cpu_count else 1
@@ -176,11 +169,19 @@ class Scalene:
     __parent_pid = -1
     __initialized: bool = False
     __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
+
+    @staticmethod
+    def last_profiled_tuple() -> Tuple[Filename, LineNumber, ByteCodeIndex]:
+        """Helper function to type last profiled information."""
+        return cast(Tuple[Filename, LineNumber, ByteCodeIndex], Scalene.__last_profiled)
+
+    
     __last_profiled_invalidated = False
     __gui_dir = "scalene-gui"
     __profile_filename = Filename("profile.json")
     __profiler_html = Filename("profile.html")
     __error_message = "Error in program being profiled"
+    __windows_queue : queue.Queue[Any] = queue.Queue() # only used for Windows timer logic
     BYTES_PER_MB = 1024 * 1024
 
     MALLOC_ACTION = "M"
@@ -218,7 +219,7 @@ class Scalene:
         return Scalene.__original_lock()
 
     # when did we last receive a signal?
-    __last_signal_time = time_info(0.0, 0.0, 0.0, 0.0)
+    __last_signal_time = TimeInfo()
 
     # path for the program being profiled
     __program_path = Filename("")
@@ -311,6 +312,15 @@ class Scalene:
         bytearray(NEWLINE_TRIGGER_LENGTH)
 
     @staticmethod
+    def update_profiled() -> None:
+        with Scalene.__invalidate_mutex:
+            last_prof_tuple = Scalene.last_profiled_tuple()
+            Scalene.__invalidate_queue.append(
+                (last_prof_tuple[0], last_prof_tuple[1])
+            )
+            Scalene.update_line()
+        
+    @staticmethod
     def invalidate_lines_python(
         frame: FrameType, _event: str, _arg: str
     ) -> Any:
@@ -319,7 +329,7 @@ class Scalene:
             # If we are still on the same line, return.
             ff = frame.f_code.co_filename
             fl = frame.f_lineno
-            (fname, lineno, lasti) = Scalene.__last_profiled
+            (fname, lineno, lasti) = Scalene.last_profiled_tuple()
             if (ff == fname) and (fl == lineno):
                 return Scalene.invalidate_lines_python
             # Different line: stop tracing this frame.
@@ -332,11 +342,7 @@ class Scalene:
                 return None
             # We are on a different line; stop tracing and increment the count.
             sys.settrace(None)
-            with Scalene.__invalidate_mutex:
-                Scalene.__invalidate_queue.append(
-                    (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
-                )
-                Scalene.update_line()
+            Scalene.update_profiled()
             Scalene.__last_profiled_invalidated = True
 
             Scalene.__last_profiled = [
@@ -442,6 +448,7 @@ class Scalene:
     @staticmethod
     def windows_timer_loop() -> None:
         """For Windows, send periodic timer signals; launch as a background thread."""
+        assert sys.platform == "win32"
         Scalene.timer_signals = True
         while Scalene.timer_signals:
             Scalene.__windows_queue.get()
@@ -490,7 +497,7 @@ class Scalene:
         if not Scalene.__args.memory:
             # This should never happen, but we fail gracefully.
             return
-        from scalene import pywhere
+        from scalene import pywhere # type: ignore
 
         if this_frame:
             Scalene.enter_function_meta(this_frame, Scalene.__stats)
@@ -511,15 +518,11 @@ class Scalene:
         # First, see if we have now executed a different line of code.
         # If so, increment.
         invalidated = pywhere.get_last_profiled_invalidated()
-        (fname, lineno, lasti) = Scalene.__last_profiled
+        (fname, lineno, lasti) = Scalene.last_profiled_tuple()
         if not invalidated and this_frame and not (
             on_stack(this_frame, fname, lineno)
         ):
-            with Scalene.__invalidate_mutex:
-                Scalene.__invalidate_queue.append(
-                    (Scalene.__last_profiled[0], Scalene.__last_profiled[1])
-                )
-                Scalene.update_line()
+            Scalene.update_profiled()
         pywhere.set_last_profiled_invalidated_false()
         Scalene.__last_profiled = [Filename(f.f_code.co_filename),
                                    LineNumber(f.f_lineno),
@@ -628,10 +631,9 @@ class Scalene:
             Scalene.__memcpy_sigq,
         ]
         Scalene.__invalidate_mutex = Scalene.get_original_lock()
+        
+        Scalene.__windows_queue = queue.Queue()
         if sys.platform == "win32":
-            import queue
-
-            Scalene.__windows_queue = queue.Queue()
             if arguments.memory:
                 print(f"Scalene warning: Memory profiling is not currently supported for Windows.")
                 arguments.memory = False
@@ -675,6 +677,8 @@ class Scalene:
                         "cli", "web", "no_browser", "reduced_profile"]:
                 if getattr(arguments, arg):
                     cmdline += f'  --{arg.replace("_", "-")}'
+            # Add the --pid field so we can propagate it to the child.
+            cmdline += f" --pid={os.getpid()} ---"
             # Build the commands to pass along other arguments
             environ = ScalenePreload.get_preload_environ(arguments)
             if sys.platform == "win32":
@@ -685,9 +689,6 @@ class Scalene:
                 preface = " ".join(
                     "=".join((k, str(v))) for (k, v) in environ.items()
                 )
-
-            # Add the --pid field so we can propagate it to the child.
-            cmdline += f" --pid={os.getpid()} ---"
 
             redirect_python(preface, cmdline, Scalene.__python_alias_dir)
             
@@ -711,18 +712,7 @@ class Scalene:
         """Handle CPU signals."""
         try:
             # Get current time stats.
-            now_sys: float = 0
-            now_user: float = 0
-            if sys.platform != "win32":
-                # On Linux/Mac, use getrusage, which provides higher
-                # resolution values than os.times() for some reason.
-                ru = resource.getrusage(resource.RUSAGE_SELF)
-                now_sys = ru.ru_stime
-                now_user = ru.ru_utime
-            else:
-                time_info = os.times()
-                now_sys = time_info.system
-                now_user = time_info.user
+            now_sys, now_user = get_times()
             now_virtual = time.process_time()
             now_wallclock = time.perf_counter()
             if (
@@ -863,6 +853,15 @@ class Scalene:
             return did_output
 
     @staticmethod
+    @functools.lru_cache(None)
+    def get_line_info(fname: Filename) -> Generator[Tuple[list[str], int], None, None]:
+        line_info = (
+            inspect.getsourcelines(fn)
+            for fn in Scalene.__functions_to_profile[fname]
+        )
+        return line_info
+        
+    @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
         # sourcery skip: inline-immediately-returned-variable
         """When using @profile, only profile files & lines that have been decorated."""
@@ -871,10 +870,7 @@ class Scalene:
         if fname not in Scalene.__files_to_profile:
             return False
         # Now check to see if it's the right line range.
-        line_info = (
-            inspect.getsourcelines(fn)
-            for fn in Scalene.__functions_to_profile[fname]
-        )
+        line_info = Scalene.get_line_info(fname)
         found_function = any(
             line_start <= lineno < line_start + len(lines)
             for (lines, line_start) in line_info
@@ -1494,7 +1490,7 @@ class Scalene:
         if filename.startswith("_ipython-input-"):
             # Profiling code created in a Jupyter cell:
             # create a file to hold the contents.
-            import IPython
+            import IPython # type: ignore
 
             if result := re.match(r"_ipython-input-([0-9]+)-.*", filename):
                 # Write the cell's contents into the file.
@@ -1662,7 +1658,7 @@ class Scalene:
     ) -> int:
         """Initiate execution and profiling."""
         if Scalene.__args.memory:
-            from scalene import pywhere
+            from scalene import pywhere # type: ignore
 
             pywhere.populate_struct()
         # If --off is set, tell all children to not profile and stop profiling before we even start.
@@ -1690,7 +1686,7 @@ class Scalene:
             # Leaving here in case of reversion
             # sys.settrace(None)
             stats = Scalene.__stats
-            (last_file, last_line, _) = Scalene.__last_profiled
+            (last_file, last_line, _) = Scalene.last_profiled_tuple()
             stats.memory_malloc_count[last_file][last_line] += 1
             stats.memory_aggregate_footprint[last_file][
                 last_line
@@ -1792,18 +1788,12 @@ class Scalene:
             )
             sys.exit(1)
         if sys.platform != "win32":
-            Scalene.__orig_signal(
-                Scalene.__signals.start_profiling_signal,
-                Scalene.start_signal_handler,
-            )
-            Scalene.__orig_signal(
-                Scalene.__signals.stop_profiling_signal,
-                Scalene.stop_signal_handler,
-            )
-            for sig in [Scalene.__signals.start_profiling_signal,
-                        Scalene.__signals.stop_profiling_signal]:
+            for sig, handler in [(Scalene.__signals.start_profiling_signal,
+                                  Scalene.start_signal_handler),
+                                 (Scalene.__signals.stop_profiling_signal,
+                                  Scalene.stop_signal_handler)]:
+                Scalene.__orig_signal(sig, handler)
                 Scalene.__orig_siginterrupt(sig, False)
-
         Scalene.__orig_signal(signal.SIGINT, Scalene.interruption_handler)
         did_preload = (
             False if is_jupyter else ScalenePreload.setup_preload(args)
@@ -1964,12 +1954,11 @@ class Scalene:
             sys.exit(1)
         finally:
             with contextlib.suppress(Exception):
-                Scalene.__malloc_mapfile.close()
-                Scalene.__memcpy_mapfile.close()
-                if not Scalene.__is_child:
-                    # We are done with these files, so remove them.
-                    Scalene.__malloc_mapfile.cleanup()
-                    Scalene.__memcpy_mapfile.cleanup()
+                for mapfile in [Scalene.__malloc_mapfile,
+                                Scalene.__memcpy_mapfile]:
+                    mapfile.close()
+                    if not Scalene.__is_child:
+                        mapfile.cleanup()
             if not is_jupyter:
                 sys.exit(exit_status)
 

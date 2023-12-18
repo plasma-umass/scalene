@@ -4,7 +4,7 @@ import pathlib
 import sys
 
 from jinja2 import Environment, FileSystemLoader
-from types import FrameType
+from types import CodeType, FrameType
 from typing import (
     Any,
     Callable,
@@ -41,9 +41,9 @@ __FILE__ = FileName()
 
 def add_stack(frame: FrameType,
               should_trace: Callable[[Filename, str], bool],
-              stacks: Dict[Tuple[Any], int]) -> None:
+              stacks: Dict[Any, int]) -> None:
     """Add one to the stack starting from this frame."""
-    stk = list()
+    stk : List[Tuple[str, str, int]] = list()
     f : Optional[FrameType] = frame
     while f:
         if should_trace(Filename(f.f_code.co_filename), f.f_code.co_name):
@@ -73,7 +73,7 @@ def get_fully_qualified_name(frame: FrameType) -> Filename:
     version = sys.version_info
     if version.major >= 3 and version.minor >= 11:
         # Introduced in Python 3.11
-        fn_name = Filename(frame.f_code.co_qualname)
+        fn_name = Filename(frame.f_code.co_qualname) # type: ignore
         return fn_name
     f = frame
     # Manually search for an enclosing class.
