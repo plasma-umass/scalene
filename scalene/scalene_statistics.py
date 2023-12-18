@@ -447,7 +447,7 @@ class ScaleneStatistics:
                 for filename in self.per_line_footprint_samples:
                     for lineno in self.per_line_footprint_samples[filename]:
                         self.per_line_footprint_samples[filename][lineno].sort(
-                            key=lambda x: x[0] # type: ignore
+                            key=lambda x: x[0]  # type: ignore
                         )
                 self.increment_per_line_samples(
                     self.memory_malloc_count, x.memory_malloc_count

@@ -117,7 +117,9 @@ class ScaleneGPU:
         for i in range(self.__ngpus):
             handle = self.__handle[i]
             with contextlib.suppress(Exception):
-                for proc in pynvml.nvmlDeviceGetComputeRunningProcesses(handle):
+                for proc in pynvml.nvmlDeviceGetComputeRunningProcesses(
+                    handle
+                ):
                     # Only accumulate memory stats for the current pid.
                     if proc.usedGpuMemory and proc.pid == pid:
                         # First check is to protect against return of None

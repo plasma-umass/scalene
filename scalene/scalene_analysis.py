@@ -157,7 +157,11 @@ class ScaleneAnalysis:
             for child_node in ast.iter_child_nodes(node):
                 walk(child_node, current_outermost_region, outer_class)
             if isinstance(node, ast.stmt):
-                outermost_is_loop = outer_class in [ast.For, ast.AsyncFor, ast.While]
+                outermost_is_loop = outer_class in [
+                    ast.For,
+                    ast.AsyncFor,
+                    ast.While,
+                ]
                 curr_is_block_not_loop = node.__class__ in [
                     ast.With,
                     ast.If,
@@ -175,9 +179,7 @@ class ScaleneAnalysis:
                             # NOTE: this additionally accounts for the case in which `node`
                             # is a loop. Any loop within another loop should take on the entirety of the
                             # outermost loop too
-                            regions[
-                                line
-                            ] = current_outermost_region
+                            regions[line] = current_outermost_region
                         elif (
                             curr_is_block_not_loop
                             and len(srclines[line - 1].strip()) > 0
