@@ -3,7 +3,7 @@ import importlib
 import os
 import sys
 
-from typing import cast, Dict, List, Tuple
+from typing import cast, Any, Dict, List, Tuple
 
 if sys.version_info < (3, 9):
     # ast.unparse only supported as of 3.9
@@ -21,11 +21,12 @@ class ScaleneAnalysis:
         result = False
         try:
             package = importlib.import_module(package_name)
-            package_dir = os.path.dirname(package.__file__)
-            for root, dirs, files in os.walk(package_dir):
-                for filename in files:
-                    if filename.endswith(".so") or filename.endswith(".pyd"):
-                        return True
+            if package.__file__:
+                package_dir = os.path.dirname(package.__file__)
+                for root, dirs, files in os.walk(package_dir):
+                    for filename in files:
+                        if filename.endswith(".so") or filename.endswith(".pyd"):
+                            return True
             result = False
         except ImportError:
             result = False
@@ -140,7 +141,7 @@ class ScaleneAnalysis:
         tree = ast.parse(src)
         regions = {}
 
-        def walk(node, current_outermost_region, outer_class):
+        def walk(node : ast.AST, current_outermost_region : Any, outer_class : Any) -> None:
             nonlocal regions
             if isinstance(
                 node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
@@ -172,6 +173,7 @@ class ScaleneAnalysis:
                     ast.AsyncFunctionDef,
                 ]
 
+                assert node.end_lineno
                 for line in range(node.lineno, node.end_lineno + 1):
                     # NOTE: we update child nodes first (in the recursive call),
                     # so what we want this statement to do is attribute any lines that we haven't already

@@ -4,15 +4,10 @@ import sys
 import threading
 from multiprocessing.synchronize import Lock
 from scalene.scalene_profiler import Scalene
-from typing import Any
-
-
-def _recreate_replacement_sem_lock():
-    return ReplacementSemLock()
-
+from typing import Any, Callable, Optional, Tuple
 
 class ReplacementSemLock(multiprocessing.synchronize.Lock):
-    def __init__(self, ctx=None):
+    def __init__(self, ctx: Optional[multiprocessing.context.DefaultContext] = None) -> None:
         # Ensure to use the appropriate context while initializing
         if ctx is None:
             ctx = multiprocessing.get_context()
@@ -34,5 +29,5 @@ class ReplacementSemLock(multiprocessing.synchronize.Lock):
     def __exit__(self, *args: Any) -> None:
         super().__exit__(*args)
 
-    def __reduce__(self):
-        return (_recreate_replacement_sem_lock, ())
+    def __reduce__(self) -> Tuple[Callable[[], ReplacementSemLock], Tuple[()]]:
+        return (lambda: ReplacementSemLock(), ())
