@@ -102,7 +102,7 @@ class ScaleneOutput:
             fname=fname,
             fname_print=fname,
             line_no=line_no,
-            line=line,
+            line=str(line),
             stats=stats,
             profile_this_code=profile_this_code,
             force_print=force_print,

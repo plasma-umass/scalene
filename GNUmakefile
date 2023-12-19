@@ -74,7 +74,7 @@ vendor/crdp:
 vendor-deps: clear-vendor-dirs vendor/Heap-Layers vendor/printf/printf.cpp vendor/crdp
 
 mypy:
-	-mypy $(PYTHON_SOURCES)
+	-mypy --no-warn-unused-ignores $(PYTHON_SOURCES)
 
 format: black clang-format prettier
 

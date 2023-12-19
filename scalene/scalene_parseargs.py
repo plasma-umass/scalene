@@ -352,6 +352,7 @@ for the process ID that Scalene reports. For example:
         # Parse out all Scalene arguments.
         # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
         args, left = parser.parse_known_args()
+
         # Hack to simplify functionality for Windows platforms.
         if sys.platform == "win32":
             args.on = True
@@ -394,7 +395,11 @@ for the process ID that Scalene reports. For example:
             print(f"Scalene version {scalene_version} ({scalene_date})")
             if not args.ipython:
                 sys.exit(-1)
-            args = (
-                []
-            )  # We use this to indicate that we should not run further in IPython.
+            # Clear out the namespace. We do this to indicate that we should not run further in IPython.
+            for arg in list(args.__dict__):
+                delattr(args, arg)
+            # was:
+            # args = (
+            #     []
+            # )  # We use this to indicate that we should not run further in IPython.
         return args, left
