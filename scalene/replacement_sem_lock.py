@@ -29,5 +29,5 @@ class ReplacementSemLock(multiprocessing.synchronize.Lock):
     def __exit__(self, *args: Any) -> None:
         super().__exit__(*args)
 
-    def __reduce__(self) -> Tuple[Callable[[], ReplacementSemLock], Tuple[()]]:
+    def __reduce__(self) -> Tuple[Callable[[], Any], Tuple[()]]:
         return (ReplacementSemLock, ())
