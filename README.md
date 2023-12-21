@@ -376,17 +376,6 @@ Scalene is distributed as a `conda` package and works on Mac OS X, Linux (includ
 </details>
 
 <details>
-<summary>Using <code>Homebrew</code> (Mac OS X)</summary>
-
-As an alternative to `pip`, you can use Homebrew to install the current version of Scalene from this repository:
-
-```console
-  % brew tap plasma-umass/scalene
-  % brew install --head plasma-umass/scalene/scalene
-```
-</details>
-
-<details>
 <summary>On ArchLinux</summary>
 
 You can install Scalene on Arch Linux via the [AUR
