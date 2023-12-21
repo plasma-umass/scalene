@@ -55,23 +55,20 @@ clean:
 $(WRAPPER) : vendor/Heap-Layers
 
 vendor/Heap-Layers:
-	mkdir -p vendor && cd vendor && git clone https://github.com/emeryberger/Heap-Layers
+	cd vendor && git clone https://github.com/emeryberger/Heap-Layers
 
 TMP := $(shell mktemp -d || echo /tmp)
 
 vendor/printf/printf.cpp:
-	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
+	cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
 	sed -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h > $(TMP)/printf.h.$$ && mv $(TMP)/printf.h.$$ vendor/printf/printf.h
 	sed -e 's/^#define vsnprintf vsnprintf_/\/\/&/' vendor/printf/printf.h > $(TMP)/printf.h.$$ && mv $(TMP)/printf.h.$$ vendor/printf/printf.h
 
-clear-vendor-dirs:
-	rm -fr vendor/
-
 vendor/crdp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/plasma-umass/crdp
 
-vendor-deps: | clear-vendor-dirs vendor/Heap-Layers vendor/printf/printf.cpp vendor/crdp
+vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp vendor/crdp
 
 mypy:
 	-mypy --no-warn-unused-ignores $(PYTHON_SOURCES)
