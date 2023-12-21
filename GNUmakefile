@@ -71,7 +71,7 @@ clear-vendor-dirs:
 vendor/crdp:
 	mkdir -p vendor && cd vendor && git clone https://github.com/plasma-umass/crdp
 
-vendor-deps: clear-vendor-dirs vendor/Heap-Layers vendor/printf/printf.cpp vendor/crdp
+vendor-deps: | clear-vendor-dirs vendor/Heap-Layers vendor/printf/printf.cpp vendor/crdp
 
 mypy:
 	-mypy $(PYTHON_SOURCES)
