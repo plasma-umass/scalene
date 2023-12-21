@@ -5,7 +5,7 @@ import math
 import statistics
 
 from hypothesis import given
-
+from typing import List
 
 @given(
     st.lists(
@@ -15,7 +15,7 @@ from hypothesis import given
         min_size=2,
     )
 )
-def test_running_stats(values):
+def test_running_stats(values: List[float]) -> None:
     rstats = runningstats.RunningStats()
     for value in values:
         rstats.push(value)

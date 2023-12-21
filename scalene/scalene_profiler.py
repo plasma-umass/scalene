@@ -1702,7 +1702,7 @@ class Scalene:
             exec(code, the_globals, the_locals)
         except SystemExit as se:
             # Intercept sys.exit and propagate the error code.
-            exit_status = se.code
+            exit_status = se.code if type(se.code) == int else 1
         except KeyboardInterrupt:
             # Cleanly handle keyboard interrupts (quits execution and dumps the profile).
             print("Scalene execution interrupted.")
@@ -1992,7 +1992,7 @@ class Scalene:
                     print("Scalene: no input file specified.")
                 sys.exit(1)
         except SystemExit as e:
-            exit_status = e.code
+            exit_status = e.code if type(e.code) == int else 1
 
         except StopJupyterExecution:
             pass

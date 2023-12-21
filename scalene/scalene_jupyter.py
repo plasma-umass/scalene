@@ -55,7 +55,7 @@ class ScaleneJupyter:
                     except FileNotFoundError:
                         print("Scalene error: profile file not found.")
                 elif self.path == "/shutdown":
-                    self.server.should_shutdown = True
+                    self.server.should_shutdown = True # type: ignore
                     self.send_response(204)
                     # self._send_response("Server is shutting down...")
                 else:

@@ -3,7 +3,7 @@ import signal
 import sys
 
 from scalene.scalene_profiler import Scalene
-
+from typing import Any
 
 @Scalene.shim
 def replacement_signal_fns(scalene: Scalene) -> None:
@@ -24,7 +24,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
     else:
         new_cpu_signal = signal.SIGFPE
 
-    def replacement_signal(signum: int, handler):  # type: ignore
+    def replacement_signal(signum: int, handler: Any) -> Any:
         all_signals = scalene.get_all_signals_set()
         timer_signal, cpu_signal = scalene.get_timer_signals()
         timer_signal_str = signal.strsignal(signum)
@@ -90,7 +90,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         signal.setitimer = replacement_setitimer
         signal.siginterrupt = replacement_siginterrupt
 
-    signal.signal = replacement_signal
+    signal.signal = replacement_signal # type: ignore
     if sys.version_info >= (3, 8):
         signal.raise_signal = replacement_raise_signal
     os.kill = replacement_kill

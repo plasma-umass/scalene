@@ -69,7 +69,7 @@ class ScaleneJSON:
 
     def compress_samples(
         self, samples: List[Any], max_footprint: float
-    ) -> List[Any]:
+    ) -> Any:
         if len(samples) <= self.max_sparkline_samples:
             return samples
         # Try to reduce the number of samples with the
