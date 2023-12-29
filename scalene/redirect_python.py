@@ -1,5 +1,6 @@
 import os
 import pathlib
+import re
 import stat
 import sys
 
