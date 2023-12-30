@@ -612,6 +612,12 @@ class Scalene:
             Scalene.__signals.cpu_timer_signal,
             Scalene.__args.cpu_sampling_rate,
         )
+        if Scalene.__args.stacks:
+            try:
+                # Experimental native traceback support
+                signal.enable_native_traceback(Scalene.__signals.cpu_signal)
+            except AttributeError:
+                pass
 
     def __init__(
         self,
@@ -1019,6 +1025,7 @@ class Scalene:
         main_thread_frame = new_frames[0][0]
 
         if Scalene.__args.stacks:
+            add_native_stack(Scalene.__signals.cpu_signal, Scalene.should_trace, Scalene.__stats.native_stacks)
             add_stack(
                 main_thread_frame, Scalene.should_trace, Scalene.__stats.stacks
             )
