@@ -227,11 +227,33 @@ PyObject* set_last_profiled_invalidated_true(PyObject* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
-
 PyObject* set_last_profiled_invalidated_false(PyObject* self, PyObject* args) {
   last_profiled_invalidated = false;
   Py_RETURN_NONE;
 }
+
+
+PyObject* set_scalene_done_true(PyObject* self, PyObject* args) {
+    auto scalene_done =
+      (std::atomic_bool*)dlsym(RTLD_DEFAULT, "p_scalene_done");
+    if (scalene_done == nullptr) {
+      PyErr_SetString(PyExc_Exception, "Unable to find p_scalene_done");
+      return NULL;
+    }
+  *scalene_done = true;
+  Py_RETURN_NONE;
+}
+PyObject* set_scalene_done_false(PyObject* self, PyObject* args) {
+    auto scalene_done =
+      (std::atomic_bool*)dlsym(RTLD_DEFAULT, "p_scalene_done");
+    if (scalene_done == nullptr) {
+      PyErr_SetString(PyExc_Exception, "Unable to find p_whereInPython");
+      return NULL;
+    }
+  *scalene_done = false;
+  Py_RETURN_NONE;
+}
+
 int whereInPython(std::string& filename, int& lineno, int& bytei) {
   if (!Py_IsInitialized()) {  // No python, no python stack.
     return 0;
@@ -488,6 +510,10 @@ static PyMethodDef EmbMethods[] = {
     {"get_last_profiled_invalidated", get_last_profiled_invalidated, METH_NOARGS, ""},
     {"set_last_profiled_invalidated_true", set_last_profiled_invalidated_true, METH_NOARGS, ""},
     {"set_last_profiled_invalidated_false", set_last_profiled_invalidated_false, METH_NOARGS, ""},
+    {"set_scalene_done_true", set_scalene_done_true, METH_NOARGS, ""},
+    {"set_scalene_done_false", set_scalene_done_false, METH_NOARGS, ""},
+
+
     {NULL, NULL, 0, NULL}};
 
 static PyModuleDef EmbedModule = {PyModuleDef_HEAD_INIT,
