@@ -145,6 +145,7 @@ class SampleHeap : public SuperHeap {
   }
   inline void register_malloc(size_t realSize, void* ptr,
                               bool inPythonAllocator = true) {
+    if (p_scalene_done) return;
     assert(realSize);
     // If this is the special NEWLINE value, trigger an update.
     if (unlikely(realSize == NEWLINE)) {
@@ -205,6 +206,7 @@ class SampleHeap : public SuperHeap {
   }
 
   inline void register_free(size_t realSize, void* ptr) {
+    if (p_scalene_done) return;
     size_t sampleFreeSize;
     auto sampleFree =
         _allocationSampler.decrement(realSize, ptr, sampleFreeSize);

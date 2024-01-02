@@ -1567,10 +1567,20 @@ class Scalene:
         Scalene.__start_time = time.monotonic_ns()
         Scalene.__done = False
 
+        if Scalene.__args.memory:
+            from scalene import pywhere  # type: ignore
+            pywhere.set_scalene_done_false()
+
+
     @staticmethod
     def stop() -> None:
         """Complete profiling."""
         Scalene.__done = True
+        if Scalene.__args.memory:
+            from scalene import pywhere  # type: ignore
+            pywhere.set_scalene_done_true()
+
+
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
         if Scalene.__args.outfile:
