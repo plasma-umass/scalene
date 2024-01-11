@@ -107,7 +107,8 @@ jobs:
       - name: Work around missing /tmp on Windows #"bash.exe: warning: could not find /tmp, please create!"
         if: matrix.os == 'windows-latest'
         run: |
-          (get-command sh.exe).Path -c "mkdir /tmp"
+          (get-command sh.exe).Path
+          sh.exe -c "mkdir /tmp"
 
       - name: Build source dist
         if: matrix.upload_source
