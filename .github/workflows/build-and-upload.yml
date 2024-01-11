@@ -104,18 +104,15 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
 
-      - name: Work around missing /tmp on Windows #"bash.exe: warning: could not find /tmp, please create!"
-        if: matrix.os == 'windows-latest'
-        run: |
-          (get-command sh.exe).Path
-          sh.exe -c "mkdir /tmp"
-
       - name: Build source dist
         if: matrix.upload_source
         run: make sdist
   
       - name: Build binary dist
-        run: make bdist
+        # Invoking with "bash -c" works around the "bash.exe: ... could not find /tmp" issue on Windows.
+        # The issue is somehow related to git providing a sh.exe (the "git shell")
+        # See eg https://help.appveyor.com/discussions/problems/1531-having-issues-with-configured-git-bash
+        run: bash -c "make bdist"
 
       - name: Check that all required platforms are included
         if: matrix.os == 'macos-latest'
