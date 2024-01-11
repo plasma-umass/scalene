@@ -107,15 +107,15 @@ jobs:
       - name: Work around missing /tmp on Windows #"bash.exe: warning: could not find /tmp, please create!"
         if: matrix.os == 'windows-latest'
         run: |
-          which git
-          \"program files"\git\bash.exe -c "mkdir /tmp || true"
+          (get-command git.exe).Path
+          (get-command sh.exe).Path
 
       - name: Build source dist
         if: matrix.upload_source
         run: make sdist
   
       - name: Build binary dist
-        run: make bdist
+        run: bash -c "make bdist"
 
       - name: Check that all required platforms are included
         if: matrix.os == 'macos-latest'
