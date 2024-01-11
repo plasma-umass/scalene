@@ -104,7 +104,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
 
-      - name: Work around "bash.exe: warning: could not find /tmp, please create!" on Windows
+      - name: Work around missing /tmp on Windows #"bash.exe: warning: could not find /tmp, please create!"
         if: matrix.os == 'windows-latest'
         run: mkdir /tmp
 
