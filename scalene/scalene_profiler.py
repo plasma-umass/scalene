@@ -1,3 +1,5 @@
+from __future__ import annotations # work around Python 3.8 issue, see https://stackoverflow.com/a/68072481/335756
+
 """Scalene: a CPU+memory+GPU (and more) profiler for Python.
 
     https://github.com/plasma-umass/scalene
