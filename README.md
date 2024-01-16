@@ -14,6 +14,8 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 
 ![Semantic Scholar success story](https://github.com/plasma-umass/scalene/raw/master/docs/semantic-scholar-success.png)
 
+***Scalene web-based user interface:*** [http://plasma-umass.org/scalene-gui/](http://plasma-umass.org/scalene-gui/)
+ 
 ## About Scalene
 
 Scalene is a high-performance CPU, GPU *and* memory profiler for
