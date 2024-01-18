@@ -401,14 +401,7 @@ class Scalene:
         Scalene.__functions_to_profile[func.__code__.co_filename].add(func)
 
         if Scalene.__args.memory:
-            from scalene import pywhere  # type: ignore
-
-            pywhere.register_files_to_profile(
-                list(Scalene.__files_to_profile),
-                Scalene.__program_path,
-                Scalene.__args.profile_all,
-            )
-
+            Scalene.register_files_to_profile()
         return func
 
     @staticmethod
@@ -1511,6 +1504,7 @@ class Scalene:
                         return False
 
         # Generic handling follows (when no @profile decorator has been used).
+        # TODO [EDB]: add support for this in traceconfig.cpp
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
         if any(
             prof in filename for prof in profile_exclude_list if prof != ""
@@ -1827,6 +1821,20 @@ class Scalene:
         Scalene.run_profiler(args, left)
 
     @staticmethod
+    def register_files_to_profile() -> None:
+        """Tells the pywhere module, which tracks memory, which files to profile."""
+        from scalene import pywhere  # type: ignore
+
+        profile_only_list = Scalene.__args.profile_only.split(",")
+
+        pywhere.register_files_to_profile(
+            list(Scalene.__files_to_profile) + profile_only_list,
+            Scalene.__program_path,
+            Scalene.__args.profile_all,
+        )
+        
+    
+    @staticmethod
     def run_profiler(
         args: argparse.Namespace, left: List[str], is_jupyter: bool = False
     ) -> None:
@@ -1950,13 +1958,7 @@ class Scalene:
                         Scalene.__program_path = program_path
                     # Grab local and global variables.
                     if Scalene.__args.memory:
-                        from scalene import pywhere  # type: ignore
-
-                        pywhere.register_files_to_profile(
-                            list(Scalene.__files_to_profile),
-                            Scalene.__program_path,
-                            Scalene.__args.profile_all,
-                        )
+                        Scalene.register_files_to_profile()
                     import __main__
 
                     the_locals = __main__.__dict__
