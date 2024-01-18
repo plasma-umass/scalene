@@ -30,6 +30,11 @@ class TraceConfig {
   }
 
   bool should_trace(char* filename) {
+    if (!filename) {
+      // Defensive programming.
+      return false;
+    }
+    
     auto res = _memoize.find(filename);
     if ( res != _memoize.end()) {
       return res->second;
@@ -46,19 +51,22 @@ class TraceConfig {
     const auto PATH_SEP = "/";
 #endif
 
-    auto python_lib = std::string("lib") + std::string(PATH_SEP) + std::string("python");
-    auto scalene_lib = std::string("scalene") + std::string(PATH_SEP) + std::string("scalene");
-    auto anaconda_lib = std::string("anaconda3") + std::string(PATH_SEP) + std::string("lib");
+    if (!profile_all) {
 
-    if (strstr(filename, python_lib.c_str()) != nullptr ||
-        strstr(filename, scalene_lib.c_str()) != nullptr ||
-        strstr(filename, anaconda_lib.c_str()) != nullptr ||
-	//        strstr(filename, "site-packages") != nullptr ||
-        (*filename == '<' && strstr(filename, "<ipython") != nullptr)) {
-      _memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
-      return false;
+      auto python_lib = std::string("lib") + std::string(PATH_SEP) + std::string("python");
+      auto scalene_lib = std::string("scalene") + std::string(PATH_SEP) + std::string("scalene");
+      auto anaconda_lib = std::string("anaconda3") + std::string(PATH_SEP) + std::string("lib");
+      
+      if (strstr(filename, python_lib.c_str()) ||
+	  strstr(filename, scalene_lib.c_str()) ||
+	  strstr(filename, anaconda_lib.c_str()) ||
+	  //        strstr(filename, "site-packages") != nullptr ||
+	  (strstr(filename, "<") && (strstr(filename, "<ipython") || strstr(filename, "<frozen")))) {
+	_memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
+	return false;
+      }
     }
-
+    
     if (owner != nullptr) {
       for (char* traceable : items) {
         if (strstr(filename, traceable)) {

@@ -170,6 +170,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
         PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
     PyPtr<> co_filename =
         PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
+    
     if (!(static_cast<PyObject*>(co_filename))) {
       return 0;
     }
@@ -179,22 +180,20 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
       continue;
     }
 
-    if (!strstr(filenameStr, "<") &&  !strstr(filenameStr, "/python") &&
-        !strstr(filenameStr, "scalene/scalene")) {
-      if (traceConfig->should_trace(filenameStr)) {
-#if defined(PyPy_FatalError)
-        // If this macro is defined, we are compiling PyPy, which
-        // AFAICT does not have any way to access bytecode index, so
-        // we punt and set it to 0.
-        bytei = 0;
-#else
-        bytei = PyFrame_GetLasti(static_cast<PyFrameObject*>(frame));
-#endif
-        lineno = PyFrame_GetLineNumber(static_cast<PyFrameObject*>(frame));
+    if (traceConfig->should_trace(filenameStr)) {
 
-        filename = filenameStr;
-        return 1;
-      }
+#if defined(PyPy_FatalError)
+      // If this macro is defined, we are compiling PyPy, which
+      // AFAICT does not have any way to access bytecode index, so
+      // we punt and set it to 0.
+      bytei = 0;
+#else
+      bytei = PyFrame_GetLasti(static_cast<PyFrameObject*>(frame));
+#endif
+      lineno = PyFrame_GetLineNumber(static_cast<PyFrameObject*>(frame));
+      
+      filename = filenameStr;
+      return 1;
     }
 
     frame = PyFrame_GetBack(static_cast<PyFrameObject*>(frame));
