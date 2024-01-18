@@ -17,10 +17,10 @@ jobs:
         python: [ '3.8', '3.9', '3.10', '3.11'] # disabling '3.12' for now
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python }}
 
