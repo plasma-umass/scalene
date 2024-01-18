@@ -142,7 +142,7 @@ get_line_atomic = Extension('scalene.get_line_atomic',
 
 pywhere = Extension('scalene.pywhere',
     include_dirs=['.', 'src', 'src/include'],
-    sources = ['src/source/pywhere.cpp'],
+    sources = ['src/source/pywhere.cpp', 'src/source/traceconfig.cpp'],
     extra_compile_args=extra_compile_args(),
     py_limited_api=False,
     language="c++")
