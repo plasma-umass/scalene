@@ -2615,18 +2615,69 @@ Prism.languages.py = Prism.languages.python;
 	  <!-- <label for='demoinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">demo</label>
 	  <input style="height: 0; width: 0; opacity:0" type='button' id='demoinput' accept='.json' onclick="loadDemo();">
 	  -->
-	  <B style="font-size:0.8rem">Proposed optimizations</B><BR />
-	  <label for='api-key' style="font-size: 0.8rem">Enter an <a href="https://beta.openai.com/signup">OpenAI key</a> to enable:</label>
-	  <input type="text" style="font-size: 0.8rem" size="22" placeholder="(OpenAI API key)" id="api-key" oninput="checkApiKey(event.target.value)"></input>
-	  <span id='valid-api-key'></span>
+        <label for="service-select" style="font-size: 0.8rem">AI service provider:</label>
+        <select style="font-size: 0.8rem" id="service-select" onchange="toggleServiceFields()">
+          <option value="openai">OpenAI</span></option>
+          <option value="amazon">Amazon Bedrock</option>
+          <option value="local">Local</option>
+    </select>
+    <hr />
+        <!-- OpenAI API Key Field -->
+          <div id="openai-fields">
+          <label for='api-key' style="font-size: 0.8rem">OpenAI <a href="https://beta.openai.com/signup">API key</a>:</label>
+    <input type="text" style="font-size: 0.8rem" size="22" placeholder="(OpenAI API key)" id="api-key" oninput="checkApiKey(event.target.value)"></input>
+    <span id="valid-api-key"></span>
+    <br />
+          <label style="font-size: 0.8rem" for="language-model-openai">
+            Language model:
+          </label>
+          <select style="font-size: 0.8rem" id="language-model-openai" name="language-model-openai-label">
+            <option value="gpt-3.5-turbo">GPT 3.5</option>
+            <option value="gpt-4" selected>GPT 4.0</option>
+    </select>
+	    </div>
+        
+        <!-- Amazon Bedrock Fields -->
+        <div id="amazon-fields" style="display: none;">
+          <label for='aws-access-key' style="font-size: 0.8rem">AWS Access Key ID:</label>
+    <input type="text" style="font-size: 0.8rem" size="22" placeholder="AKIA1234567891234567" id="aws-access-key"></input>
+    <br />
+    <label for='aws-secret-key' style="font-size: 0.8rem">AWS Secret Access Key:</label>
+    <input type="text" style="font-size: 0.8rem" size="22" placeholder="(Secret Access Key)" id="aws-secret-key"></input>
+    <br />
+          <label style="font-size: 0.8rem" for="language-model-amazon">
+            Language model:
+          </label>
+          <select style="font-size: 0.8rem" id="language-model-amazon" name="language-model-amazon-label">
+            <option value="claude-2.1" selected>Claude 2.1</option>
+          </select>
+        </div>
+
+        <!-- Local Fields -->
+    <div id="local-fields" style="display: none; font-size: 0.8rem">
+    Use this option if you are running a local language model. We currently support <a href="https://ollama.ai/">Ollama</a>.
+    <br />
+          <label for='local-ip' style="font-size: 0.8rem">IP Address:</label>
+          <input type="text" style="font-size: 0.8rem" size="22" placeholder="localhost" id="local-ip" value="localhost"></input>
+          <label for='local-port' style="font-size: 0.8rem">Port:</label>
+    <input type="number" style="font-size: 0.8rem" size="22" placeholder="11434" id="local-port" value="11434"></input>
+    <br />
+    Install language models as in <span style="background-color:rgb(220 220 220);"><code>ollama pull codellama:34b</code></span>.
+    <br />
+          <label style="font-size: 0.8rem" for="language-model-local">
+            Language model:
+          </label>
+    <span style="font-size: 0.8rem">
+    </span>
+          <select style="font-size: 0.8rem" id="language-model-local" name="language-model-local-label">
+    <option value="codellama:34b" selected>codellama:34b</option>
+    <option value="llama2:latest">llama2:latest</option>
+    <option value="wizardcoder:34b-python">wizardcoder:34b-python</option>
+          </select>
+        </div>
+
 	  <br />
-	  <label style="font-size: 0.8rem" for="language-model">
-	    Language model:
-	  </label>
-	  <select style="font-size: 0.8rem" id="language-model" name="language-model-label">
-	    <option style="font-size: 0.8rem" value="gpt-3.5-turbo">GPT 3.5</option>
-	    <option style="font-size: 0.8rem" value="gpt-4" selected>GPT 4.0</option>
-	  </select>
+	  <B style="font-size:0.8rem">Proposed optimizations</B><BR />
 	  <div>
 	    <input type="radio" name="optimize-radio" id="optimize-performance" value="performance" checked>
 	    <label style="font-size: 0.8rem" for="optimize-performance">
@@ -2652,15 +2703,6 @@ Prism.languages.py = Prism.languages.python;
 	    <br />
 	  </font>
 	  <br />
-	  <!--
-	      <br />
-    <form id="jsonFile" name="jsonFile" enctype="multipart/form-data" method="post">
-      <div class="form-group">
-	      <label for='fileinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">Load a profile (.json)</label>
-	      <input style="height: 0; width: 10; opacity:0" type='file' id='fileinput' accept='.json' onchange="loadFile();"></input>
-      </div>
-    </form>
-    -->
 	  </details>
 	</div>
     <div id="profile">

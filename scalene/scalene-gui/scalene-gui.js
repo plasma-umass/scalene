@@ -110,7 +110,7 @@ function extractCode(text) {
 
 async function sendPromptToOpenAI(prompt, len, apiKey) {
     const endpoint = "https://api.openai.com/v1/chat/completions";
-    const model = document.getElementById('language-model').value;
+    const model = document.getElementById('language-model-openai').value;
     
     const body = JSON.stringify({
 	model: model,
@@ -170,6 +170,84 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
     }
 }
 
+
+async function sendPromptToOllama(prompt, len, model, ipAddr, portNum) {
+    const url = "http://127.0.0.1:11434/api/chat"; // FIXME
+    // const url = `http://${ipAddr}:${portNum}/api/chat`; 
+    const headers = { 'Content-Type': 'application/json' };
+    const body = JSON.stringify({
+	model: model,
+	format: "json",
+	messages: [
+	    {
+		role: 'system',
+		content: 'You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, starting with ``` and ending with ```.'
+	    },
+	    {
+		role: 'user',
+		content: prompt
+	    }
+	],
+	temperature: 0.3,
+	frequency_penalty: 0,
+	presence_penalty: 0,
+	user: "scalene-user"
+    });
+
+    console.log(body);
+
+    let done = false;
+    let responseAggregated = "";
+    let retried = 0;
+    const retries = 3;
+    
+    while (!done) {
+
+        if (retried >= retries) {
+	    return {};
+        }
+	
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: headers,
+                body: body
+            });
+	    
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const text = await response.text();
+	    const responses = text.split('\n');
+	    for (const resp of responses) {
+                const responseJson = JSON.parse(resp);
+		console.log(resp);
+                if (responseJson.message && responseJson.message.content) {
+		    responseAggregated += responseJson.message.content;
+                }
+		
+                if (responseJson.done) {
+		    done = true;
+		    break;
+                }
+	    }
+        } catch (error) {
+            console.log(`Error: ${error}`);
+            retried++;
+        }
+    }
+
+    console.log(responseAggregated);
+    try {
+	return responseAggregated; // data.choices[0].message.content.replace(/^\s*[\r\n]/gm, "");
+    } catch {
+	// return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
+	return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
+    }
+}
+
+
 function countSpaces(str) {
   // Use a regular expression to match any whitespace character at the start of the string
   const match = str.match(/^\s+/);
@@ -188,13 +266,17 @@ async function optimizeCode(imports, code, context) {
     const useGPUs = document.getElementById('use-gpu-checkbox').checked; // globalThis.profile.gpu;
     const useGPUstring = useGPUs ? " or the GPU " : " ";
     // Check for a valid API key.
-  const apiKey = document.getElementById("api-key").value;
-  if (!apiKey) {
-    alert(
-      "To activate proposed optimizations, enter an OpenAI API key in advanced options."
-    );
-    return '';
-  }
+    // TODO: Add checks for Amazon / local
+    let apiKey = "";
+    if (document.getElementById("service-select").value === "openai") {
+	apiKey = document.getElementById("api-key").value;
+	if (!apiKey) {
+	    alert(
+		"To activate proposed optimizations, enter an OpenAI API key in advanced options."
+	    );
+	    return '';
+	}
+    }
     // If the code to be optimized is just one line of code, say so.
     let lineOf = " ";
     if (code.split("\n").length <= 2) {
@@ -212,7 +294,10 @@ async function optimizeCode(imports, code, context) {
     
     // Construct the prompt.
 
-    const optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it faster than pure Python. Consider using the following other libraries, if appropriate:\n\n${libraries}\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
+    const optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it faster than pure Python. Consider using the following other libraries, if appropriate:\n\n${libraries}\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`;
+
+    const context_ollama = "";
+    const optimizePerformancePrompt_ollama = `Optimize the following${lineOf}Python code:\n\n${context_ollama}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Optimized${lineOf}code:`;
 
     const pure_optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nONLY USE PURE PYTHON.\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
 
@@ -229,15 +314,31 @@ async function optimizeCode(imports, code, context) {
     
     // const prompt = `Below is some Python code to optimize, from "Start of code" to "End of code":\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code to make it more efficient without changing the results. Assume the code has already executed these imports. Do NOT include them in the optimized code:\n\n${imports}\n\nUse fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Check carefully by generating inputs to see that the output is identical for both the original and optimized versions. Correctly-optimized code:`;
 
-    console.log(prompt);
-    
   // const prev_prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and try to quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code. Format all comments to be less than 40 columns wide:\n\n`;
 
     // Use number of words in the original code as a proxy for the number of tokens.
     const numWords = (code.match(/\b\w+\b/g)).length;
 
-    const result = await sendPromptToOpenAI(prompt, Math.max(numWords * 4, 500), apiKey);
-    return extractCode(result);
+    switch (document.getElementById('service-select').value) {
+    case "openai":
+	{
+	    console.log(prompt);
+	    const result = await sendPromptToOpenAI(prompt, Math.max(numWords * 4, 500), apiKey);
+	    return extractCode(result);
+	}
+    case "local":
+	{
+	    console.log("Running " + document.getElementById('service-select').value);
+	    console.log(optimizePerformancePrompt_ollama);
+	    const result = await sendPromptToOllama(optimizePerformancePrompt_ollama, Math.max(numWords * 4, 500), document.getElementById('language-model-local').value, document.getElementById('local-ip').value, document.getElementById('local-port').value);
+	    return extractCode(result);
+	}
+    case "amazon":
+	{
+	    console.log(document.getElementById('service-select').value + " not yet supported.");
+	    return '';
+	}
+    }
 }
 
 function proposeOptimizationRegion(filename, file_number, lineno) {
@@ -278,14 +379,17 @@ function proposeOptimization(filename, file_number, lineno, params) {
   let indent =
     WhiteLightning + WhiteExplosion + "&nbsp;".repeat(leadingSpaceCount - 1);
   const elt = document.getElementById(`code-${file_number}-${lineno}`);
-  (async () => {
-    const isValid = await isValidApiKey(
-      document.getElementById("api-key").value
-    );
-    if (!isValid) {
-	alert("You must enter a valid OpenAI API key to activate proposed optimizations.");
-	return;
-    }
+    (async () => {
+	// TODO: check local server / check Amazon credentials
+	if (document.getElementById('service-select').value === "openai") {
+	    const isValid = await isValidApiKey(
+		document.getElementById("api-key").value
+	    );
+	    if (!isValid) {
+		alert("You must enter a valid OpenAI API key to activate proposed optimizations.");
+		return;
+	    }
+	}
     elt.innerHTML = `<em>${indent}working...</em>`;
       let message = await optimizeCode(imports, code_region, context);
     if (!message) {
@@ -1438,4 +1542,12 @@ function doSomething(e) {
 
 function loadDemo() {
   load(example_profile);
+}
+
+// JavaScript function to toggle fields based on selected service
+function toggleServiceFields() {
+    let service = document.getElementById("service-select").value;
+    document.getElementById("openai-fields").style.display = (service === "openai") ? "block" : "none";
+    document.getElementById("amazon-fields").style.display = (service === "amazon") ? "block" : "none";
+    document.getElementById("local-fields").style.display = (service === "local") ? "block" : "none";
 }
