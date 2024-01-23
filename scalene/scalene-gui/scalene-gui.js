@@ -172,12 +172,12 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
 
 
 async function sendPromptToOllama(prompt, len, model, ipAddr, portNum) {
-    const url = "http://127.0.0.1:11434/api/chat"; // FIXME
-    // const url = `http://${ipAddr}:${portNum}/api/chat`; 
+    console.log("HOST = " + window.location.host);
+//    const url = "http://127.0.0.1:11434/api/chat"; // FIXME
+    const url = `http://${ipAddr}:${portNum}/api/chat`; 
     const headers = { 'Content-Type': 'application/json' };
     const body = JSON.stringify({
 	model: model,
-	format: "json",
 	messages: [
 	    {
 		role: 'system',
@@ -222,7 +222,6 @@ async function sendPromptToOllama(prompt, len, model, ipAddr, portNum) {
 	    const responses = text.split('\n');
 	    for (const resp of responses) {
                 const responseJson = JSON.parse(resp);
-		console.log(resp);
                 if (responseJson.message && responseJson.message.content) {
 		    responseAggregated += responseJson.message.content;
                 }
