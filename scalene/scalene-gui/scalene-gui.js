@@ -1208,18 +1208,25 @@ function toggleDisplay(id) {
 }
 
 async function display(prof) {
-  // Clear explosions.
+    // Clear explosions.
   showedExplosion = {};
     // Restore the API key from local storage (if any).
     let old_key = '';
     old_key = window.localStorage.getItem("scalene-api-key");
-    
-  if (old_key) {
-    document.getElementById("api-key").value = old_key;
-    // Update the status.
-    checkApiKey(old_key);
-  }
 
+    if (old_key) {
+	document.getElementById("api-key").value = old_key;
+	// Update the status.
+	checkApiKey(old_key);
+    }
+
+    // Restore selected service.
+    let selectedService = window.localStorage.getItem("scalene-service-select");
+    if (selectedService) {
+	document.getElementById("service-select").value = selectedService;
+	toggleServiceFields();
+    }
+    
     // Restore the old GPU toggle from local storage (if any).
     const gpu_checkbox = document.getElementById('use-gpu-checkbox')
     old_gpu_checkbox = window.localStorage.getItem("scalene-gpu-checkbox");
@@ -1546,6 +1553,7 @@ function loadDemo() {
 // JavaScript function to toggle fields based on selected service
 function toggleServiceFields() {
     let service = document.getElementById("service-select").value;
+    window.localStorage.setItem("scalene-service-select", service);
     document.getElementById("openai-fields").style.display = (service === "openai") ? "block" : "none";
     document.getElementById("amazon-fields").style.display = (service === "amazon") ? "block" : "none";
     document.getElementById("local-fields").style.display = (service === "local") ? "block" : "none";

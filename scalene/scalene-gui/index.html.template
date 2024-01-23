@@ -2662,7 +2662,7 @@ Prism.languages.py = Prism.languages.python;
           <label for='local-port' style="font-size: 0.8rem">Port:</label>
     <input type="number" style="font-size: 0.8rem" size="22" placeholder="11434" id="local-port" value="11434"></input>
     <br />
-    Install language models as in <span style="background-color:rgb(220 220 220);"><code>ollama pull codellama:34b</code></span>.
+    Install language models as in <span style="background-color:rgb(220 220 220);"><code>ollama pull codellama:34b-python</code></span>.
     <br />
           <label style="font-size: 0.8rem" for="language-model-local">
             Language model:
@@ -2670,7 +2670,8 @@ Prism.languages.py = Prism.languages.python;
     <span style="font-size: 0.8rem">
     </span>
           <select style="font-size: 0.8rem" id="language-model-local" name="language-model-local-label">
-    <option value="codellama:34b" selected>codellama:34b</option>
+    <option value="codellama:34b">codellama:34b</option>
+    <option value="codellama:34b-python" selected>codellama:34b-python</option>
     <option value="llama2:latest">llama2:latest</option>
     <option value="wizardcoder:34b-python">wizardcoder:34b-python</option>
           </select>
