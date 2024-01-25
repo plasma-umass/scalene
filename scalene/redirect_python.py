@@ -41,6 +41,10 @@ def redirect_python(preface: str, cmdline: str, python_alias_dir: pathlib.Path) 
     sys.path.insert(0, str(python_alias_dir))
     os.environ["PATH"] = f"{python_alias_dir}{os.pathsep}{os.environ['PATH']}"
 
+    orig_sys_executable = sys.executable
+    
     sys.executable = python_alias_dir / all_python_names[0]
     if sys.platform == "win32" and sys.executable.suffix == ".exe":
         sys.executable = sys.executable.with_suffix(".bat")
+
+    return orig_sys_executable
