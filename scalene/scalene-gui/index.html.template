@@ -12,6 +12,7 @@
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1543.0.min.js"></script>
     <style>
 body { 
   padding: 0 0 90px 0;
@@ -2640,7 +2641,7 @@ Prism.languages.py = Prism.languages.python;
         <!-- Amazon Bedrock Fields -->
         <div id="amazon-fields" style="display: none;">
           <label for='aws-access-key' style="font-size: 0.8rem">AWS Access Key ID:</label>
-    <input type="text" style="font-size: 0.8rem" size="22" placeholder="AKIA1234567891234567" id="aws-access-key"></input>
+    <input type="text" style="font-size: 0.8rem" size="22" placeholder="AKIAxxxxxxxxxxxxxxxx" id="aws-access-key"></input>
     <br />
     <label for='aws-secret-key' style="font-size: 0.8rem">AWS Secret Access Key:</label>
     <input type="text" style="font-size: 0.8rem" size="22" placeholder="(Secret Access Key)" id="aws-secret-key"></input>
@@ -2672,6 +2673,7 @@ Prism.languages.py = Prism.languages.python;
           <select style="font-size: 0.8rem" id="language-model-local" name="language-model-local-label">
     <option value="codellama:34b">codellama:34b</option>
     <option value="codellama:34b-python" selected>codellama:34b-python</option>
+    <option value="dolphin-mistral:latest">dolphin-mistral:latest</option>
     <option value="llama2:latest">llama2:latest</option>
     <option value="wizardcoder:34b-python">wizardcoder:34b-python</option>
           </select>

@@ -1,3 +1,5 @@
+/// <reference types="aws-sdk" />
+
 function vsNavigate(filename, lineno) {
     // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
     try {
@@ -170,10 +172,59 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
     }
 }
 
+async function sendPromptToAmazon(prompt, len) {
+    const serviceName = "bedrock";
+    const region = "us-west-2";
+    const modelId = "anthropic.claude-v2";
+    const endpoint = `https://${serviceName}-runtime.${region}.amazonaws.com/model/${modelId}/invoke`
+    // const model = document.getElementById('language-model-amazon').value;
+    
+    const body = JSON.stringify({
+	prompt: `Human: ${prompt}\n\nAssistant:\n`,
+        "max_tokens_to_sample" : 2048,
+        "temperature": 0,
+        "top_k": 250,
+        "top_p": 1,
+        "stop_sequences": [
+            "\n\nHuman:"
+        ],
+        "anthropic_version": "bedrock-2023-05-31"
+    });
+
+    console.log(body);
+
+    var bedrockruntime = new AWS.BedrockRuntime();
+    bedrockruntime.invokeModel(body, function (err, data) {
+	if (err) console.log(err, err.stack); // an error occurred
+	else     console.log(data);           // successful response
+    });
+    const response = await fetch(endpoint, {
+	method: "POST",
+	headers: {
+	    "Content-Type": "application/json",
+//	    Authorization: `Bearer ${apiKey}`,
+	},
+	body: body,
+    });
+
+    const data = await response.json();
+    console.log(data);
+    try {
+	console.log(`Debugging info: Retrieved ${JSON.stringify(data.choices[0], null, 4)}`);
+    } catch {
+	console.log(`Debugging info: Failed to retrieve data.choices from the server. data = ${JSON.stringify(data)}`);
+    }
+    
+    try {
+	return data.choices[0].message.content.replace(/^\s*[\r\n]/gm, "");
+    } catch {
+	// return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
+	return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
+    }
+}
+
 
 async function sendPromptToOllama(prompt, len, model, ipAddr, portNum) {
-    console.log("HOST = " + window.location.host);
-//    const url = "http://127.0.0.1:11434/api/chat"; // FIXME
     const url = `http://${ipAddr}:${portNum}/api/chat`; 
     const headers = { 'Content-Type': 'application/json' };
     const body = JSON.stringify({
@@ -181,13 +232,14 @@ async function sendPromptToOllama(prompt, len, model, ipAddr, portNum) {
 	messages: [
 	    {
 		role: 'system',
-		content: 'You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, starting with ``` and ending with ```.'
+		content: 'You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, in a JSON object with the key "code".'
 	    },
 	    {
 		role: 'user',
 		content: prompt
 	    }
 	],
+	format: "json",
 	temperature: 0.3,
 	frequency_penalty: 0,
 	presence_penalty: 0,
@@ -296,7 +348,7 @@ async function optimizeCode(imports, code, context) {
     const optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it faster than pure Python. Consider using the following other libraries, if appropriate:\n\n${libraries}\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`;
 
     const context_ollama = "";
-    const optimizePerformancePrompt_ollama = `Optimize the following${lineOf}Python code:\n\n${context_ollama}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Optimized${lineOf}code:`;
+    const optimizePerformancePrompt_ollama = `Optimize the following${lineOf}Python code:\n\n${context_ollama}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Optimized${lineOf}code, in JSON, with the key "code":`;
 
     const pure_optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nONLY USE PURE PYTHON.\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
 
@@ -330,10 +382,13 @@ async function optimizeCode(imports, code, context) {
 	    console.log("Running " + document.getElementById('service-select').value);
 	    console.log(optimizePerformancePrompt_ollama);
 	    const result = await sendPromptToOllama(optimizePerformancePrompt_ollama, Math.max(numWords * 4, 500), document.getElementById('language-model-local').value, document.getElementById('local-ip').value, document.getElementById('local-port').value);
-	    return extractCode(result);
+	    return JSON.parse(result)["code"];
 	}
     case "amazon":
 	{
+	    console.log("Running " + document.getElementById('service-select').value);
+	    console.log(optimizePerformancePrompt_ollama);
+	    const result = await sendPromptToAmazon(optimizePerformancePrompt_ollama, Math.max(numWords * 4, 500));
 	    console.log(document.getElementById('service-select').value + " not yet supported.");
 	    return '';
 	}
