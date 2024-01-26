@@ -2619,7 +2619,7 @@ Prism.languages.py = Prism.languages.python;
         <label for="service-select" style="font-size: 0.8rem">AI service provider:</label>
         <select style="font-size: 0.8rem" id="service-select" class="persistent" onchange="toggleServiceFields()">
           <option value="openai">OpenAI</span></option>
-          <option value="amazon">Amazon Bedrock</option>
+<!--          <option value="amazon">Amazon Bedrock</option> -->
           <option value="local">Local</option>
     </select>
     <hr />
@@ -2659,27 +2659,25 @@ Prism.languages.py = Prism.languages.python;
     Use this option if you are running a local language model. We currently support <a href="https://ollama.ai/">Ollama</a>.
     <br />
           <label for='local-ip' style="font-size: 0.8rem">IP Address:</label>
-          <input type="text" style="font-size: 0.8rem" size="22" placeholder="localhost" id="local-ip" value="localhost"></input>
+          <input type="text" style="font-size: 0.8rem" size="22" placeholder="localhost" id="local-ip" class="persistent" value="localhost"></input>
           <label for='local-port' style="font-size: 0.8rem">Port:</label>
-    <input type="number" style="font-size: 0.8rem" size="22" placeholder="11434" id="local-port" value="11434"></input>
+    <input type="number" style="font-size: 0.8rem" size="22" placeholder="11434" id="local-port" class="persistent" value="11434"></input>
     <br />
-    Install language models as in <span style="background-color:rgb(220 220 220);"><code>ollama pull codellama:34b-python</code></span>.
+    <div id="install-models-message" style="display:none;">
+      Server not found or no language models installed.<br />
+      Install language models as in <span style="background-color:rgb(220 220 220);"><code>ollama pull codellama:34b-python</code></span>.
+    </div>
+
     <br />
+    <div id="local-models-list">
           <label style="font-size: 0.8rem" for="language-model-local">
             Language model:
           </label>
     <span style="font-size: 0.8rem">
     </span>
-          <select style="font-size: 0.8rem" id="language-model-local" class="persistent" name="language-model-local-label">
-	    <option value="codellama:7b-python">codellama:7b-python</option>
-	    <option value="codellama:13b-python">codellama:13b-python</option>
-	    <option value="codellama:34b-python" selected>codellama:34b-python</option>
-	    <option value="dolphin-mistral:latest">dolphin-mistral:latest</option>
-	    <option value="llama2:latest">llama2:latest</option>
-	    <option value="wizardcoder:34b-python">wizardcoder:34b-python</option>
-          </select>
+    <div id="language-local-models"></div>
+    </div>
         </div>
-
 	  <br />
 	  <B style="font-size:0.8rem">Proposed optimizations</B><BR />
 	  <div>

@@ -348,7 +348,7 @@ async function optimizeCode(imports, code, context) {
     const optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it faster than pure Python. Consider using the following other libraries, if appropriate:\n\n${libraries}\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`;
 
     const context_ollama = "";
-    const optimizePerformancePrompt_ollama = `Optimize the following${lineOf}Python code:\n\n${context_ollama}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Optimized${lineOf}code, in JSON, with the key "code":`;
+    const optimizePerformancePrompt_ollama = `Optimize the following${lineOf}Python code:\n\n${context_ollama}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Only output your result in JSON, with the optimized code in "code". Optimized${lineOf}code:`;
 
     const pure_optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nONLY USE PURE PYTHON.\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
 
@@ -1613,6 +1613,79 @@ function toggleServiceFields() {
     document.getElementById("local-fields").style.display = (service === "local") ? "block" : "none";
 }
 
+function revealInstallMessage()
+{
+    console.log("REVEAL MESSAGE");
+    document.getElementById('install-models-message').style.display = "block";
+    document.getElementById('local-models-list').style.display = "none";
+    
+}
+
+async function fetchModelNames() {
+  try {
+      const local_ip = document.getElementById('local-ip').value;
+      const local_port = document.getElementById('local-port').value;
+      const response = await fetch(`http://${local_ip}:${local_port}/api/tags`);
+      if (!response.ok) {
+	  throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+
+      // Extracting the model names
+      const modelNames = data.models.map(model => model.name);
+      if (modelNames.length === 0) {
+	  revealInstallMessage();
+      }
+      return modelNames;
+  } catch (error) {
+      console.error('Error fetching model names:', error);
+      revealInstallMessage();
+      return [];
+  }
+}
+
+function createSelectElement(modelNames) {
+  // Create the select element
+  const select = document.createElement('select');
+  select.style.fontSize = '0.8rem';
+  select.id = 'language-model-local';
+  select.className = 'persistent';
+  select.name = 'language-model-local-label';
+
+  // Add options to the select element
+  modelNames.forEach(modelName => {
+    const option = document.createElement('option');
+    option.value = modelName;
+      option.textContent = modelName;
+      option.id = modelName;
+      select.appendChild(option);
+  });
+
+  return select;
+}
+
+function replaceDivWithSelect() {
+  fetchModelNames().then(modelNames => {
+    // Create the select element with options
+    const selectElement = createSelectElement(modelNames);
+
+    // Find the div and replace its content with the select element
+    const div = document.getElementById('language-local-models');
+    if (div) {
+      div.innerHTML = ''; // Clear existing content
+      div.appendChild(selectElement);
+    } else {
+      console.error('Div with ID "language-local-models" not found.');
+    }
+      atLeastOneModel = true;
+  });
+
+}
+
+// Call the function to replace the div with the select element
+replaceDivWithSelect();
+
+// Process all DOM elements in the class 'persistent', which saves their state in localStorage and restores them on load.
 document.addEventListener("DOMContentLoaded", () => {
     const persistentElements = document.querySelectorAll('.persistent');
 
