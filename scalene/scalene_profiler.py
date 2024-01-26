@@ -115,6 +115,7 @@ console.log = nada  # type: ignore
 MINIMUM_PYTHON_VERSION_MAJOR = 3
 MINIMUM_PYTHON_VERSION_MINOR = 8
 
+SCALENE_PORT = 11235
 
 def require_python(version: Tuple[int, int]) -> None:
     assert (
@@ -1776,13 +1777,15 @@ class Scalene:
                         # Only open a browser tab for the parent.
                         url = f"file:///{output_fname}"
                         # webbrowser.open(url)
-                        dir = os.path.dirname(__file__)
-                        import subprocess
-                        subprocess.Popen([Scalene.__orig_python,
-                                          f"{dir}{os.sep}launchbrowser.py",
-                                          url],
-                                         stdout=subprocess.DEVNULL,
-                                         stderr=subprocess.DEVNULL)
+                        show_browser(output_fname, SCALENE_PORT, Scalene.__orig_python)
+                        if False:
+                            dir = os.path.dirname(__file__)
+                            import subprocess
+                            subprocess.Popen([Scalene.__orig_python,
+                                              f"{dir}{os.sep}launchbrowser.py",
+                                              url],
+                                             stdout=subprocess.DEVNULL,
+                                             stderr=subprocess.DEVNULL)
                     # Restore them.
                     os.environ.update(
                         {
