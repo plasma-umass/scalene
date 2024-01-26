@@ -1775,7 +1775,7 @@ class Scalene:
                         )
                     if Scalene.__pid == 0:
                         # Only open a browser tab for the parent.
-                        url = f"file:///{output_fname}"
+                        # url = f"file:///{output_fname}"
                         # webbrowser.open(url)
                         show_browser(output_fname, SCALENE_PORT, Scalene.__orig_python)
                         if False:
