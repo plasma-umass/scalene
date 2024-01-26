@@ -1275,7 +1275,6 @@ async function display(prof) {
 	checkApiKey(old_key);
     }
 
-    // Restore selected service.
     let selectedService = window.localStorage.getItem("scalene-service-select");
     if (selectedService) {
 	document.getElementById("service-select").value = selectedService;
@@ -1284,7 +1283,7 @@ async function display(prof) {
     
     // Restore the old GPU toggle from local storage (if any).
     const gpu_checkbox = document.getElementById('use-gpu-checkbox')
-    old_gpu_checkbox = window.localStorage.getItem("scalene-gpu-checkbox");
+    old_gpu_checkbox = window.localStorage.getItem("use-gpu-checkbox");
     if (old_gpu_checkbox) {
 	if (gpu_checkbox.checked.toString() != old_gpu_checkbox) {
 	    gpu_checkbox.click();
@@ -1613,3 +1612,39 @@ function toggleServiceFields() {
     document.getElementById("amazon-fields").style.display = (service === "amazon") ? "block" : "none";
     document.getElementById("local-fields").style.display = (service === "local") ? "block" : "none";
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+    const persistentElements = document.querySelectorAll('.persistent');
+
+    // Restore state
+    persistentElements.forEach(el => {
+        const savedValue = localStorage.getItem(el.id);
+
+        if (savedValue !== null) {
+            switch(el.type) {
+                case 'checkbox':
+                case 'radio':
+                    el.checked = savedValue === 'true';
+                    break;
+                default:
+                    el.value = savedValue;
+                    break;
+            }
+        }
+    });
+
+    // Save state
+    persistentElements.forEach(el => {
+        el.addEventListener('change', () => {
+            switch(el.type) {
+                case 'checkbox':
+                case 'radio':
+                    localStorage.setItem(el.id, el.checked);
+                    break;
+                default:
+                    localStorage.setItem(el.id, el.value);
+                    break;
+            }
+        });
+    });
+});

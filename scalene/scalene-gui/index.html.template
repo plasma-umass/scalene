@@ -2617,7 +2617,7 @@ Prism.languages.py = Prism.languages.python;
 	  <input style="height: 0; width: 0; opacity:0" type='button' id='demoinput' accept='.json' onclick="loadDemo();">
 	  -->
         <label for="service-select" style="font-size: 0.8rem">AI service provider:</label>
-        <select style="font-size: 0.8rem" id="service-select" onchange="toggleServiceFields()">
+        <select style="font-size: 0.8rem" id="service-select" class="persistent" onchange="toggleServiceFields()">
           <option value="openai">OpenAI</span></option>
           <option value="amazon">Amazon Bedrock</option>
           <option value="local">Local</option>
@@ -2632,7 +2632,7 @@ Prism.languages.py = Prism.languages.python;
           <label style="font-size: 0.8rem" for="language-model-openai">
             Language model:
           </label>
-          <select style="font-size: 0.8rem" id="language-model-openai" name="language-model-openai-label">
+          <select style="font-size: 0.8rem" id="language-model-openai" class="persistent" name="language-model-openai-label">
             <option value="gpt-3.5-turbo">GPT 3.5</option>
             <option value="gpt-4" selected>GPT 4.0</option>
     </select>
@@ -2641,10 +2641,10 @@ Prism.languages.py = Prism.languages.python;
         <!-- Amazon Bedrock Fields -->
         <div id="amazon-fields" style="display: none;">
           <label for='aws-access-key' style="font-size: 0.8rem">AWS Access Key ID:</label>
-    <input type="text" style="font-size: 0.8rem" size="22" placeholder="AKIAxxxxxxxxxxxxxxxx" id="aws-access-key"></input>
+    <input type="text" style="font-size: 0.8rem" size="22" placeholder="AKIAxxxxxxxxxxxxxxxx" id="aws-access-key" class="persistent"></input>
     <br />
     <label for='aws-secret-key' style="font-size: 0.8rem">AWS Secret Access Key:</label>
-    <input type="text" style="font-size: 0.8rem" size="22" placeholder="(Secret Access Key)" id="aws-secret-key"></input>
+    <input type="text" style="font-size: 0.8rem" size="22" placeholder="(Secret Access Key)" id="aws-secret-key" class="persistent"></input>
     <br />
           <label style="font-size: 0.8rem" for="language-model-amazon">
             Language model:
@@ -2670,31 +2670,33 @@ Prism.languages.py = Prism.languages.python;
           </label>
     <span style="font-size: 0.8rem">
     </span>
-          <select style="font-size: 0.8rem" id="language-model-local" name="language-model-local-label">
-    <option value="codellama:34b">codellama:34b</option>
-    <option value="codellama:34b-python" selected>codellama:34b-python</option>
-    <option value="dolphin-mistral:latest">dolphin-mistral:latest</option>
-    <option value="llama2:latest">llama2:latest</option>
-    <option value="wizardcoder:34b-python">wizardcoder:34b-python</option>
+          <select style="font-size: 0.8rem" id="language-model-local" class="persistent" name="language-model-local-label">
+	    <option value="codellama:7b-python">codellama:7b-python</option>
+	    <option value="codellama:13b-python">codellama:13b-python</option>
+	    <option value="codellama:34b-python" selected>codellama:34b-python</option>
+	    <option value="dolphin-mistral:latest">dolphin-mistral:latest</option>
+	    <option value="llama2:latest">llama2:latest</option>
+	    <option value="wizardcoder:34b-python">wizardcoder:34b-python</option>
           </select>
         </div>
 
 	  <br />
 	  <B style="font-size:0.8rem">Proposed optimizations</B><BR />
 	  <div>
-	    <input type="radio" name="optimize-radio" id="optimize-performance" value="performance" checked>
+	    <input type="radio" name="optimize-radio" id="optimize-performance" value="performance" class="persistent" checked>
 	    <label style="font-size: 0.8rem" for="optimize-performance">
 	      Optimize runtime performance
 	    </label>
 	  </div>
 	  <div>
-	    <input type="radio" name="optimize-radio" id="optimize-memory" value="memory">
+	    <input type="radio" name="optimize-radio" id="optimize-memory" class="persistent" value="memory">
 	    <label style="font-size: 0.8rem" for="optimize-memory">
 	      Optimize memory efficiency
 	    </label>
 	  </div>
-	  <input type="checkbox" id="use-gpu-checkbox" name="use-gpu-checkbox-label" onclick="try { window.localStorage.setItem('scalene-gpu-checkbox', document.getElementById('use-gpu-checkbox').checked); } catch {}">
-	  <label style="font-size: 0.8rem" for="use-gpu-checkbox">
+	  <input type="checkbox" id="use-gpu-checkbox" name="use-gpu-checkbox-label" class="persistent" >
+	  <!-- onclick="try { window.localStorage.setItem('scalene-gpu-checkbox', document.getElementById('use-gpu-checkbox').checked); } catch {}" -->
+	  <label style="font-size: 0.8rem" for="use-gpu-checkbox" class="persistent">
 	    Include GPU optimizations
 	  </label>
 	  <br />
