@@ -323,8 +323,9 @@ async function optimizeCode(imports, code, context) {
 	apiKey = document.getElementById("api-key").value;
 	if (!apiKey) {
 	    alert(
-		"To activate proposed optimizations, enter an OpenAI API key in advanced options."
+		"To activate proposed optimizations, enter an OpenAI API key in AI optimization options."
 	    );
+	    document.getElementById("ai-optimization-options").open = true;
 	    return '';
 	}
     }
@@ -434,13 +435,23 @@ function proposeOptimization(filename, file_number, lineno, params) {
     WhiteLightning + WhiteExplosion + "&nbsp;".repeat(leadingSpaceCount - 1);
   const elt = document.getElementById(`code-${file_number}-${lineno}`);
     (async () => {
-	// TODO: check local server / check Amazon credentials
-	if (document.getElementById('service-select').value === "openai") {
+	// TODO: check Amazon credentials
+	const service = document.getElementById('service-select').value;
+	if (service === "openai") {
 	    const isValid = await isValidApiKey(
 		document.getElementById("api-key").value
 	    );
 	    if (!isValid) {
 		alert("You must enter a valid OpenAI API key to activate proposed optimizations.");
+		document.getElementById("ai-optimization-options").open = true;
+		return;
+	    }
+	}
+	if (service == "local") {
+	    if (document.getElementById('local-models-list').style.display === "none") {
+		// No service was found.
+		alert("You must be connected to a running Ollama server to activate proposed optimizations.");
+		document.getElementById("ai-optimization-options").open = true;
 		return;
 	    }
 	}
@@ -1721,3 +1732,14 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 });
+
+// We periodically send a heartbeat to the server to keep it alive.
+// The server shuts down if it hasn't received a heartbeat in a sufficiently long interval;
+// This handles both the case when the browser tab is closed and when the browser is shut down.
+function sendHeartbeat() {
+    let xhr = new XMLHttpRequest();
+    xhr.open("GET", "/heartbeat", true);
+    xhr.send();
+}
+
+setInterval(sendHeartbeat, 2000); // Send heartbeat every 2 seconds
