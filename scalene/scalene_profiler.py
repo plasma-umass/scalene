@@ -115,6 +115,7 @@ console.log = nada  # type: ignore
 MINIMUM_PYTHON_VERSION_MAJOR = 3
 MINIMUM_PYTHON_VERSION_MINOR = 8
 
+SCALENE_PORT = 11235
 
 def require_python(version: Tuple[int, int]) -> None:
     assert (
@@ -685,7 +686,6 @@ class Scalene:
                 cmdline += " --off"
             for arg in [
                 "use_virtual_time",
-                "cpu_sampling_rate",
                 "cpu",
                 "gpu",
                 "memory",
@@ -709,7 +709,7 @@ class Scalene:
                     "=".join((k, str(v))) for (k, v) in environ.items()
                 )
 
-            redirect_python(preface, cmdline, Scalene.__python_alias_dir)
+            Scalene.__orig_python = redirect_python(preface, cmdline, Scalene.__python_alias_dir)
 
         # Register the exit handler to run when the program terminates or we quit.
         atexit.register(Scalene.exit_handler)
@@ -1027,6 +1027,8 @@ class Scalene:
         Scalene.enter_function_meta(main_thread_frame, Scalene.__stats)
         fname = Filename(main_thread_frame.f_code.co_filename)
         lineno = LineNumber(main_thread_frame.f_lineno)
+        #print(main_thread_frame)
+        #print(fname, lineno)
         main_tid = cast(int, threading.main_thread().ident)
         if not is_thread_sleeping[main_tid]:
             Scalene.__stats.cpu_samples_python[fname][
@@ -1113,7 +1115,6 @@ class Scalene:
                 tid,
             ),
         )
-
         # Process all the frames to remove ones we aren't going to track.
         new_frames: List[Tuple[FrameType, int, FrameType]] = []
         for (frame, tident) in frames:
@@ -1770,11 +1771,22 @@ class Scalene:
                         output_fname = Scalene.__args.outfile
                     else:
                         output_fname = (
-                            f"{os.getcwd()}/{Scalene.__profiler_html}"
+                            f"{os.getcwd()}{os.sep}{Scalene.__profiler_html}"
                         )
                     if Scalene.__pid == 0:
                         # Only open a browser tab for the parent.
-                        webbrowser.open(f"file:///{output_fname}")
+                        # url = f"file:///{output_fname}"
+                        # webbrowser.open(url)
+                        # show_browser(output_fname, SCALENE_PORT, Scalene.__orig_python)
+                        if True:
+                            dir = os.path.dirname(__file__)
+                            import subprocess
+                            subprocess.Popen([Scalene.__orig_python,
+                                              f"{dir}{os.sep}launchbrowser.py",
+                                              output_fname,
+                                              str(SCALENE_PORT)],
+                                             stdout=subprocess.DEVNULL,
+                                             stderr=subprocess.DEVNULL)
                     # Restore them.
                     os.environ.update(
                         {

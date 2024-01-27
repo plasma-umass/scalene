@@ -1,7 +1,14 @@
+import http.server
 import inspect
 import os
 import pathlib
 import sys
+import shutil
+import socketserver
+import subprocess
+import tempfile
+import webbrowser
+
 
 from jinja2 import Environment, FileSystemLoader
 from types import CodeType, FrameType
@@ -136,3 +143,42 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
             f.write(rendered_content)
     except OSError:
         pass
+
+
+def start_server(port, directory):
+    try:
+        handler = http.server.SimpleHTTPRequestHandler
+        with socketserver.TCPServer(("", port), handler) as httpd:
+            os.chdir(directory)
+            # print(f"Serving at port {port}")
+            httpd.serve_forever()
+    except OSError as e:
+        # print(f"Port {port} is already in use. Please try a different port.")
+        pass
+
+def show_browser(file_path, port, orig_python='python3'):
+    temp_dir = tempfile.gettempdir()
+
+    # Copy file to the temporary directory
+    shutil.copy(file_path, os.path.join(temp_dir, 'index.html'))
+
+    # Open web browser in a new subprocess
+    url = f'http://localhost:{port}/'
+    curr_dir = os.getcwd()
+    try:
+        os.chdir(temp_dir)
+        # subprocess.Popen([orig_python, '-m', 'http.server', f"{port}"],
+        subprocess.Popen([orig_python, os.path.join(os.path.dirname(__file__), 'launchbrowser.py'), file_path, f"{port}"])
+                         #stdout=subprocess.DEVNULL,
+                         #stderr=subprocess.DEVNULL)
+        # Start server in a new thread
+        #server_thread = Thread(target=start_server, args=(port, temp_dir))
+        #server_thread.daemon = True
+        #server_thread.start()
+    
+        # Open web browser to local server
+        webbrowser.open(f'http://localhost:{port}/')
+    except:
+        pass
+    finally:
+        os.chdir(curr_dir)
