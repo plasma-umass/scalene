@@ -168,9 +168,10 @@ def show_browser(file_path, port, orig_python='python3'):
     curr_dir = os.getcwd()
     try:
         os.chdir(temp_dir)
-        subprocess.Popen([orig_python, '-m', 'http.server', f"{port}"],
-                         stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL)
+        # subprocess.Popen([orig_python, '-m', 'http.server', f"{port}"],
+        subprocess.Popen([orig_python, os.path.join(os.path.dirname(__file__), 'launchbrowser.py'), file_path, f"{port}"])
+                         #stdout=subprocess.DEVNULL,
+                         #stderr=subprocess.DEVNULL)
         # Start server in a new thread
         #server_thread = Thread(target=start_server, args=(port, temp_dir))
         #server_thread.daemon = True
