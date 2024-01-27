@@ -38,18 +38,17 @@ with contextlib.suppress(Exception):
         @line_cell_magic
         def scalene(self, line: str, cell: str = "") -> None:
             """%%scalene magic: see https://github.com/plasma-umass/scalene for usage info."""
-            print("SCALENE MAGIC")
             if line:
                 sys.argv = ["scalene", "--ipython", *line.split()]
                 (args, _left) = ScaleneParseArgs.parse_args()
-                print(f"{args=}, {_left=}")
+                # print(f"{args=}, {_left=}")
             else:
                 args = ScaleneArguments()
-                print(f"{args=}")
+                # print(f"{args=}")
             if args and cell:
                 # Preface with a "\n" to drop the first line (%%scalene).
                 self.run_code(args, "\n" + cell)  # type: ignore
-                print(f"{cell=}")
+                # print(f"{cell=}")
 
         @line_magic
         def scrun(self, line: str = "") -> None:
@@ -73,7 +72,7 @@ with contextlib.suppress(Exception):
         print(
             "\n".join(
                 textwrap.wrap(
-                    "Scalene extension successfully loaded. Note: Scalene currently only supports CPU+GPU profiling inside Jupyter notebooks. For full Scalene profiling, use the command line version."
+                    "Scalene extension successfully loaded. Note: Scalene currently only supports CPU+GPU profiling inside Jupyter notebooks. For full Scalene profiling, use the command line version. To profile in line mode, use `%scrun [options] statement`. To profile in cell mode, use `%%scalene [options]` followed by your code."
                 )
             )
         )
