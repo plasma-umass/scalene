@@ -72,7 +72,12 @@ jobs:
         if: github.event_name != 'release' && matrix.os == 'windows-latest'
         run: ("DEV_BUILD=" + (get-content devN.txt)) >> $env:GITHUB_ENV  # for setup.py
 
+      # downgraded to @v3 if using container: https://github.com/actions/checkout/issues/1487
+      - uses: actions/checkout@v3
+        if: matrix.container != ''
+
       - uses: actions/checkout@v4
+        if: matrix.container == ''
 
       - name: Mark workspace safe for git
         # needed for container and self-hosted runners; see https://github.com/actions/checkout/issues/766
