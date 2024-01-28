@@ -2664,7 +2664,7 @@ Prism.languages.py = Prism.languages.python;
     <input type="number" style="font-size: 0.8rem" size="22" placeholder="11434" id="local-port" class="persistent" value="11434"></input>
     <br />
     <div id="install-models-message" style="display:none;">
-      Server not found or no language models installed.<br />
+      <span style="color: red">Server not found or no language models installed.</span><br />
       Install language models as in <span style="background-color:rgb(220 220 220);"><code>ollama pull codellama:34b-python</code></span>.
     </div>
 
