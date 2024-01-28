@@ -1662,7 +1662,7 @@ function createSelectElement(modelNames) {
   const select = document.createElement('select');
   select.style.fontSize = '0.8rem';
   select.id = 'language-model-local';
-  select.className = 'persistent';
+  select.classList.add('persistent');
   select.name = 'language-model-local-label';
 
   // Add options to the select element
@@ -1695,45 +1695,81 @@ function replaceDivWithSelect() {
 
 }
 
-// Call the function to replace the div with the select element
-replaceDivWithSelect();
+
+function restoreState(el) {
+    const savedValue = localStorage.getItem(el.id);
+    
+    if (savedValue !== null) {
+        switch(el.type) {
+        case 'checkbox':
+        case 'radio':
+            el.checked = savedValue === 'true';
+            break;
+        default:
+            el.value = savedValue;
+            break;
+        }
+    }
+}
+
+function saveState(el) {
+    el.addEventListener('change', () => {
+        switch(el.type) {
+        case 'checkbox':
+        case 'radio':
+            localStorage.setItem(el.id, el.checked);
+            break;
+        default:
+            localStorage.setItem(el.id, el.value);
+            break;
+        }
+    });
+}
 
 // Process all DOM elements in the class 'persistent', which saves their state in localStorage and restores them on load.
-document.addEventListener("DOMContentLoaded", () => {
+function processPersistentElements() {
     const persistentElements = document.querySelectorAll('.persistent');
 
     // Restore state
     persistentElements.forEach(el => {
-        const savedValue = localStorage.getItem(el.id);
-
-        if (savedValue !== null) {
-            switch(el.type) {
-                case 'checkbox':
-                case 'radio':
-                    el.checked = savedValue === 'true';
-                    break;
-                default:
-                    el.value = savedValue;
-                    break;
-            }
-        }
+	restoreState(el);
     });
 
     // Save state
     persistentElements.forEach(el => {
-        el.addEventListener('change', () => {
-            switch(el.type) {
-                case 'checkbox':
-                case 'radio':
-                    localStorage.setItem(el.id, el.checked);
-                    break;
-                default:
-                    localStorage.setItem(el.id, el.value);
-                    break;
+	saveState(el);
+    });
+}
+
+// Call the function to replace the div with the select element
+replaceDivWithSelect();
+
+// Handle updating persistence when the DOM is updated.
+const observeDOM = () => {
+    const observer = new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+            if (mutation.addedNodes) {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === 1 && node.matches('.persistent')) {
+                        restoreState(node);
+                        node.addEventListener('change', () => saveState(node));
+                    }
+                });
             }
         });
     });
+    
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    processPersistentElements();
 });
+
+observeDOM();
 
 // We periodically send a heartbeat to the server to keep it alive.
 // The server shuts down if it hasn't received a heartbeat in a sufficiently long interval;
