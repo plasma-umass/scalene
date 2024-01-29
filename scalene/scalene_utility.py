@@ -124,7 +124,15 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
     gui_fname = os.path.join(scalene_dir, "scalene-gui", "scalene-gui.js")
     gui_file = pathlib.Path(gui_fname)
     gui_js = gui_file.read_text()
-
+    
+    prism_css_fname = os.path.join(scalene_dir, "scalene-gui", "prism.css")
+    prism_css_file = pathlib.Path(prism_css_fname)
+    prism_css_text = prism_css_file.read_text()
+    
+    prism_js_fname = os.path.join(scalene_dir, "scalene-gui", "prism.js")
+    prism_js_file = pathlib.Path(prism_js_fname)
+    prism_js_text = prism_js_file.read_text()
+    
     # Put the profile and everything else into the template.
     environment = Environment(
         loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
@@ -133,6 +141,8 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
     rendered_content = template.render(
         profile=profile,
         gui_js=gui_js,
+        prism_css=prism_css_text,
+        prism_js=prism_js_text,
         scalene_version=scalene_version,
         scalene_date=scalene_date,
     )
