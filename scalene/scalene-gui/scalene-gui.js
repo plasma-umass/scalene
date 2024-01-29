@@ -126,9 +126,6 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
 		content: prompt
 	    }
 	],
-	temperature: 0.3,
-	frequency_penalty: 0,
-	presence_penalty: 0,
 	user: "scalene-user"
     });
 
@@ -232,14 +229,15 @@ async function sendPromptToOllama(prompt, len, model, ipAddr, portNum) {
 	messages: [
 	    {
 		role: 'system',
-		content: 'You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, in a JSON object with the key "code".'
+		content: 'You are an expert code assistant who only responds in Python code.' //You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, in a JSON object with the key "code".'
 	    },
 	    {
 		role: 'user',
 		content: prompt
 	    }
 	],
-	format: "json",
+	stream: false,
+//	format: "json",
 	temperature: 0.3,
 	frequency_penalty: 0,
 	presence_penalty: 0,
@@ -351,8 +349,11 @@ async function optimizeCode(imports, code, context) {
     const context_ollama = "";
     const optimizePerformancePrompt_ollama_prev = `Optimize the following${lineOf}Python code:\n\n${context_ollama}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Only output your result in JSON, with the optimized code in "code". Optimized${lineOf}code:`;
 
-    const optimizePerformancePrompt_ollama = `Rewrite the following Python code to make it run faster. Use vectorization if possible, eliminating as many loops as possible. Try to reduce computational complexity of operations. Only output the optimized code in JSON with the key 'code'. Original code: ${code}. Optimized code:`
-    
+    const optimizePerformancePrompt_ollama_pp = `Rewrite the following Python code to make it run faster. Use vectorization if possible, eliminating as many loops as possible. Try to reduce computational complexity of operations. Only output the optimized code in JSON with the key 'code'. Original code: ${code}. Optimized code:`
+
+    // TODO parameterize based on CPU utilization, Python vs. C time, GPU choice, memory efficiency.
+    const optimizePerformancePrompt_ollama = `# Original code\n${code}\n\n# This code is an optimized version of the original code that dramatically improves its performance. Whenever possible, the code has been changed to use native libraries and vectorization, and data structures like lists have been replaced by sets or dicts. Do not change any function names. Optimized code:\n`;
+
     const pure_optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nONLY USE PURE PYTHON.\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
 
     const memoryEfficiencyPrompt = `Optimize the following${lineOf} Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more memory-efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it more space efficient than pure Python. Consider using the following other libraries, if appropriate:\n\n${libraries}\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use native libraries whenever possible to reduce memory consumption; invoke del on variables and array elements as soon as it is safe to do so. If the memory consumption is not likely to be reduced, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`
@@ -385,7 +386,7 @@ async function optimizeCode(imports, code, context) {
 	    console.log("Running " + document.getElementById('service-select').value);
 	    console.log(optimizePerformancePrompt_ollama);
 	    const result = await sendPromptToOllama(optimizePerformancePrompt_ollama, Math.max(numWords * 4, 500), document.getElementById('language-model-local').value, document.getElementById('local-ip').value, document.getElementById('local-port').value);
-	    return JSON.parse(result)["code"];
+	    return result;;
 	}
     case "amazon":
 	{
