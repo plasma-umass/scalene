@@ -109,6 +109,10 @@ def flamegraph_format(stacks: Dict[Tuple[Any], int]) -> str:
     return output
 
 
+def read_file_content(directory, subdirectory, filename):
+    file_path = os.path.join(directory, subdirectory, filename)
+    return pathlib.Path(file_path).read_text()
+
 def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
     """Apply a template to generate a single HTML payload containing the current profile."""
 
@@ -121,17 +125,14 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
 
     # Load the GUI JavaScript file.
     scalene_dir = os.path.dirname(__file__)
-    gui_fname = os.path.join(scalene_dir, "scalene-gui", "scalene-gui.js")
-    gui_file = pathlib.Path(gui_fname)
-    gui_js = gui_file.read_text()
-    
-    prism_css_fname = os.path.join(scalene_dir, "scalene-gui", "prism.css")
-    prism_css_file = pathlib.Path(prism_css_fname)
-    prism_css_text = prism_css_file.read_text()
-    
-    prism_js_fname = os.path.join(scalene_dir, "scalene-gui", "prism.js")
-    prism_js_file = pathlib.Path(prism_js_fname)
-    prism_js_text = prism_js_file.read_text()
+
+    file_contents = {
+        'scalene_gui_js_text': read_file_content(scalene_dir, "scalene-gui", "scalene-gui.js"),
+        'prism_css_text': read_file_content(scalene_dir, "scalene-gui", "prism.css"),
+        'prism_js_text': read_file_content(scalene_dir, "scalene-gui", "prism.js"),
+        'tablesort_js_text': read_file_content(scalene_dir, "scalene-gui", "tablesort.js"),
+        'tablesort_number_js_text': read_file_content(scalene_dir, "scalene-gui", "tablesort.number.js")
+    }
     
     # Put the profile and everything else into the template.
     environment = Environment(
@@ -140,9 +141,11 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
     template = environment.get_template("index.html.template")
     rendered_content = template.render(
         profile=profile,
-        gui_js=gui_js,
-        prism_css=prism_css_text,
-        prism_js=prism_js_text,
+        gui_js=file_contents['scalene_gui_js_text'],
+        prism_css=file_contents['prism_css_text'],
+        prism_js=file_contents['prism_js_text'],
+        tablesort_js=file_contents['tablesort_js_text'],
+        tablesort_number_js=file_contents['tablesort_number_js_text'],
         scalene_version=scalene_version,
         scalene_date=scalene_date,
     )
