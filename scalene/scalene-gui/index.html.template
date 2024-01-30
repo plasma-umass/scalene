@@ -33,7 +33,39 @@ body {
     form label:active, form button:active {
       background-color: blue;
       color: white;
-    }      
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+	
+    .text-and-upload {
+      display: inline-flex;
+      align-items: center; /* Align items vertically */
+      }
+      
+      /* Ensuring the p tag takes the full width */
+    .text-center {
+        width: 100%;
+        text-align: center;
+    }
+
+    /* Styling for the SVG */
+    .svg-upload {
+        height: 20px;
+        width: 20px;
+        cursor: pointer;
+    }
+    
+    /* Hiding the file input but keeping it functional */
+    #fileinput {
+        height: 0;
+        width: 0;
+        opacity: 0;
+        position: absolute;
+    }
     </style>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-4JXPHEBMTY"></script>
@@ -60,19 +92,30 @@ body {
     <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
     <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
     <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
-    <!--
-	<script src="https://cdn.jsdelivr.net/npm/vega@5.21.0"></script>
-	<script src="https://cdn.jsdelivr.net/npm/vega-lite@5.2.0"></script>
-	<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.20.0"></script>
-	-->
+    <script>
+        function clickToLoadFile() {
+            // Trigger the file input when the SVG is clicked
+            document.getElementById('fileinput').click();
+        }
+
+        function handleFileChange() {
+            var fileInput = document.getElementById('fileinput');
+            if (fileInput.files.length > 0) {
+                // Here, you can add what you want to do with the file
+                console.log('File selected:', fileInput.files[0].name);
+            }
+        }
+    </script>
+	
   </head>
   <body>
-    <a href="https://github.com/plasma-umass/scalene">
+    <div class="header">
       <p class="text-center">
-	<img src="https://github.com/plasma-umass/scalene/raw/master/scalene/scalene-gui/scalene-image.png" height="100">
+	<a href="https://github.com/plasma-umass/scalene">
+	  <img src="https://github.com/plasma-umass/scalene/raw/master/scalene/scalene-gui/scalene-image.png" height="100">
+	</a>
       </p>
-    </a>
-    <p />
+    </div>
 	<div class="d-flex justify-content-center">
 	  <details id="ai-optimization-options">
 	    <summary style="font-size:0.8rem; color: blue">AI optimization options</summary>
@@ -184,9 +227,27 @@ body {
 	<div class="container justify-content-center">
 	  <p class="text-center">
 	    <font style="font-size:small">
-	      <a href="https://github.com/plasma-umass/scalene">Scalene</a> version {{ scalene_version }}, released {{ scalene_date }}
-	      &nbsp;|&nbsp;
-	      <a href="https://github.com/plasma-umass/scalene/issues/58">share your Scalene success stories</a>
+	      <div class="text-and-upload">
+		  <a href="https://github.com/plasma-umass/scalene">Scalene</a> version {{ scalene_version }}, released {{ scalene_date }}
+		  &nbsp;|&nbsp;
+		  <a href="https://github.com/plasma-umass/scalene/issues/58">share your Scalene success stories</a>
+		  &nbsp;|&nbsp;
+		  <a href="javascript:void(0);" onclick="clickToLoadFile();">load another profile</a>
+		<form id="jsonFile" name="jsonFile" enctype="multipart/form-data" method="post" style="display: inline;">
+		  <input style="height: 0; width: 0; opacity: 0" type="file" id="fileinput" accept=".json" onchange="loadFile()">
+		  <!-- SVG icon -->
+		  <svg class="svg-upload" onclick="clickToLoadFile();" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+		    <title>Load another profile (.json)</title>
+		    <g data-name="upload">
+		      <rect width="16" height="2" x="4" y="4" rx="1" ry="1" transform="rotate(180 12 5)"></rect>
+		      <rect width="4" height="2" x="17" y="5" rx="1" ry="1" transform="rotate(90 19 6)"></rect>
+		      <rect width="4" height="2" x="3" y="5" rx="1" ry="1" transform="rotate(90 5 6)"></rect>
+		      <path d="M8 14a1 1 0 0 1-.8-.4 1 1 0 0 1 .2-1.4l4-3a1 1 0 0 1 1.18 0l4 2.82a1 1 0 0 1 .24 1.39 1 1 0 0 1-1.4.24L12 11.24 8.6 13.8a1 1 0 0 1-.6.2z"></path>
+		      <path d="M12 21a1 1 0 0 1-1-1v-8a1 1 0 0 1 2 0v8a1 1 0 0 1-1 1z"></path>
+		    </g>
+		  </svg>
+		</form>
+	      </div>
 	    </font>
 	  </p>
 	</div>
