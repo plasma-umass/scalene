@@ -1781,4 +1781,4 @@ function sendHeartbeat() {
     xhr.send();
 }
 
-setInterval(sendHeartbeat, 2000); // Send heartbeat every 2 seconds
+setInterval(sendHeartbeat, 5000); // Send heartbeat every 5 seconds
