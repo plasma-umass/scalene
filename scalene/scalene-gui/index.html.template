@@ -228,7 +228,9 @@ body {
 	  <p class="text-center">
 	    <font style="font-size:small">
 	      <div class="text-and-upload">
-		  <a href="https://github.com/plasma-umass/scalene">Scalene</a> version {{ scalene_version }}, released {{ scalene_date }}
+		  <a href="https://github.com/plasma-umass/scalene">Scalene</a> version {{ scalene_version }}, {{ scalene_date }}
+		  &nbsp;|&nbsp;
+		  <a href="https://github.com/plasma-umass/scalene/issues/new/choose">report an issue or request a feature</a>
 		  &nbsp;|&nbsp;
 		  <a href="https://github.com/plasma-umass/scalene/issues/58">share your Scalene success stories</a>
 		  &nbsp;|&nbsp;
