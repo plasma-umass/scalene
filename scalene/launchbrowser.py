@@ -11,6 +11,20 @@ import threading
 import time
 import webbrowser
 
+import pathlib
+from jinja2 import Environment, FileSystemLoader
+from typing import NewType
+
+# from scalene.scalene_version import scalene_date
+
+scalene_version = "1.5.34"
+scalene_date = "2024.01.27"
+
+def read_file_content(directory, subdirectory, filename):
+    file_path = os.path.join(directory, subdirectory, filename)
+    return pathlib.Path(file_path).read_text()
+
+
 def launch_browser_insecure(url):
     if platform.system() == 'Windows':
         chrome_path = 'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
@@ -92,11 +106,66 @@ def is_port_available(port):
         except socket.error:
             return False
 
+Filename = NewType("Filename", str)
+LineNumber = NewType("LineNumber", int)
+        
+def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
+    """Apply a template to generate a single HTML payload containing the current profile."""
+
+    try:
+        # Load the profile
+        profile_file = pathlib.Path(profile_fname)
+        profile = profile_file.read_text()
+    except FileNotFoundError:
+        assert profile_fname == "demo"
+        profile = ""
+        # return
+
+    # Load the GUI JavaScript file.
+    scalene_dir = os.path.dirname(__file__)
+
+    file_contents = {
+        'scalene_gui_js_text': read_file_content(scalene_dir, "scalene-gui", "scalene-gui.js"),
+        'prism_css_text': read_file_content(scalene_dir, "scalene-gui", "prism.css"),
+        'prism_js_text': read_file_content(scalene_dir, "scalene-gui", "prism.js"),
+        'tablesort_js_text': read_file_content(scalene_dir, "scalene-gui", "tablesort.js"),
+        'tablesort_number_js_text': read_file_content(scalene_dir, "scalene-gui", "tablesort.number.js")
+    }
+    
+    # Put the profile and everything else into the template.
+    environment = Environment(
+        loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
+    )
+    template = environment.get_template("index.html.template")
+    rendered_content = template.render(
+        profile=profile,
+        gui_js=file_contents['scalene_gui_js_text'],
+        prism_css=file_contents['prism_css_text'],
+        prism_js=file_contents['prism_js_text'],
+        tablesort_js=file_contents['tablesort_js_text'],
+        tablesort_number_js=file_contents['tablesort_number_js_text'],
+        scalene_version=scalene_version,
+        scalene_date=scalene_date,
+    )
+
+    # Write the rendered content to the specified output file.
+    try:
+        with open(output_fname, "w", encoding="utf-8") as f:
+            f.write(rendered_content)
+    except OSError:
+        pass
+
+
 def start(filename, port):
     while not is_port_available(port):
         port += 1
         
     cwd = os.getcwd()
+    if filename == "demo":
+        print("import")
+        print("generating html")
+        generate_html("demo", "demo.html")
+        filename = "demo.html"
     shutil.copy(filename, os.path.join(tempfile.gettempdir(), 'index.html'))
     os.chdir(tempfile.gettempdir())
     server_thread = threading.Thread(target=run_server, args=[HOST, port])

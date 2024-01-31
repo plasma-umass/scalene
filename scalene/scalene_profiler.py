@@ -40,6 +40,7 @@ import queue
 import re
 import signal
 import stat
+import subprocess
 import sys
 import sysconfig
 import tempfile
@@ -1780,7 +1781,6 @@ class Scalene:
                         # show_browser(output_fname, SCALENE_PORT, Scalene.__orig_python)
                         if True:
                             dir = os.path.dirname(__file__)
-                            import subprocess
                             subprocess.Popen([Scalene.__orig_python,
                                               f"{dir}{os.sep}launchbrowser.py",
                                               output_fname,

@@ -13,6 +13,7 @@ import webbrowser
 from jinja2 import Environment, FileSystemLoader
 from types import CodeType, FrameType
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
+
 from scalene.scalene_statistics import Filename, LineNumber
 from scalene.scalene_version import scalene_version, scalene_date
 
@@ -121,7 +122,9 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         profile_file = pathlib.Path(profile_fname)
         profile = profile_file.read_text()
     except FileNotFoundError:
-        return
+        assert profile_fname == "demo"
+        profile = ""
+        # return
 
     # Load the GUI JavaScript file.
     scalene_dir = os.path.dirname(__file__)
@@ -195,3 +198,4 @@ def show_browser(file_path, port, orig_python='python3'):
         pass
     finally:
         os.chdir(curr_dir)
+

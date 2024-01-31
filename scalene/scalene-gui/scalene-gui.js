@@ -1276,6 +1276,20 @@ function toggleDisplay(id) {
   }
 }
 
+String.prototype.padWithNonBreakingSpaces = function (targetLength) {
+    let nbsp = '&nbsp;';
+    let padding = '';
+    let currentLength = this.length * nbsp.length;
+    targetLength *= nbsp.length;
+
+    while (currentLength < targetLength) {
+        padding += nbsp;
+        currentLength += nbsp.length;
+    }
+
+    return padding + this;
+};
+
 async function display(prof) {
     // Clear explosions.
   showedExplosion = {};
@@ -1428,13 +1442,15 @@ async function display(prof) {
       s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
     s += `${triangle}`;
     s += "</span>";
-    s += `<font style="font-size: 90%"><code>${
-      ff[0]
-    }</code>: % of time = ${ff[1].percent_cpu_time.toFixed(
+    s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time.toFixed(
       1
-    )}% (${time_consumed_str(
+    ).padWithNonBreakingSpaces(7)}% (${time_consumed_str(
       (ff[1].percent_cpu_time / 100.0) * prof.elapsed_time_sec * 1e3
-    )}) out of ${time_consumed_str(prof.elapsed_time_sec * 1e3)}.</font></p>`;
+    ).padWithNonBreakingSpaces(10)} / ${time_consumed_str(prof.elapsed_time_sec * 1e3).padWithNonBreakingSpaces(10)}):
+    <code>${
+      ff[0]
+    }</code>
+    </font></p>`;
       s += `<div style="${displayStr}" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
