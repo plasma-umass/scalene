@@ -1418,9 +1418,15 @@ async function display(prof) {
   for (const ff of files) {
     const id = `file-${fileIteration}`;
     allIds.push(id);
-      s += '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px);">';
-    s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue" onClick="toggleDisplay('${id}')">`;
-    s += `${DownTriangle}`;
+    s += '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px);">';
+      let displayStr = "display:block;";
+      let triangle = DownTriangle;
+      if (fileIteration !== 0) {
+	  displayStr = "display:none;";
+	  triangle = RightTriangle;
+      }
+      s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
+    s += `${triangle}`;
     s += "</span>";
     s += `<font style="font-size: 90%"><code>${
       ff[0]
@@ -1429,7 +1435,7 @@ async function display(prof) {
     )}% (${time_consumed_str(
       (ff[1].percent_cpu_time / 100.0) * prof.elapsed_time_sec * 1e3
     )}) out of ${time_consumed_str(prof.elapsed_time_sec * 1e3)}.</font></p>`;
-    s += `<div style="display: block" id="profile-${id}">`;
+      s += `<div style="${displayStr}" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
       s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: false });
