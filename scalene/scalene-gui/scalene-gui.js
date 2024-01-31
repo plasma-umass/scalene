@@ -1435,20 +1435,20 @@ async function display(prof) {
 	  triangle = RightTriangle;
       }
       
-      s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
-      s += `${triangle}`;
-      s += "</span>";
       s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>`;
       cpu_bars.push(makeBar(cp[ff[0]], cn[ff[0]], cs[ff[0]], { height: 20, width: 100 }));
 	if (prof.memory) {
-	    s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
+	    s += `&nbsp;<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
 	    memory_bars.push(makeMemoryBar(ma[ff[0]], "peak memory", mp[ff[0]] / ma[ff[0]], prof.max_footprint_mb.toFixed(2), "darkgreen", { height: 20, width: 100 }));
 	}
     s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time.toFixed(
       1
     ).padWithNonBreakingSpaces(5)}% (${time_consumed_str(
       (ff[1].percent_cpu_time / 100.0) * prof.elapsed_time_sec * 1e3
-    ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(prof.elapsed_time_sec * 1e3).padWithNonBreakingSpaces(8)}):`;
+    ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(prof.elapsed_time_sec * 1e3).padWithNonBreakingSpaces(8)})<br />`;
+      s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
+      s += `${triangle}`;
+      s += "</span>";
       s += `<code> ${ff[0]}</code>`;
       s += `</font></p>`;
       s += `<div style="${displayStr}" id="profile-${id}">`;
