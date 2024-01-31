@@ -77,7 +77,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
 def monitor_heartbeat():
     global server_running
     while server_running:
-        if time.time() - last_heartbeat > 30:  # 30 seconds timeout
+        if time.time() - last_heartbeat > 60:  # 60 seconds timeout
             print("No heartbeat received, shutting down server...")
             server_running = False
             os._exit(0)

@@ -523,11 +523,12 @@ function time_consumed_str(time_in_ms) {
   } else if (seconds >= 1) {
     return `${seconds_exact.toFixed(3)}s`;
   } else {
-    return `${time_in_ms.toFixed(3)}ms`;
+    return `${time_in_ms.toFixed(0)}ms`;
   }
 }
 
 function makeBar(python, native, system, params) {
+    console.log(`Making bar ${python} ${native} ${system} ${JSON.stringify(params)}`);
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -1374,24 +1375,28 @@ async function display(prof) {
   let cpu_system = 0;
   let mem_python = 0;
   let mem_native = 0;
-  let max_alloc = 0;
+    let max_alloc = 0;
+    let cp = {};
+    let cn = {};
+    let cs = {};
+    let mp = {};
   for (const f in prof.files) {
-    let cp = 0;
-    let cn = 0;
-    let cs = 0;
-    let mp = 0;
+      cp[f] = 0;
+      cn[f] = 0;
+      cs[f] = 0;
+      mp[f] = 0;
     for (const l in prof.files[f].lines) {
       const line = prof.files[f].lines[l];
-      cp += line.n_cpu_percent_python;
-      cn += line.n_cpu_percent_c;
-      cs += line.n_sys_percent;
-      mp += line.n_malloc_mb * line.n_python_fraction;
+      cp[f] += line.n_cpu_percent_python;
+      cn[f] += line.n_cpu_percent_c;
+      cs[f] += line.n_sys_percent;
+      mp[f] += line.n_malloc_mb * line.n_python_fraction;
       max_alloc += line.n_malloc_mb;
     }
-    cpu_python += cp;
-    cpu_native += cn;
-    cpu_system += cs;
-    mem_python += mp;
+    cpu_python += cp[f];
+    cpu_native += cn[f];
+    cpu_system += cs[f];
+    mem_python += mp[f];
   }
     cpu_bars.push(makeBar(cpu_python, cpu_native, cpu_system, { height: 20, width: 200 }));
   if (prof.memory) {
@@ -1439,23 +1444,24 @@ async function display(prof) {
 	  displayStr = "display:none;";
 	  triangle = RightTriangle;
       }
+      
       s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
-    s += `${triangle}`;
-    s += "</span>";
-    s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time.toFixed(
+      s += `${triangle}`;
+      s += "</span>";
+      s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>`;
+      cpu_bars.push(makeBar(cp[ff[0]], cn[ff[0]], cs[ff[0]], { height: 20, width: 100 }));
+      s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time.toFixed(
       1
-    ).padWithNonBreakingSpaces(7)}% (${time_consumed_str(
+    ).padWithNonBreakingSpaces(5)}% (${time_consumed_str(
       (ff[1].percent_cpu_time / 100.0) * prof.elapsed_time_sec * 1e3
-    ).padWithNonBreakingSpaces(10)} / ${time_consumed_str(prof.elapsed_time_sec * 1e3).padWithNonBreakingSpaces(10)}):
-    <code>${
-      ff[0]
-    }</code>
-    </font></p>`;
+    ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(prof.elapsed_time_sec * 1e3).padWithNonBreakingSpaces(8)}):`;
+      s += `<code> ${ff[0]}</code>`;
+      s += `</font></p>`;
       s += `<div style="${displayStr}" id="profile-${id}">`;
-    s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
-    tableID++;
+      s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
+      tableID++;
       s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: false });
-    s += "<tbody>";
+      s += "<tbody>";
     // Print per-line profiles.
     let prevLineno = -1;
     for (const l in ff[1].lines) {
@@ -1651,7 +1657,6 @@ function toggleServiceFields() {
 
 function revealInstallMessage()
 {
-    console.log("REVEAL MESSAGE");
     document.getElementById('install-models-message').style.display = "block";
     document.getElementById('local-models-list').style.display = "none";
     
@@ -1803,4 +1808,4 @@ function sendHeartbeat() {
     xhr.send();
 }
 
-setInterval(sendHeartbeat, 5000); // Send heartbeat every 5 seconds
+setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
