@@ -870,17 +870,17 @@ function makeTableHeader(fname, gpu, memory, params) {
   if (memory) {
     columns = columns.concat([
       {
-        title: ["memory", "average"],
-        color: MemoryColor,
-        width: 0,
-        info: "Average amount of memory allocated by line / function",
-      },
-      {
         title: ["memory", "peak"],
         color: MemoryColor,
         width: 0,
         info: "Peak amount of memory allocated by line / function",
       },
+       {
+        title: ["memory", "average"],
+        color: MemoryColor,
+        width: 0,
+        info: "Average amount of memory allocated by line / function",
+	},
       {
         title: ["memory", "timeline"],
         color: MemoryColor,
@@ -1044,7 +1044,7 @@ function makeProfileLine(
 
   let s = "";
   if (
-    total_time ||
+    total_time > 1.0 ||
     has_memory_results ||
     has_gpu_results ||
     (showExplosion &&
@@ -1074,15 +1074,14 @@ function makeProfileLine(
   }
   if (prof.memory) {
     s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
-      line.n_avg_mb.toFixed(0)
+      line.n_peak_mb.toFixed(0)
     ).padStart(10, "0")}'>`;
     s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
-    s += "</td>";
-    if (line.n_avg_mb) {
+    if (line.n_peak_mb) {
       memory_bars.push(
         makeMemoryBar(
-          line.n_avg_mb.toFixed(0),
-          "average memory",
+          line.n_peak_mb.toFixed(0),
+          "peak memory",
           parseFloat(line.n_python_fraction),
           prof.max_footprint_mb.toFixed(2),
             "darkgreen",
@@ -1093,14 +1092,15 @@ function makeProfileLine(
       memory_bars.push(null);
     }
     s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
-      line.n_peak_mb.toFixed(0)
+      line.n_avg_mb.toFixed(0)
     ).padStart(10, "0")}'>`;
     s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
-    if (line.n_peak_mb) {
+    s += "</td>";
+    if (line.n_avg_mb) {
       memory_bars.push(
         makeMemoryBar(
-          line.n_peak_mb.toFixed(0),
-          "peak memory",
+          line.n_avg_mb.toFixed(0),
+          "average memory",
           parseFloat(line.n_python_fraction),
           prof.max_footprint_mb.toFixed(2),
             "darkgreen",
@@ -1219,24 +1219,6 @@ function makeProfileLine(
     s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
   s += "</tr>";
   return s;
-}
-
-function buildAllocationMaps(prof, f) {
-  let averageMallocs = {};
-  let peakMallocs = {};
-  for (const line of prof.files[f].lines) {
-    const avg = parseFloat(line.n_avg_mb);
-    if (!averageMallocs[avg]) {
-      averageMallocs[avg] = [];
-    }
-    averageMallocs[avg].push(line.lineno);
-    const peak = parseFloat(line.n_peak_mb);
-    if (!peakMallocs[peak]) {
-      peakMallocs[peak] = [];
-    }
-    peakMallocs[peak].push(line.lineno);
-  }
-  return [averageMallocs, peakMallocs];
 }
 
 // Track all profile ids so we can collapse and expand them en masse.
@@ -1380,17 +1362,20 @@ async function display(prof) {
     let cn = {};
     let cs = {};
     let mp = {};
+    let ma = {};
   for (const f in prof.files) {
       cp[f] = 0;
       cn[f] = 0;
       cs[f] = 0;
       mp[f] = 0;
+      ma[f] = 0;
     for (const l in prof.files[f].lines) {
       const line = prof.files[f].lines[l];
       cp[f] += line.n_cpu_percent_python;
       cn[f] += line.n_cpu_percent_c;
       cs[f] += line.n_sys_percent;
       mp[f] += line.n_malloc_mb * line.n_python_fraction;
+      ma[f] += line.n_malloc_mb
       max_alloc += line.n_malloc_mb;
     }
     cpu_python += cp[f];
@@ -1434,7 +1419,12 @@ async function display(prof) {
   // Print profile for each file
   let fileIteration = 0;
   allIds = [];
-  for (const ff of files) {
+    for (const ff of files) {
+	// Stop once total CPU time is too low
+	// NOTE: possibly need to incorporate memory and GPU time here as well. FIXME
+//	if ((ff[1].percent_cpu_time < 1.0)) {
+//	    break;
+//	}
     const id = `file-${fileIteration}`;
     allIds.push(id);
     s += '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px);">';
@@ -1450,7 +1440,11 @@ async function display(prof) {
       s += "</span>";
       s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>`;
       cpu_bars.push(makeBar(cp[ff[0]], cn[ff[0]], cs[ff[0]], { height: 20, width: 100 }));
-      s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time.toFixed(
+	if (prof.memory) {
+	    s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
+	    memory_bars.push(makeMemoryBar(ma[ff[0]], "peak memory", mp[ff[0]] / ma[ff[0]], prof.max_footprint_mb.toFixed(2), "darkgreen", { height: 20, width: 100 }));
+	}
+    s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time.toFixed(
       1
     ).padWithNonBreakingSpaces(5)}% (${time_consumed_str(
       (ff[1].percent_cpu_time / 100.0) * prof.elapsed_time_sec * 1e3
