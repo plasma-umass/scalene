@@ -528,13 +528,12 @@ function time_consumed_str(time_in_ms) {
 }
 
 function makeBar(python, native, system, params) {
-    console.log(`Making bar ${python} ${native} ${system} ${JSON.stringify(params)}`);
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
       view: {
-        stroke: "transparent",
-      },
+          stroke: "transparent",
+      }
     },
     autosize: {
       contains: "padding",
@@ -580,10 +579,10 @@ function makeBar(python, native, system, params) {
             legend: false,
             scale: { range: ["darkblue", "#6495ED", "blue"] },
           },
-          tooltip: [{ field: "c", type: "nominal", title: "time" }],
+            tooltip: [{ field: "c", type: "nominal", title: "time" }],
         },
       },
-      /*	  ,
+	/*	  ,
       {
           mark: {
               type: "text",
@@ -602,6 +601,91 @@ function makeBar(python, native, system, params) {
           },
 	  },
 	  */
+    ],
+  };
+}
+
+function makeBar(python, native, system, params) {
+    const widthThreshold1 = 20;
+    const widthThreshold2 = 10;
+  return {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    config: {
+      view: {
+          stroke: "transparent",
+      }
+    },
+    autosize: {
+      contains: "padding",
+    },
+    width: params.width,
+    height: params.height,
+    padding: 0,
+    data: {
+      values: [
+        {
+          x: 0,
+          y: python.toFixed(1),
+          c: "(Python) " + python.toFixed(1) + "%",
+          d: (python >= widthThreshold1)? python.toFixed(0) + "%":
+		((python >= widthThreshold2)? python.toFixed(0) : ""),
+          q: python / 2,
+        },
+        {
+          x: 0,
+          y: native.toFixed(1),
+          c: "(native) " + native.toFixed(1) + "%",
+          d: (native >= widthThreshold1) ? native.toFixed(0) + "%":
+		((native >= widthThreshold2)? native.toFixed(0) : ""),
+          q : python + native / 2,
+        },
+        {
+          x: 0,
+          y: system.toFixed(1),
+          c: "(system) " + system.toFixed(1) + "%",
+            d: (system >= widthThreshold1) ? system.toFixed(0) + "%":
+		((system >= widthThreshold2)? system.toFixed(0) : ""),
+          q: python + native + system / 2,
+        },
+      ],
+    },
+    layer: [
+      {
+        mark: { type: "bar" },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "y",
+              axis: false,
+	      stack: "zero",
+            scale: { domain: [0, 100] },
+          },
+          color: {
+            field: "c",
+            type: "nominal",
+            legend: false,
+            scale: { range: ["darkblue", "#6495ED", "blue"] },
+          },
+        },
+      },
+      {
+        mark: {
+          type: "text",
+          align: "center",
+          baseline: "middle",
+          dx: 0,
+        },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "q",
+            axis: false,
+          },
+          text: { field: "d" },
+            color: { value: "white" },
+//            tooltip: [{ field: "c", type: "nominal", title: "time" }],
+        },
+      }
     ],
   };
 }
@@ -1427,7 +1511,7 @@ async function display(prof) {
 //	}
     const id = `file-${fileIteration}`;
     allIds.push(id);
-    s += '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px);">';
+    s += '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px)">';
       let displayStr = "display:block;";
       let triangle = DownTriangle;
       if (fileIteration !== 0) {
