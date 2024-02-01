@@ -499,11 +499,11 @@ function memory_consumed_str(size_in_mb) {
   let gigabytes = Math.floor(size_in_mb / 1024);
   let terabytes = Math.floor(gigabytes / 1024);
   if (terabytes > 0) {
-    return `${(size_in_mb / 1048576).toFixed(3)} TB`;
+    return `${(size_in_mb / 1048576).toFixed(0)}T`;
   } else if (gigabytes > 0) {
-    return `${(size_in_mb / 1024).toFixed(3)} GB`;
+    return `${(size_in_mb / 1024).toFixed(0)}G`;
   } else {
-    return `${size_in_mb.toFixed(3)} MB`;
+    return `${size_in_mb.toFixed(0)}M`;
   }
 }
 
@@ -694,51 +694,78 @@ function makeMemoryPie(native_mem, python_mem, params) {
 }
 
 function makeMemoryBar(memory, title, python_percent, total, color, params) {
-  return {
-    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-    config: {
-      view: {
-        stroke: "transparent",
-      },
-    },
-    autosize: {
-      contains: "padding",
-    },
-      width: params.width,
-      height: params.height,
-    padding: 0,
-    data: {
-      values: [
-        {
-          x: 0,
-          y: python_percent * memory,
-          c: "(Python) " + memory_consumed_str(python_percent * memory),
-        },
-        {
-          x: 0,
-          y: (1.0 - python_percent) * memory,
-          c: "(native) " + memory_consumed_str((1.0 - python_percent) * memory),
-        },
-      ],
-    },
-    mark: { type: "bar" },
-    encoding: {
-      x: {
-        aggregate: "sum",
-        field: "y",
-        axis: false,
-        scale: { domain: [0, total] },
-      },
-      color: {
-        field: "c",
-        type: "nominal",
-        legend: false,
-        scale: { range: [color, "#50C878", "green"] },
-      },
-      tooltip: [{ field: "c", type: "nominal", title: title }],
-    },
-  };
-}
+    console.log(`makeMemoryBar ${python_percent}`);
+    return {
+	$schema: "https://vega.github.io/schema/vega-lite/v5.json",
+	config: {
+	    view: {
+		stroke: "transparent",
+	    },
+	},
+	autosize: {
+	    contains: "padding",
+	},
+	width: params.width,
+	height: params.height,
+	padding: 0,
+	data: {
+	    values: [
+		{
+		    x: 0,
+		    y: python_percent * memory,
+		    c: "(Python) " + memory_consumed_str(python_percent * memory),
+		    d: (python_percent * memory > 1) ? memory_consumed_str(python_percent * memory) : "",
+		    q: python_percent * total / 2,
+		},
+		{
+		    x: 0,
+		    y: (1.0 - python_percent) * memory,
+		    c: "(native) " + memory_consumed_str((1.0 - python_percent) * memory),
+		    d: (((1.0 - python_percent) * memory) > 1) ? memory_consumed_str((1.0 - python_percent) * memory) : "",
+		    q: python_percent * total + (1.0 - python_percent) * total / 2,
+		},
+	    ],
+	},
+	layer: [
+	    {
+		mark: { type: "bar" },
+		encoding: {
+		    x: {
+			aggregate: "sum",
+			field: "y",
+			axis: false,
+			scale: { domain: [0, total] },
+		    },
+		    color: {
+			field: "c",
+			type: "nominal",
+			legend: false,
+			scale: { range: [color, "#50C878", "green"] },
+		    },
+		    // tooltip: [{ field: "c", type: "nominal", title: title }],
+		},
+	    },
+	    {
+		mark: {
+		    type: "text",
+		    align: "center",
+		    baseline: "middle",
+		    dx: 0,
+		},
+		encoding: {
+		    x: {
+			aggregate: "sum",
+			field: "q",
+			axis: false,
+		    },
+		    text: { field: "d" },
+		    color: { value: "white" },
+		},
+	    }
+	],
+    }
+};
+
 
 function makeSparkline(
   samples,
@@ -1447,7 +1474,7 @@ async function display(prof) {
       cpu_bars.push(makeBar(cp[ff[0]], cn[ff[0]], cs[ff[0]], { height: 20, width: 100 }));
 	if (prof.memory) {
 	    s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
-	    memory_bars.push(makeMemoryBar(ma[ff[0]], "peak memory", mp[ff[0]] / ma[ff[0]], prof.max_footprint_mb.toFixed(2), "darkgreen", { height: 20, width: 100 }));
+	    memory_bars.push(makeMemoryBar(ma[ff[0]], "peak memory", mp[ff[0]] / ma[ff[0]], ma[ff[0]], "darkgreen", { height: 20, width: 100 }));
 	}
     s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time.toFixed(
       1
