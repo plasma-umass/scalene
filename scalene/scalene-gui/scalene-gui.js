@@ -527,87 +527,11 @@ function time_consumed_str(time_in_ms) {
   }
 }
 
-function makeBar(python, native, system, params) {
-  return {
-    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-    config: {
-      view: {
-          stroke: "transparent",
-      }
-    },
-    autosize: {
-      contains: "padding",
-    },
-      width: params.width,
-      height: params.height,
-    padding: 0,
-    data: {
-      values: [
-        {
-          x: 0,
-          y: python.toFixed(1),
-          c: "(Python) " + python.toFixed(1) + "%",
-          d: python.toFixed(0) + "%",
-        },
-        {
-          x: 0,
-          y: native.toFixed(1),
-          c: "(native) " + native.toFixed(1) + "%",
-          d: native.toFixed(0) + "%",
-        },
-        {
-          x: 0,
-          y: system.toFixed(1),
-          c: "(system) " + system.toFixed(1) + "%",
-          d: system.toFixed(0) + "%",
-        },
-      ],
-    },
-    layer: [
-      {
-        mark: { type: "bar" },
-        encoding: {
-          x: {
-            aggregate: "sum",
-            field: "y",
-            axis: false,
-            scale: { domain: [0, 100] },
-          },
-          color: {
-            field: "c",
-            type: "nominal",
-            legend: false,
-            scale: { range: ["darkblue", "#6495ED", "blue"] },
-          },
-            tooltip: [{ field: "c", type: "nominal", title: "time" }],
-        },
-      },
-	/*	  ,
-      {
-          mark: {
-              type: "text",
-              opacity: 1.0,
-              color: "white",
-              align: "right",
-              limit: 50,
-          },
-          encoding: {
-              x: { type: "quantitative", field: "y" },
-              text: {
-		  field: "d",
-		  bandPosition: 0.5,
-		  condition: { test: `datum['y'] < 20`, value: "" },
-              },
-          },
-	  },
-	  */
-    ],
-  };
-}
 
 function makeBar(python, native, system, params) {
     const widthThreshold1 = 20;
     const widthThreshold2 = 10;
+    // console.log(`makeBar ${python} ${native} ${system}`);
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -1519,10 +1443,10 @@ async function display(prof) {
 	  triangle = RightTriangle;
       }
       
-      s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>`;
+	s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>&nbsp;`;
       cpu_bars.push(makeBar(cp[ff[0]], cn[ff[0]], cs[ff[0]], { height: 20, width: 100 }));
 	if (prof.memory) {
-	    s += `&nbsp;<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
+	    s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
 	    memory_bars.push(makeMemoryBar(ma[ff[0]], "peak memory", mp[ff[0]] / ma[ff[0]], prof.max_footprint_mb.toFixed(2), "darkgreen", { height: 20, width: 100 }));
 	}
     s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time.toFixed(
