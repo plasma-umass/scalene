@@ -15,7 +15,7 @@ from types import CodeType, FrameType
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 from scalene.scalene_statistics import Filename, LineNumber
-from scalene.scalene_version import scalene_version, scalene_date
+from scalene.scalene_config import scalene_version, scalene_date
 
 # These are here to simplify print debugging, a la C.
 class LineNo:

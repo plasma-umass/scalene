@@ -15,10 +15,7 @@ import pathlib
 from jinja2 import Environment, FileSystemLoader
 from typing import NewType
 
-# from scalene.scalene_version import scalene_date
-
-scalene_version = "1.5.34"
-scalene_date = "2024.01.27"
+import scalene.scalene_config
 
 def read_file_content(directory, subdirectory, filename):
     file_path = os.path.join(directory, subdirectory, filename)
@@ -27,26 +24,18 @@ def read_file_content(directory, subdirectory, filename):
 
 def launch_browser_insecure(url):
     if platform.system() == 'Windows':
-        chrome_path = 'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
+        chrome_path = 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
     elif platform.system() == 'Linux':
         chrome_path = '/usr/bin/google-chrome'
     elif platform.system() == 'Darwin':
-        chrome_path = '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome'
-
-
-    # Try to get the path for the Chrome browser
-    #chrome_path = webbrowser.get('chrome').name
-    #if chrome_path == "":  # Fallback if the path is not found
-    # FIXME Mac
-    # chrome_path = '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome'
-    # webbrowser.get("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s").open("http://google.com")
+        chrome_path = '/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome'
 
     # Create a temporary directory
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a command with the required flags
         chrome_cmd = f'{chrome_path} %s --disable-web-security --user-data-dir="{temp_dir}"'
 
-        print(chrome_cmd)
+        # print(chrome_cmd)
 
         # Register the new browser type
         webbrowser.register('chrome_with_flags', None, webbrowser.Chrome(chrome_cmd), preferred=True)
@@ -144,8 +133,8 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         prism_js=file_contents['prism_js_text'],
         tablesort_js=file_contents['tablesort_js_text'],
         tablesort_number_js=file_contents['tablesort_number_js_text'],
-        scalene_version=scalene_version,
-        scalene_date=scalene_date,
+        scalene_version=scalene.scalene_config.scalene_version,
+        scalene_date=scalene.scalene_config.scalene_date,
     )
 
     # Write the rendered content to the specified output file.
@@ -162,8 +151,6 @@ def start(filename, port):
         
     cwd = os.getcwd()
     if filename == "demo":
-        print("import")
-        print("generating html")
         generate_html("demo", "demo.html")
         filename = "demo.html"
     shutil.copy(filename, os.path.join(tempfile.gettempdir(), 'index.html'))
