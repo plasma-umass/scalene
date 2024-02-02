@@ -13,16 +13,16 @@ import webbrowser
 
 import pathlib
 from jinja2 import Environment, FileSystemLoader
-from typing import NewType
+from typing import Any, NewType
 
 import scalene.scalene_config
 
-def read_file_content(directory, subdirectory, filename):
+def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
     file_path = os.path.join(directory, subdirectory, filename)
     return pathlib.Path(file_path).read_text()
 
 
-def launch_browser_insecure(url):
+def launch_browser_insecure(url: str) -> None:
     if platform.system() == 'Windows':
         chrome_path = 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
     elif platform.system() == 'Linux':
@@ -46,14 +46,13 @@ def launch_browser_insecure(url):
         # webbrowser.get('chrome_with_flags').open(url)
         
 
-PORT = 11235 # 8000
 HOST = 'localhost'
 shutdown_requested = False
 last_heartbeat = time.time()
 server_running = True
 
 class CustomHandler(http.server.SimpleHTTPRequestHandler):
-    def do_GET(self):
+    def do_GET(self) -> Any:
         global last_heartbeat
         if self.path == '/heartbeat':
             last_heartbeat = time.time()
@@ -63,7 +62,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         else:
             return http.server.SimpleHTTPRequestHandler.do_GET(self)
 
-def monitor_heartbeat():
+def monitor_heartbeat() -> None:
     global server_running
     while server_running:
         if time.time() - last_heartbeat > 60:  # 60 seconds timeout
@@ -72,16 +71,16 @@ def monitor_heartbeat():
             os._exit(0)
         time.sleep(1)
 
-def serve_forever(httpd):
+def serve_forever(httpd: Any) -> None:
     while server_running:
         httpd.handle_request()
 
-def run_server(host, port):
+def run_server(host: str, port: int) -> None:
     with socketserver.TCPServer((host, port), CustomHandler) as httpd:
         print(f"Serving at http://{host}:{port}")
         serve_forever(httpd)
 
-def is_port_available(port):
+def is_port_available(port: int) -> bool:
     """
     Check if a given TCP port is available to start a server on the local machine.
 
@@ -145,13 +144,13 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         pass
 
 
-def start(filename, port):
+def start(filename: str, port: int) -> None:
     while not is_port_available(port):
         port += 1
         
     cwd = os.getcwd()
     if filename == "demo":
-        generate_html("demo", "demo.html")
+        generate_html(Filename("demo"), Filename("demo.html"))
         filename = "demo.html"
     shutil.copy(filename, os.path.join(tempfile.gettempdir(), 'index.html'))
     os.chdir(tempfile.gettempdir())

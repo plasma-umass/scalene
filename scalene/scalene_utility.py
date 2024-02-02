@@ -110,7 +110,7 @@ def flamegraph_format(stacks: Dict[Tuple[Any], int]) -> str:
     return output
 
 
-def read_file_content(directory, subdirectory, filename):
+def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
     file_path = os.path.join(directory, subdirectory, filename)
     return pathlib.Path(file_path).read_text()
 
@@ -161,7 +161,7 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         pass
 
 
-def start_server(port, directory):
+def start_server(port: int, directory: str) -> None:
     try:
         handler = http.server.SimpleHTTPRequestHandler
         with socketserver.TCPServer(("", port), handler) as httpd:
@@ -172,7 +172,7 @@ def start_server(port, directory):
         # print(f"Port {port} is already in use. Please try a different port.")
         pass
 
-def show_browser(file_path, port, orig_python='python3'):
+def show_browser(file_path: str, port: int, orig_python : str ='python3') -> None:
     temp_dir = tempfile.gettempdir()
 
     # Copy file to the temporary directory

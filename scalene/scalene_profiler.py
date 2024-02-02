@@ -171,7 +171,7 @@ class Scalene:
     __parent_pid = -1
     __initialized: bool = False
     __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
-
+    __orig_python = sys.executable # will be rewritten later
     @staticmethod
     def last_profiled_tuple() -> Tuple[Filename, LineNumber, ByteCodeIndex]:
         """Helper function to type last profiled information."""
