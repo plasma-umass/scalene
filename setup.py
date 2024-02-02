@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
-from scalene.scalene_version import scalene_version
+from scalene.scalene_config import scalene_version
 from os import path, environ
 import sys
 import sysconfig
