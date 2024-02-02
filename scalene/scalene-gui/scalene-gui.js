@@ -714,15 +714,15 @@ function makeMemoryBar(memory, title, python_percent, total, color, params) {
 		    x: 0,
 		    y: python_percent * memory,
 		    c: "(Python) " + memory_consumed_str(python_percent * memory),
-		    d: (python_percent * memory > 1) ? memory_consumed_str(python_percent * memory) : "",
-		    q: python_percent * total / 2,
+		    d: (python_percent * memory > total * 0.2) ? memory_consumed_str(python_percent * memory) : "",
+		    q: python_percent * memory / 2,
 		},
 		{
 		    x: 0,
 		    y: (1.0 - python_percent) * memory,
 		    c: "(native) " + memory_consumed_str((1.0 - python_percent) * memory),
-		    d: (((1.0 - python_percent) * memory) > 1) ? memory_consumed_str((1.0 - python_percent) * memory) : "",
-		    q: python_percent * total + (1.0 - python_percent) * total / 2,
+		    d: (((1.0 - python_percent) * memory) > total * 0.2) ? memory_consumed_str((1.0 - python_percent) * memory) : "",
+		    q: python_percent * memory + (1.0 - python_percent) * memory / 2,
 		},
 	    ],
 	},
@@ -1425,7 +1425,7 @@ async function display(prof) {
         max_alloc,
         "memory",
         mem_python / max_alloc,
-        max_alloc,
+          prof.max_footprint_mb.toFixed(2), // was max_alloc FIXME?
           "darkgreen",
 	  { height: 20, width: 150 }
       )
@@ -1474,7 +1474,7 @@ async function display(prof) {
       cpu_bars.push(makeBar(cp[ff[0]], cn[ff[0]], cs[ff[0]], { height: 20, width: 100 }));
 	if (prof.memory) {
 	    s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
-	    memory_bars.push(makeMemoryBar(ma[ff[0]], "peak memory", mp[ff[0]] / ma[ff[0]], ma[ff[0]], "darkgreen", { height: 20, width: 100 }));
+	    memory_bars.push(makeMemoryBar(ma[ff[0]], "peak memory", mp[ff[0]] / ma[ff[0]], prof.max_footprint_mb.toFixed(2), "darkgreen", { height: 20, width: 100 }));
 	}
     s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time.toFixed(
       1
