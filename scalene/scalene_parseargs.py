@@ -7,7 +7,7 @@ from typing import Any, List, NoReturn, Optional, Tuple
 
 from scalene.find_browser import find_browser
 from scalene.scalene_arguments import ScaleneArguments
-from scalene.scalene_version import scalene_version, scalene_date
+from scalene.scalene_config import scalene_version, scalene_date
 
 scalene_gui_url = f'file:{os.path.join(os.path.dirname(__file__), "scalene-gui", "index.html")}'
 
@@ -165,7 +165,7 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=False,
-            help=f"opens the Scalene web UI and exits.",
+            help=f"opens the Scalene web UI.",
         )
         parser.add_argument(
             "--reduced-profile",
@@ -363,10 +363,21 @@ for the process ID that Scalene reports. For example:
         # Launch the UI if `--viewer` was selected.
         if args.viewer:
             if browser := find_browser():
-                browser.open(scalene_gui_url)
+                assert not args.no_browser
+                dir = os.path.dirname(__file__)
+                import scalene.scalene_config
+                import subprocess
+                subprocess.Popen([sys.executable,
+                                  f"{dir}{os.sep}launchbrowser.py",
+                                  "demo",
+                                  str(scalene.scalene_config.SCALENE_PORT)],
+                                 stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL)
+                sys.exit(0)
+                pass
             else:
-                print(f"Scalene: could not open {scalene_gui_url}.")
-            sys.exit(0)
+                print(f"Scalene: could not open a browser.") # {scalene_gui_url}.")
+                sys.exit(0)
 
         # If any of the individual profiling metrics were specified,
         # disable the unspecified ones (set as None).

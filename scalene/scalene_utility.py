@@ -13,8 +13,9 @@ import webbrowser
 from jinja2 import Environment, FileSystemLoader
 from types import CodeType, FrameType
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
+
 from scalene.scalene_statistics import Filename, LineNumber
-from scalene.scalene_version import scalene_version, scalene_date
+from scalene.scalene_config import scalene_version, scalene_date
 
 # These are here to simplify print debugging, a la C.
 class LineNo:
@@ -109,7 +110,7 @@ def flamegraph_format(stacks: Dict[Tuple[Any], int]) -> str:
     return output
 
 
-def read_file_content(directory, subdirectory, filename):
+def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
     file_path = os.path.join(directory, subdirectory, filename)
     return pathlib.Path(file_path).read_text()
 
@@ -121,7 +122,9 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         profile_file = pathlib.Path(profile_fname)
         profile = profile_file.read_text()
     except FileNotFoundError:
-        return
+        assert profile_fname == "demo"
+        profile = ""
+        # return
 
     # Load the GUI JavaScript file.
     scalene_dir = os.path.dirname(__file__)
@@ -158,7 +161,7 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         pass
 
 
-def start_server(port, directory):
+def start_server(port: int, directory: str) -> None:
     try:
         handler = http.server.SimpleHTTPRequestHandler
         with socketserver.TCPServer(("", port), handler) as httpd:
@@ -169,7 +172,7 @@ def start_server(port, directory):
         # print(f"Port {port} is already in use. Please try a different port.")
         pass
 
-def show_browser(file_path, port, orig_python='python3'):
+def show_browser(file_path: str, port: int, orig_python : str ='python3') -> None:
     temp_dir = tempfile.gettempdir()
 
     # Copy file to the temporary directory
@@ -195,3 +198,4 @@ def show_browser(file_path, port, orig_python='python3'):
         pass
     finally:
         os.chdir(curr_dir)
+

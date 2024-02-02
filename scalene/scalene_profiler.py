@@ -40,6 +40,7 @@ import queue
 import re
 import signal
 import stat
+import subprocess
 import sys
 import sysconfig
 import tempfile
@@ -75,6 +76,7 @@ from typing import (
     cast,
 )
 
+import scalene.scalene_config
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_funcutils import ScaleneFuncUtils
@@ -91,7 +93,6 @@ from scalene.scalene_statistics import (
     ScaleneStatistics,
 )
 from scalene.scalene_utility import *
-from scalene.scalene_version import scalene_version, scalene_date
 
 if sys.platform != "win32":
     import resource
@@ -114,8 +115,6 @@ console.log = nada  # type: ignore
 
 MINIMUM_PYTHON_VERSION_MAJOR = 3
 MINIMUM_PYTHON_VERSION_MINOR = 8
-
-SCALENE_PORT = 11235
 
 def require_python(version: Tuple[int, int]) -> None:
     assert (
@@ -141,10 +140,6 @@ def scalene_redirect_profile(func: Any) -> Any:
 
 
 builtins.profile = scalene_redirect_profile  # type: ignore
-
-# Must equal src/include/sampleheap.hpp NEWLINE *minus 1*
-NEWLINE_TRIGGER_LENGTH = 98820  # SampleHeap<...>::NEWLINE-1
-
 
 def start() -> None:
     """Start profiling."""
@@ -176,7 +171,7 @@ class Scalene:
     __parent_pid = -1
     __initialized: bool = False
     __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
-
+    __orig_python = sys.executable # will be rewritten later
     @staticmethod
     def last_profiled_tuple() -> Tuple[Filename, LineNumber, ByteCodeIndex]:
         """Helper function to type last profiled information."""
@@ -319,7 +314,7 @@ class Scalene:
     @staticmethod
     def update_line() -> None:
         """Mark a new line by allocating the trigger number of bytes."""
-        bytearray(NEWLINE_TRIGGER_LENGTH)
+        bytearray(scalene.scalene_config.NEWLINE_TRIGGER_LENGTH)
 
     @staticmethod
     def update_profiled() -> None:
@@ -1309,7 +1304,7 @@ class Scalene:
             ) = item
 
             is_malloc = action == Scalene.MALLOC_ACTION
-            if is_malloc and count == NEWLINE_TRIGGER_LENGTH + 1:
+            if is_malloc and count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1:
                 with Scalene.__invalidate_mutex:
                     last_file, last_line = Scalene.__invalidate_queue.pop(0)
 
@@ -1778,15 +1773,13 @@ class Scalene:
                         # url = f"file:///{output_fname}"
                         # webbrowser.open(url)
                         # show_browser(output_fname, SCALENE_PORT, Scalene.__orig_python)
-                        if True:
-                            dir = os.path.dirname(__file__)
-                            import subprocess
-                            subprocess.Popen([Scalene.__orig_python,
-                                              f"{dir}{os.sep}launchbrowser.py",
-                                              output_fname,
-                                              str(SCALENE_PORT)],
-                                             stdout=subprocess.DEVNULL,
-                                             stderr=subprocess.DEVNULL)
+                        dir = os.path.dirname(__file__)
+                        subprocess.Popen([Scalene.__orig_python,
+                                          f"{dir}{os.sep}launchbrowser.py",
+                                          output_fname,
+                                          str(scalene.scalene_config.SCALENE_PORT)],
+                                         stdout=subprocess.DEVNULL,
+                                         stderr=subprocess.DEVNULL)
                     # Restore them.
                     os.environ.update(
                         {

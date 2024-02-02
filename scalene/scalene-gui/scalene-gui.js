@@ -499,11 +499,11 @@ function memory_consumed_str(size_in_mb) {
   let gigabytes = Math.floor(size_in_mb / 1024);
   let terabytes = Math.floor(gigabytes / 1024);
   if (terabytes > 0) {
-    return `${(size_in_mb / 1048576).toFixed(3)} TB`;
+    return `${(size_in_mb / 1048576).toFixed(0)}T`;
   } else if (gigabytes > 0) {
-    return `${(size_in_mb / 1024).toFixed(3)} GB`;
+    return `${(size_in_mb / 1024).toFixed(0)}G`;
   } else {
-    return `${size_in_mb.toFixed(3)} MB`;
+    return `${size_in_mb.toFixed(0)}M`;
   }
 }
 
@@ -523,23 +523,27 @@ function time_consumed_str(time_in_ms) {
   } else if (seconds >= 1) {
     return `${seconds_exact.toFixed(3)}s`;
   } else {
-    return `${time_in_ms.toFixed(3)}ms`;
+    return `${time_in_ms.toFixed(0)}ms`;
   }
 }
 
+
 function makeBar(python, native, system, params) {
+    const widthThreshold1 = 20;
+    const widthThreshold2 = 10;
+    // console.log(`makeBar ${python} ${native} ${system}`);
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
       view: {
-        stroke: "transparent",
-      },
+          stroke: "transparent",
+      }
     },
     autosize: {
       contains: "padding",
     },
-      width: params.width,
-      height: params.height,
+    width: params.width,
+    height: params.height,
     padding: 0,
     data: {
       values: [
@@ -547,19 +551,25 @@ function makeBar(python, native, system, params) {
           x: 0,
           y: python.toFixed(1),
           c: "(Python) " + python.toFixed(1) + "%",
-          d: python.toFixed(0) + "%",
+          d: (python >= widthThreshold1)? python.toFixed(0) + "%":
+		((python >= widthThreshold2)? python.toFixed(0) : ""),
+          q: python / 2,
         },
         {
           x: 0,
           y: native.toFixed(1),
           c: "(native) " + native.toFixed(1) + "%",
-          d: native.toFixed(0) + "%",
+          d: (native >= widthThreshold1) ? native.toFixed(0) + "%":
+		((native >= widthThreshold2)? native.toFixed(0) : ""),
+          q : python + native / 2,
         },
         {
           x: 0,
           y: system.toFixed(1),
           c: "(system) " + system.toFixed(1) + "%",
-          d: system.toFixed(0) + "%",
+            d: (system >= widthThreshold1) ? system.toFixed(0) + "%":
+		((system >= widthThreshold2)? system.toFixed(0) : ""),
+          q: python + native + system / 2,
         },
       ],
     },
@@ -570,7 +580,8 @@ function makeBar(python, native, system, params) {
           x: {
             aggregate: "sum",
             field: "y",
-            axis: false,
+              axis: false,
+	      stack: "zero",
             scale: { domain: [0, 100] },
           },
           color: {
@@ -579,28 +590,26 @@ function makeBar(python, native, system, params) {
             legend: false,
             scale: { range: ["darkblue", "#6495ED", "blue"] },
           },
-          tooltip: [{ field: "c", type: "nominal", title: "time" }],
         },
       },
-      /*	  ,
       {
-          mark: {
-              type: "text",
-              opacity: 1.0,
-              color: "white",
-              align: "right",
-              limit: 50,
+        mark: {
+          type: "text",
+          align: "center",
+          baseline: "middle",
+          dx: 0,
+        },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "q",
+            axis: false,
           },
-          encoding: {
-              x: { type: "quantitative", field: "y" },
-              text: {
-		  field: "d",
-		  bandPosition: 0.5,
-		  condition: { test: `datum['y'] < 20`, value: "" },
-              },
-          },
-	  },
-	  */
+          text: { field: "d" },
+            color: { value: "white" },
+//            tooltip: [{ field: "c", type: "nominal", title: "time" }],
+        },
+      }
     ],
   };
 }
@@ -685,51 +694,78 @@ function makeMemoryPie(native_mem, python_mem, params) {
 }
 
 function makeMemoryBar(memory, title, python_percent, total, color, params) {
-  return {
-    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-    config: {
-      view: {
-        stroke: "transparent",
-      },
-    },
-    autosize: {
-      contains: "padding",
-    },
-      width: params.width,
-      height: params.height,
-    padding: 0,
-    data: {
-      values: [
-        {
-          x: 0,
-          y: python_percent * memory,
-          c: "(Python) " + memory_consumed_str(python_percent * memory),
-        },
-        {
-          x: 0,
-          y: (1.0 - python_percent) * memory,
-          c: "(native) " + memory_consumed_str((1.0 - python_percent) * memory),
-        },
-      ],
-    },
-    mark: { type: "bar" },
-    encoding: {
-      x: {
-        aggregate: "sum",
-        field: "y",
-        axis: false,
-        scale: { domain: [0, total] },
-      },
-      color: {
-        field: "c",
-        type: "nominal",
-        legend: false,
-        scale: { range: [color, "#50C878", "green"] },
-      },
-      tooltip: [{ field: "c", type: "nominal", title: title }],
-    },
-  };
-}
+    console.log(`makeMemoryBar ${python_percent}`);
+    return {
+	$schema: "https://vega.github.io/schema/vega-lite/v5.json",
+	config: {
+	    view: {
+		stroke: "transparent",
+	    },
+	},
+	autosize: {
+	    contains: "padding",
+	},
+	width: params.width,
+	height: params.height,
+	padding: 0,
+	data: {
+	    values: [
+		{
+		    x: 0,
+		    y: python_percent * memory,
+		    c: "(Python) " + memory_consumed_str(python_percent * memory),
+		    d: (python_percent * memory > total * 0.2) ? memory_consumed_str(python_percent * memory) : "",
+		    q: python_percent * memory / 2,
+		},
+		{
+		    x: 0,
+		    y: (1.0 - python_percent) * memory,
+		    c: "(native) " + memory_consumed_str((1.0 - python_percent) * memory),
+		    d: (((1.0 - python_percent) * memory) > total * 0.2) ? memory_consumed_str((1.0 - python_percent) * memory) : "",
+		    q: python_percent * memory + (1.0 - python_percent) * memory / 2,
+		},
+	    ],
+	},
+	layer: [
+	    {
+		mark: { type: "bar" },
+		encoding: {
+		    x: {
+			aggregate: "sum",
+			field: "y",
+			axis: false,
+			scale: { domain: [0, total] },
+		    },
+		    color: {
+			field: "c",
+			type: "nominal",
+			legend: false,
+			scale: { range: [color, "#50C878", "green"] },
+		    },
+		    // tooltip: [{ field: "c", type: "nominal", title: title }],
+		},
+	    },
+	    {
+		mark: {
+		    type: "text",
+		    align: "center",
+		    baseline: "middle",
+		    dx: 0,
+		},
+		encoding: {
+		    x: {
+			aggregate: "sum",
+			field: "q",
+			axis: false,
+		    },
+		    text: { field: "d" },
+		    color: { value: "white" },
+		},
+	    }
+	],
+    }
+};
+
 
 function makeSparkline(
   samples,
@@ -869,17 +905,17 @@ function makeTableHeader(fname, gpu, memory, params) {
   if (memory) {
     columns = columns.concat([
       {
-        title: ["memory", "average"],
-        color: MemoryColor,
-        width: 0,
-        info: "Average amount of memory allocated by line / function",
-      },
-      {
         title: ["memory", "peak"],
         color: MemoryColor,
         width: 0,
         info: "Peak amount of memory allocated by line / function",
       },
+       {
+        title: ["memory", "average"],
+        color: MemoryColor,
+        width: 0,
+        info: "Average amount of memory allocated by line / function",
+	},
       {
         title: ["memory", "timeline"],
         color: MemoryColor,
@@ -1043,7 +1079,7 @@ function makeProfileLine(
 
   let s = "";
   if (
-    total_time ||
+    total_time > 1.0 ||
     has_memory_results ||
     has_gpu_results ||
     (showExplosion &&
@@ -1073,15 +1109,14 @@ function makeProfileLine(
   }
   if (prof.memory) {
     s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
-      line.n_avg_mb.toFixed(0)
+      line.n_peak_mb.toFixed(0)
     ).padStart(10, "0")}'>`;
     s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
-    s += "</td>";
-    if (line.n_avg_mb) {
+    if (line.n_peak_mb) {
       memory_bars.push(
         makeMemoryBar(
-          line.n_avg_mb.toFixed(0),
-          "average memory",
+          line.n_peak_mb.toFixed(0),
+          "peak memory",
           parseFloat(line.n_python_fraction),
           prof.max_footprint_mb.toFixed(2),
             "darkgreen",
@@ -1092,14 +1127,15 @@ function makeProfileLine(
       memory_bars.push(null);
     }
     s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
-      line.n_peak_mb.toFixed(0)
+      line.n_avg_mb.toFixed(0)
     ).padStart(10, "0")}'>`;
     s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
-    if (line.n_peak_mb) {
+    s += "</td>";
+    if (line.n_avg_mb) {
       memory_bars.push(
         makeMemoryBar(
-          line.n_peak_mb.toFixed(0),
-          "peak memory",
+          line.n_avg_mb.toFixed(0),
+          "average memory",
           parseFloat(line.n_python_fraction),
           prof.max_footprint_mb.toFixed(2),
             "darkgreen",
@@ -1220,24 +1256,6 @@ function makeProfileLine(
   return s;
 }
 
-function buildAllocationMaps(prof, f) {
-  let averageMallocs = {};
-  let peakMallocs = {};
-  for (const line of prof.files[f].lines) {
-    const avg = parseFloat(line.n_avg_mb);
-    if (!averageMallocs[avg]) {
-      averageMallocs[avg] = [];
-    }
-    averageMallocs[avg].push(line.lineno);
-    const peak = parseFloat(line.n_peak_mb);
-    if (!peakMallocs[peak]) {
-      peakMallocs[peak] = [];
-    }
-    peakMallocs[peak].push(line.lineno);
-  }
-  return [averageMallocs, peakMallocs];
-}
-
 // Track all profile ids so we can collapse and expand them en masse.
 let allIDs = [];
 
@@ -1275,6 +1293,20 @@ function toggleDisplay(id) {
     document.getElementById(`button-${id}`).innerHTML = DownTriangle;
   }
 }
+
+String.prototype.padWithNonBreakingSpaces = function (targetLength) {
+    let nbsp = '&nbsp;';
+    let padding = '';
+    let currentLength = this.length * nbsp.length;
+    targetLength *= nbsp.length;
+
+    while (currentLength < targetLength) {
+        padding += nbsp;
+        currentLength += nbsp.length;
+    }
+
+    return padding + this;
+};
 
 async function display(prof) {
     // Clear explosions.
@@ -1360,24 +1392,31 @@ async function display(prof) {
   let cpu_system = 0;
   let mem_python = 0;
   let mem_native = 0;
-  let max_alloc = 0;
+    let max_alloc = 0;
+    let cp = {};
+    let cn = {};
+    let cs = {};
+    let mp = {};
+    let ma = {};
   for (const f in prof.files) {
-    let cp = 0;
-    let cn = 0;
-    let cs = 0;
-    let mp = 0;
+      cp[f] = 0;
+      cn[f] = 0;
+      cs[f] = 0;
+      mp[f] = 0;
+      ma[f] = 0;
     for (const l in prof.files[f].lines) {
       const line = prof.files[f].lines[l];
-      cp += line.n_cpu_percent_python;
-      cn += line.n_cpu_percent_c;
-      cs += line.n_sys_percent;
-      mp += line.n_malloc_mb * line.n_python_fraction;
+      cp[f] += line.n_cpu_percent_python;
+      cn[f] += line.n_cpu_percent_c;
+      cs[f] += line.n_sys_percent;
+      mp[f] += line.n_malloc_mb * line.n_python_fraction;
+      ma[f] += line.n_malloc_mb
       max_alloc += line.n_malloc_mb;
     }
-    cpu_python += cp;
-    cpu_native += cn;
-    cpu_system += cs;
-    mem_python += mp;
+    cpu_python += cp[f];
+    cpu_native += cn[f];
+    cpu_system += cs[f];
+    mem_python += mp[f];
   }
     cpu_bars.push(makeBar(cpu_python, cpu_native, cpu_system, { height: 20, width: 200 }));
   if (prof.memory) {
@@ -1386,7 +1425,7 @@ async function display(prof) {
         max_alloc,
         "memory",
         mem_python / max_alloc,
-        max_alloc,
+          prof.max_footprint_mb.toFixed(2), // was max_alloc FIXME?
           "darkgreen",
 	  { height: 20, width: 150 }
       )
@@ -1415,25 +1454,43 @@ async function display(prof) {
   // Print profile for each file
   let fileIteration = 0;
   allIds = [];
-  for (const ff of files) {
+    for (const ff of files) {
+	// Stop once total CPU time is too low
+	// NOTE: possibly need to incorporate memory and GPU time here as well. FIXME
+//	if ((ff[1].percent_cpu_time < 1.0)) {
+//	    break;
+//	}
     const id = `file-${fileIteration}`;
     allIds.push(id);
-      s += '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px);">';
-    s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue" onClick="toggleDisplay('${id}')">`;
-    s += `${DownTriangle}`;
-    s += "</span>";
-    s += `<font style="font-size: 90%"><code>${
-      ff[0]
-    }</code>: % of time = ${ff[1].percent_cpu_time.toFixed(
+    s += '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px)">';
+      let displayStr = "display:block;";
+      let triangle = DownTriangle;
+      if (fileIteration !== 0) {
+	  displayStr = "display:none;";
+	  triangle = RightTriangle;
+      }
+      
+	s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>&nbsp;`;
+      cpu_bars.push(makeBar(cp[ff[0]], cn[ff[0]], cs[ff[0]], { height: 20, width: 100 }));
+	if (prof.memory) {
+	    s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
+	    memory_bars.push(makeMemoryBar(ma[ff[0]], "peak memory", mp[ff[0]] / ma[ff[0]], prof.max_footprint_mb.toFixed(2), "darkgreen", { height: 20, width: 100 }));
+	}
+    s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time.toFixed(
       1
-    )}% (${time_consumed_str(
+    ).padWithNonBreakingSpaces(5)}% (${time_consumed_str(
       (ff[1].percent_cpu_time / 100.0) * prof.elapsed_time_sec * 1e3
-    )}) out of ${time_consumed_str(prof.elapsed_time_sec * 1e3)}.</font></p>`;
-    s += `<div style="display: block" id="profile-${id}">`;
-    s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
-    tableID++;
+    ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(prof.elapsed_time_sec * 1e3).padWithNonBreakingSpaces(8)})<br />`;
+      s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
+      s += `${triangle}`;
+      s += "</span>";
+      s += `<code> ${ff[0]}</code>`;
+      s += `</font></p>`;
+      s += `<div style="${displayStr}" id="profile-${id}">`;
+      s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
+      tableID++;
       s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: false });
-    s += "<tbody>";
+      s += "<tbody>";
     // Print per-line profiles.
     let prevLineno = -1;
     for (const l in ff[1].lines) {
@@ -1629,7 +1686,6 @@ function toggleServiceFields() {
 
 function revealInstallMessage()
 {
-    console.log("REVEAL MESSAGE");
     document.getElementById('install-models-message').style.display = "block";
     document.getElementById('local-models-list').style.display = "none";
     
@@ -1781,4 +1837,4 @@ function sendHeartbeat() {
     xhr.send();
 }
 
-setInterval(sendHeartbeat, 5000); // Send heartbeat every 5 seconds
+setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
