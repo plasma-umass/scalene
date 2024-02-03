@@ -1440,12 +1440,30 @@ async function display(prof) {
   s += "</span>";
   s += "</span>";
 
+    if (JSON.stringify(prof) === "{}") {
+	// Empty profile.
+	s += `
+    <form id="jsonFile" name="jsonFile" enctype="multipart/form-data" method="post">
+      <div class="form-group">
+	<div class="d-flex justify-content-center">
+	  <label for='fileinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">Select a profile (.json)</label>
+	  <input style="height: 0; width: 10; opacity:0" type='file' id='fileinput' accept='.json' onchange="loadFile();">
+	</div>
+      </div>
+    </form>
+    </div>`;
+	const p = document.getElementById("profile");
+	p.innerHTML = s;
+	return;
+    }
+    
+    
   s +=
     '<br class="text-left"><span style="font-size: 80%; color: blue; cursor : pointer;" onClick="expandAll()">&nbsp;show all</span> | <span style="font-size: 80%; color: blue; cursor : pointer;" onClick="collapseAll()">hide all</span>';
   s += ` | <span style="font-size: 80%; color: blue" onClick="document.getElementById('reduce-checkbox').click()">only display profiled lines&nbsp;</span><input type="checkbox" id="reduce-checkbox" checked onClick="toggleReduced()" /></br>`;
   s += '<div class="container-fluid">';
 
-  // Convert files to an array and sort it in descending order by percent of CPU time.
+    // Convert files to an array and sort it in descending order by percent of CPU time.
   let files = Object.entries(prof.files);
   files.sort((x, y) => {
     return y[1].percent_cpu_time - x[1].percent_cpu_time;
@@ -1474,7 +1492,6 @@ async function display(prof) {
       cpu_bars.push(makeBar(cp[ff[0]], cn[ff[0]], cs[ff[0]], { height: 20, width: 100 }));
 	if (prof.memory) {
 	    s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
-	    console.log('MEMORY BAR ' + ff[0] + ", " + ma[ff[0]]);
 	    memory_bars.push(makeMemoryBar(ma[ff[0]], "peak memory", mp[ff[0]] / ma[ff[0]], prof.max_footprint_mb.toFixed(2), "darkgreen", { height: 20, width: 100 }));
 	}
     s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time.toFixed(

@@ -106,7 +106,7 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         profile = profile_file.read_text()
     except FileNotFoundError:
         assert profile_fname == "demo"
-        profile = ""
+        profile = "{}"
         # return
 
     # Load the GUI JavaScript file.
