@@ -1232,7 +1232,7 @@ class Scalene:
                 _alloc_time,
                 action,
                 count,
-                _python_fraction,
+                python_fraction,
                 pointer,
                 fname,
                 lineno,
@@ -1244,6 +1244,7 @@ class Scalene:
                 stats.current_footprint += count
                 if stats.current_footprint > stats.max_footprint:
                     stats.max_footprint = stats.current_footprint
+                    stats.max_footprint_python_fraction = python_fraction
                     stats.max_footprint_loc = (fname, lineno)
             else:
                 assert action in [

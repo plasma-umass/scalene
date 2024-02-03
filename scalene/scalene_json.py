@@ -302,6 +302,7 @@ class ScaleneJSON:
             "elapsed_time_sec": stats.elapsed_time,
             "growth_rate": growth_rate,
             "max_footprint_mb": stats.max_footprint,
+            "max_footprint_python_fraction" : stats.max_footprint_python_fraction,
             "max_footprint_fname": stats.max_footprint_loc[0]
             if stats.max_footprint_loc
             else None,

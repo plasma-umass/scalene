@@ -694,7 +694,6 @@ function makeMemoryPie(native_mem, python_mem, params) {
 }
 
 function makeMemoryBar(memory, title, python_percent, total, color, params) {
-    console.log(`makeMemoryBar ${python_percent}`);
     return {
 	$schema: "https://vega.github.io/schema/vega-lite/v5.json",
 	config: {
@@ -1387,51 +1386,52 @@ async function display(prof) {
   s += "</tr>";
 
   // Compute overall usage.
-  let cpu_python = 0;
-  let cpu_native = 0;
-  let cpu_system = 0;
-  let mem_python = 0;
-  let mem_native = 0;
+    let cpu_python = 0;
+    let cpu_native = 0;
+    let cpu_system = 0;
+    let mem_python = 0;
+    let mem_native = 0;
     let max_alloc = 0;
     let cp = {};
     let cn = {};
     let cs = {};
     let mp = {};
     let ma = {};
-  for (const f in prof.files) {
-      cp[f] = 0;
-      cn[f] = 0;
-      cs[f] = 0;
-      mp[f] = 0;
-      ma[f] = 0;
-    for (const l in prof.files[f].lines) {
-      const line = prof.files[f].lines[l];
-      cp[f] += line.n_cpu_percent_python;
-      cn[f] += line.n_cpu_percent_c;
-      cs[f] += line.n_sys_percent;
-      mp[f] += line.n_malloc_mb * line.n_python_fraction;
-      ma[f] += line.n_malloc_mb
-      max_alloc += line.n_malloc_mb;
+    for (const f in prof.files) {
+	cp[f] = 0;
+	cn[f] = 0;
+	cs[f] = 0;
+	mp[f] = 0;
+	ma[f] = 0;
+	for (const l in prof.files[f].lines) {
+	    const line = prof.files[f].lines[l];
+	    cp[f] += line.n_cpu_percent_python;
+	    cn[f] += line.n_cpu_percent_c;
+	    cs[f] += line.n_sys_percent;
+	    if (line.n_peak_mb > ma[f]) {
+		ma[f] = line.n_peak_mb;
+		mp[f] += line.n_peak_mb * line.n_python_fraction;
+	    }
+	    max_alloc += line.n_malloc_mb;
+	}
+	cpu_python += cp[f];
+	cpu_native += cn[f];
+	cpu_system += cs[f];
+	mem_python += mp[f];
     }
-    cpu_python += cp[f];
-    cpu_native += cn[f];
-    cpu_system += cs[f];
-    mem_python += mp[f];
-  }
     cpu_bars.push(makeBar(cpu_python, cpu_native, cpu_system, { height: 20, width: 200 }));
-  if (prof.memory) {
-    memory_bars.push(
-      makeMemoryBar(
-        max_alloc,
-        "memory",
-        mem_python / max_alloc,
-          prof.max_footprint_mb.toFixed(2), // was max_alloc FIXME?
-          "darkgreen",
-	  { height: 20, width: 150 }
-      )
-    );
-  }
-
+    if (prof.memory) {
+	memory_bars.push(
+	    makeMemoryBar(
+		prof.max_footprint_mb.toFixed(2),
+		"memory",
+		mem_python / max_alloc,
+		prof.max_footprint_mb.toFixed(2),
+		"darkgreen",
+		{ height: 20, width: 150 }
+	    )
+	);
+    }
     
   s += '<tr><td colspan="10">';
   s += `<span class="text-center"><font style="font-size: 90%; font-style: italic; font-color: darkgray">hover over bars to see breakdowns; click on <font style="font-variant:small-caps; text-decoration:underline">column headers</font> to sort.</font></span>`;
@@ -1474,6 +1474,7 @@ async function display(prof) {
       cpu_bars.push(makeBar(cp[ff[0]], cn[ff[0]], cs[ff[0]], { height: 20, width: 100 }));
 	if (prof.memory) {
 	    s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
+	    console.log('MEMORY BAR ' + ff[0] + ", " + ma[ff[0]]);
 	    memory_bars.push(makeMemoryBar(ma[ff[0]], "peak memory", mp[ff[0]] / ma[ff[0]], prof.max_footprint_mb.toFixed(2), "darkgreen", { height: 20, width: 100 }));
 	}
     s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time.toFixed(

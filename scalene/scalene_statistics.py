@@ -161,6 +161,7 @@ class ScaleneStatistics:
 
         # the peak memory footprint
         self.max_footprint: float = 0.0
+        self.max_footprint_python_fraction : float = 0
         self.max_footprint_loc: Optional[Tuple[Filename, LineNumber]] = None
         # memory footprint samples (time, footprint)
         self.memory_footprint_samples: List[List[float]] = []
