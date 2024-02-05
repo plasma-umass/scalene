@@ -14,6 +14,31 @@ function vsNavigate(filename, lineno) {
     
 }
 
+
+function extractPythonCodeBlock(markdown) {
+  // Pattern to match code blocks optionally tagged with "python"
+  // - ``` optionally followed by "python"
+  // - Non-greedy match for any characters (including new lines) between the backticks
+  // - Flags: 
+  //   - 'g' for global search to find all matches
+  //   - 's' to allow '.' to match newline characters
+  const pattern = /```python\s*([\s\S]*?)```|```([\s\S]*?)```/g;
+
+  let match;
+  let extractedCode = '';
+  // Use a loop to find all matches
+  while ((match = pattern.exec(markdown)) !== null) {
+    // Check which group matched. Group 1 is for explicitly tagged Python code, group 2 for any code block
+    const codeBlock = match[1] ? match[1] : match[2];
+    // Concatenate the extracted code blocks, separated by new lines if there's more than one block
+    if (extractedCode && codeBlock) extractedCode += '\n\n';
+    extractedCode += codeBlock;
+  }
+
+  return extractedCode;
+}
+
+
 const RightTriangle = "&#9658"; // right-facing triangle symbol (collapsed view)
 const DownTriangle = "&#9660"; // downward-facing triangle symbol (expanded view)
 const Lightning = "&#9889;"; // lightning bolt (for optimizing a line)
@@ -386,7 +411,11 @@ async function optimizeCode(imports, code, context) {
 	    console.log("Running " + document.getElementById('service-select').value);
 	    console.log(optimizePerformancePrompt_ollama);
 	    const result = await sendPromptToOllama(optimizePerformancePrompt_ollama, Math.max(numWords * 4, 500), document.getElementById('language-model-local').value, document.getElementById('local-ip').value, document.getElementById('local-port').value);
-	    return result;;
+	    if (result.includes('\`\`\`')) {
+		return extractPythonCodeBlock(result);
+	    } else {
+		return result;
+	    }
 	}
     case "amazon":
 	{
@@ -1308,6 +1337,7 @@ String.prototype.padWithNonBreakingSpaces = function (targetLength) {
 };
 
 async function display(prof) {
+    //    console.log(JSON.stringify(prof.stacks));
     // Clear explosions.
   showedExplosion = {};
     // Restore the API key from local storage (if any).
