@@ -293,6 +293,13 @@ class ScaleneJSON:
             this_stk.extend(stk)
             stks.append((this_stk, stats.stacks[stk]))
 
+        # Convert native stacks into a representation suitable for JSON dumping.
+        native_stks = []
+        for stk in stats.native_stacks.keys():
+            this_stk: List[str] = []
+            this_stk.extend(stk)
+            native_stks.append((this_stk, stats.native_stacks[stk]))
+
         output: Dict[str, Any] = {
             "program": program,
             "entrypoint_dir": entrypoint_dir,
@@ -314,6 +321,7 @@ class ScaleneJSON:
             "memory": profile_memory,
             "samples": stats.memory_footprint_samples,
             "stacks": stks,
+            "native_stacks": native_stks
         }
 
         # Build a list of files we will actually report on.

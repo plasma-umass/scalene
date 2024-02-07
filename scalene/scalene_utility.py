@@ -2,6 +2,7 @@ import http.server
 import inspect
 import os
 import pathlib
+import signal
 import sys
 import shutil
 import socketserver
@@ -52,6 +53,21 @@ def add_stack(
             stk.insert(0, (f.f_code.co_filename, f.f_code.co_name, f.f_lineno))
         f = f.f_back
     stacks[tuple(stk)] += 1
+
+def add_native_stack(
+    sig: int,
+    should_trace: Callable[[Filename, str], bool],
+    native_stacks: Dict[Any, int],
+) -> None:
+    """Add one to the stack starting from this frame."""
+    try:
+        tb = signal.get_native_traceback(sig)
+    except AttributeError:
+        return
+    stk: List[Tuple[str, str, int]] = list()
+    for f in tb:
+        stk.insert(0, (f.filename, f.name))
+    native_stacks[tuple(stk)] += 1
 
 
 def on_stack(

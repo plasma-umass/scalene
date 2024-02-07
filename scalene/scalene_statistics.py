@@ -42,6 +42,9 @@ class ScaleneStatistics:
         #  full stacks taken during CPU samples, together with number of hits
         self.stacks: Dict[Tuple[Any], int] = defaultdict(int)
 
+        #  native stacks taken during CPU samples, together with number of hits
+        self.native_stacks: Dict[Tuple[Any], int] = defaultdict(int)
+
         #   CPU samples for each location in the program
         #   spent in the interpreter
         self.cpu_samples_python: Dict[
@@ -192,6 +195,7 @@ class ScaleneStatistics:
         self.elapsed_time = 0
         self.alloc_samples = 0
         self.stacks.clear()
+        self.native_stacks.clear()
         self.cpu_samples_python.clear()
         self.cpu_samples_c.clear()
         self.cpu_utilization.clear()
@@ -324,6 +328,7 @@ class ScaleneStatistics:
         "elapsed_time",
         "alloc_samples",
         "stacks",
+        "native_stacks",
         "total_cpu_samples",
         "cpu_samples_c",
         "cpu_samples_python",
@@ -425,6 +430,7 @@ class ScaleneStatistics:
                 self.elapsed_time = max(self.elapsed_time, x.elapsed_time)
                 self.alloc_samples += x.alloc_samples
                 self.stacks.update(x.stacks)
+                self.native_stacks.update(x.native_stacks)
                 self.total_cpu_samples += x.total_cpu_samples
                 self.total_gpu_samples += x.total_gpu_samples
                 self.increment_per_line_samples(
