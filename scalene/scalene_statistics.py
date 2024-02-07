@@ -40,7 +40,7 @@ class ScaleneStatistics:
         self.alloc_samples: int = 0
 
         #  full stacks taken during CPU samples, together with number of hits
-        self.stacks: Dict[Tuple[Any], int] = defaultdict(int)
+        self.stacks: Dict[Tuple[Any], Any] = defaultdict(None)
 
         #   CPU samples for each location in the program
         #   spent in the interpreter

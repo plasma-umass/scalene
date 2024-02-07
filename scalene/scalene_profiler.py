@@ -1008,15 +1008,20 @@ class Scalene:
 
         main_thread_frame = new_frames[0][0]
 
-        if Scalene.__args.stacks:
-            add_stack(
-                main_thread_frame, Scalene.should_trace, Scalene.__stats.stacks
-            )
-
         average_python_time = python_time / total_frames
         average_c_time = c_time / total_frames
         average_gpu_time = gpu_time / total_frames
         average_cpu_time = (python_time + c_time) / total_frames
+
+        if Scalene.__args.stacks:
+            add_stack(
+                main_thread_frame,
+                Scalene.should_trace,
+                Scalene.__stats.stacks,
+                average_python_time,
+                average_c_time,
+                average_cpu_time
+            )
 
         # First, handle the main thread.
         Scalene.enter_function_meta(main_thread_frame, Scalene.__stats)
@@ -1044,7 +1049,12 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             if frame == main_thread_frame:
                 continue
-            add_stack(frame, Scalene.should_trace, Scalene.__stats.stacks)
+            add_stack(frame,
+                      Scalene.should_trace,
+                      Scalene.__stats.stacks,
+                      average_python_time,
+                      average_c_time,
+                      average_cpu_time)
 
             # In a thread.
             fname = Filename(frame.f_code.co_filename)
