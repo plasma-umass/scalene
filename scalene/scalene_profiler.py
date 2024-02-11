@@ -7,8 +7,7 @@ from __future__ import annotations # work around Python 3.8 issue, see https://s
     See the paper "docs/osdi23-berger.pdf" in this repository for technical
     details on Scalene's design.
 
-    by Emery Berger
-    https://emeryberger.com
+    by Emery Berger, Sam Stern, and Juan Altmayer Pizzorno
 
     usage: scalene test/testme.py
     usage help: scalene --help
@@ -804,7 +803,7 @@ class Scalene:
     def output_profile(program_args: Optional[List[str]] = None) -> bool:
         """Output the profile. Returns true iff there was any info reported the profile."""
         # sourcery skip: inline-immediately-returned-variable
-        # print(Scalene.flamegraph_format(Scalene.__stats.stacks))
+        # print(flamegraph_format(Scalene.__stats.stacks))       
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
                 Scalene.__program_being_profiled,
