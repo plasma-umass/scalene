@@ -12,6 +12,123 @@ function vsNavigate(filename, lineno) {
   } catch {}
 }
 
+function generateScaleneOptimizedCodeRequest(
+    context,
+    sourceCode,
+    line,
+  recommendedLibraries = [],
+  includeGpuOptimizations = false,
+) {
+  // Default high-performance libraries known for their efficiency
+  const defaultLibraries = [
+    "NumPy",
+    "Pandas",
+    "CuPy",
+    "Numba",
+    "TensorFlow",
+    "PyTorch",
+  ];
+  const highPerformanceLibraries = [
+    ...new Set([...defaultLibraries, ...recommendedLibraries]),
+  ];
+
+    const optPrompt = `Optimize the following Python code:
+
+#!/usr/bin/env python3
+import numpy as np
+#import math
+
+# from numpy import linalg as LA
+
+arr = [i for i in range(1,1000)]
+
+
+
+# Start of code
+
+def doit1(x):
+    y = 1
+    x = [i*i for i in range(0,100000)][99999]
+    y1 = [i*i for i in range(0,200000)][199999]
+    z1 = [i for i in range(0,300000)][299999]
+    z = x * y * y1 * z1
+    return z
+
+
+# End of code
+
+Rewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:
+
+import numpy as np
+import sys
+
+Use native libraries if that would make it faster than pure Python. Consider using the following other libraries, if appropriate:
+
+import sklearn
+import cupy
+
+Your output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized code:`;
+    
+    
+  let promptParts = [
+      "Optimize the following Python code to make it more efficient WITHOUT CHANGING ITS RESULTS.\n\n",
+      context.trim(),
+    "\n# Start of code\n",
+    sourceCode.trim(),
+    "\n# End of code\n\n",
+    "Rewrite the above Python code from 'Start of code' to 'End of code', aiming for clear and simple optimizations. ",
+    "Your output should consist only of valid Python code, with brief explanatory comments prefaced with #. ",
+    "Include a detailed explanatory comment before the code, starting with '# Proposed optimization:'. ",
+      "Leverage high-performance native libraries, especially those utilizing GPU, for significant performance improvements. ",
+      "Consider using the following other libraries, if appropriate:\n",
+      highPerformanceLibraries.map((e) => "  import " + e).join("\n") + "\n",
+    "Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. ",
+//    "Consider GPU utilization, memory consumption, and copy volume when using GPU-accelerated libraries. ",
+//    "Low GPU utilization and high copy volume indicate inefficient use of such libraries. ",
+    "Quantify the expected speedup in terms of orders of magnitude if possible. ",
+    "Fix any errors in the optimized code. ",
+//    "Consider the peak amount of memory used per line and CPU utilization for targeted optimization. ",
+      //    "Note on CPU utilization: Low utilization in libraries known for multi-threading/multi-processing indicates inefficiency.\n\n",
+  ];
+
+  // Conditional inclusion of GPU optimizations
+  if (includeGpuOptimizations) {
+    promptParts.push(
+      "Use GPU-accelerated libraries whenever it would substantially increase performance. ",
+    );
+  }
+
+  // Performance Insights
+  promptParts.push(
+    "Consider the following insights gathered from the Scalene profiler for optimization:\n",
+  );
+    const total_cpu_percent = line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
+    
+    promptParts.push(`- CPU time: percent spent in the Python interpreter: ${(100*line.n_cpu_percent_python/total_cpu_percent).toFixed(2)}%\n`);
+    promptParts.push(`- CPU time: percent spent executing native code: ${(100*line.n_cpu_percent_c/total_cpu_percent).toFixed(2)}%\n`);
+    promptParts.push(`- CPU time: percent of system time: ${(100*line.n_sys_percent/total_cpu_percent).toFixed(2)}%\n`);
+    // `- CPU utilization: ${performanceMetrics.cpu_utilization}. Low utilization with high-core count might indicate inefficient use of multi-threaded/multi-process libraries.\n`,
+    promptParts.push(`- Core utilization: ${(100*line.n_core_utilization/total_cpu_percent).toFixed(2)}%\n`);
+    //      `- Peak memory per line: Focus on lines with high memory usage, specifically ${performanceMetrics.peak_memory_per_line}.\n`,
+    promptParts.push(`- Peak memory usage: ${line.n_peak_mb.toFixed(0)}MB (${(100 * line.n_python_fraction).toFixed(2)}% Python memory)\n`);
+    //      `- Copy volume: ${performanceMetrics.copy_volume} MB. High volume indicates inefficient data handling with GPU libraries.\n`,
+    if (line.n_copy_mb_s > 1) {
+	promptParts.push(`- Megabytes copied per second by memcpy/strcpy: ${line.n_copy_mb_s.toFixed(2)}\n`);
+    }
+    if (includeGpuOptimizations) {
+        // `  - GPU utilization: ${performanceMetrics.gpu_utilization}%. Low utilization indicates potential inefficiencies in GPU-accelerated library use.\n`
+	promptParts.push(`- GPU percent utilization: ${(100 * line.n_gpu_percent).toFixed(2)}%\n`);
+        // `  - GPU memory usage: ${performanceMetrics.gpu_memory} MB. Optimize to reduce unnecessary GPU memory consumption.\n`
+	// TODO GPU memory
+    }
+    promptParts.push(`Optimized code:`);
+  return promptParts.join("");
+}
+
+const recommendedLibraries = ["Cython", "Dask"]; // Add any domain-specific libraries here
+
+// const prompt = generateScaleneOptimizedCodeRequest(context, sourceCode, line, recommendedLibraries, true);
+
 function extractPythonCodeBlock(markdown) {
   // Pattern to match code blocks optionally tagged with "python"
   // - ``` optionally followed by "python"
@@ -354,9 +471,22 @@ function countSpaces(str) {
   return 0;
 }
 
-async function optimizeCode(imports, code, context) {
+async function optimizeCode(imports, code, line, context) {
   // Tailor prompt to request GPU optimizations or not.
-  const useGPUs = document.getElementById("use-gpu-checkbox").checked; // globalThis.profile.gpu;
+    const useGPUs = document.getElementById("use-gpu-checkbox").checked; // globalThis.profile.gpu;
+
+    let recommendedLibraries = ["sklearn"];
+    if (useGPUs) {
+	// Suggest cupy if we are using the GPU.
+	recommendedLibraries.push("cupy");
+    } else {
+	// Suggest numpy otherwise.
+	recommendedLibraries.push("numpy");
+    }
+    // TODO: remove anything already imported in imports
+
+    const bigPrompt = generateScaleneOptimizedCodeRequest(context, code, line, recommendedLibraries, useGPUs);
+
   const useGPUstring = useGPUs ? " or the GPU " : " ";
   // Check for a valid API key.
   // TODO: Add checks for Amazon / local
@@ -411,10 +541,9 @@ async function optimizeCode(imports, code, context) {
     prompt = memoryEfficiencyPrompt;
   }
 
-  // const prompt = `Below is some Python code to optimize, from "Start of code" to "End of code":\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code to make it more efficient without changing the results. Assume the code has already executed these imports. Do NOT include them in the optimized code:\n\n${imports}\n\nUse fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Check carefully by generating inputs to see that the output is identical for both the original and optimized versions. Correctly-optimized code:`;
-
-  // const prev_prompt =  `Below is some Python code to optimize:\n\n${code}\n\nRewrite the above Python code to make it more efficient while keeping the same semantics. Use fast native libraries if that would make it faster than pure Python. Your output should only consist of valid Python code. Output only the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and try to quantify the speedup in terms of orders of magnitude. If the performance is not likely to increase, leave the code unchanged. Your output should only consist of legal Python code. Format all comments to be less than 40 columns wide:\n\n`;
-
+    // Just use big prompt maybe FIXME
+    prompt = bigPrompt;
+    
   // Use number of words in the original code as a proxy for the number of tokens.
   const numWords = code.match(/\b\w+\b/g).length;
 
@@ -429,10 +558,11 @@ async function optimizeCode(imports, code, context) {
       return extractCode(result);
     }
     case "local": {
-      console.log("Running " + document.getElementById("service-select").value);
-      console.log(optimizePerformancePrompt_ollama);
+	console.log("Running " + document.getElementById("service-select").value);
+	console.log(prompt);
+//      console.log(optimizePerformancePrompt_ollama);
       const result = await sendPromptToOllama(
-        optimizePerformancePrompt_ollama,
+          prompt, // optimizePerformancePrompt_ollama,
         Math.max(numWords * 4, 500),
         document.getElementById("language-model-local").value,
         document.getElementById("local-ip").value,
@@ -446,9 +576,9 @@ async function optimizeCode(imports, code, context) {
     }
     case "amazon": {
       console.log("Running " + document.getElementById("service-select").value);
-      console.log(optimizePerformancePrompt_ollama);
+	console.log(prompt); // optimizePerformancePrompt_ollama);
       const result = await sendPromptToAmazon(
-        optimizePerformancePrompt_ollama,
+          prompt, // optimizePerformancePrompt_ollama,
         Math.max(numWords * 4, 500),
       );
       console.log(
@@ -459,24 +589,24 @@ async function optimizeCode(imports, code, context) {
   }
 }
 
-function proposeOptimizationRegion(filename, file_number, lineno) {
-  proposeOptimization(filename, file_number, lineno, { regions: true });
+function proposeOptimizationRegion(filename, file_number, line) {
+    proposeOptimization(filename, file_number, JSON.parse(decodeURIComponent(line)), { regions: true });
 }
 
-function proposeOptimizationLine(filename, file_number, lineno) {
-  proposeOptimization(filename, file_number, lineno, { regions: false });
+function proposeOptimizationLine(filename, file_number, line) {
+    proposeOptimization(filename, file_number, JSON.parse(decodeURIComponent(line)), { regions: false });
 }
 
-function proposeOptimization(filename, file_number, lineno, params) {
+function proposeOptimization(filename, file_number, line, params) {
   filename = unescape(filename);
   const useRegion = params["regions"];
   const prof = globalThis.profile;
   const this_file = prof.files[filename].lines;
   const imports = prof.files[filename].imports.join("\n");
-  const start_region_line = this_file[lineno - 1]["start_region_line"];
-  const end_region_line = this_file[lineno - 1]["end_region_line"];
+  const start_region_line = this_file[line.lineno - 1]["start_region_line"];
+  const end_region_line = this_file[line.lineno - 1]["end_region_line"];
   let context;
-  const code_line = this_file[lineno - 1]["line"];
+  const code_line = this_file[line.lineno - 1]["line"];
   let code_region;
   if (useRegion) {
     code_region = this_file
@@ -493,7 +623,10 @@ function proposeOptimization(filename, file_number, lineno, params) {
   } else {
     code_region = code_line;
     context = this_file
-      .slice(Math.max(0, lineno - 10), Math.min(lineno - 1, this_file.length))
+      .slice(
+        Math.max(0, line.lineno - 10),
+        Math.min(line.lineno - 1, this_file.length),
+      )
       .map((e) => e["line"])
       .join("");
   }
@@ -501,7 +634,7 @@ function proposeOptimization(filename, file_number, lineno, params) {
   let leadingSpaceCount = countSpaces(code_line) + 3; // including the lightning bolt and explosion
   let indent =
     WhiteLightning + WhiteExplosion + "&nbsp;".repeat(leadingSpaceCount - 1);
-  const elt = document.getElementById(`code-${file_number}-${lineno}`);
+  const elt = document.getElementById(`code-${file_number}-${line.lineno}`);
   (async () => {
     // TODO: check Amazon credentials
     const service = document.getElementById("service-select").value;
@@ -530,7 +663,7 @@ function proposeOptimization(filename, file_number, lineno, params) {
       }
     }
     elt.innerHTML = `<em>${indent}working...</em>`;
-    let message = await optimizeCode(imports, code_region, context);
+      let message = await optimizeCode(imports, code_region, line, context);
     if (!message) {
       elt.innerHTML = "";
       return;
@@ -546,8 +679,8 @@ function proposeOptimization(filename, file_number, lineno, params) {
       )
       .join("<br />");
     // Display the proposed optimization, with click-to-copy functionality.
-    elt.innerHTML = `<hr><span title="click to copy" style="cursor: copy" id="opt-${file_number}-${lineno}">${formattedCode}</span>`;
-    thisElt = document.getElementById(`opt-${file_number}-${lineno}`);
+    elt.innerHTML = `<hr><span title="click to copy" style="cursor: copy" id="opt-${file_number}-${line.lineno}">${formattedCode}</span>`;
+    thisElt = document.getElementById(`opt-${file_number}-${line.lineno}`);
     thisElt.addEventListener("click", async (e) => {
       await copyOnClick(e, message);
       // After copying, briefly change the cursor back to the default to provide some visual feedback..
@@ -1322,12 +1455,30 @@ function makeProfileLine(
 
   const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
   s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
-  if (propose_optimizations && showExplosion) {
-    s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for the entire region starting here." onclick="proposeOptimizationRegion('${escape(
+    let newLine = structuredClone(line);
+    // TODO: verify that this isn't double counting anything
+    if (propose_optimizations && showExplosion) {
+	// Construct a new line corresponding to this region.
+	let mb_copied = 0;
+	for (let lineno = start_region_line; lineno < end_region_line; lineno++) {
+	    currline = prof["files"][filename]["lines"][lineno];
+	    mb_copied += currline.n_copy_mb * prof.elapsed_time_sec;
+	    newLine.n_cpu_percent_python += currline.n_cpu_percent_python;
+	    newLine.n_cpu_percent_c += currline.n_cpu_percent_c;
+	    newLine.n_sys_percent += currline.n_sys_percent;
+	    newLine.n_gpu_percent += currline.n_gpu_percent;
+	    if (currline.n_peak_mb > newLine.n_peak_mb) {
+		newLine.n_peak_mb = currline.n_peak_mb;
+		newLine.n_python_fraction = currline.n_python_fraction;
+	    }
+	    // TODO:
+	    // GPU memory
+	    newLine.n_core_utilization += (currline.n_cpu_percent_python + currline.n_cpu_percent_c) * currline.n_core_utilization; // weigh by percentage
+	}
+	newLine.n_copy_mb_s = mb_copied / prof.elapsed_time_sec;
+	s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for the entire region starting here." onclick="proposeOptimizationRegion('${escape(
       filename,
-    )}', ${file_number}, ${parseInt(
-      line.lineno,
-    )}); event.preventDefault()">${regionOptimizationString}</span>`;
+    )}', ${file_number}, '${encodeURIComponent(JSON.stringify(newLine))}'); event.preventDefault()">${regionOptimizationString}</span>`;
   } else {
     s += regionOptimizationString;
   }
@@ -1335,12 +1486,9 @@ function makeProfileLine(
   const lineOptimizationString = propose_optimizations
     ? `${Lightning}`
     : `${WhiteLightning}`;
-  if (propose_optimizations) {
-    s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${escape(
-      filename,
-    )}', ${file_number}, ${parseInt(
-      line.lineno,
-    )}); event.preventDefault()">${lineOptimizationString}</span>`;
+    if (propose_optimizations) {
+	s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${escape(filename)}', ${file_number}, '${encodeURIComponent(JSON.stringify(line))}'); event.preventDefault()">${lineOptimizationString}</span>`;
+      // s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${escape(filename,)}', ${file_number}, ${JSON.stringify(line)}); event.preventDefault()">${lineOptimizationString}</span>`;
   } else {
     s += lineOptimizationString;
   }
