@@ -109,14 +109,14 @@ def get_fully_qualified_name(frame: FrameType) -> Filename:
     return fn_name
 
 
-def flamegraph_format(stacks: Dict[Tuple[Any], int]) -> str:
+def flamegraph_format(stacks: Dict[Tuple[Any], Any]) -> str:
     """Converts stacks to a string suitable for input to Brendan Gregg's flamegraph.pl script."""
     output = ""
     for stk in stacks.keys():
         for item in stk:
             (fname, fn_name, lineno) = item
             output += f"{fname} {fn_name}:{lineno};"
-        output += " " + str(stacks[stk])
+        output += " " + str(stacks[stk][0])
         output += "\n"
     return output
 
