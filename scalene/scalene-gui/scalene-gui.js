@@ -31,44 +31,6 @@ function generateScaleneOptimizedCodeRequest(
   const highPerformanceLibraries = [
     ...new Set([...defaultLibraries, ...recommendedLibraries]),
   ];
-
-    const optPrompt = `Optimize the following Python code:
-
-#!/usr/bin/env python3
-import numpy as np
-#import math
-
-# from numpy import linalg as LA
-
-arr = [i for i in range(1,1000)]
-
-
-
-# Start of code
-
-def doit1(x):
-    y = 1
-    x = [i*i for i in range(0,100000)][99999]
-    y1 = [i*i for i in range(0,200000)][199999]
-    z1 = [i for i in range(0,300000)][299999]
-    z = x * y * y1 * z1
-    return z
-
-
-# End of code
-
-Rewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:
-
-import numpy as np
-import sys
-
-Use native libraries if that would make it faster than pure Python. Consider using the following other libraries, if appropriate:
-
-import sklearn
-import cupy
-
-Your output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations or the GPU whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized code:`;
-    
     
   let promptParts = [
       "Optimize the following Python code to make it more efficient WITHOUT CHANGING ITS RESULTS.\n\n",
