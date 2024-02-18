@@ -286,6 +286,14 @@ class ScaleneJSON:
         if result:
             program = Filename("[" + result.group(1) + "]")
 
+        # Process the stacks to normalize by total number of CPU samples.
+        for stk in stats.stacks.keys():
+            (count, python_time, c_time, cpu_samples) = stats.stacks[stk]
+            stats.stacks[stk] = (count,
+                                 python_time / stats.total_cpu_samples,
+                                 c_time / stats.total_cpu_samples,
+                                 cpu_samples / stats.total_cpu_samples)
+            
         # Convert stacks into a representation suitable for JSON dumping.
         stks = []
         for stk in stats.stacks.keys():

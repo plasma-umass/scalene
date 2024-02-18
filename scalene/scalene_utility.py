@@ -42,7 +42,10 @@ __FILE__ = FileName()
 def add_stack(
     frame: FrameType,
     should_trace: Callable[[Filename, str], bool],
-    stacks: Dict[Any, int],
+    stacks: Dict[Any, Any],
+    python_time: float,
+    c_time: float,
+    cpu_samples: float
 ) -> None:
     """Add one to the stack starting from this frame."""
     stk: List[Tuple[str, str, int]] = list()
@@ -51,7 +54,15 @@ def add_stack(
         if should_trace(Filename(f.f_code.co_filename), f.f_code.co_name):
             stk.insert(0, (f.f_code.co_filename, f.f_code.co_name, f.f_lineno))
         f = f.f_back
-    stacks[tuple(stk)] += 1
+    if tuple(stk) not in stacks:
+        stacks[tuple(stk)] = (1, python_time, c_time, cpu_samples)
+    else:
+        (prev_count, prev_python_time, prev_c_time, prev_cpu_samples) = stacks[tuple(stk)]
+        stacks[tuple(stk)] = (prev_count + 1,
+                              prev_python_time + python_time,
+                              prev_c_time + c_time,
+                              prev_cpu_samples + cpu_samples)
+        # stacks[tuple(stk)] += 1
 
 
 def on_stack(
@@ -98,14 +109,14 @@ def get_fully_qualified_name(frame: FrameType) -> Filename:
     return fn_name
 
 
-def flamegraph_format(stacks: Dict[Tuple[Any], int]) -> str:
+def flamegraph_format(stacks: Dict[Tuple[Any], Any]) -> str:
     """Converts stacks to a string suitable for input to Brendan Gregg's flamegraph.pl script."""
     output = ""
     for stk in stacks.keys():
         for item in stk:
             (fname, fn_name, lineno) = item
             output += f"{fname} {fn_name}:{lineno};"
-        output += " " + str(stacks[stk])
+        output += " " + str(stacks[stk][0])
         output += "\n"
     return output
 

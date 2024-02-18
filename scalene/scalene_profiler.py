@@ -7,8 +7,7 @@ from __future__ import annotations # work around Python 3.8 issue, see https://s
     See the paper "docs/osdi23-berger.pdf" in this repository for technical
     details on Scalene's design.
 
-    by Emery Berger
-    https://emeryberger.com
+    by Emery Berger, Sam Stern, and Juan Altmayer Pizzorno
 
     usage: scalene test/testme.py
     usage help: scalene --help
@@ -804,7 +803,7 @@ class Scalene:
     def output_profile(program_args: Optional[List[str]] = None) -> bool:
         """Output the profile. Returns true iff there was any info reported the profile."""
         # sourcery skip: inline-immediately-returned-variable
-        # print(Scalene.flamegraph_format(Scalene.__stats.stacks))
+        # print(flamegraph_format(Scalene.__stats.stacks))       
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
                 Scalene.__program_being_profiled,
@@ -1008,15 +1007,20 @@ class Scalene:
 
         main_thread_frame = new_frames[0][0]
 
-        if Scalene.__args.stacks:
-            add_stack(
-                main_thread_frame, Scalene.should_trace, Scalene.__stats.stacks
-            )
-
         average_python_time = python_time / total_frames
         average_c_time = c_time / total_frames
         average_gpu_time = gpu_time / total_frames
         average_cpu_time = (python_time + c_time) / total_frames
+
+        if Scalene.__args.stacks:
+            add_stack(
+                main_thread_frame,
+                Scalene.should_trace,
+                Scalene.__stats.stacks,
+                average_python_time,
+                average_c_time,
+                average_cpu_time
+            )
 
         # First, handle the main thread.
         Scalene.enter_function_meta(main_thread_frame, Scalene.__stats)
@@ -1044,7 +1048,12 @@ class Scalene:
         for (frame, tident, orig_frame) in new_frames:
             if frame == main_thread_frame:
                 continue
-            add_stack(frame, Scalene.should_trace, Scalene.__stats.stacks)
+            add_stack(frame,
+                      Scalene.should_trace,
+                      Scalene.__stats.stacks,
+                      average_python_time,
+                      average_c_time,
+                      average_cpu_time)
 
             # In a thread.
             fname = Filename(frame.f_code.co_filename)
@@ -1494,8 +1503,9 @@ class Scalene:
         if not Scalene.__args.profile_all:
             for n in sysconfig.get_scheme_names():
                 for p in sysconfig.get_path_names():
+                    the_path = sysconfig.get_path(p, n)
                     libdir = str(
-                        pathlib.Path(sysconfig.get_path(p, n)).resolve()
+                        pathlib.Path(the_path).resolve()
                     )
                     if libdir in resolved_filename:
                         return False
