@@ -21,12 +21,11 @@ function generateScaleneOptimizedCodeRequest(
 ) {
   // Default high-performance libraries known for their efficiency
   const defaultLibraries = [
-    "NumPy",
-    "Pandas",
-    "CuPy",
-    "Numba",
-    "TensorFlow",
-    "PyTorch",
+      "NumPy",
+      "Scikit-learn",
+      "Pandas",
+      "TensorFlow",
+      "PyTorch",
   ];
   const highPerformanceLibraries = [
     ...new Set([...defaultLibraries, ...recommendedLibraries]),
