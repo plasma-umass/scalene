@@ -6,7 +6,7 @@ def find_browser(browserClass=None) -> Optional[str]:
     
     If you want a specific browser, pass its class as an argument."""
     text_browsers = [
-        "browsh", "elinks", "lynx", "w3m",
+        "browsh", "elinks", "links", "lynx", "w3m",
     ]
 
     try:

@@ -21,6 +21,32 @@ def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
     file_path = os.path.join(directory, subdirectory, filename)
     return pathlib.Path(file_path).read_text()
 
+
+def launch_browser_insecure(url: str) -> None:
+    if platform.system() == 'Windows':
+        chrome_path = 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
+    elif platform.system() == 'Linux':
+        chrome_path = '/usr/bin/google-chrome'
+    elif platform.system() == 'Darwin':
+        chrome_path = '/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome'
+
+    # Create a temporary directory
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Create a command with the required flags
+        chrome_cmd = f'{chrome_path} %s --disable-web-security --user-data-dir="{temp_dir}"'
+
+        # print(chrome_cmd)
+
+        # Register the new browser type
+        webbrowser.register('chrome_with_flags', None,
+                            webbrowser.Chrome(chrome_cmd), preferred=True)
+
+        # Open a URL using the new browser type
+        # url = 'https://cnn.com'  # Replace with your desired URL
+        webbrowser.get(chrome_cmd).open(url)
+        # webbrowser.get('chrome_with_flags').open(url)
+
+
 HOST = 'localhost'
 shutdown_requested = False
 last_heartbeat = time.time()
