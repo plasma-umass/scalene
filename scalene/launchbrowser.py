@@ -38,13 +38,14 @@ def launch_browser_insecure(url: str) -> None:
         # print(chrome_cmd)
 
         # Register the new browser type
-        webbrowser.register('chrome_with_flags', None, webbrowser.Chrome(chrome_cmd), preferred=True)
+        webbrowser.register('chrome_with_flags', None,
+                            webbrowser.Chrome(chrome_cmd), preferred=True)
 
         # Open a URL using the new browser type
         # url = 'https://cnn.com'  # Replace with your desired URL
         webbrowser.get(chrome_cmd).open(url)
         # webbrowser.get('chrome_with_flags').open(url)
-        
+
 
 HOST = 'localhost'
 shutdown_requested = False
