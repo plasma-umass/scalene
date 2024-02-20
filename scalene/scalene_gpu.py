@@ -1,5 +1,6 @@
 import contextlib
 import os
+import sys
 from typing import Tuple
 
 import pynvml
@@ -36,10 +37,12 @@ class ScaleneGPU:
     def __del__(self) -> None:
         if self.has_gpu() and not self.__has_per_pid_accounting:
             print(
-                "NOTE: The GPU is currently running in a mode that can reduce Scalene's accuracy when reporting GPU utilization."
+                "NOTE: The GPU is currently running in a mode that can reduce Scalene's accuracy when reporting GPU utilization.",
+                file=sys.stderr
             )
             print(
-                "Run once as Administrator or root (i.e., prefixed with `sudo`) to enable per-process GPU accounting."
+                "Run once as Administrator or root (i.e., prefixed with `sudo`) to enable per-process GPU accounting.",
+                file=sys.stderr
             )
 
     def _set_accounting_mode(self) -> bool:

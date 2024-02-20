@@ -362,7 +362,7 @@ class Scalene:
             # This can happen when Scalene shuts down.
             return None
         except Exception as e:
-            print(f"{Scalene.__error_message}:\n", e)
+            print(f"{Scalene.__error_message}:\n", e, file=sys.stderr)
             traceback.print_exc()
             return None
 
@@ -639,7 +639,7 @@ class Scalene:
         if sys.platform == "win32":
             if arguments.memory:
                 print(
-                    f"Scalene warning: Memory profiling is not currently supported for Windows."
+                    f"Scalene warning: Memory profiling is not currently supported for Windows.", file=sys.stderr
                 )
                 arguments.memory = False
 
@@ -685,6 +685,7 @@ class Scalene:
                 "memory",
                 "cli",
                 "web",
+                "html",
                 "no_browser",
                 "reduced_profile",
             ]:
@@ -1562,7 +1563,8 @@ class Scalene:
             print(
                 "ERROR: Do not try to invoke `start` if you have not called Scalene using one of the methods\n"
                 "in https://github.com/plasma-umass/scalene#using-scalene\n"
-                "(The most likely issue is that you need to run your code with `scalene`, not `python`)."
+                "(The most likely issue is that you need to run your code with `scalene`, not `python`).",
+                file=sys.stderr
             )
             sys.exit(1)
         Scalene.__stats.start_clock()
@@ -1718,9 +1720,9 @@ class Scalene:
             exit_status = se.code if type(se.code) == int else 1
         except KeyboardInterrupt:
             # Cleanly handle keyboard interrupts (quits execution and dumps the profile).
-            print("Scalene execution interrupted.")
+            print("Scalene execution interrupted.", file=sys.stderr)
         except Exception as e:
-            print(f"{Scalene.__error_message}:\n", e)
+            print(f"{Scalene.__error_message}:\n", e, file=sys.stderr)
             traceback.print_exc()
             exit_status = 1
         finally:
@@ -1740,7 +1742,8 @@ class Scalene:
             did_output = Scalene.output_profile(left)
             if not did_output:
                 print(
-                    "Scalene: Program did not run for long enough to profile."
+                    "Scalene: Program did not run for long enough to profile.",
+                    file=sys.stderr
                 )
 
             if not (
@@ -1762,7 +1765,8 @@ class Scalene:
 
                 port = ScaleneJupyter.find_available_port(8181, 9000)
                 if not port:
-                    print("Scalene error: could not find an available port.")
+                    print("Scalene error: could not find an available port.",
+                          file=sys.stderr)
                 else:
                     ScaleneJupyter.display_profile(
                         port, Scalene.__profiler_html
@@ -1861,7 +1865,8 @@ class Scalene:
         if not Scalene.__initialized:
             print(
                 "ERROR: Do not try to manually invoke `run_profiler`.\n"
-                "To invoke Scalene programmatically, see the usage noted in https://github.com/plasma-umass/scalene#using-scalene"
+                "To invoke Scalene programmatically, see the usage noted in https://github.com/plasma-umass/scalene#using-scalene",
+                file=sys.stderr
             )
             sys.exit(1)
         if sys.platform != "win32":
@@ -1886,12 +1891,14 @@ class Scalene:
                 # If running in the background, print the PID.
                 if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
                     # In the background.
-                    print(f"Scalene now profiling process {os.getpid()}")
+                    print(f"Scalene now profiling process {os.getpid()}", file=sys.stderr)
                     print(
-                        f"  to disable profiling: python3 -m scalene.profile --off --pid {os.getpid()}"
+                        f"  to disable profiling: python3 -m scalene.profile --off --pid {os.getpid()}",
+                        file=sys.stderr
                     )
                     print(
-                        f"  to resume profiling:  python3 -m scalene.profile --on  --pid {os.getpid()}"
+                        f"  to resume profiling:  python3 -m scalene.profile --on  --pid {os.getpid()}",
+                        file=sys.stderr
                     )
         Scalene.__stats.clear_all()
         sys.argv = left
@@ -2013,13 +2020,13 @@ class Scalene:
                     except Exception as ex:
                         template = "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
                         message = template.format(type(ex).__name__, ex.args)
-                        print(message)
-                        print(traceback.format_exc())
+                        print(message, file=sys.stderr)
+                        print(traceback.format_exc(), file=sys.stderr)
             except (FileNotFoundError, IOError):
                 if progs:
-                    print(f"Scalene: could not find input file {prog_name}")
+                    print(f"Scalene: could not find input file {prog_name}", file=sys.stderr)
                 else:
-                    print("Scalene: no input file specified.")
+                    print("Scalene: no input file specified.", file=sys.stderr)
                 sys.exit(1)
         except SystemExit as e:
             exit_status = e.code if type(e.code) == int else 1
@@ -2027,7 +2034,7 @@ class Scalene:
         except StopJupyterExecution:
             pass
         except Exception:
-            print("Scalene failed to initialize.\n" + traceback.format_exc())
+            print("Scalene failed to initialize.\n" + traceback.format_exc(), file=sys.stderr)
             sys.exit(1)
         finally:
             with contextlib.suppress(Exception):
