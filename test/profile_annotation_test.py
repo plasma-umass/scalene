@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+
+try:
+    builtins.profile
+except AttributeError:
+    # No line profiler, provide a pass-through version
+    def profile(func): return func
+    builtins.profile = profile
+
 import numpy as np
 
 #import math
