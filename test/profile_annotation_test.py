@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import builtins
+
 try:
     builtins.profile
 except AttributeError:
