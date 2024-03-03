@@ -164,7 +164,7 @@ install_requires_list = [
     "wheel>=0.36.1",
     "rich>=10.7.0",
     "cloudpickle>=2.2.1",
-    "pynvml>=11.0.0,<11.5",
+    "pynvml>=11.0.0,<=11.5",
     "Jinja2>=3.0.3",
     "psutil>=5.9.2"
 ]
