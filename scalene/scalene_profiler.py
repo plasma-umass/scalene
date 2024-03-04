@@ -1742,10 +1742,41 @@ class Scalene:
             did_output = Scalene.output_profile(left)
             if not did_output:
                 print(
-                    "Scalene: Program did not run for long enough to profile.",
+                    "Scalene: The specified code did not run for long enough to profile.",
                     file=sys.stderr
                 )
-
+                # Print out hints to explain why the above message may have been printed.
+                if not Scalene.__args.profile_all:
+                    # if --profile-all was not specified, suggest it
+                    # as a way to profile otherwise excluded code
+                    # (notably Python libraries, which are excluded by
+                    # default).
+                    print(
+                        "By default, Scalene only profiles code in the file executed and its subdirectories.",
+                        file=sys.stderr
+                        )
+                    print(
+                        "To track the time spent in all files, use the `--profile-all` option.",
+                        file=sys.stderr
+                    )
+                elif Scalene.__args.profile_only or Scalene.__args.profile_exclude:
+                    # if --profile-only or --profile-exclude were
+                    # specified, suggest that the patterns might be
+                    # excluding too many files. Collecting the
+                    # previously filtered out files could allow
+                    # suggested fixes (as in, remove foo because it
+                    # matches too many files).
+                    print("The patterns used in `--profile-only` or `--profile-exclude` may be filtering out too many files.",
+                          file=sys.stderr
+                          )
+                else:
+                    # if none of the above cases hold, indicate that
+                    # Scalene can only profile code that runs for at
+                    # least one second or allocates some threshold
+                    # amount of memory.
+                    print("Scalene can only profile code that runs for at least one second or allocates at least 10MB.",
+                          file=sys.stderr
+                        )
             if not (
                 did_output
                 and Scalene.__args.web
