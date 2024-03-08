@@ -386,7 +386,7 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 `libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
 </details>
 
-# Asked Questions
+# Frequently Asked Questions
 
 <details>
 <summary>
@@ -427,6 +427,22 @@ How do I use Scalene with Django?
 
 **A:** Pass in the `--noreload` option (see https://github.com/plasma-umass/scalene/issues/178).
 </details>
+
+
+<details>
+<summary>
+Does Scalene work with `gevent`?
+</summary>
+
+**A:** Yes! Put the following code in the beginning of your program, or modify the call to `monkey.patch_all` as below:
+
+```python
+from gevent import monkey
+monkey.patch_all(thread=False)
+```
+</details>
+
+
 
 <details>
 <summary>
