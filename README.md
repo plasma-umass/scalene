@@ -431,7 +431,7 @@ How do I use Scalene with Django?
 
 <details>
 <summary>
-Does Scalene work with `gevent`?
+Does Scalene work with gevent/Greenlets?
 </summary>
 
 **A:** Yes! Put the following code in the beginning of your program, or modify the call to `monkey.patch_all` as below:
