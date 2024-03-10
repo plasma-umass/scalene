@@ -13,6 +13,14 @@ def find_browser(browserClass=None) -> Optional[str]:
         # Get the default browser object
         browser = webbrowser.get(browserClass)
         return browser.name if browser.name not in text_browsers else None
+    except AttributeError:
+        # https://github.com/plasma-umass/scalene/issues/790
+        # https://github.com/python/cpython/issues/105545
+        # MacOSXOSAScript._name was deprecated but for pre-Python 3.11,
+        # we need to refer to it as such to prevent this error:
+        #   'MacOSXOSAScript' object has no attribute 'name'
+        browser = webbrowser.get(browserClass)
+        return browser._name if browser._name not in text_browsers else None
     except webbrowser.Error:
         # Return None if there is an error in getting the browser
         return None
