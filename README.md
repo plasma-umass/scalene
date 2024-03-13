@@ -464,7 +464,7 @@ To cite Scalene in an academic paper, please use the following:
 ```latex
 @inproceedings{288540,
 author = {Emery D. Berger and Sam Stern and Juan Altmayer Pizzorno},
-title = {Triangulating Python Performance Issues with {S}calene}},
+title = {Triangulating Python Performance Issues with {S}calene},
 booktitle = {{17th USENIX Symposium on Operating Systems Design and Implementation (OSDI 23)}},
 year = {2023},
 isbn = {978-1-939133-34-2},
