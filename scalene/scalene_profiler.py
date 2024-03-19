@@ -221,7 +221,9 @@ class Scalene:
     def get_original_lock() -> threading.Lock:
         """Return the true lock, which we shim in replacement_lock.py."""
         return Scalene.__original_lock()
-
+    @staticmethod
+    def get_signals():
+        return Scalene.__signals
     # when did we last receive a signal?
     __last_signal_time = TimeInfo()
 
@@ -1595,6 +1597,7 @@ class Scalene:
         if Scalene.__args.memory:
             from scalene import pywhere  # type: ignore
             pywhere.set_scalene_done_true()
+
 
 
         Scalene.disable_signals()

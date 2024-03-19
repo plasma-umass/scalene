@@ -7,7 +7,14 @@ from typing import Any
 
 @Scalene.shim
 def replacement_signal_fns(scalene: Scalene) -> None:
-
+    scalene_signals = scalene.get_signals()
+    expected_handlers_map = {
+            scalene_signals.malloc_signal: scalene.malloc_signal_handler,
+            scalene_signals.free_signal: scalene.free_signal_handler,
+            scalene_signals.memcpy_signal: scalene.memcpy_signal_handler,
+            signal.SIGTERM: scalene.term_signal_handler,
+            scalene_signals.cpu_signal: scalene.cpu_signal_handler,
+        }
     old_signal = signal.signal
     if sys.version_info < (3, 8):
 
@@ -55,6 +62,9 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         # previous handler, so this behavior is reasonable
         if signal in all_signals and (handler is signal.SIG_IGN or handler is signal.SIG_DFL):
             return handler
+        # If trying to "reset" to a handler that we already set it to, ignore
+        if signum in expected_handlers_map and expected_handlers_map[signum] is handler:
+            return signal.SIG_IGN
         if signum in all_signals:
             print(
                 "Error: Scalene cannot profile your program because it (or one of its packages)\n"
