@@ -28,6 +28,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         all_signals = scalene.get_all_signals_set()
         timer_signal, cpu_signal = scalene.get_timer_signals()
         timer_signal_str = signal.strsignal(signum)
+        start_signal, stop_signal = scalene.get_lifecycle_signals()
         if signum == cpu_signal:
             print(
                 f"WARNING: Scalene uses {timer_signal_str} to profile.\n"
@@ -35,6 +36,20 @@ def replacement_signal_fns(scalene: Scalene) -> None:
                 "Code that raises signals from within Python code will be rerouted."
             )
             return old_signal(new_cpu_signal, handler)
+        if signum in [start_signal, stop_signal]:
+            if not scalene.get_lifecycle_disabled():
+                print(
+                    f"WARNING: signal {signal.strsignal(signum)} is used to\n"
+                    "enable or disable Scalene. Starting or stopping Scalene with\n"
+                    "`--start` or `--stop` will be disabled."
+                )
+                # Disable the other signal
+                if signum == start_signal:
+                    old_signal(stop_signal, signal.SIG_IGN)
+                if signum == stop_signal:
+                    old_signal(start_signal, signal.SIG_IGN)
+                scalene.disable_lifecycle()
+            return old_signal(signum, handler)
         if signum in all_signals:
             print(
                 "Error: Scalene cannot profile your program because it (or one of its packages)\n"
