@@ -29,8 +29,6 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         timer_signal, cpu_signal = scalene.get_timer_signals()
         timer_signal_str = signal.strsignal(signum)
         start_signal, stop_signal = scalene.get_lifecycle_signals()
-        if handler is signal.SIG_IGN or handler is signal.SIG_DFL:
-            return handler
         if signum == cpu_signal:
             print(
                 f"WARNING: Scalene uses {timer_signal_str} to profile.\n"
@@ -52,6 +50,11 @@ def replacement_signal_fns(scalene: Scalene) -> None:
                     old_signal(start_signal, signal.SIG_IGN)
                 scalene.disable_lifecycle()
             return old_signal(signum, handler)
+        # Fallthrough condition-- if we haven't dealt with the signal at this point in the call and the handler is
+        # a NOP-like, then we can ignore it. It can't have been set already, and the expected return value is the
+        # previous handler, so this behavior is reasonable
+        if signal in all_signals and (handler is signal.SIG_IGN or handler is signal.SIG_DFL):
+            return handler
         if signum in all_signals:
             print(
                 "Error: Scalene cannot profile your program because it (or one of its packages)\n"
