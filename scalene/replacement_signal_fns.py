@@ -29,6 +29,8 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         timer_signal, cpu_signal = scalene.get_timer_signals()
         timer_signal_str = signal.strsignal(signum)
         start_signal, stop_signal = scalene.get_lifecycle_signals()
+        if handler is signal.SIG_IGN or handler is signal.SIG_DFL:
+            return handler
         if signum == cpu_signal:
             print(
                 f"WARNING: Scalene uses {timer_signal_str} to profile.\n"
