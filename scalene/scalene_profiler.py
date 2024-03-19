@@ -265,6 +265,7 @@ class Scalene:
     __orig_signal = signal.signal
     __orig_exit = os._exit
     __orig_raise_signal = signal.raise_signal
+    __lifecycle_disabled = False
 
     __orig_kill = os.kill
     if sys.platform != "win32":
@@ -278,6 +279,16 @@ class Scalene:
         Used by replacement_signal_fns.py to shim signals used by the client program.
         """
         return set(Scalene.__signals.get_all_signals())
+    @staticmethod
+    def get_lifecycle_signals() -> Tuple[signal.Signals, signal.Signals]:
+        return Scalene.__signals.get_lifecycle_signals()
+
+    @staticmethod
+    def disable_lifecycle():
+        Scalene.__lifecycle_disabled = True
+    @staticmethod
+    def get_lifecycle_disabled() -> bool:
+        return Scalene.__lifecycle_disabled
 
     @staticmethod
     def get_timer_signals() -> Tuple[int, signal.Signals]:
