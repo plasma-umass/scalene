@@ -12,7 +12,8 @@ def find_browser(browserClass=None) -> Optional[str]:
     try:
         # Get the default browser object
         browser = webbrowser.get(browserClass)
-        return browser.name if browser.name not in text_browsers else None
+        browser_name = browser.name if browser.name else browser.__class__.__name__
+        return browser_name if browser_name not in text_browsers else None
     except AttributeError:
         # https://github.com/plasma-umass/scalene/issues/790
         # https://github.com/python/cpython/issues/105545
