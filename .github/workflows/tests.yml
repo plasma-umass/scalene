@@ -13,6 +13,7 @@ on:
 jobs:
   run-tests:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest ]
@@ -25,7 +26,26 @@ jobs:
       with:
         python-version: ${{ matrix.python }}
 
-    - name: install dependencies
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python }}
+
+    - name: Work around arm64 support on MacOS
+      # https://github.com/actions/virtual-environments/issues/2557
+      if: matrix.os == 'macos-latest'
+      run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        python -m pip install numpy
+
+    - name: Build scalene
+      run: pip -v install -e .
+
+    - name: install test dependencies
       run: |
         python3 -m pip install pytest pytest-asyncio hypothesis
         python3 -m pip install .
