@@ -2,11 +2,10 @@ name: tests
 
 on:
   push:
-    paths:
-      - src/**
-      - test/**
+    branches: [ master ]
 
   pull_request:
+    branches: [ master ]
 
   workflow_dispatch:
 
