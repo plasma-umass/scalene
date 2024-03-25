@@ -10,12 +10,14 @@ import stat
 import sys
 from scalene.redirect_python import redirect_python
 
+
 @pytest.fixture
 def python_alias_dir(tmp_path):
     # Create a temporary directory for the test
     dir = tmp_path / "python_alias"
     dir.mkdir()
     return dir
+
 
 def test_redirect_python(python_alias_dir):
     preface = "echo"
@@ -25,7 +27,7 @@ def test_redirect_python(python_alias_dir):
     original_sys_path = sys.path.copy()
 
     try:
-        orig_executable = redirect_python(preface, cmdline, python_alias_dir)
+        _ = redirect_python(preface, cmdline, python_alias_dir)
         # Check if the sys.executable has been changed
         assert sys.executable != original_sys_executable
         # Check if the sys.path has been updated
