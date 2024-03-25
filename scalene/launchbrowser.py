@@ -15,8 +15,6 @@ import pathlib
 from jinja2 import Environment, FileSystemLoader
 from typing import Any, NewType
 
-import scalene_config
-
 def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
     file_path = os.path.join(directory, subdirectory, filename)
     return pathlib.Path(file_path).read_text()
@@ -122,6 +120,10 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
     )
     template = environment.get_template("index.html.template")
+    try:
+        import scalene_config
+    except:
+        import scalene.scalene_config as scalene_config
     rendered_content = template.render(
         profile=profile,
         gui_js=file_contents['scalene_gui_js_text'],
