@@ -13,6 +13,9 @@ from scalene.scalene_utility import show_browser
 
 # Define a simple HTTP server for testing purposes
 class TestHTTPServer(threading.Thread):
+    # Prevent pytest from considering this class as a test
+    __test__ = False
+
     def __init__(self, port):
         super().__init__()
         self.port = port
