@@ -11,6 +11,8 @@ import queue
 T = TypeVar('T')
 
 class TestScaleneSigQueue(Generic[T]):
+    # Prevent pytest from considering this class as a test
+    __test__ = False
 
     def test_scalene_sigqueue(self):
         # Define a process function that will be called by the queue
