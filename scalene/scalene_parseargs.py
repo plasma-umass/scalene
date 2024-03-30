@@ -37,6 +37,8 @@ class ScaleneParseArgs:
         """Replacement for sys.exit that exits cleanly from within Jupyter notebooks."""
         raise StopJupyterExecution
 
+
+
     @staticmethod
     def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         # In IPython, intercept exit cleanly (because sys.exit triggers a backtrace).
@@ -352,6 +354,10 @@ for the process ID that Scalene reports. For example:
         # Parse out all Scalene arguments.
         # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
         args, left = parser.parse_known_args()
+
+        # Validate file/directory arguments
+        if args.outfile and os.path.isdir(args.outfile):
+            parser.error(f"outfile {args.outfile} is a directory")
 
         # Hack to simplify functionality for Windows platforms.
         if sys.platform == "win32":
