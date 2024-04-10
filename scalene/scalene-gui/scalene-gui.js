@@ -289,6 +289,69 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
   }
 }
 
+async function sendPromptToAzureOpenAI(prompt, len, apiKey, apiUrl, aiModel){
+  const apiVersion = document.getElementById("azure-api-model-version").value;
+  const endpoint = `${apiUrl}/openai/deployments/${aiModel}/chat/completions?api-version=${apiVersion}`;
+
+  const body = JSON.stringify({
+    "messages": [
+      {
+        "role": "system",
+        "content":
+          "You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, starting with ``` and ending with ```."
+      },
+      {
+        "role": "user",
+        "content": prompt,
+      }
+    ],
+    "user": "scalene-user"
+  });
+
+  console.log(body);
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "api-key": apiKey,
+    },
+    body: body,
+  });
+
+  const data = await response.json();
+  if (data.error) {
+    if (
+      data.error.code in
+      {
+        invalid_request_error: true,
+        model_not_found: true,
+        insufficient_quota: true,
+      }
+    ) {
+      return "";
+    }
+  }
+  try {
+    console.log(
+      `Debugging info: Retrieved ${JSON.stringify(data.choices[0], null, 4)}`,
+    );
+  } catch {
+    console.log(
+      `Debugging info: Failed to retrieve data.choices from the server. data = ${JSON.stringify(
+        data,
+      )}`,
+    );
+  }
+
+  try {
+    return data.choices[0].message.content.replace(/^\s*[\r\n]/gm, "");
+  } catch {
+    // return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
+    return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
+  }
+}
+
 async function sendPromptToAmazon(prompt, len) {
   const serviceName = "bedrock";
   const region = "us-west-2";
@@ -452,15 +515,19 @@ async function optimizeCode(imports, code, line, context) {
   // Check for a valid API key.
   // TODO: Add checks for Amazon / local
   let apiKey = "";
-  if (document.getElementById("service-select").value === "openai") {
+  let aiService = document.getElementById("service-select").value;
+  if (aiService === "openai") {
     apiKey = document.getElementById("api-key").value;
-    if (!apiKey) {
+  } else if (aiService === "azure-openai"){
+    apiKey = document.getElementById("azure-api-key").value;
+  }
+
+  if ((aiService === "openai" || aiService === "azure-openai") && (!apiKey)) {
       alert(
         "To activate proposed optimizations, enter an OpenAI API key in AI optimization options.",
       );
       document.getElementById("ai-optimization-options").open = true;
       return "";
-    }
   }
   // If the code to be optimized is just one line of code, say so.
   let lineOf = " ";
@@ -546,6 +613,14 @@ async function optimizeCode(imports, code, line, context) {
         document.getElementById("service-select").value + " not yet supported.",
       );
       return "";
+    }
+    case "azure-openai": {
+      console.log("Running "+ document.getElementById("service-select").value);
+      console.log(prompt);
+      let azureOpenAiEndpoint = document.getElementById("azure-api-url").value;
+      let azureOpenAiModel = document.getElementById("azure-api-model").value;
+      const result = await sendPromptToAzureOpenAI(prompt, Math.max(numWords * 4, 500), apiKey, azureOpenAiEndpoint, azureOpenAiModel);
+      return extractCode(result);
     }
   }
 }
@@ -1933,6 +2008,8 @@ function toggleServiceFields() {
     service === "amazon" ? "block" : "none";
   document.getElementById("local-fields").style.display =
     service === "local" ? "block" : "none";
+  document.getElementById("azure-openai-fields").style.display = 
+    service === "azure-openai" ? "block" : "none";
 }
 
 function revealInstallMessage() {
