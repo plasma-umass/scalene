@@ -29,7 +29,7 @@ jobs:
     needs: pick-devN
     strategy:
       matrix:
-        python_version: ['3.8', '3.9', '3.10', '3.11']
+        python_version: ['3.8', '3.9', '3.10', '3.11', '3.12']
         plat: ['manylinux2014', 'manylinux_2_28', 'macos-latest', 'windows-latest']
         include:
           - plat: manylinux2014
@@ -45,7 +45,7 @@ jobs:
 
           - plat: macos-latest
             os: macos-latest
-            python_version: 3.11
+            python_version: 3.12
             upload_source: true   # just need ONE of them to do it
 
           - plat: windows-latest
@@ -53,7 +53,7 @@ jobs:
 
         exclude:
           - plat: windows-latest
-            python_version: 3.11
+            python_version: 3.12
 
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
