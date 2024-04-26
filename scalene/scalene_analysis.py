@@ -64,7 +64,7 @@ class ScaleneAnalysis:
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 imported_modules.append(ast.unparse(node))
 
-        return imported_modules
+        return list(map(str.strip, imported_modules))
 
     @staticmethod
     def get_native_imported_modules(source: str) -> List[str]:
