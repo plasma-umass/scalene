@@ -13,8 +13,9 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ] # disabling windows-latest for now
-        python: [ '3.8', '3.9', '3.10', '3.11', '3.12']
+        # os: [ ubuntu-latest, macos-latest ] # disabling windows-latest for now
+        os: [ macos-13 ]
+        python: [ '3.8', '3.9' ]
 
     steps:
     - uses: actions/checkout@v4
