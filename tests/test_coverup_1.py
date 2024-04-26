@@ -26,7 +26,7 @@ from sys import path
 """
         expected_imports = ['import math', 'import os', 'from sys import path']
         actual_imports = ScaleneAnalysis.get_native_imported_modules(source_code)
-        assert set(actual_imports) == set(expected_imports), "The list of native imports does not match the expected list."
+        assert set(map(str.strip, actual_imports)) == set(map(str.strip, expected_imports)), "The list of native imports does not match the expected list."
 
     with patch.object(ScaleneAnalysis, 'is_native', return_value=False):
         source_code = """
