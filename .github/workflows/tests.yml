@@ -42,7 +42,7 @@ jobs:
 
     - name: Work around arm64 support on MacOS
       # https://github.com/actions/virtual-environments/issues/2557
-      if: matrix.os == 'macos-latest'
+      if: matrix.os == 'macos-latest' || matrix.os == 'macos-13'
       run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
 
     - name: Install dependencies
