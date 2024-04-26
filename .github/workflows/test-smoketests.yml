@@ -46,12 +46,7 @@ jobs:
 
     - name: Build scalene
       run: pip -v install -e .
-    - name: Upload artifact for testing
-      uses: actions/upload-artifact@v4
-      if: "matrix.os == 'macos-latest' && matrix.python == 3.11"
-      with:
-        name: code-coverage-report
-        path: /Users/runner/work/scalene/scalene/scalene/crdp.abi3.so
+
     - name: cpu-only smoke test
       run: python test/smoketest.py test/testme.py --cpu-only
 
