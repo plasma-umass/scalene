@@ -96,7 +96,7 @@ class ScaleneAnalysis:
                 if ScaleneAnalysis.is_native(node.module):
                     imported_modules.append(ast.unparse(node))
 
-        return imported_modules
+        return list(map(str.strip, imported_modules))
 
     @staticmethod
     def find_regions(src: str) -> Dict[int, Tuple[int, int]]:
