@@ -169,7 +169,7 @@ def bdist_wheel_options():
     if sys.platform == 'darwin':
         # Build universal wheels on MacOS.
         # ---
-        # On MacOS >= 11, all builds are compatible for a major MacOS version, so Python "floors"
+        # On MacOS >= 11, all builds are compatible within a major MacOS version, so Python "floors"
         # all minor versions to 0, leading to tags like like "macosx_11_0_universal2". If you use
         # the actual (non-0) minor name in the build platform, it isn't recognized.
         # ---
