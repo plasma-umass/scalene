@@ -1,9 +1,15 @@
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
-from scalene.scalene_config import scalene_version
 from os import path, environ
 import sys
 import sysconfig
+from pathlib import Path
+
+# needed for isolated environment
+sys.path.insert(0, str(Path(__file__).parent.resolve()))
+from scalene.scalene_config import scalene_version
+sys.path.pop(0)
+
 
 if sys.platform == 'darwin':
     import sysconfig
@@ -21,7 +27,6 @@ def compiler_archs(compiler: str):
     """Discovers what platforms the given compiler supports; intended for MacOS use"""
     import tempfile
     import subprocess
-    from pathlib import Path
 
     print(f"Compiler: {compiler}")
     arch_flags = []
@@ -160,75 +165,35 @@ crdp = Extension('scalene.crdp',
 # Numbering scheme: https://www.python.org/dev/peps/pep-0440
 dev_build = ('.dev' + environ['DEV_BUILD']) if 'DEV_BUILD' in environ else ''
 
-install_requires_list = [
-    "wheel>=0.36.1",
-    "rich>=10.7.0",
-    "cloudpickle>=2.2.1",
-    "pynvml>=11.0.0,<=11.5",
-    "Jinja2>=3.0.3",
-    "psutil>=5.9.2"
-]
+def bdist_wheel_options():
+    if sys.platform == 'darwin':
+        # Build universal wheels on MacOS.
+        # ---
+        # On MacOS >= 11, all builds are compatible within a major MacOS version, so Python "floors"
+        # all minor versions to 0, leading to tags like like "macosx_11_0_universal2". If you use
+        # the actual (non-0) minor name in the build platform, it isn't recognized.
+        # ---
+        # It would be nice to check whether we're actually building multi-architecture,
+        # but that depends on the platforms supported by the compiler build_ext wants to use,
+        # which is hard to obtain (see BuildExtCommand above).
+        import platform
+        v = platform.mac_ver()[0]
+        major = int(v.split('.')[0])
+        if major >= 11:
+            v = f"{major}.0"
+        return {'plat_name': f"macosx-{v}-universal2"}
 
-if sys.version_info < (3, 9):
-    install_requires_list.append("astunparse>=1.6.3")
-
-if sys.argv[1].startswith('bdist') and sys.platform == 'darwin':
-    # Build universal wheels on MacOS.
-    # ---
-    # On MacOS >= 11, all builds are compatible for a major MacOS version, so Python "floors"
-    # all minor versions to 0, leading to tags like like "macosx_11_0_universal2". If you use
-    # the actual (non-0) minor name in the build platform, it isn't recognized.
-    # ---
-    # It would be nice to check whether we're actually building multi-architecture,
-    # but that depends on the platforms supported by the compiler build_ext wants to use,
-    # which is hard to obtain (see BuildExtCommand above).
-    import platform as p
-    v = p.mac_ver()[0].split(".")
-    v = f"{v[0]}.0" if int(v[0]) >= 11 else ".".join(v)
-    sys.argv.extend(['--plat-name', f"macosx-{v}-universal2"])
+    return {}
 
 setup(
-    name="scalene",
     version=scalene_version + dev_build,
-    description="Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python with AI-powered optimization suggestions",
-    keywords="performance memory profiler",
-    long_description=read_file("README.md"),
-    long_description_content_type="text/markdown",
-    url="https://github.com/plasma-umass/scalene",
-    author="Emery Berger",
-    author_email="emery@cs.umass.edu",
-    license="Apache License 2.0",
-    classifiers=[
-        "Development Status :: 5 - Production/Stable",
-        "Framework :: IPython",
-        "Framework :: Jupyter",
-        "Intended Audience :: Developers",
-        "Intended Audience :: Science/Research",
-        "Topic :: Software Development",
-        "Topic :: Software Development :: Debuggers",
-        "Programming Language :: Python",
-        "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "License :: OSI Approved :: Apache Software License",
-        "Operating System :: POSIX :: Linux",
-        "Operating System :: MacOS :: MacOS X",
-        "Operating System :: Microsoft :: Windows"
-    ],
     packages=find_packages(),
     cmdclass={
         'bdist_wheel': BdistWheelCommand,
         'egg_info': EggInfoCommand,
         'build_ext': BuildExtCommand,
     },
-    install_requires=install_requires_list,
     ext_modules=([get_line_atomic, pywhere, crdp] if sys.platform != 'win32' else []),
-    setup_requires=['wheel', 'cython', 'setuptools_scm'],
     include_package_data=True,
-    entry_points={"console_scripts": ["scalene = scalene.__main__:main"]},
-    python_requires=">=3.8,!=3.11.0",
+    options={'bdist_wheel': bdist_wheel_options()},
 )
