@@ -40,6 +40,9 @@ jobs:
             os: ubuntu-latest
             container: quay.io/pypa/manylinux_2_28_x86_64  # https://github.com/pypa/manylinux
 
+          - plat: macos-13
+            os: macos-13
+
           - plat: macos-latest
             os: macos-latest
 
