@@ -1,0 +1,59 @@
+[project]
+name = "scalene"
+description = "Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python with AI-powered optimization suggestions"
+readme = "README.md"
+keywords = ["performance", "profiler", "optimization", "CPU", "GPU", "memory", "LLM"]
+authors = [
+    {name = "Emery Berger", email = "emery@cs.umass.edu"},
+    {name = "Sam Stern", email = "jstern@umass.edu"},
+    {name = "Juan Altmayer Pizzorno", email = "juan@altmayer.com"},
+]
+requires-python = ">=3.8,!=3.11.0"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: IPython",
+    "Framework :: Jupyter",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Debuggers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows"
+]
+# see https://peps.python.org/pep-0508/#environment-markers for conditional syntax
+dependencies = [
+    "wheel>=0.36.1",
+    "rich>=10.7.0",
+    "cloudpickle>=2.2.1",
+    "pynvml>=11.0.0,<=11.5",
+    "Jinja2>=3.0.3",
+    "psutil>=5.9.2",
+    "astunparse>=1.6.3; python_version < '3.9'"
+]
+dynamic = ["version"]   # computed by setup.py
+
+[project.urls]
+"Homepage" = "https://github.com/plasma-umass/scalene"
+"Repository" = "https://github.com/plasma-umass/scalene"
+
+[project.scripts]
+scalene = "scalene.__main__:main"
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools>=65.5.1",
+    "setuptools_scm>=8",
+    "wheel",
+    "cython",
+]
