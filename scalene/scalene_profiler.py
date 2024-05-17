@@ -17,7 +17,7 @@ from __future__ import annotations # work around Python 3.8 issue, see https://s
 # Import cysignals early so it doesn't disrupt Scalene's use of signals; this allows Scalene to profile Sage.
 # See https://github.com/plasma-umass/scalene/issues/740.
 try:
-    import cysignals  # type: ignore
+    import cysignals
 except ModuleNotFoundError:
     pass
 
@@ -222,7 +222,7 @@ class Scalene:
         """Return the true lock, which we shim in replacement_lock.py."""
         return Scalene.__original_lock()
     @staticmethod
-    def get_signals():
+    def get_signals() -> ScaleneSignals:
         return Scalene.__signals
     # when did we last receive a signal?
     __last_signal_time = TimeInfo()
@@ -286,7 +286,7 @@ class Scalene:
         return Scalene.__signals.get_lifecycle_signals()
 
     @staticmethod
-    def disable_lifecycle():
+    def disable_lifecycle() -> None:
         Scalene.__lifecycle_disabled = True
     @staticmethod
     def get_lifecycle_disabled() -> bool:
@@ -1534,7 +1534,7 @@ class Scalene:
         if filename.startswith("_ipython-input-"):
             # Profiling code created in a Jupyter cell:
             # create a file to hold the contents.
-            import IPython  # type: ignore
+            import IPython
 
             if result := re.match(r"_ipython-input-([0-9]+)-.*", filename):
                 # Write the cell's contents into the file.
