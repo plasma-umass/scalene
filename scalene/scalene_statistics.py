@@ -245,7 +245,7 @@ class ScaleneStatistics:
             self.elapsed_time += time.time() - self.start_time
         self.start_time = 0
 
-    def build_function_stats(self, filename: Filename):  # type: ignore
+    def build_function_stats(self, filename: Filename) -> ScaleneStatistics:
         """Produce aggregated statistics for each function."""
         fn_stats = ScaleneStatistics()
         fn_stats.elapsed_time = self.elapsed_time

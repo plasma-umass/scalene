@@ -1,7 +1,7 @@
 import webbrowser
 from typing import Optional
 
-def find_browser(browserClass=None) -> Optional[str]:
+def find_browser(browserClass: Optional[str] = None) -> Optional[str]:
     """Find the default system browser, excluding text browsers.
     
     If you want a specific browser, pass its class as an argument."""

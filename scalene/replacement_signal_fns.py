@@ -3,7 +3,7 @@ import signal
 import sys
 
 from scalene.scalene_profiler import Scalene
-from typing import Any
+from typing import Any, Tuple
 
 @Scalene.shim
 def replacement_signal_fns(scalene: Scalene) -> None:
@@ -18,8 +18,8 @@ def replacement_signal_fns(scalene: Scalene) -> None:
     old_signal = signal.signal
     if sys.version_info < (3, 8):
 
-        def old_raise_signal(s):
-            return os.kill(os.getpid(), s)
+        def old_raise_signal(s: signal.Signals) -> None:
+            os.kill(os.getpid(), s)
 
     else:
         old_raise_signal = signal.raise_signal
@@ -60,10 +60,12 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         # Fallthrough condition-- if we haven't dealt with the signal at this point in the call and the handler is
         # a NOP-like, then we can ignore it. It can't have been set already, and the expected return value is the
         # previous handler, so this behavior is reasonable
-        if signal in all_signals and (handler is signal.SIG_IGN or handler is signal.SIG_DFL):
+        if signum in all_signals and (
+                handler is signal.SIG_IGN or handler is signal.SIG_DFL
+        ):
             return handler
         # If trying to "reset" to a handler that we already set it to, ignore
-        if signum in expected_handlers_map and expected_handlers_map[signum] is handler:
+        if signal.Signals(signum) in expected_handlers_map and expected_handlers_map[signal.Signals(signum)] is handler:
             return signal.SIG_IGN
         if signum in all_signals:
             print(
@@ -93,7 +95,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         old_setitimer = signal.setitimer
         old_siginterrupt = signal.siginterrupt
 
-        def replacement_siginterrupt(signum, flag):  # type: ignore
+        def replacement_siginterrupt(signum: int, flag: bool) -> None:
             all_signals = scalene.get_all_signals_set()
             timer_signal, cpu_signal = scalene.get_timer_signals()
             if signum == cpu_signal:
@@ -106,7 +108,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
                 )
             return old_siginterrupt(signum, flag)
 
-        def replacement_setitimer(which, seconds, interval=0.0):  # type: ignore
+        def replacement_setitimer(which: int, seconds: float, interval: float = 0.0) -> Tuple[float, float]:
             timer_signal, cpu_signal = scalene.get_timer_signals()
             if which == timer_signal:
                 old = scalene.client_timer.get_itimer()

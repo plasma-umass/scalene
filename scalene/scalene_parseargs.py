@@ -13,7 +13,7 @@ scalene_gui_url = f'file:{os.path.join(os.path.dirname(__file__), "scalene-gui",
 
 
 class RichArgParser(argparse.ArgumentParser):
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         from rich.console import Console
 
         self.console = Console()
