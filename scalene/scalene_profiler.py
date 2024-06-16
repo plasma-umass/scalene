@@ -91,7 +91,12 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
-from scalene.scalene_utility import *
+from scalene.scalene_utility import (
+    add_stack,
+    generate_html,
+    get_fully_qualified_name,
+    on_stack,
+)
 
 if sys.platform != "win32":
     import resource

@@ -17,28 +17,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 from scalene.scalene_statistics import Filename, LineNumber
 from scalene.scalene_config import scalene_version, scalene_date
 
-# These are here to simplify print debugging, a la C.
-class LineNo:
-    def __str__(self) -> str:
-        frame = inspect.currentframe()
-        assert frame
-        assert frame.f_back
-        return str(frame.f_back.f_lineno)
-
-
-class FileName:
-    def __str__(self) -> str:
-        frame = inspect.currentframe()
-        assert frame
-        assert frame.f_back
-        assert frame.f_back.f_code
-        return str(frame.f_back.f_code.co_filename)
-
-
-__LINE__ = LineNo()
-__FILE__ = FileName()
-
-
 def add_stack(
     frame: FrameType,
     should_trace: Callable[[Filename, str], bool],
@@ -121,12 +99,12 @@ def flamegraph_format(stacks: Dict[Tuple[Any], Any]) -> str:
     return output
 
 
-def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
-    file_path = os.path.join(directory, subdirectory, filename)
-    return pathlib.Path(file_path).read_text()
-
 def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
     """Apply a template to generate a single HTML payload containing the current profile."""
+
+    def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
+        file_path = os.path.join(directory, subdirectory, filename)
+        return pathlib.Path(file_path).read_text()
 
     try:
         # Load the profile
