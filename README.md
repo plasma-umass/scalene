@@ -106,6 +106,8 @@ from scalene import scalene_profiler
 # Turn profiling on
 scalene_profiler.start()
 
+# your code
+
 # Turn profiling off
 scalene_profiler.stop()
 ```
@@ -409,7 +411,7 @@ Is there any way to get shorter profiles or do more targeted profiling?
 1. Use `--reduced-profile` to include only lines and files with memory/CPU/GPU activity.
 2. Use `--profile-only` to include only filenames containing specific strings (as in, `--profile-only foo,bar,baz`).
 3. Decorate functions of interest with `@profile` to have Scalene report _only_ those functions.
-4. Turn profiling on and off programmatically by importing Scalene (`import scalene`) and then turning profiling on and off via `scalene_profiler.start()` and `scalene_profiler.stop()`. By default, Scalene runs with profiling on, so to delay profiling until desired, use the `--off` command-line option (`python3 -m scalene --off yourprogram.py`).
+4. Turn profiling on and off programmatically by importing Scalene profiler (`from scalene import scalene_profiler`) and then turning profiling on and off via `scalene_profiler.start()` and `scalene_profiler.stop()`. By default, Scalene runs with profiling on, so to delay profiling until desired, use the `--off` command-line option (`python3 -m scalene --off yourprogram.py`).
 </details>
 
 <details>
