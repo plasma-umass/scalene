@@ -756,6 +756,8 @@ class Scalene:
 
             if Scalene.__gpu:
                 (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
+            else:
+                (gpu_load, gpu_mem_used) = (0.0, 0.0)
 
             # Process this CPU sample.
             Scalene.process_cpu_sample(
