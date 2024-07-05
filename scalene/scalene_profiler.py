@@ -101,11 +101,6 @@ from scalene.scalene_utility import (
 if sys.platform != "win32":
     import resource
 
-if platform.system() == "Darwin":
-    from scalene.scalene_apple_gpu import ScaleneAppleGPU as ScaleneGPU
-else:
-    from scalene.scalene_gpu import ScaleneGPU  # type: ignore
-
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
@@ -214,10 +209,7 @@ class Scalene:
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
     __json = ScaleneJSON()
-    __gpu = ScaleneGPU()
-
-    __output.gpu = __gpu.has_gpu()
-    __json.gpu = __gpu.has_gpu()
+    __gpu = None # initialized after parsing arguments in `main`
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
     __profiler_base: str
@@ -762,7 +754,8 @@ class Scalene:
                     )
                 return
 
-            (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
+            if Scalene.__gpu:
+                (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
 
             # Process this CPU sample.
             Scalene.process_cpu_sample(
@@ -1442,7 +1435,7 @@ class Scalene:
         Scalene.__is_child = True
 
         Scalene.clear_metrics()
-        if Scalene.__gpu.has_gpu():
+        if Scalene.__gpu and Scalene.__gpu.has_gpu():
             Scalene.__gpu.nvml_reinit()
         # Note: __parent_pid of the topmost process is its own pid.
         Scalene.__pid = Scalene.__parent_pid
@@ -1887,6 +1880,19 @@ class Scalene:
             args,
             left,
         ) = ScaleneParseArgs.parse_args()
+        # Try to profile a GPU if one is found and `--gpu` is selected / it's the default (see ScaleneArguments).
+        if args.gpu:
+            if platform.system() == "Darwin":
+                from scalene.scalene_apple_gpu import ScaleneAppleGPU as ScaleneGPU
+            else:
+                from scalene.scalene_gpu import ScaleneGPU  # type: ignore
+            Scalene.__gpu = ScaleneGPU()
+            Scalene.__output.gpu = Scalene.__gpu.has_gpu()
+            Scalene.__json.gpu = Scalene.__gpu.has_gpu()
+        else:
+            Scalene.__gpu = None
+            Scalene.__output.gpu = False
+            Scalene.__json.gpu = False
         Scalene.set_initialized()
         Scalene.run_profiler(args, left)
 
