@@ -21,7 +21,7 @@ def find_browser(browserClass: Optional[str] = None) -> Optional[str]:
         # we need to refer to it as such to prevent this error:
         #   'MacOSXOSAScript' object has no attribute 'name'
         browser = webbrowser.get(browserClass)
-        return browser._name if browser._name not in text_browsers else None
+        return browser._name if browser._name not in text_browsers else None # type: ignore[attr-defined]
     except webbrowser.Error:
         # Return None if there is an error in getting the browser
         return None
