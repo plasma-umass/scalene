@@ -103,7 +103,10 @@ class ScalenePreload:
                         f"  to resume profiling:  python3 -m scalene.profile --on  --pid {result.pid}"
                     )
             try:
-                result.wait()
+                result.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                print("Scalene failure. Please try again.")
+                return False
             except KeyboardInterrupt:
                 result.returncode = 0
             if result.returncode < 0:
