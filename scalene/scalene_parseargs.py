@@ -37,8 +37,6 @@ class ScaleneParseArgs:
         """Replacement for sys.exit that exits cleanly from within Jupyter notebooks."""
         raise StopJupyterExecution
 
-
-
     @staticmethod
     def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         # In IPython, intercept exit cleanly (because sys.exit triggers a backtrace).
@@ -167,7 +165,7 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=False,
-            help=f"opens the Scalene web UI.",
+            help="opens the Scalene web UI.",
         )
         parser.add_argument(
             "--reduced-profile",
@@ -368,21 +366,28 @@ for the process ID that Scalene reports. For example:
 
         # Launch the UI if `--viewer` was selected.
         if args.viewer:
-            if browser := find_browser():
+            if find_browser():
                 assert not args.no_browser
                 dir = os.path.dirname(__file__)
                 import scalene.scalene_config
                 import subprocess
-                subprocess.Popen([sys.executable,
-                                  f"{dir}{os.sep}launchbrowser.py",
-                                  "demo",
-                                  str(scalene.scalene_config.SCALENE_PORT)],
-                                 stdout=subprocess.DEVNULL,
-                                 stderr=subprocess.DEVNULL)
+
+                subprocess.Popen(
+                    [
+                        sys.executable,
+                        f"{dir}{os.sep}launchbrowser.py",
+                        "demo",
+                        str(scalene.scalene_config.SCALENE_PORT),
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
                 sys.exit(0)
                 pass
             else:
-                print(f"Scalene: could not open a browser.") # {scalene_gui_url}.")
+                print(
+                    "Scalene: could not open a browser."
+                )  # {scalene_gui_url}.")
                 sys.exit(0)
 
         # If any of the individual profiling metrics were specified,

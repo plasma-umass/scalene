@@ -1,5 +1,4 @@
 import http.server
-import inspect
 import os
 import pathlib
 import sys
@@ -11,11 +10,12 @@ import webbrowser
 
 
 from jinja2 import Environment, FileSystemLoader
-from types import CodeType, FrameType
+from types import FrameType
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 from scalene.scalene_statistics import Filename, LineNumber
 from scalene.scalene_config import scalene_version, scalene_date
+
 
 def add_stack(
     frame: FrameType,
@@ -23,7 +23,7 @@ def add_stack(
     stacks: Dict[Any, Any],
     python_time: float,
     c_time: float,
-    cpu_samples: float
+    cpu_samples: float,
 ) -> None:
     """Add one to the stack starting from this frame."""
     stk: List[Tuple[str, str, int]] = list()
@@ -35,11 +35,15 @@ def add_stack(
     if tuple(stk) not in stacks:
         stacks[tuple(stk)] = (1, python_time, c_time, cpu_samples)
     else:
-        (prev_count, prev_python_time, prev_c_time, prev_cpu_samples) = stacks[tuple(stk)]
-        stacks[tuple(stk)] = (prev_count + 1,
-                              prev_python_time + python_time,
-                              prev_c_time + c_time,
-                              prev_cpu_samples + cpu_samples)
+        (prev_count, prev_python_time, prev_c_time, prev_cpu_samples) = stacks[
+            tuple(stk)
+        ]
+        stacks[tuple(stk)] = (
+            prev_count + 1,
+            prev_python_time + python_time,
+            prev_c_time + c_time,
+            prev_cpu_samples + cpu_samples,
+        )
         # stacks[tuple(stk)] += 1
 
 
@@ -102,7 +106,9 @@ def flamegraph_format(stacks: Dict[Tuple[Any], Any]) -> str:
 def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
     """Apply a template to generate a single HTML payload containing the current profile."""
 
-    def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
+    def read_file_content(
+        directory: str, subdirectory: str, filename: str
+    ) -> str:
         file_path = os.path.join(directory, subdirectory, filename)
         return pathlib.Path(file_path).read_text()
 
@@ -119,13 +125,23 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
     scalene_dir = os.path.dirname(__file__)
 
     file_contents = {
-        'scalene_gui_js_text': read_file_content(scalene_dir, "scalene-gui", "scalene-gui.js"),
-        'prism_css_text': read_file_content(scalene_dir, "scalene-gui", "prism.css"),
-        'prism_js_text': read_file_content(scalene_dir, "scalene-gui", "prism.js"),
-        'tablesort_js_text': read_file_content(scalene_dir, "scalene-gui", "tablesort.js"),
-        'tablesort_number_js_text': read_file_content(scalene_dir, "scalene-gui", "tablesort.number.js")
+        "scalene_gui_js_text": read_file_content(
+            scalene_dir, "scalene-gui", "scalene-gui.js"
+        ),
+        "prism_css_text": read_file_content(
+            scalene_dir, "scalene-gui", "prism.css"
+        ),
+        "prism_js_text": read_file_content(
+            scalene_dir, "scalene-gui", "prism.js"
+        ),
+        "tablesort_js_text": read_file_content(
+            scalene_dir, "scalene-gui", "tablesort.js"
+        ),
+        "tablesort_number_js_text": read_file_content(
+            scalene_dir, "scalene-gui", "tablesort.number.js"
+        ),
     }
-    
+
     # Put the profile and everything else into the template.
     environment = Environment(
         loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
@@ -133,11 +149,11 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
     template = environment.get_template("index.html.template")
     rendered_content = template.render(
         profile=profile,
-        gui_js=file_contents['scalene_gui_js_text'],
-        prism_css=file_contents['prism_css_text'],
-        prism_js=file_contents['prism_js_text'],
-        tablesort_js=file_contents['tablesort_js_text'],
-        tablesort_number_js=file_contents['tablesort_number_js_text'],
+        gui_js=file_contents["scalene_gui_js_text"],
+        prism_css=file_contents["prism_css_text"],
+        prism_js=file_contents["prism_js_text"],
+        tablesort_js=file_contents["tablesort_js_text"],
+        tablesort_number_js=file_contents["tablesort_number_js_text"],
         scalene_version=scalene_version,
         scalene_date=scalene_date,
     )
@@ -155,36 +171,35 @@ def start_server(port: int, directory: str) -> None:
         handler = http.server.SimpleHTTPRequestHandler
         with socketserver.TCPServer(("", port), handler) as httpd:
             os.chdir(directory)
-            # print(f"Serving at port {port}")
             httpd.serve_forever()
-    except OSError as e:
+    except OSError:
         # print(f"Port {port} is already in use. Please try a different port.")
         pass
 
-def show_browser(file_path: str, port: int, orig_python : str ='python3') -> None:
+
+def show_browser(
+    file_path: str, port: int, orig_python: str = "python3"
+) -> None:
     temp_dir = tempfile.gettempdir()
 
     # Copy file to the temporary directory
-    shutil.copy(file_path, os.path.join(temp_dir, 'index.html'))
+    shutil.copy(file_path, os.path.join(temp_dir, "index.html"))
 
     # Open web browser in a new subprocess
-    url = f'http://localhost:{port}/'
     curr_dir = os.getcwd()
     try:
         os.chdir(temp_dir)
-        # subprocess.Popen([orig_python, '-m', 'http.server', f"{port}"],
-        subprocess.Popen([orig_python, os.path.join(os.path.dirname(__file__), 'launchbrowser.py'), file_path, f"{port}"])
-                         #stdout=subprocess.DEVNULL,
-                         #stderr=subprocess.DEVNULL)
-        # Start server in a new thread
-        #server_thread = Thread(target=start_server, args=(port, temp_dir))
-        #server_thread.daemon = True
-        #server_thread.start()
-    
+        subprocess.Popen(
+            [
+                orig_python,
+                os.path.join(os.path.dirname(__file__), "launchbrowser.py"),
+                file_path,
+                f"{port}",
+            ]
+        )
         # Open web browser to local server
-        webbrowser.open(f'http://localhost:{port}/')
+        webbrowser.open(f"http://localhost:{port}/")
     except:
         pass
     finally:
         os.chdir(curr_dir)
-

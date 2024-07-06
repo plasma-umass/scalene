@@ -46,20 +46,20 @@ class ScaleneStatistics:
 
         #   CPU samples for each location in the program
         #   spent in the interpreter
-        self.cpu_samples_python: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.cpu_samples_python: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         #   CPU samples for each location in the program
         #   spent in C / libraries / system calls
-        self.cpu_samples_c: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.cpu_samples_c: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         #   GPU samples for each location in the program
-        self.gpu_samples: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.gpu_samples: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         #   GPU memory samples for each location in the program
         self.gpu_mem_samples: DefaultDict[
@@ -83,14 +83,14 @@ class ScaleneStatistics:
         self.malloc_samples: Dict[Filename, float] = defaultdict(float)
 
         # malloc samples for each location in the program
-        self.memory_malloc_samples: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.memory_malloc_samples: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         # number of times samples were added for the above
-        self.memory_malloc_count: Dict[
-            Filename, Dict[LineNumber, int]
-        ] = defaultdict(lambda: defaultdict(int))
+        self.memory_malloc_count: Dict[Filename, Dict[LineNumber, int]] = (
+            defaultdict(lambda: defaultdict(int))
+        )
 
         # the current footprint for this line
         self.memory_current_footprint: Dict[
@@ -98,9 +98,9 @@ class ScaleneStatistics:
         ] = defaultdict(lambda: defaultdict(float))
 
         # the max footprint for this line
-        self.memory_max_footprint: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.memory_max_footprint: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         # the current high watermark for this line
         self.memory_current_highwater_mark: Dict[
@@ -120,29 +120,29 @@ class ScaleneStatistics:
         )
 
         # mallocs attributable to Python, for each location in the program
-        self.memory_python_samples: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.memory_python_samples: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         # free samples for each location in the program
-        self.memory_free_samples: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.memory_free_samples: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         # number of times samples were added for the above
-        self.memory_free_count: Dict[
-            Filename, Dict[LineNumber, int]
-        ] = defaultdict(lambda: defaultdict(int))
+        self.memory_free_count: Dict[Filename, Dict[LineNumber, int]] = (
+            defaultdict(lambda: defaultdict(int))
+        )
 
         # memcpy samples for each location in the program
-        self.memcpy_samples: Dict[
-            Filename, Dict[LineNumber, int]
-        ] = defaultdict(lambda: defaultdict(int))
+        self.memcpy_samples: Dict[Filename, Dict[LineNumber, int]] = (
+            defaultdict(lambda: defaultdict(int))
+        )
 
         # leak score tracking
-        self.leak_score: Dict[
-            Filename, Dict[LineNumber, Tuple[int, int]]
-        ] = defaultdict(lambda: defaultdict(lambda: ((0, 0))))
+        self.leak_score: Dict[Filename, Dict[LineNumber, Tuple[int, int]]] = (
+            defaultdict(lambda: defaultdict(lambda: ((0, 0))))
+        )
 
         self.allocation_velocity: Tuple[float, float] = (0.0, 0.0)
 
@@ -163,7 +163,7 @@ class ScaleneStatistics:
 
         # the peak memory footprint
         self.max_footprint: float = 0.0
-        self.max_footprint_python_fraction : float = 0
+        self.max_footprint_python_fraction: float = 0
         self.max_footprint_loc: Optional[Tuple[Filename, LineNumber]] = None
         # memory footprint samples (time, footprint)
         self.memory_footprint_samples: List[List[float]] = []
@@ -181,9 +181,9 @@ class ScaleneStatistics:
 
         # maps filenames and line numbers to functions (collected at runtime)
         # [filename][lineno] -> function name
-        self.function_map: Dict[
-            Filename, Dict[LineNumber, Filename]
-        ] = defaultdict(lambda: defaultdict(lambda: Filename("")))
+        self.function_map: Dict[Filename, Dict[LineNumber, Filename]] = (
+            defaultdict(lambda: defaultdict(lambda: Filename("")))
+        )
         self.firstline_map: Dict[Filename, LineNumber] = defaultdict(
             lambda: LineNumber(1)
         )

@@ -2,12 +2,14 @@ import multiprocessing
 import random
 import sys
 import threading
-from multiprocessing.synchronize import Lock
 from scalene.scalene_profiler import Scalene
 from typing import Any, Callable, Optional, Tuple
 
+
 class ReplacementSemLock(multiprocessing.synchronize.Lock):
-    def __init__(self, ctx: Optional[multiprocessing.context.DefaultContext] = None) -> None:
+    def __init__(
+        self, ctx: Optional[multiprocessing.context.DefaultContext] = None
+    ) -> None:
         # Ensure to use the appropriate context while initializing
         if ctx is None:
             ctx = multiprocessing.get_context()

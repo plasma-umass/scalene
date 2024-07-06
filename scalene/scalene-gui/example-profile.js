@@ -1,9 +1,9 @@
 const example_profile = {
   elapsed_time_sec: 12.696948051452637,
-    memory: true,
+  memory: true,
   files: {
-      "./test/testme.py": {
-	  imports: [],
+    "./test/testme.py": {
+      imports: [],
       functions: [
         {
           line: "doit1",

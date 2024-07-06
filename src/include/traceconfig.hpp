@@ -4,6 +4,7 @@
 #define __TRACECONFIG_H
 
 #include <Python.h>
+
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -34,14 +35,14 @@ class TraceConfig {
       // Defensive programming.
       return false;
     }
-    
+
     auto res = _memoize.find(filename);
-    if ( res != _memoize.end()) {
+    if (res != _memoize.end()) {
       return res->second;
     }
-    // Return false if filename contains paths corresponding to the native Python libraries.
-    // This is to avoid profiling the Python interpreter itself.
-    // Also exclude site-packages and any IPython files.
+    // Return false if filename contains paths corresponding to the native
+    // Python libraries. This is to avoid profiling the Python interpreter
+    // itself. Also exclude site-packages and any IPython files.
 
 #if defined(_WIN32)
     // If on Windows, use \\ as the path separator.
@@ -52,25 +53,30 @@ class TraceConfig {
 #endif
 
     if (!profile_all) {
+      auto python_lib =
+          std::string("lib") + std::string(PATH_SEP) + std::string("python");
+      auto scalene_lib = std::string("scalene") + std::string(PATH_SEP) +
+                         std::string("scalene");
+      auto anaconda_lib =
+          std::string("anaconda3") + std::string(PATH_SEP) + std::string("lib");
 
-      auto python_lib = std::string("lib") + std::string(PATH_SEP) + std::string("python");
-      auto scalene_lib = std::string("scalene") + std::string(PATH_SEP) + std::string("scalene");
-      auto anaconda_lib = std::string("anaconda3") + std::string(PATH_SEP) + std::string("lib");
-      
       if (strstr(filename, python_lib.c_str()) ||
-	  strstr(filename, scalene_lib.c_str()) ||
-	  strstr(filename, anaconda_lib.c_str()) ||
-	  //        strstr(filename, "site-packages") != nullptr ||
-	  (strstr(filename, "<") && (strstr(filename, "<ipython") || strstr(filename, "<frozen")))) {
-	_memoize.insert(std::pair<std::string, bool>(std::string(filename), false));
-	return false;
+          strstr(filename, scalene_lib.c_str()) ||
+          strstr(filename, anaconda_lib.c_str()) ||
+          //        strstr(filename, "site-packages") != nullptr ||
+          (strstr(filename, "<") &&
+           (strstr(filename, "<ipython") || strstr(filename, "<frozen")))) {
+        _memoize.insert(
+            std::pair<std::string, bool>(std::string(filename), false));
+        return false;
       }
     }
-    
+
     if (owner != nullptr) {
       for (char* traceable : items) {
         if (strstr(filename, traceable)) {
-          _memoize.insert(std::pair<std::string, bool>(std::string(filename), true));
+          _memoize.insert(
+              std::pair<std::string, bool>(std::string(filename), true));
           return true;
         }
       }
@@ -97,7 +103,8 @@ class TraceConfig {
 
     // Now change back to the original current working directory.
     chdir(oldcwd);
-    _memoize.insert(std::pair<std::string, bool>(std::string(filename), result));
+    _memoize.insert(
+        std::pair<std::string, bool>(std::string(filename), result));
     return result;
   }
 

@@ -1,11 +1,12 @@
 import os
 import pathlib
-import re
 import stat
 import sys
 
 
-def redirect_python(preface: str, cmdline: str, python_alias_dir: pathlib.Path) -> str:
+def redirect_python(
+    preface: str, cmdline: str, python_alias_dir: pathlib.Path
+) -> str:
     """
     Redirects Python calls to a different command with a preface and cmdline.
 
@@ -51,5 +52,5 @@ def redirect_python(preface: str, cmdline: str, python_alias_dir: pathlib.Path) 
         sys_executable_path = sys_executable_path.with_suffix(".bat")
 
     sys.executable = str(sys_executable_path)
-    
+
     return orig_sys_executable
