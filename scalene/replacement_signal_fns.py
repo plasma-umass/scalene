@@ -5,16 +5,17 @@ import sys
 from scalene.scalene_profiler import Scalene
 from typing import Any, Tuple
 
+
 @Scalene.shim
 def replacement_signal_fns(scalene: Scalene) -> None:
     scalene_signals = scalene.get_signals()
     expected_handlers_map = {
-            scalene_signals.malloc_signal: scalene.malloc_signal_handler,
-            scalene_signals.free_signal: scalene.free_signal_handler,
-            scalene_signals.memcpy_signal: scalene.memcpy_signal_handler,
-            signal.SIGTERM: scalene.term_signal_handler,
-            scalene_signals.cpu_signal: scalene.cpu_signal_handler,
-        }
+        scalene_signals.malloc_signal: scalene.malloc_signal_handler,
+        scalene_signals.free_signal: scalene.free_signal_handler,
+        scalene_signals.memcpy_signal: scalene.memcpy_signal_handler,
+        signal.SIGTERM: scalene.term_signal_handler,
+        scalene_signals.cpu_signal: scalene.cpu_signal_handler,
+    }
     old_signal = signal.signal
     if sys.version_info < (3, 8):
 
@@ -61,11 +62,14 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         # a NOP-like, then we can ignore it. It can't have been set already, and the expected return value is the
         # previous handler, so this behavior is reasonable
         if signum in all_signals and (
-                handler is signal.SIG_IGN or handler is signal.SIG_DFL
+            handler is signal.SIG_IGN or handler is signal.SIG_DFL
         ):
             return handler
         # If trying to "reset" to a handler that we already set it to, ignore
-        if signal.Signals(signum) in expected_handlers_map and expected_handlers_map[signal.Signals(signum)] is handler:
+        if (
+            signal.Signals(signum) in expected_handlers_map
+            and expected_handlers_map[signal.Signals(signum)] is handler
+        ):
             return signal.SIG_IGN
         if signum in all_signals:
             print(
@@ -108,7 +112,9 @@ def replacement_signal_fns(scalene: Scalene) -> None:
                 )
             return old_siginterrupt(signum, flag)
 
-        def replacement_setitimer(which: int, seconds: float, interval: float = 0.0) -> Tuple[float, float]:
+        def replacement_setitimer(
+            which: int, seconds: float, interval: float = 0.0
+        ) -> Tuple[float, float]:
             timer_signal, cpu_signal = scalene.get_timer_signals()
             if which == timer_signal:
                 old = scalene.client_timer.get_itimer()
@@ -122,7 +128,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         signal.setitimer = replacement_setitimer
         signal.siginterrupt = replacement_siginterrupt
 
-    signal.signal = replacement_signal # type: ignore
+    signal.signal = replacement_signal  # type: ignore
     if sys.version_info >= (3, 8):
         signal.raise_signal = replacement_raise_signal
     os.kill = replacement_kill

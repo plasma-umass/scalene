@@ -13,43 +13,43 @@ function vsNavigate(filename, lineno) {
 }
 
 function generateScaleneOptimizedCodeRequest(
-    context,
-    sourceCode,
-    line,
+  context,
+  sourceCode,
+  line,
   recommendedLibraries = [],
   includeGpuOptimizations = false,
 ) {
   // Default high-performance libraries known for their efficiency
   const defaultLibraries = [
-      "NumPy",
-      "Scikit-learn",
-      "Pandas",
-      "TensorFlow",
-      "PyTorch",
+    "NumPy",
+    "Scikit-learn",
+    "Pandas",
+    "TensorFlow",
+    "PyTorch",
   ];
   const highPerformanceLibraries = [
     ...new Set([...defaultLibraries, ...recommendedLibraries]),
   ];
-    
+
   let promptParts = [
-      "Optimize the following Python code to make it more efficient WITHOUT CHANGING ITS RESULTS.\n\n",
-      context.trim(),
+    "Optimize the following Python code to make it more efficient WITHOUT CHANGING ITS RESULTS.\n\n",
+    context.trim(),
     "\n# Start of code\n",
     sourceCode.trim(),
     "\n# End of code\n\n",
     "Rewrite the above Python code from 'Start of code' to 'End of code', aiming for clear and simple optimizations. ",
     "Your output should consist only of valid Python code, with brief explanatory comments prefaced with #. ",
     "Include a detailed explanatory comment before the code, starting with '# Proposed optimization:'. ",
-      "Leverage high-performance native libraries, especially those utilizing GPU, for significant performance improvements. ",
-      "Consider using the following other libraries, if appropriate:\n",
-      highPerformanceLibraries.map((e) => "  import " + e).join("\n") + "\n",
+    "Leverage high-performance native libraries, especially those utilizing GPU, for significant performance improvements. ",
+    "Consider using the following other libraries, if appropriate:\n",
+    highPerformanceLibraries.map((e) => "  import " + e).join("\n") + "\n",
     "Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. ",
-//    "Consider GPU utilization, memory consumption, and copy volume when using GPU-accelerated libraries. ",
-//    "Low GPU utilization and high copy volume indicate inefficient use of such libraries. ",
+    //    "Consider GPU utilization, memory consumption, and copy volume when using GPU-accelerated libraries. ",
+    //    "Low GPU utilization and high copy volume indicate inefficient use of such libraries. ",
     "Quantify the expected speedup in terms of orders of magnitude if possible. ",
     "Fix any errors in the optimized code. ",
-//    "Consider the peak amount of memory used per line and CPU utilization for targeted optimization. ",
-      //    "Note on CPU utilization: Low utilization in libraries known for multi-threading/multi-processing indicates inefficiency.\n\n",
+    //    "Consider the peak amount of memory used per line and CPU utilization for targeted optimization. ",
+    //    "Note on CPU utilization: Low utilization in libraries known for multi-threading/multi-processing indicates inefficiency.\n\n",
   ];
 
   // Conditional inclusion of GPU optimizations
@@ -63,26 +63,41 @@ function generateScaleneOptimizedCodeRequest(
   promptParts.push(
     "Consider the following insights gathered from the Scalene profiler for optimization:\n",
   );
-    const total_cpu_percent = line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
-    
-    promptParts.push(`- CPU time: percent spent in the Python interpreter: ${(100*line.n_cpu_percent_python/total_cpu_percent).toFixed(2)}%\n`);
-    promptParts.push(`- CPU time: percent spent executing native code: ${(100*line.n_cpu_percent_c/total_cpu_percent).toFixed(2)}%\n`);
-    promptParts.push(`- CPU time: percent of system time: ${(100*line.n_sys_percent/total_cpu_percent).toFixed(2)}%\n`);
-    // `- CPU utilization: ${performanceMetrics.cpu_utilization}. Low utilization with high-core count might indicate inefficient use of multi-threaded/multi-process libraries.\n`,
-    promptParts.push(`- Core utilization: ${(100*line.n_core_utilization/total_cpu_percent).toFixed(2)}%\n`);
-    //      `- Peak memory per line: Focus on lines with high memory usage, specifically ${performanceMetrics.peak_memory_per_line}.\n`,
-    promptParts.push(`- Peak memory usage: ${line.n_peak_mb.toFixed(0)}MB (${(100 * line.n_python_fraction).toFixed(2)}% Python memory)\n`);
-    //      `- Copy volume: ${performanceMetrics.copy_volume} MB. High volume indicates inefficient data handling with GPU libraries.\n`,
-    if (line.n_copy_mb_s > 1) {
-	promptParts.push(`- Megabytes copied per second by memcpy/strcpy: ${line.n_copy_mb_s.toFixed(2)}\n`);
-    }
-    if (includeGpuOptimizations) {
-        // `  - GPU utilization: ${performanceMetrics.gpu_utilization}%. Low utilization indicates potential inefficiencies in GPU-accelerated library use.\n`
-	promptParts.push(`- GPU percent utilization: ${(100 * line.n_gpu_percent).toFixed(2)}%\n`);
-        // `  - GPU memory usage: ${performanceMetrics.gpu_memory} MB. Optimize to reduce unnecessary GPU memory consumption.\n`
-	// TODO GPU memory
-    }
-    promptParts.push(`Optimized code:`);
+  const total_cpu_percent =
+    line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
+
+  promptParts.push(
+    `- CPU time: percent spent in the Python interpreter: ${((100 * line.n_cpu_percent_python) / total_cpu_percent).toFixed(2)}%\n`,
+  );
+  promptParts.push(
+    `- CPU time: percent spent executing native code: ${((100 * line.n_cpu_percent_c) / total_cpu_percent).toFixed(2)}%\n`,
+  );
+  promptParts.push(
+    `- CPU time: percent of system time: ${((100 * line.n_sys_percent) / total_cpu_percent).toFixed(2)}%\n`,
+  );
+  // `- CPU utilization: ${performanceMetrics.cpu_utilization}. Low utilization with high-core count might indicate inefficient use of multi-threaded/multi-process libraries.\n`,
+  promptParts.push(
+    `- Core utilization: ${((100 * line.n_core_utilization) / total_cpu_percent).toFixed(2)}%\n`,
+  );
+  //      `- Peak memory per line: Focus on lines with high memory usage, specifically ${performanceMetrics.peak_memory_per_line}.\n`,
+  promptParts.push(
+    `- Peak memory usage: ${line.n_peak_mb.toFixed(0)}MB (${(100 * line.n_python_fraction).toFixed(2)}% Python memory)\n`,
+  );
+  //      `- Copy volume: ${performanceMetrics.copy_volume} MB. High volume indicates inefficient data handling with GPU libraries.\n`,
+  if (line.n_copy_mb_s > 1) {
+    promptParts.push(
+      `- Megabytes copied per second by memcpy/strcpy: ${line.n_copy_mb_s.toFixed(2)}\n`,
+    );
+  }
+  if (includeGpuOptimizations) {
+    // `  - GPU utilization: ${performanceMetrics.gpu_utilization}%. Low utilization indicates potential inefficiencies in GPU-accelerated library use.\n`
+    promptParts.push(
+      `- GPU percent utilization: ${(100 * line.n_gpu_percent).toFixed(2)}%\n`,
+    );
+    // `  - GPU memory usage: ${performanceMetrics.gpu_memory} MB. Optimize to reduce unnecessary GPU memory consumption.\n`
+    // TODO GPU memory
+  }
+  promptParts.push(`Optimized code:`);
   return promptParts.join("");
 }
 
@@ -289,23 +304,23 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
   }
 }
 
-async function sendPromptToAzureOpenAI(prompt, len, apiKey, apiUrl, aiModel){
+async function sendPromptToAzureOpenAI(prompt, len, apiKey, apiUrl, aiModel) {
   const apiVersion = document.getElementById("azure-api-model-version").value;
   const endpoint = `${apiUrl}/openai/deployments/${aiModel}/chat/completions?api-version=${apiVersion}`;
 
   const body = JSON.stringify({
-    "messages": [
+    messages: [
       {
-        "role": "system",
-        "content":
-          "You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, starting with ``` and ending with ```."
+        role: "system",
+        content:
+          "You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, starting with ``` and ending with ```.",
       },
       {
-        "role": "user",
-        "content": prompt,
-      }
+        role: "user",
+        content: prompt,
+      },
     ],
-    "user": "scalene-user"
+    user: "scalene-user",
   });
 
   console.log(body);
@@ -373,7 +388,8 @@ async function sendPromptToAmazon(prompt, len) {
 
   var bedrockruntime = new AWS.BedrockRuntime();
   bedrockruntime.invokeModel(body, function (err, data) {
-    if (err) console.log(err, err.stack); // an error occurred
+    if (err)
+      console.log(err, err.stack); // an error occurred
     else console.log(data); // successful response
   });
   const response = await fetch(endpoint, {
@@ -497,19 +513,25 @@ function countSpaces(str) {
 
 async function optimizeCode(imports, code, line, context) {
   // Tailor prompt to request GPU optimizations or not.
-    const useGPUs = document.getElementById("use-gpu-checkbox").checked; // globalThis.profile.gpu;
+  const useGPUs = document.getElementById("use-gpu-checkbox").checked; // globalThis.profile.gpu;
 
-    let recommendedLibraries = ["sklearn"];
-    if (useGPUs) {
-	// Suggest cupy if we are using the GPU.
-	recommendedLibraries.push("cupy");
-    } else {
-	// Suggest numpy otherwise.
-	recommendedLibraries.push("numpy");
-    }
-    // TODO: remove anything already imported in imports
+  let recommendedLibraries = ["sklearn"];
+  if (useGPUs) {
+    // Suggest cupy if we are using the GPU.
+    recommendedLibraries.push("cupy");
+  } else {
+    // Suggest numpy otherwise.
+    recommendedLibraries.push("numpy");
+  }
+  // TODO: remove anything already imported in imports
 
-    const bigPrompt = generateScaleneOptimizedCodeRequest(context, code, line, recommendedLibraries, useGPUs);
+  const bigPrompt = generateScaleneOptimizedCodeRequest(
+    context,
+    code,
+    line,
+    recommendedLibraries,
+    useGPUs,
+  );
 
   const useGPUstring = useGPUs ? " or the GPU " : " ";
   // Check for a valid API key.
@@ -518,16 +540,16 @@ async function optimizeCode(imports, code, line, context) {
   let aiService = document.getElementById("service-select").value;
   if (aiService === "openai") {
     apiKey = document.getElementById("api-key").value;
-  } else if (aiService === "azure-openai"){
+  } else if (aiService === "azure-openai") {
     apiKey = document.getElementById("azure-api-key").value;
   }
 
-  if ((aiService === "openai" || aiService === "azure-openai") && (!apiKey)) {
-      alert(
-        "To activate proposed optimizations, enter an OpenAI API key in AI optimization options.",
-      );
-      document.getElementById("ai-optimization-options").open = true;
-      return "";
+  if ((aiService === "openai" || aiService === "azure-openai") && !apiKey) {
+    alert(
+      "To activate proposed optimizations, enter an OpenAI API key in AI optimization options.",
+    );
+    document.getElementById("ai-optimization-options").open = true;
+    return "";
   }
   // If the code to be optimized is just one line of code, say so.
   let lineOf = " ";
@@ -569,9 +591,9 @@ async function optimizeCode(imports, code, line, context) {
     prompt = memoryEfficiencyPrompt;
   }
 
-    // Just use big prompt maybe FIXME
-    prompt = bigPrompt;
-    
+  // Just use big prompt maybe FIXME
+  prompt = bigPrompt;
+
   // Use number of words in the original code as a proxy for the number of tokens.
   const numWords = code.match(/\b\w+\b/g).length;
 
@@ -586,11 +608,11 @@ async function optimizeCode(imports, code, line, context) {
       return extractCode(result);
     }
     case "local": {
-	console.log("Running " + document.getElementById("service-select").value);
-	console.log(prompt);
-//      console.log(optimizePerformancePrompt_ollama);
+      console.log("Running " + document.getElementById("service-select").value);
+      console.log(prompt);
+      //      console.log(optimizePerformancePrompt_ollama);
       const result = await sendPromptToOllama(
-          prompt, // optimizePerformancePrompt_ollama,
+        prompt, // optimizePerformancePrompt_ollama,
         Math.max(numWords * 4, 500),
         document.getElementById("language-model-local").value,
         document.getElementById("local-ip").value,
@@ -604,9 +626,9 @@ async function optimizeCode(imports, code, line, context) {
     }
     case "amazon": {
       console.log("Running " + document.getElementById("service-select").value);
-	console.log(prompt); // optimizePerformancePrompt_ollama);
+      console.log(prompt); // optimizePerformancePrompt_ollama);
       const result = await sendPromptToAmazon(
-          prompt, // optimizePerformancePrompt_ollama,
+        prompt, // optimizePerformancePrompt_ollama,
         Math.max(numWords * 4, 500),
       );
       console.log(
@@ -615,22 +637,38 @@ async function optimizeCode(imports, code, line, context) {
       return "";
     }
     case "azure-openai": {
-      console.log("Running "+ document.getElementById("service-select").value);
+      console.log("Running " + document.getElementById("service-select").value);
       console.log(prompt);
       let azureOpenAiEndpoint = document.getElementById("azure-api-url").value;
       let azureOpenAiModel = document.getElementById("azure-api-model").value;
-      const result = await sendPromptToAzureOpenAI(prompt, Math.max(numWords * 4, 500), apiKey, azureOpenAiEndpoint, azureOpenAiModel);
+      const result = await sendPromptToAzureOpenAI(
+        prompt,
+        Math.max(numWords * 4, 500),
+        apiKey,
+        azureOpenAiEndpoint,
+        azureOpenAiModel,
+      );
       return extractCode(result);
     }
   }
 }
 
 function proposeOptimizationRegion(filename, file_number, line) {
-    proposeOptimization(filename, file_number, JSON.parse(decodeURIComponent(line)), { regions: true });
+  proposeOptimization(
+    filename,
+    file_number,
+    JSON.parse(decodeURIComponent(line)),
+    { regions: true },
+  );
 }
 
 function proposeOptimizationLine(filename, file_number, line) {
-    proposeOptimization(filename, file_number, JSON.parse(decodeURIComponent(line)), { regions: false });
+  proposeOptimization(
+    filename,
+    file_number,
+    JSON.parse(decodeURIComponent(line)),
+    { regions: false },
+  );
 }
 
 function proposeOptimization(filename, file_number, line, params) {
@@ -699,7 +737,7 @@ function proposeOptimization(filename, file_number, line, params) {
       }
     }
     elt.innerHTML = `<em>${indent}working...</em>`;
-      let message = await optimizeCode(imports, code_region, line, context);
+    let message = await optimizeCode(imports, code_region, line, context);
     if (!message) {
       elt.innerHTML = "";
       return;
@@ -793,8 +831,8 @@ function makeBar(python, native, system, params) {
             python >= widthThreshold1
               ? python.toFixed(0) + "%"
               : python >= widthThreshold2
-              ? python.toFixed(0)
-              : "",
+                ? python.toFixed(0)
+                : "",
           q: python / 2,
         },
         {
@@ -805,8 +843,8 @@ function makeBar(python, native, system, params) {
             native >= widthThreshold1
               ? native.toFixed(0) + "%"
               : native >= widthThreshold2
-              ? native.toFixed(0)
-              : "",
+                ? native.toFixed(0)
+                : "",
           q: python + native / 2,
         },
         {
@@ -817,8 +855,8 @@ function makeBar(python, native, system, params) {
             system >= widthThreshold1
               ? system.toFixed(0) + "%"
               : system >= widthThreshold2
-              ? system.toFixed(0)
-              : "",
+                ? system.toFixed(0)
+                : "",
           q: python + native + system / 2,
         },
       ],
@@ -1491,28 +1529,30 @@ function makeProfileLine(
 
   const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
   s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
-    let newLine = structuredClone(line);
-    // TODO: verify that this isn't double counting anything
-    if (propose_optimizations && showExplosion) {
-	// Construct a new line corresponding to this region.
-	let mb_copied = 0;
-	for (let lineno = start_region_line; lineno < end_region_line; lineno++) {
-	    currline = prof["files"][filename]["lines"][lineno];
-	    mb_copied += currline.n_copy_mb * prof.elapsed_time_sec;
-	    newLine.n_cpu_percent_python += currline.n_cpu_percent_python;
-	    newLine.n_cpu_percent_c += currline.n_cpu_percent_c;
-	    newLine.n_sys_percent += currline.n_sys_percent;
-	    newLine.n_gpu_percent += currline.n_gpu_percent;
-	    if (currline.n_peak_mb > newLine.n_peak_mb) {
-		newLine.n_peak_mb = currline.n_peak_mb;
-		newLine.n_python_fraction = currline.n_python_fraction;
-	    }
-	    // TODO:
-	    // GPU memory
-	    newLine.n_core_utilization += (currline.n_cpu_percent_python + currline.n_cpu_percent_c) * currline.n_core_utilization; // weigh by percentage
-	}
-	newLine.n_copy_mb_s = mb_copied / prof.elapsed_time_sec;
-	s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for the entire region starting here." onclick="proposeOptimizationRegion('${escape(
+  let newLine = structuredClone(line);
+  // TODO: verify that this isn't double counting anything
+  if (propose_optimizations && showExplosion) {
+    // Construct a new line corresponding to this region.
+    let mb_copied = 0;
+    for (let lineno = start_region_line; lineno < end_region_line; lineno++) {
+      currline = prof["files"][filename]["lines"][lineno];
+      mb_copied += currline.n_copy_mb * prof.elapsed_time_sec;
+      newLine.n_cpu_percent_python += currline.n_cpu_percent_python;
+      newLine.n_cpu_percent_c += currline.n_cpu_percent_c;
+      newLine.n_sys_percent += currline.n_sys_percent;
+      newLine.n_gpu_percent += currline.n_gpu_percent;
+      if (currline.n_peak_mb > newLine.n_peak_mb) {
+        newLine.n_peak_mb = currline.n_peak_mb;
+        newLine.n_python_fraction = currline.n_python_fraction;
+      }
+      // TODO:
+      // GPU memory
+      newLine.n_core_utilization +=
+        (currline.n_cpu_percent_python + currline.n_cpu_percent_c) *
+        currline.n_core_utilization; // weigh by percentage
+    }
+    newLine.n_copy_mb_s = mb_copied / prof.elapsed_time_sec;
+    s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for the entire region starting here." onclick="proposeOptimizationRegion('${escape(
       filename,
     )}', ${file_number}, '${encodeURIComponent(JSON.stringify(newLine))}'); event.preventDefault()">${regionOptimizationString}</span>`;
   } else {
@@ -1522,9 +1562,9 @@ function makeProfileLine(
   const lineOptimizationString = propose_optimizations
     ? `${Lightning}`
     : `${WhiteLightning}`;
-    if (propose_optimizations) {
-	s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${escape(filename)}', ${file_number}, '${encodeURIComponent(JSON.stringify(line))}'); event.preventDefault()">${lineOptimizationString}</span>`;
-      // s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${escape(filename,)}', ${file_number}, ${JSON.stringify(line)}); event.preventDefault()">${lineOptimizationString}</span>`;
+  if (propose_optimizations) {
+    s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${escape(filename)}', ${file_number}, '${encodeURIComponent(JSON.stringify(line))}'); event.preventDefault()">${lineOptimizationString}</span>`;
+    // s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${escape(filename,)}', ${file_number}, ${JSON.stringify(line)}); event.preventDefault()">${lineOptimizationString}</span>`;
   } else {
     s += lineOptimizationString;
   }
@@ -2008,7 +2048,7 @@ function toggleServiceFields() {
     service === "amazon" ? "block" : "none";
   document.getElementById("local-fields").style.display =
     service === "local" ? "block" : "none";
-  document.getElementById("azure-openai-fields").style.display = 
+  document.getElementById("azure-openai-fields").style.display =
     service === "azure-openai" ? "block" : "none";
 }
 

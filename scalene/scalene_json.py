@@ -1,5 +1,4 @@
 import copy
-import os
 import random
 import re
 import sys
@@ -200,11 +199,11 @@ class ScaleneJSON:
         else:
             n_copy_mb_s = 0
 
-        stats.per_line_footprint_samples[fname][
-            line_no
-        ] = self.compress_samples(
-            stats.per_line_footprint_samples[fname][line_no],
-            stats.max_footprint,
+        stats.per_line_footprint_samples[fname][line_no] = (
+            self.compress_samples(
+                stats.per_line_footprint_samples[fname][line_no],
+                stats.max_footprint,
+            )
         )
 
         return {
@@ -289,11 +288,13 @@ class ScaleneJSON:
         # Process the stacks to normalize by total number of CPU samples.
         for stk in stats.stacks.keys():
             (count, python_time, c_time, cpu_samples) = stats.stacks[stk]
-            stats.stacks[stk] = (count,
-                                 python_time / stats.total_cpu_samples,
-                                 c_time / stats.total_cpu_samples,
-                                 cpu_samples / stats.total_cpu_samples)
-            
+            stats.stacks[stk] = (
+                count,
+                python_time / stats.total_cpu_samples,
+                c_time / stats.total_cpu_samples,
+                cpu_samples / stats.total_cpu_samples,
+            )
+
         # Convert stacks into a representation suitable for JSON dumping.
         stks = []
         for stk in stats.stacks.keys():
@@ -310,13 +311,13 @@ class ScaleneJSON:
             "elapsed_time_sec": stats.elapsed_time,
             "growth_rate": growth_rate,
             "max_footprint_mb": stats.max_footprint,
-            "max_footprint_python_fraction" : stats.max_footprint_python_fraction,
-            "max_footprint_fname": stats.max_footprint_loc[0]
-            if stats.max_footprint_loc
-            else None,
-            "max_footprint_lineno": stats.max_footprint_loc[1]
-            if stats.max_footprint_loc
-            else None,
+            "max_footprint_python_fraction": stats.max_footprint_python_fraction,
+            "max_footprint_fname": (
+                stats.max_footprint_loc[0] if stats.max_footprint_loc else None
+            ),
+            "max_footprint_lineno": (
+                stats.max_footprint_loc[1] if stats.max_footprint_loc else None
+            ),
             "files": {},
             "gpu": self.gpu,
             "memory": profile_memory,
@@ -399,7 +400,7 @@ class ScaleneJSON:
 
             reported_leaks = {}
 
-            for (leak_lineno, leak_likelihood, leak_velocity) in leaks:
+            for leak_lineno, leak_likelihood, leak_velocity in leaks:
                 reported_leaks[str(leak_lineno)] = {
                     "likelihood": leak_likelihood,
                     "velocity_mb_s": leak_velocity / stats.elapsed_time,

@@ -1,7 +1,4 @@
 import multiprocessing.synchronize
-import sys
-import threading
-from typing import Any
 
 from scalene.scalene_profiler import Scalene
 
