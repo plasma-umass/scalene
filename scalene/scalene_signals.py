@@ -57,8 +57,10 @@ class ScaleneSignals:
             Returns 2-tuple of the integers representing the CPU timer signal and the CPU signal.
         """
         return self.cpu_timer_signal, self.cpu_signal
+
     def get_lifecycle_signals(self) -> Tuple[signal.Signals, signal.Signals]:
         return (self.start_profiling_signal, self.stop_profiling_signal)
+
     def get_all_signals(self) -> List[int]:
         """
         Return all the signals used for controlling profiling, except the CPU timer.

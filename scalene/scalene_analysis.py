@@ -25,7 +25,9 @@ class ScaleneAnalysis:
                 package_dir = os.path.dirname(package.__file__)
                 for root, dirs, files in os.walk(package_dir):
                     for filename in files:
-                        if filename.endswith(".so") or filename.endswith(".pyd"):
+                        if filename.endswith(".so") or filename.endswith(
+                            ".pyd"
+                        ):
                             return True
             result = False
         except ImportError:
@@ -141,7 +143,9 @@ class ScaleneAnalysis:
         tree = ast.parse(src)
         regions = {}
 
-        def walk(node : ast.AST, current_outermost_region : Any, outer_class : Any) -> None:
+        def walk(
+            node: ast.AST, current_outermost_region: Any, outer_class: Any
+        ) -> None:
             nonlocal regions
             if isinstance(
                 node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)

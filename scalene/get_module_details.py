@@ -3,18 +3,10 @@ import sys
 
 from importlib.abc import SourceLoader
 from importlib.machinery import ModuleSpec
-from types import CodeType, FrameType
+from types import CodeType
 from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Set,
     Tuple,
     Type,
-    Union,
-    cast,
 )
 
 
