@@ -39,7 +39,7 @@ dependencies = [
     "nvidia-ml-py>=12.555.43",
     "Jinja2>=3.0.3",
     "psutil>=5.9.2",
-    "numpy>=1.26.0,<1.27",
+    "numpy>=1.24.0,<1.27",
     "astunparse>=1.6.3; python_version < '3.9'"
 ]
 dynamic = ["version"]   # computed by setup.py
