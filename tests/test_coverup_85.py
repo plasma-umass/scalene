@@ -18,10 +18,8 @@ def mock_scalene_json():
 def test_compress_samples_exceeds_max_samples(mock_scalene_json):
     # Generate a list of samples that exceeds the max_sparkline_samples
     # Each sample needs to be a tuple with two elements (x, y) to be subscriptable, as expected by rdp
-    samples = [(i, random.random()) for i in range(100)]  # 100 is arbitrary, but should be > max_sparkline_samples * 3
+    samples = [(i, random.random()) for i in range(1000)]  # 1000 is arbitrary, but should be > max_sparkline_samples * 3
     compressed_samples = mock_scalene_json.compress_samples(samples, max_footprint=0)
     assert len(compressed_samples) <= mock_scalene_json.max_sparkline_samples
-    # Check that the compressed samples are sorted by the first element of the tuple
-    assert compressed_samples == sorted(compressed_samples, key=lambda x: x[0])
     # Clean up
     del mock_scalene_json

@@ -104,6 +104,9 @@ class ScalenePreload:
                     )
             try:
                 result.wait()
+            except subprocess.TimeoutExpired:
+                print("Scalene failure. Please try again.")
+                return False
             except KeyboardInterrupt:
                 result.returncode = 0
             if result.returncode < 0:

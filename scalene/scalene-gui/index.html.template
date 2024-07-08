@@ -126,24 +126,48 @@ body {
         <select style="font-size: 0.8rem" id="service-select" class="persistent" onchange="toggleServiceFields()">
           <option value="openai">OpenAI</span></option>
 <!--          <option value="amazon">Amazon Bedrock</option> -->
+          <option value="azure-openai">Azure OpenAI</option>
           <option value="local">Local</option>
     </select>
     <hr />
         <!-- OpenAI API Key Field -->
-          <div id="openai-fields">
+        <div id="openai-fields">
           <label for='api-key' style="font-size: 0.8rem">OpenAI <a href="https://beta.openai.com/signup">API key</a>:</label>
-    <input type="text" style="font-size: 0.8rem" size="22" placeholder="(OpenAI API key)" id="api-key" oninput="checkApiKey(event.target.value)"></input>
-    <span id="valid-api-key"></span>
-    <br />
+          <input type="text" style="font-size: 0.8rem" size="22" placeholder="(OpenAI API key)" id="api-key" oninput="checkApiKey(event.target.value)"></input>
+          <span id="valid-api-key"></span>
+          <br />
           <label style="font-size: 0.8rem" for="language-model-openai">
             Language model:
           </label>
           <select style="font-size: 0.8rem" id="language-model-openai" class="persistent" name="language-model-openai-label">
             <option value="gpt-3.5-turbo">GPT 3.5</option>
             <option value="gpt-4" selected>GPT 4.0</option>
-    </select>
-	    </div>
+          </select>
+	      </div>
         
+        <!-- Azure OpenAI API Key Field -->
+        <div id="azure-openai-fields" style = "display: none;">
+          
+          <label for='azure-api-key' style="font-size: 0.8rem">Azure OpenAI API key:</label>
+          <input type="text" style="font-size: 0.8rem" size="22" placeholder="(Azure OpenAI API key)" id="azure-api-key"></input>
+          <span id="valid-api-key"></span>
+          <br />
+          <label style="font-size: 0.8rem" for="azure-api-url">
+            API URL Azure Open AI:
+          </label>
+          <input type="text" style="font-size: 0.8rem" size="22" placeholder="(Azure OpenAI API URL)" id="azure-api-url"></input>
+          <br />
+          <label style="font-size: 0.8rem" for="azure-api-model">
+            Language model:
+          </label>
+          <input type="text" style="font-size: 0.8rem" size="22" placeholder="(Azure OpenAI API Model)" id="azure-api-model"></input>
+          <br />
+          <label style="font-size: 0.8rem" for="azure-api-model-version">
+            API Version:
+          </label>
+          <input type="text" style="font-size: 0.8rem" size="22" placeholder="(Azure OpenAI API Version)" id="azure-api-model-version"></input>
+	      </div>
+
         <!-- Amazon Bedrock Fields -->
         <div id="amazon-fields" style="display: none;">
           <label for='aws-access-key' style="font-size: 0.8rem">AWS Access Key ID:</label>

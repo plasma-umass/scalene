@@ -4,7 +4,7 @@ from typing import List
 class Adaptive:
     """Implements sampling to achieve the effect of a uniform random sample."""
 
-    def __init__(self, size: int):
+    def __init__(self, size: int) -> None:
         # size must be a power of two
         self.max_samples = size
         self.current_index = 0

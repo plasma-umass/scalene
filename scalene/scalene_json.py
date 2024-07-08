@@ -1,5 +1,4 @@
 import copy
-import os
 import random
 import re
 import sys
@@ -13,9 +12,7 @@ from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 from scalene.scalene_analysis import ScaleneAnalysis
 
-if sys.platform != "win32":
-    from scalene.crdp import rdp
-
+import numpy as np
 
 class ScaleneJSON:
     @staticmethod
@@ -67,26 +64,55 @@ class ScaleneJSON:
         # if we are on a GPU or not
         self.gpu = False
 
+    def rdp(self, points, epsilon):
+        """
+        Ramer-Douglas-Peucker algorithm implementation using NumPy
+        """
+        def perpendicular_distance(point, start, end):
+            if np.all(start == end):
+                return np.linalg.norm(point - start)
+            return np.abs(np.cross(end - start, start - point) / np.linalg.norm(end - start))
+
+        def recursive_rdp(points, start, end, epsilon):
+            dmax = 0.0
+            index = start
+            for i in range(start + 1, end):
+                d = perpendicular_distance(points[i], points[start], points[end])
+                if d > dmax:
+                    index = i
+                    dmax = d
+            if dmax > epsilon:
+                results1 = recursive_rdp(points, start, index, epsilon)
+                results2 = recursive_rdp(points, index, end, epsilon)
+                return results1[:-1] + results2
+            else:
+                return [points[start], points[end]]
+
+        points = np.array(points)
+        start = 0
+        end = len(points) - 1
+        return np.array(recursive_rdp(points, start, end, epsilon))
+
     def compress_samples(
-        self, samples: List[Any], max_footprint: float
+            self, samples: List[Any], max_footprint: float
     ) -> Any:
-        if len(samples) <= self.max_sparkline_samples:
-            return samples
         # Try to reduce the number of samples with the
         # Ramer-Douglas-Peucker algorithm, which attempts to
         # preserve the shape of the graph. If that fails to bring
         # the number of samples below our maximum, randomly
         # downsample (epsilon calculation from
         # https://stackoverflow.com/questions/57052434/can-i-guess-the-appropriate-epsilon-for-rdp-ramer-douglas-peucker)
+        if len(samples) <= self.max_sparkline_samples:
+            return samples
+
         epsilon = (len(samples) / (3 * self.max_sparkline_samples)) * 2
-        # print("BEFORE len = ", len(samples))
-        new_samples = rdp(samples, epsilon=epsilon)
-        # print("AFTER len = ", len(new_samples))
+
+        # Use NumPy for RDP algorithm
+        new_samples = self.rdp(np.array(samples), epsilon)
+
         if len(new_samples) > self.max_sparkline_samples:
-            # We still didn't get enough compression; randomly downsample.
-            new_samples = sorted(
-                random.sample(new_samples, self.max_sparkline_samples)
-            )
+            new_samples = sorted(random.sample(list(map(tuple, new_samples)), self.max_sparkline_samples))
+
         return new_samples
 
     # Profile output methods
@@ -200,11 +226,11 @@ class ScaleneJSON:
         else:
             n_copy_mb_s = 0
 
-        stats.per_line_footprint_samples[fname][
-            line_no
-        ] = self.compress_samples(
-            stats.per_line_footprint_samples[fname][line_no],
-            stats.max_footprint,
+        stats.per_line_footprint_samples[fname][line_no] = (
+            self.compress_samples(
+                stats.per_line_footprint_samples[fname][line_no],
+                stats.max_footprint,
+            )
         )
 
         return {
@@ -289,11 +315,13 @@ class ScaleneJSON:
         # Process the stacks to normalize by total number of CPU samples.
         for stk in stats.stacks.keys():
             (count, python_time, c_time, cpu_samples) = stats.stacks[stk]
-            stats.stacks[stk] = (count,
-                                 python_time / stats.total_cpu_samples,
-                                 c_time / stats.total_cpu_samples,
-                                 cpu_samples / stats.total_cpu_samples)
-            
+            stats.stacks[stk] = (
+                count,
+                python_time / stats.total_cpu_samples,
+                c_time / stats.total_cpu_samples,
+                cpu_samples / stats.total_cpu_samples,
+            )
+
         # Convert stacks into a representation suitable for JSON dumping.
         stks = []
         for stk in stats.stacks.keys():
@@ -310,13 +338,13 @@ class ScaleneJSON:
             "elapsed_time_sec": stats.elapsed_time,
             "growth_rate": growth_rate,
             "max_footprint_mb": stats.max_footprint,
-            "max_footprint_python_fraction" : stats.max_footprint_python_fraction,
-            "max_footprint_fname": stats.max_footprint_loc[0]
-            if stats.max_footprint_loc
-            else None,
-            "max_footprint_lineno": stats.max_footprint_loc[1]
-            if stats.max_footprint_loc
-            else None,
+            "max_footprint_python_fraction": stats.max_footprint_python_fraction,
+            "max_footprint_fname": (
+                stats.max_footprint_loc[0] if stats.max_footprint_loc else None
+            ),
+            "max_footprint_lineno": (
+                stats.max_footprint_loc[1] if stats.max_footprint_loc else None
+            ),
             "files": {},
             "gpu": self.gpu,
             "memory": profile_memory,
@@ -399,7 +427,7 @@ class ScaleneJSON:
 
             reported_leaks = {}
 
-            for (leak_lineno, leak_likelihood, leak_velocity) in leaks:
+            for leak_lineno, leak_likelihood, leak_velocity in leaks:
                 reported_leaks[str(leak_lineno)] = {
                     "likelihood": leak_likelihood,
                     "velocity_mb_s": leak_velocity / stats.elapsed_time,

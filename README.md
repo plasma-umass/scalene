@@ -106,8 +106,17 @@ from scalene import scalene_profiler
 # Turn profiling on
 scalene_profiler.start()
 
+# your code
+
 # Turn profiling off
 scalene_profiler.stop()
+```
+
+```Python
+from scalene.scalene_profiler import enable_profiling
+
+with enable_profiling():
+    # do something
 ```
 
 </details>
@@ -386,7 +395,7 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 `libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
 </details>
 
-# Asked Questions
+# Frequently Asked Questions
 
 <details>
 <summary>
@@ -409,7 +418,7 @@ Is there any way to get shorter profiles or do more targeted profiling?
 1. Use `--reduced-profile` to include only lines and files with memory/CPU/GPU activity.
 2. Use `--profile-only` to include only filenames containing specific strings (as in, `--profile-only foo,bar,baz`).
 3. Decorate functions of interest with `@profile` to have Scalene report _only_ those functions.
-4. Turn profiling on and off programmatically by importing Scalene (`import scalene`) and then turning profiling on and off via `scalene_profiler.start()` and `scalene_profiler.stop()`. By default, Scalene runs with profiling on, so to delay profiling until desired, use the `--off` command-line option (`python3 -m scalene --off yourprogram.py`).
+4. Turn profiling on and off programmatically by importing Scalene profiler (`from scalene import scalene_profiler`) and then turning profiling on and off via `scalene_profiler.start()` and `scalene_profiler.stop()`. By default, Scalene runs with profiling on, so to delay profiling until desired, use the `--off` command-line option (`python3 -m scalene --off yourprogram.py`).
 </details>
 
 <details>
@@ -427,6 +436,22 @@ How do I use Scalene with Django?
 
 **A:** Pass in the `--noreload` option (see https://github.com/plasma-umass/scalene/issues/178).
 </details>
+
+
+<details>
+<summary>
+Does Scalene work with gevent/Greenlets?
+</summary>
+
+**A:** Yes! Put the following code in the beginning of your program, or modify the call to `monkey.patch_all` as below:
+
+```python
+from gevent import monkey
+monkey.patch_all(thread=False)
+```
+</details>
+
+
 
 <details>
 <summary>
@@ -448,7 +473,7 @@ To cite Scalene in an academic paper, please use the following:
 ```latex
 @inproceedings{288540,
 author = {Emery D. Berger and Sam Stern and Juan Altmayer Pizzorno},
-title = {Triangulating Python Performance Issues with {S}calene}},
+title = {Triangulating Python Performance Issues with {S}calene},
 booktitle = {{17th USENIX Symposium on Operating Systems Design and Implementation (OSDI 23)}},
 year = {2023},
 isbn = {978-1-939133-34-2},

@@ -20,7 +20,7 @@
 
 // We're unable to use the limited API because, for example,
 // there doesn't seem to be a function returning co_filename
-//#define Py_LIMITED_API 0x03070000
+// #define Py_LIMITED_API 0x03070000
 
 #include "common.hpp"
 #include "mallocrecursionguard.hpp"

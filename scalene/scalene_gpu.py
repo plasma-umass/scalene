@@ -38,11 +38,11 @@ class ScaleneGPU:
         if self.has_gpu() and not self.__has_per_pid_accounting:
             print(
                 "NOTE: The GPU is currently running in a mode that can reduce Scalene's accuracy when reporting GPU utilization.",
-                file=sys.stderr
+                file=sys.stderr,
             )
             print(
                 "Run once as Administrator or root (i.e., prefixed with `sudo`) to enable per-process GPU accounting.",
-                file=sys.stderr
+                file=sys.stderr,
             )
 
     def _set_accounting_mode(self) -> bool:
@@ -73,7 +73,8 @@ class ScaleneGPU:
 
     def gpu_utilization(self, pid: int) -> float:
         """Return overall GPU utilization by pid if possible.
-        Otherwise, returns aggregate utilization across all running processes."""
+        Otherwise, returns aggregate utilization across all running processes.
+        """
         if not self.has_gpu():
             return 0
         ngpus = self.__ngpus

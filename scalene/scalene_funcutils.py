@@ -1,5 +1,4 @@
 import dis
-import sys
 from functools import lru_cache
 from types import CodeType
 from typing import FrozenSet

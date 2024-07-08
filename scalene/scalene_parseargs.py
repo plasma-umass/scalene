@@ -13,7 +13,7 @@ scalene_gui_url = f'file:{os.path.join(os.path.dirname(__file__), "scalene-gui",
 
 
 class RichArgParser(argparse.ArgumentParser):
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         from rich.console import Console
 
         self.console = Console()
@@ -165,7 +165,7 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=False,
-            help=f"opens the Scalene web UI.",
+            help="opens the Scalene web UI.",
         )
         parser.add_argument(
             "--reduced-profile",
@@ -353,6 +353,10 @@ for the process ID that Scalene reports. For example:
         # https://stackoverflow.com/questions/35733262/is-there-any-way-to-instruct-argparse-python-2-7-to-remove-found-arguments-fro
         args, left = parser.parse_known_args()
 
+        # Validate file/directory arguments
+        if args.outfile and os.path.isdir(args.outfile):
+            parser.error(f"outfile {args.outfile} is a directory")
+
         # Hack to simplify functionality for Windows platforms.
         if sys.platform == "win32":
             args.on = True
@@ -362,21 +366,28 @@ for the process ID that Scalene reports. For example:
 
         # Launch the UI if `--viewer` was selected.
         if args.viewer:
-            if browser := find_browser():
+            if find_browser():
                 assert not args.no_browser
                 dir = os.path.dirname(__file__)
                 import scalene.scalene_config
                 import subprocess
-                subprocess.Popen([sys.executable,
-                                  f"{dir}{os.sep}launchbrowser.py",
-                                  "demo",
-                                  str(scalene.scalene_config.SCALENE_PORT)],
-                                 stdout=subprocess.DEVNULL,
-                                 stderr=subprocess.DEVNULL)
+
+                subprocess.Popen(
+                    [
+                        sys.executable,
+                        f"{dir}{os.sep}launchbrowser.py",
+                        "demo",
+                        str(scalene.scalene_config.SCALENE_PORT),
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
                 sys.exit(0)
                 pass
             else:
-                print(f"Scalene: could not open a browser.") # {scalene_gui_url}.")
+                print(
+                    "Scalene: could not open a browser."
+                )  # {scalene_gui_url}.")
                 sys.exit(0)
 
         # If any of the individual profiling metrics were specified,

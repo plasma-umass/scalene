@@ -1,11 +1,12 @@
 import os
 import pathlib
-import re
 import stat
 import sys
 
 
-def redirect_python(preface: str, cmdline: str, python_alias_dir: pathlib.Path) -> str:
+def redirect_python(
+    preface: str, cmdline: str, python_alias_dir: pathlib.Path
+) -> str:
     """
     Redirects Python calls to a different command with a preface and cmdline.
 
@@ -43,13 +44,13 @@ def redirect_python(preface: str, cmdline: str, python_alias_dir: pathlib.Path) 
 
     orig_sys_executable = sys.executable
 
-    sys.executable = python_alias_dir / all_python_names[0]
-    sys.executable = str(sys.executable)
-    if sys.platform != "win32":
-        sys.executable = str(sys.executable)
+    # Compute the new sys executable path
+    sys_executable_path = python_alias_dir / all_python_names[0]
 
-    if sys.platform == "win32" and sys.executable.endswith(".exe"):
-        # Replace the .exe extension with .bat
-        sys.executable = os.path.splitext(sys.executable)[0] + ".bat"
+    # On Windows, adjust the path to use a .bat file instead of .exe
+    if sys.platform == "win32" and sys_executable_path.suffix == ".exe":
+        sys_executable_path = sys_executable_path.with_suffix(".bat")
+
+    sys.executable = str(sys_executable_path)
 
     return orig_sys_executable
