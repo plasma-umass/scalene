@@ -154,7 +154,7 @@ def enable_profiling() -> Generator[None, None, None]:
     yield
     stop()
 
-  class Scalene:
+class Scalene:
     """The Scalene profiler itself."""
 
     # Get the number of available CPUs (preferring `os.sched_getaffinity`, if available).
