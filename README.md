@@ -112,6 +112,13 @@ scalene_profiler.start()
 scalene_profiler.stop()
 ```
 
+```Python
+from scalene.scalene_profiler import enable_profiling
+
+with enable_profiling():
+    # do something
+```
+
 </details>
 
 <details>

@@ -67,7 +67,7 @@ from typing import (
     Set,
     Tuple,
     Union,
-    cast,
+    cast, Generator,
 )
 
 import scalene.scalene_config
@@ -146,6 +146,13 @@ def stop() -> None:
     """Stop profiling."""
     Scalene.stop()
 
+
+@contextlib.contextmanager
+def enable_profiling() -> Generator[None, None, None]:
+    """Contextmanager that starts and stops profiling"""
+    start()
+    yield
+    stop()
 
 class Scalene:
     """The Scalene profiler itself."""
