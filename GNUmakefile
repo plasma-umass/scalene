@@ -65,10 +65,7 @@ vendor/printf/printf.cpp:
 	sed -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h > $(TMP)/printf.h.$$ && mv $(TMP)/printf.h.$$ vendor/printf/printf.h
 	sed -e 's/^#define vsnprintf vsnprintf_/\/\/&/' vendor/printf/printf.h > $(TMP)/printf.h.$$ && mv $(TMP)/printf.h.$$ vendor/printf/printf.h
 
-vendor/crdp:
-	mkdir -p vendor && cd vendor && git clone https://github.com/plasma-umass/crdp
-
-vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp vendor/crdp
+vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp
 
 mypy:
 	-mypy --no-warn-unused-ignores $(PYTHON_SOURCES)

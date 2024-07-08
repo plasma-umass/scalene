@@ -2,6 +2,4 @@ graft vendor/Heap-Layers
 prune vendor/Heap-Layers/.git
 graft vendor/printf
 prune vendor/printf/.git
-graft vendor/crdp
-prune vendor/crdp/.git
 exclude scalene/old/*
