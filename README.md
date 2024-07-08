@@ -14,6 +14,8 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 
 ![Semantic Scholar success story](https://github.com/plasma-umass/scalene/raw/master/docs/semantic-scholar-success.png)
 
+***Scalene web-based user interface:*** [http://plasma-umass.org/scalene-gui/](http://plasma-umass.org/scalene-gui/)
+ 
 ## About Scalene
 
 Scalene is a high-performance CPU, GPU *and* memory profiler for
@@ -103,6 +105,8 @@ from scalene import scalene_profiler
 
 # Turn profiling on
 scalene_profiler.start()
+
+# your code
 
 # Turn profiling off
 scalene_profiler.stop()
@@ -383,17 +387,6 @@ Scalene is distributed as a `conda` package and works on Mac OS X, Linux (includ
 </details>
 
 <details>
-<summary>Using <code>Homebrew</code> (Mac OS X)</summary>
-
-As an alternative to `pip`, you can use Homebrew to install the current version of Scalene from this repository:
-
-```console
-  % brew tap plasma-umass/scalene
-  % brew install --head plasma-umass/scalene/scalene
-```
-</details>
-
-<details>
 <summary>On ArchLinux</summary>
 
 You can install Scalene on Arch Linux via the [AUR
@@ -402,7 +395,7 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 `libscalene.so` in `/usr/lib`; modify the below usage instructions accordingly.
 </details>
 
-# Asked Questions
+# Frequently Asked Questions
 
 <details>
 <summary>
@@ -425,7 +418,7 @@ Is there any way to get shorter profiles or do more targeted profiling?
 1. Use `--reduced-profile` to include only lines and files with memory/CPU/GPU activity.
 2. Use `--profile-only` to include only filenames containing specific strings (as in, `--profile-only foo,bar,baz`).
 3. Decorate functions of interest with `@profile` to have Scalene report _only_ those functions.
-4. Turn profiling on and off programmatically by importing Scalene (`import scalene`) and then turning profiling on and off via `scalene_profiler.start()` and `scalene_profiler.stop()`. By default, Scalene runs with profiling on, so to delay profiling until desired, use the `--off` command-line option (`python3 -m scalene --off yourprogram.py`).
+4. Turn profiling on and off programmatically by importing Scalene profiler (`from scalene import scalene_profiler`) and then turning profiling on and off via `scalene_profiler.start()` and `scalene_profiler.stop()`. By default, Scalene runs with profiling on, so to delay profiling until desired, use the `--off` command-line option (`python3 -m scalene --off yourprogram.py`).
 </details>
 
 <details>
@@ -444,6 +437,22 @@ How do I use Scalene with Django?
 **A:** Pass in the `--noreload` option (see https://github.com/plasma-umass/scalene/issues/178).
 </details>
 
+
+<details>
+<summary>
+Does Scalene work with gevent/Greenlets?
+</summary>
+
+**A:** Yes! Put the following code in the beginning of your program, or modify the call to `monkey.patch_all` as below:
+
+```python
+from gevent import monkey
+monkey.patch_all(thread=False)
+```
+</details>
+
+
+
 <details>
 <summary>
 How do I use Scalene with PyTorch on the Mac?
@@ -456,9 +465,32 @@ How do I use Scalene with PyTorch on the Mac?
 
 For details about how Scalene works, please see the following paper, which won the Jay Lepreau Best Paper Award at [OSDI 2023](https://www.usenix.org/conference/osdi23/presentation/berger): [Triangulating Python Performance Issues with Scalene](https://arxiv.org/pdf/2212.07597). (Note that this paper does not include information about the AI-driven proposed optimizations.)
 
+<details>
+<summary>
+To cite Scalene in an academic paper, please use the following:
+</summary>
+
+```latex
+@inproceedings{288540,
+author = {Emery D. Berger and Sam Stern and Juan Altmayer Pizzorno},
+title = {Triangulating Python Performance Issues with {S}calene},
+booktitle = {{17th USENIX Symposium on Operating Systems Design and Implementation (OSDI 23)}},
+year = {2023},
+isbn = {978-1-939133-34-2},
+address = {Boston, MA},
+pages = {51--64},
+url = {https://www.usenix.org/conference/osdi23/presentation/berger},
+publisher = {USENIX Association},
+month = jul
+}
+```
+</details>
+
+
 # Success Stories
 
 If you use Scalene to successfully debug a performance problem, please [add a comment to this issue](https://github.com/plasma-umass/scalene/issues/58)!
+
 
 # Acknowledgements
 

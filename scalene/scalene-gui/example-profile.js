@@ -3,6 +3,7 @@ const example_profile = {
   memory: true,
   files: {
     "./test/testme.py": {
+      imports: [],
       functions: [
         {
           line: "doit1",

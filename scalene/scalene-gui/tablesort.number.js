@@ -26,6 +26,6 @@
       b = cleanNumber(b);
 
       return compareNumber(b, a);
-    }
+    },
   );
 })();

@@ -16,6 +16,8 @@ extern "C" int whereInPython(std::string& filename, int& lineno, int& bytei);
  */
 extern "C" std::atomic<decltype(whereInPython)*> p_whereInPython;
 
+extern "C" std::atomic<bool> p_scalene_done;
+
 /**
  * Returns whether the Python interpreter was detected.
  * It's possible (and in fact happens for any fork/exec from within Python,

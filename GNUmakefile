@@ -7,13 +7,14 @@ C_SOURCES = src/source/*.cpp src/include/*.h*
 .PHONY: black clang-format prettier format upload vendor-deps
 
 # CXXFLAGS = -std=c++14 -g -O0 # FIXME
-CXXFLAGS = -std=c++14 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -DHL_USE_XXREALLOC=1 -pipe -fno-builtin-malloc -fvisibility=hidden
+CXXFLAGS = -std=c++14 -Wall -g -O3 -DNDEBUG -D_REENTRANT=1 -DHL_USE_XXREALLOC=1 -pipe -fno-builtin-malloc -fvisibility=hidden -Wno-unused-result
 # CXX = g++
 
 INCLUDES  = -Isrc -Isrc/include
 INCLUDES := $(INCLUDES) -Ivendor/Heap-Layers -Ivendor/Heap-Layers/wrappers -Ivendor/Heap-Layers/utility
 INCLUDES := $(INCLUDES) -Ivendor/printf
-INCLUDES := $(INCLUDES) $(shell python3-config --includes)
+# python3-config may not be available in venv and such
+INCLUDES := $(INCLUDES) -I$(shell python3 -c "import sysconfig; print(sysconfig.get_path('include'))")
 
 ifeq ($(shell uname -s),Darwin)
   LIBFILE := lib$(LIBNAME).dylib
@@ -54,26 +55,20 @@ clean:
 $(WRAPPER) : vendor/Heap-Layers
 
 vendor/Heap-Layers:
-	mkdir -p vendor && cd vendor && git clone https://github.com/emeryberger/Heap-Layers
+	cd vendor && git clone https://github.com/emeryberger/Heap-Layers
 
 TMP := $(shell mktemp -d || echo /tmp)
 
 vendor/printf/printf.cpp:
-	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
+	cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
 	sed -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h > $(TMP)/printf.h.$$ && mv $(TMP)/printf.h.$$ vendor/printf/printf.h
 	sed -e 's/^#define vsnprintf vsnprintf_/\/\/&/' vendor/printf/printf.h > $(TMP)/printf.h.$$ && mv $(TMP)/printf.h.$$ vendor/printf/printf.h
 
-clear-vendor-dirs:
-	rm -fr vendor/
-
-vendor/crdp:
-	mkdir -p vendor && cd vendor && git clone https://github.com/plasma-umass/crdp
-
-vendor-deps: clear-vendor-dirs vendor/Heap-Layers vendor/printf/printf.cpp vendor/crdp
+vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp
 
 mypy:
-	-mypy $(PYTHON_SOURCES)
+	-mypy --no-warn-unused-ignores $(PYTHON_SOURCES)
 
 format: black clang-format prettier
 

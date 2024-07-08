@@ -5,7 +5,7 @@ from rich.segment import Segment
 
 
 class SyntaxLine:
-    def __init__(self, segments: List[Segment]):
+    def __init__(self, segments: List[Segment]) -> None:
         self.segments = segments
 
     def __rich_console__(

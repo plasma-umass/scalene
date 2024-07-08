@@ -20,7 +20,7 @@
 
 // We're unable to use the limited API because, for example,
 // there doesn't seem to be a function returning co_filename
-//#define Py_LIMITED_API 0x03070000
+// #define Py_LIMITED_API 0x03070000
 
 #include "common.hpp"
 #include "mallocrecursionguard.hpp"
@@ -145,6 +145,7 @@ class SampleHeap : public SuperHeap {
   }
   inline void register_malloc(size_t realSize, void* ptr,
                               bool inPythonAllocator = true) {
+    if (p_scalene_done) return;
     assert(realSize);
     // If this is the special NEWLINE value, trigger an update.
     if (unlikely(realSize == NEWLINE)) {
@@ -205,6 +206,7 @@ class SampleHeap : public SuperHeap {
   }
 
   inline void register_free(size_t realSize, void* ptr) {
+    if (p_scalene_done) return;
     size_t sampleFreeSize;
     auto sampleFree =
         _allocationSampler.decrement(realSize, ptr, sampleFreeSize);

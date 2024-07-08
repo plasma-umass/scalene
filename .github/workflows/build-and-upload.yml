@@ -29,8 +29,8 @@ jobs:
     needs: pick-devN
     strategy:
       matrix:
-        python_version: ['3.8', '3.9', '3.10', '3.11']
-        plat: ['manylinux2014', 'manylinux_2_28', 'macos-latest', 'windows-latest']
+        python_version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        plat: ['manylinux2014', 'manylinux_2_28', 'macos-13', 'macos-latest', 'windows-latest']
         include:
           - plat: manylinux2014
             os: ubuntu-latest
@@ -39,6 +39,9 @@ jobs:
           - plat: manylinux_2_28
             os: ubuntu-latest
             container: quay.io/pypa/manylinux_2_28_x86_64  # https://github.com/pypa/manylinux
+
+          - plat: macos-13
+            os: macos-13
 
           - plat: macos-latest
             os: macos-latest
@@ -72,7 +75,12 @@ jobs:
         if: github.event_name != 'release' && matrix.os == 'windows-latest'
         run: ("DEV_BUILD=" + (get-content devN.txt)) >> $env:GITHUB_ENV  # for setup.py
 
+      # downgraded to @v3 if using container: https://github.com/actions/checkout/issues/1487
       - uses: actions/checkout@v3
+        if: matrix.container != ''
+
+      - uses: actions/checkout@v4
+        if: matrix.container == ''
 
       - name: Mark workspace safe for git
         # needed for container and self-hosted runners; see https://github.com/actions/checkout/issues/766
@@ -83,9 +91,18 @@ jobs:
           # leading to missing files in the archive.  Run it separately to force a failure in that case.
           (cd scalene; git archive --prefix scalene/ HEAD | tar -t > /dev/null)
   
+      - name: select Xcode version
+        # MacOS > 14.2 requires Xcode >= 15.3; otherwise loading native extension modules fails with e.g.:
+        # dlopen(/opt/homebrew/lib/python3.11/site-packages/slipcover/probe.abi3.so, 0x0002): bad bind opcode 0x00 
+        if: startsWith(matrix.os, 'macos-')
+        run: |
+          if [ -d /Applications/Xcode_15.3.app/Contents/Developer ]; then sudo xcode-select --switch /Applications/Xcode_15.3.app/Contents/Developer; fi
+          clang++ --version
+          g++ --version
+
       - name: Set up python (script version)
         if: matrix.container == ''
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python_version }}
   
@@ -109,7 +126,10 @@ jobs:
         run: make sdist
   
       - name: Build binary dist
-        run: make bdist
+        # Invoking with "bash -c" works around the "bash.exe: ... could not find /tmp" issue on Windows.
+        # The issue is somehow related to git providing a sh.exe (the "git shell")
+        # See eg https://help.appveyor.com/discussions/problems/1531-having-issues-with-configured-git-bash
+        run: bash -c "make bdist"
 
       - name: Check that all required platforms are included
         if: matrix.os == 'macos-latest'

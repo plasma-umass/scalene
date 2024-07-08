@@ -4,12 +4,11 @@ Cython>=0.29.28
 git+https://github.com/plasma-umass/crdp.git#egg=crdp
 ipython>=8.10
 Jinja2==3.0.3
-lxml==4.9.1
+lxml==5.1.0
 packaging==20.9
 psutil>=5.9.2
 pyperf==2.0.0
 rich>=10.7.0
 setuptools>=65.5.1
-pip~=21.1.2
-pynvml~=11.0.0
+pynvml>=11.0,<=11.5
 wheel~=0.38.1

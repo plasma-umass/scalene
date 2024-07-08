@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import pathlib
 import pickle
@@ -40,24 +42,24 @@ class ScaleneStatistics:
         self.alloc_samples: int = 0
 
         #  full stacks taken during CPU samples, together with number of hits
-        self.stacks: Dict[Tuple[Any], int] = defaultdict(int)
+        self.stacks: Dict[Tuple[Any], Any] = defaultdict(None)
 
         #   CPU samples for each location in the program
         #   spent in the interpreter
-        self.cpu_samples_python: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.cpu_samples_python: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         #   CPU samples for each location in the program
         #   spent in C / libraries / system calls
-        self.cpu_samples_c: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.cpu_samples_c: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         #   GPU samples for each location in the program
-        self.gpu_samples: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.gpu_samples: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         #   GPU memory samples for each location in the program
         self.gpu_mem_samples: DefaultDict[
@@ -81,14 +83,14 @@ class ScaleneStatistics:
         self.malloc_samples: Dict[Filename, float] = defaultdict(float)
 
         # malloc samples for each location in the program
-        self.memory_malloc_samples: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.memory_malloc_samples: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         # number of times samples were added for the above
-        self.memory_malloc_count: Dict[
-            Filename, Dict[LineNumber, int]
-        ] = defaultdict(lambda: defaultdict(int))
+        self.memory_malloc_count: Dict[Filename, Dict[LineNumber, int]] = (
+            defaultdict(lambda: defaultdict(int))
+        )
 
         # the current footprint for this line
         self.memory_current_footprint: Dict[
@@ -96,9 +98,9 @@ class ScaleneStatistics:
         ] = defaultdict(lambda: defaultdict(float))
 
         # the max footprint for this line
-        self.memory_max_footprint: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.memory_max_footprint: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         # the current high watermark for this line
         self.memory_current_highwater_mark: Dict[
@@ -118,29 +120,29 @@ class ScaleneStatistics:
         )
 
         # mallocs attributable to Python, for each location in the program
-        self.memory_python_samples: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.memory_python_samples: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         # free samples for each location in the program
-        self.memory_free_samples: Dict[
-            Filename, Dict[LineNumber, float]
-        ] = defaultdict(lambda: defaultdict(float))
+        self.memory_free_samples: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
 
         # number of times samples were added for the above
-        self.memory_free_count: Dict[
-            Filename, Dict[LineNumber, int]
-        ] = defaultdict(lambda: defaultdict(int))
+        self.memory_free_count: Dict[Filename, Dict[LineNumber, int]] = (
+            defaultdict(lambda: defaultdict(int))
+        )
 
         # memcpy samples for each location in the program
-        self.memcpy_samples: Dict[
-            Filename, Dict[LineNumber, int]
-        ] = defaultdict(lambda: defaultdict(int))
+        self.memcpy_samples: Dict[Filename, Dict[LineNumber, int]] = (
+            defaultdict(lambda: defaultdict(int))
+        )
 
         # leak score tracking
-        self.leak_score: Dict[
-            Filename, Dict[LineNumber, Tuple[int, int]]
-        ] = defaultdict(lambda: defaultdict(lambda: ((0, 0))))
+        self.leak_score: Dict[Filename, Dict[LineNumber, Tuple[int, int]]] = (
+            defaultdict(lambda: defaultdict(lambda: ((0, 0))))
+        )
 
         self.allocation_velocity: Tuple[float, float] = (0.0, 0.0)
 
@@ -161,6 +163,7 @@ class ScaleneStatistics:
 
         # the peak memory footprint
         self.max_footprint: float = 0.0
+        self.max_footprint_python_fraction: float = 0
         self.max_footprint_loc: Optional[Tuple[Filename, LineNumber]] = None
         # memory footprint samples (time, footprint)
         self.memory_footprint_samples: List[List[float]] = []
@@ -178,9 +181,9 @@ class ScaleneStatistics:
 
         # maps filenames and line numbers to functions (collected at runtime)
         # [filename][lineno] -> function name
-        self.function_map: Dict[
-            Filename, Dict[LineNumber, Filename]
-        ] = defaultdict(lambda: defaultdict(lambda: Filename("")))
+        self.function_map: Dict[Filename, Dict[LineNumber, Filename]] = (
+            defaultdict(lambda: defaultdict(lambda: Filename("")))
+        )
         self.firstline_map: Dict[Filename, LineNumber] = defaultdict(
             lambda: LineNumber(1)
         )
@@ -244,7 +247,7 @@ class ScaleneStatistics:
             self.elapsed_time += time.time() - self.start_time
         self.start_time = 0
 
-    def build_function_stats(self, filename: Filename):  # type: ignore
+    def build_function_stats(self, filename: Filename) -> ScaleneStatistics:
         """Produce aggregated statistics for each function."""
         fn_stats = ScaleneStatistics()
         fn_stats.elapsed_time = self.elapsed_time
@@ -395,7 +398,7 @@ class ScaleneStatistics:
     def merge_stats(self, the_dir_name: pathlib.Path) -> None:
         """Merge all statistics in a given directory."""
         the_dir = pathlib.Path(the_dir_name)
-        for f in list(the_dir.glob("**/scalene*")):
+        for f in list(the_dir.glob(os.path.join("**", "scalene*"))):
             # Skip empty files.
             if os.path.getsize(f) == 0:
                 continue
@@ -447,7 +450,7 @@ class ScaleneStatistics:
                 for filename in self.per_line_footprint_samples:
                     for lineno in self.per_line_footprint_samples[filename]:
                         self.per_line_footprint_samples[filename][lineno].sort(
-                            key=lambda x: x[0] # type: ignore
+                            key=lambda x: x[0]
                         )
                 self.increment_per_line_samples(
                     self.memory_malloc_count, x.memory_malloc_count

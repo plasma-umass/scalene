@@ -10,17 +10,17 @@ on:
 jobs:
   smoketests:
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15  # on macos-latest, pypy-3.7 it builds numpy and others
+    timeout-minutes: 15
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ] # disabling windows-latest for now
-        python: [ '3.9', '3.10', '3.11' ] # temporarily disabling pypy-3.7 (eventually add 3.12)
+        os: [ ubuntu-latest, macos-13 ] # disabling windows-latest for now
+        python: [ '3.8', '3.9', '3.10', '3.11', '3.12']
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python }}
 

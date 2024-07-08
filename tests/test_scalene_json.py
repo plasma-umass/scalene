@@ -1,8 +1,9 @@
-from . import scalene_json
+from scalene import scalene_json
 
 from hypothesis import given
 from hypothesis.strategies import floats, lists
 
+from typing import Any, List
 
 class TestScaleneJSON:
     # Define strategies for the input variables
@@ -17,7 +18,7 @@ class TestScaleneJSON:
     )
 
     @given(size_in_mb)
-    def test_memory_consumed_str(self, size_in_mb):
+    def test_memory_consumed_str(self, size_in_mb: int) -> None:
         formatted = scalene_json.ScaleneJSON().memory_consumed_str(size_in_mb)
         assert isinstance(formatted, str)
         if size_in_mb < 1024:
@@ -28,7 +29,7 @@ class TestScaleneJSON:
             assert formatted.endswith("TB")
 
     @given(time_in_ms)
-    def test_time_consumed_str(self, time_in_ms):
+    def test_time_consumed_str(self, time_in_ms: int) -> None:
         formatted = scalene_json.ScaleneJSON().time_consumed_str(time_in_ms)
         assert isinstance(formatted, str)
         if time_in_ms < 1000:
@@ -42,7 +43,7 @@ class TestScaleneJSON:
             assert not formatted.startswith("0")
 
     @given(samples, max_footprint)
-    def test_compress_samples(self, samples, max_footprint):
+    def test_compress_samples(self, samples : List[Any], max_footprint: int) -> None:
         compressed = scalene_json.ScaleneJSON().compress_samples(
             samples, max_footprint
         )

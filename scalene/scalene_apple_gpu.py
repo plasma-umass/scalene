@@ -8,7 +8,7 @@ from typing import Tuple
 class ScaleneAppleGPU:
     """Wrapper class for Apple integrated GPU statistics."""
 
-    def __init__(self, sampling_frequency=100) -> None:
+    def __init__(self, sampling_frequency: int = 100) -> None:
         assert platform.system() == "Darwin"
         self.cmd = (
             'DYLD_INSERT_LIBRARIES="" ioreg -r -d 1 -w 0 -c "IOAccelerator"'

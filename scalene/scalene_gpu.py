@@ -1,5 +1,6 @@
 import contextlib
 import os
+import sys
 from typing import Tuple
 
 import pynvml
@@ -36,10 +37,12 @@ class ScaleneGPU:
     def __del__(self) -> None:
         if self.has_gpu() and not self.__has_per_pid_accounting:
             print(
-                "NOTE: The GPU is currently running in a mode that can reduce Scalene's accuracy when reporting GPU utilization."
+                "NOTE: The GPU is currently running in a mode that can reduce Scalene's accuracy when reporting GPU utilization.",
+                file=sys.stderr,
             )
             print(
-                "Run once as Administrator or root (i.e., prefixed with `sudo`) to enable per-process GPU accounting."
+                "Run once as Administrator or root (i.e., prefixed with `sudo`) to enable per-process GPU accounting.",
+                file=sys.stderr,
             )
 
     def _set_accounting_mode(self) -> bool:
@@ -70,7 +73,8 @@ class ScaleneGPU:
 
     def gpu_utilization(self, pid: int) -> float:
         """Return overall GPU utilization by pid if possible.
-        Otherwise, returns aggregate utilization across all running processes."""
+        Otherwise, returns aggregate utilization across all running processes.
+        """
         if not self.has_gpu():
             return 0
         ngpus = self.__ngpus
@@ -116,12 +120,15 @@ class ScaleneGPU:
         total_used_GPU_memory = 0
         for i in range(self.__ngpus):
             handle = self.__handle[i]
-            for proc in pynvml.nvmlDeviceGetComputeRunningProcesses(handle):
-                # Only accumulate memory stats for the current pid.
-                if proc.usedGpuMemory and proc.pid == pid:
-                    # First check is to protect against return of None
-                    # from incompatible NVIDIA drivers.
-                    total_used_GPU_memory += proc.usedGpuMemory / 1048576
+            with contextlib.suppress(Exception):
+                for proc in pynvml.nvmlDeviceGetComputeRunningProcesses(
+                    handle
+                ):
+                    # Only accumulate memory stats for the current pid.
+                    if proc.usedGpuMemory and proc.pid == pid:
+                        # First check is to protect against return of None
+                        # from incompatible NVIDIA drivers.
+                        total_used_GPU_memory += proc.usedGpuMemory / 1048576
         return total_used_GPU_memory
 
     def get_stats(self) -> Tuple[float, float]:
