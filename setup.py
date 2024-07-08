@@ -153,12 +153,6 @@ pywhere = Extension('scalene.pywhere',
     py_limited_api=False,
     language="c++")
 
-crdp = Extension('scalene.crdp',
-    include_dirs=[],
-    sources = ['vendor/crdp/crdp.c'],
-    py_limited_api=True,
-    language="c")
-
 # If we're testing packaging, build using a ".devN" suffix in the version number,
 # so that we can upload new files (as testpypi/pypi don't allow re-uploading files with
 # the same name as previously uploaded).
@@ -193,7 +187,7 @@ setup(
         'egg_info': EggInfoCommand,
         'build_ext': BuildExtCommand,
     },
-    ext_modules=([get_line_atomic, pywhere, crdp] if sys.platform != 'win32' else []),
+    ext_modules=([get_line_atomic, pywhere] if sys.platform != 'win32' else []),
     include_package_data=True,
     options={'bdist_wheel': bdist_wheel_options()},
 )
