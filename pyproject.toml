@@ -36,7 +36,7 @@ dependencies = [
     "rich>=10.7.0",
     "cloudpickle>=2.2.1",
     # "pynvml>=11.0.0,<=11.5",
-    "nvidia-ml-py>=12.555.43",
+    "nvidia-ml-py>=12.555.43; platform_system !='Darwin'",
     "Jinja2>=3.0.3",
     "psutil>=5.9.2",
     "numpy>=1.24.0,<1.27",
