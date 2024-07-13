@@ -131,6 +131,9 @@ class ScaleneGPU:
                         total_used_GPU_memory += proc.usedGpuMemory / 1048576
         return total_used_GPU_memory
 
+    def stop(self) -> None:
+        pass
+    
     def get_stats(self) -> Tuple[float, float]:
         """Returns a tuple of (utilization %, memory in use)."""
         if self.has_gpu():
