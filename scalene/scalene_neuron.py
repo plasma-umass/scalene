@@ -5,7 +5,7 @@ import time
 import tempfile
 import os
 
-from functools import cache
+from functools import lru_cache
 from typing import Tuple
 
 class NeuronMonitor:
@@ -85,7 +85,7 @@ class ScaleneNeuron:
         self.memory_used_bytes = 0.0
         self.neuroncore_utilization = 0.0
 
-    @cache
+    @lru_cache(maxsize=None)
     def has_gpu(self) -> bool:
         try:
             result = subprocess.run(['neuron-ls'], capture_output=True, text=True, check=True)
