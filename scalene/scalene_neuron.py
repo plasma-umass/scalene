@@ -5,20 +5,37 @@ import time
 import tempfile
 import os
 
+from functools import cache
 from typing import Tuple
 
 class ScaleneNeuron:
+
+    _stop = False
     
     def __init__(self) -> None:
         self._process = None
         self._thread = None
-        self._stop_event = threading.Event()
         self._has_neuron = False
         self._config_path = self._generate_config()
         self.cpu_utilization = 0.0
         self.memory_used_bytes = 0.0
         self.neuroncore_utilization = 0.0
         self.start()
+
+    @cache
+    def has_gpu(self) -> bool:
+        try:
+            result = subprocess.run(['neuron-ls'], capture_output=True, text=True, check=True)
+            if "No neuron devices found" in result.stdout:
+                return False
+            else:
+                return True
+        except subprocess.CalledProcessError as e:
+            # print(f"Error running neuron-ls: {e}")
+            return False
+        except FileNotFoundError:
+            # print("neuron-ls command not found. Ensure AWS Neuron SDK is installed.")
+            return False
 
     def nvml_reinit(self) -> None:
         """Here for compatibility with ScaleneGPU."""
@@ -58,12 +75,9 @@ class ScaleneNeuron:
         return temp_file.name
 
     def start(self) -> None:
-        self._stop_event.clear()
+        ScaleneNeuron._stop = False
         self._thread = threading.Thread(target=self._run_monitor)
         self._thread.start()
-
-    def has_gpu(self) -> bool:
-        return self._has_neuron
 
     def _run_monitor(self):
         try:
@@ -71,45 +85,25 @@ class ScaleneNeuron:
                 ['neuron-monitor', '-c', self._config_path],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
-            sel = selectors.DefaultSelector()
-            sel.register(self._process.stdout, selectors.EVENT_READ)
-            
-            while not self._stop_event.is_set():
-                events = sel.select(timeout=1)
-                for key, _ in events:
-                    line = key.fileobj.readline().strip()
-                    if line:
-                        self._parse_and_print_output(line)
-                time.sleep(1)
+            while not ScaleneNeuron._stop:
+                import os
+                line = self._process.stdout.readline().strip()
+                if line:
+                    self._parse_and_print_output(line)
         except Exception as e:
             print(f"Error running neuron-monitor: {e}")
         finally:
-            if self._process:
-                self._process.terminate()
-                try:
-                    self._process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    self._process.kill()
-                    self._process.wait()
+            if True:
+                if self._process:
+                    self._process.terminate()
+                    try:
+                        self._process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        self._process.kill()
+                        # self._process.wait()
             if os.path.exists(self._config_path):
                 os.remove(self._config_path)
 
-    def _run_monitor_old(self) -> None:
-        try:
-            self._process = subprocess.Popen(
-                ['neuron-monitor', '-c', self._config_path],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-            )
-            self._has_neuron = True
-            while not self._stop_event.is_set():
-                output = self._process.stdout.readline().strip()
-                if output:
-                    self._parse_and_print_output(output)
-                # time.sleep(1)
-        except Exception as e:
-            print(f"Error running neuron-monitor: {e}")
-        finally:
-            self._process.terminate()
 
     def _parse_and_print_output(self, output: str) -> None:
         try:
@@ -177,25 +171,7 @@ class ScaleneNeuron:
             print(f"Unexpected error: {e}")
 
     def stop(self) -> None:
-        self._stop_event.set()
-
-        # Try to ensure the thread terminates
-        if self._thread:
-            self._thread.join(timeout=2)
-
-        # Ensure the process terminates
-        if self._process:
-            self._process.terminate()
-            try:
-                self._process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                self._process.kill()
-                self._process.wait()
-
-        # Clean up the temporary file
-        if os.path.exists(self._config_path):
-            os.remove(self._config_path)
-
+        ScaleneNeuron._stop = True
 
     def get_stats(self) -> Tuple[float, float]:
         return self.neuroncore_utilization, self.memory_used_bytes
