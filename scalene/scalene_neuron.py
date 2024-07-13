@@ -11,26 +11,24 @@ from typing import Tuple
 class NeuronMonitor:
     
     def __init__(self) -> None:
-        if self.has_gpu():
-            self._config_path = self._generate_config()
-            self._process = subprocess.Popen(
-                ['neuron-monitor', '-c', self._config_path],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-            )
-            self._lock = threading.Lock()
-            self._line = ""
-            self._thread = threading.Thread(target=self._update_line)
-            self._thread.daemon = True
-            self._thread.start()
+        self._config_path = self._generate_config()
+        self._process = subprocess.Popen(
+            ['neuron-monitor', '-c', self._config_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        self._lock = threading.Lock()
+        self._line = ""
+        self._thread = threading.Thread(target=self._update_line)
+        self._thread.daemon = True
+        self._thread.start()
 
     def __del__(self) -> None:
-        if self.has_gpu():
-            self._process.kill()
-            self._process.terminate()
-            if os.path.exists(self._config_path):
-                os.remove(self._config_path)
+        self._process.kill()
+        self._process.terminate()
+        if os.path.exists(self._config_path):
+            os.remove(self._config_path)
 
-    def _generate_config(self) -> None:
+    def _generate_config(self) -> str:
         config = {
             "period": "1s",
             "system_metrics": [
@@ -64,11 +62,12 @@ class NeuronMonitor:
         return temp_file.name
 
     def _update_line(self) -> None:
-        while True:
-            newline = self._process.stdout.readline().strip()
-            self._lock.acquire()
-            self._line = newline
-            self._lock.release()
+        if self._process.stdout:
+            while True:
+                newline = self._process.stdout.readline().strip()
+                self._lock.acquire()
+                self._line = newline
+                self._lock.release()
         
     def readline(self) -> str:
         while True:
@@ -82,7 +81,8 @@ class NeuronMonitor:
 class ScaleneNeuron:
 
     def __init__(self) -> None:
-        self._neuron_monitor = NeuronMonitor()
+        if self.has_gpu():
+            self._neuron_monitor = NeuronMonitor()
         self.cpu_utilization = 0.0
         self.memory_used_bytes = 0.0
         self.neuroncore_utilization = 0.0
@@ -113,9 +113,10 @@ class ScaleneNeuron:
         pass
 
     def get_stats(self) -> Tuple[float, float]:
-        line = self._neuron_monitor.readline()
-        if line:
-            self._parse_output(line)
+        if self.has_gpu():
+            line = self._neuron_monitor.readline()
+            if line:
+                self._parse_output(line)
         return self.neuroncore_utilization, self.memory_used_bytes / 1048576.0
     
     def _parse_output(self, output: str) -> None:
@@ -156,14 +157,11 @@ class ScaleneNeuron:
                         total_utilization += counters.get('neuroncore_utilization', 0)
                         total_neuroncores += 1
 
-                    if total_neuroncores > 0:
-                        overall_utilization = total_utilization / total_neuroncores
-                    else:
-                        overall_utilization = 0
-                        
                 if total_neuroncores > 0:
                     average_utilization = (total_utilization / total_neuroncores) / 100
                     self.neuroncore_utilization = average_utilization
+                else:
+                    self.neuroncore_utilization = 0
 
                 total_memory_used = 0.0
                 for per_core_info in neuron_runtime_data:
