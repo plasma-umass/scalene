@@ -114,7 +114,7 @@ class ScaleneNeuron:
         line = self._neuron_monitor.readline()
         if line:
             self._parse_output(line)
-        return self.neuroncore_utilization, self.memory_used_bytes
+        return self.neuroncore_utilization, self.memory_used_bytes / 1048576.0
     
     def _parse_output(self, output: str) -> None:
         try:
