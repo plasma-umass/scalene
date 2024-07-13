@@ -11,22 +11,24 @@ from typing import Tuple
 class NeuronMonitor:
     
     def __init__(self) -> None:
-        self._config_path = self._generate_config()
-        self._process = subprocess.Popen(
-            ['neuron-monitor', '-c', self._config_path],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
-        self._lock = threading.Lock()
-        self._line = ""
-        self._thread = threading.Thread(target=self._update_line)
-        self._thread.daemon = True
-        self._thread.start()
+        if self.has_gpu():
+            self._config_path = self._generate_config()
+            self._process = subprocess.Popen(
+                ['neuron-monitor', '-c', self._config_path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+            self._lock = threading.Lock()
+            self._line = ""
+            self._thread = threading.Thread(target=self._update_line)
+            self._thread.daemon = True
+            self._thread.start()
 
     def __del__(self) -> None:
-        self._process.kill()
-        self._process.terminate()
-        if os.path.exists(self._config_path):
-            os.remove(self._config_path)
+        if self.has_gpu():
+            self._process.kill()
+            self._process.terminate()
+            if os.path.exists(self._config_path):
+                os.remove(self._config_path)
 
     def _generate_config(self) -> None:
         config = {
