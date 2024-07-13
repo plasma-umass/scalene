@@ -8,39 +8,26 @@ import os
 from functools import cache
 from typing import Tuple
 
-class ScaleneNeuron:
-
-    _stop = False
+class NeuronMonitor:
     
     def __init__(self) -> None:
-        self._process = None
-        self._thread = None
-        self._has_neuron = False
         self._config_path = self._generate_config()
-        self.cpu_utilization = 0.0
-        self.memory_used_bytes = 0.0
-        self.neuroncore_utilization = 0.0
-        self.start()
+        self._process = subprocess.Popen(
+            ['neuron-monitor', '-c', self._config_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        self._lock = threading.Lock()
+        self._line = ""
+        self._thread = threading.Thread(target=self._update_line)
+        self._thread.daemon = True
+        self._thread.start()
 
-    @cache
-    def has_gpu(self) -> bool:
-        try:
-            result = subprocess.run(['neuron-ls'], capture_output=True, text=True, check=True)
-            if "No neuron devices found" in result.stdout:
-                return False
-            else:
-                return True
-        except subprocess.CalledProcessError as e:
-            # print(f"Error running neuron-ls: {e}")
-            return False
-        except FileNotFoundError:
-            # print("neuron-ls command not found. Ensure AWS Neuron SDK is installed.")
-            return False
+    def __del__(self) -> None:
+        self._process.kill()
+        self._process.terminate()
+        if os.path.exists(self._config_path):
+            os.remove(self._config_path)
 
-    def nvml_reinit(self) -> None:
-        """Here for compatibility with ScaleneGPU."""
-        pass
-    
     def _generate_config(self) -> None:
         config = {
             "period": "1s",
@@ -74,38 +61,62 @@ class ScaleneNeuron:
             json.dump(config, file)
         return temp_file.name
 
-    def start(self) -> None:
-        ScaleneNeuron._stop = False
-        self._thread = threading.Thread(target=self._run_monitor)
-        self._thread.start()
+    def _update_line(self) -> None:
+        while True:
+            newline = self._process.stdout.readline().strip()
+            self._lock.acquire()
+            self._line = newline
+            self._lock.release()
+        
+    def readline(self) -> str:
+        while True:
+            self._lock.acquire()
+            line = self._line
+            self._lock.release()
+            if line:
+                return line
 
-    def _run_monitor(self):
+    
+class ScaleneNeuron:
+
+    def __init__(self) -> None:
+        self._neuron_monitor = NeuronMonitor()
+        self.cpu_utilization = 0.0
+        self.memory_used_bytes = 0.0
+        self.neuroncore_utilization = 0.0
+
+    @cache
+    def has_gpu(self) -> bool:
         try:
-            self._process = subprocess.Popen(
-                ['neuron-monitor', '-c', self._config_path],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-            )
-            while not ScaleneNeuron._stop:
-                import os
-                line = self._process.stdout.readline().strip()
-                if line:
-                    self._parse_and_print_output(line)
-        except Exception as e:
-            print(f"Error running neuron-monitor: {e}")
-        finally:
-            if True:
-                if self._process:
-                    self._process.terminate()
-                    try:
-                        self._process.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        self._process.kill()
-                        # self._process.wait()
-            if os.path.exists(self._config_path):
-                os.remove(self._config_path)
+            result = subprocess.run(['neuron-ls'], capture_output=True, text=True, check=True)
+            if "No neuron devices found" in result.stdout:
+                return False
+            else:
+                return True
+        except subprocess.CalledProcessError as e:
+            # print(f"Error running neuron-ls: {e}")
+            return False
+        except FileNotFoundError:
+            # print("neuron-ls command not found. Ensure AWS Neuron SDK is installed.")
+            return False
 
+    def nvml_reinit(self) -> None:
+        """Here for compatibility with ScaleneGPU."""
+        pass
+    
+    def start(self) -> None:
+        pass
 
-    def _parse_and_print_output(self, output: str) -> None:
+    def stop(self) -> None:
+        pass
+
+    def get_stats(self) -> Tuple[float, float]:
+        line = self._neuron_monitor.readline()
+        if line:
+            self._parse_output(line)
+        return self.neuroncore_utilization, self.memory_used_bytes
+    
+    def _parse_output(self, output: str) -> None:
         try:
             data = json.loads(output)
             system_data = data.get('system_data', {})
@@ -149,7 +160,7 @@ class ScaleneNeuron:
                         overall_utilization = 0
                         
                 if total_neuroncores > 0:
-                    average_utilization = (total_utilization / total_neuroncores)
+                    average_utilization = (total_utilization / total_neuroncores) / 100
                     self.neuroncore_utilization = average_utilization
 
                 total_memory_used = 0.0
@@ -170,17 +181,11 @@ class ScaleneNeuron:
         except Exception as e:
             print(f"Unexpected error: {e}")
 
-    def stop(self) -> None:
-        ScaleneNeuron._stop = True
-
-    def get_stats(self) -> Tuple[float, float]:
-        return self.neuroncore_utilization, self.memory_used_bytes
-
 if __name__ == "__main__":
     monitor = ScaleneNeuron()
     try:
         while True:
             print(monitor.get_stats())
-            time.sleep(0.5)
+            time.sleep(0.1)
     except KeyboardInterrupt:
         monitor.stop()
