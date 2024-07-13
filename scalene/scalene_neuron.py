@@ -20,6 +20,10 @@ class ScaleneNeuron:
         self.neuroncore_utilization = 0.0
         self.start()
 
+    def nvml_reinit(self) -> None:
+        """Here for compatibility with ScaleneGPU."""
+        pass
+    
     def _generate_config(self) -> None:
         config = {
             "period": "1s",
@@ -58,10 +62,39 @@ class ScaleneNeuron:
         self._thread = threading.Thread(target=self._run_monitor)
         self._thread.start()
 
-    def has_neuron(self) -> bool:
+    def has_gpu(self) -> bool:
         return self._has_neuron
 
-    def _run_monitor(self) -> None:
+    def _run_monitor(self):
+        try:
+            self._process = subprocess.Popen(
+                ['neuron-monitor', '-c', self._config_path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+            sel = selectors.DefaultSelector()
+            sel.register(self._process.stdout, selectors.EVENT_READ)
+            
+            while not self._stop_event.is_set():
+                events = sel.select(timeout=1)
+                for key, _ in events:
+                    line = key.fileobj.readline().strip()
+                    if line:
+                        self._parse_and_print_output(line)
+                time.sleep(1)
+        except Exception as e:
+            print(f"Error running neuron-monitor: {e}")
+        finally:
+            if self._process:
+                self._process.terminate()
+                try:
+                    self._process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self._process.kill()
+                    self._process.wait()
+            if os.path.exists(self._config_path):
+                os.remove(self._config_path)
+
+    def _run_monitor_old(self) -> None:
         try:
             self._process = subprocess.Popen(
                 ['neuron-monitor', '-c', self._config_path],
@@ -101,7 +134,7 @@ class ScaleneNeuron:
             #    self.memory_used_bytes = memory_info.get('memory_used_bytes', 0)
 
             self.neuroncore_utilization = 0.0
-            self.memory_used_bytes = 0
+            self.memory_used_bytes = 0.0
             
             if neuron_runtime_data:
                 for per_core_info in neuron_runtime_data:
@@ -125,7 +158,7 @@ class ScaleneNeuron:
                     average_utilization = (total_utilization / total_neuroncores)
                     self.neuroncore_utilization = average_utilization
 
-                total_memory_used = 0
+                total_memory_used = 0.0
                 for per_core_info in neuron_runtime_data:
                     report = per_core_info.get('report', {})
                     memory_info = (report
@@ -145,15 +178,27 @@ class ScaleneNeuron:
 
     def stop(self) -> None:
         self._stop_event.set()
+
+        # Try to ensure the thread terminates
         if self._thread:
-            self._thread.join()
+            self._thread.join(timeout=2)
+
+        # Ensure the process terminates
         if self._process:
             self._process.terminate()
-            self._process.wait()
-        os.remove(self._config_path)  # Clean up the temporary file
+            try:
+                self._process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+                self._process.wait()
 
-    def get_stats(self) -> Tuple[float, int, float]:
-        return self.cpu_utilization, self.memory_used_bytes, self.neuroncore_utilization
+        # Clean up the temporary file
+        if os.path.exists(self._config_path):
+            os.remove(self._config_path)
+
+
+    def get_stats(self) -> Tuple[float, float]:
+        return self.neuroncore_utilization, self.memory_used_bytes
 
 if __name__ == "__main__":
     monitor = ScaleneNeuron()
