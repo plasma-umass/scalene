@@ -1915,8 +1915,18 @@ class Scalene:
             else:
                 from scalene.scalene_gpu import ScaleneGPU  # type: ignore
             Scalene.__gpu = ScaleneGPU()
+
+            if not Scalene.__gpu.has_gpu():
+                # Failover to try Neuron
+                from scalene.scalene_neuron import (
+                    ScaleneNeuron as ScaleneGPU,
+                )
+                Scalene.__gpu = ScaleneGPU()
+                
             Scalene.__output.gpu = Scalene.__gpu.has_gpu()
-            Scalene.__json.gpu = Scalene.__gpu.has_gpu()
+            Scalene.__json.gpu = Scalene.__output.gpu
+                
+                
         else:
             Scalene.__gpu = None
             Scalene.__output.gpu = False
