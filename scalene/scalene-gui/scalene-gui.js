@@ -1173,7 +1173,7 @@ const MemoryColor = "green";
 const CopyColor = "goldenrod";
 let columns = [];
 
-function makeTableHeader(fname, gpu, memory, params) {
+function makeTableHeader(fname, gpu, gpu_device, memory, params) {
   let tableTitle;
   if (params["functions"]) {
     tableTitle = "function profile";
@@ -1224,16 +1224,16 @@ function makeTableHeader(fname, gpu, memory, params) {
   }
   if (gpu) {
     columns.push({
-      title: ["gpu", "util."],
+      title: [gpu_device, "util."],
       color: CopyColor,
       width: 0,
-      info: "% utilization of the GPU by line / function (may be inaccurate if GPU is not dedicated)",
+	info: `% utilization of ${gpu_device} by line / function (may be inaccurate if device is not dedicated)`,
     });
     columns.push({
-      title: ["gpu", "memory"],
+      title: [gpu_device, "memory"],
       color: CopyColor,
       width: 0,
-      info: "Peak GPU memory allocated by line / function (may be inaccurate if GPU is not dedicated)",
+	info: `Peak ${gpu_device} memory allocated by line / function (may be inaccurate if device is not dedicated)`,
     });
   }
   columns.push({ title: ["", ""], color: "black", width: 100 });
@@ -1844,7 +1844,7 @@ async function display(prof) {
     s += `<div style="${displayStr}" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
-    s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: false });
+      s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, { functions: false });
     s += "<tbody>";
     // Print per-line profiles.
     let prevLineno = -1;
