@@ -63,17 +63,18 @@ class ScaleneJSON:
 
         # if we are on a GPU or not
         self.gpu = False
+        self.gpu_device = ""
 
     def rdp(self, points, epsilon):
-        """
-        Ramer-Douglas-Peucker algorithm implementation using NumPy
+        """                                                                                                           
+        Ramer-Douglas-Peucker algorithm implementation using NumPy                                                    
         """
         def perpendicular_distance(point, start, end):
             if np.all(start == end):
                 return np.linalg.norm(point - start)
             return np.abs(np.cross(end - start, start - point) / np.linalg.norm(end - start))
 
-        def recursive_rdp(points, start, end, epsilon):
+        def recursive_rdp(points, start: int, end: int, epsilon: float):
             dmax = 0.0
             index = start
             for i in range(start + 1, end):
@@ -92,7 +93,7 @@ class ScaleneJSON:
         start = 0
         end = len(points) - 1
         return np.array(recursive_rdp(points, start, end, epsilon))
-
+    
     def compress_samples(
             self, samples: List[Any], max_footprint: float
     ) -> Any:
@@ -350,6 +351,7 @@ class ScaleneJSON:
             ),
             "files": {},
             "gpu": self.gpu,
+            "gpu_device" : self.gpu_device,
             "memory": profile_memory,
             "samples": stats.memory_footprint_samples,
             "stacks": stks,

@@ -81,12 +81,19 @@ class NeuronMonitor:
 class ScaleneNeuron:
 
     def __init__(self) -> None:
+        self._gpu_device = ""
+        self._neuron_monitor = None
         if self.has_gpu():
+            # Neuron device; init neuron-monitor and set GPU device name
             self._neuron_monitor = NeuronMonitor()
+            self._gpu_device = "Neuron"
         self.cpu_utilization = 0.0
         self.memory_used_bytes = 0.0
         self.neuroncore_utilization = 0.0
 
+    def gpu_device(self) -> str:
+        return self._gpu_device
+    
     @lru_cache(maxsize=None)
     def has_gpu(self) -> bool:
         try:
@@ -106,14 +113,9 @@ class ScaleneNeuron:
         """Here for compatibility with ScaleneGPU."""
         pass
     
-    def start(self) -> None:
-        pass
-
-    def stop(self) -> None:
-        pass
-
     def get_stats(self) -> Tuple[float, float]:
         if self.has_gpu():
+            assert self._neuron_monitor
             line = self._neuron_monitor.readline()
             if line:
                 self._parse_output(line)
@@ -188,4 +190,4 @@ if __name__ == "__main__":
             print(monitor.get_stats())
             time.sleep(0.1)
     except KeyboardInterrupt:
-        monitor.stop()
+        pass
