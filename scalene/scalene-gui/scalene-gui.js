@@ -878,6 +878,7 @@ function makeBar(python, native, system, params) {
             legend: false,
             scale: { range: ["darkblue", "#6495ED", "blue"] },
           },
+          tooltip: [{ field: "c", type: "nominal", title: "time" }],
         },
       },
       {
@@ -895,7 +896,7 @@ function makeBar(python, native, system, params) {
           },
           text: { field: "d" },
           color: { value: "white" },
-          //            tooltip: [{ field: "c", type: "nominal", title: "time" }],
+            tooltip: [{ field: "c", type: "nominal", title: "time" }],
         },
       },
     ],
@@ -940,6 +941,72 @@ function makeGPUPie(util) {
       },
       tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
     },
+  };
+}
+
+function makeGPUBar(util, params) {
+  return {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    config: {
+      view: {
+        stroke: "transparent",
+      },
+    },
+    autosize: {
+      contains: "padding",
+    },
+    width: params.width,
+    height: params.height,
+    padding: 0,
+    data: {
+      values: [
+        {
+            x: 0,
+            y: util.toFixed(0),
+	    c: "in use: " + util.toFixed(0) + "%",
+	    q: (util / 2).toFixed(0),
+	    d: util.toFixed(0) + "%"
+        },
+      ],
+    },
+    layer: [
+      {
+        mark: { type: "bar" },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "y",
+            axis: false,
+            scale: { domain: [0, 100] },
+          },
+          color: {
+            field: "c",
+            type: "nominal",
+            legend: false,
+            scale: { range:  ["goldenrod", "#f4e6c2"] },
+          },
+          tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
+        },
+      },
+      {
+        mark: {
+          type: "text",
+          align: "center",
+          baseline: "middle",
+            dx: 0,
+        },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "q",
+            axis: false,
+          },
+          text: { field: "d" },
+          color: { value: "white" },
+          tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
+        },
+      },
+    ],
   };
 }
 
@@ -1492,7 +1559,8 @@ function makeProfileLine(
       s += `<td style="width: 50; vertical-align: middle" align="right" data-sort="${line.n_gpu_percent}">`;
       s += `<span style="height: 20; width: 30; vertical-align: middle" id="gpu_pie${gpu_pies.length}"></span>`;
       s += "</td>";
-      gpu_pies.push(makeGPUPie(line.n_gpu_percent));
+      // gpu_pies.push(makeGPUPie(line.n_gpu_percent));
+	gpu_pies.push(makeGPUBar(line.n_gpu_percent, { height: 20, width: 100 }));
     }
     if (true) {
       if (line.n_gpu_peak_memory_mb < 1.0 || line.n_gpu_percent < 1.0) {
