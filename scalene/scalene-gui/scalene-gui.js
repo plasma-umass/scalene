@@ -1294,13 +1294,13 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params) {
       title: [gpu_device, "util."],
       color: CopyColor,
       width: 0,
-	info: `% utilization of ${gpu_device} by line / function (may be inaccurate if device is not dedicated)`,
+	info: `% utilization of ${gpu_device} by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
     });
     columns.push({
       title: [gpu_device, "memory"],
       color: CopyColor,
       width: 0,
-	info: `Peak ${gpu_device} memory allocated by line / function (may be inaccurate if device is not dedicated)`,
+	info: `Peak ${gpu_device} memory allocated by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
     });
   }
   columns.push({ title: ["", ""], color: "black", width: 100 });
@@ -1954,7 +1954,7 @@ async function display(prof) {
     // Print out function summaries.
     if (prof.files[ff[0]].functions.length) {
       s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
-      s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: true });
+	s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, { functions: true });
       s += "<tbody>";
       tableID++;
       for (const l in prof.files[ff[0]].functions) {
