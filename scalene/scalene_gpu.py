@@ -12,6 +12,7 @@ class ScaleneGPU:
     def __init__(self) -> None:
         self.__ngpus = 0
         self.__has_gpu = False
+        self.__gpu_device = ""
         self.__pid = os.getpid()
         self.__has_per_pid_accounting = False
         with contextlib.suppress(Exception):
@@ -29,6 +30,7 @@ class ScaleneGPU:
             # If we make it this far, everything is working, so we can profile GPU usage.
             # Handle the case when GPUs are disabled. See https://github.com/plasma-umass/scalene/issues/536.
             self.__has_gpu = self.__ngpus > 0
+            self.__gpu_device = "GPU"
 
     def disable(self) -> None:
         """Turn off GPU accounting."""
@@ -99,6 +101,9 @@ class ScaleneGPU:
         """True iff the system has a detected GPU."""
         return self.__has_gpu
 
+    def gpu_device(self) -> str:
+        return self.__gpu_device
+    
     def nvml_reinit(self) -> None:
         """Reinitialize the nvidia wrapper."""
         if not self.has_gpu():
@@ -131,9 +136,6 @@ class ScaleneGPU:
                         total_used_GPU_memory += proc.usedGpuMemory / 1048576
         return total_used_GPU_memory
 
-    def stop(self) -> None:
-        pass
-    
     def get_stats(self) -> Tuple[float, float]:
         """Returns a tuple of (utilization %, memory in use)."""
         if self.has_gpu():

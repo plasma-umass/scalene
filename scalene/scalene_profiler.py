@@ -1925,12 +1925,14 @@ class Scalene:
                 
             Scalene.__output.gpu = Scalene.__gpu.has_gpu()
             Scalene.__json.gpu = Scalene.__output.gpu
-                
+            Scalene.__json.gpu_device = Scalene.__gpu.gpu_device()
                 
         else:
             Scalene.__gpu = None
             Scalene.__output.gpu = False
             Scalene.__json.gpu = False
+            Scalene.__json.gpu_device = ""
+            
         Scalene.set_initialized()
         Scalene.run_profiler(args, left)
 

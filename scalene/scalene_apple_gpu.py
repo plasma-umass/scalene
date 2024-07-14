@@ -19,12 +19,11 @@ class ScaleneAppleGPU:
         # Used in get_stats().
         self.gpu_sampling_frequency = sampling_frequency
 
-    def stop(self) -> None:
-        """A NOP, here for compatibility with the Neuron wrapper."""
-        pass
+    def gpu_device(self) -> str:
+        return "GPU"
     
     def has_gpu(self) -> bool:
-        """Returns true: as far as I am aware, all Macs have had integrated GPUs for some time."""
+        """True iff there is a GPU"""
         # Disabling Apple GPU, since it does not collect per-process statistics.
         return False
 

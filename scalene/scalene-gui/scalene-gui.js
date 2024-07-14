@@ -896,12 +896,78 @@ function makeBar(python, native, system, params) {
           },
           text: { field: "d" },
           color: { value: "white" },
-            tooltip: [{ field: "c", type: "nominal", title: "time" }],
+          tooltip: [{ field: "c", type: "nominal", title: "time" }],
         },
       },
     ],
   };
 }
+
+function makeGPUBar(util, params) {
+  return {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    config: {
+      view: {
+        stroke: "transparent",
+      },
+    },
+    autosize: {
+      contains: "padding",
+    },
+    width: params.width,
+    height: params.height,
+    padding: 0,
+    data: {
+      values: [
+        {
+            x: 0,
+            y: util.toFixed(0),
+	    c: "in use: " + util.toFixed(0) + "%",
+	    q: (util / 2).toFixed(0),
+	    d: util.toFixed(0) + "%"
+        },
+      ],
+     },
+    layer: [
+      {
+        mark: { type: "bar" },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "y",
+            axis: false,
+            scale: { domain: [0, 100] },
+          },
+          color: {
+            field: "c",
+            type: "nominal",
+            legend: false,
+            scale: { range:  ["goldenrod", "#f4e6c2"] },
+          },
+          tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
+        },
+      },
+      {
+        mark: {
+          type: "text",
+          align: "center",
+          baseline: "middle",
+            dx: 0,
+        },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "q",
+            axis: false,
+          },
+          text: { field: "d" },
+          color: { value: "white" },
+          tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
+        },
+      },
+    ],
+   };
+ }
 
 function makeGPUPie(util) {
   return {
@@ -1240,7 +1306,7 @@ const MemoryColor = "green";
 const CopyColor = "goldenrod";
 let columns = [];
 
-function makeTableHeader(fname, gpu, memory, params) {
+function makeTableHeader(fname, gpu, gpu_device, memory, params) {
   let tableTitle;
   if (params["functions"]) {
     tableTitle = "function profile";
@@ -1291,16 +1357,16 @@ function makeTableHeader(fname, gpu, memory, params) {
   }
   if (gpu) {
     columns.push({
-      title: ["gpu", "util."],
+      title: [gpu_device, "util."],
       color: CopyColor,
       width: 0,
-      info: "% utilization of the GPU by line / function (may be inaccurate if GPU is not dedicated)",
+	info: `% utilization of ${gpu_device} by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
     });
     columns.push({
-      title: ["gpu", "memory"],
+      title: [gpu_device, "memory"],
       color: CopyColor,
       width: 0,
-      info: "Peak GPU memory allocated by line / function (may be inaccurate if GPU is not dedicated)",
+	info: `Peak ${gpu_device} memory allocated by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
     });
   }
   columns.push({ title: ["", ""], color: "black", width: 100 });
@@ -1560,7 +1626,7 @@ function makeProfileLine(
       s += `<span style="height: 20; width: 30; vertical-align: middle" id="gpu_pie${gpu_pies.length}"></span>`;
       s += "</td>";
       // gpu_pies.push(makeGPUPie(line.n_gpu_percent));
-	gpu_pies.push(makeGPUBar(line.n_gpu_percent, { height: 20, width: 100 }));
+      gpu_pies.push(makeGPUBar(line.n_gpu_percent, { height: 20, width: 100 }));
     }
     if (true) {
       if (line.n_gpu_peak_memory_mb < 1.0 || line.n_gpu_percent < 1.0) {
@@ -1912,7 +1978,7 @@ async function display(prof) {
     s += `<div style="${displayStr}" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
-    s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: false });
+      s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, { functions: false });
     s += "<tbody>";
     // Print per-line profiles.
     let prevLineno = -1;
@@ -1954,7 +2020,7 @@ async function display(prof) {
     // Print out function summaries.
     if (prof.files[ff[0]].functions.length) {
       s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
-      s += makeTableHeader(ff[0], prof.gpu, prof.memory, { functions: true });
+	s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, { functions: true });
       s += "<tbody>";
       tableID++;
       for (const l in prof.files[ff[0]].functions) {
