@@ -1010,6 +1010,72 @@ function makeGPUPie(util) {
   };
 }
 
+function makeGPUBar(util, params) {
+  return {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    config: {
+      view: {
+        stroke: "transparent",
+      },
+    },
+    autosize: {
+      contains: "padding",
+    },
+    width: params.width,
+    height: params.height,
+    padding: 0,
+    data: {
+      values: [
+        {
+            x: 0,
+            y: util.toFixed(0),
+	    c: "in use: " + util.toFixed(0) + "%",
+	    q: (util / 2).toFixed(0),
+	    d: util.toFixed(0) + "%"
+        },
+      ],
+    },
+    layer: [
+      {
+        mark: { type: "bar" },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "y",
+            axis: false,
+            scale: { domain: [0, 100] },
+          },
+          color: {
+            field: "c",
+            type: "nominal",
+            legend: false,
+            scale: { range:  ["goldenrod", "#f4e6c2"] },
+          },
+          tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
+        },
+      },
+      {
+        mark: {
+          type: "text",
+          align: "center",
+          baseline: "middle",
+            dx: 0,
+        },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "q",
+            axis: false,
+          },
+          text: { field: "d" },
+          color: { value: "white" },
+          tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
+        },
+      },
+    ],
+  };
+}
+
 function makeMemoryPie(native_mem, python_mem, params) {
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
