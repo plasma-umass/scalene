@@ -267,7 +267,10 @@ class ScaleneStatistics:
             fn_stats.cpu_samples_python[fn_name][
                 first_line_no
             ] += self.cpu_samples_python[filename][line_no]
-            fn_stats.gpu_samples[fn_name][first_line_no] += self.gpu_samples[
+            # Weigh GPU utilization by time spent in the system / running C
+            fn_stats.gpu_samples[fn_name][
+                first_line_no
+            ] += self.cpu_samples_c[filename][line_no] * self.gpu_samples[
                 filename
             ][line_no]
             fn_stats.gpu_mem_samples[fn_name][
@@ -317,6 +320,8 @@ class ScaleneStatistics:
             fn_stats.memory_aggregate_footprint[fn_name][
                 first_line_no
             ] += self.memory_aggregate_footprint[filename][line_no]
+        # Adjust GPU utilization
+        fn_stats.gpu_samples[fn_name][first_line_no] /= fn_stats.cpu_samples_c[fn_name][first_line_no]
         return fn_stats
 
     payload_contents = [
