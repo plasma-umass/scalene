@@ -1363,6 +1363,7 @@ class Scalene:
             if is_malloc:
                 allocs += count
                 curr += count
+                assert curr <= stats.max_footprint
                 malloc_pointer = pointer
                 stats.memory_malloc_samples[fname][lineno] += count
                 stats.memory_python_samples[fname][lineno] += (
@@ -1383,10 +1384,17 @@ class Scalene:
                     stats.memory_current_highwater_mark[fname][lineno],
                     stats.memory_current_footprint[fname][lineno],
                 )
+                assert stats.current_footprint <= stats.max_footprint
                 stats.memory_max_footprint[fname][lineno] = max(
                     stats.memory_current_footprint[fname][lineno],
                     stats.memory_max_footprint[fname][lineno],
                 )
+                # Ensure that the max footprint never goes above the true max footprint.
+                # This is a work-around for a condition that in theory should never happen, but...
+                stats.memory_max_footprint[fname][lineno] = min(stats.max_footprint,
+                                                                stats.memory_max_footprint[fname][lineno])
+                assert stats.current_footprint <= stats.max_footprint
+                assert stats.memory_max_footprint[fname][lineno] <= stats.max_footprint
             else:
                 assert action in [
                     Scalene.FREE_ACTION,
