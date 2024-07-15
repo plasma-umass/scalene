@@ -199,7 +199,9 @@ def show_browser(
         )
         # Open web browser to local server
         webbrowser.open(f"http://localhost:{port}/")
-    except:
+    except (FileNotFoundError, PermissionError, OSError):
+        pass
+    except webbrowser.Error:
         pass
     finally:
         os.chdir(curr_dir)

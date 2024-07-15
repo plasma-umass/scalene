@@ -1,7 +1,6 @@
 import copy
 import random
 import re
-import sys
 
 from collections import OrderedDict, defaultdict
 from operator import itemgetter
