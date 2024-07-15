@@ -1373,13 +1373,6 @@ class Scalene:
                 stats.total_memory_malloc_samples += count
                 # Update current and max footprints for this file & line.
                 stats.memory_current_footprint[fname][lineno] += count
-                if (
-                    stats.memory_current_footprint[fname][lineno]
-                    > stats.memory_current_highwater_mark[fname][lineno]
-                ):
-                    stats.memory_current_highwater_mark[fname][lineno] = (
-                        stats.memory_current_footprint[fname][lineno]
-                    )
                 stats.memory_current_highwater_mark[fname][lineno] = max(
                     stats.memory_current_highwater_mark[fname][lineno],
                     stats.memory_current_footprint[fname][lineno],
