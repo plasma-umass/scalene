@@ -261,6 +261,7 @@ class ScaleneStatistics:
             fn_name = self.function_map[filename][line_no]
             if fn_name == "<module>":
                 continue
+                
             fn_stats.cpu_samples_c[fn_name][
                 first_line_no
             ] += self.cpu_samples_c[filename][line_no]
@@ -320,8 +321,12 @@ class ScaleneStatistics:
             fn_stats.memory_aggregate_footprint[fn_name][
                 first_line_no
             ] += self.memory_aggregate_footprint[filename][line_no]
-        # Adjust GPU utilization
-        fn_stats.gpu_samples[fn_name][first_line_no] /= fn_stats.cpu_samples_c[fn_name][first_line_no]
+
+        for fn_name in fn_stats.gpu_samples:
+            cpu_samples_c = fn_stats.cpu_samples_c[fn_name][first_line_no]
+            if cpu_samples_c:
+                fn_stats.gpu_samples[fn_name][first_line_no] /= cpu_samples_c
+            
         return fn_stats
 
     payload_contents = [
