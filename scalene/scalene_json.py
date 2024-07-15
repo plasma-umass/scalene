@@ -106,15 +106,23 @@ class ScaleneJSON:
         if len(samples) <= self.max_sparkline_samples:
             return samples
 
-        epsilon = (len(samples) / (3 * self.max_sparkline_samples)) * 2
+        if True:
+            # FIXME: bypassing RDP for now
+            #return samples[:self.max_sparkline_samples]
 
-        # Use NumPy for RDP algorithm
-        new_samples = self.rdp(np.array(samples), epsilon)
+            new_samples = sorted(random.sample(list(map(tuple, samples)), self.max_sparkline_samples))
+            return new_samples
+    
+        else:
+            epsilon = (len(samples) / (3 * self.max_sparkline_samples)) * 2
 
-        if len(new_samples) > self.max_sparkline_samples:
-            new_samples = sorted(random.sample(list(map(tuple, new_samples)), self.max_sparkline_samples))
+            # Use NumPy for RDP algorithm
+            new_samples = self.rdp(np.array(samples), epsilon)
 
-        return new_samples
+            if len(new_samples) > self.max_sparkline_samples:
+                new_samples = sorted(random.sample(list(map(tuple, new_samples)), self.max_sparkline_samples))
+
+            return new_samples
 
     # Profile output methods
     def output_profile_line(
