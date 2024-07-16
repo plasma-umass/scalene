@@ -10,5 +10,5 @@ psutil>=5.9.2
 pyperf==2.0.0
 rich>=10.7.0
 setuptools>=65.5.1
-pynvml>=11.0,<=11.5
+nvidia-ml-py>=12.555.43; platform_system !='Darwin'
 wheel~=0.38.1
