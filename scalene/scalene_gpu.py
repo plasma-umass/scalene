@@ -92,7 +92,7 @@ class ScaleneGPU:
             else:
                 try:
                     utilization += pynvml.nvmlDeviceGetUtilizationRates(h).gpu
-                except pynvml.nvml.NVMLError_Unknown:
+                except pynvml.NVMLError:
                     # Silently ignore NVML errors. "Fixes" https://github.com/plasma-umass/scalene/issues/471.
                     pass
         return (utilization / ngpus) / 100.0
