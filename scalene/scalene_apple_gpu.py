@@ -4,8 +4,9 @@ import re
 import subprocess
 from typing import Tuple
 
+from scalene.scalene_accelerator import ScaleneAccelerator
 
-class ScaleneAppleGPU:
+class ScaleneAppleGPU(ScaleneAccelerator):
     """Wrapper class for Apple integrated GPU statistics."""
 
     def __init__(self, sampling_frequency: int = 100) -> None:
@@ -27,7 +28,7 @@ class ScaleneAppleGPU:
         # Disabling Apple GPU, since it does not collect per-process statistics.
         return False
 
-    def nvml_reinit(self) -> None:
+    def reinit(self) -> None:
         """A NOP, here for compatibility with the nvidia wrapper."""
         return
 

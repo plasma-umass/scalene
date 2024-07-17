@@ -5,8 +5,9 @@ from typing import Tuple
 
 import pynvml
 
+from scalene.scalene_accelerator import ScaleneAccelerator
 
-class ScaleneGPU:
+class ScaleneGPU(ScaleneAccelerator):
     """A wrapper around the nvidia device driver library (pynvml)."""
 
     def __init__(self) -> None:
@@ -32,9 +33,9 @@ class ScaleneGPU:
             self.__has_gpu = self.__ngpus > 0
             self.__gpu_device = "GPU"
 
-    def disable(self) -> None:
-        """Turn off GPU accounting."""
-        self.__has_gpu = False
+    #def disable(self) -> None:
+    #    """Turn off GPU accounting."""
+    #    self.__has_gpu = False
 
     def __del__(self) -> None:
         if self.has_gpu() and not self.__has_per_pid_accounting:
@@ -104,7 +105,7 @@ class ScaleneGPU:
     def gpu_device(self) -> str:
         return self.__gpu_device
     
-    def nvml_reinit(self) -> None:
+    def reinit(self) -> None:
         """Reinitialize the nvidia wrapper."""
         if not self.has_gpu():
             return
