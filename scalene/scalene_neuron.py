@@ -8,6 +8,8 @@ import os
 from functools import lru_cache
 from typing import Tuple
 
+from scalene.scalene_accelerator import ScaleneAccelerator
+
 class NeuronMonitor:
     
     def __init__(self) -> None:
@@ -78,7 +80,7 @@ class NeuronMonitor:
                 return line
 
     
-class ScaleneNeuron:
+class ScaleneNeuron(ScaleneAccelerator):
 
     def __init__(self) -> None:
         self._gpu_device = ""
@@ -89,6 +91,7 @@ class ScaleneNeuron:
             self._gpu_device = "Neuron"
         self.cpu_utilization = 0.0
         self.memory_used_bytes = 0.0
+        self.max_neuroncores_in_use = 0
         self.neuroncore_utilization = 0.0
 
     def gpu_device(self) -> str:
@@ -109,7 +112,7 @@ class ScaleneNeuron:
             # print("neuron-ls command not found. Ensure AWS Neuron SDK is installed.")
             return False
 
-    def nvml_reinit(self) -> None:
+    def reinit(self) -> None:
         """Here for compatibility with ScaleneGPU."""
         pass
     
@@ -159,8 +162,10 @@ class ScaleneNeuron:
                         total_utilization += counters.get('neuroncore_utilization', 0)
                         total_neuroncores += 1
 
+                    self.max_neuroncores_in_use = max(self.max_neuroncores_in_use, total_neuroncores)
+
                 if total_neuroncores > 0:
-                    average_utilization = (total_utilization / total_neuroncores) / 100
+                    average_utilization = (total_utilization / self.max_neuroncores_in_use) / 100.0
                     self.neuroncore_utilization = average_utilization
                 else:
                     self.neuroncore_utilization = 0
