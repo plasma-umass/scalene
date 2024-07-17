@@ -903,71 +903,6 @@ function makeBar(python, native, system, params) {
   };
 }
 
-function makeGPUBar(util, params) {
-  return {
-    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-    config: {
-      view: {
-        stroke: "transparent",
-      },
-    },
-    autosize: {
-      contains: "padding",
-    },
-    width: params.width,
-    height: params.height,
-    padding: 0,
-    data: {
-      values: [
-        {
-            x: 0,
-            y: util.toFixed(0),
-	    c: "in use: " + util.toFixed(0) + "%",
-	    q: (util / 2).toFixed(0),
-	    d: util.toFixed(0) + "%"
-        },
-      ],
-     },
-    layer: [
-      {
-        mark: { type: "bar" },
-        encoding: {
-          x: {
-            aggregate: "sum",
-            field: "y",
-            axis: false,
-            scale: { domain: [0, 100] },
-          },
-          color: {
-            field: "c",
-            type: "nominal",
-            legend: false,
-            scale: { range:  ["goldenrod", "#f4e6c2"] },
-          },
-          tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
-        },
-      },
-      {
-        mark: {
-          type: "text",
-          align: "center",
-          baseline: "middle",
-            dx: 0,
-        },
-        encoding: {
-          x: {
-            aggregate: "sum",
-            field: "q",
-            axis: false,
-          },
-          text: { field: "d" },
-          color: { value: "white" },
-          tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
-        },
-      },
-    ],
-   };
- }
 
 function makeGPUPie(util) {
   return {
@@ -1010,7 +945,7 @@ function makeGPUPie(util) {
   };
 }
 
-function makeGPUBar(util, params) {
+function makeGPUBar(util, gpu_device, params) {
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -1029,9 +964,9 @@ function makeGPUBar(util, params) {
         {
             x: 0,
             y: util.toFixed(0),
-	    c: "in use: " + util.toFixed(0) + "%",
 	    q: (util / 2).toFixed(0),
-	    d: util.toFixed(0) + "%"
+	    d: util >= 20 ? util.toFixed(0) + "%" : "",
+	    dd: "in use: " + util.toFixed(0) + "%",
         },
       ],
     },
@@ -1046,12 +981,12 @@ function makeGPUBar(util, params) {
             scale: { domain: [0, 100] },
           },
           color: {
-            field: "c",
+            field: "dd",
             type: "nominal",
             legend: false,
             scale: { range:  ["goldenrod", "#f4e6c2"] },
           },
-          tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
+          tooltip: [{ field: "dd", type: "nominal", title: gpu_device }],
         },
       },
       {
@@ -1069,7 +1004,7 @@ function makeGPUBar(util, params) {
           },
           text: { field: "d" },
           color: { value: "white" },
-          tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
+          tooltip: [{ field: "dd", type: "nominal", title: gpu_device }],
         },
       },
     ],
@@ -1626,15 +1561,19 @@ function makeProfileLine(
       s += `<span style="height: 20; width: 30; vertical-align: middle" id="gpu_pie${gpu_pies.length}"></span>`;
       s += "</td>";
       // gpu_pies.push(makeGPUPie(line.n_gpu_percent));
-      gpu_pies.push(makeGPUBar(line.n_gpu_percent, { height: 20, width: 100 }));
+	gpu_pies.push(makeGPUBar(line.n_gpu_percent, prof.gpu_device, { height: 20, width: 100 }));
     }
     if (true) {
       if (line.n_gpu_peak_memory_mb < 1.0 || line.n_gpu_percent < 1.0) {
         s += '<td style="width: 100"></td>';
       } else {
-        s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_peak_memory_mb.toFixed(
-          0,
-        )}</font></td>`;
+	  let mem = line.n_gpu_peak_memory_mb;
+	  let memStr = "MB";
+	  if (mem >= 1024) {
+	      mem /= 1024;
+	      memStr = "GB";
+	  }
+          s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${mem.toFixed(0)}${memStr}&nbsp;&nbsp;</font></td>`;
       }
     }
   }
