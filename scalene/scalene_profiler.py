@@ -95,6 +95,7 @@ from scalene.scalene_utility import (
 
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
+from scalene.scalene_accelerator import ScaleneAccelerator
 
 console = Console(style="white on blue")
 
@@ -214,7 +215,7 @@ class Scalene:
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
     __json = ScaleneJSON()
-    __gpu = None  # initialized after parsing arguments in `main`
+    __accelerator : Optional[ScaleneAccelerator] = None  # initialized after parsing arguments in `main`
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
     __profiler_base: str
@@ -766,8 +767,8 @@ class Scalene:
                     )
                 return
 
-            if Scalene.__gpu:
-                (gpu_load, gpu_mem_used) = Scalene.__gpu.get_stats()
+            if Scalene.__accelerator:
+                (gpu_load, gpu_mem_used) = Scalene.__accelerator.get_stats()
             else:
                 (gpu_load, gpu_mem_used) = (0.0, 0.0)
 
@@ -1008,7 +1009,7 @@ class Scalene:
         # We don't want to report 'nan', so turn the load into 0.
         if math.isnan(gpu_load):
             gpu_load = 0.0
-        gpu_time = gpu_load * Scalene.__args.cpu_sampling_rate
+        gpu_time = gpu_load * Scalene.__args.cpu_sampling_rate # FIXME: shouldn't this be multiplied by elapsed_wallclock instead?
         Scalene.__stats.total_gpu_samples += gpu_time
         python_time = Scalene.__args.cpu_sampling_rate
         c_time = elapsed_virtual - python_time
@@ -1455,8 +1456,8 @@ class Scalene:
         Scalene.__is_child = True
 
         Scalene.clear_metrics()
-        if Scalene.__gpu and Scalene.__gpu.has_gpu():
-            Scalene.__gpu.nvml_reinit()
+        if Scalene.__accelerator and Scalene.__accelerator.has_gpu():
+            Scalene.__accelerator.reinit()
         # Note: __parent_pid of the topmost process is its own pid.
         Scalene.__pid = Scalene.__parent_pid
         if "off" not in Scalene.__args or not Scalene.__args.off:
@@ -1907,29 +1908,26 @@ class Scalene:
             args,
             left,
         ) = ScaleneParseArgs.parse_args()
-        # Try to profile a GPU if one is found and `--gpu` is selected / it's the default (see ScaleneArguments).
+        # Try to profile an accelerator if one is found and `--gpu` is selected / it's the default (see ScaleneArguments).
         if args.gpu:
             if platform.system() == "Darwin":
-                from scalene.scalene_apple_gpu import (
-                    ScaleneAppleGPU as ScaleneGPU,
-                )
+                from scalene.scalene_apple_gpu import ScaleneAppleGPU
+                Scalene.__accelerator = ScaleneAppleGPU()
             else:
                 from scalene.scalene_gpu import ScaleneGPU  # type: ignore
-            Scalene.__gpu = ScaleneGPU()
+                Scalene.__accelerator = ScaleneGPU()
 
-            if not Scalene.__gpu.has_gpu():
-                # Failover to try Neuron
-                from scalene.scalene_neuron import (
-                    ScaleneNeuron as ScaleneGPU,
-                )
-                Scalene.__gpu = ScaleneGPU()
-                
-            Scalene.__output.gpu = Scalene.__gpu.has_gpu()
+                if not Scalene.__accelerator.has_gpu():
+                    # Failover to try Neuron
+                    from scalene.scalene_neuron import ScaleneNeuron
+                    Scalene.__accelerator = ScaleneNeuron()
+
+            Scalene.__output.gpu = Scalene.__accelerator.has_gpu()
             Scalene.__json.gpu = Scalene.__output.gpu
-            Scalene.__json.gpu_device = Scalene.__gpu.gpu_device()
-                
+            Scalene.__json.gpu_device = Scalene.__accelerator.gpu_device()
+
         else:
-            Scalene.__gpu = None
+            Scalene.__accelerator = None
             Scalene.__output.gpu = False
             Scalene.__json.gpu = False
             Scalene.__json.gpu_device = ""
