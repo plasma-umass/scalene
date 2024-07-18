@@ -1914,8 +1914,8 @@ class Scalene:
                 from scalene.scalene_apple_gpu import ScaleneAppleGPU
                 Scalene.__accelerator = ScaleneAppleGPU()
             else:
-                from scalene.scalene_gpu import ScaleneGPU  # type: ignore
-                Scalene.__accelerator = ScaleneGPU()
+                from scalene.scalene_nvidia_gpu import ScaleneNVIDIAGPU  # type: ignore
+                Scalene.__accelerator = ScaleneNVIDIAGPU()
 
                 if not Scalene.__accelerator.has_gpu():
                     # Failover to try Neuron

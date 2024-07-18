@@ -91,12 +91,16 @@ class ScaleneNeuron(ScaleneAccelerator):
             self._gpu_device = "Neuron"
         self.cpu_utilization = 0.0
         self.memory_used_bytes = 0.0
-        self.max_neuroncores_in_use = 0
+        self.max_neuroncores_in_use = 1
         self.neuroncore_utilization = 0.0
+
 
     def gpu_device(self) -> str:
         return self._gpu_device
-    
+
+    def get_num_cores(self) -> str:
+        return self.max_neuroncores_in_use
+        
     @lru_cache(maxsize=None)
     def has_gpu(self) -> bool:
         try:

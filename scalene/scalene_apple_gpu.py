@@ -32,6 +32,10 @@ class ScaleneAppleGPU(ScaleneAccelerator):
         """A NOP, here for compatibility with the nvidia wrapper."""
         return
 
+    def get_num_cores(self) -> int:
+        # FIXME: not yet implemented
+        return 1
+        
     def get_stats(self) -> Tuple[float, float]:
         """Returns a tuple of (utilization%, memory in use)"""
         if not self.has_gpu():

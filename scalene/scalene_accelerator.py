@@ -20,4 +20,8 @@ class ScaleneAccelerator(ABC):
     def get_stats(self) -> Tuple[float, float]:
         pass
 
+    @abstractmethod
+    def get_num_cores(self) ->int:
+        pass
+    
     
