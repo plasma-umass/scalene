@@ -986,7 +986,7 @@ function makeGPUBar(util, gpu_device, params) {
             legend: false,
             scale: { range:  ["goldenrod", "#f4e6c2"] },
           },
-          tooltip: [{ field: "dd", type: "nominal", title: gpu_device }],
+          tooltip: [{ field: "dd", type: "nominal", title: gpu_device + ":" } ],
         },
       },
       {
@@ -1004,7 +1004,7 @@ function makeGPUBar(util, gpu_device, params) {
           },
           text: { field: "d" },
           color: { value: "white" },
-          tooltip: [{ field: "dd", type: "nominal", title: gpu_device }],
+          tooltip: [{ field: "dd", type: "nominal", title: gpu_device + ":" } ],
         },
       },
     ],
