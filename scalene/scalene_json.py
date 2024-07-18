@@ -180,11 +180,11 @@ class ScaleneJSON:
             n_cpu_percent_c = 0
             n_cpu_percent_python = 0
 
-        n_gpu_percent = n_gpu_samples * 100
+        # n_gpu_percent = n_gpu_samples * 100
 
-        if False:
-            if stats.total_gpu_samples:
-                n_gpu_percent = n_gpu_samples * 100 / stats.total_gpu_samples
+        if True:
+            if stats.n_gpu_samples[fname][line_no]:
+                n_gpu_percent = n_gpu_samples * 100 / stats.n_gpu_samples[fname][line_no] # total_gpu_samples
             else:
                 n_gpu_percent = 0
 

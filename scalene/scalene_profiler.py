@@ -1009,7 +1009,8 @@ class Scalene:
         # We don't want to report 'nan', so turn the load into 0.
         if math.isnan(gpu_load):
             gpu_load = 0.0
-        gpu_time = gpu_load * Scalene.__args.cpu_sampling_rate # FIXME: shouldn't this be multiplied by elapsed_wallclock instead?
+        assert gpu_load >= 0.0 and gpu_load <= 1.0
+        gpu_time = gpu_load * elapsed_wallclock
         Scalene.__stats.total_gpu_samples += gpu_time
         python_time = Scalene.__args.cpu_sampling_rate
         c_time = elapsed_virtual - python_time
@@ -1036,7 +1037,6 @@ class Scalene:
 
         average_python_time = python_time / total_frames
         average_c_time = c_time / total_frames
-        average_gpu_time = gpu_time / total_frames
         average_cpu_time = (python_time + c_time) / total_frames
 
         if Scalene.__args.stacks:
@@ -1068,7 +1068,8 @@ class Scalene:
             Scalene.__stats.core_utilization[fname][lineno].push(
                 core_utilization
             )
-            Scalene.__stats.gpu_samples[fname][lineno] += average_gpu_time
+            Scalene.__stats.gpu_samples[fname][lineno] += gpu_load * elapsed_wallclock
+            Scalene.__stats.n_gpu_samples[fname][lineno] += elapsed_wallclock
             Scalene.__stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
         # Now handle the rest of the threads.
