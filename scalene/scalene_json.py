@@ -13,6 +13,7 @@ from scalene.scalene_analysis import ScaleneAnalysis
 
 import numpy as np
 
+
 class ScaleneJSON:
     @staticmethod
     def memory_consumed_str(size_in_mb: float) -> str:
@@ -65,19 +66,25 @@ class ScaleneJSON:
         self.gpu_device = ""
 
     def rdp(self, points, epsilon):
-        """                                                                                                           
-        Ramer-Douglas-Peucker algorithm implementation using NumPy                                                    
         """
+        Ramer-Douglas-Peucker algorithm implementation using NumPy
+        """
+
         def perpendicular_distance(point, start, end):
             if np.all(start == end):
                 return np.linalg.norm(point - start)
-            return np.abs(np.cross(end - start, start - point) / np.linalg.norm(end - start))
+            return np.abs(
+                np.cross(end - start, start - point)
+                / np.linalg.norm(end - start)
+            )
 
         def recursive_rdp(points, start: int, end: int, epsilon: float):
             dmax = 0.0
             index = start
             for i in range(start + 1, end):
-                d = perpendicular_distance(points[i], points[start], points[end])
+                d = perpendicular_distance(
+                    points[i], points[start], points[end]
+                )
                 if d > dmax:
                     index = i
                     dmax = d
@@ -92,9 +99,9 @@ class ScaleneJSON:
         start = 0
         end = len(points) - 1
         return np.array(recursive_rdp(points, start, end, epsilon))
-    
+
     def compress_samples(
-            self, samples: List[Any], max_footprint: float
+        self, samples: List[Any], max_footprint: float
     ) -> Any:
         # Try to reduce the number of samples with the
         # Ramer-Douglas-Peucker algorithm, which attempts to
@@ -107,11 +114,15 @@ class ScaleneJSON:
 
         if True:
             # FIXME: bypassing RDP for now
-            #return samples[:self.max_sparkline_samples]
+            # return samples[:self.max_sparkline_samples]
 
-            new_samples = sorted(random.sample(list(map(tuple, samples)), self.max_sparkline_samples))
+            new_samples = sorted(
+                random.sample(
+                    list(map(tuple, samples)), self.max_sparkline_samples
+                )
+            )
             return new_samples
-    
+
         else:
             epsilon = (len(samples) / (3 * self.max_sparkline_samples)) * 2
 
@@ -119,7 +130,12 @@ class ScaleneJSON:
             new_samples = self.rdp(np.array(samples), epsilon)
 
             if len(new_samples) > self.max_sparkline_samples:
-                new_samples = sorted(random.sample(list(map(tuple, new_samples)), self.max_sparkline_samples))
+                new_samples = sorted(
+                    random.sample(
+                        list(map(tuple, new_samples)),
+                        self.max_sparkline_samples,
+                    )
+                )
 
             return new_samples
 
@@ -184,7 +200,9 @@ class ScaleneJSON:
 
         if True:
             if stats.n_gpu_samples[fname][line_no]:
-                n_gpu_percent = n_gpu_samples * 100 / stats.n_gpu_samples[fname][line_no] # total_gpu_samples
+                n_gpu_percent = (
+                    n_gpu_samples * 100 / stats.n_gpu_samples[fname][line_no]
+                )  # total_gpu_samples
             else:
                 n_gpu_percent = 0
 
@@ -358,7 +376,7 @@ class ScaleneJSON:
             ),
             "files": {},
             "gpu": self.gpu,
-            "gpu_device" : self.gpu_device,
+            "gpu_device": self.gpu_device,
             "memory": profile_memory,
             "samples": stats.memory_footprint_samples,
             "stacks": stks,

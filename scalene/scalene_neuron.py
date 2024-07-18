@@ -10,13 +10,16 @@ from typing import Tuple
 
 from scalene.scalene_accelerator import ScaleneAccelerator
 
+
 class NeuronMonitor:
-    
+
     def __init__(self) -> None:
         self._config_path = self._generate_config()
         self._process = subprocess.Popen(
-            ['neuron-monitor', '-c', self._config_path],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            ["neuron-monitor", "-c", self._config_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
         self._lock = threading.Lock()
         self._line = ""
@@ -34,32 +37,22 @@ class NeuronMonitor:
         config = {
             "period": "1s",
             "system_metrics": [
-                {
-                    "type": "vcpu_usage"
-                },
-                {
-                    "type": "memory_info"
-                }
+                {"type": "vcpu_usage"},
+                {"type": "memory_info"},
             ],
             "neuron_runtimes": [
                 {
                     "tag_filter": ".*",
                     "metrics": [
-                        {
-                            "type": "neuroncore_counters"
-                        },
-                        {
-                            "type": "memory_used"
-                        },
-                        {
-                            "type": "neuron_runtime_vcpu_usage"
-                        }
-                    ]
+                        {"type": "neuroncore_counters"},
+                        {"type": "memory_used"},
+                        {"type": "neuron_runtime_vcpu_usage"},
+                    ],
                 }
-            ]
+            ],
         }
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.json')
-        with open(temp_file.name, 'w') as file:
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+        with open(temp_file.name, "w") as file:
             json.dump(config, file)
         return temp_file.name
 
@@ -70,7 +63,7 @@ class NeuronMonitor:
                 self._lock.acquire()
                 self._line = newline
                 self._lock.release()
-        
+
     def readline(self) -> str:
         while True:
             self._lock.acquire()
@@ -79,7 +72,7 @@ class NeuronMonitor:
             if line:
                 return line
 
-    
+
 class ScaleneNeuron(ScaleneAccelerator):
 
     def __init__(self) -> None:
@@ -94,17 +87,18 @@ class ScaleneNeuron(ScaleneAccelerator):
         self.max_neuroncores_in_use = 1
         self.neuroncore_utilization = 0.0
 
-
     def gpu_device(self) -> str:
         return self._gpu_device
 
     def get_num_cores(self) -> int:
         return self.max_neuroncores_in_use
-        
+
     @lru_cache(maxsize=None)
     def has_gpu(self) -> bool:
         try:
-            result = subprocess.run(['neuron-ls'], capture_output=True, text=True, check=True)
+            result = subprocess.run(
+                ["neuron-ls"], capture_output=True, text=True, check=True
+            )
             if "No neuron devices found" in result.stdout:
                 return False
             else:
@@ -119,7 +113,7 @@ class ScaleneNeuron(ScaleneAccelerator):
     def reinit(self) -> None:
         """Here for compatibility with ScaleneGPU."""
         pass
-    
+
     def get_stats(self) -> Tuple[float, float]:
         if self.has_gpu():
             assert self._neuron_monitor
@@ -127,20 +121,20 @@ class ScaleneNeuron(ScaleneAccelerator):
             if line:
                 self._parse_output(line)
         return self.neuroncore_utilization, self.memory_used_bytes / 1048576.0
-    
+
     def _parse_output(self, output: str) -> None:
         try:
             data = json.loads(output)
-            system_data = data.get('system_data', {})
-            vcpu_usage = system_data.get('vcpu_usage', {})
-            memory_info = system_data.get('memory_info', {})
-            neuron_runtime_data = data.get('neuron_runtime_data', [])
-            
+            system_data = data.get("system_data", {})
+            vcpu_usage = system_data.get("vcpu_usage", {})
+            memory_info = system_data.get("memory_info", {})
+            neuron_runtime_data = data.get("neuron_runtime_data", [])
+
             if vcpu_usage:
                 total_idle = 0
                 total_cores = 0
-                for core, usage in vcpu_usage.get('usage_data', {}).items():
-                    total_idle += usage.get('idle', 0)
+                for core, usage in vcpu_usage.get("usage_data", {}).items():
+                    total_idle += usage.get("idle", 0)
                     total_cores += 1
                 if total_cores > 0:
                     average_idle = total_idle / total_cores
@@ -152,46 +146,56 @@ class ScaleneNeuron(ScaleneAccelerator):
 
             self.neuroncore_utilization = 0.0
             self.memory_used_bytes = 0.0
-            
+
             if neuron_runtime_data:
                 total_utilization = 0
                 total_neuroncores = 0
 
                 for per_core_info in neuron_runtime_data:
-                    report = per_core_info.get('report', {})
-                    neuroncore_counters = report.get('neuroncore_counters', {})
-                    neuroncores_in_use = neuroncore_counters.get('neuroncores_in_use', {})
+                    report = per_core_info.get("report", {})
+                    neuroncore_counters = report.get("neuroncore_counters", {})
+                    neuroncores_in_use = neuroncore_counters.get(
+                        "neuroncores_in_use", {}
+                    )
 
                     for core, counters in neuroncores_in_use.items():
-                        this_core_utilization = counters.get('neuroncore_utilization', 0)
+                        this_core_utilization = counters.get(
+                            "neuroncore_utilization", 0
+                        )
                         assert this_core_utilization <= 100.0
                         total_utilization += this_core_utilization
                         if this_core_utilization > 0:
                             total_neuroncores += 1
 
-                    self.max_neuroncores_in_use = max(self.max_neuroncores_in_use, total_neuroncores)
+                    self.max_neuroncores_in_use = max(
+                        self.max_neuroncores_in_use, total_neuroncores
+                    )
 
-                average_utilization = (total_utilization / self.max_neuroncores_in_use) / 100.0
+                average_utilization = (
+                    total_utilization / self.max_neuroncores_in_use
+                ) / 100.0
                 self.neuroncore_utilization = average_utilization
                 assert self.neuroncore_utilization <= 100.0
 
                 total_memory_used = 0.0
                 for per_core_info in neuron_runtime_data:
-                    report = per_core_info.get('report', {})
-                    memory_info = (report
-                                   .get('memory_used', {})
-                                   .get('neuron_runtime_used_bytes', {})
-                                   .get('usage_breakdown', {})
-                                   .get('neuroncore_memory_usage', {}))
+                    report = per_core_info.get("report", {})
+                    memory_info = (
+                        report.get("memory_used", {})
+                        .get("neuron_runtime_used_bytes", {})
+                        .get("usage_breakdown", {})
+                        .get("neuroncore_memory_usage", {})
+                    )
                     for core, mem_info in memory_info.items():
                         total_memory_used += sum(mem_info.values())
-                        
+
                 self.memory_used_bytes = total_memory_used
 
         except json.JSONDecodeError as e:
             print(f"Error decoding JSON: {e}")
         except Exception as e:
             print(f"Unexpected error: {e}")
+
 
 if __name__ == "__main__":
     monitor = ScaleneNeuron()

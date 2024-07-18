@@ -268,19 +268,19 @@ class ScaleneStatistics:
             fn_name = self.function_map[filename][line_no]
             if fn_name == "<module>":
                 continue
-                
+
             fn_stats.cpu_samples_c[fn_name][
                 first_line_no
             ] += self.cpu_samples_c[filename][line_no]
             fn_stats.cpu_samples_python[fn_name][
                 first_line_no
             ] += self.cpu_samples_python[filename][line_no]
-            fn_stats.gpu_samples[fn_name][
-                first_line_no
-            ] += self.gpu_samples[
+            fn_stats.gpu_samples[fn_name][first_line_no] += self.gpu_samples[
                 filename
             ][line_no]
-            fn_stats.n_gpu_samples[fn_name][first_line_no] += self.n_gpu_samples[filename][line_no]
+            fn_stats.n_gpu_samples[fn_name][
+                first_line_no
+            ] += self.n_gpu_samples[filename][line_no]
             fn_stats.gpu_mem_samples[fn_name][
                 first_line_no
             ] += self.gpu_mem_samples[filename][line_no]
@@ -333,7 +333,7 @@ class ScaleneStatistics:
             n_gpu_samples = fn_stats.n_gpu_samples[fn_name][first_line_no]
             if n_gpu_samples != 0:
                 fn_stats.gpu_samples[fn_name][first_line_no] /= n_gpu_samples
-            
+
         return fn_stats
 
     payload_contents = [

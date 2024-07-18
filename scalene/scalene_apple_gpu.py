@@ -6,6 +6,7 @@ from typing import Tuple
 
 from scalene.scalene_accelerator import ScaleneAccelerator
 
+
 class ScaleneAppleGPU(ScaleneAccelerator):
     """Wrapper class for Apple integrated GPU statistics."""
 
@@ -22,7 +23,7 @@ class ScaleneAppleGPU(ScaleneAccelerator):
 
     def gpu_device(self) -> str:
         return "GPU"
-    
+
     def has_gpu(self) -> bool:
         """True iff there is a GPU"""
         # Disabling Apple GPU, since it does not collect per-process statistics.
@@ -35,7 +36,7 @@ class ScaleneAppleGPU(ScaleneAccelerator):
     def get_num_cores(self) -> int:
         # FIXME: not yet implemented
         return 1
-        
+
     def get_stats(self) -> Tuple[float, float]:
         """Returns a tuple of (utilization%, memory in use)"""
         if not self.has_gpu():

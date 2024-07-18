@@ -155,6 +155,7 @@ def enable_profiling() -> Generator[None, None, None]:
     yield
     stop()
 
+
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -215,7 +216,9 @@ class Scalene:
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
     __json = ScaleneJSON()
-    __accelerator : Optional[ScaleneAccelerator] = None  # initialized after parsing arguments in `main`
+    __accelerator: Optional[ScaleneAccelerator] = (
+        None  # initialized after parsing arguments in `main`
+    )
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
     __profiler_base: str
@@ -1068,7 +1071,9 @@ class Scalene:
             Scalene.__stats.core_utilization[fname][lineno].push(
                 core_utilization
             )
-            Scalene.__stats.gpu_samples[fname][lineno] += gpu_load * elapsed_wallclock
+            Scalene.__stats.gpu_samples[fname][lineno] += (
+                gpu_load * elapsed_wallclock
+            )
             Scalene.__stats.n_gpu_samples[fname][lineno] += elapsed_wallclock
             Scalene.__stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
@@ -1386,10 +1391,15 @@ class Scalene:
                 )
                 # Ensure that the max footprint never goes above the true max footprint.
                 # This is a work-around for a condition that in theory should never happen, but...
-                stats.memory_max_footprint[fname][lineno] = min(stats.max_footprint,
-                                                                stats.memory_max_footprint[fname][lineno])
+                stats.memory_max_footprint[fname][lineno] = min(
+                    stats.max_footprint,
+                    stats.memory_max_footprint[fname][lineno],
+                )
                 assert stats.current_footprint <= stats.max_footprint
-                assert stats.memory_max_footprint[fname][lineno] <= stats.max_footprint
+                assert (
+                    stats.memory_max_footprint[fname][lineno]
+                    <= stats.max_footprint
+                )
             else:
                 assert action in [
                     Scalene.FREE_ACTION,
@@ -1913,14 +1923,17 @@ class Scalene:
         if args.gpu:
             if platform.system() == "Darwin":
                 from scalene.scalene_apple_gpu import ScaleneAppleGPU
+
                 Scalene.__accelerator = ScaleneAppleGPU()
             else:
                 from scalene.scalene_nvidia_gpu import ScaleneNVIDIAGPU  # type: ignore
+
                 Scalene.__accelerator = ScaleneNVIDIAGPU()
 
                 if not Scalene.__accelerator.has_gpu():
                     # Failover to try Neuron
                     from scalene.scalene_neuron import ScaleneNeuron
+
                     Scalene.__accelerator = ScaleneNeuron()
 
             Scalene.__output.gpu = Scalene.__accelerator.has_gpu()
@@ -1932,7 +1945,7 @@ class Scalene:
             Scalene.__output.gpu = False
             Scalene.__json.gpu = False
             Scalene.__json.gpu_device = ""
-            
+
         Scalene.set_initialized()
         Scalene.run_profiler(args, left)
 

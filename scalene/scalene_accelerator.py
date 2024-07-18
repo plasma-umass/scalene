@@ -1,9 +1,10 @@
 from typing import Tuple
 from abc import ABC, abstractmethod
 
+
 # Base class for accelerators (GPUs, TPUs, etc.)
 class ScaleneAccelerator(ABC):
-    
+
     @abstractmethod
     def has_gpu(self) -> bool:
         pass
@@ -21,7 +22,5 @@ class ScaleneAccelerator(ABC):
         pass
 
     @abstractmethod
-    def get_num_cores(self) ->int:
+    def get_num_cores(self) -> int:
         pass
-    
-    
