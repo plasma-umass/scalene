@@ -98,7 +98,7 @@ class ScaleneNeuron(ScaleneAccelerator):
     def gpu_device(self) -> str:
         return self._gpu_device
 
-    def get_num_cores(self) -> str:
+    def get_num_cores(self) -> int:
         return self.max_neuroncores_in_use
         
     @lru_cache(maxsize=None)

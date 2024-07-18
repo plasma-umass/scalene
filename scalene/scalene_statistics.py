@@ -61,8 +61,9 @@ class ScaleneStatistics:
             defaultdict(lambda: defaultdict(float))
         )
 
-        self.n_gpu_samples: Dict[Filename, Dict[LineNumber, int]] = (
-            defaultdict(lambda: defaultdict(int))
+        #   Number of GPU samples taken (actually weighted by elapsed wallclock time)
+        self.n_gpu_samples: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
         )
 
         #   GPU memory samples for each location in the program
@@ -453,6 +454,9 @@ class ScaleneStatistics:
                 )
                 self.increment_per_line_samples(
                     self.gpu_samples, x.gpu_samples
+                )
+                self.increment_per_line_samples(
+                    self.n_gpu_samples, x.n_gpu_samples
                 )
                 self.increment_per_line_samples(
                     self.memcpy_samples, x.memcpy_samples
