@@ -164,15 +164,16 @@ class ScaleneNeuron(ScaleneAccelerator):
 
                     for core, counters in neuroncores_in_use.items():
                         this_core_utilization = counters.get('neuroncore_utilization', 0)
+                        assert this_core_utilization <= 100.0
                         total_utilization += this_core_utilization
                         if this_core_utilization > 0:
                             total_neuroncores += 1
 
                     self.max_neuroncores_in_use = max(self.max_neuroncores_in_use, total_neuroncores)
 
-                if self.max_neuroncores_in_use > 0:
-                    average_utilization = (total_utilization / self.max_neuroncores_in_use) / 100.0
-                    self.neuroncore_utilization = average_utilization
+                average_utilization = (total_utilization / self.max_neuroncores_in_use) / 100.0
+                self.neuroncore_utilization = average_utilization
+                assert self.neuroncore_utilization <= 100.0
 
                 total_memory_used = 0.0
                 for per_core_info in neuron_runtime_data:
