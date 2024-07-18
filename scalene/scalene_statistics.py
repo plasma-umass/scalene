@@ -328,10 +328,10 @@ class ScaleneStatistics:
                 first_line_no
             ] += self.memory_aggregate_footprint[filename][line_no]
 
-        #for fn_name in fn_stats.gpu_samples:
-        #    cpu_samples_c = fn_stats.cpu_samples_c[fn_name][first_line_no]
-        #    if cpu_samples_c:
-        #        fn_stats.gpu_samples[fn_name][first_line_no] /= cpu_samples_c
+        for fn_name in fn_stats.gpu_samples:
+            n_gpu_samples = fn_stats.n_gpu_samples[fn_name][first_line_no]
+            if n_gpu_samples != 0:
+                fn_stats.gpu_samples[fn_name][first_line_no] /= n_gpu_samples
             
         return fn_stats
 
