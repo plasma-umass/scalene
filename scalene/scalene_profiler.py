@@ -155,6 +155,7 @@ def enable_profiling() -> Generator[None, None, None]:
     yield
     stop()
 
+
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -215,7 +216,9 @@ class Scalene:
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
     __json = ScaleneJSON()
-    __accelerator : Optional[ScaleneAccelerator] = None  # initialized after parsing arguments in `main`
+    __accelerator: Optional[ScaleneAccelerator] = (
+        None  # initialized after parsing arguments in `main`
+    )
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
     __profiler_base: str
@@ -1009,7 +1012,8 @@ class Scalene:
         # We don't want to report 'nan', so turn the load into 0.
         if math.isnan(gpu_load):
             gpu_load = 0.0
-        gpu_time = gpu_load * Scalene.__args.cpu_sampling_rate # FIXME: shouldn't this be multiplied by elapsed_wallclock instead?
+        assert gpu_load >= 0.0 and gpu_load <= 1.0
+        gpu_time = gpu_load * elapsed_wallclock
         Scalene.__stats.total_gpu_samples += gpu_time
         python_time = Scalene.__args.cpu_sampling_rate
         c_time = elapsed_virtual - python_time
@@ -1036,7 +1040,6 @@ class Scalene:
 
         average_python_time = python_time / total_frames
         average_c_time = c_time / total_frames
-        average_gpu_time = gpu_time / total_frames
         average_cpu_time = (python_time + c_time) / total_frames
 
         if Scalene.__args.stacks:
@@ -1068,7 +1071,10 @@ class Scalene:
             Scalene.__stats.core_utilization[fname][lineno].push(
                 core_utilization
             )
-            Scalene.__stats.gpu_samples[fname][lineno] += average_gpu_time
+            Scalene.__stats.gpu_samples[fname][lineno] += (
+                gpu_load * elapsed_wallclock
+            )
+            Scalene.__stats.n_gpu_samples[fname][lineno] += elapsed_wallclock
             Scalene.__stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
         # Now handle the rest of the threads.
@@ -1385,10 +1391,15 @@ class Scalene:
                 )
                 # Ensure that the max footprint never goes above the true max footprint.
                 # This is a work-around for a condition that in theory should never happen, but...
-                stats.memory_max_footprint[fname][lineno] = min(stats.max_footprint,
-                                                                stats.memory_max_footprint[fname][lineno])
+                stats.memory_max_footprint[fname][lineno] = min(
+                    stats.max_footprint,
+                    stats.memory_max_footprint[fname][lineno],
+                )
                 assert stats.current_footprint <= stats.max_footprint
-                assert stats.memory_max_footprint[fname][lineno] <= stats.max_footprint
+                assert (
+                    stats.memory_max_footprint[fname][lineno]
+                    <= stats.max_footprint
+                )
             else:
                 assert action in [
                     Scalene.FREE_ACTION,
@@ -1912,14 +1923,17 @@ class Scalene:
         if args.gpu:
             if platform.system() == "Darwin":
                 from scalene.scalene_apple_gpu import ScaleneAppleGPU
+
                 Scalene.__accelerator = ScaleneAppleGPU()
             else:
-                from scalene.scalene_gpu import ScaleneGPU  # type: ignore
-                Scalene.__accelerator = ScaleneGPU()
+                from scalene.scalene_nvidia_gpu import ScaleneNVIDIAGPU  # type: ignore
+
+                Scalene.__accelerator = ScaleneNVIDIAGPU()
 
                 if not Scalene.__accelerator.has_gpu():
                     # Failover to try Neuron
                     from scalene.scalene_neuron import ScaleneNeuron
+
                     Scalene.__accelerator = ScaleneNeuron()
 
             Scalene.__output.gpu = Scalene.__accelerator.has_gpu()
@@ -1931,7 +1945,7 @@ class Scalene:
             Scalene.__output.gpu = False
             Scalene.__json.gpu = False
             Scalene.__json.gpu_device = ""
-            
+
         Scalene.set_initialized()
         Scalene.run_profiler(args, left)
 

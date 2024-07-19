@@ -61,6 +61,11 @@ class ScaleneStatistics:
             defaultdict(lambda: defaultdict(float))
         )
 
+        #   Number of GPU samples taken (actually weighted by elapsed wallclock time)
+        self.n_gpu_samples: Dict[Filename, Dict[LineNumber, float]] = (
+            defaultdict(lambda: defaultdict(float))
+        )
+
         #   GPU memory samples for each location in the program
         self.gpu_mem_samples: DefaultDict[
             Filename, DefaultDict[LineNumber, RunningStats]
@@ -213,6 +218,7 @@ class ScaleneStatistics:
         self.memcpy_samples.clear()
         self.total_cpu_samples = 0.0
         self.total_gpu_samples = 0.0
+        self.n_gpu_samples.clear()
         self.total_memory_malloc_samples = 0.0
         self.total_memory_free_samples = 0.0
         self.current_footprint = 0.0
@@ -253,6 +259,7 @@ class ScaleneStatistics:
         fn_stats.elapsed_time = self.elapsed_time
         fn_stats.total_cpu_samples = self.total_cpu_samples
         fn_stats.total_gpu_samples = self.total_gpu_samples
+        fn_stats.n_gpu_samples = self.n_gpu_samples
         fn_stats.total_memory_malloc_samples = self.total_memory_malloc_samples
         first_line_no = LineNumber(1)
         fn_stats.function_map = self.function_map
@@ -261,19 +268,19 @@ class ScaleneStatistics:
             fn_name = self.function_map[filename][line_no]
             if fn_name == "<module>":
                 continue
-                
+
             fn_stats.cpu_samples_c[fn_name][
                 first_line_no
             ] += self.cpu_samples_c[filename][line_no]
             fn_stats.cpu_samples_python[fn_name][
                 first_line_no
             ] += self.cpu_samples_python[filename][line_no]
-            # Weigh GPU utilization by time spent in the system / running C
-            fn_stats.gpu_samples[fn_name][
-                first_line_no
-            ] += self.cpu_samples_c[filename][line_no] * self.gpu_samples[
+            fn_stats.gpu_samples[fn_name][first_line_no] += self.gpu_samples[
                 filename
             ][line_no]
+            fn_stats.n_gpu_samples[fn_name][
+                first_line_no
+            ] += self.n_gpu_samples[filename][line_no]
             fn_stats.gpu_mem_samples[fn_name][
                 first_line_no
             ] += self.gpu_mem_samples[filename][line_no]
@@ -323,10 +330,10 @@ class ScaleneStatistics:
             ] += self.memory_aggregate_footprint[filename][line_no]
 
         for fn_name in fn_stats.gpu_samples:
-            cpu_samples_c = fn_stats.cpu_samples_c[fn_name][first_line_no]
-            if cpu_samples_c:
-                fn_stats.gpu_samples[fn_name][first_line_no] /= cpu_samples_c
-            
+            n_gpu_samples = fn_stats.n_gpu_samples[fn_name][first_line_no]
+            if n_gpu_samples != 0:
+                fn_stats.gpu_samples[fn_name][first_line_no] /= n_gpu_samples
+
         return fn_stats
 
     payload_contents = [
@@ -447,6 +454,9 @@ class ScaleneStatistics:
                 )
                 self.increment_per_line_samples(
                     self.gpu_samples, x.gpu_samples
+                )
+                self.increment_per_line_samples(
+                    self.n_gpu_samples, x.n_gpu_samples
                 )
                 self.increment_per_line_samples(
                     self.memcpy_samples, x.memcpy_samples

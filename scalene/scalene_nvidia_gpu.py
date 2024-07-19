@@ -7,7 +7,8 @@ import pynvml
 
 from scalene.scalene_accelerator import ScaleneAccelerator
 
-class ScaleneGPU(ScaleneAccelerator):
+
+class ScaleneNVIDIAGPU(ScaleneAccelerator):
     """A wrapper around the nvidia device driver library (pynvml)."""
 
     def __init__(self) -> None:
@@ -33,7 +34,7 @@ class ScaleneGPU(ScaleneAccelerator):
             self.__has_gpu = self.__ngpus > 0
             self.__gpu_device = "GPU"
 
-    #def disable(self) -> None:
+    # def disable(self) -> None:
     #    """Turn off GPU accounting."""
     #    self.__has_gpu = False
 
@@ -104,7 +105,7 @@ class ScaleneGPU(ScaleneAccelerator):
 
     def gpu_device(self) -> str:
         return self.__gpu_device
-    
+
     def reinit(self) -> None:
         """Reinitialize the nvidia wrapper."""
         if not self.has_gpu():
@@ -136,6 +137,9 @@ class ScaleneGPU(ScaleneAccelerator):
                         # from incompatible NVIDIA drivers.
                         total_used_GPU_memory += proc.usedGpuMemory / 1048576
         return total_used_GPU_memory
+
+    def get_num_cores(self) -> int:
+        return self.__ngpus
 
     def get_stats(self) -> Tuple[float, float]:
         """Returns a tuple of (utilization %, memory in use)."""

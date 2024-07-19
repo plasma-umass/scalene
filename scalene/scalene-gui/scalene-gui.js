@@ -904,7 +904,7 @@ function makeBar(python, native, system, params) {
 }
 
 
-function makeGPUPie(util) {
+function makeGPUPie(util, gpu_device, params) {
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -940,7 +940,7 @@ function makeGPUPie(util) {
         legend: false,
         scale: { range: ["goldenrod", "#f4e6c2"] },
       },
-      tooltip: [{ field: "c", type: "nominal", title: "GPU" }],
+      tooltip: [{ field: "c", type: "nominal", title: gpu_device }],
     },
   };
 }
@@ -986,7 +986,7 @@ function makeGPUBar(util, gpu_device, params) {
             legend: false,
             scale: { range:  ["goldenrod", "#f4e6c2"] },
           },
-          tooltip: [{ field: "dd", type: "nominal", title: gpu_device }],
+          tooltip: [{ field: "dd", type: "nominal", title: gpu_device + ":" } ],
         },
       },
       {
@@ -1004,7 +1004,7 @@ function makeGPUBar(util, gpu_device, params) {
           },
           text: { field: "d" },
           color: { value: "white" },
-          tooltip: [{ field: "dd", type: "nominal", title: gpu_device }],
+          tooltip: [{ field: "dd", type: "nominal", title: gpu_device + ":" } ],
         },
       },
     ],
@@ -1560,8 +1560,8 @@ function makeProfileLine(
       s += `<td style="width: 50; vertical-align: middle" align="right" data-sort="${line.n_gpu_percent}">`;
       s += `<span style="height: 20; width: 30; vertical-align: middle" id="gpu_pie${gpu_pies.length}"></span>`;
       s += "</td>";
-      // gpu_pies.push(makeGPUPie(line.n_gpu_percent));
-	gpu_pies.push(makeGPUBar(line.n_gpu_percent, prof.gpu_device, { height: 20, width: 100 }));
+      gpu_pies.push(makeGPUPie(line.n_gpu_percent, prof.gpu_device, { height: 20, width: 100 }));
+      // gpu_pies.push(makeGPUBar(line.n_gpu_percent, prof.gpu_device, { height: 20, width: 100 }));
     }
     if (true) {
       if (line.n_gpu_peak_memory_mb < 1.0 || line.n_gpu_percent < 1.0) {
