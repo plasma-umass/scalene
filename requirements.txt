@@ -9,6 +9,6 @@ packaging==20.9
 psutil>=5.9.2
 pyperf==2.0.0
 rich>=10.7.0
-setuptools>=65.5.1
+setuptools>=65.5.1,<71.0  # Pin to setuptools<71.0 to avoid this bug: https://github.com/pypa/setuptools/issues/4496
 nvidia-ml-py>=12.555.43; platform_system !='Darwin'
 wheel~=0.38.1
