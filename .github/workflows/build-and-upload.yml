@@ -30,11 +30,12 @@ jobs:
     strategy:
       matrix:
         python_version: ['3.8', '3.9', '3.10', '3.11', '3.12']
-        plat: ['manylinux2014', 'manylinux_2_28', 'macos-13', 'macos-latest', 'windows-latest']
+#        plat: ['manylinux2014', 'manylinux_2_28', 'macos-13', 'macos-latest', 'windows-latest']
+        plat: ['manylinux_2_28', 'macos-13', 'macos-latest', 'windows-latest']
         include:
-          - plat: manylinux2014
-            os: ubuntu-latest
-            container: quay.io/pypa/manylinux2014_x86_64  # https://github.com/pypa/manylinux
+#          - plat: manylinux2014
+#            os: ubuntu-latest
+#            container: quay.io/pypa/manylinux2014_x86_64  # https://github.com/pypa/manylinux
 
           - plat: manylinux_2_28
             os: ubuntu-latest
