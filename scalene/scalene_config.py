@@ -1,7 +1,7 @@
 """Current version of Scalene; reported by --version."""
 
-scalene_version = "1.5.43"
-scalene_date = "2024.07.19"
+scalene_version = "1.5.43.1"
+scalene_date = "2024.07.22"
 
 # Port to use for Scalene UI
 SCALENE_PORT = 11235
