@@ -1,3 +1,5 @@
+# ruff: noqa: E402
+
 from __future__ import (
     annotations,
 )  # work around Python 3.8 issue, see https://stackoverflow.com/a/68072481/335756
@@ -19,7 +21,7 @@ from __future__ import (
 # Import cysignals early so it doesn't disrupt Scalene's use of signals; this allows Scalene to profile Sage.
 # See https://github.com/plasma-umass/scalene/issues/740.
 try:
-    import cysignals
+    import cysignals # noqa: F401
 except ModuleNotFoundError:
     pass
 
@@ -56,7 +58,12 @@ from scalene.time_info import get_times, TimeInfo
 from scalene.redirect_python import redirect_python
 
 from collections import defaultdict
-from types import FrameType
+from types import (
+    BuiltinFunctionType,
+    FrameType,
+    FunctionType,
+    ModuleType,
+)
 from typing import (
     Any,
     Callable,
@@ -155,6 +162,28 @@ def enable_profiling() -> Generator[None, None, None]:
     yield
     stop()
 
+def patch_module_functions_with_signal_blocking(module: ModuleType, signal_to_block: signal.Signals) -> None:
+    """Patch all functions in the given module to block the specified signal during execution."""
+    
+    def signal_blocking_wrapper(func: Union[BuiltinFunctionType, FunctionType]) -> Any:
+        """Wrap a function to block the specified signal during its execution."""
+        @functools.wraps(func)
+        def wrapped(*args: Any, **kwargs: Any) -> Any:
+            # Block the specified signal temporarily
+            original_sigmask = signal.pthread_sigmask(signal.SIG_BLOCK, [signal_to_block])
+            try:
+                return func(*args, **kwargs)
+            finally:
+                # Restore original signal mask
+                signal.pthread_sigmask(signal.SIG_SETMASK, original_sigmask)
+        return wrapped
+
+    # Iterate through all attributes of the module
+    for attr_name in dir(module):
+        attr = getattr(module, attr_name)
+        if isinstance(attr, BuiltinFunctionType) or isinstance(attr, FunctionType):
+            wrapped_attr = signal_blocking_wrapper(attr)
+            setattr(module, attr_name, wrapped_attr)
 
 class Scalene:
     """The Scalene profiler itself."""
@@ -631,10 +660,14 @@ class Scalene:
         arguments: argparse.Namespace,
         program_being_profiled: Optional[Filename] = None,
     ) -> None:
+        # Wrap all os calls so that they disable SIGALRM (the signal used for CPU sampling).
+        # This fixes https://github.com/plasma-umass/scalene/issues/841.
+        if sys.platform != "win32":
+            patch_module_functions_with_signal_blocking(os, signal.SIGALRM)
+
+        # Import all replacement functions.
         import scalene.replacement_exit
         import scalene.replacement_get_context
-
-        # Hijack lock, poll, thread_join, fork, and exit.
         import scalene.replacement_lock
         import scalene.replacement_mp_lock
         import scalene.replacement_pjoin
@@ -643,7 +676,7 @@ class Scalene:
 
         if sys.platform != "win32":
             import scalene.replacement_fork
-            import scalene.replacement_poll_selector
+            import scalene.replacement_poll_selector # noqa: F401
 
         Scalene.__args = cast(ScaleneArguments, arguments)
         Scalene.__alloc_sigq = ScaleneSigQueue(
