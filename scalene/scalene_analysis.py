@@ -1,6 +1,7 @@
 import ast
 import importlib
 import os
+import re
 import sys
 
 from typing import cast, Any, Dict, List, Tuple
@@ -206,10 +207,37 @@ class ScaleneAnalysis:
         return regions
 
     @staticmethod
-    def strip_magic_line(source: str) -> str:
-        # Filter out any magic lines (starting with %) if in a Jupyter notebook
-        import re
+    def strip_magic_line(code: str) -> str:
+        # Regular expression to match Jupyter magic commands at the start of a line
+        magic_pattern = re.compile(r'^\s*%{1,2}[\w\?]+.*$', re.MULTILINE)
 
-        srclines = map(lambda x: re.sub(r"^\%.*", "", x), source.split("\n"))
-        source = "\n".join(srclines)
-        return source
+        in_multiline_comment = False
+        lines = code.split('\n')
+        new_lines = []
+
+        for line in lines:
+            stripped_line = line.strip()
+
+            # Check if we're entering or exiting a multi-line comment or docstring
+            if stripped_line.startswith(('"""', "'''")):
+                if in_multiline_comment:
+                    if stripped_line.endswith(('"""', "'''")) and len(stripped_line) > 3:
+                        in_multiline_comment = False
+                    else:
+                        in_multiline_comment = False
+                        new_lines.append(line)
+                        continue
+                else:
+                    if stripped_line.endswith(('"""', "'''")) and len(stripped_line) > 3:
+                        # Single line multi-line comment
+                        new_lines.append(line)
+                        continue
+                    else:
+                        in_multiline_comment = True
+                        new_lines.append(line)
+                        continue
+
+            if in_multiline_comment or not magic_pattern.match(line):
+                new_lines.append(line)
+
+        return '\n'.join(new_lines)
