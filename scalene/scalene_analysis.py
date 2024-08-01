@@ -1,6 +1,7 @@
 import ast
 import importlib
 import os
+import re
 import sys
 
 from typing import cast, Any, Dict, List, Tuple
@@ -207,9 +208,13 @@ class ScaleneAnalysis:
 
     @staticmethod
     def strip_magic_line(source: str) -> str:
-        # Filter out any magic lines (starting with %) if in a Jupyter notebook
-        import re
+        try:
+            from IPython import get_ipython
+            get_ipython()
+            # The above line will fail if not running in a notebook,
+            # in which case we return the original source unchanged.
+            # Regular expression to match and replace magic commands with comments
+            source = re.sub(r'(^\s*)%{1,2}', r'\1#', source, flags=re.MULTILINE)
+        finally:
+            return source
 
-        srclines = map(lambda x: re.sub(r"^\%.*", "", x), source.split("\n"))
-        source = "\n".join(srclines)
-        return source
