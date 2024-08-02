@@ -45,8 +45,12 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
                 file=sys.stderr,
             )
             print(
-                "Run once as Administrator or root (i.e., prefixed with `sudo`) to enable per-process GPU accounting.",
+                "If you have sudo privileges, you can run this command (Linux only) to enable per-process GPU accounting:",
                 file=sys.stderr,
+            )
+            print(
+                "  python3 -m scalene.set_nvidia_gpu_modes",
+                file=sys.stderr
             )
 
     def _set_accounting_mode(self) -> bool:
