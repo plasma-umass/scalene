@@ -1927,14 +1927,14 @@ class Scalene:
         Scalene.__next_output_time = (
             time.perf_counter() + Scalene.__args.profile_interval
         )
-        Scalene.__output.html = args.html
-        if args.outfile:
+        Scalene.__output.html = Scalene.__args.html
+        if Scalene.__args.outfile:
             Scalene.__output.output_file = os.path.abspath(
-                os.path.expanduser(args.outfile)
+                os.path.expanduser(Scalene.__args.outfile)
             )
-        Scalene.__is_child = args.pid != 0
+        Scalene.__is_child = Scalene.__args.pid != 0
         # the pid of the primary profiler
-        Scalene.__parent_pid = args.pid if Scalene.__is_child else os.getpid()
+        Scalene.__parent_pid = Scalene.__args.pid if Scalene.__is_child else os.getpid()
         # Don't profile the GPU if not enabled (i.e., either no options or --cpu and/or --memory, but no --gpu).
         if not Scalene.__args.gpu:
             Scalene.__output.gpu = False
