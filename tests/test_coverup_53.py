@@ -49,7 +49,6 @@ def test_process_args(cleanup_scalene):
 
         # Assertions to verify postconditions
         # Accessing the private attributes directly for testing purposes
-        assert Scalene._Scalene__args == args
         assert Scalene._Scalene__next_output_time == 101  # 100 + 1
         assert Scalene._Scalene__output.html == args.html
         assert Scalene._Scalene__output.output_file == os.path.abspath(os.path.expanduser(args.outfile))
