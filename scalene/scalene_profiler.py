@@ -1923,8 +1923,9 @@ class Scalene:
     @staticmethod
     def process_args(args: argparse.Namespace) -> None:
         """Process all arguments."""
-        Scalene.__args = ScaleneArguments(args)
-        print("ARGS", Scalene.__args)
+        Scalene.__args = ScaleneArguments()
+        for arg in vars(args).items():
+            Scalene.__args[arg[0]] = arg[1]
         Scalene.__next_output_time = (
             time.perf_counter() + Scalene.__args.profile_interval
         )
