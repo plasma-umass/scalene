@@ -240,7 +240,7 @@ class Scalene:
     # As above; we'll cache the original thread and replace it.
     __original_lock = threading.Lock
 
-    __args = ScaleneArguments()
+    __args : Optional[ScaleneArguments] = None
     __signals = ScaleneSignals()
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
@@ -678,7 +678,7 @@ class Scalene:
             import scalene.replacement_fork
             import scalene.replacement_poll_selector # noqa: F401
 
-        Scalene.__args = cast(ScaleneArguments, arguments)
+        Scalene.__args = ScaleneArguments(**vars(arguments))
         Scalene.__alloc_sigq = ScaleneSigQueue(
             Scalene.alloc_sigqueue_processor
         )
@@ -693,12 +693,12 @@ class Scalene:
 
         Scalene.__windows_queue = queue.Queue()
         if sys.platform == "win32":
-            if arguments.memory:
+            if Scalene.__args.memory:
                 print(
                     "Scalene warning: Memory profiling is not currently supported for Windows.",
                     file=sys.stderr,
                 )
-                arguments.memory = False
+                Scalene.__args.memory = False
 
         # Initialize the malloc related files; if for whatever reason
         # the files don't exist and we are supposed to be profiling
@@ -708,19 +708,19 @@ class Scalene:
             Scalene.__memcpy_mapfile = ScaleneMapFile("memcpy")
         except Exception:
             # Ignore if we aren't profiling memory; otherwise, exit.
-            if arguments.memory:
+            if Scalene.__args.memory:
                 sys.exit(1)
 
-        Scalene.__signals.set_timer_signals(arguments.use_virtual_time)
+        Scalene.__signals.set_timer_signals(Scalene.__args.use_virtual_time)
         Scalene.__profiler_base = str(os.path.dirname(__file__))
-        if arguments.pid:
+        if Scalene.__args.pid:
             # Child process.
             # We need to use the same directory as the parent.
             # The parent always puts this directory as the first entry in the PATH.
             # Extract the alias directory from the path.
             dirname = os.environ["PATH"].split(os.pathsep)[0]
             Scalene.__python_alias_dir = pathlib.Path(dirname)
-            Scalene.__pid = arguments.pid
+            Scalene.__pid = Scalene.__args.pid
 
         else:
             # Parent process.
@@ -733,7 +733,7 @@ class Scalene:
             Scalene.__pid = 0
             cmdline = ""
             # Pass along commands from the invoking command line.
-            if "off" in arguments and arguments.off:
+            if "off" in Scalene.__args and Scalene.__args.off:
                 cmdline += " --off"
             for arg in [
                 "use_virtual_time",
@@ -746,12 +746,12 @@ class Scalene:
                 "no_browser",
                 "reduced_profile",
             ]:
-                if getattr(arguments, arg):
+                if getattr(Scalene.__args, arg):
                     cmdline += f'  --{arg.replace("_", "-")}'
             # Add the --pid field so we can propagate it to the child.
             cmdline += f" --pid={os.getpid()} ---"
             # Build the commands to pass along other arguments
-            environ = ScalenePreload.get_preload_environ(arguments)
+            environ = ScalenePreload.get_preload_environ(Scalene.__args)
             if sys.platform == "win32":
                 preface = "\n".join(
                     f"set {k}={str(v)}\n" for (k, v) in environ.items()
