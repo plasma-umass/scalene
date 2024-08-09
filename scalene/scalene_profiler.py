@@ -2116,7 +2116,7 @@ class Scalene:
                         # TODO: Add in entrypoint_dir logic for `-m` operation
                         Scalene.__entrypoint_dir = program_path
                     # If a program path was specified at the command-line, use it.
-                    if len(args.program_path) > 0:
+                    if len(Scalene.__args.program_path) > 0:
                         Scalene.__program_path = Filename(
                             os.path.abspath(args.program_path)
                         )
