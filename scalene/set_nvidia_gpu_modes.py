@@ -2,7 +2,7 @@ import os
 import sys
 import subprocess
 
-def set_nvidia_gpu_modes():
+def set_nvidia_gpu_modes() -> bool:
     import pynvml
     try:
         # Initialize NVML

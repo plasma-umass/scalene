@@ -240,7 +240,7 @@ class Scalene:
     # As above; we'll cache the original thread and replace it.
     __original_lock = threading.Lock
 
-    __args : Optional[ScaleneArguments] = None
+    __args = ScaleneArguments()
     __signals = ScaleneSignals()
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()

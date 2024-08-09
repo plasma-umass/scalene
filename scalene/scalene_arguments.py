@@ -2,11 +2,12 @@ import argparse
 import platform
 import sys
 
+from typing import Any
 
 class ScaleneArguments(argparse.Namespace):
     """Encapsulates all arguments and default values for Scalene."""
-
-    def __init__(self, **kwargs) -> None:
+    
+    def __init__(self, **kwargs: Any) -> None:
         self.cpu = True
         self.gpu = platform.system() != "Darwin"
         self.memory = sys.platform != "win32"
