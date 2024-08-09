@@ -6,8 +6,8 @@ import sys
 class ScaleneArguments(argparse.Namespace):
     """Encapsulates all arguments and default values for Scalene."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
         self.cpu = True
         self.gpu = platform.system() != "Darwin"
         self.memory = sys.platform != "win32"
