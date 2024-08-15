@@ -362,6 +362,8 @@ class ScaleneStatistics:
         "function_map",
         "firstline_map",
         "gpu_samples",
+        "n_gpu_samples",
+        "gpu_mem_samples",
         "total_gpu_samples",
         "memory_malloc_count",
         "memory_free_count",
@@ -457,6 +459,9 @@ class ScaleneStatistics:
                 )
                 self.increment_per_line_samples(
                     self.n_gpu_samples, x.n_gpu_samples
+                )
+                self.increment_per_line_samples(
+                    self.gpu_mem_samples, x.gpu_mem_samples
                 )
                 self.increment_per_line_samples(
                     self.memcpy_samples, x.memcpy_samples
