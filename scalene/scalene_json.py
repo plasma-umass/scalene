@@ -305,6 +305,7 @@ class ScaleneJSON:
             not stats.total_cpu_samples
             and not stats.total_memory_malloc_samples
             and not stats.total_memory_free_samples
+            and not stats.total_gpu_samples
         ):
             # Nothing to output.
             return {}
@@ -315,6 +316,7 @@ class ScaleneJSON:
                 + list(stats.cpu_samples_c.keys())
                 + list(stats.memory_free_samples.keys())
                 + list(stats.memory_malloc_samples.keys())
+                + list(stats.gpu_samples.keys())
             )
         )
         if not all_instrumented_files:
