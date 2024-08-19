@@ -5,10 +5,18 @@ git+https://github.com/plasma-umass/crdp.git#egg=crdp
 ipython>=8.10
 Jinja2==3.0.3
 lxml==5.1.0
-packaging==20.9
+packaging>=24
 psutil>=5.9.2
 pyperf==2.0.0
 rich>=10.7.0
-setuptools>=65.5.1,<71.0  # Pin to setuptools<71.0 to avoid this bug: https://github.com/pypa/setuptools/issues/4496
+setuptools>=65.5.1
 nvidia-ml-py>=12.555.43; platform_system !='Darwin'
-wheel~=0.38.1
+wheel>=0.43.0
+# Per https://github.com/pypa/setuptools/issues/4483#issuecomment-2236528158
+ordered-set>=3.1.1
+more_itertools>=8.8
+jaraco.text>=3.7
+importlib_resources>=5.10.2
+importlib_metadata>=6
+tomli>=2.0.1
+platformdirs >= 2.6.2
