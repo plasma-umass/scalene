@@ -196,8 +196,6 @@ class ScaleneJSON:
             n_cpu_percent_c = 0
             n_cpu_percent_python = 0
 
-        # n_gpu_percent = n_gpu_samples * 100
-
         if True:
             if stats.n_gpu_samples[fname][line_no]:
                 n_gpu_percent = (
@@ -539,6 +537,7 @@ class ScaleneJSON:
             all_samples |= set(fn_stats.cpu_samples_c.keys())
             all_samples |= set(fn_stats.memory_malloc_samples.keys())
             all_samples |= set(fn_stats.memory_free_samples.keys())
+            all_samples |= set(fn_stats.gpu_samples.keys())
             print_fn_summary = any(fn != fname for fn in all_samples)
             output["files"][fname_print]["functions"] = []
             if print_fn_summary:
