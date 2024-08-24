@@ -40,7 +40,8 @@ dependencies = [
     "Jinja2>=3.0.3",
     "psutil>=5.9.2",
     "numpy>=1.24.0,<1.27",
-    "astunparse>=1.6.3; python_version < '3.9'"
+    "astunparse>=1.6.3; python_version < '3.9'",
+    "pydantic>=2.6",    
 ]
 dynamic = ["version"]   # computed by setup.py
 
