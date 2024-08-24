@@ -3,8 +3,10 @@ import random
 import re
 
 from collections import OrderedDict, defaultdict
+from enum import Enum
 from operator import itemgetter
 from pathlib import Path
+from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt, PositiveInt, StrictBool, ValidationError, confloat, model_validator
 from typing import Any, Callable, Dict, List, Optional
 
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
@@ -13,6 +15,94 @@ from scalene.scalene_analysis import ScaleneAnalysis
 
 import numpy as np
 
+class GPUDevice(str, Enum):
+    nvidia = "GPU"
+    neuron = "Neuron"
+    no_gpu = ""
+
+class FunctionDetail(BaseModel):
+    line: str
+    lineno: PositiveInt
+    memory_samples: List[List[int | NonNegativeFloat]]
+    n_avg_mb: NonNegativeFloat
+    n_copy_mb_s: NonNegativeFloat
+    n_core_utilization: float = Field(confloat(ge=0, le=1))
+    n_cpu_percent_c: float = Field(confloat(ge=0, le=100))
+    n_cpu_percent_python: float = Field(confloat(ge=0, le=100))
+    n_gpu_avg_memory_mb: NonNegativeFloat
+    n_gpu_peak_memory_mb: NonNegativeFloat
+    n_gpu_percent: float = Field(confloat(ge=0, le=100))
+    n_growth_mb: NonNegativeFloat
+    n_peak_mb: NonNegativeFloat
+    n_malloc_mb: NonNegativeFloat
+    n_mallocs: NonNegativeInt
+    n_python_fraction: float = Field(confloat(ge=0, le=1))
+    n_sys_percent: float = Field(confloat(ge=0, le=100))
+    n_usage_fraction: float = Field(confloat(ge=0, le=1))
+
+    @model_validator(mode="after")
+    def check_cpu_percentages(cls, values):
+        total_cpu_usage = (
+            values.n_cpu_percent_c
+            + values.n_cpu_percent_python
+            + values.n_sys_percent
+        )
+        if not (total_cpu_usage != 100):
+            raise ValueError(
+                "The sum of n_cpu_percent_c, n_cpu_percent_python, and n_sys_percent must be 100"
+            )
+        return values
+
+
+    @model_validator(mode="after")
+    def check_gpu_memory(cls, values):
+        if values.n_gpu_avg_memory_mb > values.n_gpu_peak_memory_mb:
+            raise ValueError(
+                "n_gpu_avg_memory_mb must be less than or equal to n_gpu_peak_memory_mb"
+            )
+        return values
+
+    @model_validator(mode="after")
+    def check_cpu_memory(cls, values):
+        if values.n_avg_mb > values.n_peak_mb:
+            raise ValueError(
+                "n_avg_mb must be less than or equal to n_peak_mb"
+            )
+        return values
+    
+class LineDetail(FunctionDetail):
+    start_outermost_loop: PositiveInt
+    end_outermost_loop: PositiveInt
+    start_region_line: PositiveInt
+    end_region_line: PositiveInt
+
+
+class FileDetail(BaseModel):
+    functions: List[FunctionDetail]
+    imports: List[str]
+    leaks: Dict[str, NonNegativeFloat]
+    lines: List[LineDetail]
+    percent_cpu_time: NonNegativeFloat
+
+class ScaleneJSONSchema(BaseModel):
+    alloc_samples: NonNegativeInt
+    args: List[str]
+    elapsed_time_sec: NonNegativeFloat
+    entrypoint_dir: str
+    filename: str
+    files: Dict[str, FileDetail]
+    gpu: StrictBool
+    gpu_device: GPUDevice
+    growth_rate: float
+    max_footprint_fname: Optional[str]
+    max_footprint_lineno: Optional[PositiveInt]
+    max_footprint_mb: NonNegativeFloat
+    max_footprint_python_fraction: NonNegativeFloat
+    memory: StrictBool
+    program: str
+    samples: List[List[NonNegativeFloat]]
+    stacks: List[List[Any]]
+    
 
 class ScaleneJSON:
     @staticmethod
@@ -260,7 +350,7 @@ class ScaleneJSON:
             )
         )
 
-        return {
+        payload = {
             "lineno": line_no,
             "line": line,
             "n_core_utilization": mean_core_util,
@@ -280,6 +370,12 @@ class ScaleneJSON:
             "n_copy_mb_s": n_copy_mb_s,
             "memory_samples": stats.per_line_footprint_samples[fname][line_no],
         }
+        try:
+            FunctionDetail(**payload)
+        except ValidationError as e:
+            print("Warning: JSON failed validation:")
+            print(e)
+        return payload
 
     def output_profiles(
         self,
@@ -520,6 +616,13 @@ class ScaleneJSON:
                         0
                     ]
                     profile_line["end_outermost_loop"] = outer_loop[lineno][1]
+
+                    try:
+                        LineDetail(**profile_line)
+                    except ValidationError as e:
+                        print("Warning: JSON failed validation:")
+                        print(e)
+                    
                     # When reduced-profile set, only output if the payload for the line is non-zero.
                     if reduced_profile:
                         profile_line_copy = copy.copy(profile_line)
@@ -567,4 +670,10 @@ class ScaleneJSON:
                             profile_line
                         )
 
+        # Validate the schema
+        try:
+            ScaleneJSONSchema(**output)
+        except ValidationError as e:
+            print("Warning: JSON failed validation:")
+            print(e)
         return output
