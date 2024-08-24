@@ -23,7 +23,7 @@ class GPUDevice(str, Enum):
 class FunctionDetail(BaseModel):
     line: str
     lineno: PositiveInt
-    memory_samples: List[List[int | NonNegativeFloat]]
+    memory_samples: List[List[Any]]
     n_avg_mb: NonNegativeFloat
     n_copy_mb_s: NonNegativeFloat
     n_core_utilization: float = Field(confloat(ge=0, le=1))
