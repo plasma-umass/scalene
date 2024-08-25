@@ -6,7 +6,7 @@ from collections import OrderedDict, defaultdict
 from enum import Enum
 from operator import itemgetter
 from pathlib import Path
-from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt, PositiveInt, StrictBool, ValidationError, confloat, model_validator
+from pydantic import BaseModel, Field, FilePath, NonNegativeFloat, NonNegativeInt, PositiveInt, StrictBool, ValidationError, confloat, model_validator
 from typing import Any, Callable, Dict, List, Optional
 
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
@@ -14,16 +14,16 @@ from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 from scalene.scalene_analysis import ScaleneAnalysis
 
 import numpy as np
-
+    
 class GPUDevice(str, Enum):
     nvidia = "GPU"
     neuron = "Neuron"
-    no_gpu = ""
+    none = "None"
 
 class FunctionDetail(BaseModel):
     line: str
     lineno: PositiveInt
-    memory_samples: List[List[Any]]
+    memory_samples: List[Any]
     n_avg_mb: NonNegativeFloat
     n_copy_mb_s: NonNegativeFloat
     n_core_utilization: float = Field(confloat(ge=0, le=1))
@@ -100,9 +100,18 @@ class ScaleneJSONSchema(BaseModel):
     max_footprint_python_fraction: NonNegativeFloat
     memory: StrictBool
     program: str
-    samples: List[List[NonNegativeFloat]]
-    stacks: List[List[Any]]
-    
+    samples: List[Any]
+    stacks: List[Any]
+
+    @model_validator(mode="before")
+    def convert_gpu_device(cls, values):
+        if 'gpu_device' in values:
+            if isinstance(values['gpu_device'], str):
+                try:
+                    values['gpu_device'] = GPUDevice(values['gpu_device'])
+                except ValueError:
+                    raise ValueError(f"Invalid gpu_device value: {values['gpu_device']}")
+        return values
 
 class ScaleneJSON:
     @staticmethod
@@ -371,7 +380,7 @@ class ScaleneJSON:
             "memory_samples": stats.per_line_footprint_samples[fname][line_no],
         }
         try:
-            FunctionDetail(**payload)
+            FunctionDetail.model_validate(payload, strict=True)
         except ValidationError as e:
             print("Warning: JSON failed validation:")
             print(e)
@@ -618,7 +627,7 @@ class ScaleneJSON:
                     profile_line["end_outermost_loop"] = outer_loop[lineno][1]
 
                     try:
-                        LineDetail(**profile_line)
+                        LineDetail.model_validate(profile_line, strict=True)
                     except ValidationError as e:
                         print("Warning: JSON failed validation:")
                         print(e)
@@ -672,7 +681,10 @@ class ScaleneJSON:
 
         # Validate the schema
         try:
-            ScaleneJSONSchema(**output)
+            # import json
+            # print(json.dumps(output, indent=4))
+            ScaleneJSONSchema.model_validate(output, strict=True)
+            # ScaleneJSONSchema(**output)
         except ValidationError as e:
             print("Warning: JSON failed validation:")
             print(e)

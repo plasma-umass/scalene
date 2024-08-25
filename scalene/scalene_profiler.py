@@ -245,9 +245,7 @@ class Scalene:
     __stats = ScaleneStatistics()
     __output = ScaleneOutput()
     __json = ScaleneJSON()
-    __accelerator: Optional[ScaleneAccelerator] = (
-        None  # initialized after parsing arguments in `main`
-    )
+    __accelerator = ScaleneAccelerator()
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
     __profiler_base: str
@@ -803,10 +801,7 @@ class Scalene:
                     )
                 return
 
-            if Scalene.__accelerator:
-                (gpu_load, gpu_mem_used) = Scalene.__accelerator.get_stats()
-            else:
-                (gpu_load, gpu_mem_used) = (0.0, 0.0)
+            (gpu_load, gpu_mem_used) = Scalene.__accelerator.get_stats()
 
             # Process this CPU sample.
             Scalene.process_cpu_sample(
@@ -1500,7 +1495,7 @@ class Scalene:
         Scalene.__is_child = True
 
         Scalene.clear_metrics()
-        if Scalene.__accelerator and Scalene.__accelerator.has_gpu():
+        if Scalene.__accelerator.has_gpu():
             Scalene.__accelerator.reinit()
         # Note: __parent_pid of the topmost process is its own pid.
         Scalene.__pid = Scalene.__parent_pid
@@ -1969,15 +1964,14 @@ class Scalene:
 
                     Scalene.__accelerator = ScaleneNeuron()
 
-            Scalene.__output.gpu = Scalene.__accelerator.has_gpu()
             Scalene.__json.gpu = Scalene.__output.gpu
-            Scalene.__json.gpu_device = Scalene.__accelerator.gpu_device()
 
         else:
-            Scalene.__accelerator = None
-            Scalene.__output.gpu = False
+            Scalene.__accelerator = ScaleneAccelerator()
             Scalene.__json.gpu = False
-            Scalene.__json.gpu_device = ""
+            
+        Scalene.__json.gpu_device = Scalene.__accelerator.gpu_device()
+        Scalene.__output.gpu = Scalene.__accelerator.has_gpu()
 
         Scalene.set_initialized()
         Scalene.run_profiler(args, left)

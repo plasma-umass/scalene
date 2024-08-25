@@ -5,22 +5,17 @@ from abc import ABC, abstractmethod
 # Base class for accelerators (GPUs, TPUs, etc.)
 class ScaleneAccelerator(ABC):
 
-    @abstractmethod
     def has_gpu(self) -> bool:
-        pass
+        return False
 
-    @abstractmethod
     def gpu_device(self) -> str:
-        pass
+        return "None"
 
-    @abstractmethod
     def reinit(self) -> None:
         pass
 
-    @abstractmethod
     def get_stats(self) -> Tuple[float, float]:
-        pass
+        return (0.0, 0.0)
 
-    @abstractmethod
     def get_num_cores(self) -> int:
-        pass
+        return 0
