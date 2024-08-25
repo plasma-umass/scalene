@@ -804,7 +804,14 @@ function time_consumed_str(time_in_ms) {
   }
 }
 
+function makeTooltip(title, value) {
+    // Tooltip for time bars, below
+    let secs = value / 100 * globalThis.profile.elapsed_time_sec;
+    return `(${title}) ` + value.toFixed(1) + "%" + " [" + time_consumed_str(secs * 1e3) + "]"
+}
+
 function makeBar(python, native, system, params) {
+  // Make a time bar
   const widthThreshold1 = 20;
   const widthThreshold2 = 10;
   // console.log(`makeBar ${python} ${native} ${system}`);
@@ -826,7 +833,7 @@ function makeBar(python, native, system, params) {
         {
           x: 0,
           y: python.toFixed(1),
-          c: "(Python) " + python.toFixed(1) + "%",
+          c: makeTooltip("Python", python),
           d:
             python >= widthThreshold1
               ? python.toFixed(0) + "%"
@@ -838,7 +845,7 @@ function makeBar(python, native, system, params) {
         {
           x: 0,
           y: native.toFixed(1),
-          c: "(native) " + native.toFixed(1) + "%",
+          c: makeTooltip("native", native),
           d:
             native >= widthThreshold1
               ? native.toFixed(0) + "%"
@@ -850,7 +857,7 @@ function makeBar(python, native, system, params) {
         {
           x: 0,
           y: system.toFixed(1),
-          c: "(system) " + system.toFixed(1) + "%",
+          c: makeTooltip("system", system),
           d:
             system >= widthThreshold1
               ? system.toFixed(0) + "%"
@@ -1459,7 +1466,7 @@ function makeProfileLine(
         line.n_cpu_percent_python,
         line.n_cpu_percent_c,
         line.n_sys_percent,
-        { height: 20, width: 100 },
+          { height: 20, width: 100 },
       ),
     );
   } else {
