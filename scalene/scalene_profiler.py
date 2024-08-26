@@ -1867,6 +1867,7 @@ class Scalene:
                 return exit_status
 
             if Scalene.__args.web:
+                # Only generate HTML file if needed for display in the browser.
                 generate_html(
                     profile_fname=Scalene.__profile_filename,
                     output_fname=(
