@@ -888,6 +888,8 @@ class Scalene:
             if "is_child" in json_output:
                 return True
             outfile = Scalene.__output.output_file
+            if Scalene.__args.outfile:
+                outfile = Scalene.__args.outfile
             # If there was no output file specified, print to the console.
             if not outfile:
                 if sys.platform == "win32":
@@ -1864,14 +1866,13 @@ class Scalene:
             ):
                 return exit_status
 
-            generate_html(
-                profile_fname=Scalene.__profile_filename,
-                output_fname=(
-                    Scalene.__args.outfile
-                    if Scalene.__args.outfile
-                    else Scalene.__profiler_html
-                ),
-            )
+            if Scalene.__args.web:
+                generate_html(
+                    profile_fname=Scalene.__profile_filename,
+                    output_fname=(
+                        Scalene.__profiler_html
+                    ),
+                )
             if Scalene.in_jupyter():
                 from scalene.scalene_jupyter import ScaleneJupyter
 
@@ -1891,12 +1892,9 @@ class Scalene:
                     # See also scalene/scalene_preload.py
                     old_dyld = os.environ.pop("DYLD_INSERT_LIBRARIES", "")
                     old_ld = os.environ.pop("LD_PRELOAD", "")
-                    if Scalene.__args.outfile:
-                        output_fname = Scalene.__args.outfile
-                    else:
-                        output_fname = (
-                            f"{os.getcwd()}{os.sep}{Scalene.__profiler_html}"
-                        )
+                    output_fname = (
+                        f"{os.getcwd()}{os.sep}{Scalene.__profiler_html}"
+                    )
                     if Scalene.__pid == 0:
                         # Only open a browser tab for the parent.
                         dir = os.path.dirname(__file__)
