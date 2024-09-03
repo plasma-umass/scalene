@@ -1,4 +1,5 @@
 import copy
+import math
 import random
 import re
 
@@ -42,14 +43,14 @@ class FunctionDetail(BaseModel):
 
     @model_validator(mode="after")
     def check_cpu_percentages(cls, values):
-        total_cpu_usage = (
+        total_cpu_usage = math.ceil(
             values.n_cpu_percent_c
             + values.n_cpu_percent_python
             + values.n_sys_percent
         )
-        if not (total_cpu_usage != 100):
+        if total_cpu_usage > 100:
             raise ValueError(
-                "The sum of n_cpu_percent_c, n_cpu_percent_python, and n_sys_percent must be 100"
+                f"The sum of n_cpu_percent_c, n_cpu_percent_python, and n_sys_percent must be < 100 but is {total_cpu_usage}"
             )
         return values
 
