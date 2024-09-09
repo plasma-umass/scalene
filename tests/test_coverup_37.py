@@ -15,6 +15,7 @@ def test_add_stack():
     code = MagicMock()
     code.co_filename = "test_file.py"
     code.co_name = "test_function"
+    code.co_qualname = "test_function"
     frame.f_code = code
     frame.f_lineno = 1
     frame.f_back = None
