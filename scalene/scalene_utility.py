@@ -30,7 +30,7 @@ def add_stack(
     f: Optional[FrameType] = frame
     while f:
         if should_trace(Filename(f.f_code.co_filename), f.f_code.co_name):
-            stk.insert(0, (f.f_code.co_filename, f.f_code.co_name, f.f_lineno))
+            stk.insert(0, (f.f_code.co_filename, get_fully_qualified_name(f), f.f_lineno))
         f = f.f_back
     if tuple(stk) not in stacks:
         stacks[tuple(stk)] = (1, python_time, c_time, cpu_samples)
