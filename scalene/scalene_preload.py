@@ -7,7 +7,6 @@ import struct
 import subprocess
 import sys
 from typing import Dict
-from tempfile import TemporaryDirectory
 import scalene
 
 
