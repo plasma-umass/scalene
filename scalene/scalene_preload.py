@@ -7,13 +7,13 @@ import struct
 import subprocess
 import sys
 from typing import Dict
-
+from tempfile import TemporaryDirectory
 import scalene
 
 
 class ScalenePreload:
     @staticmethod
-    def get_preload_environ(args: argparse.Namespace) -> Dict[str, str]:
+    def get_preload_environ(args: argparse.Namespace, scalene_link_dir: TemporaryDirectory) -> Dict[str, str]:
         env = {
             "SCALENE_ALLOCATION_SAMPLING_WINDOW": str(
                 args.allocation_sampling_window
@@ -36,9 +36,13 @@ class ScalenePreload:
         elif sys.platform == "linux":
             if args.memory:
                 # Prepend the Scalene library to the LD_PRELOAD list, if any
-                new_ld_preload = os.path.join(
+                libscalene_path = os.path.join(
                     scalene.__path__[0].replace(" ", r"\ "), "libscalene.so"
                 )
+                # create symlink to libscalene.so in a temporary directory
+                os.symlink(libscalene_path, new_ld_preload)
+                new_ld_preload = os.path.join(scalene_link_dir.name, "libscalene.so")
+
                 if "LD_PRELOAD" in env:
                     old_ld_preload = env["LD_PRELOAD"]
                     env["LD_PRELOAD"] = new_ld_preload + ":" + old_ld_preload
@@ -82,7 +86,8 @@ class ScalenePreload:
 
         # Start a subprocess with the required environment variables,
         # which may include preloading libscalene
-        req_env = ScalenePreload.get_preload_environ(args)
+        libscalene_link_dir = TemporaryDirectory()
+        req_env = ScalenePreload.get_preload_environ(args, libscalene_link_dir)
         if any(k_v not in os.environ.items() for k_v in req_env.items()):
             os.environ.update(req_env)
             new_args = [

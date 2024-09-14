@@ -8,6 +8,7 @@ import sys
 from unittest.mock import patch
 import pytest
 import scalene.scalene_preload
+from tempfile import TemporaryDirectory
 
 @pytest.fixture
 def args():
@@ -23,29 +24,33 @@ def clean_environ():
     os.environ = original_environ
 
 def test_get_preload_environ_darwin_memory(args, clean_environ):
+    link_dir = TemporaryDirectory()
     args.memory = True
     with patch.object(sys, 'platform', 'darwin'):
-        env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args)
+        env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args, link_dir)
         assert 'DYLD_INSERT_LIBRARIES' in env
         assert 'libscalene.dylib' in env['DYLD_INSERT_LIBRARIES']
         assert env['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] == 'YES'
 
 def test_get_preload_environ_linux_memory(args, clean_environ):
+    link_dir = TemporaryDirectory()
     args.memory = True
     with patch.object(sys, 'platform', 'linux'):
         with patch.dict('os.environ', {'PYTHONMALLOC': 'malloc'}):
-            env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args)
+            env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args, link_dir)
             assert 'LD_PRELOAD' in env
             assert 'libscalene.so' in env['LD_PRELOAD']
             assert 'PYTHONMALLOC' not in env
 
 def test_get_preload_environ_linux_no_memory(args, clean_environ):
+    link_dir = TemporaryDirectory()
     args.memory = False
     with patch.object(sys, 'platform', 'linux'):
-        env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args)
+        env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args, link_dir)
         assert 'LD_PRELOAD' not in env
 
 def test_get_preload_environ_win32(args, clean_environ):
+    link_dir = TemporaryDirectory()
     with patch.object(sys, 'platform', 'win32'):
-        env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args)
+        env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args, link_dir)
         assert args.memory is False
