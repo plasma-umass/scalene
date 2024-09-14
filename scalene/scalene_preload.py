@@ -37,12 +37,13 @@ class ScalenePreload:
             if args.memory:
                 # Prepend the Scalene library to the LD_PRELOAD list, if any
                 libscalene_path = os.path.join(
-                    scalene.__path__[0].replace(" ", r"\ "), "libscalene.so"
+                    scalene.__path__[0], "libscalene.so"
                 )
                 # create symlink to libscalene.so in a temporary directory
-                os.symlink(libscalene_path, new_ld_preload)
                 new_ld_preload = os.path.join(scalene_link_dir.name, "libscalene.so")
 
+                os.symlink(libscalene_path, new_ld_preload)
+            
                 if "LD_PRELOAD" in env:
                     old_ld_preload = env["LD_PRELOAD"]
                     env["LD_PRELOAD"] = new_ld_preload + ":" + old_ld_preload
