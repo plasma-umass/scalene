@@ -8,7 +8,6 @@ import sys
 from unittest.mock import patch
 import pytest
 import scalene.scalene_preload
-from tempfile import TemporaryDirectory
 
 @pytest.fixture
 def args():
