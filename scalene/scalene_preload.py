@@ -7,13 +7,12 @@ import struct
 import subprocess
 import sys
 from typing import Dict
-
 import scalene
 
 
 class ScalenePreload:
     @staticmethod
-    def get_preload_environ(args: argparse.Namespace) -> Dict[str, str]:
+    def get_preload_environ(args: argparse.Namespace, escape_spaces = False) -> Dict[str, str]:
         env = {
             "SCALENE_ALLOCATION_SAMPLING_WINDOW": str(
                 args.allocation_sampling_window
@@ -35,10 +34,20 @@ class ScalenePreload:
 
         elif sys.platform == "linux":
             if args.memory:
-                # Prepend the Scalene library to the LD_PRELOAD list, if any
-                new_ld_preload = os.path.join(
-                    scalene.__path__[0].replace(" ", r"\ "), "libscalene.so"
-                )
+
+                sanitized_path = scalene.__path__[0]
+                if escape_spaces:
+                    # This function is used in two places, in `setup_preload` (where escaping spaces causes problems)
+                    # and in `Scalene.__init__`. The latter creates a string by joining with spaces
+                    # to pass into `redirect_python`, so we do need spaces there.  
+                    sanitized_path = sanitized_path.replace(" ", r"\ ") 
+                    
+                    # NOTE: you can't use escape sequences inside an f-string pre-3.12 either
+                if 'LD_LIBRARY_PATH' in env:
+                    env['LD_LIBRARY_PATH'] = f'{sanitized_path}:{env["LD_LIBRARY_PATH"]}'
+                else:
+                    env['LD_LIBRARY_PATH'] = sanitized_path
+                new_ld_preload = 'libscalene.so'
                 if "LD_PRELOAD" in env:
                     old_ld_preload = env["LD_PRELOAD"]
                     env["LD_PRELOAD"] = new_ld_preload + ":" + old_ld_preload
