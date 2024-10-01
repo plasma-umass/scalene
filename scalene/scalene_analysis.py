@@ -32,6 +32,7 @@ class ScaleneAnalysis:
                             return True
             result = False
         except ImportError:
+            # This module is not installed or something else went wrong; fail gracefully.
             result = False
         except AttributeError:
             # No __file__, meaning it's built-in. Let's call it native.
@@ -39,9 +40,6 @@ class ScaleneAnalysis:
         except TypeError:
             # __file__ is there, but empty (os.path.dirname() returns TypeError).  Let's call it native.
             result = True
-        except ModuleNotFoundError:
-            # This module is not installed; fail gracefully.
-            result = False
         return result
 
     @staticmethod
@@ -209,7 +207,7 @@ class ScaleneAnalysis:
     @staticmethod
     def strip_magic_line(source: str) -> str:
         try:
-            from IPython import get_ipython
+            from IPython import get_ipython # type: ignore
             get_ipython()
             # The above line will fail if not running in a notebook,
             # in which case we return the original source unchanged.
