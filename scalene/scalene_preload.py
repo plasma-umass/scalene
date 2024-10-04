@@ -35,36 +35,24 @@ class ScalenePreload:
         elif sys.platform == "linux":
             if args.memory:
  
-                unescaped_path = scalene.__path__[0]
-                escaped_path = unescaped_path.replace(" ", r"\ ")
-                if escape_spaces:
-                    sanitized_path = escaped_path
-                else:
-                    sanitized_path = unescaped_path
+                library_path = scalene.__path__[0]
+
 
                     
                     # NOTE: you can't use escape sequences inside an f-string pre-3.12 either
                 
                 # We use this function in two places:
-                # 1. in `setup_preload`, where we want to ensure that this variable is present and unescaped
-                # 2. when calling into `redirect_python`, where we want to ensure that the variable is present and escaped
+                # 1. in `setup_preload`
+                # 2. when calling into `redirect_python`
                 if 'LD_LIBRARY_PATH' not in os.environ:
 
-                    env['LD_LIBRARY_PATH'] = sanitized_path
-                elif sanitized_path not in os.environ['LD_LIBRARY_PATH']:
-                    # If we're passing this to `redirect_python`, the unescaped version 
-                    # of the path might be there, and it will mess up our wrapper scripts.
-                    # Replacing the unescaped version will guarantee that this never happens.
-                    # This also won't prepend unescaped_path to the beginning an additional time if we don't 
-                    # want it there, since if we want to make sure it's there, `sanitized_path` will be equal to `unescaped_path`
-                    # and its presence is checked for. 
-                    # 
-                    # The replace only has an effect when `escaped_path` is needed and `unescaped_path` is also present
-                    env['LD_LIBRARY_PATH'] = f'{sanitized_path}:{os.environ["LD_LIBRARY_PATH"].replace(f"{unescaped_path}:", "")}'
+                    env['LD_LIBRARY_PATH'] = library_path
+                elif library_path not in os.environ['LD_LIBRARY_PATH']:
+                    env['LD_LIBRARY_PATH'] = f'{library_path}:{os.environ["LD_LIBRARY_PATH"]}'
 
                    
                 new_ld_preload = 'libscalene.so'
-                if "LD_PRELOAD" in os.environ and 'libscalene.so' not in os.environ["LD_PRELOAD"]:
+                if "LD_PRELOAD" in os.environ and new_ld_preload not in os.environ["LD_PRELOAD"]:
                     old_ld_preload = os.environ["LD_PRELOAD"]
                     env["LD_PRELOAD"] = new_ld_preload + ":" + old_ld_preload
                 else:
