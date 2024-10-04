@@ -760,7 +760,7 @@ class Scalene:
                 )
             else:
                 preface = " ".join(
-                    "=".join((k, str(v))) for (k, v) in environ.items()
+                    "=".join((k, f"'{str(v)}'")) for (k, v) in environ.items()
                 )
 
             Scalene.__orig_python = redirect_python(
