@@ -34,28 +34,50 @@ class ScalenePreload:
 
         elif sys.platform == "linux":
             if args.memory:
-
-                sanitized_path = scalene.__path__[0]
+ 
+                unescaped_path = scalene.__path__[0]
+                escaped_path = unescaped_path.replace(" ", r"\ ")
                 if escape_spaces:
-                    # This function is used in two places, in `setup_preload` (where escaping spaces causes problems)
-                    # and in `Scalene.__init__`. The latter creates a string by joining with spaces
-                    # to pass into `redirect_python`, so we do need spaces there.  
-                    sanitized_path = sanitized_path.replace(" ", r"\ ") 
+                    sanitized_path = escaped_path
+                else:
+                    sanitized_path = unescaped_path
+
                     
                     # NOTE: you can't use escape sequences inside an f-string pre-3.12 either
-                if 'LD_LIBRARY_PATH' in env:
-                    env['LD_LIBRARY_PATH'] = f'{sanitized_path}:{env["LD_LIBRARY_PATH"]}'
-                else:
+                
+                # We use this function in two places:
+                # 1. in `setup_preload`, where we want to ensure that this variable is present and unescaped
+                # 2. when calling into `redirect_python`, where we want to ensure that the variable is present and escaped
+                if 'LD_LIBRARY_PATH' not in os.environ:
+
                     env['LD_LIBRARY_PATH'] = sanitized_path
+                elif sanitized_path not in os.environ['LD_LIBRARY_PATH']:
+                    # If we're passing this to `redirect_python`, the unescaped version 
+                    # of the path might be there, and it will mess up our wrapper scripts.
+                    # Replacing the unescaped version will guarantee that this never happens.
+                    # This also won't prepend unescaped_path to the beginning an additional time if we don't 
+                    # want it there, since if we want to make sure it's there, `sanitized_path` will be equal to `unescaped_path`
+                    # and its presence is checked for. 
+                    # 
+                    # The replace only has an effect when `escaped_path` is needed and `unescaped_path` is also present
+                    env['LD_LIBRARY_PATH'] = f'{sanitized_path}:{os.environ["LD_LIBRARY_PATH"].replace(f"{unescaped_path}:", "")}'
+
+                   
                 new_ld_preload = 'libscalene.so'
-                if "LD_PRELOAD" in env:
-                    old_ld_preload = env["LD_PRELOAD"]
+                if "LD_PRELOAD" in os.environ and 'libscalene.so' not in os.environ["LD_PRELOAD"]:
+                    old_ld_preload = os.environ["LD_PRELOAD"]
                     env["LD_PRELOAD"] = new_ld_preload + ":" + old_ld_preload
                 else:
                     env["LD_PRELOAD"] = new_ld_preload
                 # Disable command-line specified PYTHONMALLOC.
-                if "PYTHONMALLOC" in env:
-                    del env["PYTHONMALLOC"]
+                if "PYTHONMALLOC" in os.environ:
+                    # Since the environment dict is updated
+                    # with a `.update` call, we need to make sure
+                    # that there's some value for PYTHONMALLOC in 
+                    # what we return if we want to squash an anomalous 
+                    # value
+                    env['PYTHONMALLOC'] = 'default'
+                    
 
         elif sys.platform == "win32":
             # Force no memory profiling on Windows for now.
