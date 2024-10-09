@@ -34,28 +34,38 @@ class ScalenePreload:
 
         elif sys.platform == "linux":
             if args.memory:
+ 
+                library_path = scalene.__path__[0]
 
-                sanitized_path = scalene.__path__[0]
-                if escape_spaces:
-                    # This function is used in two places, in `setup_preload` (where escaping spaces causes problems)
-                    # and in `Scalene.__init__`. The latter creates a string by joining with spaces
-                    # to pass into `redirect_python`, so we do need spaces there.  
-                    sanitized_path = sanitized_path.replace(" ", r"\ ") 
+
                     
                     # NOTE: you can't use escape sequences inside an f-string pre-3.12 either
-                if 'LD_LIBRARY_PATH' in env:
-                    env['LD_LIBRARY_PATH'] = f'{sanitized_path}:{env["LD_LIBRARY_PATH"]}'
-                else:
-                    env['LD_LIBRARY_PATH'] = sanitized_path
+                
+                # We use this function in two places:
+                # 1. in `setup_preload`
+                # 2. when calling into `redirect_python`
+                if 'LD_LIBRARY_PATH' not in os.environ:
+
+                    env['LD_LIBRARY_PATH'] = library_path
+                elif library_path not in os.environ['LD_LIBRARY_PATH']:
+                    env['LD_LIBRARY_PATH'] = f'{library_path}:{os.environ["LD_LIBRARY_PATH"]}'
+
+                   
                 new_ld_preload = 'libscalene.so'
-                if "LD_PRELOAD" in env:
-                    old_ld_preload = env["LD_PRELOAD"]
+                if "LD_PRELOAD" in os.environ and new_ld_preload not in os.environ["LD_PRELOAD"]:
+                    old_ld_preload = os.environ["LD_PRELOAD"]
                     env["LD_PRELOAD"] = new_ld_preload + ":" + old_ld_preload
                 else:
                     env["LD_PRELOAD"] = new_ld_preload
                 # Disable command-line specified PYTHONMALLOC.
-                if "PYTHONMALLOC" in env:
-                    del env["PYTHONMALLOC"]
+                if "PYTHONMALLOC" in os.environ:
+                    # Since the environment dict is updated
+                    # with a `.update` call, we need to make sure
+                    # that there's some value for PYTHONMALLOC in 
+                    # what we return if we want to squash an anomalous 
+                    # value
+                    env['PYTHONMALLOC'] = 'default'
+                    
 
         elif sys.platform == "win32":
             # Force no memory profiling on Windows for now.

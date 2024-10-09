@@ -39,7 +39,7 @@ def test_get_preload_environ_linux_memory(args, clean_environ):
             env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args)
             assert 'LD_PRELOAD' in env
             assert 'libscalene.so' in env['LD_PRELOAD']
-            assert 'PYTHONMALLOC' not in env
+            assert env['PYTHONMALLOC'] == 'default'
 
 def test_get_preload_environ_linux_no_memory(args, clean_environ):
     
