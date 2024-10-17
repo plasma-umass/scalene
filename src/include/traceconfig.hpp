@@ -27,7 +27,7 @@ class TraceConfig {
       auto s = PyBytes_AsString(unic);
       items.push_back(s);
     }
-    scalene_base_path = PyBytes_AsString(PyUnicode_AsASCIIString(base_path));
+    scalene_base_path = PyBytes_AsString(PyUnicode_AsEncodedString(base_path, "utf-8", "strict"));
   }
 
   bool should_trace(char* filename) {
