@@ -37,6 +37,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         timer_signal, cpu_signal = scalene.get_timer_signals()
         timer_signal_str = signal.strsignal(signum)
         start_signal, stop_signal = scalene.get_lifecycle_signals()
+
         if signum == cpu_signal:
             print(
                 f"WARNING: Scalene uses {timer_signal_str} to profile.\n"
@@ -58,19 +59,24 @@ def replacement_signal_fns(scalene: Scalene) -> None:
                     old_signal(start_signal, signal.SIG_IGN)
                 scalene.disable_lifecycle()
             return old_signal(signum, handler)
-        # Fallthrough condition-- if we haven't dealt with the signal at this point in the call and the handler is
-        # a NOP-like, then we can ignore it. It can't have been set already, and the expected return value is the
-        # previous handler, so this behavior is reasonable
+        # Fallthrough condition
         if signum in all_signals and (
             handler is signal.SIG_IGN or handler is signal.SIG_DFL
         ):
             return handler
-        # If trying to "reset" to a handler that we already set it to, ignore
-        if (
-            signal.Signals(signum) in expected_handlers_map
-            and expected_handlers_map[signal.Signals(signum)] is handler
-        ):
+
+        # Wrap the usage of signal.Signals(signum) in try-except
+        try:
+            sig = signal.Signals(signum)
+        except ValueError:
+            # Signal not recognized by Python's enum
+            # Use the original signal function without wrapping
+            return old_signal(signum, handler)
+
+        # Use 'sig' instead of 'signal.Signals(signum)'
+        if sig in expected_handlers_map and expected_handlers_map[sig] is handler:
             return signal.SIG_IGN
+
         if signum in all_signals:
             print(
                 "Error: Scalene cannot profile your program because it (or one of its packages)\n"
@@ -78,8 +84,8 @@ def replacement_signal_fns(scalene: Scalene) -> None:
                 "If you have encountered this warning, please file an issue using this URL:\n"
                 "https://github.com/plasma-umass/scalene/issues/new/choose"
             )
-
             exit(-1)
+
         return old_signal(signum, handler)
 
     def replacement_raise_signal(signum: int) -> None:
