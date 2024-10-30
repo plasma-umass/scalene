@@ -212,7 +212,7 @@ class ScaleneAnalysis:
             # The above line will fail if not running in a notebook,
             # in which case we return the original source unchanged.
             # Regular expression to match and replace magic commands with comments
-            source = re.sub(r'(^\s*)%{1,2}', r'\1#', source, flags=re.MULTILINE)
+            source = re.sub(r'(^\s*)%{1,2}(\w+)', r'\1# \2', source, flags=re.MULTILINE)
         finally:
             return source
 
