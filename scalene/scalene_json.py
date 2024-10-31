@@ -43,14 +43,14 @@ class FunctionDetail(BaseModel):
 
     @model_validator(mode="after")
     def check_cpu_percentages(cls, values):
-        total_cpu_usage = math.ceil(
+        total_cpu_usage = math.floor(
             values.n_cpu_percent_c
             + values.n_cpu_percent_python
             + values.n_sys_percent
         )
         if total_cpu_usage > 100:
             raise ValueError(
-                f"The sum of n_cpu_percent_c, n_cpu_percent_python, and n_sys_percent must be < 100 but is {total_cpu_usage}"
+                f"The sum of n_cpu_percent_c, n_cpu_percent_python, and n_sys_percent must be <= 100 but is {total_cpu_usage}"
             )
         return values
 
