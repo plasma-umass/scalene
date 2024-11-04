@@ -67,8 +67,8 @@ class ScaleneStatistics:
         )
 
         #   GPU memory samples for each location in the program
-        self.gpu_mem_samples: DefaultDict[
-            Filename, DefaultDict[LineNumber, RunningStats]
+        self.gpu_mem_samples: Dict[
+            Filename, Dict[LineNumber, RunningStats]
         ] = defaultdict(lambda: defaultdict(RunningStats))
 
         # Running stats for the fraction of time running on the CPU.
