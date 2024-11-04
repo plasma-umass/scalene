@@ -1,4 +1,4 @@
-from typing import Any, List, OrderedDict
+from typing import Any, List, OrderedDict, Tuple
 
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 
@@ -17,10 +17,10 @@ class ScaleneLeakAnalysis:
         stats: ScaleneStatistics,
         avg_mallocs: OrderedDict[LineNumber, float],
         fname: Filename,
-    ) -> List[Any]:
+    ) -> List[Tuple[LineNumber, float, float]]:
         if growth_rate / 100 < ScaleneLeakAnalysis.growth_rate_threshold:
             return []
-        leaks = []
+        leaks : List[Tuple[LineNumber, float, float]] = []
         keys = list(stats.leak_score[fname].keys())
         for index, item in enumerate(stats.leak_score[fname].values()):
             # See https://en.wikipedia.org/wiki/Rule_of_succession
