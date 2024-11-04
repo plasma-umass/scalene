@@ -77,11 +77,14 @@ class LineDetail(FunctionDetail):
     start_region_line: PositiveInt
     end_region_line: PositiveInt
 
-
+class LeakInfo(BaseModel):
+    likelihood: NonNegativeFloat
+    velocity_mb_s: NonNegativeFloat
+    
 class FileDetail(BaseModel):
     functions: List[FunctionDetail]
     imports: List[str]
-    leaks: Dict[str, NonNegativeFloat]
+    leaks: Dict[str, LeakInfo]
     lines: List[LineDetail]
     percent_cpu_time: NonNegativeFloat
 
