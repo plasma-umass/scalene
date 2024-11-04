@@ -103,8 +103,7 @@ class ScaleneNeuron(ScaleneAccelerator):
                 return False
             else:
                 return True
-        except subprocess.CalledProcessError as e:
-            # print(f"Error running neuron-ls: {e}")
+        except subprocess.CalledProcessError:
             return False
         except FileNotFoundError:
             # print("neuron-ls command not found. Ensure AWS Neuron SDK is installed.")
