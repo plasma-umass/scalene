@@ -276,10 +276,10 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
 
   PyPtr<PyCodeObject> code(PyFrame_GetCode(static_cast<PyFrameObject*>(frame)));
   // Take ownership of these right now
-  PyObject* last_fname(PyList_GetItem(
+  PyObject* last_fname(PyTuple_GetItem(
       static_cast<PyObject*>(module_pointers.scalene_last_profiled), 0));
   Py_IncRef(last_fname);
-  PyObject* last_lineno(PyList_GetItem(
+  PyObject* last_lineno(PyTuple_GetItem(
       static_cast<PyObject*>(module_pointers.scalene_last_profiled), 1));
   Py_IncRef(last_lineno);
   auto lineno_l = PyLong_AsLong(static_cast<PyObject*>(last_lineno));
@@ -303,15 +303,15 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
 
   PyEval_SetTrace(NULL, NULL);
   Py_IncRef(module_pointers.nada);
-  auto res = PyList_SetItem(module_pointers.scalene_last_profiled, 0,
+  auto res = PyTuple_SetItem(module_pointers.scalene_last_profiled, 0,
                             module_pointers.nada);
   Py_IncRef(module_pointers.zero);
-  res = PyList_SetItem(module_pointers.scalene_last_profiled, 1,
+  res = PyTuple_SetItem(module_pointers.scalene_last_profiled, 1,
                        module_pointers.zero);
 
   PyObject* last_profiled_ret(PyTuple_Pack(2, last_fname, last_lineno));
   Py_IncRef(module_pointers.zero);
-  res = PyList_SetItem(module_pointers.scalene_last_profiled, 2,
+  res = PyTuple_SetItem(module_pointers.scalene_last_profiled, 2,
                        module_pointers.zero);
 
   allocate_newline();

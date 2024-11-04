@@ -204,15 +204,8 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
     __initialized: bool = False
-    __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
+    __last_profiled = (Filename("NADA"), LineNumber(0), ByteCodeIndex(0))
     __orig_python = sys.executable  # will be rewritten later
-
-    @staticmethod
-    def last_profiled_tuple() -> Tuple[Filename, LineNumber, ByteCodeIndex]:
-        """Helper function to type last profiled information."""
-        return cast(
-            Tuple[Filename, LineNumber, ByteCodeIndex], Scalene.__last_profiled
-        )
 
     __last_profiled_invalidated = False
     __gui_dir = "scalene-gui"
@@ -370,7 +363,7 @@ class Scalene:
     @staticmethod
     def update_profiled() -> None:
         with Scalene.__invalidate_mutex:
-            last_prof_tuple = Scalene.last_profiled_tuple()
+            last_prof_tuple = Scalene.__last_profiled
             Scalene.__invalidate_queue.append(
                 (last_prof_tuple[0], last_prof_tuple[1])
             )
@@ -385,7 +378,7 @@ class Scalene:
             # If we are still on the same line, return.
             ff = frame.f_code.co_filename
             fl = frame.f_lineno
-            (fname, lineno, lasti) = Scalene.last_profiled_tuple()
+            (fname, lineno, lasti) = Scalene.__last_profiled
             if (ff == fname) and (fl == lineno):
                 return Scalene.invalidate_lines_python
             # Different line: stop tracing this frame.
@@ -401,14 +394,14 @@ class Scalene:
             Scalene.update_profiled()
             Scalene.__last_profiled_invalidated = True
 
-            Scalene.__last_profiled = [
+            Scalene.__last_profiled = (
                 Filename("NADA"),
                 LineNumber(0),
                 ByteCodeIndex(0),
                 #     Filename(ff),
                 #     LineNumber(fl),
                 #     ByteCodeIndex(frame.f_lasti),
-            ]
+            )
             return None
         except AttributeError:
             # This can happen when Scalene shuts down.
@@ -567,7 +560,7 @@ class Scalene:
         # First, see if we have now executed a different line of code.
         # If so, increment.
         invalidated = pywhere.get_last_profiled_invalidated()
-        (fname, lineno, lasti) = Scalene.last_profiled_tuple()
+        (fname, lineno, lasti) = Scalene.__last_profiled
         if (
             not invalidated
             and this_frame
@@ -575,11 +568,11 @@ class Scalene:
         ):
             Scalene.update_profiled()
         pywhere.set_last_profiled_invalidated_false()
-        Scalene.__last_profiled = [
+        Scalene.__last_profiled = (
             Filename(f.f_code.co_filename),
             LineNumber(f.f_lineno),
             ByteCodeIndex(f.f_lasti),
-        ]
+        )
         Scalene.__alloc_sigq.put([0])
         pywhere.enable_settrace()
         del this_frame
@@ -1811,7 +1804,7 @@ class Scalene:
             # Leaving here in case of reversion
             # sys.settrace(None)
             stats = Scalene.__stats
-            (last_file, last_line, _) = Scalene.last_profiled_tuple()
+            (last_file, last_line, _) = Scalene.__last_profiled
             stats.memory_malloc_count[last_file][last_line] += 1
             stats.memory_aggregate_footprint[last_file][
                 last_line
