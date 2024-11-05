@@ -376,48 +376,6 @@ class Scalene:
             )
             Scalene.update_line()
 
-    @staticmethod
-    def invalidate_lines_python(
-        frame: FrameType, _event: str, _arg: str
-    ) -> Any:
-        """Mark the last_profiled information as invalid as soon as we execute a different line of code."""
-        try:
-            # If we are still on the same line, return.
-            ff = frame.f_code.co_filename
-            fl = frame.f_lineno
-            (fname, lineno, lasti) = Scalene.last_profiled_tuple()
-            if (ff == fname) and (fl == lineno):
-                return Scalene.invalidate_lines_python
-            # Different line: stop tracing this frame.
-            frame.f_trace = None
-            frame.f_trace_lines = False
-            if on_stack(frame, fname, lineno):
-                # We are still on the same line, but somewhere up the stack
-                # (since we returned when it was the same line in this
-                # frame). Stop tracing in this frame.
-                return None
-            # We are on a different line; stop tracing and increment the count.
-            sys.settrace(None)
-            Scalene.update_profiled()
-            Scalene.__last_profiled_invalidated = True
-
-            Scalene.__last_profiled = [
-                Filename("NADA"),
-                LineNumber(0),
-                ByteCodeIndex(0),
-                #     Filename(ff),
-                #     LineNumber(fl),
-                #     ByteCodeIndex(frame.f_lasti),
-            ]
-            return None
-        except AttributeError:
-            # This can happen when Scalene shuts down.
-            return None
-        except Exception as e:
-            print(f"{Scalene.__error_message}:\n", e, file=sys.stderr)
-            traceback.print_exc()
-            return None
-
     @classmethod
     def clear_metrics(cls) -> None:
         """Clear the various states for forked processes."""
@@ -575,7 +533,15 @@ class Scalene:
         ):
             Scalene.update_profiled()
         pywhere.set_last_profiled_invalidated_false()
-        Scalene.__last_profiled = [
+        # In the setprofile callback, we rely on 
+        # __last_profiled always having the same memory address. 
+        # This is an optimization to not have to traverse the Scalene profiler
+        # object's dictionary every time we want to update the last profiled line.
+        #
+        # A previous change to this code set Scalene.__last_profiled = [fname, lineno, lasti],
+        # which created a new list object and set the __last_profiled attribute to the new list. This 
+        # made the object held in `pywhere.cpp` out of date, and caused the profiler to not update the last profiled line.
+        Scalene.__last_profiled[:] = [
             Filename(f.f_code.co_filename),
             LineNumber(f.f_lineno),
             ByteCodeIndex(f.f_lasti),
