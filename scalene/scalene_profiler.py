@@ -1826,6 +1826,7 @@ class Scalene:
                         "Scalene can only profile code that runs for at least one second or allocates at least 10MB.",
                         file=sys.stderr,
                     )
+
             if not (
                 did_output
                 and Scalene.__args.web
@@ -1834,12 +1835,12 @@ class Scalene:
             ):
                 return exit_status
 
-            if Scalene.__args.web:
-                # Only generate HTML file if needed for display in the browser.
+            if Scalene.__args.web or Scalene.__args.html:
                 generate_html(
                     profile_fname=Scalene.__profile_filename,
                     output_fname=(
-                        Scalene.__profiler_html
+                        Scalene.__profiler_html if not Scalene.__args.outfile
+                        else Scalene.__args.outfile
                     ),
                 )
             if Scalene.in_jupyter():
