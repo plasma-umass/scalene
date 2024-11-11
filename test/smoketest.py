@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
+import json
+import pathlib
+import tempfile
 import subprocess
 import sys
-import json
 
 def smoketest(fname, rest):
-    cmd = [sys.executable, "-m", "scalene", "--cli", "--json", "--outfile", "/dev/stderr", *rest, fname]
+    outfile = pathlib.Path(tempfile.mkdtemp(prefix="scalene") / pathlib.Path("smoketest.json"))
+    cmd = [sys.executable, "-m", "scalene", "--cli", "--json", "--outfile", str(outfile), *rest, fname]
     print("COMMAND", ' '.join(cmd))
     proc = subprocess.run(cmd ,capture_output=True)
     stdout = proc.stdout.decode('utf-8')
@@ -19,7 +22,9 @@ def smoketest(fname, rest):
    #    print("STDOUT", stdout)
 #    print("\nSTDERR", stderr)
     try:
-        scalene_json = json.loads(stderr)
+        with open(outfile, "r") as f:
+            outfile_contents = f.read()
+        scalene_json = json.loads(outfile_contents)
     except json.JSONDecodeError:
         print("Invalid JSON", stderr)
         print("STDOUT", stdout)
