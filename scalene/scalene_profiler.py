@@ -106,7 +106,6 @@ from scalene.scalene_accelerator import ScaleneAccelerator
 
 console = Console(style="white on blue")
 
-
 # Assigning to `nada` disables any console.log commands.
 def nada(*args: Any) -> None:
     pass
@@ -857,7 +856,11 @@ class Scalene:
                 return True
             outfile = Scalene.__output.output_file
             if Scalene.__args.outfile:
-                outfile = Scalene.__args.outfile
+                outfile = os.path.join(
+                    os.path.dirname(Scalene.__args.outfile),
+                    os.path.splitext(os.path.basename(Scalene.__args.outfile))[0] + ".json"
+                )
+                # outfile = Scalene.__args.outfile
             # If there was no output file specified, print to the console.
             if not outfile:
                 if sys.platform == "win32":
@@ -1836,8 +1839,14 @@ class Scalene:
                 return exit_status
 
             if Scalene.__args.web or Scalene.__args.html:
+                profile_filename = Scalene.__profile_filename
+                if Scalene.__args.outfile:
+                    profile_filename = os.path.join(
+                        os.path.dirname(Scalene.__args.outfile),
+                        os.path.splitext(os.path.basename(Scalene.__args.outfile))[0] + ".json"
+                    )
                 generate_html(
-                    profile_fname=Scalene.__profile_filename,
+                    profile_fname=profile_filename,
                     output_fname=(
                         Scalene.__profiler_html if not Scalene.__args.outfile
                         else Scalene.__args.outfile
