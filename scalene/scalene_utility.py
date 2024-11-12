@@ -126,7 +126,7 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
 
     file_contents = {
         "scalene_gui_js_text": read_file_content(
-            scalene_dir, "scalene-gui", "scalene-gui.js"
+            scalene_dir, "scalene-gui", "scalene-gui-bundle.js"
         ),
         "prism_css_text": read_file_content(
             scalene_dir, "scalene-gui", "prism.css"
