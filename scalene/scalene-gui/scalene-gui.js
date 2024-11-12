@@ -2271,9 +2271,13 @@ function sendHeartbeat() {
   xhr.send();
 }
 
+window.collapseAll = collapseAll;
 window.load = load;
-window.toggleServiceFields = toggleServiceFields;
+window.proposeOptimizationLine = proposeOptimizationLine;
 window.proposeOptimizationRegion = proposeOptimizationRegion;
+window.toggleDisplay = toggleDisplay;
+window.toggleReduced = toggleReduced;
+window.toggleServiceFields = toggleServiceFields;
 window.vsNavigate = vsNavigate;
 
 window.addEventListener("load", () => {
