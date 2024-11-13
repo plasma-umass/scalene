@@ -1,6 +1,10 @@
+import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
+import { Buffer } from "buffer";
+window.Buffer = Buffer;
+
 /// <reference types="aws-sdk" />
 
-function vsNavigate(filename, lineno) {
+export function vsNavigate(filename, lineno) {
   // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
   try {
     const vscode = acquireVsCodeApi();
@@ -368,60 +372,52 @@ async function sendPromptToAzureOpenAI(prompt, len, apiKey, apiUrl, aiModel) {
 }
 
 async function sendPromptToAmazon(prompt, len) {
-  const serviceName = "bedrock";
-  const region = "us-west-2";
-  const modelId = "anthropic.claude-v2";
-  const endpoint = `https://${serviceName}-runtime.${region}.amazonaws.com/model/${modelId}/invoke`;
-  // const model = document.getElementById('language-model-amazon').value;
+  const accessKeyId = document.getElementById('aws-access-key').value || localStorage.getItem('aws-access-key');
+  const secretAccessKey = document.getElementById('aws-secret-key').value || localStorage.getItem('aws-secret-key');
+  const region = document.getElementById('aws-region').value || localStorage.getItem('aws-region') || 'us-east-1';
 
-  const body = JSON.stringify({
-    prompt: `Human: ${prompt}\n\nAssistant:\n`,
-    max_tokens_to_sample: 2048,
-    temperature: 0,
-    top_k: 250,
-    top_p: 1,
-    stop_sequences: ["\n\nHuman:"],
-    anthropic_version: "bedrock-2023-05-31",
+  // Format the prompt
+  const formattedPrompt = `Human: ${prompt}\nAssistant:`;
+
+  // Configure AWS Credentials
+  const credentials = {
+    accessKeyId: accessKeyId,
+    secretAccessKey: secretAccessKey,
+  };
+
+  // Initialize the Bedrock Runtime Client
+  const client = new BedrockRuntimeClient({
+    region: region,
+    credentials: credentials,
   });
 
-  console.log(body);
-
-  var bedrockruntime = new AWS.BedrockRuntime();
-  bedrockruntime.invokeModel(body, function (err, data) {
-    if (err)
-      console.log(err, err.stack); // an error occurred
-    else console.log(data); // successful response
-  });
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      //	    Authorization: `Bearer ${apiKey}`,
-    },
-    body: body,
-  });
-
-  const data = await response.json();
-  console.log(data);
-  try {
-    console.log(
-      `Debugging info: Retrieved ${JSON.stringify(data.choices[0], null, 4)}`,
-    );
-  } catch {
-    console.log(
-      `Debugging info: Failed to retrieve data.choices from the server. data = ${JSON.stringify(
-        data,
-      )}`,
-    );
-  }
+  // Prepare the InvokeModelCommand
+  const params = {
+    modelId: 'anthropic.claude-v2',
+    accept: 'application/json',
+    contentType: 'application/json',
+    body: JSON.stringify({
+      prompt: formattedPrompt,
+      max_tokens_to_sample: 300,
+    }),
+  };
 
   try {
-    return data.choices[0].message.content.replace(/^\s*[\r\n]/gm, "");
-  } catch {
-    // return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
-    return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
+    const command = new InvokeModelCommand(params);
+    const response = await client.send(command);
+
+    // Convert the response body to text
+    const responseBlob = new Blob([response.body]);
+    const responseText = await responseBlob.text();
+    const parsedResponse = JSON.parse(responseText);
+
+    return parsedResponse.completion.trim();
+  } catch (err) {
+    console.error(err);
+    return `# Error: ${err.message}`;
   }
 }
+
 
 async function sendPromptToOllama(prompt, len, model, ipAddr, portNum) {
   const url = `http://${ipAddr}:${portNum}/api/chat`;
@@ -624,18 +620,12 @@ async function optimizeCode(imports, code, line, context) {
         return result;
       }
     }
-    case "amazon": {
+  case "amazon": {
       console.log("Running " + document.getElementById("service-select").value);
-      console.log(prompt); // optimizePerformancePrompt_ollama);
-      const result = await sendPromptToAmazon(
-        prompt, // optimizePerformancePrompt_ollama,
-        Math.max(numWords * 4, 500),
-      );
-      console.log(
-        document.getElementById("service-select").value + " not yet supported.",
-      );
-      return "";
-    }
+      console.log(prompt);
+      const result = await sendPromptToAmazon(prompt, Math.max(numWords * 4, 500));
+      return extractCode(result);
+  }
     case "azure-openai": {
       console.log("Running " + document.getElementById("service-select").value);
       console.log(prompt);
@@ -653,7 +643,7 @@ async function optimizeCode(imports, code, line, context) {
   }
 }
 
-function proposeOptimizationRegion(filename, file_number, line) {
+export function proposeOptimizationRegion(filename, file_number, line) {
   proposeOptimization(
     filename,
     file_number,
@@ -662,7 +652,7 @@ function proposeOptimizationRegion(filename, file_number, line) {
   );
 }
 
-function proposeOptimizationLine(filename, file_number, line) {
+export function proposeOptimizationLine(filename, file_number, line) {
   proposeOptimization(
     filename,
     file_number,
@@ -754,7 +744,7 @@ function proposeOptimization(filename, file_number, line, params) {
       .join("<br />");
     // Display the proposed optimization, with click-to-copy functionality.
     elt.innerHTML = `<hr><span title="click to copy" style="cursor: copy" id="opt-${file_number}-${line.lineno}">${formattedCode}</span>`;
-    thisElt = document.getElementById(`opt-${file_number}-${line.lineno}`);
+    const thisElt = document.getElementById(`opt-${file_number}-${line.lineno}`);
     thisElt.addEventListener("click", async (e) => {
       await copyOnClick(e, message);
       // After copying, briefly change the cursor back to the default to provide some visual feedback..
@@ -1349,16 +1339,16 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params) {
 
 function hideEmptyProfiles() {
   const elts = document.getElementsByClassName("empty-profile");
-  for (elt of elts) {
-    s = elt.style;
+  for (const elt of elts) {
+    const s = elt.style;
     s.display = "none";
   }
 }
 
-function toggleReduced() {
+export function toggleReduced() {
   const elts = document.getElementsByClassName("empty-profile");
-  for (elt of elts) {
-    s = elt.style;
+  for (const elt of elts) {
+    const s = elt.style;
     if (s.display == "") {
       s.display = "none";
     } else {
@@ -1389,7 +1379,7 @@ function makeProfileLine(
     lineno < line.end_region_line;
     lineno++
   ) {
-    currline = prof["files"][filename]["lines"][lineno];
+    const currline = prof["files"][filename]["lines"][lineno];
     total_region_time +=
       currline.n_cpu_percent_python +
       currline.n_cpu_percent_c +
@@ -1615,7 +1605,7 @@ function makeProfileLine(
     // Construct a new line corresponding to this region.
     let mb_copied = 0;
     for (let lineno = start_region_line; lineno < end_region_line; lineno++) {
-      currline = prof["files"][filename]["lines"][lineno];
+      const currline = prof["files"][filename]["lines"][lineno];
       mb_copied += currline.n_copy_mb * prof.elapsed_time_sec;
       newLine.n_cpu_percent_python += currline.n_cpu_percent_python;
       newLine.n_cpu_percent_c += currline.n_cpu_percent_c;
@@ -1654,15 +1644,15 @@ function makeProfileLine(
 }
 
 // Track all profile ids so we can collapse and expand them en masse.
-let allIDs = [];
+let allIds = [];
 
-function collapseAll() {
+export function collapseAll() {
   for (const id of allIds) {
     collapseDisplay(id);
   }
 }
 
-function expandAll() {
+export function expandAll() {
   for (const id of allIds) {
     expandDisplay(id);
   }
@@ -1680,7 +1670,7 @@ function expandDisplay(id) {
   document.getElementById(`button-${id}`).innerHTML = DownTriangle;
 }
 
-function toggleDisplay(id) {
+export function toggleDisplay(id) {
   const d = document.getElementById(`profile-${id}`);
   if (d.style.display == "block") {
     d.style.display = "none";
@@ -1726,8 +1716,8 @@ async function display(prof) {
   }
 
   // Restore the old GPU toggle from local storage (if any).
-  const gpu_checkbox = document.getElementById("use-gpu-checkbox");
-  old_gpu_checkbox = window.localStorage.getItem("use-gpu-checkbox");
+  const gpu_checkbox = document.getElementById("use-gpu-checkbox") || '';
+  const old_gpu_checkbox = window.localStorage.getItem("use-gpu-checkbox") || '';
   if (old_gpu_checkbox) {
     if (gpu_checkbox.checked.toString() != old_gpu_checkbox) {
       gpu_checkbox.click();
@@ -2084,7 +2074,7 @@ async function display(prof) {
   }
 }
 
-function load(profile) {
+export function load(profile) {
   (async () => {
     // let resp = await fetch(jsonFile);
     // let prof = await resp.json();
@@ -2119,7 +2109,7 @@ function loadDemo() {
 }
 
 // JavaScript function to toggle fields based on selected service
-function toggleServiceFields() {
+export function toggleServiceFields() {
   let service = document.getElementById("service-select").value;
   window.localStorage.setItem("scalene-service-select", service);
   document.getElementById("openai-fields").style.display =
@@ -2193,7 +2183,7 @@ function replaceDivWithSelect() {
     } else {
       console.error('Div with ID "language-local-models" not found.');
     }
-    atLeastOneModel = true;
+//    atLeastOneModel = true;
   });
 }
 
@@ -2280,5 +2270,9 @@ function sendHeartbeat() {
   xhr.open("GET", "/heartbeat", true);
   xhr.send();
 }
+
+window.addEventListener("load", () => {
+    load(profile);
+});
 
 setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
