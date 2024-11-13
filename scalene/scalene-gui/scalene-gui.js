@@ -1,4 +1,7 @@
-import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
+import {
+  BedrockRuntimeClient,
+  InvokeModelCommand,
+} from "@aws-sdk/client-bedrock-runtime";
 import { Buffer } from "buffer";
 window.Buffer = Buffer;
 
@@ -372,9 +375,16 @@ async function sendPromptToAzureOpenAI(prompt, len, apiKey, apiUrl, aiModel) {
 }
 
 async function sendPromptToAmazon(prompt, len) {
-  const accessKeyId = document.getElementById('aws-access-key').value || localStorage.getItem('aws-access-key');
-  const secretAccessKey = document.getElementById('aws-secret-key').value || localStorage.getItem('aws-secret-key');
-  const region = document.getElementById('aws-region').value || localStorage.getItem('aws-region') || 'us-east-1';
+  const accessKeyId =
+    document.getElementById("aws-access-key").value ||
+    localStorage.getItem("aws-access-key");
+  const secretAccessKey =
+    document.getElementById("aws-secret-key").value ||
+    localStorage.getItem("aws-secret-key");
+  const region =
+    document.getElementById("aws-region").value ||
+    localStorage.getItem("aws-region") ||
+    "us-east-1";
 
   // Format the prompt
   const formattedPrompt = `Human: ${prompt}\nAssistant:`;
@@ -391,16 +401,24 @@ async function sendPromptToAmazon(prompt, len) {
     credentials: credentials,
   });
 
-  // Prepare the InvokeModelCommand
-  const params = {
-    modelId: 'anthropic.claude-v2',
-    accept: 'application/json',
-    contentType: 'application/json',
-    body: JSON.stringify({
-      prompt: formattedPrompt,
-      max_tokens_to_sample: 300,
-    }),
-  };
+    const params = {
+	"modelId": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+	"body": JSON.stringify({
+	    "anthropic_version": "bedrock-2023-05-31", 
+	    "max_tokens": 1024,
+	    "messages": [
+		{
+		    "role": "user",
+		    "content": [
+			{
+			    "type": "text",
+			    "text": prompt
+			}
+		    ]
+		}
+	    ]
+	})
+  }
 
   try {
     const command = new InvokeModelCommand(params);
@@ -410,14 +428,14 @@ async function sendPromptToAmazon(prompt, len) {
     const responseBlob = new Blob([response.body]);
     const responseText = await responseBlob.text();
     const parsedResponse = JSON.parse(responseText);
+    const responseContents = parsedResponse.content[0].text;
 
-    return parsedResponse.completion.trim();
+    return responseContents.trim();
   } catch (err) {
     console.error(err);
     return `# Error: ${err.message}`;
   }
 }
-
 
 async function sendPromptToOllama(prompt, len, model, ipAddr, portNum) {
   const url = `http://${ipAddr}:${portNum}/api/chat`;
@@ -620,12 +638,15 @@ async function optimizeCode(imports, code, line, context) {
         return result;
       }
     }
-  case "amazon": {
+    case "amazon": {
       console.log("Running " + document.getElementById("service-select").value);
       console.log(prompt);
-      const result = await sendPromptToAmazon(prompt, Math.max(numWords * 4, 500));
+      const result = await sendPromptToAmazon(
+        prompt,
+        Math.max(numWords * 4, 500),
+      );
       return extractCode(result);
-  }
+    }
     case "azure-openai": {
       console.log("Running " + document.getElementById("service-select").value);
       console.log(prompt);
@@ -744,7 +765,9 @@ function proposeOptimization(filename, file_number, line, params) {
       .join("<br />");
     // Display the proposed optimization, with click-to-copy functionality.
     elt.innerHTML = `<hr><span title="click to copy" style="cursor: copy" id="opt-${file_number}-${line.lineno}">${formattedCode}</span>`;
-    const thisElt = document.getElementById(`opt-${file_number}-${line.lineno}`);
+    const thisElt = document.getElementById(
+      `opt-${file_number}-${line.lineno}`,
+    );
     thisElt.addEventListener("click", async (e) => {
       await copyOnClick(e, message);
       // After copying, briefly change the cursor back to the default to provide some visual feedback..
@@ -795,9 +818,16 @@ function time_consumed_str(time_in_ms) {
 }
 
 function makeTooltip(title, value) {
-    // Tooltip for time bars, below
-    let secs = value / 100 * globalThis.profile.elapsed_time_sec;
-    return `(${title}) ` + value.toFixed(1) + "%" + " [" + time_consumed_str(secs * 1e3) + "]"
+  // Tooltip for time bars, below
+  let secs = (value / 100) * globalThis.profile.elapsed_time_sec;
+  return (
+    `(${title}) ` +
+    value.toFixed(1) +
+    "%" +
+    " [" +
+    time_consumed_str(secs * 1e3) +
+    "]"
+  );
 }
 
 function makeBar(python, native, system, params) {
@@ -900,7 +930,6 @@ function makeBar(python, native, system, params) {
   };
 }
 
-
 function makeGPUPie(util, gpu_device, params) {
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
@@ -959,11 +988,11 @@ function makeGPUBar(util, gpu_device, params) {
     data: {
       values: [
         {
-            x: 0,
-            y: util.toFixed(0),
-	    q: (util / 2).toFixed(0),
-	    d: util >= 20 ? util.toFixed(0) + "%" : "",
-	    dd: "in use: " + util.toFixed(0) + "%",
+          x: 0,
+          y: util.toFixed(0),
+          q: (util / 2).toFixed(0),
+          d: util >= 20 ? util.toFixed(0) + "%" : "",
+          dd: "in use: " + util.toFixed(0) + "%",
         },
       ],
     },
@@ -981,9 +1010,9 @@ function makeGPUBar(util, gpu_device, params) {
             field: "dd",
             type: "nominal",
             legend: false,
-            scale: { range:  ["goldenrod", "#f4e6c2"] },
+            scale: { range: ["goldenrod", "#f4e6c2"] },
           },
-          tooltip: [{ field: "dd", type: "nominal", title: gpu_device + ":" } ],
+          tooltip: [{ field: "dd", type: "nominal", title: gpu_device + ":" }],
         },
       },
       {
@@ -991,7 +1020,7 @@ function makeGPUBar(util, gpu_device, params) {
           type: "text",
           align: "center",
           baseline: "middle",
-            dx: 0,
+          dx: 0,
         },
         encoding: {
           x: {
@@ -1001,7 +1030,7 @@ function makeGPUBar(util, gpu_device, params) {
           },
           text: { field: "d" },
           color: { value: "white" },
-          tooltip: [{ field: "dd", type: "nominal", title: gpu_device + ":" } ],
+          tooltip: [{ field: "dd", type: "nominal", title: gpu_device + ":" }],
         },
       },
     ],
@@ -1292,13 +1321,13 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params) {
       title: [gpu_device, "util."],
       color: CopyColor,
       width: 0,
-	info: `% utilization of ${gpu_device} by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
+      info: `% utilization of ${gpu_device} by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
     });
     columns.push({
       title: [gpu_device, "memory"],
       color: CopyColor,
       width: 0,
-	info: `Peak ${gpu_device} memory allocated by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
+      info: `Peak ${gpu_device} memory allocated by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
     });
   }
   columns.push({ title: ["", ""], color: "black", width: 100 });
@@ -1456,7 +1485,7 @@ function makeProfileLine(
         line.n_cpu_percent_python,
         line.n_cpu_percent_c,
         line.n_sys_percent,
-          { height: 20, width: 100 },
+        { height: 20, width: 100 },
       ),
     );
   } else {
@@ -1557,20 +1586,25 @@ function makeProfileLine(
       s += `<td style="width: 50; vertical-align: middle" align="right" data-sort="${line.n_gpu_percent}">`;
       s += `<span style="height: 20; width: 30; vertical-align: middle" id="gpu_pie${gpu_pies.length}"></span>`;
       s += "</td>";
-      gpu_pies.push(makeGPUPie(line.n_gpu_percent, prof.gpu_device, { height: 20, width: 100 }));
+      gpu_pies.push(
+        makeGPUPie(line.n_gpu_percent, prof.gpu_device, {
+          height: 20,
+          width: 100,
+        }),
+      );
       // gpu_pies.push(makeGPUBar(line.n_gpu_percent, prof.gpu_device, { height: 20, width: 100 }));
     }
     if (true) {
       if (line.n_gpu_peak_memory_mb < 1.0 || line.n_gpu_percent < 1.0) {
         s += '<td style="width: 100"></td>';
       } else {
-	  let mem = line.n_gpu_peak_memory_mb;
-	  let memStr = "MB";
-	  if (mem >= 1024) {
-	      mem /= 1024;
-	      memStr = "GB";
-	  }
-          s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${mem.toFixed(0)}${memStr}&nbsp;&nbsp;</font></td>`;
+        let mem = line.n_gpu_peak_memory_mb;
+        let memStr = "MB";
+        if (mem >= 1024) {
+          mem /= 1024;
+          memStr = "GB";
+        }
+        s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${mem.toFixed(0)}${memStr}&nbsp;&nbsp;</font></td>`;
       }
     }
   }
@@ -1716,8 +1750,9 @@ async function display(prof) {
   }
 
   // Restore the old GPU toggle from local storage (if any).
-  const gpu_checkbox = document.getElementById("use-gpu-checkbox") || '';
-  const old_gpu_checkbox = window.localStorage.getItem("use-gpu-checkbox") || '';
+  const gpu_checkbox = document.getElementById("use-gpu-checkbox") || "";
+  const old_gpu_checkbox =
+    window.localStorage.getItem("use-gpu-checkbox") || "";
   if (old_gpu_checkbox) {
     if (gpu_checkbox.checked.toString() != old_gpu_checkbox) {
       gpu_checkbox.click();
@@ -1914,7 +1949,9 @@ async function display(prof) {
     s += `<div style="${displayStr}" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
-      s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, { functions: false });
+    s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, {
+      functions: false,
+    });
     s += "<tbody>";
     // Print per-line profiles.
     let prevLineno = -1;
@@ -1956,7 +1993,9 @@ async function display(prof) {
     // Print out function summaries.
     if (prof.files[ff[0]].functions.length) {
       s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
-	s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, { functions: true });
+      s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, {
+        functions: true,
+      });
       s += "<tbody>";
       tableID++;
       for (const l in prof.files[ff[0]].functions) {
@@ -2183,7 +2222,7 @@ function replaceDivWithSelect() {
     } else {
       console.error('Div with ID "language-local-models" not found.');
     }
-//    atLeastOneModel = true;
+    //    atLeastOneModel = true;
   });
 }
 
@@ -2272,7 +2311,7 @@ function sendHeartbeat() {
 }
 
 window.addEventListener("load", () => {
-    load(profile);
+  load(profile);
 });
 
 setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
