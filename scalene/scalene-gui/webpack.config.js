@@ -2,13 +2,14 @@ const path = require('path');
 const webpack = require('webpack'); // Add this line
 
 module.exports = {
-  entry: './scalene-gui.js',
+    entry: './scalene-gui.js',
     mode: 'production', // 'development',
-//    devtool: false,
-  output: {
-    filename: 'scalene-gui-bundle.js',
-    path: path.resolve(__dirname, ''),
-  },
+    //    devtool: false,
+    output: {
+	filename: 'scalene-gui-bundle.js',
+	path: path.resolve(__dirname, ''),
+	libraryTarget: 'window'
+    },
   resolve: {
     fallback: {
       "crypto": require.resolve("crypto-browserify"),

@@ -4,7 +4,7 @@ window.Buffer = Buffer;
 
 /// <reference types="aws-sdk" />
 
-function vsNavigate(filename, lineno) {
+export function vsNavigate(filename, lineno) {
   // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
   try {
     const vscode = acquireVsCodeApi();
@@ -643,7 +643,7 @@ async function optimizeCode(imports, code, line, context) {
   }
 }
 
-function proposeOptimizationRegion(filename, file_number, line) {
+export function proposeOptimizationRegion(filename, file_number, line) {
   proposeOptimization(
     filename,
     file_number,
@@ -652,7 +652,7 @@ function proposeOptimizationRegion(filename, file_number, line) {
   );
 }
 
-function proposeOptimizationLine(filename, file_number, line) {
+export function proposeOptimizationLine(filename, file_number, line) {
   proposeOptimization(
     filename,
     file_number,
@@ -1345,7 +1345,7 @@ function hideEmptyProfiles() {
   }
 }
 
-function toggleReduced() {
+export function toggleReduced() {
   const elts = document.getElementsByClassName("empty-profile");
   for (const elt of elts) {
     const s = elt.style;
@@ -1646,13 +1646,13 @@ function makeProfileLine(
 // Track all profile ids so we can collapse and expand them en masse.
 let allIds = [];
 
-function collapseAll() {
+export function collapseAll() {
   for (const id of allIds) {
     collapseDisplay(id);
   }
 }
 
-function expandAll() {
+export function expandAll() {
   for (const id of allIds) {
     expandDisplay(id);
   }
@@ -1670,7 +1670,7 @@ function expandDisplay(id) {
   document.getElementById(`button-${id}`).innerHTML = DownTriangle;
 }
 
-function toggleDisplay(id) {
+export function toggleDisplay(id) {
   const d = document.getElementById(`profile-${id}`);
   if (d.style.display == "block") {
     d.style.display = "none";
@@ -2074,7 +2074,7 @@ async function display(prof) {
   }
 }
 
-function load(profile) {
+export function load(profile) {
   (async () => {
     // let resp = await fetch(jsonFile);
     // let prof = await resp.json();
@@ -2109,7 +2109,7 @@ function loadDemo() {
 }
 
 // JavaScript function to toggle fields based on selected service
-function toggleServiceFields() {
+export function toggleServiceFields() {
   let service = document.getElementById("service-select").value;
   window.localStorage.setItem("scalene-service-select", service);
   document.getElementById("openai-fields").style.display =
@@ -2270,15 +2270,6 @@ function sendHeartbeat() {
   xhr.open("GET", "/heartbeat", true);
   xhr.send();
 }
-
-window.collapseAll = collapseAll;
-window.load = load;
-window.proposeOptimizationLine = proposeOptimizationLine;
-window.proposeOptimizationRegion = proposeOptimizationRegion;
-window.toggleDisplay = toggleDisplay;
-window.toggleReduced = toggleReduced;
-window.toggleServiceFields = toggleServiceFields;
-window.vsNavigate = vsNavigate;
 
 window.addEventListener("load", () => {
     load(profile);
