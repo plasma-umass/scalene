@@ -314,7 +314,7 @@
 	  <input type="checkbox" id="use-gpu-checkbox" name="use-gpu-checkbox-label" class="persistent" >
 	  <!-- onclick="try { window.localStorage.setItem('scalene-gpu-checkbox', document.getElementById('use-gpu-checkbox').checked); } catch {}" -->
 	  <label style="font-size: 0.8rem" for="use-gpu-checkbox" class="persistent">
-	    Include GPU optimizations
+	    Include <span id="accelerator-name">GPU</span> optimizations
 	  </label>
 	  <br />
 	  <font style="font-size: 0.8rem">
