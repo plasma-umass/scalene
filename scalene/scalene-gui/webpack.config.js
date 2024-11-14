@@ -1,10 +1,9 @@
 const path = require('path');
-const webpack = require('webpack'); // Add this line
+const webpack = require('webpack');
 
 module.exports = {
     entry: './scalene-gui.js',
-    mode: 'production', // 'development',
-    //    devtool: false,
+    mode: 'none',
     output: {
 	filename: 'scalene-gui-bundle.js',
 	path: path.resolve(__dirname, ''),
