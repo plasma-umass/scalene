@@ -24,7 +24,8 @@ function generateScaleneOptimizedCodeRequest(
   sourceCode,
   line,
   recommendedLibraries = [],
-  includeGpuOptimizations = false,
+    includeGpuOptimizations = false,
+    GPUdeviceName = "GPU",
 ) {
   // Default high-performance libraries known for their efficiency
   const defaultLibraries = [
@@ -47,7 +48,7 @@ function generateScaleneOptimizedCodeRequest(
     "Rewrite the above Python code from 'Start of code' to 'End of code', aiming for clear and simple optimizations. ",
     "Your output should consist only of valid Python code, with brief explanatory comments prefaced with #. ",
     "Include a detailed explanatory comment before the code, starting with '# Proposed optimization:'. ",
-    "Leverage high-performance native libraries, especially those utilizing GPU, for significant performance improvements. ",
+      `Leverage high-performance native libraries, especially those utilizing ${GPUdeviceName}, for significant performance improvements. `,
     "Consider using the following other libraries, if appropriate:\n",
     highPerformanceLibraries.map((e) => "  import " + e).join("\n") + "\n",
     "Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. ",
@@ -62,7 +63,7 @@ function generateScaleneOptimizedCodeRequest(
   // Conditional inclusion of GPU optimizations
   if (includeGpuOptimizations) {
     promptParts.push(
-      "Use GPU-accelerated libraries whenever it would substantially increase performance. ",
+	`Use ${GPUdeviceName}-accelerated libraries whenever it would substantially increase performance. `,
     );
   }
 
@@ -539,15 +540,19 @@ async function optimizeCode(imports, code, line, context) {
   }
   // TODO: remove anything already imported in imports
 
+  const GPUdeviceName = document.getElementById("accelerator-name").innerHTML || "GPU";
+    
   const bigPrompt = generateScaleneOptimizedCodeRequest(
     context,
     code,
     line,
     recommendedLibraries,
     useGPUs,
+    GPUdeviceName
   );
 
-  const useGPUstring = useGPUs ? " or the GPU " : " ";
+  
+    const useGPUstring = useGPUs ? ` or ${GPUdeviceName}-optimizations ` : " ";
   // Check for a valid API key.
   // TODO: Add checks for Amazon / local
   let apiKey = "";
@@ -1753,6 +1758,9 @@ async function display(prof) {
   // Set the GPU checkbox on if the profile indicated the presence of a GPU.
   if (gpu_checkbox.checked != prof.gpu) {
     gpu_checkbox.click();
+  }
+  if (prof.gpu) {
+    document.getElementById("accelerator-name").innerHTML = prof.gpu_device;
   }
   globalThis.profile = prof;
   let memory_sparklines = [];
