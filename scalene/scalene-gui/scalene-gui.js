@@ -1749,19 +1749,10 @@ async function display(prof) {
     toggleServiceFields();
   }
 
-  // Restore the old GPU toggle from local storage (if any).
   const gpu_checkbox = document.getElementById("use-gpu-checkbox") || "";
-  const old_gpu_checkbox =
-    window.localStorage.getItem("use-gpu-checkbox") || "";
-  if (old_gpu_checkbox) {
-    if (gpu_checkbox.checked.toString() != old_gpu_checkbox) {
-      gpu_checkbox.click();
-    }
-  } else {
-    // Set the GPU checkbox on if the profile indicated the presence of a GPU.
-    if (gpu_checkbox.checked != prof.gpu) {
-      gpu_checkbox.click();
-    }
+  // Set the GPU checkbox on if the profile indicated the presence of a GPU.
+  if (gpu_checkbox.checked != prof.gpu) {
+    gpu_checkbox.click();
   }
   globalThis.profile = prof;
   let memory_sparklines = [];
@@ -2129,7 +2120,7 @@ function loadFetch() {
   })();
 }
 
-function loadFile() {
+export function loadFile() {
   const input = document.getElementById("fileinput");
   const file = input.files[0];
   const fr = new FileReader();
