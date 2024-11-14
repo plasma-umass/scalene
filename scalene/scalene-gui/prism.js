@@ -18,7 +18,7 @@ var _self =
  * @namespace
  * @public
  */
-var Prism = (function (_self) {
+export var Prism = (function (_self) {
   // Private helper vars
   var lang = /(?:^|\s)lang(?:uage)?-([\w-]+)(?=\s|$)/i;
   var uniqueId = 0;
