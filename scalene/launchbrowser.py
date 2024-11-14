@@ -147,7 +147,7 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
     template = environment.get_template("index.html.template")
     try:
         import scalene_config
-    except:
+    except ModuleNotFoundError:
         import scalene.scalene_config as scalene_config
     rendered_content = template.render(
         profile=profile,
