@@ -4,8 +4,7 @@ import {
 } from "@aws-sdk/client-bedrock-runtime";
 import { Buffer } from "buffer";
 window.Buffer = Buffer;
-
-/// <reference types="aws-sdk" />
+import { Prism } from "./prism.js";
 
 export function vsNavigate(filename, lineno) {
   // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
@@ -16,7 +15,9 @@ export function vsNavigate(filename, lineno) {
       filePath: filename,
       lineNumber: lineno,
     });
-  } catch {}
+  } catch {
+      // Do nothing
+  }
 }
 
 function generateScaleneOptimizedCodeRequest(
@@ -109,10 +110,6 @@ function generateScaleneOptimizedCodeRequest(
   return promptParts.join("");
 }
 
-const recommendedLibraries = ["Cython", "Dask"]; // Add any domain-specific libraries here
-
-// const prompt = generateScaleneOptimizedCodeRequest(context, sourceCode, line, recommendedLibraries, true);
-
 function extractPythonCodeBlock(markdown) {
   // Pattern to match code blocks optionally tagged with "python"
   // - ``` optionally followed by "python"
@@ -186,7 +183,9 @@ function checkApiKey(apiKey) {
   (async () => {
     try {
       window.localStorage.setItem("scalene-api-key", apiKey);
-    } catch {}
+    } catch {
+	// Do nothing if key not found
+    }
     // If the API key is empty, clear the status indicator.
     if (apiKey.length === 0) {
       document.getElementById("valid-api-key").innerHTML = "";
@@ -237,7 +236,7 @@ function extractCode(text) {
   return code_block;
 }
 
-async function sendPromptToOpenAI(prompt, len, apiKey) {
+async function sendPromptToOpenAI(prompt, apiKey) {
   const endpoint = "https://api.openai.com/v1/chat/completions";
   const model = document.getElementById("language-model-openai").value;
 
@@ -312,7 +311,7 @@ async function sendPromptToOpenAI(prompt, len, apiKey) {
   }
 }
 
-async function sendPromptToAzureOpenAI(prompt, len, apiKey, apiUrl, aiModel) {
+async function sendPromptToAzureOpenAI(prompt, apiKey, apiUrl, aiModel) {
   const apiVersion = document.getElementById("azure-api-model-version").value;
   const endpoint = `${apiUrl}/openai/deployments/${aiModel}/chat/completions?api-version=${apiVersion}`;
 
@@ -375,7 +374,7 @@ async function sendPromptToAzureOpenAI(prompt, len, apiKey, apiUrl, aiModel) {
   }
 }
 
-async function sendPromptToAmazon(prompt, len) {
+async function sendPromptToAmazon(prompt) {
   const accessKeyId =
     document.getElementById("aws-access-key").value ||
     localStorage.getItem("aws-access-key");
@@ -386,9 +385,6 @@ async function sendPromptToAmazon(prompt, len) {
     document.getElementById("aws-region").value ||
     localStorage.getItem("aws-region") ||
     "us-east-1";
-
-  // Format the prompt
-  const formattedPrompt = `Human: ${prompt}\nAssistant:`;
 
   // Configure AWS Credentials
   const credentials = {
@@ -406,7 +402,7 @@ async function sendPromptToAmazon(prompt, len) {
 	"modelId": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
 	"body": JSON.stringify({
 	    "anthropic_version": "bedrock-2023-05-31", 
-	    "max_tokens": 1024,
+	    "max_tokens": 65536, // arbitrary large number
 	    "messages": [
 		{
 		    "role": "user",
@@ -438,7 +434,7 @@ async function sendPromptToAmazon(prompt, len) {
   }
 }
 
-async function sendPromptToOllama(prompt, len, model, ipAddr, portNum) {
+async function sendPromptToOllama(prompt, model, ipAddr, portNum) {
   const url = `http://${ipAddr}:${portNum}/api/chat`;
   const headers = { "Content-Type": "application/json" };
   const body = JSON.stringify({
@@ -589,16 +585,6 @@ async function optimizeCode(imports, code, line, context) {
 
   const optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it faster than pure Python. Consider using the following other libraries, if appropriate:\n\n${libraries}\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use vectorized operations${useGPUstring}whenever it would substantially increase performance, and quantify the speedup in terms of orders of magnitude. Eliminate as many for loops, while loops, and list or dict comprehensions as possible, replacing them with vectorized equivalents. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`;
 
-  const context_ollama = "";
-  const optimizePerformancePrompt_ollama_prev = `Optimize the following${lineOf}Python code:\n\n${context_ollama}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Only output your result in JSON, with the optimized code in "code". Optimized${lineOf}code:`;
-
-  const optimizePerformancePrompt_ollama_pp = `Rewrite the following Python code to make it run faster. Use vectorization if possible, eliminating as many loops as possible. Try to reduce computational complexity of operations. Only output the optimized code in JSON with the key 'code'. Original code: ${code}. Optimized code:`;
-
-  // TODO parameterize based on CPU utilization, Python vs. C time, GPU choice, memory efficiency.
-  const optimizePerformancePrompt_ollama = `# Original code\n${code}\n\n# This code is an optimized version of the original code that dramatically improves its performance. Whenever possible, the code has been changed to use native libraries and vectorization, and data structures like lists have been replaced by sets or dicts. Do not change any function names. Optimized code:\n`;
-
-  const pure_optimizePerformancePrompt = `Optimize the following${lineOf}Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nONLY USE PURE PYTHON.\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. If the performance is not likely to increase, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`;
-
   const memoryEfficiencyPrompt = `Optimize the following${lineOf} Python code:\n\n${context}\n\n# Start of code\n\n${code}\n\n\n# End of code\n\nRewrite the above Python code only from "Start of code" to "End of code", to make it more memory-efficient WITHOUT CHANGING ITS RESULTS. Assume the code has already executed all these imports; do NOT include them in the optimized code:\n\n${imports}\n\nUse native libraries if that would make it more space efficient than pure Python. Consider using the following other libraries, if appropriate:\n\n${libraries}\n\nYour output should only consist of valid Python code. Output the resulting Python with brief explanations only included as comments prefaced with #. Include a detailed explanatory comment before the code, starting with the text "# Proposed optimization:". Make the code as clear and simple as possible, while also making it as fast and memory-efficient as possible. Use native libraries whenever possible to reduce memory consumption; invoke del on variables and array elements as soon as it is safe to do so. If the memory consumption is not likely to be reduced, leave the code unchanged. Fix any errors in the optimized code. Optimized${lineOf}code:`;
 
   const optimizePerf = document.getElementById("optimize-performance").checked;
@@ -613,15 +599,11 @@ async function optimizeCode(imports, code, line, context) {
   // Just use big prompt maybe FIXME
   prompt = bigPrompt;
 
-  // Use number of words in the original code as a proxy for the number of tokens.
-  const numWords = code.match(/\b\w+\b/g).length;
-
   switch (document.getElementById("service-select").value) {
     case "openai": {
       console.log(prompt);
       const result = await sendPromptToOpenAI(
         prompt,
-        Math.max(numWords * 4, 500),
         apiKey,
       );
       return extractCode(result);
@@ -632,7 +614,6 @@ async function optimizeCode(imports, code, line, context) {
       //      console.log(optimizePerformancePrompt_ollama);
       const result = await sendPromptToOllama(
         prompt, // optimizePerformancePrompt_ollama,
-        Math.max(numWords * 4, 500),
         document.getElementById("language-model-local").value,
         document.getElementById("local-ip").value,
         document.getElementById("local-port").value,
@@ -648,7 +629,6 @@ async function optimizeCode(imports, code, line, context) {
       console.log(prompt);
       const result = await sendPromptToAmazon(
         prompt,
-        Math.max(numWords * 4, 500),
       );
       return extractCode(result);
     }
@@ -659,7 +639,6 @@ async function optimizeCode(imports, code, line, context) {
       let azureOpenAiModel = document.getElementById("azure-api-model").value;
       const result = await sendPromptToAzureOpenAI(
         prompt,
-        Math.max(numWords * 4, 500),
         apiKey,
         azureOpenAiEndpoint,
         azureOpenAiModel,
@@ -806,7 +785,6 @@ function time_consumed_str(time_in_ms) {
   let hours = Math.floor(time_in_ms / 3600000);
   let minutes = Math.floor((time_in_ms % 3600000) / 60000);
   let seconds = Math.floor((time_in_ms % 60000) / 1000);
-  let hours_exact = time_in_ms / 3600000;
   let minutes_exact = (time_in_ms % 3600000) / 60000;
   let seconds_exact = (time_in_ms % 60000) / 1000;
   if (hours > 0) {
@@ -946,8 +924,8 @@ function makeGPUPie(util, gpu_device, params) {
     autosize: {
       contains: "padding",
     },
-    width: 30,
-    height: 20,
+    width: params.width, // 30,
+    height: params.height, // 20,
     padding: 0,
     data: {
       values: [
@@ -1159,7 +1137,7 @@ function makeMemoryBar(memory, title, python_percent, total, color, params) {
 }
 
 function makeSparkline(samples, max_x, max_y, leak_velocity = 0, params) {
-  const values = samples.map((v, i) => {
+  const values = samples.map((v) => {
     let leak_str = "";
     if (leak_velocity != 0) {
       leak_str = `; possible leak (${memory_consumed_str(leak_velocity)}/s)`;
@@ -1181,7 +1159,6 @@ function makeSparkline(samples, max_x, max_y, leak_velocity = 0, params) {
     params.height -= 10; // FIXME should be actual height of font
   }
 
-  const strokeWidth = 1; // 0.25;
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     data: { values: values },
@@ -1594,7 +1571,7 @@ function makeProfileLine(
       gpu_pies.push(
         makeGPUPie(line.n_gpu_percent, prof.gpu_device, {
           height: 20,
-          width: 100,
+          width: 30,
         }),
       );
       // gpu_pies.push(makeGPUBar(line.n_gpu_percent, prof.gpu_device, { height: 20, width: 100 }));
@@ -1813,7 +1790,6 @@ async function display(prof) {
   let cpu_native = 0;
   let cpu_system = 0;
   let mem_python = 0;
-  let mem_native = 0;
   let max_alloc = 0;
   let cp = {};
   let cn = {};
@@ -2035,7 +2011,7 @@ async function display(prof) {
       `F${escape(ff[0])}-nonline`,
     );
     for (let i = 0; i < allHeaders.length; i++) {
-      allHeaders[i].addEventListener("click", (e) => {
+      allHeaders[i].addEventListener("click", () => {
         const all = document.getElementsByClassName(
           `F${escape(ff[0])}-blankline`,
         );
@@ -2050,7 +2026,7 @@ async function display(prof) {
   for (const ff of files) {
     document
       .getElementById(`${escape(ff[0])}-lineProfile`)
-      .addEventListener("click", (e) => {
+      .addEventListener("click", () => {
         const all = document.getElementsByClassName(
           `F${escape(ff[0])}-blankline`,
         );
@@ -2120,7 +2096,7 @@ export function load(profile) {
   })();
 }
 
-function loadFetch() {
+export function loadFetch() {
   (async () => {
     let resp = await fetch("profile.json");
     let profile = await resp.json();
@@ -2142,7 +2118,7 @@ function doSomething(e) {
   load(profile);
 }
 
-function loadDemo() {
+export function loadDemo() {
   load(example_profile);
 }
 
