@@ -1,3 +1,54 @@
+async function tryApi(apiKey) {
+  const response = await fetch("https://api.openai.com/v1/completions", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+  return response;
+}
+
+export async function isValidApiKey(apiKey) {
+  const response = await tryApi(apiKey);
+  const data = await response.json();
+  if (
+    data.error &&
+    data.error.code in
+      {
+        invalid_api_key: true,
+        invalid_request_error: true,
+        model_not_found: true,
+        insufficient_quota: true,
+      }
+  ) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+export function checkApiKey(apiKey) {
+  (async () => {
+    try {
+      window.localStorage.setItem("scalene-api-key", apiKey);
+    } catch {
+      // Do nothing if key not found
+    }
+    // If the API key is empty, clear the status indicator.
+    if (apiKey.length === 0) {
+      document.getElementById("valid-api-key").innerHTML = "";
+      return;
+    }
+    const isValid = await isValidApiKey(apiKey);
+    if (!isValid) {
+      document.getElementById("valid-api-key").innerHTML = "&#10005;";
+    } else {
+      document.getElementById("valid-api-key").innerHTML = "&check;";
+    }
+  })();
+}
+
 export async function sendPromptToOpenAI(prompt, apiKey) {
   const endpoint = "https://api.openai.com/v1/chat/completions";
   const model = document.getElementById("language-model-openai").value;
