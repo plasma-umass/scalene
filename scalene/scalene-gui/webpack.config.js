@@ -2,13 +2,13 @@ const path = require('path');
 const webpack = require('webpack');
 
 module.exports = {
-    entry: './scalene-gui.js',
-    mode: 'none',
-    output: {
-	filename: 'scalene-gui-bundle.js',
-	path: path.resolve(__dirname, ''),
-	libraryTarget: 'window'
-    },
+  entry: './scalene-gui.js',
+    mode: 'production',
+  output: {
+    filename: 'scalene-gui-bundle.js',
+    path: path.resolve(__dirname, ''),
+    libraryTarget: 'window',
+  },
   resolve: {
     fallback: {
       "crypto": require.resolve("crypto-browserify"),
@@ -22,13 +22,19 @@ module.exports = {
       "url": require.resolve("url/"),
       "zlib": require.resolve("browserify-zlib"),
       "path": require.resolve("path-browserify"),
-      "fs": false, // fs module is not available in the browser
+      "fs": false,
     },
   },
   plugins: [
-    // Necessary to define process.env
     new webpack.ProvidePlugin({
       process: 'process/browser',
     }),
   ],
+  optimization: {
+    minimize: true,            // Enable minimization
+    usedExports: false,         // Disable tree shaking
+    sideEffects: false,         // Include all files, assuming they have side effects
+    concatenateModules: false,  // Disable module concatenation (scope hoisting)
+    innerGraph: false,          // Disable inner graph analysis
+  },
 };
