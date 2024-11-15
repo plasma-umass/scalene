@@ -5,8 +5,9 @@ import vegaEmbed from 'vega-embed';
 import { Prism } from "./prism";
 import Tablesort from "./tablesort";
 import { optimizeCode } from "./optimizations";
-import { memory_consumed_str, time_consumed_str } from "./utils";
+import { unescapeUnicode, countSpaces, memory_consumed_str, time_consumed_str } from "./utils";
 import { makeBar, makeGPUPie, makeMemoryPie, makeMemoryBar, makeSparkline } from "./gui-elements";
+import { isValidApiKey, checkApiKey } from "./openai";
 
 export function vsNavigate(filename, lineno) {
   // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
@@ -31,76 +32,6 @@ const WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`; // invisib
 const maxLinesPerRegion = 50; // Only show regions that are no more than this many lines.
 
 let showedExplosion = {}; // Used so we only show one explosion per region.
-
-function unescapeUnicode(s) {
-  return s.replace(/\\u([\dA-F]{4})/gi, function (match, p1) {
-    return String.fromCharCode(parseInt(p1, 16));
-  });
-}
-
-async function tryApi(apiKey) {
-  const response = await fetch("https://api.openai.com/v1/completions", {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-  });
-  return response;
-}
-
-async function isValidApiKey(apiKey) {
-  const response = await tryApi(apiKey);
-  const data = await response.json();
-  if (
-    data.error &&
-    data.error.code in
-      {
-        invalid_api_key: true,
-        invalid_request_error: true,
-        model_not_found: true,
-        insufficient_quota: true,
-      }
-  ) {
-    return false;
-  } else {
-    return true;
-  }
-}
-
-function checkApiKey(apiKey) {
-  (async () => {
-    try {
-      window.localStorage.setItem("scalene-api-key", apiKey);
-    } catch {
-      // Do nothing if key not found
-    }
-    // If the API key is empty, clear the status indicator.
-    if (apiKey.length === 0) {
-      document.getElementById("valid-api-key").innerHTML = "";
-      return;
-    }
-    const isValid = await isValidApiKey(apiKey);
-    if (!isValid) {
-      document.getElementById("valid-api-key").innerHTML = "&#10005;";
-    } else {
-      document.getElementById("valid-api-key").innerHTML = "&check;";
-    }
-  })();
-}
-
-function countSpaces(str) {
-  // Use a regular expression to match any whitespace character at the start of the string
-  const match = str.match(/^\s+/);
-
-  // If there was a match, return the length of the match
-  if (match) {
-    return match[0].length;
-  }
-
-  // Otherwise, return 0
-  return 0;
-}
 
 export function proposeOptimizationRegion(filename, file_number, line) {
   proposeOptimization(
