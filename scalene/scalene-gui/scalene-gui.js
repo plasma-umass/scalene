@@ -11,6 +11,8 @@ import { isValidApiKey, checkApiKey } from "./openai";
 import { fetchModelNames } from "./ollama";
 import { observeDOM, processPersistentElements } from "./persistence";
 
+window.checkApiKey = checkApiKey;
+
 export function vsNavigate(filename, lineno) {
   // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
   try {
