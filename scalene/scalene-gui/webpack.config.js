@@ -3,7 +3,7 @@ const webpack = require('webpack');
 
 module.exports = {
   entry: './scalene-gui.js',
-    mode: 'production',
+  mode: 'production',
   output: {
     filename: 'scalene-gui-bundle.js',
     path: path.resolve(__dirname, ''),

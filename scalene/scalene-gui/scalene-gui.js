@@ -1,7 +1,9 @@
 import { Buffer } from "buffer";
 window.Buffer = Buffer;
-import { Prism } from "./prism";
+import vegaEmbed from 'vega-embed';
 
+import { Prism } from "./prism";
+import Tablesort from "./tablesort";
 import { optimizeCode } from "./optimizations";
 import { memory_consumed_str, time_consumed_str } from "./utils";
 import { makeBar, makeGPUPie, makeMemoryPie, makeMemoryBar, makeSparkline } from "./gui-elements";
@@ -190,7 +192,7 @@ export function proposeOptimization(filename, file_number, line, params) {
       return;
     }
     // Canonicalize newlines
-    message = message.replace(new RegExp("\r?\n", "g"), "\n");
+    message = message.replace(/\r?\n/g, "\n");
     // Indent every line and format it
     const formattedCode = message
       .split("\n")

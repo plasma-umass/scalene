@@ -80,29 +80,12 @@
     </script>
 
     <script>
-      {{ tablesort_js }}
-    </script>
-    <script>
-      {{ tablesort_number_js }}
-    </script>
-    <script>
       const profile = {{ profile }}
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
     <script>
         function clickToLoadFile() {
             // Trigger the file input when the SVG is clicked
             document.getElementById('fileinput').click();
-        }
-
-        function handleFileChange() {
-            var fileInput = document.getElementById('fileinput');
-            if (fileInput.files.length > 0) {
-                // Here, you can add what you want to do with the file
-                console.log('File selected:', fileInput.files[0].name);
-            }
         }
     </script>
 	
