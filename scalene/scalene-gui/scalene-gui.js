@@ -8,6 +8,10 @@ import { optimizeCode } from "./optimizations";
 import { unescapeUnicode, countSpaces, memory_consumed_str, time_consumed_str } from "./utils";
 import { makeBar, makeGPUPie, makeMemoryPie, makeMemoryBar, makeSparkline } from "./gui-elements";
 import { isValidApiKey, checkApiKey } from "./openai";
+import { fetchModelNames } from "./ollama";
+import { observeDOM, processPersistentElements } from "./persistence";
+
+window.checkApiKey = checkApiKey;
 
 export function vsNavigate(filename, lineno) {
   // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
@@ -1038,28 +1042,6 @@ function revealInstallMessage() {
   document.getElementById("local-models-list").style.display = "none";
 }
 
-async function fetchModelNames() {
-  try {
-    const local_ip = document.getElementById("local-ip").value;
-    const local_port = document.getElementById("local-port").value;
-    const response = await fetch(`http://${local_ip}:${local_port}/api/tags`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-
-    // Extracting the model names
-    const modelNames = data.models.map((model) => model.name);
-    if (modelNames.length === 0) {
-      revealInstallMessage();
-    }
-    return modelNames;
-  } catch (error) {
-    console.error("Error fetching model names:", error);
-    revealInstallMessage();
-    return [];
-  }
-}
 
 function createSelectElement(modelNames) {
   // Create the select element
@@ -1082,7 +1064,9 @@ function createSelectElement(modelNames) {
 }
 
 function replaceDivWithSelect() {
-  fetchModelNames().then((modelNames) => {
+    const local_ip = document.getElementById("local-ip").value;
+    const local_port = document.getElementById("local-port").value;
+    fetchModelNames(local_ip, local_port, revealInstallMessage).then((modelNames) => {
     // Create the select element with options
     const selectElement = createSelectElement(modelNames);
 
@@ -1098,74 +1082,9 @@ function replaceDivWithSelect() {
   });
 }
 
-function restoreState(el) {
-  const savedValue = localStorage.getItem(el.id);
-
-  if (savedValue !== null) {
-    switch (el.type) {
-      case "checkbox":
-      case "radio":
-        el.checked = savedValue === "true";
-        break;
-      default:
-        el.value = savedValue;
-        break;
-    }
-  }
-}
-
-function saveState(el) {
-  el.addEventListener("change", () => {
-    switch (el.type) {
-      case "checkbox":
-      case "radio":
-        localStorage.setItem(el.id, el.checked);
-        break;
-      default:
-        localStorage.setItem(el.id, el.value);
-        break;
-    }
-  });
-}
-
-// Process all DOM elements in the class 'persistent', which saves their state in localStorage and restores them on load.
-function processPersistentElements() {
-  const persistentElements = document.querySelectorAll(".persistent");
-
-  // Restore state
-  persistentElements.forEach((el) => {
-    restoreState(el);
-  });
-
-  // Save state
-  persistentElements.forEach((el) => {
-    saveState(el);
-  });
-}
-
 // Call the function to replace the div with the select element
 replaceDivWithSelect();
 
-// Handle updating persistence when the DOM is updated.
-const observeDOM = () => {
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.addedNodes) {
-        mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === 1 && node.matches(".persistent")) {
-            restoreState(node);
-            node.addEventListener("change", () => saveState(node));
-          }
-        });
-      }
-    });
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
-};
 
 document.addEventListener("DOMContentLoaded", () => {
   processPersistentElements();
