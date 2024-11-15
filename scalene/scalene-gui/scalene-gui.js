@@ -2,7 +2,7 @@ import { Buffer } from "buffer";
 window.Buffer = Buffer;
 import { Prism } from "./prism";
 
-import { optimizeCode} from "./optimizations";
+import { optimizeCode } from "./optimizations";
 
 export function vsNavigate(filename, lineno) {
   // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
@@ -14,10 +14,9 @@ export function vsNavigate(filename, lineno) {
       lineNumber: lineno,
     });
   } catch {
-      // Do nothing
+    // Do nothing
   }
 }
-
 
 const RightTriangle = "&#9658"; // right-facing triangle symbol (collapsed view)
 const DownTriangle = "&#9660"; // downward-facing triangle symbol (expanded view)
@@ -70,7 +69,7 @@ function checkApiKey(apiKey) {
     try {
       window.localStorage.setItem("scalene-api-key", apiKey);
     } catch {
-	// Do nothing if key not found
+      // Do nothing if key not found
     }
     // If the API key is empty, clear the status indicator.
     if (apiKey.length === 0) {
@@ -1502,34 +1501,22 @@ async function display(prof) {
       })();
     }
   });
-  cpu_bars.forEach((p, index) => {
-    if (p) {
-      (async () => {
-        await vegaEmbed(`#cpu_bar${index}`, p, { actions: false });
-      })();
-    }
-  });
-  gpu_pies.forEach((p, index) => {
-    if (p) {
-      (async () => {
-        await vegaEmbed(`#gpu_pie${index}`, p, { actions: false });
-      })();
-    }
-  });
-  memory_activity.forEach((p, index) => {
-    if (p) {
-      (async () => {
-        await vegaEmbed(`#memory_activity${index}`, p, { actions: false });
-      })();
-    }
-  });
-  memory_bars.forEach((p, index) => {
-    if (p) {
-      (async () => {
-        await vegaEmbed(`#memory_bar${index}`, p, { actions: false });
-      })();
-    }
-  });
+
+  function embedCharts(charts, prefix) {
+    charts.forEach((chart, index) => {
+      if (chart) {
+        (async () => {
+          await vegaEmbed(`#${prefix}${index}`, chart, { actions: false });
+        })();
+      }
+    });
+  }
+
+  embedCharts(cpu_bars, "cpu_bar");
+  embedCharts(gpu_pies, "gpu_pie");
+  embedCharts(memory_activity, "memory_activity");
+  embedCharts(memory_bars, "memory_bar");
+
   // Hide all empty profiles by default.
   hideEmptyProfiles();
   if (prof.program) {
