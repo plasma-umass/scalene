@@ -1,3 +1,24 @@
+export function unescapeUnicode(s) {
+  return s.replace(/\\u([\dA-F]{4})/gi, function (match, p1) {
+    return String.fromCharCode(parseInt(p1, 16));
+  });
+}
+
+
+export function countSpaces(str) {
+  // Use a regular expression to match any whitespace character at the start of the string
+  const match = str.match(/^\s+/);
+
+  // If there was a match, return the length of the match
+  if (match) {
+    return match[0].length;
+  }
+
+  // Otherwise, return 0
+  return 0;
+}
+
+
 export function memory_consumed_str(size_in_mb) {
   // Return a string corresponding to amount of memory consumed.
   let gigabytes = Math.floor(size_in_mb / 1024);
