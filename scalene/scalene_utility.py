@@ -131,15 +131,6 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         "prism_css_text": read_file_content(
             scalene_dir, "scalene-gui", "prism.css"
         ),
-        "prism_js_text": read_file_content(
-            scalene_dir, "scalene-gui", "prism.js"
-        ),
-        "tablesort_js_text": read_file_content(
-            scalene_dir, "scalene-gui", "tablesort.js"
-        ),
-        "tablesort_number_js_text": read_file_content(
-            scalene_dir, "scalene-gui", "tablesort.number.js"
-        ),
     }
 
     # Put the profile and everything else into the template.
@@ -151,9 +142,6 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         profile=profile,
         gui_js=file_contents["scalene_gui_js_text"],
         prism_css=file_contents["prism_css_text"],
-        prism_js=file_contents["prism_js_text"],
-        tablesort_js=file_contents["tablesort_js_text"],
-        tablesort_number_js=file_contents["tablesort_number_js_text"],
         scalene_version=scalene_version,
         scalene_date=scalene_date,
     )
