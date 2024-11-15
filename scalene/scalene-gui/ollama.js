@@ -1,3 +1,25 @@
+export async function fetchModelNames(local_ip, local_port, revealInstallMessage) {
+  try {
+    const response = await fetch(`http://${local_ip}:${local_port}/api/tags`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+
+    // Extracting the model names
+    const modelNames = data.models.map((model) => model.name);
+    if (modelNames.length === 0) {
+      revealInstallMessage();
+    }
+    return modelNames;
+  } catch (error) {
+    console.error("Error fetching model names:", error);
+    revealInstallMessage();
+    return [];
+  }
+}
+
+
 export async function sendPromptToOllama(prompt, model, ipAddr, portNum) {
   const url = `http://${ipAddr}:${portNum}/api/chat`;
   const headers = { "Content-Type": "application/json" };
