@@ -4,10 +4,11 @@ import vegaEmbed from 'vega-embed';
 
 import { Prism } from "./prism";
 import Tablesort from "./tablesort";
-import { optimizeCode } from "./optimizations";
-import { unescapeUnicode, countSpaces, memory_consumed_str, time_consumed_str } from "./utils";
-import { makeBar, makeGPUPie, makeMemoryPie, makeMemoryBar, makeSparkline } from "./gui-elements";
-import { isValidApiKey, checkApiKey } from "./openai";
+import { proposeOptimization } from "./optimizations";
+import { unescapeUnicode, memory_consumed_str, time_consumed_str } from "./utils";
+import { makeBar, makeGPUPie, makeMemoryPie, makeMemoryBar, makeSparkline,
+	 Lightning, Explosion, RightTriangle, DownTriangle, WhiteLightning, WhiteExplosion} from "./gui-elements";
+import { checkApiKey } from "./openai";
 import { fetchModelNames } from "./ollama";
 import { observeDOM, processPersistentElements } from "./persistence";
 
@@ -27,12 +28,6 @@ export function vsNavigate(filename, lineno) {
   }
 }
 
-const RightTriangle = "&#9658"; // right-facing triangle symbol (collapsed view)
-const DownTriangle = "&#9660"; // downward-facing triangle symbol (expanded view)
-const Lightning = "&#9889;"; // lightning bolt (for optimizing a line)
-const Explosion = "&#128165;"; // explosion (for optimizing a region)
-const WhiteLightning = `<span style="opacity:0">${Lightning}</span>`; // invisible but same width as lightning bolt
-const WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`; // invisible but same width as lightning bolt
 const maxLinesPerRegion = 50; // Only show regions that are no more than this many lines.
 
 let showedExplosion = {}; // Used so we only show one explosion per region.
@@ -53,108 +48,6 @@ export function proposeOptimizationLine(filename, file_number, line) {
     JSON.parse(decodeURIComponent(line)),
     { regions: false },
   );
-}
-
-export function proposeOptimization(filename, file_number, line, params) {
-  filename = unescape(filename);
-  const useRegion = params["regions"];
-  const prof = globalThis.profile;
-  const this_file = prof.files[filename].lines;
-  const imports = prof.files[filename].imports.join("\n");
-  const start_region_line = this_file[line.lineno - 1]["start_region_line"];
-  const end_region_line = this_file[line.lineno - 1]["end_region_line"];
-  let context;
-  const code_line = this_file[line.lineno - 1]["line"];
-  let code_region;
-  if (useRegion) {
-    code_region = this_file
-      .slice(start_region_line - 1, end_region_line)
-      .map((e) => e["line"])
-      .join("");
-    context = this_file
-      .slice(
-        Math.max(0, start_region_line - 10),
-        Math.min(start_region_line - 1, this_file.length),
-      )
-      .map((e) => e["line"])
-      .join("");
-  } else {
-    code_region = code_line;
-    context = this_file
-      .slice(
-        Math.max(0, line.lineno - 10),
-        Math.min(line.lineno - 1, this_file.length),
-      )
-      .map((e) => e["line"])
-      .join("");
-  }
-  // Count the number of leading spaces to match indentation level on output
-  let leadingSpaceCount = countSpaces(code_line) + 3; // including the lightning bolt and explosion
-  let indent =
-    WhiteLightning + WhiteExplosion + "&nbsp;".repeat(leadingSpaceCount - 1);
-  const elt = document.getElementById(`code-${file_number}-${line.lineno}`);
-  (async () => {
-    // TODO: check Amazon credentials
-    const service = document.getElementById("service-select").value;
-    if (service === "openai") {
-      const isValid = await isValidApiKey(
-        document.getElementById("api-key").value,
-      );
-      if (!isValid) {
-        alert(
-          "You must enter a valid OpenAI API key to activate proposed optimizations.",
-        );
-        document.getElementById("ai-optimization-options").open = true;
-        return;
-      }
-    }
-    if (service == "local") {
-      if (
-        document.getElementById("local-models-list").style.display === "none"
-      ) {
-        // No service was found.
-        alert(
-          "You must be connected to a running Ollama server to activate proposed optimizations.",
-        );
-        document.getElementById("ai-optimization-options").open = true;
-        return;
-      }
-    }
-    elt.innerHTML = `<em>${indent}working...</em>`;
-    let message = await optimizeCode(imports, code_region, line, context);
-    if (!message) {
-      elt.innerHTML = "";
-      return;
-    }
-    // Canonicalize newlines
-    message = message.replace(/\r?\n/g, "\n");
-    // Indent every line and format it
-    const formattedCode = message
-      .split("\n")
-      .map(
-        (line) =>
-          indent + Prism.highlight(line, Prism.languages.python, "python"),
-      )
-      .join("<br />");
-    // Display the proposed optimization, with click-to-copy functionality.
-    elt.innerHTML = `<hr><span title="click to copy" style="cursor: copy" id="opt-${file_number}-${line.lineno}">${formattedCode}</span>`;
-    const thisElt = document.getElementById(
-      `opt-${file_number}-${line.lineno}`,
-    );
-    thisElt.addEventListener("click", async (e) => {
-      await copyOnClick(e, message);
-      // After copying, briefly change the cursor back to the default to provide some visual feedback..
-      thisElt.style = "cursor: auto";
-      await new Promise((resolve) => setTimeout(resolve, 125));
-      thisElt.style = "cursor: copy";
-    });
-  })();
-}
-
-async function copyOnClick(event, message) {
-  event.preventDefault();
-  event.stopPropagation();
-  await navigator.clipboard.writeText(message);
 }
 
 const CPUColor = "blue";
