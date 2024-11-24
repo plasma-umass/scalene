@@ -12,7 +12,7 @@ import scalene
 
 class ScalenePreload:
     @staticmethod
-    def get_preload_environ(args: argparse.Namespace, escape_spaces = False) -> Dict[str, str]:
+    def get_preload_environ(args: argparse.Namespace) -> Dict[str, str]:
         env = {
             "SCALENE_ALLOCATION_SAMPLING_WINDOW": str(
                 args.allocation_sampling_window
@@ -36,21 +36,17 @@ class ScalenePreload:
             if args.memory:
  
                 library_path = scalene.__path__[0]
-
-
-                    
-                    # NOTE: you can't use escape sequences inside an f-string pre-3.12 either
+                
+                # NOTE: you can't use escape sequences inside an f-string pre-3.12 either
                 
                 # We use this function in two places:
                 # 1. in `setup_preload`
                 # 2. when calling into `redirect_python`
                 if 'LD_LIBRARY_PATH' not in os.environ:
-
                     env['LD_LIBRARY_PATH'] = library_path
                 elif library_path not in os.environ['LD_LIBRARY_PATH']:
                     env['LD_LIBRARY_PATH'] = f'{library_path}:{os.environ["LD_LIBRARY_PATH"]}'
 
-                   
                 new_ld_preload = 'libscalene.so'
                 if "LD_PRELOAD" in os.environ and new_ld_preload not in os.environ["LD_PRELOAD"]:
                     old_ld_preload = os.environ["LD_PRELOAD"]

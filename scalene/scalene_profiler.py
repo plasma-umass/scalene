@@ -717,8 +717,7 @@ class Scalene:
             cmdline += f" --pid={os.getpid()} ---"
             # Build the commands to pass along other arguments
 
-            # Since we're joining by spaces, we need to escape the spaces in the LD_LIBRARY_PATH.
-            environ = ScalenePreload.get_preload_environ(Scalene.__args, escape_spaces=True)
+            environ = ScalenePreload.get_preload_environ(Scalene.__args)
             if sys.platform == "win32":
                 preface = "\n".join(
                     f"set {k}={str(v)}\n" for (k, v) in environ.items()
