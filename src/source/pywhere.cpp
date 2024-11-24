@@ -268,6 +268,15 @@ static void allocate_newline() {
 
 static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
                       PyObject* arg) {
+  if (what == PyTrace_CALL || what == PyTrace_C_CALL) {
+    PyThreadState* tstate = PyThreadState_Get();
+    frame->f_trace_lines = 0;
+    frame->f_trace = NULL;
+    #if PY_VERSION_HEX < 0x030c0000
+    tstate->cframe->use_tracing = 0;
+    #endif
+   
+  }
   if (what != PyTrace_LINE) {
     return 0;
   }
@@ -297,7 +306,6 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
   // Needed because decref will be called in on_stack
   Py_INCREF(frame);
   if (on_stack(last_fname_s, lineno_l, static_cast<PyFrameObject*>(frame))) {
-    frame->f_trace_lines = 0;
     return 0;
   }
 
@@ -370,7 +378,14 @@ static PyObject* depopulate_struct(PyObject* self, PyObject* args) {
 }
 
 static PyObject* enable_settrace(PyObject* self, PyObject* args) {
+  PyObject* frame;
+  if (!PyArg_ParseTuple(args, "O", &frame)) {
+    return NULL;
+  }
+  PyFrameObject* frame_obj = (PyFrameObject*) frame;
   PyEval_SetTrace(trace_func, NULL);
+  // frame_obj->f_trace = &trace_func;
+  frame_obj->f_trace_lines = 1;
   Py_RETURN_NONE;
 }
 
@@ -389,7 +404,7 @@ static PyMethodDef EmbMethods[] = {
     {"print_files_to_profile", print_files_to_profile, METH_NOARGS,
      "printing for debug"},
     //  {"return_buffer", return_buffer, METH_NOARGS, ""},
-    {"enable_settrace", enable_settrace, METH_NOARGS, ""},
+    {"enable_settrace", enable_settrace, METH_VARARGS, ""},
     {"disable_settrace", disable_settrace, METH_NOARGS, ""},
     {"populate_struct", populate_struct, METH_NOARGS, ""},
     {"depopulate_struct", depopulate_struct, METH_NOARGS, ""},

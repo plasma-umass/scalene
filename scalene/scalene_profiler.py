@@ -546,7 +546,7 @@ class Scalene:
             ByteCodeIndex(f.f_lasti),
         ]
         Scalene.__alloc_sigq.put([0])
-        pywhere.enable_settrace()
+        pywhere.enable_settrace(this_frame)
         del this_frame
 
     @staticmethod
