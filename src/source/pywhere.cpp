@@ -272,7 +272,8 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
     PyThreadState* tstate = PyThreadState_Get();
     frame->f_trace_lines = 0;
     frame->f_trace = NULL;
-    #if PY_VERSION_HEX < 0x030c0000
+    #if PY_VERSION_HEX >= 0x030a0000 && PY_VERSION_HEX < 0x030c0000 
+    // This pre-3.12 optimization only exists post 3.9
     tstate->cframe->use_tracing = 0;
     #endif
    
