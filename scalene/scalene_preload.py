@@ -21,6 +21,8 @@ class ScalenePreload:
 
         # Disable JITting in PyTorch and JAX to improve profiling,
         # unless the environment variables are already set.
+        # JAX_DISABLE_JIT: https://jax.readthedocs.io/en/latest/debugging/flags.html#id1
+        # PYTORCH_JIT: https://pytorch.org/docs/stable/jit.html#disable-jit-for-debugging
         jit_flags = [ ('JAX_DISABLE_JIT', '1'), # truthy => disable JIT
                       ('PYTORCH_JIT', '0') ]    # falsy => disable JIT
         for name, val in jit_flags:
