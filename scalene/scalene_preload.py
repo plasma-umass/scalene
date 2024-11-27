@@ -19,6 +19,14 @@ class ScalenePreload:
             )
         }
 
+        # Disable JITting in PyTorch and JAX to improve profiling,
+        # unless the environment variables are already set.
+        if 'JAX_DISABLE_JIT' not in os.environ:
+            env['JAX_DISABLE_JIT'] = 'True'
+        if 'PYTORCH_JIT' not in os.environ:
+            env['PYTORCH_JIT'] = '0'
+            
+
         # Set environment variables for loading the Scalene dynamic library,
         # which interposes on allocation and copying functions.
         if sys.platform == "darwin":
