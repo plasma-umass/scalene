@@ -21,11 +21,11 @@ class ScalenePreload:
 
         # Disable JITting in PyTorch and JAX to improve profiling,
         # unless the environment variables are already set.
-        if 'JAX_DISABLE_JIT' not in os.environ:
-            env['JAX_DISABLE_JIT'] = 'True'
-        if 'PYTORCH_JIT' not in os.environ:
-            env['PYTORCH_JIT'] = '0'
-            
+        jit_flags = [ ('JAX_DISABLE_JIT', '1'), # truthy => disable JIT
+                      ('PYTORCH_JIT', '0') ]    # falsy => disable JIT
+        for name, val in jit_flags:
+            if name not in os.environ:
+                env[name] = val
 
         # Set environment variables for loading the Scalene dynamic library,
         # which interposes on allocation and copying functions.
