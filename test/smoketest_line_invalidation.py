@@ -58,7 +58,7 @@ def get_profile(test_stem, outdir_p, test_dir):
             outdir_p / f"{test_stem}.json",
             test_dir / f"{test_stem}.py",
         ],
-        capture_output=True,
+        # capture_output=True,
         check=True,
     )
     with open(outdir_p / f"{test_stem}.json", "r") as f:
