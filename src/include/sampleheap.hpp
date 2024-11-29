@@ -150,12 +150,10 @@ class SampleHeap : public SuperHeap {
     // If this is the special NEWLINE value, trigger an update.
     if (unlikely(realSize == NEWLINE)) {
       std::string filename;
-      int lineno;
-      int bytei;
-      decltype(whereInPython)* where = p_whereInPython;
-      if (where != nullptr && where(filename, lineno, bytei)) {
-        writeCount(MallocSignal, realSize, ptr, filename, lineno, bytei);
-      }
+      // int lineno;
+      // int bytei;
+      // decltype(whereInPython)* where = p_whereInPython;
+      writeCount(MallocSignal, realSize, ptr, filename, -1, -1);
       mallocTriggered()++;
       return;
     }
