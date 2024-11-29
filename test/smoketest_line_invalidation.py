@@ -35,7 +35,7 @@ def check_for_changes():
             digest = md5(f.read()).hexdigest()
         if digest != expected_sum:
             errors.append(fname)
-    assert len(errors) == 0, f'Detected change in file(s) {','.join(errors)}'
+    assert len(errors) == 0, f'Detected change in file(s) {",".join(errors)}'
 
 def get_line(scalene_profile: ScaleneJSONSchema, lineno: int):
     files = list(scalene_profile.files.keys())
