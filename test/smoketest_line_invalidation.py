@@ -80,12 +80,12 @@ def main():
     for stem, profile in [one_alloc, two_on_one_line, line_after_final_alloc]:
         line = get_line(profile, LOOP_ALLOC_LINENO)
         if not line.n_mallocs == N_LOOPS:
-            errors.append(f"Expected {N_LOOPS} distinct lines on {stem}, got {line.n_mallocs} on {LOOP_ALLOC_LINENO}")
+            errors.append(f"Expected {N_LOOPS} distinct lines on {stem}, got {line.n_mallocs} on line {LOOP_ALLOC_LINENO}")
 
     bt_stem, bt_prof = below_threshold
     bt_line = get_line(bt_prof, LOOP_ALLOC_LINENO)
     if not bt_line.n_mallocs < N_LOOPS:
-       errors.append(f"{bt_stem} makes smaller allocations than the allocation sampling window, so fewer than {N_LOOPS} allocations on {LOOP_ALLOC_LINENO} should be reported. Got {bt_line.n_mallocs}")
+       errors.append(f"{bt_stem} makes smaller allocations than the allocation sampling window, so fewer than {N_LOOPS} allocations on {LOOP_ALLOC_LINENO} should be reported. Got {bt_line.n_mallocs} mallocs")
 
     for stem, profile in [one_alloc, two_on_one_line, below_threshold, line_after_final_alloc]:
         line = get_line(profile, OUT_OF_LOOP_ALLOC_LINENO)
@@ -95,6 +95,9 @@ def main():
     if len(errors) > 0:
         for error in errors:
             print(f'ERROR: {error}')
+        for profile in [one_alloc, two_on_one_line, below_threshold, line_after_final_alloc]:
+            print("\n\n\n\n")
+            print(profile.model_dump_json(indent=4))
         exit(1)
     else:
         print("PASS")
