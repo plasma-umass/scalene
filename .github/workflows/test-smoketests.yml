@@ -52,7 +52,7 @@ jobs:
       run: python test/smoketest_profile_decorator.py
 
     - name: line invalidation test
-      run: python test/test_line_invalidation.py
+      run: python test/smoketest_line_invalidation.py
 
     # Note: This test doesn't need to read an output,
     # it is meant to determine if there is an ImportError
