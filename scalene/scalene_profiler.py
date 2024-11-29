@@ -1289,9 +1289,9 @@ class Scalene:
                 bytei,
             ) = item
             is_malloc = action == Scalene.MALLOC_ACTION
-            # if count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1: 
-            #     continue # in previous implementations, we were adding NEWLINE to the footprint.
-            #              # We should not account for this in the user-facing profile. 
+            if count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1: 
+                continue # in previous implementations, we were adding NEWLINE to the footprint.
+                         # We should not account for this in the user-facing profile. 
             count /= Scalene.BYTES_PER_MB
             if is_malloc:
                 stats.current_footprint += count
@@ -1631,6 +1631,7 @@ class Scalene:
     def stop() -> None:
         """Complete profiling."""
         Scalene.__done = True
+        print("STOPPING", Scalene.__args.memory)
         if Scalene.__args.memory:
             from scalene import pywhere  # type: ignore
 
