@@ -97,7 +97,7 @@ def main():
             print(f'ERROR: {error}')
         for profile in [one_alloc, two_on_one_line, below_threshold, line_after_final_alloc]:
             print("\n\n\n\n")
-            print(profile.model_dump_json(indent=4))
+            print(profile[1].model_dump_json(indent=4))
         exit(1)
     else:
         print("PASS")
