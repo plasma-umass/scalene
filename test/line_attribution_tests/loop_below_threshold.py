@@ -4,7 +4,6 @@ def main():
     for i in range(31):
         accum += bytes(10485767 // 4) # far below the allocation sampling window
 
-    print(len(accum))
 
     asdf = bytes(2 * 10485767)
 

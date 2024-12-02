@@ -385,7 +385,6 @@ static PyObject* enable_settrace(PyObject* self, PyObject* args) {
   }
   PyFrameObject* frame_obj = (PyFrameObject*) frame;
   PyEval_SetTrace(trace_func, NULL);
-  // frame_obj->f_trace = &trace_func;
   frame_obj->f_trace_lines = 1;
   Py_RETURN_NONE;
 }

@@ -1631,7 +1631,6 @@ class Scalene:
     def stop() -> None:
         """Complete profiling."""
         Scalene.__done = True
-        print("STOPPING", Scalene.__args.memory)
         if Scalene.__args.memory:
             from scalene import pywhere  # type: ignore
 
