@@ -8,6 +8,9 @@ on:
   workflow_dispatch: # manual execution
 env:
   GITHUB_WORKSPACE: /home/runner/work/scalene-outer/scalene-inner # Maintaining rough directory structure
+defaults:
+  run:
+    working-directory: /home/runner/work/scalene-outer/scalene-inner 
 jobs:
   smoketests:
     runs-on: ${{ matrix.os }}
@@ -34,7 +37,6 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pwd
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
         python -m pip install numpy
