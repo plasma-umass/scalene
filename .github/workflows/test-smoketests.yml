@@ -8,9 +8,10 @@ on:
   workflow_dispatch: # manual execution
 env:
   GITHUB_WORKSPACE: /home/runner/work/scalene-outer/scalene-inner # Maintaining rough directory structure
-defaults:
-  run:
-    working-directory: /home/runner/work/scalene-outer/scalene-inner 
+  ACTIONS_STEP_DEBUG: true
+# defaults:
+  # run:
+    # working-directory: /home/runner/work/scalene-outer/scalene-inner 
 jobs:
   smoketests:
     runs-on: ${{ matrix.os }}
