@@ -6,7 +6,8 @@ on:
   pull_request:
     branches: [ master ]
   workflow_dispatch: # manual execution
-
+env:
+  GITHUB_WORKSPACE: /home/runner/work/scalene-outer/scalene-inner # Maintaining rough directory structure
 jobs:
   smoketests:
     runs-on: ${{ matrix.os }}
