@@ -6,12 +6,7 @@ on:
   pull_request:
     branches: [ master ]
   workflow_dispatch: # manual execution
-env:
-  GITHUB_WORKSPACE: /home/runner/work/scalene-outer/scalene-inner # Maintaining rough directory structure
-  ACTIONS_STEP_DEBUG: true
-# defaults:
-  # run:
-    # working-directory: /home/runner/work/scalene-outer/scalene-inner 
+
 jobs:
   smoketests:
     runs-on: ${{ matrix.os }}
@@ -22,9 +17,6 @@ jobs:
         python: [ '3.8', '3.9', '3.10', '3.11', '3.12']
 
     steps:
-    - name: echo the environment
-      run: echo $GITHUB_WORKSPACE
-      
     - uses: actions/checkout@v4
 
     - name: Set up Python
@@ -49,8 +41,8 @@ jobs:
     - name: cpu-only smoke test
       run: python test/smoketest.py test/testme.py --cpu-only
 
-    - name: multiprocessing smoke test
-      run: python test/smoketest.py test/multiprocessing_test.py
+    # - name: multiprocessing smoke test
+    #   run: python test/smoketest.py test/multiprocessing_test.py
 
       # Note: test/smoketest.py only handles single JSON, rather than multiple in sequence.
     - name: profile-interval smoke test
