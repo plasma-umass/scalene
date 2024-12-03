@@ -85,10 +85,26 @@ class SampleHeap : public SuperHeap {
       return nullptr;
     }
     if (pythonDetected() && !g.wasInMalloc()) {
+      // All standard Python allocations pass through
+      // MakeLocalAllocator in libscalene.cpp . 
+      // We don't want to double-count these allocations--
+      // if we're in here and g.wasInMalloc is true, then 
+      // we passed through MakeLocalAllocator and
+      // this allocation has already been counted
+      //
+      // We only want to count allocations here
+      // if `malloc` itself was called by client code.
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
         if (sz == NEWLINE + sizeof(ScaleneHeader)) {
-          // Don't count these allocations
+          // FIXME
+          //
+          // If we ourselves are allocating a NEWLINE, we're doing
+          // it through the Python allocator, so if it's an actual newline
+          // I don't think we should ever get here. I think our original intention
+          // is that we shouldn't count NEWLINE records that we already counted,
+          // but I think if we get to this line here, we didn't actually create a NEWLINE
+          // and should count it. 
           return ptr;
         }
         register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
@@ -150,12 +166,30 @@ class SampleHeap : public SuperHeap {
     // If this is the special NEWLINE value, trigger an update.
     if (unlikely(realSize == NEWLINE)) {
       std::string filename;
-      int lineno;
-      int bytei;
-      decltype(whereInPython)* where = p_whereInPython;
-      if (where != nullptr && where(filename, lineno, bytei)) {
-        writeCount(MallocSignal, realSize, ptr, filename, lineno, bytei);
-      }
+      // Originally, we had the following check around this line:
+      //
+      // ```
+      // if (where != nullptr && where(filename, lineno, bytei))
+      // ```
+      // 
+      // This was to prevent a NEWLINE record from being accidentally triggered by
+      // non-Scalene code.
+      //
+      // However, by definition, we trigger a NEWLINE _after_ the line has
+      // been executed, specifically on a `PyTrace_Line` event.
+      //
+      // If the absolute last line of a program makes an allocation, 
+      // the next PyTrace_Line will occur inside `scalene_profiler.py` and not any client
+      // code, since the line after the last line of the program is when Scalene starts its
+      // teardown. 
+      // 
+      // In this case.  the `whereInPython` function will return 0, since whereInPython checks
+      // if the current frame is in client code and the Scalene profiler teardown code is by definition 
+      // not. 
+      //
+      // This risks letting allocations of length NEWLINE_TRIGGER_LENGTH that are not true NEWLINEs
+      // create a NEWLINE record, but we view this as incredibly improbable. 
+      writeCount(MallocSignal, realSize, ptr, filename, -1, -1);
       mallocTriggered()++;
       return;
     }

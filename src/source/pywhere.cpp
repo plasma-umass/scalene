@@ -268,6 +268,41 @@ static void allocate_newline() {
 
 static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
                       PyObject* arg) {
+  if (what == PyTrace_CALL || what == PyTrace_C_CALL) {
+    // Prior to this check, trace_func was called
+    // in every child frame. When we figured out the frame
+    // was a child of the current line, only then did we disable tracing in that frame. 
+    // This was causing a major slowdown when importing pytorch-- from what we can tell,
+    // the import itself called many functions and the call overhead of the entire tracing harness
+    // was incurred for each call at least once.
+    // 
+    //
+    // What we're trying to do here, though, is see if we have moved on to another line of the client program. 
+    // Therefore, we can disable tracing for the moment, since one of three things has happened:
+    //
+    // 1. We have called a library function. We therefore know that there will be absolutely no important events coming from this
+    //    frame, since the program can't progress to the next line before until the call has ended
+    //
+    // 2. We have called a client function. We know that the line we were on hasn't ended yet, since we would get a PyTrace_Line
+    //    event if that did happen. This leaves us with one of two cases:
+    //    
+    //    2.1: The function makes no allocations. Therefore, not tracing Line events in its frame is valid and the next Line
+    //         we get is in the parent frame, the one that we care about
+    //    2.2: the function does make an allocation. In that case, we separately enable settrace at that allocation,
+    //         so we still track it
+    //
+    //
+    // FIXME: if, in a single line, we see a pattern in a single line like allocation -> client call w/ allocation, we won't actually increment
+    //        the n_mallocs counter for the line we started with
+    frame->f_trace_lines = 0;
+    frame->f_trace = NULL;
+    #if PY_VERSION_HEX >= 0x030a0000 && PY_VERSION_HEX < 0x030c0000 
+    // This pre-3.12 optimization only exists post 3.9
+    PyThreadState* tstate = PyThreadState_Get();
+    tstate->cframe->use_tracing = 0;
+    #endif
+   
+  }
   if (what != PyTrace_LINE) {
     return 0;
   }
@@ -297,7 +332,6 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
   // Needed because decref will be called in on_stack
   Py_INCREF(frame);
   if (on_stack(last_fname_s, lineno_l, static_cast<PyFrameObject*>(frame))) {
-    frame->f_trace_lines = 0;
     return 0;
   }
 
@@ -370,7 +404,13 @@ static PyObject* depopulate_struct(PyObject* self, PyObject* args) {
 }
 
 static PyObject* enable_settrace(PyObject* self, PyObject* args) {
+  PyObject* frame;
+  if (!PyArg_ParseTuple(args, "O", &frame)) {
+    return NULL;
+  }
+  PyFrameObject* frame_obj = (PyFrameObject*) frame;
   PyEval_SetTrace(trace_func, NULL);
+  frame_obj->f_trace_lines = 1;
   Py_RETURN_NONE;
 }
 
@@ -389,7 +429,7 @@ static PyMethodDef EmbMethods[] = {
     {"print_files_to_profile", print_files_to_profile, METH_NOARGS,
      "printing for debug"},
     //  {"return_buffer", return_buffer, METH_NOARGS, ""},
-    {"enable_settrace", enable_settrace, METH_NOARGS, ""},
+    {"enable_settrace", enable_settrace, METH_VARARGS, ""},
     {"disable_settrace", disable_settrace, METH_NOARGS, ""},
     {"populate_struct", populate_struct, METH_NOARGS, ""},
     {"depopulate_struct", depopulate_struct, METH_NOARGS, ""},
