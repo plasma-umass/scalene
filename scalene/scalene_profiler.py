@@ -1252,6 +1252,7 @@ class Scalene:
                     reported_fname,
                     reported_lineno,
                     bytei_str,
+                    thread_id,
                 ) = count_str.split(",")
                 if int(curr_pid) != int(pid):
                     continue
@@ -1265,6 +1266,7 @@ class Scalene:
                         Filename(reported_fname),
                         LineNumber(int(reported_lineno)),
                         ByteCodeIndex(int(bytei_str)),
+                        thread_id
                     )
                 )
 
@@ -1286,6 +1288,7 @@ class Scalene:
                 fname,
                 lineno,
                 bytei,
+                thread_id,
             ) = item
             is_malloc = action == Scalene.MALLOC_ACTION
             if count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1: 
@@ -1354,6 +1357,7 @@ class Scalene:
                 fname,
                 lineno,
                 bytei,
+                thread_id
             ) = item
 
             is_malloc = action == Scalene.MALLOC_ACTION
