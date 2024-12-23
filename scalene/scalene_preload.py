@@ -25,9 +25,19 @@ class ScalenePreload:
         # PYTORCH_JIT: https://pytorch.org/docs/stable/jit.html#disable-jit-for-debugging
         jit_flags = [ ('JAX_DISABLE_JIT', '1'), # truthy => disable JIT
                       ('PYTORCH_JIT', '0') ]    # falsy => disable JIT
-        for name, val in jit_flags:
-            if name not in os.environ:
-                env[name] = val
+       
+        try:
+            # If we are running on Neuron, we don't disable the JITs
+            # because it leads to unacceptably high overheads.
+            from scalene.scalene_neuron import ScaleneNeuron
+            accelerator = ScaleneNeuron()
+            on_neuron = accelerator.has_gpu()
+        except:
+            on_neuron = False
+        if not on_neuron:
+            for name, val in jit_flags:
+                if name not in os.environ:
+                    env[name] = val
 
         # Set environment variables for loading the Scalene dynamic library,
         # which interposes on allocation and copying functions.
