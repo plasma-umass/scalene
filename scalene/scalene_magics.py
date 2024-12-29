@@ -17,7 +17,7 @@ with contextlib.suppress(Exception):
     from scalene.scalene_parseargs import ScaleneParseArgs
 
     @magics_class
-    class ScaleneMagics(Magics):  # type: ignore
+    class ScaleneMagics(Magics):
         """IPython (Jupyter) support for magics for Scalene (%scrun and %%scalene)."""
 
         def run_code(self, args: ScaleneArguments, code: str) -> None:

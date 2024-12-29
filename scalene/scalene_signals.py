@@ -11,6 +11,9 @@ class ScaleneSignals:
     """
 
     def __init__(self) -> None:
+        # Declare these here, then configure them.
+        self.cpu_signal : signal.Signals
+        self.cpu_timer_signal : int
         # Configure timer signals using set_timer_signals method (defined below).
         self.set_timer_signals(use_virtual_time=True)
         # Set profiling signals depending upon the platform.
@@ -37,8 +40,8 @@ class ScaleneSignals:
             If True, sets virtual timer signals, otherwise sets real timer signals.
         """
         if sys.platform == "win32":
+            self.cpu_timer_signal = signal.SIGBREAK # Note: on Windows, this is unused, so any signal will do
             self.cpu_signal = signal.SIGBREAK
-            self.cpu_timer_signal = None
             return
         if use_virtual_time:
             self.cpu_timer_signal = signal.ITIMER_VIRTUAL
@@ -49,26 +52,16 @@ class ScaleneSignals:
 
     def get_timer_signals(self) -> Tuple[int, signal.Signals]:
         """
-        Return the signals used for CPU profiling.
-
-        Returns:
-        --------
-        Tuple[int, signal.Signals]
-            Returns 2-tuple of the integers representing the CPU timer signal and the CPU signal.
+        Returns 2-tuple of the integers representing the CPU timer signal and the CPU signal.
         """
         return self.cpu_timer_signal, self.cpu_signal
 
     def get_lifecycle_signals(self) -> Tuple[signal.Signals, signal.Signals]:
         return (self.start_profiling_signal, self.stop_profiling_signal)
 
-    def get_all_signals(self) -> List[int]:
+    def get_all_signals(self) -> List[signal.Signals]:
         """
         Return all the signals used for controlling profiling, except the CPU timer.
-
-        Returns:
-        --------
-        List[int]
-            Returns a list of integers representing all the profiling signals except the CPU timer.
         """
         return [
             self.start_profiling_signal,

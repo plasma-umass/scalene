@@ -7,14 +7,13 @@ from collections import OrderedDict, defaultdict
 from enum import Enum
 from operator import itemgetter
 from pathlib import Path
-from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt, PositiveInt, StrictBool, ValidationError, confloat, model_validator
+from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt, PositiveInt, StrictBool, ValidationError, model_validator
 from typing import Any, Callable, Dict, List, Optional
 
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 from scalene.scalene_analysis import ScaleneAnalysis
 
-import numpy as np
 
 class GPUDevice(str, Enum):
     nvidia = "GPU"
@@ -23,26 +22,26 @@ class GPUDevice(str, Enum):
 
 class FunctionDetail(BaseModel):
     line: str
-    lineno: PositiveInt
+    lineno: LineNumber
     memory_samples: List[List[Any]]
     n_avg_mb: NonNegativeFloat
     n_copy_mb_s: NonNegativeFloat
-    n_core_utilization: float = Field(confloat(ge=0, le=1))
-    n_cpu_percent_c: float = Field(confloat(ge=0, le=100))
-    n_cpu_percent_python: float = Field(confloat(ge=0, le=100))
+    n_core_utilization : float = Field(..., ge=0, le=1)
+    n_cpu_percent_c: float = Field(..., ge=0, le=100)
+    n_cpu_percent_python: float = Field(..., ge=0, le=100)
     n_gpu_avg_memory_mb: NonNegativeFloat
     n_gpu_peak_memory_mb: NonNegativeFloat
-    n_gpu_percent: float = Field(confloat(ge=0, le=100))
+    n_gpu_percent: float = Field(..., ge=0, le=100)
     n_growth_mb: NonNegativeFloat
     n_peak_mb: NonNegativeFloat
     n_malloc_mb: NonNegativeFloat
     n_mallocs: NonNegativeInt
-    n_python_fraction: float = Field(confloat(ge=0, le=1))
-    n_sys_percent: float = Field(confloat(ge=0, le=100))
-    n_usage_fraction: float = Field(confloat(ge=0, le=1))
+    n_python_fraction: float = Field(..., ge=0, le=1)
+    n_sys_percent: float = Field(..., ge=0, le=100)
+    n_usage_fraction: float = Field(..., ge=0, le=1)
 
     @model_validator(mode="after")
-    def check_cpu_percentages(cls, values):
+    def check_cpu_percentages(cls, values: Any) -> Any:
         total_cpu_usage = math.floor(
             values.n_cpu_percent_c
             + values.n_cpu_percent_python
@@ -56,7 +55,7 @@ class FunctionDetail(BaseModel):
 
 
     @model_validator(mode="after")
-    def check_gpu_memory(cls, values):
+    def check_gpu_memory(cls, values: Any) -> Any:
         if values.n_gpu_avg_memory_mb > values.n_gpu_peak_memory_mb:
             raise ValueError(
                 "n_gpu_avg_memory_mb must be less than or equal to n_gpu_peak_memory_mb"
@@ -64,7 +63,7 @@ class FunctionDetail(BaseModel):
         return values
 
     @model_validator(mode="after")
-    def check_cpu_memory(cls, values):
+    def check_cpu_memory(cls, values: Any) -> Any:
         if values.n_avg_mb > values.n_peak_mb:
             raise ValueError(
                 "n_avg_mb must be less than or equal to n_peak_mb"
@@ -159,79 +158,18 @@ class ScaleneJSON:
         self.gpu = False
         self.gpu_device = ""
 
-    def rdp(self, points, epsilon):
-        """
-        Ramer-Douglas-Peucker algorithm implementation using NumPy
-        """
-
-        def perpendicular_distance(point, start, end):
-            if np.all(start == end):
-                return np.linalg.norm(point - start)
-            return np.abs(
-                np.cross(end - start, start - point)
-                / np.linalg.norm(end - start)
-            )
-
-        def recursive_rdp(points, start: int, end: int, epsilon: float):
-            dmax = 0.0
-            index = start
-            for i in range(start + 1, end):
-                d = perpendicular_distance(
-                    points[i], points[start], points[end]
-                )
-                if d > dmax:
-                    index = i
-                    dmax = d
-            if dmax > epsilon:
-                results1 = recursive_rdp(points, start, index, epsilon)
-                results2 = recursive_rdp(points, index, end, epsilon)
-                return results1[:-1] + results2
-            else:
-                return [points[start], points[end]]
-
-        points = np.array(points)
-        start = 0
-        end = len(points) - 1
-        return np.array(recursive_rdp(points, start, end, epsilon))
-
     def compress_samples(
         self, samples: List[Any], max_footprint: float
     ) -> Any:
-        # Try to reduce the number of samples with the
-        # Ramer-Douglas-Peucker algorithm, which attempts to
-        # preserve the shape of the graph. If that fails to bring
-        # the number of samples below our maximum, randomly
-        # downsample (epsilon calculation from
-        # https://stackoverflow.com/questions/57052434/can-i-guess-the-appropriate-epsilon-for-rdp-ramer-douglas-peucker)
         if len(samples) <= self.max_sparkline_samples:
             return samples
 
-        if True:
-            # FIXME: bypassing RDP for now
-            # return samples[:self.max_sparkline_samples]
-
-            new_samples = sorted(
-                random.sample(
-                    list(map(tuple, samples)), self.max_sparkline_samples
-                )
+        new_samples = sorted(
+            random.sample(
+                list(map(tuple, samples)), self.max_sparkline_samples
             )
-            return new_samples
-
-        else:
-            epsilon = (len(samples) / (3 * self.max_sparkline_samples)) * 2
-
-            # Use NumPy for RDP algorithm
-            new_samples = self.rdp(np.array(samples), epsilon)
-
-            if len(new_samples) > self.max_sparkline_samples:
-                new_samples = sorted(
-                    random.sample(
-                        list(map(tuple, new_samples)),
-                        self.max_sparkline_samples,
-                    )
-                )
-
-            return new_samples
+        )
+        return new_samples
 
     # Profile output methods
     def output_profile_line(
@@ -355,24 +293,24 @@ class ScaleneJSON:
         )
 
         payload = {
-            "lineno": line_no,
             "line": line,
+            "lineno": line_no,
+            "memory_samples": stats.per_line_footprint_samples[fname][line_no],
+            "n_avg_mb": n_avg_mb,
+            "n_copy_mb_s": n_copy_mb_s,
             "n_core_utilization": mean_core_util,
             "n_cpu_percent_c": n_cpu_percent_c,
             "n_cpu_percent_python": n_cpu_percent_python,
-            "n_sys_percent": n_sys_percent,
-            "n_gpu_percent": n_gpu_percent,
             "n_gpu_avg_memory_mb": n_gpu_mem_samples.mean(),
             "n_gpu_peak_memory_mb": n_gpu_mem_samples.peak(),
-            "n_peak_mb": n_peak_mb,
+            "n_gpu_percent": n_gpu_percent,
             "n_growth_mb": n_peak_mb,  # For backwards compatibility
-            "n_avg_mb": n_avg_mb,
-            "n_mallocs": n_mallocs,
+            "n_peak_mb": n_peak_mb,
             "n_malloc_mb": n_malloc_mb,
-            "n_usage_fraction": n_usage_fraction,
+            "n_mallocs": n_mallocs,
             "n_python_fraction": n_python_fraction,
-            "n_copy_mb_s": n_copy_mb_s,
-            "memory_samples": stats.per_line_footprint_samples[fname][line_no],
+            "n_sys_percent": n_sys_percent,
+            "n_usage_fraction": n_usage_fraction,
         }
         try:
             FunctionDetail(**payload)

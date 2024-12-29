@@ -5,6 +5,7 @@ import pathlib
 import pickle
 import time
 from collections import defaultdict
+from pydantic import PositiveInt
 from typing import (
     Any,
     Dict,
@@ -22,7 +23,7 @@ from scalene.runningstats import RunningStats
 
 Address = NewType("Address", str)
 Filename = NewType("Filename", str)
-LineNumber = NewType("LineNumber", int)
+LineNumber = NewType("LineNumber", PositiveInt)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 T = TypeVar("T")
 

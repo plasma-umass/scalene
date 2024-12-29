@@ -207,7 +207,7 @@ class ScaleneAnalysis:
     @staticmethod
     def strip_magic_line(source: str) -> str:
         try:
-            from IPython import get_ipython # type: ignore
+            from IPython import get_ipython
             get_ipython()
             # The above line will fail if not running in a notebook,
             # in which case we return the original source unchanged.

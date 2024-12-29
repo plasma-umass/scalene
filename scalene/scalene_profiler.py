@@ -1721,6 +1721,7 @@ class Scalene:
             Scalene.timer_signals = False
             return
         try:
+            assert Scalene.__signals.cpu_timer_signal is not None
             Scalene.__orig_setitimer(Scalene.__signals.cpu_timer_signal, 0)
             for sig in [
                 Scalene.__signals.malloc_signal,
@@ -1938,7 +1939,7 @@ class Scalene:
 
                 Scalene.__accelerator = ScaleneAppleGPU()
             else:
-                from scalene.scalene_nvidia_gpu import ScaleneNVIDIAGPU  # type: ignore
+                from scalene.scalene_nvidia_gpu import ScaleneNVIDIAGPU
 
                 Scalene.__accelerator = ScaleneNVIDIAGPU()
 

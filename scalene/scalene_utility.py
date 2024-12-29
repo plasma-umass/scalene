@@ -70,7 +70,7 @@ def get_fully_qualified_name(frame: FrameType) -> Filename:
     version = sys.version_info
     if version.major >= 3 and version.minor >= 11:
         # Introduced in Python 3.11
-        fn_name = Filename(frame.f_code.co_qualname)  # type: ignore
+        fn_name = Filename(frame.f_code.co_qualname)
         return fn_name
     f = frame
     # Manually search for an enclosing class.
