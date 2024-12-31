@@ -6,9 +6,9 @@ import pytest
 import re
 import platform
 from unittest.mock import patch
-
+ 
 if platform.system() != "Darwin":
-    return
+    pytest.exit("This test only runs on Darwin platforms.")
     
 # Assuming the ScaleneAppleGPU class is in a module named scalene_apple_gpu
 from scalene.scalene_apple_gpu import ScaleneAppleGPU

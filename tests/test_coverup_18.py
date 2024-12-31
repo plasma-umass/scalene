@@ -10,7 +10,7 @@ import re
 import platform
 
 if platform.system() != "Darwin":
-    return
+    pytest.exit("This test only runs on Darwin platforms.")
     
 # Assuming the class ScaleneAppleGPU is defined elsewhere in the module
 from scalene.scalene_apple_gpu import ScaleneAppleGPU
