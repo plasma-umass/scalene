@@ -10,8 +10,7 @@ import re
 import platform
 
 if platform.system() != "Darwin":
-    import sys
-    sys.exit(0)
+    return
     
 # Assuming the class ScaleneAppleGPU is defined elsewhere in the module
 from scalene.scalene_apple_gpu import ScaleneAppleGPU
