@@ -2,13 +2,14 @@
 # lines [34, 40, 62, 63, 64]
 # branches ['33->34', '39->40', '46->64', '48->61', '53->55', '57->59']
 
+import platform
 import pytest
 import subprocess
 from unittest.mock import patch, MagicMock
 from typing import Tuple
 
 if platform.system() != "Darwin":
-    pytest.exit("This test only runs on Darwin platforms.")
+    pytest.exit("This test only runs on Darwin platforms.", 0)
     
 from scalene.scalene_apple_gpu import ScaleneAppleGPU
 
