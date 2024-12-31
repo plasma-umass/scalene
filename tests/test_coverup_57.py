@@ -9,7 +9,7 @@ from unittest.mock import patch, MagicMock
 from typing import Tuple
 
 if platform.system() != "Darwin": 
-    pytest.skip("This test only runs on Darwin platforms.")
+    pytest.skip("This test only runs on Darwin platforms.",allow_module_level=True)
    
 from scalene.scalene_apple_gpu import ScaleneAppleGPU
 
