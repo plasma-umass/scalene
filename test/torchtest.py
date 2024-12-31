@@ -4,8 +4,9 @@ import math
 def torchtest():
     dtype = torch.float
     #device = torch.device("cpu")
-    device = torch.device("cuda:0")  # Uncomment this to run on GPU
+    # device = torch.device("cuda:0")  # Uncomment this to run on GPU
     # device = torch.device("cuda")  # Uncomment this to run on GPU
+    device = torch.device("mps")
 
     # Create Tensors to hold input and outputs.
     # By default, requires_grad=False, which indicates that we do not need to
