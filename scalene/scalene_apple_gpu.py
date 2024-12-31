@@ -94,7 +94,7 @@ def _read_apple_gpu_stats_and_cores() -> Tuple[float, float, int]:
       (device_util, in_use_mem, gpu_core_count)
     where:
       - device_util is a fraction [0..1].
-      - in_use_mem is in bytes.
+      - in_use_mem is in megabytes.
       - gpu_core_count is an integer from top-level "gpu-core-count".
     """
     matching_dict = IOServiceMatching(b"IOAccelerator")
@@ -156,7 +156,7 @@ def _read_apple_gpu_stats_and_cores() -> Tuple[float, float, int]:
                     val_container_64 = ctypes.c_longlong(0)
                     success = CFNumberGetValue(mem_val_ref, kCFNumberSInt64Type, ctypes.byref(val_container_64))
                     if success:
-                        in_use_mem = float(val_container_64.value)
+                        in_use_mem = float(val_container_64.value) / 1048576.0
 
                 IOObjectRelease(cf_key_util)
                 IOObjectRelease(cf_key_mem)
@@ -196,7 +196,7 @@ class ScaleneAppleGPU:
         return self.core_count
 
     def get_stats(self) -> Tuple[float, float]:
-        """Returns a tuple of (utilization%, memory in use in bytes)."""
+        """Returns a tuple of (utilization%, memory in use in megabytes)."""
         if not self.has_gpu():
             return (0.0, 0.0)
         try:
@@ -221,7 +221,7 @@ if __name__ == "__main__":
         cores = gpu.get_num_cores()
         print(
             f"GPU Utilization: {util*100:.1f}%, "
-            f"In-Use GPU Memory: {mem} bytes, "
+            f"In-Use GPU Memory: {mem} megabytes, "
             f"GPU Core Count: {cores}"
         )
         time.sleep(2)
