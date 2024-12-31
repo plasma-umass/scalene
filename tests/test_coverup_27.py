@@ -7,6 +7,10 @@ import re
 import platform
 from unittest.mock import patch
 
+if platform.system() != "Darwin":
+    import sys
+    sys.exit(0)
+    
 # Assuming the ScaleneAppleGPU class is in a module named scalene_apple_gpu
 from scalene.scalene_apple_gpu import ScaleneAppleGPU
 

@@ -7,7 +7,12 @@ import subprocess
 from unittest.mock import MagicMock
 import random
 import re
+import platform
 
+if platform.system() != "Darwin":
+    import sys
+    sys.exit(0)
+    
 # Assuming the class ScaleneAppleGPU is defined elsewhere in the module
 from scalene.scalene_apple_gpu import ScaleneAppleGPU
 

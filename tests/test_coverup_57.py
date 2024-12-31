@@ -6,6 +6,11 @@ import pytest
 import subprocess
 from unittest.mock import patch, MagicMock
 from typing import Tuple
+
+if platform.system() != "Darwin":
+    import sys
+    sys.exit(0)
+    
 from scalene.scalene_apple_gpu import ScaleneAppleGPU
 
 class MockedScaleneAppleGPU(ScaleneAppleGPU):
