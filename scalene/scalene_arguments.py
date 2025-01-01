@@ -9,7 +9,7 @@ class ScaleneArguments(argparse.Namespace):
     
     def __init__(self, **kwargs: Any) -> None:
         self.cpu = True
-        self.gpu = platform.system() != "Darwin"
+        self.gpu = True # platform.system() != "Darwin"
         self.memory = sys.platform != "win32"
         self.stacks = False  # default - don't collect stack traces
         self.cpu_percent_threshold = 1

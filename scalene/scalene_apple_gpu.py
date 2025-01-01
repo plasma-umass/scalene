@@ -88,7 +88,7 @@ def cfstr(py_str: str) -> CFTypeRef:
     """Helper to create a CFString from a Python string."""
     return CFStringCreateWithCString(None, py_str.encode('utf-8'), 0)
 
-def _read_apple_gpu_stats_and_cores() -> Tuple[float, float, int]:
+def _read_apple_gpu_stats_and_cores(get_cores=True) -> Tuple[float, float, int]:
     """
     Reads from IOService class "IOAccelerator" and returns:
       (device_util, in_use_mem, gpu_core_count)
@@ -124,14 +124,15 @@ def _read_apple_gpu_stats_and_cores() -> Tuple[float, float, int]:
         # The top-level dictionary:
         if props_ref and CFGetTypeID(props_ref) == CFDictionaryGetTypeID():
             # 1. Grab "gpu-core-count" at the top level
-            top_key_cores = cfstr("gpu-core-count")
-            core_val_ref = CFDictionaryGetValue(props_ref, top_key_cores)
-            if core_val_ref and (CFGetTypeID(core_val_ref) == CFNumberGetTypeID()):
-                val_container_64 = ctypes.c_longlong(0)
-                success = CFNumberGetValue(core_val_ref, kCFNumberSInt64Type, ctypes.byref(val_container_64))
-                if success:
-                    gpu_core_count = val_container_64.value
-            IOObjectRelease(top_key_cores)
+            if get_cores:
+                top_key_cores = cfstr("gpu-core-count")
+                core_val_ref = CFDictionaryGetValue(props_ref, top_key_cores)
+                if core_val_ref and (CFGetTypeID(core_val_ref) == CFNumberGetTypeID()):
+                    val_container_64 = ctypes.c_longlong(0)
+                    success = CFNumberGetValue(core_val_ref, kCFNumberSInt64Type, ctypes.byref(val_container_64))
+                    if success:
+                        gpu_core_count = val_container_64.value
+                IOObjectRelease(top_key_cores)
 
             # 2. Check for sub-dictionary "PerformanceStatistics"
             performance_key = cfstr("PerformanceStatistics")
@@ -176,9 +177,8 @@ def _read_apple_gpu_stats_and_cores() -> Tuple[float, float, int]:
 class ScaleneAppleGPU:
     """Wrapper class for Apple integrated GPU statistics, using direct IOKit calls."""
 
-    def __init__(self, sampling_frequency: int = 100) -> None:
+    def __init__(self) -> None:
         assert platform.system() == "Darwin"
-        self.gpu_sampling_frequency = sampling_frequency
         self.core_count = self._get_num_cores()
 
     def gpu_device(self) -> str:
@@ -211,13 +211,16 @@ class ScaleneAppleGPU:
         Returns 0 if not found.
         """
         # We reuse the same function that gathers utilization & memory
-        _, _, core_count = _read_apple_gpu_stats_and_cores()
+        _, _, core_count = _read_apple_gpu_stats_and_cores(True)
         return core_count
     
 if __name__ == "__main__":
     gpu = ScaleneAppleGPU()
     while True:
+        start = time.perf_counter()
         util, mem = gpu.get_stats()
+        stop = time.perf_counter()
+        print(f"Elapsed: {stop-start}")
         cores = gpu.get_num_cores()
         print(
             f"GPU Utilization: {util*100:.1f}%, "
