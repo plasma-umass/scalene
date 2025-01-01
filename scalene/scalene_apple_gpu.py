@@ -1,6 +1,5 @@
 import platform
 import ctypes
-import time
 from typing import Tuple
 
 # ---------------------------------------------------------------------------
@@ -12,7 +11,6 @@ corefoundation = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/CoreFoundat
 CFTypeRef = ctypes.c_void_p
 CFAllocatorRef = ctypes.c_void_p
 IOOptionBits = ctypes.c_uint32
-io_iterator_t = ctypes.c_void_p
 io_registry_entry_t = ctypes.c_void_p
 mach_port_t = ctypes.c_void_p
 
@@ -22,35 +20,30 @@ try:
 except ValueError:
     kIOMasterPortDefault = mach_port_t(0)
 
+# --- IOKit (service) APIs
 IOServiceMatching = iokit.IOServiceMatching
 IOServiceMatching.argtypes = [ctypes.c_char_p]
 IOServiceMatching.restype = CFTypeRef
 
-IOServiceGetMatchingServices = iokit.IOServiceGetMatchingServices
-IOServiceGetMatchingServices.argtypes = [
-    mach_port_t,
-    CFTypeRef,
-    ctypes.POINTER(io_iterator_t),
-]
-IOServiceGetMatchingServices.restype = ctypes.c_int  # kern_return_t
-
-IOIteratorNext = iokit.IOIteratorNext
-IOIteratorNext.argtypes = [io_iterator_t]
-IOIteratorNext.restype = io_registry_entry_t
+IOServiceGetMatchingService = iokit.IOServiceGetMatchingService
+IOServiceGetMatchingService.argtypes = [mach_port_t, CFTypeRef]
+IOServiceGetMatchingService.restype = io_registry_entry_t
 
 IOObjectRelease = iokit.IOObjectRelease
 IOObjectRelease.argtypes = [io_registry_entry_t]
 IOObjectRelease.restype = ctypes.c_int  # kern_return_t
 
-IORegistryEntryCreateCFProperties = iokit.IORegistryEntryCreateCFProperties
-IORegistryEntryCreateCFProperties.argtypes = [
-    io_registry_entry_t,
-    ctypes.POINTER(CFTypeRef),
-    CFAllocatorRef,
-    IOOptionBits,
+# --- IOKit (registry) APIs
+IORegistryEntryCreateCFProperty = iokit.IORegistryEntryCreateCFProperty
+IORegistryEntryCreateCFProperty.argtypes = [
+    io_registry_entry_t,  # entry
+    CFTypeRef,            # key
+    CFAllocatorRef,       # allocator
+    IOOptionBits,         # options
 ]
-IORegistryEntryCreateCFProperties.restype = CFTypeRef
+IORegistryEntryCreateCFProperty.restype = CFTypeRef
 
+# --- CF APIs
 CFGetTypeID = corefoundation.CFGetTypeID
 CFGetTypeID.argtypes = [CFTypeRef]
 CFGetTypeID.restype = ctypes.c_long
@@ -75,153 +68,138 @@ CFNumberGetValue = corefoundation.CFNumberGetValue
 CFNumberGetValue.argtypes = [CFTypeRef, ctypes.c_int, ctypes.c_void_p]
 CFNumberGetValue.restype = ctypes.c_bool
 
-CFNumberGetType = corefoundation.CFNumberGetType
-CFNumberGetType.argtypes = [CFTypeRef]
-CFNumberGetType.restype = ctypes.c_int
-
-CFShow = corefoundation.CFShow
-CFShow.argtypes = [CFTypeRef]
-
 kCFNumberSInt64Type = 4  # 64-bit integers
 
-def cfstr(py_str: str) -> CFTypeRef:
-    """Helper to create a CFString from a Python string."""
-    return CFStringCreateWithCString(None, py_str.encode('utf-8'), 0)
+# --- Pre-create CFStrings for keys to avoid repeated creation
+cf_str_gpu_core_count = CFStringCreateWithCString(None, b"gpu-core-count", 0)
+cf_str_perf_stats = CFStringCreateWithCString(None, b"PerformanceStatistics", 0)
+cf_str_device_util = CFStringCreateWithCString(None, b"Device Utilization %", 0)
+cf_str_inuse_mem = CFStringCreateWithCString(None, b"In use system memory", 0)
 
-def _read_apple_gpu_stats_and_cores() -> Tuple[float, float, int]:
+
+def _find_apple_gpu_service() -> io_registry_entry_t:
     """
-    Reads from IOService class "IOAccelerator" and returns:
-      (device_util, in_use_mem, gpu_core_count)
-    where:
-      - device_util is a fraction [0..1].
-      - in_use_mem is in megabytes.
-      - gpu_core_count is an integer from top-level "gpu-core-count".
+    Grabs the first service matching "IOAccelerator" (integrated GPU).
+    Returns None if not found.
     """
-    matching_dict = IOServiceMatching(b"IOAccelerator")
-    if not matching_dict:
-        # debug_print("[DEBUG] Could not create matching dictionary.")
-        return (0.0, 0.0, 0)
+    matching = IOServiceMatching(b"IOAccelerator")
+    if not matching:
+        return None
 
-    service_iterator = io_iterator_t()
-    kr = IOServiceGetMatchingServices(kIOMasterPortDefault, matching_dict, ctypes.byref(service_iterator))
-    if kr != 0:
-        # debug_print(f"[DEBUG] IOServiceGetMatchingServices returned kr={kr}. Possibly no services found.")
-        return (0.0, 0.0, 0)
+    service_obj = IOServiceGetMatchingService(kIOMasterPortDefault, matching)
+    # service_obj is automatically retained if found.
+    # No need to release 'matching' (it is CFTypeRef, but handled by the system).
+    return service_obj
 
+
+def _read_gpu_core_count(service_obj: io_registry_entry_t) -> int:
+    """
+    Reads the top-level "gpu-core-count" from the service.
+    (Only needed once, as it shouldn't change.)
+    """
+    if not service_obj:
+        return 0
+    cf_core_count = IORegistryEntryCreateCFProperty(service_obj, cf_str_gpu_core_count, None, 0)
+    if not cf_core_count or (CFGetTypeID(cf_core_count) != CFNumberGetTypeID()):
+        if cf_core_count:
+            IOObjectRelease(cf_core_count)
+        return 0
+
+    val_container_64 = ctypes.c_longlong(0)
+    success = CFNumberGetValue(cf_core_count, kCFNumberSInt64Type, ctypes.byref(val_container_64))
+    IOObjectRelease(cf_core_count)
+    return val_container_64.value if success else 0
+
+
+def _read_perf_stats(service_obj: io_registry_entry_t) -> Tuple[float, float]:
+    """
+    Returns (utilization [0..1], in_use_mem_MB).
+    Reads the "PerformanceStatistics" sub-dict via IORegistryEntryCreateCFProperty.
+    """
+    if not service_obj:
+        return (0.0, 0.0)
+
+    # Grab the PerformanceStatistics dictionary
+    perf_dict_ref = IORegistryEntryCreateCFProperty(service_obj, cf_str_perf_stats, None, 0)
+    if not perf_dict_ref or (CFGetTypeID(perf_dict_ref) != CFDictionaryGetTypeID()):
+        if perf_dict_ref:
+            IOObjectRelease(perf_dict_ref)
+        return (0.0, 0.0)
+
+    # Device Utilization
     device_util = 0.0
+    util_val_ref = CFDictionaryGetValue(perf_dict_ref, cf_str_device_util)
+    if util_val_ref and (CFGetTypeID(util_val_ref) == CFNumberGetTypeID()):
+        val64 = ctypes.c_longlong(0)
+        if CFNumberGetValue(util_val_ref, kCFNumberSInt64Type, ctypes.byref(val64)):
+            device_util = val64.value / 100.0
+
+    # In-use memory
     in_use_mem = 0.0
-    gpu_core_count = 0
+    mem_val_ref = CFDictionaryGetValue(perf_dict_ref, cf_str_inuse_mem)
+    if mem_val_ref and (CFGetTypeID(mem_val_ref) == CFNumberGetTypeID()):
+        val64 = ctypes.c_longlong(0)
+        if CFNumberGetValue(mem_val_ref, kCFNumberSInt64Type, ctypes.byref(val64)):
+            in_use_mem = float(val64.value) / 1048576.0  # convert bytes -> MB
 
-    while True:
-        service_object = IOIteratorNext(service_iterator)
-        if not service_object:
-            # No more services
-            break
-
-        props_ref = CFTypeRef()
-        IORegistryEntryCreateCFProperties(service_object, ctypes.byref(props_ref), None, 0)
-
-        # The top-level dictionary:
-        if props_ref and CFGetTypeID(props_ref) == CFDictionaryGetTypeID():
-            # 1. Grab "gpu-core-count" at the top level
-            top_key_cores = cfstr("gpu-core-count")
-            core_val_ref = CFDictionaryGetValue(props_ref, top_key_cores)
-            if core_val_ref and (CFGetTypeID(core_val_ref) == CFNumberGetTypeID()):
-                val_container_64 = ctypes.c_longlong(0)
-                success = CFNumberGetValue(core_val_ref, kCFNumberSInt64Type, ctypes.byref(val_container_64))
-                if success:
-                    gpu_core_count = val_container_64.value
-            IOObjectRelease(top_key_cores)
-
-            # 2. Check for sub-dictionary "PerformanceStatistics"
-            performance_key = cfstr("PerformanceStatistics")
-            performance_dict_ref = CFDictionaryGetValue(props_ref, performance_key)
-            IOObjectRelease(performance_key)
-
-            if performance_dict_ref and (CFGetTypeID(performance_dict_ref) == CFDictionaryGetTypeID()):
-                cf_key_util = cfstr("Device Utilization %")
-                cf_key_mem = cfstr("In use system memory")
-
-                # Device Utilization
-                util_val_ref = CFDictionaryGetValue(performance_dict_ref, cf_key_util)
-                if util_val_ref and (CFGetTypeID(util_val_ref) == CFNumberGetTypeID()):
-                    val_container_64 = ctypes.c_longlong(0)
-                    success = CFNumberGetValue(util_val_ref, kCFNumberSInt64Type, ctypes.byref(val_container_64))
-                    if success:
-                        device_util = val_container_64.value / 100.0
-
-                # In use system memory
-                mem_val_ref = CFDictionaryGetValue(performance_dict_ref, cf_key_mem)
-                if mem_val_ref and (CFGetTypeID(mem_val_ref) == CFNumberGetTypeID()):
-                    val_container_64 = ctypes.c_longlong(0)
-                    success = CFNumberGetValue(mem_val_ref, kCFNumberSInt64Type, ctypes.byref(val_container_64))
-                    if success:
-                        in_use_mem = float(val_container_64.value) / 1048576.0
-
-                IOObjectRelease(cf_key_util)
-                IOObjectRelease(cf_key_mem)
-
-            IOObjectRelease(props_ref)
-
-        IOObjectRelease(service_object)
-
-        if (device_util > 0.0 or in_use_mem > 0.0) and gpu_core_count > 0:
-            # Success, break
-            break
-
-    IOObjectRelease(service_iterator)
-    return (device_util, in_use_mem, gpu_core_count)
+    IOObjectRelease(perf_dict_ref)
+    return (device_util, in_use_mem)
 
 
 class ScaleneAppleGPU:
-    """Wrapper class for Apple integrated GPU statistics, using direct IOKit calls."""
+    """Wrapper for Apple integrated GPU stats, using direct IOKit calls."""
 
-    def __init__(self, sampling_frequency: int = 100) -> None:
-        assert platform.system() == "Darwin"
-        self.gpu_sampling_frequency = sampling_frequency
-        self.core_count = self._get_num_cores()
+    def __init__(self) -> None:
+        assert platform.system() == "Darwin", "Only works on macOS."
+        # Cache the single service object if found:
+        self._service_obj = _find_apple_gpu_service()
+        # Cache the number of cores:
+        self._core_count = _read_gpu_core_count(self._service_obj)
 
     def gpu_device(self) -> str:
         return "GPU"
 
     def has_gpu(self) -> bool:
-        """Return True if the system likely has an Apple integrated GPU."""
-        return True
+        """Return True if we found an Apple integrated GPU service."""
+        return bool(self._service_obj)
 
     def reinit(self) -> None:
         """No-op for compatibility with other GPU wrappers."""
         pass
 
     def get_num_cores(self) -> int:
-        return self.core_count
+        return self._core_count
 
     def get_stats(self) -> Tuple[float, float]:
-        """Returns a tuple of (utilization%, memory in use in megabytes)."""
+        """Return (util%, memory_in_use_MB)."""
         if not self.has_gpu():
             return (0.0, 0.0)
         try:
-            util, in_use, _ = _read_apple_gpu_stats_and_cores()
-            return (util, in_use)
-        except Exception as ex:
+            util, mem = _read_perf_stats(self._service_obj)
+            return (util, mem)
+        except Exception:
             return (0.0, 0.0)
-        
-    def _get_num_cores(self) -> int:
-        """
-        Retrieves the 'gpu-core-count' property from the top-level dictionary.
-        Returns 0 if not found.
-        """
-        # We reuse the same function that gathers utilization & memory
-        _, _, core_count = _read_apple_gpu_stats_and_cores()
-        return core_count
-    
+
+    def __del__(self):
+        """Release the service object if it exists."""
+        if self._service_obj:
+            IOObjectRelease(self._service_obj)
+            self._service_obj = None
+
+
 if __name__ == "__main__":
+    import time
+
     gpu = ScaleneAppleGPU()
     while True:
+        start = time.perf_counter()
         util, mem = gpu.get_stats()
+        stop = time.perf_counter()
+        print(f"Elapsed time: {stop - start:.6f} seconds.")
         cores = gpu.get_num_cores()
         print(
             f"GPU Utilization: {util*100:.1f}%, "
-            f"In-Use GPU Memory: {mem} megabytes, "
+            f"In-Use GPU Memory: {mem:.2f} MB, "
             f"GPU Core Count: {cores}"
         )
-        time.sleep(2)
+        time.sleep(0.5)
