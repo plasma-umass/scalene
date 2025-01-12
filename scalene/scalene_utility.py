@@ -110,12 +110,26 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         directory: str, subdirectory: str, filename: str
     ) -> str:
         file_path = os.path.join(directory, subdirectory, filename)
-        return pathlib.Path(file_path).read_text()
+        file_content = ""
+        try:
+            file_content = pathlib.Path(file_path).read_text(encoding="utf-8")
+        except UnicodeDecodeError as e:
+            raise UnicodeDecodeError(
+                f"Failed to decode file {file_path}. Ensure the file is UTF-8 encoded."
+            ) from e
+        return file_content
 
     try:
         # Load the profile
         profile_file = pathlib.Path(profile_fname)
-        profile = profile_file.read_text()
+        profile = ""
+        try:
+            profile = profile_file.read_text(encoding="utf-8")
+        except UnicodeDecodeError as e:
+            raise UnicodeDecodeError(
+                f"Failed to decode file {profile_file}. Ensure the file is UTF-8 encoded."
+            ) from e
+            
     except FileNotFoundError:
         assert profile_fname == "demo"
         profile = ""
