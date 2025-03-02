@@ -55,6 +55,69 @@ const MemoryColor = "green";
 const CopyColor = "goldenrod";
 let columns = [];
 
+function stringLines(lines) {
+    const docstringLines = new Set();
+
+    let inDocstring = false;      // Are we currently inside a docstring?
+    let docstringDelimiter = null; // Either `'''` or `"""` when in a docstring.
+
+    for (let i = 0; i < lines.length; i++) {
+	const line = lines[i];
+	let searchIndex = 0;
+	// We'll record if we were already in a docstring at the start of this line.
+	let wasInDocstring = inDocstring;
+
+	// Repeatedly look for triple quotes in the current line.
+	while (true) {
+	    // Find the next occurrence of either `'''` or `"""`.
+	    const nextTripleSingle = line.indexOf("'''", searchIndex);
+	    const nextTripleDouble = line.indexOf('"""', searchIndex);
+
+	    // Figure out which one occurs first (if either).
+	    let nextIndex = -1;
+	    let foundDelimiter = null;
+
+	    if (nextTripleSingle !== -1 && (nextTripleDouble === -1 || nextTripleSingle < nextTripleDouble)) {
+		nextIndex = nextTripleSingle;
+		foundDelimiter = "'''";
+	    } else if (nextTripleDouble !== -1 && (nextTripleSingle === -1 || nextTripleDouble < nextTripleSingle)) {
+		nextIndex = nextTripleDouble;
+		foundDelimiter = '"""';
+	    }
+
+	    // If no further triple quotes found in this line, break out of the loop.
+	    if (nextIndex === -1) {
+		break;
+	    }
+
+	    // Advance searchIndex so that subsequent searches move past this point.
+	    searchIndex = nextIndex + 3;
+
+	    // Toggle logic if we've found a triple quote.
+	    if (!inDocstring) {
+		// Not in a docstring, so this starts one.
+		inDocstring = true;
+		docstringDelimiter = foundDelimiter;
+	    } else {
+		// Already in a docstring, check if it matches our current delimiter.
+		if (docstringDelimiter === foundDelimiter) {
+		    // This ends our current docstring.
+		    inDocstring = false;
+		    docstringDelimiter = null;
+		}
+	    }
+	}
+
+	// If we were in a docstring at any point during this line, mark it.
+	// (If wasInDocstring was true at the start or inDocstring is true now,
+	//  it means this line is part of a docstring.)
+	if (wasInDocstring || inDocstring) {
+	    docstringLines.add(i);
+	}
+    }
+    return docstringLines;
+}
+
 function makeTableHeader(fname, gpu, gpu_device, memory, params) {
   let tableTitle;
   if (params["functions"]) {
@@ -176,6 +239,7 @@ export function toggleReduced() {
 
 function makeProfileLine(
   line,
+  inDocstring,
   filename,
   file_number,
   prof,
@@ -418,7 +482,6 @@ function makeProfileLine(
 
   // Convert back any escaped Unicode.
   line.line = unescapeUnicode(line.line);
-
   const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
   s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
   let newLine = structuredClone(line);
@@ -460,7 +523,12 @@ function makeProfileLine(
   } else {
     s += lineOptimizationString;
   }
-  s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
+  // If we are in a docstring, format it as such in the <span>
+  let optionalInDocstring = "";
+  if (inDocstring) {
+      optionalInDocstring = "token comment";
+  }
+    s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${optionalInDocstring} ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
   s += "</tr>";
   return s;
 }
@@ -734,9 +802,14 @@ async function display(prof) {
       functions: false,
     });
     s += "<tbody>";
+    // Compute all docstring lines
+    const linesArray = ff[1].lines.map(entry => entry.line);
+    const docstringLines = stringLines(linesArray);
     // Print per-line profiles.
     let prevLineno = -1;
+    let index = -1;
     for (const l in ff[1].lines) {
+      index += 1;
       const line = ff[1].lines[l];
 
       if (false) {
@@ -758,6 +831,7 @@ async function display(prof) {
       prevLineno = line.lineno;
       s += makeProfileLine(
         line,
+        docstringLines.has(index),
         ff[0],
         fileIteration,
         prof,
@@ -783,6 +857,7 @@ async function display(prof) {
         const line = prof.files[ff[0]].functions[l];
         s += makeProfileLine(
           line,
+          false,  
           ff[0],
           fileIteration,
           prof,
