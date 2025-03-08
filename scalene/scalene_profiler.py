@@ -29,6 +29,7 @@ import argparse
 import atexit
 import builtins
 import contextlib
+import ctypes # noqa: F401
 import functools
 import gc
 import inspect
