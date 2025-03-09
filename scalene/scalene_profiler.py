@@ -2124,7 +2124,7 @@ class Scalene:
                     the_globals["__spec__"] = None
                     if spec is not None:
                         name = spec.name
-                        the_globals["__package__"] = name.split(".")[0]
+                        the_globals["__package__"] = name.rsplit(".", 1)[0]
                     # Do a GC before we start.
                     gc.collect()
                     # Start the profiler.
