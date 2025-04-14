@@ -17,6 +17,8 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 
 [_Python Profiler Links to AI to Improve Code Scalene identifies inefficiencies and asks GPT-4 for suggestions_](https://spectrum.ieee.org/python-programming), IEEE Spectrum
 
+[Episode 172: Measuring Multiple Facets of Python Performance With Scalene](https://realpython.com/podcasts/rpp/172/), The Real Python podcast
+
 ***Scalene web-based user interface:*** [http://plasma-umass.org/scalene-gui/](http://plasma-umass.org/scalene-gui/)
  
 ## About Scalene
