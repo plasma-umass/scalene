@@ -327,18 +327,33 @@ class SampleHeap : public SuperHeap {
     if (_pythonCount == 0) {
       _pythonCount = 1;  // prevent 0/0
     }
+    // Get the thread ID, which must match the logic used by Python.
+    uint64_t thread_id;
+#if defined(__APPLE__) || defined(BSD)
+    // Use the OS X / BSD thread identifier function to get "actual" thread ID.
+    pthread_threadid_np(pthread_self(), &thread_id);
+#elif defined(__linux__)
+    // On Linux, use gettid().
+    thread_id = (uint64_t) gettid();
+#else
+    // On other systems, cast pthread_self and hope for the best.
+    thread_id = (uint64_t) pthread_self();
+#endif
+   
     snprintf_(
         buf, sizeof(buf),
 #if defined(__APPLE__)
-        "%c,%llu,%llu,%f,%d,%p,%s,%d,%d\n\n",
+        "%c,%llu,%llu,%f,%d,%p,%s,%d,%d,%lu\n\n",
 #else
-        "%c,%lu,%lu,%f,%d,%p,%s,%d,%d\n\n",
+        "%c,%lu,%lu,%f,%d,%p,%s,%d,%d,%lu\n\n",
 #endif
         ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
         mallocTriggered() + freeTriggered(), count,
         (float)_pythonCount / (_pythonCount + _cCount), getpid(),
         _freedLastMallocTrigger ? _lastMallocTrigger : ptr, filename.c_str(),
-        lineno, bytei);
+        lineno,
+	bytei,
+        thread_id);
     // Ensure we don't report last-malloc-freed multiple times.
     _freedLastMallocTrigger = false;
     getSampleFile().writeToFile(buf);
