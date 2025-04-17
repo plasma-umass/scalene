@@ -144,8 +144,8 @@ jobs:
         if: github.event_name != 'release'
         env:
           TWINE_REPOSITORY: testpypi
-          TWINE_USERNAME: ${{ secrets.TESTPYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.TESTPYPI_PASSWORD }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TESTPYPI_TOKEN }}
         run: twine upload --verbose dist/*
 
       - name: Release upload
