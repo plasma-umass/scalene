@@ -33,7 +33,6 @@ classifiers = [
 ]
 # see https://peps.python.org/pep-0508/#environment-markers for conditional syntax
 dependencies = [
-    "wheel>=0.36.1",
     "rich>=10.7.0",
     "cloudpickle>=2.2.1",
     # "pynvml>=11.0.0,<=11.5",
@@ -56,8 +55,7 @@ scalene = "scalene.__main__:main"
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
-    "setuptools>=65.5.0",
+    "setuptools>=70.1",
     "setuptools_scm>=8",
-    "wheel",
     "cython",
 ]
