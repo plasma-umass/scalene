@@ -32,7 +32,10 @@ class ScaleneJupyter:
         # Display the profile in a cell. Starts a webserver to host the iframe holding the profile.html file,
         # which lets JavaScript run (can't do this with `display`, which strips out JavaScript), and then
         # tears down the server.
-        from IPython.core.display import display
+        try:
+            from IPython.core.display import display
+        except:
+            from IPython.display import display
         from IPython.display import IFrame
 
         class RequestHandler(BaseHTTPRequestHandler):
