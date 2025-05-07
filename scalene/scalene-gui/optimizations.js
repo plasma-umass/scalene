@@ -198,6 +198,7 @@ export async function optimizeCode(imports, code, line, context) {
   let aiService = document.getElementById("service-select").value;
   if (aiService === "openai") {
     apiKey = document.getElementById("api-key").value;
+    endpoint = document.getElementById("url-openai-compatibility").value;
   } else if (aiService === "azure-openai") {
     apiKey = document.getElementById("azure-api-key").value;
   }
@@ -248,6 +249,7 @@ export async function optimizeCode(imports, code, line, context) {
       const result = await sendPromptToOpenAI(
         prompt,
         apiKey,
+        endpoint,
       );
       return extractCode(result);
     }

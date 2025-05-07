@@ -50,7 +50,14 @@ export function checkApiKey(apiKey) {
 }
 
 export async function sendPromptToOpenAI(prompt, apiKey, endpoint) {
-  const model = document.getElementById("language-model-openai").value;
+  var model = document.getElementById("language-model-openai").value;
+  const model_override = document.getElementById("language-model-openai").value;
+  if(model_override) {
+    model = model_override;
+  }
+  if(!endpoint) {
+    endpoint = "https://api.openai.com/v1/chat/completions";
+  }
 
   const body = JSON.stringify({
     model: model,
