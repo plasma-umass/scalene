@@ -30,6 +30,7 @@ export async function isValidApiKey(apiKey, customEndpoint = null) {
 }
 
 export function checkApiKey(apiKey, customEndpoint = null) {
+  return true;
   (async () => {
     try {
       window.localStorage.setItem("scalene-api-key", apiKey);
