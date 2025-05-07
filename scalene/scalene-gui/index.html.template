@@ -126,7 +126,7 @@
       size="22"
       placeholder="(OpenAI API key)"
       id="api-key"
-      oninput="checkApiKey(event.target.value)"
+      oninput="checkApiKey(event.target.value, document.getElementById('openai-compatibility-api-url').value)"
     />
     <span id="valid-api-key"></span>
   </div>
@@ -168,7 +168,7 @@
       type="text"
       style="font-size: 0.8rem; flex: 1;"
       size="22"
-      placeholder="(URL for OpenAI compatible endpoint, leave blank for OpenAI)"
+      placeholder="(URL for OpenAI compatible endpoint, leave blank for https://api.openai.com/v1)"
       id="openai-compatibility-api-url"
     />    
   </div>

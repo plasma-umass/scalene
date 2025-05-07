@@ -1,5 +1,6 @@
-async function tryApi(apiKey) {
-  const response = await fetch("https://api.openai.com/v1/completions", {
+async function tryApi(apiKey, customEndpoint) {
+  const base_url = customEndpoint || "https://api.openai.com/v1";
+  const response = await fetch(base_url + "/completions", {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -9,8 +10,8 @@ async function tryApi(apiKey) {
   return response;
 }
 
-export async function isValidApiKey(apiKey) {
-  const response = await tryApi(apiKey);
+export async function isValidApiKey(apiKey, customEndpoint = null) {
+  const response = await tryApi(apiKey, customEndpoint);
   const data = await response.json();
   if (
     data.error &&
@@ -28,7 +29,7 @@ export async function isValidApiKey(apiKey) {
   }
 }
 
-export function checkApiKey(apiKey) {
+export function checkApiKey(apiKey, customEndpoint = null) {
   (async () => {
     try {
       window.localStorage.setItem("scalene-api-key", apiKey);
@@ -40,7 +41,7 @@ export function checkApiKey(apiKey) {
       document.getElementById("valid-api-key").innerHTML = "";
       return;
     }
-    const isValid = await isValidApiKey(apiKey);
+    const isValid = await isValidApiKey(apiKey, customEndpoint);
     if (!isValid) {
       document.getElementById("valid-api-key").innerHTML = "&#10005;";
     } else {
@@ -49,15 +50,11 @@ export function checkApiKey(apiKey) {
   })();
 }
 
-export async function sendPromptToOpenAI(prompt, apiKey, endpoint) {
-  model = document.getElementById("language-model-openai").value;
-  const model_override = document.getElementById("language-model-openai").value;
-  if(model_override) {
-    model = model_override;
-  }
-  if(!endpoint) {
-    endpoint = "https://api.openai.com/v1/chat/completions";
-  }
+export async function sendPromptToOpenAI(prompt, apiKey, customEndpoint = null, customModel = null) {
+  const base_url = customEndpoint || "https://api.openai.com/v1";
+  const defaultModel = document.getElementById("language-model-openai").value;
+  const endpoint = base_url + "/chat/completions";
+  const model = customModel || defaultModel;
 
   const body = JSON.stringify({
     model: model,
