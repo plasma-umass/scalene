@@ -147,6 +147,32 @@
     </select>
   </div>
 
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="language-model-override" style="font-size: 0.8rem; width: 150px;">
+      Other model:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(Model name, overrides selection)"
+      id="language-model-override-openai"
+    />    
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="url-openai-compatibility" style="font-size: 0.8rem; width: 150px;">
+      URL for compatibility API:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(URL for OpenAI compatible endpoint, leave blank for OpenAI)"
+      id="openai-compatibility-api-url"
+    />    
+  </div>
+
 </div>
 
 <!-- Azure OpenAI API Key Field -->

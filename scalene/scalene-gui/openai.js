@@ -49,8 +49,7 @@ export function checkApiKey(apiKey) {
   })();
 }
 
-export async function sendPromptToOpenAI(prompt, apiKey) {
-  const endpoint = "https://api.openai.com/v1/chat/completions";
+export async function sendPromptToOpenAI(prompt, apiKey, endpoint) {
   const model = document.getElementById("language-model-openai").value;
 
   const body = JSON.stringify({
