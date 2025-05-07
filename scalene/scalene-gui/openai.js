@@ -50,7 +50,7 @@ export function checkApiKey(apiKey) {
 }
 
 export async function sendPromptToOpenAI(prompt, apiKey, endpoint) {
-  var model = document.getElementById("language-model-openai").value;
+  model = document.getElementById("language-model-openai").value;
   const model_override = document.getElementById("language-model-openai").value;
   if(model_override) {
     model = model_override;
