@@ -60,10 +60,7 @@ from scalene.redirect_python import redirect_python
 
 from collections import defaultdict
 from types import (
-    BuiltinFunctionType,
     FrameType,
-    FunctionType,
-    ModuleType,
 )
 from typing import (
     Any,
@@ -99,6 +96,7 @@ from scalene.scalene_utility import (
     generate_html,
     get_fully_qualified_name,
     on_stack,
+    patch_module_functions_with_signal_blocking
 )
 
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
@@ -162,28 +160,6 @@ def enable_profiling() -> Generator[None, None, None]:
     yield
     stop()
 
-def patch_module_functions_with_signal_blocking(module: ModuleType, signal_to_block: signal.Signals) -> None:
-    """Patch all functions in the given module to block the specified signal during execution."""
-    
-    def signal_blocking_wrapper(func: Union[BuiltinFunctionType, FunctionType]) -> Any:
-        """Wrap a function to block the specified signal during its execution."""
-        @functools.wraps(func)
-        def wrapped(*args: Any, **kwargs: Any) -> Any:
-            # Block the specified signal temporarily
-            original_sigmask = signal.pthread_sigmask(signal.SIG_BLOCK, [signal_to_block])
-            try:
-                return func(*args, **kwargs)
-            finally:
-                # Restore original signal mask
-                signal.pthread_sigmask(signal.SIG_SETMASK, original_sigmask)
-        return wrapped
-
-    # Iterate through all attributes of the module
-    for attr_name in dir(module):
-        attr = getattr(module, attr_name)
-        if isinstance(attr, BuiltinFunctionType) or isinstance(attr, FunctionType):
-            wrapped_attr = signal_blocking_wrapper(attr)
-            setattr(module, attr_name, wrapped_attr)
 
 class Scalene:
     """The Scalene profiler itself."""

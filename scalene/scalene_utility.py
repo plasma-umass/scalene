@@ -1,17 +1,19 @@
+import functools
 import http.server
 import os
 import pathlib
-import sys
 import shutil
+import signal
 import socketserver
 import subprocess
+import sys
 import tempfile
 import webbrowser
 
 
 from jinja2 import Environment, FileSystemLoader
-from types import FrameType
-from typing import Any, Callable, Dict, List, Optional, Tuple, cast
+from types import BuiltinFunctionType, FrameType, FunctionType, ModuleType
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 from scalene.scalene_statistics import Filename, LineNumber
 from scalene.scalene_config import scalene_version, scalene_date
@@ -207,3 +209,27 @@ def show_browser(
         pass
     finally:
         os.chdir(curr_dir)
+
+
+def patch_module_functions_with_signal_blocking(module: ModuleType, signal_to_block: signal.Signals) -> None:
+    """Patch all functions in the given module to block the specified signal during execution."""
+    
+    def signal_blocking_wrapper(func: Union[BuiltinFunctionType, FunctionType]) -> Any:
+        """Wrap a function to block the specified signal during its execution."""
+        @functools.wraps(func)
+        def wrapped(*args: Any, **kwargs: Any) -> Any:
+            # Block the specified signal temporarily
+            original_sigmask = signal.pthread_sigmask(signal.SIG_BLOCK, [signal_to_block])
+            try:
+                return func(*args, **kwargs)
+            finally:
+                # Restore original signal mask
+                signal.pthread_sigmask(signal.SIG_SETMASK, original_sigmask)
+        return wrapped
+
+    # Iterate through all attributes of the module
+    for attr_name in dir(module):
+        attr = getattr(module, attr_name)
+        if isinstance(attr, BuiltinFunctionType) or isinstance(attr, FunctionType):
+            wrapped_attr = signal_blocking_wrapper(attr)
+            setattr(module, attr_name, wrapped_attr)
