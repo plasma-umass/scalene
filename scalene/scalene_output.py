@@ -373,7 +373,10 @@ class ScaleneOutput:
                     ),
                 )
 
-        null = tempfile.TemporaryFile(mode="w+")
+        try: 
+            null = tempfile.TemporaryFile(mode="w+")
+        except FileNotFoundError:
+            null = open(os.devnull, "w")
 
         console = Console(
             width=column_width,
