@@ -53,6 +53,8 @@ import traceback
 # For debugging purposes
 from rich.console import Console
 
+from pydantic.dataclasses import dataclass
+
 from scalene.find_browser import find_browser
 from scalene.get_module_details import _get_module_details
 from scalene.time_info import get_times, TimeInfo
@@ -160,7 +162,17 @@ def enable_profiling() -> Generator[None, None, None]:
     yield
     stop()
 
-
+@dataclass
+class ProfilingSample:
+    action: str
+    alloc_time: int
+    count: float
+    python_fraction: float
+    pointer: Address
+    filename: Filename
+    lineno: LineNumber
+    bytecode_index: ByteCodeIndex
+   
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -1202,18 +1214,7 @@ class Scalene:
         stats = Scalene.__stats
         curr_pid = os.getpid()
         # Process the input array from where we left off reading last time.
-        arr: List[
-            Tuple[
-                int,
-                str,
-                float,
-                float,
-                str,
-                Filename,
-                LineNumber,
-                ByteCodeIndex,
-            ]
-        ] = []
+        arr: List[ProfilingSample] = []
         with contextlib.suppress(FileNotFoundError):
             while Scalene.__malloc_mapfile.read():
                 count_str = Scalene.__malloc_mapfile.get_str()
@@ -1232,18 +1233,17 @@ class Scalene:
                 ) = count_str.split(",")
                 if int(curr_pid) != int(pid):
                     continue
-                arr.append(
-                    (
-                        int(alloc_time_str),
-                        action,
-                        float(count_str),
-                        float(python_fraction_str),
-                        pointer,
-                        Filename(reported_fname),
-                        LineNumber(int(reported_lineno)),
-                        ByteCodeIndex(int(bytei_str)),
-                    )
-                )
+                if int(reported_lineno) == -1:
+                    continue
+                profiling_sample = ProfilingSample(action = action,
+                                                   alloc_time = int(alloc_time_str),
+                                                   count = int(count_str),
+                                                   python_fraction =  float(python_fraction_str),
+                                                   pointer = Address(pointer),
+                                                   filename = Filename(reported_fname),
+                                                   lineno = LineNumber(int(reported_lineno)),
+                                                   bytecode_index = ByteCodeIndex(int(bytei_str)))
+                arr.append(profiling_sample)
 
         stats.alloc_samples += len(arr)
 
@@ -1254,40 +1254,30 @@ class Scalene:
         prevmax = stats.max_footprint
         freed_last_trigger = 0
         for item in arr:
-            (
-                _alloc_time,
-                action,
-                count,
-                python_fraction,
-                pointer,
-                fname,
-                lineno,
-                bytei,
-            ) = item
-            is_malloc = action == Scalene.MALLOC_ACTION
-            if count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1: 
+            is_malloc = item.action == Scalene.MALLOC_ACTION
+            if item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1: 
                 continue # in previous implementations, we were adding NEWLINE to the footprint.
                          # We should not account for this in the user-facing profile. 
-            count /= Scalene.BYTES_PER_MB
+            item.count /= Scalene.BYTES_PER_MB
             if is_malloc:
-                stats.current_footprint += count
+                stats.current_footprint += item.count
                 if stats.current_footprint > stats.max_footprint:
                     stats.max_footprint = stats.current_footprint
-                    stats.max_footprint_python_fraction = python_fraction
-                    stats.max_footprint_loc = (fname, lineno)
+                    stats.max_footprint_python_fraction = item.python_fraction
+                    stats.max_footprint_loc = (item.filename, item.lineno)
             else:
-                assert action in [
+                assert item.action in [
                     Scalene.FREE_ACTION,
                     Scalene.FREE_ACTION_SAMPLED,
                 ]
-                stats.current_footprint -= count
+                stats.current_footprint -= item.count
                 # Force current footprint to be non-negative; this
                 # code is needed because Scalene can miss some initial
                 # allocations at startup.
                 stats.current_footprint = max(0, stats.current_footprint)
                 if (
-                    action == Scalene.FREE_ACTION_SAMPLED
-                    and stats.last_malloc_triggered[2] == pointer
+                    item.action == Scalene.FREE_ACTION_SAMPLED
+                    and stats.last_malloc_triggered[2] == item.pointer
                 ):
                     freed_last_trigger += 1
             timestamp = time.monotonic_ns() - Scalene.__start_time
@@ -1317,26 +1307,15 @@ class Scalene:
 
         allocs = 0.0
         last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
-        malloc_pointer = "0x0"
+        malloc_pointer = Address("0x0")
         curr = before
 
         # Go through the array again and add each updated current footprint.
         for item in arr:
-            (
-                _alloc_time,
-                action,
-                count,
-                python_fraction,
-                pointer,
-                fname,
-                lineno,
-                bytei,
-            ) = item
-
-            is_malloc = action == Scalene.MALLOC_ACTION
+            is_malloc = item.action == Scalene.MALLOC_ACTION
             if (
                 is_malloc
-                and count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1
+                and item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1
             ):
                 with Scalene.__invalidate_mutex:
                     last_file, last_line = Scalene.__invalidate_queue.pop(0)
@@ -1350,65 +1329,65 @@ class Scalene:
                 continue
 
             # Add the byte index to the set for this line (if it's not there already).
-            stats.bytei_map[fname][lineno].add(bytei)
-            count /= Scalene.BYTES_PER_MB
+            stats.bytei_map[item.filename][item.lineno].add(item.bytecode_index)
+            item.count /= Scalene.BYTES_PER_MB
             if is_malloc:
-                allocs += count
-                curr += count
+                allocs += item.count
+                curr += item.count
                 assert curr <= stats.max_footprint
-                malloc_pointer = pointer
-                stats.memory_malloc_samples[fname][lineno] += count
-                stats.memory_python_samples[fname][lineno] += (
-                    python_fraction * count
+                malloc_pointer = item.pointer
+                stats.memory_malloc_samples[item.filename][item.lineno] += item.count
+                stats.memory_python_samples[item.filename][item.lineno] += (
+                    item.python_fraction * item.count
                 )
-                stats.malloc_samples[fname] += 1
-                stats.total_memory_malloc_samples += count
+                stats.malloc_samples[item.filename] += 1
+                stats.total_memory_malloc_samples += item.count
                 # Update current and max footprints for this file & line.
-                stats.memory_current_footprint[fname][lineno] += count
-                stats.memory_current_highwater_mark[fname][lineno] = max(
-                    stats.memory_current_highwater_mark[fname][lineno],
-                    stats.memory_current_footprint[fname][lineno],
+                stats.memory_current_footprint[item.filename][item.lineno] += item.count
+                stats.memory_current_highwater_mark[item.filename][item.lineno] = max(
+                    stats.memory_current_highwater_mark[item.filename][item.lineno],
+                    stats.memory_current_footprint[item.filename][item.lineno],
                 )
                 assert stats.current_footprint <= stats.max_footprint
-                stats.memory_max_footprint[fname][lineno] = max(
-                    stats.memory_current_footprint[fname][lineno],
-                    stats.memory_max_footprint[fname][lineno],
+                stats.memory_max_footprint[item.filename][item.lineno] = max(
+                    stats.memory_current_footprint[item.filename][item.lineno],
+                    stats.memory_max_footprint[item.filename][item.lineno],
                 )
                 # Ensure that the max footprint never goes above the true max footprint.
                 # This is a work-around for a condition that in theory should never happen, but...
-                stats.memory_max_footprint[fname][lineno] = min(
+                stats.memory_max_footprint[item.filename][item.lineno] = min(
                     stats.max_footprint,
-                    stats.memory_max_footprint[fname][lineno],
+                    stats.memory_max_footprint[item.filename][item.lineno],
                 )
                 assert stats.current_footprint <= stats.max_footprint
                 assert (
-                    stats.memory_max_footprint[fname][lineno]
+                    stats.memory_max_footprint[item.filename][item.lineno]
                     <= stats.max_footprint
                 )
             else:
-                assert action in [
+                assert item.action in [
                     Scalene.FREE_ACTION,
                     Scalene.FREE_ACTION_SAMPLED,
                 ]
-                curr -= count
-                stats.memory_free_samples[fname][lineno] += count
-                stats.memory_free_count[fname][lineno] += 1
-                stats.total_memory_free_samples += count
-                stats.memory_current_footprint[fname][lineno] -= count
+                curr -= item.count
+                stats.memory_free_samples[item.filename][item.lineno] += item.count
+                stats.memory_free_count[item.filename][item.lineno] += 1
+                stats.total_memory_free_samples += item.count
+                stats.memory_current_footprint[item.filename][item.lineno] -= item.count
                 # Ensure that we never drop the current footprint below 0.
-                stats.memory_current_footprint[fname][lineno] = max(
-                    0, stats.memory_current_footprint[fname][lineno]
+                stats.memory_current_footprint[item.filename][item.lineno] = max(
+                    0, stats.memory_current_footprint[item.filename][item.lineno]
                 )
 
-            stats.per_line_footprint_samples[fname][lineno].append(
+            stats.per_line_footprint_samples[item.filename][item.lineno].append(
                 [time.monotonic_ns() - Scalene.__start_time, max(0, curr)]
             )
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
                 last_malloc = (
-                    Filename(fname),
-                    LineNumber(lineno),
-                    Address(malloc_pointer),
+                    item.filename,
+                    item.lineno,
+                    malloc_pointer
                 )
         stats.allocation_velocity = (
             stats.allocation_velocity[0] + (after - before),
