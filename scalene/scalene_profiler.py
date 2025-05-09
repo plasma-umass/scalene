@@ -728,18 +728,16 @@ class Scalene:
         """Handle CPU signals."""
         try:
             # Get current time stats.
-            now_sys, now_user = get_times()
-            now_virtual = time.process_time()
-            now_wallclock = time.perf_counter()
+            now = TimeInfo()
+            now.sys, now.user = get_times()
+            now.virtual = time.process_time()
+            now.wallclock = time.perf_counter()
             if (
                 Scalene.__last_signal_time.virtual == 0
                 or Scalene.__last_signal_time.wallclock == 0
             ):
                 # Initialization: store values and update on the next pass.
-                Scalene.__last_signal_time.virtual = now_virtual
-                Scalene.__last_signal_time.wallclock = now_wallclock
-                Scalene.__last_signal_time.sys = now_sys
-                Scalene.__last_signal_time.user = now_user
+                Scalene.__last_signal_time = now
                 if sys.platform != "win32":
                     Scalene.__orig_setitimer(
                         Scalene.__signals.cpu_timer_signal,
@@ -756,24 +754,15 @@ class Scalene:
             Scalene.process_cpu_sample(
                 signum,
                 Scalene.compute_frames_to_record(),
-                now_virtual,
-                now_wallclock,
-                now_sys,
-                now_user,
+                now,
                 gpu_load,
                 gpu_mem_used,
-                Scalene.__last_signal_time.virtual,
-                Scalene.__last_signal_time.wallclock,
-                Scalene.__last_signal_time.sys,
-                Scalene.__last_signal_time.user,
+                Scalene.__last_signal_time,
                 Scalene.__is_thread_sleeping,
             )
-            elapsed = now_wallclock - Scalene.__last_signal_time.wallclock
+            elapsed = now.wallclock - Scalene.__last_signal_time.wallclock
             # Store the latest values as the previously recorded values.
-            Scalene.__last_signal_time.virtual = now_virtual
-            Scalene.__last_signal_time.wallclock = now_wallclock
-            Scalene.__last_signal_time.sys = now_sys
-            Scalene.__last_signal_time.user = now_user
+            Scalene.__last_signal_time = now
             # Restart the timer while handling any timers set by the client.
             if sys.platform != "win32":
                 if Scalene.client_timer.is_set:
@@ -917,16 +906,10 @@ class Scalene:
             None,
         ],
         new_frames: List[Tuple[FrameType, int, FrameType]],
-        now_virtual: float,
-        now_wallclock: float,
-        now_sys: float,
-        now_user: float,
+        now: TimeInfo,
         gpu_load: float,
         gpu_mem_used: float,
-        prev_virtual: float,
-        prev_wallclock: float,
-        _prev_sys: float,
-        prev_user: float,
+        prev: TimeInfo,
         is_thread_sleeping: Dict[int, bool],
     ) -> None:
         """Handle interrupts for CPU profiling."""
@@ -934,7 +917,7 @@ class Scalene:
         # before.  See the logic below.
         # If it's time to print some profiling info, do so.
 
-        if now_wallclock >= Scalene.__next_output_time:
+        if now.wallclock >= Scalene.__next_output_time:
             # Print out the profile. Set the next output time, stop
             # signals, print the profile, and then start signals
             # again.
@@ -969,11 +952,11 @@ class Scalene:
         # account for this time by tracking the elapsed (process) time
         # and compare it to the interval, and add any computed delay
         # (as if it were sampled) to the C counter.
-        elapsed_virtual = now_virtual - prev_virtual
-        elapsed_wallclock = now_wallclock - prev_wallclock
+        elapsed_virtual = now.virtual - prev.virtual
+        elapsed_wallclock = now.wallclock - prev.wallclock
         # CPU utilization is the fraction of time spent on the CPU
         # over the total time.
-        elapsed_user = now_user - prev_user
+        elapsed_user = now.user - prev.user
         if any([elapsed_virtual < 0, elapsed_wallclock < 0, elapsed_user < 0]):
             # If we get negative values, which appear to arise in some
             # multi-process settings (seen in gunicorn), skip this
