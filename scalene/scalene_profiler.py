@@ -952,19 +952,17 @@ class Scalene:
         # account for this time by tracking the elapsed (process) time
         # and compare it to the interval, and add any computed delay
         # (as if it were sampled) to the C counter.
-        elapsed_virtual = now.virtual - prev.virtual
-        elapsed_wallclock = now.wallclock - prev.wallclock
+        elapsed = now - prev
         # CPU utilization is the fraction of time spent on the CPU
         # over the total time.
-        elapsed_user = now.user - prev.user
-        if any([elapsed_virtual < 0, elapsed_wallclock < 0, elapsed_user < 0]):
+        if any([elapsed.virtual < 0, elapsed.wallclock < 0, elapsed.user < 0]):
             # If we get negative values, which appear to arise in some
             # multi-process settings (seen in gunicorn), skip this
             # sample.
             return
         cpu_utilization = 0.0
-        if elapsed_wallclock != 0:
-            cpu_utilization = elapsed_user / elapsed_wallclock
+        if elapsed.wallclock != 0:
+            cpu_utilization = elapsed.user / elapsed.wallclock
         # On multicore systems running multi-threaded native code, CPU
         # utilization can exceed 1; that is, elapsed user time is
         # longer than elapsed wallclock time. If this occurs, set
@@ -972,17 +970,17 @@ class Scalene:
         core_utilization = cpu_utilization / Scalene.__availableCPUs
         if cpu_utilization > 1.0:
             cpu_utilization = 1.0
-            elapsed_wallclock = elapsed_user
+            elapsed.wallclock = elapsed.user
         # Deal with an odd case reported here: https://github.com/plasma-umass/scalene/issues/124
         # (Note: probably obsolete now that Scalene is using the nvidia wrappers, but just in case...)
         # We don't want to report 'nan', so turn the load into 0.
         if math.isnan(gpu_load):
             gpu_load = 0.0
         assert gpu_load >= 0.0 and gpu_load <= 1.0
-        gpu_time = gpu_load * elapsed_wallclock
+        gpu_time = gpu_load * elapsed.wallclock
         Scalene.__stats.total_gpu_samples += gpu_time
         python_time = Scalene.__args.cpu_sampling_rate
-        c_time = elapsed_virtual - python_time
+        c_time = elapsed.virtual - python_time
         c_time = max(c_time, 0)
         # Now update counters (weighted) for every frame we are tracking.
         total_time = python_time + c_time
@@ -1038,9 +1036,9 @@ class Scalene:
                 core_utilization
             )
             Scalene.__stats.gpu_samples[fname][lineno] += (
-                gpu_load * elapsed_wallclock
+                gpu_load * elapsed.wallclock
             )
-            Scalene.__stats.n_gpu_samples[fname][lineno] += elapsed_wallclock
+            Scalene.__stats.n_gpu_samples[fname][lineno] += elapsed.wallclock
             Scalene.__stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
         # Now handle the rest of the threads.
