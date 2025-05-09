@@ -6,6 +6,7 @@ import pickle
 import time
 from collections import defaultdict
 from pydantic import PositiveInt
+from pydantic.dataclasses import dataclass
 from typing import (
     Any,
     Dict,
@@ -26,6 +27,17 @@ Filename = NewType("Filename", str)
 LineNumber = NewType("LineNumber", PositiveInt)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 T = TypeVar("T")
+
+@dataclass
+class ProfilingSample:
+    action: str
+    alloc_time: int
+    count: float
+    python_fraction: float
+    pointer: Address
+    filename: Filename
+    lineno: LineNumber
+    bytecode_index: ByteCodeIndex
 
 
 class ScaleneStatistics:

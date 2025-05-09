@@ -53,8 +53,6 @@ import traceback
 # For debugging purposes
 from rich.console import Console
 
-from pydantic.dataclasses import dataclass
-
 from scalene.find_browser import find_browser
 from scalene.get_module_details import _get_module_details
 from scalene.time_info import get_times, TimeInfo
@@ -92,6 +90,7 @@ from scalene.scalene_statistics import (
     Filename,
     LineNumber,
     ScaleneStatistics,
+    ProfilingSample,
 )
 from scalene.scalene_utility import (
     add_stack,
@@ -162,16 +161,6 @@ def enable_profiling() -> Generator[None, None, None]:
     yield
     stop()
 
-@dataclass
-class ProfilingSample:
-    action: str
-    alloc_time: int
-    count: float
-    python_fraction: float
-    pointer: Address
-    filename: Filename
-    lineno: LineNumber
-    bytecode_index: ByteCodeIndex
    
 class Scalene:
     """The Scalene profiler itself."""
