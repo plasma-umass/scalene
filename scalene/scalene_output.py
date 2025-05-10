@@ -373,8 +373,8 @@ class ScaleneOutput:
                     ),
                 )
 
-        null = tempfile.TemporaryFile(mode="w+")
-
+        null = open(os.devnull, "w")
+        
         console = Console(
             width=column_width,
             record=True,
