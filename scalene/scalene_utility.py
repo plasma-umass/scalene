@@ -117,7 +117,12 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         try:
             file_content = pathlib.Path(file_path).read_text(encoding="utf-8")
         except UnicodeDecodeError as e:
+            # Create a new error with just the custom message
             raise UnicodeDecodeError(
+                "utf-8",
+                b"",
+                0,
+                0,
                 f"Failed to decode file {file_path}. Ensure the file is UTF-8 encoded."
             ) from e
         return file_content
@@ -129,7 +134,12 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         try:
             profile = profile_file.read_text(encoding="utf-8")
         except UnicodeDecodeError as e:
+            # Create a new error with just the custom message
             raise UnicodeDecodeError(
+                "utf-8",
+                b"",
+                0,
+                0,
                 f"Failed to decode file {profile_file}. Ensure the file is UTF-8 encoded."
             ) from e
             
