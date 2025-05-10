@@ -28,7 +28,7 @@ LineNumber = NewType("LineNumber", PositiveInt)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 T = TypeVar("T")
 
-@dataclass
+@dataclass(frozen=True)
 class ProfilingSample:
     action: str
     alloc_time: int
@@ -39,6 +39,28 @@ class ProfilingSample:
     lineno: LineNumber
     bytecode_index: ByteCodeIndex
 
+
+@dataclass(frozen=True)
+class MemcpyProfilingSample:
+    memcpy_time: int
+    count: float
+    filename: Filename
+    lineno: LineNumber
+    bytecode_index: ByteCodeIndex
+
+    def __lt__(self, other: 'MemcpyProfilingSample') -> bool:
+        """Compare based on memcpy_time for sorting."""
+        return self.memcpy_time < other.memcpy_time
+
+    def __eq__(self, other: object) -> bool:
+        """Compare equality based on all fields."""
+        if not isinstance(other, MemcpyProfilingSample):
+            return NotImplemented
+        return (self.memcpy_time == other.memcpy_time and
+                self.count == other.count and
+                self.filename == other.filename and
+                self.lineno == other.lineno and
+                self.bytecode_index == other.bytecode_index)
 
 class ScaleneStatistics:
     # Statistics counters:

@@ -91,6 +91,7 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
     ProfilingSample,
+    MemcpyProfilingSample,
 )
 from scalene.scalene_utility import (
     add_stack,
@@ -1227,10 +1228,10 @@ class Scalene:
             is_malloc = item.action == Scalene.MALLOC_ACTION
             if item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1: 
                 continue # in previous implementations, we were adding NEWLINE to the footprint.
-                         # We should not account for this in the user-facing profile. 
-            item.count /= Scalene.BYTES_PER_MB
+                         # We should not account for this in the user-facing profile.
+            count = item.count / Scalene.BYTES_PER_MB
             if is_malloc:
-                stats.current_footprint += item.count
+                stats.current_footprint += count
                 if stats.current_footprint > stats.max_footprint:
                     stats.max_footprint = stats.current_footprint
                     stats.max_footprint_python_fraction = item.python_fraction
@@ -1240,7 +1241,7 @@ class Scalene:
                     Scalene.FREE_ACTION,
                     Scalene.FREE_ACTION_SAMPLED,
                 ]
-                stats.current_footprint -= item.count
+                stats.current_footprint -= count
                 # Force current footprint to be non-negative; this
                 # code is needed because Scalene can miss some initial
                 # allocations at startup.
@@ -1300,20 +1301,20 @@ class Scalene:
 
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[item.filename][item.lineno].add(item.bytecode_index)
-            item.count /= Scalene.BYTES_PER_MB
+            count = item.count / Scalene.BYTES_PER_MB
             if is_malloc:
-                allocs += item.count
-                curr += item.count
+                allocs += count
+                curr += count
                 assert curr <= stats.max_footprint
                 malloc_pointer = item.pointer
-                stats.memory_malloc_samples[item.filename][item.lineno] += item.count
+                stats.memory_malloc_samples[item.filename][item.lineno] += count
                 stats.memory_python_samples[item.filename][item.lineno] += (
-                    item.python_fraction * item.count
+                    item.python_fraction * count
                 )
                 stats.malloc_samples[item.filename] += 1
-                stats.total_memory_malloc_samples += item.count
+                stats.total_memory_malloc_samples += count
                 # Update current and max footprints for this file & line.
-                stats.memory_current_footprint[item.filename][item.lineno] += item.count
+                stats.memory_current_footprint[item.filename][item.lineno] += count
                 stats.memory_current_highwater_mark[item.filename][item.lineno] = max(
                     stats.memory_current_highwater_mark[item.filename][item.lineno],
                     stats.memory_current_footprint[item.filename][item.lineno],
@@ -1339,11 +1340,11 @@ class Scalene:
                     Scalene.FREE_ACTION,
                     Scalene.FREE_ACTION_SAMPLED,
                 ]
-                curr -= item.count
-                stats.memory_free_samples[item.filename][item.lineno] += item.count
+                curr -= count
+                stats.memory_free_samples[item.filename][item.lineno] += count
                 stats.memory_free_count[item.filename][item.lineno] += 1
-                stats.total_memory_free_samples += item.count
-                stats.memory_current_footprint[item.filename][item.lineno] -= item.count
+                stats.total_memory_free_samples += count
+                stats.memory_current_footprint[item.filename][item.lineno] -= count
                 # Ensure that we never drop the current footprint below 0.
                 stats.memory_current_footprint[item.filename][item.lineno] = max(
                     0, stats.memory_current_footprint[item.filename][item.lineno]
@@ -1420,7 +1421,7 @@ class Scalene:
     ) -> None:
         """Process memcpy signals (used in a ScaleneSigQueue)."""
         curr_pid = os.getpid()
-        arr: List[Tuple[str, int, int, int, int]] = []
+        arr: List[MemcpyProfilingSample] = []
         # Process the input array.
         with contextlib.suppress(ValueError):
             while Scalene.__memcpy_mapfile.read():
@@ -1435,25 +1436,19 @@ class Scalene:
                 ) = count_str.split(",")
                 if int(curr_pid) != int(pid):
                     continue
-                arr.append(
-                    (
-                        filename,
-                        int(lineno),
-                        int(bytei),
-                        int(memcpy_time_str),
-                        int(count_str2),
-                    )
-                )
+                memcpy_profiling_sample = MemcpyProfilingSample(memcpy_time=int(memcpy_time_str),
+                                                                count=int(count_str2),
+                                                                filename=Filename(filename),
+                                                                lineno=LineNumber(int(lineno)),
+                                                                bytecode_index=ByteCodeIndex(int(bytei)))
+                arr.append(memcpy_profiling_sample)
+                
         arr.sort()
 
         for item in arr:
-            filename, linenum, byteindex, _memcpy_time, count = item
-            fname = Filename(filename)
-            line_no = LineNumber(linenum)
-            byteidx = ByteCodeIndex(byteindex)
             # Add the byte index to the set for this line.
-            Scalene.__stats.bytei_map[fname][line_no].add(byteidx)
-            Scalene.__stats.memcpy_samples[fname][line_no] += int(count)
+            Scalene.__stats.bytei_map[item.filename][item.lineno].add(item.bytecode_index)
+            Scalene.__stats.memcpy_samples[item.filename][item.lineno] += int(item.count)
 
     @staticmethod
     @functools.lru_cache(None)
