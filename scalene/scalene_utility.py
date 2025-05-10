@@ -15,38 +15,40 @@ from jinja2 import Environment, FileSystemLoader
 from types import BuiltinFunctionType, FrameType, FunctionType, ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
-from scalene.scalene_statistics import Filename, LineNumber
+from scalene.scalene_statistics import Filename, LineNumber, StackFrame, StackStats
 from scalene.scalene_config import scalene_version, scalene_date
 
 
 def add_stack(
     frame: FrameType,
     should_trace: Callable[[Filename, str], bool],
-    stacks: Dict[Any, Any],
+    stacks: Dict[Tuple[StackFrame, ...], StackStats],
     python_time: float,
     c_time: float,
     cpu_samples: float,
 ) -> None:
     """Add one to the stack starting from this frame."""
-    stk: List[Tuple[str, str, int]] = list()
+    stk: List[StackFrame] = list()
     f: Optional[FrameType] = frame
     while f:
         if should_trace(Filename(f.f_code.co_filename), f.f_code.co_name):
-            stk.insert(0, (f.f_code.co_filename, get_fully_qualified_name(f), f.f_lineno))
+            stk.insert(0, StackFrame(
+                filename=str(f.f_code.co_filename),
+                function_name=str(get_fully_qualified_name(f)),
+                line_number=int(f.f_lineno)
+            ))
         f = f.f_back
-    if tuple(stk) not in stacks:
-        stacks[tuple(stk)] = (1, python_time, c_time, cpu_samples)
+    stack_tuple = tuple(stk)
+    if stack_tuple not in stacks:
+        stacks[stack_tuple] = StackStats(1, python_time, c_time, cpu_samples)
     else:
-        (prev_count, prev_python_time, prev_c_time, prev_cpu_samples) = stacks[
-            tuple(stk)
-        ]
-        stacks[tuple(stk)] = (
-            prev_count + 1,
-            prev_python_time + python_time,
-            prev_c_time + c_time,
-            prev_cpu_samples + cpu_samples,
+        prev_stats = stacks[stack_tuple]
+        stacks[stack_tuple] = StackStats(
+            prev_stats.count + 1,
+            prev_stats.python_time + python_time,
+            prev_stats.c_time + c_time,
+            prev_stats.cpu_samples + cpu_samples
         )
-        # stacks[tuple(stk)] += 1
 
 
 def on_stack(
@@ -93,14 +95,13 @@ def get_fully_qualified_name(frame: FrameType) -> Filename:
     return fn_name
 
 
-def flamegraph_format(stacks: Dict[Tuple[Any], Any]) -> str:
+def flamegraph_format(stacks: Dict[Tuple[StackFrame], StackStats]) -> str:
     """Converts stacks to a string suitable for input to Brendan Gregg's flamegraph.pl script."""
     output = ""
     for stk in stacks.keys():
-        for item in stk:
-            (fname, fn_name, lineno) = item
-            output += f"{fname} {fn_name}:{lineno};"
-        output += " " + str(stacks[stk][0])
+        for frame in stk:
+            output += f"{frame.filename} {frame.function_name}:{frame.line_number};"
+        output += " " + str(stacks[stk].count)
         output += "\n"
     return output
 

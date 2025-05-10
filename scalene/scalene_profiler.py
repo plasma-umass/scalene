@@ -98,7 +98,8 @@ from scalene.scalene_utility import (
     generate_html,
     get_fully_qualified_name,
     on_stack,
-    patch_module_functions_with_signal_blocking
+    patch_module_functions_with_signal_blocking,
+    flamegraph_format
 )
 
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
