@@ -3,7 +3,7 @@
 # branches []
 
 import pytest
-from scalene.scalene_statistics import ScaleneStatistics
+from scalene.scalene_statistics import ScaleneStatistics, StackFrame, StackStats
 
 @pytest.fixture
 def scalene_statistics():
@@ -83,3 +83,10 @@ def test_clear_scalene_statistics(scalene_statistics):
     assert scalene_statistics.allocation_velocity == (0.0, 0.0)
     assert scalene_statistics.per_line_footprint_samples == {}
     assert scalene_statistics.bytei_map == {}
+
+def test_scalene_statistics():
+    stats = ScaleneStatistics()
+    stats.stacks[(StackFrame('test.py', 'test_func', 1),)] = StackStats(1, 1.0, 0.5, 2)
+    assert len(stats.stacks) == 1
+    stats.clear()
+    assert len(stats.stacks) == 0

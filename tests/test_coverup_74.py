@@ -4,7 +4,7 @@
 
 import pytest
 from collections import defaultdict
-from scalene.scalene_statistics import ScaleneStatistics
+from scalene.scalene_statistics import ScaleneStatistics, StackFrame, StackStats
 
 @pytest.fixture
 def scalene_stats():
@@ -12,11 +12,13 @@ def scalene_stats():
     yield stats
     # No cleanup required as the object will be garbage collected
 
-def test_scalene_statistics(scalene_stats):
+def test_scalene_statistics():
+    scalene_stats = ScaleneStatistics()
+    assert isinstance(scalene_stats.stacks, defaultdict)
+    assert len(scalene_stats.stacks) == 0
     assert scalene_stats.start_time == 0
     assert scalene_stats.elapsed_time == 0
     assert scalene_stats.alloc_samples == 0
-    assert isinstance(scalene_stats.stacks, defaultdict)
     assert isinstance(scalene_stats.cpu_samples_python, defaultdict)
     assert isinstance(scalene_stats.cpu_samples_c, defaultdict)
     assert isinstance(scalene_stats.gpu_samples, defaultdict)

@@ -6,6 +6,7 @@ import pickle
 import time
 from collections import defaultdict
 from pydantic import PositiveInt
+from pydantic.dataclasses import dataclass
 from typing import (
     Any,
     Dict,
@@ -15,6 +16,7 @@ from typing import (
     Set,
     Tuple,
     TypeVar,
+    Union,
 )
 
 import cloudpickle
@@ -27,6 +29,64 @@ LineNumber = NewType("LineNumber", PositiveInt)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 T = TypeVar("T")
 
+@dataclass(frozen=True)
+class ProfilingSample:
+    action: str
+    alloc_time: int
+    count: float
+    python_fraction: float
+    pointer: Address
+    filename: Filename
+    lineno: LineNumber
+    bytecode_index: ByteCodeIndex
+
+
+@dataclass(frozen=True)
+class MemcpyProfilingSample:
+    memcpy_time: int
+    count: float
+    filename: Filename
+    lineno: LineNumber
+    bytecode_index: ByteCodeIndex
+
+    def __lt__(self, other: 'MemcpyProfilingSample') -> bool:
+        """Compare based on memcpy_time for sorting."""
+        return self.memcpy_time < other.memcpy_time
+
+    def __eq__(self, other: object) -> bool:
+        """Compare equality based on all fields."""
+        if not isinstance(other, MemcpyProfilingSample):
+            return NotImplemented
+        return (self.memcpy_time == other.memcpy_time and
+                self.count == other.count and
+                self.filename == other.filename and
+                self.lineno == other.lineno and
+                self.bytecode_index == other.bytecode_index)
+
+@dataclass
+class StackFrame:
+    """Represents a single frame in the stack."""
+    filename: str  # Using str since Filename is a NewType
+    function_name: str  # Using str since Filename is a NewType
+    line_number: int  # Using int since LineNumber is a NewType
+
+    def __hash__(self) -> int:
+        return hash((self.filename, self.function_name, self.line_number))
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, StackFrame):
+            return False
+        return (self.filename == other.filename and 
+                self.function_name == other.function_name and 
+                self.line_number == other.line_number)
+
+@dataclass
+class StackStats:
+    """Represents statistics for a stack."""
+    count: int
+    python_time: float
+    c_time: float
+    cpu_samples: float
 
 class ScaleneStatistics:
     # Statistics counters:
@@ -42,7 +102,7 @@ class ScaleneStatistics:
         self.alloc_samples: int = 0
 
         #  full stacks taken during CPU samples, together with number of hits
-        self.stacks: Dict[Tuple[Any], Any] = defaultdict(None)
+        self.stacks: Dict[Tuple[StackFrame, ...], StackStats] = defaultdict(lambda: StackStats(0, 0.0, 0.0, 0.0))
 
         #   CPU samples for each location in the program
         #   spent in the interpreter

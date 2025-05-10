@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt, Positiv
 from typing import Any, Callable, Dict, List, Optional
 
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
-from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
+from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics, StackStats
 from scalene.scalene_analysis import ScaleneAnalysis
 
 
@@ -381,20 +381,28 @@ class ScaleneJSON:
 
         # Process the stacks to normalize by total number of CPU samples.
         for stk in stats.stacks.keys():
-            (count, python_time, c_time, cpu_samples) = stats.stacks[stk]
-            stats.stacks[stk] = (
-                count,
-                python_time / stats.total_cpu_samples,
-                c_time / stats.total_cpu_samples,
-                cpu_samples / stats.total_cpu_samples,
+            stack_stats = stats.stacks[stk]
+            stats.stacks[stk] = StackStats(
+                stack_stats.count,
+                stack_stats.python_time / stats.total_cpu_samples,
+                stack_stats.c_time / stats.total_cpu_samples,
+                stack_stats.cpu_samples / stats.total_cpu_samples,
             )
 
         # Convert stacks into a representation suitable for JSON dumping.
         stks = []
         for stk in stats.stacks.keys():
             this_stk: List[str] = []
-            this_stk.extend(stk)
-            stks.append((this_stk, stats.stacks[stk]))
+            this_stk.extend(str(frame) for frame in stk)
+            stack_stats = stats.stacks[stk]
+            # Convert StackStats to a dictionary
+            stack_stats_dict = {
+                "count": stack_stats.count,
+                "python_time": stack_stats.python_time,
+                "c_time": stack_stats.c_time,
+                "cpu_samples": stack_stats.cpu_samples
+            }
+            stks.append((this_stk, stack_stats_dict))
 
         output: Dict[str, Any] = {
             "program": program,
