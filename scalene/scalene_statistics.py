@@ -276,7 +276,7 @@ class ScaleneStatistics:
 
         # maps byte indices to line numbers (collected at runtime)
         # [filename][lineno] -> set(byteindex)
-        self.bytei_map: Dict[Any, Dict[Any, Set["ByteCodeIndex"]]] = defaultdict(lambda: defaultdict(lambda: set()))
+        self.bytei_map: Dict[Any, Dict[Any, Set["ByteCodeIndex"]]] = defaultdict(lambda: defaultdict(set))
 
         # maps filenames and line numbers to functions (collected at runtime)
         # [filename][lineno] -> function name
