@@ -5,6 +5,7 @@ import pathlib
 import pickle
 import time
 from collections import defaultdict
+from functools import total_ordering
 from pydantic import PositiveInt
 from typing import (
     Any,
@@ -49,6 +50,7 @@ class ProfilingSample:
         self.lineno = lineno
         self.bytecode_index = bytecode_index
 
+@total_ordering
 class MemcpyProfilingSample:
     def __init__(
         self,
@@ -313,7 +315,7 @@ class ScaleneStatistics:
 
         # maps byte indices to line numbers (collected at runtime)
         # [filename][lineno] -> set(byteindex)
-        self.bytei_map: Dict[Any, Dict[Any, Set["ByteCodeIndex"]]] = defaultdict(lambda: defaultdict(lambda: set()))
+        self.bytei_map: Dict[Any, Dict[Any, Set["ByteCodeIndex"]]] = defaultdict(lambda: defaultdict(set))
 
         # maps filenames and line numbers to functions (collected at runtime)
         # [filename][lineno] -> function name
