@@ -257,6 +257,45 @@ class GPUStatistics:
         self.total_gpu_samples = 0.0
 
 class ScaleneStatistics:
+    @classmethod
+    def _get_payload_contents(cls) -> List[str]:
+        """Generate the list of payload contents programmatically."""
+        contents = []
+        
+        # Memory statistics
+        memory_stats = MemoryStatistics()
+        for attr in dir(memory_stats):
+            if not attr.startswith('_') and not callable(getattr(memory_stats, attr)):
+                contents.append(f"memory_stats.{attr}")
+        
+        # CPU statistics
+        cpu_stats = CPUStatistics()
+        for attr in dir(cpu_stats):
+            if not attr.startswith('_') and not callable(getattr(cpu_stats, attr)):
+                contents.append(f"cpu_stats.{attr}")
+        
+        # GPU statistics
+        gpu_stats = GPUStatistics()
+        for attr in dir(gpu_stats):
+            if not attr.startswith('_') and not callable(getattr(gpu_stats, attr)):
+                contents.append(f"gpu_stats.{attr}")
+        
+        # General statistics (attributes directly on ScaleneStatistics)
+        # Create a temporary instance to inspect attributes
+        temp_stats = cls()
+        for attr in dir(temp_stats):
+            # Skip private attributes, callables, and attributes that are already covered by stats classes
+            if (not attr.startswith('_') and 
+                not callable(getattr(temp_stats, attr)) and
+                not attr.startswith(('memory_stats', 'cpu_stats', 'gpu_stats')) and
+                attr not in ('start_time', 'payload_contents')):
+                contents.append(attr)
+        
+        return contents
+
+    # Initialize payload_contents after class definition
+    payload_contents: List[str] = []
+
     def __init__(self) -> None:
         # time the profiling started
         self.start_time: float = 0
@@ -384,45 +423,18 @@ class ScaleneStatistics:
 
         return fn_stats
 
-    payload_contents = [
-        "max_footprint",
-        "max_footprint_loc",
-        "current_footprint",
-        "elapsed_time",
-        "alloc_samples",
-        "stacks",
-        "total_cpu_samples",
-        "cpu_samples_c",
-        "cpu_samples_python",
-        "bytei_map",
-        "cpu_samples",
-        "cpu_utilization",
-        "core_utilization",
-        "memory_malloc_samples",
-        "memory_python_samples",
-        "memory_free_samples",
-        "memcpy_samples",
-        "memory_max_footprint",
-        "per_line_footprint_samples",
-        "total_memory_free_samples",
-        "total_memory_malloc_samples",
-        "memory_footprint_samples",
-        "function_map",
-        "firstline_map",
-        "gpu_samples",
-        "n_gpu_samples",
-        "gpu_mem_samples",
-        "total_gpu_samples",
-        "memory_malloc_count",
-        "memory_free_count",
-    ]
-    # To be added: __malloc_samples
-
     def output_stats(self, pid: int, dir_name: pathlib.Path) -> None:
         """Output statistics for a particular process to a given directory."""
-        payload: List[Any] = [
-            getattr(self, n) for n in ScaleneStatistics.payload_contents
-        ]
+        payload: List[Any] = []
+        for attr_path in ScaleneStatistics.payload_contents:
+            # Split the path into parts
+            parts = attr_path.split('.')
+            # Start with self
+            value = self
+            # Traverse the path
+            for part in parts:
+                value = getattr(value, part)
+            payload.append(value)
 
         # Create a file in the Python alias directory with the relevant info.
         out_filename = os.path.join(
@@ -565,3 +577,6 @@ class ScaleneStatistics:
                         self.function_map[k] = val
                 self.firstline_map.update(x.firstline_map)
             os.remove(f)
+
+# Initialize payload_contents after class definition
+ScaleneStatistics.payload_contents = ScaleneStatistics._get_payload_contents()
