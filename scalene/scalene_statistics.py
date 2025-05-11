@@ -5,6 +5,7 @@ import pathlib
 import pickle
 import time
 from collections import defaultdict
+from functools import total_ordering
 from pydantic import PositiveInt
 from typing import (
     Any,
@@ -49,6 +50,7 @@ class ProfilingSample:
         self.lineno = lineno
         self.bytecode_index = bytecode_index
 
+@total_ordering
 class MemcpyProfilingSample:
     def __init__(
         self,
