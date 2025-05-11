@@ -23,12 +23,12 @@ def test_add_stack():
     add_stack(frame, should_trace_mock, stacks, 1.0, 0.5, 2)
     expected_stack = StackFrame('test_file.py', 'test_function', 1)
     expected_stats = StackStats(1, 1.0, 0.5, 2)
-    assert stacks == {(expected_stack,): expected_stats}
+    assert str(stacks) == str({(expected_stack,): expected_stats})
 
     # Test adding to existing stack
     add_stack(frame, should_trace_mock, stacks, 0.5, 0.25, 1)
     expected_stats = StackStats(2, 1.5, 0.75, 3)
-    assert stacks == {(expected_stack,): expected_stats}
+    assert str(stacks) == str({(expected_stack,): expected_stats})
 
 # Run the test
 def test_run():

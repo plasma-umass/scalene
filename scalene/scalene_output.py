@@ -175,7 +175,7 @@ class ScaleneOutput:
 
             if random_samples:
                 _, _, spark_str = sparkline.generate(
-                    sparkline_samples, 0, stats.max_footprint
+                    sparkline_samples, 0, stats.memory_stats.max_footprint
                 )
 
             # Red highlight
@@ -319,19 +319,19 @@ class ScaleneOutput:
             stats.merge_stats(python_alias_dir)
         # If we've collected any samples, dump them.
         if (
-            not stats.total_cpu_samples
-            and not stats.total_memory_malloc_samples
-            and not stats.total_memory_free_samples
+            not stats.cpu_stats.total_cpu_samples
+            and not stats.memory_stats.total_memory_malloc_samples
+            and not stats.memory_stats.total_memory_free_samples
         ):
             # Nothing to output.
             return False
         # Collect all instrumented filenames.
         all_instrumented_files: List[Filename] = list(
             set(
-                list(stats.cpu_samples_python.keys())
-                + list(stats.cpu_samples_c.keys())
-                + list(stats.memory_free_samples.keys())
-                + list(stats.memory_malloc_samples.keys())
+                list(stats.cpu_stats.cpu_samples_python.keys())
+                + list(stats.cpu_stats.cpu_samples_c.keys())
+                + list(stats.memory_stats.memory_free_samples.keys())
+                + list(stats.memory_stats.memory_malloc_samples.keys())
             )
         )
         if not all_instrumented_files:
@@ -340,7 +340,7 @@ class ScaleneOutput:
         mem_usage_line: Union[Text, str] = ""
         growth_rate = 0.0
         if profile_memory:
-            samples = stats.memory_footprint_samples
+            samples = stats.memory_stats.memory_footprint_samples
             if len(samples) > 0:
                 # Randomly downsample samples
                 if len(samples) > ScaleneOutput.max_sparkline_len_file:
@@ -356,20 +356,20 @@ class ScaleneOutput:
                 _, _, spark_str = sparkline.generate(
                     sparkline_samples[: ScaleneOutput.max_sparkline_len_file],
                     0,
-                    stats.max_footprint,
+                    stats.memory_stats.max_footprint,
                 )
                 # Compute growth rate (slope), between 0 and 1.
-                if stats.allocation_velocity[1] > 0:
+                if stats.memory_stats.allocation_velocity[1] > 0:
                     growth_rate = (
                         100.0
-                        * stats.allocation_velocity[0]
-                        / stats.allocation_velocity[1]
+                        * stats.memory_stats.allocation_velocity[0]
+                        / stats.memory_stats.allocation_velocity[1]
                     )
                 mem_usage_line = Text.assemble(
                     "Memory usage: ",
                     ((spark_str, self.memory_color)),
                     (
-                        f" (max: {ScaleneJSON.memory_consumed_str(stats.max_footprint)}, growth rate: {growth_rate:3.0f}%)\n"
+                        f" (max: {ScaleneJSON.memory_consumed_str(stats.memory_stats.max_footprint)}, growth rate: {growth_rate:3.0f}%)\n"
                     ),
                 )
 
@@ -387,19 +387,19 @@ class ScaleneOutput:
         # Sort in descending order of CPU cycles, and then ascending order by filename
         for fname in sorted(
             all_instrumented_files,
-            key=lambda f: (-(stats.cpu_samples[f]), f),
+            key=lambda f: (-(stats.cpu_stats.cpu_samples[f]), f),
         ):
             fname = Filename(fname)
             try:
                 percent_cpu_time = (
-                    100 * stats.cpu_samples[fname] / stats.total_cpu_samples
+                    100 * stats.cpu_stats.cpu_samples[fname] / stats.cpu_stats.total_cpu_samples
                 )
             except ZeroDivisionError:
                 percent_cpu_time = 0
 
             # Ignore files responsible for less than some percent of execution time and fewer than a threshold # of mallocs.
             if (
-                stats.malloc_samples[fname] < ScaleneJSON.malloc_threshold
+                stats.memory_stats.malloc_samples[fname] < ScaleneJSON.malloc_threshold
                 and percent_cpu_time < ScaleneJSON.cpu_percent_threshold
             ):
                 continue
@@ -426,8 +426,8 @@ class ScaleneOutput:
 
             # Print header.
             percent_cpu_time = (
-                (100 * stats.cpu_samples[fname] / stats.total_cpu_samples)
-                if stats.total_cpu_samples
+                (100 * stats.cpu_stats.cpu_samples[fname] / stats.cpu_stats.total_cpu_samples)
+                if stats.cpu_stats.total_cpu_samples
                 else 0
             )
 
@@ -577,10 +577,10 @@ class ScaleneOutput:
             print_fn_summary = False
             # Check CPU samples and memory samples.
             all_samples = set()
-            all_samples |= set(fn_stats.cpu_samples_python.keys())
-            all_samples |= set(fn_stats.cpu_samples_c.keys())
-            all_samples |= set(fn_stats.memory_malloc_samples.keys())
-            all_samples |= set(fn_stats.memory_free_samples.keys())
+            all_samples |= set(fn_stats.cpu_stats.cpu_samples_python.keys())
+            all_samples |= set(fn_stats.cpu_stats.cpu_samples_c.keys())
+            all_samples |= set(fn_stats.memory_stats.memory_malloc_samples.keys())
+            all_samples |= set(fn_stats.memory_stats.memory_free_samples.keys())
             for fn_name in all_samples:
                 if fn_name == fname:
                     continue
@@ -606,7 +606,7 @@ class ScaleneOutput:
                     tbl.add_row("", "", "", "", txt)
 
                 for fn_name in sorted(
-                    fn_stats.cpu_samples_python,
+                    fn_stats.cpu_stats.cpu_samples_python,
                     key=lambda k: stats.firstline_map[k],
                 ):
                     if fn_name == fname:
@@ -640,12 +640,12 @@ class ScaleneOutput:
             # Compute AVERAGE memory consumption.
             avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
-                n_malloc_mb = stats.memory_aggregate_footprint[fname][line_no]
-                if count := stats.memory_malloc_count[fname][line_no]:
-                    avg_mallocs[line_no] = n_malloc_mb / count
+                n_malloc_mb = stats.memory_stats.memory_aggregate_footprint[fname][line_no]
+                if count := stats.memory_stats.memory_malloc_count[fname][line_no]:
+                    avg_mallocs[LineNumber(line_no)] = n_malloc_mb / count
                 else:
                     # Setting to n_malloc_mb addresses the edge case where this allocation is the last line executed.
-                    avg_mallocs[line_no] = n_malloc_mb
+                    avg_mallocs[LineNumber(line_no)] = n_malloc_mb
 
             avg_mallocs = OrderedDict(
                 sorted(avg_mallocs.items(), key=itemgetter(1), reverse=True)
@@ -654,7 +654,7 @@ class ScaleneOutput:
             # Compute (really, aggregate) PEAK memory consumption.
             peak_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
-                peak_mallocs[line_no] = stats.memory_max_footprint[fname][
+                peak_mallocs[LineNumber(line_no)] = stats.memory_stats.memory_max_footprint[fname][
                     line_no
                 ]
 
