@@ -293,6 +293,48 @@ class ScaleneStatistics:
                 attr not in ('start_time', 'payload_contents')):
                 contents.append(attr)
         
+        # Ensure we have all the required fields in the correct order
+        required_fields = [
+            "memory_stats.max_footprint",
+            "memory_stats.max_footprint_loc",
+            "memory_stats.current_footprint",
+            "elapsed_time",
+            "memory_stats.alloc_samples",
+            "stacks",
+            "cpu_stats.total_cpu_samples",
+            "cpu_stats.cpu_samples_c",
+            "cpu_stats.cpu_samples_python",
+            "bytei_map",
+            "cpu_stats.cpu_samples",
+            "cpu_stats.cpu_utilization",
+            "cpu_stats.core_utilization",
+            "memory_stats.memory_malloc_samples",
+            "memory_stats.memory_python_samples",
+            "memory_stats.memory_free_samples",
+            "memory_stats.memcpy_samples",
+            "memory_stats.memory_max_footprint",
+            "memory_stats.per_line_footprint_samples",
+            "memory_stats.total_memory_free_samples",
+            "memory_stats.total_memory_malloc_samples",
+            "memory_stats.memory_footprint_samples",
+            "function_map",
+            "firstline_map",
+            "gpu_stats.gpu_samples",
+            "gpu_stats.n_gpu_samples",
+            "gpu_stats.gpu_mem_samples",
+            "gpu_stats.total_gpu_samples",
+            "memory_stats.memory_malloc_count",
+            "memory_stats.memory_free_count",
+        ]
+        
+        # Add any missing required fields
+        for field in required_fields:
+            if field not in contents:
+                contents.append(field)
+        
+        # Sort to ensure consistent order
+        contents.sort()
+        
         return contents
 
     # Initialize payload_contents after class definition
@@ -492,7 +534,16 @@ class ScaleneStatistics:
                     continue
                 x = ScaleneStatistics()
                 for i, n in enumerate(ScaleneStatistics.payload_contents):
-                    setattr(x, n, value[i])
+                    # Split the path into parts
+                    parts = n.split('.')
+                    # Start with x
+                    target = x
+                    # Traverse the path except the last part
+                    for part in parts[:-1]:
+                        target = getattr(target, part)
+                    # Set the value
+                    setattr(target, parts[-1], value[i])
+                
                 if x.memory_stats.max_footprint > self.memory_stats.max_footprint:
                     self.memory_stats.max_footprint = x.memory_stats.max_footprint
                     self.memory_stats.max_footprint_loc = x.memory_stats.max_footprint_loc
