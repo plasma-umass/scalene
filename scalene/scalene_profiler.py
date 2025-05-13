@@ -60,10 +60,7 @@ from scalene.redirect_python import redirect_python
 
 from collections import defaultdict
 from types import (
-    BuiltinFunctionType,
     FrameType,
-    FunctionType,
-    ModuleType,
 )
 from typing import (
     Any,
@@ -93,12 +90,16 @@ from scalene.scalene_statistics import (
     Filename,
     LineNumber,
     ScaleneStatistics,
+    ProfilingSample,
+    MemcpyProfilingSample,
 )
 from scalene.scalene_utility import (
     add_stack,
     generate_html,
     get_fully_qualified_name,
     on_stack,
+    patch_module_functions_with_signal_blocking,
+    flamegraph_format
 )
 
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
@@ -162,29 +163,7 @@ def enable_profiling() -> Generator[None, None, None]:
     yield
     stop()
 
-def patch_module_functions_with_signal_blocking(module: ModuleType, signal_to_block: signal.Signals) -> None:
-    """Patch all functions in the given module to block the specified signal during execution."""
-    
-    def signal_blocking_wrapper(func: Union[BuiltinFunctionType, FunctionType]) -> Any:
-        """Wrap a function to block the specified signal during its execution."""
-        @functools.wraps(func)
-        def wrapped(*args: Any, **kwargs: Any) -> Any:
-            # Block the specified signal temporarily
-            original_sigmask = signal.pthread_sigmask(signal.SIG_BLOCK, [signal_to_block])
-            try:
-                return func(*args, **kwargs)
-            finally:
-                # Restore original signal mask
-                signal.pthread_sigmask(signal.SIG_SETMASK, original_sigmask)
-        return wrapped
-
-    # Iterate through all attributes of the module
-    for attr_name in dir(module):
-        attr = getattr(module, attr_name)
-        if isinstance(attr, BuiltinFunctionType) or isinstance(attr, FunctionType):
-            wrapped_attr = signal_blocking_wrapper(attr)
-            setattr(module, attr_name, wrapped_attr)
-
+   
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -751,18 +730,16 @@ class Scalene:
         """Handle CPU signals."""
         try:
             # Get current time stats.
-            now_sys, now_user = get_times()
-            now_virtual = time.process_time()
-            now_wallclock = time.perf_counter()
+            now = TimeInfo()
+            now.sys, now.user = get_times()
+            now.virtual = time.process_time()
+            now.wallclock = time.perf_counter()
             if (
                 Scalene.__last_signal_time.virtual == 0
                 or Scalene.__last_signal_time.wallclock == 0
             ):
                 # Initialization: store values and update on the next pass.
-                Scalene.__last_signal_time.virtual = now_virtual
-                Scalene.__last_signal_time.wallclock = now_wallclock
-                Scalene.__last_signal_time.sys = now_sys
-                Scalene.__last_signal_time.user = now_user
+                Scalene.__last_signal_time = now
                 if sys.platform != "win32":
                     Scalene.__orig_setitimer(
                         Scalene.__signals.cpu_timer_signal,
@@ -779,24 +756,15 @@ class Scalene:
             Scalene.process_cpu_sample(
                 signum,
                 Scalene.compute_frames_to_record(),
-                now_virtual,
-                now_wallclock,
-                now_sys,
-                now_user,
+                now,
                 gpu_load,
                 gpu_mem_used,
-                Scalene.__last_signal_time.virtual,
-                Scalene.__last_signal_time.wallclock,
-                Scalene.__last_signal_time.sys,
-                Scalene.__last_signal_time.user,
+                Scalene.__last_signal_time,
                 Scalene.__is_thread_sleeping,
             )
-            elapsed = now_wallclock - Scalene.__last_signal_time.wallclock
+            elapsed = now.wallclock - Scalene.__last_signal_time.wallclock
             # Store the latest values as the previously recorded values.
-            Scalene.__last_signal_time.virtual = now_virtual
-            Scalene.__last_signal_time.wallclock = now_wallclock
-            Scalene.__last_signal_time.sys = now_sys
-            Scalene.__last_signal_time.user = now_user
+            Scalene.__last_signal_time = now
             # Restart the timer while handling any timers set by the client.
             if sys.platform != "win32":
                 if Scalene.client_timer.is_set:
@@ -832,8 +800,6 @@ class Scalene:
     @staticmethod
     def output_profile(program_args: Optional[List[str]] = None) -> bool:
         """Output the profile. Returns true iff there was any info reported the profile."""
-        # sourcery skip: inline-immediately-returned-variable
-        # print(flamegraph_format(Scalene.__stats.stacks))
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
                 Scalene.__program_being_profiled,
@@ -860,7 +826,6 @@ class Scalene:
                     os.path.dirname(Scalene.__args.outfile),
                     os.path.splitext(os.path.basename(Scalene.__args.outfile))[0] + ".json"
                 )
-                # outfile = Scalene.__args.outfile
             # If there was no output file specified, print to the console.
             if not outfile:
                 if sys.platform == "win32":
@@ -929,7 +894,8 @@ class Scalene:
 
     @staticmethod
     def print_stacks() -> None:
-        print(Scalene.__stats.stacks)
+        for f in Scalene.__stats.stacks:
+            print(f, Scalene.__stats.stacks[f])
 
     @staticmethod
     def process_cpu_sample(
@@ -940,16 +906,10 @@ class Scalene:
             None,
         ],
         new_frames: List[Tuple[FrameType, int, FrameType]],
-        now_virtual: float,
-        now_wallclock: float,
-        now_sys: float,
-        now_user: float,
+        now: TimeInfo,
         gpu_load: float,
         gpu_mem_used: float,
-        prev_virtual: float,
-        prev_wallclock: float,
-        _prev_sys: float,
-        prev_user: float,
+        prev: TimeInfo,
         is_thread_sleeping: Dict[int, bool],
     ) -> None:
         """Handle interrupts for CPU profiling."""
@@ -957,7 +917,7 @@ class Scalene:
         # before.  See the logic below.
         # If it's time to print some profiling info, do so.
 
-        if now_wallclock >= Scalene.__next_output_time:
+        if now.wallclock >= Scalene.__next_output_time:
             # Print out the profile. Set the next output time, stop
             # signals, print the profile, and then start signals
             # again.
@@ -992,19 +952,17 @@ class Scalene:
         # account for this time by tracking the elapsed (process) time
         # and compare it to the interval, and add any computed delay
         # (as if it were sampled) to the C counter.
-        elapsed_virtual = now_virtual - prev_virtual
-        elapsed_wallclock = now_wallclock - prev_wallclock
+        elapsed = now - prev
         # CPU utilization is the fraction of time spent on the CPU
         # over the total time.
-        elapsed_user = now_user - prev_user
-        if any([elapsed_virtual < 0, elapsed_wallclock < 0, elapsed_user < 0]):
+        if any([elapsed.virtual < 0, elapsed.wallclock < 0, elapsed.user < 0]):
             # If we get negative values, which appear to arise in some
             # multi-process settings (seen in gunicorn), skip this
             # sample.
             return
         cpu_utilization = 0.0
-        if elapsed_wallclock != 0:
-            cpu_utilization = elapsed_user / elapsed_wallclock
+        if elapsed.wallclock != 0:
+            cpu_utilization = elapsed.user / elapsed.wallclock
         # On multicore systems running multi-threaded native code, CPU
         # utilization can exceed 1; that is, elapsed user time is
         # longer than elapsed wallclock time. If this occurs, set
@@ -1012,17 +970,17 @@ class Scalene:
         core_utilization = cpu_utilization / Scalene.__availableCPUs
         if cpu_utilization > 1.0:
             cpu_utilization = 1.0
-            elapsed_wallclock = elapsed_user
+            elapsed.wallclock = elapsed.user
         # Deal with an odd case reported here: https://github.com/plasma-umass/scalene/issues/124
         # (Note: probably obsolete now that Scalene is using the nvidia wrappers, but just in case...)
         # We don't want to report 'nan', so turn the load into 0.
         if math.isnan(gpu_load):
             gpu_load = 0.0
         assert gpu_load >= 0.0 and gpu_load <= 1.0
-        gpu_time = gpu_load * elapsed_wallclock
-        Scalene.__stats.total_gpu_samples += gpu_time
+        gpu_time = gpu_load * elapsed.wallclock
+        Scalene.__stats.gpu_stats.total_gpu_samples += gpu_time
         python_time = Scalene.__args.cpu_sampling_rate
-        c_time = elapsed_virtual - python_time
+        c_time = elapsed.virtual - python_time
         c_time = max(c_time, 0)
         # Now update counters (weighted) for every frame we are tracking.
         total_time = python_time + c_time
@@ -1066,22 +1024,22 @@ class Scalene:
         # print(fname, lineno)
         main_tid = cast(int, threading.main_thread().ident)
         if not is_thread_sleeping[main_tid]:
-            Scalene.__stats.cpu_samples_python[fname][
+            Scalene.__stats.cpu_stats.cpu_samples_python[fname][
                 lineno
             ] += average_python_time
-            Scalene.__stats.cpu_samples_c[fname][lineno] += average_c_time
-            Scalene.__stats.cpu_samples[fname] += average_cpu_time
-            Scalene.__stats.cpu_utilization[fname][lineno].push(
+            Scalene.__stats.cpu_stats.cpu_samples_c[fname][lineno] += average_c_time
+            Scalene.__stats.cpu_stats.cpu_samples[fname] += average_cpu_time
+            Scalene.__stats.cpu_stats.cpu_utilization[fname][lineno].push(
                 cpu_utilization
             )
-            Scalene.__stats.core_utilization[fname][lineno].push(
+            Scalene.__stats.cpu_stats.core_utilization[fname][lineno].push(
                 core_utilization
             )
-            Scalene.__stats.gpu_samples[fname][lineno] += (
-                gpu_load * elapsed_wallclock
+            Scalene.__stats.gpu_stats.gpu_samples[fname][lineno] += (
+                gpu_load * elapsed.wallclock
             )
-            Scalene.__stats.n_gpu_samples[fname][lineno] += elapsed_wallclock
-            Scalene.__stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
+            Scalene.__stats.gpu_stats.n_gpu_samples[fname][lineno] += elapsed.wallclock
+            Scalene.__stats.gpu_stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
         # Now handle the rest of the threads.
         for frame, tident, orig_frame in new_frames:
@@ -1115,17 +1073,17 @@ class Scalene:
                 ByteCodeIndex(orig_frame.f_lasti),
             ):
                 # It is. Attribute time to native.
-                Scalene.__stats.cpu_samples_c[fname][lineno] += normalized_time
+                Scalene.__stats.cpu_stats.cpu_samples_c[fname][lineno] += normalized_time
             else:
                 # Not in a call function so we attribute the time to Python.
-                Scalene.__stats.cpu_samples_python[fname][
+                Scalene.__stats.cpu_stats.cpu_samples_python[fname][
                     lineno
                 ] += normalized_time
-            Scalene.__stats.cpu_samples[fname] += normalized_time
-            Scalene.__stats.cpu_utilization[fname][lineno].push(
+            Scalene.__stats.cpu_stats.cpu_samples[fname] += normalized_time
+            Scalene.__stats.cpu_stats.cpu_utilization[fname][lineno].push(
                 cpu_utilization
             )
-            Scalene.__stats.core_utilization[fname][lineno].push(
+            Scalene.__stats.cpu_stats.core_utilization[fname][lineno].push(
                 core_utilization
             )
 
@@ -1133,7 +1091,7 @@ class Scalene:
         del new_frames[:]
         del new_frames
         del is_thread_sleeping
-        Scalene.__stats.total_cpu_samples += total_time
+        Scalene.__stats.cpu_stats.total_cpu_samples += total_time
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -1226,18 +1184,7 @@ class Scalene:
         stats = Scalene.__stats
         curr_pid = os.getpid()
         # Process the input array from where we left off reading last time.
-        arr: List[
-            Tuple[
-                int,
-                str,
-                float,
-                float,
-                str,
-                Filename,
-                LineNumber,
-                ByteCodeIndex,
-            ]
-        ] = []
+        arr: List[ProfilingSample] = []
         with contextlib.suppress(FileNotFoundError):
             while Scalene.__malloc_mapfile.read():
                 count_str = Scalene.__malloc_mapfile.get_str()
@@ -1256,84 +1203,73 @@ class Scalene:
                 ) = count_str.split(",")
                 if int(curr_pid) != int(pid):
                     continue
-                arr.append(
-                    (
-                        int(alloc_time_str),
-                        action,
-                        float(count_str),
-                        float(python_fraction_str),
-                        pointer,
-                        Filename(reported_fname),
-                        LineNumber(int(reported_lineno)),
-                        ByteCodeIndex(int(bytei_str)),
-                    )
-                )
+                if int(reported_lineno) == -1:
+                    continue
+                profiling_sample = ProfilingSample(action = action,
+                                                   alloc_time = int(alloc_time_str),
+                                                   count = int(count_str),
+                                                   python_fraction =  float(python_fraction_str),
+                                                   pointer = Address(pointer),
+                                                   filename = Filename(reported_fname),
+                                                   lineno = LineNumber(int(reported_lineno)),
+                                                   bytecode_index = ByteCodeIndex(int(bytei_str)))
+                arr.append(profiling_sample)
 
-        stats.alloc_samples += len(arr)
+        stats.memory_stats.alloc_samples += len(arr)
 
         # Iterate through the array to compute the new current footprint
         # and update the global __memory_footprint_samples. Since on some systems,
         # we get free events before mallocs, force `before` to always be at least 0.
-        before = max(stats.current_footprint, 0)
-        prevmax = stats.max_footprint
+        before = max(stats.memory_stats.current_footprint, 0)
+        prevmax = stats.memory_stats.max_footprint
         freed_last_trigger = 0
         for item in arr:
-            (
-                _alloc_time,
-                action,
-                count,
-                python_fraction,
-                pointer,
-                fname,
-                lineno,
-                bytei,
-            ) = item
-            is_malloc = action == Scalene.MALLOC_ACTION
-            if count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1: 
+            is_malloc = item.action == Scalene.MALLOC_ACTION
+            if item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1: 
                 continue # in previous implementations, we were adding NEWLINE to the footprint.
-                         # We should not account for this in the user-facing profile. 
-            count /= Scalene.BYTES_PER_MB
+                         # We should not account for this in the user-facing profile.
+            count = item.count / Scalene.BYTES_PER_MB
             if is_malloc:
-                stats.current_footprint += count
-                if stats.current_footprint > stats.max_footprint:
-                    stats.max_footprint = stats.current_footprint
-                    stats.max_footprint_python_fraction = python_fraction
-                    stats.max_footprint_loc = (fname, lineno)
+                stats.memory_stats.current_footprint += count
+                if stats.memory_stats.current_footprint > stats.memory_stats.max_footprint:
+                    stats.memory_stats.max_footprint = stats.memory_stats.current_footprint
+                    stats.memory_stats.max_footprint_python_fraction = item.python_fraction
+                    stats.memory_stats.max_footprint_loc = (item.filename, item.lineno)
             else:
-                assert action in [
+                assert item.action in [
                     Scalene.FREE_ACTION,
                     Scalene.FREE_ACTION_SAMPLED,
                 ]
-                stats.current_footprint -= count
+                stats.memory_stats.current_footprint -= count
                 # Force current footprint to be non-negative; this
                 # code is needed because Scalene can miss some initial
                 # allocations at startup.
-                stats.current_footprint = max(0, stats.current_footprint)
+                stats.memory_stats.current_footprint = max(0, stats.memory_stats.current_footprint)
                 if (
-                    action == Scalene.FREE_ACTION_SAMPLED
-                    and stats.last_malloc_triggered[2] == pointer
+                    item.action == Scalene.FREE_ACTION_SAMPLED
+                    and stats.memory_stats.last_malloc_triggered[2] == item.pointer
                 ):
                     freed_last_trigger += 1
             timestamp = time.monotonic_ns() - Scalene.__start_time
-            stats.memory_footprint_samples.append(
+            stats.memory_stats.memory_footprint_samples.append(
                 [
                     timestamp,
-                    stats.current_footprint,
+                    stats.memory_stats.current_footprint,
                 ]
             )
-        after = stats.current_footprint
+        after = stats.memory_stats.current_footprint
 
         if freed_last_trigger:
             if freed_last_trigger <= 1:
                 # We freed the last allocation trigger. Adjust scores.
-                this_fn, this_ln, _this_ptr = stats.last_malloc_triggered
+                this_fn, this_ln, _this_ptr = stats.memory_stats.last_malloc_triggered
                 if this_ln != 0:
-                    mallocs, frees = stats.leak_score[this_fn][this_ln]
-                    stats.leak_score[this_fn][this_ln] = (
+                    mallocs, frees = stats.memory_stats.leak_score[this_fn][this_ln]
+                    stats.memory_stats.leak_score[this_fn][this_ln] = (
                         mallocs,
                         frees + 1,
                     )
-            stats.last_malloc_triggered = (
+            stats.memory_stats.last_malloc_triggered = (
                 Filename(""),
                 LineNumber(0),
                 Address("0x0"),
@@ -1341,112 +1277,101 @@ class Scalene:
 
         allocs = 0.0
         last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
-        malloc_pointer = "0x0"
+        malloc_pointer = Address("0x0")
         curr = before
 
         # Go through the array again and add each updated current footprint.
         for item in arr:
-            (
-                _alloc_time,
-                action,
-                count,
-                python_fraction,
-                pointer,
-                fname,
-                lineno,
-                bytei,
-            ) = item
-
-            is_malloc = action == Scalene.MALLOC_ACTION
+            is_malloc = item.action == Scalene.MALLOC_ACTION
             if (
                 is_malloc
-                and count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1
+                and item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1
             ):
                 with Scalene.__invalidate_mutex:
                     last_file, last_line = Scalene.__invalidate_queue.pop(0)
 
-                stats.memory_malloc_count[last_file][last_line] += 1
-                stats.memory_aggregate_footprint[last_file][
+                stats.memory_stats.memory_malloc_count[last_file][last_line] += 1
+                stats.memory_stats.memory_aggregate_footprint[last_file][
                     last_line
-                ] += stats.memory_current_highwater_mark[last_file][last_line]
-                stats.memory_current_footprint[last_file][last_line] = 0
-                stats.memory_current_highwater_mark[last_file][last_line] = 0
+                ] += stats.memory_stats.memory_current_highwater_mark[last_file][last_line]
+                stats.memory_stats.memory_current_footprint[last_file][last_line] = 0
+                stats.memory_stats.memory_current_highwater_mark[last_file][last_line] = 0
                 continue
 
             # Add the byte index to the set for this line (if it's not there already).
-            stats.bytei_map[fname][lineno].add(bytei)
-            count /= Scalene.BYTES_PER_MB
+            stats.bytei_map[item.filename][item.lineno].add(item.bytecode_index)
+            count = item.count / Scalene.BYTES_PER_MB
             if is_malloc:
                 allocs += count
                 curr += count
-                assert curr <= stats.max_footprint
-                malloc_pointer = pointer
-                stats.memory_malloc_samples[fname][lineno] += count
-                stats.memory_python_samples[fname][lineno] += (
-                    python_fraction * count
+                assert curr <= stats.memory_stats.max_footprint
+                malloc_pointer = item.pointer
+                stats.memory_stats.memory_malloc_samples[item.filename][item.lineno] += count
+                stats.memory_stats.memory_python_samples[item.filename][item.lineno] += (
+                    item.python_fraction * count
                 )
-                stats.malloc_samples[fname] += 1
-                stats.total_memory_malloc_samples += count
+                stats.memory_stats.malloc_samples[item.filename] += 1
+                stats.memory_stats.total_memory_malloc_samples += count
                 # Update current and max footprints for this file & line.
-                stats.memory_current_footprint[fname][lineno] += count
-                stats.memory_current_highwater_mark[fname][lineno] = max(
-                    stats.memory_current_highwater_mark[fname][lineno],
-                    stats.memory_current_footprint[fname][lineno],
+                stats.memory_stats.memory_current_footprint[item.filename][item.lineno] += count
+                stats.memory_stats.memory_current_highwater_mark[item.filename][item.lineno] = max(
+                    stats.memory_stats.memory_current_highwater_mark[item.filename][item.lineno],
+                    stats.memory_stats.memory_current_footprint[item.filename][item.lineno],
                 )
-                assert stats.current_footprint <= stats.max_footprint
-                stats.memory_max_footprint[fname][lineno] = max(
-                    stats.memory_current_footprint[fname][lineno],
-                    stats.memory_max_footprint[fname][lineno],
+                assert stats.memory_stats.current_footprint <= stats.memory_stats.max_footprint
+                stats.memory_stats.memory_max_footprint[item.filename][item.lineno] = max(
+                    stats.memory_stats.memory_current_footprint[item.filename][item.lineno],
+                    stats.memory_stats.memory_max_footprint[item.filename][item.lineno],
                 )
                 # Ensure that the max footprint never goes above the true max footprint.
                 # This is a work-around for a condition that in theory should never happen, but...
-                stats.memory_max_footprint[fname][lineno] = min(
-                    stats.max_footprint,
-                    stats.memory_max_footprint[fname][lineno],
+                stats.memory_stats.memory_max_footprint[item.filename][item.lineno] = min(
+                    stats.memory_stats.max_footprint,
+                    stats.memory_stats.memory_max_footprint[item.filename][item.lineno],
                 )
-                assert stats.current_footprint <= stats.max_footprint
+                assert stats.memory_stats.current_footprint <= stats.memory_stats.max_footprint
                 assert (
-                    stats.memory_max_footprint[fname][lineno]
-                    <= stats.max_footprint
+                    stats.memory_stats.memory_max_footprint[item.filename][item.lineno]
+                    <= stats.memory_stats.max_footprint
                 )
             else:
-                assert action in [
+                assert item.action in [
                     Scalene.FREE_ACTION,
                     Scalene.FREE_ACTION_SAMPLED,
                 ]
                 curr -= count
-                stats.memory_free_samples[fname][lineno] += count
-                stats.memory_free_count[fname][lineno] += 1
-                stats.total_memory_free_samples += count
-                stats.memory_current_footprint[fname][lineno] -= count
+                stats.memory_stats.memory_free_samples[item.filename][item.lineno] += count
+                stats.memory_stats.memory_free_count[item.filename][item.lineno] += 1
+                stats.memory_stats.total_memory_free_samples += count
+                stats.memory_stats.memory_current_footprint[item.filename][item.lineno] -= count
                 # Ensure that we never drop the current footprint below 0.
-                stats.memory_current_footprint[fname][lineno] = max(
-                    0, stats.memory_current_footprint[fname][lineno]
+                stats.memory_stats.memory_current_footprint[item.filename][item.lineno] = max(
+                    0, stats.memory_stats.memory_current_footprint[item.filename][item.lineno]
                 )
 
-            stats.per_line_footprint_samples[fname][lineno].append(
+            stats.memory_stats.per_line_footprint_samples[item.filename][item.lineno].append(
                 [time.monotonic_ns() - Scalene.__start_time, max(0, curr)]
             )
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
                 last_malloc = (
-                    Filename(fname),
-                    LineNumber(lineno),
-                    Address(malloc_pointer),
+                    item.filename,
+                    item.lineno,
+                    malloc_pointer
                 )
-        stats.allocation_velocity = (
-            stats.allocation_velocity[0] + (after - before),
-            stats.allocation_velocity[1] + allocs,
+        stats.memory_stats.allocation_velocity = (
+            stats.memory_stats.allocation_velocity[0] + (after - before),
+            stats.memory_stats.allocation_velocity[1] + allocs,
         )
         if (
             Scalene.__args.memory_leak_detector
-            and prevmax < stats.max_footprint
-            and stats.max_footprint > 100
+            and prevmax < stats.memory_stats.max_footprint
+            and stats.memory_stats.max_footprint > 100
         ):
-            stats.last_malloc_triggered = last_malloc
+            stats.memory_stats.last_malloc_triggered = last_malloc
             fname, lineno, _ = last_malloc
-            mallocs, frees = stats.leak_score[fname][lineno]
-            stats.leak_score[fname][lineno] = (mallocs + 1, frees)
+            mallocs, frees = stats.memory_stats.leak_score[fname][lineno]
+            stats.memory_stats.leak_score[fname][lineno] = (mallocs + 1, frees)
 
     @staticmethod
     def before_fork() -> None:
@@ -1495,7 +1420,7 @@ class Scalene:
     ) -> None:
         """Process memcpy signals (used in a ScaleneSigQueue)."""
         curr_pid = os.getpid()
-        arr: List[Tuple[str, int, int, int, int]] = []
+        arr: List[MemcpyProfilingSample] = []
         # Process the input array.
         with contextlib.suppress(ValueError):
             while Scalene.__memcpy_mapfile.read():
@@ -1510,25 +1435,19 @@ class Scalene:
                 ) = count_str.split(",")
                 if int(curr_pid) != int(pid):
                     continue
-                arr.append(
-                    (
-                        filename,
-                        int(lineno),
-                        int(bytei),
-                        int(memcpy_time_str),
-                        int(count_str2),
-                    )
-                )
+                memcpy_profiling_sample = MemcpyProfilingSample(memcpy_time=int(memcpy_time_str),
+                                                                count=int(count_str2),
+                                                                filename=Filename(filename),
+                                                                lineno=LineNumber(int(lineno)),
+                                                                bytecode_index=ByteCodeIndex(int(bytei)))
+                arr.append(memcpy_profiling_sample)
+                
         arr.sort()
 
         for item in arr:
-            filename, linenum, byteindex, _memcpy_time, count = item
-            fname = Filename(filename)
-            line_no = LineNumber(linenum)
-            byteidx = ByteCodeIndex(byteindex)
             # Add the byte index to the set for this line.
-            Scalene.__stats.bytei_map[fname][line_no].add(byteidx)
-            Scalene.__stats.memcpy_samples[fname][line_no] += int(count)
+            Scalene.__stats.bytei_map[item.filename][item.lineno].add(item.bytecode_index)
+            Scalene.__stats.memory_stats.memcpy_samples[item.filename][item.lineno] += int(item.count)
 
     @staticmethod
     @functools.lru_cache(None)
@@ -1785,10 +1704,10 @@ class Scalene:
             # sys.settrace(None)
             stats = Scalene.__stats
             (last_file, last_line, _) = Scalene.last_profiled_tuple()
-            stats.memory_malloc_count[last_file][last_line] += 1
-            stats.memory_aggregate_footprint[last_file][
+            stats.memory_stats.memory_malloc_count[last_file][last_line] += 1
+            stats.memory_stats.memory_aggregate_footprint[last_file][
                 last_line
-            ] += stats.memory_current_highwater_mark[last_file][last_line]
+            ] += stats.memory_stats.memory_current_highwater_mark[last_file][last_line]
             # If we've collected any samples, dump them.
             did_output = Scalene.output_profile(left)
             if not did_output:
