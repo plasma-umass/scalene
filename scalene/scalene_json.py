@@ -89,7 +89,7 @@ class FileDetail(BaseModel):
 
 class ScaleneJSONSchema(BaseModel):
     alloc_samples: NonNegativeInt
-    args: List[str]
+    args: Optional[List[str]] = None
     elapsed_time_sec: NonNegativeFloat
     entrypoint_dir: str
     filename: str
