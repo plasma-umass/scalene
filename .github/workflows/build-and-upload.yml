@@ -20,7 +20,7 @@ jobs:
     steps:
       - run: TZ='America/New_York' date '+%Y%m%d%H%M' > devN.txt
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: devN
           path: devN.txt
@@ -59,7 +59,7 @@ jobs:
 
     steps:
       - name: get coordinated .devN
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: devN
 
@@ -144,13 +144,13 @@ jobs:
         if: github.event_name != 'release'
         env:
           TWINE_REPOSITORY: testpypi
-          TWINE_USERNAME: ${{ secrets.TESTPYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.TESTPYPI_PASSWORD }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TESTPYPI_TOKEN }}
         run: twine upload --verbose dist/*
 
       - name: Release upload
         if: github.event_name == 'release'
         env:
-          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
         run: twine upload --verbose dist/*

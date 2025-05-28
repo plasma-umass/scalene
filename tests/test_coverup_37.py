@@ -5,13 +5,11 @@
 import pytest
 from unittest.mock import MagicMock
 from scalene.scalene_utility import add_stack
+from scalene.scalene_statistics import StackFrame, StackStats
+from types import FrameType
 
 def test_add_stack():
-    def should_trace_mock(filename, name):
-        return True
-
-    stacks = {}
-    frame = MagicMock()
+    frame = MagicMock(spec=FrameType)
     code = MagicMock()
     code.co_filename = "test_file.py"
     code.co_name = "test_function"
@@ -20,13 +18,17 @@ def test_add_stack():
     frame.f_lineno = 1
     frame.f_back = None
 
-    # Add a stack
+    should_trace_mock = lambda x, y: True
+    stacks = {}
     add_stack(frame, should_trace_mock, stacks, 1.0, 0.5, 2)
-    assert stacks == {(('test_file.py', 'test_function', 1),): (1, 1.0, 0.5, 2)}
+    expected_stack = StackFrame('test_file.py', 'test_function', 1)
+    expected_stats = StackStats(1, 1.0, 0.5, 2)
+    assert str(stacks) == str({(expected_stack,): expected_stats})
 
-    # Add the same stack to test the else branch
+    # Test adding to existing stack
     add_stack(frame, should_trace_mock, stacks, 0.5, 0.25, 1)
-    assert stacks == {(('test_file.py', 'test_function', 1),): (2, 1.5, 0.75, 3)}
+    expected_stats = StackStats(2, 1.5, 0.75, 3)
+    assert str(stacks) == str({(expected_stack,): expected_stats})
 
 # Run the test
 def test_run():

@@ -4,7 +4,7 @@
 
 import pytest
 from collections import defaultdict
-from scalene.scalene_statistics import ScaleneStatistics
+from scalene.scalene_statistics import ScaleneStatistics, StackFrame, StackStats
 
 @pytest.fixture
 def scalene_stats():
@@ -12,41 +12,43 @@ def scalene_stats():
     yield stats
     # No cleanup required as the object will be garbage collected
 
-def test_scalene_statistics(scalene_stats):
+def test_scalene_statistics():
+    scalene_stats = ScaleneStatistics()
+    assert isinstance(scalene_stats.stacks, defaultdict)
+    assert len(scalene_stats.stacks) == 0
     assert scalene_stats.start_time == 0
     assert scalene_stats.elapsed_time == 0
-    assert scalene_stats.alloc_samples == 0
-    assert isinstance(scalene_stats.stacks, defaultdict)
-    assert isinstance(scalene_stats.cpu_samples_python, defaultdict)
-    assert isinstance(scalene_stats.cpu_samples_c, defaultdict)
-    assert isinstance(scalene_stats.gpu_samples, defaultdict)
-    assert isinstance(scalene_stats.gpu_mem_samples, defaultdict)
-    assert isinstance(scalene_stats.cpu_utilization, defaultdict)
-    assert isinstance(scalene_stats.core_utilization, defaultdict)
-    assert isinstance(scalene_stats.cpu_samples, defaultdict)
-    assert isinstance(scalene_stats.malloc_samples, defaultdict)
-    assert isinstance(scalene_stats.memory_malloc_samples, defaultdict)
-    assert isinstance(scalene_stats.memory_malloc_count, defaultdict)
-    assert isinstance(scalene_stats.memory_current_footprint, defaultdict)
-    assert isinstance(scalene_stats.memory_max_footprint, defaultdict)
-    assert isinstance(scalene_stats.memory_current_highwater_mark, defaultdict)
-    assert isinstance(scalene_stats.memory_aggregate_footprint, defaultdict)
-    assert isinstance(scalene_stats.memory_python_samples, defaultdict)
-    assert isinstance(scalene_stats.memory_free_samples, defaultdict)
-    assert isinstance(scalene_stats.memory_free_count, defaultdict)
-    assert isinstance(scalene_stats.memcpy_samples, defaultdict)
-    assert isinstance(scalene_stats.leak_score, defaultdict)
-    assert scalene_stats.allocation_velocity == (0.0, 0.0)
-    assert scalene_stats.total_cpu_samples == 0.0
-    assert scalene_stats.total_gpu_samples == 0.0
-    assert scalene_stats.total_memory_malloc_samples == 0.0
-    assert scalene_stats.total_memory_free_samples == 0.0
-    assert scalene_stats.current_footprint == 0.0
-    assert scalene_stats.max_footprint == 0.0
-    assert scalene_stats.max_footprint_python_fraction == 0
-    assert scalene_stats.max_footprint_loc is None
-    assert isinstance(scalene_stats.memory_footprint_samples, list)
-    assert isinstance(scalene_stats.per_line_footprint_samples, defaultdict)
+    assert scalene_stats.memory_stats.alloc_samples == 0
+    assert isinstance(scalene_stats.cpu_stats.cpu_samples_python, defaultdict)
+    assert isinstance(scalene_stats.cpu_stats.cpu_samples_c, defaultdict)
+    assert isinstance(scalene_stats.gpu_stats.gpu_samples, defaultdict)
+    assert isinstance(scalene_stats.gpu_stats.gpu_mem_samples, defaultdict)
+    assert isinstance(scalene_stats.cpu_stats.cpu_utilization, defaultdict)
+    assert isinstance(scalene_stats.cpu_stats.core_utilization, defaultdict)
+    assert isinstance(scalene_stats.cpu_stats.cpu_samples, defaultdict)
+    assert isinstance(scalene_stats.memory_stats.malloc_samples, defaultdict)
+    assert isinstance(scalene_stats.memory_stats.memory_malloc_samples, defaultdict)
+    assert isinstance(scalene_stats.memory_stats.memory_malloc_count, defaultdict)
+    assert isinstance(scalene_stats.memory_stats.memory_current_footprint, defaultdict)
+    assert isinstance(scalene_stats.memory_stats.memory_max_footprint, defaultdict)
+    assert isinstance(scalene_stats.memory_stats.memory_current_highwater_mark, defaultdict)
+    assert isinstance(scalene_stats.memory_stats.memory_aggregate_footprint, defaultdict)
+    assert isinstance(scalene_stats.memory_stats.memory_python_samples, defaultdict)
+    assert isinstance(scalene_stats.memory_stats.memory_free_samples, defaultdict)
+    assert isinstance(scalene_stats.memory_stats.memory_free_count, defaultdict)
+    assert isinstance(scalene_stats.memory_stats.memcpy_samples, defaultdict)
+    assert isinstance(scalene_stats.memory_stats.leak_score, defaultdict)
+    assert scalene_stats.memory_stats.allocation_velocity == (0.0, 0.0)
+    assert scalene_stats.cpu_stats.total_cpu_samples == 0.0
+    assert scalene_stats.gpu_stats.total_gpu_samples == 0.0
+    assert scalene_stats.memory_stats.total_memory_malloc_samples == 0.0
+    assert scalene_stats.memory_stats.total_memory_free_samples == 0.0
+    assert scalene_stats.memory_stats.current_footprint == 0.0
+    assert scalene_stats.memory_stats.max_footprint == 0.0
+    assert scalene_stats.memory_stats.max_footprint_python_fraction == 0
+    assert scalene_stats.memory_stats.max_footprint_loc is None
+    assert isinstance(scalene_stats.memory_stats.memory_footprint_samples, list)
+    assert isinstance(scalene_stats.memory_stats.per_line_footprint_samples, defaultdict)
     assert isinstance(scalene_stats.bytei_map, defaultdict)
     assert isinstance(scalene_stats.function_map, defaultdict)
     assert isinstance(scalene_stats.firstline_map, defaultdict)

@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt, Positiv
 from typing import Any, Callable, Dict, List, Optional
 
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
-from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
+from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics, StackStats
 from scalene.scalene_analysis import ScaleneAnalysis
 
 
@@ -89,7 +89,7 @@ class FileDetail(BaseModel):
 
 class ScaleneJSONSchema(BaseModel):
     alloc_samples: NonNegativeInt
-    args: List[str]
+    args: Optional[List[str]] = None
     elapsed_time_sec: NonNegativeFloat
     entrypoint_dir: str
     filename: str
@@ -209,45 +209,45 @@ class ScaleneJSON:
             }
 
         # Prepare output values.
-        n_cpu_samples_c = stats.cpu_samples_c[fname][line_no]
+        n_cpu_samples_c = stats.cpu_stats.cpu_samples_c[fname][line_no]
         # Correct for negative CPU sample counts. This can happen
         # because of floating point inaccuracies, since we perform
         # subtraction to compute it.
         n_cpu_samples_c = max(0, n_cpu_samples_c)
-        n_cpu_samples_python = stats.cpu_samples_python[fname][line_no]
-        n_gpu_samples = stats.gpu_samples[fname][line_no]
-        n_gpu_mem_samples = stats.gpu_mem_samples[fname][line_no]
+        n_cpu_samples_python = stats.cpu_stats.cpu_samples_python[fname][line_no]
+        n_gpu_samples = stats.gpu_stats.gpu_samples[fname][line_no]
+        n_gpu_mem_samples = stats.gpu_stats.gpu_mem_samples[fname][line_no]
 
         # Compute percentages of CPU time.
-        if stats.total_cpu_samples:
-            n_cpu_percent_c = n_cpu_samples_c * 100 / stats.total_cpu_samples
+        if stats.cpu_stats.total_cpu_samples:
+            n_cpu_percent_c = n_cpu_samples_c * 100 / stats.cpu_stats.total_cpu_samples
             n_cpu_percent_python = (
-                n_cpu_samples_python * 100 / stats.total_cpu_samples
+                n_cpu_samples_python * 100 / stats.cpu_stats.total_cpu_samples
             )
         else:
             n_cpu_percent_c = 0
             n_cpu_percent_python = 0
 
         if True:
-            if stats.n_gpu_samples[fname][line_no]:
+            if stats.gpu_stats.n_gpu_samples[fname][line_no]:
                 n_gpu_percent = (
-                    n_gpu_samples * 100 / stats.n_gpu_samples[fname][line_no]
+                    n_gpu_samples * 100 / stats.gpu_stats.n_gpu_samples[fname][line_no]
                 )  # total_gpu_samples
             else:
                 n_gpu_percent = 0
 
         # Now, memory stats.
         # Total volume of memory allocated.
-        n_malloc_mb = stats.memory_malloc_samples[fname][line_no]
+        n_malloc_mb = stats.memory_stats.memory_malloc_samples[fname][line_no]
         # Number of distinct allocation calls (those from the same line are counted as 1).
-        n_mallocs = stats.memory_malloc_count[fname][line_no]
+        n_mallocs = stats.memory_stats.memory_malloc_count[fname][line_no]
         # Total volume of memory allocated by Python (not native code).
-        n_python_malloc_mb = stats.memory_python_samples[fname][line_no]
+        n_python_malloc_mb = stats.memory_stats.memory_python_samples[fname][line_no]
 
         n_usage_fraction = (
             0
-            if not stats.total_memory_malloc_samples
-            else n_malloc_mb / stats.total_memory_malloc_samples
+            if not stats.memory_stats.total_memory_malloc_samples
+            else n_malloc_mb / stats.memory_stats.total_memory_malloc_samples
         )
         n_python_fraction = (
             0 if not n_malloc_mb else n_python_malloc_mb / n_malloc_mb
@@ -255,13 +255,13 @@ class ScaleneJSON:
 
         # Average memory consumed by this line.
         n_avg_mb = (
-            stats.memory_aggregate_footprint[fname][line_no]
+            stats.memory_stats.memory_aggregate_footprint[fname][line_no]
             if n_mallocs == 0
-            else stats.memory_aggregate_footprint[fname][line_no] / n_mallocs
+            else stats.memory_stats.memory_aggregate_footprint[fname][line_no] / n_mallocs
         )
 
         # Peak memory consumed by this line.
-        n_peak_mb = stats.memory_max_footprint[fname][line_no]
+        n_peak_mb = stats.memory_stats.memory_max_footprint[fname][line_no]
 
         # Force the reporting of average to be no more than peak.
         # In principle, this should never happen, but...
@@ -272,30 +272,30 @@ class ScaleneJSON:
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
 
         # Adjust CPU time by utilization.
-        mean_cpu_util = stats.cpu_utilization[fname][line_no].mean()
-        mean_core_util = stats.core_utilization[fname][line_no].mean()
+        mean_cpu_util = stats.cpu_stats.cpu_utilization[fname][line_no].mean()
+        mean_core_util = stats.cpu_stats.core_utilization[fname][line_no].mean()
         n_sys_percent = n_cpu_percent * (1.0 - mean_cpu_util)
         n_cpu_percent_python *= mean_cpu_util
         n_cpu_percent_c *= mean_cpu_util
         del mean_cpu_util
 
-        n_copy_b = stats.memcpy_samples[fname][line_no]
+        n_copy_b = stats.memory_stats.memcpy_samples[fname][line_no]
         if stats.elapsed_time:
             n_copy_mb_s = n_copy_b / (1024 * 1024 * stats.elapsed_time)
         else:
             n_copy_mb_s = 0
 
-        stats.per_line_footprint_samples[fname][line_no] = (
+        stats.memory_stats.per_line_footprint_samples[fname][line_no] = (
             self.compress_samples(
-                stats.per_line_footprint_samples[fname][line_no],
-                stats.max_footprint,
+                stats.memory_stats.per_line_footprint_samples[fname][line_no],
+                stats.memory_stats.max_footprint,
             )
         )
 
         payload = {
             "line": line,
             "lineno": line_no,
-            "memory_samples": stats.per_line_footprint_samples[fname][line_no],
+            "memory_samples": stats.memory_stats.per_line_footprint_samples[fname][line_no],
             "n_avg_mb": n_avg_mb,
             "n_copy_mb_s": n_copy_mb_s,
             "n_core_utilization": mean_core_util,
@@ -338,21 +338,21 @@ class ScaleneJSON:
             stats.merge_stats(python_alias_dir)
         # If we've collected any samples, dump them.
         if (
-            not stats.total_cpu_samples
-            and not stats.total_memory_malloc_samples
-            and not stats.total_memory_free_samples
-            and not stats.total_gpu_samples
+            not stats.cpu_stats.total_cpu_samples
+            and not stats.memory_stats.total_memory_malloc_samples
+            and not stats.memory_stats.total_memory_free_samples
+            and not stats.gpu_stats.n_gpu_samples[program]
         ):
             # Nothing to output.
             return {}
         # Collect all instrumented filenames.
         all_instrumented_files: List[Filename] = list(
             set(
-                list(stats.cpu_samples_python.keys())
-                + list(stats.cpu_samples_c.keys())
-                + list(stats.memory_free_samples.keys())
-                + list(stats.memory_malloc_samples.keys())
-                + list(stats.gpu_samples.keys())
+                list(stats.cpu_stats.cpu_samples_python.keys())
+                + list(stats.cpu_stats.cpu_samples_c.keys())
+                + list(stats.memory_stats.memory_free_samples.keys())
+                + list(stats.memory_stats.memory_malloc_samples.keys())
+                + list(stats.gpu_stats.gpu_samples.keys())
             )
         )
         if not all_instrumented_files:
@@ -360,19 +360,19 @@ class ScaleneJSON:
             return {}
         growth_rate = 0.0
         if profile_memory:
-            stats.memory_footprint_samples = self.compress_samples(
-                stats.memory_footprint_samples, stats.max_footprint
+            stats.memory_stats.memory_footprint_samples = self.compress_samples(
+                stats.memory_stats.memory_footprint_samples, stats.memory_stats.max_footprint
             )
 
             # Compute growth rate (slope), between 0 and 1.
-            if stats.allocation_velocity[1] > 0:
+            if stats.memory_stats.allocation_velocity[1] > 0:
                 growth_rate = (
                     100.0
-                    * stats.allocation_velocity[0]
-                    / stats.allocation_velocity[1]
+                    * stats.memory_stats.allocation_velocity[0]
+                    / stats.memory_stats.allocation_velocity[1]
                 )
         else:
-            stats.memory_footprint_samples = []
+            stats.memory_stats.memory_footprint_samples = []
 
         # Adjust the program name if it was a Jupyter cell.
         result = re.match(r"_ipython-input-([0-9]+)-.*", program)
@@ -381,42 +381,50 @@ class ScaleneJSON:
 
         # Process the stacks to normalize by total number of CPU samples.
         for stk in stats.stacks.keys():
-            (count, python_time, c_time, cpu_samples) = stats.stacks[stk]
-            stats.stacks[stk] = (
-                count,
-                python_time / stats.total_cpu_samples,
-                c_time / stats.total_cpu_samples,
-                cpu_samples / stats.total_cpu_samples,
+            stack_stats = stats.stacks[stk]
+            stats.stacks[stk] = StackStats(
+                stack_stats.count,
+                stack_stats.python_time / stats.cpu_stats.total_cpu_samples,
+                stack_stats.c_time / stats.cpu_stats.total_cpu_samples,
+                stack_stats.cpu_samples / stats.cpu_stats.total_cpu_samples,
             )
 
         # Convert stacks into a representation suitable for JSON dumping.
         stks = []
         for stk in stats.stacks.keys():
             this_stk: List[str] = []
-            this_stk.extend(stk)
-            stks.append((this_stk, stats.stacks[stk]))
+            this_stk.extend(str(frame) for frame in stk)
+            stack_stats = stats.stacks[stk]
+            # Convert StackStats to a dictionary
+            stack_stats_dict = {
+                "count": stack_stats.count,
+                "python_time": stack_stats.python_time,
+                "c_time": stack_stats.c_time,
+                "cpu_samples": stack_stats.cpu_samples
+            }
+            stks.append((this_stk, stack_stats_dict))
 
         output: Dict[str, Any] = {
             "program": program,
             "entrypoint_dir": entrypoint_dir,
             "args": program_args,
             "filename": program_path,
-            "alloc_samples": stats.alloc_samples,
+            "alloc_samples": stats.memory_stats.alloc_samples,
             "elapsed_time_sec": stats.elapsed_time,
             "growth_rate": growth_rate,
-            "max_footprint_mb": stats.max_footprint,
-            "max_footprint_python_fraction": stats.max_footprint_python_fraction,
+            "max_footprint_mb": stats.memory_stats.max_footprint,
+            "max_footprint_python_fraction": stats.memory_stats.max_footprint_python_fraction,
             "max_footprint_fname": (
-                stats.max_footprint_loc[0] if stats.max_footprint_loc else None
+                stats.memory_stats.max_footprint_loc[0] if stats.memory_stats.max_footprint_loc else None
             ),
             "max_footprint_lineno": (
-                stats.max_footprint_loc[1] if stats.max_footprint_loc else None
+                stats.memory_stats.max_footprint_loc[1] if stats.memory_stats.max_footprint_loc else None
             ),
             "files": {},
             "gpu": self.gpu,
             "gpu_device": self.gpu_device,
             "memory": profile_memory,
-            "samples": stats.memory_footprint_samples,
+            "samples": stats.memory_stats.memory_footprint_samples,
             "stacks": stks,
         }
 
@@ -425,13 +433,13 @@ class ScaleneJSON:
         # Sort in descending order of CPU cycles, and then ascending order by filename
         for fname in sorted(
             all_instrumented_files,
-            key=lambda f: (-(stats.cpu_samples[f]), f),
+            key=lambda f: (-(stats.cpu_stats.cpu_samples[f]), f),
         ):
             fname = Filename(fname)
             try:
                 percent_cpu_time = (
                     100
-                    * stats.cpu_samples[fname]
+                    * stats.cpu_stats.cpu_samples[fname]
                     / stats.elapsed_time
                     # 100 * stats.cpu_samples[fname] / stats.total_cpu_samples
                 )
@@ -440,7 +448,7 @@ class ScaleneJSON:
 
             # Ignore files responsible for less than some percent of execution time and fewer than a threshold # of mallocs.
             if (
-                stats.malloc_samples[fname] < self.malloc_threshold
+                sum(stats.memory_stats.memory_malloc_samples[fname].values()) < self.malloc_threshold
                 and percent_cpu_time < self.cpu_percent_threshold
             ):
                 continue
@@ -470,10 +478,10 @@ class ScaleneJSON:
 
             # Leak analysis
             # First, compute AVERAGE memory consumption.
-            avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
-            for line_no in stats.bytei_map[fname]:
-                n_malloc_mb = stats.memory_aggregate_footprint[fname][line_no]
-                count = stats.memory_malloc_count[fname][line_no]
+            avg_mallocs = defaultdict(float)
+            for line_no in stats.memory_stats.memory_malloc_count[fname]:
+                n_malloc_mb = stats.memory_stats.memory_aggregate_footprint[fname][line_no]
+                count = stats.memory_stats.memory_malloc_count[fname][line_no]
                 if count:
                     avg_mallocs[line_no] = n_malloc_mb / count
                 else:
@@ -502,11 +510,11 @@ class ScaleneJSON:
                 }
 
             # Print header.
-            if not stats.total_cpu_samples:
+            if not stats.cpu_stats.total_cpu_samples:
                 percent_cpu_time = 0
             else:
                 percent_cpu_time = (
-                    100 * stats.cpu_samples[fname] / stats.total_cpu_samples
+                    100 * stats.cpu_stats.cpu_samples[fname] / stats.cpu_stats.total_cpu_samples
                 )
 
             # Print out the the profile for the source, line by line.
@@ -578,11 +586,11 @@ class ScaleneJSON:
             # Check CPU samples and memory samples.
             print_fn_summary = False
             all_samples = set()
-            all_samples |= set(fn_stats.cpu_samples_python.keys())
-            all_samples |= set(fn_stats.cpu_samples_c.keys())
-            all_samples |= set(fn_stats.memory_malloc_samples.keys())
-            all_samples |= set(fn_stats.memory_free_samples.keys())
-            all_samples |= set(fn_stats.gpu_samples.keys())
+            all_samples |= set(fn_stats.cpu_stats.cpu_samples_python.keys())
+            all_samples |= set(fn_stats.cpu_stats.cpu_samples_c.keys())
+            all_samples |= set(fn_stats.memory_stats.memory_malloc_samples.keys())
+            all_samples |= set(fn_stats.memory_stats.memory_free_samples.keys())
+            all_samples |= set(fn_stats.gpu_stats.gpu_samples.keys())
             print_fn_summary = any(fn != fname for fn in all_samples)
             output["files"][fname_print]["functions"] = []
             if print_fn_summary:
