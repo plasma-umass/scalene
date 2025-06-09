@@ -68,13 +68,10 @@ class ScalenePreload:
                     env['LD_LIBRARY_PATH'] = f'{library_path}:{os.environ["LD_LIBRARY_PATH"]}'
 
                 new_ld_preload = 'libscalene.so'
-                if "LD_PRELOAD" in os.environ and new_ld_preload not in os.environ["LD_PRELOAD"]:
-                    old_ld_preload = os.environ["LD_PRELOAD"]
-                    env["LD_PRELOAD"] = new_ld_preload + ":" + old_ld_preload
-                elif "LD_PRELOAD" in os.environ and new_ld_preload in os.environ["LD_PRELOAD"]:
-                    env["LD_PRELOAD"] = os.environ["LD_PRELOAD"]
-                else:
+                if "LD_PRELOAD" not in os.environ:
                     env["LD_PRELOAD"] = new_ld_preload
+                elif new_ld_preload not in os.environ["LD_PRELOAD"].split(":"):
+                    env["LD_PRELOAD"] = f'{new_ld_preload}:{os.environ["LD_PRELOAD"]}'
                 # Disable command-line specified PYTHONMALLOC.
                 if "PYTHONMALLOC" in os.environ:
                     # Since the environment dict is updated
