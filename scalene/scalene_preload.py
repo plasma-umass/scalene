@@ -71,6 +71,8 @@ class ScalenePreload:
                 if "LD_PRELOAD" in os.environ and new_ld_preload not in os.environ["LD_PRELOAD"]:
                     old_ld_preload = os.environ["LD_PRELOAD"]
                     env["LD_PRELOAD"] = new_ld_preload + ":" + old_ld_preload
+                elif "LD_PRELOAD" in os.environ and new_ld_preload in os.environ["LD_PRELOAD"]:
+                    env["LD_PRELOAD"] = os.environ["LD_PRELOAD"]
                 else:
                     env["LD_PRELOAD"] = new_ld_preload
                 # Disable command-line specified PYTHONMALLOC.
