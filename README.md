@@ -19,8 +19,8 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 
 [Episode 172: Measuring Multiple Facets of Python Performance With Scalene](https://realpython.com/podcasts/rpp/172/), The Real Python podcast
 
-***Scalene web-based user interface:*** [http://plasma-umass.org/scalene-gui/](http://plasma-umass.org/scalene-gui/)
- 
+***Scalene web-based user interface:*** [https://scalene-gui.github.io/scalene-gui/](https://scalene-gui.github.io/scalene-gui/)
+
 ## About Scalene
 
 Scalene is a high-performance CPU, GPU *and* memory profiler for
@@ -146,7 +146,7 @@ def slow_function():
 
 #### Web-based GUI
 
-Scalene has both a CLI and a web-based GUI [(demo here)](http://plasma-umass.org/scalene-gui/).
+Scalene has both a CLI and a web-based GUI [(demo here)](https://scalene-gui.github.io/scalene-gui/).
 
 By default, once Scalene has profiled your program, it will open a
 tab in a web browser with an interactive user interface (all processing is done
