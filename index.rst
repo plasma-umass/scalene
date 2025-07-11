@@ -222,7 +222,7 @@ Web-based GUI
 ^^^^^^^^^^^^^
 
 Scalene has both a CLI and a web-based GUI `(demo
-here) <http://plasma-umass.org/scalene-gui/>`__.
+here) <https://scalene-gui.github.io/scalene-gui/>`__.
 
 By default, once Scalene has profiled your program, it will open a tab
 in a web browser with an interactive user interface (all processing is
