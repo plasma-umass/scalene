@@ -126,7 +126,7 @@
       size="22"
       placeholder="(OpenAI API key)"
       id="api-key"
-      oninput="checkApiKey(event.target.value)"
+      oninput="checkApiKey(event.target.value, document.getElementById('openai-compatibility-api-url').value)"
     />
     <span id="valid-api-key"></span>
   </div>
@@ -145,6 +145,32 @@
       <option value="gpt-4">GPT 4</option>
       <option value="gpt-3.5-turbo">GPT 3.5</option>
     </select>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="language-model-override" style="font-size: 0.8rem; width: 150px;">
+      Other model:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(Model name, overrides selection)"
+      id="language-model-override-openai"
+    />    
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="url-openai-compatibility" style="font-size: 0.8rem; width: 150px;">
+      URL for compatibility API:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(URL for OpenAI compatible endpoint, leave blank for https://api.openai.com/v1)"
+      id="openai-compatibility-api-url"
+    />    
   </div>
 
 </div>
