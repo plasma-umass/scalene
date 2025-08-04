@@ -77,6 +77,7 @@ from typing import (
 
 import scalene.scalene_config
 from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_asyncio import ScaleneAsyncio
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_funcutils import ScaleneFuncUtils
 from scalene.scalene_json import ScaleneJSON
@@ -163,7 +164,7 @@ def enable_profiling() -> Generator[None, None, None]:
     yield
     stop()
 
-   
+
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -512,13 +513,13 @@ class Scalene:
         ):
             Scalene.update_profiled()
         pywhere.set_last_profiled_invalidated_false()
-        # In the setprofile callback, we rely on 
-        # __last_profiled always having the same memory address. 
+        # In the setprofile callback, we rely on
+        # __last_profiled always having the same memory address.
         # This is an optimization to not have to traverse the Scalene profiler
         # object's dictionary every time we want to update the last profiled line.
         #
         # A previous change to this code set Scalene.__last_profiled = [fname, lineno, lasti],
-        # which created a new list object and set the __last_profiled attribute to the new list. This 
+        # which created a new list object and set the __last_profiled attribute to the new list. This
         # made the object held in `pywhere.cpp` out of date, and caused the profiler to not update the last profiled line.
         Scalene.__last_profiled[:] = [
             Filename(f.f_code.co_filename),
@@ -756,6 +757,7 @@ class Scalene:
             Scalene.process_cpu_sample(
                 signum,
                 Scalene.compute_frames_to_record(),
+                ScaleneAsyncio.compute_suspended_frames_to_record(Scalene.should_trace),
                 now,
                 gpu_load,
                 gpu_mem_used,
@@ -906,6 +908,7 @@ class Scalene:
             None,
         ],
         new_frames: List[Tuple[FrameType, int, FrameType]],
+        async_frames: List[Tuple[FrameType, int, FrameType]],
         now: TimeInfo,
         gpu_load: float,
         gpu_mem_used: float,
@@ -1042,7 +1045,7 @@ class Scalene:
             Scalene.__stats.gpu_stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
         # Now handle the rest of the threads.
-        for frame, tident, orig_frame in new_frames:
+        for frame, tident, orig_frame in new_frames + async_frames:
             if frame == main_thread_frame:
                 continue
             add_stack(
@@ -1068,10 +1071,12 @@ class Scalene:
                 # Ignore sleeping threads.
                 continue
             # Check if the original caller is stuck inside a call.
-            if ScaleneFuncUtils.is_call_function(
-                orig_frame.f_code,
-                ByteCodeIndex(orig_frame.f_lasti),
-            ):
+            # TODO
+            if orig_frame is None or \
+               ScaleneFuncUtils.is_call_function(
+                   orig_frame.f_code,
+                   ByteCodeIndex(orig_frame.f_lasti),
+               ):
                 # It is. Attribute time to native.
                 Scalene.__stats.cpu_stats.cpu_samples_c[fname][lineno] += normalized_time
             else:
@@ -1225,7 +1230,7 @@ class Scalene:
         freed_last_trigger = 0
         for item in arr:
             is_malloc = item.action == Scalene.MALLOC_ACTION
-            if item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1: 
+            if item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1:
                 continue # in previous implementations, we were adding NEWLINE to the footprint.
                          # We should not account for this in the user-facing profile.
             count = item.count / Scalene.BYTES_PER_MB
@@ -1441,7 +1446,7 @@ class Scalene:
                                                                 lineno=LineNumber(int(lineno)),
                                                                 bytecode_index=ByteCodeIndex(int(bytei)))
                 arr.append(memcpy_profiling_sample)
-                
+
         arr.sort()
 
         for item in arr:

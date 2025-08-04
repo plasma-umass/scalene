@@ -3,20 +3,30 @@ import sys
 import threading
 
 from types import FrameType
-from typing import List
+from typing import (
+    List,
+    Tuple,
+    cast,
+)
 
 
 class ScaleneAsyncio:
     """Provides a set of methods to collect idle task frames."""
 
+    should_trace = None
+
     @staticmethod
-    def compute_suspended_frames_to_record() -> List[FrameType]:
+    def compute_suspended_frames_to_record(should_trace) -> \
+            List[Tuple[FrameType, int, FrameType]]:
         """Collect all frames which belong to suspended tasks."""
+        # TODO
+        ScaleneAsyncio.should_trace = should_trace
+
         loops = ScaleneAsyncio._get_event_loops()
         return ScaleneAsyncio._get_frames_from_loops(loops)
 
     @staticmethod
-    def _get_event_loops() -> List[asyncio.AbstractEventLoop]:
+    def _get_event_loops() -> List[Tuple[asyncio.AbstractEventLoop, int]]:
         """Returns each thread's event loop. If there are none, returns
         the empty array."""
         loops = []
@@ -26,7 +36,7 @@ class ScaleneAsyncio:
                 loop = ScaleneAsyncio._walk_back_until_loop(frame)
                 # duplicates shouldn't be possible, but just in case...
                 if loop and loop not in loops:
-                    loops.append(loop)
+                    loops.append((loop, cast(int, t.ident)))
         return loops
 
     @staticmethod
@@ -51,12 +61,13 @@ class ScaleneAsyncio:
         return None
 
     @staticmethod
-    def _get_frames_from_loops(loops) -> List[FrameType]:
+    def _get_frames_from_loops(loops) -> \
+            List[Tuple[FrameType, int, FrameType]]:
         """Given LOOPS, returns a flat list of frames corresponding to idle
         tasks."""
         return [
-            frames for loop in loops
-            for frames in ScaleneAsyncio._get_idle_task_frames(loop)
+            (frame, tident, None) for loop, tident in loops
+            for frame in ScaleneAsyncio._get_idle_task_frames(loop)
         ]
 
     @staticmethod
@@ -86,7 +97,7 @@ class ScaleneAsyncio:
 
             f = ScaleneAsyncio._get_deepest_traceable_frame(coro)
             if f:
-                idle.append(f)
+                idle.append(cast(FrameType, f))
 
         # TODO
         # handle async generators
@@ -96,8 +107,9 @@ class ScaleneAsyncio:
         # _get_deepest_traceable_frame
         for ag in loop._asyncgens:
             f = getattr(ag, 'ag_frame', None)
-            if f and should_trace(f.f_code.co_filename):
-                idle.append(f)
+            if f and \
+               ScaleneAsyncio.should_trace(f.f_code.co_filename, f.f_code.co_name):
+                idle.append(cast(FrameType, f))
         return idle
 
     @staticmethod
@@ -113,7 +125,8 @@ class ScaleneAsyncio:
         deepest_frame = None
         while curr:
             frame = getattr(curr, 'cr_frame', None)
-            if frame and should_trace(frame.f_code.co_filename):
+            if frame and \
+               ScaleneAsyncio.should_trace(frame.f_code.co_filename, frame.f_code.co_name):
                 deepest_frame = frame
             curr = getattr(curr, 'cr_await', None)
         return deepest_frame
