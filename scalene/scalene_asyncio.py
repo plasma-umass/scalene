@@ -3,7 +3,10 @@ import sys
 import threading
 import gc
 
-from types import FrameType
+from types import (
+    AsyncGeneratorType,
+    FrameType
+)
 from typing import (
     List,
     Tuple,
@@ -108,17 +111,6 @@ class ScaleneAsyncio:
             if frame:
                 idle.append(cast(FrameType, frame))
 
-        # TODO
-        # handle async generators
-        # ideally, we would access these from _get_deepest_traceable_frame.
-        # doing it this way causes us to also assign the generator's time to
-        # the coroutine that called this generator in
-        # _get_deepest_traceable_frame
-        for ag in loop._asyncgens:
-            f = getattr(ag, 'ag_frame', None)
-            if f and \
-               ScaleneAsyncio.should_trace(f.f_code.co_filename, f.f_code.co_name):
-                idle.append(cast(FrameType, f))
         return idle
 
     @staticmethod
@@ -134,41 +126,53 @@ class ScaleneAsyncio:
         deepest_frame = None
         while curr:
             frame = getattr(curr, 'cr_frame', None)
+
             if not frame:
-                break
+                curr = ScaleneAsyncio._search_awaitable(curr)
+                if isinstance(curr, AsyncGeneratorType):
+                    frame = getattr(curr, 'ag_frame', None)
+                else:
+                    break
+
             if ScaleneAsyncio.should_trace(frame.f_code.co_filename,
                                            frame.f_code.co_name):
                 deepest_frame = frame
-            curr = getattr(curr, 'cr_await', None)
+
+            if isinstance(curr, AsyncGeneratorType):
+                curr = getattr(curr, 'ag_await', None)
+            else:
+                curr = getattr(curr, 'cr_await', None)
 
         # if this task is found to point to another task we're profiling,
         # then we will get the deepest frame later and should return nothing.
-        if curr and any(
-                ScaleneAsyncio._should_trace_task(task)
-                for task in ScaleneAsyncio._try_link_tasks(curr)
-        ):
-            return None
+        # this is specific to gathering futures, i.e., gather statement.
+        if isinstance(curr, asyncio.Future):
+            tasks = getattr(curr, '_children', [])
+            if any(
+                    ScaleneAsyncio._should_trace_task(task)
+                    for task in tasks
+            ):
+                return None
 
         return deepest_frame
 
     @staticmethod
-    def _try_link_tasks(awaitable) -> List[asyncio.Task]:
-        """Given an AWAITABLE which is not a coroutine, assume it is a future
-        and attempt to find references to which tasks it is waiting for."""
-
+    def _search_awaitable(awaitable):
+        """Given an awaitable which is not a coroutine, assume it is a future
+        and attempt to find references to further futures or async generators.
+        """
+        future = None
         if not isinstance(awaitable, asyncio.Future):
-            # TODO some wrappers like _asyncio.FutureIter get caught here,
-            # I am not sure if a more robust approach is necessary
+            # TODO some wrappers like _asyncio.FutureIter,
+            # async_generator_asend get caught here, I am not sure if a more
+            # robust approach is necessary
 
             # can gc be avoided here?
             refs = gc.get_referents(awaitable)
             if refs:
-                awaitable = refs[0]
+                future = refs[0]
 
-        if not isinstance(awaitable, asyncio.Future):
-            return []
-
-        return getattr(awaitable, '_children', [])
+        return future
 
     @staticmethod
     def _should_trace_task(task) -> bool:
@@ -177,6 +181,9 @@ class ScaleneAsyncio:
         A task is interesting if it is not the current task, if it has actually
         started executing, and if a child task did not originate from it.
         """
+        if not isinstance(task, asyncio.Task):
+            return False
+
         # the task is not idle
         if task == ScaleneAsyncio.current_task:
             return False
