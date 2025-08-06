@@ -93,25 +93,20 @@ class ScaleneAsyncio:
         A task is considered 'idle' if it is pending and not the current
         task."""
         idle = []
-        current = asyncio.current_task(loop)
-        for task in asyncio.all_tasks(loop):
 
-            # the task is not idle
-            if task == current:
+        # set this when we start processing a loop.
+        # it is required later, but I only want to set it once.
+        ScaleneAsyncio.current_task = asyncio.current_task(loop)
+
+        for task in asyncio.all_tasks(loop):
+            if not ScaleneAsyncio._should_trace_task(task):
                 continue
 
             coro = task.get_coro()
 
-            # the task is suspended but not waiting on any other coroutines.
-            # this means it has not started---unstarted tasks do not report
-            # meaningful line numbers, so they are also thrown out
-            # (note that created tasks are scheduled and not run immediately)
-            if getattr(coro, 'cr_await', None) is None:
-                continue
-
-            f = ScaleneAsyncio._get_deepest_traceable_frame(coro)
-            if f:
-                idle.append(cast(FrameType, f))
+            frame = ScaleneAsyncio._get_deepest_traceable_frame(coro)
+            if frame:
+                idle.append(cast(FrameType, frame))
 
         # TODO
         # handle async generators
