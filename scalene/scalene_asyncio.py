@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import threading
+import gc
 
 from types import FrameType
 from typing import (
@@ -14,16 +15,29 @@ class ScaleneAsyncio:
     """Provides a set of methods to collect idle task frames."""
 
     should_trace = None
+    loops: List[Tuple[asyncio.AbstractEventLoop, int]] = []
+    current_task = None
+
+    @staticmethod
+    def current_task_exists(tident) -> bool:
+        """Given TIDENT, returns true if a current task exists.  Returns
+        true if no event loop is running on TIDENT."""
+        current = True
+        for loop, t in ScaleneAsyncio.loops:
+            if t == tident:
+                current = asyncio.current_task(loop)
+                break
+        return bool(current)
 
     @staticmethod
     def compute_suspended_frames_to_record(should_trace) -> \
             List[Tuple[FrameType, int, FrameType]]:
         """Collect all frames which belong to suspended tasks."""
-        # TODO
+        # TODO this is an ugly way to access the function
         ScaleneAsyncio.should_trace = should_trace
+        ScaleneAsyncio.loops = ScaleneAsyncio._get_event_loops()
 
-        loops = ScaleneAsyncio._get_event_loops()
-        return ScaleneAsyncio._get_frames_from_loops(loops)
+        return ScaleneAsyncio._get_frames_from_loops(ScaleneAsyncio.loops)
 
     @staticmethod
     def _get_event_loops() -> List[Tuple[asyncio.AbstractEventLoop, int]]:
@@ -125,8 +139,65 @@ class ScaleneAsyncio:
         deepest_frame = None
         while curr:
             frame = getattr(curr, 'cr_frame', None)
-            if frame and \
-               ScaleneAsyncio.should_trace(frame.f_code.co_filename, frame.f_code.co_name):
+            if not frame:
+                break
+            if ScaleneAsyncio.should_trace(frame.f_code.co_filename,
+                                           frame.f_code.co_name):
                 deepest_frame = frame
             curr = getattr(curr, 'cr_await', None)
+
+        # if this task is found to point to another task we're profiling,
+        # then we will get the deepest frame later and should return nothing.
+        if curr and any(
+                ScaleneAsyncio._should_trace_task(task)
+                for task in ScaleneAsyncio._try_link_tasks(curr)
+        ):
+            return None
+
         return deepest_frame
+
+    @staticmethod
+    def _try_link_tasks(awaitable) -> List[asyncio.Task]:
+        """Given an AWAITABLE which is not a coroutine, assume it is a future
+        and attempt to find references to which tasks it is waiting for."""
+
+        if not isinstance(awaitable, asyncio.Future):
+            # TODO some wrappers like _asyncio.FutureIter get caught here,
+            # I am not sure if a more robust approach is necessary
+
+            # can gc be avoided here?
+            refs = gc.get_referents(awaitable)
+            if refs:
+                awaitable = refs[0]
+
+        if not isinstance(awaitable, asyncio.Future):
+            return []
+
+        return getattr(awaitable, '_children', [])
+
+    @staticmethod
+    def _should_trace_task(task) -> bool:
+        """Returns FALSE if TASK is uninteresting to the user.
+
+        A task is interesting if it is not the current task, if it has actually
+        started executing, and if a child task did not originate from it.
+        """
+        # the task is not idle
+        if task == ScaleneAsyncio.current_task:
+            return False
+
+        coro = task.get_coro()
+
+        # the task hasn't even run yet
+        # assumes that all started tasks are sitting at an await
+        # statement.
+        # if this isn't the case, the associated coroutine will
+        # be 'waiting' on the coroutine declaration. No! Bad!
+        if getattr(coro, 'cr_frame', None) is None or \
+           getattr(coro, 'cr_await', None) is None:
+            return False
+
+        frame = getattr(coro, 'cr_frame', None)
+
+        return ScaleneAsyncio.should_trace(frame.f_code.co_filename,
+                                           frame.f_code.co_name)
