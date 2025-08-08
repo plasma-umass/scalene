@@ -800,6 +800,7 @@ class Scalene:
     @staticmethod
     def output_profile(program_args: Optional[List[str]] = None) -> bool:
         """Output the profile. Returns true iff there was any info reported the profile."""
+        did_output: bool = False
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
                 Scalene.__program_being_profiled,
@@ -837,9 +838,9 @@ class Scalene:
                 f.write(
                     json.dumps(json_output, sort_keys=True, indent=4) + "\n"
                 )
-            return json_output != {}
+            did_output = json_output != {}
 
-        else:
+        if Scalene.__args.cli:
             output = Scalene.__output
             column_width = Scalene.__args.column_width
             if not Scalene.__args.html:
@@ -863,7 +864,7 @@ class Scalene:
                 profile_memory=Scalene.__args.memory,
                 reduced_profile=Scalene.__args.reduced_profile,
             )
-            return did_output
+        return did_output
 
     @staticmethod
     @functools.lru_cache(None)
