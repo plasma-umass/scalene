@@ -141,9 +141,13 @@
       class="persistent"
       name="language-model-openai-label"
     >
+      <option value="gpt-5">GPT-5</option>
+      <option value="gpt-5-mini">GPT-5 mini</option>
+      <option value="gpt-4-1">GPT 4-1</option>
+      <option value="gpt-4-1-mini">GPT 4-1 mini</option>
       <option value="gpt-4o" selected>GPT-4o</option>
       <option value="gpt-4">GPT 4</option>
-      <option value="gpt-3.5-turbo">GPT 3.5</option>
+      <option value="gpt-3.5-turbo">GPT 3.5 Turbo</option>
     </select>
   </div>
 
@@ -248,7 +252,7 @@
       id="language-model-amazon"
       name="language-model-amazon-label"
     >
-      <option value="claude-3.5" selected>Claude 3.5</option>
+      <option value="us.anthropic.claude-3-5-sonnet-20241022-v2:0" selected>Claude Sonnet 3.5</option>
     </select>
   </div>
 </div>
