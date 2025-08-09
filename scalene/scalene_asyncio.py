@@ -98,12 +98,12 @@ class ScaleneAsyncio:
         task."""
         idle = []
 
-        # set this when we start processing a loop.
-        # it is required later, but I only want to set it once.
+        # required later
         ScaleneAsyncio.current_task = asyncio.current_task(loop)
 
         for task in asyncio.all_tasks(loop):
-            if not ScaleneAsyncio._should_trace_task(task):
+            if not ScaleneAsyncio._task_is_valid(task) or \
+               task == ScaleneAsyncio.current_task:
                 continue
 
             coro = task.get_coro()
@@ -141,7 +141,7 @@ class ScaleneAsyncio:
         if curr is not None:
             tasks = getattr(curr, '_children', [])
             if any(
-                    ScaleneAsyncio._should_trace_task(task)
+                    ScaleneAsyncio._task_is_valid(task)
                     for task in tasks
             ):
                 return None
@@ -149,17 +149,16 @@ class ScaleneAsyncio:
         return deepest_frame
 
     @staticmethod
-    def _should_trace_task(task) -> bool:
+    def _task_is_valid(task) -> bool:
         """Returns FALSE if TASK is uninteresting to the user.
 
-        A task is interesting if it is not the current task, if it has actually
-        started executing, and if a child task did not originate from it.
+        A task is interesting if it has actually started executing, and if
+        a child task did not originate from it.
         """
         if not isinstance(task, asyncio.Task):
             return False
 
-        # the task is not idle
-        if task == ScaleneAsyncio.current_task:
+        if task._state != 'PENDING':
             return False
 
         coro = task.get_coro()
@@ -170,13 +169,11 @@ class ScaleneAsyncio:
         # if this isn't the case, the associated coroutine will
         # be 'waiting' on the coroutine declaration. No! Bad!
         frame, awaitable = ScaleneAsyncio._trace_down(coro)
-        if frame is None or awaitable is None:
+        if task != ScaleneAsyncio.current_task and \
+           (frame is None or awaitable is None):
             return False
 
-        frame = getattr(coro, 'cr_frame', None)
-
-        return ScaleneAsyncio.should_trace(frame.f_code.co_filename,
-                                           frame.f_code.co_name)
+        return True
 
     @staticmethod
     def _trace_down(awaitable) -> \
