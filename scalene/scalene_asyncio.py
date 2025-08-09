@@ -11,7 +11,8 @@ from typing import (
     cast,
     List,
     Optional,
-    Tuple
+    Tuple,
+    Dict
 )
 
 
@@ -19,7 +20,7 @@ class ScaleneAsyncio:
     """Provides a set of methods to collect idle task frames."""
 
     should_trace = None
-    loops: List[Tuple[asyncio.AbstractEventLoop, int]] = []
+    loops: Dict[int, asyncio.AbstractEventLoop] = dict()
     current_task = None
 
     @staticmethod
@@ -27,10 +28,9 @@ class ScaleneAsyncio:
         """Given TIDENT, returns true if a current task exists.  Returns
         true if no event loop is running on TIDENT."""
         current = True
-        for loop, t in ScaleneAsyncio.loops:
-            if t == tident:
-                current = asyncio.current_task(loop)
-                break
+        loop = ScaleneAsyncio.loops.get(tident, None)
+        if isinstance(loop, asyncio.AbstractEventLoop):
+            current = asyncio.current_task(loop)
         return bool(current)
 
     @staticmethod
@@ -43,17 +43,16 @@ class ScaleneAsyncio:
         return ScaleneAsyncio._get_frames_from_loops(ScaleneAsyncio.loops)
 
     @staticmethod
-    def _get_event_loops() -> List[asyncio.AbstractEventLoop]:
+    def _get_event_loops() -> Dict[int, asyncio.AbstractEventLoop]:
         """Returns each thread's event loop. If there are none, returns
         the empty array."""
-        loops = []
+        loops = dict()
         for t in threading.enumerate():
             frame = sys._current_frames().get(t.ident)
             if frame:
                 loop = ScaleneAsyncio._walk_back_until_loop(frame)
-                # duplicates shouldn't be possible, but just in case...
-                if loop and loop not in loops:
-                    loops.append(loop)
+                if loop:
+                    loops[cast(int, t.ident)] = loop
         return loops
 
     @staticmethod
@@ -82,7 +81,7 @@ class ScaleneAsyncio:
         """Given LOOPS, returns a flat list of frames corresponding to idle
         tasks."""
         return [
-            frame for loop in loops
+            frame for loop in loops.values()
             for frame in ScaleneAsyncio._get_idle_task_frames(loop)
         ]
 
