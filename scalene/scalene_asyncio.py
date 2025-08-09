@@ -8,6 +8,7 @@ from types import (
     FrameType
 )
 from typing import (
+    Optional,
     List,
     Tuple,
     cast,
@@ -125,28 +126,19 @@ class ScaleneAsyncio:
         curr = coro
         deepest_frame = None
         while curr:
-            frame = getattr(curr, 'cr_frame', None)
+            frame, curr = ScaleneAsyncio._trace_down(curr)
 
-            if not frame:
-                curr = ScaleneAsyncio._search_awaitable(curr)
-                if isinstance(curr, AsyncGeneratorType):
-                    frame = getattr(curr, 'ag_frame', None)
-                else:
-                    break
+            if frame is None:
+                break
 
             if ScaleneAsyncio.should_trace(frame.f_code.co_filename,
                                            frame.f_code.co_name):
                 deepest_frame = frame
 
-            if isinstance(curr, AsyncGeneratorType):
-                curr = getattr(curr, 'ag_await', None)
-            else:
-                curr = getattr(curr, 'cr_await', None)
-
         # if this task is found to point to another task we're profiling,
         # then we will get the deepest frame later and should return nothing.
         # this is specific to gathering futures, i.e., gather statement.
-        if isinstance(curr, asyncio.Future):
+        if curr is not None:
             tasks = getattr(curr, '_children', [])
             if any(
                     ScaleneAsyncio._should_trace_task(task)
@@ -155,24 +147,6 @@ class ScaleneAsyncio:
                 return None
 
         return deepest_frame
-
-    @staticmethod
-    def _search_awaitable(awaitable):
-        """Given an awaitable which is not a coroutine, assume it is a future
-        and attempt to find references to further futures or async generators.
-        """
-        future = None
-        if not isinstance(awaitable, asyncio.Future):
-            # TODO some wrappers like _asyncio.FutureIter,
-            # async_generator_asend get caught here, I am not sure if a more
-            # robust approach is necessary
-
-            # can gc be avoided here?
-            refs = gc.get_referents(awaitable)
-            if refs:
-                future = refs[0]
-
-        return future
 
     @staticmethod
     def _should_trace_task(task) -> bool:
@@ -195,11 +169,39 @@ class ScaleneAsyncio:
         # statement.
         # if this isn't the case, the associated coroutine will
         # be 'waiting' on the coroutine declaration. No! Bad!
-        if getattr(coro, 'cr_frame', None) is None or \
-           getattr(coro, 'cr_await', None) is None:
+        frame, awaitable = ScaleneAsyncio._trace_down(coro)
+        if frame is None or awaitable is None:
             return False
 
         frame = getattr(coro, 'cr_frame', None)
 
         return ScaleneAsyncio.should_trace(frame.f_code.co_filename,
                                            frame.f_code.co_name)
+
+    @staticmethod
+    def _trace_down(awaitable) -> \
+            Tuple[Optional[FrameType], Optional[asyncio.Future]]:
+        """Helper for _get_deepest_traceable_frame
+        Given AWAITABLE, returns its associated frame and the future it is
+        waiting on, if any."""
+        if asyncio.iscoroutine(awaitable) and \
+           hasattr(awaitable, 'cr_await') and \
+           hasattr(awaitable, 'cr_frame'):
+            return getattr(awaitable, 'cr_frame', None), \
+                getattr(awaitable, 'cr_await', None)
+
+        # attempt to obtain an async-generator
+        # can gc be avoided here?
+        refs = gc.get_referents(awaitable)
+        if refs:
+            awaitable = refs[0]
+
+        if isinstance(awaitable, AsyncGeneratorType):
+            return getattr(awaitable, 'ag_frame', None), \
+                getattr(awaitable, 'ag_await', None)
+
+        if isinstance(awaitable, asyncio.Future):
+            # return whatever future we found.
+            return None, awaitable
+
+        return None, None
