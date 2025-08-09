@@ -908,7 +908,7 @@ class Scalene:
             None,
         ],
         new_frames: List[Tuple[FrameType, int, FrameType]],
-        async_frames: List[Tuple[FrameType, int, FrameType]],
+        idle_async_frames: List[FrameType],
         now: TimeInfo,
         gpu_load: float,
         gpu_mem_used: float,
@@ -933,7 +933,7 @@ class Scalene:
                 Scalene.output_profile()
                 stats.start_clock()
 
-        if not new_frames:
+        if not new_frames and not idle_async_frames:
             # No new frames, so nothing to update.
             return
 
@@ -1045,7 +1045,7 @@ class Scalene:
             Scalene.__stats.gpu_stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
         # Now handle the rest of the threads.
-        for frame, tident, orig_frame in new_frames + async_frames:
+        for frame, tident, orig_frame in new_frames:
             if frame == main_thread_frame:
                 continue
             add_stack(
@@ -1071,9 +1071,7 @@ class Scalene:
                 # Ignore sleeping threads.
                 continue
             # Check if the original caller is stuck inside a call.
-            # TODO
-            if orig_frame is None or \
-               ScaleneFuncUtils.is_call_function(
+            if ScaleneFuncUtils.is_call_function(
                    orig_frame.f_code,
                    ByteCodeIndex(orig_frame.f_lasti),
                ):
@@ -1092,9 +1090,38 @@ class Scalene:
                 core_utilization
             )
 
+        # Finally, handle idle asynchronous tasks
+        for frame in idle_async_frames:
+            add_stack(
+                frame,
+                Scalene.should_trace,
+                Scalene.__stats.stacks,
+                average_python_time,
+                average_c_time,
+                average_cpu_time,
+            )
+
+            fname = Filename(frame.f_code.co_filename)
+            lineno = LineNumber(frame.f_lineno)
+            Scalene.enter_function_meta(frame, Scalene.__stats)
+            # TODO don't do this
+            # asynchronous frames are always counted as native time.
+            # additionally, even if the associated thread is sleeping,
+            # idle tasks still... idle.
+
+            Scalene.__stats.cpu_stats.cpu_samples_c[fname][lineno] += total_time
+            Scalene.__stats.cpu_stats.cpu_samples[fname] += total_time
+            Scalene.__stats.cpu_stats.cpu_utilization[fname][lineno].push(
+                cpu_utilization
+            )
+            Scalene.__stats.cpu_stats.core_utilization[fname][lineno].push(
+                core_utilization
+            )
+
         # Clean up all the frames
         del new_frames[:]
         del new_frames
+        del idle_async_frames
         del is_thread_sleeping
         Scalene.__stats.cpu_stats.total_cpu_samples += total_time
 

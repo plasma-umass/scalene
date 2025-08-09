@@ -8,10 +8,10 @@ from types import (
     FrameType
 )
 from typing import (
-    Optional,
-    List,
-    Tuple,
     cast,
+    List,
+    Optional,
+    Tuple
 )
 
 
@@ -34,8 +34,7 @@ class ScaleneAsyncio:
         return bool(current)
 
     @staticmethod
-    def compute_suspended_frames_to_record(should_trace) -> \
-            List[Tuple[FrameType, int, FrameType]]:
+    def compute_suspended_frames_to_record(should_trace) -> List[FrameType]:
         """Collect all frames which belong to suspended tasks."""
         # TODO this is an ugly way to access the function
         ScaleneAsyncio.should_trace = should_trace
@@ -44,7 +43,7 @@ class ScaleneAsyncio:
         return ScaleneAsyncio._get_frames_from_loops(ScaleneAsyncio.loops)
 
     @staticmethod
-    def _get_event_loops() -> List[Tuple[asyncio.AbstractEventLoop, int]]:
+    def _get_event_loops() -> List[asyncio.AbstractEventLoop]:
         """Returns each thread's event loop. If there are none, returns
         the empty array."""
         loops = []
@@ -54,7 +53,7 @@ class ScaleneAsyncio:
                 loop = ScaleneAsyncio._walk_back_until_loop(frame)
                 # duplicates shouldn't be possible, but just in case...
                 if loop and loop not in loops:
-                    loops.append((loop, cast(int, t.ident)))
+                    loops.append(loop)
         return loops
 
     @staticmethod
@@ -79,12 +78,11 @@ class ScaleneAsyncio:
         return None
 
     @staticmethod
-    def _get_frames_from_loops(loops) -> \
-            List[Tuple[FrameType, int, FrameType]]:
+    def _get_frames_from_loops(loops) -> List[FrameType]:
         """Given LOOPS, returns a flat list of frames corresponding to idle
         tasks."""
         return [
-            (frame, tident, None) for loop, tident in loops
+            frame for loop in loops
             for frame in ScaleneAsyncio._get_idle_task_frames(loop)
         ]
 
