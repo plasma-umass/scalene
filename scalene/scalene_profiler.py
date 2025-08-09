@@ -1001,48 +1001,49 @@ class Scalene:
 
         normalized_time = total_time / total_frames
 
-        # Now attribute execution time.
-
-        main_thread_frame = new_frames[0][0]
-
         average_python_time = python_time / total_frames
         average_c_time = c_time / total_frames
         average_cpu_time = (python_time + c_time) / total_frames
 
-        if Scalene.__args.stacks:
-            add_stack(
-                main_thread_frame,
-                Scalene.should_trace,
-                Scalene.__stats.stacks,
-                average_python_time,
-                average_c_time,
-                average_cpu_time,
-            )
+        # Now attribute execution time.
 
         # First, handle the main thread.
-        Scalene.enter_function_meta(main_thread_frame, Scalene.__stats)
-        fname = Filename(main_thread_frame.f_code.co_filename)
-        lineno = LineNumber(main_thread_frame.f_lineno)
-        # print(main_thread_frame)
-        # print(fname, lineno)
-        main_tid = cast(int, threading.main_thread().ident)
-        if not is_thread_sleeping[main_tid]:
-            Scalene.__stats.cpu_stats.cpu_samples_python[fname][
-                lineno
-            ] += average_python_time
-            Scalene.__stats.cpu_stats.cpu_samples_c[fname][lineno] += average_c_time
-            Scalene.__stats.cpu_stats.cpu_samples[fname] += average_cpu_time
-            Scalene.__stats.cpu_stats.cpu_utilization[fname][lineno].push(
-                cpu_utilization
-            )
-            Scalene.__stats.cpu_stats.core_utilization[fname][lineno].push(
-                core_utilization
-            )
-            Scalene.__stats.gpu_stats.gpu_samples[fname][lineno] += (
-                gpu_load * elapsed.wallclock
-            )
-            Scalene.__stats.gpu_stats.n_gpu_samples[fname][lineno] += elapsed.wallclock
-            Scalene.__stats.gpu_stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
+        if (new_frames):
+            main_thread_frame = new_frames[0][0]
+
+            if Scalene.__args.stacks:
+                add_stack(
+                    main_thread_frame,
+                    Scalene.should_trace,
+                    Scalene.__stats.stacks,
+                    average_python_time,
+                    average_c_time,
+                    average_cpu_time,
+                )
+
+            Scalene.enter_function_meta(main_thread_frame, Scalene.__stats)
+            fname = Filename(main_thread_frame.f_code.co_filename)
+            lineno = LineNumber(main_thread_frame.f_lineno)
+            # print(main_thread_frame)
+            # print(fname, lineno)
+            main_tid = cast(int, threading.main_thread().ident)
+            if not is_thread_sleeping[main_tid]:
+                Scalene.__stats.cpu_stats.cpu_samples_python[fname][
+                    lineno
+                ] += average_python_time
+                Scalene.__stats.cpu_stats.cpu_samples_c[fname][lineno] += average_c_time
+                Scalene.__stats.cpu_stats.cpu_samples[fname] += average_cpu_time
+                Scalene.__stats.cpu_stats.cpu_utilization[fname][lineno].push(
+                    cpu_utilization
+                )
+                Scalene.__stats.cpu_stats.core_utilization[fname][lineno].push(
+                    core_utilization
+                )
+                Scalene.__stats.gpu_stats.gpu_samples[fname][lineno] += (
+                    gpu_load * elapsed.wallclock
+                )
+                Scalene.__stats.gpu_stats.n_gpu_samples[fname][lineno] += elapsed.wallclock
+                Scalene.__stats.gpu_stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
         # Now handle the rest of the threads.
         for frame, tident, orig_frame in new_frames:
