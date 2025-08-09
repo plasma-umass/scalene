@@ -1005,11 +1005,20 @@ class Scalene:
         average_c_time = c_time / total_frames
         average_cpu_time = (python_time + c_time) / total_frames
 
+        # filter out all frames which are not running a current task.
+        # this is done after calculating the total frames (threads), because
+        # an idle thread still takes up CPU time.
+        active_frames = [
+            (frame, tident, orig_frame)
+            for frame, tident, orig_frame in new_frames
+            if ScaleneAsyncio.current_task_exists(tident)
+        ]
+
         # Now attribute execution time.
 
         # First, handle the main thread.
-        if (new_frames):
-            main_thread_frame = new_frames[0][0]
+        if (active_frames):
+            main_thread_frame = active_frames[0][0]
 
             if Scalene.__args.stacks:
                 add_stack(
@@ -1046,7 +1055,7 @@ class Scalene:
                 Scalene.__stats.gpu_stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
         # Now handle the rest of the threads.
-        for frame, tident, orig_frame in new_frames:
+        for frame, tident, orig_frame in active_frames:
             if frame == main_thread_frame:
                 continue
             add_stack(
@@ -1120,8 +1129,11 @@ class Scalene:
             )
 
         # Clean up all the frames
+        del active_frames[:]
+        del active_frames
         del new_frames[:]
         del new_frames
+        del idle_async_frames[:]
         del idle_async_frames
         del is_thread_sleeping
         Scalene.__stats.cpu_stats.total_cpu_samples += total_time
