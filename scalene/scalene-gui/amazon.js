@@ -28,7 +28,7 @@ export async function sendPromptToAmazon(prompt) {
   });
 
     const params = {
-	"modelId": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+	"modelId": document.getElementById("language-model-amazon").value,
 	"body": JSON.stringify({
 	    "anthropic_version": "bedrock-2023-05-31", 
 	    "max_tokens": 65536, // arbitrary large number
