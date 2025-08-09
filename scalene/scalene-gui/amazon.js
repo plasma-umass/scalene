@@ -77,11 +77,16 @@ export async function sendPromptToAmazon(prompt) {
     // Convert the response body to text
     const responseBlob = new Blob([response.body]);
     const responseText = await responseBlob.text();
-      const parsedResponse = JSON.parse(responseText);
+    const parsedResponse = JSON.parse(responseText);
       console.log("parsedResponse = " + responseText);
-    const responseContents = parsedResponse.content[0].text;
-
-    return responseContents.trim();
+      if (modelId.startsWith('us.anthropic')) {
+	  const responseContents = parsedResponse.content[0].text;
+	  return responseContents.trim();
+      } else {
+	  const responseContents = parsedResponse.choices[0].message.content.replace(/<reasoning>[\s\S]*?<\/reasoning>/g, '');
+	  return responseContents.trim();
+      }
+      
   } catch (err) {
     console.error(err);
     return `# Error: ${err.message}`;

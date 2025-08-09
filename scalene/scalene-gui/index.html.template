@@ -255,8 +255,8 @@
       <option value="us.anthropic.claude-sonnet-4-20250514-v1:0" selected>Claude Sonnet 4</option>
       <option value="us.anthropic.claude-3-7-sonnet-20250219-v1:0">Claude Sonnet 3.7</option>
       <option value="us.anthropic.claude-3-5-sonnet-20241022-v2:0">Claude Sonnet 3.5</option>
-      <!-- <option value="openai.gpt-oss-120b-1:0">OpenAI GPT OSS 120b</option> -->
-      <!-- <option value="openai.gpt-oss-20b-1:0">OpenAI GPT OSS 20b</option> -->
+      <option value="openai.gpt-oss-120b-1:0">OpenAI GPT OSS 120b</option>
+      <option value="openai.gpt-oss-20b-1:0">OpenAI GPT OSS 20b</option>
       
 </option>
     </select>
