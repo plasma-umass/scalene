@@ -27,11 +27,15 @@ export async function sendPromptToAmazon(prompt) {
     credentials: credentials,
   });
 
-    const params = {
-	"modelId": document.getElementById("language-model-amazon").value,
-	"body": JSON.stringify({
+    let body = {};
+    const max_tokens = 65536; // arbitrary large number
+
+    const modelId = document.getElementById("language-model-amazon").value;
+    
+    if (modelId.startsWith('us.anthropic')) {
+	body = {
 	    "anthropic_version": "bedrock-2023-05-31", 
-	    "max_tokens": 65536, // arbitrary large number
+	    "max_tokens": max_tokens,
 	    "messages": [
 		{
 		    "role": "user",
@@ -43,8 +47,28 @@ export async function sendPromptToAmazon(prompt) {
 		    ]
 		}
 	    ]
-	})
-  }
+	};
+    } else {
+	body = {
+	    "max_completion_tokens": max_tokens,
+	    "messages": [
+		{
+		    "role": "user",
+		    "content": [
+			{
+			    "type": "text",
+			    "text": prompt
+			}
+		    ]
+		}
+	    ]
+	};
+    }
+    
+    const params = {
+	"modelId": modelId,
+	"body": JSON.stringify(body)
+    }
 
   try {
     const command = new InvokeModelCommand(params);
@@ -53,7 +77,8 @@ export async function sendPromptToAmazon(prompt) {
     // Convert the response body to text
     const responseBlob = new Blob([response.body]);
     const responseText = await responseBlob.text();
-    const parsedResponse = JSON.parse(responseText);
+      const parsedResponse = JSON.parse(responseText);
+      console.log("parsedResponse = " + responseText);
     const responseContents = parsedResponse.content[0].text;
 
     return responseContents.trim();
