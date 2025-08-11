@@ -981,7 +981,7 @@ class Scalene:
             gpu_load = 0.0
         assert gpu_load >= 0.0 and gpu_load <= 1.0
         gpu_time = gpu_load * elapsed.wallclock
-        Scalene.__stats.gpu_stats.total_gpu_samples += gpu_time
+        Scalene.__stats.gpu_stats.total_gpu_samples += gpu_time  # TODO asyncio-extension: should this be moved?
         python_time = Scalene.__args.cpu_sampling_rate
         c_time = elapsed.virtual - python_time
         c_time = max(c_time, 0)
@@ -990,35 +990,35 @@ class Scalene:
 
         # First, find out how many frames are not sleeping.  We need
         # to know this number so we can parcel out time appropriately
-        # (equally to each running thread).
-        total_frames = sum(
+        total_threads = sum(
             not is_thread_sleeping[tident]
             for frame, tident, orig_frame in new_frames
         )
 
-        if total_frames == 0:
-            total_frames = 1
+        if total_threads == 0:
+            total_threads = 1
 
-        normalized_time = total_time / total_frames
+        # the time each thread spends, which always adds up to TOTAL_TIME.
+        normalized_time = total_time / total_threads
+        async_time = total_time * len(idle_async_frames)
 
-        average_python_time = python_time / total_frames
-        average_c_time = c_time / total_frames
-        average_cpu_time = (python_time + c_time) / total_frames
+        average_python_time = python_time / total_threads
+        average_c_time = c_time / total_threads
+        average_cpu_time = (python_time + c_time) / total_threads
 
         # filter out all frames which are not running a current task.
         # this is done after calculating the total frames (threads), because
         # an idle thread still takes up CPU time.
-        active_frames = [
+        new_frames = [
             (frame, tident, orig_frame)
             for frame, tident, orig_frame in new_frames
             if ScaleneAsyncio.current_task_exists(tident)
         ]
 
         # Now attribute execution time.
-
         # First, handle the main thread.
-        if (active_frames):
-            main_thread_frame = active_frames[0][0]
+        if (new_frames):
+            main_thread_frame = new_frames[0][0]
 
             if Scalene.__args.stacks:
                 add_stack(
@@ -1055,7 +1055,7 @@ class Scalene:
                 Scalene.__stats.gpu_stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
         # Now handle the rest of the threads.
-        for frame, tident, orig_frame in active_frames:
+        for frame, tident, orig_frame in new_frames:
             if frame == main_thread_frame:
                 continue
             add_stack(
@@ -1114,29 +1114,22 @@ class Scalene:
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
             Scalene.enter_function_meta(frame, Scalene.__stats)
-            # TODO don't do this
-            # asynchronous frames are always counted as native time.
+
+            # asynchronous frames are always counted as system time.
             # additionally, even if the associated thread is sleeping,
             # idle tasks still... idle.
-
             Scalene.__stats.cpu_stats.cpu_samples_c[fname][lineno] += total_time
             Scalene.__stats.cpu_stats.cpu_samples[fname] += total_time
-            Scalene.__stats.cpu_stats.cpu_utilization[fname][lineno].push(
-                cpu_utilization
-            )
-            Scalene.__stats.cpu_stats.core_utilization[fname][lineno].push(
-                core_utilization
-            )
+            Scalene.__stats.cpu_stats.cpu_utilization[fname][lineno].push(0)
+            Scalene.__stats.cpu_stats.core_utilization[fname][lineno].push(0)
 
         # Clean up all the frames
-        del active_frames[:]
-        del active_frames
         del new_frames[:]
         del new_frames
         del idle_async_frames[:]
         del idle_async_frames
         del is_thread_sleeping
-        Scalene.__stats.cpu_stats.total_cpu_samples += total_time
+        Scalene.__stats.cpu_stats.total_cpu_samples += total_time + async_time
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
