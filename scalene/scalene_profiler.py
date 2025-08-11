@@ -1006,15 +1006,6 @@ class Scalene:
         average_c_time = c_time / total_threads
         average_cpu_time = (python_time + c_time) / total_threads
 
-        # filter out all frames which are not running a current task.
-        # this is done after calculating the total frames (threads), because
-        # an idle thread still takes up CPU time.
-        new_frames = [
-            (frame, tident, orig_frame)
-            for frame, tident, orig_frame in new_frames
-            if ScaleneAsyncio.current_task_exists(tident)
-        ]
-
         # Now attribute execution time.
         # First, handle the main thread.
         if (new_frames):

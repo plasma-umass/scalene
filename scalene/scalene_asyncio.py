@@ -24,16 +24,6 @@ class ScaleneAsyncio:
     current_task = None
 
     @staticmethod
-    def current_task_exists(tident) -> bool:
-        """Given TIDENT, returns true if a current task exists.  Returns
-        true if no event loop is running on TIDENT."""
-        current = True
-        loop = ScaleneAsyncio.loops.get(tident, None)
-        if isinstance(loop, asyncio.AbstractEventLoop):
-            current = asyncio.current_task(loop)
-        return bool(current)
-
-    @staticmethod
     def compute_suspended_frames_to_record(should_trace) -> List[FrameType]:
         """Collect all frames which belong to suspended tasks."""
         # TODO this is an ugly way to access the function
