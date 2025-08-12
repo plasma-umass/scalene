@@ -33,13 +33,12 @@ class ScaleneLeakAnalysis:
             if (
                 expected_leak
                 >= 1.0 - ScaleneLeakAnalysis.leak_reporting_threshold
-            ):
-                if keys[index] in avg_mallocs:
-                    leaks.append(
-                        (
-                            keys[index],
-                            expected_leak,
-                            avg_mallocs[keys[index]],
-                        )
+            ) and keys[index] in avg_mallocs:
+                leaks.append(
+                    (
+                        keys[index],
+                        expected_leak,
+                        avg_mallocs[keys[index]],
                     )
+                )
         return leaks

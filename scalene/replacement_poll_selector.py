@@ -31,9 +31,8 @@ def replacement_poll_selector(scalene: Scalene) -> None:
                 if selected or timeout == 0:
                     return selected
                 end_time = time.perf_counter()
-                if timeout and timeout != -1:
-                    if end_time - start_time >= timeout:
-                        return []  # None
+                if timeout and timeout != -1 and end_time - start_time >= timeout:
+                    return []  # None
 
     ReplacementPollSelector.__qualname__ = (
         "replacement_poll_selector.ReplacementPollSelector"
