@@ -503,6 +503,7 @@ class Scalene:
         # code in a file we are tracking.
         # First, see if we have now executed a different line of code.
         # If so, increment.
+
         invalidated = pywhere.get_last_profiled_invalidated()
         (fname, lineno, lasti) = Scalene.last_profiled_tuple()
         if (
@@ -1949,6 +1950,10 @@ class Scalene:
         with contextlib.suppress(Exception):
             if not is_jupyter:
                 multiprocessing.set_start_method("fork")
+                def multiprocessing_warning(x: str) -> None:
+                    if x != "fork":
+                        print("Scalene warning: Scalene currently only supports the `fork` multiprocessing start method.")
+                multiprocessing.set_start_method = multiprocessing_warning
         spec = None
         try:
             Scalene.process_args(args)
