@@ -98,7 +98,7 @@ def get_fully_qualified_name(frame: FrameType) -> Filename:
 def flamegraph_format(stacks: Dict[Tuple[StackFrame], StackStats]) -> str:
     """Converts stacks to a string suitable for input to Brendan Gregg's flamegraph.pl script."""
     output = ""
-    for stk in stacks.keys():
+    for stk in stacks:
         for frame in stk:
             output += f"{frame.filename} {frame.function_name}:{frame.line_number};"
         output += " " + str(stacks[stk].count)
@@ -241,6 +241,6 @@ def patch_module_functions_with_signal_blocking(module: ModuleType, signal_to_bl
     # Iterate through all attributes of the module
     for attr_name in dir(module):
         attr = getattr(module, attr_name)
-        if isinstance(attr, BuiltinFunctionType) or isinstance(attr, FunctionType):
+        if isinstance(attr, (BuiltinFunctionType, FunctionType)):
             wrapped_attr = signal_blocking_wrapper(attr)
             setattr(module, attr_name, wrapped_attr)

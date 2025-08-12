@@ -132,7 +132,7 @@ class ScaleneNeuron(ScaleneAccelerator):
             if vcpu_usage:
                 total_idle = 0
                 total_cores = 0
-                for core, usage in vcpu_usage.get("usage_data", {}).items():
+                for _core, usage in vcpu_usage.get("usage_data", {}).items():
                     total_idle += usage.get("idle", 0)
                     total_cores += 1
                 if total_cores > 0:
@@ -157,7 +157,7 @@ class ScaleneNeuron(ScaleneAccelerator):
                         "neuroncores_in_use", {}
                     )
 
-                    for core, counters in neuroncores_in_use.items():
+                    for _core, counters in neuroncores_in_use.items():
                         this_core_utilization = counters.get(
                             "neuroncore_utilization", 0
                         )
@@ -185,7 +185,7 @@ class ScaleneNeuron(ScaleneAccelerator):
                         .get("usage_breakdown", {})
                         .get("neuroncore_memory_usage", {})
                     )
-                    for core, mem_info in memory_info.items():
+                    for _core, mem_info in memory_info.items():
                         total_memory_used += sum(mem_info.values())
 
                 self.memory_used_bytes = total_memory_used
