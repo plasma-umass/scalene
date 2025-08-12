@@ -49,6 +49,7 @@ import tempfile
 import threading
 import time
 import traceback
+import warnings
 
 # For debugging purposes
 from rich.console import Console
@@ -640,10 +641,7 @@ class Scalene:
         Scalene.__windows_queue = queue.Queue()
         if sys.platform == "win32":
             if Scalene.__args.memory:
-                print(
-                    "Scalene warning: Memory profiling is not currently supported for Windows.",
-                    file=sys.stderr,
-                )
+                warnings.warn("Scalene memory profiling is not currently supported for Windows.")
                 Scalene.__args.memory = False
 
         # Initialize the malloc related files; if for whatever reason
@@ -1459,13 +1457,12 @@ class Scalene:
         if Scalene.__profiler_base in filename:
             # Don't profile the profiler.
             return False
-        if Scalene.__functions_to_profile:
-            if filename in Scalene.__functions_to_profile:
-                if func in {
-                    fn.__code__.co_name
-                    for fn in Scalene.__functions_to_profile[filename]
-                }:
-                    return True
+        if Scalene.__functions_to_profile and filename in Scalene.__functions_to_profile:
+            if func in {
+                fn.__code__.co_name
+                for fn in Scalene.__functions_to_profile[filename]
+            }:
+                return True
             return False
         # Don't profile the Python libraries, unless overridden by --profile-all
         try:
@@ -1952,7 +1949,7 @@ class Scalene:
                 multiprocessing.set_start_method("fork")
                 def multiprocessing_warning(x: str) -> None:
                     if x != "fork":
-                        print("Scalene warning: Scalene currently only supports the `fork` multiprocessing start method.")
+                        warnings.warn("Scalene currently only supports the `fork` multiprocessing start method.")
                 multiprocessing.set_start_method = multiprocessing_warning
         spec = None
         try:

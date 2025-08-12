@@ -24,7 +24,7 @@ class ScaleneAnalysis:
             package = importlib.import_module(package_name)
             if package.__file__:
                 package_dir = os.path.dirname(package.__file__)
-                for root, dirs, files in os.walk(package_dir):
+                for _root, _dirs, files in os.walk(package_dir):
                     for filename in files:
                         if filename.endswith(".so") or filename.endswith(
                             ".pyd"
@@ -199,7 +199,7 @@ class ScaleneAnalysis:
                             regions[line] = (line, line)
 
         walk(tree, None, None)
-        for lineno, line in enumerate(srclines, 1):
+        for lineno, _line in enumerate(srclines, 1):
             regions[lineno] = regions.get(lineno, (lineno, lineno))
 
         return regions
