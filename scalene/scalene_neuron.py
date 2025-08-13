@@ -99,10 +99,7 @@ class ScaleneNeuron(ScaleneAccelerator):
             result = subprocess.run(
                 ["neuron-ls"], capture_output=True, text=True, check=True
             )
-            if "No neuron devices found" in result.stdout:
-                return False
-            else:
-                return True
+            return "No neuron devices found" not in result.stdout
         except subprocess.CalledProcessError:
             return False
         except FileNotFoundError:

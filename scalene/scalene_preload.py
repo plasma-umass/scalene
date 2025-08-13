@@ -6,6 +6,8 @@ import signal
 import struct
 import subprocess
 import sys
+import warnings
+
 from typing import Dict
 import scalene
 
@@ -103,7 +105,7 @@ class ScalenePreload:
             or struct.calcsize("P") != 8
         ):
             args.memory = False
-            print(
+            warnings.warn(
                 "Scalene warning: currently only 64-bit x86-64 and ARM platforms are supported for memory and copy profiling."
             )
 

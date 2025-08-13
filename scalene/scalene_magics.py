@@ -17,7 +17,7 @@ with contextlib.suppress(Exception):
     from scalene.scalene_parseargs import ScaleneParseArgs
 
     @magics_class
-    class ScaleneMagics(Magics):
+    class ScaleneMagics(Magics): # type: ignore[misc, no-any-unimported]
         """IPython (Jupyter) support for magics for Scalene (%scrun and %%scalene)."""
 
         def run_code(self, args: ScaleneArguments, code: str) -> None:
@@ -35,7 +35,7 @@ with contextlib.suppress(Exception):
                 args, [filename], is_jupyter=True
             )
 
-        @line_cell_magic
+        @line_cell_magic # type: ignore[misc]
         def scalene(self, line: str, cell: str = "") -> None:
             """%%scalene magic: see https://github.com/plasma-umass/scalene for usage info."""
             if line:
@@ -50,7 +50,7 @@ with contextlib.suppress(Exception):
                 self.run_code(args, "\n" + cell)  # type: ignore
                 # print(f"{cell=}")
 
-        @line_magic
+        @line_magic # type: ignore[misc]
         def scrun(self, line: str = "") -> None:
             """%scrun magic: see https://github.com/plasma-umass/scalene for usage info."""
             if line:
