@@ -1949,6 +1949,7 @@ class Scalene:
             if not is_jupyter:
                 multiprocessing.set_start_method("fork")
                 def multiprocessing_warning(method: Optional[str], force: bool = False) -> None:
+                    # The 'force' parameter is present for compatibility with multiprocessing.set_start_method, but is ignored.
                     if method != "fork":
                         warnings.warn("Scalene currently only supports the `fork` multiprocessing start method.")
                 multiprocessing.set_start_method = multiprocessing_warning
