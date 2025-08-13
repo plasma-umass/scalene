@@ -478,7 +478,7 @@ class ScaleneJSON:
 
             # Leak analysis
             # First, compute AVERAGE memory consumption.
-            avg_mallocs : Dict[LineNumber, float] = defaultdict(float)
+            avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.memory_stats.memory_malloc_count[fname]:
                 n_malloc_mb = stats.memory_stats.memory_aggregate_footprint[fname][line_no]
                 count = stats.memory_stats.memory_malloc_count[fname][line_no]
