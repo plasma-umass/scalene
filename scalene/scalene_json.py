@@ -41,34 +41,34 @@ class FunctionDetail(BaseModel):
     n_usage_fraction: float = Field(..., ge=0, le=1)
 
     @model_validator(mode="after")
-    def check_cpu_percentages(cls, values: Any) -> Any:
+    def check_cpu_percentages(self) -> Any:
         total_cpu_usage = math.floor(
-            values.n_cpu_percent_c
-            + values.n_cpu_percent_python
-            + values.n_sys_percent
+            self.n_cpu_percent_c
+            + self.n_cpu_percent_python
+            + self.n_sys_percent
         )
         if total_cpu_usage > 100:
             raise ValueError(
                 f"The sum of n_cpu_percent_c, n_cpu_percent_python, and n_sys_percent must be <= 100 but is {total_cpu_usage}"
             )
-        return values
+        return self
 
 
     @model_validator(mode="after")
-    def check_gpu_memory(cls, values: Any) -> Any:
-        if values.n_gpu_avg_memory_mb > values.n_gpu_peak_memory_mb:
+    def check_gpu_memory(self) -> Any:
+        if self.n_gpu_avg_memory_mb > self.n_gpu_peak_memory_mb:
             raise ValueError(
                 "n_gpu_avg_memory_mb must be less than or equal to n_gpu_peak_memory_mb"
             )
-        return values
+        return self
 
     @model_validator(mode="after")
-    def check_cpu_memory(cls, values: Any) -> Any:
-        if values.n_avg_mb > values.n_peak_mb:
+    def check_cpu_memory(self) -> Any:
+        if self.n_avg_mb > self.n_peak_mb:
             raise ValueError(
                 "n_avg_mb must be less than or equal to n_peak_mb"
             )
-        return values
+        return self
     
 class LineDetail(FunctionDetail):
     start_outermost_loop: PositiveInt
