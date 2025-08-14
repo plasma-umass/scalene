@@ -183,6 +183,7 @@ class ScaleneOutput:
             ncpcs: Any = ""
             nufs: Any = ""
             ngpus: Any = ""
+            nsys: Any = ""
 
             n_usage_fraction_str: str = (
                 ""
@@ -195,6 +196,7 @@ class ScaleneOutput:
                     obj["n_cpu_percent_c"]
                     + obj["n_cpu_percent_python"]
                     + obj["n_gpu_percent"]
+                    + obj["n_sys_percent"]
                 )
                 >= self.highlight_percentage
             ):
@@ -215,8 +217,9 @@ class ScaleneOutput:
                 ncpcs = n_cpu_percent_c_str
                 ngpus = n_gpu_percent_str
                 nufs = spark_str + n_usage_fraction_str
+                nsys = sys_str
 
-            if reduced_profile and not ncpps + ncpcs + nufs + ngpus:
+            if reduced_profile and not ncpps + ncpcs + nufs + ngpus + nsys:
                 return False
 
             n_python_fraction_str: str = (
@@ -262,6 +265,7 @@ class ScaleneOutput:
                 obj["n_cpu_percent_c"]
                 + obj["n_cpu_percent_python"]
                 + obj["n_gpu_percent"]
+                + obj["n_sys_percent"]
             ) >= self.highlight_percentage:
                 ncpps = Text.assemble(
                     (n_cpu_percent_python_str, self.highlight_color)
@@ -272,13 +276,18 @@ class ScaleneOutput:
                 ngpus = Text.assemble(
                     (n_gpu_percent_str, self.highlight_color)
                 )
+                nsys = Text.assemble(
+                    (sys_str, self.highlight_color)
+                )
             else:
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str
                 ngpus = n_gpu_percent_str
+                nsys = sys_str
 
-            if reduced_profile and not ncpps + ncpcs + ngpus:
+            if reduced_profile and not ncpps + ncpcs + ngpus + nsys:
                 return False
+            
             if self.gpu:
                 tbl.add_row(
                     print_line_no,
