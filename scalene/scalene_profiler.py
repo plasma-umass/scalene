@@ -1686,6 +1686,7 @@ class Scalene:
         except SystemExit as se:
             # Intercept sys.exit and propagate the error code.
             exit_status = se.code if isinstance(se.code, int) else 1
+            return exit_status
         except KeyboardInterrupt:
             # Cleanly handle keyboard interrupts (quits execution and dumps the profile).
             print("Scalene execution interrupted.", file=sys.stderr)
@@ -1693,63 +1694,65 @@ class Scalene:
             print(f"{Scalene.__error_message}:\n", e, file=sys.stderr)
             traceback.print_exc()
             exit_status = 1
+            return exit_status
         finally:
             self.stop()
             if Scalene.__args.memory:
                 pywhere.disable_settrace()
                 pywhere.depopulate_struct()
-            # Leaving here in case of reversion
-            # sys.settrace(None)
-            stats = Scalene.__stats
-            (last_file, last_line, _) = Scalene.last_profiled_tuple()
-            stats.memory_stats.memory_malloc_count[last_file][last_line] += 1
-            stats.memory_stats.memory_aggregate_footprint[last_file][
-                last_line
-            ] += stats.memory_stats.memory_current_highwater_mark[last_file][last_line]
-            # If we've collected any samples, dump them.
-            did_output = Scalene.output_profile(left)
-            if not did_output:
+                
+        # Leaving here in case of reversion
+        # sys.settrace(None)
+        stats = Scalene.__stats
+        (last_file, last_line, _) = Scalene.last_profiled_tuple()
+        stats.memory_stats.memory_malloc_count[last_file][last_line] += 1
+        stats.memory_stats.memory_aggregate_footprint[last_file][
+            last_line
+        ] += stats.memory_stats.memory_current_highwater_mark[last_file][last_line]
+        # If we've collected any samples, dump them.
+        did_output = Scalene.output_profile(left)
+        if not did_output:
+            print(
+                "Scalene: The specified code did not run for long enough to profile.",
+                file=sys.stderr,
+            )
+            # Print out hints to explain why the above message may have been printed.
+            if not Scalene.__args.profile_all:
+                # if --profile-all was not specified, suggest it
+                # as a way to profile otherwise excluded code
+                # (notably Python libraries, which are excluded by
+                # default).
                 print(
-                    "Scalene: The specified code did not run for long enough to profile.",
+                    "By default, Scalene only profiles code in the file executed and its subdirectories.",
                     file=sys.stderr,
                 )
-                # Print out hints to explain why the above message may have been printed.
-                if not Scalene.__args.profile_all:
-                    # if --profile-all was not specified, suggest it
-                    # as a way to profile otherwise excluded code
-                    # (notably Python libraries, which are excluded by
-                    # default).
-                    print(
-                        "By default, Scalene only profiles code in the file executed and its subdirectories.",
-                        file=sys.stderr,
-                    )
-                    print(
-                        "To track the time spent in all files, use the `--profile-all` option.",
-                        file=sys.stderr,
-                    )
-                elif (
-                    Scalene.__args.profile_only
-                    or Scalene.__args.profile_exclude
-                ):
-                    # if --profile-only or --profile-exclude were
-                    # specified, suggest that the patterns might be
-                    # excluding too many files. Collecting the
-                    # previously filtered out files could allow
-                    # suggested fixes (as in, remove foo because it
-                    # matches too many files).
-                    print(
-                        "The patterns used in `--profile-only` or `--profile-exclude` may be filtering out too many files.",
-                        file=sys.stderr,
-                    )
-                else:
-                    # if none of the above cases hold, indicate that
-                    # Scalene can only profile code that runs for at
-                    # least one second or allocates some threshold
-                    # amount of memory.
-                    print(
-                        "Scalene can only profile code that runs for at least one second or allocates at least 10MB.",
-                        file=sys.stderr,
-                    )
+                print(
+                    "To track the time spent in all files, use the `--profile-all` option.",
+                    file=sys.stderr,
+                )
+            elif (
+                Scalene.__args.profile_only
+                or Scalene.__args.profile_exclude
+            ):
+                # if --profile-only or --profile-exclude were
+                # specified, suggest that the patterns might be
+                # excluding too many files. Collecting the
+                # previously filtered out files could allow
+                # suggested fixes (as in, remove foo because it
+                # matches too many files).
+                print(
+                    "The patterns used in `--profile-only` or `--profile-exclude` may be filtering out too many files.",
+                    file=sys.stderr,
+                )
+            else:
+                # if none of the above cases hold, indicate that
+                # Scalene can only profile code that runs for at
+                # least one second or allocates some threshold
+                # amount of memory.
+                print(
+                    "Scalene can only profile code that runs for at least one second or allocates at least 10MB.",
+                    file=sys.stderr,
+                )
 
             if not (
                 did_output
