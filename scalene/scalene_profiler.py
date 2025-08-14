@@ -20,7 +20,7 @@ from __future__ import (
 
 # Import cysignals early so it doesn't disrupt Scalene's use of signals; this allows Scalene to profile Sage.
 # See https://github.com/plasma-umass/scalene/issues/740.
-try:
+try: # noqa: SIM105
     import cysignals # noqa: F401
 except ModuleNotFoundError:
     pass
@@ -1251,10 +1251,10 @@ class Scalene:
                     freed_last_trigger += 1
             timestamp = time.monotonic_ns() - Scalene.__start_time
             stats.memory_stats.memory_footprint_samples.append(
-                [
+                (
                     timestamp,
                     stats.memory_stats.current_footprint,
-                ]
+                )
             )
         after = stats.memory_stats.current_footprint
 
@@ -1867,6 +1867,7 @@ class Scalene:
 
                     Scalene.__accelerator = ScaleneNeuron()
 
+            assert Scalene.__accelerator is not None
             Scalene.__output.gpu = Scalene.__accelerator.has_gpu()
             Scalene.__json.gpu = Scalene.__output.gpu
             Scalene.__json.gpu_device = Scalene.__accelerator.gpu_device()
@@ -1947,8 +1948,9 @@ class Scalene:
         with contextlib.suppress(Exception):
             if not is_jupyter:
                 multiprocessing.set_start_method("fork")
-                def multiprocessing_warning(x: str) -> None:
-                    if x != "fork":
+                def multiprocessing_warning(method: Optional[str], force: bool = False) -> None:
+                    # The 'force' parameter is present for compatibility with multiprocessing.set_start_method, but is ignored.
+                    if method != "fork":
                         warnings.warn("Scalene currently only supports the `fork` multiprocessing start method.")
                 multiprocessing.set_start_method = multiprocessing_warning
         spec = None

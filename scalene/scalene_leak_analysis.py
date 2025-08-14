@@ -1,4 +1,4 @@
-from typing import List, OrderedDict, Tuple
+from typing import Dict, List, Tuple
 
 from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics
 
@@ -15,7 +15,7 @@ class ScaleneLeakAnalysis:
     def compute_leaks(
         growth_rate: float,
         stats: ScaleneStatistics,
-        avg_mallocs: OrderedDict[LineNumber, float],
+        avg_mallocs: Dict[LineNumber, float],
         fname: Filename,
     ) -> List[Tuple[LineNumber, float, float]]:
         if growth_rate / 100 < ScaleneLeakAnalysis.growth_rate_threshold:

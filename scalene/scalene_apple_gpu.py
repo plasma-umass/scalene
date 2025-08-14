@@ -1,6 +1,7 @@
 import platform
 import ctypes
 from typing import Tuple
+from scalene.scalene_accelerator import ScaleneAccelerator
 
 # ---------------------------------------------------------------------------
 # 1. Define the needed IOKit / CoreFoundation constants and function signatures
@@ -84,12 +85,12 @@ def _find_apple_gpu_service() -> io_registry_entry_t:
     """
     matching = IOServiceMatching(b"IOAccelerator")
     if not matching:
-        return None
+        return None # type: ignore[return-value]
 
     service_obj = IOServiceGetMatchingService(kIOMasterPortDefault, matching)
     # service_obj is automatically retained if found.
     # No need to release 'matching' (it is CFTypeRef, but handled by the system).
-    return service_obj
+    return service_obj # type: ignore[no-any-return]
 
 
 def _read_gpu_core_count(service_obj: io_registry_entry_t) -> int:
@@ -146,7 +147,7 @@ def _read_perf_stats(service_obj: io_registry_entry_t) -> Tuple[float, float]:
     return (device_util, in_use_mem)
 
 
-class ScaleneAppleGPU:
+class ScaleneAppleGPU(ScaleneAccelerator):
     """Wrapper for Apple integrated GPU stats, using direct IOKit calls."""
 
     def __init__(self) -> None:
@@ -180,11 +181,11 @@ class ScaleneAppleGPU:
         except Exception:
             return (0.0, 0.0)
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Release the service object if it exists."""
         if self._service_obj:
             IOObjectRelease(self._service_obj)
-            self._service_obj = None
+            self._service_obj = None # type: ignore[assignment]
 
 
 if __name__ == "__main__":

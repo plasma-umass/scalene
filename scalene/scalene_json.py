@@ -3,7 +3,7 @@ import math
 import random
 import re
 
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from enum import Enum
 from operator import itemgetter
 from pathlib import Path
@@ -478,7 +478,7 @@ class ScaleneJSON:
 
             # Leak analysis
             # First, compute AVERAGE memory consumption.
-            avg_mallocs = defaultdict(float)
+            avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.memory_stats.memory_malloc_count[fname]:
                 n_malloc_mb = stats.memory_stats.memory_aggregate_footprint[fname][line_no]
                 count = stats.memory_stats.memory_malloc_count[fname][line_no]
@@ -488,7 +488,7 @@ class ScaleneJSON:
                     # Setting to n_malloc_mb addresses the edge case where this allocation is the last line executed.
                     avg_mallocs[line_no] = n_malloc_mb
 
-            avg_mallocs = OrderedDict(
+            avg_mallocs = dict(
                 sorted(avg_mallocs.items(), key=itemgetter(1), reverse=True)
             )
 
