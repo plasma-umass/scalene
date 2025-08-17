@@ -78,6 +78,7 @@ from typing import (
 
 import scalene.scalene_config
 from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_asyncio import ScaleneAsyncio
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_funcutils import ScaleneFuncUtils
 from scalene.scalene_json import ScaleneJSON
@@ -164,7 +165,7 @@ def enable_profiling() -> Generator[None, None, None]:
     yield
     stop()
 
-   
+
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -514,13 +515,13 @@ class Scalene:
         ):
             Scalene.update_profiled()
         pywhere.set_last_profiled_invalidated_false()
-        # In the setprofile callback, we rely on 
-        # __last_profiled always having the same memory address. 
+        # In the setprofile callback, we rely on
+        # __last_profiled always having the same memory address.
         # This is an optimization to not have to traverse the Scalene profiler
         # object's dictionary every time we want to update the last profiled line.
         #
         # A previous change to this code set Scalene.__last_profiled = [fname, lineno, lasti],
-        # which created a new list object and set the __last_profiled attribute to the new list. This 
+        # which created a new list object and set the __last_profiled attribute to the new list. This
         # made the object held in `pywhere.cpp` out of date, and caused the profiler to not update the last profiled line.
         Scalene.__last_profiled[:] = [
             Filename(f.f_code.co_filename),
@@ -755,6 +756,7 @@ class Scalene:
             Scalene.process_cpu_sample(
                 signum,
                 Scalene.compute_frames_to_record(),
+                ScaleneAsyncio.compute_suspended_frames_to_record(Scalene.should_trace),
                 now,
                 gpu_load,
                 gpu_mem_used,
@@ -905,6 +907,7 @@ class Scalene:
             None,
         ],
         new_frames: List[Tuple[FrameType, int, FrameType]],
+        idle_async_frames: List[FrameType],
         now: TimeInfo,
         gpu_load: float,
         gpu_mem_used: float,
@@ -929,7 +932,7 @@ class Scalene:
                 Scalene.output_profile()
                 stats.start_clock()
 
-        if not new_frames:
+        if not new_frames and not idle_async_frames:
             # No new frames, so nothing to update.
             return
 
@@ -977,7 +980,7 @@ class Scalene:
             gpu_load = 0.0
         assert gpu_load >= 0.0 and gpu_load <= 1.0
         gpu_time = gpu_load * elapsed.wallclock
-        Scalene.__stats.gpu_stats.total_gpu_samples += gpu_time
+        Scalene.__stats.gpu_stats.total_gpu_samples += gpu_time  # TODO asyncio-extension: should this be moved?
         python_time = Scalene.__args.cpu_sampling_rate
         c_time = elapsed.virtual - python_time
         c_time = max(c_time, 0)
@@ -986,59 +989,60 @@ class Scalene:
 
         # First, find out how many frames are not sleeping.  We need
         # to know this number so we can parcel out time appropriately
-        # (equally to each running thread).
-        total_frames = sum(
+        total_threads = sum(
             not is_thread_sleeping[tident]
             for frame, tident, orig_frame in new_frames
         )
 
-        if total_frames == 0:
-            total_frames = 1
+        if total_threads == 0:
+            total_threads = 1
 
-        normalized_time = total_time / total_frames
+        # the time each thread spends, which always adds up to TOTAL_TIME.
+        normalized_time = total_time / total_threads
+        async_time = total_time * len(idle_async_frames)
+
+        average_python_time = python_time / total_threads
+        average_c_time = c_time / total_threads
+        average_cpu_time = (python_time + c_time) / total_threads
 
         # Now attribute execution time.
-
-        main_thread_frame = new_frames[0][0]
-
-        average_python_time = python_time / total_frames
-        average_c_time = c_time / total_frames
-        average_cpu_time = (python_time + c_time) / total_frames
-
-        if Scalene.__args.stacks:
-            add_stack(
-                main_thread_frame,
-                Scalene.should_trace,
-                Scalene.__stats.stacks,
-                average_python_time,
-                average_c_time,
-                average_cpu_time,
-            )
-
         # First, handle the main thread.
-        Scalene.enter_function_meta(main_thread_frame, Scalene.__stats)
-        fname = Filename(main_thread_frame.f_code.co_filename)
-        lineno = LineNumber(main_thread_frame.f_lineno)
-        # print(main_thread_frame)
-        # print(fname, lineno)
-        main_tid = cast(int, threading.main_thread().ident)
-        if not is_thread_sleeping[main_tid]:
-            Scalene.__stats.cpu_stats.cpu_samples_python[fname][
-                lineno
-            ] += average_python_time
-            Scalene.__stats.cpu_stats.cpu_samples_c[fname][lineno] += average_c_time
-            Scalene.__stats.cpu_stats.cpu_samples[fname] += average_cpu_time
-            Scalene.__stats.cpu_stats.cpu_utilization[fname][lineno].push(
-                cpu_utilization
-            )
-            Scalene.__stats.cpu_stats.core_utilization[fname][lineno].push(
-                core_utilization
-            )
-            Scalene.__stats.gpu_stats.gpu_samples[fname][lineno] += (
-                gpu_load * elapsed.wallclock
-            )
-            Scalene.__stats.gpu_stats.n_gpu_samples[fname][lineno] += elapsed.wallclock
-            Scalene.__stats.gpu_stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
+        if (new_frames):
+            main_thread_frame = new_frames[0][0]
+
+            if Scalene.__args.stacks:
+                add_stack(
+                    main_thread_frame,
+                    Scalene.should_trace,
+                    Scalene.__stats.stacks,
+                    average_python_time,
+                    average_c_time,
+                    average_cpu_time,
+                )
+
+            Scalene.enter_function_meta(main_thread_frame, Scalene.__stats)
+            fname = Filename(main_thread_frame.f_code.co_filename)
+            lineno = LineNumber(main_thread_frame.f_lineno)
+            # print(main_thread_frame)
+            # print(fname, lineno)
+            main_tid = cast(int, threading.main_thread().ident)
+            if not is_thread_sleeping[main_tid]:
+                Scalene.__stats.cpu_stats.cpu_samples_python[fname][
+                    lineno
+                ] += average_python_time
+                Scalene.__stats.cpu_stats.cpu_samples_c[fname][lineno] += average_c_time
+                Scalene.__stats.cpu_stats.cpu_samples[fname] += average_cpu_time
+                Scalene.__stats.cpu_stats.cpu_utilization[fname][lineno].push(
+                    cpu_utilization
+                )
+                Scalene.__stats.cpu_stats.core_utilization[fname][lineno].push(
+                    core_utilization
+                )
+                Scalene.__stats.gpu_stats.gpu_samples[fname][lineno] += (
+                    gpu_load * elapsed.wallclock
+                )
+                Scalene.__stats.gpu_stats.n_gpu_samples[fname][lineno] += elapsed.wallclock
+                Scalene.__stats.gpu_stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
         # Now handle the rest of the threads.
         for frame, tident, orig_frame in new_frames:
@@ -1068,9 +1072,9 @@ class Scalene:
                 continue
             # Check if the original caller is stuck inside a call.
             if ScaleneFuncUtils.is_call_function(
-                orig_frame.f_code,
-                ByteCodeIndex(orig_frame.f_lasti),
-            ):
+                   orig_frame.f_code,
+                   ByteCodeIndex(orig_frame.f_lasti),
+               ):
                 # It is. Attribute time to native.
                 Scalene.__stats.cpu_stats.cpu_samples_c[fname][lineno] += normalized_time
             else:
@@ -1086,11 +1090,36 @@ class Scalene:
                 core_utilization
             )
 
+        # Finally, handle idle asynchronous tasks
+        for frame in idle_async_frames:
+            add_stack(
+                frame,
+                Scalene.should_trace,
+                Scalene.__stats.stacks,
+                average_python_time,
+                average_c_time,
+                average_cpu_time,
+            )
+
+            fname = Filename(frame.f_code.co_filename)
+            lineno = LineNumber(frame.f_lineno)
+            Scalene.enter_function_meta(frame, Scalene.__stats)
+
+            # asynchronous frames are always counted as system time.
+            # additionally, even if the associated thread is sleeping,
+            # idle tasks still... idle.
+            Scalene.__stats.cpu_stats.cpu_samples_c[fname][lineno] += total_time
+            Scalene.__stats.cpu_stats.cpu_samples[fname] += total_time
+            Scalene.__stats.cpu_stats.cpu_utilization[fname][lineno].push(0)
+            Scalene.__stats.cpu_stats.core_utilization[fname][lineno].push(0)
+
         # Clean up all the frames
         del new_frames[:]
         del new_frames
+        del idle_async_frames[:]
+        del idle_async_frames
         del is_thread_sleeping
-        Scalene.__stats.cpu_stats.total_cpu_samples += total_time
+        Scalene.__stats.cpu_stats.total_cpu_samples += total_time + async_time
 
     # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
     @staticmethod
@@ -1224,7 +1253,7 @@ class Scalene:
         freed_last_trigger = 0
         for item in arr:
             is_malloc = item.action == Scalene.MALLOC_ACTION
-            if item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1: 
+            if item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1:
                 continue # in previous implementations, we were adding NEWLINE to the footprint.
                          # We should not account for this in the user-facing profile.
             count = item.count / Scalene.BYTES_PER_MB
@@ -1440,7 +1469,7 @@ class Scalene:
                                                                 lineno=LineNumber(int(lineno)),
                                                                 bytecode_index=ByteCodeIndex(int(bytei)))
                 arr.append(memcpy_profiling_sample)
-                
+
         arr.sort()
 
         for item in arr:
