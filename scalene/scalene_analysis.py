@@ -1,4 +1,5 @@
 import ast
+import contextlib
 import importlib
 import os
 import re
@@ -206,13 +207,12 @@ class ScaleneAnalysis:
 
     @staticmethod
     def strip_magic_line(source: str) -> str:
-        try:
+        with contextlib.suppress(Exception):
             from IPython import get_ipython
             get_ipython()
             # The above line will fail if not running in a notebook,
             # in which case we return the original source unchanged.
             # Regular expression to match and replace magic commands with comments
             source = re.sub(r'(^\s*)%{1,2}(\w+)', r'\1# \2', source, flags=re.MULTILINE)
-        finally:
-            return source
+        return source
 
