@@ -1686,7 +1686,7 @@ class Scalene:
         except SystemExit as se:
             # Intercept sys.exit and propagate the error code.
             exit_status = se.code if isinstance(se.code, int) else 1
-            return exit_status
+
         except KeyboardInterrupt:
             # Cleanly handle keyboard interrupts (quits execution and dumps the profile).
             print("Scalene execution interrupted.", file=sys.stderr)
@@ -1694,7 +1694,7 @@ class Scalene:
             print(f"{Scalene.__error_message}:\n", e, file=sys.stderr)
             traceback.print_exc()
             exit_status = 1
-            return exit_status
+
         finally:
             self.stop()
             if Scalene.__args.memory:
