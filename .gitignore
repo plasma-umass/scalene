@@ -153,3 +153,5 @@ scalene/libscalene.dylib.dSYM/Contents/Resources/DWARF/libscalene.dylib
 vendor/
 !vendor/README.md
 
+# Node modules
+node_modules/

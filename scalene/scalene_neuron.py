@@ -78,9 +78,9 @@ class ScaleneNeuron(ScaleneAccelerator):
     def __init__(self) -> None:
         self._gpu_device = ""
         self._neuron_monitor = None
+        self._monitor_started = False
         if self.has_gpu():
-            # Neuron device; init neuron-monitor and set GPU device name
-            self._neuron_monitor = NeuronMonitor()
+            # Neuron device; set GPU device name but don't start monitor yet
             self._gpu_device = "Neuron"
         self.cpu_utilization = 0.0
         self.memory_used_bytes = 0.0
@@ -111,12 +111,18 @@ class ScaleneNeuron(ScaleneAccelerator):
         pass
 
     def get_stats(self) -> Tuple[float, float]:
-        if self.has_gpu():
-            assert self._neuron_monitor
-            line = self._neuron_monitor.readline()
-            if line:
-                self._parse_output(line)
+        if self.has_gpu() and self._monitor_started:
+            if self._neuron_monitor:
+                line = self._neuron_monitor.readline()
+                if line:
+                    self._parse_output(line)
         return self.neuroncore_utilization, self.memory_used_bytes / 1048576.0
+
+    def start_monitor(self) -> None:
+        """Explicitly start the neuron monitor when profiling begins"""
+        if self.has_gpu() and not self._monitor_started:
+            self._neuron_monitor = NeuronMonitor()
+            self._monitor_started = True
 
     def _parse_output(self, output: str) -> None:
         try:
