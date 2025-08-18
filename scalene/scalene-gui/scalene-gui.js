@@ -253,6 +253,7 @@ export function toggleReduced() {
 
 function makeProfileLine(
   line,
+  is_docstring,
   filename,
   file_number,
   prof,
@@ -863,9 +864,14 @@ async function display(prof) {
       functions: false,
     });
     s += "<tbody>";
+    // Compute all docstring lines
+    const linesArray = ff[1].lines.map(entry => entry.line);
+    const docstringLines = stringLines(linesArray);
     // Print per-line profiles.
     let prevLineno = -1;
+    let index = -1;
     for (const l in ff[1].lines) {
+      index += 1;
       const line = ff[1].lines[l];
 
       if (false) {
@@ -887,6 +893,7 @@ async function display(prof) {
       prevLineno = line.lineno;
       s += makeProfileLine(
         line,
+        docstringLines.has(index),
         ff[0],
         fileIteration,
         prof,
@@ -916,6 +923,7 @@ async function display(prof) {
         const line = prof.files[ff[0]].functions[l];
         s += makeProfileLine(
           line,
+          false, // functions are not docstrings
           ff[0],
           fileIteration,
           prof,
