@@ -181,20 +181,22 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params) {
       info: `Peak ${gpu_device} memory allocated by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
     });
   }
-  // Add NRT columns  
+  // Only add NRT/NC columns if neuron data exists (commented out for now)
+  // TODO: Enable when neuron profiling is implemented in the backend
+  /*
   columns.push({
     title: ["NRT", "%"],
     color: "purple",
     width: 0,
     info: "Neural Runtime percentage",
   });
-  // Add NC column (NC time bar)
   columns.push({
     title: ["NC", "time"],
-    color: "darkorange",
+    color: "darkorange", 
     width: 0,
     info: "Neuron Compute time",
   });
+  */
   columns.push({ title: ["", ""], color: "black", width: 100 });
   let s = "";
   s += '<thead class="thead-light">';
@@ -310,7 +312,7 @@ function makeProfileLine(
     line.memory_samples.length +
     (line.n_usage_fraction >= 0.01);
   const has_gpu_results = line.n_gpu_percent >= 1.0;
-  const has_nrt_results = (line.nrt_percent !== undefined && line.nrt_percent > 0);
+  const has_nrt_results = (line.nrt_percent !== undefined && line.nrt_percent !== null && line.nrt_percent > 0);
   const start_region_line = line.start_region_line;
   const end_region_line = line.end_region_line;
   // Only show the explosion (optimizing a whole region) once.
@@ -481,6 +483,9 @@ function makeProfileLine(
     }
   }
   
+  // NRT and NC columns commented out until backend implementation is ready
+  // TODO: Enable when neuron profiling is implemented in the backend
+  /*
   // Add NRT columns
   // NRT percentage bar
   if (line.nrt_percent !== undefined && line.nrt_percent > 0) {
@@ -515,6 +520,7 @@ function makeProfileLine(
     s += '<td style="width: 100"></td>';
     nc_bars.push(null);
   }
+  */
   
   const empty_profile =
     total_time ||
