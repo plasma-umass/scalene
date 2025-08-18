@@ -464,3 +464,217 @@ export function makeSparkline(
     ],
   };
 }
+
+export function makeNRTBar(nrt_percent, nrt_time_ms, params) {
+  // Make a bar for NRT percentage
+  const widthThreshold1 = 15; // Reduced to fix text cutoff
+  const widthThreshold2 = 8;  // Reduced to fix text cutoff
+  
+  // Use actual NRT time for tooltip
+  let tooltipText = "NRT: " + nrt_percent.toFixed(1) + "% [" + time_consumed_str(nrt_time_ms) + "]";
+  
+  return {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    config: {
+      view: {
+        stroke: "transparent",
+      },
+    },
+    autosize: {
+      contains: "padding",
+    },
+    width: params.width,
+    height: params.height,
+    padding: 0,
+    data: {
+      values: [
+        {
+          x: 0,
+          y: nrt_percent.toFixed(1),
+          c: tooltipText,
+          d:
+            nrt_percent >= widthThreshold1
+              ? nrt_percent.toFixed(0) + "%"
+              : nrt_percent >= widthThreshold2
+                ? nrt_percent.toFixed(0)
+                : "",
+          q: nrt_percent / 2,
+        },
+      ],
+    },
+    layer: [
+      {
+        mark: { type: "bar" },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "y",
+            axis: false,
+            stack: "zero",
+            scale: { domain: [0, 100] },
+          },
+          color: {
+            field: "c",
+            type: "nominal",
+            legend: false,
+            scale: { range: ["purple"] },
+          },
+          tooltip: [{ field: "c", type: "nominal", title: "NRT percentage" }],
+        },
+      },
+      {
+        mark: {
+          type: "text",
+          align: "center",
+          baseline: "middle",
+          dx: 0,
+        },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "q",
+            axis: false,
+          },
+          text: { field: "d" },
+          color: { value: "white" },
+          tooltip: [{ field: "c", type: "nominal", title: "NRT percentage" }],
+        },
+      },
+    ],
+  };
+}
+
+export function makeNCNRTPie(nc_time_ms, nrt_time_ms, params) {
+  // Make a pie chart showing NC vs NRT time proportions
+  const total_time = nc_time_ms + nrt_time_ms;
+  const nc_proportion = (nc_time_ms / total_time) * 100;
+  const nrt_proportion = (nrt_time_ms / total_time) * 100;
+  
+  return {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    config: {
+      view: {
+        stroke: "transparent",
+      },
+    },
+    autosize: {
+      contains: "padding",
+    },
+    width: params.width,
+    height: params.height,
+    padding: 0,
+    data: {
+      values: [
+        {
+          category: "NC",
+          value: nc_time_ms,
+          c: "NC: " + time_consumed_str(nc_time_ms) + " (" + nc_proportion.toFixed(1) + "%)",
+        },
+        {
+          category: "NRT", 
+          value: nrt_time_ms,
+          c: "NRT: " + time_consumed_str(nrt_time_ms) + " (" + nrt_proportion.toFixed(1) + "%)",
+        },
+      ],
+    },
+    mark: "arc",
+    encoding: {
+      theta: {
+        field: "value",
+        type: "quantitative",
+      },
+      color: {
+        field: "category",
+        type: "nominal",
+        legend: false,
+        scale: { 
+          domain: ["NC", "NRT"],
+          range: ["darkorange", "white"] 
+        },
+      },
+      tooltip: [{ field: "c", type: "nominal", title: "NC vs NRT time" }],
+    },
+  };
+}
+
+export function makeNCTimeBar(nc_time_ms, total_nc_time_ms, params) {
+  // Make a bar for NC time (similar to NRT bar but based on time rather than percentage)
+  const widthThreshold1 = 15; // Reduced to fix text cutoff
+  const widthThreshold2 = 8;  // Reduced to fix text cutoff
+  
+  // Calculate percentage of this line's NC time relative to total NC time in the file
+  const nc_percent = total_nc_time_ms > 0 ? (nc_time_ms / total_nc_time_ms) * 100 : 0;
+  
+  // Use actual NC time for tooltip
+  let tooltipText = "NC: " + time_consumed_str(nc_time_ms) + " (" + nc_percent.toFixed(1) + "% of total NC time)";
+  
+  return {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    config: {
+      view: {
+        stroke: "transparent",
+      },
+    },
+    autosize: {
+      contains: "padding",
+    },
+    width: params.width,
+    height: params.height,
+    padding: 0,
+    data: {
+      values: [
+        {
+          x: 0,
+          y: nc_percent.toFixed(1),
+          c: tooltipText,
+          d:
+            nc_percent >= widthThreshold1
+              ? nc_percent.toFixed(0) + "%"
+              : nc_percent >= widthThreshold2
+                ? nc_percent.toFixed(0)
+                : "",
+          q: nc_percent / 2,
+        },
+      ],
+    },
+    layer: [
+      {
+        mark: { type: "bar" },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "y",
+            axis: false,
+            stack: "zero",
+            scale: { domain: [0, 100] },
+          },
+          color: {
+            field: "c",
+            type: "nominal",
+            legend: false,
+            scale: { range: ["darkorange"] },
+          },
+          tooltip: [{ field: "c", type: "nominal", title: "NC time" }],
+        },
+      },
+      {
+        mark: {
+          type: "text",
+          align: "center",
+          baseline: "middle",
+          dx: 0,
+        },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "q",
+            axis: false,
+          },
+          text: { field: "d" },
+          color: { value: "white" },
+          tooltip: [{ field: "c", type: "nominal", title: "NC time" }],
+        },
+      },
+    ],
+  };
+}

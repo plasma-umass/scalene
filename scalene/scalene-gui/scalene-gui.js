@@ -6,7 +6,7 @@ import { Prism } from "./prism";
 import Tablesort from "./tablesort";
 import { proposeOptimization } from "./optimizations";
 import { unescapeUnicode, memory_consumed_str, time_consumed_str } from "./utils";
-import { makeBar, makeGPUPie, makeMemoryPie, makeMemoryBar, makeSparkline,
+import { makeBar, makeGPUPie, makeMemoryPie, makeMemoryBar, makeSparkline, makeNRTBar, makeNCTimeBar, makeNCNRTPie,
 	 Lightning, Explosion, RightTriangle, DownTriangle, WhiteLightning, WhiteExplosion} from "./gui-elements";
 import { checkApiKey } from "./openai";
 import { fetchModelNames } from "./ollama";
@@ -62,58 +62,58 @@ function stringLines(lines) {
     let docstringDelimiter = null; // Either `'''` or `"""` when in a docstring.
 
     for (let i = 0; i < lines.length; i++) {
-	const line = lines[i];
-	let searchIndex = 0;
-	// We'll record if we were already in a docstring at the start of this line.
-	let wasInDocstring = inDocstring;
+        const line = lines[i];
+        let searchIndex = 0;
+        // We'll record if we were already in a docstring at the start of this line.
+        let wasInDocstring = inDocstring;
 
-	// Repeatedly look for triple quotes in the current line.
-	while (true) {
-	    // Find the next occurrence of either `'''` or `"""`.
-	    const nextTripleSingle = line.indexOf("'''", searchIndex);
-	    const nextTripleDouble = line.indexOf('"""', searchIndex);
+        // Repeatedly look for triple quotes in the current line.
+        while (true) {
+            // Find the next occurrence of either `'''` or `"""`.
+            const nextTripleSingle = line.indexOf("'''", searchIndex);
+            const nextTripleDouble = line.indexOf('"""', searchIndex);
 
-	    // Figure out which one occurs first (if either).
-	    let nextIndex = -1;
-	    let foundDelimiter = null;
+            // Figure out which one occurs first (if either).
+            let nextIndex = -1;
+            let foundDelimiter = null;
 
-	    if (nextTripleSingle !== -1 && (nextTripleDouble === -1 || nextTripleSingle < nextTripleDouble)) {
-		nextIndex = nextTripleSingle;
-		foundDelimiter = "'''";
-	    } else if (nextTripleDouble !== -1 && (nextTripleSingle === -1 || nextTripleDouble < nextTripleSingle)) {
-		nextIndex = nextTripleDouble;
-		foundDelimiter = '"""';
-	    }
+            if (nextTripleSingle !== -1 && (nextTripleDouble === -1 || nextTripleSingle < nextTripleDouble)) {
+                nextIndex = nextTripleSingle;
+                foundDelimiter = "'''";
+            } else if (nextTripleDouble !== -1 && (nextTripleSingle === -1 || nextTripleDouble < nextTripleSingle)) {
+                nextIndex = nextTripleDouble;
+                foundDelimiter = '"""';
+            }
 
-	    // If no further triple quotes found in this line, break out of the loop.
-	    if (nextIndex === -1) {
-		break;
-	    }
+            // If no further triple quotes found in this line, break out of the loop.
+            if (nextIndex === -1) {
+                break;
+            }
 
-	    // Advance searchIndex so that subsequent searches move past this point.
-	    searchIndex = nextIndex + 3;
+            // Advance searchIndex so that subsequent searches move past this point.
+            searchIndex = nextIndex + 3;
 
-	    // Toggle logic if we've found a triple quote.
-	    if (!inDocstring) {
-		// Not in a docstring, so this starts one.
-		inDocstring = true;
-		docstringDelimiter = foundDelimiter;
-	    } else {
-		// Already in a docstring, check if it matches our current delimiter.
-		if (docstringDelimiter === foundDelimiter) {
-		    // This ends our current docstring.
-		    inDocstring = false;
-		    docstringDelimiter = null;
-		}
-	    }
-	}
+            // Toggle logic if we've found a triple quote.
+            if (!inDocstring) {
+                // Not in a docstring, so this starts one.
+                inDocstring = true;
+                docstringDelimiter = foundDelimiter;
+            } else {
+                // Already in a docstring, check if it matches our current delimiter.
+                if (docstringDelimiter === foundDelimiter) {
+                    // This ends our current docstring.
+                    inDocstring = false;
+                    docstringDelimiter = null;
+                }
+            }
+        }
 
-	// If we were in a docstring at any point during this line, mark it.
-	// (If wasInDocstring was true at the start or inDocstring is true now,
-	//  it means this line is part of a docstring.)
-	if (wasInDocstring || inDocstring) {
-	    docstringLines.add(i);
-	}
+        // If we were in a docstring at any point during this line, mark it.
+        // (If wasInDocstring was true at the start or inDocstring is true now,
+        //  it means this line is part of a docstring.)
+        if (wasInDocstring || inDocstring) {
+            docstringLines.add(i);
+        }
     }
     return docstringLines;
 }
@@ -181,6 +181,20 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params) {
       info: `Peak ${gpu_device} memory allocated by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
     });
   }
+  // Add NRT columns  
+  columns.push({
+    title: ["NRT", "%"],
+    color: "purple",
+    width: 0,
+    info: "Neural Runtime percentage",
+  });
+  // Add NC column (NC time bar)
+  columns.push({
+    title: ["NC", "time"],
+    color: "darkorange",
+    width: 0,
+    info: "Neuron Compute time",
+  });
   columns.push({ title: ["", ""], color: "black", width: 100 });
   let s = "";
   s += '<thead class="thead-light">';
@@ -239,7 +253,6 @@ export function toggleReduced() {
 
 function makeProfileLine(
   line,
-  inDocstring,
   filename,
   file_number,
   prof,
@@ -249,6 +262,10 @@ function makeProfileLine(
   memory_activity,
   gpu_pies,
   propose_optimizations,
+  nrt_bars,
+  nc_bars,
+  nc_nrt_pies,
+  total_nc_time_for_file,
 ) {
   let total_time =
     line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
@@ -292,6 +309,7 @@ function makeProfileLine(
     line.memory_samples.length +
     (line.n_usage_fraction >= 0.01);
   const has_gpu_results = line.n_gpu_percent >= 1.0;
+  const has_nrt_results = (line.nrt_percent !== undefined && line.nrt_percent > 0);
   const start_region_line = line.start_region_line;
   const end_region_line = line.end_region_line;
   // Only show the explosion (optimizing a whole region) once.
@@ -318,6 +336,7 @@ function makeProfileLine(
     total_time > 1.0 ||
     has_memory_results ||
     has_gpu_results ||
+    has_nrt_results ||
     (showExplosion &&
       start_region_line != end_region_line &&
       (total_region_time >= 1.0 ||
@@ -460,10 +479,47 @@ function makeProfileLine(
       }
     }
   }
+  
+  // Add NRT columns
+  // NRT percentage bar
+  if (line.nrt_percent !== undefined && line.nrt_percent > 0) {
+    s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${line.nrt_percent.toFixed(1)}'>`;
+    s += `<span style="height: 20; width: 100; vertical-align: middle" id="nrt_bar${nrt_bars.length}"></span>`;
+    s += "</td>";
+    nrt_bars.push(
+      makeNRTBar(
+        line.nrt_percent,
+        line.nrt_time_ms || 0,
+        { height: 20, width: 100 },
+      ),
+    );
+  } else {
+    s += '<td style="width: 100"></td>';
+    nrt_bars.push(null);
+  }
+  
+  // Add NC time bar column
+  if (line.nc_time_ms !== undefined && line.nc_time_ms > 0) {
+    s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${line.nc_time_ms.toFixed(1)}'>`;
+    s += `<span style="height: 20; width: 100; vertical-align: middle" id="nc_bar${nc_bars.length}"></span>`;
+    s += "</td>";
+    nc_bars.push(
+      makeNCTimeBar(
+        line.nc_time_ms,
+        total_nc_time_for_file,
+        { height: 20, width: 100 },
+      ),
+    );
+  } else {
+    s += '<td style="width: 100"></td>';
+    nc_bars.push(null);
+  }
+  
   const empty_profile =
     total_time ||
     has_memory_results ||
     has_gpu_results ||
+    has_nrt_results ||
     end_region_line != start_region_line
       ? ""
       : "empty-profile";
@@ -482,6 +538,7 @@ function makeProfileLine(
 
   // Convert back any escaped Unicode.
   line.line = unescapeUnicode(line.line);
+
   const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
   s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
   let newLine = structuredClone(line);
@@ -523,12 +580,7 @@ function makeProfileLine(
   } else {
     s += lineOptimizationString;
   }
-  // If we are in a docstring, format it as such in the <span>
-  let optionalInDocstring = "";
-  if (inDocstring) {
-      optionalInDocstring = "token comment";
-  }
-    s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${optionalInDocstring} ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
+  s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
   s += "</tr>";
   return s;
 }
@@ -619,6 +671,9 @@ async function display(prof) {
   let cpu_bars = [];
   let gpu_pies = [];
   let memory_bars = [];
+  let nrt_bars = [];
+  let nc_bars = [];
+  let nc_nrt_pies = [];
   let tableID = 0;
   let s = "";
   s += '<span class="row justify-content-center">';
@@ -670,12 +725,14 @@ async function display(prof) {
   let cs = {};
   let mp = {};
   let ma = {};
+  let total_nc_time = {}; // Total NC time per file
   for (const f in prof.files) {
     cp[f] = 0;
     cn[f] = 0;
     cs[f] = 0;
     mp[f] = 0;
     ma[f] = 0;
+    total_nc_time[f] = 0;
     for (const l in prof.files[f].lines) {
       const line = prof.files[f].lines[l];
       cp[f] += line.n_cpu_percent_python;
@@ -686,6 +743,10 @@ async function display(prof) {
         mp[f] += line.n_peak_mb * line.n_python_fraction;
       }
       max_alloc += line.n_malloc_mb;
+      // Calculate total NC time for this file
+      if (line.nc_time_ms !== undefined && line.nc_time_ms > 0) {
+        total_nc_time[f] += line.nc_time_ms;
+      }
     }
     cpu_python += cp[f];
     cpu_native += cn[f];
@@ -802,14 +863,9 @@ async function display(prof) {
       functions: false,
     });
     s += "<tbody>";
-    // Compute all docstring lines
-    const linesArray = ff[1].lines.map(entry => entry.line);
-    const docstringLines = stringLines(linesArray);
     // Print per-line profiles.
     let prevLineno = -1;
-    let index = -1;
     for (const l in ff[1].lines) {
-      index += 1;
       const line = ff[1].lines[l];
 
       if (false) {
@@ -831,7 +887,6 @@ async function display(prof) {
       prevLineno = line.lineno;
       s += makeProfileLine(
         line,
-        docstringLines.has(index),
         ff[0],
         fileIteration,
         prof,
@@ -841,6 +896,10 @@ async function display(prof) {
         memory_activity,
         gpu_pies,
         true,
+        nrt_bars,
+        nc_bars,
+        nc_nrt_pies,
+        total_nc_time[ff[0]],
       );
     }
     s += "</tbody>";
@@ -857,7 +916,6 @@ async function display(prof) {
         const line = prof.files[ff[0]].functions[l];
         s += makeProfileLine(
           line,
-          false,  
           ff[0],
           fileIteration,
           prof,
@@ -867,6 +925,10 @@ async function display(prof) {
           memory_activity,
           gpu_pies,
           false, // no optimizations here
+          nrt_bars,
+          nc_bars,
+          nc_nrt_pies,
+          total_nc_time[ff[0]],
         );
       }
       s += "</table>";
@@ -947,6 +1009,8 @@ async function display(prof) {
   embedCharts(gpu_pies, "gpu_pie");
   embedCharts(memory_activity, "memory_activity");
   embedCharts(memory_bars, "memory_bar");
+  embedCharts(nrt_bars, "nrt_bar");
+  embedCharts(nc_bars, "nc_bar");
 
   // Hide all empty profiles by default.
   hideEmptyProfiles();

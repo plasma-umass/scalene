@@ -1539,6 +1539,10 @@ class Scalene:
         Scalene.__start_time = time.monotonic_ns()
         Scalene.__done = False
 
+        # Start neuron monitor if using Neuron accelerator
+        if hasattr(Scalene.__accelerator, 'start_monitor'):
+            Scalene.__accelerator.start_monitor()
+
         if Scalene.__args.memory:
             from scalene import pywhere  # type: ignore
 
