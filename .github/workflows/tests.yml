@@ -1,4 +1,4 @@
-name: tests
+ame: tests
 
 on:
   push:
@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-13 ]
-        python: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
+        python: [ '3.9', '3.10', '3.11', '3.12' ]
 
     steps:
     - uses: actions/checkout@v4
