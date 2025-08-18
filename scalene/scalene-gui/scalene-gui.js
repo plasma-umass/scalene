@@ -253,7 +253,7 @@ export function toggleReduced() {
 
 function makeProfileLine(
   line,
-  is_docstring,
+  inDocstring,
   filename,
   file_number,
   prof,
