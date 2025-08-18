@@ -118,7 +118,7 @@ function stringLines(lines) {
     return docstringLines;
 }
 
-function makeTableHeader(fname, gpu, gpu_device, memory, params) {
+function makeTableHeader(fname, gpu, gpu_device, memory, params, hasNeuronData) {
   let tableTitle;
   if (params["functions"]) {
     tableTitle = "function profile";
@@ -181,22 +181,21 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params) {
       info: `Peak ${gpu_device} memory allocated by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
     });
   }
-  // Only add NRT/NC columns if neuron data exists (commented out for now)
-  // TODO: Enable when neuron profiling is implemented in the backend
-  /*
-  columns.push({
-    title: ["NRT", "%"],
-    color: "purple",
-    width: 0,
-    info: "Neural Runtime percentage",
-  });
-  columns.push({
-    title: ["NC", "time"],
-    color: "darkorange", 
-    width: 0,
-    info: "Neuron Compute time",
-  });
-  */
+  // Only add NRT/NC columns if neuron data exists in the profile
+  if (hasNeuronData) {
+    columns.push({
+      title: ["NRT", "%"],
+      color: "purple",
+      width: 0,
+      info: "Neural Runtime percentage",
+    });
+    columns.push({
+      title: ["NC", "time"],
+      color: "darkorange", 
+      width: 0,
+      info: "Neuron Compute time",
+    });
+  }
   columns.push({ title: ["", ""], color: "black", width: 100 });
   let s = "";
   s += '<thead class="thead-light">';
@@ -269,6 +268,7 @@ function makeProfileLine(
   nc_bars,
   nc_nrt_pies,
   total_nc_time_for_file,
+  hasNeuronData,
 ) {
   let total_time =
     line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
@@ -483,44 +483,43 @@ function makeProfileLine(
     }
   }
   
-  // NRT and NC columns commented out until backend implementation is ready
-  // TODO: Enable when neuron profiling is implemented in the backend
-  /*
-  // Add NRT columns
-  // NRT percentage bar
-  if (line.nrt_percent !== undefined && line.nrt_percent > 0) {
-    s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${line.nrt_percent.toFixed(1)}'>`;
-    s += `<span style="height: 20; width: 100; vertical-align: middle" id="nrt_bar${nrt_bars.length}"></span>`;
-    s += "</td>";
-    nrt_bars.push(
-      makeNRTBar(
-        line.nrt_percent,
-        line.nrt_time_ms || 0,
-        { height: 20, width: 100 },
-      ),
-    );
-  } else {
-    s += '<td style="width: 100"></td>';
-    nrt_bars.push(null);
+  // Add neuron columns only if the profile contains neuron data 
+  if (hasNeuronData) {
+    // Add NRT columns
+    // NRT percentage bar
+    if (line.nrt_percent !== undefined && line.nrt_percent > 0) {
+      s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${line.nrt_percent.toFixed(1)}'>`;
+      s += `<span style="height: 20; width: 100; vertical-align: middle" id="nrt_bar${nrt_bars.length}"></span>`;
+      s += "</td>";
+      nrt_bars.push(
+        makeNRTBar(
+          line.nrt_percent,
+          line.nrt_time_ms || 0,
+          { height: 20, width: 100 },
+        ),
+      );
+    } else {
+      s += '<td style="width: 100"></td>';
+      nrt_bars.push(null);
+    }
+    
+    // Add NC time bar column
+    if (line.nc_time_ms !== undefined && line.nc_time_ms > 0) {
+      s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${line.nc_time_ms.toFixed(1)}'>`;
+      s += `<span style="height: 20; width: 100; vertical-align: middle" id="nc_bar${nc_bars.length}"></span>`;
+      s += "</td>";
+      nc_bars.push(
+        makeNCTimeBar(
+          line.nc_time_ms,
+          total_nc_time_for_file,
+          { height: 20, width: 100 },
+        ),
+      );
+    } else {
+      s += '<td style="width: 100"></td>';
+      nc_bars.push(null);
+    }
   }
-  
-  // Add NC time bar column
-  if (line.nc_time_ms !== undefined && line.nc_time_ms > 0) {
-    s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${line.nc_time_ms.toFixed(1)}'>`;
-    s += `<span style="height: 20; width: 100; vertical-align: middle" id="nc_bar${nc_bars.length}"></span>`;
-    s += "</td>";
-    nc_bars.push(
-      makeNCTimeBar(
-        line.nc_time_ms,
-        total_nc_time_for_file,
-        { height: 20, width: 100 },
-      ),
-    );
-  } else {
-    s += '<td style="width: 100"></td>';
-    nc_bars.push(null);
-  }
-  */
   
   const empty_profile =
     total_time ||
@@ -728,7 +727,7 @@ async function display(prof) {
   }
   s += "</tr>";
 
-  // Compute overall usage.
+  // Compute overall usage and detect neuron data
   let cpu_python = 0;
   let cpu_native = 0;
   let cpu_system = 0;
@@ -740,6 +739,8 @@ async function display(prof) {
   let mp = {};
   let ma = {};
   let total_nc_time = {}; // Total NC time per file
+  let hasNeuronData = false; // Check if any neuron profiling data exists
+  
   for (const f in prof.files) {
     cp[f] = 0;
     cn[f] = 0;
@@ -757,9 +758,13 @@ async function display(prof) {
         mp[f] += line.n_peak_mb * line.n_python_fraction;
       }
       max_alloc += line.n_malloc_mb;
-      // Calculate total NC time for this file
+      // Calculate total NC time for this file and detect neuron data
       if (line.nc_time_ms !== undefined && line.nc_time_ms > 0) {
         total_nc_time[f] += line.nc_time_ms;
+        hasNeuronData = true;
+      }
+      if (line.nrt_percent !== undefined && line.nrt_percent > 0) {
+        hasNeuronData = true;
       }
     }
     cpu_python += cp[f];
@@ -875,7 +880,7 @@ async function display(prof) {
     tableID++;
     s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, {
       functions: false,
-    });
+    }, hasNeuronData);
     s += "<tbody>";
     // Compute all docstring lines
     const linesArray = ff[1].lines.map(entry => entry.line);
@@ -920,6 +925,7 @@ async function display(prof) {
         nc_bars,
         nc_nrt_pies,
         total_nc_time[ff[0]],
+        hasNeuronData,
       );
     }
     s += "</tbody>";
@@ -929,7 +935,7 @@ async function display(prof) {
       s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
       s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, {
         functions: true,
-      });
+      }, hasNeuronData);
       s += "<tbody>";
       tableID++;
       for (const l in prof.files[ff[0]].functions) {
@@ -950,6 +956,7 @@ async function display(prof) {
           nc_bars,
           nc_nrt_pies,
           total_nc_time[ff[0]],
+          hasNeuronData,
         );
       }
       s += "</table>";
