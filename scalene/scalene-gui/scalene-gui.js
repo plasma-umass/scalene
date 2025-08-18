@@ -541,6 +541,13 @@ function makeProfileLine(
   line.line = unescapeUnicode(line.line);
 
   const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
+  
+  // If we are in a docstring, format it as such in the <span>
+  let optionalInDocstring = "";
+  if (inDocstring) {
+      optionalInDocstring = "token comment";
+  }
+  
   s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
   let newLine = structuredClone(line);
   // TODO: verify that this isn't double counting anything
@@ -581,7 +588,7 @@ function makeProfileLine(
   } else {
     s += lineOptimizationString;
   }
-  s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
+  s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${optionalInDocstring} ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
   s += "</tr>";
   return s;
 }
