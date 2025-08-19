@@ -10,7 +10,7 @@ import signal
 import sys
 import threading
 import time
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, List
 
 from types import FrameType
 
