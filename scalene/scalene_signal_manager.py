@@ -16,7 +16,6 @@ from types import FrameType
 
 from scalene.scalene_signals import ScaleneSignals
 from scalene.scalene_sigqueue import ScaleneSigQueue
-from scalene.time_info import TimeInfo
 
 
 class ScaleneSignalManager:
