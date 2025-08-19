@@ -108,6 +108,11 @@ from scalene.scalene_utility import (
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 from scalene.scalene_accelerator import ScaleneAccelerator
+from scalene.scalene_profiler_core import ProfilerCore
+from scalene.scalene_signal_handler import SignalHandler
+from scalene.scalene_trace_manager import TraceManager
+from scalene.scalene_process_manager import ProcessManager
+from scalene.scalene_profiler_lifecycle import ProfilerLifecycle
 
 console = Console(style="white on blue")
 
@@ -234,6 +239,14 @@ class Scalene:
     __accelerator: Optional[ScaleneAccelerator] = (
         None  # initialized after parsing arguments in `main`
     )
+    
+    # New component classes for better separation of concerns
+    __profiler_core: Optional[ProfilerCore] = None
+    __signal_handler: Optional[SignalHandler] = None  
+    __trace_manager: Optional[TraceManager] = None
+    __process_manager: Optional[ProcessManager] = None
+    __profiler_lifecycle: Optional[ProfilerLifecycle] = None
+    
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
     __profiler_base: str
@@ -595,17 +608,27 @@ class Scalene:
             import scalene.replacement_poll_selector # noqa: F401
 
         Scalene.__args = ScaleneArguments(**vars(arguments))
-        Scalene.__alloc_sigq = ScaleneSigQueue(
-            Scalene.alloc_sigqueue_processor
-        )
-        Scalene.__memcpy_sigq = ScaleneSigQueue(
+        
+        # Initialize component classes for better separation of concerns
+        Scalene.__profiler_core = ProfilerCore(Scalene.__stats)
+        Scalene.__signal_handler = SignalHandler()
+        Scalene.__trace_manager = TraceManager(Scalene.__args)
+        Scalene.__process_manager = ProcessManager(Scalene.__args)
+        Scalene.__profiler_lifecycle = ProfilerLifecycle(Scalene.__stats, Scalene.__args)
+        
+        # Set up signal queues through the signal handler
+        Scalene.__signal_handler.setup_signal_queues(
+            Scalene.alloc_sigqueue_processor,
             Scalene.memcpy_sigqueue_processor
         )
+        
+        Scalene.__alloc_sigq = Scalene.__signal_handler.get_alloc_sigqueue()
+        Scalene.__memcpy_sigq = Scalene.__signal_handler.get_memcpy_sigqueue()
         Scalene.__sigqueues = [
             Scalene.__alloc_sigq,
             Scalene.__memcpy_sigq,
         ]
-        # Add signal queues to the signal manager
+        # Add signal queues to the signal manager (keeping original for backward compatibility)
         Scalene.__signal_manager.add_signal_queue(Scalene.__alloc_sigq)
         Scalene.__signal_manager.add_signal_queue(Scalene.__memcpy_sigq)
         Scalene.__invalidate_mutex = Scalene.get_original_lock()
@@ -843,8 +866,11 @@ class Scalene:
 
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
-        # sourcery skip: inline-immediately-returned-variable
         """When using @profile, only profile files & lines that have been decorated."""
+        if Scalene.__trace_manager:
+            return Scalene.__trace_manager.profile_this_code(fname, lineno)
+        
+        # Fallback to original logic if trace manager not initialized
         if not Scalene.__files_to_profile:
             return True
         if fname not in Scalene.__files_to_profile:
@@ -1208,6 +1234,10 @@ class Scalene:
     @functools.lru_cache(None)
     def should_trace(filename: Filename, func: str) -> bool:
         """Return true if we should trace this filename and function."""
+        if Scalene.__trace_manager:
+            return Scalene.__trace_manager.should_trace(filename, func)
+            
+        # Fallback to original logic if trace manager not initialized
         if not filename:
             return False
         if Scalene.__profiler_base in filename:
