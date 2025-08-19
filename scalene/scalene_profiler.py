@@ -1394,19 +1394,52 @@ class Scalene:
         if Scalene.__profiler_base in filename:
             # Don't profile the profiler.
             return False
+            
+        # Check if this function is specifically decorated for profiling
+        if Scalene._should_trace_decorated_function(filename, func):
+            return True
+        elif Scalene.__functions_to_profile and filename in Scalene.__functions_to_profile:
+            # If we have decorated functions but this isn't one of them, skip it
+            return False
+            
+        # Check exclusion rules
+        if not Scalene._passes_exclusion_rules(filename):
+            return False
+            
+        # Handle special Jupyter cell case
+        if Scalene._handle_jupyter_cell(filename):
+            return True
+            
+        # Check profile-only patterns
+        if not Scalene._passes_profile_only_rules(filename):
+            return False
+            
+        # Handle special non-file cases
+        if filename[0] == "<" and filename[-1] == ">":
+            return False
+            
+        # Final decision: profile-all or program directory check
+        return Scalene._should_trace_by_location(filename)
+        
+    @staticmethod
+    def _should_trace_decorated_function(filename: Filename, func: str) -> bool:
+        """Check if this function is decorated with @profile."""
         if Scalene.__functions_to_profile and filename in Scalene.__functions_to_profile:
-            if func in {
+            return func in {
                 fn.__code__.co_name
                 for fn in Scalene.__functions_to_profile[filename]
-            }:
-                return True
-            return False
-        # Don't profile the Python libraries, unless overridden by --profile-all
+            }
+        return False
+        
+    @staticmethod 
+    def _passes_exclusion_rules(filename: Filename) -> bool:
+        """Check if filename passes exclusion rules (libraries, exclude patterns)."""
+        # Don't profile Python libraries unless overridden
         try:
             resolved_filename = str(pathlib.Path(filename).resolve())
         except OSError:
-            # Not a file
             return False
+            
         if not Scalene.__args.profile_all:
             for n in sysconfig.get_scheme_names():
                 for p in sysconfig.get_path_names():
@@ -1414,21 +1447,20 @@ class Scalene:
                     libdir = str(pathlib.Path(the_path).resolve())
                     if libdir in resolved_filename:
                         return False
-
-        # Generic handling follows (when no @profile decorator has been used).
-        # TODO [EDB]: add support for this in traceconfig.cpp
+                        
+        # Check explicit exclude patterns
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
-        if any(
-            prof in filename for prof in profile_exclude_list if prof != ""
-        ):
+        if any(prof in filename for prof in profile_exclude_list if prof != ""):
             return False
+            
+        return True
+        
+    @staticmethod
+    def _handle_jupyter_cell(filename: Filename) -> bool:
+        """Handle special Jupyter cell profiling."""
         if filename.startswith("_ipython-input-"):
-            # Profiling code created in a Jupyter cell:
-            # create a file to hold the contents.
             import IPython
-
             if result := re.match(r"_ipython-input-([0-9]+)-.*", filename):
-                # Write the cell's contents into the file.
                 cell_contents = (
                     IPython.get_ipython().history_manager.input_hist_raw[
                         int(result[1])
@@ -1437,22 +1469,23 @@ class Scalene:
                 with open(filename, "w+") as f:
                     f.write(cell_contents)
                 return True
-        # If (a) `profile-only` was used, and (b) the file matched
-        # NONE of the provided patterns, don't profile it.
+        return False
+        
+    @staticmethod
+    def _passes_profile_only_rules(filename: Filename) -> bool:
+        """Check if filename passes profile-only patterns."""
         profile_only_set = set(Scalene.__args.profile_only.split(","))
         if profile_only_set and all(
             prof not in filename for prof in profile_only_set
         ):
             return False
-        if filename[0] == "<" and filename[-1] == ">":
-            # Special non-file
-            return False
-        # Now we've filtered out any non matches to profile-only patterns.
-        # If `profile-all` is specified, profile this file.
+        return True
+        
+    @staticmethod
+    def _should_trace_by_location(filename: Filename) -> bool:
+        """Determine if we should trace based on file location."""
         if Scalene.__args.profile_all:
             return True
-        # Profile anything in the program's directory or a child directory,
-        # but nothing else, unless otherwise specified.
         filename = Filename(
             os.path.normpath(os.path.join(Scalene.__program_path, filename))
         )
