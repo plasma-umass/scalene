@@ -82,9 +82,11 @@ from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_funcutils import ScaleneFuncUtils
 from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_mapfile import ScaleneMapFile
+from scalene.scalene_memory_profiler import ScaleneMemoryProfiler
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
 from scalene.scalene_signals import ScaleneSignals
+from scalene.scalene_signal_manager import ScaleneSignalManager
 from scalene.scalene_statistics import (
     Address,
     ByteCodeIndex,
@@ -204,9 +206,11 @@ class Scalene:
     )  # only used for Windows timer logic
     BYTES_PER_MB = 1024 * 1024
 
-    MALLOC_ACTION = "M"
-    FREE_ACTION = "F"
-    FREE_ACTION_SAMPLED = "f"
+    # Memory allocation action constants (moved to ScaleneMemoryProfiler)
+    # These are kept for backward compatibility
+    MALLOC_ACTION = ScaleneMemoryProfiler.MALLOC_ACTION
+    FREE_ACTION = ScaleneMemoryProfiler.FREE_ACTION
+    FREE_ACTION_SAMPLED = ScaleneMemoryProfiler.FREE_ACTION_SAMPLED
 
     # Support for @profile
     # decorated files
@@ -222,7 +226,9 @@ class Scalene:
 
     __args = ScaleneArguments()
     __signals = ScaleneSignals()
+    __signal_manager = ScaleneSignalManager()
     __stats = ScaleneStatistics()
+    __memory_profiler: Optional[ScaleneMemoryProfiler] = None
     __output = ScaleneOutput()
     __json = ScaleneJSON()
     __accelerator: Optional[ScaleneAccelerator] = (
@@ -239,7 +245,7 @@ class Scalene:
 
     @staticmethod
     def get_signals() -> ScaleneSignals:
-        return Scalene.__signals
+        return Scalene.__signal_manager.get_signals()
 
     # when did we last receive a signal?
     __last_signal_time = TimeInfo()
@@ -297,11 +303,11 @@ class Scalene:
 
         Used by replacement_signal_fns.py to shim signals used by the client program.
         """
-        return set(Scalene.__signals.get_all_signals())
+        return set(Scalene.__signal_manager.get_signals().get_all_signals())
 
     @staticmethod
     def get_lifecycle_signals() -> Tuple[signal.Signals, signal.Signals]:
-        return Scalene.__signals.get_lifecycle_signals()
+        return Scalene.__signal_manager.get_signals().get_lifecycle_signals()
 
     @staticmethod
     def disable_lifecycle() -> None:
@@ -317,7 +323,7 @@ class Scalene:
 
         Used by replacement_signal_fns.py to shim timers used by the client program.
         """
-        return Scalene.__signals.get_timer_signals()
+        return Scalene.__signal_manager.get_signals().get_timer_signals()
 
     @staticmethod
     def set_in_jupyter() -> None:
@@ -430,29 +436,20 @@ class Scalene:
         Used to attribute CPU time."""
         Scalene.__is_thread_sleeping[tid] = False
 
-    timer_signals = True
-
     @staticmethod
     def windows_timer_loop() -> None:
         """For Windows, send periodic timer signals; launch as a background thread."""
-        assert sys.platform == "win32"
-        Scalene.timer_signals = True
-        while Scalene.timer_signals:
-            Scalene.__windows_queue.get()
-            time.sleep(Scalene.__args.cpu_sampling_rate)
-            Scalene.__orig_raise_signal(Scalene.__signals.cpu_signal)
+        Scalene.__signal_manager.windows_timer_loop(Scalene.__args.cpu_sampling_rate)
 
     @staticmethod
     def start_signal_queues() -> None:
         """Start the signal processing queues (i.e., their threads)."""
-        for sigq in Scalene.__sigqueues:
-            sigq.start()
+        Scalene.__signal_manager.start_signal_queues()
 
     @staticmethod
     def stop_signal_queues() -> None:
         """Stop the signal processing queues (i.e., their threads)."""
-        for sigq in Scalene.__sigqueues:
-            sigq.stop()
+        Scalene.__signal_manager.stop_signal_queues()
 
     @staticmethod
     def term_signal_handler(
@@ -562,44 +559,16 @@ class Scalene:
         del this_frame
 
     @staticmethod
-    def enable_signals_win32() -> None:
-        assert sys.platform == "win32"
-        Scalene.timer_signals = True
-        Scalene.__orig_signal(
-            Scalene.__signals.cpu_signal,
-            Scalene.cpu_signal_handler,
-        )
-        # On Windows, we simulate timer signals by running a background thread.
-        Scalene.timer_signals = True
-        t = threading.Thread(target=Scalene.windows_timer_loop)
-        t.start()
-        Scalene.__windows_queue.put(None)
-        Scalene.start_signal_queues()
-        return
-
-    @staticmethod
     def enable_signals() -> None:
         """Set up the signal handlers to handle interrupts for profiling and start the
         timer interrupts."""
-        if sys.platform == "win32":
-            Scalene.enable_signals_win32()
-            return
-        Scalene.start_signal_queues()
-        # Set signal handlers for various events.
-        for sig, handler in [
-            (Scalene.__signals.malloc_signal, Scalene.malloc_signal_handler),
-            (Scalene.__signals.free_signal, Scalene.free_signal_handler),
-            (Scalene.__signals.memcpy_signal, Scalene.memcpy_signal_handler),
-            (signal.SIGTERM, Scalene.term_signal_handler),
-            (Scalene.__signals.cpu_signal, Scalene.cpu_signal_handler),
-        ]:
-            Scalene.__orig_signal(sig, handler)
-        # Set every signal to restart interrupted system calls.
-        for s in Scalene.__signals.get_all_signals():
-            Scalene.__orig_siginterrupt(s, False)
-        Scalene.__orig_setitimer(
-            Scalene.__signals.cpu_timer_signal,
-            Scalene.__args.cpu_sampling_rate,
+        Scalene.__signal_manager.enable_signals(
+            Scalene.malloc_signal_handler,
+            Scalene.free_signal_handler,
+            Scalene.memcpy_signal_handler,
+            Scalene.term_signal_handler,
+            Scalene.cpu_signal_handler,
+            Scalene.__args.cpu_sampling_rate
         )
 
     def __init__(
@@ -636,6 +605,9 @@ class Scalene:
             Scalene.__alloc_sigq,
             Scalene.__memcpy_sigq,
         ]
+        # Add signal queues to the signal manager
+        Scalene.__signal_manager.add_signal_queue(Scalene.__alloc_sigq)
+        Scalene.__signal_manager.add_signal_queue(Scalene.__memcpy_sigq)
         Scalene.__invalidate_mutex = Scalene.get_original_lock()
 
         Scalene.__windows_queue = queue.Queue()
@@ -650,12 +622,15 @@ class Scalene:
         try:
             Scalene.__malloc_mapfile = ScaleneMapFile("malloc")
             Scalene.__memcpy_mapfile = ScaleneMapFile("memcpy")
+            # Initialize memory profiler
+            Scalene.__memory_profiler = ScaleneMemoryProfiler(Scalene.__stats)
+            Scalene.__memory_profiler.set_mapfiles(Scalene.__malloc_mapfile, Scalene.__memcpy_mapfile)
         except Exception:
             # Ignore if we aren't profiling memory; otherwise, exit.
             if Scalene.__args.memory:
                 sys.exit(1)
 
-        Scalene.__signals.set_timer_signals(Scalene.__args.use_virtual_time)
+        Scalene.__signal_manager.get_signals().set_timer_signals(Scalene.__args.use_virtual_time)
         Scalene.__profiler_base = str(os.path.dirname(__file__))
         if Scalene.__args.pid:
             # Child process.
@@ -740,10 +715,7 @@ class Scalene:
                 # Initialization: store values and update on the next pass.
                 Scalene.__last_signal_time = now
                 if sys.platform != "win32":
-                    Scalene.__orig_setitimer(
-                        Scalene.__signals.cpu_timer_signal,
-                        Scalene.__args.cpu_sampling_rate,
-                    )
+                    Scalene.__signal_manager.restart_timer(Scalene.__args.cpu_sampling_rate)
                 return
 
             if Scalene.__accelerator:
@@ -783,18 +755,12 @@ class Scalene:
                     else:
                         to_wait = Scalene.__args.cpu_sampling_rate
                         Scalene.client_timer.reset()
-                    Scalene.__orig_setitimer(
-                        Scalene.__signals.cpu_timer_signal,
-                        to_wait,
-                    )
+                    Scalene.__signal_manager.restart_timer(to_wait)
                 else:
-                    Scalene.__orig_setitimer(
-                        Scalene.__signals.cpu_timer_signal,
-                        Scalene.__args.cpu_sampling_rate,
-                    )
+                    Scalene.__signal_manager.restart_timer(Scalene.__args.cpu_sampling_rate)
         finally:
             if sys.platform == "win32":
-                Scalene.__windows_queue.put(None)
+                Scalene.__signal_manager.restart_timer(Scalene.__args.cpu_sampling_rate)
 
     @staticmethod
     def output_profile(program_args: Optional[List[str]] = None) -> bool:
@@ -1180,197 +1146,14 @@ class Scalene:
     @staticmethod
     def alloc_sigqueue_processor(x: Optional[List[int]]) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
-        stats = Scalene.__stats
-        curr_pid = os.getpid()
-        # Process the input array from where we left off reading last time.
-        arr: List[ProfilingSample] = []
-        with contextlib.suppress(FileNotFoundError):
-            while Scalene.__malloc_mapfile.read():
-                count_str = Scalene.__malloc_mapfile.get_str()
-                if count_str.strip() == "":
-                    break
-                (
-                    action,
-                    alloc_time_str,
-                    count_str,
-                    python_fraction_str,
-                    pid,
-                    pointer,
-                    reported_fname,
-                    reported_lineno,
-                    bytei_str,
-                ) = count_str.split(",")
-                if int(curr_pid) != int(pid):
-                    continue
-                if int(reported_lineno) == -1:
-                    continue
-                profiling_sample = ProfilingSample(action = action,
-                                                   alloc_time = int(alloc_time_str),
-                                                   count = int(count_str),
-                                                   python_fraction =  float(python_fraction_str),
-                                                   pointer = Address(pointer),
-                                                   filename = Filename(reported_fname),
-                                                   lineno = LineNumber(int(reported_lineno)),
-                                                   bytecode_index = ByteCodeIndex(int(bytei_str)))
-                arr.append(profiling_sample)
-
-        stats.memory_stats.alloc_samples += len(arr)
-
-        # Iterate through the array to compute the new current footprint
-        # and update the global __memory_footprint_samples. Since on some systems,
-        # we get free events before mallocs, force `before` to always be at least 0.
-        before = max(stats.memory_stats.current_footprint, 0)
-        prevmax = stats.memory_stats.max_footprint
-        freed_last_trigger = 0
-        for item in arr:
-            is_malloc = item.action == Scalene.MALLOC_ACTION
-            if item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1: 
-                continue # in previous implementations, we were adding NEWLINE to the footprint.
-                         # We should not account for this in the user-facing profile.
-            count = item.count / Scalene.BYTES_PER_MB
-            if is_malloc:
-                stats.memory_stats.current_footprint += count
-                if stats.memory_stats.current_footprint > stats.memory_stats.max_footprint:
-                    stats.memory_stats.max_footprint = stats.memory_stats.current_footprint
-                    stats.memory_stats.max_footprint_python_fraction = item.python_fraction
-                    stats.memory_stats.max_footprint_loc = (item.filename, item.lineno)
-            else:
-                assert item.action in [
-                    Scalene.FREE_ACTION,
-                    Scalene.FREE_ACTION_SAMPLED,
-                ]
-                stats.memory_stats.current_footprint -= count
-                # Force current footprint to be non-negative; this
-                # code is needed because Scalene can miss some initial
-                # allocations at startup.
-                stats.memory_stats.current_footprint = max(0, stats.memory_stats.current_footprint)
-                if (
-                    item.action == Scalene.FREE_ACTION_SAMPLED
-                    and stats.memory_stats.last_malloc_triggered[2] == item.pointer
-                ):
-                    freed_last_trigger += 1
-            timestamp = time.monotonic_ns() - Scalene.__start_time
-            stats.memory_stats.memory_footprint_samples.append(
-                (
-                    timestamp,
-                    stats.memory_stats.current_footprint,
-                )
-            )
-        after = stats.memory_stats.current_footprint
-
-        if freed_last_trigger:
-            if freed_last_trigger <= 1:
-                # We freed the last allocation trigger. Adjust scores.
-                this_fn, this_ln, _this_ptr = stats.memory_stats.last_malloc_triggered
-                if this_ln != 0:
-                    mallocs, frees = stats.memory_stats.leak_score[this_fn][this_ln]
-                    stats.memory_stats.leak_score[this_fn][this_ln] = (
-                        mallocs,
-                        frees + 1,
-                    )
-            stats.memory_stats.last_malloc_triggered = (
-                Filename(""),
-                LineNumber(0),
-                Address("0x0"),
-            )
-
-        allocs = 0.0
-        last_malloc = (Filename(""), LineNumber(0), Address("0x0"))
-        malloc_pointer = Address("0x0")
-        curr = before
-
-        # Go through the array again and add each updated current footprint.
-        for item in arr:
-            is_malloc = item.action == Scalene.MALLOC_ACTION
-            if (
-                is_malloc
-                and item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1
-            ):
-                with Scalene.__invalidate_mutex:
-                    last_file, last_line = Scalene.__invalidate_queue.pop(0)
-
-                stats.memory_stats.memory_malloc_count[last_file][last_line] += 1
-                stats.memory_stats.memory_aggregate_footprint[last_file][
-                    last_line
-                ] += stats.memory_stats.memory_current_highwater_mark[last_file][last_line]
-                stats.memory_stats.memory_current_footprint[last_file][last_line] = 0
-                stats.memory_stats.memory_current_highwater_mark[last_file][last_line] = 0
-                continue
-
-            # Add the byte index to the set for this line (if it's not there already).
-            stats.bytei_map[item.filename][item.lineno].add(item.bytecode_index)
-            count = item.count / Scalene.BYTES_PER_MB
-            if is_malloc:
-                allocs += count
-                curr += count
-                assert curr <= stats.memory_stats.max_footprint
-                malloc_pointer = item.pointer
-                stats.memory_stats.memory_malloc_samples[item.filename][item.lineno] += count
-                stats.memory_stats.memory_python_samples[item.filename][item.lineno] += (
-                    item.python_fraction * count
-                )
-                stats.memory_stats.malloc_samples[item.filename] += 1
-                stats.memory_stats.total_memory_malloc_samples += count
-                # Update current and max footprints for this file & line.
-                stats.memory_stats.memory_current_footprint[item.filename][item.lineno] += count
-                stats.memory_stats.memory_current_highwater_mark[item.filename][item.lineno] = max(
-                    stats.memory_stats.memory_current_highwater_mark[item.filename][item.lineno],
-                    stats.memory_stats.memory_current_footprint[item.filename][item.lineno],
-                )
-                assert stats.memory_stats.current_footprint <= stats.memory_stats.max_footprint
-                stats.memory_stats.memory_max_footprint[item.filename][item.lineno] = max(
-                    stats.memory_stats.memory_current_footprint[item.filename][item.lineno],
-                    stats.memory_stats.memory_max_footprint[item.filename][item.lineno],
-                )
-                # Ensure that the max footprint never goes above the true max footprint.
-                # This is a work-around for a condition that in theory should never happen, but...
-                stats.memory_stats.memory_max_footprint[item.filename][item.lineno] = min(
-                    stats.memory_stats.max_footprint,
-                    stats.memory_stats.memory_max_footprint[item.filename][item.lineno],
-                )
-                assert stats.memory_stats.current_footprint <= stats.memory_stats.max_footprint
-                assert (
-                    stats.memory_stats.memory_max_footprint[item.filename][item.lineno]
-                    <= stats.memory_stats.max_footprint
-                )
-            else:
-                assert item.action in [
-                    Scalene.FREE_ACTION,
-                    Scalene.FREE_ACTION_SAMPLED,
-                ]
-                curr -= count
-                stats.memory_stats.memory_free_samples[item.filename][item.lineno] += count
-                stats.memory_stats.memory_free_count[item.filename][item.lineno] += 1
-                stats.memory_stats.total_memory_free_samples += count
-                stats.memory_stats.memory_current_footprint[item.filename][item.lineno] -= count
-                # Ensure that we never drop the current footprint below 0.
-                stats.memory_stats.memory_current_footprint[item.filename][item.lineno] = max(
-                    0, stats.memory_stats.memory_current_footprint[item.filename][item.lineno]
-                )
-
-            stats.memory_stats.per_line_footprint_samples[item.filename][item.lineno].append(
-                [time.monotonic_ns() - Scalene.__start_time, max(0, curr)]
-            )
-            # If we allocated anything, then mark this as the last triggering malloc
-            if allocs > 0:
-                last_malloc = (
-                    item.filename,
-                    item.lineno,
-                    malloc_pointer
-                )
-        stats.memory_stats.allocation_velocity = (
-            stats.memory_stats.allocation_velocity[0] + (after - before),
-            stats.memory_stats.allocation_velocity[1] + allocs,
+        # Delegate malloc/free processing to the memory profiler
+        Scalene.__memory_profiler.process_malloc_free_samples(
+            x, 
+            Scalene.__start_time, 
+            Scalene.__args, 
+            Scalene.__invalidate_mutex, 
+            Scalene.__invalidate_queue
         )
-        if (
-            Scalene.__args.memory_leak_detector
-            and prevmax < stats.memory_stats.max_footprint
-            and stats.memory_stats.max_footprint > 100
-        ):
-            stats.memory_stats.last_malloc_triggered = last_malloc
-            fname, lineno, _ = last_malloc
-            mallocs, frees = stats.memory_stats.leak_score[fname][lineno]
-            stats.memory_stats.leak_score[fname][lineno] = (mallocs + 1, frees)
 
     @staticmethod
     def before_fork() -> None:
@@ -1418,35 +1201,8 @@ class Scalene:
         frame: FrameType,
     ) -> None:
         """Process memcpy signals (used in a ScaleneSigQueue)."""
-        curr_pid = os.getpid()
-        arr: List[MemcpyProfilingSample] = []
-        # Process the input array.
-        with contextlib.suppress(ValueError):
-            while Scalene.__memcpy_mapfile.read():
-                count_str = Scalene.__memcpy_mapfile.get_str()
-                (
-                    memcpy_time_str,
-                    count_str2,
-                    pid,
-                    filename,
-                    lineno,
-                    bytei,
-                ) = count_str.split(",")
-                if int(curr_pid) != int(pid):
-                    continue
-                memcpy_profiling_sample = MemcpyProfilingSample(memcpy_time=int(memcpy_time_str),
-                                                                count=int(count_str2),
-                                                                filename=Filename(filename),
-                                                                lineno=LineNumber(int(lineno)),
-                                                                bytecode_index=ByteCodeIndex(int(bytei)))
-                arr.append(memcpy_profiling_sample)
-                
-        arr.sort()
-
-        for item in arr:
-            # Add the byte index to the set for this line.
-            Scalene.__stats.bytei_map[item.filename][item.lineno].add(item.bytecode_index)
-            Scalene.__stats.memory_stats.memcpy_samples[item.filename][item.lineno] += int(item.count)
+        if Scalene.__memory_profiler:
+            Scalene.__memory_profiler.process_memcpy_samples()
 
     @staticmethod
     @functools.lru_cache(None)
@@ -1457,19 +1213,52 @@ class Scalene:
         if Scalene.__profiler_base in filename:
             # Don't profile the profiler.
             return False
+            
+        # Check if this function is specifically decorated for profiling
+        if Scalene._should_trace_decorated_function(filename, func):
+            return True
+        elif Scalene.__functions_to_profile and filename in Scalene.__functions_to_profile:
+            # If we have decorated functions but this isn't one of them, skip it
+            return False
+            
+        # Check exclusion rules
+        if not Scalene._passes_exclusion_rules(filename):
+            return False
+            
+        # Handle special Jupyter cell case
+        if Scalene._handle_jupyter_cell(filename):
+            return True
+            
+        # Check profile-only patterns
+        if not Scalene._passes_profile_only_rules(filename):
+            return False
+            
+        # Handle special non-file cases
+        if filename[0] == "<" and filename[-1] == ">":
+            return False
+            
+        # Final decision: profile-all or program directory check
+        return Scalene._should_trace_by_location(filename)
+        
+    @staticmethod
+    def _should_trace_decorated_function(filename: Filename, func: str) -> bool:
+        """Check if this function is decorated with @profile."""
         if Scalene.__functions_to_profile and filename in Scalene.__functions_to_profile:
-            if func in {
+            return func in {
                 fn.__code__.co_name
                 for fn in Scalene.__functions_to_profile[filename]
-            }:
-                return True
-            return False
-        # Don't profile the Python libraries, unless overridden by --profile-all
+            }
+        return False
+        
+    @staticmethod 
+    def _passes_exclusion_rules(filename: Filename) -> bool:
+        """Check if filename passes exclusion rules (libraries, exclude patterns)."""
+        # Don't profile Python libraries unless overridden
         try:
             resolved_filename = str(pathlib.Path(filename).resolve())
         except OSError:
-            # Not a file
             return False
+            
         if not Scalene.__args.profile_all:
             for n in sysconfig.get_scheme_names():
                 for p in sysconfig.get_path_names():
@@ -1477,21 +1266,20 @@ class Scalene:
                     libdir = str(pathlib.Path(the_path).resolve())
                     if libdir in resolved_filename:
                         return False
-
-        # Generic handling follows (when no @profile decorator has been used).
-        # TODO [EDB]: add support for this in traceconfig.cpp
+                        
+        # Check explicit exclude patterns
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
-        if any(
-            prof in filename for prof in profile_exclude_list if prof != ""
-        ):
+        if any(prof in filename for prof in profile_exclude_list if prof != ""):
             return False
+            
+        return True
+        
+    @staticmethod
+    def _handle_jupyter_cell(filename: Filename) -> bool:
+        """Handle special Jupyter cell profiling."""
         if filename.startswith("_ipython-input-"):
-            # Profiling code created in a Jupyter cell:
-            # create a file to hold the contents.
             import IPython
-
             if result := re.match(r"_ipython-input-([0-9]+)-.*", filename):
-                # Write the cell's contents into the file.
                 cell_contents = (
                     IPython.get_ipython().history_manager.input_hist_raw[
                         int(result[1])
@@ -1500,22 +1288,23 @@ class Scalene:
                 with open(filename, "w+") as f:
                     f.write(cell_contents)
                 return True
-        # If (a) `profile-only` was used, and (b) the file matched
-        # NONE of the provided patterns, don't profile it.
+        return False
+        
+    @staticmethod
+    def _passes_profile_only_rules(filename: Filename) -> bool:
+        """Check if filename passes profile-only patterns."""
         profile_only_set = set(Scalene.__args.profile_only.split(","))
         if profile_only_set and all(
             prof not in filename for prof in profile_only_set
         ):
             return False
-        if filename[0] == "<" and filename[-1] == ">":
-            # Special non-file
-            return False
-        # Now we've filtered out any non matches to profile-only patterns.
-        # If `profile-all` is specified, profile this file.
+        return True
+        
+    @staticmethod
+    def _should_trace_by_location(filename: Filename) -> bool:
+        """Determine if we should trace based on file location."""
         if Scalene.__args.profile_all:
             return True
-        # Profile anything in the program's directory or a child directory,
-        # but nothing else, unless otherwise specified.
         filename = Filename(
             os.path.normpath(os.path.join(Scalene.__program_path, filename))
         )
@@ -1612,7 +1401,9 @@ class Scalene:
         See scalene_parseargs.py.
         """
         for pid in Scalene.child_pids:
-            Scalene.__orig_kill(pid, Scalene.__signals.start_profiling_signal)
+            Scalene.__signal_manager.send_signal_to_child(
+                pid, Scalene.__signal_manager.get_signals().start_profiling_signal
+            )
         Scalene.start()
 
     @staticmethod
@@ -1630,7 +1421,9 @@ class Scalene:
         See scalene_parseargs.py.
         """
         for pid in Scalene.child_pids:
-            Scalene.__orig_kill(pid, Scalene.__signals.stop_profiling_signal)
+            Scalene.__signal_manager.send_signal_to_child(
+                pid, Scalene.__signal_manager.get_signals().stop_profiling_signal
+            )
         Scalene.stop()
         # Output the profile if `--outfile` was set to a file.
         if Scalene.__output.output_file:
@@ -1640,15 +1433,16 @@ class Scalene:
     def disable_signals(retry: bool = True) -> None:
         """Turn off the profiling signals."""
         if sys.platform == "win32":
-            Scalene.timer_signals = False
+            Scalene.__signal_manager.set_timer_signals(False)
             return
         try:
-            assert Scalene.__signals.cpu_timer_signal is not None
-            Scalene.__orig_setitimer(Scalene.__signals.cpu_timer_signal, 0)
+            signals = Scalene.__signal_manager.get_signals()
+            assert signals.cpu_timer_signal is not None
+            Scalene.__orig_setitimer(signals.cpu_timer_signal, 0)
             for sig in [
-                Scalene.__signals.malloc_signal,
-                Scalene.__signals.free_signal,
-                Scalene.__signals.memcpy_signal,
+                signals.malloc_signal,
+                signals.free_signal,
+                signals.memcpy_signal,
             ]:
                 Scalene.__orig_signal(sig, signal.SIG_IGN)
             Scalene.stop_signal_queues()
@@ -1917,19 +1711,13 @@ class Scalene:
             )
             sys.exit(1)
         if sys.platform != "win32":
-            for sig, handler in [
-                (
-                    Scalene.__signals.start_profiling_signal,
-                    Scalene.start_signal_handler,
-                ),
-                (
-                    Scalene.__signals.stop_profiling_signal,
-                    Scalene.stop_signal_handler,
-                ),
-            ]:
-                Scalene.__orig_signal(sig, handler)
-                Scalene.__orig_siginterrupt(sig, False)
-        Scalene.__orig_signal(signal.SIGINT, Scalene.interruption_handler)
+            Scalene.__signal_manager.setup_lifecycle_signals(
+                Scalene.start_signal_handler,
+                Scalene.stop_signal_handler,
+                Scalene.interruption_handler
+            )
+        else:
+            Scalene.__orig_signal(signal.SIGINT, Scalene.interruption_handler)
         did_preload = (
             False if is_jupyter else ScalenePreload.setup_preload(args)
         )
