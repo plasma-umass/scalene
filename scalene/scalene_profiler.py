@@ -989,6 +989,8 @@ class Scalene:
         # print(fname, lineno)
         main_tid = cast(int, threading.main_thread().ident)
         if not is_thread_sleeping[main_tid]:
+            Scalene.__stats.cpu_stats.cpu_samples_list[fname][lineno].append(now.wallclock)
+            # print(Scalene.__stats.cpu_stats.cpu_samples_list[fname][lineno])
             Scalene.__stats.cpu_stats.cpu_samples_python[fname][
                 lineno
             ] += average_python_time
