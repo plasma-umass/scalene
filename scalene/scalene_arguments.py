@@ -6,8 +6,8 @@ from typing import Any
 
 class ScaleneArguments(argparse.Namespace):
     """Encapsulates all arguments and default values for Scalene."""
-    
-    def __init__(self, **kwargs: Any) -> None:
+
+    def _set_defaults(self) -> None:
         self.cpu = True
         self.gpu = True
         self.memory = sys.platform != "win32"
@@ -47,4 +47,12 @@ class ScaleneArguments(argparse.Namespace):
         self.no_browser = False
         self.port = 8088
         self.cli = False
+        
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+        self._set_defaults()
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        if self.cli:
+            self.web = False
+            self.no_browser = True
