@@ -28,6 +28,10 @@ class TraceManager:
         """Get line information for a file."""
         return self._line_info.get(filename, [])
         
+    def set_line_info(self, filename: Filename, line_info: List[Tuple[List[str], int]]) -> None:
+        """Set line information for a file."""
+        self._line_info[filename] = line_info
+        
     def profile_this_code(self, fname: Filename, lineno: LineNumber) -> bool:
         """Check if a specific file and line should be profiled.
         
@@ -39,6 +43,9 @@ class TraceManager:
             return False
         # Now check to see if it's the right line range.
         line_info = self.get_line_info(fname)
+        if not line_info:
+            # No line info available, default to True
+            return True
         found_function = any(
             line_start <= lineno < line_start + len(lines)
             for (lines, line_start) in line_info

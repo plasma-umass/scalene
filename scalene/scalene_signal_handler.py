@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import signal
 import threading
+import contextlib
 from typing import Set, Tuple, Optional, Any, List
 
 from scalene.scalene_signals import ScaleneSignals
@@ -97,10 +98,8 @@ class SignalHandler:
         except Exception:
             if retry:
                 # Try once more
-                try:
+                with contextlib.suppress(Exception):
                     self._signals.disable_signals()
-                except Exception:
-                    pass
                     
     def setup_signal_handlers(self, 
                             malloc_handler, 

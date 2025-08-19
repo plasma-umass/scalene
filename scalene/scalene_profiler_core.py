@@ -45,7 +45,6 @@ class ProfilerCore:
         Returns:
             List of tuples containing (frame, line_number, outer_frame)
         """
-        from scalene.scalene_utility import on_stack
         import sys
         
         frames_to_record: List[Tuple[FrameType, int, FrameType]] = []

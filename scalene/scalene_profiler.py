@@ -249,7 +249,7 @@ class Scalene:
     
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
-    __profiler_base: str
+    __profiler_base: str = ""  # Will be set in __init__
 
     @staticmethod
     def get_original_lock() -> threading.Lock:
@@ -316,18 +316,27 @@ class Scalene:
 
         Used by replacement_signal_fns.py to shim signals used by the client program.
         """
+        if Scalene.__signal_handler:
+            return Scalene.__signal_handler.get_all_signals_set()
         return set(Scalene.__signal_manager.get_signals().get_all_signals())
 
     @staticmethod
     def get_lifecycle_signals() -> Tuple[signal.Signals, signal.Signals]:
+        if Scalene.__signal_handler:
+            return Scalene.__signal_handler.get_lifecycle_signals()
         return Scalene.__signal_manager.get_signals().get_lifecycle_signals()
 
     @staticmethod
     def disable_lifecycle() -> None:
-        Scalene.__lifecycle_disabled = True
+        if Scalene.__signal_handler:
+            Scalene.__signal_handler.disable_lifecycle()
+        else:
+            Scalene.__lifecycle_disabled = True
 
     @staticmethod
     def get_lifecycle_disabled() -> bool:
+        if Scalene.__signal_handler:
+            return Scalene.__signal_handler.get_lifecycle_disabled()
         return Scalene.__lifecycle_disabled
 
     @staticmethod
@@ -336,6 +345,8 @@ class Scalene:
 
         Used by replacement_signal_fns.py to shim timers used by the client program.
         """
+        if Scalene.__signal_handler:
+            return Scalene.__signal_handler.get_timer_signals()
         return Scalene.__signal_manager.get_signals().get_timer_signals()
 
     @staticmethod
@@ -378,17 +389,24 @@ class Scalene:
     @classmethod
     def clear_metrics(cls) -> None:
         """Clear the various states for forked processes."""
-        cls.__stats.clear()
+        if cls.__profiler_lifecycle:
+            cls.__profiler_lifecycle.clear_metrics()
+        else:
+            cls.__stats.clear()
         cls.child_pids.clear()
 
     @classmethod
     def add_child_pid(cls, pid: int) -> None:
         """Add this pid to the set of children. Used when forking."""
+        if cls.__process_manager:
+            cls.__process_manager.add_child_pid(pid)
         cls.child_pids.add(pid)
 
     @classmethod
     def remove_child_pid(cls, pid: int) -> None:
         """Remove a child once we have joined with it (used by replacement_pjoin.py)."""
+        if cls.__process_manager:
+            cls.__process_manager.remove_child_pid(pid)
         with contextlib.suppress(KeyError):
             cls.child_pids.remove(pid)
 
@@ -457,12 +475,18 @@ class Scalene:
     @staticmethod
     def start_signal_queues() -> None:
         """Start the signal processing queues (i.e., their threads)."""
-        Scalene.__signal_manager.start_signal_queues()
+        if Scalene.__signal_handler:
+            Scalene.__signal_handler.start_signal_queues()
+        else:
+            Scalene.__signal_manager.start_signal_queues()
 
     @staticmethod
     def stop_signal_queues() -> None:
         """Stop the signal processing queues (i.e., their threads)."""
-        Scalene.__signal_manager.stop_signal_queues()
+        if Scalene.__signal_handler:
+            Scalene.__signal_handler.stop_signal_queues()
+        else:
+            Scalene.__signal_manager.stop_signal_queues()
 
     @staticmethod
     def term_signal_handler(
@@ -615,6 +639,10 @@ class Scalene:
         Scalene.__trace_manager = TraceManager(Scalene.__args)
         Scalene.__process_manager = ProcessManager(Scalene.__args)
         Scalene.__profiler_lifecycle = ProfilerLifecycle(Scalene.__stats, Scalene.__args)
+        
+        # Synchronize files to profile between main class and trace manager
+        for filename in Scalene.__files_to_profile:
+            Scalene.__trace_manager.add_file_to_profile(filename)
         
         # Set up signal queues through the signal handler
         Scalene.__signal_handler.setup_signal_queues(
