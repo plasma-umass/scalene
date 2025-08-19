@@ -53,6 +53,6 @@ class ScaleneArguments(argparse.Namespace):
         self._set_defaults()
         for key, value in kwargs.items():
             setattr(self, key, value)
-        if self.cli:
+        if self.cli or self.json:
             self.web = False
             self.no_browser = True
