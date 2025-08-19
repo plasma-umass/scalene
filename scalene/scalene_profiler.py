@@ -82,6 +82,7 @@ from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_funcutils import ScaleneFuncUtils
 from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_mapfile import ScaleneMapFile
+from scalene.scalene_memory_profiler import ScaleneMemoryProfiler
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
 from scalene.scalene_signals import ScaleneSignals
@@ -225,6 +226,7 @@ class Scalene:
     __signals = ScaleneSignals()
     __signal_manager = ScaleneSignalManager()
     __stats = ScaleneStatistics()
+    __memory_profiler: Optional[ScaleneMemoryProfiler] = None
     __output = ScaleneOutput()
     __json = ScaleneJSON()
     __accelerator: Optional[ScaleneAccelerator] = (
@@ -618,6 +620,9 @@ class Scalene:
         try:
             Scalene.__malloc_mapfile = ScaleneMapFile("malloc")
             Scalene.__memcpy_mapfile = ScaleneMapFile("memcpy")
+            # Initialize memory profiler
+            Scalene.__memory_profiler = ScaleneMemoryProfiler(Scalene.__stats)
+            Scalene.__memory_profiler.set_mapfiles(Scalene.__malloc_mapfile, Scalene.__memcpy_mapfile)
         except Exception:
             # Ignore if we aren't profiling memory; otherwise, exit.
             if Scalene.__args.memory:
@@ -1377,35 +1382,8 @@ class Scalene:
         frame: FrameType,
     ) -> None:
         """Process memcpy signals (used in a ScaleneSigQueue)."""
-        curr_pid = os.getpid()
-        arr: List[MemcpyProfilingSample] = []
-        # Process the input array.
-        with contextlib.suppress(ValueError):
-            while Scalene.__memcpy_mapfile.read():
-                count_str = Scalene.__memcpy_mapfile.get_str()
-                (
-                    memcpy_time_str,
-                    count_str2,
-                    pid,
-                    filename,
-                    lineno,
-                    bytei,
-                ) = count_str.split(",")
-                if int(curr_pid) != int(pid):
-                    continue
-                memcpy_profiling_sample = MemcpyProfilingSample(memcpy_time=int(memcpy_time_str),
-                                                                count=int(count_str2),
-                                                                filename=Filename(filename),
-                                                                lineno=LineNumber(int(lineno)),
-                                                                bytecode_index=ByteCodeIndex(int(bytei)))
-                arr.append(memcpy_profiling_sample)
-                
-        arr.sort()
-
-        for item in arr:
-            # Add the byte index to the set for this line.
-            Scalene.__stats.bytei_map[item.filename][item.lineno].add(item.bytecode_index)
-            Scalene.__stats.memory_stats.memcpy_samples[item.filename][item.lineno] += int(item.count)
+        if Scalene.__memory_profiler:
+            Scalene.__memory_profiler.process_memcpy_samples()
 
     @staticmethod
     @functools.lru_cache(None)
