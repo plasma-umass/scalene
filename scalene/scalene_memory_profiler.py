@@ -9,7 +9,6 @@ import contextlib
 import os
 from typing import List, Optional
 
-from types import FrameType
 
 import scalene.scalene_config
 from scalene.scalene_statistics import (
