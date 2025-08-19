@@ -7,7 +7,7 @@ to improve code organization and reduce complexity.
 
 import contextlib
 import os
-from typing import List, Optional, Union, Callable
+from typing import List, Optional
 
 from types import FrameType
 
