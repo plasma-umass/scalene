@@ -7,7 +7,6 @@ to improve code organization and reduce complexity.
 
 import contextlib
 import os
-import signal
 import time
 from types import FrameType
 from typing import List, Optional, Callable, cast
