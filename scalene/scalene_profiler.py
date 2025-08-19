@@ -1540,8 +1540,8 @@ class Scalene:
         Scalene.__done = False
 
         # Start neuron monitor if using Neuron accelerator
-        if hasattr(Scalene.__accelerator, 'start_monitor'):
-            Scalene.__accelerator.start_monitor()
+        if hasattr(Scalene.__accelerator, 'start_monitor') and Scalene.__accelerator is not None:
+                Scalene.__accelerator.start_monitor()
 
         if Scalene.__args.memory:
             from scalene import pywhere  # type: ignore
@@ -1560,10 +1560,10 @@ class Scalene:
         Scalene.disable_signals()
         Scalene.__stats.stop_clock()
         if Scalene.__args.outfile:
-            Scalene.__profile_filename = os.path.join(
+            Scalene.__profile_filename = Filename(os.path.join(
                 os.path.dirname(Scalene.__args.outfile),
                 os.path.basename(Scalene.__profile_filename),
-            )
+            ))
 
         if (
             Scalene.__args.web
