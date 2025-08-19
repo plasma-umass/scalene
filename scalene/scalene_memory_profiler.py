@@ -10,7 +10,7 @@ import os
 import signal
 import time
 from types import FrameType
-from typing import List, Optional, Union, Callable, cast
+from typing import List, Optional, Callable, cast
 
 import scalene.scalene_config
 from scalene.scalene_statistics import (
