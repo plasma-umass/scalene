@@ -27,6 +27,7 @@ class FunctionDetail(BaseModel):
     n_avg_mb: NonNegativeFloat
     n_copy_mb_s: NonNegativeFloat
     n_core_utilization : float = Field(..., ge=0, le=1)
+    cpu_samples_list: List[float]
     n_cpu_percent_c: float = Field(..., ge=0, le=100)
     n_cpu_percent_python: float = Field(..., ge=0, le=100)
     n_gpu_avg_memory_mb: NonNegativeFloat
@@ -91,6 +92,8 @@ class ScaleneJSONSchema(BaseModel):
     alloc_samples: NonNegativeInt
     args: Optional[List[str]] = None
     elapsed_time_sec: NonNegativeFloat
+    start_time_absolute: NonNegativeFloat
+    start_time_perf: NonNegativeFloat
     entrypoint_dir: str
     filename: str
     files: Dict[str, FileDetail]
@@ -190,6 +193,7 @@ class ScaleneJSON:
             return {
                 "lineno": line_no,
                 "line": line,
+                "cpu_samples_list": [],
                 "n_core_utilization": 0,
                 "n_cpu_percent_c": 0,
                 "n_cpu_percent_python": 0,
@@ -296,6 +300,7 @@ class ScaleneJSON:
             "line": line,
             "lineno": line_no,
             "memory_samples": stats.memory_stats.per_line_footprint_samples[fname][line_no],
+            "cpu_samples_list": stats.cpu_stats.cpu_samples_list[fname][line_no],
             "n_avg_mb": n_avg_mb,
             "n_copy_mb_s": n_copy_mb_s,
             "n_core_utilization": mean_core_util,
@@ -411,6 +416,8 @@ class ScaleneJSON:
             "filename": program_path,
             "alloc_samples": stats.memory_stats.alloc_samples,
             "elapsed_time_sec": stats.elapsed_time,
+            "start_time_absolute": stats.start_time_absolute,
+            "start_time_perf": stats.start_time_perf,
             "growth_rate": growth_rate,
             "max_footprint_mb": stats.memory_stats.max_footprint,
             "max_footprint_python_fraction": stats.memory_stats.max_footprint_python_fraction,

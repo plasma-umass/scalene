@@ -465,13 +465,17 @@ export function makeSparkline(
   };
 }
 
-export function makeNRTBar(nrt_percent, nrt_time_ms, params) {
-  // Make a bar for NRT percentage
-  const widthThreshold1 = 15; // Reduced to fix text cutoff
-  const widthThreshold2 = 8;  // Reduced to fix text cutoff
+export function makeNRTBar(nrt_time_ms, elapsed_time_sec, params) {
+  // Make a bar for NRT time relative to total elapsed time
+  const widthThreshold1 = 15; 
+  const widthThreshold2 = 8;  
+  
+  // Calculate percentage relative to total elapsed time
+  const elapsed_time_ms = elapsed_time_sec * 1000;
+  const nrt_percent = elapsed_time_ms > 0 ? (nrt_time_ms / elapsed_time_ms) * 100 : 0;
   
   // Use actual NRT time for tooltip
-  let tooltipText = "NRT: " + nrt_percent.toFixed(1) + "% [" + time_consumed_str(nrt_time_ms) + "]";
+  let tooltipText = "NRT: " + nrt_percent.toFixed(1) + "% of elapsed time [" + time_consumed_str(nrt_time_ms) + "]";
   
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
@@ -519,7 +523,7 @@ export function makeNRTBar(nrt_percent, nrt_time_ms, params) {
             legend: false,
             scale: { range: ["purple"] },
           },
-          tooltip: [{ field: "c", type: "nominal", title: "NRT percentage" }],
+          tooltip: [{ field: "c", type: "nominal", title: "NRT time" }],
         },
       },
       {
@@ -537,7 +541,7 @@ export function makeNRTBar(nrt_percent, nrt_time_ms, params) {
           },
           text: { field: "d" },
           color: { value: "white" },
-          tooltip: [{ field: "c", type: "nominal", title: "NRT percentage" }],
+          tooltip: [{ field: "c", type: "nominal", title: "NRT time" }],
         },
       },
     ],
@@ -597,16 +601,17 @@ export function makeNCNRTPie(nc_time_ms, nrt_time_ms, params) {
   };
 }
 
-export function makeNCTimeBar(nc_time_ms, total_nc_time_ms, params) {
-  // Make a bar for NC time (similar to NRT bar but based on time rather than percentage)
-  const widthThreshold1 = 15; // Reduced to fix text cutoff
-  const widthThreshold2 = 8;  // Reduced to fix text cutoff
+export function makeNCTimeBar(nc_time_ms, elapsed_time_sec, params) {
+  // Make a bar for NC time relative to total elapsed time
+  const widthThreshold1 = 15;
+  const widthThreshold2 = 8;
   
-  // Calculate percentage of this line's NC time relative to total NC time in the file
-  const nc_percent = total_nc_time_ms > 0 ? (nc_time_ms / total_nc_time_ms) * 100 : 0;
+  // Calculate percentage relative to total elapsed time
+  const elapsed_time_ms = elapsed_time_sec * 1000;
+  const nc_percent = elapsed_time_ms > 0 ? (nc_time_ms / elapsed_time_ms) * 100 : 0;
   
   // Use actual NC time for tooltip
-  let tooltipText = "NC: " + time_consumed_str(nc_time_ms) + " (" + nc_percent.toFixed(1) + "% of total NC time)";
+  let tooltipText = "NC: " + nc_percent.toFixed(1) + "% of elapsed time [" + time_consumed_str(nc_time_ms) + "]";
   
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
@@ -673,6 +678,89 @@ export function makeNCTimeBar(nc_time_ms, total_nc_time_ms, params) {
           text: { field: "d" },
           color: { value: "white" },
           tooltip: [{ field: "c", type: "nominal", title: "NC time" }],
+        },
+      },
+    ],
+  };
+}
+
+export function makeTotalNeuronBar(total_time_ms, elapsed_time_sec, label, color, params) {
+  // Make a bar for total neuron time (NC or NRT) relative to elapsed time
+  const widthThreshold1 = 15;
+  const widthThreshold2 = 8;
+  
+  // Calculate percentage relative to total elapsed time
+  const elapsed_time_ms = elapsed_time_sec * 1000;
+  const time_percent = elapsed_time_ms > 0 ? (total_time_ms / elapsed_time_ms) * 100 : 0;
+  
+  // Use actual time for tooltip
+  let tooltipText = `${label}: ${time_percent.toFixed(1)}% of elapsed time [${time_consumed_str(total_time_ms)}]`;
+  
+  return {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    config: {
+      view: {
+        stroke: "transparent",
+      },
+    },
+    autosize: {
+      contains: "padding",
+    },
+    width: params.width,
+    height: params.height,
+    padding: 0,
+    data: {
+      values: [
+        {
+          x: 0,
+          y: time_percent.toFixed(1),
+          c: tooltipText,
+          d:
+            time_percent >= widthThreshold1
+              ? time_percent.toFixed(0) + "%"
+              : time_percent >= widthThreshold2
+                ? time_percent.toFixed(0)
+                : "",
+          q: time_percent / 2,
+        },
+      ],
+    },
+    layer: [
+      {
+        mark: { type: "bar" },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "y",
+            axis: false,
+            stack: "zero",
+            scale: { domain: [0, 100] },
+          },
+          color: {
+            field: "c",
+            type: "nominal",
+            legend: false,
+            scale: { range: [color] },
+          },
+          tooltip: [{ field: "c", type: "nominal", title: label + " time" }],
+        },
+      },
+      {
+        mark: {
+          type: "text",
+          align: "center",
+          baseline: "middle",
+          dx: 0,
+        },
+        encoding: {
+          x: {
+            aggregate: "sum",
+            field: "q",
+            axis: false,
+          },
+          text: { field: "d" },
+          color: { value: "white" },
+          tooltip: [{ field: "c", type: "nominal", title: label + " time" }],
         },
       },
     ],
