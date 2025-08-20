@@ -392,6 +392,7 @@ class ScaleneStatistics:
         """Start the timer."""
         self.start_time = time.time()
         self.start_time_absolute = time.time()
+        self.start_time_perf = time.perf_counter()
 
     def stop_clock(self) -> None:
         """Stop the timer."""
