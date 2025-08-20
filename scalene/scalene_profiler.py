@@ -1262,10 +1262,6 @@ class Scalene:
     @functools.lru_cache(None)
     def should_trace(filename: Filename, func: str) -> bool:
         """Return true if we should trace this filename and function."""
-        if Scalene.__trace_manager:
-            return Scalene.__trace_manager.should_trace(filename, func)
-            
-        # Fallback to original logic if trace manager not initialized
         if not filename:
             return False
         if Scalene.__profiler_base in filename:
@@ -1327,10 +1323,7 @@ class Scalene:
                         
         # Check explicit exclude patterns
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
-        if any(prof in filename for prof in profile_exclude_list if prof != ""):
-            return False
-            
-        return True
+        return not any(prof in filename for prof in profile_exclude_list if prof != "")
         
     @staticmethod
     def _handle_jupyter_cell(filename: Filename) -> bool:
