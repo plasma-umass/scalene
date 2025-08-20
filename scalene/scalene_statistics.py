@@ -132,10 +132,13 @@ class CPUStatistics:
         # How many CPU samples have been collected
         self.total_cpu_samples: float = 0.0
 
+        self.cpu_samples_list : Dict[Any, Dict[Any, List[float]]] = defaultdict(lambda: defaultdict(list))
+
     def clear(self) -> None:
         """Reset all CPU statistics."""
         self.cpu_samples_python.clear()
         self.cpu_samples_c.clear()
+        self.cpu_samples_list.clear()
         self.cpu_utilization.clear()
         self.core_utilization.clear()
         self.cpu_samples.clear()
@@ -346,6 +349,12 @@ class ScaleneStatistics:
 
         # total time spent in program being profiled
         self.elapsed_time: float = 0
+        
+        # absolute start time (time.time())
+        self.start_time_absolute: float = 0
+        
+        # perf_counter start time
+        self.start_time_perf: float = 0
 
         # full stacks taken during CPU samples, together with number of hits
         self.stacks: Dict[Any, StackStats] = defaultdict(lambda: StackStats(0, 0.0, 0.0, 0.0))
@@ -382,6 +391,8 @@ class ScaleneStatistics:
     def start_clock(self) -> None:
         """Start the timer."""
         self.start_time = time.time()
+        self.start_time_absolute = time.time()
+        self.start_time_perf = time.perf_counter()
 
     def stop_clock(self) -> None:
         """Stop the timer."""
