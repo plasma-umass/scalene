@@ -80,15 +80,11 @@ class ProfilerCore:
         lineno = LineNumber(frame.f_lineno)
         bytecode_index = ByteCodeIndex(frame.f_lasti)
         
-        # Create profiling sample
-        sample = ProfilingSample(
-            elapsed_time_sec=time_per_sample,
-            python_elapsed_time_sec=python_elapsed,
-            sys_elapsed_time_sec=sys_elapsed
-        )
-        
-        # Record the sample
-        self._stats.record_cpu_sample(filename, lineno, sample)
+        # Record CPU samples directly in statistics (like original code)
+        self._stats.cpu_stats.cpu_samples_python[filename][lineno] += python_elapsed
+        self._stats.cpu_stats.cpu_samples_c[filename][lineno] += sys_elapsed
+        self._stats.cpu_stats.cpu_samples[filename] += time_per_sample
+        self._stats.cpu_stats.total_cpu_samples += time_per_sample
         
         # Update last profiled location
         self.set_last_profiled(filename, lineno, bytecode_index)

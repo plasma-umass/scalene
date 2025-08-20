@@ -97,10 +97,7 @@ class ProcessManager:
         
         # Set up preloading for child process
         if hasattr(self._args, 'preload') and self._args.preload:
-            ScalenePreload.setup_preload(
-                preload_libs=self._args.preload,
-                python_alias_dir=self._python_alias_dir
-            )
+            ScalenePreload.setup_preload(self._args)
             
     def setup_multiprocessing_redirection(self) -> None:
         """Set up redirection for multiprocessing calls."""
