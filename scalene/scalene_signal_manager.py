@@ -10,7 +10,7 @@ import signal
 import sys
 import threading
 import time
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 from types import FrameType
 
@@ -18,13 +18,20 @@ from scalene.scalene_signals import ScaleneSignals
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
 
+def _generate_exponential_sample(scale: float) -> float:
+    import math
+    import random
+    u = random.random()  # Uniformly distributed random number between 0 and 1
+    return -scale * math.log(1 - u)
+
 class ScaleneSignalManager:
     """Manages signal handling for Scalene profiler."""
     
-    def __init__(self):
+    def __init__(self) -> None:
+        import queue
         self.__signals = ScaleneSignals()
         self.__sigqueues: List[ScaleneSigQueue] = []
-        self.__windows_queue = None  # Will be initialized if needed
+        self.__windows_queue : Optional[queue.Queue] = None  # Will be initialized if needed
         
         # Store original signal functions
         self.__orig_signal = signal.signal
@@ -117,7 +124,7 @@ class ScaleneSignalManager:
             self.__orig_siginterrupt(s, False)
         self.__orig_setitimer(
             self.__signals.cpu_timer_signal,
-            cpu_sampling_rate,
+            _generate_exponential_sample(cpu_sampling_rate),
         )
         
     def setup_lifecycle_signals(self, 
@@ -151,6 +158,7 @@ class ScaleneSignalManager:
             
     def restart_timer(self, interval: float) -> None:
         """Restart the CPU profiling timer with the specified interval."""
+        interval = _generate_exponential_sample(interval)
         if sys.platform != "win32":
             self.__orig_setitimer(
                 self.__signals.cpu_timer_signal,
