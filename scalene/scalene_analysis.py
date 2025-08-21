@@ -20,6 +20,13 @@ class ScaleneAnalysis:
         """
         Returns whether a package is native or not.
         """
+        import platform
+        
+        # Skip platform-specific modules on incompatible platforms
+        if (package_name == "scalene.scalene_apple_gpu" and 
+            platform.system() != "Darwin"):
+            return False
+            
         result = False
         try:
             package = importlib.import_module(package_name)
@@ -41,6 +48,9 @@ class ScaleneAnalysis:
         except TypeError:
             # __file__ is there, but empty (os.path.dirname() returns TypeError).  Let's call it native.
             result = True
+        except OSError:
+            # Platform-specific import failed (e.g., missing system libraries)
+            result = False
         return result
 
     @staticmethod

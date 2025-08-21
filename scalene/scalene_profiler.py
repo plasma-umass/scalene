@@ -108,6 +108,11 @@ from scalene.scalene_utility import (
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 from scalene.scalene_accelerator import ScaleneAccelerator
+from scalene.scalene_profiler_core import ProfilerCore
+from scalene.scalene_signal_handler import SignalHandler
+from scalene.scalene_trace_manager import TraceManager
+from scalene.scalene_process_manager import ProcessManager
+from scalene.scalene_profiler_lifecycle import ProfilerLifecycle
 
 console = Console(style="white on blue")
 
@@ -234,9 +239,17 @@ class Scalene:
     __accelerator: Optional[ScaleneAccelerator] = (
         None  # initialized after parsing arguments in `main`
     )
+    
+    # New component classes for better separation of concerns
+    __profiler_core: Optional[ProfilerCore] = None
+    __signal_handler: Optional[SignalHandler] = None  
+    __trace_manager: Optional[TraceManager] = None
+    __process_manager: Optional[ProcessManager] = None
+    __profiler_lifecycle: Optional[ProfilerLifecycle] = None
+    
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
-    __profiler_base: str
+    __profiler_base: str = ""  # Will be set in __init__
 
     @staticmethod
     def get_original_lock() -> threading.Lock:
@@ -303,18 +316,27 @@ class Scalene:
 
         Used by replacement_signal_fns.py to shim signals used by the client program.
         """
+        if Scalene.__signal_handler:
+            return Scalene.__signal_handler.get_all_signals_set()
         return set(Scalene.__signal_manager.get_signals().get_all_signals())
 
     @staticmethod
     def get_lifecycle_signals() -> Tuple[signal.Signals, signal.Signals]:
+        if Scalene.__signal_handler:
+            return Scalene.__signal_handler.get_lifecycle_signals()
         return Scalene.__signal_manager.get_signals().get_lifecycle_signals()
 
     @staticmethod
     def disable_lifecycle() -> None:
-        Scalene.__lifecycle_disabled = True
+        if Scalene.__signal_handler:
+            Scalene.__signal_handler.disable_lifecycle()
+        else:
+            Scalene.__lifecycle_disabled = True
 
     @staticmethod
     def get_lifecycle_disabled() -> bool:
+        if Scalene.__signal_handler:
+            return Scalene.__signal_handler.get_lifecycle_disabled()
         return Scalene.__lifecycle_disabled
 
     @staticmethod
@@ -323,6 +345,8 @@ class Scalene:
 
         Used by replacement_signal_fns.py to shim timers used by the client program.
         """
+        if Scalene.__signal_handler:
+            return Scalene.__signal_handler.get_timer_signals()
         return Scalene.__signal_manager.get_signals().get_timer_signals()
 
     @staticmethod
@@ -365,17 +389,24 @@ class Scalene:
     @classmethod
     def clear_metrics(cls) -> None:
         """Clear the various states for forked processes."""
-        cls.__stats.clear()
+        if cls.__profiler_lifecycle:
+            cls.__profiler_lifecycle.clear_metrics()
+        else:
+            cls.__stats.clear()
         cls.child_pids.clear()
 
     @classmethod
     def add_child_pid(cls, pid: int) -> None:
         """Add this pid to the set of children. Used when forking."""
+        if cls.__process_manager:
+            cls.__process_manager.add_child_pid(pid)
         cls.child_pids.add(pid)
 
     @classmethod
     def remove_child_pid(cls, pid: int) -> None:
         """Remove a child once we have joined with it (used by replacement_pjoin.py)."""
+        if cls.__process_manager:
+            cls.__process_manager.remove_child_pid(pid)
         with contextlib.suppress(KeyError):
             cls.child_pids.remove(pid)
 
@@ -444,12 +475,18 @@ class Scalene:
     @staticmethod
     def start_signal_queues() -> None:
         """Start the signal processing queues (i.e., their threads)."""
-        Scalene.__signal_manager.start_signal_queues()
+        if Scalene.__signal_handler:
+            Scalene.__signal_handler.start_signal_queues()
+        else:
+            Scalene.__signal_manager.start_signal_queues()
 
     @staticmethod
     def stop_signal_queues() -> None:
         """Stop the signal processing queues (i.e., their threads)."""
-        Scalene.__signal_manager.stop_signal_queues()
+        if Scalene.__signal_handler:
+            Scalene.__signal_handler.stop_signal_queues()
+        else:
+            Scalene.__signal_manager.stop_signal_queues()
 
     @staticmethod
     def term_signal_handler(
@@ -595,17 +632,31 @@ class Scalene:
             import scalene.replacement_poll_selector # noqa: F401
 
         Scalene.__args = ScaleneArguments(**vars(arguments))
-        Scalene.__alloc_sigq = ScaleneSigQueue(
-            Scalene.alloc_sigqueue_processor
-        )
-        Scalene.__memcpy_sigq = ScaleneSigQueue(
+        
+        # Initialize component classes for better separation of concerns
+        Scalene.__profiler_core = ProfilerCore(Scalene.__stats)
+        Scalene.__signal_handler = SignalHandler()
+        Scalene.__trace_manager = TraceManager(Scalene.__args)
+        Scalene.__process_manager = ProcessManager(Scalene.__args)
+        Scalene.__profiler_lifecycle = ProfilerLifecycle(Scalene.__stats, Scalene.__args)
+        
+        # Synchronize files to profile between main class and trace manager
+        for filename in Scalene.__files_to_profile:
+            Scalene.__trace_manager.add_file_to_profile(filename)
+        
+        # Set up signal queues through the signal handler
+        Scalene.__signal_handler.setup_signal_queues(
+            Scalene.alloc_sigqueue_processor,
             Scalene.memcpy_sigqueue_processor
         )
+        
+        Scalene.__alloc_sigq = Scalene.__signal_handler.get_alloc_sigqueue()
+        Scalene.__memcpy_sigq = Scalene.__signal_handler.get_memcpy_sigqueue()
         Scalene.__sigqueues = [
             Scalene.__alloc_sigq,
             Scalene.__memcpy_sigq,
         ]
-        # Add signal queues to the signal manager
+        # Add signal queues to the signal manager (keeping original for backward compatibility)
         Scalene.__signal_manager.add_signal_queue(Scalene.__alloc_sigq)
         Scalene.__signal_manager.add_signal_queue(Scalene.__memcpy_sigq)
         Scalene.__invalidate_mutex = Scalene.get_original_lock()
@@ -843,8 +894,11 @@ class Scalene:
 
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
-        # sourcery skip: inline-immediately-returned-variable
         """When using @profile, only profile files & lines that have been decorated."""
+        if Scalene.__trace_manager:
+            return Scalene.__trace_manager.profile_this_code(fname, lineno)
+        
+        # Fallback to original logic if trace manager not initialized
         if not Scalene.__files_to_profile:
             return True
         if fname not in Scalene.__files_to_profile:
@@ -1271,10 +1325,7 @@ class Scalene:
                         
         # Check explicit exclude patterns
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
-        if any(prof in filename for prof in profile_exclude_list if prof != ""):
-            return False
-            
-        return True
+        return not any(prof in filename for prof in profile_exclude_list if prof != "")
         
     @staticmethod
     def _handle_jupyter_cell(filename: Filename) -> bool:
