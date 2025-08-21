@@ -133,6 +133,17 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params, hasNeuronData) 
       info: "Execution time (Python + native + system)",
     },
   ];
+  
+  // Add Unused Device % as the second column if neuron data exists
+  if (hasNeuronData) {
+    columns.push({
+      title: ["Unused Device", "%"],
+      color: "darkred",
+      width: 0,
+      info: "Percentage of CPU samples where device was not being utilized concurrently",
+    });
+  }
+  
   if (memory) {
     columns = columns.concat([
       {
@@ -312,7 +323,8 @@ function makeProfileLine(
     line.memory_samples.length +
     (line.n_usage_fraction >= 0.01);
   const has_gpu_results = line.n_gpu_percent >= 1.0;
-  const has_nrt_results = (line.nrt_percent !== undefined && line.nrt_percent !== null && line.nrt_percent > 0);
+  const has_nrt_results = (line.nrt_time_ms !== undefined && line.nrt_time_ms > 0) || 
+                          (line.nc_time_ms !== undefined && line.nc_time_ms > 0);
   const start_region_line = line.start_region_line;
   const end_region_line = line.end_region_line;
   // Only show the explosion (optimizing a whole region) once.
@@ -338,13 +350,13 @@ function makeProfileLine(
   if (
     total_time > 1.0 ||
     has_memory_results ||
-    has_gpu_results ||
+    (has_gpu_results && prof.gpu && !hasNeuronData) ||
     has_nrt_results ||
     (showExplosion &&
       start_region_line != end_region_line &&
       (total_region_time >= 1.0 ||
         region_has_memory_results ||
-        region_has_gpu_results))
+        (region_has_gpu_results && prof.gpu && !hasNeuronData)))
   ) {
     s += "<tr>";
   } else {
@@ -365,6 +377,29 @@ function makeProfileLine(
   } else {
     cpu_bars.push(null);
   }
+  s += "</td>";
+  
+  // Add Unused Device % column as second column if neuron data exists
+  if (hasNeuronData) {
+    // Only show unused device % for lines that have CPU >= 1% or device (NRT) info
+    if ((total_time >= 1.0 || has_nrt_results) && line.cpu_samples_nc_overlap_percent !== undefined) {
+      const overlap_percent = line.cpu_samples_nc_overlap_percent || 0;
+      const unused_percent = 100 - overlap_percent; // Calculate as 1 - current percentage
+      let color = "green"; // Green for low unused (good)
+      if (unused_percent >= 60) {
+        color = "darkred"; // Dark red for high unused (bad)
+      } else if (unused_percent >= 30) {
+        color = "goldenrod"; // Yellow/golden for middle range
+      }
+      
+      s += `<td style="width: 100; vertical-align: middle; padding-right: 8px;" align="right" data-sort='${unused_percent.toFixed(1)}'>`;
+      s += `<font style="font-size: small" color="${color}">${unused_percent.toFixed(1)}%&nbsp;&nbsp;&nbsp;</font>`;
+      s += "</td>";
+    } else {
+      s += '<td style="width: 100; padding-right: 8px;"></td>';
+    }
+  }
+  
   if (prof.memory) {
     s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
       line.n_peak_mb.toFixed(0),
@@ -520,12 +555,13 @@ function makeProfileLine(
       s += '<td style="width: 100"></td>';
       nc_bars.push(null);
     }
+    
   }
   
   const empty_profile =
     total_time ||
     has_memory_results ||
-    has_gpu_results ||
+    (has_gpu_results && prof.gpu && !hasNeuronData) ||
     has_nrt_results ||
     end_region_line != start_region_line
       ? ""
@@ -883,11 +919,11 @@ async function display(prof) {
       (ff[1].percent_cpu_time / 100.0) * prof.elapsed_time_sec * 1e3,
     ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(
       prof.elapsed_time_sec * 1e3,
-    ).padWithNonBreakingSpaces(8)})<br />`;
+    ).padWithNonBreakingSpaces(8)})`;
     
     // Add neuron bars in the same format as CPU bars if neuron data exists
     if (hasNeuronData && total_nrt_time[ff[0]] > 0) {
-      s += `<span style="height: 20; width: 100; vertical-align: middle" id="nrt_bar${nrt_bars.length}"></span>&nbsp;`;
+      s += `<br /><span style="height: 20; width: 100; vertical-align: middle" id="nrt_bar${nrt_bars.length}"></span>&nbsp;`;
       nrt_bars.push(
         makeTotalNeuronBar(
           total_nrt_time[ff[0]],
@@ -898,17 +934,17 @@ async function display(prof) {
         ),
       );
       const nrt_percent = (total_nrt_time[ff[0]] / 1000 / prof.elapsed_time_sec) * 100;
-      s += `<font style="font-size: 90%">% of nrt time = ${nrt_percent
+      s += `% of nrt time = ${nrt_percent
         .toFixed(1)
         .padWithNonBreakingSpaces(5)}% (${time_consumed_str(
         total_nrt_time[ff[0]],
       ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(
         prof.elapsed_time_sec * 1e3,
-      ).padWithNonBreakingSpaces(8)})<br />`;
+      ).padWithNonBreakingSpaces(8)})`;
     }
     
     if (hasNeuronData && total_nc_time[ff[0]] > 0) {
-      s += `<span style="height: 20; width: 100; vertical-align: middle" id="nc_bar${nc_bars.length}"></span>&nbsp;`;
+      s += `<br /><span style="height: 20; width: 100; vertical-align: middle" id="nc_bar${nc_bars.length}"></span>&nbsp;`;
       nc_bars.push(
         makeTotalNeuronBar(
           total_nc_time[ff[0]],
@@ -919,19 +955,22 @@ async function display(prof) {
         ),
       );
       const nc_percent = (total_nc_time[ff[0]] / 1000 / prof.elapsed_time_sec) * 100;
-      s += `<font style="font-size: 90%">% of nc time = ${nc_percent
+      s += `% of nc time = ${nc_percent
         .toFixed(1)
         .padWithNonBreakingSpaces(5)}% (${time_consumed_str(
         total_nc_time[ff[0]],
       ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(
         prof.elapsed_time_sec * 1e3,
-      ).padWithNonBreakingSpaces(8)})<br />`;
+      ).padWithNonBreakingSpaces(8)})`;
     }
-    s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
+    
+    s += `</font>`;
+    
+    s += `<br /><span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
     s += `${triangle}`;
     s += "</span>";
     s += `<code> ${ff[0]}</code>`;
-    s += `</font></p>`;
+    s += `</p>`;
     s += `<div style="${displayStr}" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
