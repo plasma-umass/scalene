@@ -34,9 +34,10 @@ optimizations.
 
 > **Note**
 >
-> For optimization suggestions, Scalene supports a variety of AI providers, including [OpenAI](https://openai.com), Amazon Bedrock](https://aws.amazon.com/bedrock), [Microsoft Azure](https://azure.microsoft.com/en-us/), and local models via [Ollama](https://ollama.com/). To enable AI-powered optimization suggestions from AI providers, you need to enter credentials (e.g., an [OpenAI key](https://openai.com/api/)), in the box under "AI Optimization Options".
+> For optimization suggestions, Scalene supports a variety of AI providers, including [Amazon Bedrock](https://aws.amazon.com/bedrock), [Microsoft Azure](https://azure.microsoft.com/en-us/), [OpenAI](https://openai.com), and local models via [Ollama](https://ollama.com/). To enable AI-powered optimization suggestions from AI providers, you need to select a provider and, if needed, enter your credentials, in the box under "AI Optimization Options".
 >
-> <img width="487" alt="Scalene advanced options" src="https://user-images.githubusercontent.com/1612723/211639253-ec926b38-3efe-4a20-8514-e10dde94ec01.png">
+> <img width="607" height="316" alt="AI Optimization Options" src="https://github.com/user-attachments/assets/3c803237-063f-481a-8624-5c1d7f205c8a" />
+
 
 Once you've entered your key and any other needed data, click on the lightning bolt (⚡) beside any line or the explosion (💥) for an entire region of code to generate a proposed optimization. Click on a proposed optimization to copy it to the clipboard.
 
