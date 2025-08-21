@@ -24,7 +24,7 @@ class sorted_reservoir:
             1.0  # used for computing geometric distribution of number of adds to skip
         )
 
-    def add(self, item: Any) -> None:
+    def append(self, item: Any) -> None:
         """Potentially randomly add an item to the reservoir."""
         self.sorted_ = False
         self.index += 1
