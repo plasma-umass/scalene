@@ -27,11 +27,15 @@ export async function sendPromptToAmazon(prompt) {
     credentials: credentials,
   });
 
-    const params = {
-	"modelId": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
-	"body": JSON.stringify({
+    let body = {};
+    const max_tokens = 65536; // arbitrary large number
+
+    const modelId = document.getElementById("language-model-amazon").value;
+    
+    if (modelId.startsWith('us.anthropic')) {
+	body = {
 	    "anthropic_version": "bedrock-2023-05-31", 
-	    "max_tokens": 65536, // arbitrary large number
+	    "max_tokens": max_tokens,
 	    "messages": [
 		{
 		    "role": "user",
@@ -43,8 +47,28 @@ export async function sendPromptToAmazon(prompt) {
 		    ]
 		}
 	    ]
-	})
-  }
+	};
+    } else {
+	body = {
+	    "max_completion_tokens": max_tokens,
+	    "messages": [
+		{
+		    "role": "user",
+		    "content": [
+			{
+			    "type": "text",
+			    "text": prompt
+			}
+		    ]
+		}
+	    ]
+	};
+    }
+    
+    const params = {
+	"modelId": modelId,
+	"body": JSON.stringify(body)
+    }
 
   try {
     const command = new InvokeModelCommand(params);
@@ -54,9 +78,15 @@ export async function sendPromptToAmazon(prompt) {
     const responseBlob = new Blob([response.body]);
     const responseText = await responseBlob.text();
     const parsedResponse = JSON.parse(responseText);
-    const responseContents = parsedResponse.content[0].text;
-
-    return responseContents.trim();
+      console.log("parsedResponse = " + responseText);
+      if (modelId.startsWith('us.anthropic')) {
+	  const responseContents = parsedResponse.content[0].text;
+	  return responseContents.trim();
+      } else {
+	  const responseContents = parsedResponse.choices[0].message.content.replace(/<reasoning>[\s\S]*?<\/reasoning>/g, '');
+	  return responseContents.trim();
+      }
+      
   } catch (err) {
     console.error(err);
     return `# Error: ${err.message}`;

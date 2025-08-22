@@ -3,7 +3,7 @@ import math
 import random
 import re
 
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from enum import Enum
 from operator import itemgetter
 from pathlib import Path
@@ -27,6 +27,7 @@ class FunctionDetail(BaseModel):
     n_avg_mb: NonNegativeFloat
     n_copy_mb_s: NonNegativeFloat
     n_core_utilization : float = Field(..., ge=0, le=1)
+    cpu_samples_list: List[float]
     n_cpu_percent_c: float = Field(..., ge=0, le=100)
     n_cpu_percent_python: float = Field(..., ge=0, le=100)
     n_gpu_avg_memory_mb: NonNegativeFloat
@@ -41,34 +42,34 @@ class FunctionDetail(BaseModel):
     n_usage_fraction: float = Field(..., ge=0, le=1)
 
     @model_validator(mode="after")
-    def check_cpu_percentages(cls, values: Any) -> Any:
+    def check_cpu_percentages(self) -> Any:
         total_cpu_usage = math.floor(
-            values.n_cpu_percent_c
-            + values.n_cpu_percent_python
-            + values.n_sys_percent
+            self.n_cpu_percent_c
+            + self.n_cpu_percent_python
+            + self.n_sys_percent
         )
         if total_cpu_usage > 100:
             raise ValueError(
                 f"The sum of n_cpu_percent_c, n_cpu_percent_python, and n_sys_percent must be <= 100 but is {total_cpu_usage}"
             )
-        return values
+        return self
 
 
     @model_validator(mode="after")
-    def check_gpu_memory(cls, values: Any) -> Any:
-        if values.n_gpu_avg_memory_mb > values.n_gpu_peak_memory_mb:
+    def check_gpu_memory(self) -> Any:
+        if self.n_gpu_avg_memory_mb > self.n_gpu_peak_memory_mb:
             raise ValueError(
                 "n_gpu_avg_memory_mb must be less than or equal to n_gpu_peak_memory_mb"
             )
-        return values
+        return self
 
     @model_validator(mode="after")
-    def check_cpu_memory(cls, values: Any) -> Any:
-        if values.n_avg_mb > values.n_peak_mb:
+    def check_cpu_memory(self) -> Any:
+        if self.n_avg_mb > self.n_peak_mb:
             raise ValueError(
                 "n_avg_mb must be less than or equal to n_peak_mb"
             )
-        return values
+        return self
     
 class LineDetail(FunctionDetail):
     start_outermost_loop: PositiveInt
@@ -91,6 +92,8 @@ class ScaleneJSONSchema(BaseModel):
     alloc_samples: NonNegativeInt
     args: Optional[List[str]] = None
     elapsed_time_sec: NonNegativeFloat
+    start_time_absolute: NonNegativeFloat
+    start_time_perf: NonNegativeFloat
     entrypoint_dir: str
     filename: str
     files: Dict[str, FileDetail]
@@ -190,6 +193,7 @@ class ScaleneJSON:
             return {
                 "lineno": line_no,
                 "line": line,
+                "cpu_samples_list": [],
                 "n_core_utilization": 0,
                 "n_cpu_percent_c": 0,
                 "n_cpu_percent_python": 0,
@@ -296,6 +300,7 @@ class ScaleneJSON:
             "line": line,
             "lineno": line_no,
             "memory_samples": stats.memory_stats.per_line_footprint_samples[fname][line_no],
+            "cpu_samples_list": stats.cpu_stats.cpu_samples_list[fname][line_no],
             "n_avg_mb": n_avg_mb,
             "n_copy_mb_s": n_copy_mb_s,
             "n_core_utilization": mean_core_util,
@@ -380,7 +385,7 @@ class ScaleneJSON:
             program = Filename("[" + result.group(1) + "]")
 
         # Process the stacks to normalize by total number of CPU samples.
-        for stk in stats.stacks.keys():
+        for stk in stats.stacks:
             stack_stats = stats.stacks[stk]
             stats.stacks[stk] = StackStats(
                 stack_stats.count,
@@ -391,7 +396,7 @@ class ScaleneJSON:
 
         # Convert stacks into a representation suitable for JSON dumping.
         stks = []
-        for stk in stats.stacks.keys():
+        for stk in stats.stacks:
             this_stk: List[str] = []
             this_stk.extend(str(frame) for frame in stk)
             stack_stats = stats.stacks[stk]
@@ -411,6 +416,8 @@ class ScaleneJSON:
             "filename": program_path,
             "alloc_samples": stats.memory_stats.alloc_samples,
             "elapsed_time_sec": stats.elapsed_time,
+            "start_time_absolute": stats.start_time_absolute,
+            "start_time_perf": stats.start_time_perf,
             "growth_rate": growth_rate,
             "max_footprint_mb": stats.memory_stats.max_footprint,
             "max_footprint_python_fraction": stats.memory_stats.max_footprint_python_fraction,
@@ -478,7 +485,7 @@ class ScaleneJSON:
 
             # Leak analysis
             # First, compute AVERAGE memory consumption.
-            avg_mallocs = defaultdict(float)
+            avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.memory_stats.memory_malloc_count[fname]:
                 n_malloc_mb = stats.memory_stats.memory_aggregate_footprint[fname][line_no]
                 count = stats.memory_stats.memory_malloc_count[fname][line_no]
@@ -488,7 +495,7 @@ class ScaleneJSON:
                     # Setting to n_malloc_mb addresses the edge case where this allocation is the last line executed.
                     avg_mallocs[line_no] = n_malloc_mb
 
-            avg_mallocs = OrderedDict(
+            avg_mallocs = dict(
                 sorted(avg_mallocs.items(), key=itemgetter(1), reverse=True)
             )
 

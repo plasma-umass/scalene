@@ -96,11 +96,9 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
                         h, pid
                     ).gpuUtilization
             else:
-                try:
-                    utilization += pynvml.nvmlDeviceGetUtilizationRates(h).gpu
-                except pynvml.NVMLError:
+                with contextlib.suppress(pynvml.NVMLError):
                     # Silently ignore NVML errors. "Fixes" https://github.com/plasma-umass/scalene/issues/471.
-                    pass
+                    utilization += pynvml.nvmlDeviceGetUtilizationRates(h).gpu
         return (utilization / ngpus) / 100.0
 
     def has_gpu(self) -> bool:

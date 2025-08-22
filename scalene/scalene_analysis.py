@@ -1,4 +1,5 @@
 import ast
+import contextlib
 import importlib
 import os
 import re
@@ -24,7 +25,7 @@ class ScaleneAnalysis:
             package = importlib.import_module(package_name)
             if package.__file__:
                 package_dir = os.path.dirname(package.__file__)
-                for root, dirs, files in os.walk(package_dir):
+                for _root, _dirs, files in os.walk(package_dir):
                     for filename in files:
                         if filename.endswith(".so") or filename.endswith(
                             ".pyd"
@@ -199,20 +200,19 @@ class ScaleneAnalysis:
                             regions[line] = (line, line)
 
         walk(tree, None, None)
-        for lineno, line in enumerate(srclines, 1):
+        for lineno, _line in enumerate(srclines, 1):
             regions[lineno] = regions.get(lineno, (lineno, lineno))
 
         return regions
 
     @staticmethod
     def strip_magic_line(source: str) -> str:
-        try:
+        with contextlib.suppress(Exception):
             from IPython import get_ipython
             get_ipython()
             # The above line will fail if not running in a notebook,
             # in which case we return the original source unchanged.
             # Regular expression to match and replace magic commands with comments
             source = re.sub(r'(^\s*)%{1,2}(\w+)', r'\1# \2', source, flags=re.MULTILINE)
-        finally:
-            return source
+        return source
 

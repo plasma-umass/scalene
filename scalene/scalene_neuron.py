@@ -78,9 +78,9 @@ class ScaleneNeuron(ScaleneAccelerator):
     def __init__(self) -> None:
         self._gpu_device = ""
         self._neuron_monitor = None
+        self._monitor_started = False
         if self.has_gpu():
-            # Neuron device; init neuron-monitor and set GPU device name
-            self._neuron_monitor = NeuronMonitor()
+            # Neuron device; set GPU device name but don't start monitor yet
             self._gpu_device = "Neuron"
         self.cpu_utilization = 0.0
         self.memory_used_bytes = 0.0
@@ -99,10 +99,7 @@ class ScaleneNeuron(ScaleneAccelerator):
             result = subprocess.run(
                 ["neuron-ls"], capture_output=True, text=True, check=True
             )
-            if "No neuron devices found" in result.stdout:
-                return False
-            else:
-                return True
+            return "No neuron devices found" not in result.stdout
         except subprocess.CalledProcessError:
             return False
         except FileNotFoundError:
@@ -114,12 +111,18 @@ class ScaleneNeuron(ScaleneAccelerator):
         pass
 
     def get_stats(self) -> Tuple[float, float]:
-        if self.has_gpu():
-            assert self._neuron_monitor
-            line = self._neuron_monitor.readline()
-            if line:
-                self._parse_output(line)
+        if self.has_gpu() and self._monitor_started:
+            if self._neuron_monitor:
+                line = self._neuron_monitor.readline()
+                if line:
+                    self._parse_output(line)
         return self.neuroncore_utilization, self.memory_used_bytes / 1048576.0
+
+    def start_monitor(self) -> None:
+        """Explicitly start the neuron monitor when profiling begins"""
+        if self.has_gpu() and not self._monitor_started:
+            self._neuron_monitor = NeuronMonitor()
+            self._monitor_started = True
 
     def _parse_output(self, output: str) -> None:
         try:
@@ -132,7 +135,7 @@ class ScaleneNeuron(ScaleneAccelerator):
             if vcpu_usage:
                 total_idle = 0
                 total_cores = 0
-                for core, usage in vcpu_usage.get("usage_data", {}).items():
+                for _core, usage in vcpu_usage.get("usage_data", {}).items():
                     total_idle += usage.get("idle", 0)
                     total_cores += 1
                 if total_cores > 0:
@@ -157,7 +160,7 @@ class ScaleneNeuron(ScaleneAccelerator):
                         "neuroncores_in_use", {}
                     )
 
-                    for core, counters in neuroncores_in_use.items():
+                    for _core, counters in neuroncores_in_use.items():
                         this_core_utilization = counters.get(
                             "neuroncore_utilization", 0
                         )
@@ -185,7 +188,7 @@ class ScaleneNeuron(ScaleneAccelerator):
                         .get("usage_breakdown", {})
                         .get("neuroncore_memory_usage", {})
                     )
-                    for core, mem_info in memory_info.items():
+                    for _core, mem_info in memory_info.items():
                         total_memory_used += sum(mem_info.values())
 
                 self.memory_used_bytes = total_memory_used

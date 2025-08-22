@@ -1,3 +1,4 @@
+import contextlib
 import sys
 import threading
 import time
@@ -49,10 +50,8 @@ def replacement_lock(scalene: Scalene) -> None:
             return self.__lock.locked()
 
         def _at_fork_reinit(self) -> None:
-            try:
+            with contextlib.suppress(AttributeError):
                 self.__lock._at_fork_reinit()  # type: ignore
-            except AttributeError:
-                pass
 
         def __enter__(self) -> None:
             self.acquire()

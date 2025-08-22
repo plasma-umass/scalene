@@ -1,0 +1,8 @@
+line-length = 88
+indent-width = 4
+exclude = ["test", "tests", "node_modules", "benchmarks"]
+
+[lint]
+select = ["E", "F", "B", "SIM"]
+ignore = ["E101", "E402", "E501", "E701", "E741", "F401", "F403", "F405", "B028"]
+

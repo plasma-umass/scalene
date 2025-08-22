@@ -6,7 +6,7 @@ import { Prism } from "./prism";
 import Tablesort from "./tablesort";
 import { proposeOptimization } from "./optimizations";
 import { unescapeUnicode, memory_consumed_str, time_consumed_str } from "./utils";
-import { makeBar, makeGPUPie, makeMemoryPie, makeMemoryBar, makeSparkline,
+import { makeBar, makeGPUPie, makeMemoryPie, makeMemoryBar, makeSparkline, makeNRTBar, makeNCTimeBar, makeNCNRTPie, makeTotalNeuronBar,
 	 Lightning, Explosion, RightTriangle, DownTriangle, WhiteLightning, WhiteExplosion} from "./gui-elements";
 import { checkApiKey } from "./openai";
 import { fetchModelNames } from "./ollama";
@@ -62,63 +62,63 @@ function stringLines(lines) {
     let docstringDelimiter = null; // Either `'''` or `"""` when in a docstring.
 
     for (let i = 0; i < lines.length; i++) {
-	const line = lines[i];
-	let searchIndex = 0;
-	// We'll record if we were already in a docstring at the start of this line.
-	let wasInDocstring = inDocstring;
+        const line = lines[i];
+        let searchIndex = 0;
+        // We'll record if we were already in a docstring at the start of this line.
+        let wasInDocstring = inDocstring;
 
-	// Repeatedly look for triple quotes in the current line.
-	while (true) {
-	    // Find the next occurrence of either `'''` or `"""`.
-	    const nextTripleSingle = line.indexOf("'''", searchIndex);
-	    const nextTripleDouble = line.indexOf('"""', searchIndex);
+        // Repeatedly look for triple quotes in the current line.
+        while (true) {
+            // Find the next occurrence of either `'''` or `"""`.
+            const nextTripleSingle = line.indexOf("'''", searchIndex);
+            const nextTripleDouble = line.indexOf('"""', searchIndex);
 
-	    // Figure out which one occurs first (if either).
-	    let nextIndex = -1;
-	    let foundDelimiter = null;
+            // Figure out which one occurs first (if either).
+            let nextIndex = -1;
+            let foundDelimiter = null;
 
-	    if (nextTripleSingle !== -1 && (nextTripleDouble === -1 || nextTripleSingle < nextTripleDouble)) {
-		nextIndex = nextTripleSingle;
-		foundDelimiter = "'''";
-	    } else if (nextTripleDouble !== -1 && (nextTripleSingle === -1 || nextTripleDouble < nextTripleSingle)) {
-		nextIndex = nextTripleDouble;
-		foundDelimiter = '"""';
-	    }
+            if (nextTripleSingle !== -1 && (nextTripleDouble === -1 || nextTripleSingle < nextTripleDouble)) {
+                nextIndex = nextTripleSingle;
+                foundDelimiter = "'''";
+            } else if (nextTripleDouble !== -1 && (nextTripleSingle === -1 || nextTripleDouble < nextTripleSingle)) {
+                nextIndex = nextTripleDouble;
+                foundDelimiter = '"""';
+            }
 
-	    // If no further triple quotes found in this line, break out of the loop.
-	    if (nextIndex === -1) {
-		break;
-	    }
+            // If no further triple quotes found in this line, break out of the loop.
+            if (nextIndex === -1) {
+                break;
+            }
 
-	    // Advance searchIndex so that subsequent searches move past this point.
-	    searchIndex = nextIndex + 3;
+            // Advance searchIndex so that subsequent searches move past this point.
+            searchIndex = nextIndex + 3;
 
-	    // Toggle logic if we've found a triple quote.
-	    if (!inDocstring) {
-		// Not in a docstring, so this starts one.
-		inDocstring = true;
-		docstringDelimiter = foundDelimiter;
-	    } else {
-		// Already in a docstring, check if it matches our current delimiter.
-		if (docstringDelimiter === foundDelimiter) {
-		    // This ends our current docstring.
-		    inDocstring = false;
-		    docstringDelimiter = null;
-		}
-	    }
-	}
+            // Toggle logic if we've found a triple quote.
+            if (!inDocstring) {
+                // Not in a docstring, so this starts one.
+                inDocstring = true;
+                docstringDelimiter = foundDelimiter;
+            } else {
+                // Already in a docstring, check if it matches our current delimiter.
+                if (docstringDelimiter === foundDelimiter) {
+                    // This ends our current docstring.
+                    inDocstring = false;
+                    docstringDelimiter = null;
+                }
+            }
+        }
 
-	// If we were in a docstring at any point during this line, mark it.
-	// (If wasInDocstring was true at the start or inDocstring is true now,
-	//  it means this line is part of a docstring.)
-	if (wasInDocstring || inDocstring) {
-	    docstringLines.add(i);
-	}
+        // If we were in a docstring at any point during this line, mark it.
+        // (If wasInDocstring was true at the start or inDocstring is true now,
+        //  it means this line is part of a docstring.)
+        if (wasInDocstring || inDocstring) {
+            docstringLines.add(i);
+        }
     }
     return docstringLines;
 }
 
-function makeTableHeader(fname, gpu, gpu_device, memory, params) {
+function makeTableHeader(fname, gpu, gpu_device, memory, params, hasNeuronData) {
   let tableTitle;
   if (params["functions"]) {
     tableTitle = "function profile";
@@ -133,6 +133,17 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params) {
       info: "Execution time (Python + native + system)",
     },
   ];
+  
+  // Add Unused Device % as the second column if neuron data exists
+  if (hasNeuronData) {
+    columns.push({
+      title: ["Unused Device", "%"],
+      color: "darkred",
+      width: 0,
+      info: "Percentage of CPU samples where device was not being utilized concurrently",
+    });
+  }
+  
   if (memory) {
     columns = columns.concat([
       {
@@ -167,7 +178,7 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params) {
       },
     ]);
   }
-  if (gpu) {
+  if (gpu && !hasNeuronData) {
     columns.push({
       title: [gpu_device, "util."],
       color: CopyColor,
@@ -179,6 +190,21 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params) {
       color: CopyColor,
       width: 0,
       info: `Peak ${gpu_device} memory allocated by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
+    });
+  }
+  // Only add NRT/NC columns if neuron data exists in the profile
+  if (hasNeuronData) {
+    columns.push({
+      title: ["NRT", "%"],
+      color: "purple",
+      width: 0,
+      info: "Neural Runtime percentage",
+    });
+    columns.push({
+      title: ["NC", "time"],
+      color: "darkorange", 
+      width: 0,
+      info: "Neuron Compute time",
     });
   }
   columns.push({ title: ["", ""], color: "black", width: 100 });
@@ -249,6 +275,11 @@ function makeProfileLine(
   memory_activity,
   gpu_pies,
   propose_optimizations,
+  nrt_bars,
+  nc_bars,
+  nc_nrt_pies,
+  total_nc_time_for_file,
+  hasNeuronData,
 ) {
   let total_time =
     line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
@@ -292,6 +323,8 @@ function makeProfileLine(
     line.memory_samples.length +
     (line.n_usage_fraction >= 0.01);
   const has_gpu_results = line.n_gpu_percent >= 1.0;
+  const has_nrt_results = (line.nrt_time_ms !== undefined && line.nrt_time_ms > 0) || 
+                          (line.nc_time_ms !== undefined && line.nc_time_ms > 0);
   const start_region_line = line.start_region_line;
   const end_region_line = line.end_region_line;
   // Only show the explosion (optimizing a whole region) once.
@@ -317,12 +350,13 @@ function makeProfileLine(
   if (
     total_time > 1.0 ||
     has_memory_results ||
-    has_gpu_results ||
+    (has_gpu_results && prof.gpu && !hasNeuronData) ||
+    has_nrt_results ||
     (showExplosion &&
       start_region_line != end_region_line &&
       (total_region_time >= 1.0 ||
         region_has_memory_results ||
-        region_has_gpu_results))
+        (region_has_gpu_results && prof.gpu && !hasNeuronData)))
   ) {
     s += "<tr>";
   } else {
@@ -343,6 +377,29 @@ function makeProfileLine(
   } else {
     cpu_bars.push(null);
   }
+  s += "</td>";
+  
+  // Add Unused Device % column as second column if neuron data exists
+  if (hasNeuronData) {
+    // Only show unused device % for lines that have CPU >= 1% or device (NRT) info
+    if ((total_time >= 1.0 || has_nrt_results) && line.cpu_samples_nc_overlap_percent !== undefined) {
+      const overlap_percent = line.cpu_samples_nc_overlap_percent || 0;
+      const unused_percent = 100 - overlap_percent; // Calculate as 1 - current percentage
+      let color = "green"; // Green for low unused (good)
+      if (unused_percent >= 60) {
+        color = "darkred"; // Dark red for high unused (bad)
+      } else if (unused_percent >= 30) {
+        color = "goldenrod"; // Yellow/golden for middle range
+      }
+      
+      s += `<td style="width: 100; vertical-align: middle; padding-right: 8px;" align="right" data-sort='${unused_percent.toFixed(1)}'>`;
+      s += `<font style="font-size: small" color="${color}">${unused_percent.toFixed(1)}%&nbsp;&nbsp;&nbsp;</font>`;
+      s += "</td>";
+    } else {
+      s += '<td style="width: 100; padding-right: 8px;"></td>';
+    }
+  }
+  
   if (prof.memory) {
     s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
       line.n_peak_mb.toFixed(0),
@@ -430,7 +487,7 @@ function makeProfileLine(
       )}&nbsp;&nbsp;&nbsp;</font></td>`;
     }
   }
-  if (prof.gpu) {
+  if (prof.gpu && !hasNeuronData) {
     if (line.n_gpu_percent < 1.0) {
       s += '<td style="width: 100"></td>';
     } else {
@@ -460,10 +517,52 @@ function makeProfileLine(
       }
     }
   }
+  
+  // Add neuron columns only if the profile contains neuron data 
+  if (hasNeuronData) {
+    // Add NRT columns
+    // NRT time bar
+    if ((line.nrt_time_ms !== undefined && line.nrt_time_ms > 0) || (line.nrt_percent !== undefined && line.nrt_percent > 0)) {
+      const sortValue = line.nrt_time_ms || line.nrt_percent || 0;
+      s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${sortValue.toFixed(1)}'>`;
+      s += `<span style="height: 20; width: 100; vertical-align: middle" id="nrt_bar${nrt_bars.length}"></span>`;
+      s += "</td>";
+      nrt_bars.push(
+        makeNRTBar(
+          line.nrt_time_ms || 0,
+          prof.elapsed_time_sec,
+          { height: 20, width: 100 },
+        ),
+      );
+    } else {
+      s += '<td style="width: 100"></td>';
+      nrt_bars.push(null);
+    }
+    
+    // Add NC time bar column
+    if (line.nc_time_ms !== undefined && line.nc_time_ms > 0) {
+      s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${line.nc_time_ms.toFixed(1)}'>`;
+      s += `<span style="height: 20; width: 100; vertical-align: middle" id="nc_bar${nc_bars.length}"></span>`;
+      s += "</td>";
+      nc_bars.push(
+        makeNCTimeBar(
+          line.nc_time_ms,
+          prof.elapsed_time_sec,
+          { height: 20, width: 100 },
+        ),
+      );
+    } else {
+      s += '<td style="width: 100"></td>';
+      nc_bars.push(null);
+    }
+    
+  }
+  
   const empty_profile =
     total_time ||
     has_memory_results ||
-    has_gpu_results ||
+    (has_gpu_results && prof.gpu && !hasNeuronData) ||
+    has_nrt_results ||
     end_region_line != start_region_line
       ? ""
       : "empty-profile";
@@ -482,7 +581,15 @@ function makeProfileLine(
 
   // Convert back any escaped Unicode.
   line.line = unescapeUnicode(line.line);
+
   const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
+  
+  // If we are in a docstring, format it as such in the <span>
+  let optionalInDocstring = "";
+  if (inDocstring) {
+      optionalInDocstring = "token comment";
+  }
+  
   s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
   let newLine = structuredClone(line);
   // TODO: verify that this isn't double counting anything
@@ -523,12 +630,7 @@ function makeProfileLine(
   } else {
     s += lineOptimizationString;
   }
-  // If we are in a docstring, format it as such in the <span>
-  let optionalInDocstring = "";
-  if (inDocstring) {
-      optionalInDocstring = "token comment";
-  }
-    s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${optionalInDocstring} ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
+  s += `<pre style="height: 10; display: inline; white-space: pre-wrap; overflow-x: auto; border: 0px; vertical-align: middle"><code class="language-python ${optionalInDocstring} ${empty_profile}">${codeLine}<span id="code-${file_number}-${line.lineno}" bgcolor="white"></span></code></pre></td>`;
   s += "</tr>";
   return s;
 }
@@ -589,6 +691,63 @@ async function display(prof) {
   //    console.log(JSON.stringify(prof.stacks));
   // Clear explosions.
   showedExplosion = {};
+  
+  // Compute overall usage and detect neuron data FIRST
+  let cpu_python = 0;
+  let cpu_native = 0;
+  let cpu_system = 0;
+  let mem_python = 0;
+  let max_alloc = 0;
+  let cp = {};
+  let cn = {};
+  let cs = {};
+  let mp = {};
+  let ma = {};
+  let total_nc_time = {}; // Total NC time per file
+  let total_nrt_time = {}; // Total NRT time per file
+  let hasNeuronData = false; // Check if any neuron profiling data exists
+  let overall_nc_time = 0; // Total NC time across all files
+  let overall_nrt_time = 0; // Total NRT time across all files
+  
+  for (const f in prof.files) {
+    cp[f] = 0;
+    cn[f] = 0;
+    cs[f] = 0;
+    mp[f] = 0;
+    ma[f] = 0;
+    total_nc_time[f] = 0;
+    total_nrt_time[f] = 0;
+    for (const l in prof.files[f].lines) {
+      const line = prof.files[f].lines[l];
+      cp[f] += line.n_cpu_percent_python;
+      cn[f] += line.n_cpu_percent_c;
+      cs[f] += line.n_sys_percent;
+      if (line.n_peak_mb > ma[f]) {
+        ma[f] = line.n_peak_mb;
+        mp[f] += line.n_peak_mb * line.n_python_fraction;
+      }
+      max_alloc += line.n_malloc_mb;
+      // Calculate total NC time for this file and detect neuron data
+      if (line.nc_time_ms !== undefined && line.nc_time_ms > 0) {
+        total_nc_time[f] += line.nc_time_ms;
+        hasNeuronData = true;
+      }
+      if (line.nrt_time_ms !== undefined && line.nrt_time_ms > 0) {
+        total_nrt_time[f] += line.nrt_time_ms;
+        hasNeuronData = true;
+      }
+      if (line.nrt_percent !== undefined && line.nrt_percent > 0) {
+        hasNeuronData = true;
+      }
+    }
+    cpu_python += cp[f];
+    cpu_native += cn[f];
+    cpu_system += cs[f];
+    mem_python += mp[f];
+    overall_nc_time += total_nc_time[f];
+    overall_nrt_time += total_nrt_time[f];
+  }
+
   // Restore the API key from local storage (if any).
   let old_key = "";
   old_key = window.localStorage.getItem("scalene-api-key");
@@ -616,9 +775,11 @@ async function display(prof) {
   globalThis.profile = prof;
   let memory_sparklines = [];
   let memory_activity = [];
-  let cpu_bars = [];
   let gpu_pies = [];
   let memory_bars = [];
+  let nrt_bars = [];
+  let nc_bars = [];
+  let nc_nrt_pies = [];
   let tableID = 0;
   let s = "";
   s += '<span class="row justify-content-center">';
@@ -659,39 +820,7 @@ async function display(prof) {
   }
   s += "</tr>";
 
-  // Compute overall usage.
-  let cpu_python = 0;
-  let cpu_native = 0;
-  let cpu_system = 0;
-  let mem_python = 0;
-  let max_alloc = 0;
-  let cp = {};
-  let cn = {};
-  let cs = {};
-  let mp = {};
-  let ma = {};
-  for (const f in prof.files) {
-    cp[f] = 0;
-    cn[f] = 0;
-    cs[f] = 0;
-    mp[f] = 0;
-    ma[f] = 0;
-    for (const l in prof.files[f].lines) {
-      const line = prof.files[f].lines[l];
-      cp[f] += line.n_cpu_percent_python;
-      cn[f] += line.n_cpu_percent_c;
-      cs[f] += line.n_sys_percent;
-      if (line.n_peak_mb > ma[f]) {
-        ma[f] = line.n_peak_mb;
-        mp[f] += line.n_peak_mb * line.n_python_fraction;
-      }
-      max_alloc += line.n_malloc_mb;
-    }
-    cpu_python += cp[f];
-    cpu_native += cn[f];
-    cpu_system += cs[f];
-    mem_python += mp[f];
-  }
+  let cpu_bars = [];
   cpu_bars.push(
     makeBar(cpu_python, cpu_native, cpu_system, { height: 20, width: 200 }),
   );
@@ -735,6 +864,7 @@ async function display(prof) {
   s +=
     '<br class="text-left"><span style="font-size: 80%; color: blue; cursor : pointer;" onClick="expandAll()">&nbsp;show all</span> | <span style="font-size: 80%; color: blue; cursor : pointer;" onClick="collapseAll()">hide all</span>';
   s += ` | <span style="font-size: 80%; color: blue" onClick="document.getElementById('reduce-checkbox').click()">only display profiled lines&nbsp;</span><input type="checkbox" id="reduce-checkbox" checked onClick="toggleReduced()" /></br>`;
+  
   s += '<div class="container-fluid">';
 
   // Convert files to an array and sort it in descending order by percent of CPU time.
@@ -789,18 +919,64 @@ async function display(prof) {
       (ff[1].percent_cpu_time / 100.0) * prof.elapsed_time_sec * 1e3,
     ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(
       prof.elapsed_time_sec * 1e3,
-    ).padWithNonBreakingSpaces(8)})<br />`;
-    s += `<span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
+    ).padWithNonBreakingSpaces(8)})`;
+    
+    // Add neuron bars in the same format as CPU bars if neuron data exists
+    if (hasNeuronData && total_nrt_time[ff[0]] > 0) {
+      s += `<br /><span style="height: 20; width: 100; vertical-align: middle" id="nrt_bar${nrt_bars.length}"></span>&nbsp;`;
+      nrt_bars.push(
+        makeTotalNeuronBar(
+          total_nrt_time[ff[0]],
+          prof.elapsed_time_sec,
+          "NRT",
+          "purple",
+          { height: 20, width: 100 },
+        ),
+      );
+      const nrt_percent = (total_nrt_time[ff[0]] / 1000 / prof.elapsed_time_sec) * 100;
+      s += `% of nrt time = ${nrt_percent
+        .toFixed(1)
+        .padWithNonBreakingSpaces(5)}% (${time_consumed_str(
+        total_nrt_time[ff[0]],
+      ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(
+        prof.elapsed_time_sec * 1e3,
+      ).padWithNonBreakingSpaces(8)})`;
+    }
+    
+    if (hasNeuronData && total_nc_time[ff[0]] > 0) {
+      s += `<br /><span style="height: 20; width: 100; vertical-align: middle" id="nc_bar${nc_bars.length}"></span>&nbsp;`;
+      nc_bars.push(
+        makeTotalNeuronBar(
+          total_nc_time[ff[0]],
+          prof.elapsed_time_sec,
+          "NC",
+          "darkorange",
+          { height: 20, width: 100 },
+        ),
+      );
+      const nc_percent = (total_nc_time[ff[0]] / 1000 / prof.elapsed_time_sec) * 100;
+      s += `% of nc time = ${nc_percent
+        .toFixed(1)
+        .padWithNonBreakingSpaces(5)}% (${time_consumed_str(
+        total_nc_time[ff[0]],
+      ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(
+        prof.elapsed_time_sec * 1e3,
+      ).padWithNonBreakingSpaces(8)})`;
+    }
+    
+    s += `</font>`;
+    
+    s += `<br /><span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
     s += `${triangle}`;
     s += "</span>";
     s += `<code> ${ff[0]}</code>`;
-    s += `</font></p>`;
+    s += `</p>`;
     s += `<div style="${displayStr}" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
     tableID++;
     s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, {
       functions: false,
-    });
+    }, hasNeuronData);
     s += "<tbody>";
     // Compute all docstring lines
     const linesArray = ff[1].lines.map(entry => entry.line);
@@ -841,6 +1017,11 @@ async function display(prof) {
         memory_activity,
         gpu_pies,
         true,
+        nrt_bars,
+        nc_bars,
+        nc_nrt_pies,
+        total_nc_time[ff[0]],
+        hasNeuronData,
       );
     }
     s += "</tbody>";
@@ -850,14 +1031,14 @@ async function display(prof) {
       s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
       s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, {
         functions: true,
-      });
+      }, hasNeuronData);
       s += "<tbody>";
       tableID++;
       for (const l in prof.files[ff[0]].functions) {
         const line = prof.files[ff[0]].functions[l];
         s += makeProfileLine(
           line,
-          false,  
+          false, // functions are not docstrings
           ff[0],
           fileIteration,
           prof,
@@ -867,6 +1048,11 @@ async function display(prof) {
           memory_activity,
           gpu_pies,
           false, // no optimizations here
+          nrt_bars,
+          nc_bars,
+          nc_nrt_pies,
+          total_nc_time[ff[0]],
+          hasNeuronData,
         );
       }
       s += "</table>";
@@ -947,6 +1133,24 @@ async function display(prof) {
   embedCharts(gpu_pies, "gpu_pie");
   embedCharts(memory_activity, "memory_activity");
   embedCharts(memory_bars, "memory_bar");
+  
+  // Embed neuron charts
+  if (hasNeuronData) {
+    for (let i = 0; i < nrt_bars.length; i++) {
+      if (nrt_bars[i]) {
+        (async () => {
+          await vegaEmbed(`#nrt_bar${i}`, nrt_bars[i], { actions: false });
+        })();
+      }
+    }
+    for (let i = 0; i < nc_bars.length; i++) {
+      if (nc_bars[i]) {
+        (async () => {
+          await vegaEmbed(`#nc_bar${i}`, nc_bars[i], { actions: false });
+        })();
+      }
+    }
+  }
 
   // Hide all empty profiles by default.
   hideEmptyProfiles();
