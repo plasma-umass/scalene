@@ -85,7 +85,7 @@ from scalene.scalene_mapfile import ScaleneMapFile
 from scalene.scalene_memory_profiler import ScaleneMemoryProfiler
 from scalene.scalene_output import ScaleneOutput
 from scalene.scalene_preload import ScalenePreload
-from scalene.scalene_signals import ScaleneSignals
+from scalene.scalene_signals import ScaleneSignals, SignumType
 from scalene.scalene_signal_manager import ScaleneSignalManager
 from scalene.scalene_statistics import (
     Address,
@@ -225,7 +225,7 @@ class Scalene:
 
     __args = ScaleneArguments()
     __signals = ScaleneSignals()
-    __signal_manager = ScaleneSignalManager()
+    __signal_manager : ScaleneSignalManager[Any] = ScaleneSignalManager()
     __stats = ScaleneStatistics()
     __memory_profiler = ScaleneMemoryProfiler(__stats)
     __output = ScaleneOutput()
@@ -334,12 +334,7 @@ class Scalene:
 
     @staticmethod
     def interruption_handler(
-        signum: Union[
-            Callable[[signal.Signals, FrameType], None],
-            int,
-            signal.Handlers,
-            None,
-        ],
+        signum: SignumType,
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle keyboard interrupts (e.g., Ctrl-C)."""
@@ -464,12 +459,7 @@ class Scalene:
 
     @staticmethod
     def term_signal_handler(
-        signum: Union[
-            Callable[[signal.Signals, FrameType], None],
-            int,
-            signal.Handlers,
-            None,
-        ],
+        signum: SignumType,
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle terminate signals."""
@@ -480,12 +470,7 @@ class Scalene:
 
     @staticmethod
     def malloc_signal_handler(
-        signum: Union[
-            Callable[[signal.Signals, FrameType], None],
-            int,
-            signal.Handlers,
-            None,
-        ],
+        signum: SignumType,
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle allocation signals."""
@@ -537,12 +522,7 @@ class Scalene:
 
     @staticmethod
     def free_signal_handler(
-        signum: Union[
-            Callable[[signal.Signals, FrameType], None],
-            int,
-            signal.Handlers,
-            None,
-        ],
+        signum: SignumType,
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle free signals."""
@@ -553,12 +533,7 @@ class Scalene:
 
     @staticmethod
     def memcpy_signal_handler(
-        signum: Union[
-            Callable[[signal.Signals, FrameType], None],
-            int,
-            signal.Handlers,
-            None,
-        ],
+        signum: SignumType,
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle memcpy signals."""
@@ -701,12 +676,7 @@ class Scalene:
 
     @staticmethod
     def cpu_signal_handler(
-        signum: Union[
-            Callable[[signal.Signals, FrameType], None],
-            int,
-            signal.Handlers,
-            None,
-        ],
+        signum: SignumType,
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle CPU signals."""
@@ -870,12 +840,7 @@ class Scalene:
 
     @staticmethod
     def process_cpu_sample(
-        _signum: Union[
-            Callable[[signal.Signals, FrameType], None],
-            int,
-            signal.Handlers,
-            None,
-        ],
+        _signum: SignumType,
         new_frames: List[Tuple[FrameType, int, FrameType]],
         now: TimeInfo,
         gpu_load: float,
@@ -1203,12 +1168,7 @@ class Scalene:
 
     @staticmethod
     def memcpy_sigqueue_processor(
-        _signum: Union[
-            Callable[[signal.Signals, FrameType], None],
-            int,
-            signal.Handlers,
-            None,
-        ],
+        _signum: SignumType,
         frame: FrameType,
     ) -> None:
         """Process memcpy signals (used in a ScaleneSigQueue)."""
@@ -1402,12 +1362,7 @@ class Scalene:
 
     @staticmethod
     def start_signal_handler(
-        _signum: Union[
-            Callable[[signal.Signals, FrameType], None],
-            int,
-            signal.Handlers,
-            None,
-        ],
+        _signum: SignumType,
         _this_frame: Optional[FrameType],
     ) -> None:
         """Respond to a signal to start or resume profiling (--on).
@@ -1422,12 +1377,7 @@ class Scalene:
 
     @staticmethod
     def stop_signal_handler(
-        _signum: Union[
-            Callable[[signal.Signals, FrameType], None],
-            int,
-            signal.Handlers,
-            None,
-        ],
+        _signum: SignumType,
         _this_frame: Optional[FrameType],
     ) -> None:
         """Respond to a signal to suspend profiling (--off).

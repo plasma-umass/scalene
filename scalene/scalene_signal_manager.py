@@ -10,21 +10,21 @@ import signal
 import sys
 import threading
 import time
-from typing import Callable, List, Optional
+from typing import Generic, List, Optional, TypeVar, Union
 
-from types import FrameType
-
-from scalene.scalene_signals import ScaleneSignals
+from scalene.scalene_signals import ScaleneSignals, SignalHandlerFunction
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
-class ScaleneSignalManager:
+T = TypeVar("T")
+
+class ScaleneSignalManager(Generic[T]):
     """Manages signal handling for Scalene profiler."""
     
     def __init__(self) -> None:
         import queue
         self.__signals = ScaleneSignals()
-        self.__sigqueues: List[ScaleneSigQueue] = []
-        self.__windows_queue : Optional[queue.Queue] = None  # Will be initialized if needed
+        self.__sigqueues: List[ScaleneSigQueue[T]] = []
+        self.__windows_queue : Optional[queue.Queue[T|None]] = None  # Will be initialized if needed
         
         # Store original signal functions
         self.__orig_signal = signal.signal
@@ -47,7 +47,7 @@ class ScaleneSignalManager:
         """Enable or disable timer signals."""
         self.timer_signals = enabled
         
-    def add_signal_queue(self, sigqueue: ScaleneSigQueue) -> None:
+    def add_signal_queue(self, sigqueue: ScaleneSigQueue[T]) -> None:
         """Add a signal queue to be managed."""
         self.__sigqueues.append(sigqueue)
         
@@ -61,7 +61,7 @@ class ScaleneSignalManager:
         for sigq in self.__sigqueues:
             sigq.stop()
             
-    def enable_signals_win32(self, cpu_signal_handler: Callable, cpu_sampling_rate: float) -> None:
+    def enable_signals_win32(self, cpu_signal_handler: SignalHandlerFunction, cpu_sampling_rate: float) -> None:
         """Enable signals for Windows platform."""
         assert sys.platform == "win32"
         import queue
@@ -90,11 +90,11 @@ class ScaleneSignalManager:
             self.__orig_raise_signal(self.__signals.cpu_signal)
             
     def enable_signals(self, 
-                      malloc_signal_handler: Callable,
-                      free_signal_handler: Callable, 
-                      memcpy_signal_handler: Callable,
-                      term_signal_handler: Callable,
-                      cpu_signal_handler: Callable,
+                      malloc_signal_handler: SignalHandlerFunction,
+                      free_signal_handler: SignalHandlerFunction, 
+                      memcpy_signal_handler: SignalHandlerFunction,
+                      term_signal_handler: SignalHandlerFunction,
+                       cpu_signal_handler: SignalHandlerFunction,
                       cpu_sampling_rate: float) -> None:
         """Set up the signal handlers to handle interrupts for profiling and start the
         timer interrupts."""
@@ -121,9 +121,9 @@ class ScaleneSignalManager:
         )
         
     def setup_lifecycle_signals(self, 
-                               start_signal_handler: Callable,
-                               stop_signal_handler: Callable,
-                               interruption_handler: Callable) -> None:
+                                start_signal_handler: SignalHandlerFunction,
+                                stop_signal_handler: SignalHandlerFunction,
+                                interruption_handler: SignalHandlerFunction) -> None:
         """Setup lifecycle control signals."""
         if sys.platform != "win32":
             for sig, handler in [
@@ -140,7 +140,7 @@ class ScaleneSignalManager:
                 self.__orig_siginterrupt(sig, False)
         self.__orig_signal(signal.SIGINT, interruption_handler)
         
-    def send_signal_to_children(self, child_pids: set, signal_type: signal.Signals) -> None:
+    def send_signal_to_children(self, child_pids: set[int], signal_type: signal.Signals) -> None:
         """Send a signal to all child processes."""
         for pid in child_pids:
             self.__orig_kill(pid, signal_type)
