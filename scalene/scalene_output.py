@@ -374,7 +374,7 @@ class ScaleneOutput:
                 )
 
         null = open(os.devnull, "w")
-        
+
         console = Console(
             width=column_width,
             record=True,
@@ -694,11 +694,12 @@ class ScaleneOutput:
             )
             console.print(md)
             if not self.output_file:
-                self.output_file = "/dev/stdout"
-            console.save_html(self.output_file, clear=False)
+                console.save_html(path="/dev/stdout", clear=False)
+            else:
+                console.save_html(path=str(Path(self.output_file).with_suffix(".html")), clear=False)
         elif self.output_file:
             # Don't output styles to text file.
-            console.save_text(self.output_file, styles=False, clear=False)
+            console.save_text(str(Path(self.output_file).with_suffix(".txt")), styles=False, clear=False)
         else:
             # No output file specified: write to stdout.
             sys.stdout.write(console.export_text(styles=True))
