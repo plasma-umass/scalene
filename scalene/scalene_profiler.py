@@ -98,6 +98,8 @@ from scalene.scalene_statistics import (
 )
 from scalene.scalene_utility import (
     add_stack,
+    compute_frames_to_record,
+    enter_function_meta,
     generate_html,
     get_fully_qualified_name,
     on_stack,
@@ -480,7 +482,7 @@ class Scalene:
         from scalene import pywhere  # type: ignore
 
         if this_frame:
-            Scalene.enter_function_meta(this_frame, Scalene.__stats)
+            enter_function_meta(this_frame, Scalene.should_trace, Scalene.__stats)
         # Walk the stack till we find a line of code in a file we are tracing.
         found_frame = False
         f = this_frame
@@ -527,7 +529,7 @@ class Scalene:
     ) -> None:
         """Handle free signals."""
         if this_frame:
-            Scalene.enter_function_meta(this_frame, Scalene.__stats)
+            enter_function_meta(this_frame, Scalene.should_trace, Scalene.__stats)
         Scalene.__alloc_sigq.put([0])
         del this_frame
 
@@ -705,7 +707,7 @@ class Scalene:
             # Process this CPU sample.
             Scalene.process_cpu_sample(
                 signum,
-                Scalene.compute_frames_to_record(),
+                compute_frames_to_record(Scalene.should_trace),
                 now,
                 gpu_load,
                 gpu_mem_used,
@@ -954,7 +956,7 @@ class Scalene:
             )
 
         # First, handle the main thread.
-        Scalene.enter_function_meta(main_thread_frame, Scalene.__stats)
+        enter_function_meta(main_thread_frame, Scalene.should_trace, Scalene.__stats)
         fname = Filename(main_thread_frame.f_code.co_filename)
         lineno = LineNumber(main_thread_frame.f_lineno)
         # print(main_thread_frame)
@@ -998,7 +1000,7 @@ class Scalene:
             # In a thread.
             fname = Filename(frame.f_code.co_filename)
             lineno = LineNumber(frame.f_lineno)
-            Scalene.enter_function_meta(frame, Scalene.__stats)
+            enter_function_meta(frame, Scalene.should_trace, Scalene.__stats)
             # We can't play the same game here of attributing
             # time, because we are in a thread, and threads don't
             # get signals in Python. Instead, we check if the
@@ -1036,88 +1038,6 @@ class Scalene:
         del is_thread_sleeping
         Scalene.__stats.cpu_stats.total_cpu_samples += total_time
 
-    # Returns final frame (up to a line in a file we are profiling), the thread identifier, and the original frame.
-    @staticmethod
-    def compute_frames_to_record() -> List[Tuple[FrameType, int, FrameType]]:
-        """Collect all stack frames that Scalene actually processes."""
-        frames: List[Tuple[FrameType, int]] = [
-            (
-                cast(
-                    FrameType,
-                    sys._current_frames().get(cast(int, t.ident), None),
-                ),
-                cast(int, t.ident),
-            )
-            for t in threading.enumerate()
-            if t != threading.main_thread()
-        ]
-        # Put the main thread in the front.
-
-        tid = cast(int, threading.main_thread().ident)
-        frames.insert(
-            0,
-            (
-                sys._current_frames().get(tid, cast(FrameType, None)),
-                tid,
-            ),
-        )
-        # Process all the frames to remove ones we aren't going to track.
-        new_frames: List[Tuple[FrameType, int, FrameType]] = []
-        for frame, tident in frames:
-            orig_frame = frame
-            if not frame:
-                continue
-            fname = frame.f_code.co_filename
-            func = frame.f_code.co_name
-            # Record samples only for files we care about.
-            if not fname:
-                # 'eval/compile' gives no f_code.co_filename.  We have
-                # to look back into the outer frame in order to check
-                # the co_filename.
-                back = cast(FrameType, frame.f_back)
-                fname = Filename(back.f_code.co_filename)
-                func = back.f_code.co_name
-            while not Scalene.should_trace(fname, func):
-                # Walk the stack backwards until we hit a frame that
-                # IS one we should trace (if there is one).  i.e., if
-                # it's in the code being profiled, and it is just
-                # calling stuff deep in libraries.
-                if frame:
-                    frame = cast(FrameType, frame.f_back)
-                else:
-                    break
-                if frame:
-                    fname = frame.f_code.co_filename
-                    func = frame.f_code.co_name
-            if frame:
-                new_frames.append((frame, tident, orig_frame))
-        del frames[:]
-        return new_frames
-
-    @staticmethod
-    def enter_function_meta(frame: FrameType, stats: ScaleneStatistics) -> None:
-        """Update tracking info so we can correctly report line number info later."""
-        fname = Filename(frame.f_code.co_filename)
-        lineno = LineNumber(frame.f_lineno)
-
-        f = frame
-        try:
-            while "<" in Filename(f.f_code.co_name):
-                f = cast(FrameType, f.f_back)
-                # Handle case where the function with the name wrapped
-                # in triangle brackets is at the bottom of the stack
-                if f is None:
-                    return
-        except Exception:
-            return
-        if not Scalene.should_trace(f.f_code.co_filename, f.f_code.co_name):
-            return
-
-        fn_name = get_fully_qualified_name(f)
-        firstline = f.f_code.co_firstlineno
-
-        stats.function_map[fname][lineno] = fn_name
-        stats.firstline_map[fn_name] = LineNumber(firstline)
 
     @staticmethod
     def alloc_sigqueue_processor(x: Optional[List[int]]) -> None:
