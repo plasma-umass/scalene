@@ -110,6 +110,9 @@ from scalene.scalene_utility import (
 from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_sigqueue import ScaleneSigQueue
 from scalene.scalene_accelerator import ScaleneAccelerator
+from scalene.scalene_cpu_profiler import ScaleneCPUProfiler
+from scalene.scalene_profiler_lifecycle import ScaleneProfilerLifecycle
+from scalene.scalene_code_executor import ScaleneCodeExecutor
 
 console = Console(style="white on blue")
 
@@ -238,6 +241,11 @@ class Scalene:
     __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
     __profiler_base: str
+    
+    # New modular components
+    __cpu_profiler: Optional[ScaleneCPUProfiler] = None
+    __profiler_lifecycle: Optional[ScaleneProfilerLifecycle] = None
+    __code_executor: Optional[ScaleneCodeExecutor] = None
 
     @staticmethod
     def get_original_lock() -> threading.Lock:
@@ -373,17 +381,24 @@ class Scalene:
 
     @staticmethod
     def generate_exponential_sample(scale: float) -> float:
-        import math
-        import random
-
-        u = random.random()  # Uniformly distributed random number between 0 and 1
-        return -scale * math.log(1 - u)
+        """Generate an exponentially distributed sample."""
+        return ScaleneCPUProfiler.generate_exponential_sample(scale)
 
     @staticmethod
     def sample_cpu_interval() -> float:
-        interval = Scalene.generate_exponential_sample(Scalene.__args.cpu_sampling_rate)
-        Scalene.__last_cpu_interval = interval
-        return interval
+        """Return the CPU sampling interval."""
+        if Scalene.__cpu_profiler:
+            interval = Scalene.__cpu_profiler.sample_cpu_interval(Scalene.__args.cpu_sampling_rate)
+            Scalene.__last_cpu_interval = interval
+            return interval
+        else:
+            # Fallback if not initialized yet
+            import math
+            import random
+            u = random.random()
+            interval = -Scalene.__args.cpu_sampling_rate * math.log(1 - u)
+            Scalene.__last_cpu_interval = interval
+            return interval
 
     @staticmethod
     def profile(func: Any) -> Any:
@@ -445,9 +460,16 @@ class Scalene:
     @staticmethod
     def windows_timer_loop() -> None:
         """For Windows, send periodic timer signals; launch as a background thread."""
-        Scalene.__signal_manager.windows_timer_loop(
-            Scalene.__args.cpu_sampling_rate
-        )  # TODO: integrate support for use of sample_cpu_interval()
+        if Scalene.__cpu_profiler:
+            Scalene.__cpu_profiler.windows_timer_loop(
+                Scalene.__windows_queue, 
+                Scalene.__signal_manager.timer_signals
+            )
+        else:
+            # Fallback to signal manager
+            Scalene.__signal_manager.windows_timer_loop(
+                Scalene.__args.cpu_sampling_rate
+            )
 
     @staticmethod
     def start_signal_queues() -> None:
@@ -675,6 +697,9 @@ class Scalene:
         # Store relevant names (program, path).
         if program_being_profiled:
             Scalene.__program_being_profiled = Filename(program_being_profiled)
+            
+        # Initialize new modular components
+        Scalene._initialize_components()
 
     @staticmethod
     def cpu_signal_handler(
@@ -682,64 +707,19 @@ class Scalene:
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle CPU signals."""
-        try:
-            # Get current time stats.
-            now = TimeInfo()
-            now.sys, now.user = get_times()
-            now.virtual = time.process_time()
-            now.wallclock = time.perf_counter()
-            if (
-                Scalene.__last_signal_time.virtual == 0
-                or Scalene.__last_signal_time.wallclock == 0
-            ):
-                # Initialization: store values and update on the next pass.
-                Scalene.__last_signal_time = now
-                if sys.platform != "win32":
-                    next_interval = Scalene.sample_cpu_interval()
-                    Scalene.__signal_manager.restart_timer(next_interval)
-                return
-
-            if Scalene.__accelerator:
-                (gpu_load, gpu_mem_used) = Scalene.__accelerator.get_stats()
-            else:
-                (gpu_load, gpu_mem_used) = (0.0, 0.0)
-
-            # Process this CPU sample.
-            Scalene.process_cpu_sample(
+        if Scalene.__cpu_profiler:
+            Scalene.__cpu_profiler.cpu_signal_handler(
                 signum,
-                compute_frames_to_record(Scalene.should_trace),
-                now,
-                gpu_load,
-                gpu_mem_used,
-                Scalene.__last_signal_time,
-                Scalene.__is_thread_sleeping,
+                this_frame,
+                Scalene.should_trace,
+                Scalene.process_cpu_sample,
+                Scalene.sample_cpu_interval,
+                Scalene.__signal_manager.restart_timer,
             )
-            elapsed = now.wallclock - Scalene.__last_signal_time.wallclock
-            # Store the latest values as the previously recorded values.
-            Scalene.__last_signal_time = now
-            # Restart the timer while handling any timers set by the client.
-            next_interval = Scalene.sample_cpu_interval()
+        else:
+            # Fallback implementation (simplified)
             if sys.platform != "win32":
-                if Scalene.client_timer.is_set:
-                    (
-                        should_raise,
-                        remaining_time,
-                    ) = Scalene.client_timer.yield_next_delay(elapsed)
-                    if should_raise:
-                        Scalene.__orig_raise_signal(signal.SIGUSR1)
-                    # NOTE-- 0 will only be returned if the 'seconds' have elapsed
-                    # and there is no interval
-                    to_wait: float
-                    if remaining_time > 0:
-                        to_wait = min(remaining_time, next_interval)
-                    else:
-                        to_wait = next_interval
-                        Scalene.client_timer.reset()
-                    Scalene.__signal_manager.restart_timer(to_wait)
-                else:
-                    Scalene.__signal_manager.restart_timer(next_interval)
-        finally:
-            if sys.platform == "win32":
+                next_interval = Scalene.sample_cpu_interval()
                 Scalene.__signal_manager.restart_timer(next_interval)
 
     @staticmethod
@@ -1203,6 +1183,40 @@ class Scalene:
         return Scalene.__program_path in filename
 
     __done = False
+
+    @staticmethod
+    def _initialize_components() -> None:
+        """Initialize the modular components."""
+        # Initialize CPU profiler
+        Scalene.__cpu_profiler = ScaleneCPUProfiler(
+            Scalene.__stats,
+            Scalene.__signal_manager, 
+            Scalene.__accelerator,
+            Scalene.client_timer,
+            Scalene.__orig_raise_signal,
+            Scalene.__is_thread_sleeping
+        )
+        
+        # Initialize profiler lifecycle
+        Scalene.__profiler_lifecycle = ScaleneProfilerLifecycle(
+            Scalene.__args,
+            Scalene.__stats,
+            Scalene.__signal_manager,
+            Scalene.__output,
+            Scalene.__json,
+            Scalene.__accelerator,
+            Scalene.__profile_filename
+        )
+        
+        # Initialize code executor  
+        Scalene.__code_executor = ScaleneCodeExecutor(
+            Scalene.__args,
+            Scalene.__files_to_profile,
+            Scalene.__functions_to_profile,
+            Scalene.__program_being_profiled,
+            Scalene.__program_path,
+            Scalene.__entrypoint_dir
+        )
 
     @staticmethod
     def start() -> None:
