@@ -116,30 +116,76 @@ class ScaleneProfilerLifecycle:
         return get_done_func()
 
     def output_profile(self, program_being_profiled: Filename, 
+                      stats, pid: int, profile_this_code_func,
+                      python_alias_dir, program_path,
+                      entrypoint_dir,
                       program_args: Optional[List[str]] = None) -> bool:
         """Output the profile. Returns true iff there was any info reported the profile."""
         if self.__args.json:
             json_output = self.__json.output_profiles(
                 program_being_profiled,
-                self.__args,
-                self.__stats,
-                self.__output.output_file,
-                self.__output.profile_metadata,
+                stats,
+                pid,
+                profile_this_code_func,
+                python_alias_dir,
+                program_path,
+                entrypoint_dir,
                 program_args,
+                profile_memory=self.__args.memory,
+                reduced_profile=self.__args.reduced_profile,
             )
-        else:
             # Since the default value returned for "there are no samples"
-            # is an empty string, if there aren't samples, we just return
-            # False since the profile has no content.
-            json_output = self.__output.output_profiles(
-                program_being_profiled,
-                self.__args,
-                self.__stats,
-                self.__output.output_file,
-                self.__output.profile_metadata,
+            # is `{}`, we use a sentinel value `{"is_child": True}`
+            # when inside a child process to indicate that there are samples, but they weren't
+            # turned into a JSON file because they'll later
+            # be used by the parent process
+            if "is_child" in json_output:
+                return True
+            outfile = self.__output.output_file
+            if self.__args.outfile:
+                outfile = os.path.join(
+                    os.path.dirname(self.__args.outfile),
+                    os.path.splitext(os.path.basename(self.__args.outfile))[0]
+                    + ".json",
+                )
+            # If there was no output file specified, print to the console.
+            if not outfile:
+                if sys.platform == "win32":
+                    outfile = "CON"
+                else:
+                    outfile = "/dev/stdout"
+            # Write the JSON to the output file (or console).
+            import json
+            with open(outfile, "w") as f:
+                f.write(json.dumps(json_output, sort_keys=True, indent=4) + "\n")
+            return json_output != {}
+
+        else:
+            output = self.__output
+            column_width = self.__args.column_width
+            if not self.__args.html:
+                # Get column width of the terminal and adjust to fit.
+                import contextlib
+                with contextlib.suppress(Exception):
+                    # If we are in a Jupyter notebook, stick with 132
+                    if "ipykernel" in sys.modules:
+                        column_width = 132
+                    else:
+                        import shutil
+
+                        column_width = shutil.get_terminal_size().columns
+            did_output: bool = output.output_profiles(
+                column_width,
+                stats,
+                pid,
+                profile_this_code_func,
+                python_alias_dir,
+                program_path,
                 program_args,
+                profile_memory=self.__args.memory,
+                reduced_profile=self.__args.reduced_profile,
             )
-        return len(json_output) > 0
+            return did_output
 
     def start_signal_handler(
         self,
