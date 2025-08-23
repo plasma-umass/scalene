@@ -10,7 +10,7 @@ import signal
 import sys
 import threading
 import time
-from typing import Generic, List, Optional, TypeVar, Union
+from typing import Generic, List, Optional, TypeVar
 
 from scalene.scalene_signals import ScaleneSignals, SignalHandlerFunction
 from scalene.scalene_sigqueue import ScaleneSigQueue

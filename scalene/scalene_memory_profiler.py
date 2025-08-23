@@ -10,7 +10,7 @@ import os
 import threading
 import time
 from types import FrameType
-from typing import List, Optional, Tuple, Callable, cast
+from typing import List, Optional, Tuple, cast
 
 import scalene.scalene_config
 
