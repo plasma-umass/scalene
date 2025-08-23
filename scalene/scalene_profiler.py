@@ -113,6 +113,7 @@ from scalene.scalene_accelerator import ScaleneAccelerator
 from scalene.scalene_cpu_profiler import ScaleneCPUProfiler
 from scalene.scalene_profiler_lifecycle import ScaleneProfilerLifecycle
 from scalene.scalene_code_executor import ScaleneCodeExecutor
+from scalene.scalene_utils import ScaleneUtils
 
 console = Console(style="white on blue")
 
@@ -474,12 +475,12 @@ class Scalene:
     @staticmethod
     def start_signal_queues() -> None:
         """Start the signal processing queues (i.e., their threads)."""
-        Scalene.__signal_manager.start_signal_queues()
+        ScaleneUtils.start_signal_queues(Scalene.__signal_manager)
 
     @staticmethod
     def stop_signal_queues() -> None:
         """Stop the signal processing queues (i.e., their threads)."""
-        Scalene.__signal_manager.stop_signal_queues()
+        ScaleneUtils.stop_signal_queues(Scalene.__signal_manager)
 
     @staticmethod
     def term_signal_handler(
@@ -489,8 +490,7 @@ class Scalene:
         """Handle terminate signals."""
         Scalene.stop()
         Scalene.output_profile()
-
-        Scalene.__orig_exit(Scalene.__sigterm_exit_code)
+        ScaleneUtils.term_signal_handler(signum, this_frame, Scalene.__sigterm_exit_code)
 
     @staticmethod
     def malloc_signal_handler(
@@ -498,51 +498,16 @@ class Scalene:
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle allocation signals."""
-        if not Scalene.__args.memory:
-            # This should never happen, but we fail gracefully.
-            return
-        from scalene import pywhere  # type: ignore
-
-        if this_frame:
-            enter_function_meta(this_frame, Scalene.should_trace, Scalene.__stats)
-        # Walk the stack till we find a line of code in a file we are tracing.
-        found_frame = False
-        f = this_frame
-        while f:
-            if found_frame := Scalene.should_trace(
-                f.f_code.co_filename, f.f_code.co_name
-            ):
-                break
-            f = cast(FrameType, f.f_back)
-        if not found_frame:
-            return
-        assert f
-        # Start tracing until we execute a different line of
-        # code in a file we are tracking.
-        # First, see if we have now executed a different line of code.
-        # If so, increment.
-
-        invalidated = pywhere.get_last_profiled_invalidated()
-        (fname, lineno, lasti) = Scalene.last_profiled_tuple()
-        if not invalidated and this_frame and not (on_stack(this_frame, fname, lineno)):
-            Scalene.update_profiled()
-        pywhere.set_last_profiled_invalidated_false()
-        # In the setprofile callback, we rely on
-        # __last_profiled always having the same memory address.
-        # This is an optimization to not have to traverse the Scalene profiler
-        # object's dictionary every time we want to update the last profiled line.
-        #
-        # A previous change to this code set Scalene.__last_profiled = [fname, lineno, lasti],
-        # which created a new list object and set the __last_profiled attribute to the new list. This
-        # made the object held in `pywhere.cpp` out of date, and caused the profiler to not update the last profiled line.
-        Scalene.__last_profiled[:] = [
-            Filename(f.f_code.co_filename),
-            LineNumber(f.f_lineno),
-            ByteCodeIndex(f.f_lasti),
-        ]
-        Scalene.__alloc_sigq.put([0])
-        pywhere.enable_settrace(this_frame)
-        del this_frame
+        ScaleneUtils.malloc_signal_handler(
+            signum,
+            this_frame,
+            Scalene.__args,
+            Scalene.should_trace,
+            Scalene.last_profiled_tuple,
+            Scalene.update_profiled,
+            Scalene.__last_profiled,
+            Scalene.__alloc_sigq,
+        )
 
     @staticmethod
     def free_signal_handler(
@@ -550,10 +515,12 @@ class Scalene:
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle free signals."""
-        if this_frame:
-            enter_function_meta(this_frame, Scalene.should_trace, Scalene.__stats)
-        Scalene.__alloc_sigq.put([0])
-        del this_frame
+        ScaleneUtils.free_signal_handler(
+            signum,
+            this_frame,
+            Scalene.__args,
+            Scalene.__alloc_sigq,
+        )
 
     @staticmethod
     def memcpy_signal_handler(
@@ -561,21 +528,25 @@ class Scalene:
         this_frame: Optional[FrameType],
     ) -> None:
         """Handle memcpy signals."""
-        Scalene.__memcpy_sigq.put((signum, this_frame))
-        del this_frame
+        ScaleneUtils.memcpy_signal_handler(
+            signum,
+            this_frame,
+            Scalene.__args,
+            Scalene.__memcpy_sigq,
+        )
 
     @staticmethod
     def enable_signals() -> None:
         """Set up the signal handlers to handle interrupts for profiling and start the
         timer interrupts."""
-        next_interval = Scalene.sample_cpu_interval()
-        Scalene.__signal_manager.enable_signals(
+        ScaleneUtils.enable_signals(
             Scalene.malloc_signal_handler,
             Scalene.free_signal_handler,
             Scalene.memcpy_signal_handler,
             Scalene.term_signal_handler,
             Scalene.cpu_signal_handler,
-            next_interval,
+            Scalene.__signal_manager,
+            Scalene.sample_cpu_interval,
         )
 
     def __init__(
@@ -745,31 +716,23 @@ class Scalene:
     def get_line_info(
         fname: Filename,
     ) -> Generator[Tuple[list[str], int], None, None]:
-        line_info = (
-            inspect.getsourcelines(fn) for fn in Scalene.__functions_to_profile[fname]
-        )
-        return line_info
+        """Get line information for profiled functions."""
+        return ScaleneUtils.get_line_info(fname, Scalene.__functions_to_profile)
 
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
-        # sourcery skip: inline-immediately-returned-variable
         """When using @profile, only profile files & lines that have been decorated."""
-        if not Scalene.__files_to_profile:
-            return True
-        if fname not in Scalene.__files_to_profile:
-            return False
-        # Now check to see if it's the right line range.
-        line_info = Scalene.get_line_info(fname)
-        found_function = any(
-            line_start <= lineno < line_start + len(lines)
-            for (lines, line_start) in line_info
+        return ScaleneUtils.profile_this_code(
+            fname, 
+            lineno,
+            Scalene.__files_to_profile,
+            Scalene.__functions_to_profile,
         )
-        return found_function
 
     @staticmethod
     def print_stacks() -> None:
-        for f in Scalene.__stats.stacks:
-            print(f, Scalene.__stats.stacks[f])
+        """Print stack information."""
+        ScaleneUtils.print_stacks(Scalene.__stats)
 
     @staticmethod
     def process_cpu_sample(
