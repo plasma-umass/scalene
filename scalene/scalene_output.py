@@ -382,7 +382,7 @@ class ScaleneOutput:
                     ),
                 )
 
-        null = open(os.devnull, "w")
+        null = open(os.devnull, "w") # noqa: SIM115
         
         console = Console(
             width=column_width,

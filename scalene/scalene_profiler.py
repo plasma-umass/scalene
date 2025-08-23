@@ -810,7 +810,7 @@ class Scalene:
             return did_output
 
     @staticmethod
-    @functools.lru_cache(None)
+    @functools.cache
     def get_line_info(
         fname: Filename,
     ) -> Generator[Tuple[list[str], int], None, None]:
@@ -1040,11 +1040,10 @@ class Scalene:
 
 
     @staticmethod
-    def alloc_sigqueue_processor(x: Optional[List[int]]) -> None:
+    def alloc_sigqueue_processor(_x: Optional[List[int]]) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
         # Delegate malloc/free processing to the memory profiler
         Scalene.__memory_profiler.process_malloc_free_samples(
-            x,
             Scalene.__start_time,
             Scalene.__args,
             Scalene.__invalidate_mutex,
@@ -1096,7 +1095,7 @@ class Scalene:
             Scalene.__memory_profiler.process_memcpy_samples()
 
     @staticmethod
-    @functools.lru_cache(None)
+    @functools.cache
     def should_trace(filename: Filename, func: str) -> bool:
         """Return true if we should trace this filename and function."""
         if not filename:

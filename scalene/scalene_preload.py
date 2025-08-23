@@ -34,7 +34,7 @@ class ScalenePreload:
             from scalene.scalene_neuron import ScaleneNeuron
             accelerator = ScaleneNeuron()
             on_neuron = accelerator.has_gpu()
-        except:
+        except Exception:
             on_neuron = False
         if not on_neuron:
             for name, val in jit_flags:

@@ -98,7 +98,6 @@ class ScaleneMemoryProfiler:
 
     def process_malloc_free_samples(
         self,
-        x: Optional[List[int]],
         start_time: int,
         args: ScaleneArguments,
         invalidate_mutex: threading.Lock,
@@ -110,7 +109,7 @@ class ScaleneMemoryProfiler:
         # Process the input array from where we left off reading last time.
         arr: List[ProfilingSample] = []
         with contextlib.suppress(FileNotFoundError):
-            while self.__malloc_mapfile.read():
+            while self.__malloc_mapfile and self.__malloc_mapfile.read():
                 count_str = self.__malloc_mapfile.get_str()
                 if count_str.strip() == "":
                     break
