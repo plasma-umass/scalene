@@ -2,7 +2,14 @@
 import signal
 import sys
 from types import FrameType
-from typing import Callable, List, Optional, Tuple, Union, TypeAlias
+from typing import Callable, List, Optional, Tuple, Union
+
+
+if sys.version_info < (3,10,0):
+    # Note: not defined in 3.8
+    from typing_extensions import TypeAlias
+else:
+    from typing import TypeAlias
 
 SignumType : TypeAlias = Union[Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None,]
 SignalHandlerFunction: TypeAlias = Callable[[SignumType, Optional[FrameType]], None]
