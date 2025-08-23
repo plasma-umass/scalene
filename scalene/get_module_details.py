@@ -70,7 +70,7 @@ def _get_module_details(
             raise error(
                 ("%s; %r is a package and cannot " + "be directly executed")
                 % (e, mod_name)
-            )
+            ) from None
     loader = spec.loader
     # use isinstance instead of `is None` to placate mypy
     if not isinstance(loader, SourceLoader):
