@@ -35,9 +35,9 @@ class ScaleneMapFile:
         self._lock_mmap: mmap.mmap
         self._signal_fd: TextIO
         self._lock_fd: TextIO
-        self._signal_fd = open(self._signal_filename, "r")
+        self._signal_fd = open(self._signal_filename, "r") # noqa: SIM115
         os.unlink(self._signal_fd.name)
-        self._lock_fd = open(self._lock_filename, "r+")
+        self._lock_fd = open(self._lock_filename, "r+") # noqa: SIM115
         os.unlink(self._lock_fd.name)
         self._signal_mmap = mmap.mmap(
             self._signal_fd.fileno(),

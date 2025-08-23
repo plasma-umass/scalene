@@ -34,7 +34,7 @@ class ScalenePreload:
             from scalene.scalene_neuron import ScaleneNeuron
             accelerator = ScaleneNeuron()
             on_neuron = accelerator.has_gpu()
-        except:
+        except Exception:
             on_neuron = False
         if not on_neuron:
             for name, val in jit_flags:
@@ -113,8 +113,8 @@ class ScalenePreload:
             from IPython import get_ipython
 
             if get_ipython():
-                sys.exit = Scalene.clean_exit  # type: ignore
-                sys._exit = Scalene.clean_exit  # type: ignore
+                sys.exit = scalene.Scalene.clean_exit  # type: ignore
+                sys._exit = scalene.Scalene.clean_exit  # type: ignore
 
         # Start a subprocess with the required environment variables,
         # which may include preloading libscalene
