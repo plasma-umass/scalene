@@ -12,6 +12,7 @@ Scalene._Scalene__invalidate_queue = []
 Scalene.last_profiled_tuple = lambda: ("filename.py", 123)
 Scalene.update_line = staticmethod(lambda: None)
 
+
 def test_update_profiled():
     # Ensure the queue is empty before the test
     Scalene._Scalene__invalidate_queue.clear()
@@ -25,6 +26,7 @@ def test_update_profiled():
 
     # Clean up after the test
     Scalene._Scalene__invalidate_queue.clear()
+
 
 # Run the test
 def test_scalene_update_profiled():

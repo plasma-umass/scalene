@@ -5,12 +5,14 @@
 import pytest
 from scalene.scalene_profiler import Scalene
 
+
 @pytest.fixture
 def scalene_cleanup():
     # Fixture to clean up any modifications made to the Scalene class
     original_child_pids = Scalene.child_pids.copy()
     yield
     Scalene.child_pids = original_child_pids
+
 
 def test_add_child_pid(scalene_cleanup):
     # Test to ensure that add_child_pid adds a pid to the child_pids set

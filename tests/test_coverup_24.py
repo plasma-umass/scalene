@@ -10,17 +10,20 @@ from scalene.scalene_arguments import ScaleneArguments
 mock_filename = "mock_file.py"
 mock_lineno = 10
 
+
 # Create a test function to execute the missing lines/branches
 def test_profile_this_code(monkeypatch):
     # Set up the test environment
-    monkeypatch.setattr(Scalene, '_Scalene__files_to_profile', set())
+    monkeypatch.setattr(Scalene, "_Scalene__files_to_profile", set())
     Scalene._Scalene__files_to_profile.add(mock_filename)
+
     # Mock the get_line_info method
     def mock_get_line_info(filename):
         if filename == mock_filename:
             return [((mock_lineno, mock_lineno + 1), mock_lineno)]
         return []
-    monkeypatch.setattr(Scalene, 'get_line_info', mock_get_line_info)
+
+    monkeypatch.setattr(Scalene, "get_line_info", mock_get_line_info)
 
     # Test when the file is in the set and the line number is within the range
     assert Scalene.profile_this_code(mock_filename, mock_lineno) == True
@@ -32,6 +35,7 @@ def test_profile_this_code(monkeypatch):
     assert Scalene.profile_this_code("other_file.py", mock_lineno) == False
 
     # No need to clean up after the test since we used monkeypatch
+
 
 # Run the test
 def test_scalene_profiler(monkeypatch):

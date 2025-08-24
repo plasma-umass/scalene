@@ -8,22 +8,28 @@ from scalene.scalene_statistics import ScaleneStatistics
 from scalene.scalene_utility import enter_function_meta
 from unittest.mock import MagicMock
 
+
 # Mock classes to simulate the behavior of Scalene's Filename and LineNumber
 class Filename(str):
     pass
 
+
 class LineNumber(int):
     pass
 
+
 def get_fully_qualified_name(frame: MagicMock) -> str:
-    return frame.f_globals.get('__name__', '') + '.' + frame.f_code.co_name
+    return frame.f_globals.get("__name__", "") + "." + frame.f_code.co_name
+
 
 # Mock function to simulate Scalene's should_trace method
 def mock_should_trace(filename: str, func_name: str) -> bool:
     return True
 
+
 # Replace the actual should_trace with the mock version
 Scalene.should_trace = staticmethod(mock_should_trace)
+
 
 def test_enter_function_meta():
     stats = ScaleneStatistics()
@@ -38,6 +44,7 @@ def test_enter_function_meta():
     # Since the frame's f_back is None, the function_map and firstline_map should remain empty
     assert not stats.function_map
     assert not stats.firstline_map
+
 
 # Run the test
 pytest.main(["-v", __file__])

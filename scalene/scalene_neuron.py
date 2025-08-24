@@ -51,7 +51,9 @@ class NeuronMonitor:
                 }
             ],
         }
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json") # noqa: SIM115
+        temp_file = tempfile.NamedTemporaryFile(
+            delete=False, suffix=".json"
+        )  # noqa: SIM115
         with open(temp_file.name, "w") as file:
             json.dump(config, file)
         return temp_file.name
@@ -93,7 +95,7 @@ class ScaleneNeuron(ScaleneAccelerator):
     def get_num_cores(self) -> int:
         return self.max_neuroncores_in_use
 
-    @cache # noqa: B019
+    @cache  # noqa: B019
     def has_gpu(self) -> bool:
         try:
             result = subprocess.run(

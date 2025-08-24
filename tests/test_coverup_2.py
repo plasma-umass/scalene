@@ -8,7 +8,8 @@ from typing import Any, Optional, Generic, TypeVar
 from scalene.scalene_sigqueue import ScaleneSigQueue
 import queue
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class TestScaleneSigQueue(Generic[T]):
     # Prevent pytest from considering this class as a test
@@ -54,6 +55,7 @@ class TestScaleneSigQueue(Generic[T]):
                 break
             with self.lock:
                 self.process(*item)
+
 
 def test_scalene_sigqueue():
     results = []

@@ -27,9 +27,7 @@ class ScaleneAnalysis:
                 package_dir = os.path.dirname(package.__file__)
                 for _root, _dirs, files in os.walk(package_dir):
                     for filename in files:
-                        if filename.endswith(".so") or filename.endswith(
-                            ".pyd"
-                        ):
+                        if filename.endswith(".so") or filename.endswith(".pyd"):
                             return True
             result = False
         except ImportError:
@@ -209,10 +207,10 @@ class ScaleneAnalysis:
     def strip_magic_line(source: str) -> str:
         with contextlib.suppress(Exception):
             from IPython import get_ipython
-            get_ipython() # type: ignore[no-untyped-call,unused-ignore]
+
+            get_ipython()  # type: ignore[no-untyped-call,unused-ignore]
             # The above line will fail if not running in a notebook,
             # in which case we return the original source unchanged.
             # Regular expression to match and replace magic commands with comments
-            source = re.sub(r'(^\s*)%{1,2}(\w+)', r'\1# \2', source, flags=re.MULTILINE)
+            source = re.sub(r"(^\s*)%{1,2}(\w+)", r"\1# \2", source, flags=re.MULTILINE)
         return source
-

@@ -6,8 +6,10 @@ import pytest
 
 # Assuming the nada function is a standalone function in the scalene_profiler module.
 
+
 def test_nada():
     from scalene.scalene_profiler import nada
+
     # Call the nada function with arbitrary arguments
     nada(1, "test", None)
     # Since nada does nothing, there's no state change to assert.

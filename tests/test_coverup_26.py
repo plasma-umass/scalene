@@ -8,6 +8,7 @@ import threading
 from unittest.mock import patch
 from scalene.scalene_profiler import Scalene
 
+
 @pytest.fixture(scope="function")
 def scalene_cleanup():
     # Fixture to clean up state after tests
@@ -15,12 +16,13 @@ def scalene_cleanup():
     Scalene.__windows_queue = None
     Scalene.timer_signals = False
 
+
 @pytest.mark.skipif(sys.platform != "win32", reason="requires Windows")
 def test_enable_signals_win32(scalene_cleanup):
-    with patch.object(Scalene, '_Scalene__orig_signal') as mock_orig_signal:
-        with patch.object(Scalene, 'cpu_signal_handler'):
-            with patch.object(Scalene, 'windows_timer_loop'):
-                with patch.object(Scalene, 'start_signal_queues'):
+    with patch.object(Scalene, "_Scalene__orig_signal") as mock_orig_signal:
+        with patch.object(Scalene, "cpu_signal_handler"):
+            with patch.object(Scalene, "windows_timer_loop"):
+                with patch.object(Scalene, "start_signal_queues"):
                     Scalene.enable_signals_win32()
                     mock_orig_signal.assert_called_once()
                     assert Scalene.timer_signals is True

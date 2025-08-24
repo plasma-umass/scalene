@@ -9,7 +9,9 @@ from scalene.find_browser import find_browser
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_config import scalene_version, scalene_date
 
-scalene_gui_url = f'file:{os.path.join(os.path.dirname(__file__), "scalene-gui", "index.html")}'
+scalene_gui_url = (
+    f'file:{os.path.join(os.path.dirname(__file__), "scalene-gui", "index.html")}'
+)
 
 
 class RichArgParser(argparse.ArgumentParser):
@@ -43,7 +45,7 @@ class ScaleneParseArgs:
         with contextlib.suppress(BaseException):
             from IPython import get_ipython
 
-            if get_ipython(): # type: ignore[no-untyped-call,unused-ignore]
+            if get_ipython():  # type: ignore[no-untyped-call,unused-ignore]
                 sys.exit = ScaleneParseArgs.clean_exit
                 sys._exit = ScaleneParseArgs.clean_exit  # type: ignore
         defaults = ScaleneArguments()
@@ -208,14 +210,10 @@ for the process ID that Scalene reports. For example:
             + " [/blue])",
         )
         if sys.platform == "win32":
-            memory_profile_message = (
-                "profile memory (not supported on this platform)"
-            )
+            memory_profile_message = "profile memory (not supported on this platform)"
         else:
             memory_profile_message = (
-                "profile memory (default: [blue]"
-                + (str(defaults.memory))
-                + " [/blue])"
+                "profile memory (default: [blue]" + (str(defaults.memory)) + " [/blue])"
             )
         parser.add_argument(
             "--memory",
@@ -232,11 +230,7 @@ for the process ID that Scalene reports. For example:
             const=True,
             default=defaults.profile_all,
             help="profile all executed code, not just the target program (default: [blue]"
-            + (
-                "all code"
-                if defaults.profile_all
-                else "only the target program"
-            )
+            + ("all code" if defaults.profile_all else "only the target program")
             + "[/blue])",
         )
         parser.add_argument(
@@ -338,9 +332,7 @@ for the process ID that Scalene reports. For example:
                 "--off", action="store_true", help="start with profiling off"
             )
         # the PID of the profiling process (for internal use only)
-        parser.add_argument(
-            "--pid", type=int, default=0, help=argparse.SUPPRESS
-        )
+        parser.add_argument("--pid", type=int, default=0, help=argparse.SUPPRESS)
         # collect all arguments after "---", which Scalene will ignore
         parser.add_argument(
             "---",
@@ -385,9 +377,7 @@ for the process ID that Scalene reports. For example:
                 sys.exit(0)
                 pass
             else:
-                print(
-                    "Scalene: could not open a browser."
-                )  # {scalene_gui_url}.")
+                print("Scalene: could not open a browser.")  # {scalene_gui_url}.")
                 sys.exit(0)
 
         # If any of the individual profiling metrics were specified,

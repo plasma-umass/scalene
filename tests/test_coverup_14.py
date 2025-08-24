@@ -5,9 +5,11 @@
 import pytest
 from scalene.scalene_signals import ScaleneSignals
 
+
 @pytest.fixture
 def scalene_signals():
     return ScaleneSignals()
+
 
 def test_get_all_signals(scalene_signals):
     signals = scalene_signals.get_all_signals()

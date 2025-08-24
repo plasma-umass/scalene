@@ -74,9 +74,7 @@ def _get_module_details(
     loader = spec.loader
     # use isinstance instead of `is None` to placate mypy
     if not isinstance(loader, SourceLoader):
-        raise error(
-            "%r is a namespace package and cannot be executed" % mod_name
-        )
+        raise error("%r is a namespace package and cannot be executed" % mod_name)
     try:
         code = loader.get_code(mod_name)
     except ImportError as e:

@@ -6,6 +6,7 @@ import pytest
 import scalene.scalene_config
 from scalene.scalene_profiler import Scalene
 
+
 @pytest.fixture(autouse=True)
 def run_around_tests():
     # Setup: Store original value
@@ -15,6 +16,7 @@ def run_around_tests():
     yield
     # Teardown: Restore original value
     scalene.scalene_config.NEWLINE_TRIGGER_LENGTH = original_trigger_length
+
 
 def test_update_line():
     # Call the method to test

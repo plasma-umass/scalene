@@ -6,11 +6,13 @@ import os
 import pytest
 from scalene.scalene_mapfile import ScaleneMapFile
 
+
 class MockScaleneMapFile(ScaleneMapFile):
     def __init__(self, name: str) -> None:
         self._name = name
         self._signal_fd = None
         self._lock_fd = None
+
 
 @pytest.fixture
 def scalene_mapfile(tmp_path):
@@ -24,6 +26,7 @@ def scalene_mapfile(tmp_path):
         mapfile._lock_fd = lock_fd
         yield mapfile
     # Teardown: files will be closed and removed by the fixture system
+
 
 def test_close_scalene_mapfile(scalene_mapfile):
     # Precondition: file descriptors should be open

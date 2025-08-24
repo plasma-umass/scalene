@@ -115,9 +115,7 @@ class ScaleneOutput:
 
         # Finally, print results.
         n_cpu_percent_c_str: str = (
-            ""
-            if obj["n_cpu_percent_c"] < 1
-            else f"{obj['n_cpu_percent_c']:5.0f}%"
+            "" if obj["n_cpu_percent_c"] < 1 else f"{obj['n_cpu_percent_c']:5.0f}%"
         )
 
         n_gpu_percent_str: str = (
@@ -162,9 +160,7 @@ class ScaleneOutput:
             # Randomly downsample to ScaleneOutput.max_sparkline_len_line.
             if len(samples) > ScaleneOutput.max_sparkline_len_line:
                 random_samples = sorted(
-                    random.sample(
-                        samples, ScaleneOutput.max_sparkline_len_line
-                    )
+                    random.sample(samples, ScaleneOutput.max_sparkline_len_line)
                 )
             else:
                 random_samples = samples
@@ -200,18 +196,12 @@ class ScaleneOutput:
                 )
                 >= self.highlight_percentage
             ):
-                ncpps = Text.assemble(
-                    (n_cpu_percent_python_str, self.highlight_color)
-                )
-                ncpcs = Text.assemble(
-                    (n_cpu_percent_c_str, self.highlight_color)
-                )
+                ncpps = Text.assemble((n_cpu_percent_python_str, self.highlight_color))
+                ncpcs = Text.assemble((n_cpu_percent_c_str, self.highlight_color))
                 nufs = Text.assemble(
                     (spark_str + n_usage_fraction_str, self.highlight_color)
                 )
-                ngpus = Text.assemble(
-                    (n_gpu_percent_str, self.highlight_color)
-                )
+                ngpus = Text.assemble((n_gpu_percent_str, self.highlight_color))
             else:
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str
@@ -228,9 +218,7 @@ class ScaleneOutput:
                 else f"{(obj['n_python_fraction'] * 100):4.0f}%"
             )
             n_copy_mb_s_str: str = (
-                ""
-                if obj["n_copy_mb_s"] < 0.5
-                else f"{obj['n_copy_mb_s']:6.0f}"
+                "" if obj["n_copy_mb_s"] < 0.5 else f"{obj['n_copy_mb_s']:6.0f}"
             )
 
             if self.gpu:
@@ -267,18 +255,10 @@ class ScaleneOutput:
                 + obj["n_gpu_percent"]
                 + obj["n_sys_percent"]
             ) >= self.highlight_percentage:
-                ncpps = Text.assemble(
-                    (n_cpu_percent_python_str, self.highlight_color)
-                )
-                ncpcs = Text.assemble(
-                    (n_cpu_percent_c_str, self.highlight_color)
-                )
-                ngpus = Text.assemble(
-                    (n_gpu_percent_str, self.highlight_color)
-                )
-                nsys = Text.assemble(
-                    (sys_str, self.highlight_color)
-                )
+                ncpps = Text.assemble((n_cpu_percent_python_str, self.highlight_color))
+                ncpcs = Text.assemble((n_cpu_percent_c_str, self.highlight_color))
+                ngpus = Text.assemble((n_gpu_percent_str, self.highlight_color))
+                nsys = Text.assemble((sys_str, self.highlight_color))
             else:
                 ncpps = n_cpu_percent_python_str
                 ncpcs = n_cpu_percent_c_str
@@ -287,7 +267,7 @@ class ScaleneOutput:
 
             if reduced_profile and not ncpps + ncpcs + ngpus + nsys:
                 return False
-            
+
             if self.gpu:
                 tbl.add_row(
                     print_line_no,
@@ -354,9 +334,7 @@ class ScaleneOutput:
                 # Randomly downsample samples
                 if len(samples) > ScaleneOutput.max_sparkline_len_file:
                     random_samples = sorted(
-                        random.sample(
-                            samples, ScaleneOutput.max_sparkline_len_file
-                        )
+                        random.sample(samples, ScaleneOutput.max_sparkline_len_file)
                     )
                 else:
                     random_samples = samples
@@ -382,8 +360,8 @@ class ScaleneOutput:
                     ),
                 )
 
-        null = open(os.devnull, "w") # noqa: SIM115
-        
+        null = open(os.devnull, "w")  # noqa: SIM115
+
         console = Console(
             width=column_width,
             record=True,
@@ -401,7 +379,9 @@ class ScaleneOutput:
             fname = Filename(fname)
             try:
                 percent_cpu_time = (
-                    100 * stats.cpu_stats.cpu_samples[fname] / stats.cpu_stats.total_cpu_samples
+                    100
+                    * stats.cpu_stats.cpu_samples[fname]
+                    / stats.cpu_stats.total_cpu_samples
                 )
             except ZeroDivisionError:
                 percent_cpu_time = 0
@@ -435,7 +415,11 @@ class ScaleneOutput:
 
             # Print header.
             percent_cpu_time = (
-                (100 * stats.cpu_stats.cpu_samples[fname] / stats.cpu_stats.total_cpu_samples)
+                (
+                    100
+                    * stats.cpu_stats.cpu_samples[fname]
+                    / stats.cpu_stats.total_cpu_samples
+                )
                 if stats.cpu_stats.total_cpu_samples
                 else 0
             )
@@ -502,9 +486,7 @@ class ScaleneOutput:
                     width=6,
                 )
                 tbl.add_column(
-                    Markdown(
-                        "–––––––––––  \n_timeline_/%", style=self.memory_color
-                    ),
+                    Markdown("–––––––––––  \n_timeline_/%", style=self.memory_color),
                     style=self.memory_color,
                     no_wrap=True,
                     width=15,
@@ -555,9 +537,7 @@ class ScaleneOutput:
             )
             formatted_lines = [
                 SyntaxLine(segments)
-                for segments in capture_console.render_lines(
-                    syntax_highlighted
-                )
+                for segments in capture_console.render_lines(syntax_highlighted)
             ]
             for line_no, line in enumerate(formatted_lines, start=1):
                 old_did_print = did_print
@@ -649,7 +629,9 @@ class ScaleneOutput:
             # Compute AVERAGE memory consumption.
             avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
-                n_malloc_mb = stats.memory_stats.memory_aggregate_footprint[fname][line_no]
+                n_malloc_mb = stats.memory_stats.memory_aggregate_footprint[fname][
+                    line_no
+                ]
                 if count := stats.memory_stats.memory_malloc_count[fname][line_no]:
                     avg_mallocs[LineNumber(line_no)] = n_malloc_mb / count
                 else:
@@ -663,9 +645,9 @@ class ScaleneOutput:
             # Compute (really, aggregate) PEAK memory consumption.
             peak_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.bytei_map[fname]:
-                peak_mallocs[LineNumber(line_no)] = stats.memory_stats.memory_max_footprint[fname][
-                    line_no
-                ]
+                peak_mallocs[LineNumber(line_no)] = (
+                    stats.memory_stats.memory_max_footprint[fname][line_no]
+                )
 
             peak_mallocs = OrderedDict(
                 sorted(peak_mallocs.items(), key=itemgetter(1), reverse=True)

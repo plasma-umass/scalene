@@ -9,8 +9,9 @@ import pytest
 # Assuming the RichArgParser class is in a file named scalene_parseargs.py
 from scalene.scalene_parseargs import RichArgParser
 
+
 def test_rich_arg_parser_print_message(capsys):
-    with patch('rich.console.Console') as mock_console:
+    with patch("rich.console.Console") as mock_console:
         parser = RichArgParser()
         parser._print_message("Test message")
         mock_console.return_value.print.assert_called_once_with("Test message")
@@ -24,8 +25,9 @@ def test_rich_arg_parser_print_message(capsys):
         assert captured.out == ""
         assert captured.err == ""
 
+
 def test_rich_arg_parser_init():
-    with patch('rich.console.Console') as mock_console:
+    with patch("rich.console.Console") as mock_console:
         parser = RichArgParser()
         mock_console.assert_called_once()
         assert isinstance(parser, argparse.ArgumentParser)

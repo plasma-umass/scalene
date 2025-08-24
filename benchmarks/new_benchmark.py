@@ -29,8 +29,8 @@ cmds = {
     # "austin_cpu": ["austin", "-o", "/dev/null"],
     # 'py-spy': ['py-spy', 'record', '-o', '/tmp/profile.svg', '--', 'python3'],
     # 'cProfile': ['python3', '-m', 'cProfile', '-o', '/dev/null'],
-    'yappi_wall': ['python3', '-m', 'yappi', '-o', '/dev/null', '-c', 'wall'],
-    'yappi_cpu': ['python3', '-m', 'yappi', '-o', '/dev/null', '-c', 'cpu'],
+    "yappi_wall": ["python3", "-m", "yappi", "-o", "/dev/null", "-c", "wall"],
+    "yappi_cpu": ["python3", "-m", "yappi", "-o", "/dev/null", "-c", "cpu"],
     # 'pprofile_det': ['pprofile', '-o', '/dev/null'],
     # 'pprofile_stat': ['pprofile', '-o', '/dev/null', '-s', '0.001'],
     # 'line_profiler': ['kernprof', '-l', '-o', '/dev/null', '-v'],
@@ -40,8 +40,8 @@ result_regexp = re.compile(r"Time elapsed:\s+([0-9]*\.[0-9]+)")
 
 
 def main():
-    out = defaultdict(lambda : {})
-    
+    out = defaultdict(lambda: {})
+
     for progname in [
         # "./test/expensive_benchmarks/bm_mdp.py",
         # "./test/expensive_benchmarks/bm_async_tree_io.py none",
@@ -63,28 +63,33 @@ def main():
                     flush=True,
                 )
                 result = subprocess.run(
-                    profile_cmd + progname.split(' '),
+                    profile_cmd + progname.split(" "),
                     stderr=subprocess.STDOUT,
                     stdout=subprocess.PIPE,
                 )
-                
+
                 output = result.stdout.decode("utf-8")
                 # print(output)
                 match = result_regexp.search(output)
                 if match is not None:
-                    print(f"... {match.group(1)}", end=('\n' if profile_name != 'memray' else ''))
+                    print(
+                        f"... {match.group(1)}",
+                        end=("\n" if profile_name != "memray" else ""),
+                    )
                     times.append(round(100 * float(match.group(1))) / 100.0)
-                    if profile_name == 'memray':
+                    if profile_name == "memray":
                         res2 = subprocess.run(
-                            ['time', 
-                            sys.executable,
-                            '-m', 
-                            'memray',
-                            'flamegraph',
-                            '-f',
-                            '/tmp/memray.out'],
+                            [
+                                "time",
+                                sys.executable,
+                                "-m",
+                                "memray",
+                                "flamegraph",
+                                "-f",
+                                "/tmp/memray.out",
+                            ],
                             capture_output=True,
-                            env={'TIME': 'Time elapsed: %e'}
+                            env={"TIME": "Time elapsed: %e"},
                         )
                         output2 = res2.stderr.decode("utf-8")
                         match2 = result_regexp.search(output2)
@@ -98,7 +103,7 @@ def main():
                     print("RUN FAILED")
                     # exit(1)
             out[profile_name][progname] = times
-    with open('yappi.json', 'w+') as f:
+    with open("yappi.json", "w+") as f:
         json.dump(dict(out), f)
 
 

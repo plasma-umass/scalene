@@ -5,6 +5,7 @@
 import time
 from scalene.scalene_statistics import ScaleneStatistics
 
+
 def test_stop_clock():
     stats = ScaleneStatistics()
     # Set the start_time to a non-zero value to ensure the if condition is met

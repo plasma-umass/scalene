@@ -5,6 +5,7 @@
 import pytest
 from scalene.scalene_analysis import ScaleneAnalysis
 
+
 def test_find_regions():
     source_code = """
 class MyClass:

@@ -20,7 +20,7 @@ class ScaleneLeakAnalysis:
     ) -> List[Tuple[LineNumber, float, float]]:
         if growth_rate / 100 < ScaleneLeakAnalysis.growth_rate_threshold:
             return []
-        leaks : List[Tuple[LineNumber, float, float]] = []
+        leaks: List[Tuple[LineNumber, float, float]] = []
         keys = list(stats.memory_stats.leak_score[fname].keys())
         for index, item in enumerate(stats.memory_stats.leak_score[fname].values()):
             # See https://en.wikipedia.org/wiki/Rule_of_succession
@@ -31,8 +31,7 @@ class ScaleneLeakAnalysis:
             expected_leak = 1.0 - (frees + 1) / (allocs - frees + 2)
 
             if (
-                expected_leak
-                >= 1.0 - ScaleneLeakAnalysis.leak_reporting_threshold
+                expected_leak >= 1.0 - ScaleneLeakAnalysis.leak_reporting_threshold
             ) and keys[index] in avg_mallocs:
                 leaks.append(
                     (

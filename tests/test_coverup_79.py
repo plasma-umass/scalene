@@ -6,8 +6,11 @@ import pytest
 from scalene.scalene_statistics import ScaleneStatistics
 from collections import defaultdict
 
+
 class RunningStats:
-    def __init__(self, cpu_samples=0, malloc_samples=0, free_samples=0, python_fraction=0):
+    def __init__(
+        self, cpu_samples=0, malloc_samples=0, free_samples=0, python_fraction=0
+    ):
         self.cpu_samples = cpu_samples
         self.malloc_samples = malloc_samples
         self.free_samples = free_samples
@@ -20,8 +23,10 @@ class RunningStats:
         self.python_fraction += other.python_fraction
         return self
 
+
 Filename = str
 LineNumber = int
+
 
 @pytest.fixture
 def cleanup():
@@ -29,14 +34,21 @@ def cleanup():
     yield
     # Cleanup code if necessary
 
+
 def test_increment_core_utilization(cleanup):
     dest = {
-        Filename("file1"): {LineNumber(1): RunningStats(), LineNumber(2): RunningStats()},
-        Filename("file2"): {LineNumber(1): RunningStats()}
+        Filename("file1"): {
+            LineNumber(1): RunningStats(),
+            LineNumber(2): RunningStats(),
+        },
+        Filename("file2"): {LineNumber(1): RunningStats()},
     }
     src = {
-        Filename("file1"): {LineNumber(1): RunningStats(1, 1, 1, 1), LineNumber(2): RunningStats(2, 2, 2, 2)},
-        Filename("file2"): {LineNumber(1): RunningStats(3, 3, 3, 3)}
+        Filename("file1"): {
+            LineNumber(1): RunningStats(1, 1, 1, 1),
+            LineNumber(2): RunningStats(2, 2, 2, 2),
+        },
+        Filename("file2"): {LineNumber(1): RunningStats(3, 3, 3, 3)},
     }
 
     ScaleneStatistics.increment_core_utilization(dest, src)

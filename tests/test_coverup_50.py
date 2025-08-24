@@ -14,12 +14,14 @@ from scalene.scalene_profiler import Scalene
 Scalene.set_thread_sleeping = lambda x: None
 Scalene.reset_thread_sleeping = lambda x: None
 
+
 @pytest.fixture
 def replacement_sem_lock():
     lock = ReplacementSemLock()
     yield lock
     if lock._semlock._is_zero():
         lock.release()
+
 
 def test_replacement_sem_lock_enter_exit(replacement_sem_lock):
     # Test the __enter__ method with a forced timeout
@@ -37,13 +39,22 @@ def test_replacement_sem_lock_enter_exit(replacement_sem_lock):
         sys.setswitchinterval(original_interval)
 
     # Test the __exit__ method
-    assert not replacement_sem_lock._semlock._is_zero(), "Lock should not be acquired yet"
+    assert (
+        not replacement_sem_lock._semlock._is_zero()
+    ), "Lock should not be acquired yet"
     with replacement_sem_lock:
         assert replacement_sem_lock._semlock._is_zero(), "Lock should be acquired"
-    assert not replacement_sem_lock._semlock._is_zero(), "Lock should be released after the block"
+    assert (
+        not replacement_sem_lock._semlock._is_zero()
+    ), "Lock should be released after the block"
+
 
 def test_replacement_sem_lock_reduce(replacement_sem_lock):
     # Test the __reduce__ method
     reduced = replacement_sem_lock.__reduce__()
-    assert callable(reduced[0]), "__reduce__ should return a callable as the first element"
-    assert reduced[1] == (), "__reduce__ should return an empty tuple as the second element"
+    assert callable(
+        reduced[0]
+    ), "__reduce__ should return a callable as the first element"
+    assert (
+        reduced[1] == ()
+    ), "__reduce__ should return an empty tuple as the second element"

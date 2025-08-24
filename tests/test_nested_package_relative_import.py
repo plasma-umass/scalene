@@ -5,6 +5,7 @@ import sys
 import textwrap
 from pathlib import Path
 
+
 def test_nested_package_relative_import(tmp_path):
     """
     Scalene should profile a module inside a sub‑package without breaking
@@ -14,8 +15,8 @@ def test_nested_package_relative_import(tmp_path):
     # ------------------------------------------------------------------
     # 1.  Create the package pkg.subpkg with a helper and a module.
     # ------------------------------------------------------------------
-    pkg      : Path = tmp_path / "pkg"
-    subpkg   : Path = pkg / "subpkg"
+    pkg: Path = tmp_path / "pkg"
+    subpkg: Path = pkg / "subpkg"
     subpkg.mkdir(parents=True)
 
     # mark both directories as packages
@@ -23,20 +24,19 @@ def test_nested_package_relative_import(tmp_path):
     (subpkg / "__init__.py").write_text("")
 
     # helper that the target module will import relatively
-    (subpkg / "helper.py").write_text(
-        "def foo():\n"
-        "    return 42\n"
-    )
+    (subpkg / "helper.py").write_text("def foo():\n" "    return 42\n")
 
     # target module that depends on the relative import
-    (subpkg / "mod.py").write_text(textwrap.dedent(
-        """
+    (subpkg / "mod.py").write_text(
+        textwrap.dedent(
+            """
         from .helper import foo
 
         if __name__ == "__main__":
             print(foo())   # prints 42 on success
         """
-    ))
+        )
+    )
 
     # ------------------------------------------------------------------
     # 2.  Invoke Scalene as a separate process on that module.
@@ -47,10 +47,12 @@ def test_nested_package_relative_import(tmp_path):
     result = subprocess.run(
         [
             sys.executable,
-            "-m", "scalene",
-            "-m", "pkg.subpkg.mod",
-            "--cli",           # plain‑text output, no browser
-            "--cpu-only",      # keep the run fast
+            "-m",
+            "scalene",
+            "-m",
+            "pkg.subpkg.mod",
+            "--cli",  # plain‑text output, no browser
+            "--cpu-only",  # keep the run fast
         ],
         cwd=tmp_path,
         env=env,

@@ -68,7 +68,7 @@ def bench_spectral_norm(loops):
             vBv += ue * ve
             vv += ve * ve
 
-    return # pyperf.perf_counter() - t0
+    return  # pyperf.perf_counter() - t0
 
 
 if __name__ == "__main__":

@@ -10,15 +10,20 @@ from unittest.mock import patch, MagicMock
 # Assuming the function get_times is in the module scalene.time_info
 from scalene.time_info import get_times
 
+
 class MockResourceUsage:
     def __init__(self, stime, utime):
         self.ru_stime = stime
         self.ru_utime = utime
 
+
 @pytest.fixture
 def mock_resource_module():
-    with patch("resource.getrusage", return_value=MockResourceUsage(1.23, 4.56)) as mock_resource:
+    with patch(
+        "resource.getrusage", return_value=MockResourceUsage(1.23, 4.56)
+    ) as mock_resource:
         yield mock_resource
+
 
 def test_get_times_linux_mac(mock_resource_module):
     if sys.platform == "win32":
@@ -27,10 +32,14 @@ def test_get_times_linux_mac(mock_resource_module):
     assert now_sys == 1.23
     assert now_user == 4.56
 
+
 @pytest.fixture
 def mock_os_times():
-    with patch("os.times", return_value=MagicMock(system=2.34, user=5.67)) as mock_times:
+    with patch(
+        "os.times", return_value=MagicMock(system=2.34, user=5.67)
+    ) as mock_times:
         yield mock_times
+
 
 def test_get_times_win32(mock_os_times):
     with patch("sys.platform", "win32"):

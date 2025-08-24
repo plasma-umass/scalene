@@ -5,6 +5,7 @@
 import pytest
 from scalene.scalene_statistics import ScaleneStatistics, StackFrame, StackStats
 
+
 @pytest.fixture
 def scalene_statistics():
     stats = ScaleneStatistics()
@@ -46,6 +47,7 @@ def scalene_statistics():
     stats.bytei_map["test"] = None
     return stats
 
+
 def test_clear_scalene_statistics(scalene_statistics):
     scalene_statistics.clear()
     assert scalene_statistics.start_time == 0
@@ -84,9 +86,10 @@ def test_clear_scalene_statistics(scalene_statistics):
     assert scalene_statistics.memory_stats.per_line_footprint_samples == {}
     assert scalene_statistics.bytei_map == {}
 
+
 def test_scalene_statistics():
     stats = ScaleneStatistics()
-    stats.stacks[(StackFrame('test.py', 'test_func', 1),)] = StackStats(1, 1.0, 0.5, 2)
+    stats.stacks[(StackFrame("test.py", "test_func", 1),)] = StackStats(1, 1.0, 0.5, 2)
     assert len(stats.stacks) == 1
     stats.clear()
     assert len(stats.stacks) == 0

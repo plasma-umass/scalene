@@ -16,22 +16,23 @@ class ScalenePreload:
     @staticmethod
     def get_preload_environ(args: argparse.Namespace) -> Dict[str, str]:
         env = {
-            "SCALENE_ALLOCATION_SAMPLING_WINDOW": str(
-                args.allocation_sampling_window
-            )
+            "SCALENE_ALLOCATION_SAMPLING_WINDOW": str(args.allocation_sampling_window)
         }
 
         # Disable JITting in PyTorch and JAX to improve profiling,
         # unless the environment variables are already set.
         # JAX_DISABLE_JIT: https://jax.readthedocs.io/en/latest/debugging/flags.html#id1
         # PYTORCH_JIT: https://pytorch.org/docs/stable/jit.html#disable-jit-for-debugging
-        jit_flags = [ ('JAX_DISABLE_JIT', '1'), # truthy => disable JIT
-                      ('PYTORCH_JIT', '0') ]    # falsy => disable JIT
-       
+        jit_flags = [
+            ("JAX_DISABLE_JIT", "1"),  # truthy => disable JIT
+            ("PYTORCH_JIT", "0"),
+        ]  # falsy => disable JIT
+
         try:
             # If we are running on Neuron, we don't disable the JITs
             # because it leads to unacceptably high overheads.
             from scalene.scalene_neuron import ScaleneNeuron
+
             accelerator = ScaleneNeuron()
             on_neuron = accelerator.has_gpu()
         except Exception:
@@ -56,20 +57,22 @@ class ScalenePreload:
 
         elif sys.platform == "linux":
             if args.memory:
- 
+
                 library_path = scalene.__path__[0]
-                
+
                 # NOTE: you can't use escape sequences inside an f-string pre-3.12 either
-                
+
                 # We use this function in two places:
                 # 1. in `setup_preload`
                 # 2. when calling into `redirect_python`
-                if 'LD_LIBRARY_PATH' not in os.environ:
-                    env['LD_LIBRARY_PATH'] = library_path
-                elif library_path not in os.environ['LD_LIBRARY_PATH']:
-                    env['LD_LIBRARY_PATH'] = f'{library_path}:{os.environ["LD_LIBRARY_PATH"]}'
+                if "LD_LIBRARY_PATH" not in os.environ:
+                    env["LD_LIBRARY_PATH"] = library_path
+                elif library_path not in os.environ["LD_LIBRARY_PATH"]:
+                    env["LD_LIBRARY_PATH"] = (
+                        f'{library_path}:{os.environ["LD_LIBRARY_PATH"]}'
+                    )
 
-                new_ld_preload = 'libscalene.so'
+                new_ld_preload = "libscalene.so"
                 if "LD_PRELOAD" not in os.environ:
                     env["LD_PRELOAD"] = new_ld_preload
                 elif new_ld_preload not in os.environ["LD_PRELOAD"].split(":"):
@@ -78,11 +81,10 @@ class ScalenePreload:
                 if "PYTHONMALLOC" in os.environ:
                     # Since the environment dict is updated
                     # with a `.update` call, we need to make sure
-                    # that there's some value for PYTHONMALLOC in 
-                    # what we return if we want to squash an anomalous 
+                    # that there's some value for PYTHONMALLOC in
+                    # what we return if we want to squash an anomalous
                     # value
-                    env['PYTHONMALLOC'] = 'default'
-                    
+                    env["PYTHONMALLOC"] = "default"
 
         elif sys.platform == "win32":
             # Force no memory profiling on Windows for now.
@@ -112,7 +114,7 @@ class ScalenePreload:
         with contextlib.suppress(Exception):
             from IPython import get_ipython
 
-            if get_ipython(): # type: ignore[no-untyped-call,unused-ignore]
+            if get_ipython():  # type: ignore[no-untyped-call,unused-ignore]
                 sys.exit = scalene.Scalene.clean_exit  # type: ignore
                 sys._exit = scalene.Scalene.clean_exit  # type: ignore
 

@@ -56,6 +56,7 @@ class Packet(object):
             p.link = self
             return lst
 
+
 # Task Records
 
 
@@ -96,6 +97,8 @@ class WorkerTaskRec(TaskRec):
     def __init__(self):
         self.destination = I_HANDLERA
         self.count = 0
+
+
 # Task
 
 
@@ -156,7 +159,7 @@ def trace(a):
     if layout <= 0:
         print()
         layout = 50
-    print(a, end='')
+    print(a, end="")
 
 
 TASKTABSIZE = 10
@@ -305,6 +308,7 @@ class HandlerTask(Task):
         work.datum = count + 1
         return self.qpkt(dev)
 
+
 # IdleTask
 
 
@@ -323,14 +327,14 @@ class IdleTask(Task):
             i.control //= 2
             return self.release(I_DEVA)
         else:
-            i.control = i.control // 2 ^ 0xd008
+            i.control = i.control // 2 ^ 0xD008
             return self.release(I_DEVB)
 
 
 # WorkTask
 
 
-A = ord('A')
+A = ord("A")
 
 
 class WorkTask(Task):
@@ -389,26 +393,27 @@ class Richards(object):
 
             wkq = Packet(None, 0, K_WORK)
             wkq = Packet(wkq, 0, K_WORK)
-            WorkTask(I_WORK, 1000, wkq, TaskState(
-            ).waitingWithPacket(), WorkerTaskRec())
+            WorkTask(
+                I_WORK, 1000, wkq, TaskState().waitingWithPacket(), WorkerTaskRec()
+            )
 
             wkq = Packet(None, I_DEVA, K_DEV)
             wkq = Packet(wkq, I_DEVA, K_DEV)
             wkq = Packet(wkq, I_DEVA, K_DEV)
-            HandlerTask(I_HANDLERA, 2000, wkq, TaskState(
-            ).waitingWithPacket(), HandlerTaskRec())
+            HandlerTask(
+                I_HANDLERA, 2000, wkq, TaskState().waitingWithPacket(), HandlerTaskRec()
+            )
 
             wkq = Packet(None, I_DEVB, K_DEV)
             wkq = Packet(wkq, I_DEVB, K_DEV)
             wkq = Packet(wkq, I_DEVB, K_DEV)
-            HandlerTask(I_HANDLERB, 3000, wkq, TaskState(
-            ).waitingWithPacket(), HandlerTaskRec())
+            HandlerTask(
+                I_HANDLERB, 3000, wkq, TaskState().waitingWithPacket(), HandlerTaskRec()
+            )
 
             wkq = None
-            DeviceTask(I_DEVA, 4000, wkq,
-                       TaskState().waiting(), DeviceTaskRec())
-            DeviceTask(I_DEVB, 5000, wkq,
-                       TaskState().waiting(), DeviceTaskRec())
+            DeviceTask(I_DEVA, 4000, wkq, TaskState().waiting(), DeviceTaskRec())
+            DeviceTask(I_DEVB, 5000, wkq, TaskState().waiting(), DeviceTaskRec())
 
             schedule()
 
@@ -422,7 +427,7 @@ class Richards(object):
 
 if __name__ == "__main__":
     runner = pyperf.Runner()
-    runner.metadata['description'] = "The Richards benchmark"
+    runner.metadata["description"] = "The Richards benchmark"
 
     richard = Richards()
     richard.run(1)

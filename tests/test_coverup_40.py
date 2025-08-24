@@ -5,6 +5,7 @@
 import pytest
 from scalene.runningstats import RunningStats
 
+
 def test_peak():
     stats = RunningStats()
     stats.push(10)

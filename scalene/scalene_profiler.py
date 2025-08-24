@@ -227,7 +227,7 @@ class Scalene:
 
     __args = ScaleneArguments()
     __signals = ScaleneSignals()
-    __signal_manager : ScaleneSignalManager[Any] = ScaleneSignalManager()
+    __signal_manager: ScaleneSignalManager[Any] = ScaleneSignalManager()
     __stats = ScaleneStatistics()
     __memory_profiler = ScaleneMemoryProfiler(__stats)
     __output = ScaleneOutput()
@@ -1038,7 +1038,6 @@ class Scalene:
         del is_thread_sleeping
         Scalene.__stats.cpu_stats.total_cpu_samples += total_time
 
-
     @staticmethod
     def alloc_sigqueue_processor(_x: Optional[List[int]]) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
@@ -1185,7 +1184,9 @@ class Scalene:
     def _passes_profile_only_rules(filename: Filename) -> bool:
         """Check if filename passes profile-only patterns."""
         profile_only_set = set(Scalene.__args.profile_only.split(","))
-        return not(profile_only_set and all(prof not in filename for prof in profile_only_set))
+        return not (
+            profile_only_set and all(prof not in filename for prof in profile_only_set)
+        )
 
     @staticmethod
     def _should_trace_by_location(filename: Filename) -> bool:

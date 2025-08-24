@@ -28,7 +28,7 @@ def topoSort(roots, getParents):
                 stack.extend((parent, 0) for parent in getParents(current))
         else:
             # after recursing
-            assert(current in visited)
+            assert current in visited
             results.append(current)
     return results
 
@@ -59,14 +59,16 @@ def plus12(x):
     return x + x // 8
 
 
-stats_t = collections.namedtuple('stats_t', ['atk', 'df', 'speed', 'spec'])
+stats_t = collections.namedtuple("stats_t", ["atk", "df", "speed", "spec"])
 NOMODS = stats_t(0, 0, 0, 0)
 
 
 fixeddata_t = collections.namedtuple(
-    'fixeddata_t', ['maxhp', 'stats', 'lvl', 'badges', 'basespeed'])
+    "fixeddata_t", ["maxhp", "stats", "lvl", "badges", "basespeed"]
+)
 halfstate_t = collections.namedtuple(
-    'halfstate_t', ['fixed', 'hp', 'status', 'statmods', 'stats'])
+    "halfstate_t", ["fixed", "hp", "status", "statmods", "stats"]
+)
 
 
 def applyHPChange(hstate, change):
@@ -79,20 +81,21 @@ def applyBadgeBoosts(badges, stats):
 
 
 attack_stats_t = collections.namedtuple(
-    'attack_stats_t', ['power', 'isspec', 'stab', 'te', 'crit'])
+    "attack_stats_t", ["power", "isspec", "stab", "te", "crit"]
+)
 attack_data = {
-    'Ember': attack_stats_t(40, True, True, 0.5, False),
-    'Dig': attack_stats_t(100, False, False, 1, False),
-    'Slash': attack_stats_t(70, False, False, 1, True),
-    'Water Gun': attack_stats_t(40, True, True, 2, False),
-    'Bubblebeam': attack_stats_t(65, True, True, 2, False),
+    "Ember": attack_stats_t(40, True, True, 0.5, False),
+    "Dig": attack_stats_t(100, False, False, 1, False),
+    "Slash": attack_stats_t(70, False, False, 1, True),
+    "Water Gun": attack_stats_t(40, True, True, 2, False),
+    "Bubblebeam": attack_stats_t(65, True, True, 2, False),
 }
 
 
 def _applyActionSide1(state, act):
     me, them, extra = state
 
-    if act == 'Super Potion':
+    if act == "Super Potion":
         me = applyHPChange(me, 50)
         return {(me, them, extra): Fraction(1)}
 
@@ -100,10 +103,17 @@ def _applyActionSide1(state, act):
     aind = 3 if mdata.isspec else 0
     dind = 3 if mdata.isspec else 1
     pdiv = 64 if mdata.crit else 512
-    dmg_dist = getCritDist(me.fixed.lvl, Fraction(me.fixed.basespeed, pdiv),
-                           me.stats[aind], me.fixed.stats[aind], them.stats[
-                               dind], them.fixed.stats[dind],
-                           mdata.power, mdata.stab, mdata.te)
+    dmg_dist = getCritDist(
+        me.fixed.lvl,
+        Fraction(me.fixed.basespeed, pdiv),
+        me.stats[aind],
+        me.fixed.stats[aind],
+        them.stats[dind],
+        them.fixed.stats[dind],
+        mdata.power,
+        mdata.stab,
+        mdata.te,
+    )
 
     dist = defaultdict(Fraction)
     for dmg, p in dmg_dist.items():
@@ -137,7 +147,7 @@ class Battle(object):
 
     def _getSuccessorsA(self, statep):
         st, state = statep
-        for action in ['Dig', 'Super Potion']:
+        for action in ["Dig", "Super Potion"]:
             yield (1, state, action)
 
     def _applyActionPair(self, state, side1, act1, side2, act2, dist, pmult):
@@ -153,11 +163,12 @@ class Battle(object):
     def _getSuccessorsB(self, statep):
         st, state, action = statep
         dist = defaultdict(Fraction)
-        for eact, p in [('Water Gun', Fraction(64, 130)),
-                        ('Bubblebeam', Fraction(66, 130))]:
-            priority1 = state[0].stats.speed + \
-                10000 * (action == 'Super Potion')
-            priority2 = state[1].stats.speed + 10000 * (action == 'X Defend')
+        for eact, p in [
+            ("Water Gun", Fraction(64, 130)),
+            ("Bubblebeam", Fraction(66, 130)),
+        ]:
+            priority1 = state[0].stats.speed + 10000 * (action == "Super Potion")
+            priority2 = state[1].stats.speed + 10000 * (action == "X Defend")
 
             if priority1 > priority2:
                 self._applyActionPair(state, 0, action, 1, eact, dist, p)
@@ -210,11 +221,11 @@ class Battle(object):
         badges = 1, 0, 0, 0
 
         starfixed = fixeddata_t(59, stats_t(40, 44, 56, 50), 11, NOMODS, 115)
-        starhalf = halfstate_t(starfixed, 59, 0, NOMODS,
-                               stats_t(40, 44, 56, 50))
+        starhalf = halfstate_t(starfixed, 59, 0, NOMODS, stats_t(40, 44, 56, 50))
         charfixed = fixeddata_t(63, stats_t(39, 34, 46, 38), 26, badges, 65)
-        charhalf = halfstate_t(charfixed, 63, 0, NOMODS, applyBadgeBoosts(
-            badges, stats_t(39, 34, 46, 38)))
+        charhalf = halfstate_t(
+            charfixed, 63, 0, NOMODS, applyBadgeBoosts(badges, stats_t(39, 34, 46, 38))
+        )
         initial_state = charhalf, starhalf, 0
         initial_statep = 0, initial_state
 
@@ -234,10 +245,8 @@ class Battle(object):
                     dmin[sp] = max(dmin[sp2] for sp2 in self.getSuccessors(sp))
                     dmax[sp] = max(dmax[sp2] for sp2 in self.getSuccessors(sp))
                 else:
-                    dmin[sp] = sum(dmin[sp2] * p for sp2,
-                                   p in self.getSuccessors(sp))
-                    dmax[sp] = sum(dmax[sp2] * p for sp2,
-                                   p in self.getSuccessors(sp))
+                    dmin[sp] = sum(dmin[sp2] * p for sp2, p in self.getSuccessors(sp))
+                    dmax[sp] = sum(dmax[sp2] * p for sp2, p in self.getSuccessors(sp))
 
                 if dmin[sp] >= dmax[sp]:
                     dmax[sp] = dmin[sp] = (dmin[sp] + dmax[sp]) / 2
@@ -257,15 +266,16 @@ def bench_mdp(loops):
     # dt = pyperf.perf_counter() - t0
 
     if abs(result - expected) > max_diff:
-        raise Exception("invalid result: got %s, expected %s "
-                        "(diff: %s, max diff: %s)"
-                        % (result, expected, result - expected, max_diff))
+        raise Exception(
+            "invalid result: got %s, expected %s "
+            "(diff: %s, max diff: %s)" % (result, expected, result - expected, max_diff)
+        )
     # return dt
 
 
 if __name__ == "__main__":
     runner = pyperf.Runner()
-    runner.metadata['description'] = "MDP benchmark"
+    runner.metadata["description"] = "MDP benchmark"
     start_p = time.perf_counter()
     # runner.bench_time_func('mdp', bench_mdp)
     bench_mdp(5)

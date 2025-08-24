@@ -7,6 +7,7 @@ import mmap
 import pytest
 from scalene.scalene_mapfile import ScaleneMapFile
 
+
 @pytest.fixture
 def cleanup_files():
     # Setup code to create filenames
@@ -16,12 +17,12 @@ def cleanup_files():
     init_filename = f"/tmp/scalene-{name}-init{os.getpid()}"
 
     # Create files with some content for the test
-    with open(signal_filename, 'wb') as f:
-        f.write(b'\0' * mmap.PAGESIZE)
-    with open(lock_filename, 'wb') as f:
-        f.write(b'\0' * mmap.PAGESIZE)
-    with open(init_filename, 'wb') as f:
-        f.write(b'\0' * mmap.PAGESIZE)
+    with open(signal_filename, "wb") as f:
+        f.write(b"\0" * mmap.PAGESIZE)
+    with open(lock_filename, "wb") as f:
+        f.write(b"\0" * mmap.PAGESIZE)
+    with open(init_filename, "wb") as f:
+        f.write(b"\0" * mmap.PAGESIZE)
 
     yield signal_filename, lock_filename, init_filename
 
@@ -32,6 +33,7 @@ def cleanup_files():
         os.remove(lock_filename)
     if os.path.exists(init_filename):
         os.remove(init_filename)
+
 
 def test_scalene_mapfile(cleanup_files):
     signal_filename, lock_filename, init_filename = cleanup_files

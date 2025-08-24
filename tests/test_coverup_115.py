@@ -8,11 +8,14 @@ from typing import Any, List
 from scalene.scalene_statistics import ScaleneStatistics
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 
+
 class Filename(str):
     pass
 
+
 class LineNumber(int):
     pass
+
 
 @pytest.fixture
 def scalene_statistics():
@@ -21,6 +24,7 @@ def scalene_statistics():
     line_number = LineNumber(1)
     stats.memory_stats.leak_score[fname][line_number] = (100, 1)  # 100 allocs, 1 free
     return stats
+
 
 def test_compute_leaks(scalene_statistics):
     stats = scalene_statistics

@@ -6,6 +6,7 @@ import pytest
 import signal
 from scalene.scalene_profiler import Scalene
 
+
 @pytest.fixture(scope="function")
 def cleanup_signals():
     # Store the original signal state
@@ -13,6 +14,7 @@ def cleanup_signals():
     yield
     # Restore the original signal state after the test
     signal.signal(original_signals[0], signal.SIG_IGN)
+
 
 def test_get_timer_signals(cleanup_signals):
     # Set a timer signal to test
