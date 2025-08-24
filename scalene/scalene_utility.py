@@ -157,7 +157,7 @@ def on_stack(
 
 def get_fully_qualified_name(frame: FrameType) -> Filename:
     # Obtain the fully-qualified name.
-    if sys.version_info < (3,11,0):
+    if sys.version_info >= (3,11,0):
         # Introduced in Python 3.11
         fn_name = Filename(frame.f_code.co_qualname)
         return fn_name
