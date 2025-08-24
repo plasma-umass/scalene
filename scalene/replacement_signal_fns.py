@@ -127,7 +127,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         signal.setitimer = replacement_setitimer
         signal.siginterrupt = replacement_siginterrupt
 
-    signal.signal = replacement_signal  # type: ignore
+    signal.signal = replacement_signal  # type: ignore[unused-ignore]
     if sys.version_info >= (3, 8):
         signal.raise_signal = replacement_raise_signal
     os.kill = replacement_kill

@@ -176,7 +176,7 @@ class Scalene:
     # Get the number of available CPUs (preferring `os.sched_getaffinity`, if available).
     __availableCPUs: int
     try:
-        __availableCPUs = len(os.sched_getaffinity(0))  # type: ignore[unused-ignore]
+        __availableCPUs = len(os.sched_getaffinity(0))  # type: ignore[unused-ignore,attr-defined]
     except AttributeError:
         cpu_count = os.cpu_count()
         __availableCPUs = cpu_count if cpu_count else 1

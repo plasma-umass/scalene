@@ -24,7 +24,7 @@ class ScaleneSignalManager(Generic[T]):
         import queue
         self.__signals = ScaleneSignals()
         self.__sigqueues: List[ScaleneSigQueue[T]] = []
-        self.__windows_queue : Optional[queue.Queue[T|None]] = None  # Will be initialized if needed
+        self.__windows_queue : Optional[queue.Queue[Optional[T]]] = None  # Will be initialized if needed
         
         # Store original signal functions
         self.__orig_signal = signal.signal
