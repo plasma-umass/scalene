@@ -5,6 +5,7 @@
 import pytest
 from scalene.scalene_profiler import Scalene
 from scalene.scalene_statistics import ScaleneStatistics
+from scalene.scalene_utility import enter_function_meta
 from unittest.mock import MagicMock
 
 # Mock classes to simulate the behavior of Scalene's Filename and LineNumber
@@ -32,7 +33,7 @@ def test_enter_function_meta():
     frame.f_back = None  # Set f_back to None to trigger the return in line 1171
 
     # Call the method with the mock frame
-    Scalene.enter_function_meta(frame, stats)
+    enter_function_meta(frame, Scalene.should_trace, stats)
 
     # Since the frame's f_back is None, the function_map and firstline_map should remain empty
     assert not stats.function_map
