@@ -1,16 +1,28 @@
 import contextlib
 import sys
 import textwrap
-from typing import Any
+from typing import Any, Callable, TYPE_CHECKING, TypeVar
 
-with contextlib.suppress(Exception):
+F = TypeVar("F", bound=Callable[..., Any])
 
+if TYPE_CHECKING:
+    # Minimal stubs so mypy doesn't see Anys
+    class Magics:  # pragma: no cover - type-checking only
+        pass
+
+    def line_cell_magic(func: F) -> F: ...  # type: ignore[override,unused-ignore]
+    def line_magic(func: F) -> F: ...       # type: ignore[override,unused-ignore]
+    def magics_class(cls: type) -> type: ...  # type: ignore[override,unused-ignore]
+else:
     from IPython.core.magic import (
         Magics,
         line_cell_magic,
         line_magic,
         magics_class,
     )
+
+
+with contextlib.suppress(Exception):
 
     from scalene import scalene_profiler
     from scalene.scalene_arguments import ScaleneArguments
