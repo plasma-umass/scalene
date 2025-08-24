@@ -51,7 +51,7 @@ class NeuronMonitor:
                 }
             ],
         }
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json") # noqa: SIM115
         with open(temp_file.name, "w") as file:
             json.dump(config, file)
         return temp_file.name

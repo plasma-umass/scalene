@@ -1164,10 +1164,7 @@ class Scalene:
 
         # Check explicit exclude patterns
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
-        if any(prof in filename for prof in profile_exclude_list if prof != ""):
-            return False
-
-        return True
+        return not any(prof in filename for prof in profile_exclude_list if prof != ""):
 
     @staticmethod
     def _handle_jupyter_cell(filename: Filename) -> bool:
@@ -1188,9 +1185,7 @@ class Scalene:
     def _passes_profile_only_rules(filename: Filename) -> bool:
         """Check if filename passes profile-only patterns."""
         profile_only_set = set(Scalene.__args.profile_only.split(","))
-        if profile_only_set and all(prof not in filename for prof in profile_only_set):
-            return False
-        return True
+        return not(profile_only_set and all(prof not in filename for prof in profile_only_set))
 
     @staticmethod
     def _should_trace_by_location(filename: Filename) -> bool:
