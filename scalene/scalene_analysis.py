@@ -209,7 +209,7 @@ class ScaleneAnalysis:
     def strip_magic_line(source: str) -> str:
         with contextlib.suppress(Exception):
             from IPython import get_ipython
-            get_ipython()
+            get_ipython() # type: ignore[no-untyped-call,unused-ignore]
             # The above line will fail if not running in a notebook,
             # in which case we return the original source unchanged.
             # Regular expression to match and replace magic commands with comments
