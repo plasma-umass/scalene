@@ -43,7 +43,7 @@ class ScaleneParseArgs:
         with contextlib.suppress(BaseException):
             from IPython import get_ipython
 
-            if get_ipython():
+            if get_ipython(): # type: ignore[no-untyped-call]
                 sys.exit = ScaleneParseArgs.clean_exit
                 sys._exit = ScaleneParseArgs.clean_exit  # type: ignore
         defaults = ScaleneArguments()

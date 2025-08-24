@@ -17,7 +17,7 @@ with contextlib.suppress(Exception):
     from scalene.scalene_parseargs import ScaleneParseArgs
 
     @magics_class
-    class ScaleneMagics(Magics): # type: ignore[no-any-unimported]
+    class ScaleneMagics(Magics): # type: ignore[no-any-unimported,unused-ignore]
         """IPython (Jupyter) support for magics for Scalene (%scrun and %%scalene)."""
 
         def run_code(self, args: ScaleneArguments, code: str) -> None:
@@ -26,7 +26,7 @@ with contextlib.suppress(Exception):
             # Create a file to hold the supplied code.
             # We encode the cell number in the string for later recovery.
             # The length of the history buffer lets us find the most recent string (this one).
-            filename = f"_ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile"
+            filename = f"_ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile"  # type: ignore[no-untyped-call]
             with open(filename, "w+") as tmpfile:
                 tmpfile.write(code)
             args.memory = False  # full Scalene is not yet working, force to not profile memory
