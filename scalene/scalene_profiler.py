@@ -1164,7 +1164,7 @@ class Scalene:
 
         # Check explicit exclude patterns
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
-        return not any(prof in filename for prof in profile_exclude_list if prof != ""):
+        return not any(prof in filename for prof in profile_exclude_list if prof != "")
 
     @staticmethod
     def _handle_jupyter_cell(filename: Filename) -> bool:
