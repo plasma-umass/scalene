@@ -1,4 +1,4 @@
-ame: tests
+name: linters
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
 
 
 jobs:
-  run-linters:
+  linters:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
