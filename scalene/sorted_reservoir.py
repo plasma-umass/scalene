@@ -1,6 +1,12 @@
 import math
 import random
-from typing import Any, Callable, List, Self
+import sys
+from typing import Any, Callable, List
+
+if sys.version_info < (3,11,0):
+    from typing_extensions import Self
+else:
+    from typing import Self
 
 
 class sorted_reservoir:
