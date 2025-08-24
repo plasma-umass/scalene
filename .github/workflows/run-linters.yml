@@ -11,7 +11,7 @@ on:
 
 
 jobs:
-  run-tests:
+  run-linters:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
