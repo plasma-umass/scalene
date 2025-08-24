@@ -112,7 +112,7 @@ class ScalenePreload:
         with contextlib.suppress(Exception):
             from IPython import get_ipython
 
-            if get_ipython(): # type: ignore[no-untyped-call]
+            if get_ipython(): # type: ignore[no-untyped-call,unused-ignore]
                 sys.exit = scalene.Scalene.clean_exit  # type: ignore
                 sys._exit = scalene.Scalene.clean_exit  # type: ignore
 

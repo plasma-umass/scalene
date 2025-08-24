@@ -1173,7 +1173,7 @@ class Scalene:
             import IPython
 
             if result := re.match(r"_ipython-input-([0-9]+)-.*", filename):
-                cell_contents = IPython.get_ipython().history_manager.input_hist_raw[  # type: ignore[no-untyped-call]
+                cell_contents = IPython.get_ipython().history_manager.input_hist_raw[  # type: ignore[no-untyped-call,unused-ignore]
                     int(result[1])
                 ]
                 with open(filename, "w+") as f:

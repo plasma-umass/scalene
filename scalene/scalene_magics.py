@@ -26,7 +26,7 @@ with contextlib.suppress(Exception):
             # Create a file to hold the supplied code.
             # We encode the cell number in the string for later recovery.
             # The length of the history buffer lets us find the most recent string (this one).
-            filename = f"_ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile"  # type: ignore[no-untyped-call]
+            filename = f"_ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile"  # type: ignore[no-untyped-call,unused-ignore]
             with open(filename, "w+") as tmpfile:
                 tmpfile.write(code)
             args.memory = False  # full Scalene is not yet working, force to not profile memory
