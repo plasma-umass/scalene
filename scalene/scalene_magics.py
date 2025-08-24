@@ -11,8 +11,9 @@ if TYPE_CHECKING:
         pass
 
     def line_cell_magic(func: F) -> F: ...  # type: ignore[override,unused-ignore]
-    def line_magic(func: F) -> F: ...       # type: ignore[override,unused-ignore]
+    def line_magic(func: F) -> F: ...  # type: ignore[override,unused-ignore]
     def magics_class(cls: type) -> type: ...  # type: ignore[override,unused-ignore]
+
 else:
     from IPython.core.magic import (
         Magics,
