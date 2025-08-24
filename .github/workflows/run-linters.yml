@@ -62,5 +62,5 @@ jobs:
     - name: Run linters
       run: |
         mypy scalene
-	ruff check scalene
-	
+        ruff check scalene
+        
