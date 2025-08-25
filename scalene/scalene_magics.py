@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     def line_magic(func: F) -> F: ...  # type: ignore[override,unused-ignore]
     def magics_class(cls: type) -> type: ...  # type: ignore[override,unused-ignore]
 
+
 with contextlib.suppress(Exception):
 
     from scalene import scalene_profiler
