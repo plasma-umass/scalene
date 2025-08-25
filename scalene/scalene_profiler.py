@@ -813,11 +813,11 @@ class Scalene:
     @functools.cache
     def get_line_info(
         fname: Filename,
-    ) -> Generator[Tuple[list[str], int], None, None]:
+    ) -> List[Tuple[list[str], int]]:
         line_info = (
             inspect.getsourcelines(fn) for fn in Scalene.__functions_to_profile[fname]
         )
-        return line_info
+        return list(line_info)
 
     @staticmethod
     def profile_this_code(fname: Filename, lineno: LineNumber) -> bool:
