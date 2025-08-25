@@ -4,9 +4,7 @@ import stat
 import sys
 
 
-def redirect_python(
-    preface: str, cmdline: str, python_alias_dir: pathlib.Path
-) -> str:
+def redirect_python(preface: str, cmdline: str, python_alias_dir: pathlib.Path) -> str:
     """
     Redirects Python calls to a different command with a preface and cmdline.
 

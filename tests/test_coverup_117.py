@@ -9,10 +9,11 @@ import socket
 from scalene.launchbrowser import CustomHandler, last_heartbeat
 import time
 
+
 @pytest.fixture(scope="module")
 def server():
     # Setup: start a simple HTTP server in a separate thread
-    httpd = http.server.HTTPServer(('localhost', 0), CustomHandler)
+    httpd = http.server.HTTPServer(("localhost", 0), CustomHandler)
     server_thread = threading.Thread(target=httpd.serve_forever)
     server_thread.daemon = True
     server_thread.start()
@@ -20,6 +21,7 @@ def server():
     # Teardown: stop the server
     httpd.shutdown()
     server_thread.join()
+
 
 def test_heartbeat(server):
     # Get the server address and port

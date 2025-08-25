@@ -5,6 +5,7 @@
 import pytest
 from scalene.runningstats import RunningStats
 
+
 def test_running_stats_variance():
     stats = RunningStats()
     stats.push(1.0)
@@ -13,6 +14,7 @@ def test_running_stats_variance():
     variance = stats.var()
     # Variance of [1.0, 2.0] is 0.5
     assert variance == 0.5, "Variance calculation is incorrect."
+
 
 def test_running_stats_variance_with_single_value():
     stats = RunningStats()

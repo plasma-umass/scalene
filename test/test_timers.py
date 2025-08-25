@@ -4,12 +4,15 @@ import time
 
 start = -1
 loop = 10
+
+
 def callback(*args):
     global loop
     global start
     print(time.perf_counter() - start)
     start = time.perf_counter()
     loop -= 1
+
 
 signal.signal(signal.SIGALRM, callback)
 

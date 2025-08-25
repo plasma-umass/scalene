@@ -5,6 +5,7 @@
 import pytest
 from scalene.scalene_profiler import Scalene
 
+
 # Test function to improve coverage for Scalene.remove_child_pid
 def test_remove_child_pid():
     # Setup: Add a pid to the child_pids set
@@ -19,6 +20,7 @@ def test_remove_child_pid():
     assert test_pid not in Scalene.child_pids
 
     # Cleanup: No cleanup needed as the pid was already removed
+
 
 # Test function to cover the case where the pid does not exist
 def test_remove_nonexistent_child_pid():

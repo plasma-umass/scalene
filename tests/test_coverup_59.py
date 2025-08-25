@@ -5,6 +5,7 @@
 import pytest
 from scalene.adaptive import Adaptive
 
+
 def test_adaptive_add():
     size = 8
     adaptive1 = Adaptive(size)
@@ -33,6 +34,7 @@ def test_adaptive_add():
         arr.sort()
         assert adaptive1.get()[i] == arr[1]  # Median
 
+
 def test_adaptive_iadd():
     size = 8
     adaptive1 = Adaptive(size)
@@ -58,6 +60,10 @@ def test_adaptive_iadd():
     # Check if the median was correctly calculated
     for i in range(size // 3):
         # Since we are adding the arrays before decimation, we need to calculate the median of the sums
-        arr = [i * 3 + (size - i * 3), i * 3 + 1 + (size - i * 3 - 1), i * 3 + 2 + (size - i * 3 - 2)]
+        arr = [
+            i * 3 + (size - i * 3),
+            i * 3 + 1 + (size - i * 3 - 1),
+            i * 3 + 2 + (size - i * 3 - 2),
+        ]
         arr.sort()
         assert adaptive1.get()[i] == arr[1]  # Median of the sums

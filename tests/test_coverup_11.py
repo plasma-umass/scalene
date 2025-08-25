@@ -5,11 +5,13 @@
 import pytest
 from scalene.runningstats import RunningStats
 
+
 @pytest.fixture
 def cleanup():
     # No cleanup needed for this test
     yield
     # No cleanup code required
+
 
 def test_runningstats_add(cleanup):
     rs1 = RunningStats()

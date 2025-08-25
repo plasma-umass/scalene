@@ -176,7 +176,7 @@ class Scalene:
     # Get the number of available CPUs (preferring `os.sched_getaffinity`, if available).
     __availableCPUs: int
     try:
-        __availableCPUs = len(os.sched_getaffinity(0))  # type: ignore
+        __availableCPUs = len(os.sched_getaffinity(0))  # type: ignore[unused-ignore,attr-defined]
     except AttributeError:
         cpu_count = os.cpu_count()
         __availableCPUs = cpu_count if cpu_count else 1
@@ -227,7 +227,7 @@ class Scalene:
 
     __args = ScaleneArguments()
     __signals = ScaleneSignals()
-    __signal_manager : ScaleneSignalManager[Any] = ScaleneSignalManager()
+    __signal_manager: ScaleneSignalManager[Any] = ScaleneSignalManager()
     __stats = ScaleneStatistics()
     __memory_profiler = ScaleneMemoryProfiler(__stats)
     __output = ScaleneOutput()
@@ -1038,7 +1038,6 @@ class Scalene:
         del is_thread_sleeping
         Scalene.__stats.cpu_stats.total_cpu_samples += total_time
 
-
     @staticmethod
     def alloc_sigqueue_processor(_x: Optional[List[int]]) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
@@ -1164,10 +1163,7 @@ class Scalene:
 
         # Check explicit exclude patterns
         profile_exclude_list = Scalene.__args.profile_exclude.split(",")
-        if any(prof in filename for prof in profile_exclude_list if prof != ""):
-            return False
-
-        return True
+        return not any(prof in filename for prof in profile_exclude_list if prof != "")
 
     @staticmethod
     def _handle_jupyter_cell(filename: Filename) -> bool:
@@ -1176,7 +1172,7 @@ class Scalene:
             import IPython
 
             if result := re.match(r"_ipython-input-([0-9]+)-.*", filename):
-                cell_contents = IPython.get_ipython().history_manager.input_hist_raw[
+                cell_contents = IPython.get_ipython().history_manager.input_hist_raw[  # type: ignore[no-untyped-call,unused-ignore]
                     int(result[1])
                 ]
                 with open(filename, "w+") as f:
@@ -1188,9 +1184,9 @@ class Scalene:
     def _passes_profile_only_rules(filename: Filename) -> bool:
         """Check if filename passes profile-only patterns."""
         profile_only_set = set(Scalene.__args.profile_only.split(","))
-        if profile_only_set and all(prof not in filename for prof in profile_only_set):
-            return False
-        return True
+        return not (
+            profile_only_set and all(prof not in filename for prof in profile_only_set)
+        )
 
     @staticmethod
     def _should_trace_by_location(filename: Filename) -> bool:

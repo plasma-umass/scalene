@@ -11,27 +11,28 @@ class TimeInfo:
     wallclock: float = 0.0
     sys: float = 0.0
     user: float = 0.0
-    
+
     # a – b  ➜  a.__sub__(b)
     def __sub__(self, other: "TimeInfo") -> "TimeInfo":
         if not isinstance(other, TimeInfo):
-            return NotImplemented         # keeps Python’s numeric‑model semantics
+            return NotImplemented  # keeps Python’s numeric‑model semantics
         return TimeInfo(
-            virtual   = self.virtual   - other.virtual,
-            wallclock = self.wallclock - other.wallclock,
-            sys       = self.sys       - other.sys,
-            user      = self.user      - other.user,
+            virtual=self.virtual - other.virtual,
+            wallclock=self.wallclock - other.wallclock,
+            sys=self.sys - other.sys,
+            user=self.user - other.user,
         )
-    
+
     # a -= b  ➜  a.__isub__(b)
     def __isub__(self, other: "TimeInfo") -> "TimeInfo":
         if not isinstance(other, TimeInfo):
             return NotImplemented
-        self.virtual   -= other.virtual
+        self.virtual -= other.virtual
         self.wallclock -= other.wallclock
-        self.sys       -= other.sys
-        self.user      -= other.user
+        self.sys -= other.sys
+        self.user -= other.user
         return self
+
 
 def get_times() -> Tuple[float, float]:
     if sys.platform != "win32":

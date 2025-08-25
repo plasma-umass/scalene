@@ -6,9 +6,10 @@ import pytest
 from scalene.scalene_utility import flamegraph_format
 from scalene.scalene_statistics import StackFrame, StackStats
 
+
 def test_flamegraph_format():
     stacks = {
-        (StackFrame('test_file.py', 'test_function', 1),): StackStats(1, 1.0, 0.5, 2)
+        (StackFrame("test_file.py", "test_function", 1),): StackStats(1, 1.0, 0.5, 2)
     }
     expected_output = "test_file.py test_function:1; 1\n"
     assert flamegraph_format(stacks) == expected_output

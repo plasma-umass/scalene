@@ -5,11 +5,13 @@
 import pytest
 from scalene.scalene_analysis import ScaleneAnalysis
 
+
 @pytest.fixture
 def cleanup():
     # Fixture to perform cleanup after tests
     yield
     # No cleanup actions needed for this test
+
 
 def test_find_outermost_loop_single_line(cleanup):
     src = "x = 1"

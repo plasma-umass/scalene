@@ -1,9 +1,10 @@
 import torch
 import math
 
+
 def torchtest():
     dtype = torch.float
-    #device = torch.device("cpu")
+    # device = torch.device("cpu")
     # device = torch.device("cuda:0")  # Uncomment this to run on GPU
     # device = torch.device("cuda")  # Uncomment this to run on GPU
     device = torch.device("mps")
@@ -28,7 +29,7 @@ def torchtest():
     learning_rate = 1e-6
     for t in range(2000):
         # Forward pass: compute predicted y using operations on Tensors.
-        y_pred = a + b * x + c * x ** 2 + d * x ** 3
+        y_pred = a + b * x + c * x**2 + d * x**3
 
         # Compute and print loss using operations on Tensors.
         # Now loss is a Tensor of shape (1,)
@@ -59,6 +60,7 @@ def torchtest():
             c.grad = None
             d.grad = None
 
-    print(f'Result: y = {a.item()} + {b.item()} x + {c.item()} x^2 + {d.item()} x^3')
+    print(f"Result: y = {a.item()} + {b.item()} x + {c.item()} x^2 + {d.item()} x^3")
+
 
 torchtest()

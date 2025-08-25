@@ -45,7 +45,7 @@ def test_generate__all_zeroes():
 
     result = sl.generate(numbers)
 
-    assert result == (0, 0, '')
+    assert result == (0, 0, "")
 
 
 def test_generate__with_negative_values():
@@ -53,7 +53,7 @@ def test_generate__with_negative_values():
 
     result = sl.generate(numbers)
 
-    assert result == (0.0, 8.0, '▂▃▄▁▆▁██')
+    assert result == (0.0, 8.0, "▂▃▄▁▆▁██")
 
 
 def test_generate__with_min():
@@ -61,7 +61,7 @@ def test_generate__with_min():
 
     result = sl.generate(numbers, minimum=0)
 
-    assert result == (0, 8.0, '▂▃▄▅▆▇██')
+    assert result == (0, 8.0, "▂▃▄▅▆▇██")
 
 
 def test_generate__with_max_same_as_actual_max():
@@ -69,7 +69,7 @@ def test_generate__with_max_same_as_actual_max():
 
     result = sl.generate(numbers, maximum=8)
 
-    assert result == (1.0, 8, '▁▂▃▄▅▆▇█')
+    assert result == (1.0, 8, "▁▂▃▄▅▆▇█")
 
 
 def test_generate__with_max_below_actual_max():
@@ -77,4 +77,4 @@ def test_generate__with_max_below_actual_max():
 
     result = sl.generate(numbers, maximum=6)
 
-    assert result == (1.0, 6, '▁▂▄▅▇███')
+    assert result == (1.0, 6, "▁▂▄▅▇███")

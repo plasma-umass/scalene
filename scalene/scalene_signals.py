@@ -5,14 +5,19 @@ from types import FrameType
 from typing import Callable, List, Optional, Tuple, Union
 
 
-if sys.version_info < (3,10,0):
-    # Note: not defined in 3.8
-    from typing_extensions import TypeAlias
-else:
+if sys.version_info >= (3, 10):
     from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
 
-SignumType : TypeAlias = Union[Callable[[signal.Signals, FrameType], None], int, signal.Handlers, None,]
+SignumType: TypeAlias = Union[
+    Callable[[signal.Signals, FrameType], None],
+    int,
+    signal.Handlers,
+    None,
+]
 SignalHandlerFunction: TypeAlias = Callable[[SignumType, Optional[FrameType]], None]
+
 
 class ScaleneSignals:
     """
@@ -22,8 +27,8 @@ class ScaleneSignals:
 
     def __init__(self) -> None:
         # Declare these here, then configure them.
-        self.cpu_signal : signal.Signals
-        self.cpu_timer_signal : int
+        self.cpu_signal: signal.Signals
+        self.cpu_timer_signal: int
         # Configure timer signals using set_timer_signals method (defined below).
         self.set_timer_signals(use_virtual_time=True)
         # Set profiling signals depending upon the platform.
@@ -50,7 +55,9 @@ class ScaleneSignals:
             If True, sets virtual timer signals, otherwise sets real timer signals.
         """
         if sys.platform == "win32":
-            self.cpu_timer_signal = signal.SIGBREAK # Note: on Windows, this is unused, so any signal will do
+            self.cpu_timer_signal = (
+                signal.SIGBREAK
+            )  # Note: on Windows, this is unused, so any signal will do
             self.cpu_signal = signal.SIGBREAK
             return
         if use_virtual_time:

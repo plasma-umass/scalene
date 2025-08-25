@@ -5,6 +5,7 @@
 import pytest
 from scalene.scalene_profiler import Scalene
 
+
 @pytest.fixture
 def scalene_cleanup():
     # Store original state
@@ -12,6 +13,7 @@ def scalene_cleanup():
     yield
     # Restore original state after test
     Scalene._Scalene__files_to_profile = original_files_to_profile
+
 
 def test_profile_this_code_without_files_to_profile(scalene_cleanup):
     # Ensure __files_to_profile is empty

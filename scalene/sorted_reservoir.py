@@ -3,10 +3,10 @@ import random
 import sys
 from typing import Any, Callable, List
 
-if sys.version_info < (3,11,0):
-    from typing_extensions import Self
-else:
+if sys.version_info >= (3, 11):
     from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class sorted_reservoir:

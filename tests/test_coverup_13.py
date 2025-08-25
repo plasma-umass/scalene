@@ -6,6 +6,7 @@ import pytest
 from typing import List, Optional, Tuple
 from scalene.sparkline import generate
 
+
 def test_generate_all_zeros():
     # Test with all zeros
     arr = [0, 0, 0]
@@ -13,6 +14,7 @@ def test_generate_all_zeros():
     assert min_val == 0
     assert max_val == 0
     assert sparkline_str == ""
+
 
 def test_generate_negative_values():
     # Test with negative values
@@ -23,11 +25,13 @@ def test_generate_negative_values():
     assert sparkline_str != ""
     # No need to assert on sparkline_str content as it's a graphical representation
 
+
 @pytest.fixture(autouse=True)
 def run_around_tests():
     # Setup code if needed
     yield
     # Teardown code if needed
+
 
 # Run the tests
 def test_generate():

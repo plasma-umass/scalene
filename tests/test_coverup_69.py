@@ -5,6 +5,7 @@
 import pytest
 from scalene.scalene_output import ScaleneOutput
 
+
 def test_scalene_output_attributes():
     # Test to ensure the attributes of ScaleneOutput are as expected
     assert ScaleneOutput.max_sparkline_len_file == 27

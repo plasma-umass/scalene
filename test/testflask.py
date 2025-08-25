@@ -4,6 +4,7 @@ app = Flask(__name__)
 
 cache = {}
 
+
 @app.route("/<page>")
 def index(page):
     if page not in cache:
@@ -13,4 +14,3 @@ def index(page):
 
 if __name__ == "__main__":
     app.run()
-    

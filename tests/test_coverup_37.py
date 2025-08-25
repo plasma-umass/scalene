@@ -8,6 +8,7 @@ from scalene.scalene_utility import add_stack
 from scalene.scalene_statistics import StackFrame, StackStats
 from types import FrameType
 
+
 def test_add_stack():
     frame = MagicMock(spec=FrameType)
     code = MagicMock()
@@ -21,7 +22,7 @@ def test_add_stack():
     should_trace_mock = lambda x, y: True
     stacks = {}
     add_stack(frame, should_trace_mock, stacks, 1.0, 0.5, 2)
-    expected_stack = StackFrame('test_file.py', 'test_function', 1)
+    expected_stack = StackFrame("test_file.py", "test_function", 1)
     expected_stats = StackStats(1, 1.0, 0.5, 2)
     assert str(stacks) == str({(expected_stack,): expected_stats})
 
@@ -29,6 +30,7 @@ def test_add_stack():
     add_stack(frame, should_trace_mock, stacks, 0.5, 0.25, 1)
     expected_stats = StackStats(2, 1.5, 0.75, 3)
     assert str(stacks) == str({(expected_stack,): expected_stats})
+
 
 # Run the test
 def test_run():

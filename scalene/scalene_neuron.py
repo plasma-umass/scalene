@@ -12,7 +12,6 @@ from scalene.scalene_accelerator import ScaleneAccelerator
 
 
 class NeuronMonitor:
-
     def __init__(self) -> None:
         self._config_path = self._generate_config()
         self._process = subprocess.Popen(
@@ -51,7 +50,9 @@ class NeuronMonitor:
                 }
             ],
         }
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+        temp_file = tempfile.NamedTemporaryFile(  # noqa: SIM115
+            delete=False, suffix=".json"
+        )
         with open(temp_file.name, "w") as file:
             json.dump(config, file)
         return temp_file.name
@@ -74,7 +75,6 @@ class NeuronMonitor:
 
 
 class ScaleneNeuron(ScaleneAccelerator):
-
     def __init__(self) -> None:
         self._gpu_device = ""
         self._neuron_monitor = None
@@ -93,7 +93,7 @@ class ScaleneNeuron(ScaleneAccelerator):
     def get_num_cores(self) -> int:
         return self.max_neuroncores_in_use
 
-    @cache # noqa: B019
+    @cache  # noqa: B019
     def has_gpu(self) -> bool:
         try:
             result = subprocess.run(

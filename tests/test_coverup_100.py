@@ -7,6 +7,7 @@ import pathlib
 import pytest
 from scalene.launchbrowser import read_file_content
 
+
 @pytest.fixture
 def temp_test_directory(tmp_path):
     # Create a temporary directory structure
@@ -17,6 +18,7 @@ def temp_test_directory(tmp_path):
     test_file = subdirectory / "test_file.txt"
     test_file.write_text("Test content")
     return str(directory), "sub_dir", "test_file.txt"
+
 
 def test_read_file_content(temp_test_directory):
     directory, subdirectory, filename = temp_test_directory

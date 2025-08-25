@@ -32,7 +32,7 @@ def fannkuch(n):
             flips_count = 0
             k = perm[0]
             while k:
-                perm[:k + 1] = perm[k::-1]
+                perm[: k + 1] = perm[k::-1]
                 flips_count += 1
                 k = perm[0]
 

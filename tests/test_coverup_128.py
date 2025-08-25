@@ -7,10 +7,12 @@ from scalene.scalene_output import ScaleneOutput
 from rich.console import Console
 from unittest.mock import MagicMock
 
+
 @pytest.fixture
 def console():
     console = Console(record=True)
     yield console
+
 
 def test_output_top_memory(console):
     scalene_output = ScaleneOutput()
@@ -25,7 +27,9 @@ def test_output_top_memory(console):
         70: 5.0,  # This one should not be printed (only top 5 are printed).
     }
     # Sort the mallocs dictionary by value in descending order to match the expected output
-    sorted_mallocs = dict(sorted(mallocs.items(), key=lambda item: item[1], reverse=True))
+    sorted_mallocs = dict(
+        sorted(mallocs.items(), key=lambda item: item[1], reverse=True)
+    )
     scalene_output.output_top_memory("Top Memory", console, sorted_mallocs)
     output = console.export_text()
     assert "Top Memory" in output

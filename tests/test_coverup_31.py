@@ -5,9 +5,11 @@
 import pytest
 from scalene.scalene_client_timer import ScaleneClientTimer
 
+
 @pytest.fixture
 def timer():
     return ScaleneClientTimer()
+
 
 def test_reset(timer):
     # Set attributes to non-default values

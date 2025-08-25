@@ -6,11 +6,13 @@ import time
 from scalene.scalene_statistics import ScaleneStatistics
 import pytest
 
+
 @pytest.fixture
 def scalene_statistics():
     stats = ScaleneStatistics()
     yield stats
     # No specific cleanup needed after the test
+
 
 def test_start_clock(scalene_statistics):
     before_time = time.time()

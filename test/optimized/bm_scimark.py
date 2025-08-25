@@ -10,7 +10,7 @@ class Array2D(object):
     def __init__(self, w, h, data=None):
         self.width = w
         self.height = h
-        self.data = array('d', [0]) * (w * h)
+        self.data = array("d", [0]) * (w * h)
         if data is not None:
             self.setup(data)
 
@@ -63,13 +63,13 @@ class Random(object):
         self.seed = seed
         seed = abs(seed)
         jseed = min(seed, self.m1)
-        if (jseed % 2 == 0):
+        if jseed % 2 == 0:
             jseed -= 1
         k0 = 9069 % self.m2
         k1 = 9069 / self.m2
         j0 = jseed % self.m2
         j1 = jseed / self.m2
-        self.m = array('d', [0]) * 17
+        self.m = array("d", [0]) * 17
         for iloop in xrange(17):
             jseed = j0 * k0
             j1 = (jseed / self.m2 + j0 * k1 + j1 * k0) % (self.m2 / 2)
@@ -81,23 +81,23 @@ class Random(object):
     def nextDouble(self):
         I, J, m = self.i, self.j, self.m
         k = m[I] - m[J]
-        if (k < 0):
+        if k < 0:
             k += self.m1
         self.m[J] = k
 
-        if (I == 0):
+        if I == 0:
             I = 16
         else:
             I -= 1
         self.i = I
 
-        if (J == 0):
+        if J == 0:
             J = 16
         else:
             J -= 1
         self.j = J
 
-        if (self.haveRange):
+        if self.haveRange:
             return self.left + self.dm1 * float(k) * self.width
         else:
             return self.dm1 * float(k)
@@ -108,12 +108,12 @@ class Random(object):
         return a
 
     def RandomVector(self, n):
-        return array('d', [self.nextDouble() for i in xrange(n)])
+        return array("d", [self.nextDouble() for i in xrange(n)])
 
 
 def copy_vector(vec):
     # Copy a vector created by Random.RandomVector()
-    vec2 = array('d')
+    vec2 = array("d")
     vec2[:] = vec[:]
     return vec2
 
@@ -123,7 +123,7 @@ class ArrayList(Array2D):
     def __init__(self, w, h, data=None):
         self.width = w
         self.height = h
-        self.data = [array('d', [0]) * w for y in xrange(h)]
+        self.data = [array("d", [0]) * w for y in xrange(h)]
         if data is not None:
             self.setup(data)
 
@@ -148,9 +148,12 @@ def SOR_execute(omega, G, cycles, Array):
     for p in xrange(cycles):
         for y in xrange(1, G.height - 1):
             for x in xrange(1, G.width - 1):
-                G[x, y] = (omega * 0.25 * (G[x, y - 1] + G[x, y + 1] + G[x - 1, y]
-                                           + G[x + 1, y])
-                           + (1.0 - omega) * G[x, y])
+                G[x, y] = (
+                    omega
+                    * 0.25
+                    * (G[x, y - 1] + G[x, y + 1] + G[x - 1, y] + G[x + 1, y])
+                    + (1.0 - omega) * G[x, y]
+                )
 
 
 def bench_SOR(loops, n, cycles, Array):
@@ -179,14 +182,14 @@ def SparseCompRow_matmult(M, y, val, row, col, x, num_iterations):
 
 
 def bench_SparseMatMult(cycles, N, nz):
-    x = array('d', [0]) * N
-    y = array('d', [0]) * N
+    x = array("d", [0]) * N
+    y = array("d", [0]) * N
 
     nr = nz // N
     anz = nr * N
-    val = array('d', [0]) * anz
-    col = array('i', [0]) * nz
-    row = array('i', [0]) * (N + 1)
+    val = array("d", [0]) * anz
+    col = array("i", [0]) * nz
+    row = array("i", [0]) * (N + 1)
 
     row[0] = 0
     for r in xrange(N):
@@ -261,7 +264,7 @@ def bench_LU(cycles, N):
     rnd = Random(7)
     A = rnd.RandomMatrix(ArrayList(N, N))
     lu = ArrayList(N, N)
-    pivot = array('i', [0]) * N
+    pivot = array("i", [0]) * N
     range_it = xrange(cycles)
     t0 = pyperf.perf_counter()
 
@@ -393,18 +396,23 @@ def add_cmdline_args(cmd, args):
 
 BENCHMARKS = {
     # function name => arguments
-    'sor': (bench_SOR, 100, 10, Array2D),
-    'sparse_mat_mult': (bench_SparseMatMult, 1000, 50 * 1000),
-    'monte_carlo': (bench_MonteCarlo, 100 * 1000,),
-    'lu': (bench_LU, 100,),
-    'fft': (bench_FFT, 1024, 50),
+    "sor": (bench_SOR, 100, 10, Array2D),
+    "sparse_mat_mult": (bench_SparseMatMult, 1000, 50 * 1000),
+    "monte_carlo": (
+        bench_MonteCarlo,
+        100 * 1000,
+    ),
+    "lu": (
+        bench_LU,
+        100,
+    ),
+    "fft": (bench_FFT, 1024, 50),
 }
 
 
 if __name__ == "__main__":
     runner = pyperf.Runner(add_cmdline_args=add_cmdline_args)
-    runner.argparser.add_argument("benchmark", nargs='?',
-                                  choices=sorted(BENCHMARKS))
+    runner.argparser.add_argument("benchmark", nargs="?", choices=sorted(BENCHMARKS))
 
     args = runner.parse_args()
     if args.benchmark:
@@ -413,7 +421,7 @@ if __name__ == "__main__":
         benchmarks = sorted(BENCHMARKS)
 
     for bench in benchmarks:
-        name = 'scimark_%s' % bench
+        name = "scimark_%s" % bench
         print(name)
         args = BENCHMARKS[bench]
         (args[0])(10, *args[1:])

@@ -1,5 +1,6 @@
 from decimal import *
 
+
 def exp(x):
     getcontext().prec += 2
     i, lasts, s, fact, num = 0, 0, 1, 1, 1
@@ -12,6 +13,7 @@ def exp(x):
     getcontext().prec -= 2
     print(+s)
     return +s
+
 
 import time
 
@@ -28,20 +30,22 @@ elapsed_original = time.time() - start
 
 print("Elapsed time, original (s):  ", elapsed_original)
 
+
 def exp_opt(x):
     getcontext().prec += 2
     i, lasts, s, fact, num = 0, 0, 1, 1, 1
-    nf = Decimal(1) ### = num / fact
+    nf = Decimal(1)  ### = num / fact
     while s != lasts:
         lasts = s
         i += 1
         # was: fact *= i
         # was: num *= x
-        nf *= (x / i) ### update nf to be num / fact
-        s += nf ### was: s += num / fact
+        nf *= x / i  ### update nf to be num / fact
+        s += nf  ### was: s += num / fact
     getcontext().prec -= 2
     print(+s)
     return +s
+
 
 start = time.time()
 
@@ -61,4 +65,3 @@ assert d2_orig == d2_opt
 assert d3_orig == d3_opt
 
 print("All equivalent? ", d1_orig == d1_opt and d2_orig == d2_opt and d3_orig == d3_opt)
-

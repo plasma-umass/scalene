@@ -8,6 +8,7 @@ import pytest
 from unittest.mock import patch
 from scalene.scalene_parseargs import ScaleneParseArgs
 
+
 # Define a test function to improve coverage
 @pytest.fixture
 def temp_script(tmp_path):
@@ -15,6 +16,7 @@ def temp_script(tmp_path):
     temp_script = tmp_path / "temp_script.py"
     temp_script.write_text("print('Hello, world!')")
     return temp_script
+
 
 def test_scalene_parseargs_full_coverage(temp_script):
     # Mock sys.argv to simulate command-line arguments
@@ -26,8 +28,7 @@ def test_scalene_parseargs_full_coverage(temp_script):
         "--some-arg",
     ]
 
-    with patch.object(sys, "argv", test_args), \
-         patch.object(sys, "exit") as mock_exit:
+    with patch.object(sys, "argv", test_args), patch.object(sys, "exit") as mock_exit:
         # Call the parse_args method to test the argument parsing
         args, left = ScaleneParseArgs.parse_args()
 

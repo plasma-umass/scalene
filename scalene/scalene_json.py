@@ -7,11 +7,25 @@ from collections import defaultdict
 from enum import Enum
 from operator import itemgetter
 from pathlib import Path
-from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt, PositiveInt, StrictBool, ValidationError, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    NonNegativeFloat,
+    NonNegativeInt,
+    PositiveInt,
+    StrictBool,
+    ValidationError,
+    model_validator,
+)
 from typing import Any, Callable, Dict, List, Optional
 
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
-from scalene.scalene_statistics import Filename, LineNumber, ScaleneStatistics, StackStats
+from scalene.scalene_statistics import (
+    Filename,
+    LineNumber,
+    ScaleneStatistics,
+    StackStats,
+)
 from scalene.scalene_analysis import ScaleneAnalysis
 
 
@@ -20,13 +34,14 @@ class GPUDevice(str, Enum):
     neuron = "Neuron"
     no_gpu = ""
 
+
 class FunctionDetail(BaseModel):
     line: str
     lineno: LineNumber
     memory_samples: List[List[Any]]
     n_avg_mb: NonNegativeFloat
     n_copy_mb_s: NonNegativeFloat
-    n_core_utilization : float = Field(..., ge=0, le=1)
+    n_core_utilization: float = Field(..., ge=0, le=1)
     cpu_samples_list: List[float]
     n_cpu_percent_c: float = Field(..., ge=0, le=100)
     n_cpu_percent_python: float = Field(..., ge=0, le=100)
@@ -44,16 +59,13 @@ class FunctionDetail(BaseModel):
     @model_validator(mode="after")
     def check_cpu_percentages(self) -> Any:
         total_cpu_usage = math.floor(
-            self.n_cpu_percent_c
-            + self.n_cpu_percent_python
-            + self.n_sys_percent
+            self.n_cpu_percent_c + self.n_cpu_percent_python + self.n_sys_percent
         )
         if total_cpu_usage > 100:
             raise ValueError(
                 f"The sum of n_cpu_percent_c, n_cpu_percent_python, and n_sys_percent must be <= 100 but is {total_cpu_usage}"
             )
         return self
-
 
     @model_validator(mode="after")
     def check_gpu_memory(self) -> Any:
@@ -66,27 +78,29 @@ class FunctionDetail(BaseModel):
     @model_validator(mode="after")
     def check_cpu_memory(self) -> Any:
         if self.n_avg_mb > self.n_peak_mb:
-            raise ValueError(
-                "n_avg_mb must be less than or equal to n_peak_mb"
-            )
+            raise ValueError("n_avg_mb must be less than or equal to n_peak_mb")
         return self
-    
+
+
 class LineDetail(FunctionDetail):
     start_outermost_loop: PositiveInt
     end_outermost_loop: PositiveInt
     start_region_line: PositiveInt
     end_region_line: PositiveInt
 
+
 class LeakInfo(BaseModel):
     likelihood: NonNegativeFloat
     velocity_mb_s: NonNegativeFloat
-    
+
+
 class FileDetail(BaseModel):
     functions: List[FunctionDetail]
     imports: List[str]
     leaks: Dict[str, LeakInfo]
     lines: List[LineDetail]
     percent_cpu_time: NonNegativeFloat
+
 
 class ScaleneJSONSchema(BaseModel):
     alloc_samples: NonNegativeInt
@@ -108,7 +122,7 @@ class ScaleneJSONSchema(BaseModel):
     program: str
     samples: List[List[NonNegativeFloat]]
     stacks: List[List[Any]]
-    
+
 
 class ScaleneJSON:
     @staticmethod
@@ -161,16 +175,12 @@ class ScaleneJSON:
         self.gpu = False
         self.gpu_device = ""
 
-    def compress_samples(
-        self, samples: List[Any], max_footprint: float
-    ) -> Any:
+    def compress_samples(self, samples: List[Any], max_footprint: float) -> Any:
         if len(samples) <= self.max_sparkline_samples:
             return samples
 
         new_samples = sorted(
-            random.sample(
-                list(map(tuple, samples)), self.max_sparkline_samples
-            )
+            random.sample(list(map(tuple, samples)), self.max_sparkline_samples)
         )
         return new_samples
 
@@ -253,15 +263,14 @@ class ScaleneJSON:
             if not stats.memory_stats.total_memory_malloc_samples
             else n_malloc_mb / stats.memory_stats.total_memory_malloc_samples
         )
-        n_python_fraction = (
-            0 if not n_malloc_mb else n_python_malloc_mb / n_malloc_mb
-        )
+        n_python_fraction = 0 if not n_malloc_mb else n_python_malloc_mb / n_malloc_mb
 
         # Average memory consumed by this line.
         n_avg_mb = (
             stats.memory_stats.memory_aggregate_footprint[fname][line_no]
             if n_mallocs == 0
-            else stats.memory_stats.memory_aggregate_footprint[fname][line_no] / n_mallocs
+            else stats.memory_stats.memory_aggregate_footprint[fname][line_no]
+            / n_mallocs
         )
 
         # Peak memory consumed by this line.
@@ -299,7 +308,9 @@ class ScaleneJSON:
         payload = {
             "line": line,
             "lineno": line_no,
-            "memory_samples": stats.memory_stats.per_line_footprint_samples[fname][line_no],
+            "memory_samples": stats.memory_stats.per_line_footprint_samples[fname][
+                line_no
+            ],
             "cpu_samples_list": stats.cpu_stats.cpu_samples_list[fname][line_no],
             "n_avg_mb": n_avg_mb,
             "n_copy_mb_s": n_copy_mb_s,
@@ -366,7 +377,8 @@ class ScaleneJSON:
         growth_rate = 0.0
         if profile_memory:
             stats.memory_stats.memory_footprint_samples = self.compress_samples(
-                stats.memory_stats.memory_footprint_samples, stats.memory_stats.max_footprint
+                stats.memory_stats.memory_footprint_samples,
+                stats.memory_stats.max_footprint,
             )
 
             # Compute growth rate (slope), between 0 and 1.
@@ -405,7 +417,7 @@ class ScaleneJSON:
                 "count": stack_stats.count,
                 "python_time": stack_stats.python_time,
                 "c_time": stack_stats.c_time,
-                "cpu_samples": stack_stats.cpu_samples
+                "cpu_samples": stack_stats.cpu_samples,
             }
             stks.append((this_stk, stack_stats_dict))
 
@@ -422,10 +434,14 @@ class ScaleneJSON:
             "max_footprint_mb": stats.memory_stats.max_footprint,
             "max_footprint_python_fraction": stats.memory_stats.max_footprint_python_fraction,
             "max_footprint_fname": (
-                stats.memory_stats.max_footprint_loc[0] if stats.memory_stats.max_footprint_loc else None
+                stats.memory_stats.max_footprint_loc[0]
+                if stats.memory_stats.max_footprint_loc
+                else None
             ),
             "max_footprint_lineno": (
-                stats.memory_stats.max_footprint_loc[1] if stats.memory_stats.max_footprint_loc else None
+                stats.memory_stats.max_footprint_loc[1]
+                if stats.memory_stats.max_footprint_loc
+                else None
             ),
             "files": {},
             "gpu": self.gpu,
@@ -455,7 +471,8 @@ class ScaleneJSON:
 
             # Ignore files responsible for less than some percent of execution time and fewer than a threshold # of mallocs.
             if (
-                sum(stats.memory_stats.memory_malloc_samples[fname].values()) < self.malloc_threshold
+                sum(stats.memory_stats.memory_malloc_samples[fname].values())
+                < self.malloc_threshold
                 and percent_cpu_time < self.cpu_percent_threshold
             ):
                 continue
@@ -487,7 +504,9 @@ class ScaleneJSON:
             # First, compute AVERAGE memory consumption.
             avg_mallocs: Dict[LineNumber, float] = defaultdict(float)
             for line_no in stats.memory_stats.memory_malloc_count[fname]:
-                n_malloc_mb = stats.memory_stats.memory_aggregate_footprint[fname][line_no]
+                n_malloc_mb = stats.memory_stats.memory_aggregate_footprint[fname][
+                    line_no
+                ]
                 count = stats.memory_stats.memory_malloc_count[fname][line_no]
                 if count:
                     avg_mallocs[line_no] = n_malloc_mb / count
@@ -521,7 +540,9 @@ class ScaleneJSON:
                 percent_cpu_time = 0
             else:
                 percent_cpu_time = (
-                    100 * stats.cpu_stats.cpu_samples[fname] / stats.cpu_stats.total_cpu_samples
+                    100
+                    * stats.cpu_stats.cpu_samples[fname]
+                    / stats.cpu_stats.total_cpu_samples
                 )
 
             # Print out the the profile for the source, line by line.
@@ -563,15 +584,9 @@ class ScaleneJSON:
                     force_print=False,
                 )
                 if profile_line:
-                    profile_line["start_region_line"] = enclosing_regions[
-                        lineno
-                    ][0]
-                    profile_line["end_region_line"] = enclosing_regions[
-                        lineno
-                    ][1]
-                    profile_line["start_outermost_loop"] = outer_loop[lineno][
-                        0
-                    ]
+                    profile_line["start_region_line"] = enclosing_regions[lineno][0]
+                    profile_line["end_region_line"] = enclosing_regions[lineno][1]
+                    profile_line["start_outermost_loop"] = outer_loop[lineno][0]
                     profile_line["end_outermost_loop"] = outer_loop[lineno][1]
 
                     try:
@@ -579,7 +594,7 @@ class ScaleneJSON:
                     except ValidationError as e:
                         print("Warning: JSON failed validation:")
                         print(e)
-                    
+
                     # When reduced-profile set, only output if the payload for the line is non-zero.
                     if reduced_profile:
                         profile_line_copy = copy.copy(profile_line)
@@ -623,9 +638,7 @@ class ScaleneJSON:
                     if profile_line:
                         # Fix the line number to point to the first line of the function.
                         profile_line["lineno"] = stats.firstline_map[fn_name]
-                        output["files"][fname_print]["functions"].append(
-                            profile_line
-                        )
+                        output["files"][fname_print]["functions"].append(profile_line)
 
         # Validate the schema
         try:

@@ -9,12 +9,14 @@ from unittest.mock import patch
 import pytest
 import scalene.scalene_preload
 
+
 @pytest.fixture
 def args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--allocation_sampling_window', type=int, default=1)
-    parser.add_argument('--memory', action='store_true')
+    parser.add_argument("--allocation_sampling_window", type=int, default=1)
+    parser.add_argument("--memory", action="store_true")
     return parser.parse_args([])
+
 
 @pytest.fixture
 def clean_environ():
@@ -22,34 +24,38 @@ def clean_environ():
     yield
     os.environ = original_environ
 
+
 def test_get_preload_environ_darwin_memory(args, clean_environ):
-    
+
     args.memory = True
-    with patch.object(sys, 'platform', 'darwin'):
+    with patch.object(sys, "platform", "darwin"):
         env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args)
-        assert 'DYLD_INSERT_LIBRARIES' in env
-        assert 'libscalene.dylib' in env['DYLD_INSERT_LIBRARIES']
-        assert env['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] == 'YES'
+        assert "DYLD_INSERT_LIBRARIES" in env
+        assert "libscalene.dylib" in env["DYLD_INSERT_LIBRARIES"]
+        assert env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] == "YES"
+
 
 def test_get_preload_environ_linux_memory(args, clean_environ):
-    
+
     args.memory = True
-    with patch.object(sys, 'platform', 'linux'):
-        with patch.dict('os.environ', {'PYTHONMALLOC': 'malloc'}):
+    with patch.object(sys, "platform", "linux"):
+        with patch.dict("os.environ", {"PYTHONMALLOC": "malloc"}):
             env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args)
-            assert 'LD_PRELOAD' in env
-            assert 'libscalene.so' in env['LD_PRELOAD']
-            assert env['PYTHONMALLOC'] == 'default'
+            assert "LD_PRELOAD" in env
+            assert "libscalene.so" in env["LD_PRELOAD"]
+            assert env["PYTHONMALLOC"] == "default"
+
 
 def test_get_preload_environ_linux_no_memory(args, clean_environ):
-    
+
     args.memory = False
-    with patch.object(sys, 'platform', 'linux'):
+    with patch.object(sys, "platform", "linux"):
         env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args)
-        assert 'LD_PRELOAD' not in env
+        assert "LD_PRELOAD" not in env
+
 
 def test_get_preload_environ_win32(args, clean_environ):
-    
-    with patch.object(sys, 'platform', 'win32'):
+
+    with patch.object(sys, "platform", "win32"):
         env = scalene.scalene_preload.ScalenePreload.get_preload_environ(args)
         assert args.memory is False

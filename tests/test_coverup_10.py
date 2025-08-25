@@ -11,6 +11,7 @@ from scalene.scalene_profiler import Scalene
 # Assuming the Scalene class is defined as shown in the snippet above
 # and that it has the necessary static methods and attributes.
 
+
 @pytest.fixture
 def scalene_cleanup():
     # Fixture to clean up any state after tests
@@ -19,18 +20,25 @@ def scalene_cleanup():
     for sig in Scalene.__signals.get_all_signals():
         signal.signal(sig, signal.SIG_DFL)
 
-@pytest.mark.skipif(sys.platform != "win32", reason="Test only applicable to win32 platform")
+
+@pytest.mark.skipif(
+    sys.platform != "win32", reason="Test only applicable to win32 platform"
+)
 def test_enable_signals_win32(scalene_cleanup):
     # Mock the necessary static methods and attributes
-    Scalene.__signals = type('Signals', (), {
-        'malloc_signal': signal.SIGINT,
-        'free_signal': signal.SIGINT,
-        'memcpy_signal': signal.SIGINT,
-        'cpu_signal': signal.SIGINT,
-        'cpu_timer_signal': signal.ITIMER_REAL,
-        'get_all_signals': staticmethod(lambda: [signal.SIGINT]),
-    })
-    Scalene.__args = type('Args', (), {'cpu_sampling_rate': 0.01})
+    Scalene.__signals = type(
+        "Signals",
+        (),
+        {
+            "malloc_signal": signal.SIGINT,
+            "free_signal": signal.SIGINT,
+            "memcpy_signal": signal.SIGINT,
+            "cpu_signal": signal.SIGINT,
+            "cpu_timer_signal": signal.ITIMER_REAL,
+            "get_all_signals": staticmethod(lambda: [signal.SIGINT]),
+        },
+    )
+    Scalene.__args = type("Args", (), {"cpu_sampling_rate": 0.01})
     Scalene.__orig_signal = staticmethod(signal.signal)
     Scalene.__orig_siginterrupt = staticmethod(signal.siginterrupt)
     Scalene.__orig_setitimer = staticmethod(signal.setitimer)

@@ -10,12 +10,14 @@ import stat
 import sys
 from scalene.redirect_python import redirect_python
 
+
 @pytest.fixture
 def python_alias_dir(tmp_path):
     # Create a temporary directory for the test
     dir = tmp_path / "python_alias"
     dir.mkdir()
     return dir
+
 
 def test_redirect_python(python_alias_dir):
     preface = "echo"

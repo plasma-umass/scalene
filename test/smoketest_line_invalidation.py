@@ -1,9 +1,9 @@
 """
-This is bound very closely to the current implementation of 
-the tests in `test/line_attribution_tests. 
+This is bound very closely to the current implementation of
+the tests in `test/line_attribution_tests.
 
 The two things that matter are the number of loops, the size
-of the allocations, and the exact line numbers. 
+of the allocations, and the exact line numbers.
 
 
 """
@@ -31,7 +31,7 @@ OUT_OF_LOOP_ALLOC_LINENO = 8
 def check_for_changes():
     errors = []
     for fname, expected_sum in expected_md5_sums.items():
-        with open( fname, "rb") as f:
+        with open(fname, "rb") as f:
             digest = md5(f.read()).hexdigest()
         if digest != expected_sum:
             errors.append(fname)
