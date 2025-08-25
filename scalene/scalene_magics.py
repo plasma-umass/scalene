@@ -14,20 +14,20 @@ if TYPE_CHECKING:
     def line_magic(func: F) -> F: ...  # type: ignore[override,unused-ignore]
     def magics_class(cls: type) -> type: ...  # type: ignore[override,unused-ignore]
 
-else:
-    from IPython.core.magic import (
-        Magics,
-        line_cell_magic,
-        line_magic,
-        magics_class,
-    )
-
-
 with contextlib.suppress(Exception):
 
     from scalene import scalene_profiler
     from scalene.scalene_arguments import ScaleneArguments
     from scalene.scalene_parseargs import ScaleneParseArgs
+
+    if not TYPE_CHECKING:
+        with contextlib.suppress(Exception):
+            from IPython.core.magic import (
+                Magics,
+                line_cell_magic,
+                line_magic,
+                magics_class,
+            )
 
     @magics_class
     class ScaleneMagics(Magics):  # type: ignore[no-any-unimported,unused-ignore]
