@@ -6,6 +6,7 @@ import os
 import pytest
 from scalene.scalene_utility import generate_html
 
+
 @pytest.fixture
 def cleanup_files():
     created_files = []
@@ -14,12 +15,13 @@ def cleanup_files():
         if os.path.exists(file):
             os.remove(file)
 
+
 def test_generate_html(cleanup_files):
     # Create a temporary profile file with some content
     profile_fname = "temp_profile.prof"
     output_fname = "temp_output.html"
     cleanup_files.extend([profile_fname, output_fname])
-    
+
     with open(profile_fname, "w") as f:
         f.write("profile content")
 

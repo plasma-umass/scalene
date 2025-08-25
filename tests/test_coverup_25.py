@@ -5,9 +5,11 @@
 import pytest
 from scalene.scalene_client_timer import ScaleneClientTimer
 
+
 @pytest.fixture
 def timer():
     return ScaleneClientTimer()
+
 
 def test_set_itimer(timer):
     seconds = 1.0

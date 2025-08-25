@@ -1,10 +1,12 @@
 import gevent
 
+
 def calc(a):
     x = 0
     for i in range(1000000):
         x += 1
     gevent.sleep(a)
+
 
 g1 = gevent.spawn(calc, 1)
 g2 = gevent.spawn(calc, 2)

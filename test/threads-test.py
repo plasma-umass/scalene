@@ -15,7 +15,9 @@ try:
     builtins.profile
 except AttributeError:
     # No line profiler, provide a pass-through version
-    def profile(func): return func
+    def profile(func):
+        return func
+
     builtins.profile = profile
 
 
@@ -23,7 +25,7 @@ class MyThread(threading.Thread):
     @profile
     def run(self):
         z = 0
-        z = np.random.uniform(0,100,size=2 * 5000);
+        z = np.random.uniform(0, 100, size=2 * 5000)
         # print("thread1")
 
 
@@ -34,7 +36,7 @@ class MyThread2(threading.Thread):
         for i in range(5000 // 2):
             z += 1
         # print("thread2")
-            
+
 
 use_threads = True
 # use_threads = False
@@ -52,4 +54,3 @@ else:
     t1.run()
     t2 = MyThread2()
     t2.run()
-        

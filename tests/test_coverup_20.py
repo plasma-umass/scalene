@@ -8,17 +8,22 @@ import tempfile
 from scalene.launchbrowser import generate_html
 from unittest.mock import patch
 
+
 @pytest.fixture
 def mock_environment():
     with patch("scalene.launchbrowser.Environment") as mock_env:
-        mock_env.return_value.get_template.return_value.render.return_value = "rendered content"
+        mock_env.return_value.get_template.return_value.render.return_value = (
+            "rendered content"
+        )
         yield mock_env
+
 
 @pytest.fixture
 def mock_read_file_content():
     with patch("scalene.launchbrowser.read_file_content") as mock_read:
         mock_read.return_value = "file content"
         yield mock_read
+
 
 def test_generate_html_file_not_found(mock_environment, mock_read_file_content):
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -27,6 +32,7 @@ def test_generate_html_file_not_found(mock_environment, mock_read_file_content):
         with pytest.raises(AssertionError):
             generate_html(profile_fname, output_fname)
         assert not os.path.exists(output_fname)
+
 
 def test_generate_html_success(mock_environment, mock_read_file_content):
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -40,6 +46,7 @@ def test_generate_html_success(mock_environment, mock_read_file_content):
         with open(output_fname, "r") as f:
             content = f.read()
         assert content == "rendered content"
+
 
 def test_generate_html_os_error(mock_environment, mock_read_file_content):
     with tempfile.TemporaryDirectory() as tmpdirname:

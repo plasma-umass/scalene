@@ -5,10 +5,12 @@ import signal
 from time import sleep
 import threading
 
+
 def do_very_little():
     sleep(1)
     print("In subprocess")
     print(threading.enumerate())
+
 
 if __name__ == "__main__":
     print("Starting")

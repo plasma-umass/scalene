@@ -30,10 +30,10 @@ class Vector(object):
         self.z = initz
 
     def __str__(self):
-        return '(%s,%s,%s)' % (self.x, self.y, self.z)
+        return "(%s,%s,%s)" % (self.x, self.y, self.z)
 
     def __repr__(self):
-        return 'Vector(%s,%s,%s)' % (self.x, self.y, self.z)
+        return "Vector(%s,%s,%s)" % (self.x, self.y, self.z)
 
     def magnitude(self):
         return math.sqrt(self.dot(self))
@@ -57,9 +57,11 @@ class Vector(object):
 
     def cross(self, other):
         other.mustBeVector()
-        return Vector(self.y * other.z - self.z * other.y,
-                      self.z * other.x - self.x * other.z,
-                      self.x * other.y - self.y * other.x)
+        return Vector(
+            self.y * other.z - self.z * other.y,
+            self.z * other.x - self.x * other.z,
+            self.x * other.y - self.y * other.x,
+        )
 
     def normalized(self):
         return self.scale(1.0 / self.magnitude())
@@ -80,7 +82,7 @@ class Vector(object):
         return self
 
     def mustBePoint(self):
-        raise 'Vectors are not points!'
+        raise "Vectors are not points!"
 
     def reflectThrough(self, normal):
         d = normal.scale(self.dot(normal))
@@ -104,10 +106,10 @@ class Point(object):
         self.z = initz
 
     def __str__(self):
-        return '(%s,%s,%s)' % (self.x, self.y, self.z)
+        return "(%s,%s,%s)" % (self.x, self.y, self.z)
 
     def __repr__(self):
-        return 'Point(%s,%s,%s)' % (self.x, self.y, self.z)
+        return "Point(%s,%s,%s)" % (self.x, self.y, self.z)
 
     def __add__(self, other):
         other.mustBeVector()
@@ -126,7 +128,7 @@ class Point(object):
         return True
 
     def mustBeVector(self):
-        raise 'Points are not vectors!'
+        raise "Points are not vectors!"
 
     def mustBePoint(self):
         return self
@@ -140,7 +142,7 @@ class Sphere(object):
         self.radius = radius
 
     def __repr__(self):
-        return 'Sphere(%s,%s)' % (repr(self.centre), self.radius)
+        return "Sphere(%s,%s)" % (repr(self.centre), self.radius)
 
     def intersectionTime(self, ray):
         cp = self.centre - ray.point
@@ -162,7 +164,7 @@ class Halfspace(object):
         self.normal = normal.normalized()
 
     def __repr__(self):
-        return 'Halfspace(%s,%s)' % (repr(self.point), repr(self.normal))
+        return "Halfspace(%s,%s)" % (repr(self.point), repr(self.normal))
 
     def intersectionTime(self, ray):
         v = ray.vector.dot(self.normal)
@@ -182,7 +184,7 @@ class Ray(object):
         self.vector = vector.normalized()
 
     def __repr__(self):
-        return 'Ray(%s,%s)' % (repr(self.point), repr(self.vector))
+        return "Ray(%s,%s)" % (repr(self.point), repr(self.vector))
 
     def pointAtTime(self, t):
         return self.point + self.vector.scale(t)
@@ -194,7 +196,7 @@ Point.ZERO = Point(0, 0, 0)
 class Canvas(object):
 
     def __init__(self, width, height):
-        self.bytes = array.array('B', [0] * (width * height * 3))
+        self.bytes = array.array("B", [0] * (width * height * 3))
         for i in range(width * height):
             self.bytes[i * 3 + 2] = 255
         self.width = width
@@ -207,9 +209,9 @@ class Canvas(object):
         self.bytes[i + 2] = max(0, min(255, int(b * 255)))
 
     def write_ppm(self, filename):
-        header = 'P6 %d %d 255\n' % (self.width, self.height)
+        header = "P6 %d %d 255\n" % (self.width, self.height)
         with open(filename, "wb") as fp:
-            fp.write(header.encode('ascii'))
+            fp.write(header.encode("ascii"))
             fp.write(self.bytes.tobytes())
 
 
@@ -271,8 +273,7 @@ class Scene(object):
             return (0, 0, 0)
         try:
             self.recursionDepth = self.recursionDepth + 1
-            intersections = [(o, o.intersectionTime(ray), s)
-                             for (o, s) in self.objects]
+            intersections = [(o, o.intersectionTime(ray), s) for (o, s) in self.objects]
             i = firstIntersection(intersections)
             if i is None:
                 return (0, 0, 0)  # the background colour
@@ -284,7 +285,7 @@ class Scene(object):
             self.recursionDepth = self.recursionDepth - 1
 
     def _lightIsVisible(self, l, p):
-        for (o, s) in self.objects:
+        for o, s in self.objects:
             t = o.intersectionTime(Ray(p, l - p))
             if t is not None and t > EPSILON:
                 return False
@@ -299,18 +300,18 @@ class Scene(object):
 
 
 def addColours(a, scale, b):
-    return (a[0] + scale * b[0],
-            a[1] + scale * b[1],
-            a[2] + scale * b[2])
+    return (a[0] + scale * b[0], a[1] + scale * b[1], a[2] + scale * b[2])
 
 
 class SimpleSurface(object):
 
     def __init__(self, **kwargs):
-        self.baseColour = kwargs.get('baseColour', (1, 1, 1))
-        self.specularCoefficient = kwargs.get('specularCoefficient', 0.2)
-        self.lambertCoefficient = kwargs.get('lambertCoefficient', 0.6)
-        self.ambientCoefficient = 1.0 - self.specularCoefficient - self.lambertCoefficient
+        self.baseColour = kwargs.get("baseColour", (1, 1, 1))
+        self.specularCoefficient = kwargs.get("specularCoefficient", 0.2)
+        self.lambertCoefficient = kwargs.get("lambertCoefficient", 0.6)
+        self.ambientCoefficient = (
+            1.0 - self.specularCoefficient - self.lambertCoefficient
+        )
 
     def baseColourAt(self, p):
         return self.baseColour
@@ -343,15 +344,13 @@ class CheckerboardSurface(SimpleSurface):
 
     def __init__(self, **kwargs):
         SimpleSurface.__init__(self, **kwargs)
-        self.otherColour = kwargs.get('otherColour', (0, 0, 0))
-        self.checkSize = kwargs.get('checkSize', 1)
+        self.otherColour = kwargs.get("otherColour", (0, 0, 0))
+        self.checkSize = kwargs.get("checkSize", 1)
 
     def baseColourAt(self, p):
         v = p - Point.ZERO
         v.scale(1.0 / self.checkSize)
-        if ((int(abs(v.x) + 0.5)
-             + int(abs(v.y) + 0.5)
-             + int(abs(v.z) + 0.5)) % 2):
+        if (int(abs(v.x) + 0.5) + int(abs(v.y) + 0.5) + int(abs(v.z) + 0.5)) % 2:
             return self.otherColour
         else:
             return self.baseColour
@@ -367,13 +366,13 @@ def bench_raytrace(loops, width, height, filename):
         s.addLight(Point(30, 30, 10))
         s.addLight(Point(-10, 100, 30))
         s.lookAt(Point(0, 3, 0))
-        s.addObject(Sphere(Point(1, 3, -10), 2),
-                    SimpleSurface(baseColour=(1, 1, 0)))
+        s.addObject(Sphere(Point(1, 3, -10), 2), SimpleSurface(baseColour=(1, 1, 0)))
         for y in range(6):
-            s.addObject(Sphere(Point(-3 - y * 0.4, 2.3, -5), 0.4),
-                        SimpleSurface(baseColour=(y / 6.0, 1 - y / 6.0, 0.5)))
-        s.addObject(Halfspace(Point(0, 0, 0), Vector.UP),
-                    CheckerboardSurface())
+            s.addObject(
+                Sphere(Point(-3 - y * 0.4, 2.3, -5), 0.4),
+                SimpleSurface(baseColour=(y / 6.0, 1 - y / 6.0, 0.5)),
+            )
+        s.addObject(Halfspace(Point(0, 0, 0), Vector.UP), CheckerboardSurface())
         s.render(canvas)
 
     dt = pyperf.perf_counter() - t0
@@ -393,14 +392,21 @@ def add_cmdline_args(cmd, args):
 if __name__ == "__main__":
     # runner = pyperf.Runner(add_cmdline_args=add_cmdline_args)
     cmd = argparse.ArgumentParser()
-    cmd.add_argument("--width",
-                     type=int, default=DEFAULT_WIDTH,
-                     help="Image width (default: %s)" % DEFAULT_WIDTH)
-    cmd.add_argument("--height",
-                     type=int, default=DEFAULT_HEIGHT,
-                     help="Image height (default: %s)" % DEFAULT_HEIGHT)
-    cmd.add_argument("--filename", metavar="FILENAME.PPM",
-                     help="Output filename of the PPM picture")
+    cmd.add_argument(
+        "--width",
+        type=int,
+        default=DEFAULT_WIDTH,
+        help="Image width (default: %s)" % DEFAULT_WIDTH,
+    )
+    cmd.add_argument(
+        "--height",
+        type=int,
+        default=DEFAULT_HEIGHT,
+        help="Image height (default: %s)" % DEFAULT_HEIGHT,
+    )
+    cmd.add_argument(
+        "--filename", metavar="FILENAME.PPM", help="Output filename of the PPM picture"
+    )
     args = cmd.parse_args()
     start_p = perf_counter()
     bench_raytrace(25, args.width, args.height, args.filename)

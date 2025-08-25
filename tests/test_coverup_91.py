@@ -6,6 +6,7 @@ import pytest
 from unittest.mock import MagicMock
 from scalene.scalene_profiler import Scalene
 
+
 def test_scalene_shim():
     # Create a mock function to be decorated
     mock_func = MagicMock()
@@ -26,6 +27,7 @@ def test_scalene_shim():
     # Clean up by deleting the mock function
     del mock_func
     del decorated_func
+
 
 # Run the test
 def test_scalene_shim_coverage():

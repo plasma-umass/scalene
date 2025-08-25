@@ -8,6 +8,7 @@ import socketserver
 import subprocess
 import sys
 import tempfile
+import threading
 import webbrowser
 
 
@@ -15,8 +16,105 @@ from jinja2 import Environment, FileSystemLoader
 from types import BuiltinFunctionType, FrameType, FunctionType, ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
-from scalene.scalene_statistics import Filename, LineNumber, StackFrame, StackStats
+from scalene.scalene_statistics import (
+    Filename,
+    LineNumber,
+    StackFrame,
+    StackStats,
+    ScaleneStatistics,
+)
 from scalene.scalene_config import scalene_version, scalene_date
+
+
+def enter_function_meta(
+    frame: FrameType,
+    should_trace: Callable[[Filename, str], bool],
+    stats: ScaleneStatistics,
+) -> None:
+    """Update tracking info so we can correctly report line number info later."""
+    fname = Filename(frame.f_code.co_filename)
+    lineno = LineNumber(frame.f_lineno)
+
+    f = frame
+    try:
+        while "<" in Filename(f.f_code.co_name):
+            f = cast(FrameType, f.f_back)
+            # Handle case where the function with the name wrapped
+            # in triangle brackets is at the bottom of the stack
+            if f is None:
+                return
+    except Exception:
+        return
+    if not should_trace(Filename(f.f_code.co_filename), f.f_code.co_name):
+        return
+
+    fn_name = get_fully_qualified_name(f)
+    firstline = f.f_code.co_firstlineno
+
+    stats.function_map[fname][lineno] = fn_name
+    stats.firstline_map[fn_name] = LineNumber(firstline)
+
+
+def compute_frames_to_record(
+    should_trace: Callable[[Filename, str], bool],
+) -> List[Tuple[FrameType, int, FrameType]]:
+    """Collect all stack frames that Scalene actually processes.
+    Returns final frame (up to a line in a file we are profiling), the
+    thread identifier, and the original frame.
+    """
+    frames: List[Tuple[FrameType, int]] = [
+        (
+            cast(
+                FrameType,
+                sys._current_frames().get(cast(int, t.ident), None),
+            ),
+            cast(int, t.ident),
+        )
+        for t in threading.enumerate()
+        if t != threading.main_thread()
+    ]
+    # Put the main thread in the front.
+
+    tid = cast(int, threading.main_thread().ident)
+    frames.insert(
+        0,
+        (
+            sys._current_frames().get(tid, cast(FrameType, None)),
+            tid,
+        ),
+    )
+    # Process all the frames to remove ones we aren't going to track.
+    new_frames: List[Tuple[FrameType, int, FrameType]] = []
+    for frame, tident in frames:
+        orig_frame = frame
+        if not frame:
+            continue
+        fname = frame.f_code.co_filename
+        func = frame.f_code.co_name
+        # Record samples only for files we care about.
+        if not fname:
+            # 'eval/compile' gives no f_code.co_filename.  We have
+            # to look back into the outer frame in order to check
+            # the co_filename.
+            back = cast(FrameType, frame.f_back)
+            fname = Filename(back.f_code.co_filename)
+            func = back.f_code.co_name
+        while not should_trace(Filename(fname), func):
+            # Walk the stack backwards until we hit a frame that
+            # IS one we should trace (if there is one).  i.e., if
+            # it's in the code being profiled, and it is just
+            # calling stuff deep in libraries.
+            if frame:
+                frame = cast(FrameType, frame.f_back)
+            else:
+                break
+            if frame:
+                fname = frame.f_code.co_filename
+                func = frame.f_code.co_name
+        if frame:
+            new_frames.append((frame, tident, orig_frame))
+    del frames[:]
+    return new_frames
 
 
 def add_stack(
@@ -32,11 +130,14 @@ def add_stack(
     f: Optional[FrameType] = frame
     while f:
         if should_trace(Filename(f.f_code.co_filename), f.f_code.co_name):
-            stk.insert(0, StackFrame(
-                filename=str(f.f_code.co_filename),
-                function_name=str(get_fully_qualified_name(f)),
-                line_number=int(f.f_lineno)
-            ))
+            stk.insert(
+                0,
+                StackFrame(
+                    filename=str(f.f_code.co_filename),
+                    function_name=str(get_fully_qualified_name(f)),
+                    line_number=int(f.f_lineno),
+                ),
+            )
         f = f.f_back
     stack_tuple = tuple(stk)
     if stack_tuple not in stacks:
@@ -47,7 +148,7 @@ def add_stack(
             prev_stats.count + 1,
             prev_stats.python_time + python_time,
             prev_stats.c_time + c_time,
-            prev_stats.cpu_samples + cpu_samples
+            prev_stats.cpu_samples + cpu_samples,
         )
 
 
@@ -71,8 +172,7 @@ def on_stack(
 
 def get_fully_qualified_name(frame: FrameType) -> Filename:
     # Obtain the fully-qualified name.
-    version = sys.version_info
-    if version.major >= 3 and version.minor >= 11:
+    if sys.version_info >= (3, 11):
         # Introduced in Python 3.11
         fn_name = Filename(frame.f_code.co_qualname)
         return fn_name
@@ -109,9 +209,7 @@ def flamegraph_format(stacks: Dict[Tuple[StackFrame], StackStats]) -> str:
 def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
     """Apply a template to generate a single HTML payload containing the current profile."""
 
-    def read_file_content(
-        directory: str, subdirectory: str, filename: str
-    ) -> str:
+    def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
         file_path = os.path.join(directory, subdirectory, filename)
         file_content = ""
         try:
@@ -123,7 +221,7 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
                 b"",
                 0,
                 0,
-                f"Failed to decode file {file_path}. Ensure the file is UTF-8 encoded."
+                f"Failed to decode file {file_path}. Ensure the file is UTF-8 encoded.",
             ) from e
         return file_content
 
@@ -140,9 +238,9 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
                 b"",
                 0,
                 0,
-                f"Failed to decode file {profile_file}. Ensure the file is UTF-8 encoded."
+                f"Failed to decode file {profile_file}. Ensure the file is UTF-8 encoded.",
             ) from e
-            
+
     except FileNotFoundError:
         assert profile_fname == "demo"
         profile = ""
@@ -155,9 +253,7 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         "scalene_gui_js_text": read_file_content(
             scalene_dir, "scalene-gui", "scalene-gui-bundle.js"
         ),
-        "prism_css_text": read_file_content(
-            scalene_dir, "scalene-gui", "prism.css"
-        ),
+        "prism_css_text": read_file_content(scalene_dir, "scalene-gui", "prism.css"),
     }
 
     # Put the profile and everything else into the template.
@@ -192,9 +288,7 @@ def start_server(port: int, directory: str) -> None:
         pass
 
 
-def show_browser(
-    file_path: str, port: int, orig_python: str = "python3"
-) -> None:
+def show_browser(file_path: str, port: int, orig_python: str = "python3") -> None:
     temp_dir = tempfile.gettempdir()
 
     # Copy file to the temporary directory
@@ -222,20 +316,26 @@ def show_browser(
         os.chdir(curr_dir)
 
 
-def patch_module_functions_with_signal_blocking(module: ModuleType, signal_to_block: signal.Signals) -> None:
+def patch_module_functions_with_signal_blocking(
+    module: ModuleType, signal_to_block: signal.Signals
+) -> None:
     """Patch all functions in the given module to block the specified signal during execution."""
-    
+
     def signal_blocking_wrapper(func: Union[BuiltinFunctionType, FunctionType]) -> Any:
         """Wrap a function to block the specified signal during its execution."""
+
         @functools.wraps(func)
         def wrapped(*args: Any, **kwargs: Any) -> Any:
             # Block the specified signal temporarily
-            original_sigmask = signal.pthread_sigmask(signal.SIG_BLOCK, [signal_to_block])
+            original_sigmask = signal.pthread_sigmask(
+                signal.SIG_BLOCK, [signal_to_block]
+            )
             try:
                 return func(*args, **kwargs)
             finally:
                 # Restore original signal mask
                 signal.pthread_sigmask(signal.SIG_SETMASK, original_sigmask)
+
         return wrapped
 
     # Iterate through all attributes of the module

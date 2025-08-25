@@ -9,11 +9,13 @@ from unittest.mock import patch
 import pytest
 from scalene.scalene_arguments import ScaleneArguments
 
+
 @pytest.fixture
 def clean_scalene_arguments():
     # Fixture to create a clean ScaleneArguments instance
     yield ScaleneArguments()
     # No cleanup needed as each test gets a fresh instance
+
 
 def test_scalene_arguments_initialization(clean_scalene_arguments):
     args = clean_scalene_arguments

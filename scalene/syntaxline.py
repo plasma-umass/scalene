@@ -8,7 +8,5 @@ class SyntaxLine:
     def __init__(self, segments: List[Segment]) -> None:
         self.segments = segments
 
-    def __rich_console__(
-        self, console: Console, _options: Any
-    ) -> Iterator[Segment]:
+    def __rich_console__(self, console: Console, _options: Any) -> Iterator[Segment]:
         yield from self.segments

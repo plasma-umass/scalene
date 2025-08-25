@@ -12,9 +12,7 @@ class RunningStats:
     def __add__(self: "RunningStats", other: "RunningStats") -> "RunningStats":
         s = RunningStats()
         if other._n > 0:
-            s._m1 = (self._m1 * self._n + other._m1 * other._n) / (
-                self._n + other._n
-            )
+            s._m1 = (self._m1 * self._n + other._m1 * other._n) / (self._n + other._n)
             # TBD: Fix s._m2 and friends
             # For now, leave at zero.
             s._n = self._n + other._n

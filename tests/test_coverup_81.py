@@ -5,6 +5,7 @@
 import pytest
 from scalene.scalene_statistics import ScaleneStatistics
 
+
 @pytest.fixture
 def scalene_statistics():
     stats = ScaleneStatistics()
@@ -14,6 +15,7 @@ def scalene_statistics():
     stats.memory_stats.per_line_footprint_samples[("some_file.py", 10)] = 10
     yield stats
     # Cleanup code not necessary as the fixture will provide a fresh instance for each test
+
 
 def test_clear_all(scalene_statistics):
     scalene_statistics.clear_all()

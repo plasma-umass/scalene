@@ -7,10 +7,12 @@ import statistics
 
 python = "python3"
 progname = os.path.join(os.path.dirname(__file__), "julia1_nopil.py")
-number_of_runs = 1 # We take the average of this many runs.
+number_of_runs = 1  # We take the average of this many runs.
 
 # Output timing string from the benchmark.
-result_regexp = re.compile("calculate_z_serial_purepython  took ([0-9]*\.[0-9]+) seconds")
+result_regexp = re.compile(
+    "calculate_z_serial_purepython  took ([0-9]*\.[0-9]+) seconds"
+)
 
 # Characteristics of the tools.
 
@@ -101,7 +103,7 @@ Either = 3
 
 timing["baseline"] = None
 timing["cProfile"] = WallClock
-timing["Profile"]  = VirtualTime
+timing["Profile"] = VirtualTime
 timing["pyinstrument"] = WallClock
 timing["line_profiler"] = WallClock
 timing["yappi_cputime"] = Either
@@ -122,23 +124,44 @@ profile = f"{python} -m profile {progname}"
 pyinstrument = f"pyinstrument {progname}"
 line_profiler = f"{python} -m kernprof -l -v {progname}"
 pprofile_deterministic = f"pprofile {progname}"
-pprofile_statistical = f"pprofile --statistic 0.001 {progname}" # Same as Scalene
+pprofile_statistical = f"pprofile --statistic 0.001 {progname}"  # Same as Scalene
 yappi_cputime = f"yappi {progname}"
 yappi_wallclock = f"yappi -c wall {progname}"
 py_spy = f"py-spy record -f raw -o foo.txt -- python3.7 {progname}"
 scalene_cpu = f"{python} -m scalene {progname}"
-scalene_cpu_memory = f"{python} -m scalene {progname}" # see below for environment variables
+scalene_cpu_memory = (
+    f"{python} -m scalene {progname}"  # see below for environment variables
+)
 
-benchmarks = [(baseline, "baseline", "_original program_"), (cprofile, "cProfile", "`cProfile`"), (profile, "Profile", "`Profile`"), (pyinstrument, "pyinstrument", "`pyinstrument`"), (line_profiler, "line_profiler", "`line_profiler`"), (pprofile_deterministic, "pprofile_deterministic", "`pprofile` _(deterministic)_"), (pprofile_statistical, "pprofile_statistical", "`pprofile` _(statistical)_"), (yappi_cputime, "yappi_cputime", "`yappi` _(CPU)_"), (yappi_wallclock, "yappi_wallclock", "`yappi` _(wallclock)_"), (scalene_cpu, "scalene_cpu", "`scalene` _(CPU only)_"), (scalene_cpu_memory, "scalene_cpu_memory", "`scalene` _(CPU + memory)_")]
+benchmarks = [
+    (baseline, "baseline", "_original program_"),
+    (cprofile, "cProfile", "`cProfile`"),
+    (profile, "Profile", "`Profile`"),
+    (pyinstrument, "pyinstrument", "`pyinstrument`"),
+    (line_profiler, "line_profiler", "`line_profiler`"),
+    (pprofile_deterministic, "pprofile_deterministic", "`pprofile` _(deterministic)_"),
+    (pprofile_statistical, "pprofile_statistical", "`pprofile` _(statistical)_"),
+    (yappi_cputime, "yappi_cputime", "`yappi` _(CPU)_"),
+    (yappi_wallclock, "yappi_wallclock", "`yappi` _(wallclock)_"),
+    (scalene_cpu, "scalene_cpu", "`scalene` _(CPU only)_"),
+    (scalene_cpu_memory, "scalene_cpu_memory", "`scalene` _(CPU + memory)_"),
+]
 
 # benchmarks = [(baseline, "baseline", "_original program_"), (pprofile_deterministic, "`pprofile` _(deterministic)_")]
 # benchmarks = [(baseline, "baseline", "_original program_"), (pprofile_statistical, "pprofile_statistical", "`pprofile` _(statistical)_")]
-benchmarks = [(baseline, "baseline", "_original program_"), (py_spy, "py_spy", "`py-spy`"), (scalene_cpu, "scalene_cpu", "`scalene` _(CPU only)_"), (scalene_cpu_memory, "scalene_cpu_memory", "`scalene` _(CPU + memory)_")]
+benchmarks = [
+    (baseline, "baseline", "_original program_"),
+    (py_spy, "py_spy", "`py-spy`"),
+    (scalene_cpu, "scalene_cpu", "`scalene` _(CPU only)_"),
+    (scalene_cpu_memory, "scalene_cpu_memory", "`scalene` _(CPU + memory)_"),
+]
 
 average_time = {}
 check = ":heavy_check_mark:"
 
-print("|                            | Time | Slowdown | Line-level?    | CPU? | Python vs. C? | Memory? | Unmodified code? |")
+print(
+    "|                            | Time | Slowdown | Line-level?    | CPU? | Python vs. C? | Memory? | Unmodified code? |"
+)
 print("| :--- | ---: | ---: | :---: | :---: | :---: | :---: | :---: |")
 
 for bench in benchmarks:
@@ -148,19 +171,24 @@ for bench in benchmarks:
         my_env = os.environ.copy()
         if bench[1] == "scalene_cpu_memory":
             my_env["PYTHONMALLOC"] = "malloc"
-            if sys.platform == 'darwin':
+            if sys.platform == "darwin":
                 my_env["DYLD_INSERT_LIBRARIES"] = "./libscalene.dylib"
-            if sys.platform == 'linux':
+            if sys.platform == "linux":
                 my_env["LD_PRELOAD"] = "./libscalene.so"
-        result = subprocess.run(bench[0].split(), env = my_env, stderr = subprocess.STDOUT, stdout = subprocess.PIPE)
-        output = result.stdout.decode('utf-8')
+        result = subprocess.run(
+            bench[0].split(),
+            env=my_env,
+            stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE,
+        )
+        output = result.stdout.decode("utf-8")
         print(output)
         match = result_regexp.search(output)
         if match is not None:
             times.append(round(100 * float(match.group(1))) / 100.0)
         else:
             print("failed run")
-    average_time[bench[1]] = statistics.mean(times) # sum_time / (number_of_runs * 1.0)
+    average_time[bench[1]] = statistics.mean(times)  # sum_time / (number_of_runs * 1.0)
     print(str(average_time[bench[1]]))
     if bench[1] == "baseline":
         print(f"| {bench[2]} | {average_time[bench[1]]}s | 1.0x | | | | | |")
@@ -170,12 +198,15 @@ for bench in benchmarks:
             if bench[1].find("scalene") >= 0:
                 if bench[1].find("scalene_cpu") >= 0:
                     print("|               |     |        |                    | |")
-                print(f"| {bench[2]} | {average_time[bench[1]]}s | **{round(100 * average_time[bench[1]] / average_time['baseline']) / 100}x** | {check if line_level[bench[1]] else 'function-level'} | {check if cpu_profiler[bench[1]] else ''} | {check if separate_profiler[bench[1]] else ''} | {check if memory_profiler[bench[1]] else ''} | {check if unmodified_code[bench[1]] else 'needs `@profile` decorators'} |")
+                print(
+                    f"| {bench[2]} | {average_time[bench[1]]}s | **{round(100 * average_time[bench[1]] / average_time['baseline']) / 100}x** | {check if line_level[bench[1]] else 'function-level'} | {check if cpu_profiler[bench[1]] else ''} | {check if separate_profiler[bench[1]] else ''} | {check if memory_profiler[bench[1]] else ''} | {check if unmodified_code[bench[1]] else 'needs `@profile` decorators'} |"
+                )
             else:
-                print(f"| {bench[2]} | {average_time[bench[1]]}s | {round(100 * average_time[bench[1]] / average_time['baseline']) / 100}x | {check if line_level[bench[1]] else 'function-level'} | {check if cpu_profiler[bench[1]] else ''} | {check if separate_profiler[bench[1]] else ''} | {check if memory_profiler[bench[1]] else ''} | {check if unmodified_code[bench[1]] else 'needs `@profile` decorators'} |")
+                print(
+                    f"| {bench[2]} | {average_time[bench[1]]}s | {round(100 * average_time[bench[1]] / average_time['baseline']) / 100}x | {check if line_level[bench[1]] else 'function-level'} | {check if cpu_profiler[bench[1]] else ''} | {check if separate_profiler[bench[1]] else ''} | {check if memory_profiler[bench[1]] else ''} | {check if unmodified_code[bench[1]] else 'needs `@profile` decorators'} |"
+                )
         except Exception as err:
             traceback.print_exc()
             print("err = " + str(err))
             print("WOOPS")
 #    print(bench[1] + " = " + str(sum_time / 5.0))
-    

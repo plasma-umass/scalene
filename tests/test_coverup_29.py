@@ -5,6 +5,7 @@
 import pytest
 from scalene.scalene_parseargs import StopJupyterExecution
 
+
 def test_stop_jupyter_execution():
     # Test the instantiation and the special method _render_traceback_
     try:

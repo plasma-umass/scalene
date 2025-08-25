@@ -5,14 +5,13 @@ import time
 import tempfile
 import os
 
-from functools import lru_cache
+from functools import cache
 from typing import Tuple
 
 from scalene.scalene_accelerator import ScaleneAccelerator
 
 
 class NeuronMonitor:
-
     def __init__(self) -> None:
         self._config_path = self._generate_config()
         self._process = subprocess.Popen(
@@ -51,7 +50,9 @@ class NeuronMonitor:
                 }
             ],
         }
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+        temp_file = tempfile.NamedTemporaryFile(  # noqa: SIM115
+            delete=False, suffix=".json"
+        )
         with open(temp_file.name, "w") as file:
             json.dump(config, file)
         return temp_file.name
@@ -74,7 +75,6 @@ class NeuronMonitor:
 
 
 class ScaleneNeuron(ScaleneAccelerator):
-
     def __init__(self) -> None:
         self._gpu_device = ""
         self._neuron_monitor = None
@@ -93,7 +93,7 @@ class ScaleneNeuron(ScaleneAccelerator):
     def get_num_cores(self) -> int:
         return self.max_neuroncores_in_use
 
-    @lru_cache(maxsize=None)
+    @cache  # noqa: B019
     def has_gpu(self) -> bool:
         try:
             result = subprocess.run(
@@ -111,11 +111,10 @@ class ScaleneNeuron(ScaleneAccelerator):
         pass
 
     def get_stats(self) -> Tuple[float, float]:
-        if self.has_gpu() and self._monitor_started:
-            if self._neuron_monitor:
-                line = self._neuron_monitor.readline()
-                if line:
-                    self._parse_output(line)
+        if self.has_gpu() and self._monitor_started and self._neuron_monitor:
+            line = self._neuron_monitor.readline()
+            if line:
+                self._parse_output(line)
         return self.neuroncore_utilization, self.memory_used_bytes / 1048576.0
 
     def start_monitor(self) -> None:

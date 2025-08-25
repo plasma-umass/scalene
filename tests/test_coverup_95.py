@@ -5,12 +5,14 @@
 import pytest
 from scalene.scalene_profiler import Scalene
 
+
 @pytest.fixture(scope="function")
 def scalene_cleanup():
     # Setup: None needed for this test
     yield
     # Teardown: Reset the __done flag to False after the test
     Scalene._Scalene__done = False
+
 
 def test_is_done(scalene_cleanup):
     # Initially, __done should be False

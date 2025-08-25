@@ -8,7 +8,8 @@ from typing import Optional, Any, Generic, TypeVar
 from scalene.scalene_sigqueue import ScaleneSigQueue
 import queue
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class TestScaleneSigQueue(Generic[T]):
     # Prevent pytest from considering this class as a test
@@ -17,14 +18,20 @@ class TestScaleneSigQueue(Generic[T]):
     def test_scalene_sigqueue(self):
         # Define a process function that will be called by the queue
         def process_function(*args):
-            assert args == (1, 2, 3), "The process function did not receive the expected arguments."
+            assert args == (
+                1,
+                2,
+                3,
+            ), "The process function did not receive the expected arguments."
 
         # Create an instance of ScaleneSigQueue
         sigqueue = ScaleneSigQueue(process_function)
 
         # Start the queue processing
         sigqueue.start()
-        assert sigqueue.thread is not None and sigqueue.thread.is_alive(), "The thread should be started and alive."
+        assert (
+            sigqueue.thread is not None and sigqueue.thread.is_alive()
+        ), "The thread should be started and alive."
 
         # Put an item into the queue
         sigqueue.put((1, 2, 3))
@@ -47,6 +54,7 @@ class TestScaleneSigQueue(Generic[T]):
 
         # Clean up
         sigqueue.stop()
+
 
 @pytest.fixture(autouse=True)
 def run_around_tests():

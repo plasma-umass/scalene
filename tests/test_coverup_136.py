@@ -6,6 +6,7 @@ import pytest
 import scalene.scalene_config
 from scalene.scalene_profiler import Scalene
 
+
 @pytest.fixture(scope="function")
 def reset_scalene_config():
     # Store original value to restore after test
@@ -13,6 +14,7 @@ def reset_scalene_config():
     yield
     # Restore original value
     scalene.scalene_config.NEWLINE_TRIGGER_LENGTH = original_trigger_length
+
 
 def test_update_line_executes_line_316(reset_scalene_config):
     # Set the trigger length to a non-zero value to ensure the bytearray is created

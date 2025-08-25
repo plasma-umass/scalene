@@ -1,0 +1,66 @@
+name: linters
+
+on:
+  push:
+    branches: [ master ]
+
+  pull_request:
+    branches: [ master ]
+
+  workflow_dispatch:
+
+
+jobs:
+  linters:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-13 ]
+        python: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: select Xcode version
+      # MacOS > 14.2 requires Xcode >= 15.3; otherwise loading native extension modules fails with e.g.:
+      # dlopen(/opt/homebrew/lib/python3.11/site-packages/slipcover/probe.abi3.so, 0x0002): bad bind opcode 0x00 
+      if: startsWith(matrix.os, 'macos-')
+      run: |
+        if [ -d /Applications/Xcode_15.3.app/Contents/Developer ]; then sudo xcode-select --switch /Applications/Xcode_15.3.app/Contents/Developer; fi
+        clang++ --version
+        g++ --version
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python }}
+
+    - name: Work around arm64 support on MacOS
+      # https://github.com/actions/virtual-environments/issues/2557
+      if: matrix.os == 'macos-latest'
+      run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        python -m pip install numpy
+
+    - name: Build scalene
+      run: pip -v install -e .
+
+    - name: install test dependencies
+      run: |
+        python3 -m pip install mypy ruff
+        python3 -m pip install .
+
+    - name: Run linters
+      run: |
+        mypy scalene
+        ruff check scalene
+        

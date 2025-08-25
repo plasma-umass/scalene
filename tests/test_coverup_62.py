@@ -12,13 +12,16 @@ from typing import Callable
 from collections import defaultdict
 import random
 
+
 @pytest.fixture
 def scalene_output():
     return ScaleneOutput()
 
+
 @pytest.fixture
 def scalene_json():
     return ScaleneJSON()
+
 
 @pytest.fixture
 def scalene_stats():
@@ -28,15 +31,20 @@ def scalene_stats():
     stats.memory_malloc_samples = defaultdict(lambda: defaultdict(list))
     return stats
 
+
 @pytest.fixture
 def console():
     return Console()
+
 
 @pytest.fixture
 def table():
     return Table()
 
-def test_output_profile_line(scalene_output, scalene_json, scalene_stats, console, table):
+
+def test_output_profile_line(
+    scalene_output, scalene_json, scalene_stats, console, table
+):
     fname = "test.py"
     line_no = 1
     line = "print('Hello, world!')"

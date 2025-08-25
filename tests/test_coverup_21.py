@@ -25,12 +25,15 @@ def cleanup_env():
 
 def test_setup_preload_full_coverage(cleanup_env):
     args = argparse.Namespace(memory=True, allocation_sampling_window=1)
-    with patch.object(platform, 'machine', return_value='x86_64'), \
-         patch.object(struct, 'calcsize', return_value=8), \
-         patch.object(os, 'environ', new_callable=dict), \
-         patch.object(subprocess, 'Popen') as mock_popen, \
-         patch.object(sys, 'argv', ['scalene', 'test_script.py']), \
-         patch.object(sys, 'exit') as mock_exit:
+    with patch.object(platform, "machine", return_value="x86_64"), patch.object(
+        struct, "calcsize", return_value=8
+    ), patch.object(os, "environ", new_callable=dict), patch.object(
+        subprocess, "Popen"
+    ) as mock_popen, patch.object(
+        sys, "argv", ["scalene", "test_script.py"]
+    ), patch.object(
+        sys, "exit"
+    ) as mock_exit:
         mock_popen.return_value.pid = 1234
         mock_popen.return_value.returncode = 0
         mock_popen.return_value.wait = lambda: None

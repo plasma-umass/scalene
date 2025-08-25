@@ -6,11 +6,13 @@ import pytest
 from collections import defaultdict
 from scalene.scalene_statistics import ScaleneStatistics, StackFrame, StackStats
 
+
 @pytest.fixture
 def scalene_stats():
     stats = ScaleneStatistics()
     yield stats
     # No cleanup required as the object will be garbage collected
+
 
 def test_scalene_statistics():
     scalene_stats = ScaleneStatistics()
@@ -31,8 +33,12 @@ def test_scalene_statistics():
     assert isinstance(scalene_stats.memory_stats.memory_malloc_count, defaultdict)
     assert isinstance(scalene_stats.memory_stats.memory_current_footprint, defaultdict)
     assert isinstance(scalene_stats.memory_stats.memory_max_footprint, defaultdict)
-    assert isinstance(scalene_stats.memory_stats.memory_current_highwater_mark, defaultdict)
-    assert isinstance(scalene_stats.memory_stats.memory_aggregate_footprint, defaultdict)
+    assert isinstance(
+        scalene_stats.memory_stats.memory_current_highwater_mark, defaultdict
+    )
+    assert isinstance(
+        scalene_stats.memory_stats.memory_aggregate_footprint, defaultdict
+    )
     assert isinstance(scalene_stats.memory_stats.memory_python_samples, defaultdict)
     assert isinstance(scalene_stats.memory_stats.memory_free_samples, defaultdict)
     assert isinstance(scalene_stats.memory_stats.memory_free_count, defaultdict)
@@ -48,7 +54,9 @@ def test_scalene_statistics():
     assert scalene_stats.memory_stats.max_footprint_python_fraction == 0
     assert scalene_stats.memory_stats.max_footprint_loc is None
     assert isinstance(scalene_stats.memory_stats.memory_footprint_samples, list)
-    assert isinstance(scalene_stats.memory_stats.per_line_footprint_samples, defaultdict)
+    assert isinstance(
+        scalene_stats.memory_stats.per_line_footprint_samples, defaultdict
+    )
     assert isinstance(scalene_stats.bytei_map, defaultdict)
     assert isinstance(scalene_stats.function_map, defaultdict)
     assert isinstance(scalene_stats.firstline_map, defaultdict)

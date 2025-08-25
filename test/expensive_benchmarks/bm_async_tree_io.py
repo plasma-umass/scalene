@@ -7,10 +7,10 @@ variants include:
 
 1) "none": No actual async work in the async tree.
 2) "io": All leaf nodes simulate async IO workload (async sleep 50ms).
-3) "memoization": All leaf nodes simulate async IO workload with 90% of 
+3) "memoization": All leaf nodes simulate async IO workload with 90% of
                   the data memoized
-4) "cpu_io_mixed": Half of the leaf nodes simulate CPU-bound workload and 
-                   the other half simulate the same workload as the 
+4) "cpu_io_mixed": Half of the leaf nodes simulate CPU-bound workload and
+                   the other half simulate the same workload as the
                    "memoization" variant.
 """
 
@@ -43,9 +43,7 @@ class AsyncTree:
         await asyncio.sleep(IO_SLEEP_TIME)
 
     async def workload_func(self):
-        raise NotImplementedError(
-            "To be implemented by each variant's derived class."
-        )
+        raise NotImplementedError("To be implemented by each variant's derived class.")
 
     async def recurse(self, recurse_level):
         if recurse_level == 0:
@@ -55,7 +53,7 @@ class AsyncTree:
         await asyncio.gather(
             *[self.recurse(recurse_level - 1) for _ in range(NUM_RECURSE_BRANCHES)]
         )
-    
+
     async def run(self):
         if isinstance(self, IOAsyncTree):
             num_iters = 9
@@ -176,4 +174,3 @@ Determines which benchmark to run. Options:
     stop_p = time.perf_counter()
     print("Time elapsed: ", stop_p - start_p)
     # runner.bench_async_func(f"async_tree_{benchmark}", async_tree.run)
-

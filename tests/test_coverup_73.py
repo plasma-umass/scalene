@@ -6,9 +6,11 @@ import pytest
 import signal
 from scalene.scalene_profiler import Scalene
 
+
 def test_interruption_handler():
     with pytest.raises(KeyboardInterrupt):
         Scalene.interruption_handler(signal.SIGINT, None)
+
 
 def test_cleanup():
     # This test function is used to clean up after the test_interruption_handler

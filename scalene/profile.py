@@ -13,9 +13,7 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawTextHelpFormatter,
     allow_abbrev=False,
 )
-parser.add_argument(
-    "--pid", dest="pid", type=int, default=0, help="process ID"
-)
+parser.add_argument("--pid", dest="pid", type=int, default=0, help="process ID")
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument("--on", action="store_true", help="turn profiling on")
 group.add_argument("--off", action="store_false", help="turn profiling off")

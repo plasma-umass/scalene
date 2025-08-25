@@ -44,36 +44,40 @@ class ScaleneArgumentsDict(TypedDict, total=False):
     port: int
     cli: bool
 
+
 def _set_defaults() -> ScaleneArgumentsDict:
-    return { 'cpu' : True,
-             'gpu' : True,
-             'memory' : sys.platform != "win32",
-             'stacks' : False,
-             'cpu_percent_threshold': 1,
-             'cpu_sampling_rate': 0.01,
-             'allocation_sampling_window': 10485767,
-             'html': False,
-             'json': False,
-             'column_width': 132,
-             'malloc_threshold': 100,
-             'outfile': None,
-             'pid' : 0,
-             'profile_all': False,
-             'profile_interval': float("inf"),
-             'profile_only': "",
-             'profile_exclude': "",
-             'program_path': "",
-             'reduced_profile' : False,
-             'use_virtual_time': False,
-             'memory_leak_detector': True,
-             'web': True,
-             'no_browser': False,
-             'port': 8088,
-             'cli': False,
-            }
-    
+    return {
+        "cpu": True,
+        "gpu": True,
+        "memory": sys.platform != "win32",
+        "stacks": False,
+        "cpu_percent_threshold": 1,
+        "cpu_sampling_rate": 0.01,
+        "allocation_sampling_window": 10485767,
+        "html": False,
+        "json": False,
+        "column_width": 132,
+        "malloc_threshold": 100,
+        "outfile": None,
+        "pid": 0,
+        "profile_all": False,
+        "profile_interval": float("inf"),
+        "profile_only": "",
+        "profile_exclude": "",
+        "program_path": "",
+        "reduced_profile": False,
+        "use_virtual_time": False,
+        "memory_leak_detector": True,
+        "web": True,
+        "no_browser": False,
+        "port": 8088,
+        "cli": False,
+    }
+
+
 class ScaleneArguments(argparse.Namespace):
     """Encapsulates all arguments and default values for Scalene."""
+
     def __init__(self, **kwargs: Unpack[ScaleneArgumentsDict]) -> None:
         super().__init__(**kwargs)
         arg_dict = _set_defaults()

@@ -9,11 +9,10 @@ from typing import List
 
 TOLERANCE = 0.5
 
+
 @given(
     st.lists(
-        st.floats(
-            allow_infinity=False, allow_nan=False, min_value=0.5, max_value=1e9
-        ),
+        st.floats(allow_infinity=False, allow_nan=False, min_value=0.5, max_value=1e9),
         min_size=2,
     )
 )
@@ -36,8 +35,7 @@ def test_running_stats(values: List[float]) -> None:
         rel_tol=TOLERANCE,
     )
     assert math.isclose(
-        statistics.stdev(values, xbar=rstats.mean())
-        / math.sqrt(rstats.size()),
+        statistics.stdev(values, xbar=rstats.mean()) / math.sqrt(rstats.size()),
         rstats.sem(),
         rel_tol=TOLERANCE,
     )

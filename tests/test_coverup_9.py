@@ -7,9 +7,11 @@ import signal
 import sys
 from scalene.scalene_signals import ScaleneSignals
 
+
 @pytest.fixture
 def scalene_signals():
     return ScaleneSignals()
+
 
 def test_set_timer_signals_virtual_time(scalene_signals):
     if sys.platform != "win32":
@@ -17,11 +19,13 @@ def test_set_timer_signals_virtual_time(scalene_signals):
         assert scalene_signals.cpu_timer_signal == signal.ITIMER_VIRTUAL
         assert scalene_signals.cpu_signal == signal.SIGVTALRM
 
+
 def test_set_timer_signals_real_time(scalene_signals):
     if sys.platform != "win32":
         scalene_signals.set_timer_signals(use_virtual_time=False)
         assert scalene_signals.cpu_timer_signal == signal.ITIMER_REAL
         assert scalene_signals.cpu_signal == signal.SIGALRM
+
 
 def test_set_timer_signals_windows(scalene_signals, monkeypatch):
     if hasattr(signal, "SIGBREAK"):

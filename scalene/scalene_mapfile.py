@@ -20,24 +20,18 @@ class ScaleneMapFile:
         self._name = name
         self._buf = bytearray(ScaleneMapFile.MAX_BUFSIZE)
         #   file to communicate samples (+ PID)
-        self._signal_filename = Filename(
-            f"/tmp/scalene-{name}-signal{os.getpid()}"
-        )
-        self._lock_filename = Filename(
-            f"/tmp/scalene-{name}-lock{os.getpid()}"
-        )
-        self._init_filename = Filename(
-            f"/tmp/scalene-{name}-init{os.getpid()}"
-        )
+        self._signal_filename = Filename(f"/tmp/scalene-{name}-signal{os.getpid()}")
+        self._lock_filename = Filename(f"/tmp/scalene-{name}-lock{os.getpid()}")
+        self._init_filename = Filename(f"/tmp/scalene-{name}-init{os.getpid()}")
         self._signal_position = 0
         self._lastpos = bytearray(8)
         self._signal_mmap = None
         self._lock_mmap: mmap.mmap
         self._signal_fd: TextIO
         self._lock_fd: TextIO
-        self._signal_fd = open(self._signal_filename, "r")
+        self._signal_fd = open(self._signal_filename, "r")  # noqa: SIM115
         os.unlink(self._signal_fd.name)
-        self._lock_fd = open(self._lock_filename, "r+")
+        self._lock_fd = open(self._lock_filename, "r+")  # noqa: SIM115
         os.unlink(self._lock_fd.name)
         self._signal_mmap = mmap.mmap(
             self._signal_fd.fileno(),

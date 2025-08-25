@@ -47,7 +47,7 @@ def part_At_times_u(i_u):
 
 def bench_spectral_norm(loops):
     range_it = xrange(loops)
-#    t0 = pyperf.perf_counter()
+    #    t0 = pyperf.perf_counter()
 
     for _ in range_it:
         u = [1] * DEFAULT_N
@@ -62,7 +62,7 @@ def bench_spectral_norm(loops):
             vBv += ue * ve
             vv += ve * ve
 
-    return # pyperf.perf_counter() - t0
+    return  # pyperf.perf_counter() - t0
 
 
 if __name__ == "__main__":

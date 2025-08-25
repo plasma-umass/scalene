@@ -5,6 +5,7 @@
 import pytest
 from scalene.runningstats import RunningStats
 
+
 def test_running_stats_mean():
     stats = RunningStats()
     stats.push(1)

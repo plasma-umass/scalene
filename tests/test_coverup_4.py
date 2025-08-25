@@ -5,9 +5,11 @@
 import pytest
 from scalene.runningstats import RunningStats
 
+
 @pytest.fixture
 def running_stats():
     return RunningStats()
+
 
 def test_push(running_stats):
     # Push a value and check if the peak is updated

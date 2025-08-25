@@ -6,6 +6,7 @@ import pytest
 from scalene.scalene_client_timer import ScaleneClientTimer
 from typing import Tuple
 
+
 @pytest.fixture
 def scalene_client_timer():
     timer = ScaleneClientTimer()
@@ -15,6 +16,7 @@ def scalene_client_timer():
     timer.delay_elapsed = False
     yield timer
     # No cleanup required for this test
+
 
 def test_yield_next_delay(scalene_client_timer):
     # Test the delay_elapsed branch

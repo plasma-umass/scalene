@@ -9,6 +9,7 @@ import shutil
 import sys
 from scalene.scalene_analysis import ScaleneAnalysis
 
+
 @pytest.fixture
 def create_native_package():
     # Create a temporary directory to simulate a native package with a .so file
@@ -29,17 +30,21 @@ def create_native_package():
     sys.path.remove(temp_dir)
     shutil.rmtree(temp_dir)
 
+
 def test_is_native(create_native_package):
     package_name = create_native_package
     assert ScaleneAnalysis.is_native(package_name) == True
+
 
 def test_is_not_native():
     non_existent_package = "non_existent_package"
     assert ScaleneAnalysis.is_native(non_existent_package) == False
 
+
 def test_is_builtin():
     builtin_package = "sys"
     assert ScaleneAnalysis.is_native(builtin_package) == True
+
 
 def test_is_python_package():
     python_package = "json"

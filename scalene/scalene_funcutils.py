@@ -1,5 +1,5 @@
 import dis
-from functools import lru_cache
+from functools import cache
 from types import CodeType
 from typing import FrozenSet
 
@@ -17,19 +17,15 @@ class ScaleneFuncUtils:
         {
             dis.opmap[op_name]
             for op_name in dis.opmap
-            if op_name.startswith("CALL")
-            and not op_name.startswith("CALL_INTRINSIC")
+            if op_name.startswith("CALL") and not op_name.startswith("CALL_INTRINSIC")
         }
     )
 
     @staticmethod
-    @lru_cache(maxsize=None)
+    @cache
     def is_call_function(code: CodeType, bytei: ByteCodeIndex) -> bool:
         """Returns true iff the bytecode at the given index is a function call."""
         return any(
-            (
-                ins.offset == bytei
-                and ins.opcode in ScaleneFuncUtils.__call_opcodes
-            )
+            (ins.offset == bytei and ins.opcode in ScaleneFuncUtils.__call_opcodes)
             for ins in dis.get_instructions(code)
         )

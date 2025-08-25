@@ -22,20 +22,18 @@ def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
 
 def launch_browser_insecure(url: str) -> None:
     if platform.system() == "Windows":
-        chrome_path = (
-            "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
-        )
+        chrome_path = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
     elif platform.system() == "Linux":
         chrome_path = "/usr/bin/google-chrome"
     elif platform.system() == "Darwin":
-        chrome_path = (
-            "/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome"
-        )
+        chrome_path = "/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome"
 
     # Create a temporary directory
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a command with the required flags
-        chrome_cmd = f'{chrome_path} %s --disable-web-security --user-data-dir="{temp_dir}"'
+        chrome_cmd = (
+            f'{chrome_path} %s --disable-web-security --user-data-dir="{temp_dir}"'
+        )
 
         # Register the new browser type
         webbrowser.register(
@@ -126,9 +124,7 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         "scalene_gui_js_text": read_file_content(
             scalene_dir, "scalene-gui", "scalene-gui-bundle.js"
         ),
-        "prism_css_text": read_file_content(
-            scalene_dir, "scalene-gui", "prism.css"
-        ),
+        "prism_css_text": read_file_content(scalene_dir, "scalene-gui", "prism.css"),
     }
 
     # Put the profile and everything else into the template.

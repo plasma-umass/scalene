@@ -5,6 +5,7 @@
 import pytest
 from scalene.scalene_statistics import ScaleneStatistics, RunningStats
 
+
 class MockRunningStats(RunningStats):
     def __init__(self):
         super().__init__()
@@ -14,20 +15,22 @@ class MockRunningStats(RunningStats):
         self.total += other.total
         return self
 
+
 @pytest.fixture
 def cleanup():
     # Setup code
     yield
     # No teardown code needed for this test
 
+
 def test_increment_cpu_utilization(cleanup):
     dest = {
         "file1.py": {1: MockRunningStats(), 2: MockRunningStats()},
-        "file2.py": {1: MockRunningStats()}
+        "file2.py": {1: MockRunningStats()},
     }
     src = {
         "file1.py": {1: MockRunningStats(), 2: MockRunningStats()},
-        "file2.py": {1: MockRunningStats()}
+        "file2.py": {1: MockRunningStats()},
     }
 
     # Simulate some CPU utilization

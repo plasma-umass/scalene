@@ -123,12 +123,12 @@ class RBitfield(BitfieldBase):
 
 
 def printbits(v, n):
-    o = ''
+    o = ""
     for i in range(n):
         if v & 1:
-            o = '1' + o
+            o = "1" + o
         else:
-            o = '0' + o
+            o = "0" + o
         v >>= 1
     return o
 
@@ -162,8 +162,8 @@ def reverse_bits(v, n):
 
 
 def reverse_bytes(v, n):
-    a = 0xff << 0
-    b = 0xff << (n - 8)
+    a = 0xFF << 0
+    b = 0xFF << (n - 8)
     z = 0
     for i in range(n - 8, -8, -16):
         z |= (v >> i) & a
@@ -193,7 +193,7 @@ class HuffmanTable(object):
         for x in self.table:
             symbol += 1
             if x.bits != bits:
-                symbol <<= (x.bits - bits)
+                symbol <<= x.bits - bits
                 bits = x.bits
             x.symbol = symbol
             x.reverse_symbol = reverse_bits(symbol, bits)
@@ -203,7 +203,7 @@ class HuffmanTable(object):
         for x in self.table:
             try:
                 d[x.bits].append(x)
-            except:   # noqa
+            except:  # noqa
                 d[x.bits] = [x]
 
     def min_max_bits(self):
@@ -227,11 +227,12 @@ class HuffmanTable(object):
             if cached_length != x.bits:
                 cached = field.snoopbits(x.bits)
                 cached_length = x.bits
-            if (reversed and x.reverse_symbol == cached) or (not reversed and x.symbol == cached):
+            if (reversed and x.reverse_symbol == cached) or (
+                not reversed and x.symbol == cached
+            ):
                 field.readbits(x.bits)
                 return x.code
-        raise Exception("unfound symbol, even after end of table @%r"
-                        % field.tell())
+        raise Exception("unfound symbol, even after end of table @%r" % field.tell())
 
         for bits in range(self.min_bits, self.max_bits + 1):
             r = self._find_symbol(bits, field.snoopbits(bits), self.table)
@@ -251,19 +252,76 @@ class OrderedHuffmanTable(HuffmanTable):
 
 
 def code_length_orders(i):
-    return (16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3,
-            13, 2, 14, 1, 15)[i]
+    return (16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15)[i]
 
 
 def distance_base(i):
-    return (1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193,
-            257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193,
-            12289, 16385, 24577)[i]
+    return (
+        1,
+        2,
+        3,
+        4,
+        5,
+        7,
+        9,
+        13,
+        17,
+        25,
+        33,
+        49,
+        65,
+        97,
+        129,
+        193,
+        257,
+        385,
+        513,
+        769,
+        1025,
+        1537,
+        2049,
+        3073,
+        4097,
+        6145,
+        8193,
+        12289,
+        16385,
+        24577,
+    )[i]
 
 
 def length_base(i):
-    return (3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35,
-            43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258)[i - 257]
+    return (
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        13,
+        15,
+        17,
+        19,
+        23,
+        27,
+        31,
+        35,
+        43,
+        51,
+        59,
+        67,
+        83,
+        99,
+        115,
+        131,
+        163,
+        195,
+        227,
+        258,
+    )[i - 257]
 
 
 def extra_distance_bits(n):
@@ -295,7 +353,7 @@ def bwt_transform(L):
     if six.PY3:
         F = bytes(sorted(L))
     else:
-        F = b''.join(sorted(L))
+        F = b"".join(sorted(L))
     base = []
     for i in range(256):
         base.append(F.find(six.int2byte(i)))
@@ -459,11 +517,12 @@ def decode_huffman_block(b, out):
     # Pointless/irritating run-length encoding step
     while i < len(nearly_there):
         if i < len(nearly_there) - 4 and nt[i] == nt[i + 1] == nt[i + 2] == nt[i + 3]:
-            out.append(nearly_there[i:i + 1] * (ord(nearly_there[i + 4:i + 5]) + 4))
+            out.append(nearly_there[i : i + 1] * (ord(nearly_there[i + 4 : i + 5]) + 4))
             i += 5
         else:
-            out.append(nearly_there[i:i + 1])
+            out.append(nearly_there[i : i + 1])
             i += 1
+
 
 # Sixteen bits of magic have been removed by the time we start decoding
 
@@ -472,20 +531,19 @@ def bzip2_main(input):
     b = RBitfield(input)
 
     method = b.readbits(8)
-    if method != ord('h'):
-        raise Exception(
-            "Unknown (not type 'h'uffman Bzip2) compression method")
+    if method != ord("h"):
+        raise Exception("Unknown (not type 'h'uffman Bzip2) compression method")
 
     blocksize = b.readbits(8)
-    if ord('1') <= blocksize <= ord('9'):
-        blocksize = blocksize - ord('0')
+    if ord("1") <= blocksize <= ord("9"):
+        blocksize = blocksize - ord("0")
     else:
         raise Exception("Unknown (not size '0'-'9') Bzip2 blocksize")
 
     out = deque([])
     while True:
         blocktype = b.readbits(48)
-        b.readbits(32)   # crc
+        b.readbits(32)  # crc
         if blocktype == 0x314159265359:  # (pi)
             decode_huffman_block(b, out)
         elif blocktype == 0x177245385090:  # sqrt(pi)
@@ -493,7 +551,7 @@ def bzip2_main(input):
             break
         else:
             raise Exception("Illegal Bzip2 blocktype")
-    return b''.join(out)
+    return b"".join(out)
 
 
 # Sixteen bits of magic have been removed by the time we start decoding
@@ -505,9 +563,9 @@ def gzip_main(field):
 
     # Use flags, drop modification time, extra flags and OS creator type.
     flags = b.readbits(8)
-    b.readbits(32)   # mtime
-    b.readbits(8)    # extra_flags
-    b.readbits(8)    # os_type
+    b.readbits(32)  # mtime
+    b.readbits(8)  # extra_flags
+    b.readbits(8)  # os_type
 
     if flags & 0x04:  # structured GZ_FEXTRA miscellaneous data
         xlen = b.readbits(16)
@@ -539,7 +597,12 @@ def gzip_main(field):
 
             if blocktype == 1:  # Static Huffman
                 static_huffman_bootstrap = [
-                    (0, 8), (144, 9), (256, 7), (280, 8), (288, -1)]
+                    (0, 8),
+                    (144, 9),
+                    (256, 7),
+                    (280, 8),
+                    (288, -1),
+                ]
                 static_huffman_lengths_bootstrap = [(0, 5), (32, -1)]
                 main_literals = HuffmanTable(static_huffman_bootstrap)
                 main_distances = HuffmanTable(static_huffman_lengths_bootstrap)
@@ -580,7 +643,8 @@ def gzip_main(field):
                         what = 0
                     else:
                         raise Exception(
-                            "next code length is outside of the range 0 <= r <= 18")
+                            "next code length is outside of the range 0 <= r <= 18"
+                        )
                     code_lengths += [what] * count
                     n += count
 
@@ -613,21 +677,24 @@ def gzip_main(field):
 
                     r1 = main_distances.find_next_symbol(b)
                     if 0 <= r1 <= 29:
-                        distance = distance_base(
-                            r1) + b.readbits(extra_distance_bits(r1))
+                        distance = distance_base(r1) + b.readbits(
+                            extra_distance_bits(r1)
+                        )
                         while length > distance:
                             out += out[-distance:]
                             length -= distance
                         if length == distance:
                             out += out[-distance:]
                         else:
-                            out += out[-distance:length - distance]
+                            out += out[-distance : length - distance]
                     elif 30 <= r1 <= 31:
-                        raise Exception("illegal unused distance symbol "
-                                        "in use @%r" % b.tell())
+                        raise Exception(
+                            "illegal unused distance symbol " "in use @%r" % b.tell()
+                        )
                 elif 286 <= r <= 287:
-                    raise Exception("illegal unused literal/length symbol "
-                                    "in use @%r" % b.tell())
+                    raise Exception(
+                        "illegal unused literal/length symbol " "in use @%r" % b.tell()
+                    )
         elif blocktype == 3:
             raise Exception("illegal unused blocktype in use @%r" % b.tell())
 
@@ -635,13 +702,13 @@ def gzip_main(field):
             break
 
     b.align()
-    b.readbits(32)   # crc
-    b.readbits(32)   # final_length
+    b.readbits(32)  # crc
+    b.readbits(32)  # final_length
     return "".join(out)
 
 
 def bench_pyflake(loops, filename):
-    input_fp = open(filename, 'rb')
+    input_fp = open(filename, "rb")
     range_it = xrange(loops)
     t0 = pyperf.perf_counter()
 
@@ -650,13 +717,12 @@ def bench_pyflake(loops, filename):
         field = RBitfield(input_fp)
 
         magic = field.readbits(16)
-        if magic == 0x1f8b:  # GZip
+        if magic == 0x1F8B:  # GZip
             out = gzip_main(field)
-        elif magic == 0x425a:  # BZip2
+        elif magic == 0x425A:  # BZip2
             out = bzip2_main(field)
         else:
-            raise Exception("Unknown file magic %x, not a gzip/bzip2 file"
-                            % hex(magic))
+            raise Exception("Unknown file magic %x, not a gzip/bzip2 file" % hex(magic))
 
     dt = pyperf.perf_counter() - t0
     input_fp.close()
@@ -667,11 +733,12 @@ def bench_pyflake(loops, filename):
     return dt
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     runner = pyperf.Runner()
-    runner.metadata['description'] = "Pyflate benchmark"
+    runner.metadata["description"] = "Pyflate benchmark"
 
-    filename = os.path.join(#os.path.dirname(__file__),
-                            "test", "original", "data", "interpreter.tar.bz2")
-    bench_pyflake(1,filename)
+    filename = os.path.join(  # os.path.dirname(__file__),
+        "test", "original", "data", "interpreter.tar.bz2"
+    )
+    bench_pyflake(1, filename)
 #    runner.bench_time_func('pyflate', bench_pyflake, filename)

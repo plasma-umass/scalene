@@ -23,8 +23,7 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
             # If this fails, we disable GPU profiling.
             self.__ngpus = pynvml.nvmlDeviceGetCount()
             self.__handle = [
-                pynvml.nvmlDeviceGetHandleByIndex(i)
-                for i in range(self.__ngpus)
+                pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(self.__ngpus)
             ]
             self.__has_per_pid_accounting = self._set_accounting_mode()
             self.gpu_utilization(self.__pid)
@@ -48,10 +47,7 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
                 "If you have sudo privileges, you can run this command (Linux only) to enable per-process GPU accounting:",
                 file=sys.stderr,
             )
-            print(
-                "  python3 -m scalene.set_nvidia_gpu_modes",
-                file=sys.stderr
-            )
+            print("  python3 -m scalene.set_nvidia_gpu_modes", file=sys.stderr)
 
     def _set_accounting_mode(self) -> bool:
         """Returns true iff the accounting mode was set already for all GPUs or is now set."""
@@ -60,19 +56,12 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
         for i in range(ngpus):
             # Check if each GPU has accounting mode set.
             h = self.__handle[i]
-            if (
-                pynvml.nvmlDeviceGetAccountingMode(h)
-                != pynvml.NVML_FEATURE_ENABLED
-            ):
+            if pynvml.nvmlDeviceGetAccountingMode(h) != pynvml.NVML_FEATURE_ENABLED:
                 # If not, try to set it. As a side effect, we turn persistence mode on
                 # so the driver is not unloaded (which undoes the accounting mode setting).
                 try:
-                    pynvml.nvmlDeviceSetPersistenceMode(
-                        h, pynvml.NVML_FEATURE_ENABLED
-                    )
-                    pynvml.nvmlDeviceSetAccountingMode(
-                        h, pynvml.NVML_FEATURE_ENABLED
-                    )
+                    pynvml.nvmlDeviceSetPersistenceMode(h, pynvml.NVML_FEATURE_ENABLED)
+                    pynvml.nvmlDeviceSetAccountingMode(h, pynvml.NVML_FEATURE_ENABLED)
                 except pynvml.NVMLError:
                     # We don't have sufficient permissions.
                     return False
@@ -117,8 +106,7 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
             pynvml.nvmlInit()
             self.__ngpus = pynvml.nvmlDeviceGetCount()
             self.__handle.extend(
-                pynvml.nvmlDeviceGetHandleByIndex(i)
-                for i in range(self.__ngpus)
+                pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(self.__ngpus)
             )
 
     def gpu_memory_usage(self, pid: int) -> float:
@@ -130,9 +118,7 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
         for i in range(self.__ngpus):
             handle = self.__handle[i]
             with contextlib.suppress(Exception):
-                for proc in pynvml.nvmlDeviceGetComputeRunningProcesses(
-                    handle
-                ):
+                for proc in pynvml.nvmlDeviceGetComputeRunningProcesses(handle):
                     # Only accumulate memory stats for the current pid.
                     if proc.usedGpuMemory and proc.pid == pid:
                         # First check is to protect against return of None

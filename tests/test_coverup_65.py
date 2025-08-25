@@ -5,6 +5,7 @@
 import pytest
 from scalene.scalene_analysis import ScaleneAnalysis
 
+
 def test_find_regions_with_no_classes_functions_or_loops():
     source_code = """
 # This is a simple script with no classes, functions, or loops.
