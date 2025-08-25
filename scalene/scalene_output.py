@@ -687,10 +687,16 @@ class ScaleneOutput:
             if not self.output_file:
                 console.save_html(path="/dev/stdout", clear=False)
             else:
-                console.save_html(path=str(Path(self.output_file).with_suffix(".html")), clear=False)
+                console.save_html(
+                    path=str(Path(self.output_file).with_suffix(".html")), clear=False
+                )
         elif self.output_file:
             # Don't output styles to text file.
-            console.save_text(str(Path(self.output_file).with_suffix(".txt")), styles=False, clear=False)
+            console.save_text(
+                str(Path(self.output_file).with_suffix(".txt")),
+                styles=False,
+                clear=False,
+            )
         else:
             # No output file specified: write to stdout.
             sys.stdout.write(console.export_text(styles=True))

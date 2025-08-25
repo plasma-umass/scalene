@@ -774,9 +774,7 @@ class Scalene:
                 outfile = "CON" if sys.platform == "win32" else "/dev/stdout"
             # Write the JSON to the output file (or console).
             with open(outfile, "w") as f:
-                f.write(
-                    json.dumps(json_output, sort_keys=True, indent=4) + "\n"
-                )
+                f.write(json.dumps(json_output, sort_keys=True, indent=4) + "\n")
             did_output = json_output != {}
 
         condition_1 = Scalene.__args.cli and Scalene.__args.outfile
@@ -794,7 +792,9 @@ class Scalene:
                         import shutil
 
                         # Fallback to the specified `column_width` if the terminal width cannot be obtained.
-                        column_width = shutil.get_terminal_size(fallback=(column_width, column_width)).columns
+                        column_width = shutil.get_terminal_size(
+                            fallback=(column_width, column_width)
+                        ).columns
             did_output: bool = output.output_profiles(
                 column_width,
                 Scalene.__stats,
@@ -1446,8 +1446,11 @@ class Scalene:
             generate_html(
                 profile_fname=profile_filename,
                 output_fname=(
-                    Scalene.__profiler_html if not Scalene.__args.outfile
-                    else Filename(str(pathlib.Path(Scalene.__args.outfile).with_suffix(".html")))
+                    Scalene.__profiler_html
+                    if not Scalene.__args.outfile
+                    else Filename(
+                        str(pathlib.Path(Scalene.__args.outfile).with_suffix(".html"))
+                    )
                 ),
             )
         if Scalene.in_jupyter():
