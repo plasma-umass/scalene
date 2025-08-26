@@ -6,7 +6,6 @@ import pickle
 import time
 from collections import defaultdict
 from functools import total_ordering
-from pydantic import PositiveInt
 from typing import (
     Any,
     List,
@@ -19,6 +18,7 @@ from typing import (
 )
 
 import cloudpickle
+from pydantic import PositiveInt
 
 from scalene.runningstats import RunningStats
 

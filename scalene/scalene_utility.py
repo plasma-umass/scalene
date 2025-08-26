@@ -10,20 +10,19 @@ import sys
 import tempfile
 import threading
 import webbrowser
-
-
-from jinja2 import Environment, FileSystemLoader
 from types import BuiltinFunctionType, FrameType, FunctionType, ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
+from jinja2 import Environment, FileSystemLoader
+
+from scalene.scalene_config import scalene_date, scalene_version
 from scalene.scalene_statistics import (
     Filename,
     LineNumber,
+    ScaleneStatistics,
     StackFrame,
     StackStats,
-    ScaleneStatistics,
 )
-from scalene.scalene_config import scalene_version, scalene_date
 
 
 def enter_function_meta(

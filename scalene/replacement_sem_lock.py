@@ -3,8 +3,9 @@ import multiprocessing.synchronize
 import random
 import sys
 import threading
-from scalene.scalene_profiler import Scalene
 from typing import Any, Callable, Optional, Tuple
+
+from scalene.scalene_profiler import Scalene
 
 
 class ReplacementSemLock(multiprocessing.synchronize.Lock):

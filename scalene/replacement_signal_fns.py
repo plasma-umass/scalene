@@ -1,9 +1,9 @@
 import os
 import signal
 import sys
+from typing import Any, Tuple
 
 from scalene.scalene_profiler import Scalene
-from typing import Any, Tuple
 
 
 @Scalene.shim

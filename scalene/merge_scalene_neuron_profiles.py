@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
+import bisect
 import json
 import sys
 from pathlib import Path
-import bisect
-
 from typing import List, Optional, Tuple
 
 

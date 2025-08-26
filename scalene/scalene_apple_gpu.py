@@ -1,6 +1,7 @@
-import platform
 import ctypes
+import platform
 from typing import Tuple
+
 from scalene.scalene_accelerator import ScaleneAccelerator
 
 # ---------------------------------------------------------------------------

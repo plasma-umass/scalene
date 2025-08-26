@@ -4,7 +4,6 @@ import sys
 from types import FrameType
 from typing import Callable, List, Optional, Tuple, Union
 
-
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
 else:

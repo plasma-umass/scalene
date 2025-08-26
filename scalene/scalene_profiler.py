@@ -2,7 +2,7 @@
 
 from __future__ import (
     annotations,
-)  # work around Python 3.8 issue, see https://stackoverflow.com/a/68072481/335756
+)
 
 """Scalene: a CPU+memory+GPU (and more) profiler for Python.
 
@@ -50,15 +50,6 @@ import threading
 import time
 import traceback
 import warnings
-
-# For debugging purposes
-from rich.console import Console
-
-from scalene.find_browser import find_browser
-from scalene.get_module_details import _get_module_details
-from scalene.time_info import get_times, TimeInfo
-from scalene.redirect_python import redirect_python
-
 from collections import defaultdict
 from types import (
     FrameType,
@@ -76,7 +67,14 @@ from typing import (
     cast,
 )
 
+# For debugging purposes
+from rich.console import Console
+
 import scalene.scalene_config
+from scalene.find_browser import find_browser
+from scalene.get_module_details import _get_module_details
+from scalene.redirect_python import redirect_python
+from scalene.scalene_accelerator import ScaleneAccelerator
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_funcutils import ScaleneFuncUtils
@@ -84,32 +82,31 @@ from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_mapfile import ScaleneMapFile
 from scalene.scalene_memory_profiler import ScaleneMemoryProfiler
 from scalene.scalene_output import ScaleneOutput
+from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
 from scalene.scalene_preload import ScalenePreload
-from scalene.scalene_signals import ScaleneSignals, SignumType
 from scalene.scalene_signal_manager import ScaleneSignalManager
+from scalene.scalene_signals import ScaleneSignals, SignumType
+from scalene.scalene_sigqueue import ScaleneSigQueue
 from scalene.scalene_statistics import (
     Address,
     ByteCodeIndex,
     Filename,
     LineNumber,
-    ScaleneStatistics,
-    ProfilingSample,
     MemcpyProfilingSample,
+    ProfilingSample,
+    ScaleneStatistics,
 )
 from scalene.scalene_utility import (
     add_stack,
     compute_frames_to_record,
     enter_function_meta,
+    flamegraph_format,
     generate_html,
     get_fully_qualified_name,
     on_stack,
     patch_module_functions_with_signal_blocking,
-    flamegraph_format,
 )
-
-from scalene.scalene_parseargs import ScaleneParseArgs, StopJupyterExecution
-from scalene.scalene_sigqueue import ScaleneSigQueue
-from scalene.scalene_accelerator import ScaleneAccelerator
+from scalene.time_info import TimeInfo, get_times
 
 console = Console(style="white on blue")
 
