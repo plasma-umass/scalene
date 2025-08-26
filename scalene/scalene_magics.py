@@ -77,7 +77,7 @@ with contextlib.suppress(Exception):
         ip.register_magics(ScaleneMagics)
         with contextlib.suppress(Exception):
             # For some reason, this isn't loading correctly on the web.
-            with open("scalene-usage.txt", "r") as usage:
+            with open("scalene-usage.txt") as usage:
                 usage_str = usage.read()
             ScaleneMagics.scrun.__doc__ = usage_str
             ScaleneMagics.scalene.__doc__ = usage_str

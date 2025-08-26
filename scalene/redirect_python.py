@@ -34,7 +34,7 @@ def redirect_python(preface: str, cmdline: str, python_alias_dir: pathlib.Path) 
                 file.write(payload)
             if sys.platform != "win32":
                 os.chmod(fname, stat.S_IXUSR | stat.S_IRUSR | stat.S_IWUSR)
-        except IOError as e:
+        except OSError as e:
             print(f"Error writing to {fname}: {e}")
 
     sys.path.insert(0, str(python_alias_dir))

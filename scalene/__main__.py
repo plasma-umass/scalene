@@ -16,7 +16,7 @@ def main() -> None:
 
         scalene_profiler.Scalene.main()
     except Exception as exc:
-        sys.stderr.write("ERROR: Calling Scalene main function failed: %s\n" % exc)
+        sys.stderr.write(f"ERROR: Calling Scalene main function failed: {exc}\n")
         traceback.print_exc()
         sys.exit(1)
 

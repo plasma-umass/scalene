@@ -125,7 +125,7 @@ MINIMUM_PYTHON_VERSION_MAJOR = 3
 MINIMUM_PYTHON_VERSION_MINOR = 9
 
 
-def require_python(version: Tuple[int, int]) -> None:
+def require_python(version: tuple[int, int]) -> None:
     assert (
         sys.version_info >= version
     ), f"Scalene requires Python version {version[0]}.{version[1]} or above."
@@ -193,7 +193,7 @@ class Scalene:
     __orig_python = sys.executable  # will be rewritten later
 
     @staticmethod
-    def last_profiled_tuple() -> Tuple[Filename, LineNumber, ByteCodeIndex]:
+    def last_profiled_tuple() -> tuple[Filename, LineNumber, ByteCodeIndex]:
         """Helper function to type last profiled information."""
         return cast(Tuple[Filename, LineNumber, ByteCodeIndex], Scalene.__last_profiled)
 
@@ -215,9 +215,9 @@ class Scalene:
 
     # Support for @profile
     # decorated files
-    __files_to_profile: Set[Filename] = set()
+    __files_to_profile: set[Filename] = set()
     # decorated functions
-    __functions_to_profile: Dict[Filename, Set[Any]] = defaultdict(set)
+    __functions_to_profile: dict[Filename, set[Any]] = defaultdict(set)
 
     # Cache the original thread join function, which we replace with our own version.
     __original_thread_join = threading.Thread.join
@@ -232,10 +232,10 @@ class Scalene:
     __memory_profiler = ScaleneMemoryProfiler(__stats)
     __output = ScaleneOutput()
     __json = ScaleneJSON()
-    __accelerator: Optional[ScaleneAccelerator] = (
+    __accelerator: ScaleneAccelerator | None = (
         None  # initialized after parsing arguments in `main`
     )
-    __invalidate_queue: List[Tuple[Filename, LineNumber]] = []
+    __invalidate_queue: list[tuple[Filename, LineNumber]] = []
     __invalidate_mutex: threading.Lock
     __profiler_base: str
 
@@ -273,14 +273,14 @@ class Scalene:
     __program_being_profiled = Filename("")
 
     # Is the thread sleeping? (We use this to properly attribute CPU time.)
-    __is_thread_sleeping: Dict[int, bool] = defaultdict(bool)  # False by default
+    __is_thread_sleeping: dict[int, bool] = defaultdict(bool)  # False by default
 
-    child_pids: Set[int] = set()  # Needs to be unmangled to be accessed by shims
+    child_pids: set[int] = set()  # Needs to be unmangled to be accessed by shims
 
     # Signal queues for allocations and memcpy
     __alloc_sigq: ScaleneSigQueue[Any]
     __memcpy_sigq: ScaleneSigQueue[Any]
-    __sigqueues: List[ScaleneSigQueue[Any]]
+    __sigqueues: list[ScaleneSigQueue[Any]]
 
     client_timer: ScaleneClientTimer = ScaleneClientTimer()
 
@@ -297,7 +297,7 @@ class Scalene:
     __last_cpu_interval = 0.0
 
     @staticmethod
-    def get_all_signals_set() -> Set[int]:
+    def get_all_signals_set() -> set[int]:
         """Return the set of all signals currently set.
 
         Used by replacement_signal_fns.py to shim signals used by the client program.
@@ -305,7 +305,7 @@ class Scalene:
         return set(Scalene.__signal_manager.get_signals().get_all_signals())
 
     @staticmethod
-    def get_lifecycle_signals() -> Tuple[signal.Signals, signal.Signals]:
+    def get_lifecycle_signals() -> tuple[signal.Signals, signal.Signals]:
         return Scalene.__signal_manager.get_signals().get_lifecycle_signals()
 
     @staticmethod
@@ -317,7 +317,7 @@ class Scalene:
         return Scalene.__lifecycle_disabled
 
     @staticmethod
-    def get_timer_signals() -> Tuple[int, signal.Signals]:
+    def get_timer_signals() -> tuple[int, signal.Signals]:
         """Return the set of all TIMER signals currently set.
 
         Used by replacement_signal_fns.py to shim timers used by the client program.
@@ -337,7 +337,7 @@ class Scalene:
     @staticmethod
     def interruption_handler(
         signum: SignumType,
-        this_frame: Optional[FrameType],
+        this_frame: FrameType | None,
     ) -> None:
         """Handle keyboard interrupts (e.g., Ctrl-C)."""
         raise KeyboardInterrupt
@@ -462,7 +462,7 @@ class Scalene:
     @staticmethod
     def term_signal_handler(
         signum: SignumType,
-        this_frame: Optional[FrameType],
+        this_frame: FrameType | None,
     ) -> None:
         """Handle terminate signals."""
         Scalene.stop()
@@ -473,7 +473,7 @@ class Scalene:
     @staticmethod
     def malloc_signal_handler(
         signum: SignumType,
-        this_frame: Optional[FrameType],
+        this_frame: FrameType | None,
     ) -> None:
         """Handle allocation signals."""
         if not Scalene.__args.memory:
@@ -525,7 +525,7 @@ class Scalene:
     @staticmethod
     def free_signal_handler(
         signum: SignumType,
-        this_frame: Optional[FrameType],
+        this_frame: FrameType | None,
     ) -> None:
         """Handle free signals."""
         if this_frame:
@@ -536,7 +536,7 @@ class Scalene:
     @staticmethod
     def memcpy_signal_handler(
         signum: SignumType,
-        this_frame: Optional[FrameType],
+        this_frame: FrameType | None,
     ) -> None:
         """Handle memcpy signals."""
         Scalene.__memcpy_sigq.put((signum, this_frame))
@@ -559,7 +559,7 @@ class Scalene:
     def __init__(
         self,
         arguments: argparse.Namespace,
-        program_being_profiled: Optional[Filename] = None,
+        program_being_profiled: Filename | None = None,
     ) -> None:
         # Wrap all os calls so that they disable SIGALRM (the signal used for CPU sampling).
         # This fixes https://github.com/plasma-umass/scalene/issues/841.
@@ -679,7 +679,7 @@ class Scalene:
     @staticmethod
     def cpu_signal_handler(
         signum: SignumType,
-        this_frame: Optional[FrameType],
+        this_frame: FrameType | None,
     ) -> None:
         """Handle CPU signals."""
         try:
@@ -743,7 +743,7 @@ class Scalene:
                 Scalene.__signal_manager.restart_timer(next_interval)
 
     @staticmethod
-    def output_profile(program_args: Optional[List[str]] = None) -> bool:
+    def output_profile(program_args: list[str] | None = None) -> bool:
         """Output the profile. Returns true iff there was any info reported the profile."""
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
@@ -813,7 +813,7 @@ class Scalene:
     @functools.cache
     def get_line_info(
         fname: Filename,
-    ) -> List[Tuple[list[str], int]]:
+    ) -> list[tuple[list[str], int]]:
         line_info = (
             inspect.getsourcelines(fn) for fn in Scalene.__functions_to_profile[fname]
         )
@@ -843,12 +843,12 @@ class Scalene:
     @staticmethod
     def process_cpu_sample(
         _signum: SignumType,
-        new_frames: List[Tuple[FrameType, int, FrameType]],
+        new_frames: list[tuple[FrameType, int, FrameType]],
         now: TimeInfo,
         gpu_load: float,
         gpu_mem_used: float,
         prev: TimeInfo,
-        is_thread_sleeping: Dict[int, bool],
+        is_thread_sleeping: dict[int, bool],
     ) -> None:
         """Handle interrupts for CPU profiling."""
         # We have recorded how long it has been since we received a timer
@@ -1039,7 +1039,7 @@ class Scalene:
         Scalene.__stats.cpu_stats.total_cpu_samples += total_time
 
     @staticmethod
-    def alloc_sigqueue_processor(_x: Optional[List[int]]) -> None:
+    def alloc_sigqueue_processor(_x: list[int] | None) -> None:
         """Handle interrupts for memory profiling (mallocs and frees)."""
         # Delegate malloc/free processing to the memory profiler
         Scalene.__memory_profiler.process_malloc_free_samples(
@@ -1278,7 +1278,7 @@ class Scalene:
     @staticmethod
     def start_signal_handler(
         _signum: SignumType,
-        _this_frame: Optional[FrameType],
+        _this_frame: FrameType | None,
     ) -> None:
         """Respond to a signal to start or resume profiling (--on).
 
@@ -1293,7 +1293,7 @@ class Scalene:
     @staticmethod
     def stop_signal_handler(
         _signum: SignumType,
-        _this_frame: Optional[FrameType],
+        _this_frame: FrameType | None,
     ) -> None:
         """Respond to a signal to suspend profiling (--off).
 
@@ -1344,9 +1344,9 @@ class Scalene:
     def profile_code(
         self,
         code: str,
-        the_globals: Dict[str, str],
-        the_locals: Dict[str, str],
-        left: List[str],
+        the_globals: dict[str, str],
+        the_locals: dict[str, str],
+        left: list[str],
     ) -> int:
         """Initiate execution and profiling."""
         if Scalene.__args.memory:
@@ -1571,7 +1571,7 @@ class Scalene:
 
     @staticmethod
     def run_profiler(
-        args: argparse.Namespace, left: List[str], is_jupyter: bool = False
+        args: argparse.Namespace, left: list[str], is_jupyter: bool = False
     ) -> None:
         """Set up and initiate profiling."""
         # Set up signal handlers for starting and stopping profiling.
@@ -1617,7 +1617,7 @@ class Scalene:
                 multiprocessing.set_start_method("fork")
 
                 def multiprocessing_warning(
-                    method: Optional[str], force: bool = False
+                    method: str | None, force: bool = False
                 ) -> None:
                     # The 'force' parameter is present for compatibility with multiprocessing.set_start_method, but is ignored.
                     if method != "fork":
@@ -1666,7 +1666,7 @@ class Scalene:
                     raise FileNotFoundError
                 # Use the full absolute path of the program being profiled, expanding ~ if need be.
                 prog_name = os.path.abspath(os.path.expanduser(progs[0]))
-                with open(prog_name, "r", encoding="utf-8") as prog_being_profiled:
+                with open(prog_name, encoding="utf-8") as prog_being_profiled:
                     # Read in the code and compile it.
                     code: Any = ""
                     try:
@@ -1741,7 +1741,7 @@ class Scalene:
                         message = template.format(type(ex).__name__, ex.args)
                         print(message, file=sys.stderr)
                         print(traceback.format_exc(), file=sys.stderr)
-            except (FileNotFoundError, IOError):
+            except (OSError, FileNotFoundError):
                 if progs:
                     print(
                         f"Scalene: could not find input file {prog_name}",

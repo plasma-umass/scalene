@@ -14,7 +14,7 @@ def parse_debug_file_programmatic(
     if not Path(debug_file).exists():
         return None, []
 
-    with open(debug_file, "r") as f:
+    with open(debug_file) as f:
         content = f.read()
 
     # Extract PID

@@ -97,7 +97,7 @@ def is_port_available(port: int) -> bool:
         try:
             s.bind(("localhost", port))
             return True
-        except socket.error:
+        except OSError:
             return False
 
 
