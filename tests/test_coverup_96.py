@@ -15,8 +15,8 @@ def scalene_cleanup():
 
 
 def test_add_child_pid(scalene_cleanup):
-    # Test to ensure that add_child_pid adds a pid to the child_pids set
+    # Test to ensure that _add_child_pid adds a pid to the child_pids set
     test_pid = 12345
     assert test_pid not in Scalene.child_pids
-    Scalene.add_child_pid(test_pid)
+    Scalene._add_child_pid(test_pid)
     assert test_pid in Scalene.child_pids

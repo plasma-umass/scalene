@@ -279,8 +279,6 @@ class Scalene:
         try:
             Scalene.__malloc_mapfile = ScaleneMapFile("malloc")
             Scalene.__memcpy_mapfile = ScaleneMapFile("memcpy")
-            # Initialize memory profiler
-            # Scalene.__memory_profiler = ScaleneMemoryProfiler(Scalene.__stats)
             Scalene.__memory_profiler.set_mapfiles(
                 Scalene.__malloc_mapfile, Scalene.__memcpy_mapfile
             )
@@ -366,13 +364,13 @@ class Scalene:
         __orig_siginterrupt = signal.siginterrupt
 
     @classmethod
-    def clear_metrics(cls) -> None:
+    def _clear_metrics(cls) -> None:
         """Clear the various states for forked processes."""
         cls.__stats.clear()
         cls.child_pids.clear()
 
     @classmethod
-    def add_child_pid(cls, pid: int) -> None:
+    def _add_child_pid(cls, pid: int) -> None:
         """Add this pid to the set of children. Used when forking."""
         cls.child_pids.add(pid)
 
@@ -392,7 +390,7 @@ class Scalene:
         """
         Scalene.__is_child = True
 
-        Scalene.clear_metrics()
+        Scalene._clear_metrics()
         if Scalene.__accelerator and Scalene.__accelerator.has_gpu():
             Scalene.__accelerator.reinit()
         # Note: __parent_pid of the topmost process is its own pid.
@@ -406,7 +404,7 @@ class Scalene:
 
         Invoked by replacement_fork.py.
         """
-        Scalene.add_child_pid(child_pid)
+        Scalene._add_child_pid(child_pid)
         Scalene.start_signal_queues()
 
     @staticmethod
@@ -467,7 +465,7 @@ class Scalene:
             Scalene.update_line()
 
     @staticmethod
-    def profile(func: Any) -> Any:
+    def _profile(func: Any) -> Any:
         """Record the file and function name.
 
         Replacement @profile decorator function.  Scalene tracks which
@@ -1719,18 +1717,11 @@ class Scalene:
                 sys.exit(exit_status)
 
 
-# Install our profile decorator.
-def scalene_redirect_profile(func: Any) -> Any:
-    """Handle @profile decorators.
+# Handle @profile decorators.
+# If Scalene encounters any functions decorated by @profile, it will
+# only report stats for those functions.
 
-    If Scalene encounters any functions decorated by @profile, it will
-    only report stats for those functions.
-
-    """
-    return Scalene.profile(func)
-
-
-builtins.profile = scalene_redirect_profile  # type: ignore
+builtins.profile = Scalene._profile  # type: ignore
 
 
 def start() -> None:
