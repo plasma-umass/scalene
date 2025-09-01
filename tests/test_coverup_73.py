@@ -9,7 +9,7 @@ from scalene.scalene_profiler import Scalene
 
 def test_interruption_handler():
     with pytest.raises(KeyboardInterrupt):
-        Scalene.interruption_handler(signal.SIGINT, None)
+        Scalene._interruption_handler(signal.SIGINT, None)
 
 
 def test_cleanup():

@@ -43,7 +43,7 @@ def test_process_args(cleanup_scalene):
     # Mock time.perf_counter to return a known value
     with patch("time.perf_counter", return_value=100):
         # Call the method under test
-        Scalene.process_args(args)
+        Scalene._process_args(args)
 
         # Assertions to verify postconditions
         # Accessing the private attributes directly for testing purposes

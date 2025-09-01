@@ -26,7 +26,7 @@ def cleanup_scalene():
 
 def test_get_line_info(cleanup_scalene):
     # Test the get_line_info method to ensure it covers the missing lines
-    line_info_list = Scalene.get_line_info("dummy_file.py")
+    line_info_list = Scalene._get_line_info("dummy_file.py")
     line_info = line_info_list[0]
     assert isinstance(line_info, tuple)
     assert isinstance(line_info[0], list)

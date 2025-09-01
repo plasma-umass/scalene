@@ -18,6 +18,6 @@ def test_set_in_jupyter(scalene_cleanup):
     # Ensure that __in_jupyter is initially False
     assert not Scalene._Scalene__in_jupyter
     # Call the method to set __in_jupyter to True
-    Scalene.set_in_jupyter()
+    Scalene._set_in_jupyter()
     # Check if __in_jupyter is now True
     assert Scalene._Scalene__in_jupyter

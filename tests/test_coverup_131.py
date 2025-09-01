@@ -19,6 +19,6 @@ def test_profile_this_code_without_files_to_profile(scalene_cleanup):
     # Ensure __files_to_profile is empty
     Scalene._Scalene__files_to_profile.clear()
     # Call the method with arbitrary arguments
-    result = Scalene.profile_this_code("somefile.py", 10)
+    result = Scalene._profile_this_code("somefile.py", 10)
     # Assert that the result is True when __files_to_profile is empty
     assert result == True
