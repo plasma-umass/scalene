@@ -363,8 +363,9 @@ class Scalene:
     try:
         __availableCPUs = len(os.sched_getaffinity(0))  # type: ignore[unused-ignore,attr-defined]
     except AttributeError:
-        if os.cpu_count():
-            __availableCPUs = os.cpu_count()
+        cpu_count = os.cpu_count()
+        if cpu_count is not None:
+            __availableCPUs = cpu_count
         else:
             __availableCPUs = 1
 
