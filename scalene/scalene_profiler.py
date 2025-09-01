@@ -731,7 +731,6 @@ class Scalene:
                         to_wait = min(remaining_time, next_interval)
                     else:
                         to_wait = next_interval
-                        Scalene.client_timer.reset()
                     Scalene.__signal_manager.restart_timer(to_wait)
                 else:
                     Scalene.__signal_manager.restart_timer(next_interval)
