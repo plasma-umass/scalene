@@ -360,6 +360,7 @@ class Scalene:
         # Store relevant names (program, path).
         if program_being_profiled:
             Scalene.__program_being_profiled = Filename(program_being_profiled)
+
     try:
         __availableCPUs = len(os.sched_getaffinity(0))  # type: ignore[unused-ignore,attr-defined]
     except AttributeError:
@@ -370,6 +371,7 @@ class Scalene:
     def last_profiled_tuple() -> tuple[Filename, LineNumber, ByteCodeIndex]:
         """Helper function to type last profiled information."""
         return cast(Tuple[Filename, LineNumber, ByteCodeIndex], Scalene.__last_profiled)
+
     if sys.platform != "win32":
         __orig_setitimer = signal.setitimer
         __orig_siginterrupt = signal.siginterrupt
@@ -811,10 +813,12 @@ class Scalene:
 
     @staticmethod
     def _sample_cpu_interval() -> float:
-        interval = Scalene._generate_exponential_sample(Scalene.__args.cpu_sampling_rate)
+        interval = Scalene._generate_exponential_sample(
+            Scalene.__args.cpu_sampling_rate
+        )
         Scalene.__last_cpu_interval = interval
         return interval
-    
+
     @staticmethod
     @functools.cache
     def _get_line_info(
@@ -1736,6 +1740,7 @@ class Scalene:
                         mapfile.cleanup()
             if not is_jupyter:
                 sys.exit(exit_status)
+
 
 # Install our profile decorator.
 def scalene_redirect_profile(func: Any) -> Any:
