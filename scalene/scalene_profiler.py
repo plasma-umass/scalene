@@ -61,13 +61,7 @@ from types import (
 from typing import (
     Any,
     Callable,
-    Dict,
     Generator,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
     cast,
 )
 
@@ -104,7 +98,6 @@ from scalene.scalene_utility import (
     add_stack,
     compute_frames_to_record,
     enter_function_meta,
-    flamegraph_format,
     generate_html,
     get_fully_qualified_name,
     on_stack,
@@ -152,8 +145,6 @@ class Scalene:
     __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
     __orig_python = sys.executable  # will be rewritten later
 
-    __last_profiled_invalidated = False
-    __gui_dir = "scalene-gui"
     __profile_filename = Filename("profile.json")
     __profiler_html = Filename("profile.html")
     __error_message = "Error in program being profiled"
@@ -238,8 +229,6 @@ class Scalene:
     __orig_kill = os.kill
 
     __last_cpu_interval = 0.0
-
-    __done = False
 
     def __init__(
         self,
@@ -370,7 +359,7 @@ class Scalene:
     @staticmethod
     def last_profiled_tuple() -> tuple[Filename, LineNumber, ByteCodeIndex]:
         """Helper function to type last profiled information."""
-        return cast(Tuple[Filename, LineNumber, ByteCodeIndex], Scalene.__last_profiled)
+        return cast(tuple[Filename, LineNumber, ByteCodeIndex], Scalene.__last_profiled)
 
     if sys.platform != "win32":
         __orig_setitimer = signal.setitimer
@@ -593,7 +582,7 @@ class Scalene:
         # If so, increment.
 
         invalidated = pywhere.get_last_profiled_invalidated()
-        (fname, lineno, lasti) = Scalene.last_profiled_tuple()
+        (fname, lineno, _lasti) = Scalene.last_profiled_tuple()
         if not invalidated and this_frame and not (on_stack(this_frame, fname, lineno)):
             Scalene.update_profiled()
         pywhere.set_last_profiled_invalidated_false()
@@ -779,11 +768,6 @@ class Scalene:
                 reduced_profile=Scalene.__args.reduced_profile,
             )
             return did_output
-
-    @staticmethod
-    def print_stacks() -> None:
-        for f in Scalene.__stats.stacks:
-            print(f, Scalene.__stats.stacks[f])
 
     @staticmethod
     def _set_in_jupyter() -> None:
@@ -1182,7 +1166,6 @@ class Scalene:
         Scalene.__stats.start_clock()
         Scalene.enable_signals()
         Scalene.__start_time = time.monotonic_ns()
-        Scalene.__done = False
 
         # Start neuron monitor if using Neuron accelerator
         if (
@@ -1199,7 +1182,6 @@ class Scalene:
     @staticmethod
     def stop() -> None:
         """Complete profiling."""
-        Scalene.__done = True
         if Scalene.__args.memory:
             from scalene import pywhere  # type: ignore
 
@@ -1237,11 +1219,6 @@ class Scalene:
                 Scalene.__args.json = True
                 Scalene.__output.html = False
                 Scalene.__output.output_file = Scalene.__profile_filename
-
-    @staticmethod
-    def is_done() -> bool:
-        """Return true if Scalene has stopped profiling."""
-        return Scalene.__done
 
     @staticmethod
     def _start_signal_handler(
