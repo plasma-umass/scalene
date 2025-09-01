@@ -24,7 +24,7 @@ def test_exit_handler_cleanup(monkeypatch):
     assert os.path.exists(malloc_lock_file)
 
     # Call the exit handler
-    Scalene.exit_handler()
+    Scalene._exit_handler()
 
     # Check that the malloc lock file was removed
     assert not os.path.exists(malloc_lock_file)

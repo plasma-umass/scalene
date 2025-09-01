@@ -23,16 +23,16 @@ def test_profile_this_code(monkeypatch):
             return [((mock_lineno, mock_lineno + 1), mock_lineno)]
         return []
 
-    monkeypatch.setattr(Scalene, "get_line_info", mock_get_line_info)
+    monkeypatch.setattr(Scalene, "_get_line_info", mock_get_line_info)
 
     # Test when the file is in the set and the line number is within the range
-    assert Scalene.profile_this_code(mock_filename, mock_lineno) == True
+    assert Scalene._profile_this_code(mock_filename, mock_lineno) == True
 
     # Test when the file is in the set but the line number is not within the range
-    assert Scalene.profile_this_code(mock_filename, mock_lineno + 100) == False
+    assert Scalene._profile_this_code(mock_filename, mock_lineno + 100) == False
 
     # Test when the file is not in the set
-    assert Scalene.profile_this_code("other_file.py", mock_lineno) == False
+    assert Scalene._profile_this_code("other_file.py", mock_lineno) == False
 
     # No need to clean up after the test since we used monkeypatch
 

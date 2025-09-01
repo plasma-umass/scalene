@@ -33,5 +33,5 @@ def scalene_setup_and_teardown():
 
 def test_start_signal_handler(scalene_setup_and_teardown):
     # Test that the signal handler sends the start_profiling_signal to child processes
-    Scalene.start_signal_handler(None, None)
+    Scalene._start_signal_handler(None, None)
     # No direct postconditions to assert; the test is for coverage of the signal sending

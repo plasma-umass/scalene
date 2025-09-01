@@ -26,7 +26,7 @@ def test_register_files_to_profile(scalene_cleanup):
         "scalene.pywhere.register_files_to_profile"
     ) as mock_register_files_to_profile:
         # Call the method under test
-        Scalene.register_files_to_profile()
+        Scalene._register_files_to_profile()
 
         # Check that pywhere.register_files_to_profile was called with the correct arguments
         mock_register_files_to_profile.assert_called_once_with(
