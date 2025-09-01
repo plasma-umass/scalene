@@ -1,6 +1,7 @@
 import sys
 import traceback
 
+
 def main() -> None:
     try:
         from scalene import scalene_profiler

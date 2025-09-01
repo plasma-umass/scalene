@@ -364,10 +364,7 @@ class Scalene:
         __availableCPUs = len(os.sched_getaffinity(0))  # type: ignore[unused-ignore,attr-defined]
     except AttributeError:
         cpu_count = os.cpu_count()
-        if cpu_count is not None:
-            __availableCPUs = cpu_count
-        else:
-            __availableCPUs = 1
+        __availableCPUs = cpu_count if cpu_count is not None else 1
 
     @staticmethod
     def last_profiled_tuple() -> tuple[Filename, LineNumber, ByteCodeIndex]:
