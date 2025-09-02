@@ -19,19 +19,19 @@ def mock_profile(func):
 # Apply the patch to the Scalene.profile method
 @pytest.fixture
 def mock_scalene(monkeypatch):
-    monkeypatch.setattr("scalene.scalene_profiler.Scalene.profile", mock_profile)
+    monkeypatch.setattr("scalene.scalene_profiler.Scalene._profile", mock_profile)
 
 
 def test_scalene_redirect_profile(mock_scalene):
     # Assuming scalene_redirect_profile is a function in the scalene_profiler module
-    from scalene.scalene_profiler import scalene_redirect_profile
+    from scalene.scalene_profiler import Scalene
 
     # Define a dummy function to be decorated
     def dummy_function():
         pass
 
     # Decorate the dummy function using the scalene_redirect_profile
-    decorated_function = scalene_redirect_profile(dummy_function)
+    decorated_function = Scalene._profile(dummy_function)
 
     # Assert that the function has been 'profiled' by checking the side effect
     assert hasattr(decorated_function, "has_been_profiled")
