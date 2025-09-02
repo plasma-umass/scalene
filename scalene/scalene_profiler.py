@@ -1534,7 +1534,7 @@ class Scalene:
                 Scalene._interruption_handler,
             )
         else:
-            Scalene.__orig_signal(signal.SIGINT, Scalene.interruption_handler)
+            Scalene.__orig_signal(signal.SIGINT, Scalene._interruption_handler)
         did_preload = False if is_jupyter else ScalenePreload.setup_preload(args)
         if not did_preload:
             with contextlib.suppress(Exception):
