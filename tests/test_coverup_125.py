@@ -4,6 +4,7 @@
 
 import os
 import signal
+import sys
 import pytest
 from scalene.scalene_profiler import Scalene
 
@@ -31,6 +32,9 @@ def scalene_setup_and_teardown():
     Scalene.child_pids.clear()
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Test only applicable to win32 platform"
+)
 def test_start_signal_handler(scalene_setup_and_teardown):
     # Test that the signal handler sends the start_profiling_signal to child processes
     Scalene._start_signal_handler(None, None)

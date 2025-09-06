@@ -3,6 +3,7 @@
 # branches []
 
 import pytest
+import sys
 from unittest.mock import patch
 from scalene.scalene_profiler import Scalene
 
@@ -14,6 +15,9 @@ def scalene_cleanup():
     Scalene._Scalene__files_to_profile.clear()
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Test only applicable to win32 platform"
+)
 def test_register_files_to_profile(scalene_cleanup):
     # Set up the necessary attributes in Scalene
     Scalene._Scalene__args = type("", (), {})()

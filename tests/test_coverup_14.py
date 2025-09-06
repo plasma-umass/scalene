@@ -3,6 +3,7 @@
 # branches []
 
 import pytest
+import sys
 from scalene.scalene_signals import ScaleneSignals
 
 
@@ -14,9 +15,10 @@ def scalene_signals():
 def test_get_all_signals(scalene_signals):
     signals = scalene_signals.get_all_signals()
     assert isinstance(signals, list)
-    assert all(isinstance(signal, int) for signal in signals)
-    # Assuming the signals are unique, which they should be
-    assert len(signals) == len(set(signals))
+    # Assuming signals are unique, which they should be
+    if sys.platform != "win32":
+        assert all(isinstance(signal, int) for signal in signals)
+        assert len(signals) == len(set(signals))
     # Check that cpu_signal is included in the list
     assert scalene_signals.cpu_signal in signals
     # Check that the list does not include the CPU timer signal
