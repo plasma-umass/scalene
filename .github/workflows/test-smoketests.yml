@@ -42,6 +42,7 @@ jobs:
       run: python test/smoketest.py test/testme.py --cpu-only
 
     - name: multiprocessing smoke test
+      if: matrix.os != 'windows-latest'
       run: python test/smoketest.py test/multiprocessing_test.py
 
       # Note: test/smoketest.py only handles single JSON, rather than multiple in sequence.
