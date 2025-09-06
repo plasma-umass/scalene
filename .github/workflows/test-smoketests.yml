@@ -56,6 +56,7 @@ jobs:
       # restarted properly. It checks whether the program 
       # halts or runs forever, not for correctness of timing.
     - name: signal smoketest
+      if: matrix.os != 'windows-latest'
       run: python test/smoketest.py test/signal_test.py
       timeout-minutes: 0.5
     # FIXME: these tests are broken under the current Github runner
