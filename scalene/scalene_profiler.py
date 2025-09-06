@@ -703,6 +703,7 @@ class Scalene:
     @staticmethod
     def output_profile(program_args: list[str] | None = None) -> bool:
         """Output the profile. Returns true iff there was any info reported the profile."""
+        did_output: bool = False
         if Scalene.__args.json:
             json_output = Scalene.__json.output_profiles(
                 Scalene.__program_being_profiled,
@@ -725,23 +726,18 @@ class Scalene:
                 return True
             outfile = Scalene.__output.output_file
             if Scalene.__args.outfile:
-                outfile = os.path.join(
-                    os.path.dirname(Scalene.__args.outfile),
-                    os.path.splitext(os.path.basename(Scalene.__args.outfile))[0]
-                    + ".json",
-                )
+                outfile = pathlib.Path(Scalene.__args.outfile).with_suffix(".json")
             # If there was no output file specified, print to the console.
             if not outfile:
-                if sys.platform == "win32":
-                    outfile = "CON"
-                else:
-                    outfile = "/dev/stdout"
+                outfile = "CON" if sys.platform == "win32" else "/dev/stdout"
             # Write the JSON to the output file (or console).
             with open(outfile, "w") as f:
                 f.write(json.dumps(json_output, sort_keys=True, indent=4) + "\n")
-            return json_output != {}
+            did_output = json_output != {}
 
-        else:
+        condition_1 = Scalene.__args.cli and Scalene.__args.outfile
+        condition_2 = Scalene.__args.cli and not Scalene.__args.json
+        if condition_1 or condition_2:
             output = Scalene.__output
             column_width = Scalene.__args.column_width
             if not Scalene.__args.html:
@@ -753,7 +749,10 @@ class Scalene:
                     else:
                         import shutil
 
-                        column_width = shutil.get_terminal_size().columns
+                        # Fallback to the specified `column_width` if the terminal width cannot be obtained.
+                        column_width = shutil.get_terminal_size(
+                            fallback=(column_width, column_width)
+                        ).columns
             did_output: bool = output.output_profiles(
                 column_width,
                 Scalene.__stats,
@@ -765,7 +764,7 @@ class Scalene:
                 profile_memory=Scalene.__args.memory,
                 reduced_profile=Scalene.__args.reduced_profile,
             )
-            return did_output
+        return did_output
 
     @staticmethod
     def _set_in_jupyter() -> None:
@@ -1392,7 +1391,9 @@ class Scalene:
                 output_fname=(
                     Scalene.__profiler_html
                     if not Scalene.__args.outfile
-                    else Scalene.__args.outfile
+                    else Filename(
+                        str(pathlib.Path(Scalene.__args.outfile).with_suffix(".html"))
+                    )
                 ),
             )
         if Scalene._in_jupyter():
