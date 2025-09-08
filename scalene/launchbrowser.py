@@ -1,5 +1,6 @@
 import http.server
 import os
+import pathlib
 import platform
 import shutil
 import socket
@@ -9,10 +10,9 @@ import tempfile
 import threading
 import time
 import webbrowser
-
-import pathlib
-from jinja2 import Environment, FileSystemLoader
 from typing import Any, NewType
+
+from jinja2 import Environment, FileSystemLoader
 
 
 def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
@@ -97,7 +97,7 @@ def is_port_available(port: int) -> bool:
         try:
             s.bind(("localhost", port))
             return True
-        except socket.error:
+        except OSError:
             return False
 
 

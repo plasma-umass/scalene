@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-13 ] # disabling windows-latest for now
+        os: [ ubuntu-latest, macos-13, windows-latest ]
         python: [ '3.9', '3.10', '3.11', '3.12', '3.13']
 
     steps:
@@ -42,6 +42,7 @@ jobs:
       run: python test/smoketest.py test/testme.py --cpu-only
 
     - name: multiprocessing smoke test
+      if: matrix.os != 'windows-latest'
       run: python test/smoketest.py test/multiprocessing_test.py
 
       # Note: test/smoketest.py only handles single JSON, rather than multiple in sequence.
@@ -51,6 +52,13 @@ jobs:
     - name: decorator smoke test
       run: python test/smoketest_profile_decorator.py
 
+      # NOTE: this is a regression test for signals not being
+      # restarted properly. It checks whether the program 
+      # halts or runs forever, not for correctness of timing.
+    - name: signal smoketest
+      if: matrix.os != 'windows-latest'
+      run: python test/smoketest.py test/signal_test.py
+      timeout-minutes: 0.5
     # FIXME: these tests are broken under the current Github runner
     #
     # - name: line invalidation test

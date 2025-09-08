@@ -19,7 +19,7 @@ def free_port():
 def occupied_port():
     """Create and occupy a port for testing."""
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("", 0))
+    s.bind(("localhost", 0))
     port = s.getsockname()[1]
     s.listen(1)
     yield port

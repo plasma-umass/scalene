@@ -1,6 +1,5 @@
 import multiprocessing
 import sys
-
 from typing import Any
 
 from scalene.scalene_profiler import Scalene

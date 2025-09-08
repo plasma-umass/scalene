@@ -7,8 +7,8 @@ import struct
 import subprocess
 import sys
 import warnings
-
 from typing import Dict
+
 import scalene
 
 

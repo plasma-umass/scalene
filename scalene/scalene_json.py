@@ -2,11 +2,12 @@ import copy
 import math
 import random
 import re
-
 from collections import defaultdict
 from enum import Enum
 from operator import itemgetter
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
+
 from pydantic import (
     BaseModel,
     Field,
@@ -17,8 +18,8 @@ from pydantic import (
     ValidationError,
     model_validator,
 )
-from typing import Any, Callable, Dict, List, Optional
 
+from scalene.scalene_analysis import ScaleneAnalysis
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.scalene_statistics import (
     Filename,
@@ -26,7 +27,6 @@ from scalene.scalene_statistics import (
     ScaleneStatistics,
     StackStats,
 )
-from scalene.scalene_analysis import ScaleneAnalysis
 
 
 class GPUDevice(str, Enum):
@@ -548,7 +548,7 @@ class ScaleneJSON:
             # Print out the the profile for the source, line by line.
             full_fname = fname
             try:
-                with open(full_fname, "r", encoding="utf-8") as source_file:
+                with open(full_fname, encoding="utf-8") as source_file:
                     code_lines = source_file.readlines()
 
             except (FileNotFoundError, OSError):

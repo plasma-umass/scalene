@@ -4,8 +4,7 @@ import importlib
 import os
 import re
 import sys
-
-from typing import cast, Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, cast
 
 if sys.version_info < (3, 9):
     # ast.unparse only supported as of 3.9

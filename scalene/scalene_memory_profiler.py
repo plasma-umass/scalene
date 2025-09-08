@@ -13,18 +13,17 @@ from types import FrameType
 from typing import List, Optional, Tuple, cast
 
 import scalene.scalene_config
-
 from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_mapfile import ScaleneMapFile
 from scalene.scalene_statistics import (
     Address,
     ByteCodeIndex,
     Filename,
     LineNumber,
-    ScaleneStatistics,
     MemcpyProfilingSample,
     ProfilingSample,
+    ScaleneStatistics,
 )
-from scalene.scalene_mapfile import ScaleneMapFile
 
 
 class ScaleneMemoryProfiler:

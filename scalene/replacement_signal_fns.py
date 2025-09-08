@@ -1,9 +1,9 @@
 import os
 import signal
 import sys
+from typing import Any, Tuple
 
 from scalene.scalene_profiler import Scalene
-from typing import Any, Tuple
 
 
 @Scalene.shim
@@ -17,13 +17,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         scalene_signals.cpu_signal: scalene.cpu_signal_handler,
     }
     old_signal = signal.signal
-    if sys.version_info < (3, 8):
-
-        def old_raise_signal(s: signal.Signals) -> None:
-            os.kill(os.getpid(), s)
-
-    else:
-        old_raise_signal = signal.raise_signal
+    old_raise_signal = signal.raise_signal
 
     old_kill = os.kill
 
@@ -128,6 +122,5 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         signal.siginterrupt = replacement_siginterrupt
 
     signal.signal = replacement_signal  # type: ignore[unused-ignore,assignment]
-    if sys.version_info >= (3, 8):
-        signal.raise_signal = replacement_raise_signal
+    signal.raise_signal = replacement_raise_signal
     os.kill = replacement_kill

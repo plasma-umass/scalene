@@ -1,5 +1,5 @@
-from typing import Tuple
 from abc import ABC, abstractmethod
+from typing import Tuple
 
 
 # Base class for accelerators (GPUs, TPUs, etc.)

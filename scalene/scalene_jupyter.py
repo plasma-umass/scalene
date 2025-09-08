@@ -1,5 +1,5 @@
 import socket
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
 from typing import Any, Optional
 
@@ -33,9 +33,13 @@ class ScaleneJupyter:
         # which lets JavaScript run (can't do this with `display`, which strips out JavaScript), and then
         # tears down the server.
         try:
-            from IPython.core.display import display  # type: ignore[attr-defined,unused-ignore]
+            from IPython.core.display import (  # type: ignore[attr-defined,unused-ignore]
+                display,
+            )
         except ImportError:
-            from IPython.display import display  # type: ignore[attr-defined,unused-ignore]
+            from IPython.display import (  # type: ignore[attr-defined,unused-ignore]
+                display,
+            )
         from IPython.display import IFrame
 
         class RequestHandler(BaseHTTPRequestHandler):

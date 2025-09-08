@@ -5,6 +5,7 @@
 import os
 import mmap
 import pytest
+import sys
 from scalene.scalene_mapfile import ScaleneMapFile
 
 
@@ -35,6 +36,9 @@ def cleanup_files():
         os.remove(init_filename)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Test only applicable to win32 platform"
+)
 def test_scalene_mapfile(cleanup_files):
     signal_filename, lock_filename, init_filename = cleanup_files
     mapfile = ScaleneMapFile("test_mapfile")

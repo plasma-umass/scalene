@@ -32,4 +32,4 @@ def test_set_timer_signals_windows(scalene_signals, monkeypatch):
         monkeypatch.setattr(sys, "platform", "win32")
         scalene_signals.set_timer_signals()
         assert scalene_signals.cpu_signal == signal.SIGBREAK
-        assert scalene_signals.cpu_timer_signal is None
+        assert scalene_signals.cpu_timer_signal == signal.SIGBREAK

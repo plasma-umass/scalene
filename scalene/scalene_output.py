@@ -513,7 +513,7 @@ class ScaleneOutput:
             # Print out the profile for the source, line by line.
             full_fname = os.path.normpath(os.path.join(program_path, fname))
             try:
-                with open(full_fname, "r") as source_file:
+                with open(full_fname) as source_file:
                     code_lines = source_file.read()
             except (FileNotFoundError, OSError):
                 continue

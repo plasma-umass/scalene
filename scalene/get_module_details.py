@@ -1,6 +1,5 @@
 import importlib
 import sys
-
 from importlib.abc import SourceLoader
 from importlib.machinery import ModuleSpec
 from types import CodeType
@@ -36,10 +35,10 @@ def _get_module_details(
             from warnings import warn
 
             msg = (
-                "{mod_name!r} found in sys.modules after import of "
-                "package {pkg_name!r}, but prior to execution of "
-                "{mod_name!r}; this may result in unpredictable "
-                "behaviour".format(mod_name=mod_name, pkg_name=pkg_name)
+                f"{mod_name!r} found in sys.modules after import of "
+                f"package {pkg_name!r}, but prior to execution of "
+                f"{mod_name!r}; this may result in unpredictable "
+                "behaviour"
             )
             warn(RuntimeWarning(msg))
 
@@ -57,7 +56,7 @@ def _get_module_details(
             )
         raise error(msg.format(mod_name, type(ex).__name__, ex)) from ex
     if spec is None:
-        raise error("No module named %s" % mod_name)
+        raise error(f"No module named {mod_name}")
     if spec.submodule_search_locations is not None:
         if mod_name == "__main__" or mod_name.endswith(".__main__"):
             raise error("Cannot use package as __main__ module")
@@ -74,11 +73,11 @@ def _get_module_details(
     loader = spec.loader
     # use isinstance instead of `is None` to placate mypy
     if not isinstance(loader, SourceLoader):
-        raise error("%r is a namespace package and cannot be executed" % mod_name)
+        raise error(f"{mod_name!r} is a namespace package and cannot be executed")
     try:
         code = loader.get_code(mod_name)
     except ImportError as e:
         raise error(format(e)) from e
     if code is None:
-        raise error("No code object available for %s" % mod_name)
+        raise error(f"No code object available for {mod_name}")
     return mod_name, spec, code

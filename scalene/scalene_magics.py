@@ -1,7 +1,7 @@
 import contextlib
 import sys
 import textwrap
-from typing import Any, Callable, TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -14,20 +14,21 @@ if TYPE_CHECKING:
     def line_magic(func: F) -> F: ...  # type: ignore[override,unused-ignore]
     def magics_class(cls: type) -> type: ...  # type: ignore[override,unused-ignore]
 
-else:
-    from IPython.core.magic import (
-        Magics,
-        line_cell_magic,
-        line_magic,
-        magics_class,
-    )
-
 
 with contextlib.suppress(Exception):
 
     from scalene import scalene_profiler
     from scalene.scalene_arguments import ScaleneArguments
     from scalene.scalene_parseargs import ScaleneParseArgs
+
+    if not TYPE_CHECKING:
+        with contextlib.suppress(Exception):
+            from IPython.core.magic import (
+                Magics,
+                line_cell_magic,
+                line_magic,
+                magics_class,
+            )
 
     @magics_class
     class ScaleneMagics(Magics):  # type: ignore[no-any-unimported,unused-ignore]
@@ -76,7 +77,7 @@ with contextlib.suppress(Exception):
         ip.register_magics(ScaleneMagics)
         with contextlib.suppress(Exception):
             # For some reason, this isn't loading correctly on the web.
-            with open("scalene-usage.txt", "r") as usage:
+            with open("scalene-usage.txt") as usage:
                 usage_str = usage.read()
             ScaleneMagics.scrun.__doc__ = usage_str
             ScaleneMagics.scalene.__doc__ = usage_str

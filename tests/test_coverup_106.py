@@ -4,6 +4,7 @@
 
 import pytest
 import signal
+import sys
 from scalene.scalene_profiler import Scalene
 
 
@@ -15,7 +16,9 @@ def cleanup_signals():
     # Restore the original signal state after the test
     signal.signal(original_signals[0], signal.SIG_IGN)
 
-
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Test only applicable to win32 platform"
+)
 def test_get_timer_signals(cleanup_signals):
     # Set a timer signal to test
     signal.signal(signal.SIGVTALRM, signal.SIG_IGN)

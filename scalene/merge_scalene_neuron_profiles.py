@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
+import bisect
 import json
 import sys
 from pathlib import Path
-import bisect
-
 from typing import List, Optional, Tuple
 
 
@@ -14,7 +13,7 @@ def parse_debug_file_programmatic(
     if not Path(debug_file).exists():
         return None, []
 
-    with open(debug_file, "r") as f:
+    with open(debug_file) as f:
         content = f.read()
 
     # Extract PID
