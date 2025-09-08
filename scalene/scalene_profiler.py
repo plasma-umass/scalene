@@ -726,7 +726,7 @@ class Scalene:
                 return True
             outfile = Scalene.__output.output_file
             if Scalene.__args.outfile:
-                outfile = pathlib.Path(Scalene.__args.outfile).with_suffix(".json")
+                outfile = str(pathlib.Path(Scalene.__args.outfile).with_suffix(".json"))
             # If there was no output file specified, print to the console.
             if not outfile:
                 outfile = "CON" if sys.platform == "win32" else "/dev/stdout"
@@ -753,7 +753,7 @@ class Scalene:
                         column_width = shutil.get_terminal_size(
                             fallback=(column_width, column_width)
                         ).columns
-            did_output: bool = output.output_profiles(
+            did_output = output.output_profiles(
                 column_width,
                 Scalene.__stats,
                 Scalene.__pid,
