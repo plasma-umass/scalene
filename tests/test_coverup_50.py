@@ -22,7 +22,9 @@ def replacement_sem_lock():
     if lock._semlock._is_zero():
         lock.release()
 
-
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Test only applicable to win32 platform"
+)
 def test_replacement_sem_lock_enter_exit(replacement_sem_lock):
     # Test the __enter__ method with a forced timeout
     original_random = random.random
@@ -49,6 +51,9 @@ def test_replacement_sem_lock_enter_exit(replacement_sem_lock):
     ), "Lock should be released after the block"
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Test only applicable to win32 platform"
+)
 def test_replacement_sem_lock_reduce(replacement_sem_lock):
     # Test the __reduce__ method
     reduced = replacement_sem_lock.__reduce__()

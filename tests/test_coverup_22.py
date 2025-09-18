@@ -25,6 +25,9 @@ def mock_resource_module():
         yield mock_resource
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Test only applicable to win32 platform"
+)
 def test_get_times_linux_mac(mock_resource_module):
     if sys.platform == "win32":
         pytest.skip("This test is for Linux/Mac platforms only.")
