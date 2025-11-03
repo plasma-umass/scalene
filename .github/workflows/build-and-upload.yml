@@ -29,7 +29,7 @@ jobs:
     needs: pick-devN
     strategy:
       matrix:
-        python_version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        python_version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         plat: ['manylinux_2_28', 'macos-13', 'macos-latest', 'windows-latest']
         include:
           - plat: manylinux_2_28
