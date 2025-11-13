@@ -8,7 +8,7 @@ authors = [
     {name = "Sam Stern", email = "jstern@umass.edu"},
     {name = "Juan Altmayer Pizzorno", email = "juan@altmayer.com"},
 ]
-requires-python = ">=3.9,!=3.11.0"
+requires-python = ">=3.8,!=3.11.0"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Framework :: IPython",

@@ -116,8 +116,7 @@ def nada(*args: Any) -> None:
 console.log = nada  # type: ignore
 
 MINIMUM_PYTHON_VERSION_MAJOR = 3
-MINIMUM_PYTHON_VERSION_MINOR = 9
-
+MINIMUM_PYTHON_VERSION_MINOR = 8
 
 def require_python(version: tuple[int, int]) -> None:
     assert (
@@ -357,7 +356,7 @@ class Scalene:
     @staticmethod
     def last_profiled_tuple() -> tuple[Filename, LineNumber, ByteCodeIndex]:
         """Helper function to type last profiled information."""
-        return cast(tuple[Filename, LineNumber, ByteCodeIndex], Scalene.__last_profiled)
+        return cast("tuple[Filename, LineNumber, ByteCodeIndex]", Scalene.__last_profiled)
 
     if sys.platform != "win32":
         __orig_setitimer = signal.setitimer
@@ -802,7 +801,7 @@ class Scalene:
         return interval
 
     @staticmethod
-    @functools.cache
+    @functools.lru_cache(maxsize=None)
     def _get_line_info(
         fname: Filename,
     ) -> list[tuple[list[str], int]]:
@@ -1046,7 +1045,7 @@ class Scalene:
             Scalene.__memory_profiler.process_memcpy_samples()
 
     @staticmethod
-    @functools.cache
+    @functools.lru_cache(maxsize=None)
     def _should_trace(filename: Filename, func: str) -> bool:
         """Return true if we should trace this filename and function."""
         if not filename:

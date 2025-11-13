@@ -1,5 +1,5 @@
 import dis
-from functools import cache
+from functools import lru_cache
 from types import CodeType
 from typing import FrozenSet
 
@@ -22,7 +22,7 @@ class ScaleneFuncUtils:
     )
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=None)
     def is_call_function(code: CodeType, bytei: ByteCodeIndex) -> bool:
         """Returns true iff the bytecode at the given index is a function call."""
         return any(
