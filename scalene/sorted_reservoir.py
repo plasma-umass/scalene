@@ -50,7 +50,7 @@ class sorted_reservoir:
         self.reservoir_[j] = item
 
     @property
-    def reservoir(self: Self) -> list[Any]:
+    def reservoir(self: Self) -> "list[Any]":
         """Returns a sorted reservoir."""
         if not self.sorted_:
             self.reservoir_ = sorted(self.reservoir_, key=self.key)
