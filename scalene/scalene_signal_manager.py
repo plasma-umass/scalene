@@ -151,7 +151,7 @@ class ScaleneSignalManager(Generic[T]):
         self.__orig_signal(signal.SIGINT, interruption_handler)
 
     def send_signal_to_children(
-        self, child_pids: set[int], signal_type: signal.Signals
+        self, child_pids: "set[int]", signal_type: signal.Signals
     ) -> None:
         """Send a signal to all child processes."""
         for pid in child_pids:
