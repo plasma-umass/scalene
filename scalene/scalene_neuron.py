@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import threading
 import time
-from functools import cache
+from functools import lru_cache
 from typing import Tuple
 
 from scalene.scalene_accelerator import ScaleneAccelerator
@@ -92,7 +92,7 @@ class ScaleneNeuron(ScaleneAccelerator):
     def get_num_cores(self) -> int:
         return self.max_neuroncores_in_use
 
-    @cache  # noqa: B019
+    @lru_cache(maxsize=None)  # noqa: B019
     def has_gpu(self) -> bool:
         try:
             result = subprocess.run(
