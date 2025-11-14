@@ -118,6 +118,7 @@ console.log = nada  # type: ignore
 MINIMUM_PYTHON_VERSION_MAJOR = 3
 MINIMUM_PYTHON_VERSION_MINOR = 8
 
+
 def require_python(version: tuple[int, int]) -> None:
     assert (
         sys.version_info >= version
@@ -356,7 +357,9 @@ class Scalene:
     @staticmethod
     def last_profiled_tuple() -> tuple[Filename, LineNumber, ByteCodeIndex]:
         """Helper function to type last profiled information."""
-        return cast("tuple[Filename, LineNumber, ByteCodeIndex]", Scalene.__last_profiled)
+        return cast(
+            "tuple[Filename, LineNumber, ByteCodeIndex]", Scalene.__last_profiled
+        )
 
     if sys.platform != "win32":
         __orig_setitimer = signal.setitimer
