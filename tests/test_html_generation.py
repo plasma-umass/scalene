@@ -8,19 +8,14 @@ import sys
 import tempfile
 
 
-def test_html_generation_with_outfile():
-    """Test that --html --outfile generates both HTML and JSON files correctly."""
-    with tempfile.TemporaryDirectory(prefix="scalene_test_") as tmpdir:
-        tmppath = pathlib.Path(tmpdir)
-        outfile = tmppath / "profile.html"
-        jsonfile = tmppath / "profile.json"
-        
-        # Create a simple test script
-        test_script = tmppath / "test_script.py"
-        test_script.write_text("""
+def create_test_script(tmppath: pathlib.Path) -> pathlib.Path:
+    """Create a simple test script that generates enough work to profile."""
+    test_script = tmppath / "test_script.py"
+    test_script.write_text("""
 def work():
     total = 0
-    for i in range(10000000):
+    # Reduced iteration count for faster tests while still generating profile data
+    for i in range(1000000):
         total += i
     return total
 
@@ -28,6 +23,17 @@ if __name__ == "__main__":
     result = work()
     print(f"Result: {result}")
 """)
+    return test_script
+
+
+def test_html_generation_with_outfile():
+    """Test that --html --outfile generates both HTML and JSON files correctly."""
+    with tempfile.TemporaryDirectory(prefix="scalene_test_") as tmpdir:
+        tmppath = pathlib.Path(tmpdir)
+        outfile = tmppath / "profile.html"
+        jsonfile = tmppath / "profile.json"
+        
+        test_script = create_test_script(tmppath)
         
         # Run scalene with --html --outfile
         cmd = [
@@ -79,19 +85,7 @@ def test_html_generation_without_outfile():
     with tempfile.TemporaryDirectory(prefix="scalene_test_") as tmpdir:
         tmppath = pathlib.Path(tmpdir)
         
-        # Create a simple test script
-        test_script = tmppath / "test_script.py"
-        test_script.write_text("""
-def work():
-    total = 0
-    for i in range(10000000):
-        total += i
-    return total
-
-if __name__ == "__main__":
-    result = work()
-    print(f"Result: {result}")
-""")
+        test_script = create_test_script(tmppath)
         
         # Change to temp directory to avoid polluting the working directory
         original_cwd = os.getcwd()
