@@ -1220,6 +1220,12 @@ class Scalene:
                 Scalene.__output.html = False
                 Scalene.__output.output_file = Scalene.__profile_filename
 
+        if Scalene.__args.html and not Scalene.__is_child:
+            # Force JSON output to profile.json for HTML generation.
+            Scalene.__args.json = True
+            Scalene.__output.html = False
+            Scalene.__output.output_file = Scalene.__profile_filename
+
     @staticmethod
     def _start_signal_handler(
         _signum: SignumType,
