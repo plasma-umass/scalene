@@ -241,9 +241,16 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
             ) from e
 
     except FileNotFoundError:
-        assert profile_fname == "demo"
-        profile = ""
-        # return
+        # If the profile file is not found, this is likely a configuration issue
+        # or the profile was not generated. Use empty profile for demo mode.
+        if profile_fname == "demo":
+            profile = ""
+        else:
+            raise FileNotFoundError(
+                f"Profile file '{profile_fname}' not found. "
+                "This may indicate that profiling did not generate any output. "
+                "Try running with --profile-all or ensuring your code runs long enough to be profiled."
+            )
 
     # Load the GUI JavaScript file.
     scalene_dir = os.path.dirname(__file__)
