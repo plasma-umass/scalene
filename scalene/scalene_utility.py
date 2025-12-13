@@ -241,9 +241,9 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
             ) from e
 
     except FileNotFoundError:
-        assert profile_fname == "demo"
+        # If the profile file doesn't exist, this is okay for demo mode
+        # or when we're generating HTML before the JSON profile exists.
         profile = ""
-        # return
 
     # Load the GUI JavaScript file.
     scalene_dir = os.path.dirname(__file__)

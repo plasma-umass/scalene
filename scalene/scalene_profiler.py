@@ -145,8 +145,8 @@ class Scalene:
     __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
     __orig_python = sys.executable  # will be rewritten later
 
-    __profile_filename = Filename("profile.json")
-    __profiler_html = Filename("profile.html")
+    __profile_filename = Filename("scalene-profile.json")
+    __profiler_html = Filename("scalene-profile.html")
     __error_message = "Error in program being profiled"
     __windows_queue: queue.Queue[Any] = (
         queue.Queue()
@@ -313,19 +313,16 @@ class Scalene:
             # Pass along commands from the invoking command line.
             if "off" in Scalene.__args and Scalene.__args.off:
                 cmdline += " --off"
-            for arg in [
-                "use_virtual_time",
-                "cpu",
-                "gpu",
-                "memory",
-                "cli",
-                "web",
-                "html",
-                "no_browser",
-                "reduced_profile",
-            ]:
-                if getattr(Scalene.__args, arg):
-                    cmdline += f'  --{arg.replace("_", "-")}'
+            # Only pass along options that are valid for the 'run' subcommand
+            if getattr(Scalene.__args, "use_virtual_time", False):
+                cmdline += " --use-virtual-time"
+            if getattr(Scalene.__args, "gpu", False):
+                cmdline += " --gpu"
+            if getattr(Scalene.__args, "memory", False):
+                cmdline += " --memory"
+            # Note: --cpu is now --cpu-only; only pass if we are CPU-only (no memory/gpu)
+            if getattr(Scalene.__args, "cpu", False) and not getattr(Scalene.__args, "memory", False) and not getattr(Scalene.__args, "gpu", False):
+                cmdline += " --cpu-only"
             # Add the --pid field so we can propagate it to the child.
             cmdline += f" --pid={os.getpid()} ---"
             # Build the commands to pass along other arguments
@@ -732,13 +729,10 @@ class Scalene:
                     os.path.splitext(os.path.basename(Scalene.__args.outfile))[0]
                     + ".json",
                 )
-            # If there was no output file specified, print to the console.
+            # If there was no output file specified, use the default profile filename.
             if not outfile:
-                if sys.platform == "win32":
-                    outfile = "CON"
-                else:
-                    outfile = "/dev/stdout"
-            # Write the JSON to the output file (or console).
+                outfile = Scalene.__profile_filename
+            # Write the JSON to the output file.
             with open(outfile, "w") as f:
                 f.write(json.dumps(json_output, sort_keys=True, indent=4) + "\n")
             return json_output != {}

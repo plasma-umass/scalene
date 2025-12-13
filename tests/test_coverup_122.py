@@ -19,21 +19,24 @@ def temp_script(tmp_path):
 
 
 def test_scalene_parseargs_full_coverage(temp_script):
-    # Mock sys.argv to simulate command-line arguments
+    # Mock sys.argv to simulate command-line arguments with 'run' subcommand
+    # Test that run subcommand works correctly with basic options
     test_args = [
         "scalene",
-        "--version",
+        "run",
+        "--cpu-only",
         str(temp_script),
         "---",
         "--some-arg",
     ]
 
-    with patch.object(sys, "argv", test_args), patch.object(sys, "exit") as mock_exit:
+    with patch.object(sys, "argv", test_args):
         # Call the parse_args method to test the argument parsing
         args, left = ScaleneParseArgs.parse_args()
 
     # Assertions to verify postconditions
-    mock_exit.assert_called_once_with(-1)
+    assert args.cpu is True  # cpu-only sets cpu to True
+    assert "--some-arg" in left  # Arguments after --- are passed through
 
     # Clean up by removing the temporary file
     temp_script.unlink()
