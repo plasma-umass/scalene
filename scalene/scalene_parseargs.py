@@ -1,6 +1,7 @@
 import argparse
 import contextlib
 import os
+import re
 import sys
 from textwrap import dedent
 from typing import Any, List, NoReturn, Optional, Tuple
@@ -14,16 +15,88 @@ scalene_gui_url = (
 )
 
 
-class RichArgParser(argparse.ArgumentParser):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        from rich.console import Console
+def _colorize_help_for_rich(text: str) -> str:
+    """Apply Python 3.14-style argparse colors using Rich markup.
 
-        self.console = Console()
+    Python 3.14 argparse color scheme:
+    - usage: bold blue
+    - prog: bold magenta
+    - heading (options:): bold blue
+    - long options (--foo): bold cyan
+    - short options (-h): bold green
+    - metavars (FOO): bold yellow
+    """
+    # Color "usage:" at the start
+    text = re.sub(
+        r"^(usage:)",
+        r"[bold blue]\1[/bold blue]",
+        text,
+        flags=re.MULTILINE,
+    )
+
+    # Color "options:" and similar headings
+    text = re.sub(
+        r"^(options:|positional arguments:|optional arguments:)",
+        r"[bold blue]\1[/bold blue]",
+        text,
+        flags=re.MULTILINE,
+    )
+
+    # Color program name after "usage:" - matches "scalene" or "python3 -m scalene"
+    text = re.sub(
+        r"(\[bold blue\]usage:\[/bold blue\] )(\S+)",
+        r"\1[bold magenta]\2[/bold magenta]",
+        text,
+    )
+
+    # Color long options (--something) in the options section
+    # Match at start of line with indent, or after ", " (like "-h, --help")
+    text = re.sub(
+        r"(^  |, )(--[a-zA-Z][a-zA-Z0-9_-]*)",
+        r"\1[bold cyan]\2[/bold cyan]",
+        text,
+        flags=re.MULTILINE,
+    )
+
+    # Color short options like -h in the options section
+    text = re.sub(
+        r"(^  )(-[a-zA-Z])(,|\s)",
+        r"\1[bold green]\2[/bold green]\3",
+        text,
+        flags=re.MULTILINE,
+    )
+
+    # Color metavars (ALL_CAPS words) that follow options
+    text = re.sub(
+        r"(\[/bold cyan\] )([A-Z][A-Z0-9_]*)\b",
+        r"\1[bold yellow]\2[/bold yellow]",
+        text,
+    )
+
+    return text
+
+
+class RichArgParser(argparse.ArgumentParser):
+    """ArgumentParser that uses Rich for colored output on Python < 3.14."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        if sys.version_info < (3, 14):
+            from rich.console import Console
+
+            self._console: Optional[Any] = Console()
+        else:
+            self._console = None
         super().__init__(*args, **kwargs)
 
     def _print_message(self, message: Optional[str], file: Any = None) -> None:
         if message:
-            self.console.print(message)
+            if self._console is not None:
+                # Python < 3.14: Use Rich to emulate 3.14+ colors
+                colored = _colorize_help_for_rich(message)
+                self._console.print(colored, highlight=False)
+            else:
+                # Python 3.14+: Use native argparse colors
+                print(message, end="", file=file)
 
 
 class StopJupyterExecution(Exception):
@@ -50,22 +123,22 @@ class ScaleneParseArgs:
                 sys._exit = ScaleneParseArgs.clean_exit  # type: ignore
         defaults = ScaleneArguments()
         usage = dedent(
-            rf"""[b]Scalene[/b]: a high-precision CPU and memory profiler, version {scalene_version} ({scalene_date})
-[link=https://github.com/plasma-umass/scalene]https://github.com/plasma-umass/scalene[/link]
+            rf"""Scalene: a high-precision CPU and memory profiler, version {scalene_version} ({scalene_date})
+https://github.com/plasma-umass/scalene
 
 
 command-line:
-  % [b]scalene \[options] your_program.py \[--- --your_program_args] [/b]
+  % scalene [options] your_program.py [--- --your_program_args]
 or
-  % [b]python3 -m scalene \[options] your_program.py \[--- --your_program_args] [/b]
+  % python3 -m scalene [options] your_program.py [--- --your_program_args]
 
 in Jupyter, line mode:
-[b]  %scrun \[options] statement[/b]
+  %scrun [options] statement
 
 in Jupyter, cell mode:
-[b]  %%scalene \[options]
+  %%scalene [options]
    your code here
-[/b]
+
 """
         )
         # NOTE: below is only displayed on non-Windows platforms.
@@ -80,7 +153,7 @@ for the process ID that Scalene reports. For example:
 """
         )
 
-        parser = RichArgParser(  # argparse.ArgumentParser(
+        parser = RichArgParser(
             prog="scalene",
             description=usage,
             epilog=epilog if sys.platform != "win32" else "",
@@ -99,15 +172,15 @@ for the process ID that Scalene reports. For example:
             dest="column_width",
             type=int,
             default=defaults.column_width,
-            help=f"Column width for profile output (default: [blue]{defaults.column_width}[/blue])",
+            help=f"Column width for profile output (default: {defaults.column_width})",
         )
         parser.add_argument(
             "--outfile",
             type=str,
             default=defaults.outfile,
-            help="file to hold profiler output (default: [blue]"
+            help="file to hold profiler output (default: "
             + ("stdout" if not defaults.outfile else defaults.outfile)
-            + "[/blue])",
+            + ")",
         )
         parser.add_argument(
             "--html",
@@ -115,9 +188,9 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.html,
-            help="output as HTML (default: [blue]"
+            help="output as HTML (default: "
             + str("html" if defaults.html else "web")
-            + "[/blue])",
+            + ")",
         )
         parser.add_argument(
             "--json",
@@ -125,9 +198,9 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.json,
-            help="output as JSON (default: [blue]"
+            help="output as JSON (default: "
             + str("json" if defaults.json else "web")
-            + "[/blue])",
+            + ")",
         )
         parser.add_argument(
             "--cli",
@@ -175,13 +248,13 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.reduced_profile,
-            help=f"generate a reduced profile, with non-zero lines only (default: [blue]{defaults.reduced_profile}[/blue])",
+            help=f"generate a reduced profile, with non-zero lines only (default: {defaults.reduced_profile})",
         )
         parser.add_argument(
             "--profile-interval",
             type=float,
             default=defaults.profile_interval,
-            help=f"output profiles every so many seconds (default: [blue]{defaults.profile_interval}[/blue])",
+            help=f"output profiles every so many seconds (default: {defaults.profile_interval})",
         )
         parser.add_argument(
             "--cpu",
@@ -189,7 +262,7 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=None,
-            help="profile CPU time (default: [blue] True [/blue])",
+            help="profile CPU time (default: True)",
         )
         parser.add_argument(
             "--cpu-only",
@@ -197,7 +270,7 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=None,
-            help="profile CPU time ([red]deprecated: use --cpu [/red])",
+            help="profile CPU time (deprecated: use --cpu)",
         )
         parser.add_argument(
             "--gpu",
@@ -205,15 +278,13 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=None,
-            help="profile GPU time and memory (default: [blue]"
-            + (str(defaults.gpu))
-            + " [/blue])",
+            help="profile GPU time and memory (default: " + (str(defaults.gpu)) + ")",
         )
         if sys.platform == "win32":
             memory_profile_message = "profile memory (not supported on this platform)"
         else:
             memory_profile_message = (
-                "profile memory (default: [blue]" + (str(defaults.memory)) + " [/blue])"
+                "profile memory (default: " + (str(defaults.memory)) + ")"
             )
         parser.add_argument(
             "--memory",
@@ -229,35 +300,35 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.profile_all,
-            help="profile all executed code, not just the target program (default: [blue]"
+            help="profile all executed code, not just the target program (default: "
             + ("all code" if defaults.profile_all else "only the target program")
-            + "[/blue])",
+            + ")",
         )
         parser.add_argument(
             "--profile-only",
             dest="profile_only",
             type=str,
             default=defaults.profile_only,
-            help="profile only code in filenames that contain the given strings, separated by commas (default: [blue]"
+            help="profile only code in filenames that contain the given strings, separated by commas (default: "
             + (
                 "no restrictions"
                 if not defaults.profile_only
                 else defaults.profile_only
             )
-            + "[/blue])",
+            + ")",
         )
         parser.add_argument(
             "--profile-exclude",
             dest="profile_exclude",
             type=str,
             default=defaults.profile_exclude,
-            help="do not profile code in filenames that contain the given strings, separated by commas (default: [blue]"
+            help="do not profile code in filenames that contain the given strings, separated by commas (default: "
             + (
                 "no restrictions"
                 if not defaults.profile_exclude
                 else defaults.profile_exclude
             )
-            + "[/blue])",
+            + ")",
         )
         parser.add_argument(
             "--use-virtual-time",
@@ -265,35 +336,35 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=defaults.use_virtual_time,
-            help=f"measure only CPU time, not time spent in I/O or blocking (default: [blue]{defaults.use_virtual_time}[/blue])",
+            help=f"measure only CPU time, not time spent in I/O or blocking (default: {defaults.use_virtual_time})",
         )
         parser.add_argument(
             "--cpu-percent-threshold",
             dest="cpu_percent_threshold",
             type=float,
             default=defaults.cpu_percent_threshold,
-            help=f"only report profiles with at least this percent of CPU time (default: [blue]{defaults.cpu_percent_threshold}%%[/blue])",
+            help=f"only report profiles with at least this percent of CPU time (default: {defaults.cpu_percent_threshold}%%)",
         )
         parser.add_argument(
             "--cpu-sampling-rate",
             dest="cpu_sampling_rate",
             type=float,
             default=defaults.cpu_sampling_rate,
-            help=f"CPU sampling rate (default: every [blue]{defaults.cpu_sampling_rate}s[/blue])",
+            help=f"CPU sampling rate (default: every {defaults.cpu_sampling_rate}s)",
         )
         parser.add_argument(
             "--allocation-sampling-window",
             dest="allocation_sampling_window",
             type=int,
             default=defaults.allocation_sampling_window,
-            help=f"Allocation sampling window size, in bytes (default: [blue]{defaults.allocation_sampling_window} bytes[/blue])",
+            help=f"Allocation sampling window size, in bytes (default: {defaults.allocation_sampling_window} bytes)",
         )
         parser.add_argument(
             "--malloc-threshold",
             dest="malloc_threshold",
             type=int,
             default=defaults.malloc_threshold,
-            help=f"only report profiles with at least this many allocations (default: [blue]{defaults.malloc_threshold}[/blue])",
+            help=f"only report profiles with at least this many allocations (default: {defaults.malloc_threshold})",
         )
 
         parser.add_argument(
@@ -301,16 +372,16 @@ for the process ID that Scalene reports. For example:
             dest="program_path",
             type=str,
             default="",
-            help="The directory containing the code to profile (default: [blue]the path to the profiled program[/blue])",
+            help="The directory containing the code to profile (default: the path to the profiled program)",
         )
         parser.add_argument(
             "--memory-leak-detector",
             dest="memory_leak_detector",
             action="store_true",
             default=defaults.memory_leak_detector,
-            help="EXPERIMENTAL: report likely memory leaks (default: [blue]"
+            help="EXPERIMENTAL: report likely memory leaks (default: "
             + (str(defaults.memory_leak_detector))
-            + "[/blue])",
+            + ")",
         )
         parser.add_argument(
             "--ipython",
