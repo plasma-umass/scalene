@@ -82,6 +82,7 @@ class RichArgParser(argparse.ArgumentParser):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         if sys.version_info < (3, 14):
             from rich.console import Console
+
             self._console: Optional[Any] = Console()
         else:
             self._console = None
@@ -96,7 +97,6 @@ class RichArgParser(argparse.ArgumentParser):
             else:
                 # Python 3.14+: Use native argparse colors
                 print(message, end="", file=file)
-
 
 
 class StopJupyterExecution(Exception):
@@ -278,9 +278,7 @@ for the process ID that Scalene reports. For example:
             action="store_const",
             const=True,
             default=None,
-            help="profile GPU time and memory (default: "
-            + (str(defaults.gpu))
-            + ")",
+            help="profile GPU time and memory (default: " + (str(defaults.gpu)) + ")",
         )
         if sys.platform == "win32":
             memory_profile_message = "profile memory (not supported on this platform)"
