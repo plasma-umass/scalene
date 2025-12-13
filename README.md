@@ -362,6 +362,7 @@ options:
   --profile-all         profile all code, not just the target program
   --profile-only PATH   only profile files containing these strings (comma-separated)
   --profile-exclude PATH exclude files containing these strings (comma-separated)
+  --profile-system-libraries  profile Python stdlib and installed packages (default: skip)
   --gpu                 profile GPU time and memory
   --memory              profile memory usage
   --stacks              collect stack traces

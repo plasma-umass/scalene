@@ -148,6 +148,8 @@ class ScaleneParseArgs:
         "program_path": "program_path",
         "memory-leak-detector": "memory_leak_detector",
         "memory_leak_detector": "memory_leak_detector",
+        "profile-system-libraries": "profile_system_libraries",
+        "profile_system_libraries": "profile_system_libraries",
         # On/off
         "on": "on",
         "off": "off",
@@ -220,7 +222,7 @@ class ScaleneParseArgs:
                 # Mutually exclusive booleans
                 if value is True:
                     setattr(args, dest, True)
-            elif dest in ("profile_all", "stacks", "use_virtual_time", "memory_leak_detector"):
+            elif dest in ("profile_all", "stacks", "use_virtual_time", "memory_leak_detector", "profile_system_libraries"):
                 # Regular boolean flags with defaults
                 if value is True:
                     setattr(args, dest, True)
@@ -381,6 +383,13 @@ class ScaleneParseArgs:
             action="store_true",
             default=defaults.memory_leak_detector,
             help=f"EXPERIMENTAL: report likely memory leaks (default: {defaults.memory_leak_detector})" if show_advanced else advanced_help,
+        )
+        parser.add_argument(
+            "--profile-system-libraries",
+            dest="profile_system_libraries",
+            action="store_true",
+            default=defaults.profile_system_libraries,
+            help="profile Python system libraries and installed packages (default: skip them)" if show_advanced else advanced_help,
         )
         if sys.platform != "win32":
             # Turning profiling on and off from another process is currently not supported on Windows.
@@ -946,6 +955,8 @@ examples:
             args.column_width = defaults.column_width
         if not hasattr(args, "ipython"):
             args.ipython = False
+        if not hasattr(args, "profile_system_libraries"):
+            args.profile_system_libraries = defaults.profile_system_libraries
 
         # Validate file/directory arguments
         if args.outfile and os.path.isdir(args.outfile):

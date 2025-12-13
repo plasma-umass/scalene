@@ -191,6 +191,10 @@ class Scalene:
     # path for the program being profiled
     __program_path = Filename("")
     __entrypoint_dir = Filename("")
+
+    # System library paths (for filtering when profile_system_libraries=False)
+    __system_lib_paths: tuple[str, ...] = ()
+
     # temporary directory to hold aliases to Python
 
     __python_alias_dir: pathlib.Path
@@ -1137,10 +1141,75 @@ class Scalene:
         )
 
     @staticmethod
+    def _init_system_lib_paths() -> None:
+        """Initialize the list of system library paths to exclude from profiling."""
+        if Scalene.__system_lib_paths:
+            return  # Already initialized
+
+        paths = set()
+
+        # Standard library location
+        stdlib_path = sysconfig.get_path("stdlib")
+        if stdlib_path:
+            paths.add(os.path.normpath(stdlib_path))
+
+        # Site-packages locations
+        try:
+            import site
+            for sp in site.getsitepackages():
+                paths.add(os.path.normpath(sp))
+            # User site-packages
+            user_site = site.getusersitepackages()
+            if user_site:
+                paths.add(os.path.normpath(user_site))
+        except Exception:
+            pass
+
+        # Python prefix paths (covers most installations)
+        for prefix in (sys.prefix, sys.base_prefix, sys.exec_prefix):
+            if prefix:
+                paths.add(os.path.normpath(prefix))
+
+        # Platform-specific library path
+        platstdlib = sysconfig.get_path("platstdlib")
+        if platstdlib:
+            paths.add(os.path.normpath(platstdlib))
+
+        # Pure library path
+        purelib = sysconfig.get_path("purelib")
+        if purelib:
+            paths.add(os.path.normpath(purelib))
+
+        # Platform library path
+        platlib = sysconfig.get_path("platlib")
+        if platlib:
+            paths.add(os.path.normpath(platlib))
+
+        Scalene.__system_lib_paths = tuple(sorted(paths, key=len, reverse=True))
+
+    @staticmethod
+    def _is_system_library(filename: str) -> bool:
+        """Check if a file is part of Python's system libraries or installed packages."""
+        if not Scalene.__system_lib_paths:
+            Scalene._init_system_lib_paths()
+
+        normalized = os.path.normpath(filename)
+        for path in Scalene.__system_lib_paths:
+            if normalized.startswith(path):
+                return True
+        return False
+
+    @staticmethod
     def _should_trace_by_location(filename: Filename) -> bool:
         """Determine if we should trace based on file location."""
         if Scalene.__args.profile_all:
             return True
+
+        # Skip system libraries unless explicitly requested
+        if not Scalene.__args.profile_system_libraries:
+            if Scalene._is_system_library(filename):
+                return False
+
         filename = Filename(
             os.path.normpath(os.path.join(Scalene.__program_path, filename))
         )

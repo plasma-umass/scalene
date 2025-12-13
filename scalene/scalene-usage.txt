@@ -29,6 +29,7 @@ Advanced run options (use --help-advanced to see):
   --profile-all         profile all code, not just the target program
   --profile-only PATH   only profile files containing these strings
   --profile-exclude PATH exclude files containing these strings
+  --profile-system-libraries  profile Python stdlib and installed packages
   --gpu                 profile GPU time and memory
   --memory              profile memory usage
   --stacks              collect stack traces

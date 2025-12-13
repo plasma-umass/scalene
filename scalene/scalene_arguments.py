@@ -39,6 +39,8 @@ class ScaleneArgumentsDict(TypedDict, total=False):
     # do we use virtual time or wallclock time (capturing system time and blocking)?
     use_virtual_time: bool
     memory_leak_detector: bool
+    # Whether to profile Python system libraries and site-packages
+    profile_system_libraries: bool
     web: bool
     no_browser: bool
     port: int
@@ -68,6 +70,7 @@ def _set_defaults() -> ScaleneArgumentsDict:
         "reduced_profile": False,
         "use_virtual_time": False,
         "memory_leak_detector": True,
+        "profile_system_libraries": False,
         "web": False,
         "no_browser": True,
         "port": 8088,
