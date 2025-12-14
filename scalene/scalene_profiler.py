@@ -1194,10 +1194,7 @@ class Scalene:
             Scalene._init_system_lib_paths()
 
         normalized = os.path.normpath(filename)
-        for path in Scalene.__system_lib_paths:
-            if normalized.startswith(path):
-                return True
-        return False
+        return any(normalized.startswith(path) for path in Scalene.__system_lib_paths)
 
     @staticmethod
     def _should_trace_by_location(filename: Filename) -> bool:
@@ -1206,9 +1203,8 @@ class Scalene:
             return True
 
         # Skip system libraries unless explicitly requested
-        if not Scalene.__args.profile_system_libraries:
-            if Scalene._is_system_library(filename):
-                return False
+        if not Scalene.__args.profile_system_libraries and Scalene._is_system_library(filename):
+            return False
 
         filename = Filename(
             os.path.normpath(os.path.join(Scalene.__program_path, filename))

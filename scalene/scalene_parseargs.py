@@ -4,15 +4,16 @@ import os
 import re
 import sys
 from textwrap import dedent
-from typing import Any, List, NoReturn, Optional, Tuple
+from typing import Any, List, NoReturn, Optional, Tuple, Union
 
-import yaml
+import yaml  # type: ignore[import-untyped]
+from rich.text import Text as RichText
 
 from scalene.find_browser import find_browser
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_config import scalene_date, scalene_version
-from scalene.scalene_utility import generate_html
 from scalene.scalene_statistics import Filename
+from scalene.scalene_utility import generate_html
 
 scalene_gui_url = (
     f'file:{os.path.join(os.path.dirname(__file__), "scalene-gui", "index.html")}'
@@ -173,7 +174,7 @@ class ScaleneParseArgs:
             sys.exit(1)
 
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 config = yaml.safe_load(f)
         except yaml.YAMLError as e:
             print(f"Scalene: invalid YAML in config file: {e}", file=sys.stderr)
@@ -440,6 +441,7 @@ class ScaleneParseArgs:
     ) -> None:
         """Display a profile in the terminal using Rich, matching the original Scalene output format."""
         import shutil
+
         from rich import box
         from rich.console import Console
         from rich.markdown import Markdown
@@ -451,10 +453,8 @@ class ScaleneParseArgs:
         from scalene.syntaxline import SyntaxLine
 
         # Auto-detect terminal width if possible
-        try:
+        with contextlib.suppress(Exception):
             column_width = shutil.get_terminal_size().columns
-        except Exception:
-            pass
 
         console = Console(width=column_width, force_terminal=True)
 
@@ -603,10 +603,10 @@ class ScaleneParseArgs:
                 python_frac = line_info.get("n_python_fraction", 0)
 
                 # Format values matching scalene_output.py
-                python_str = f"{python_pct:5.0f}%" if python_pct >= 1 else ""
-                native_str = f"{native_pct:5.0f}%" if native_pct >= 1 else ""
-                sys_str = f"{sys_pct:4.0f}%" if sys_pct >= 1 else ""
-                gpu_str = f"{gpu_pct:3.0f}%" if gpu_pct >= 1 else ""
+                python_str: Union[str, RichText] = f"{python_pct:5.0f}%" if python_pct >= 1 else ""
+                native_str: Union[str, RichText] = f"{native_pct:5.0f}%" if native_pct >= 1 else ""
+                sys_str: Union[str, RichText] = f"{sys_pct:4.0f}%" if sys_pct >= 1 else ""
+                gpu_str: Union[str, RichText] = f"{gpu_pct:3.0f}%" if gpu_pct >= 1 else ""
 
                 # Memory formatting
                 if peak_mb < 1024:
@@ -614,7 +614,7 @@ class ScaleneParseArgs:
                 else:
                     growth_mem_str = f"{(peak_mb / 1024):5.2f}G" if (peak_mb or usage_frac) else ""
                 python_frac_str = f"{(python_frac * 100):4.0f}%" if python_frac >= 0.01 else ""
-                usage_frac_str = f"{(usage_frac * 100):4.0f}%" if usage_frac >= 0.01 else ""
+                usage_frac_str: Union[str, RichText] = f"{(usage_frac * 100):4.0f}%" if usage_frac >= 0.01 else ""
                 copy_str = f"{copy_mb:6.0f}" if copy_mb >= 0.5 else ""
 
                 # Check if we should print this line
@@ -627,22 +627,21 @@ class ScaleneParseArgs:
                     did_print = False
                     continue
 
-                old_did_print = did_print
                 did_print = True
 
                 # Apply highlighting for hot lines
                 total_pct = python_pct + native_pct + gpu_pct + sys_pct
                 if has_memory and (usage_frac * 100 >= ScaleneParseArgs.highlight_percentage or
                                    total_pct >= ScaleneParseArgs.highlight_percentage):
-                    python_str = Text(python_str, style=ScaleneParseArgs.highlight_color) if python_str else ""
-                    native_str = Text(native_str, style=ScaleneParseArgs.highlight_color) if native_str else ""
-                    usage_frac_str = Text(usage_frac_str, style=ScaleneParseArgs.highlight_color) if usage_frac_str else ""
-                    gpu_str = Text(gpu_str, style=ScaleneParseArgs.highlight_color) if gpu_str else ""
+                    python_str = Text(str(python_str), style=ScaleneParseArgs.highlight_color) if python_str else ""
+                    native_str = Text(str(native_str), style=ScaleneParseArgs.highlight_color) if native_str else ""
+                    usage_frac_str = Text(str(usage_frac_str), style=ScaleneParseArgs.highlight_color) if usage_frac_str else ""
+                    gpu_str = Text(str(gpu_str), style=ScaleneParseArgs.highlight_color) if gpu_str else ""
                 elif total_pct >= ScaleneParseArgs.highlight_percentage:
-                    python_str = Text(python_str, style=ScaleneParseArgs.highlight_color) if python_str else ""
-                    native_str = Text(native_str, style=ScaleneParseArgs.highlight_color) if native_str else ""
-                    gpu_str = Text(gpu_str, style=ScaleneParseArgs.highlight_color) if gpu_str else ""
-                    sys_str = Text(sys_str, style=ScaleneParseArgs.highlight_color) if sys_str else ""
+                    python_str = Text(str(python_str), style=ScaleneParseArgs.highlight_color) if python_str else ""
+                    native_str = Text(str(native_str), style=ScaleneParseArgs.highlight_color) if native_str else ""
+                    gpu_str = Text(str(gpu_str), style=ScaleneParseArgs.highlight_color) if gpu_str else ""
+                    sys_str = Text(str(sys_str), style=ScaleneParseArgs.highlight_color) if sys_str else ""
 
                 # Syntax highlight the code line
                 syntax = Syntax(line_text, "python", theme="vim", line_numbers=False, code_width=None)
@@ -689,6 +688,7 @@ class ScaleneParseArgs:
         """Handle the 'view' subcommand to view an existing profile."""
         import json
         import subprocess
+
         import scalene.scalene_config
 
         profile_file = args.profile_file
@@ -702,7 +702,7 @@ class ScaleneParseArgs:
         # If --cli mode, display in terminal
         if args.cli:
             try:
-                with open(profile_file, "r", encoding="utf-8") as f:
+                with open(profile_file, encoding="utf-8") as f:
                     profile_data = json.load(f)
                 ScaleneParseArgs._display_profile_cli(
                     profile_data,
@@ -813,7 +813,7 @@ background profiling:
             run_epilog = ""
         else:
             run_usage = dedent(
-                f"""Profile a Python program with Scalene.
+                """Profile a Python program with Scalene.
 
 examples:
   % scalene run prog.py                 # profile, save to scalene-profile.json
