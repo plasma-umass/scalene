@@ -47,7 +47,7 @@ jobs:
 
       # Note: test/smoketest.py only handles single JSON, rather than multiple in sequence.
     - name: profile-interval smoke test
-      run: python -m scalene --cli --profile-interval=2 test/testme.py
+      run: python -m scalene run --profile-interval=2 test/testme.py && python -m scalene view --cli
 
     - name: decorator smoke test
       run: python test/smoketest_profile_decorator.py
@@ -70,4 +70,4 @@ jobs:
     - name: -m invocation smoketest
       run: |
         python -m pip install git+https://github.com/sternj/import_stress_test
-        python -m scalene --cli --- -m import_stress_test
+        python -m scalene run --- -m import_stress_test && python -m scalene view --cli
