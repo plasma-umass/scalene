@@ -7,6 +7,52 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # FetchContent for downloading dependencies
 include(FetchContent)
 
+# Fetch Heap-Layers (required for all platforms)
+set(HEAP_LAYERS_DIR "${CMAKE_SOURCE_DIR}/vendor/Heap-Layers")
+if(NOT EXISTS "${HEAP_LAYERS_DIR}/heaplayers.h")
+    message(STATUS "Fetching Heap-Layers...")
+    FetchContent_Declare(
+        heap_layers
+        GIT_REPOSITORY https://github.com/emeryberger/Heap-Layers.git
+        GIT_TAG        master
+        GIT_SHALLOW    TRUE
+        SOURCE_DIR     ${HEAP_LAYERS_DIR}
+    )
+    FetchContent_MakeAvailable(heap_layers)
+endif()
+
+# Fetch printf library (required for all platforms)
+set(PRINTF_DIR "${CMAKE_SOURCE_DIR}/vendor/printf")
+if(NOT EXISTS "${PRINTF_DIR}/printf.cpp")
+    message(STATUS "Fetching printf library...")
+    FetchContent_Declare(
+        printf_lib
+        GIT_REPOSITORY https://github.com/mpaland/printf.git
+        GIT_TAG        master
+        GIT_SHALLOW    TRUE
+        SOURCE_DIR     ${PRINTF_DIR}
+    )
+    FetchContent_MakeAvailable(printf_lib)
+    # Create printf.cpp symlink/copy from printf.c
+    if(WIN32)
+        file(COPY "${PRINTF_DIR}/printf.c" DESTINATION "${PRINTF_DIR}")
+        file(RENAME "${PRINTF_DIR}/printf.c" "${PRINTF_DIR}/printf.cpp")
+        # Actually we need to keep both, so copy instead
+        file(READ "${PRINTF_DIR}/printf.c" PRINTF_CONTENT)
+        file(WRITE "${PRINTF_DIR}/printf.cpp" "${PRINTF_CONTENT}")
+    else()
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E create_symlink printf.c printf.cpp
+            WORKING_DIRECTORY ${PRINTF_DIR}
+        )
+    endif()
+    # Patch printf.h to comment out the macro definitions
+    file(READ "${PRINTF_DIR}/printf.h" PRINTF_H_CONTENT)
+    string(REPLACE "#define printf printf_" "//#define printf printf_" PRINTF_H_CONTENT "${PRINTF_H_CONTENT}")
+    string(REPLACE "#define vsnprintf vsnprintf_" "//#define vsnprintf vsnprintf_" PRINTF_H_CONTENT "${PRINTF_H_CONTENT}")
+    file(WRITE "${PRINTF_DIR}/printf.h" "${PRINTF_H_CONTENT}")
+endif()
+
 # Find Python
 find_package(Python3 REQUIRED COMPONENTS Development)
 
@@ -217,17 +263,8 @@ install(TARGETS scalene
     RUNTIME DESTINATION scalene
 )
 
-# Custom target for vendored dependencies
+# Custom target for vendored dependencies (now handled automatically via FetchContent)
 add_custom_target(vendor-deps
-    COMMAND ${CMAKE_COMMAND} -E echo "Checking vendor dependencies..."
+    COMMAND ${CMAKE_COMMAND} -E echo "Vendor dependencies are managed automatically via FetchContent."
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
-
-# Ensure vendor dependencies exist
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/vendor/Heap-Layers/heaplayers.h")
-    message(WARNING "Heap-Layers not found. Run 'make vendor-deps' or clone manually.")
-endif()
-
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/vendor/printf/printf.cpp")
-    message(WARNING "printf not found. Run 'make vendor-deps' or clone manually.")
-endif()

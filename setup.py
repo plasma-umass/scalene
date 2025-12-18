@@ -104,11 +104,62 @@ def read_file(name):
 import setuptools.command.egg_info
 
 
+def fetch_vendor_deps_windows():
+    """Fetch vendor dependencies on Windows using git."""
+    import subprocess
+    import shutil
+
+    vendor_dir = path.join(path.dirname(__file__), "vendor")
+    heap_layers_dir = path.join(vendor_dir, "Heap-Layers")
+    printf_dir = path.join(vendor_dir, "printf")
+
+    # Create vendor directory if it doesn't exist
+    if not path.exists(vendor_dir):
+        print(f"Creating vendor directory: {vendor_dir}")
+        Path(vendor_dir).mkdir(parents=True, exist_ok=True)
+
+    # Fetch Heap-Layers if not present
+    if not path.exists(path.join(heap_layers_dir, "heaplayers.h")):
+        print("Fetching Heap-Layers...")
+        if path.exists(heap_layers_dir):
+            shutil.rmtree(heap_layers_dir)
+        subprocess.run(
+            ["git", "clone", "--depth", "1", "https://github.com/emeryberger/Heap-Layers.git", heap_layers_dir],
+            check=True
+        )
+
+    # Fetch printf if not present
+    if not path.exists(path.join(printf_dir, "printf.cpp")):
+        print("Fetching printf library...")
+        if path.exists(printf_dir):
+            shutil.rmtree(printf_dir)
+        subprocess.run(
+            ["git", "clone", "--depth", "1", "https://github.com/mpaland/printf.git", printf_dir],
+            check=True
+        )
+        # Create printf.cpp from printf.c
+        printf_c = path.join(printf_dir, "printf.c")
+        printf_cpp = path.join(printf_dir, "printf.cpp")
+        if path.exists(printf_c):
+            shutil.copy(printf_c, printf_cpp)
+        # Patch printf.h
+        printf_h = path.join(printf_dir, "printf.h")
+        if path.exists(printf_h):
+            with open(printf_h, "r", encoding="utf-8") as f:
+                content = f.read()
+            content = content.replace("#define printf printf_", "//#define printf printf_")
+            content = content.replace("#define vsnprintf vsnprintf_", "//#define vsnprintf vsnprintf_")
+            with open(printf_h, "w", encoding="utf-8") as f:
+                f.write(content)
+
+
 class EggInfoCommand(setuptools.command.egg_info.egg_info):
     """Custom command to download vendor libs before creating the egg_info."""
 
     def run(self):
-        if sys.platform != "win32":
+        if sys.platform == "win32":
+            fetch_vendor_deps_windows()
+        else:
             self.spawn([make_command(), "vendor-deps"])
         super().run()
 
@@ -139,6 +190,12 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
     supported --arch flag discovery."""
 
     def build_extensions(self):
+        # Ensure vendor dependencies are available before building extensions
+        if sys.platform == "win32":
+            fetch_vendor_deps_windows()
+        else:
+            self.spawn([make_command(), "vendor-deps"])
+
         arch_flags = []
         if sys.platform == "darwin":
             # The only sure way to tell which compiler build_ext is going to use
