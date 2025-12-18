@@ -6,7 +6,7 @@ import sys
 from textwrap import dedent
 from typing import Any, List, NoReturn, Optional, Tuple, Union
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from rich.text import Text as RichText
 
 from scalene.find_browser import find_browser

@@ -68,7 +68,8 @@ vendor/printf/printf.cpp:
 vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp
 
 mypy:
-	-mypy --no-warn-unused-ignores $(PYTHON_SOURCES)
+	# Requires: pip install mypy types-PyYAML
+	-mypy $(PYTHON_SOURCES)
 
 format: black clang-format prettier
 

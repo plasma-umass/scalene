@@ -3,16 +3,26 @@
 #define MEMCPYSAMPLER_HPP
 
 #include <fcntl.h>
-#include <signal.h>
 #include <stdint.h>
 #include <string.h>
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <process.h>
+#define getpid _getpid
+// Windows doesn't have SIGPROF, use a different approach
+#define SCALENE_MEMCPY_USE_EVENTS 1
+#else
+#include <signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
-#include "mallocrecursionguard.hpp"
-#if !defined(_WIN32)
 #include <unistd.h>  // for getpid()
 #endif
+
+#include "mallocrecursionguard.hpp"
 
 #include "printf.h"
 #include "pywhere.hpp"
@@ -171,10 +181,27 @@ void *memcpy_musl(void *dest, const void *src, size_t n) {
 
 template <uint64_t MemcpySamplingRateBytes>
 class MemcpySampler {
+#if defined(_WIN32)
+  // Windows uses events instead of signals
+  static HANDLE& getMemcpyEvent() {
+    static HANDLE hEvent = NULL;
+    if (hEvent == NULL) {
+      char eventName[256];
+      snprintf_(eventName, sizeof(eventName), "Local\\scalene-memcpy-event%d", _getpid());
+      hEvent = CreateEventA(NULL, FALSE, FALSE, eventName);
+    }
+    return hEvent;
+  }
+#else
   enum { MemcpySignal = SIGPROF };
+#endif
   static constexpr auto flags =
-      O_WRONLY | O_CREAT | O_SYNC | O_APPEND;  // O_TRUNC;
+      O_WRONLY | O_CREAT;  // O_TRUNC;
+#if defined(_WIN32)
+  static constexpr auto perms = 0;
+#else
   static constexpr auto perms = S_IRUSR | S_IWUSR;
+#endif
   static constexpr auto fname = "/tmp/scalene-memcpy-signal%d";
 
  public:
@@ -184,15 +211,18 @@ class MemcpySampler {
         _interval(MemcpySamplingRateBytes),
         _memcpyOps(0),
         _memcpyTriggered(0) {
+#if defined(_WIN32)
+    getMemcpyEvent();  // Initialize the event
+#else
     static HL::PosixLock init_lock;
     init_lock.lock();
     auto old_sig = signal(MemcpySignal, SIG_IGN);
     if (old_sig != SIG_DFL) signal(MemcpySignal, old_sig);
     init_lock.unlock();
+#endif
     auto pid = getpid();
     snprintf_((char *)scalene_memcpy_signal_filename,
               sizeof(scalene_memcpy_signal_filename), fname, pid);
-    // printf("initialized (%s)\n", scalene_memcpy_signal_filename);
   }
 
   int local_strlen(const char *str) {
@@ -204,7 +234,17 @@ class MemcpySampler {
     return len;
   }
 
-  ~MemcpySampler() { unlink(scalene_memcpy_signal_filename); }
+  ~MemcpySampler() {
+#if defined(_WIN32)
+    DeleteFileA(scalene_memcpy_signal_filename);
+    HANDLE hEvent = getMemcpyEvent();
+    if (hEvent) {
+      CloseHandle(hEvent);
+    }
+#else
+    unlink(scalene_memcpy_signal_filename);
+#endif
+  }
 
   ATTRIBUTE_ALWAYS_INLINE inline void *memcpy(void *dst, const void *src,
                                               size_t n) {
@@ -274,7 +314,15 @@ class MemcpySampler {
         _memcpyTriggered++;
         _memcpyOps = 0;
 #if !SCALENE_DISABLE_SIGNALS
+#if defined(_WIN32)
+        // Use Windows Event instead of signal
+        HANDLE hEvent = getMemcpyEvent();
+        if (hEvent) {
+          SetEvent(hEvent);
+        }
+#else
         raise(MemcpySignal);
+#endif
 #endif
       }
     }

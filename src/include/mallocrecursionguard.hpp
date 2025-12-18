@@ -2,6 +2,12 @@
 #ifndef MALLOCRECURSIONGUARD_H
 #define MALLOCRECURSIONGUARD_H
 
+#if defined(_WIN32)
+// Use Windows-specific implementation
+#include "mallocrecursionguard_win.hpp"
+#else
+// POSIX implementation
+
 #include <pthread.h>
 
 #include <mutex>
@@ -83,4 +89,6 @@ class MallocRecursionGuard {
   inline bool wasInMalloc() const { return _wasInMalloc; }
 };
 
-#endif
+#endif // !_WIN32
+
+#endif // MALLOCRECURSIONGUARD_H

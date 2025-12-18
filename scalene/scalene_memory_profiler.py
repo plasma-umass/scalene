@@ -111,18 +111,24 @@ class ScaleneMemoryProfiler:
             while self.__malloc_mapfile and self.__malloc_mapfile.read():
                 count_str = self.__malloc_mapfile.get_str()
                 if count_str.strip() == "":
-                    break
-                (
-                    action,
-                    alloc_time_str,
-                    count_str,
-                    python_fraction_str,
-                    pid,
-                    pointer,
-                    reported_fname,
-                    reported_lineno,
-                    bytei_str,
-                ) = count_str.split(",")
+                    # Skip empty/malformed samples but continue processing
+                    # (don't break - there may be more valid samples)
+                    continue
+                try:
+                    (
+                        action,
+                        alloc_time_str,
+                        count_str,
+                        python_fraction_str,
+                        pid,
+                        pointer,
+                        reported_fname,
+                        reported_lineno,
+                        bytei_str,
+                    ) = count_str.split(",")
+                except ValueError:
+                    # Malformed sample - skip and continue
+                    continue
                 if int(curr_pid) != int(pid):
                     continue
                 if int(reported_lineno) == -1:

@@ -51,7 +51,7 @@ def _set_defaults() -> ScaleneArgumentsDict:
     return {
         "cpu": True,
         "gpu": True,
-        "memory": sys.platform != "win32",
+        "memory": True,
         "stacks": False,
         "cpu_percent_threshold": 1,
         "cpu_sampling_rate": 0.01,

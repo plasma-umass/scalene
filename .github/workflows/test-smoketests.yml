@@ -49,7 +49,10 @@ jobs:
     - name: profile-interval smoke test
       run: python -m scalene run --profile-interval=2 test/testme.py && python -m scalene view --cli
 
+    # NOTE: The decorator smoke test relies on CPU signal sampling which
+    # doesn't work reliably on Windows CI (similar to the signal smoketest).
     - name: decorator smoke test
+      if: matrix.os != 'windows-latest'
       run: python test/smoketest_profile_decorator.py
 
       # NOTE: this is a regression test for signals not being

@@ -270,12 +270,6 @@ class Scalene:
         Scalene.__invalidate_mutex = Scalene.get_original_lock()
 
         Scalene.__windows_queue = queue.Queue()
-        if sys.platform == "win32":
-            if Scalene.__args.memory:
-                warnings.warn(
-                    "Scalene memory profiling is not currently supported for Windows."
-                )
-                Scalene.__args.memory = False
 
         # Initialize the malloc related files; if for whatever reason
         # the files don't exist and we are supposed to be profiling
@@ -286,9 +280,13 @@ class Scalene:
             Scalene.__memory_profiler.set_mapfiles(
                 Scalene.__malloc_mapfile, Scalene.__memcpy_mapfile
             )
-        except Exception:
+        except Exception as e:
             # Ignore if we aren't profiling memory; otherwise, exit.
             if Scalene.__args.memory:
+                print(
+                    f"Scalene: Failed to initialize memory profiling: {e}",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
 
         Scalene.__signal_manager.get_signals().set_timer_signals(
@@ -334,7 +332,6 @@ class Scalene:
             # Add the --pid field so we can propagate it to the child.
             cmdline += f" --pid={os.getpid()} ---"
             # Build the commands to pass along other arguments
-
             environ = ScalenePreload.get_preload_environ(Scalene.__args)
             if sys.platform == "win32":
                 preface = "\n".join(f"set {k}={str(v)}\n" for (k, v) in environ.items())
@@ -342,7 +339,6 @@ class Scalene:
                 preface = " ".join(
                     "=".join((k, f"'{str(v)}'")) for (k, v) in environ.items()
                 )
-
             Scalene.__orig_python = redirect_python(
                 preface, cmdline, Scalene.__python_alias_dir
             )
@@ -633,6 +629,12 @@ class Scalene:
         """Set up the signal handlers to handle interrupts for profiling and start the
         timer interrupts."""
         next_interval = Scalene._sample_cpu_interval()
+        # On Windows, pass the signal queues for memory polling only if memory profiling is enabled
+        alloc_sigq = None
+        memcpy_sigq = None
+        if sys.platform == "win32" and Scalene.__args.memory:
+            alloc_sigq = Scalene.__alloc_sigq
+            memcpy_sigq = Scalene.__memcpy_sigq
         Scalene.__signal_manager.enable_signals(
             Scalene.malloc_signal_handler,
             Scalene.free_signal_handler,
@@ -640,6 +642,8 @@ class Scalene:
             Scalene.term_signal_handler,
             Scalene.cpu_signal_handler,
             next_interval,
+            alloc_sigq,
+            memcpy_sigq,
         )
 
     @staticmethod
@@ -1324,6 +1328,8 @@ class Scalene:
         """Turn off the profiling signals."""
         if sys.platform == "win32":
             Scalene.__signal_manager.set_timer_signals(False)
+            Scalene.__signal_manager.stop_windows_memory_polling()
+            Scalene.stop_signal_queues()
             return
         try:
             signals = Scalene.__signal_manager.get_signals()
@@ -1362,7 +1368,6 @@ class Scalene:
         """Initiate execution and profiling."""
         if Scalene.__args.memory:
             from scalene import pywhere  # type: ignore
-
             pywhere.populate_struct()
         # If --off is set, tell all children to not profile and stop profiling before we even start.
         if "off" not in Scalene.__args or not Scalene.__args.off:
@@ -1604,6 +1609,31 @@ class Scalene:
         else:
             Scalene.__orig_signal(signal.SIGINT, Scalene._interruption_handler)
         did_preload = False if is_jupyter else ScalenePreload.setup_preload(args)
+
+        # On Windows, load the libscalene DLL for memory profiling
+        if sys.platform == "win32" and args.memory and not did_preload:
+            try:
+                from scalene.scalene_windows import get_windows_profiler
+                win_profiler = get_windows_profiler()
+                if not win_profiler.load_dll():
+                    print(
+                        "Warning: Failed to load libscalene.dll. Memory profiling disabled.",
+                        file=sys.stderr,
+                    )
+                    args.memory = False
+                elif not win_profiler.initialize():
+                    print(
+                        "Warning: Failed to initialize Windows memory profiler. Memory profiling disabled.",
+                        file=sys.stderr,
+                    )
+                    args.memory = False
+            except Exception as e:
+                print(
+                    f"Warning: Windows memory profiler setup failed: {e}. Memory profiling disabled.",
+                    file=sys.stderr,
+                )
+                args.memory = False
+
         if not did_preload:
             with contextlib.suppress(Exception):
                 # If running in the background, print the PID.
