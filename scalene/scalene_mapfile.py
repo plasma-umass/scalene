@@ -61,7 +61,7 @@ class ScaleneMapFile:
 
         # Windows constants
         FILE_MAP_READ = 0x0004
-        FILE_MAP_WRITE = 0x0002
+        # FILE_MAP_WRITE = 0x0002 # unused
         FILE_MAP_ALL_ACCESS = 0x001F
 
         # File sizes must match C++ side (samplefile_win.hpp)

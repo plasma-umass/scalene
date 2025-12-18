@@ -72,9 +72,8 @@ class WindowsMemoryProfiler:
         if self._initialized:
             return True
 
-        if self._dll is None:
-            if not self.load_dll():
-                return False
+        if self._dll is None and not self.load_dll():
+            return False
 
         try:
             # Call the DLL's init function
