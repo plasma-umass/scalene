@@ -119,10 +119,10 @@ class ScaleneSignalManager(Generic[T]):
             time.sleep(poll_interval)
             # Trigger malloc/free processing
             if hasattr(self, "_ScaleneSignalManager__alloc_sigq_win") and self.__alloc_sigq_win:
-                self.__alloc_sigq_win.put([0])
+                self.__alloc_sigq_win.put([0])  # type: ignore[arg-type]
             # Trigger memcpy processing
             if hasattr(self, "_ScaleneSignalManager__memcpy_sigq_win") and self.__memcpy_sigq_win:
-                self.__memcpy_sigq_win.put((0, None))
+                self.__memcpy_sigq_win.put((0, None))  # type: ignore[arg-type]
 
     def stop_windows_memory_polling(self) -> None:
         """Stop the Windows memory polling thread."""

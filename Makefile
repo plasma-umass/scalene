@@ -18,6 +18,7 @@ all:  # vendor-deps $(SRC) $(OTHER_DEPS)
 # $(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) /o $(LIBFILE)
 
 mypy:
+	# Requires: pip install mypy types-PyYAML
 	-mypy $(PYTHON_SOURCES)
 
 format: black isort clang-format

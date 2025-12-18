@@ -56,7 +56,7 @@ jobs:
 
     - name: install test dependencies
       run: |
-        python3 -m pip install mypy ruff
+        python3 -m pip install mypy ruff types-PyYAML
         python3 -m pip install .
 
     - name: Run linters

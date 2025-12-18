@@ -76,7 +76,7 @@ class ScaleneMapFile:
         self._lock_name = f"Local\\scalene-{name}-lock{pid}"
         self._init_filename = Filename(f"Local\\scalene-{name}-init{pid}")
 
-        kernel32 = ctypes.windll.kernel32
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
 
         # IMPORTANT: Set proper return types for Windows API functions
         # Default ctypes return type is c_int (32-bit) which truncates 64-bit pointers
@@ -140,7 +140,7 @@ class ScaleneMapFile:
         """Close the map file."""
         if sys.platform == "win32":
             import ctypes
-            kernel32 = ctypes.windll.kernel32
+            kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
             if hasattr(self, '_signal_view') and self._signal_view:
                 kernel32.UnmapViewOfFile(self._signal_view)
             if hasattr(self, '_lock_view') and self._lock_view:
@@ -206,7 +206,7 @@ class ScaleneMapFile:
             first_byte = self._signal_buffer[int(last_read)]
             # ctypes c_char buffer returns bytes, convert to int for comparison
             if isinstance(first_byte, bytes):
-                first_byte = first_byte[0] if first_byte else 0
+                first_byte = first_byte[0] if first_byte else 0  # type: ignore[assignment]
             valid_actions = [ord('M'), ord('F'), ord('f')]
             if first_byte not in valid_actions:
                 # Data not yet visible or corrupted - don't advance position
@@ -216,7 +216,7 @@ class ScaleneMapFile:
                 byte_val = self._signal_buffer[i]
                 # ctypes c_char buffer returns bytes, convert to int for comparison
                 if isinstance(byte_val, bytes):
-                    byte_val = byte_val[0] if byte_val else 0
+                    byte_val = byte_val[0] if byte_val else 0  # type: ignore[assignment]
                 if byte_val == ord('\n'):
                     end_pos = i + 1
                     break
@@ -236,18 +236,18 @@ class ScaleneMapFile:
 
             # Copy data to buffer
             length = int(end_pos - last_read)
-            self._buf[:length] = bytes(self._signal_buffer[int(last_read):int(end_pos)])
+            self._buf[:length] = bytes(self._signal_buffer[int(last_read):int(end_pos)])  # type: ignore[arg-type]
             self._buf[length:] = b'\x00' * (self.MAX_BUFSIZE - length)
 
             # Validate the sample has expected format before accepting
             sample_preview = self._buf[:100].decode('ascii', errors='replace')
             if ',' not in sample_preview:
                 # Malformed sample - skip it but advance position
-                self._lastpos = struct.pack('<Q', end_pos)
+                self._lastpos = struct.pack('<Q', end_pos)  # type: ignore[assignment]
                 return False
 
             # Update last read position
-            self._lastpos = struct.pack('<Q', end_pos)
+            self._lastpos = struct.pack('<Q', end_pos)  # type: ignore[assignment]
 
             return True
         except Exception:
