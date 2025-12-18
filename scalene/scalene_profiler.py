@@ -325,7 +325,11 @@ class Scalene:
             if getattr(Scalene.__args, "memory", False):
                 cmdline += " --memory"
             # Note: --cpu is now --cpu-only; only pass if we are CPU-only (no memory/gpu)
-            if getattr(Scalene.__args, "cpu", False) and not getattr(Scalene.__args, "memory", False) and not getattr(Scalene.__args, "gpu", False):
+            if (
+                getattr(Scalene.__args, "cpu", False)
+                and not getattr(Scalene.__args, "memory", False)
+                and not getattr(Scalene.__args, "gpu", False)
+            ):
                 cmdline += " --cpu-only"
             # Add the --pid field so we can propagate it to the child.
             cmdline += f" --pid={os.getpid()} ---"
@@ -1156,6 +1160,7 @@ class Scalene:
         # Site-packages locations
         try:
             import site
+
             for sp in site.getsitepackages():
                 paths.add(os.path.normpath(sp))
             # User site-packages
@@ -1203,7 +1208,9 @@ class Scalene:
             return True
 
         # Skip system libraries unless explicitly requested
-        if not Scalene.__args.profile_system_libraries and Scalene._is_system_library(filename):
+        if not Scalene.__args.profile_system_libraries and Scalene._is_system_library(
+            filename
+        ):
             return False
 
         filename = Filename(

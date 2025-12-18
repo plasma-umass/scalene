@@ -184,7 +184,10 @@ class ScaleneParseArgs:
             return {}
 
         if not isinstance(config, dict):
-            print(f"Scalene: config file must contain a YAML mapping (got {type(config).__name__})", file=sys.stderr)
+            print(
+                f"Scalene: config file must contain a YAML mapping (got {type(config).__name__})",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         return config
@@ -203,7 +206,10 @@ class ScaleneParseArgs:
             # Map config key to argparse dest name
             dest = ScaleneParseArgs._CONFIG_KEY_MAP.get(key)
             if dest is None:
-                print(f"Scalene: warning: unknown config option '{key}' (ignored)", file=sys.stderr)
+                print(
+                    f"Scalene: warning: unknown config option '{key}' (ignored)",
+                    file=sys.stderr,
+                )
                 continue
 
             # Only apply if the argument wasn't explicitly set on command line
@@ -223,14 +229,22 @@ class ScaleneParseArgs:
                 # Mutually exclusive booleans
                 if value is True:
                     setattr(args, dest, True)
-            elif dest in ("profile_all", "stacks", "use_virtual_time", "memory_leak_detector", "profile_system_libraries"):
+            elif dest in (
+                "profile_all",
+                "stacks",
+                "use_virtual_time",
+                "memory_leak_detector",
+                "profile_system_libraries",
+            ):
                 # Regular boolean flags with defaults
                 if value is True:
                     setattr(args, dest, True)
             else:
                 # For non-boolean options, check if they have their default value
                 # If the current value looks like a default, apply config value
-                if current_value is None or (dest == "outfile" and current_value == "scalene-profile.json"):
+                if current_value is None or (
+                    dest == "outfile" and current_value == "scalene-profile.json"
+                ):
                     setattr(args, dest, value)
 
     @staticmethod
@@ -252,10 +266,15 @@ class ScaleneParseArgs:
 
         # Basic options (hidden when --help-advanced is used)
         parser.add_argument(
-            "-o", "--outfile",
+            "-o",
+            "--outfile",
             type=str,
             default=defaults.outfile,
-            help="output file (default: scalene-profile.json)" if not show_advanced else basic_help,
+            help=(
+                "output file (default: scalene-profile.json)"
+                if not show_advanced
+                else basic_help
+            ),
         )
         parser.add_argument(
             "--cpu-only",
@@ -263,14 +282,23 @@ class ScaleneParseArgs:
             action="store_const",
             const=True,
             default=None,
-            help="only profile CPU time (no memory/GPU)" if not show_advanced else basic_help,
+            help=(
+                "only profile CPU time (no memory/GPU)"
+                if not show_advanced
+                else basic_help
+            ),
         )
         parser.add_argument(
-            "-c", "--config",
+            "-c",
+            "--config",
             dest="config_file",
             type=str,
             default=None,
-            help="load options from YAML config file" if not show_advanced else basic_help,
+            help=(
+                "load options from YAML config file"
+                if not show_advanced
+                else basic_help
+            ),
         )
 
         # --help-advanced flag (always visible in basic help, hidden in advanced help)
@@ -288,21 +316,33 @@ class ScaleneParseArgs:
             dest="profile_all",
             action="store_true",
             default=defaults.profile_all,
-            help="profile all code, not just the target program" if show_advanced else advanced_help,
+            help=(
+                "profile all code, not just the target program"
+                if show_advanced
+                else advanced_help
+            ),
         )
         parser.add_argument(
             "--profile-only",
             dest="profile_only",
             type=str,
             default=defaults.profile_only,
-            help="only profile files containing these strings (comma-separated)" if show_advanced else advanced_help,
+            help=(
+                "only profile files containing these strings (comma-separated)"
+                if show_advanced
+                else advanced_help
+            ),
         )
         parser.add_argument(
             "--profile-exclude",
             dest="profile_exclude",
             type=str,
             default=defaults.profile_exclude,
-            help="exclude files containing these strings (comma-separated)" if show_advanced else advanced_help,
+            help=(
+                "exclude files containing these strings (comma-separated)"
+                if show_advanced
+                else advanced_help
+            ),
         )
 
         # What to profile
@@ -333,7 +373,11 @@ class ScaleneParseArgs:
             "--profile-interval",
             type=float,
             default=defaults.profile_interval,
-            help=f"output profiles every so many seconds (default: {defaults.profile_interval})" if show_advanced else advanced_help,
+            help=(
+                f"output profiles every so many seconds (default: {defaults.profile_interval})"
+                if show_advanced
+                else advanced_help
+            ),
         )
         parser.add_argument(
             "--use-virtual-time",
@@ -341,56 +385,88 @@ class ScaleneParseArgs:
             action="store_const",
             const=True,
             default=defaults.use_virtual_time,
-            help=f"measure only CPU time, not time spent in I/O or blocking (default: {defaults.use_virtual_time})" if show_advanced else advanced_help,
+            help=(
+                f"measure only CPU time, not time spent in I/O or blocking (default: {defaults.use_virtual_time})"
+                if show_advanced
+                else advanced_help
+            ),
         )
         parser.add_argument(
             "--cpu-percent-threshold",
             dest="cpu_percent_threshold",
             type=float,
             default=defaults.cpu_percent_threshold,
-            help=f"only report profiles with at least this percent of CPU time (default: {defaults.cpu_percent_threshold}%%)" if show_advanced else advanced_help,
+            help=(
+                f"only report profiles with at least this percent of CPU time (default: {defaults.cpu_percent_threshold}%%)"
+                if show_advanced
+                else advanced_help
+            ),
         )
         parser.add_argument(
             "--cpu-sampling-rate",
             dest="cpu_sampling_rate",
             type=float,
             default=defaults.cpu_sampling_rate,
-            help=f"CPU sampling rate (default: every {defaults.cpu_sampling_rate}s)" if show_advanced else advanced_help,
+            help=(
+                f"CPU sampling rate (default: every {defaults.cpu_sampling_rate}s)"
+                if show_advanced
+                else advanced_help
+            ),
         )
         parser.add_argument(
             "--allocation-sampling-window",
             dest="allocation_sampling_window",
             type=int,
             default=defaults.allocation_sampling_window,
-            help=f"Allocation sampling window size, in bytes (default: {defaults.allocation_sampling_window} bytes)" if show_advanced else advanced_help,
+            help=(
+                f"Allocation sampling window size, in bytes (default: {defaults.allocation_sampling_window} bytes)"
+                if show_advanced
+                else advanced_help
+            ),
         )
         parser.add_argument(
             "--malloc-threshold",
             dest="malloc_threshold",
             type=int,
             default=defaults.malloc_threshold,
-            help=f"only report profiles with at least this many allocations (default: {defaults.malloc_threshold})" if show_advanced else advanced_help,
+            help=(
+                f"only report profiles with at least this many allocations (default: {defaults.malloc_threshold})"
+                if show_advanced
+                else advanced_help
+            ),
         )
         parser.add_argument(
             "--program-path",
             dest="program_path",
             type=str,
             default="",
-            help="The directory containing the code to profile (default: the path to the profiled program)" if show_advanced else advanced_help,
+            help=(
+                "The directory containing the code to profile (default: the path to the profiled program)"
+                if show_advanced
+                else advanced_help
+            ),
         )
         parser.add_argument(
             "--memory-leak-detector",
             dest="memory_leak_detector",
             action="store_true",
             default=defaults.memory_leak_detector,
-            help=f"EXPERIMENTAL: report likely memory leaks (default: {defaults.memory_leak_detector})" if show_advanced else advanced_help,
+            help=(
+                f"EXPERIMENTAL: report likely memory leaks (default: {defaults.memory_leak_detector})"
+                if show_advanced
+                else advanced_help
+            ),
         )
         parser.add_argument(
             "--profile-system-libraries",
             dest="profile_system_libraries",
             action="store_true",
             default=defaults.profile_system_libraries,
-            help="profile Python system libraries and installed packages (default: skip them)" if show_advanced else advanced_help,
+            help=(
+                "profile Python system libraries and installed packages (default: skip them)"
+                if show_advanced
+                else advanced_help
+            ),
         )
         if sys.platform != "win32":
             # Turning profiling on and off from another process is currently not supported on Windows.
@@ -398,7 +474,11 @@ class ScaleneParseArgs:
             group.add_argument(
                 "--on",
                 action="store_true",
-                help="start with profiling on (default)" if show_advanced else advanced_help,
+                help=(
+                    "start with profiling on (default)"
+                    if show_advanced
+                    else advanced_help
+                ),
             )
             group.add_argument(
                 "--off",
@@ -476,8 +556,10 @@ class ScaleneParseArgs:
         if has_memory and max_footprint > 0:
             mem_usage_line = Text.assemble(
                 "Memory usage: ",
-                (f"(max: {ScaleneJSON.memory_consumed_str(max_footprint)}, growth rate: {growth_rate:3.0f}%)\n",
-                 ScaleneParseArgs.memory_color),
+                (
+                    f"(max: {ScaleneJSON.memory_consumed_str(max_footprint)}, growth rate: {growth_rate:3.0f}%)\n",
+                    ScaleneParseArgs.memory_color,
+                ),
             )
 
         for filename, file_data in files.items():
@@ -493,7 +575,9 @@ class ScaleneParseArgs:
                 )
 
             # Build header matching original format
-            time_str = ScaleneJSON.time_consumed_str(percent_cpu_time / 100.0 * elapsed_time)
+            time_str = ScaleneJSON.time_consumed_str(
+                percent_cpu_time / 100.0 * elapsed_time
+            )
             total_time_str = ScaleneJSON.time_consumed_str(elapsed_time)
 
             if mem_usage_line:
@@ -570,13 +654,18 @@ class ScaleneParseArgs:
                     width=6,
                 )
                 tbl.add_column(
-                    Markdown("–––––––––––  \n_timeline_/%", style=ScaleneParseArgs.memory_color),
+                    Markdown(
+                        "–––––––––––  \n_timeline_/%",
+                        style=ScaleneParseArgs.memory_color,
+                    ),
                     style=ScaleneParseArgs.memory_color,
                     no_wrap=True,
                     width=15,
                 )
                 tbl.add_column(
-                    Markdown("Copy  \n_(MB/s)_", style=ScaleneParseArgs.copy_volume_color),
+                    Markdown(
+                        "Copy  \n_(MB/s)_", style=ScaleneParseArgs.copy_volume_color
+                    ),
                     style=ScaleneParseArgs.copy_volume_color,
                     no_wrap=True,
                     width=6,
@@ -603,23 +692,44 @@ class ScaleneParseArgs:
                 python_frac = line_info.get("n_python_fraction", 0)
 
                 # Format values matching scalene_output.py
-                python_str: Union[str, RichText] = f"{python_pct:5.0f}%" if python_pct >= 1 else ""
-                native_str: Union[str, RichText] = f"{native_pct:5.0f}%" if native_pct >= 1 else ""
-                sys_str: Union[str, RichText] = f"{sys_pct:4.0f}%" if sys_pct >= 1 else ""
-                gpu_str: Union[str, RichText] = f"{gpu_pct:3.0f}%" if gpu_pct >= 1 else ""
+                python_str: Union[str, RichText] = (
+                    f"{python_pct:5.0f}%" if python_pct >= 1 else ""
+                )
+                native_str: Union[str, RichText] = (
+                    f"{native_pct:5.0f}%" if native_pct >= 1 else ""
+                )
+                sys_str: Union[str, RichText] = (
+                    f"{sys_pct:4.0f}%" if sys_pct >= 1 else ""
+                )
+                gpu_str: Union[str, RichText] = (
+                    f"{gpu_pct:3.0f}%" if gpu_pct >= 1 else ""
+                )
 
                 # Memory formatting
                 if peak_mb < 1024:
-                    growth_mem_str = f"{peak_mb:5.0f}M" if (peak_mb or usage_frac) else ""
+                    growth_mem_str = (
+                        f"{peak_mb:5.0f}M" if (peak_mb or usage_frac) else ""
+                    )
                 else:
-                    growth_mem_str = f"{(peak_mb / 1024):5.2f}G" if (peak_mb or usage_frac) else ""
-                python_frac_str = f"{(python_frac * 100):4.0f}%" if python_frac >= 0.01 else ""
-                usage_frac_str: Union[str, RichText] = f"{(usage_frac * 100):4.0f}%" if usage_frac >= 0.01 else ""
+                    growth_mem_str = (
+                        f"{(peak_mb / 1024):5.2f}G" if (peak_mb or usage_frac) else ""
+                    )
+                python_frac_str = (
+                    f"{(python_frac * 100):4.0f}%" if python_frac >= 0.01 else ""
+                )
+                usage_frac_str: Union[str, RichText] = (
+                    f"{(usage_frac * 100):4.0f}%" if usage_frac >= 0.01 else ""
+                )
                 copy_str = f"{copy_mb:6.0f}" if copy_mb >= 0.5 else ""
 
                 # Check if we should print this line
-                has_activity = (python_pct >= 1 or native_pct >= 1 or sys_pct >= 1 or
-                               gpu_pct >= 1 or usage_frac >= 0.01)
+                has_activity = (
+                    python_pct >= 1
+                    or native_pct >= 1
+                    or sys_pct >= 1
+                    or gpu_pct >= 1
+                    or usage_frac >= 0.01
+                )
 
                 if reduced_profile and not has_activity:
                     if did_print:
@@ -631,20 +741,62 @@ class ScaleneParseArgs:
 
                 # Apply highlighting for hot lines
                 total_pct = python_pct + native_pct + gpu_pct + sys_pct
-                if has_memory and (usage_frac * 100 >= ScaleneParseArgs.highlight_percentage or
-                                   total_pct >= ScaleneParseArgs.highlight_percentage):
-                    python_str = Text(str(python_str), style=ScaleneParseArgs.highlight_color) if python_str else ""
-                    native_str = Text(str(native_str), style=ScaleneParseArgs.highlight_color) if native_str else ""
-                    usage_frac_str = Text(str(usage_frac_str), style=ScaleneParseArgs.highlight_color) if usage_frac_str else ""
-                    gpu_str = Text(str(gpu_str), style=ScaleneParseArgs.highlight_color) if gpu_str else ""
+                if has_memory and (
+                    usage_frac * 100 >= ScaleneParseArgs.highlight_percentage
+                    or total_pct >= ScaleneParseArgs.highlight_percentage
+                ):
+                    python_str = (
+                        Text(str(python_str), style=ScaleneParseArgs.highlight_color)
+                        if python_str
+                        else ""
+                    )
+                    native_str = (
+                        Text(str(native_str), style=ScaleneParseArgs.highlight_color)
+                        if native_str
+                        else ""
+                    )
+                    usage_frac_str = (
+                        Text(
+                            str(usage_frac_str), style=ScaleneParseArgs.highlight_color
+                        )
+                        if usage_frac_str
+                        else ""
+                    )
+                    gpu_str = (
+                        Text(str(gpu_str), style=ScaleneParseArgs.highlight_color)
+                        if gpu_str
+                        else ""
+                    )
                 elif total_pct >= ScaleneParseArgs.highlight_percentage:
-                    python_str = Text(str(python_str), style=ScaleneParseArgs.highlight_color) if python_str else ""
-                    native_str = Text(str(native_str), style=ScaleneParseArgs.highlight_color) if native_str else ""
-                    gpu_str = Text(str(gpu_str), style=ScaleneParseArgs.highlight_color) if gpu_str else ""
-                    sys_str = Text(str(sys_str), style=ScaleneParseArgs.highlight_color) if sys_str else ""
+                    python_str = (
+                        Text(str(python_str), style=ScaleneParseArgs.highlight_color)
+                        if python_str
+                        else ""
+                    )
+                    native_str = (
+                        Text(str(native_str), style=ScaleneParseArgs.highlight_color)
+                        if native_str
+                        else ""
+                    )
+                    gpu_str = (
+                        Text(str(gpu_str), style=ScaleneParseArgs.highlight_color)
+                        if gpu_str
+                        else ""
+                    )
+                    sys_str = (
+                        Text(str(sys_str), style=ScaleneParseArgs.highlight_color)
+                        if sys_str
+                        else ""
+                    )
 
                 # Syntax highlight the code line
-                syntax = Syntax(line_text, "python", theme="vim", line_numbers=False, code_width=None)
+                syntax = Syntax(
+                    line_text,
+                    "python",
+                    theme="vim",
+                    line_numbers=False,
+                    code_width=None,
+                )
                 capture_console = Console(width=code_width, force_terminal=True)
                 with capture_console.capture() as capture:
                     capture_console.print(syntax, end="")
@@ -657,7 +809,9 @@ class ScaleneParseArgs:
                     row.append(gpu_str)
 
                 if has_memory:
-                    row.extend([python_frac_str, growth_mem_str, usage_frac_str, copy_str])
+                    row.extend(
+                        [python_frac_str, growth_mem_str, usage_frac_str, copy_str]
+                    )
 
                 row.append(highlighted_line)
                 tbl.add_row(*row)
@@ -667,8 +821,10 @@ class ScaleneParseArgs:
             # Display function summaries matching original format
             if functions:
                 fn_with_activity = [
-                    f for f in functions
-                    if f.get("n_cpu_percent_python", 0) + f.get("n_cpu_percent_c", 0) > 0
+                    f
+                    for f in functions
+                    if f.get("n_cpu_percent_python", 0) + f.get("n_cpu_percent_c", 0)
+                    > 0
                 ]
                 if fn_with_activity:
                     console.print("\n[bold]Function summaries:[/bold]")
@@ -795,7 +951,9 @@ in Jupyter, cell mode:
             action="version",
             version=f"Scalene version {scalene_version} ({scalene_date})",
         )
-        subparsers = main_parser.add_subparsers(dest="command", help="Available commands")
+        subparsers = main_parser.add_subparsers(
+            dest="command", help="Available commands"
+        )
 
         # 'run' subcommand - profile a program
         show_advanced = "--help-advanced" in sys.argv
@@ -835,10 +993,15 @@ examples:
         )
         # Add help manually so we can hide it in advanced mode
         run_parser.add_argument(
-            "-h", "--help",
+            "-h",
+            "--help",
             action="help",
             default=argparse.SUPPRESS,
-            help="show this help message and exit" if not show_advanced else argparse.SUPPRESS,
+            help=(
+                "show this help message and exit"
+                if not show_advanced
+                else argparse.SUPPRESS
+            ),
         )
         ScaleneParseArgs._add_run_arguments(run_parser, defaults)
 
@@ -881,7 +1044,8 @@ examples:
             help="Save to scalene-profile.html (no browser)",
         )
         view_parser.add_argument(
-            "-r", "--reduced",
+            "-r",
+            "--reduced",
             dest="reduced_profile",
             action="store_true",
             default=False,
@@ -890,7 +1054,13 @@ examples:
 
         # Check if user provided a .py file without a subcommand
         # This catches the common mistake of `scalene foo.py` instead of `scalene run foo.py`
-        if len(sys.argv) > 1 and sys.argv[1] not in ("run", "view", "-h", "--help", "--version"):
+        if len(sys.argv) > 1 and sys.argv[1] not in (
+            "run",
+            "view",
+            "-h",
+            "--help",
+            "--version",
+        ):
             # Check if any argument looks like a Python file or module
             for arg in sys.argv[1:]:
                 if arg.endswith(".py") or arg == "-m":
@@ -963,7 +1133,9 @@ examples:
             if parser:
                 parser.error(f"outfile {args.outfile} is a directory")
             else:
-                print(f"Scalene: outfile {args.outfile} is a directory", file=sys.stderr)
+                print(
+                    f"Scalene: outfile {args.outfile} is a directory", file=sys.stderr
+                )
                 sys.exit(1)
 
         # Hack to simplify functionality for Windows platforms.
