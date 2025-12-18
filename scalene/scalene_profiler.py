@@ -145,8 +145,8 @@ class Scalene:
     __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
     __orig_python = sys.executable  # will be rewritten later
 
-    __profile_filename = Filename("profile.json")
-    __profiler_html = Filename("profile.html")
+    __profile_filename = Filename("scalene-profile.json")
+    __profiler_html = Filename("scalene-profile.html")
     __error_message = "Error in program being profiled"
     __windows_queue: queue.Queue[Any] = (
         queue.Queue()
@@ -191,6 +191,10 @@ class Scalene:
     # path for the program being profiled
     __program_path = Filename("")
     __entrypoint_dir = Filename("")
+
+    # System library paths (for filtering when profile_system_libraries=False)
+    __system_lib_paths: tuple[str, ...] = ()
+
     # temporary directory to hold aliases to Python
 
     __python_alias_dir: pathlib.Path
@@ -311,19 +315,20 @@ class Scalene:
             # Pass along commands from the invoking command line.
             if "off" in Scalene.__args and Scalene.__args.off:
                 cmdline += " --off"
-            for arg in [
-                "use_virtual_time",
-                "cpu",
-                "gpu",
-                "memory",
-                "cli",
-                "web",
-                "html",
-                "no_browser",
-                "reduced_profile",
-            ]:
-                if getattr(Scalene.__args, arg):
-                    cmdline += f'  --{arg.replace("_", "-")}'
+            # Only pass along options that are valid for the 'run' subcommand
+            if getattr(Scalene.__args, "use_virtual_time", False):
+                cmdline += " --use-virtual-time"
+            if getattr(Scalene.__args, "gpu", False):
+                cmdline += " --gpu"
+            if getattr(Scalene.__args, "memory", False):
+                cmdline += " --memory"
+            # Note: --cpu is now --cpu-only; only pass if we are CPU-only (no memory/gpu)
+            if (
+                getattr(Scalene.__args, "cpu", False)
+                and not getattr(Scalene.__args, "memory", False)
+                and not getattr(Scalene.__args, "gpu", False)
+            ):
+                cmdline += " --cpu-only"
             # Add the --pid field so we can propagate it to the child.
             cmdline += f" --pid={os.getpid()} ---"
             # Build the commands to pass along other arguments
@@ -736,13 +741,10 @@ class Scalene:
                     os.path.splitext(os.path.basename(Scalene.__args.outfile))[0]
                     + ".json",
                 )
-            # If there was no output file specified, print to the console.
+            # If there was no output file specified, use the default profile filename.
             if not outfile:
-                if sys.platform == "win32":
-                    outfile = "CON"
-                else:
-                    outfile = "/dev/stdout"
-            # Write the JSON to the output file (or console).
+                outfile = Scalene.__profile_filename
+            # Write the JSON to the output file.
             with open(outfile, "w") as f:
                 f.write(json.dumps(json_output, sort_keys=True, indent=4) + "\n")
             return json_output != {}
@@ -1147,10 +1149,74 @@ class Scalene:
         )
 
     @staticmethod
+    def _init_system_lib_paths() -> None:
+        """Initialize the list of system library paths to exclude from profiling."""
+        if Scalene.__system_lib_paths:
+            return  # Already initialized
+
+        paths = set()
+
+        # Standard library location
+        stdlib_path = sysconfig.get_path("stdlib")
+        if stdlib_path:
+            paths.add(os.path.normpath(stdlib_path))
+
+        # Site-packages locations
+        try:
+            import site
+
+            for sp in site.getsitepackages():
+                paths.add(os.path.normpath(sp))
+            # User site-packages
+            user_site = site.getusersitepackages()
+            if user_site:
+                paths.add(os.path.normpath(user_site))
+        except Exception:
+            pass
+
+        # Python prefix paths (covers most installations)
+        for prefix in (sys.prefix, sys.base_prefix, sys.exec_prefix):
+            if prefix:
+                paths.add(os.path.normpath(prefix))
+
+        # Platform-specific library path
+        platstdlib = sysconfig.get_path("platstdlib")
+        if platstdlib:
+            paths.add(os.path.normpath(platstdlib))
+
+        # Pure library path
+        purelib = sysconfig.get_path("purelib")
+        if purelib:
+            paths.add(os.path.normpath(purelib))
+
+        # Platform library path
+        platlib = sysconfig.get_path("platlib")
+        if platlib:
+            paths.add(os.path.normpath(platlib))
+
+        Scalene.__system_lib_paths = tuple(sorted(paths, key=len, reverse=True))
+
+    @staticmethod
+    def _is_system_library(filename: str) -> bool:
+        """Check if a file is part of Python's system libraries or installed packages."""
+        if not Scalene.__system_lib_paths:
+            Scalene._init_system_lib_paths()
+
+        normalized = os.path.normpath(filename)
+        return any(normalized.startswith(path) for path in Scalene.__system_lib_paths)
+
+    @staticmethod
     def _should_trace_by_location(filename: Filename) -> bool:
         """Determine if we should trace based on file location."""
         if Scalene.__args.profile_all:
             return True
+
+        # Skip system libraries unless explicitly requested
+        if not Scalene.__args.profile_system_libraries and Scalene._is_system_library(
+            filename
+        ):
+            return False
+
         filename = Filename(
             os.path.normpath(os.path.join(Scalene.__program_path, filename))
         )

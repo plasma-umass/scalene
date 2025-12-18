@@ -49,10 +49,10 @@ def test_nested_package_relative_import(tmp_path):
             sys.executable,
             "-m",
             "scalene",
+            "run",  # use the 'run' subcommand
             "-m",
             "pkg.subpkg.mod",
-            "--cli",  # plain‑text output, no browser
-            "--cpu-only",  # keep the run fast
+            "--cpu-only",  # CPU-only profiling, keep the run fast
         ],
         cwd=tmp_path,
         env=env,

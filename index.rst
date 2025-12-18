@@ -128,22 +128,32 @@ Commonly used command-line options:
 
    </summary>
 
+Scalene uses a verb-based command structure with two main commands: ``run`` (to profile) and ``view`` (to display results).
+
 .. code:: console
 
-   scalene your_prog.py                             # full profile (outputs to web interface)
-   python3 -m scalene your_prog.py                  # equivalent alternative
+   # Profile a program (saves to scalene-profile.json)
+   scalene run your_prog.py
+   python3 -m scalene run your_prog.py              # equivalent alternative
 
-   scalene --cli your_prog.py                       # use the command-line only (no web interface)
+   # View a profile
+   scalene view                                     # open profile in browser
+   scalene view --cli                               # view in terminal
+   scalene view --html                              # save to scalene-profile.html
 
-   scalene --cpu your_prog.py                       # only profile CPU
-   scalene --cpu --gpu your_prog.py                 # only profile CPU and GPU
-   scalene --cpu --gpu --memory your_prog.py        # profile everything (same as no options)
+   # Common profiling options
+   scalene run --cpu-only your_prog.py              # only profile CPU (faster)
+   scalene run -o results.json your_prog.py         # custom output filename
+   scalene run -c config.yaml your_prog.py          # load options from config file
 
-   scalene --reduced-profile your_prog.py           # only profile lines with significant usage
-   scalene --profile-interval 5.0 your_prog.py      # output a new profile every five seconds
+   # Pass arguments to your program (use --- separator)
+   scalene run your_prog.py --- --arg1 --arg2
 
-   scalene (Scalene options) --- your_prog.py (...) # use --- to tell Scalene to ignore options after that point
-   scalene --help                                   # lists all options
+   # Get help
+   scalene --help                                   # main help
+   scalene run --help                               # profiling options
+   scalene run --help-advanced                      # advanced profiling options
+   scalene view --help                              # viewing options
 
 .. raw:: html
 
@@ -418,57 +428,84 @@ Click to see all Scalene’s options (available by running with –help)
 
 .. code:: console
 
-       % scalene --help
-        usage: scalene [-h] [--outfile OUTFILE] [--html] [--reduced-profile]
-                       [--profile-interval PROFILE_INTERVAL] [--cpu-only]
-                       [--profile-all] [--profile-only PROFILE_ONLY]
-                       [--use-virtual-time]
-                       [--cpu-percent-threshold CPU_PERCENT_THRESHOLD]
-                       [--cpu-sampling-rate CPU_SAMPLING_RATE]
-                       [--malloc-threshold MALLOC_THRESHOLD]
-        
-        Scalene: a high-precision CPU and memory profiler.
-        https://github.com/plasma-umass/scalene
-        
-        command-line:
-           % scalene [options] yourprogram.py
-        or
-           % python3 -m scalene [options] yourprogram.py
-        
-        in Jupyter, line mode:
-           %scrun [options] statement
-        
-        in Jupyter, cell mode:
-           %%scalene [options]
-           code...
-           code...
-        
-        optional arguments:
-          -h, --help            show this help message and exit
-          --outfile OUTFILE     file to hold profiler output (default: stdout)
-          --html                output as HTML (default: text)
-          --reduced-profile     generate a reduced profile, with non-zero lines only (default: False)
-          --profile-interval PROFILE_INTERVAL
-                                output profiles every so many seconds (default: inf)
-          --cpu-only            only profile CPU time (default: profile CPU, memory, and copying)
-          --profile-all         profile all executed code, not just the target program (default: only the target program)
-          --profile-only PROFILE_ONLY
-                                profile only code in filenames that contain the given strings, separated by commas (default: no restrictions)
-          --use-virtual-time    measure only CPU time, not time spent in I/O or blocking (default: False)
-          --cpu-percent-threshold CPU_PERCENT_THRESHOLD
-                                only report profiles with at least this percent of CPU time (default: 1%)
-          --cpu-sampling-rate CPU_SAMPLING_RATE
-                                CPU sampling rate (default: every 0.01s)
-          --malloc-threshold MALLOC_THRESHOLD
-                                only report profiles with at least this many allocations (default: 100)
-        
-        When running Scalene in the background, you can suspend/resume profiling
-        for the process ID that Scalene reports. For example:
-        
-           % python3 -m scalene [options] yourprogram.py &
-         Scalene now profiling process 12345
-           to suspend profiling: python3 -m scalene.profile --off --pid 12345
-           to resume profiling:  python3 -m scalene.profile --on  --pid 12345
+   % scalene --help
+   Scalene: a high-precision CPU and memory profiler
+   https://github.com/plasma-umass/scalene
+
+   commands:
+     run     Profile a Python program (saves to scalene-profile.json)
+     view    View an existing profile in browser or terminal
+
+   examples:
+     % scalene run your_program.py              # profile, save to scalene-profile.json
+     % scalene view                             # view scalene-profile.json in browser
+     % scalene view --cli                       # view profile in terminal
+
+   in Jupyter, line mode:
+     %scrun [options] statement
+
+   in Jupyter, cell mode:
+     %%scalene [options]
+      your code here
+
+   % scalene run --help
+   Profile a Python program with Scalene.
+
+   examples:
+     % scalene run prog.py                 # profile, save to scalene-profile.json
+     % scalene run -o my.json prog.py      # save to custom file
+     % scalene run --cpu-only prog.py      # profile CPU only (faster)
+     % scalene run -c scalene.yaml prog.py # load options from config file
+     % scalene run prog.py --- --arg       # pass args to program
+     % scalene run --help-advanced         # show advanced options
+
+   options:
+     -h, --help            show this help message and exit
+     -o, --outfile OUTFILE output file (default: scalene-profile.json)
+     --cpu-only            only profile CPU time (no memory/GPU)
+     -c, --config FILE     load options from YAML config file
+     --help-advanced       show advanced options
+
+   % scalene run --help-advanced
+   Advanced options for scalene run:
+
+   background profiling:
+     Use --off to start with profiling disabled, then control from another terminal:
+       % scalene run --off prog.py          # start with profiling off
+       % python3 -m scalene.profile --on  --pid <PID>   # resume profiling
+       % python3 -m scalene.profile --off --pid <PID>   # suspend profiling
+
+   options:
+     --profile-all         profile all code, not just the target program
+     --profile-only PATH   only profile files containing these strings (comma-separated)
+     --profile-exclude PATH exclude files containing these strings (comma-separated)
+     --profile-system-libraries  profile Python stdlib and installed packages (default: skip)
+     --gpu                 profile GPU time and memory
+     --memory              profile memory usage
+     --stacks              collect stack traces
+     --profile-interval N  output profiles every N seconds (default: inf)
+     --use-virtual-time    measure only CPU time, not I/O or blocking
+     --cpu-percent-threshold N  only report lines with at least N% CPU (default: 1%)
+     --cpu-sampling-rate N CPU sampling rate in seconds (default: 0.01)
+     --malloc-threshold N  only report lines with at least N allocations (default: 100)
+     --memory-leak-detector  EXPERIMENTAL: report likely memory leaks
+     --on                  start with profiling on (default)
+     --off                 start with profiling off
+
+   % scalene view --help
+   View an existing Scalene profile.
+
+   examples:
+     % scalene view                    # open in browser
+     % scalene view --cli              # view in terminal
+     % scalene view --html             # save to scalene-profile.html
+     % scalene view myprofile.json     # open specific profile in browser
+
+   options:
+     -h, --help     show this help message and exit
+     --cli          display profile in the terminal
+     --html         save to scalene-profile.html (no browser)
+     -r, --reduced  only show lines with activity (--cli mode)
 
 .. raw:: html
 
@@ -649,7 +686,7 @@ Can I use Scalene with PyTest?
 
 **A:** Yes! You can run it as follows (for example):
 
-``python3 -m scalene --- -m pytest your_test.py``
+``scalene run -m pytest your_test.py``
 
 .. raw:: html
 
@@ -682,7 +719,7 @@ Is there any way to get shorter profiles or do more targeted profiling?
    profiling on and off via ``scalene_profiler.start()`` and
    ``scalene_profiler.stop()``. By default, Scalene runs with profiling
    on, so to delay profiling until desired, use the ``--off``
-   command-line option (``python3 -m scalene --off yourprogram.py``).
+   command-line option (``scalene run --off yourprogram.py``).
 
 .. raw:: html
 
@@ -704,9 +741,8 @@ How do I run Scalene in PyCharm?
 
 **A:** In PyCharm, you can run Scalene at the command line by opening
 the terminal at the bottom of the IDE and running a Scalene command
-(e.g., ``python -m scalene <your program>``). Use the options ``--cli``,
-``--html``, and ``--outfile <your output.html>`` to generate an HTML
-file that you can then view in the IDE.
+(e.g., ``scalene run <your program>``). Then use ``scalene view --html``
+to generate an HTML file (``scalene-profile.html``) that you can view in the IDE.
 
 .. raw:: html
 

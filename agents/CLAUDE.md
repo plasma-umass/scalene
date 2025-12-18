@@ -256,6 +256,83 @@ Key runtime dependencies:
 
 See `requirements.txt` for full list.
 
+## CLI Structure
+
+Scalene uses a verb-based CLI with two main subcommands:
+
+```bash
+# Profile a program (saves to scalene-profile.json by default)
+scalene run [options] yourprogram.py
+
+# View an existing profile
+scalene view [options] [profile.json]
+```
+
+### Run Subcommand Options
+
+```bash
+scalene run prog.py                      # profile, save to scalene-profile.json
+scalene run -o my.json prog.py           # save to custom file
+scalene run --cpu-only prog.py           # profile CPU only (faster)
+scalene run -c config.yaml prog.py       # load options from config file
+scalene run prog.py --- --arg            # pass args to program
+```
+
+### View Subcommand Options
+
+```bash
+scalene view                             # open in browser
+scalene view --cli                       # view in terminal
+scalene view --html                      # save to scalene-profile.html
+scalene view myprofile.json              # open specific profile
+```
+
+### YAML Configuration
+
+Create a `scalene.yaml` file with options:
+
+```yaml
+outfile: my-profile.json
+cpu-only: true
+profile-only: "mypackage,utils"
+cpu-percent-threshold: 5
+```
+
+Load with: `scalene run -c scalene.yaml prog.py`
+
+### Advanced Options
+
+Use `scalene run --help-advanced` to see all options including:
+- `--profile-all` - profile all code, not just the target program
+- `--profile-only PATH` - only profile files containing these strings
+- `--profile-exclude PATH` - exclude files containing these strings
+- `--profile-system-libraries` - profile Python stdlib and installed packages (skipped by default)
+- `--gpu` - profile GPU time and memory
+- `--memory` - profile memory usage
+- `--stacks` - collect stack traces
+- `--profile-interval N` - output profiles every N seconds
+
+### Smoke Tests
+
+Smoke tests in `test/` use the new CLI syntax:
+
+```python
+# test/smoketest.py
+cmd = [sys.executable, "-m", "scalene", "run", "-o", str(outfile), *rest, fname]
+```
+
+### GitHub Workflows
+
+Workflows in `.github/workflows/` use the new CLI:
+
+```yaml
+# Profile with interval, then view
+- run: python -m scalene run --profile-interval=2 test/testme.py && python -m scalene view --cli
+
+# Profile with module invocation
+- run: python -m scalene run --- -m import_stress_test && python -m scalene view --cli
+```
+
 ## Profiling Guide
 
 See [Scalene-Agents.md](Scalene-Agents.md) for detailed information about interpreting Scalene's profiling output, including Python vs C time, memory metrics, and optimization strategies.
