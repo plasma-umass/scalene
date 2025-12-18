@@ -93,7 +93,9 @@ class ScaleneMapFile:
         )
         if not self._signal_handle:
             # DLL hasn't created the shared memory yet, or isn't loaded
-            raise FileNotFoundError(f"Could not open shared memory: {self._signal_name}")
+            raise FileNotFoundError(
+                f"Could not open shared memory: {self._signal_name}"
+            )
 
         # Open the lock shared memory
         self._lock_handle = kernel32.OpenFileMappingW(
@@ -111,7 +113,8 @@ class ScaleneMapFile:
         self._signal_view = kernel32.MapViewOfFile(
             self._signal_handle,
             FILE_MAP_READ,
-            0, 0,
+            0,
+            0,
             MAX_FILE_SIZE,
         )
         if not self._signal_view:
@@ -123,7 +126,8 @@ class ScaleneMapFile:
         self._lock_view = kernel32.MapViewOfFile(
             self._lock_handle,
             FILE_MAP_ALL_ACCESS,
-            0, 0,
+            0,
+            0,
             LOCK_SIZE,
         )
         if not self._lock_view:
@@ -133,21 +137,26 @@ class ScaleneMapFile:
             raise OSError("Could not map lock view")
 
         # Create ctypes buffers pointing to the mapped memory
-        self._signal_buffer = (ctypes.c_char * MAX_FILE_SIZE).from_address(self._signal_view)
-        self._lock_buffer = (ctypes.c_uint64 * (LOCK_SIZE // 8)).from_address(self._lock_view)
+        self._signal_buffer = (ctypes.c_char * MAX_FILE_SIZE).from_address(
+            self._signal_view
+        )
+        self._lock_buffer = (ctypes.c_uint64 * (LOCK_SIZE // 8)).from_address(
+            self._lock_view
+        )
 
     def close(self) -> None:
         """Close the map file."""
         if sys.platform == "win32":
             import ctypes
+
             kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
-            if hasattr(self, '_signal_view') and self._signal_view:
+            if hasattr(self, "_signal_view") and self._signal_view:
                 kernel32.UnmapViewOfFile(self._signal_view)
-            if hasattr(self, '_lock_view') and self._lock_view:
+            if hasattr(self, "_lock_view") and self._lock_view:
                 kernel32.UnmapViewOfFile(self._lock_view)
-            if hasattr(self, '_signal_handle') and self._signal_handle:
+            if hasattr(self, "_signal_handle") and self._signal_handle:
                 kernel32.CloseHandle(self._signal_handle)
-            if hasattr(self, '_lock_handle') and self._lock_handle:
+            if hasattr(self, "_lock_handle") and self._lock_handle:
                 kernel32.CloseHandle(self._lock_handle)
         else:
             if self._signal_fd:
@@ -183,14 +192,14 @@ class ScaleneMapFile:
         import ctypes
         import struct
 
-        if not hasattr(self, '_signal_buffer') or not hasattr(self, '_lock_buffer'):
+        if not hasattr(self, "_signal_buffer") or not hasattr(self, "_lock_buffer"):
             return False
 
         # Get current write position from lock buffer
         current_pos = self._lock_buffer[0]
 
         # Get our last read position
-        last_read = struct.unpack('<Q', self._lastpos)[0]
+        last_read = struct.unpack("<Q", self._lastpos)[0]
 
         if current_pos <= last_read:
             return False
@@ -207,7 +216,7 @@ class ScaleneMapFile:
             # ctypes c_char buffer returns bytes, convert to int for comparison
             if isinstance(first_byte, bytes):
                 first_byte = first_byte[0] if first_byte else 0  # type: ignore[assignment]
-            valid_actions = [ord('M'), ord('F'), ord('f')]
+            valid_actions = [ord("M"), ord("F"), ord("f")]
             if first_byte not in valid_actions:
                 # Data not yet visible or corrupted - don't advance position
                 return False
@@ -217,7 +226,7 @@ class ScaleneMapFile:
                 # ctypes c_char buffer returns bytes, convert to int for comparison
                 if isinstance(byte_val, bytes):
                     byte_val = byte_val[0] if byte_val else 0  # type: ignore[assignment]
-                if byte_val == ord('\n'):
+                if byte_val == ord("\n"):
                     end_pos = i + 1
                     break
                 # Don't treat null byte as terminator - it means data isn't visible yet
@@ -236,18 +245,18 @@ class ScaleneMapFile:
 
             # Copy data to buffer
             length = int(end_pos - last_read)
-            self._buf[:length] = bytes(self._signal_buffer[int(last_read):int(end_pos)])  # type: ignore[arg-type]
-            self._buf[length:] = b'\x00' * (self.MAX_BUFSIZE - length)
+            self._buf[:length] = bytes(self._signal_buffer[int(last_read) : int(end_pos)])  # type: ignore[arg-type]
+            self._buf[length:] = b"\x00" * (self.MAX_BUFSIZE - length)
 
             # Validate the sample has expected format before accepting
-            sample_preview = self._buf[:100].decode('ascii', errors='replace')
-            if ',' not in sample_preview:
+            sample_preview = self._buf[:100].decode("ascii", errors="replace")
+            if "," not in sample_preview:
                 # Malformed sample - skip it but advance position
-                self._lastpos = struct.pack('<Q', end_pos)  # type: ignore[assignment]
+                self._lastpos = struct.pack("<Q", end_pos)  # type: ignore[assignment]
                 return False
 
             # Update last read position
-            self._lastpos = struct.pack('<Q', end_pos)  # type: ignore[assignment]
+            self._lastpos = struct.pack("<Q", end_pos)  # type: ignore[assignment]
 
             return True
         except Exception:

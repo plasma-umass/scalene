@@ -47,6 +47,7 @@ class WindowsMemoryProfiler:
         if dll_path is None:
             # Try to find in the scalene package directory
             import scalene
+
             dll_path = os.path.join(scalene.__path__[0], "libscalene.dll")
 
         if not os.path.exists(dll_path):
@@ -93,9 +94,7 @@ class WindowsMemoryProfiler:
             self._malloc_event = kernel32.OpenEventW(
                 SYNCHRONIZE, False, malloc_event_name
             )
-            self._free_event = kernel32.OpenEventW(
-                SYNCHRONIZE, False, free_event_name
-            )
+            self._free_event = kernel32.OpenEventW(SYNCHRONIZE, False, free_event_name)
 
             self._initialized = True
             return True

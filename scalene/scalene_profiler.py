@@ -1368,6 +1368,7 @@ class Scalene:
         """Initiate execution and profiling."""
         if Scalene.__args.memory:
             from scalene import pywhere  # type: ignore
+
             pywhere.populate_struct()
         # If --off is set, tell all children to not profile and stop profiling before we even start.
         if "off" not in Scalene.__args or not Scalene.__args.off:
@@ -1614,6 +1615,7 @@ class Scalene:
         if sys.platform == "win32" and args.memory and not did_preload:
             try:
                 from scalene.scalene_windows import get_windows_profiler
+
                 win_profiler = get_windows_profiler()
                 if not win_profiler.load_dll():
                     print(
