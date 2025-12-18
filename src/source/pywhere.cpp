@@ -1,9 +1,48 @@
 #include "pywhere.hpp"
 
 #include <Python.h>
-#include <dlfcn.h>
 #include <frameobject.h>
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <process.h>
+#define getpid _getpid
+
+// Windows: get pointer via accessor function since C++ symbols are mangled
+static void* win_dlsym(const char* symbol) {
+  HMODULE hModule = GetModuleHandleA("libscalene.dll");
+  if (!hModule) {
+    // Fallback to main module
+    hModule = GetModuleHandle(NULL);
+  }
+
+  // For p_whereInPython and p_scalene_done, use accessor functions
+  if (strcmp(symbol, "p_whereInPython") == 0) {
+    typedef void* (*GetterFunc)();
+    GetterFunc getter = (GetterFunc)GetProcAddress(hModule, "get_p_whereInPython");
+    if (getter) return getter();
+  }
+  if (strcmp(symbol, "p_scalene_done") == 0) {
+    typedef void* (*GetterFunc)();
+    GetterFunc getter = (GetterFunc)GetProcAddress(hModule, "get_p_scalene_done");
+    if (getter) return getter();
+  }
+
+  // Try direct lookup (for non-mangled symbols)
+  void* addr = GetProcAddress(hModule, symbol);
+  if (addr) return addr;
+
+  return nullptr;
+}
+#define dlsym(handle, sym) win_dlsym(sym)
+#define RTLD_DEFAULT nullptr
+#else
+#include <dlfcn.h>
 #include <unistd.h>
+#endif
 
 #include <mutex>
 #include <unordered_map>

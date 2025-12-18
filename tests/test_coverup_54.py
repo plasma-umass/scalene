@@ -20,7 +20,7 @@ def clean_scalene_arguments():
 def test_scalene_arguments_initialization(clean_scalene_arguments):
     args = clean_scalene_arguments
     assert args.cpu == True
-    assert args.memory == (sys.platform != "win32")
+    assert args.memory == True
     assert args.stacks == False
     assert args.cpu_percent_threshold == 1
     assert args.cpu_sampling_rate == 0.01

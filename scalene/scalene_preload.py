@@ -87,8 +87,21 @@ class ScalenePreload:
                     env["PYTHONMALLOC"] = "default"
 
         elif sys.platform == "win32":
-            # Force no memory profiling on Windows for now.
-            args.memory = False
+            if args.memory:
+                # On Windows, we use DLL injection via ctypes
+                # The DLL is loaded at runtime when the profiler starts
+                library_path = scalene.__path__[0]
+
+                # Set library path so the DLL can be found
+                if "PATH" not in os.environ:
+                    env["PATH"] = library_path
+                elif library_path not in os.environ["PATH"]:
+                    env["PATH"] = f'{library_path};{os.environ["PATH"]}'
+
+                # Tell Scalene to load the DLL
+                env["SCALENE_WINDOWS_DLL"] = os.path.join(
+                    library_path, "libscalene.dll"
+                )
 
         return env
 
@@ -102,8 +115,9 @@ class ScalenePreload:
 
         # First, check that we are on a supported platform.
         # (x86-64 and ARM only for now.)
+        machine = platform.machine().lower()
         if args.memory and (
-            platform.machine() not in ["x86_64", "AMD64", "arm64", "aarch64"]
+            machine not in ["x86_64", "amd64", "arm64", "aarch64"]
             or struct.calcsize("P") != 8
         ):
             args.memory = False

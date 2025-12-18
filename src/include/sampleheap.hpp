@@ -3,6 +3,12 @@
 #ifndef SAMPLEHEAP_H
 #define SAMPLEHEAP_H
 
+#if defined(_WIN32)
+// Use Windows-specific implementation
+#include "sampleheap_win.hpp"
+#else
+// POSIX implementation
+
 #include <assert.h>
 #include <dlfcn.h>
 #include <fcntl.h>
@@ -350,4 +356,6 @@ class SampleHeap : public SuperHeap {
   }
 };
 
-#endif
+#endif // !_WIN32
+
+#endif // SAMPLEHEAP_H

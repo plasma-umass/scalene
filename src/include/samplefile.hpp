@@ -2,19 +2,19 @@
 #ifndef SAMPLEFILE_H
 #define SAMPLEFILE_H
 
+#if defined(_WIN32)
+// Use Windows-specific implementation
+#include "samplefile_win.hpp"
+#else
+// POSIX implementation
+
 #include <errno.h>
 #include <heaplayers.h>
 
-#if !defined(_WIN32)
 #include <pthread.h>
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#else
-#include <sys/stat.h>
-#define S_IRUSR _S_IRUSR
-#define S_IWUSR _S_IWUSR
-#endif
 
 #include "printf.h"
 
@@ -156,4 +156,6 @@ class SampleFile {
   HL::SpinLock *_spin_lock;
 };
 
-#endif
+#endif // !_WIN32
+
+#endif // SAMPLEFILE_H

@@ -5,6 +5,22 @@
 
 #include <Python.h>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <direct.h>
+#include <stdlib.h>
+#define PATH_MAX _MAX_PATH
+#define realpath(N,R) _fullpath((R),(N),_MAX_PATH)
+#define chdir _chdir
+#define getcwd _getcwd
+#else
+#include <unistd.h>
+#include <limits.h>
+#endif
+
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -63,7 +79,7 @@ class TraceConfig {
       if (strstr(filename, python_lib.c_str()) ||
           strstr(filename, scalene_lib.c_str()) ||
           strstr(filename, anaconda_lib.c_str()) ||
-          //        strstr(filename, "site-packages") != nullptr ||
+          strstr(filename, "site-packages") != nullptr ||
           (strstr(filename, "<") &&
            (strstr(filename, "<ipython") || strstr(filename, "<frozen")))) {
         _memoize.insert(

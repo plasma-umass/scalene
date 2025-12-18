@@ -3,6 +3,12 @@
 #ifndef COMMON_HPP
 #define COMMON_HPP
 
+#if defined(_WIN32)
+// Use Windows-specific definitions
+#include "common_win.hpp"
+#else
+// POSIX/Unix definitions
+
 #ifndef likely
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
@@ -20,4 +26,6 @@
 #define USE_COMPRESSED_PTRS 0
 #define USE_SIZE_CACHES 0  // 1
 
-#endif
+#endif // _WIN32
+
+#endif // COMMON_HPP
