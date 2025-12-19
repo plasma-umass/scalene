@@ -152,7 +152,7 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
     __initialized: bool = False
-    __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
+    __last_profiled: list[Filename | LineNumber | ByteCodeIndex] = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
     __orig_python = sys.executable  # will be rewritten later
 
     __profile_filename = Filename("scalene-profile.json")
@@ -614,6 +614,7 @@ class Scalene:
         # Enable line tracing to detect when execution moves to a different line.
         # On Python 3.12+, this uses sys.monitoring; on earlier versions,
         # it falls back to PyEval_SetTrace.
+        assert this_frame
         enable_tracing(this_frame)
         del this_frame
 

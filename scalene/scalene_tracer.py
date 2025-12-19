@@ -8,6 +8,7 @@ implementation in pywhere.
 
 from __future__ import annotations
 
+import contextlib
 import sys
 from types import CodeType, FrameType
 from typing import TYPE_CHECKING, Callable, Optional, cast
@@ -33,7 +34,7 @@ _FORCE_PYTHON_CALLBACK = False
 # We use sys.monitoring.PROFILER_ID which is available for profiling tools
 _SCALENE_TOOL_ID: int = 0
 if _SYS_MONITORING_AVAILABLE:
-    _SCALENE_TOOL_ID = sys.monitoring.PROFILER_ID
+    _SCALENE_TOOL_ID = sys.monitoring.PROFILER_ID # type: ignore[attr-defined]
 
 
 def set_use_legacy_tracer(use_legacy: bool) -> None:
@@ -105,10 +106,10 @@ class ScaleneTracer:
     """
 
     # Reference to the last profiled location [filename, lineno, bytecode_index]
-    _last_profiled: list["Filename | LineNumber | ByteCodeIndex"]
+    _last_profiled: list[Filename | LineNumber | ByteCodeIndex]
 
     # Queue for invalidated (completed) lines
-    _invalidate_queue: list[tuple["Filename", "LineNumber"]]
+    _invalidate_queue: list[tuple[Filename, LineNumber]]
 
     # Callback to check if a file/function should be traced
     _should_trace: Optional[Callable[[str, str], bool]] = None
@@ -128,8 +129,8 @@ class ScaleneTracer:
     @classmethod
     def initialize(
         cls,
-        last_profiled: list["Filename | LineNumber | ByteCodeIndex"],
-        invalidate_queue: list[tuple["Filename", "LineNumber"]],
+        last_profiled: list[Filename | LineNumber | ByteCodeIndex],
+        invalidate_queue: list[tuple[Filename, LineNumber]],
         should_trace: Callable[[str, str], bool],
     ) -> None:
         """Initialize the tracer with references to Scalene's state.
@@ -155,29 +156,23 @@ class ScaleneTracer:
     @classmethod
     def _setup_monitoring(cls) -> None:
         """Set up sys.monitoring callbacks for Python 3.12+."""
-        try:
+        with contextlib.suppress(ValueError):
             # Register Scalene as a monitoring tool
-            sys.monitoring.use_tool_id(_SCALENE_TOOL_ID, "scalene")
-        except ValueError:
-            # Tool ID already in use, that's fine
-            pass
+            sys.monitoring.use_tool_id(_SCALENE_TOOL_ID, "scalene")  # type: ignore[attr-defined]
 
         # Choose between C callback (3.13+) and Python callback (3.12)
         if _use_c_callback() and cls._pywhere is not None:
             # Use the C callback from pywhere for better performance
-            try:
+            with contextlib.suppress(AttributeError, NotImplementedError):
                 cls._pywhere.setup_sysmon(cls._pywhere.sysmon_line_callback)  # type: ignore
                 cls._use_c_line_callback = True
                 return
-            except (AttributeError, NotImplementedError):
-                # Fall back to Python callback
-                pass
 
         # Register the Python LINE event callback
         cls._use_c_line_callback = False
-        sys.monitoring.register_callback(
+        sys.monitoring.register_callback(  # type: ignore[attr-defined]
             _SCALENE_TOOL_ID,
-            sys.monitoring.events.LINE,
+            sys.monitoring.events.LINE,  # type: ignore[attr-defined]
             cls._line_callback,
         )
 
@@ -201,11 +196,11 @@ class ScaleneTracer:
             sys.monitoring.DISABLE to disable further LINE events for this code location
         """
         if not cls._tracing_active or not _SYS_MONITORING_AVAILABLE:
-            return sys.monitoring.DISABLE
+            return sys.monitoring.DISABLE  # type: ignore[attr-defined]
 
         # Get the last profiled location
         last_fname = str(cls._last_profiled[0])
-        last_lineno = int(cls._last_profiled[1])  # type: ignore
+        last_lineno = int(cls._last_profiled[1])
 
         current_fname = code.co_filename
 
@@ -225,7 +220,7 @@ class ScaleneTracer:
         # We've moved to a genuinely different line - finalize the previous line
         cls._finalize_line()
 
-        return sys.monitoring.DISABLE
+        return sys.monitoring.DISABLE  # type: ignore[attr-defined]
 
     @classmethod
     def _finalize_line(cls) -> None:
@@ -234,7 +229,7 @@ class ScaleneTracer:
 
         # Disable LINE events globally
         if _SYS_MONITORING_AVAILABLE:
-            sys.monitoring.set_events(_SCALENE_TOOL_ID, 0)
+            sys.monitoring.set_events(_SCALENE_TOOL_ID, 0)  # type: ignore[attr-defined]
 
         # Get the last profiled location before resetting
         last_fname = cls._last_profiled[0]
@@ -285,7 +280,7 @@ class ScaleneTracer:
                 pass
 
         # Enable LINE events globally for this tool (Python callback)
-        sys.monitoring.set_events(_SCALENE_TOOL_ID, sys.monitoring.events.LINE)
+        sys.monitoring.set_events(_SCALENE_TOOL_ID, sys.monitoring.events.LINE)  # type: ignore[attr-defined]
 
     @classmethod
     def _enable_legacy(cls, frame: FrameType) -> None:
@@ -312,16 +307,12 @@ class ScaleneTracer:
 
         # Use C implementation if available (Python 3.13+)
         if cls._use_c_line_callback and cls._pywhere is not None:
-            try:
+            with contextlib.suppress(AttributeError, NotImplementedError):
                 cls._pywhere.disable_sysmon()  # type: ignore
                 return
-            except (AttributeError, NotImplementedError):
-                pass
 
-        try:
-            sys.monitoring.set_events(_SCALENE_TOOL_ID, 0)
-        except (ValueError, RuntimeError):
-            pass
+        with contextlib.suppress(ValueError, RuntimeError):
+            sys.monitoring.set_events(_SCALENE_TOOL_ID, 0)  # type: ignore[attr-defined]
 
     @classmethod
     def _disable_legacy(cls) -> None:
@@ -338,20 +329,17 @@ class ScaleneTracer:
         """Clean up monitoring resources."""
         cls._initialized = False
         if _SYS_MONITORING_AVAILABLE:
-            try:
+            with contextlib.suppress(ValueError, RuntimeError):
                 # Disable all events
-                sys.monitoring.set_events(_SCALENE_TOOL_ID, 0)
+                sys.monitoring.set_events(_SCALENE_TOOL_ID, 0)  # type: ignore[attr-defined]
                 # Unregister the callback
-                sys.monitoring.register_callback(
+                sys.monitoring.register_callback(  # type: ignore[attr-defined]
                     _SCALENE_TOOL_ID,
-                    sys.monitoring.events.LINE,
+                    sys.monitoring.events.LINE,   # type: ignore[attr-defined]
                     None,
                 )
                 # Free the tool ID
-                sys.monitoring.free_tool_id(_SCALENE_TOOL_ID)
-            except (ValueError, RuntimeError):
-                # Tool may not have been registered or already freed
-                pass
+                sys.monitoring.free_tool_id(_SCALENE_TOOL_ID)  # type: ignore[attr-defined]
 
 
 def enable_tracing(frame: FrameType) -> None:
@@ -371,8 +359,8 @@ def disable_tracing() -> None:
 
 
 def initialize_tracer(
-    last_profiled: list["Filename | LineNumber | ByteCodeIndex"],
-    invalidate_queue: list[tuple["Filename", "LineNumber"]],
+    last_profiled: list[Filename | LineNumber | ByteCodeIndex],
+    invalidate_queue: list[tuple[Filename, LineNumber]],
     should_trace: Callable[[str, str], bool],
 ) -> None:
     """Initialize the tracer with Scalene's state.
