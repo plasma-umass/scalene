@@ -468,6 +468,28 @@ class ScaleneParseArgs:
                 else advanced_help
             ),
         )
+        parser.add_argument(
+            "--use-legacy-tracer",
+            dest="use_legacy_tracer",
+            action="store_true",
+            default=defaults.use_legacy_tracer,
+            help=(
+                "use legacy PyEval_SetTrace for line tracing instead of sys.monitoring (Python 3.12+)"
+                if show_advanced
+                else advanced_help
+            ),
+        )
+        parser.add_argument(
+            "--use-python-callback",
+            dest="use_python_callback",
+            action="store_true",
+            default=defaults.use_python_callback,
+            help=(
+                "use Python callback for sys.monitoring instead of C callback (Python 3.13+)"
+                if show_advanced
+                else advanced_help
+            ),
+        )
         if sys.platform != "win32":
             # Turning profiling on and off from another process is currently not supported on Windows.
             group = parser.add_mutually_exclusive_group(required=False)
@@ -1127,6 +1149,10 @@ examples:
             args.ipython = False
         if not hasattr(args, "profile_system_libraries"):
             args.profile_system_libraries = defaults.profile_system_libraries
+        if not hasattr(args, "use_legacy_tracer"):
+            args.use_legacy_tracer = defaults.use_legacy_tracer
+        if not hasattr(args, "use_python_callback"):
+            args.use_python_callback = defaults.use_python_callback
 
         # Validate file/directory arguments
         if args.outfile and os.path.isdir(args.outfile):

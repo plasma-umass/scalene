@@ -94,6 +94,16 @@ from scalene.scalene_statistics import (
     ProfilingSample,
     ScaleneStatistics,
 )
+from scalene.scalene_tracer import (
+    ScaleneTracer,
+    cleanup_tracer,
+    disable_tracing,
+    enable_tracing,
+    initialize_tracer,
+    set_use_legacy_tracer,
+    set_use_python_callback,
+    using_sys_monitoring,
+)
 from scalene.scalene_utility import (
     add_stack,
     compute_frames_to_record,
@@ -142,7 +152,7 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
     __initialized: bool = False
-    __last_profiled = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
+    __last_profiled: list[Filename | LineNumber | ByteCodeIndex] = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
     __orig_python = sys.executable  # will be rewritten later
 
     __profile_filename = Filename("scalene-profile.json")
@@ -601,7 +611,11 @@ class Scalene:
             ByteCodeIndex(f.f_lasti),
         ]
         Scalene.__alloc_sigq.put([0])
-        pywhere.enable_settrace(this_frame)
+        # Enable line tracing to detect when execution moves to a different line.
+        # On Python 3.12+, this uses sys.monitoring; on earlier versions,
+        # it falls back to PyEval_SetTrace.
+        assert this_frame
+        enable_tracing(this_frame)
         del this_frame
 
     @staticmethod
@@ -1370,6 +1384,18 @@ class Scalene:
             from scalene import pywhere  # type: ignore
 
             pywhere.populate_struct()
+            # Set legacy tracer mode if requested via command line
+            if hasattr(Scalene.__args, "use_legacy_tracer") and Scalene.__args.use_legacy_tracer:
+                set_use_legacy_tracer(True)
+            # Set Python callback mode if requested via command line (disables C callback)
+            if hasattr(Scalene.__args, "use_python_callback") and Scalene.__args.use_python_callback:
+                set_use_python_callback(True)
+            # Initialize the tracer for sys.monitoring support (Python 3.12+)
+            initialize_tracer(
+                Scalene.__last_profiled,
+                Scalene.__invalidate_queue,
+                Scalene._should_trace,
+            )
         # If --off is set, tell all children to not profile and stop profiling before we even start.
         if "off" not in Scalene.__args or not Scalene.__args.off:
             self.start()
@@ -1391,7 +1417,9 @@ class Scalene:
         finally:
             self.stop()
             if Scalene.__args.memory:
-                pywhere.disable_settrace()
+                # Disable line tracing and clean up tracer resources
+                disable_tracing()
+                cleanup_tracer()
                 pywhere.depopulate_struct()
 
         # Leaving here in case of reversion

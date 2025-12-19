@@ -57,6 +57,24 @@ static void* win_dlsym(const char* symbol) {
 const int NEWLINE_TRIGGER_LENGTH = 98820;
 
 static bool last_profiled_invalidated = false;
+
+// sys.monitoring support for Python 3.13+
+#if PY_VERSION_HEX >= 0x030D0000
+// Tool ID for sys.monitoring (PROFILER_ID = 2)
+static const int SCALENE_TOOL_ID = 2;
+
+// Whether sys.monitoring tracing is currently active
+static bool sysmon_tracing_active = false;
+
+// Call depth tracking to avoid on_stack check
+// When we enable tracing, we record the call depth
+// When we see a LINE event at the same or lower depth, we know we've moved to a new line
+static int sysmon_initial_call_depth = 0;
+static int sysmon_current_call_depth = 0;
+
+// Cached sys.monitoring.DISABLE constant
+static PyObject* sysmon_DISABLE = nullptr;
+#endif
 // An RAII class to simplify acquiring and releasing the GIL.
 class GIL {
  public:
@@ -305,6 +323,399 @@ static void allocate_newline() {
   PyPtr<> tmp(PyByteArray_FromObject(static_cast<PyObject*>(abc)));
 }
 
+// sys.monitoring implementation for Python 3.13+
+#if PY_VERSION_HEX >= 0x030D0000
+
+// Get current call depth by walking the stack
+static int get_call_depth() {
+  int depth = 0;
+  PyThreadState* tstate = PyThreadState_Get();
+  if (tstate == nullptr) return 0;
+
+  PyPtr<PyFrameObject> frame(PyThreadState_GetFrame(tstate));
+  while (static_cast<PyFrameObject*>(frame) != nullptr) {
+    depth++;
+    frame = PyFrame_GetBack(static_cast<PyFrameObject*>(frame));
+  }
+  return depth;
+}
+
+// Finalize the current line for sys.monitoring
+static void sysmon_finalize_line() {
+  sysmon_tracing_active = false;
+
+  // Get the last profiled location
+  PyObject* last_fname = PyList_GetItem(module_pointers.scalene_last_profiled, 0);
+  PyObject* last_lineno_obj = PyList_GetItem(module_pointers.scalene_last_profiled, 1);
+
+  if (last_fname == nullptr || last_lineno_obj == nullptr) {
+    return;
+  }
+
+  Py_INCREF(last_fname);
+  Py_INCREF(last_lineno_obj);
+
+  // Reset last profiled to sentinel values
+  Py_INCREF(module_pointers.nada);
+  PyList_SetItem(module_pointers.scalene_last_profiled, 0, module_pointers.nada);
+  Py_INCREF(module_pointers.zero);
+  PyList_SetItem(module_pointers.scalene_last_profiled, 1, module_pointers.zero);
+  Py_INCREF(module_pointers.zero);
+  PyList_SetItem(module_pointers.scalene_last_profiled, 2, module_pointers.zero);
+
+  // Allocate the NEWLINE trigger
+  allocate_newline();
+
+  // Mark as invalidated
+  last_profiled_invalidated = true;
+
+  // Add to invalidate queue
+  PyObject* tuple = PyTuple_Pack(2, last_fname, last_lineno_obj);
+  if (tuple != nullptr) {
+    PyList_Append(module_pointers.invalidate_queue, tuple);
+    Py_DECREF(tuple);
+  }
+
+  Py_DECREF(last_fname);
+  Py_DECREF(last_lineno_obj);
+
+  // Disable LINE events
+  PyObject* sys_module = PyImport_ImportModule("sys");
+  if (sys_module) {
+    PyObject* monitoring = PyObject_GetAttrString(sys_module, "monitoring");
+    if (monitoring) {
+      PyObject* set_events = PyObject_GetAttrString(monitoring, "set_events");
+      if (set_events) {
+        PyObject* args = Py_BuildValue("(ii)", SCALENE_TOOL_ID, 0);
+        if (args) {
+          PyObject* result = PyObject_CallObject(set_events, args);
+          Py_XDECREF(result);
+          Py_DECREF(args);
+        }
+        Py_DECREF(set_events);
+      }
+      Py_DECREF(monitoring);
+    }
+    Py_DECREF(sys_module);
+  }
+}
+
+// Initialize the cached DISABLE constant
+static void ensure_sysmon_disable_cached() {
+  if (sysmon_DISABLE != nullptr) {
+    return;
+  }
+  PyObject* sys_module = PyImport_ImportModule("sys");
+  if (!sys_module) return;
+  PyObject* monitoring = PyObject_GetAttrString(sys_module, "monitoring");
+  Py_DECREF(sys_module);
+  if (!monitoring) return;
+  sysmon_DISABLE = PyObject_GetAttrString(monitoring, "DISABLE");
+  Py_DECREF(monitoring);
+  // Keep a reference to DISABLE for the lifetime of the module
+}
+
+// LINE event callback for sys.monitoring
+// Returns: Py_None to continue, or sys.monitoring.DISABLE constant to disable
+static PyObject* sysmon_line_callback(PyObject* self, PyObject* args) {
+  PyObject* code_obj;
+  int line_number;
+
+  if (!PyArg_ParseTuple(args, "Oi", &code_obj, &line_number)) {
+    return nullptr;
+  }
+
+  // Ensure we have the cached DISABLE constant
+  ensure_sysmon_disable_cached();
+  if (!sysmon_DISABLE) {
+    Py_RETURN_NONE;
+  }
+
+  if (!sysmon_tracing_active) {
+    Py_INCREF(sysmon_DISABLE);
+    return sysmon_DISABLE;
+  }
+
+  // Get the last profiled location
+  PyObject* last_fname = PyList_GetItem(module_pointers.scalene_last_profiled, 0);
+  PyObject* last_lineno_obj = PyList_GetItem(module_pointers.scalene_last_profiled, 1);
+
+  if (last_fname == nullptr || last_lineno_obj == nullptr) {
+    Py_INCREF(sysmon_DISABLE);
+    return sysmon_DISABLE;
+  }
+
+  long last_lineno = PyLong_AsLong(last_lineno_obj);
+
+  // Get current filename from code object
+  PyCodeObject* code = (PyCodeObject*)code_obj;
+  PyObject* current_fname = code->co_filename;
+
+  // Check if we're still on the same line
+  if (line_number == last_lineno &&
+      PyUnicode_Compare(current_fname, last_fname) == 0) {
+    // Still on the same line, keep tracing
+    Py_RETURN_NONE;
+  }
+
+  // We've moved to a different line.
+  // Use call depth tracking instead of on_stack check.
+  // If current call depth is greater than initial, we're inside a function call
+  // from the original line, so don't finalize yet.
+  int current_depth = get_call_depth();
+  if (current_depth > sysmon_initial_call_depth) {
+    // We're inside a call from the original line
+    Py_RETURN_NONE;
+  }
+
+  // We've moved to a genuinely different line - finalize the previous line
+  sysmon_finalize_line();
+
+  Py_INCREF(sysmon_DISABLE);
+  return sysmon_DISABLE;
+}
+
+// CALL event callback for sys.monitoring - tracks call depth
+static PyObject* sysmon_call_callback(PyObject* self, PyObject* args) {
+  // Increment call depth when entering a function
+  sysmon_current_call_depth++;
+  Py_RETURN_NONE;
+}
+
+// PY_RETURN event callback for sys.monitoring - tracks call depth
+static PyObject* sysmon_return_callback(PyObject* self, PyObject* args) {
+  // Decrement call depth when returning from a function
+  if (sysmon_current_call_depth > 0) {
+    sysmon_current_call_depth--;
+  }
+
+  // If we've returned to or below the initial depth, check if we should finalize
+  if (sysmon_tracing_active && sysmon_current_call_depth <= sysmon_initial_call_depth) {
+    // We've returned from the call that was made from the profiled line
+    // The next LINE event will handle finalization
+  }
+
+  Py_RETURN_NONE;
+}
+
+// Enable sys.monitoring tracing
+static PyObject* enable_sysmon(PyObject* self, PyObject* args) {
+  sysmon_tracing_active = true;
+  sysmon_initial_call_depth = get_call_depth();
+  sysmon_current_call_depth = sysmon_initial_call_depth;
+
+  // Enable LINE events via sys.monitoring.set_events
+  PyObject* sys_module = PyImport_ImportModule("sys");
+  if (!sys_module) {
+    PyErr_SetString(PyExc_RuntimeError, "Cannot import sys");
+    return nullptr;
+  }
+
+  PyObject* monitoring = PyObject_GetAttrString(sys_module, "monitoring");
+  Py_DECREF(sys_module);
+  if (!monitoring) {
+    PyErr_SetString(PyExc_RuntimeError, "Cannot access sys.monitoring");
+    return nullptr;
+  }
+
+  // Get events.LINE constant
+  PyObject* events = PyObject_GetAttrString(monitoring, "events");
+  if (!events) {
+    Py_DECREF(monitoring);
+    PyErr_SetString(PyExc_RuntimeError, "Cannot access sys.monitoring.events");
+    return nullptr;
+  }
+
+  PyObject* LINE = PyObject_GetAttrString(events, "LINE");
+  Py_DECREF(events);
+  if (!LINE) {
+    Py_DECREF(monitoring);
+    PyErr_SetString(PyExc_RuntimeError, "Cannot access sys.monitoring.events.LINE");
+    return nullptr;
+  }
+
+  // Call set_events(SCALENE_TOOL_ID, events.LINE)
+  PyObject* set_events = PyObject_GetAttrString(monitoring, "set_events");
+  if (!set_events) {
+    Py_DECREF(LINE);
+    Py_DECREF(monitoring);
+    PyErr_SetString(PyExc_RuntimeError, "Cannot access sys.monitoring.set_events");
+    return nullptr;
+  }
+
+  long line_event = PyLong_AsLong(LINE);
+  Py_DECREF(LINE);
+
+  PyObject* result = PyObject_CallFunction(set_events, "ii", SCALENE_TOOL_ID, (int)line_event);
+  Py_DECREF(set_events);
+  Py_DECREF(monitoring);
+
+  if (!result) {
+    return nullptr;
+  }
+  Py_DECREF(result);
+
+  Py_RETURN_NONE;
+}
+
+// Disable sys.monitoring tracing
+static PyObject* disable_sysmon(PyObject* self, PyObject* args) {
+  sysmon_tracing_active = false;
+
+  // Disable all events via sys.monitoring.set_events(SCALENE_TOOL_ID, 0)
+  PyObject* sys_module = PyImport_ImportModule("sys");
+  if (!sys_module) {
+    Py_RETURN_NONE;
+  }
+
+  PyObject* monitoring = PyObject_GetAttrString(sys_module, "monitoring");
+  Py_DECREF(sys_module);
+  if (!monitoring) {
+    Py_RETURN_NONE;
+  }
+
+  PyObject* set_events = PyObject_GetAttrString(monitoring, "set_events");
+  if (!set_events) {
+    Py_DECREF(monitoring);
+    Py_RETURN_NONE;
+  }
+
+  PyObject* result = PyObject_CallFunction(set_events, "ii", SCALENE_TOOL_ID, 0);
+  Py_XDECREF(result);
+  Py_DECREF(set_events);
+  Py_DECREF(monitoring);
+
+  Py_RETURN_NONE;
+}
+
+// Register the sys.monitoring callbacks
+static PyObject* setup_sysmon(PyObject* self, PyObject* args) {
+  PyObject* line_callback;
+
+  if (!PyArg_ParseTuple(args, "O", &line_callback)) {
+    return nullptr;
+  }
+
+  // Get sys.monitoring module
+  PyObject* sys_module = PyImport_ImportModule("sys");
+  if (!sys_module) {
+    PyErr_SetString(PyExc_RuntimeError, "Cannot import sys");
+    return nullptr;
+  }
+
+  PyObject* monitoring = PyObject_GetAttrString(sys_module, "monitoring");
+  Py_DECREF(sys_module);
+  if (!monitoring) {
+    PyErr_SetString(PyExc_RuntimeError, "Cannot access sys.monitoring");
+    return nullptr;
+  }
+
+  // Try to use the tool ID
+  PyObject* use_tool_id = PyObject_GetAttrString(monitoring, "use_tool_id");
+  if (use_tool_id) {
+    PyObject* result = PyObject_CallFunction(use_tool_id, "is", SCALENE_TOOL_ID, "scalene");
+    // Ignore ValueError if tool ID is already in use
+    if (!result && PyErr_ExceptionMatches(PyExc_ValueError)) {
+      PyErr_Clear();
+    } else {
+      Py_XDECREF(result);
+    }
+    Py_DECREF(use_tool_id);
+  }
+
+  // Get events.LINE constant
+  PyObject* events = PyObject_GetAttrString(monitoring, "events");
+  if (!events) {
+    Py_DECREF(monitoring);
+    PyErr_SetString(PyExc_RuntimeError, "Cannot access sys.monitoring.events");
+    return nullptr;
+  }
+
+  PyObject* LINE = PyObject_GetAttrString(events, "LINE");
+  Py_DECREF(events);
+  if (!LINE) {
+    Py_DECREF(monitoring);
+    PyErr_SetString(PyExc_RuntimeError, "Cannot access sys.monitoring.events.LINE");
+    return nullptr;
+  }
+
+  // Register the LINE callback
+  PyObject* register_callback = PyObject_GetAttrString(monitoring, "register_callback");
+  if (!register_callback) {
+    Py_DECREF(LINE);
+    Py_DECREF(monitoring);
+    PyErr_SetString(PyExc_RuntimeError, "Cannot access sys.monitoring.register_callback");
+    return nullptr;
+  }
+
+  PyObject* result = PyObject_CallFunction(register_callback, "iOO", SCALENE_TOOL_ID, LINE, line_callback);
+  Py_DECREF(register_callback);
+  Py_DECREF(LINE);
+  Py_DECREF(monitoring);
+
+  if (!result) {
+    return nullptr;
+  }
+  Py_DECREF(result);
+
+  Py_RETURN_NONE;
+}
+
+// Check if sys.monitoring is available (Python 3.13+)
+static PyObject* sysmon_available(PyObject* self, PyObject* args) {
+  Py_RETURN_TRUE;
+}
+
+// Get the tool ID used by scalene
+static PyObject* get_sysmon_tool_id(PyObject* self, PyObject* args) {
+  return PyLong_FromLong(SCALENE_TOOL_ID);
+}
+
+// Check if sys.monitoring tracing is active
+static PyObject* is_sysmon_active(PyObject* self, PyObject* args) {
+  if (sysmon_tracing_active) {
+    Py_RETURN_TRUE;
+  }
+  Py_RETURN_FALSE;
+}
+
+#else
+// Stubs for Python < 3.13
+
+static PyObject* enable_sysmon(PyObject* self, PyObject* args) {
+  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.13+");
+  return nullptr;
+}
+
+static PyObject* disable_sysmon(PyObject* self, PyObject* args) {
+  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.13+");
+  return nullptr;
+}
+
+static PyObject* setup_sysmon(PyObject* self, PyObject* args) {
+  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.13+");
+  return nullptr;
+}
+
+static PyObject* sysmon_available(PyObject* self, PyObject* args) {
+  Py_RETURN_FALSE;
+}
+
+static PyObject* get_sysmon_tool_id(PyObject* self, PyObject* args) {
+  return PyLong_FromLong(2);  // PROFILER_ID
+}
+
+static PyObject* is_sysmon_active(PyObject* self, PyObject* args) {
+  Py_RETURN_FALSE;
+}
+
+static PyObject* sysmon_line_callback(PyObject* self, PyObject* args) {
+  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.13+");
+  return nullptr;
+}
+
+#endif  // PY_VERSION_HEX >= 0x030D0000
+
 static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
                       PyObject* arg) {
   if (what == PyTrace_CALL || what == PyTrace_C_CALL) {
@@ -480,6 +891,21 @@ static PyMethodDef EmbMethods[] = {
      METH_NOARGS, ""},
     {"set_scalene_done_true", set_scalene_done_true, METH_NOARGS, ""},
     {"set_scalene_done_false", set_scalene_done_false, METH_NOARGS, ""},
+    // sys.monitoring support (Python 3.13+)
+    {"enable_sysmon", enable_sysmon, METH_NOARGS,
+     "Enable sys.monitoring line tracing"},
+    {"disable_sysmon", disable_sysmon, METH_NOARGS,
+     "Disable sys.monitoring line tracing"},
+    {"setup_sysmon", setup_sysmon, METH_VARARGS,
+     "Set up sys.monitoring with a line callback"},
+    {"sysmon_available", sysmon_available, METH_NOARGS,
+     "Check if sys.monitoring C API is available (Python 3.13+)"},
+    {"get_sysmon_tool_id", get_sysmon_tool_id, METH_NOARGS,
+     "Get the sys.monitoring tool ID used by scalene"},
+    {"is_sysmon_active", is_sysmon_active, METH_NOARGS,
+     "Check if sys.monitoring tracing is currently active"},
+    {"sysmon_line_callback", sysmon_line_callback, METH_VARARGS,
+     "C implementation of the sys.monitoring LINE callback"},
 
     {NULL, NULL, 0, NULL}};
 

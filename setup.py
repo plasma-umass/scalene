@@ -1,9 +1,10 @@
-from setuptools import setup, find_packages
-from setuptools.extension import Extension
-from os import path, environ
 import sys
 import sysconfig
+from os import environ, path
 from pathlib import Path
+
+from setuptools import find_packages, setup
+from setuptools.extension import Extension
 
 # needed for isolated environment
 sys.path.insert(0, str(Path(__file__).parent.resolve()))
@@ -28,8 +29,8 @@ if sys.platform == "darwin":
 
 def compiler_archs(compiler: str):
     """Discovers what platforms the given compiler supports; intended for MacOS use"""
-    import tempfile
     import subprocess
+    import tempfile
 
     print(f"Compiler: {compiler}")
     arch_flags = []
@@ -106,8 +107,8 @@ import setuptools.command.egg_info
 
 def fetch_vendor_deps_windows():
     """Fetch vendor dependencies on Windows using git."""
-    import subprocess
     import shutil
+    import subprocess
 
     vendor_dir = path.join(path.dirname(__file__), "vendor")
     heap_layers_dir = path.join(vendor_dir, "Heap-Layers")
@@ -145,7 +146,7 @@ def fetch_vendor_deps_windows():
         # Patch printf.h
         printf_h = path.join(printf_dir, "printf.h")
         if path.exists(printf_h):
-            with open(printf_h, "r", encoding="utf-8") as f:
+            with open(printf_h, encoding="utf-8") as f:
                 content = f.read()
             content = content.replace("#define printf printf_", "//#define printf printf_")
             content = content.replace("#define vsnprintf vsnprintf_", "//#define vsnprintf vsnprintf_")
@@ -306,7 +307,7 @@ get_line_atomic = Extension(
     sources=["src/source/get_line_atomic.cpp"],
     extra_compile_args=extra_compile_args(),
     extra_link_args=get_extra_link_args(),
-    py_limited_api=True if sys.platform != "win32" else False,  # Limited API has issues on Windows
+    py_limited_api=sys.platform != "win32",  # Limited API has issues on Windows
     language="c++",
 )
 
