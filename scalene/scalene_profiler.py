@@ -152,7 +152,11 @@ class Scalene:
     # the pid of the primary profiler
     __parent_pid = -1
     __initialized: bool = False
-    __last_profiled: list[Filename | LineNumber | ByteCodeIndex] = [Filename("NADA"), LineNumber(0), ByteCodeIndex(0)]
+    __last_profiled: list[Filename | LineNumber | ByteCodeIndex] = [
+        Filename("NADA"),
+        LineNumber(0),
+        ByteCodeIndex(0),
+    ]
     __orig_python = sys.executable  # will be rewritten later
 
     __profile_filename = Filename("scalene-profile.json")
@@ -1385,10 +1389,16 @@ class Scalene:
 
             pywhere.populate_struct()
             # Set legacy tracer mode if requested via command line
-            if hasattr(Scalene.__args, "use_legacy_tracer") and Scalene.__args.use_legacy_tracer:
+            if (
+                hasattr(Scalene.__args, "use_legacy_tracer")
+                and Scalene.__args.use_legacy_tracer
+            ):
                 set_use_legacy_tracer(True)
             # Set Python callback mode if requested via command line (disables C callback)
-            if hasattr(Scalene.__args, "use_python_callback") and Scalene.__args.use_python_callback:
+            if (
+                hasattr(Scalene.__args, "use_python_callback")
+                and Scalene.__args.use_python_callback
+            ):
                 set_use_python_callback(True)
             # Initialize the tracer for sys.monitoring support (Python 3.12+)
             initialize_tracer(
