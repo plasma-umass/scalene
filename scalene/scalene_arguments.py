@@ -45,6 +45,10 @@ class ScaleneArgumentsDict(TypedDict, total=False):
     no_browser: bool
     port: int
     cli: bool
+    # Use legacy PyEval_SetTrace for line tracing instead of sys.monitoring (Python 3.12+)
+    use_legacy_tracer: bool
+    # Use Python callback for sys.monitoring instead of C callback (Python 3.13+)
+    use_python_callback: bool
 
 
 def _set_defaults() -> ScaleneArgumentsDict:
@@ -75,6 +79,8 @@ def _set_defaults() -> ScaleneArgumentsDict:
         "no_browser": True,
         "port": 8088,
         "cli": False,
+        "use_legacy_tracer": False,
+        "use_python_callback": False,
     }
 
 
