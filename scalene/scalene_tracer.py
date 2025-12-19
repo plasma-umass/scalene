@@ -11,7 +11,7 @@ from __future__ import annotations
 import contextlib
 import sys
 from types import CodeType, FrameType
-from typing import TYPE_CHECKING, Callable, Optional, cast
+from typing import TYPE_CHECKING, Callable, cast
 
 import scalene.scalene_config
 
@@ -83,7 +83,7 @@ def _on_stack_check(fname: str, lineno: int) -> bool:
     Returns:
         True if the filename/lineno pair is found on the stack
     """
-    frame: Optional[FrameType] = sys._getframe()
+    frame: FrameType | None = sys._getframe()
     # Skip frames from the tracer itself
     while frame is not None:
         # Skip our own tracer frames
@@ -112,13 +112,13 @@ class ScaleneTracer:
     _invalidate_queue: list[tuple[Filename, LineNumber]]
 
     # Callback to check if a file/function should be traced
-    _should_trace: Optional[Callable[[str, str], bool]] = None
+    _should_trace: Callable[[str, str], bool] | None = None
 
     # Whether tracing is currently active
     _tracing_active: bool = False
 
     # The pywhere module (for fallback and shared state)
-    _pywhere: Optional[object] = None
+    _pywhere: object | None = None
 
     # Whether the tracer has been initialized
     _initialized: bool = False
