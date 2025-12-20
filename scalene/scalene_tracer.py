@@ -116,7 +116,7 @@ class ScaleneTracer:
     _invalidate_queue: list[tuple[Filename, LineNumber]]
 
     # Callback to check if a file/function should be traced
-    _should_trace: Callable[[str, str], bool] | None = None
+    _should_trace: Callable[[Filename, str], bool] | None = None
 
     # Whether tracing is currently active
     _tracing_active: bool = False
@@ -135,7 +135,7 @@ class ScaleneTracer:
         cls,
         last_profiled: list[Filename | LineNumber | ByteCodeIndex],
         invalidate_queue: list[tuple[Filename, LineNumber]],
-        should_trace: Callable[[str, str], bool],
+        should_trace: Callable[[Filename, str], bool],
     ) -> None:
         """Initialize the tracer with references to Scalene's state.
 
@@ -365,7 +365,7 @@ def disable_tracing() -> None:
 def initialize_tracer(
     last_profiled: list[Filename | LineNumber | ByteCodeIndex],
     invalidate_queue: list[tuple[Filename, LineNumber]],
-    should_trace: Callable[[str, str], bool],
+    should_trace: Callable[[Filename, str], bool],
 ) -> None:
     """Initialize the tracer with Scalene's state.
 
