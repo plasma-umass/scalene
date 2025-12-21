@@ -248,15 +248,33 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
             return
 
         try:
+            # Detect architecture for Windows builds
+            import platform
+            machine = platform.machine().lower()
+            if machine in ('amd64', 'x86_64'):
+                cmake_arch = 'x64'
+            elif machine in ('arm64', 'aarch64'):
+                cmake_arch = 'ARM64'
+            else:
+                cmake_arch = None
+                print(f"Warning: Unknown architecture '{machine}', using default CMake generator")
+
             # Configure with CMake
-            self.spawn([
+            cmake_config = [
                 'cmake',
                 '-S', '.',
                 '-B', cmake_build_dir,
                 '-DCMAKE_BUILD_TYPE=Release',
                 f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={scalene_temp}',
                 f'-DCMAKE_RUNTIME_OUTPUT_DIRECTORY={scalene_temp}',
-            ])
+            ]
+
+            # Add architecture-specific options for Visual Studio generator
+            if cmake_arch:
+                cmake_config.extend(['-A', cmake_arch])
+                print(f"Building libscalene.dll for {cmake_arch} architecture")
+
+            self.spawn(cmake_config)
 
             # Build
             self.spawn([
@@ -266,19 +284,28 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
             ])
 
             # Copy the DLL
-            # On Windows, CMake may put the DLL in a Release subdirectory
+            # On Windows, CMake may put the DLL in various locations depending on
+            # how the build is configured. Check all possible locations.
+            project_dir = path.dirname(path.abspath(__file__))
             possible_paths = [
                 path.join(scalene_temp, libscalene),
                 path.join(scalene_temp, 'Release', libscalene),
                 path.join(cmake_build_dir, 'Release', libscalene),
+                path.join(cmake_build_dir, libscalene),
+                # CMakeLists.txt may override output dir to project's scalene folder
+                path.join(project_dir, 'scalene', libscalene),
+                path.join(project_dir, 'scalene', 'Release', libscalene),
             ]
 
             for src_path in possible_paths:
                 if path.exists(src_path):
+                    print(f"Found {libscalene} at {src_path}")
                     self.copy_file(src_path, path.join(scalene_lib, libscalene))
+                    print(f"Copied to {path.join(scalene_lib, libscalene)}")
                     break
             else:
                 print(f"Warning: Could not find {libscalene} after build")
+                print(f"Searched in: {possible_paths}")
 
         except Exception as e:
             print(f"Warning: Failed to build libscalene on Windows: {e}")

@@ -117,6 +117,11 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
 
+      - name: Install CMake on Windows
+        # CMake is required to build libscalene.dll for memory profiling on Windows
+        if: matrix.os == 'windows-latest'
+        run: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+
       - name: Build source dist
         if: matrix.upload_source
         run: make sdist
@@ -139,6 +144,33 @@ jobs:
               fi
             done
           done
+
+      - name: Check that libscalene.dll is included in Windows wheel
+        if: matrix.os == 'windows-latest'
+        shell: python
+        run: |
+          import zipfile
+          import glob
+          import sys
+
+          wheels = glob.glob('dist/*.whl')
+          if not wheels:
+              print("ERROR: No wheel files found")
+              sys.exit(1)
+
+          for whl in wheels:
+              print(f"Checking {whl}...")
+              with zipfile.ZipFile(whl, 'r') as z:
+                  files = z.namelist()
+                  dll_files = [f for f in files if 'libscalene.dll' in f]
+                  if dll_files:
+                      print(f"  Found: {dll_files}")
+                  else:
+                      print(f"  ERROR: libscalene.dll not found in wheel!")
+                      print(f"  Files in wheel: {[f for f in files if f.endswith(('.dll', '.pyd', '.so'))]}")
+                      sys.exit(1)
+
+          print("All Windows wheels contain libscalene.dll")
   
       - name: Non-release (dev) upload
         if: github.event_name != 'release'
