@@ -1,8 +1,22 @@
 #pragma once
 
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <process.h>
+#define getpid _getpid
+// Windows thread ID helper
+static inline unsigned long long get_thread_id() {
+  return (unsigned long long)GetCurrentThreadId();
+}
+#else
 #include <pthread.h>
 #include <unistd.h>
+static inline unsigned long long get_thread_id() {
+  return (unsigned long long)pthread_self();
+}
 #endif
 
 #include <cmath>
@@ -34,10 +48,10 @@ class Sampler {
 #if !SAMPLER_DETERMINISTIC
 #if !SAMPLER_LOWDISCREPANCY
   std::mt19937_64 rng{1234567890UL + (uint64_t)getpid() + (uint64_t)this +
-                      (uint64_t)pthread_self()};
+                      get_thread_id()};
 #else
   LowDiscrepancy rng{1};  // 234567890UL + (uint64_t)getpid() + (uint64_t)this +
-                          // (uint64_t)pthread_self()};
+                          // get_thread_id()};
 #endif
 #endif
 

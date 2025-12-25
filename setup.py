@@ -1,9 +1,10 @@
-from setuptools import setup, find_packages
-from setuptools.extension import Extension
-from os import path, environ
 import sys
 import sysconfig
+from os import environ, path
 from pathlib import Path
+
+from setuptools import find_packages, setup
+from setuptools.extension import Extension
 
 # needed for isolated environment
 sys.path.insert(0, str(Path(__file__).parent.resolve()))
@@ -28,8 +29,8 @@ if sys.platform == "darwin":
 
 def compiler_archs(compiler: str):
     """Discovers what platforms the given compiler supports; intended for MacOS use"""
-    import tempfile
     import subprocess
+    import tempfile
 
     print(f"Compiler: {compiler}")
     arch_flags = []
@@ -58,9 +59,32 @@ def extra_compile_args():
     return ["-std=c++14"]
 
 
+def get_extra_link_args():
+    """Get extra link args for Windows to link against Python library."""
+    if sys.platform != "win32":
+        return []
+    # On Windows, we need to explicitly link against pythonXX.lib
+    # Pass the full path to ensure the linker finds it
+    version = f"{sys.version_info.major}{sys.version_info.minor}"
+    python_lib = path.join(sys.prefix, 'libs', f'python{version}.lib')
+    print(f"DEBUG: Looking for Python lib at: {python_lib}")
+    print(f"DEBUG: Exists: {path.exists(python_lib)}")
+    if path.exists(python_lib):
+        # Use /DEFAULTLIB to force linking
+        return [f'/DEFAULTLIB:{python_lib}']
+    # Fallback
+    return [f'/DEFAULTLIB:python{version}.lib']
+
+
 def make_command():
-    #    return 'nmake' if sys.platform == 'win32' else 'make'  # 'nmake' isn't found on github actions' VM
+    """Returns the make command for the current platform."""
     return "make"
+
+
+def cmake_available():
+    """Check if CMake is available on the system."""
+    import shutil
+    return shutil.which('cmake') is not None
 
 
 def dll_suffix():
@@ -81,11 +105,62 @@ def read_file(name):
 import setuptools.command.egg_info
 
 
+def fetch_vendor_deps_windows():
+    """Fetch vendor dependencies on Windows using git."""
+    import shutil
+    import subprocess
+
+    vendor_dir = path.join(path.dirname(__file__), "vendor")
+    heap_layers_dir = path.join(vendor_dir, "Heap-Layers")
+    printf_dir = path.join(vendor_dir, "printf")
+
+    # Create vendor directory if it doesn't exist
+    if not path.exists(vendor_dir):
+        print(f"Creating vendor directory: {vendor_dir}")
+        Path(vendor_dir).mkdir(parents=True, exist_ok=True)
+
+    # Fetch Heap-Layers if not present
+    if not path.exists(path.join(heap_layers_dir, "heaplayers.h")):
+        print("Fetching Heap-Layers...")
+        if path.exists(heap_layers_dir):
+            shutil.rmtree(heap_layers_dir)
+        subprocess.run(
+            ["git", "clone", "--depth", "1", "https://github.com/emeryberger/Heap-Layers.git", heap_layers_dir],
+            check=True
+        )
+
+    # Fetch printf if not present
+    if not path.exists(path.join(printf_dir, "printf.cpp")):
+        print("Fetching printf library...")
+        if path.exists(printf_dir):
+            shutil.rmtree(printf_dir)
+        subprocess.run(
+            ["git", "clone", "--depth", "1", "https://github.com/mpaland/printf.git", printf_dir],
+            check=True
+        )
+        # Create printf.cpp from printf.c
+        printf_c = path.join(printf_dir, "printf.c")
+        printf_cpp = path.join(printf_dir, "printf.cpp")
+        if path.exists(printf_c):
+            shutil.copy(printf_c, printf_cpp)
+        # Patch printf.h
+        printf_h = path.join(printf_dir, "printf.h")
+        if path.exists(printf_h):
+            with open(printf_h, encoding="utf-8") as f:
+                content = f.read()
+            content = content.replace("#define printf printf_", "//#define printf printf_")
+            content = content.replace("#define vsnprintf vsnprintf_", "//#define vsnprintf vsnprintf_")
+            with open(printf_h, "w", encoding="utf-8") as f:
+                f.write(content)
+
+
 class EggInfoCommand(setuptools.command.egg_info.egg_info):
     """Custom command to download vendor libs before creating the egg_info."""
 
     def run(self):
-        if sys.platform != "win32":
+        if sys.platform == "win32":
+            fetch_vendor_deps_windows()
+        else:
             self.spawn([make_command(), "vendor-deps"])
         super().run()
 
@@ -116,6 +191,12 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
     supported --arch flag discovery."""
 
     def build_extensions(self):
+        # Ensure vendor dependencies are available before building extensions
+        if sys.platform == "win32":
+            fetch_vendor_deps_windows()
+        else:
+            self.spawn([make_command(), "vendor-deps"])
+
         arch_flags = []
         if sys.platform == "darwin":
             # The only sure way to tell which compiler build_ext is going to use
@@ -132,9 +213,11 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
 
         super().build_extensions()
 
-        # No build of DLL for Windows currently.
-        if sys.platform != "win32":
-            self.build_libscalene(arch_flags)  # XXX should we pass compiler_cxx here?
+        # Build libscalene for the current platform
+        if sys.platform == "win32":
+            self.build_libscalene_windows()
+        else:
+            self.build_libscalene(arch_flags)
 
     def build_libscalene(self, arch_flags):
         scalene_temp = path.join(self.build_temp, "scalene")
@@ -149,21 +232,100 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
             path.join(scalene_temp, libscalene), path.join(scalene_lib, libscalene)
         )
 
+    def build_libscalene_windows(self):
+        """Build libscalene on Windows using CMake."""
+        scalene_temp = path.join(self.build_temp, "scalene")
+        scalene_lib = path.join(self.build_lib, "scalene")
+        libscalene = "libscalene" + dll_suffix()
+        cmake_build_dir = path.join(self.build_temp, "cmake_build")
+
+        self.mkpath(scalene_temp)
+        self.mkpath(scalene_lib)
+        self.mkpath(cmake_build_dir)
+
+        if not cmake_available():
+            print("Warning: CMake not found. Memory profiling will not be available on Windows.")
+            return
+
+        try:
+            # Detect architecture for Windows builds
+            import platform
+            machine = platform.machine().lower()
+            if machine in ('amd64', 'x86_64'):
+                cmake_arch = 'x64'
+            elif machine in ('arm64', 'aarch64'):
+                cmake_arch = 'ARM64'
+            else:
+                cmake_arch = None
+                print(f"Warning: Unknown architecture '{machine}', using default CMake generator")
+
+            # Configure with CMake
+            cmake_config = [
+                'cmake',
+                '-S', '.',
+                '-B', cmake_build_dir,
+                '-DCMAKE_BUILD_TYPE=Release',
+                f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={scalene_temp}',
+                f'-DCMAKE_RUNTIME_OUTPUT_DIRECTORY={scalene_temp}',
+            ]
+
+            # Add architecture-specific options for Visual Studio generator
+            if cmake_arch:
+                cmake_config.extend(['-A', cmake_arch])
+                print(f"Building libscalene.dll for {cmake_arch} architecture")
+
+            self.spawn(cmake_config)
+
+            # Build
+            self.spawn([
+                'cmake',
+                '--build', cmake_build_dir,
+                '--config', 'Release',
+            ])
+
+            # Copy the DLL
+            # On Windows, CMake may put the DLL in various locations depending on
+            # how the build is configured. Check all possible locations.
+            project_dir = path.dirname(path.abspath(__file__))
+            possible_paths = [
+                path.join(scalene_temp, libscalene),
+                path.join(scalene_temp, 'Release', libscalene),
+                path.join(cmake_build_dir, 'Release', libscalene),
+                path.join(cmake_build_dir, libscalene),
+                # CMakeLists.txt may override output dir to project's scalene folder
+                path.join(project_dir, 'scalene', libscalene),
+                path.join(project_dir, 'scalene', 'Release', libscalene),
+            ]
+
+            for src_path in possible_paths:
+                if path.exists(src_path):
+                    print(f"Found {libscalene} at {src_path}")
+                    self.copy_file(src_path, path.join(scalene_lib, libscalene))
+                    print(f"Copied to {path.join(scalene_lib, libscalene)}")
+                    break
+            else:
+                print(f"Warning: Could not find {libscalene} after build")
+                print(f"Searched in: {possible_paths}")
+
+        except Exception as e:
+            print(f"Warning: Failed to build libscalene on Windows: {e}")
+            print("Memory profiling will not be available on this platform.")
+
     def copy_extensions_to_source(self):
         # self.inplace is temporarily overridden while running build_extensions,
         # so inplace copying (for pip install -e, setup.py develop) must be done here.
 
         super().copy_extensions_to_source()
 
-        if sys.platform != "win32":
-            scalene_lib = path.join(self.build_lib, "scalene")
-            inplace_dir = self.get_finalized_command("build_py").get_package_dir(
-                "scalene"
-            )
-            libscalene = "libscalene" + dll_suffix()
-            self.copy_file(
-                path.join(scalene_lib, libscalene), path.join(inplace_dir, libscalene)
-            )
+        # Copy libscalene for all platforms (including Windows)
+        scalene_lib = path.join(self.build_lib, "scalene")
+        inplace_dir = self.get_finalized_command("build_py").get_package_dir(
+            "scalene"
+        )
+        libscalene = "libscalene" + dll_suffix()
+        libscalene_path = path.join(scalene_lib, libscalene)
+        if path.exists(libscalene_path):
+            self.copy_file(libscalene_path, path.join(inplace_dir, libscalene))
 
 
 get_line_atomic = Extension(
@@ -171,7 +333,8 @@ get_line_atomic = Extension(
     include_dirs=[".", "vendor/Heap-Layers", "vendor/Heap-Layers/utility"],
     sources=["src/source/get_line_atomic.cpp"],
     extra_compile_args=extra_compile_args(),
-    py_limited_api=True,  # for binary compatibility
+    extra_link_args=get_extra_link_args(),
+    py_limited_api=sys.platform != "win32",  # Limited API has issues on Windows
     language="c++",
 )
 
@@ -181,6 +344,7 @@ pywhere = Extension(
     depends=["src/include/traceconfig.hpp"],
     sources=["src/source/pywhere.cpp", "src/source/traceconfig.cpp"],
     extra_compile_args=extra_compile_args(),
+    extra_link_args=get_extra_link_args(),
     py_limited_api=False,
     language="c++",
 )
@@ -222,7 +386,7 @@ setup(
         "egg_info": EggInfoCommand,
         "build_ext": BuildExtCommand,
     },
-    ext_modules=([get_line_atomic, pywhere] if sys.platform != "win32" else []),
+    ext_modules=[get_line_atomic, pywhere],  # Now supported on all platforms
     include_package_data=True,
     options={"bdist_wheel": bdist_wheel_options()},
 )

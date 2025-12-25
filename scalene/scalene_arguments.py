@@ -39,23 +39,29 @@ class ScaleneArgumentsDict(TypedDict, total=False):
     # do we use virtual time or wallclock time (capturing system time and blocking)?
     use_virtual_time: bool
     memory_leak_detector: bool
+    # Whether to profile Python system libraries and site-packages
+    profile_system_libraries: bool
     web: bool
     no_browser: bool
     port: int
     cli: bool
+    # Use legacy PyEval_SetTrace for line tracing instead of sys.monitoring (Python 3.12+)
+    use_legacy_tracer: bool
+    # Use Python callback for sys.monitoring instead of C callback (Python 3.13+)
+    use_python_callback: bool
 
 
 def _set_defaults() -> ScaleneArgumentsDict:
     return {
         "cpu": True,
         "gpu": True,
-        "memory": sys.platform != "win32",
+        "memory": True,
         "stacks": False,
         "cpu_percent_threshold": 1,
         "cpu_sampling_rate": 0.01,
         "allocation_sampling_window": 10485767,
         "html": False,
-        "json": False,
+        "json": True,
         "column_width": 132,
         "malloc_threshold": 100,
         "outfile": None,
@@ -68,10 +74,13 @@ def _set_defaults() -> ScaleneArgumentsDict:
         "reduced_profile": False,
         "use_virtual_time": False,
         "memory_leak_detector": True,
-        "web": True,
-        "no_browser": False,
+        "profile_system_libraries": False,
+        "web": False,
+        "no_browser": True,
         "port": 8088,
         "cli": False,
+        "use_legacy_tracer": False,
+        "use_python_callback": False,
     }
 
 

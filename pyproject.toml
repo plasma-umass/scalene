@@ -8,7 +8,7 @@ authors = [
     {name = "Sam Stern", email = "jstern@umass.edu"},
     {name = "Juan Altmayer Pizzorno", email = "juan@altmayer.com"},
 ]
-requires-python = ">=3.9,!=3.11.0"
+requires-python = ">=3.8,!=3.11.0"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Framework :: IPython",
@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -42,7 +43,8 @@ dependencies = [
     "numpy>=1.24.0,!=1.27; python_version < '3.14'",
     "numpy>=2.3.4; python_version >= '3.14'",
     "astunparse>=1.6.3; python_version < '3.9'",
-    "pydantic>=2.6",    
+    "pydantic>=2.6",
+    "pyyaml>=6.0",
 ]
 
 dynamic = ["version"]   # computed by setup.py

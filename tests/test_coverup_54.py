@@ -20,13 +20,13 @@ def clean_scalene_arguments():
 def test_scalene_arguments_initialization(clean_scalene_arguments):
     args = clean_scalene_arguments
     assert args.cpu == True
-    assert args.memory == (sys.platform != "win32")
+    assert args.memory == True
     assert args.stacks == False
     assert args.cpu_percent_threshold == 1
     assert args.cpu_sampling_rate == 0.01
     assert args.allocation_sampling_window == 10485767
     assert args.html == False
-    assert args.json == False
+    assert args.json == True
     assert args.column_width == 132
     assert args.malloc_threshold == 100
     assert args.outfile == None
@@ -39,7 +39,7 @@ def test_scalene_arguments_initialization(clean_scalene_arguments):
     assert args.reduced_profile == False
     assert args.use_virtual_time == False
     assert args.memory_leak_detector == True
-    assert args.web == True
-    assert args.no_browser == False
+    assert args.web == False
+    assert args.no_browser == True
     assert args.port == 8088
     assert args.cli == False

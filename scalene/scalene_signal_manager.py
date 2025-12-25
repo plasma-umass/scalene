@@ -66,7 +66,11 @@ class ScaleneSignalManager(Generic[T]):
             sigq.stop()
 
     def enable_signals_win32(
-        self, cpu_signal_handler: SignalHandlerFunction, cpu_sampling_rate: float
+        self,
+        cpu_signal_handler: SignalHandlerFunction,
+        cpu_sampling_rate: float,
+        alloc_sigq: Optional[ScaleneSigQueue[T]] = None,
+        memcpy_sigq: Optional[ScaleneSigQueue[T]] = None,
     ) -> None:
         """Enable signals for Windows platform."""
         assert sys.platform == "win32"
@@ -85,6 +89,17 @@ class ScaleneSignalManager(Generic[T]):
         self.__windows_queue.put(None)
         self.start_signal_queues()
 
+        # On Windows, start a memory polling thread to periodically process
+        # malloc/free samples since we don't have Unix signals
+        if alloc_sigq is not None:
+            self.__alloc_sigq_win = alloc_sigq
+            self.__memcpy_sigq_win = memcpy_sigq
+            self.__memory_polling_active = True
+            mem_thread = threading.Thread(
+                target=self._windows_memory_poll_loop, daemon=True
+            )
+            mem_thread.start()
+
     def windows_timer_loop(self, cpu_sampling_rate: float) -> None:
         """For Windows, send periodic timer signals; launch as a background thread."""
         assert sys.platform == "win32"
@@ -95,6 +110,31 @@ class ScaleneSignalManager(Generic[T]):
             time.sleep(cpu_sampling_rate)
             self.__orig_raise_signal(self.__signals.cpu_signal)
 
+    def _windows_memory_poll_loop(self) -> None:
+        """For Windows, periodically poll for memory profiling data."""
+        assert sys.platform == "win32"
+        # Poll every 10ms for memory data
+        poll_interval = 0.01
+        while getattr(self, "_ScaleneSignalManager__memory_polling_active", False):
+            time.sleep(poll_interval)
+            # Trigger malloc/free processing
+            if (
+                hasattr(self, "_ScaleneSignalManager__alloc_sigq_win")
+                and self.__alloc_sigq_win
+            ):
+                self.__alloc_sigq_win.put([0])  # type: ignore[arg-type]
+            # Trigger memcpy processing
+            if (
+                hasattr(self, "_ScaleneSignalManager__memcpy_sigq_win")
+                and self.__memcpy_sigq_win
+            ):
+                self.__memcpy_sigq_win.put((0, None))  # type: ignore[arg-type]
+
+    def stop_windows_memory_polling(self) -> None:
+        """Stop the Windows memory polling thread."""
+        if hasattr(self, "_ScaleneSignalManager__memory_polling_active"):
+            self.__memory_polling_active = False
+
     def enable_signals(
         self,
         malloc_signal_handler: SignalHandlerFunction,
@@ -103,11 +143,15 @@ class ScaleneSignalManager(Generic[T]):
         term_signal_handler: SignalHandlerFunction,
         cpu_signal_handler: SignalHandlerFunction,
         cpu_sampling_rate: float,
+        alloc_sigq: Optional[ScaleneSigQueue[T]] = None,
+        memcpy_sigq: Optional[ScaleneSigQueue[T]] = None,
     ) -> None:
         """Set up the signal handlers to handle interrupts for profiling and start the
         timer interrupts."""
         if sys.platform == "win32":
-            self.enable_signals_win32(cpu_signal_handler, cpu_sampling_rate)
+            self.enable_signals_win32(
+                cpu_signal_handler, cpu_sampling_rate, alloc_sigq, memcpy_sigq
+            )
             return
 
         self.start_signal_queues()
@@ -151,7 +195,7 @@ class ScaleneSignalManager(Generic[T]):
         self.__orig_signal(signal.SIGINT, interruption_handler)
 
     def send_signal_to_children(
-        self, child_pids: set[int], signal_type: signal.Signals
+        self, child_pids: "set[int]", signal_type: signal.Signals
     ) -> None:
         """Send a signal to all child processes."""
         for pid in child_pids:

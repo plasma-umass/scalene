@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-13 ]
+        os: [ ubuntu-latest, macos-latest ]
         python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
 
     steps:
@@ -56,7 +56,7 @@ jobs:
 
     - name: install test dependencies
       run: |
-        python3 -m pip install mypy ruff
+        python3 -m pip install mypy ruff types-PyYAML
         python3 -m pip install .
 
     - name: Run linters

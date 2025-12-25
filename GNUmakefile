@@ -55,12 +55,12 @@ clean:
 $(WRAPPER) : vendor/Heap-Layers
 
 vendor/Heap-Layers:
-	cd vendor && git clone https://github.com/emeryberger/Heap-Layers
+	mkdir -p vendor && cd vendor && git clone https://github.com/emeryberger/Heap-Layers
 
 TMP := $(shell mktemp -d || echo /tmp)
 
 vendor/printf/printf.cpp:
-	cd vendor && git clone https://github.com/mpaland/printf
+	mkdir -p vendor && cd vendor && git clone https://github.com/mpaland/printf
 	cd vendor/printf && ln -s printf.c printf.cpp
 	sed -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h > $(TMP)/printf.h.$$ && mv $(TMP)/printf.h.$$ vendor/printf/printf.h
 	sed -e 's/^#define vsnprintf vsnprintf_/\/\/&/' vendor/printf/printf.h > $(TMP)/printf.h.$$ && mv $(TMP)/printf.h.$$ vendor/printf/printf.h
@@ -68,7 +68,8 @@ vendor/printf/printf.cpp:
 vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp
 
 mypy:
-	-mypy --no-warn-unused-ignores $(PYTHON_SOURCES)
+	# Requires: pip install mypy types-PyYAML
+	-mypy $(PYTHON_SOURCES)
 
 format: black clang-format prettier
 

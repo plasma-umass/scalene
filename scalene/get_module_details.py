@@ -1,4 +1,4 @@
-import importlib
+import importlib.util
 import sys
 from importlib.abc import SourceLoader
 from importlib.machinery import ModuleSpec
