@@ -34,13 +34,13 @@ class ScaleneJupyter:
         # tears down the server.
         try:
             from IPython.display import (  # type: ignore[attr-defined,unused-ignore]
-                display,
                 IFrame,
+                display,
             )
         except ImportError:
             from IPython.core.display import (  # type: ignore[attr-defined,unused-ignore,no-redef]
-                display,
                 IFrame,
+                display,
             )  # Fallback for older IPython versions
 
         class RequestHandler(BaseHTTPRequestHandler):
