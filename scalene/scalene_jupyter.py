@@ -33,14 +33,15 @@ class ScaleneJupyter:
         # which lets JavaScript run (can't do this with `display`, which strips out JavaScript), and then
         # tears down the server.
         try:
-            from IPython.core.display import (  # type: ignore[attr-defined,unused-ignore]
+            from IPython.display import (  # type: ignore[attr-defined,unused-ignore]
+                IFrame,
                 display,
             )
         except ImportError:
-            from IPython.display import (  # type: ignore[attr-defined,unused-ignore]
+            from IPython.core.display import (  # type: ignore[attr-defined,unused-ignore,no-redef]
+                IFrame,
                 display,
-            )
-        from IPython.display import IFrame
+            )  # Fallback for older IPython versions
 
         class RequestHandler(BaseHTTPRequestHandler):
             def _send_response(self, content: str) -> None:
@@ -94,7 +95,7 @@ class ScaleneJupyter:
         server_thread.start()
 
         # Display the profile and then shutdown the server.
-        display(IFrame(src=f"http://localhost:{port}", width="100%", height="400"))
+        display(IFrame(src=f"http://localhost:{port}", width="100%", height="400"))  # type: ignore[no-untyped-call,unused-ignore]
         Thread(target=lambda: server_thread.join()).start()
 
         # Wait 2 seconds to ensure that the page is rendered, then kill the cell.
