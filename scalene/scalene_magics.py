@@ -53,7 +53,11 @@ with contextlib.suppress(Exception):
         def scalene(self, line: str, cell: str = "") -> None:
             """%%scalene magic: see https://github.com/plasma-umass/scalene for usage info."""
             if line:
-                sys.argv = ["scalene", "run", "--ipython", *line.split()]
+                # Strip "run" if user included it (we add it automatically)
+                parts = line.split()
+                if parts and parts[0] == "run":
+                    parts = parts[1:]
+                sys.argv = ["scalene", "run", "--ipython", *parts]
                 (args, _left) = ScaleneParseArgs.parse_args()
                 # print(f"{args=}, {_left=}")
             else:
@@ -68,7 +72,11 @@ with contextlib.suppress(Exception):
         def scrun(self, line: str = "") -> None:
             """%scrun magic: see https://github.com/plasma-umass/scalene for usage info."""
             if line:
-                sys.argv = ["scalene", "run", "--ipython", *line.split()]
+                # Strip "run" if user included it (we add it automatically)
+                parts = line.split()
+                if parts and parts[0] == "run":
+                    parts = parts[1:]
+                sys.argv = ["scalene", "run", "--ipython", *parts]
                 (args, left) = ScaleneParseArgs.parse_args()
                 if args:
                     self.run_code(args, " ".join(left))  # type: ignore

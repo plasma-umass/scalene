@@ -517,6 +517,14 @@ class ScaleneParseArgs:
             default=False,
             help=argparse.SUPPRESS,
         )
+        # --reduced-profile for Jupyter magic (display option, hidden in run)
+        parser.add_argument(
+            "--reduced-profile",
+            dest="reduced_profile",
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
         # the PID of the profiling process (for internal use only)
         parser.add_argument("--pid", type=int, default=0, help=argparse.SUPPRESS)
         # collect all arguments after "---", which Scalene will ignore
