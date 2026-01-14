@@ -71,15 +71,21 @@ def test_display_profile_serves_html_content():
 
         def fetch_from_server():
             """Fetch content from the server before it shuts down."""
-            time.sleep(0.5)  # Give server time to start
-            try:
-                with urllib.request.urlopen(f"http://localhost:{port}/", timeout=2) as response:
-                    server_content.append(response.read().decode('utf-8'))
-            except Exception as e:
-                server_content.append(f"Error: {e}")
+            # Retry logic for slower CI environments (especially macOS)
+            max_retries = 10
+            for attempt in range(max_retries):
+                time.sleep(0.5)  # Give server time to start
+                try:
+                    with urllib.request.urlopen(f"http://localhost:{port}/", timeout=5) as response:
+                        server_content.append(response.read().decode('utf-8'))
+                        break  # Success, exit retry loop
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        server_content.append(f"Error: {e}")
+                    # Otherwise retry
             # Trigger server shutdown
             try:
-                urllib.request.urlopen(f"http://localhost:{port}/shutdown", timeout=1)
+                urllib.request.urlopen(f"http://localhost:{port}/shutdown", timeout=2)
             except Exception:
                 pass
 
@@ -106,7 +112,7 @@ def test_display_profile_serves_html_content():
                 # Call display_profile (this starts the server)
                 scalene.scalene_jupyter.ScaleneJupyter.display_profile(port, profile_fname)
 
-                fetch_thread.join(timeout=5)
+                fetch_thread.join(timeout=30)  # Allow time for retries on slow CI
 
         # Verify the server served the correct content
         assert len(server_content) == 1, f"Server content not fetched: {server_content}"
