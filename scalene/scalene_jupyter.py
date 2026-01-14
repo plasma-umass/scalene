@@ -38,7 +38,7 @@ class ScaleneJupyter:
                 IFrame,
             )
         except ImportError:
-            from IPython.core.display import (  # type: ignore[attr-defined,unused-ignore]
+            from IPython.core.display import (  # type: ignore[attr-defined,unused-ignore,no-redef]
                 display,
                 IFrame,
             )  # Fallback for older IPython versions
@@ -95,7 +95,7 @@ class ScaleneJupyter:
         server_thread.start()
 
         # Display the profile and then shutdown the server.
-        display(IFrame(src=f"http://localhost:{port}", width="100%", height="400"))
+        display(IFrame(src=f"http://localhost:{port}", width="100%", height="400"))  # type: ignore[no-untyped-call,unused-ignore]
         Thread(target=lambda: server_thread.join()).start()
 
         # Wait 2 seconds to ensure that the page is rendered, then kill the cell.
