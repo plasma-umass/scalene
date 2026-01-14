@@ -33,14 +33,15 @@ class ScaleneJupyter:
         # which lets JavaScript run (can't do this with `display`, which strips out JavaScript), and then
         # tears down the server.
         try:
-            from IPython.core.display import (  # type: ignore[attr-defined,unused-ignore]
-                display,
-            )
-        except ImportError:
             from IPython.display import (  # type: ignore[attr-defined,unused-ignore]
                 display,
+                IFrame,
             )
-        from IPython.display import IFrame
+        except ImportError:
+            from IPython.core.display import (  # type: ignore[attr-defined,unused-ignore]
+                display,
+                IFrame,
+            )  # Fallback for older IPython versions
 
         class RequestHandler(BaseHTTPRequestHandler):
             def _send_response(self, content: str) -> None:
