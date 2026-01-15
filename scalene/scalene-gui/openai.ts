@@ -60,6 +60,16 @@ export function checkApiKey(apiKey: string): void {
       }
       return;
     }
+    // Skip validation if using a custom URL (OpenAI-compatible servers may not have the same validation endpoint)
+    const customUrlElement = document.getElementById("openai-custom-url") as HTMLInputElement | null;
+    const customUrl = customUrlElement?.value?.trim() || "";
+    if (customUrl) {
+      const validKeyElement = document.getElementById("valid-api-key");
+      if (validKeyElement) {
+        validKeyElement.innerHTML = ""; // Don't show validation for custom endpoints
+      }
+      return;
+    }
     const isValid = await isValidApiKey(apiKey);
     const validKeyElement = document.getElementById("valid-api-key");
     if (validKeyElement) {
@@ -76,9 +86,16 @@ export async function sendPromptToOpenAI(
   prompt: string,
   apiKey: string
 ): Promise<string> {
-  const endpoint = "https://api.openai.com/v1/chat/completions";
+  // Check for custom URL override (for OpenAI-compatible servers like vLLM, Cohere)
+  const customUrlElement = document.getElementById("openai-custom-url") as HTMLInputElement | null;
+  const customUrl = customUrlElement?.value?.trim() || "";
+  const endpoint = customUrl || "https://api.openai.com/v1/chat/completions";
+
+  // Check for custom model override
+  const customModelElement = document.getElementById("openai-custom-model") as HTMLInputElement | null;
+  const customModel = customModelElement?.value?.trim() || "";
   const modelElement = document.getElementById("language-model-openai") as HTMLSelectElement | null;
-  const model = modelElement?.value ?? "gpt-4";
+  const model = customModel || modelElement?.value || "gpt-4";
 
   const body = JSON.stringify({
     model: model,

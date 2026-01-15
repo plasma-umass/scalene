@@ -107,6 +107,7 @@
         <label for="service-select" style="font-size: 0.8rem">AI service provider:</label>
         <select style="font-size: 0.8rem" id="service-select" class="persistent" onchange="toggleServiceFields()">
           <option value="openai">OpenAI</span></option>
+          <option value="anthropic">Anthropic</option>
           <option value="amazon">Amazon Bedrock</option>
           <option value="azure-openai">Azure OpenAI</option>
           <option value="local">Local</option>
@@ -141,14 +142,106 @@
       class="persistent"
       name="language-model-openai-label"
     >
+      <option value="gpt-5.2" selected>GPT-5.2</option>
+      <option value="gpt-5.2-thinking">GPT-5.2 Thinking</option>
       <option value="gpt-5">GPT-5</option>
-      <option value="gpt-5-mini">GPT-5 mini</option>
-      <option value="gpt-4-1">GPT 4-1</option>
-      <option value="gpt-4-1-mini">GPT 4-1 mini</option>
-      <option value="gpt-4o" selected>GPT-4o</option>
-      <option value="gpt-4">GPT 4</option>
-      <option value="gpt-3.5-turbo">GPT 3.5 Turbo</option>
+      <option value="gpt-4.1">GPT-4.1</option>
+      <option value="gpt-4.1-mini">GPT-4.1 mini</option>
+      <option value="gpt-4o">GPT-4o</option>
     </select>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="openai-custom-model" style="font-size: 0.8rem; width: 150px;">
+      Custom model:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(overrides dropdown if set)"
+      id="openai-custom-model"
+      class="persistent"
+    />
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="openai-custom-url" style="font-size: 0.8rem; width: 150px;">
+      Custom API URL:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(for OpenAI-compatible servers)"
+      id="openai-custom-url"
+      class="persistent"
+    />
+  </div>
+
+</div>
+
+<!-- Anthropic API Key Field -->
+<div id="anthropic-fields" style="display: none;">
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="anthropic-api-key" style="font-size: 0.8rem; width: 150px;">
+      Anthropic <a href="https://console.anthropic.com/">API key</a>:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(Anthropic API key)"
+      id="anthropic-api-key"
+      class="persistent"
+    />
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="language-model-anthropic" style="font-size: 0.8rem; width: 150px;">
+      Language model:
+    </label>
+    <select
+      style="font-size: 0.8rem; flex: 1;"
+      id="language-model-anthropic"
+      class="persistent"
+      name="language-model-anthropic-label"
+    >
+      <option value="claude-sonnet-4-5-20250929" selected>Claude Sonnet 4.5</option>
+      <option value="claude-opus-4-5-20251124">Claude Opus 4.5</option>
+      <option value="claude-haiku-4-5-20251015">Claude Haiku 4.5</option>
+      <option value="claude-opus-4-1-20250805">Claude Opus 4.1</option>
+      <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+    </select>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="anthropic-custom-model" style="font-size: 0.8rem; width: 150px;">
+      Custom model:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(overrides dropdown if set)"
+      id="anthropic-custom-model"
+      class="persistent"
+    />
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="anthropic-custom-url" style="font-size: 0.8rem; width: 150px;">
+      Custom API URL:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(for Anthropic-compatible servers)"
+      id="anthropic-custom-url"
+      class="persistent"
+    />
   </div>
 
 </div>
@@ -164,40 +257,68 @@
       size="22"
       placeholder="(Azure OpenAI API key)"
       id="azure-api-key"
+      class="persistent"
     />
-    <span id="valid-api-key"></span>
   </div>
 
   <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="azure-api-url" style="font-size: 0.8rem; width: 150px;">API URL Azure Open AI:</label>
+    <label for="azure-api-url" style="font-size: 0.8rem; width: 150px;">API URL:</label>
     <input
       type="text"
       style="font-size: 0.8rem; flex: 1;"
       size="22"
-      placeholder="(Azure OpenAI API URL)"
+      placeholder="https://YOUR-RESOURCE.openai.azure.com"
       id="azure-api-url"
+      class="persistent"
     />
   </div>
 
   <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="azure-api-model" style="font-size: 0.8rem; width: 150px;">Language model:</label>
+    <label for="language-model-azure" style="font-size: 0.8rem; width: 150px;">
+      Language model:
+    </label>
+    <select
+      style="font-size: 0.8rem; flex: 1;"
+      id="language-model-azure"
+      class="persistent"
+      name="language-model-azure-label"
+    >
+      <option value="gpt-5.2" selected>GPT-5.2</option>
+      <option value="gpt-5.1">GPT-5.1</option>
+      <option value="gpt-5">GPT-5</option>
+      <option value="gpt-5-mini">GPT-5 mini</option>
+      <option value="gpt-4.1">GPT-4.1</option>
+      <option value="gpt-4.1-mini">GPT-4.1 mini</option>
+      <option value="gpt-4o">GPT-4o</option>
+      <option value="o4-mini">o4-mini (reasoning)</option>
+      <option value="o3-mini">o3-mini (reasoning)</option>
+    </select>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="azure-custom-model" style="font-size: 0.8rem; width: 150px;">
+      Custom model:
+    </label>
     <input
       type="text"
       style="font-size: 0.8rem; flex: 1;"
       size="22"
-      placeholder="(Azure OpenAI API Model)"
-      id="azure-api-model"
+      placeholder="(overrides dropdown if set)"
+      id="azure-custom-model"
+      class="persistent"
     />
   </div>
 
   <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="azure-api-model-version" style="font-size: 0.8rem; width: 150px;">API Version:</label>
+    <label for="azure-api-version" style="font-size: 0.8rem; width: 150px;">API Version:</label>
     <input
       type="text"
       style="font-size: 0.8rem; flex: 1;"
       size="22"
-      placeholder="(Azure OpenAI API Version)"
-      id="azure-api-model-version"
+      placeholder="2024-02-15-preview"
+      value="2024-02-15-preview"
+      id="azure-api-version"
+      class="persistent"
     />
   </div>
 
@@ -252,13 +373,11 @@
       id="language-model-amazon"
       name="language-model-amazon-label"
     >
-      <option value="us.anthropic.claude-sonnet-4-20250514-v1:0" selected>Claude Sonnet 4</option>
-      <option value="us.anthropic.claude-3-7-sonnet-20250219-v1:0">Claude Sonnet 3.7</option>
-      <option value="us.anthropic.claude-3-5-sonnet-20241022-v2:0">Claude Sonnet 3.5</option>
-      <option value="openai.gpt-oss-120b-1:0">OpenAI GPT OSS 120b</option>
-      <option value="openai.gpt-oss-20b-1:0">OpenAI GPT OSS 20b</option>
-      
-</option>
+      <option value="us.anthropic.claude-sonnet-4-5-20250929-v1:0" selected>Claude Sonnet 4.5</option>
+      <option value="us.anthropic.claude-opus-4-5-20251124-v1:0">Claude Opus 4.5</option>
+      <option value="us.anthropic.claude-haiku-4-5-20251015-v1:0">Claude Haiku 4.5</option>
+      <option value="us.anthropic.claude-opus-4-1-20250805-v1:0">Claude Opus 4.1</option>
+      <option value="us.anthropic.claude-sonnet-4-20250514-v1:0">Claude Sonnet 4</option>
     </select>
   </div>
 </div>

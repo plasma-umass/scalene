@@ -1318,12 +1318,16 @@ export function toggleServiceFields(): void {
   window.localStorage.setItem("scalene-service-select", service);
 
   const openaiFields = document.getElementById("openai-fields");
+  const anthropicFields = document.getElementById("anthropic-fields");
   const amazonFields = document.getElementById("amazon-fields");
   const localFields = document.getElementById("local-fields");
   const azureFields = document.getElementById("azure-openai-fields");
 
   if (openaiFields) {
     openaiFields.style.display = service === "openai" ? "block" : "none";
+  }
+  if (anthropicFields) {
+    anthropicFields.style.display = service === "anthropic" ? "block" : "none";
   }
   if (amazonFields) {
     amazonFields.style.display = service === "amazon" ? "block" : "none";
