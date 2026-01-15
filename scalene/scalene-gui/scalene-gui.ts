@@ -1311,36 +1311,51 @@ export function loadDemo(): void {
   load(example_profile);
 }
 
-// JavaScript function to toggle fields based on selected service
+// Map service values to their field IDs
+const serviceFieldMap: Record<string, string> = {
+  openai: "openai-fields",
+  anthropic: "anthropic-fields",
+  gemini: "gemini-fields",
+  amazon: "amazon-fields",
+  local: "local-fields",
+  "azure-openai": "azure-openai-fields",
+};
+
+// Toggle provider fields based on selected service
 export function toggleServiceFields(): void {
   const serviceSelect = document.getElementById("service-select") as HTMLSelectElement | null;
-  const service = serviceSelect?.value ?? "";
+  const service = serviceSelect?.value ?? "openai";
   window.localStorage.setItem("scalene-service-select", service);
 
-  const openaiFields = document.getElementById("openai-fields");
-  const anthropicFields = document.getElementById("anthropic-fields");
-  const geminiFields = document.getElementById("gemini-fields");
-  const amazonFields = document.getElementById("amazon-fields");
-  const localFields = document.getElementById("local-fields");
-  const azureFields = document.getElementById("azure-openai-fields");
+  // Hide all provider sections and show the selected one
+  Object.entries(serviceFieldMap).forEach(([key, fieldId]) => {
+    const field = document.getElementById(fieldId);
+    if (field) {
+      field.classList.toggle("active", key === service);
+    }
+  });
+}
 
-  if (openaiFields) {
-    openaiFields.style.display = service === "openai" ? "block" : "none";
+// Toggle password visibility
+export function togglePassword(button: HTMLButtonElement): void {
+  const input = button.previousElementSibling as HTMLInputElement | null;
+  if (input) {
+    if (input.type === "password") {
+      input.type = "text";
+      button.textContent = "Hide";
+    } else {
+      input.type = "password";
+      button.textContent = "Show";
+    }
   }
-  if (anthropicFields) {
-    anthropicFields.style.display = service === "anthropic" ? "block" : "none";
-  }
-  if (geminiFields) {
-    geminiFields.style.display = service === "gemini" ? "block" : "none";
-  }
-  if (amazonFields) {
-    amazonFields.style.display = service === "amazon" ? "block" : "none";
-  }
-  if (localFields) {
-    localFields.style.display = service === "local" ? "block" : "none";
-  }
-  if (azureFields) {
-    azureFields.style.display = service === "azure-openai" ? "block" : "none";
+}
+
+// Toggle advanced options visibility
+export function toggleAdvanced(toggle: HTMLElement): void {
+  const advancedOptions = toggle.nextElementSibling as HTMLElement | null;
+  if (advancedOptions) {
+    const isShown = advancedOptions.classList.toggle("show");
+    toggle.innerHTML = (isShown ? "&#9660;" : "&#9654;") + " Advanced options";
   }
 }
 
@@ -1397,7 +1412,54 @@ function replaceDivWithSelect(): void {
 // Call the function to replace the div with the select element
 replaceDivWithSelect();
 
+// Declare envApiKeys as a global variable that may be injected by the template
+declare const envApiKeys: {
+  openai?: string;
+  anthropic?: string;
+  gemini?: string;
+  azure?: string;
+  azureUrl?: string;
+  awsAccessKey?: string;
+  awsSecretKey?: string;
+  awsRegion?: string;
+} | undefined;
+
+// Get the first provider option from the select element
+function getFirstProvider(): string {
+  const serviceSelect = document.getElementById("service-select") as HTMLSelectElement | null;
+  return serviceSelect?.options[0]?.value ?? "amazon";
+}
+
+// Determine default provider based on environment variables (alphabetical order)
+function getDefaultProvider(): string {
+  const firstProvider = getFirstProvider();
+  if (typeof envApiKeys === "undefined") {
+    return firstProvider;
+  }
+  // Check providers in alphabetical order
+  if (envApiKeys.awsAccessKey && envApiKeys.awsSecretKey) return "amazon";
+  if (envApiKeys.anthropic) return "anthropic";
+  if (envApiKeys.azure) return "azure-openai";
+  if (envApiKeys.gemini) return "gemini";
+  if (envApiKeys.openai) return "openai";
+  return firstProvider;
+}
+
+// Set default provider before persistence restores (so localStorage takes precedence)
+function initializeDefaultProvider(): void {
+  const serviceSelect = document.getElementById("service-select") as HTMLSelectElement | null;
+  if (serviceSelect) {
+    // Only set default if localStorage doesn't have a saved value
+    const savedService = localStorage.getItem("service-select");
+    if (!savedService) {
+      serviceSelect.value = getDefaultProvider();
+    }
+    toggleServiceFields();
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  initializeDefaultProvider();
   processPersistentElements();
 });
 
@@ -1429,3 +1491,5 @@ setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
 (window as unknown as Record<string, unknown>).loadFile = loadFile;
 (window as unknown as Record<string, unknown>).loadDemo = loadDemo;
 (window as unknown as Record<string, unknown>).toggleServiceFields = toggleServiceFields;
+(window as unknown as Record<string, unknown>).togglePassword = togglePassword;
+(window as unknown as Record<string, unknown>).toggleAdvanced = toggleAdvanced;

@@ -68,6 +68,140 @@
         opacity: 0;
         position: absolute;
     }
+
+    /* AI Provider Styles */
+    .ai-options {
+        font-size: 0.8rem;
+        max-width: 450px;
+    }
+    .ai-options summary {
+        color: #0d6efd;
+        cursor: pointer;
+        font-weight: 500;
+    }
+    .ai-options hr {
+        margin: 0.75rem 0;
+        opacity: 0.15;
+    }
+    .provider-section {
+        display: none;
+        padding: 0.5rem 0;
+    }
+    .provider-section.active {
+        display: block;
+    }
+    .form-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+    .form-row label {
+        width: 130px;
+        flex-shrink: 0;
+        margin: 0;
+    }
+    .form-row label a {
+        color: #0d6efd;
+    }
+    .form-row input,
+    .form-row select {
+        flex: 1;
+        font-size: 0.8rem;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        min-width: 0;
+    }
+    .form-row input:focus,
+    .form-row select:focus {
+        border-color: #86b7fe;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+    .input-group {
+        display: flex;
+        flex: 1;
+        min-width: 0;
+    }
+    .input-group input {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+        border-right: none;
+    }
+    .input-group .btn-toggle {
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-left: none;
+        border-radius: 0 4px 4px 0;
+        background: #f8f9fa;
+        cursor: pointer;
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+    .input-group .btn-toggle:hover {
+        background: #e9ecef;
+        color: #495057;
+    }
+    .validation-icon {
+        width: 20px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+    .validation-icon.valid { color: #198754; }
+    .validation-icon.invalid { color: #dc3545; }
+    .advanced-toggle {
+        font-size: 0.75rem;
+        color: #6c757d;
+        cursor: pointer;
+        margin-top: 4px;
+        user-select: none;
+    }
+    .advanced-toggle:hover {
+        color: #0d6efd;
+    }
+    .advanced-options {
+        display: none;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px dashed #dee2e6;
+    }
+    .advanced-options.show {
+        display: block;
+    }
+    .provider-note {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-bottom: 8px;
+    }
+    .provider-note a {
+        color: #0d6efd;
+    }
+    .optimization-section {
+        margin-top: 1rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #dee2e6;
+    }
+    .optimization-section b {
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+    .option-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+    }
+    .option-row label {
+        cursor: pointer;
+        margin: 0;
+    }
+    .help-text {
+        font-size: 0.75rem;
+        color: #6c757d;
+        font-style: italic;
+        margin-top: 0.75rem;
+    }
     </style>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-4JXPHEBMTY"></script>
@@ -109,409 +243,226 @@
 	</a>
       </p>
     </div>
-	<div class="d-flex justify-content-center">
-	  <details id="ai-optimization-options">
-	    <summary style="font-size:0.8rem; color: blue">AI optimization options</summary>
-	  <!-- <label for='demoinput' style="padding: 5px 5px; border-radius: 5px; border: 1px ridge black; font-size: 0.8rem; height: auto;">demo</label>
-	  <input style="height: 0; width: 0; opacity:0" type='button' id='demoinput' accept='.json' onclick="loadDemo();">
-	  -->
-        <label for="service-select" style="font-size: 0.8rem">AI service provider:</label>
-        <select style="font-size: 0.8rem" id="service-select" class="persistent" onchange="toggleServiceFields()">
-          <option value="openai">OpenAI</span></option>
-          <option value="anthropic">Anthropic</option>
-          <option value="gemini">Google Gemini</option>
-          <option value="amazon">Amazon Bedrock</option>
-          <option value="azure-openai">Azure OpenAI</option>
-          <option value="local">Local</option>
-    </select>
-<hr />
+    <div class="d-flex justify-content-center">
+      <details id="ai-optimization-options" class="ai-options">
+        <summary>AI optimization options</summary>
 
-<!-- OpenAI API Key Field -->
-<div id="openai-fields">
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="api-key" style="font-size: 0.8rem; width: 150px;">
-      OpenAI <a href="https://beta.openai.com/signup">API key</a>:
-    </label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="(OpenAI API key)"
-      id="api-key"
-      oninput="checkApiKey(event.target.value)"
-    />
-    <span id="valid-api-key"></span>
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="language-model-openai" style="font-size: 0.8rem; width: 150px;">
-      Language model:
-    </label>
-    <select
-      style="font-size: 0.8rem; flex: 1;"
-      id="language-model-openai"
-      class="persistent"
-      name="language-model-openai-label"
-    >
-      <option value="gpt-5.2" selected>GPT-5.2</option>
-      <option value="gpt-5.2-thinking">GPT-5.2 Thinking</option>
-      <option value="gpt-5">GPT-5</option>
-      <option value="gpt-4.1">GPT-4.1</option>
-      <option value="gpt-4.1-mini">GPT-4.1 mini</option>
-      <option value="gpt-4o">GPT-4o</option>
-    </select>
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="openai-custom-model" style="font-size: 0.8rem; width: 150px;">
-      Custom model:
-    </label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="(overrides dropdown if set)"
-      id="openai-custom-model"
-      class="persistent"
-    />
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="openai-custom-url" style="font-size: 0.8rem; width: 150px;">
-      Custom API URL:
-    </label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="(for OpenAI-compatible servers)"
-      id="openai-custom-url"
-      class="persistent"
-    />
-  </div>
-
-</div>
-
-<!-- Anthropic API Key Field -->
-<div id="anthropic-fields" style="display: none;">
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="anthropic-api-key" style="font-size: 0.8rem; width: 150px;">
-      Anthropic <a href="https://console.anthropic.com/">API key</a>:
-    </label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="(Anthropic API key)"
-      id="anthropic-api-key"
-      class="persistent"
-    />
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="language-model-anthropic" style="font-size: 0.8rem; width: 150px;">
-      Language model:
-    </label>
-    <select
-      style="font-size: 0.8rem; flex: 1;"
-      id="language-model-anthropic"
-      class="persistent"
-      name="language-model-anthropic-label"
-    >
-      <option value="claude-sonnet-4-5-20250929" selected>Claude Sonnet 4.5</option>
-      <option value="claude-opus-4-5-20251124">Claude Opus 4.5</option>
-      <option value="claude-haiku-4-5-20251015">Claude Haiku 4.5</option>
-      <option value="claude-opus-4-1-20250805">Claude Opus 4.1</option>
-      <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-    </select>
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="anthropic-custom-model" style="font-size: 0.8rem; width: 150px;">
-      Custom model:
-    </label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="(overrides dropdown if set)"
-      id="anthropic-custom-model"
-      class="persistent"
-    />
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="anthropic-custom-url" style="font-size: 0.8rem; width: 150px;">
-      Custom API URL:
-    </label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="(for Anthropic-compatible servers)"
-      id="anthropic-custom-url"
-      class="persistent"
-    />
-  </div>
-
-</div>
-
-<!-- Google Gemini API Key Field -->
-<div id="gemini-fields" style="display: none;">
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="gemini-api-key" style="font-size: 0.8rem; width: 150px;">
-      Google <a href="https://aistudio.google.com/apikey">API key</a>:
-    </label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="(Gemini API key)"
-      id="gemini-api-key"
-      class="persistent"
-    />
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="language-model-gemini" style="font-size: 0.8rem; width: 150px;">
-      Language model:
-    </label>
-    <select
-      style="font-size: 0.8rem; flex: 1;"
-      id="language-model-gemini"
-      class="persistent"
-      name="language-model-gemini-label"
-    >
-      <option value="gemini-2.0-flash" selected>Gemini 2.0 Flash</option>
-      <option value="gemini-2.0-flash-thinking-exp">Gemini 2.0 Flash Thinking</option>
-      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-    </select>
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="gemini-custom-model" style="font-size: 0.8rem; width: 150px;">
-      Custom model:
-    </label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="(overrides dropdown if set)"
-      id="gemini-custom-model"
-      class="persistent"
-    />
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="gemini-custom-url" style="font-size: 0.8rem; width: 150px;">
-      Custom API URL:
-    </label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="(for Gemini-compatible servers)"
-      id="gemini-custom-url"
-      class="persistent"
-    />
-  </div>
-
-</div>
-
-<!-- Azure OpenAI API Key Field -->
-<div id="azure-openai-fields" style="display: none;">
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="azure-api-key" style="font-size: 0.8rem; width: 150px;">Azure OpenAI API key:</label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="(Azure OpenAI API key)"
-      id="azure-api-key"
-      class="persistent"
-    />
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="azure-api-url" style="font-size: 0.8rem; width: 150px;">API URL:</label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="https://YOUR-RESOURCE.openai.azure.com"
-      id="azure-api-url"
-      class="persistent"
-    />
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="language-model-azure" style="font-size: 0.8rem; width: 150px;">
-      Language model:
-    </label>
-    <select
-      style="font-size: 0.8rem; flex: 1;"
-      id="language-model-azure"
-      class="persistent"
-      name="language-model-azure-label"
-    >
-      <option value="gpt-5.2" selected>GPT-5.2</option>
-      <option value="gpt-5.1">GPT-5.1</option>
-      <option value="gpt-5">GPT-5</option>
-      <option value="gpt-5-mini">GPT-5 mini</option>
-      <option value="gpt-4.1">GPT-4.1</option>
-      <option value="gpt-4.1-mini">GPT-4.1 mini</option>
-      <option value="gpt-4o">GPT-4o</option>
-      <option value="o4-mini">o4-mini (reasoning)</option>
-      <option value="o3-mini">o3-mini (reasoning)</option>
-    </select>
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="azure-custom-model" style="font-size: 0.8rem; width: 150px;">
-      Custom model:
-    </label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="(overrides dropdown if set)"
-      id="azure-custom-model"
-      class="persistent"
-    />
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="azure-api-version" style="font-size: 0.8rem; width: 150px;">API Version:</label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="2024-02-15-preview"
-      value="2024-02-15-preview"
-      id="azure-api-version"
-      class="persistent"
-    />
-  </div>
-
-</div>
-
-
-	
-        <!-- Amazon Bedrock Fields -->
-<div id="amazon-fields" style="display: none;">
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="aws-access-key" style="font-size: 0.8rem; width: 150px;">AWS Access Key ID:</label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="AKIAxxxxxxxxxxxxxxxx"
-      id="aws-access-key"
-      class="persistent"
-    />
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="aws-secret-key" style="font-size: 0.8rem; width: 150px;">AWS Secret Access Key:</label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="(Secret Access Key)"
-      id="aws-secret-key"
-      class="persistent"
-    />
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="aws-region" style="font-size: 0.8rem; width: 150px;">AWS Region:</label>
-    <input
-      type="text"
-      style="font-size: 0.8rem; flex: 1;"
-      size="22"
-      placeholder="us-east-1"
-      id="aws-region"
-      class="persistent"
-    />
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 8px;">
-    <label style="font-size: 0.8rem; width: 150px;" for="language-model-amazon">
-      Language model:
-    </label>
-    <select
-      style="font-size: 0.8rem; flex: 1;"
-      id="language-model-amazon"
-      name="language-model-amazon-label"
-    >
-      <option value="us.anthropic.claude-sonnet-4-5-20250929-v1:0" selected>Claude Sonnet 4.5</option>
-      <option value="us.anthropic.claude-opus-4-5-20251124-v1:0">Claude Opus 4.5</option>
-      <option value="us.anthropic.claude-haiku-4-5-20251015-v1:0">Claude Haiku 4.5</option>
-      <option value="us.anthropic.claude-opus-4-1-20250805-v1:0">Claude Opus 4.1</option>
-      <option value="us.anthropic.claude-sonnet-4-20250514-v1:0">Claude Sonnet 4</option>
-    </select>
-  </div>
-</div>
-
-    <div id="local-fields" style="display: none; font-size: 0.8rem">
-    Use this option if you are running a local language model. We currently support <a href="https://ollama.ai/">Ollama</a>.
-    <br />
-          <label for='local-ip' style="font-size: 0.8rem">IP Address:</label>
-          <input type="text" style="font-size: 0.8rem" size="22" placeholder="localhost" id="local-ip" class="persistent" value="localhost"></input>
-          <label for='local-port' style="font-size: 0.8rem">Port:</label>
-    <input type="number" style="font-size: 0.8rem" size="22" placeholder="11434" id="local-port" class="persistent" value="11434"></input>
-    <br />
-    <div id="install-models-message" style="display:none;">
-      <span style="color: red">Server not found or no language models installed.</span><br />
-      Install language models as in <span style="background-color:rgb(220 220 220);"><code>ollama pull codellama:34b-python</code></span>.
-    </div>
-
-
-    <br />
-    <div id="local-models-list">
-          <label style="font-size: 0.8rem" for="language-model-local">
-            Language model:
-          </label>
-    <span style="font-size: 0.8rem">
-    </span>
-    <div id="language-local-models"></div>
-    </div>
+        <!-- Provider Selection -->
+        <div class="form-row" style="margin-top: 0.75rem;">
+          <label for="service-select">Provider:</label>
+          <select id="service-select" class="persistent" onchange="toggleServiceFields()">
+            <option value="amazon">Amazon Bedrock</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="azure-openai">Azure OpenAI</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="local">Local (Ollama)</option>
+          </select>
         </div>
-	  <br />
-	  <B style="font-size:0.8rem">Proposed optimizations</B><BR />
-	  <div>
-	    <input type="radio" name="optimize-radio" id="optimize-performance" value="performance" class="persistent" checked>
-	    <label style="font-size: 0.8rem" for="optimize-performance">
-	      Optimize runtime performance
-	    </label>
-	  </div>
-	  <div>
-	    <input type="radio" name="optimize-radio" id="optimize-memory" class="persistent" value="memory">
-	    <label style="font-size: 0.8rem" for="optimize-memory">
-	      Optimize memory efficiency
-	    </label>
-	  </div>
-	  <input type="checkbox" id="use-gpu-checkbox" name="use-gpu-checkbox-label" class="persistent" >
-	  <!-- onclick="try { window.localStorage.setItem('scalene-gpu-checkbox', document.getElementById('use-gpu-checkbox').checked); } catch {}" -->
-	  <label style="font-size: 0.8rem" for="use-gpu-checkbox" class="persistent">
-	    Include <span id="accelerator-name">GPU</span> optimizations
-	  </label>
-	  <br />
-	  <font style="font-size: 0.8rem">
-	    Click on an explosion (&#128165;) to see proposed optimizations for a region of code,<br />
-	    or on a lightning bolt (&#9889;) to propose optimizations for a specific line.<br />
-	    Click again to generate a different one.<br />
-	    <em>Note that optimizations are AI-generated and may not be correct.</em>
-	    <br />
-	  </font>
-	  <br />
-	  </details>
-	</div>
+
+        <hr />
+
+        <!-- OpenAI -->
+        <div id="openai-fields" class="provider-section active">
+          <div class="form-row">
+            <label for="api-key"><a href="https://platform.openai.com/api-keys" target="_blank">API key</a>:</label>
+            <div class="input-group">
+              <input type="password" id="api-key" placeholder="sk-..." autocomplete="off" oninput="checkApiKey(this.value)" />
+              <button type="button" class="btn-toggle" onclick="togglePassword(this)">Show</button>
+            </div>
+            <span id="valid-api-key" class="validation-icon"></span>
+          </div>
+          <div class="form-row">
+            <label for="language-model-openai">Model:</label>
+            <select id="language-model-openai" class="persistent">
+              <option value="gpt-4.1" selected>GPT-4.1</option>
+              <option value="gpt-4.1-mini">GPT-4.1 mini</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="o3-mini">o3-mini</option>
+            </select>
+          </div>
+          <div class="advanced-toggle" onclick="toggleAdvanced(this)">&#9654; Advanced options</div>
+          <div class="advanced-options">
+            <div class="form-row">
+              <label for="openai-custom-model">Custom model:</label>
+              <input type="text" id="openai-custom-model" class="persistent" placeholder="overrides dropdown" />
+            </div>
+            <div class="form-row">
+              <label for="openai-custom-url">Custom URL:</label>
+              <input type="text" id="openai-custom-url" class="persistent" placeholder="for compatible servers" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Anthropic -->
+        <div id="anthropic-fields" class="provider-section">
+          <div class="form-row">
+            <label for="anthropic-api-key"><a href="https://console.anthropic.com/" target="_blank">API key</a>:</label>
+            <div class="input-group">
+              <input type="password" id="anthropic-api-key" class="persistent" placeholder="sk-ant-..." autocomplete="off" />
+              <button type="button" class="btn-toggle" onclick="togglePassword(this)">Show</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="language-model-anthropic">Model:</label>
+            <select id="language-model-anthropic" class="persistent">
+              <option value="claude-sonnet-4-5-20250929" selected>Claude Sonnet 4.5</option>
+              <option value="claude-opus-4-5-20251124">Claude Opus 4.5</option>
+              <option value="claude-haiku-4-5-20251015">Claude Haiku 4.5</option>
+            </select>
+          </div>
+          <div class="advanced-toggle" onclick="toggleAdvanced(this)">&#9654; Advanced options</div>
+          <div class="advanced-options">
+            <div class="form-row">
+              <label for="anthropic-custom-model">Custom model:</label>
+              <input type="text" id="anthropic-custom-model" class="persistent" placeholder="overrides dropdown" />
+            </div>
+            <div class="form-row">
+              <label for="anthropic-custom-url">Custom URL:</label>
+              <input type="text" id="anthropic-custom-url" class="persistent" placeholder="for compatible servers" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Google Gemini -->
+        <div id="gemini-fields" class="provider-section">
+          <div class="form-row">
+            <label for="gemini-api-key"><a href="https://aistudio.google.com/apikey" target="_blank">API key</a>:</label>
+            <div class="input-group">
+              <input type="password" id="gemini-api-key" class="persistent" placeholder="AIza..." autocomplete="off" />
+              <button type="button" class="btn-toggle" onclick="togglePassword(this)">Show</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="language-model-gemini">Model:</label>
+            <select id="language-model-gemini" class="persistent">
+              <option value="gemini-2.0-flash" selected>Gemini 2.0 Flash</option>
+              <option value="gemini-2.0-flash-thinking-exp">Gemini 2.0 Flash Thinking</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+            </select>
+          </div>
+          <div class="advanced-toggle" onclick="toggleAdvanced(this)">&#9654; Advanced options</div>
+          <div class="advanced-options">
+            <div class="form-row">
+              <label for="gemini-custom-model">Custom model:</label>
+              <input type="text" id="gemini-custom-model" class="persistent" placeholder="overrides dropdown" />
+            </div>
+            <div class="form-row">
+              <label for="gemini-custom-url">Custom URL:</label>
+              <input type="text" id="gemini-custom-url" class="persistent" placeholder="for compatible servers" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Amazon Bedrock -->
+        <div id="amazon-fields" class="provider-section">
+          <div class="form-row">
+            <label for="aws-access-key">Access Key ID:</label>
+            <input type="text" id="aws-access-key" class="persistent" placeholder="AKIA..." />
+          </div>
+          <div class="form-row">
+            <label for="aws-secret-key">Secret Key:</label>
+            <div class="input-group">
+              <input type="password" id="aws-secret-key" class="persistent" placeholder="secret access key" autocomplete="off" />
+              <button type="button" class="btn-toggle" onclick="togglePassword(this)">Show</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="aws-region">Region:</label>
+            <input type="text" id="aws-region" class="persistent" placeholder="us-east-1" />
+          </div>
+          <div class="form-row">
+            <label for="language-model-amazon">Model:</label>
+            <select id="language-model-amazon" class="persistent">
+              <option value="us.anthropic.claude-sonnet-4-5-20250929-v1:0" selected>Claude Sonnet 4.5</option>
+              <option value="us.anthropic.claude-opus-4-5-20251124-v1:0">Claude Opus 4.5</option>
+              <option value="us.anthropic.claude-haiku-4-5-20251015-v1:0">Claude Haiku 4.5</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Azure OpenAI -->
+        <div id="azure-openai-fields" class="provider-section">
+          <div class="form-row">
+            <label for="azure-api-key">API key:</label>
+            <div class="input-group">
+              <input type="password" id="azure-api-key" class="persistent" placeholder="Azure API key" autocomplete="off" />
+              <button type="button" class="btn-toggle" onclick="togglePassword(this)">Show</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="azure-api-url">Endpoint URL:</label>
+            <input type="text" id="azure-api-url" class="persistent" placeholder="https://....openai.azure.com" />
+          </div>
+          <div class="form-row">
+            <label for="language-model-azure">Model:</label>
+            <select id="language-model-azure" class="persistent">
+              <option value="gpt-4.1" selected>GPT-4.1</option>
+              <option value="gpt-4.1-mini">GPT-4.1 mini</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="o3-mini">o3-mini</option>
+            </select>
+          </div>
+          <div class="advanced-toggle" onclick="toggleAdvanced(this)">&#9654; Advanced options</div>
+          <div class="advanced-options">
+            <div class="form-row">
+              <label for="azure-custom-model">Custom model:</label>
+              <input type="text" id="azure-custom-model" class="persistent" placeholder="overrides dropdown" />
+            </div>
+            <div class="form-row">
+              <label for="azure-api-version">API version:</label>
+              <input type="text" id="azure-api-version" class="persistent" value="2024-02-15-preview" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Local (Ollama) -->
+        <div id="local-fields" class="provider-section">
+          <div class="provider-note">
+            Run AI locally with <a href="https://ollama.ai/" target="_blank">Ollama</a>.
+          </div>
+          <div class="form-row">
+            <label for="local-ip">Server:</label>
+            <input type="text" id="local-ip" class="persistent" value="localhost" style="flex: 0.6;" />
+            <span style="margin: 0 4px;">:</span>
+            <input type="number" id="local-port" class="persistent" value="11434" style="flex: 0.4;" />
+          </div>
+          <div id="install-models-message" style="display: none; color: #dc3545; margin: 8px 0;">
+            Server not found. Run: <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">ollama pull codellama</code>
+          </div>
+          <div id="local-models-list">
+            <div class="form-row">
+              <label for="language-model-local">Model:</label>
+              <div id="language-local-models"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Optimization Options -->
+        <div class="optimization-section">
+          <b>Optimization target</b>
+          <div class="option-row">
+            <input type="radio" name="optimize-radio" id="optimize-performance" value="performance" class="persistent" checked />
+            <label for="optimize-performance">Runtime performance</label>
+          </div>
+          <div class="option-row">
+            <input type="radio" name="optimize-radio" id="optimize-memory" value="memory" class="persistent" />
+            <label for="optimize-memory">Memory efficiency</label>
+          </div>
+          <div class="option-row" style="margin-top: 8px;">
+            <input type="checkbox" id="use-gpu-checkbox" class="persistent" />
+            <label for="use-gpu-checkbox">Include <span id="accelerator-name">GPU</span> optimizations</label>
+          </div>
+        </div>
+
+        <div class="help-text">
+          Click &#128165; for region optimizations or &#9889; for line optimizations.<br />
+          <em>Note: AI-generated suggestions may not always be correct.</em>
+        </div>
+
+      </details>
+    </div>
     <div id="profile">
     </div>
     <script type="text/javascript">
