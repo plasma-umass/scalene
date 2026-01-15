@@ -23,6 +23,16 @@ interface GeminiResponse extends GeminiErrorResponse {
   candidates?: GeminiCandidate[];
 }
 
+interface GeminiModelInfo {
+  name: string;
+  displayName: string;
+  supportedGenerationMethods: string[];
+}
+
+interface GeminiModelsResponse extends GeminiErrorResponse {
+  models?: GeminiModelInfo[];
+}
+
 export async function sendPromptToGemini(
   prompt: string,
   apiKey: string
@@ -102,5 +112,43 @@ export async function sendPromptToGemini(
     return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
   } catch {
     return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
+  }
+}
+
+// Fetch available models from Gemini API
+export async function fetchGeminiModels(apiKey: string): Promise<string[]> {
+  if (!apiKey) return [];
+
+  // Check for custom URL
+  const customUrlElement = document.getElementById("gemini-custom-url") as HTMLInputElement | null;
+  const customUrl = customUrlElement?.value?.trim() || "";
+  const baseUrl = customUrl || "https://generativelanguage.googleapis.com/v1beta";
+  const endpoint = `${baseUrl}/models?key=${apiKey}`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data: GeminiModelsResponse = await response.json();
+    if (data.error || !data.models) {
+      console.error("Failed to fetch Gemini models:", data.error);
+      return [];
+    }
+
+    // Filter for models that support generateContent and extract model ID
+    const chatModels = data.models
+      .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
+      .map((m) => m.name.replace("models/", ""))
+      .filter((id) => id.includes("gemini"))
+      .sort();
+
+    return chatModels;
+  } catch (error) {
+    console.error("Error fetching Gemini models:", error);
+    return [];
   }
 }
