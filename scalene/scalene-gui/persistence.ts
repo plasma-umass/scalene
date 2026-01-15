@@ -1,4 +1,4 @@
-function restoreState(el) {
+function restoreState(el: HTMLInputElement): void {
   const savedValue = localStorage.getItem(el.id);
 
   if (savedValue !== null) {
@@ -14,12 +14,12 @@ function restoreState(el) {
   }
 }
 
-function saveState(el) {
+function saveState(el: HTMLInputElement): void {
   el.addEventListener("change", () => {
     switch (el.type) {
       case "checkbox":
       case "radio":
-        localStorage.setItem(el.id, el.checked);
+        localStorage.setItem(el.id, String(el.checked));
         break;
       default:
         localStorage.setItem(el.id, el.value);
@@ -29,8 +29,8 @@ function saveState(el) {
 }
 
 // Process all DOM elements in the class 'persistent', which saves their state in localStorage and restores them on load.
-export function processPersistentElements() {
-  const persistentElements = document.querySelectorAll(".persistent");
+export function processPersistentElements(): void {
+  const persistentElements = document.querySelectorAll<HTMLInputElement>(".persistent");
 
   // Restore state
   persistentElements.forEach((el) => {
@@ -44,14 +44,18 @@ export function processPersistentElements() {
 }
 
 // Handle updating persistence when the DOM is updated.
-export const observeDOM = () => {
+export const observeDOM = (): void => {
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
       if (mutation.addedNodes) {
         mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === 1 && node.matches(".persistent")) {
-            restoreState(node);
-            node.addEventListener("change", () => saveState(node));
+          if (node.nodeType === 1) {
+            const element = node as Element;
+            if (element.matches && element.matches(".persistent")) {
+              const inputElement = element as HTMLInputElement;
+              restoreState(inputElement);
+              inputElement.addEventListener("change", () => saveState(inputElement));
+            }
           }
         });
       }

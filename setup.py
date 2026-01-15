@@ -102,6 +102,84 @@ def read_file(name):
         return f.read()
 
 
+def build_gui_bundle():
+    """Build the scalene-gui TypeScript bundle.
+
+    Tries multiple approaches in order:
+    1. If bundle already exists, skip
+    2. Try using esbuild directly (fastest, no npm needed if esbuild installed globally)
+    3. Fall back to npm if esbuild not found
+    """
+    import shutil
+    import subprocess
+
+    gui_dir = path.join(path.dirname(__file__), "scalene", "scalene-gui")
+    bundle_file = path.join(gui_dir, "scalene-gui-bundle.js")
+
+    # Skip if bundle already exists
+    if path.exists(bundle_file):
+        print(f"GUI bundle already exists: {bundle_file}")
+        return True
+
+    # Check if node_modules exists (dependencies installed)
+    node_modules = path.join(gui_dir, "node_modules")
+    if not path.exists(node_modules):
+        # Need to install dependencies first
+        npm_cmd = shutil.which("npm")
+        if npm_cmd:
+            print("Installing GUI dependencies...")
+            try:
+                subprocess.run([npm_cmd, "install"], cwd=gui_dir, check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"Warning: Failed to install dependencies: {e}")
+                return False
+        else:
+            print("Warning: npm not found and node_modules missing.")
+            print("Please run 'npm install' in scalene/scalene-gui/")
+            return False
+
+    # Try esbuild directly first (works if installed globally or in node_modules)
+    esbuild_cmd = shutil.which("esbuild")
+    if not esbuild_cmd:
+        # Check node_modules/.bin
+        esbuild_local = path.join(gui_dir, "node_modules", ".bin", "esbuild")
+        if path.exists(esbuild_local):
+            esbuild_cmd = esbuild_local
+
+    if esbuild_cmd:
+        print("Building scalene-gui TypeScript bundle with esbuild...")
+        try:
+            subprocess.run([
+                esbuild_cmd,
+                "scalene-gui.ts",
+                "--bundle",
+                "--minify",
+                "--sourcemap",
+                "--target=es2020",
+                "--outfile=scalene-gui-bundle.js",
+                "--define:process.env.LANG=\"en_US.UTF-8\""
+            ], cwd=gui_dir, check=True)
+            print("GUI bundle built successfully.")
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"Warning: esbuild failed: {e}")
+
+    # Fall back to npm run build
+    npm_cmd = shutil.which("npm")
+    if npm_cmd:
+        print("Building scalene-gui TypeScript bundle with npm...")
+        try:
+            subprocess.run([npm_cmd, "run", "build"], cwd=gui_dir, check=True)
+            print("GUI bundle built successfully.")
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"Warning: npm build failed: {e}")
+
+    print("Warning: Could not build GUI bundle.")
+    print("Please install Node.js and run 'npm install && npm run build' in scalene/scalene-gui/")
+    return False
+
+
 import setuptools.command.egg_info
 
 
@@ -155,13 +233,15 @@ def fetch_vendor_deps_windows():
 
 
 class EggInfoCommand(setuptools.command.egg_info.egg_info):
-    """Custom command to download vendor libs before creating the egg_info."""
+    """Custom command to download vendor libs and build GUI before creating the egg_info."""
 
     def run(self):
         if sys.platform == "win32":
             fetch_vendor_deps_windows()
         else:
             self.spawn([make_command(), "vendor-deps"])
+        # Build the TypeScript GUI bundle if needed
+        build_gui_bundle()
         super().run()
 
 
