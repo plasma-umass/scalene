@@ -3,14 +3,75 @@ import { memory_consumed_str, time_consumed_str } from "./utils";
 export const Lightning = "&#9889;"; // lightning bolt (for optimizing a line)
 export const Explosion = "&#128165;"; // explosion (for optimizing a region)
 export const WhiteLightning = `<span style="opacity:0">${Lightning}</span>`; // invisible but same width as lightning bolt
-export const WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`; // invisible but same width as lightning bolt
+export const WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`; // invisible but same width as explosion
 export const RightTriangle = "&#9658"; // right-facing triangle symbol (collapsed view)
 export const DownTriangle = "&#9660"; // downward-facing triangle symbol (expanded view)
 
+// Type for chart parameters
+export interface ChartParams {
+  width: number;
+  height: number;
+}
 
-function makeTooltip(title, value) {
+// Type for profile data - extending globalThis
+declare global {
+  interface Window {
+    profile?: {
+      elapsed_time_sec: number;
+      [key: string]: unknown;
+    };
+  }
+  // eslint-disable-next-line no-var
+  var profile: {
+    elapsed_time_sec: number;
+    max_footprint_mb: number;
+    growth_rate: number;
+    gpu: boolean;
+    gpu_device: string;
+    memory: boolean;
+    samples: Array<[number, number]>;
+    files: Record<string, FileProfile>;
+    program?: string;
+    stacks?: unknown;
+  };
+}
+
+export interface LineProfile {
+  lineno: number;
+  line: string;
+  n_cpu_percent_python: number;
+  n_cpu_percent_c: number;
+  n_sys_percent: number;
+  n_gpu_percent: number;
+  n_gpu_peak_memory_mb: number;
+  n_peak_mb: number;
+  n_avg_mb: number;
+  n_python_fraction: number;
+  n_usage_fraction: number;
+  n_copy_mb_s: number;
+  n_copy_mb: number;
+  n_malloc_mb: number;
+  n_core_utilization: number;
+  memory_samples: Array<[number, number]>;
+  start_region_line: number;
+  end_region_line: number;
+  nrt_time_ms?: number;
+  nrt_percent?: number;
+  nc_time_ms?: number;
+  cpu_samples_nc_overlap_percent?: number;
+}
+
+export interface FileProfile {
+  lines: LineProfile[];
+  functions: LineProfile[];
+  imports: string[];
+  percent_cpu_time: number;
+  leaks?: Record<number, { velocity_mb_s: number }>;
+}
+
+function makeTooltip(title: string, value: number): string {
   // Tooltip for time bars, below
-  let secs = (value / 100) * globalThis.profile.elapsed_time_sec;
+  const secs = (value / 100) * globalThis.profile.elapsed_time_sec;
   return (
     `(${title}) ` +
     value.toFixed(1) +
@@ -21,11 +82,15 @@ function makeTooltip(title, value) {
   );
 }
 
-export function makeBar(python, native, system, params) {
+export function makeBar(
+  python: number,
+  native: number,
+  system: number,
+  params: ChartParams
+): object {
   // Make a time bar
   const widthThreshold1 = 20;
   const widthThreshold2 = 10;
-  // console.log(`makeBar ${python} ${native} ${system}`);
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -121,7 +186,11 @@ export function makeBar(python, native, system, params) {
   };
 }
 
-export function makeGPUPie(util, gpu_device, params) {
+export function makeGPUPie(
+  util: number,
+  gpu_device: string,
+  params: ChartParams
+): object {
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -132,8 +201,8 @@ export function makeGPUPie(util, gpu_device, params) {
     autosize: {
       contains: "padding",
     },
-    width: params.width, // 30,
-    height: params.height, // 20,
+    width: params.width,
+    height: params.height,
     padding: 0,
     data: {
       values: [
@@ -162,7 +231,11 @@ export function makeGPUPie(util, gpu_device, params) {
   };
 }
 
-export function makeGPUBar(util, gpu_device, params) {
+export function makeGPUBar(
+  util: number,
+  gpu_device: string,
+  params: ChartParams
+): object {
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -228,7 +301,11 @@ export function makeGPUBar(util, gpu_device, params) {
   };
 }
 
-export function makeMemoryPie(native_mem, python_mem, params) {
+export function makeMemoryPie(
+  native_mem: number,
+  python_mem: number,
+  params: { width: number }
+): object {
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     width: params.width,
@@ -267,13 +344,16 @@ export function makeMemoryPie(native_mem, python_mem, params) {
 }
 
 export function makeMemoryBar(
-  memory,
-  title,
-  python_percent,
-  total,
-  color,
-  params,
-) {
+  memory: number | string,
+  _title: string,
+  python_percent: number,
+  total: number | string,
+  color: string,
+  params: ChartParams
+): object {
+  const memoryNum = typeof memory === "string" ? parseFloat(memory) : memory;
+  const totalNum = typeof total === "string" ? parseFloat(total) : total;
+
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -291,23 +371,23 @@ export function makeMemoryBar(
       values: [
         {
           x: 0,
-          y: python_percent * memory,
-          c: "(Python) " + memory_consumed_str(python_percent * memory),
+          y: python_percent * memoryNum,
+          c: "(Python) " + memory_consumed_str(python_percent * memoryNum),
           d:
-            python_percent * memory > total * 0.2
-              ? memory_consumed_str(python_percent * memory)
+            python_percent * memoryNum > totalNum * 0.2
+              ? memory_consumed_str(python_percent * memoryNum)
               : "",
-          q: (python_percent * memory) / 2,
+          q: (python_percent * memoryNum) / 2,
         },
         {
           x: 0,
-          y: (1.0 - python_percent) * memory,
-          c: "(native) " + memory_consumed_str((1.0 - python_percent) * memory),
+          y: (1.0 - python_percent) * memoryNum,
+          c: "(native) " + memory_consumed_str((1.0 - python_percent) * memoryNum),
           d:
-            (1.0 - python_percent) * memory > total * 0.2
-              ? memory_consumed_str((1.0 - python_percent) * memory)
+            (1.0 - python_percent) * memoryNum > totalNum * 0.2
+              ? memory_consumed_str((1.0 - python_percent) * memoryNum)
               : "",
-          q: python_percent * memory + ((1.0 - python_percent) * memory) / 2,
+          q: python_percent * memoryNum + ((1.0 - python_percent) * memoryNum) / 2,
         },
       ],
     },
@@ -319,7 +399,7 @@ export function makeMemoryBar(
             aggregate: "sum",
             field: "y",
             axis: false,
-            scale: { domain: [0, total] },
+            scale: { domain: [0, totalNum] },
           },
           color: {
             field: "c",
@@ -327,7 +407,6 @@ export function makeMemoryBar(
             legend: false,
             scale: { range: [color, "#50C878", "green"] },
           },
-          // tooltip: [{ field: "c", type: "nominal", title: title }],
         },
       },
       {
@@ -352,12 +431,12 @@ export function makeMemoryBar(
 }
 
 export function makeSparkline(
-  samples,
-  max_x,
-  max_y,
-  leak_velocity = 0,
-  params,
-) {
+  samples: Array<[number, number]>,
+  max_x: number,
+  max_y: number,
+  leak_velocity: number = 0,
+  params: ChartParams
+): object {
   const values = samples.map((v) => {
     let leak_str = "";
     if (leak_velocity != 0) {
@@ -375,16 +454,17 @@ export function makeSparkline(
     };
   });
   let leak_info = "";
+  let height = params.height;
   if (leak_velocity != 0) {
     leak_info = "possible leak";
-    params.height -= 10; // FIXME should be actual height of font
+    height -= 10; // FIXME should be actual height of font
   }
 
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     data: { values: values },
     width: params.width,
-    height: params.height,
+    height: height,
     padding: 0,
     title: {
       text: leak_info,
@@ -430,7 +510,6 @@ export function makeSparkline(
             },
           },
         },
-
         layer: [
           { mark: "line" },
           {
@@ -439,7 +518,6 @@ export function makeSparkline(
           },
         ],
       },
-
       {
         mark: "rule",
         encoding: {
@@ -465,18 +543,25 @@ export function makeSparkline(
   };
 }
 
-export function makeNRTBar(nrt_time_ms, elapsed_time_sec, params) {
-  // Make a bar for NRT time relative to total elapsed time
-  const widthThreshold1 = 15; 
-  const widthThreshold2 = 8;  
-  
-  // Calculate percentage relative to total elapsed time
+export function makeNRTBar(
+  nrt_time_ms: number,
+  elapsed_time_sec: number,
+  params: ChartParams
+): object {
+  const widthThreshold1 = 15;
+  const widthThreshold2 = 8;
+
   const elapsed_time_ms = elapsed_time_sec * 1000;
-  const nrt_percent = elapsed_time_ms > 0 ? (nrt_time_ms / elapsed_time_ms) * 100 : 0;
-  
-  // Use actual NRT time for tooltip
-  let tooltipText = "NRT: " + nrt_percent.toFixed(1) + "% of elapsed time [" + time_consumed_str(nrt_time_ms) + "]";
-  
+  const nrt_percent =
+    elapsed_time_ms > 0 ? (nrt_time_ms / elapsed_time_ms) * 100 : 0;
+
+  const tooltipText =
+    "NRT: " +
+    nrt_percent.toFixed(1) +
+    "% of elapsed time [" +
+    time_consumed_str(nrt_time_ms) +
+    "]";
+
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -548,12 +633,15 @@ export function makeNRTBar(nrt_time_ms, elapsed_time_sec, params) {
   };
 }
 
-export function makeNCNRTPie(nc_time_ms, nrt_time_ms, params) {
-  // Make a pie chart showing NC vs NRT time proportions
+export function makeNCNRTPie(
+  nc_time_ms: number,
+  nrt_time_ms: number,
+  params: ChartParams
+): object {
   const total_time = nc_time_ms + nrt_time_ms;
   const nc_proportion = (nc_time_ms / total_time) * 100;
   const nrt_proportion = (nrt_time_ms / total_time) * 100;
-  
+
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -572,12 +660,22 @@ export function makeNCNRTPie(nc_time_ms, nrt_time_ms, params) {
         {
           category: "NC",
           value: nc_time_ms,
-          c: "NC: " + time_consumed_str(nc_time_ms) + " (" + nc_proportion.toFixed(1) + "%)",
+          c:
+            "NC: " +
+            time_consumed_str(nc_time_ms) +
+            " (" +
+            nc_proportion.toFixed(1) +
+            "%)",
         },
         {
-          category: "NRT", 
+          category: "NRT",
           value: nrt_time_ms,
-          c: "NRT: " + time_consumed_str(nrt_time_ms) + " (" + nrt_proportion.toFixed(1) + "%)",
+          c:
+            "NRT: " +
+            time_consumed_str(nrt_time_ms) +
+            " (" +
+            nrt_proportion.toFixed(1) +
+            "%)",
         },
       ],
     },
@@ -591,9 +689,9 @@ export function makeNCNRTPie(nc_time_ms, nrt_time_ms, params) {
         field: "category",
         type: "nominal",
         legend: false,
-        scale: { 
+        scale: {
           domain: ["NC", "NRT"],
-          range: ["darkorange", "white"] 
+          range: ["darkorange", "white"],
         },
       },
       tooltip: [{ field: "c", type: "nominal", title: "NC vs NRT time" }],
@@ -601,18 +699,25 @@ export function makeNCNRTPie(nc_time_ms, nrt_time_ms, params) {
   };
 }
 
-export function makeNCTimeBar(nc_time_ms, elapsed_time_sec, params) {
-  // Make a bar for NC time relative to total elapsed time
+export function makeNCTimeBar(
+  nc_time_ms: number,
+  elapsed_time_sec: number,
+  params: ChartParams
+): object {
   const widthThreshold1 = 15;
   const widthThreshold2 = 8;
-  
-  // Calculate percentage relative to total elapsed time
+
   const elapsed_time_ms = elapsed_time_sec * 1000;
-  const nc_percent = elapsed_time_ms > 0 ? (nc_time_ms / elapsed_time_ms) * 100 : 0;
-  
-  // Use actual NC time for tooltip
-  let tooltipText = "NC: " + nc_percent.toFixed(1) + "% of elapsed time [" + time_consumed_str(nc_time_ms) + "]";
-  
+  const nc_percent =
+    elapsed_time_ms > 0 ? (nc_time_ms / elapsed_time_ms) * 100 : 0;
+
+  const tooltipText =
+    "NC: " +
+    nc_percent.toFixed(1) +
+    "% of elapsed time [" +
+    time_consumed_str(nc_time_ms) +
+    "]";
+
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
@@ -684,18 +789,22 @@ export function makeNCTimeBar(nc_time_ms, elapsed_time_sec, params) {
   };
 }
 
-export function makeTotalNeuronBar(total_time_ms, elapsed_time_sec, label, color, params) {
-  // Make a bar for total neuron time (NC or NRT) relative to elapsed time
+export function makeTotalNeuronBar(
+  total_time_ms: number,
+  elapsed_time_sec: number,
+  label: string,
+  color: string,
+  params: ChartParams
+): object {
   const widthThreshold1 = 15;
   const widthThreshold2 = 8;
-  
-  // Calculate percentage relative to total elapsed time
+
   const elapsed_time_ms = elapsed_time_sec * 1000;
-  const time_percent = elapsed_time_ms > 0 ? (total_time_ms / elapsed_time_ms) * 100 : 0;
-  
-  // Use actual time for tooltip
-  let tooltipText = `${label}: ${time_percent.toFixed(1)}% of elapsed time [${time_consumed_str(total_time_ms)}]`;
-  
+  const time_percent =
+    elapsed_time_ms > 0 ? (total_time_ms / elapsed_time_ms) * 100 : 0;
+
+  const tooltipText = `${label}: ${time_percent.toFixed(1)}% of elapsed time [${time_consumed_str(total_time_ms)}]`;
+
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     config: {
