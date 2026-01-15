@@ -1130,21 +1130,27 @@ class Scalene:
             self.stop()
             # Stop PyTorch profiler and merge timing data into statistics
             if Scalene.__torch_profiler is not None:
-                Scalene.__torch_profiler.stop()
-                # Merge torch CPU timing into statistics
-                for filename, line_times in Scalene.__torch_profiler.line_times.items():
-                    for lineno, time_us in line_times.items():
-                        # Convert from microseconds to seconds
-                        Scalene.__stats.cpu_stats.torch_cpu_time[Filename(filename)][
-                            LineNumber(lineno)
-                        ] += (time_us / 1_000_000)
-                # Merge torch GPU timing into statistics (when CUDA is available)
-                for filename, line_times in Scalene.__torch_profiler.gpu_line_times.items():
-                    for lineno, time_us in line_times.items():
-                        # Convert from microseconds to seconds
-                        Scalene.__stats.cpu_stats.torch_gpu_time[Filename(filename)][
-                            LineNumber(lineno)
-                        ] += (time_us / 1_000_000)
+                try:
+                    Scalene.__torch_profiler.stop()
+                    # Merge torch CPU timing into statistics
+                    for filename, line_times in Scalene.__torch_profiler.line_times.items():
+                        for lineno, time_us in line_times.items():
+                            # Convert from microseconds to seconds
+                            Scalene.__stats.cpu_stats.torch_cpu_time[Filename(filename)][
+                                LineNumber(lineno)
+                            ] += (time_us / 1_000_000)
+                    # Merge torch GPU timing into statistics (when CUDA is available)
+                    for filename, line_times in Scalene.__torch_profiler.gpu_line_times.items():
+                        for lineno, time_us in line_times.items():
+                            # Convert from microseconds to seconds
+                            Scalene.__stats.cpu_stats.torch_gpu_time[Filename(filename)][
+                                LineNumber(lineno)
+                            ] += (time_us / 1_000_000)
+                except Exception:
+                    # Silently handle any errors during torch profiler cleanup
+                    pass
+                finally:
+                    Scalene.__torch_profiler = None
             if Scalene.__args.memory:
                 # Disable line tracing and clean up tracer resources
                 disable_tracing()

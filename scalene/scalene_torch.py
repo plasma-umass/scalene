@@ -95,6 +95,8 @@ class TorchProfiler:
             pass
         finally:
             self._enabled = False
+            self._gpu_enabled = False
+            self._profiler = None
 
     def _process_events(self) -> None:
         """Extract timing from profiler events and attribute to source lines."""
