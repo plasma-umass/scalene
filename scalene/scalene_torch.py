@@ -8,17 +8,18 @@ See https://github.com/plasma-umass/scalene/issues/908
 """
 
 from collections import defaultdict
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # Check if PyTorch is available at import time
 _torch_available = False
 _cuda_available = False
-_torch = None
+_torch: Any = None
 try:
-    import torch as _torch
+    import torch
 
+    _torch = torch
     _torch_available = True
-    _cuda_available = _torch.cuda.is_available()
+    _cuda_available = torch.cuda.is_available()
 except ImportError:
     pass
 
