@@ -1102,9 +1102,10 @@ class Scalene:
                 Scalene.__invalidate_queue,
                 Scalene._should_trace,
             )
-        # Initialize PyTorch profiler if torch is available
+        # Initialize PyTorch profiler if torch is available and we're not in cpu-only mode
         # This allows accurate attribution of JIT-compiled PyTorch code
-        if is_torch_available():
+        # Skip in cpu-only mode to avoid overhead and cleanup issues with short-running programs
+        if is_torch_available() and not Scalene.__args.cpu:
             Scalene.__torch_profiler = TorchProfiler()
             Scalene.__torch_profiler.start()
 
