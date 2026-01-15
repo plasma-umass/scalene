@@ -1157,9 +1157,8 @@ class Scalene:
                     # to lines based on their PyTorch CPU time. This enables
                     # per-process GPU timing on macOS where per-line GPU timing
                     # isn't available from torch.profiler.
-                    if (
-                        platform.system() == "Darwin"
-                        and hasattr(Scalene.__torch_profiler, "get_mps_total_time")
+                    if platform.system() == "Darwin" and hasattr(
+                        Scalene.__torch_profiler, "get_mps_total_time"
                     ):
                         mps_time = Scalene.__torch_profiler.get_mps_total_time()
                         if mps_time > 0:
