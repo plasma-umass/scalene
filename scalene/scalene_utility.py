@@ -255,6 +255,18 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         "prism_css_text": read_file_content(scalene_dir, "scalene-gui", "prism.css"),
     }
 
+    # Read API keys from environment variables (if set)
+    api_keys = {
+        "openai_api_key": os.environ.get("OPENAI_API_KEY", ""),
+        "anthropic_api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
+        "gemini_api_key": os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", ""),
+        "azure_api_key": os.environ.get("AZURE_OPENAI_API_KEY", ""),
+        "azure_api_url": os.environ.get("AZURE_OPENAI_ENDPOINT", ""),
+        "aws_access_key": os.environ.get("AWS_ACCESS_KEY_ID", ""),
+        "aws_secret_key": os.environ.get("AWS_SECRET_ACCESS_KEY", ""),
+        "aws_region": os.environ.get("AWS_DEFAULT_REGION", "") or os.environ.get("AWS_REGION", ""),
+    }
+
     # Put the profile and everything else into the template.
     environment = Environment(
         loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
@@ -266,6 +278,7 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         prism_css=file_contents["prism_css_text"],
         scalene_version=scalene_version,
         scalene_date=scalene_date,
+        api_keys=api_keys,
     )
 
     # Write the rendered content to the specified output file.

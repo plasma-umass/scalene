@@ -81,6 +81,17 @@
 
     <script>
       const profile = {{ profile }}
+      // API keys from environment variables (if set)
+      const envApiKeys = {
+        openai: "{{ api_keys.openai_api_key | default('', true) }}",
+        anthropic: "{{ api_keys.anthropic_api_key | default('', true) }}",
+        gemini: "{{ api_keys.gemini_api_key | default('', true) }}",
+        azure: "{{ api_keys.azure_api_key | default('', true) }}",
+        azureUrl: "{{ api_keys.azure_api_url | default('', true) }}",
+        awsAccessKey: "{{ api_keys.aws_access_key | default('', true) }}",
+        awsSecretKey: "{{ api_keys.aws_secret_key | default('', true) }}",
+        awsRegion: "{{ api_keys.aws_region | default('', true) }}"
+      };
     </script>
     <script>
         function clickToLoadFile() {
@@ -108,6 +119,7 @@
         <select style="font-size: 0.8rem" id="service-select" class="persistent" onchange="toggleServiceFields()">
           <option value="openai">OpenAI</span></option>
           <option value="anthropic">Anthropic</option>
+          <option value="gemini">Google Gemini</option>
           <option value="amazon">Amazon Bedrock</option>
           <option value="azure-openai">Azure OpenAI</option>
           <option value="local">Local</option>
@@ -240,6 +252,70 @@
       size="22"
       placeholder="(for Anthropic-compatible servers)"
       id="anthropic-custom-url"
+      class="persistent"
+    />
+  </div>
+
+</div>
+
+<!-- Google Gemini API Key Field -->
+<div id="gemini-fields" style="display: none;">
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="gemini-api-key" style="font-size: 0.8rem; width: 150px;">
+      Google <a href="https://aistudio.google.com/apikey">API key</a>:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(Gemini API key)"
+      id="gemini-api-key"
+      class="persistent"
+    />
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="language-model-gemini" style="font-size: 0.8rem; width: 150px;">
+      Language model:
+    </label>
+    <select
+      style="font-size: 0.8rem; flex: 1;"
+      id="language-model-gemini"
+      class="persistent"
+      name="language-model-gemini-label"
+    >
+      <option value="gemini-2.0-flash" selected>Gemini 2.0 Flash</option>
+      <option value="gemini-2.0-flash-thinking-exp">Gemini 2.0 Flash Thinking</option>
+      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+    </select>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="gemini-custom-model" style="font-size: 0.8rem; width: 150px;">
+      Custom model:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(overrides dropdown if set)"
+      id="gemini-custom-model"
+      class="persistent"
+    />
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="gemini-custom-url" style="font-size: 0.8rem; width: 150px;">
+      Custom API URL:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(for Gemini-compatible servers)"
+      id="gemini-custom-url"
       class="persistent"
     />
   </div>

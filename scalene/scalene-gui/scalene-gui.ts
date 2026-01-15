@@ -1319,6 +1319,7 @@ export function toggleServiceFields(): void {
 
   const openaiFields = document.getElementById("openai-fields");
   const anthropicFields = document.getElementById("anthropic-fields");
+  const geminiFields = document.getElementById("gemini-fields");
   const amazonFields = document.getElementById("amazon-fields");
   const localFields = document.getElementById("local-fields");
   const azureFields = document.getElementById("azure-openai-fields");
@@ -1328,6 +1329,9 @@ export function toggleServiceFields(): void {
   }
   if (anthropicFields) {
     anthropicFields.style.display = service === "anthropic" ? "block" : "none";
+  }
+  if (geminiFields) {
+    geminiFields.style.display = service === "gemini" ? "block" : "none";
   }
   if (amazonFields) {
     amazonFields.style.display = service === "amazon" ? "block" : "none";
