@@ -629,7 +629,11 @@ class Scalene:
         # made the object held in `pywhere.cpp` out of date, and caused the profiler to not update the last profiled line.
         Scalene.__last_profiled[:] = [
             Filename(f.f_code.co_filename),
-            LineNumber(f.f_lineno) if f.f_lineno is not None else LineNumber(f.f_code.co_firstlineno),
+            (
+                LineNumber(f.f_lineno)
+                if f.f_lineno is not None
+                else LineNumber(f.f_code.co_firstlineno)
+            ),
             ByteCodeIndex(f.f_lasti),
         ]
         Scalene.__alloc_sigq.put([0])
