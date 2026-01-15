@@ -96,6 +96,7 @@ from scalene.scalene_statistics import (
     ProfilingSample,
     ScaleneStatistics,
 )
+from scalene.scalene_torch import TorchProfiler, is_torch_available
 from scalene.scalene_tracer import (
     ScaleneTracer,
     cleanup_tracer,
@@ -117,7 +118,6 @@ from scalene.scalene_utility import (
     patch_module_functions_with_signal_blocking,
 )
 from scalene.time_info import TimeInfo, get_times
-from scalene.scalene_torch import TorchProfiler, is_torch_available
 
 console = Console(style="white on blue")
 
