@@ -62046,7 +62046,7 @@ ${currentIndent}`
     const customModelElement = document.getElementById("anthropic-custom-model");
     const customModel = customModelElement?.value?.trim() || "";
     const modelElement = document.getElementById("language-model-anthropic");
-    const model = customModel || modelElement?.value || "claude-sonnet-4-20250514";
+    const model = customModel || modelElement?.value || "claude-sonnet-4-5-20250929";
     const body = JSON.stringify({
       model,
       max_tokens: 4096,
