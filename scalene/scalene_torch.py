@@ -122,14 +122,20 @@ class TorchProfiler:
                             if filename != "<string>":
                                 # Attribute CPU time (in microseconds) to this line
                                 if hasattr(event, "cpu_time_total"):
-                                    self.line_times[filename][lineno] += event.cpu_time_total
+                                    self.line_times[filename][
+                                        lineno
+                                    ] += event.cpu_time_total
 
                                 # Attribute CUDA/GPU time if available
                                 # cuda_time_total is the total GPU kernel time in microseconds
-                                if self._gpu_enabled and hasattr(event, "cuda_time_total"):
+                                if self._gpu_enabled and hasattr(
+                                    event, "cuda_time_total"
+                                ):
                                     cuda_time = event.cuda_time_total
                                     if cuda_time > 0:
-                                        self.gpu_line_times[filename][lineno] += cuda_time
+                                        self.gpu_line_times[filename][
+                                            lineno
+                                        ] += cuda_time
         except Exception:
             # Silently handle any errors during event processing
             pass

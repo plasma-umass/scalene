@@ -204,7 +204,11 @@ class ScaleneJSON:
         torch_gpu_time_sec = stats.cpu_stats.torch_gpu_time[fname][line_no]
         has_torch_timing = torch_cpu_time_sec > 0 or torch_gpu_time_sec > 0
 
-        if not force_print and not profile_this_code(fname, line_no) and not has_torch_timing:
+        if (
+            not force_print
+            and not profile_this_code(fname, line_no)
+            and not has_torch_timing
+        ):
             return {
                 "lineno": line_no,
                 "line": line,
@@ -304,7 +308,7 @@ class ScaleneJSON:
         # the signal sampler never sees. We only add torch timing when there are
         # no signal samples to avoid double-counting (the call site already
         # accounts for the time spent in the JIT function via signal sampling).
-        has_signal_samples = (n_cpu_samples_c > 0 or n_cpu_samples_python > 0)
+        has_signal_samples = n_cpu_samples_c > 0 or n_cpu_samples_python > 0
         if stats.elapsed_time > 0 and torch_cpu_time_sec > 0 and not has_signal_samples:
             torch_cpu_percent = (torch_cpu_time_sec / stats.elapsed_time) * 100
             n_cpu_percent_c = min(torch_cpu_percent, 100.0)
@@ -312,7 +316,11 @@ class ScaleneJSON:
         # Add PyTorch GPU timing for lines that have NO signal-based GPU samples.
         # Similar to CPU timing, this attributes GPU time to JIT-compiled code.
         has_gpu_signal_samples = n_gpu_samples > 0
-        if stats.elapsed_time > 0 and torch_gpu_time_sec > 0 and not has_gpu_signal_samples:
+        if (
+            stats.elapsed_time > 0
+            and torch_gpu_time_sec > 0
+            and not has_gpu_signal_samples
+        ):
             torch_gpu_percent = (torch_gpu_time_sec / stats.elapsed_time) * 100
             n_gpu_percent = min(torch_gpu_percent, 100.0)
 
@@ -623,7 +631,9 @@ class ScaleneJSON:
             # This handles cases where torch profiler timing overlaps with
             # signal-sampled timing (e.g., JIT function internals + call site)
             total_cpu = sum(
-                p.get("n_cpu_percent_c", 0) + p.get("n_cpu_percent_python", 0) + p.get("n_sys_percent", 0)
+                p.get("n_cpu_percent_c", 0)
+                + p.get("n_cpu_percent_python", 0)
+                + p.get("n_sys_percent", 0)
                 for p in line_profiles
             )
             if total_cpu > 100.0:
