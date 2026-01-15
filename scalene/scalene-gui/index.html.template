@@ -202,6 +202,27 @@
         font-style: italic;
         margin-top: 0.75rem;
     }
+    .btn-refresh {
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        background: #f8f9fa;
+        cursor: pointer;
+        font-size: 0.75rem;
+        color: #6c757d;
+        flex-shrink: 0;
+    }
+    .btn-refresh:hover {
+        background: #e9ecef;
+        color: #495057;
+    }
+    .btn-refresh:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+    .btn-refresh.loading {
+        color: #0d6efd;
+    }
     </style>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-4JXPHEBMTY"></script>
@@ -267,7 +288,7 @@
           <div class="form-row">
             <label for="api-key"><a href="https://platform.openai.com/api-keys" target="_blank">API key</a>:</label>
             <div class="input-group">
-              <input type="password" id="api-key" placeholder="sk-..." autocomplete="off" oninput="checkApiKey(this.value)" />
+              <input type="password" id="api-key" placeholder="sk-..." autocomplete="one-time-code" oninput="checkApiKey(this.value)" />
               <button type="button" class="btn-toggle" onclick="togglePassword(this)">Show</button>
             </div>
             <span id="valid-api-key" class="validation-icon"></span>
@@ -280,6 +301,7 @@
               <option value="gpt-4o">GPT-4o</option>
               <option value="o3-mini">o3-mini</option>
             </select>
+            <button type="button" class="btn-refresh" onclick="refreshOpenAIModels()" title="Refresh model list">&#8635;</button>
           </div>
           <div class="advanced-toggle" onclick="toggleAdvanced(this)">&#9654; Advanced options</div>
           <div class="advanced-options">
@@ -299,7 +321,7 @@
           <div class="form-row">
             <label for="anthropic-api-key"><a href="https://console.anthropic.com/" target="_blank">API key</a>:</label>
             <div class="input-group">
-              <input type="password" id="anthropic-api-key" class="persistent" placeholder="sk-ant-..." autocomplete="off" />
+              <input type="password" id="anthropic-api-key" class="persistent" placeholder="sk-ant-..." autocomplete="one-time-code" />
               <button type="button" class="btn-toggle" onclick="togglePassword(this)">Show</button>
             </div>
           </div>
@@ -329,7 +351,7 @@
           <div class="form-row">
             <label for="gemini-api-key"><a href="https://aistudio.google.com/apikey" target="_blank">API key</a>:</label>
             <div class="input-group">
-              <input type="password" id="gemini-api-key" class="persistent" placeholder="AIza..." autocomplete="off" />
+              <input type="password" id="gemini-api-key" class="persistent" placeholder="AIza..." autocomplete="one-time-code" />
               <button type="button" class="btn-toggle" onclick="togglePassword(this)">Show</button>
             </div>
           </div>
@@ -341,6 +363,7 @@
               <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
               <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
             </select>
+            <button type="button" class="btn-refresh" onclick="refreshGeminiModels()" title="Refresh model list">&#8635;</button>
           </div>
           <div class="advanced-toggle" onclick="toggleAdvanced(this)">&#9654; Advanced options</div>
           <div class="advanced-options">
@@ -364,7 +387,7 @@
           <div class="form-row">
             <label for="aws-secret-key">Secret Key:</label>
             <div class="input-group">
-              <input type="password" id="aws-secret-key" class="persistent" placeholder="secret access key" autocomplete="off" />
+              <input type="password" id="aws-secret-key" class="persistent" placeholder="secret access key" autocomplete="one-time-code" />
               <button type="button" class="btn-toggle" onclick="togglePassword(this)">Show</button>
             </div>
           </div>
@@ -387,7 +410,7 @@
           <div class="form-row">
             <label for="azure-api-key">API key:</label>
             <div class="input-group">
-              <input type="password" id="azure-api-key" class="persistent" placeholder="Azure API key" autocomplete="off" />
+              <input type="password" id="azure-api-key" class="persistent" placeholder="Azure API key" autocomplete="one-time-code" />
               <button type="button" class="btn-toggle" onclick="togglePassword(this)">Show</button>
             </div>
           </div>

@@ -22,7 +22,8 @@ import {
   WhiteLightning,
   WhiteExplosion,
 } from "./gui-elements";
-import { checkApiKey } from "./openai";
+import { checkApiKey, fetchOpenAIModels } from "./openai";
+import { fetchGeminiModels } from "./gemini";
 import { fetchModelNames } from "./ollama";
 import { observeDOM, processPersistentElements } from "./persistence";
 
@@ -1359,6 +1360,107 @@ export function toggleAdvanced(toggle: HTMLElement): void {
   }
 }
 
+// Helper to populate a select element with model options
+function populateModelSelect(
+  selectId: string,
+  models: string[],
+  currentValue?: string
+): void {
+  const select = document.getElementById(selectId) as HTMLSelectElement | null;
+  if (!select || models.length === 0) return;
+
+  // Save current selection
+  const savedValue = currentValue || select.value;
+
+  // Clear existing options
+  select.innerHTML = "";
+
+  // Add new options
+  models.forEach((model) => {
+    const option = document.createElement("option");
+    option.value = model;
+    option.textContent = model;
+    select.appendChild(option);
+  });
+
+  // Restore selection if it exists in the new list
+  if (models.includes(savedValue)) {
+    select.value = savedValue;
+  }
+}
+
+// Refresh OpenAI models from API
+export async function refreshOpenAIModels(): Promise<void> {
+  const apiKeyElement = document.getElementById("api-key") as HTMLInputElement | null;
+  const apiKey = apiKeyElement?.value ?? "";
+
+  if (!apiKey) {
+    alert("Please enter an OpenAI API key first.");
+    return;
+  }
+
+  // Find the refresh button and show loading state
+  const buttons = document.querySelectorAll("#openai-fields .btn-refresh");
+  buttons.forEach((btn) => {
+    btn.classList.add("loading");
+    (btn as HTMLButtonElement).disabled = true;
+    btn.textContent = "...";
+  });
+
+  try {
+    const models = await fetchOpenAIModels(apiKey);
+    if (models.length > 0) {
+      populateModelSelect("language-model-openai", models);
+    } else {
+      console.log("No models returned, keeping defaults");
+    }
+  } catch (error) {
+    console.error("Failed to fetch OpenAI models:", error);
+  } finally {
+    buttons.forEach((btn) => {
+      btn.classList.remove("loading");
+      (btn as HTMLButtonElement).disabled = false;
+      btn.innerHTML = "&#8635;";
+    });
+  }
+}
+
+// Refresh Gemini models from API
+export async function refreshGeminiModels(): Promise<void> {
+  const apiKeyElement = document.getElementById("gemini-api-key") as HTMLInputElement | null;
+  const apiKey = apiKeyElement?.value ?? "";
+
+  if (!apiKey) {
+    alert("Please enter a Gemini API key first.");
+    return;
+  }
+
+  // Find the refresh button and show loading state
+  const buttons = document.querySelectorAll("#gemini-fields .btn-refresh");
+  buttons.forEach((btn) => {
+    btn.classList.add("loading");
+    (btn as HTMLButtonElement).disabled = true;
+    btn.textContent = "...";
+  });
+
+  try {
+    const models = await fetchGeminiModels(apiKey);
+    if (models.length > 0) {
+      populateModelSelect("language-model-gemini", models);
+    } else {
+      console.log("No models returned, keeping defaults");
+    }
+  } catch (error) {
+    console.error("Failed to fetch Gemini models:", error);
+  } finally {
+    buttons.forEach((btn) => {
+      btn.classList.remove("loading");
+      (btn as HTMLButtonElement).disabled = false;
+      btn.innerHTML = "&#8635;";
+    });
+  }
+}
+
 function revealInstallMessage(): void {
   const installMsg = document.getElementById("install-models-message");
   const localModelsList = document.getElementById("local-models-list");
@@ -1493,3 +1595,5 @@ setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
 (window as unknown as Record<string, unknown>).toggleServiceFields = toggleServiceFields;
 (window as unknown as Record<string, unknown>).togglePassword = togglePassword;
 (window as unknown as Record<string, unknown>).toggleAdvanced = toggleAdvanced;
+(window as unknown as Record<string, unknown>).refreshOpenAIModels = refreshOpenAIModels;
+(window as unknown as Record<string, unknown>).refreshGeminiModels = refreshGeminiModels;

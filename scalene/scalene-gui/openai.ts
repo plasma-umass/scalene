@@ -15,6 +15,15 @@ interface OpenAIResponse extends OpenAIErrorResponse {
   choices?: OpenAIChoice[];
 }
 
+interface OpenAIModel {
+  id: string;
+  owned_by: string;
+}
+
+interface OpenAIModelsResponse extends OpenAIErrorResponse {
+  data?: OpenAIModel[];
+}
+
 async function tryApi(apiKey: string): Promise<Response> {
   const response = await fetch("https://api.openai.com/v1/completions", {
     method: "GET",
@@ -42,6 +51,49 @@ export async function isValidApiKey(apiKey: string): Promise<boolean> {
     return false;
   } else {
     return true;
+  }
+}
+
+// Fetch available models from OpenAI API
+export async function fetchOpenAIModels(apiKey: string): Promise<string[]> {
+  if (!apiKey) return [];
+
+  // Check for custom URL
+  const customUrlElement = document.getElementById("openai-custom-url") as HTMLInputElement | null;
+  const customUrl = customUrlElement?.value?.trim() || "";
+  const baseUrl = customUrl || "https://api.openai.com/v1";
+  const endpoint = `${baseUrl}/models`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+
+    const data: OpenAIModelsResponse = await response.json();
+    if (data.error || !data.data) {
+      console.error("Failed to fetch OpenAI models:", data.error);
+      return [];
+    }
+
+    // Filter for chat models and sort alphabetically
+    const chatModels = data.data
+      .map((m) => m.id)
+      .filter((id) =>
+        id.includes("gpt") ||
+        id.includes("o1") ||
+        id.includes("o3") ||
+        id.includes("o4")
+      )
+      .filter((id) => !id.includes("instruct") && !id.includes("realtime") && !id.includes("audio"))
+      .sort();
+
+    return chatModels;
+  } catch (error) {
+    console.error("Error fetching OpenAI models:", error);
+    return [];
   }
 }
 
