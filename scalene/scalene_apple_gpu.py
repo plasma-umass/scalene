@@ -157,7 +157,12 @@ def _read_perf_stats(service_obj: io_registry_entry_t) -> Tuple[float, float]:
 
 
 class ScaleneAppleGPU(ScaleneAccelerator):
-    """Wrapper for Apple integrated GPU stats, using direct IOKit calls."""
+    """Wrapper for Apple integrated GPU stats, using direct IOKit calls.
+
+    For accurate per-process GPU timing, this class integrates with PyTorch's
+    MPS timing. Without PyTorch MPS, GPU metrics are not reported to avoid
+    showing misleading system-wide metrics.
+    """
 
     def __init__(self) -> None:
         assert platform.system() == "Darwin", "Only works on macOS."
@@ -165,6 +170,9 @@ class ScaleneAppleGPU(ScaleneAccelerator):
         self._service_obj = _find_apple_gpu_service()
         # Cache the number of cores:
         self._core_count = _read_gpu_core_count(self._service_obj)
+        # Per-process MPS timing from PyTorch (when available)
+        self._torch_mps_time: float = 0.0
+        self._has_per_process_timing: bool = False
 
     def gpu_device(self) -> str:
         return "GPU"
@@ -180,13 +188,40 @@ class ScaleneAppleGPU(ScaleneAccelerator):
     def get_num_cores(self) -> int:
         return self._core_count
 
+    def set_torch_mps_time(self, time_seconds: float) -> None:
+        """Set per-process MPS GPU time from PyTorch profiler.
+
+        This is called by the profiler after the torch profiler stops,
+        passing the MPS GPU time measured via torch.mps.synchronize().
+        """
+        self._torch_mps_time = time_seconds
+        self._has_per_process_timing = time_seconds > 0
+
+    def has_per_process_timing(self) -> bool:
+        """Return True if per-process GPU timing is available.
+
+        Per-process timing requires PyTorch MPS to be used by the profiled program.
+        """
+        return self._has_per_process_timing
+
     def get_stats(self) -> Tuple[float, float]:
-        """Return (util%, memory_in_use_MB)."""
+        """Return (gpu_time_seconds, memory_in_use_MB).
+
+        Only returns non-zero values when per-process MPS timing is available.
+        This avoids showing misleading system-wide metrics for non-GPU programs.
+        """
         if not self.has_gpu():
             return (0.0, 0.0)
+
+        # Only report GPU stats when we have per-process timing
+        # (i.e., the program actually used PyTorch MPS)
+        if not self._has_per_process_timing:
+            return (0.0, 0.0)
+
         try:
-            util, mem = _read_perf_stats(self._service_obj)
-            return (util, mem)
+            # Memory from IOKit (useful as context when GPU is being used)
+            _, mem = _read_perf_stats(self._service_obj)
+            return (self._torch_mps_time, mem)
         except Exception:
             return (0.0, 0.0)
 

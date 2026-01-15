@@ -7,12 +7,14 @@ JIT-compiled PyTorch code on both CPU and GPU.
 See https://github.com/plasma-umass/scalene/issues/908
 """
 
+import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
 # Check if PyTorch is available at import time
 _torch_available = False
 _cuda_available = False
+_mps_available = False
 _torch: Any = None
 try:
     import torch
@@ -20,6 +22,9 @@ try:
     _torch = torch
     _torch_available = True
     _cuda_available = torch.cuda.is_available()
+    # Check for MPS (Apple Silicon GPU) availability
+    if hasattr(torch.backends, "mps"):
+        _mps_available = torch.backends.mps.is_available()
 except ImportError:
     pass
 
@@ -32,6 +37,11 @@ def is_torch_available() -> bool:
 def is_cuda_available() -> bool:
     """Check if CUDA is available for GPU profiling."""
     return _cuda_available
+
+
+def is_mps_available() -> bool:
+    """Check if MPS (Apple Silicon GPU) is available for GPU profiling."""
+    return _mps_available
 
 
 class TorchProfiler:
@@ -47,6 +57,10 @@ class TorchProfiler:
         self._profiler: Any = None
         self._enabled: bool = False
         self._gpu_enabled: bool = False
+        # MPS (Apple Silicon GPU) timing
+        self._mps_enabled: bool = False
+        self._mps_start_time: float = 0.0
+        self._mps_total_time: float = 0.0  # Total MPS GPU time in seconds
         # Dict[filename, Dict[lineno, total_time_us]] for CPU time
         self.line_times: Dict[str, Dict[int, float]] = defaultdict(
             lambda: defaultdict(float)
@@ -77,16 +91,38 @@ class TorchProfiler:
             )
             self._profiler.__enter__()
             self._enabled = True
+
+            # Start MPS timing if available (and CUDA is not)
+            # This gives us per-process GPU time on Apple Silicon
+            if _mps_available and not _cuda_available:
+                try:
+                    _torch.mps.synchronize()  # Ensure GPU is idle before starting
+                    self._mps_start_time = time.perf_counter()
+                    self._mps_enabled = True
+                except Exception:
+                    self._mps_enabled = False
         except Exception:
             # If profiler fails to start, just disable it
             self._enabled = False
             self._gpu_enabled = False
+            self._mps_enabled = False
             self._profiler = None
 
     def stop(self) -> None:
         """Stop the PyTorch profiler and process collected events."""
         if not self._enabled or self._profiler is None:
             return
+
+        # Capture MPS timing before stopping profiler
+        if self._mps_enabled:
+            try:
+                _torch.mps.synchronize()  # Wait for all GPU work to complete
+                self._mps_total_time = time.perf_counter() - self._mps_start_time
+            except Exception:
+                self._mps_total_time = 0.0
+            finally:
+                self._mps_enabled = False
+
         try:
             self._profiler.__exit__(None, None, None)
             self._process_events()
@@ -152,7 +188,20 @@ class TorchProfiler:
         """Check if any GPU timing was captured."""
         return len(self.gpu_line_times) > 0
 
+    def get_mps_total_time(self) -> float:
+        """Get total MPS (Apple Silicon GPU) time in seconds.
+
+        This is the wall-clock time during which GPU work was performed,
+        providing per-process GPU timing on Apple Silicon.
+        """
+        return self._mps_total_time
+
+    def has_mps_timing(self) -> bool:
+        """Check if MPS timing was captured."""
+        return self._mps_total_time > 0
+
     def clear(self) -> None:
         """Clear all collected timing data."""
         self.line_times.clear()
         self.gpu_line_times.clear()
+        self._mps_total_time = 0.0
