@@ -151,6 +151,34 @@
     </select>
   </div>
 
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="openai-custom-model" style="font-size: 0.8rem; width: 150px;">
+      Custom model:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(overrides dropdown if set)"
+      id="openai-custom-model"
+      class="persistent"
+    />
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="openai-custom-url" style="font-size: 0.8rem; width: 150px;">
+      Custom API URL:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(for OpenAI-compatible servers)"
+      id="openai-custom-url"
+      class="persistent"
+    />
+  </div>
+
 </div>
 
 <!-- Azure OpenAI API Key Field -->
