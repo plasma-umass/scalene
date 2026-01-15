@@ -117,7 +117,7 @@ class ScaleneCPUProfiler:
 
         enter_function_meta(main_thread_frame, should_trace, self._stats)
         fname = Filename(main_thread_frame.f_code.co_filename)
-        lineno = LineNumber(main_thread_frame.f_lineno)
+        lineno = LineNumber(main_thread_frame.f_lineno) if main_thread_frame.f_lineno is not None else LineNumber(main_thread_frame.f_code.co_firstlineno)
 
         main_tid = cast(int, threading.main_thread().ident)
         if not is_thread_sleeping[main_tid]:
@@ -150,7 +150,7 @@ class ScaleneCPUProfiler:
             )
 
             fname = Filename(frame.f_code.co_filename)
-            lineno = LineNumber(frame.f_lineno)
+            lineno = LineNumber(frame.f_lineno) if frame.f_lineno is not None else LineNumber(frame.f_code.co_firstlineno)
             enter_function_meta(frame, should_trace, self._stats)
 
             if is_thread_sleeping[tident]:

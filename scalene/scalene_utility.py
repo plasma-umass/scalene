@@ -32,7 +32,7 @@ def enter_function_meta(
 ) -> None:
     """Update tracking info so we can correctly report line number info later."""
     fname = Filename(frame.f_code.co_filename)
-    lineno = LineNumber(frame.f_lineno)
+    lineno = LineNumber(frame.f_lineno) if frame.f_lineno is not None else LineNumber(frame.f_code.co_firstlineno)
 
     f = frame
     try:
@@ -134,7 +134,7 @@ def add_stack(
                 StackFrame(
                     filename=str(f.f_code.co_filename),
                     function_name=str(get_fully_qualified_name(f)),
-                    line_number=int(f.f_lineno),
+                    line_number=int(f.f_lineno) if f.f_lineno is not None else int(f.f_code.co_firstlineno),
                 ),
             )
         f = f.f_back
