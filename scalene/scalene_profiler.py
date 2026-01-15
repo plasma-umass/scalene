@@ -1166,10 +1166,10 @@ class Scalene:
                             # Calculate total torch CPU time across all lines
                             total_torch_cpu_time = 0.0
                             for (
-                                filename,
+                                _filename,
                                 line_times,
                             ) in Scalene.__torch_profiler.line_times.items():
-                                for lineno, time_us in line_times.items():
+                                for _lineno, time_us in line_times.items():
                                     total_torch_cpu_time += time_us
                             # Distribute MPS time proportionally to torch CPU time
                             if total_torch_cpu_time > 0:
