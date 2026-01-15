@@ -1,3 +1,27 @@
+// Declare envApiKeys as a global variable that may be injected by the template
+declare const envApiKeys: {
+  openai?: string;
+  anthropic?: string;
+  gemini?: string;
+  azure?: string;
+  azureUrl?: string;
+  awsAccessKey?: string;
+  awsSecretKey?: string;
+  awsRegion?: string;
+} | undefined;
+
+// Map element IDs to their corresponding environment variable keys
+const envKeyMap: Record<string, keyof NonNullable<typeof envApiKeys>> = {
+  "api-key": "openai",
+  "anthropic-api-key": "anthropic",
+  "gemini-api-key": "gemini",
+  "azure-api-key": "azure",
+  "azure-api-url": "azureUrl",
+  "aws-access-key": "awsAccessKey",
+  "aws-secret-key": "awsSecretKey",
+  "aws-region": "awsRegion",
+};
+
 function restoreState(el: HTMLInputElement): void {
   const savedValue = localStorage.getItem(el.id);
 
@@ -10,6 +34,12 @@ function restoreState(el: HTMLInputElement): void {
       default:
         el.value = savedValue;
         break;
+    }
+  } else {
+    // If no localStorage value, check for environment variable fallback
+    const envKey = envKeyMap[el.id];
+    if (envKey && typeof envApiKeys !== "undefined" && envApiKeys[envKey]) {
+      el.value = envApiKeys[envKey] as string;
     }
   }
 }
