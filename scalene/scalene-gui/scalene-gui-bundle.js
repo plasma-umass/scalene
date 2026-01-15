@@ -69741,7 +69741,7 @@ ${toHex(hashedRequest)}`;
 
   // azure.ts
   async function sendPromptToAzureOpenAI(prompt, apiKey, apiUrl, aiModel) {
-    const apiVersionElement = document.getElementById("azure-api-model-version");
+    const apiVersionElement = document.getElementById("azure-api-version");
     const apiVersion = apiVersionElement?.value ?? "2024-02-15-preview";
     const endpoint = `${apiUrl}/openai/deployments/${aiModel}/chat/completions?api-version=${apiVersion}`;
     const body = JSON.stringify({
@@ -70662,9 +70662,11 @@ Your output should only consist of valid Python code. Output the resulting Pytho
         console.log("Running " + aiService);
         console.log(prompt);
         const azureUrlElement = document.getElementById("azure-api-url");
-        const azureModelElement = document.getElementById("azure-api-model");
+        const azureCustomModelElement = document.getElementById("azure-custom-model");
+        const azureModelSelectElement = document.getElementById("language-model-azure");
         const azureOpenAiEndpoint = azureUrlElement?.value ?? "";
-        const azureOpenAiModel = azureModelElement?.value ?? "";
+        const azureCustomModel = azureCustomModelElement?.value?.trim() || "";
+        const azureOpenAiModel = azureCustomModel || azureModelSelectElement?.value || "gpt-5.2";
         const result = await sendPromptToAzureOpenAI(
           prompt,
           apiKey,

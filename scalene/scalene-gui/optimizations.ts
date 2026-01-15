@@ -326,10 +326,12 @@ export async function optimizeCode(
       console.log("Running " + aiService);
       console.log(prompt);
       const azureUrlElement = document.getElementById("azure-api-url") as HTMLInputElement | null;
-      const azureModelElement = document.getElementById("azure-api-model") as HTMLInputElement | null;
+      const azureCustomModelElement = document.getElementById("azure-custom-model") as HTMLInputElement | null;
+      const azureModelSelectElement = document.getElementById("language-model-azure") as HTMLSelectElement | null;
 
       const azureOpenAiEndpoint = azureUrlElement?.value ?? "";
-      const azureOpenAiModel = azureModelElement?.value ?? "";
+      const azureCustomModel = azureCustomModelElement?.value?.trim() || "";
+      const azureOpenAiModel = azureCustomModel || azureModelSelectElement?.value || "gpt-5.2";
       const result = await sendPromptToAzureOpenAI(
         prompt,
         apiKey,

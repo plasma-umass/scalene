@@ -257,40 +257,68 @@
       size="22"
       placeholder="(Azure OpenAI API key)"
       id="azure-api-key"
+      class="persistent"
     />
-    <span id="valid-api-key"></span>
   </div>
 
   <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="azure-api-url" style="font-size: 0.8rem; width: 150px;">API URL Azure Open AI:</label>
+    <label for="azure-api-url" style="font-size: 0.8rem; width: 150px;">API URL:</label>
     <input
       type="text"
       style="font-size: 0.8rem; flex: 1;"
       size="22"
-      placeholder="(Azure OpenAI API URL)"
+      placeholder="https://YOUR-RESOURCE.openai.azure.com"
       id="azure-api-url"
+      class="persistent"
     />
   </div>
 
   <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="azure-api-model" style="font-size: 0.8rem; width: 150px;">Language model:</label>
+    <label for="language-model-azure" style="font-size: 0.8rem; width: 150px;">
+      Language model:
+    </label>
+    <select
+      style="font-size: 0.8rem; flex: 1;"
+      id="language-model-azure"
+      class="persistent"
+      name="language-model-azure-label"
+    >
+      <option value="gpt-5.2" selected>GPT-5.2</option>
+      <option value="gpt-5.1">GPT-5.1</option>
+      <option value="gpt-5">GPT-5</option>
+      <option value="gpt-5-mini">GPT-5 mini</option>
+      <option value="gpt-4.1">GPT-4.1</option>
+      <option value="gpt-4.1-mini">GPT-4.1 mini</option>
+      <option value="gpt-4o">GPT-4o</option>
+      <option value="o4-mini">o4-mini (reasoning)</option>
+      <option value="o3-mini">o3-mini (reasoning)</option>
+    </select>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="azure-custom-model" style="font-size: 0.8rem; width: 150px;">
+      Custom model:
+    </label>
     <input
       type="text"
       style="font-size: 0.8rem; flex: 1;"
       size="22"
-      placeholder="(Azure OpenAI API Model)"
-      id="azure-api-model"
+      placeholder="(overrides dropdown if set)"
+      id="azure-custom-model"
+      class="persistent"
     />
   </div>
 
   <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
-    <label for="azure-api-model-version" style="font-size: 0.8rem; width: 150px;">API Version:</label>
+    <label for="azure-api-version" style="font-size: 0.8rem; width: 150px;">API Version:</label>
     <input
       type="text"
       style="font-size: 0.8rem; flex: 1;"
       size="22"
-      placeholder="(Azure OpenAI API Version)"
-      id="azure-api-model-version"
+      placeholder="2024-02-15-preview"
+      value="2024-02-15-preview"
+      id="azure-api-version"
+      class="persistent"
     />
   </div>
 

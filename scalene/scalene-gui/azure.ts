@@ -17,7 +17,7 @@ export async function sendPromptToAzureOpenAI(
   apiUrl: string,
   aiModel: string
 ): Promise<string> {
-  const apiVersionElement = document.getElementById("azure-api-model-version") as HTMLInputElement | null;
+  const apiVersionElement = document.getElementById("azure-api-version") as HTMLInputElement | null;
   const apiVersion = apiVersionElement?.value ?? "2024-02-15-preview";
   const endpoint = `${apiUrl}/openai/deployments/${aiModel}/chat/completions?api-version=${apiVersion}`;
 
