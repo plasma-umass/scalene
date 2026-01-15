@@ -57,6 +57,7 @@ jobs:
     - name: install test dependencies
       run: |
         python3 -m pip install pytest pytest-asyncio hypothesis
+        python3 -m pip install torch --index-url https://download.pytorch.org/whl/cpu
         python3 -m pip install .
 
     - name: run tests

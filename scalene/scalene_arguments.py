@@ -49,6 +49,8 @@ class ScaleneArgumentsDict(TypedDict, total=False):
     use_legacy_tracer: bool
     # Use Python callback for sys.monitoring instead of C callback (Python 3.13+)
     use_python_callback: bool
+    # Disable PyTorch and JAX JIT for Python-level profiling (may break torch.jit.load)
+    disable_jit: bool
 
 
 def _set_defaults() -> ScaleneArgumentsDict:
@@ -81,6 +83,7 @@ def _set_defaults() -> ScaleneArgumentsDict:
         "cli": False,
         "use_legacy_tracer": False,
         "use_python_callback": False,
+        "disable_jit": False,
     }
 
 

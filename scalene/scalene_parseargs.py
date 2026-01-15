@@ -151,6 +151,9 @@ class ScaleneParseArgs:
         "memory_leak_detector": "memory_leak_detector",
         "profile-system-libraries": "profile_system_libraries",
         "profile_system_libraries": "profile_system_libraries",
+        # JIT control
+        "disable-jit": "disable_jit",
+        "disable_jit": "disable_jit",
         # On/off
         "on": "on",
         "off": "off",
@@ -486,6 +489,17 @@ class ScaleneParseArgs:
             default=defaults.use_python_callback,
             help=(
                 "use Python callback for sys.monitoring instead of C callback (Python 3.13+)"
+                if show_advanced
+                else advanced_help
+            ),
+        )
+        parser.add_argument(
+            "--disable-jit",
+            dest="disable_jit",
+            action="store_true",
+            default=defaults.disable_jit,
+            help=(
+                "disable PyTorch and JAX JIT for Python-level profiling (may break torch.jit.load)"
                 if show_advanced
                 else advanced_help
             ),
@@ -1161,6 +1175,8 @@ examples:
             args.use_legacy_tracer = defaults.use_legacy_tracer
         if not hasattr(args, "use_python_callback"):
             args.use_python_callback = defaults.use_python_callback
+        if not hasattr(args, "disable_jit"):
+            args.disable_jit = defaults.disable_jit
 
         # Validate file/directory arguments
         if args.outfile and os.path.isdir(args.outfile):

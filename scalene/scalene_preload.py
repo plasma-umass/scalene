@@ -19,25 +19,15 @@ class ScalenePreload:
             "SCALENE_ALLOCATION_SAMPLING_WINDOW": str(args.allocation_sampling_window)
         }
 
-        # Disable JITting in PyTorch and JAX to improve profiling,
-        # unless the environment variables are already set.
-        # JAX_DISABLE_JIT: https://jax.readthedocs.io/en/latest/debugging/flags.html#id1
-        # PYTORCH_JIT: https://pytorch.org/docs/stable/jit.html#disable-jit-for-debugging
-        jit_flags = [
-            ("JAX_DISABLE_JIT", "1"),  # truthy => disable JIT
-            ("PYTORCH_JIT", "0"),
-        ]  # falsy => disable JIT
-
-        try:
-            # If we are running on Neuron, we don't disable the JITs
-            # because it leads to unacceptably high overheads.
-            from scalene.scalene_neuron import ScaleneNeuron
-
-            accelerator = ScaleneNeuron()
-            on_neuron = accelerator.has_gpu()
-        except Exception:
-            on_neuron = False
-        if not on_neuron:
+        # JIT disabling is opt-in via --disable-jit flag.
+        # See https://github.com/plasma-umass/scalene/issues/908
+        # Disabling JIT allows for more accurate Python-level profiling
+        # but breaks torch.jit.load() and similar functionality.
+        if hasattr(args, "disable_jit") and args.disable_jit:
+            jit_flags = [
+                ("JAX_DISABLE_JIT", "1"),  # truthy => disable JIT
+                ("PYTORCH_JIT", "0"),  # falsy => disable JIT
+            ]
             for name, val in jit_flags:
                 if name not in os.environ:
                     env[name] = val
