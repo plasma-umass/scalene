@@ -107,6 +107,7 @@
         <label for="service-select" style="font-size: 0.8rem">AI service provider:</label>
         <select style="font-size: 0.8rem" id="service-select" class="persistent" onchange="toggleServiceFields()">
           <option value="openai">OpenAI</span></option>
+          <option value="anthropic">Anthropic</option>
           <option value="amazon">Amazon Bedrock</option>
           <option value="azure-openai">Azure OpenAI</option>
           <option value="local">Local</option>
@@ -175,6 +176,71 @@
       size="22"
       placeholder="(for OpenAI-compatible servers)"
       id="openai-custom-url"
+      class="persistent"
+    />
+  </div>
+
+</div>
+
+<!-- Anthropic API Key Field -->
+<div id="anthropic-fields" style="display: none;">
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="anthropic-api-key" style="font-size: 0.8rem; width: 150px;">
+      Anthropic <a href="https://console.anthropic.com/">API key</a>:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(Anthropic API key)"
+      id="anthropic-api-key"
+      class="persistent"
+    />
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="language-model-anthropic" style="font-size: 0.8rem; width: 150px;">
+      Language model:
+    </label>
+    <select
+      style="font-size: 0.8rem; flex: 1;"
+      id="language-model-anthropic"
+      class="persistent"
+      name="language-model-anthropic-label"
+    >
+      <option value="claude-sonnet-4-20250514" selected>Claude Sonnet 4</option>
+      <option value="claude-opus-4-20250514">Claude Opus 4</option>
+      <option value="claude-3-7-sonnet-20250219">Claude Sonnet 3.7</option>
+      <option value="claude-3-5-sonnet-20241022">Claude Sonnet 3.5</option>
+      <option value="claude-3-5-haiku-20241022">Claude Haiku 3.5</option>
+    </select>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="anthropic-custom-model" style="font-size: 0.8rem; width: 150px;">
+      Custom model:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(overrides dropdown if set)"
+      id="anthropic-custom-model"
+      class="persistent"
+    />
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+    <label for="anthropic-custom-url" style="font-size: 0.8rem; width: 150px;">
+      Custom API URL:
+    </label>
+    <input
+      type="text"
+      style="font-size: 0.8rem; flex: 1;"
+      size="22"
+      placeholder="(for Anthropic-compatible servers)"
+      id="anthropic-custom-url"
       class="persistent"
     />
   </div>

@@ -62038,6 +62038,62 @@ ${currentIndent}`
     }
   }
 
+  // anthropic.ts
+  async function sendPromptToAnthropic(prompt, apiKey) {
+    const customUrlElement = document.getElementById("anthropic-custom-url");
+    const customUrl = customUrlElement?.value?.trim() || "";
+    const endpoint = customUrl || "https://api.anthropic.com/v1/messages";
+    const customModelElement = document.getElementById("anthropic-custom-model");
+    const customModel = customModelElement?.value?.trim() || "";
+    const modelElement = document.getElementById("language-model-anthropic");
+    const model = customModel || modelElement?.value || "claude-sonnet-4-20250514";
+    const body = JSON.stringify({
+      model,
+      max_tokens: 4096,
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      system: "You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, starting with ``` and ending with ```."
+    });
+    console.log(body);
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body
+    });
+    const data3 = await response.json();
+    if (data3.error) {
+      console.error("Anthropic API error:", data3.error);
+      if (data3.error.type === "authentication_error") {
+        alert("Invalid Anthropic API key. Please check your API key and try again.");
+      } else if (data3.error.type === "rate_limit_error") {
+        alert("Rate limit exceeded. Please wait a moment and try again.");
+      } else {
+        alert(`Anthropic API error: ${data3.error.message || "Unknown error"}`);
+      }
+      return "";
+    }
+    try {
+      if (data3.content && data3.content[0]) {
+        console.log(
+          `Debugging info: Retrieved ${JSON.stringify(data3.content[0], null, 4)}`
+        );
+        return data3.content[0].text.replace(/^\s*[\r\n]/gm, "");
+      }
+      return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
+    } catch {
+      return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
+    }
+  }
+
   // ollama.ts
   async function fetchModelNames(local_ip, local_port, revealInstallMessage2) {
     try {
@@ -70481,6 +70537,9 @@ ${toHex(hashedRequest)}`;
     if (aiService === "openai") {
       const apiKeyElement = document.getElementById("api-key");
       apiKey = apiKeyElement?.value ?? "";
+    } else if (aiService === "anthropic") {
+      const anthropicApiKeyElement = document.getElementById("anthropic-api-key");
+      apiKey = anthropicApiKeyElement?.value ?? "";
     } else if (aiService === "azure-openai") {
       const azureApiKeyElement = document.getElementById("azure-api-key");
       apiKey = azureApiKeyElement?.value ?? "";
@@ -70488,6 +70547,16 @@ ${toHex(hashedRequest)}`;
     if ((aiService === "openai" || aiService === "azure-openai") && !apiKey) {
       alert(
         "To activate proposed optimizations, enter an OpenAI API key in AI optimization options."
+      );
+      const aiOptOptions = document.getElementById("ai-optimization-options");
+      if (aiOptOptions) {
+        aiOptOptions.open = true;
+      }
+      return "";
+    }
+    if (aiService === "anthropic" && !apiKey) {
+      alert(
+        "To activate proposed optimizations, enter an Anthropic API key in AI optimization options."
       );
       const aiOptOptions = document.getElementById("ai-optimization-options");
       if (aiOptOptions) {
@@ -70557,6 +70626,12 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       case "openai": {
         console.log(prompt);
         const result = await sendPromptToOpenAI(prompt, apiKey);
+        return extractCode(result);
+      }
+      case "anthropic": {
+        console.log("Running " + aiService);
+        console.log(prompt);
+        const result = await sendPromptToAnthropic(prompt, apiKey);
         return extractCode(result);
       }
       case "local": {
@@ -70638,6 +70713,19 @@ Your output should only consist of valid Python code. Output the resulting Pytho
         if (!isValid2) {
           alert(
             "You must enter a valid OpenAI API key to activate proposed optimizations."
+          );
+          const aiOptOptions = document.getElementById("ai-optimization-options");
+          if (aiOptOptions) {
+            aiOptOptions.open = true;
+          }
+          return;
+        }
+      }
+      if (service === "anthropic") {
+        const apiKeyElement = document.getElementById("anthropic-api-key");
+        if (!apiKeyElement?.value) {
+          alert(
+            "You must enter an Anthropic API key to activate proposed optimizations."
           );
           const aiOptOptions = document.getElementById("ai-optimization-options");
           if (aiOptOptions) {
@@ -71748,11 +71836,15 @@ Your output should only consist of valid Python code. Output the resulting Pytho
     const service = serviceSelect?.value ?? "";
     window.localStorage.setItem("scalene-service-select", service);
     const openaiFields = document.getElementById("openai-fields");
+    const anthropicFields = document.getElementById("anthropic-fields");
     const amazonFields = document.getElementById("amazon-fields");
     const localFields = document.getElementById("local-fields");
     const azureFields = document.getElementById("azure-openai-fields");
     if (openaiFields) {
       openaiFields.style.display = service === "openai" ? "block" : "none";
+    }
+    if (anthropicFields) {
+      anthropicFields.style.display = service === "anthropic" ? "block" : "none";
     }
     if (amazonFields) {
       amazonFields.style.display = service === "amazon" ? "block" : "none";

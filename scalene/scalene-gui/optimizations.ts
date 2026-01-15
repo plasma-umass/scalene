@@ -1,4 +1,5 @@
 import { sendPromptToOpenAI, isValidApiKey } from "./openai";
+import { sendPromptToAnthropic } from "./anthropic";
 import { sendPromptToOllama } from "./ollama";
 import { sendPromptToAmazon } from "./amazon";
 import { sendPromptToAzureOpenAI } from "./azure";
@@ -221,6 +222,9 @@ export async function optimizeCode(
   if (aiService === "openai") {
     const apiKeyElement = document.getElementById("api-key") as HTMLInputElement | null;
     apiKey = apiKeyElement?.value ?? "";
+  } else if (aiService === "anthropic") {
+    const anthropicApiKeyElement = document.getElementById("anthropic-api-key") as HTMLInputElement | null;
+    apiKey = anthropicApiKeyElement?.value ?? "";
   } else if (aiService === "azure-openai") {
     const azureApiKeyElement = document.getElementById("azure-api-key") as HTMLInputElement | null;
     apiKey = azureApiKeyElement?.value ?? "";
@@ -229,6 +233,17 @@ export async function optimizeCode(
   if ((aiService === "openai" || aiService === "azure-openai") && !apiKey) {
     alert(
       "To activate proposed optimizations, enter an OpenAI API key in AI optimization options."
+    );
+    const aiOptOptions = document.getElementById("ai-optimization-options") as HTMLDetailsElement | null;
+    if (aiOptOptions) {
+      aiOptOptions.open = true;
+    }
+    return "";
+  }
+
+  if (aiService === "anthropic" && !apiKey) {
+    alert(
+      "To activate proposed optimizations, enter an Anthropic API key in AI optimization options."
     );
     const aiOptOptions = document.getElementById("ai-optimization-options") as HTMLDetailsElement | null;
     if (aiOptOptions) {
@@ -274,6 +289,12 @@ export async function optimizeCode(
     case "openai": {
       console.log(prompt);
       const result = await sendPromptToOpenAI(prompt, apiKey);
+      return extractCode(result);
+    }
+    case "anthropic": {
+      console.log("Running " + aiService);
+      console.log(prompt);
+      const result = await sendPromptToAnthropic(prompt, apiKey);
       return extractCode(result);
     }
     case "local": {
@@ -379,6 +400,19 @@ export function proposeOptimization(
       if (!isValid) {
         alert(
           "You must enter a valid OpenAI API key to activate proposed optimizations."
+        );
+        const aiOptOptions = document.getElementById("ai-optimization-options") as HTMLDetailsElement | null;
+        if (aiOptOptions) {
+          aiOptOptions.open = true;
+        }
+        return;
+      }
+    }
+    if (service === "anthropic") {
+      const apiKeyElement = document.getElementById("anthropic-api-key") as HTMLInputElement | null;
+      if (!apiKeyElement?.value) {
+        alert(
+          "You must enter an Anthropic API key to activate proposed optimizations."
         );
         const aiOptOptions = document.getElementById("ai-optimization-options") as HTMLDetailsElement | null;
         if (aiOptOptions) {
