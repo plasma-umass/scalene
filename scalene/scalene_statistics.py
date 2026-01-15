@@ -157,6 +157,18 @@ class CPUStatistics:
             lambda: defaultdict(list)
         )
 
+        # PyTorch operation time per location (in seconds), attributed via torch.profiler
+        # See https://github.com/plasma-umass/scalene/issues/908
+        self.torch_cpu_time: dict[Any, dict[Any, float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
+
+        # PyTorch GPU/CUDA time per location (in seconds), attributed via torch.profiler
+        # Only populated when CUDA is available
+        self.torch_gpu_time: dict[Any, dict[Any, float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
+
     def clear(self) -> None:
         """Reset all CPU statistics."""
         self.cpu_samples_python.clear()
@@ -166,6 +178,8 @@ class CPUStatistics:
         self.core_utilization.clear()
         self.cpu_samples.clear()
         self.total_cpu_samples = 0.0
+        self.torch_cpu_time.clear()
+        self.torch_gpu_time.clear()
 
 
 class MemoryStatistics:

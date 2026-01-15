@@ -117,6 +117,7 @@ from scalene.scalene_utility import (
     patch_module_functions_with_signal_blocking,
 )
 from scalene.time_info import TimeInfo, get_times
+from scalene.scalene_torch import TorchProfiler, is_torch_available
 
 console = Console(style="white on blue")
 
@@ -205,6 +206,10 @@ class Scalene:
     # Modular components
     __cpu_profiler: ScaleneCPUProfiler
     __tracing: ScaleneTracing
+
+    # PyTorch profiler integration (for JIT code attribution)
+    # See https://github.com/plasma-umass/scalene/issues/908
+    __torch_profiler: TorchProfiler | None = None
 
     # when did we last receive a signal?
     __last_signal_time = TimeInfo()
@@ -1097,6 +1102,12 @@ class Scalene:
                 Scalene.__invalidate_queue,
                 Scalene._should_trace,
             )
+        # Initialize PyTorch profiler if torch is available
+        # This allows accurate attribution of JIT-compiled PyTorch code
+        if is_torch_available():
+            Scalene.__torch_profiler = TorchProfiler()
+            Scalene.__torch_profiler.start()
+
         # If --off is set, tell all children to not profile and stop profiling before we even start.
         if "off" not in Scalene.__args or not Scalene.__args.off:
             self.start()
@@ -1117,6 +1128,23 @@ class Scalene:
 
         finally:
             self.stop()
+            # Stop PyTorch profiler and merge timing data into statistics
+            if Scalene.__torch_profiler is not None:
+                Scalene.__torch_profiler.stop()
+                # Merge torch CPU timing into statistics
+                for filename, line_times in Scalene.__torch_profiler.line_times.items():
+                    for lineno, time_us in line_times.items():
+                        # Convert from microseconds to seconds
+                        Scalene.__stats.cpu_stats.torch_cpu_time[Filename(filename)][
+                            LineNumber(lineno)
+                        ] += (time_us / 1_000_000)
+                # Merge torch GPU timing into statistics (when CUDA is available)
+                for filename, line_times in Scalene.__torch_profiler.gpu_line_times.items():
+                    for lineno, time_us in line_times.items():
+                        # Convert from microseconds to seconds
+                        Scalene.__stats.cpu_stats.torch_gpu_time[Filename(filename)][
+                            LineNumber(lineno)
+                        ] += (time_us / 1_000_000)
             if Scalene.__args.memory:
                 # Disable line tracing and clean up tracer resources
                 disable_tracing()
