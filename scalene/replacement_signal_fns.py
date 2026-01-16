@@ -1,7 +1,7 @@
 import os
 import signal
 import sys
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 
 from scalene.scalene_profiler import Scalene
 
@@ -123,7 +123,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
 
         return old_signal(signum, handler)
 
-    def _handle_signal_coexistence(signum: int, handler: Any, signal_name: "str | None") -> Any:
+    def _handle_signal_coexistence(signum: int, handler: Any, signal_name: "Optional[str]") -> Any:
         """Handle a signal that both Scalene and user code want to use.
 
         On Linux: Redirect user's handler to a real-time signal for clean separation.
