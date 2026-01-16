@@ -40,7 +40,9 @@ def replacement_signal_fns(scalene: Scalene) -> None:
     if _use_rt_signals:
         # Allocate real-time signals for each Scalene signal that might conflict
         # SIGRTMIN+0 is often used by threading libraries, so start from SIGRTMIN+1
-        rt_base = getattr(signal, "SIGRTMIN") + 1  # noqa: B009 - dynamic access needed for cross-platform mypy
+        rt_base = (
+            getattr(signal, "SIGRTMIN") + 1
+        )  # noqa: B009 - dynamic access needed for cross-platform mypy
         start_signal, stop_signal = scalene.get_lifecycle_signals()
         # Map lifecycle and memory signals to real-time signals
         rt_offset = 0
@@ -59,9 +61,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
     # Maps signal number -> user's handler
     _chained_handlers: dict[int, Any] = {}
 
-    def _make_chained_handler(
-        scalene_handler: Any, user_handler: Any
-    ) -> Any:
+    def _make_chained_handler(scalene_handler: Any, user_handler: Any) -> Any:
         """Create a handler that calls both Scalene's handler and the user's handler."""
         import contextlib
         from types import FrameType
@@ -123,7 +123,9 @@ def replacement_signal_fns(scalene: Scalene) -> None:
 
         return old_signal(signum, handler)
 
-    def _handle_signal_coexistence(signum: int, handler: Any, signal_name: "Optional[str]") -> Any:
+    def _handle_signal_coexistence(
+        signum: int, handler: Any, signal_name: "Optional[str]"
+    ) -> Any:
         """Handle a signal that both Scalene and user code want to use.
 
         On Linux: Redirect user's handler to a real-time signal for clean separation.
