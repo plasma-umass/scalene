@@ -4,12 +4,16 @@
 #include <unistd.h>
 #endif
 
+// Include C++ standard headers FIRST, before any vendor headers that might
+// define macros conflicting with standard library functions (e.g., printf.h
+// defines vsnprintf -> vsnprintf_ which breaks std::vsnprintf in <string>).
+#include <cstddef>
+#include <string>
+
 #include <heaplayers.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <cstddef>
 
 #include "common.hpp"
 #include "heapredirect.h"
