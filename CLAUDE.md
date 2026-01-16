@@ -458,6 +458,73 @@ Workflows in `.github/workflows/` use the new CLI:
 - run: python -m scalene run --- -m import_stress_test && python -m scalene view --cli
 ```
 
+## Signal Handling
+
+Scalene uses several Unix signals for profiling. The signal assignments are in `scalene_signals.py`:
+
+| Signal | Purpose | Platform |
+|--------|---------|----------|
+| `SIGVTALRM` | CPU profiling timer (default) | Unix |
+| `SIGALRM` | CPU profiling timer (real time mode) | Unix |
+| `SIGILL` | Start profiling (`--on`) | Unix |
+| `SIGBUS` | Stop profiling (`--off`) | Unix |
+| `SIGPROF` | memcpy tracking | Unix |
+| `SIGXCPU` | malloc tracking | Unix |
+| `SIGXFSZ` | free tracking | Unix |
+
+### Signal Conflicts with Libraries
+
+Libraries like PyTorch Lightning may also use these signals. The `replacement_signal_fns.py` module handles conflicts:
+
+**On Linux:** Uses real-time signals (`SIGRTMIN+1` to `SIGRTMIN+5`) for redirection. When user code sets a handler for a Scalene signal, their handler is redirected to a real-time signal. Calls to `raise_signal()` and `kill()` are also redirected transparently.
+
+**On macOS/other platforms:** Uses handler chaining. Both Scalene's handler and the user's handler are called when the signal fires.
+
+```python
+# Platform-specific signal handling
+_use_rt_signals = sys.platform == "linux" and hasattr(signal, "SIGRTMIN")
+
+if _use_rt_signals:
+    # Linux: redirect to real-time signals
+    rt_base = signal.SIGRTMIN + 1
+    _signal_redirects[signal.SIGILL] = rt_base
+else:
+    # macOS: chain handlers
+    def chained_handler(sig, frame):
+        scalene_handler(sig, frame)
+        user_handler(sig, frame)
+```
+
+### Frame Line Number Can Be None (Python 3.11+)
+
+In Python 3.11+, `frame.f_lineno` can be `None` in edge cases (e.g., during multiprocessing cleanup). Always use a fallback:
+
+```python
+lineno = frame.f_lineno if frame.f_lineno is not None else frame.f_code.co_firstlineno
+```
+
+## Native Extension Build Issues
+
+### C++ Standard Library Conflicts with vendor/printf
+
+The `vendor/printf/printf.h` header defines macros that conflict with C++ standard library:
+
+```c
+#define vsnprintf vsnprintf_
+#define snprintf  snprintf_
+```
+
+This breaks `std::vsnprintf` in `<string>` and other headers. **Fix:** Include C++ standard headers BEFORE vendor headers in `src/source/libscalene.cpp`:
+
+```cpp
+// Include C++ standard headers FIRST
+#include <cstddef>
+#include <string>
+
+// Then vendor headers that define conflicting macros
+#include <heaplayers.h>  // Eventually includes printf.h
+```
+
 ## Profiling Guide
 
 See [Scalene-Agents.md](Scalene-Agents.md) for detailed information about interpreting Scalene's profiling output, including Python vs C time, memory metrics, and optimization strategies.
