@@ -23,6 +23,7 @@ class WindowsMemoryProfiler:
 
     def __init__(self) -> None:
         self._dll: Optional[ctypes.CDLL] = None
+        self._dll_path: Optional[str] = None
         self._malloc_event: Optional[int] = None
         self._free_event: Optional[int] = None
         self._initialized = False
@@ -50,14 +51,47 @@ class WindowsMemoryProfiler:
 
             dll_path = os.path.join(scalene.__path__[0], "libscalene.dll")
 
+        self._dll_path = dll_path  # Store for error reporting
+
         if not os.path.exists(dll_path):
+            print(
+                f"Warning: libscalene.dll not found at {dll_path}",
+                file=sys.stderr,
+            )
+            print(
+                "Memory profiling requires the native DLL. To fix this:",
+                file=sys.stderr,
+            )
+            print(
+                "  1. Ensure you installed Scalene from PyPI: pip install --upgrade scalene",
+                file=sys.stderr,
+            )
+            print(
+                "  2. If building from source, install Visual C++ Build Tools and CMake",
+                file=sys.stderr,
+            )
             return False
 
         try:
             self._dll = ctypes.CDLL(dll_path)
             return True
         except OSError as e:
-            print(f"Warning: Failed to load libscalene.dll: {e}", file=sys.stderr)
+            print(
+                f"Warning: Failed to load libscalene.dll from {dll_path}: {e}",
+                file=sys.stderr,
+            )
+            print(
+                "This may indicate missing Visual C++ runtime libraries.",
+                file=sys.stderr,
+            )
+            print(
+                "Try installing the Visual C++ Redistributable from:",
+                file=sys.stderr,
+            )
+            print(
+                "  https://aka.ms/vs/17/release/vc_redist.x64.exe",
+                file=sys.stderr,
+            )
             return False
 
     def initialize(self) -> bool:
@@ -226,3 +260,59 @@ def is_memory_profiling_available() -> bool:
     """Check if memory profiling is available on Windows."""
     profiler = get_windows_profiler()
     return profiler.load_dll()
+
+
+def diagnose_memory_profiling() -> None:
+    """
+    Print diagnostic information about Windows memory profiling setup.
+
+    This function helps users troubleshoot memory profiling issues on Windows.
+    """
+    import platform
+    import scalene
+
+    print("=== Scalene Windows Memory Profiling Diagnostics ===\n")
+
+    # Check architecture
+    machine = platform.machine().lower()
+    print(f"Architecture: {machine}")
+    if machine not in ["amd64", "x86_64", "arm64", "aarch64"]:
+        print("  WARNING: Memory profiling only supports 64-bit x86-64 and ARM64")
+
+    # Check Python version
+    print(f"Python version: {platform.python_version()}")
+    print(f"Python implementation: {platform.python_implementation()}")
+
+    # Check for DLL
+    import_path = scalene.__path__[0]
+    dll_path = os.path.join(import_path, "libscalene.dll")
+    env_dll_path = os.environ.get("SCALENE_WINDOWS_DLL")
+
+    print(f"\nScalene package location: {import_path}")
+    print(f"Expected DLL location: {dll_path}")
+    print(f"  DLL exists: {os.path.exists(dll_path)}")
+
+    if env_dll_path:
+        print(f"SCALENE_WINDOWS_DLL env var: {env_dll_path}")
+        print(f"  Env DLL exists: {os.path.exists(env_dll_path)}")
+
+    # Try to load the DLL
+    print("\nAttempting to load DLL...")
+    profiler = get_windows_profiler()
+    if profiler.load_dll():
+        print("  SUCCESS: DLL loaded successfully")
+        if profiler.initialize():
+            print("  SUCCESS: Memory profiler initialized")
+        else:
+            print("  FAILED: Could not initialize memory profiler")
+    else:
+        print("  FAILED: Could not load DLL")
+        print("\nTo fix this issue:")
+        print("  1. Install from PyPI: pip install --upgrade scalene")
+        print("  2. If building from source, ensure you have:")
+        print("     - Visual C++ Build Tools (Visual Studio 2019 or later)")
+        print("     - CMake installed and in PATH")
+        print("  3. Ensure Visual C++ Redistributable is installed:")
+        print("     https://aka.ms/vs/17/release/vc_redist.x64.exe")
+
+    print("\n=== End of Diagnostics ===")
