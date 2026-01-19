@@ -269,6 +269,7 @@ def diagnose_memory_profiling() -> None:
     This function helps users troubleshoot memory profiling issues on Windows.
     """
     import platform
+
     import scalene
 
     print("=== Scalene Windows Memory Profiling Diagnostics ===\n")
