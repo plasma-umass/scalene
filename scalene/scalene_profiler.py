@@ -698,6 +698,14 @@ class Scalene:
         background threads. The handler uses sys._current_frames() which is
         thread-safe, so this is safe to call from any thread.
         """
+        # Debug for Windows CI - track handler calls
+        if sys.platform == "win32":
+            if not hasattr(Scalene, "_win_handler_count"):
+                Scalene._win_handler_count = 0
+            Scalene._win_handler_count += 1
+            if Scalene._win_handler_count <= 3 or Scalene._win_handler_count % 100 == 0:
+                print(f"Scalene Windows debug: handler called {Scalene._win_handler_count} times", file=sys.stderr)
+
         # Initialize next_interval with a default value in case an exception occurs
         # before it's assigned. This prevents NameError in the finally block.
         next_interval = Scalene._sample_cpu_interval()
