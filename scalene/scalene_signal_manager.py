@@ -114,14 +114,17 @@ class ScaleneSignalManager(Generic[T]):
         sleep-based loop with a fixed sampling rate.
         """
         assert sys.platform == "win32"
+        import sys as _sys
         while self.timer_signals:
             time.sleep(cpu_sampling_rate)
             # Call the CPU signal handler directly instead of using raise_signal.
             # Pass the cpu_signal value and None for frame (handler uses sys._current_frames()).
-            # Use contextlib.suppress to silently ignore exceptions and keep the timer running.
             if self.__cpu_signal_handler is not None:
-                with contextlib.suppress(Exception):
+                try:
                     self.__cpu_signal_handler(self.__signals.cpu_signal, None)
+                except Exception as e:
+                    # Log exceptions to stderr for debugging, but keep the timer running
+                    print(f"Scalene Windows timer: {type(e).__name__}: {e}", file=_sys.stderr)
 
     def _windows_memory_poll_loop(self) -> None:
         """For Windows, periodically poll for memory profiling data."""
