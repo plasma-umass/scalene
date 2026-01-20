@@ -77,43 +77,68 @@ class ScaleneTracing:
     @functools.lru_cache(maxsize=None)  # noqa: B019
     def should_trace(self, filename: Filename, func: str) -> bool:
         """Return true if we should trace this filename and function."""
+        # Debug for Windows CI
+        debug_win = sys.platform == "win32"
+        if debug_win:
+            print(f"Scalene debug should_trace: filename={filename}, func={func}", file=sys.stderr, flush=True)
         if not filename:
+            if debug_win:
+                print("Scalene debug: returning False (no filename)", file=sys.stderr, flush=True)
             return False
         # Use proper path comparison to exclude Scalene's own modules.
         # This handles cross-platform path separators and case sensitivity correctly.
         try:
             resolved_path = pathlib.Path(filename).resolve()
             if resolved_path.is_relative_to(self._profiler_base_path):
+                if debug_win:
+                    print(f"Scalene debug: returning False (is scalene module: {resolved_path} relative to {self._profiler_base_path})", file=sys.stderr, flush=True)
                 return False
         except (OSError, ValueError):
             # If we can't resolve the path, fall back to string comparison
             if str(self._profiler_base_path) in filename:
+                if debug_win:
+                    print("Scalene debug: returning False (is scalene module, fallback)", file=sys.stderr, flush=True)
                 return False
 
         # Check if this function is specifically decorated for profiling
         if self._should_trace_decorated_function(filename, func):
+            if debug_win:
+                print("Scalene debug: returning True (decorated function)", file=sys.stderr, flush=True)
             return True
         elif self._functions_to_profile and filename in self._functions_to_profile:
+            if debug_win:
+                print("Scalene debug: returning False (not in functions_to_profile)", file=sys.stderr, flush=True)
             return False
 
         # Check exclusion rules
         if not self._passes_exclusion_rules(filename):
+            if debug_win:
+                print("Scalene debug: returning False (fails exclusion rules)", file=sys.stderr, flush=True)
             return False
 
         # Handle special Jupyter cell case
         if self._handle_jupyter_cell(filename):
+            if debug_win:
+                print("Scalene debug: returning True (jupyter cell)", file=sys.stderr, flush=True)
             return True
 
         # Check profile-only patterns
         if not self._passes_profile_only_rules(filename):
+            if debug_win:
+                print("Scalene debug: returning False (fails profile-only rules)", file=sys.stderr, flush=True)
             return False
 
         # Handle special non-file cases
         if filename[0] == "<" and filename[-1] == ">":
+            if debug_win:
+                print("Scalene debug: returning False (special non-file)", file=sys.stderr, flush=True)
             return False
 
         # Final decision: profile-all or program directory check
-        return self._should_trace_by_location(filename)
+        result = self._should_trace_by_location(filename)
+        if debug_win:
+            print(f"Scalene debug: returning {result} (from _should_trace_by_location)", file=sys.stderr, flush=True)
+        return result
 
     def _should_trace_decorated_function(self, filename: Filename, func: str) -> bool:
         """Check if this function is decorated with @profile."""
@@ -223,6 +248,11 @@ class ScaleneTracing:
         try:
             file_path = pathlib.Path(filename).resolve()
             program_path = pathlib.Path(self._program_path).resolve()
+            # Debug output for Windows CI
+            if sys.platform == "win32":
+                import sys as _sys
+                print(f"Scalene debug: file_path={file_path}, program_path={program_path}", file=_sys.stderr, flush=True)
+                print(f"Scalene debug: is_relative_to={file_path.is_relative_to(program_path)}, parent_eq={file_path.parent == program_path.parent}", file=_sys.stderr, flush=True)
             # Check if file is in program's directory or a subdirectory
             return file_path.is_relative_to(program_path) or file_path.parent == program_path.parent
         except (OSError, ValueError):
