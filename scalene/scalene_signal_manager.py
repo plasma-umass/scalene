@@ -111,14 +111,19 @@ class ScaleneSignalManager(Generic[T]):
         any thread, giving us access to all thread stacks including the main thread.
 
         Unlike Unix where setitimer controls timing, on Windows we use a simple
-        sleep-based loop with a fixed sampling rate.
+        sleep-based loop. We use a short, fixed interval (1ms) to maximize the
+        chances of collecting samples before the GIL is needed by other code.
         """
         assert sys.platform == "win32"
         import sys as _sys
         iteration = 0
-        print(f"Scalene Windows timer: loop started with interval {cpu_sampling_rate:.4f}s", file=_sys.stderr, flush=True)
+        # Use a very short fixed interval to maximize sampling opportunities.
+        # On Windows, the background thread competes for the GIL with the main thread,
+        # so we need to check frequently.
+        interval = 0.001  # 1ms - shorter intervals help catch samples
+        print(f"Scalene Windows timer: loop started with interval {interval:.4f}s (original rate: {cpu_sampling_rate:.4f}s)", file=_sys.stderr, flush=True)
         while self.timer_signals:
-            time.sleep(cpu_sampling_rate)
+            time.sleep(interval)
             iteration += 1
             # Call the CPU signal handler directly instead of using raise_signal.
             # Pass the cpu_signal value and None for frame (handler uses sys._current_frames()).
