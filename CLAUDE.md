@@ -6,7 +6,7 @@ Scalene is a high-performance CPU, GPU, and memory profiler for Python with AI-p
 
 **Key features:**
 - CPU, GPU (NVIDIA/Apple), and memory profiling
-- AI-powered optimization suggestions (OpenAI, Azure, Amazon Bedrock, Ollama)
+- AI-powered optimization suggestions (OpenAI, Anthropic, Azure, Amazon Bedrock, Gemini, Ollama)
 - Web-based GUI and CLI interfaces
 - Jupyter notebook support via magic commands (`%scrun`, `%%scalene`)
 - Line-by-line profiling with low overhead
@@ -105,13 +105,31 @@ These modules monkey-patch standard library functions to capture profiling data 
 - **`time_info.py`** - Time measurement utilities
 - **`sorted_reservoir.py`** - Reservoir sampling for bounded-size sample collection
 
-### GUI
+### GUI (`scalene/scalene-gui/`)
 
-- **`scalene/scalene-gui/`** - Web-based GUI (HTML/JS/CSS)
-  - `index.html` - Main GUI page
-  - `scalene-gui-bundle.js` - Bundled JavaScript
+Web-based GUI built with TypeScript, bundled with esbuild.
+
+**Core Files:**
+- **`index.html.template`** - Jinja2 template for main GUI page (rendered by `scalene_utility.py`)
+- **`scalene-gui.ts`** - Main TypeScript entry point, UI event handlers, initialization
+- **`scalene-gui-bundle.js`** - Bundled JavaScript output (generated, do not edit directly)
+
+**AI Provider Modules:**
+- **`openai.ts`** - OpenAI API integration (`sendPromptToOpenAI`, `fetchOpenAIModels`)
+- **`anthropic.ts`** - Anthropic Claude API integration
+- **`gemini.ts`** - Google Gemini API integration (`sendPromptToGemini`, `fetchGeminiModels`)
+- **`optimizations.ts`** - Provider dispatch logic, prompt generation
+- **`persistence.ts`** - localStorage persistence with environment variable fallbacks
+
+**Support Files:**
 - **`launchbrowser.py`** - Opens browser to GUI (default port 11235)
 - **`find_browser.py`** - Cross-platform browser detection
+
+**Building the GUI:**
+```bash
+cd scalene/scalene-gui
+npx esbuild scalene-gui.ts --bundle --outfile=scalene-gui-bundle.js --format=iife --global-name=ScaleneGUI
+```
 
 ### Native Extensions (`src/`)
 
@@ -174,6 +192,50 @@ The `_colorize_help_for_rich()` function applies Python 3.14-style colors using 
 - Long options (`--foo`) → bold cyan
 - Short options (`-h`) → bold green
 - Metavars (`FOO`) → bold yellow
+
+### GUI Patterns
+
+**Preventing Browser Password Prompts:**
+Use `autocomplete="one-time-code"` on password/API key inputs to prevent browsers from offering to save them:
+```html
+<input type="password" id="api-key" autocomplete="one-time-code">
+```
+
+**Show/Hide Password Toggle:**
+```typescript
+function togglePassword(inputId: string, button: HTMLButtonElement): void {
+  const input = document.getElementById(inputId) as HTMLInputElement;
+  if (input.type === "password") {
+    input.type = "text";
+    button.textContent = "Hide";
+  } else {
+    input.type = "password";
+    button.textContent = "Show";
+  }
+}
+```
+
+**Provider Field Visibility:**
+Use CSS classes to show/hide provider-specific fields:
+```typescript
+function toggleServiceFields(): void {
+  const service = (document.getElementById("service") as HTMLSelectElement).value;
+  // Hide all provider sections
+  document.querySelectorAll(".provider-section").forEach((el) => {
+    (el as HTMLElement).style.display = "none";
+  });
+  // Show selected provider section
+  const section = document.querySelector(`.${service}-fields`);
+  if (section) (section as HTMLElement).style.display = "block";
+}
+```
+
+**Persistent Form Elements:**
+Add class `persistent` to inputs that should be saved/restored from localStorage:
+```html
+<input type="text" id="api-key" class="persistent">
+```
+The `persistence.ts` module handles save/restore automatically.
 
 ### Module Imports
 
@@ -238,6 +300,69 @@ done
        help="Description of option",
    )
    ```
+
+### Adding a New AI Provider
+
+1. **Create provider module** (`scalene/scalene-gui/newprovider.ts`):
+   ```typescript
+   export async function sendPromptToNewProvider(
+     prompt: string,
+     apiKey: string
+   ): Promise<string> {
+     // API call implementation
+   }
+
+   export async function fetchNewProviderModels(apiKey: string): Promise<string[]> {
+     // Optional: fetch available models from API
+   }
+   ```
+
+2. **Update `optimizations.ts`**:
+   - Import the new module
+   - Add case in `sendPromptToService()` switch statement
+
+3. **Update `index.html.template`**:
+   - Add option to `#service` select dropdown
+   - Add provider section with API key input, model selector, etc.
+   - Add CSS for `.newprovider-fields` visibility
+
+4. **Update `scalene-gui.ts`**:
+   - Add provider to `toggleServiceFields()` function
+   - Add refresh handler if dynamic model fetching is supported
+   - Update `getDefaultProvider()` if env var support is needed
+
+5. **Update `persistence.ts`** (for env var support):
+   - Add mapping in `envKeyMap` for new fields
+
+6. **Update `scalene_utility.py`**:
+   - Read environment variable in `api_keys` dict
+   - Pass to template rendering
+
+7. **Rebuild the bundle**:
+   ```bash
+   cd scalene/scalene-gui
+   npx esbuild scalene-gui.ts --bundle --outfile=scalene-gui-bundle.js --format=iife --global-name=ScaleneGUI
+   ```
+
+### Environment Variable API Keys
+
+The GUI supports prepopulating API keys from environment variables:
+
+| Element ID | Environment Variable | Provider |
+|------------|---------------------|----------|
+| `api-key` | `OPENAI_API_KEY` | OpenAI |
+| `anthropic-api-key` | `ANTHROPIC_API_KEY` | Anthropic |
+| `gemini-api-key` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | Gemini |
+| `azure-api-key` | `AZURE_OPENAI_API_KEY` | Azure OpenAI |
+| `azure-api-url` | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI |
+| `aws-access-key` | `AWS_ACCESS_KEY_ID` | Amazon Bedrock |
+| `aws-secret-key` | `AWS_SECRET_ACCESS_KEY` | Amazon Bedrock |
+| `aws-region` | `AWS_DEFAULT_REGION` or `AWS_REGION` | Amazon Bedrock |
+
+**Flow:**
+1. `scalene_utility.py` reads env vars and passes to Jinja2 template
+2. Template injects `envApiKeys` JavaScript object into page
+3. `persistence.ts` uses env vars as fallbacks when localStorage is empty
 
 ### Updating Version
 
@@ -331,6 +456,73 @@ Workflows in `.github/workflows/` use the new CLI:
 
 # Profile with module invocation
 - run: python -m scalene run --- -m import_stress_test && python -m scalene view --cli
+```
+
+## Signal Handling
+
+Scalene uses several Unix signals for profiling. The signal assignments are in `scalene_signals.py`:
+
+| Signal | Purpose | Platform |
+|--------|---------|----------|
+| `SIGVTALRM` | CPU profiling timer (default) | Unix |
+| `SIGALRM` | CPU profiling timer (real time mode) | Unix |
+| `SIGILL` | Start profiling (`--on`) | Unix |
+| `SIGBUS` | Stop profiling (`--off`) | Unix |
+| `SIGPROF` | memcpy tracking | Unix |
+| `SIGXCPU` | malloc tracking | Unix |
+| `SIGXFSZ` | free tracking | Unix |
+
+### Signal Conflicts with Libraries
+
+Libraries like PyTorch Lightning may also use these signals. The `replacement_signal_fns.py` module handles conflicts:
+
+**On Linux:** Uses real-time signals (`SIGRTMIN+1` to `SIGRTMIN+5`) for redirection. When user code sets a handler for a Scalene signal, their handler is redirected to a real-time signal. Calls to `raise_signal()` and `kill()` are also redirected transparently.
+
+**On macOS/other platforms:** Uses handler chaining. Both Scalene's handler and the user's handler are called when the signal fires.
+
+```python
+# Platform-specific signal handling
+_use_rt_signals = sys.platform == "linux" and hasattr(signal, "SIGRTMIN")
+
+if _use_rt_signals:
+    # Linux: redirect to real-time signals
+    rt_base = signal.SIGRTMIN + 1
+    _signal_redirects[signal.SIGILL] = rt_base
+else:
+    # macOS: chain handlers
+    def chained_handler(sig, frame):
+        scalene_handler(sig, frame)
+        user_handler(sig, frame)
+```
+
+### Frame Line Number Can Be None (Python 3.11+)
+
+In Python 3.11+, `frame.f_lineno` can be `None` in edge cases (e.g., during multiprocessing cleanup). Always use a fallback:
+
+```python
+lineno = frame.f_lineno if frame.f_lineno is not None else frame.f_code.co_firstlineno
+```
+
+## Native Extension Build Issues
+
+### C++ Standard Library Conflicts with vendor/printf
+
+The `vendor/printf/printf.h` header defines macros that conflict with C++ standard library:
+
+```c
+#define vsnprintf vsnprintf_
+#define snprintf  snprintf_
+```
+
+This breaks `std::vsnprintf` in `<string>` and other headers. **Fix:** Include C++ standard headers BEFORE vendor headers in `src/source/libscalene.cpp`:
+
+```cpp
+// Include C++ standard headers FIRST
+#include <cstddef>
+#include <string>
+
+// Then vendor headers that define conflicting macros
+#include <heaplayers.h>  // Eventually includes printf.h
 ```
 
 ## Profiling Guide

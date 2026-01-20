@@ -15,6 +15,7 @@ def smoketest(fname, rest):
         "-m",
         "scalene",
         "run",
+        "--profile-all",
         "-o",
         str(outfile),
         *rest,

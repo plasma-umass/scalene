@@ -1,10 +1,31 @@
-export async function fetchModelNames(local_ip, local_port, revealInstallMessage) {
+interface OllamaModel {
+  name: string;
+}
+
+interface OllamaTagsResponse {
+  models: OllamaModel[];
+}
+
+interface OllamaMessage {
+  content?: string;
+}
+
+interface OllamaResponse {
+  message?: OllamaMessage;
+  done?: boolean;
+}
+
+export async function fetchModelNames(
+  local_ip: string,
+  local_port: string,
+  revealInstallMessage: () => void
+): Promise<string[]> {
   try {
     const response = await fetch(`http://${local_ip}:${local_port}/api/tags`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const data = await response.json();
+    const data: OllamaTagsResponse = await response.json();
 
     // Extracting the model names
     const modelNames = data.models.map((model) => model.name);
@@ -19,8 +40,12 @@ export async function fetchModelNames(local_ip, local_port, revealInstallMessage
   }
 }
 
-
-export async function sendPromptToOllama(prompt, model, ipAddr, portNum) {
+export async function sendPromptToOllama(
+  prompt: string,
+  model: string,
+  ipAddr: string,
+  portNum: string
+): Promise<string> {
   const url = `http://${ipAddr}:${portNum}/api/chat`;
   const headers = { "Content-Type": "application/json" };
   const body = JSON.stringify({
@@ -29,7 +54,7 @@ export async function sendPromptToOllama(prompt, model, ipAddr, portNum) {
       {
         role: "system",
         content:
-          "You are an expert code assistant who only responds in Python code.", //You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, in a JSON object with the key "code".'
+          "You are an expert code assistant who only responds in Python code.",
       },
       {
         role: "user",
@@ -37,7 +62,6 @@ export async function sendPromptToOllama(prompt, model, ipAddr, portNum) {
       },
     ],
     stream: false,
-    //	format: "json",
     temperature: 0.3,
     frequency_penalty: 0,
     presence_penalty: 0,
@@ -53,7 +77,7 @@ export async function sendPromptToOllama(prompt, model, ipAddr, portNum) {
 
   while (!done) {
     if (retried >= retries) {
-      return {};
+      return "";
     }
 
     try {
@@ -70,7 +94,8 @@ export async function sendPromptToOllama(prompt, model, ipAddr, portNum) {
       const text = await response.text();
       const responses = text.split("\n");
       for (const resp of responses) {
-        const responseJson = JSON.parse(resp);
+        if (!resp.trim()) continue;
+        const responseJson: OllamaResponse = JSON.parse(resp);
         if (responseJson.message && responseJson.message.content) {
           responseAggregated += responseJson.message.content;
         }
@@ -88,9 +113,8 @@ export async function sendPromptToOllama(prompt, model, ipAddr, portNum) {
 
   console.log(responseAggregated);
   try {
-    return responseAggregated; // data.choices[0].message.content.replace(/^\s*[\r\n]/gm, "");
+    return responseAggregated;
   } catch {
-    // return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
     return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
   }
 }

@@ -32,7 +32,11 @@ def enter_function_meta(
 ) -> None:
     """Update tracking info so we can correctly report line number info later."""
     fname = Filename(frame.f_code.co_filename)
-    lineno = LineNumber(frame.f_lineno)
+    lineno = (
+        LineNumber(frame.f_lineno)
+        if frame.f_lineno is not None
+        else LineNumber(frame.f_code.co_firstlineno)
+    )
 
     f = frame
     try:
@@ -84,6 +88,10 @@ def compute_frames_to_record(
     )
     # Process all the frames to remove ones we aren't going to track.
     new_frames: List[Tuple[FrameType, int, FrameType]] = []
+    # On Windows, limit stack walking iterations to prevent blocking the
+    # background timer thread. The daemon thread can be killed if it takes
+    # too long, causing no samples to be recorded.
+    max_stack_depth = 100 if sys.platform != "win32" else 20
     for frame, tident in frames:
         orig_frame = frame
         if not frame:
@@ -98,7 +106,15 @@ def compute_frames_to_record(
             back = cast(FrameType, frame.f_back)
             fname = Filename(back.f_code.co_filename)
             func = back.f_code.co_name
+        iterations = 0
         while not should_trace(Filename(fname), func):
+            iterations += 1
+            if iterations > max_stack_depth:
+                # On Windows especially, we need to limit iterations
+                # to prevent blocking the timer thread too long.
+                # Set frame to None so we skip this frame entirely.
+                frame = cast(FrameType, None)
+                break
             # Walk the stack backwards until we hit a frame that
             # IS one we should trace (if there is one).  i.e., if
             # it's in the code being profiled, and it is just
@@ -134,7 +150,11 @@ def add_stack(
                 StackFrame(
                     filename=str(f.f_code.co_filename),
                     function_name=str(get_fully_qualified_name(f)),
-                    line_number=int(f.f_lineno),
+                    line_number=(
+                        int(f.f_lineno)
+                        if f.f_lineno is not None
+                        else int(f.f_code.co_firstlineno)
+                    ),
                 ),
             )
         f = f.f_back
@@ -255,6 +275,20 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         "prism_css_text": read_file_content(scalene_dir, "scalene-gui", "prism.css"),
     }
 
+    # Read API keys from environment variables (if set)
+    api_keys = {
+        "openai_api_key": os.environ.get("OPENAI_API_KEY", ""),
+        "anthropic_api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
+        "gemini_api_key": os.environ.get("GEMINI_API_KEY", "")
+        or os.environ.get("GOOGLE_API_KEY", ""),
+        "azure_api_key": os.environ.get("AZURE_OPENAI_API_KEY", ""),
+        "azure_api_url": os.environ.get("AZURE_OPENAI_ENDPOINT", ""),
+        "aws_access_key": os.environ.get("AWS_ACCESS_KEY_ID", ""),
+        "aws_secret_key": os.environ.get("AWS_SECRET_ACCESS_KEY", ""),
+        "aws_region": os.environ.get("AWS_DEFAULT_REGION", "")
+        or os.environ.get("AWS_REGION", ""),
+    }
+
     # Put the profile and everything else into the template.
     environment = Environment(
         loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
@@ -266,6 +300,7 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         prism_css=file_contents["prism_css_text"],
         scalene_version=scalene_version,
         scalene_date=scalene_date,
+        api_keys=api_keys,
     )
 
     # Write the rendered content to the specified output file.

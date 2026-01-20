@@ -96,6 +96,7 @@ from scalene.scalene_statistics import (
     ProfilingSample,
     ScaleneStatistics,
 )
+from scalene.scalene_torch import TorchProfiler, is_torch_available
 from scalene.scalene_tracer import (
     ScaleneTracer,
     cleanup_tracer,
@@ -205,6 +206,10 @@ class Scalene:
     # Modular components
     __cpu_profiler: ScaleneCPUProfiler
     __tracing: ScaleneTracing
+
+    # PyTorch profiler integration (for JIT code attribution)
+    # See https://github.com/plasma-umass/scalene/issues/908
+    __torch_profiler: TorchProfiler | None = None
 
     # when did we last receive a signal?
     __last_signal_time = TimeInfo()
@@ -610,7 +615,7 @@ class Scalene:
         # If so, increment.
 
         invalidated = pywhere.get_last_profiled_invalidated()
-        (fname, lineno, _lasti) = Scalene.last_profiled_tuple()
+        fname, lineno, _lasti = Scalene.last_profiled_tuple()
         if not invalidated and this_frame and not (on_stack(this_frame, fname, lineno)):
             Scalene.update_profiled()
         pywhere.set_last_profiled_invalidated_false()
@@ -624,7 +629,11 @@ class Scalene:
         # made the object held in `pywhere.cpp` out of date, and caused the profiler to not update the last profiled line.
         Scalene.__last_profiled[:] = [
             Filename(f.f_code.co_filename),
-            LineNumber(f.f_lineno),
+            (
+                LineNumber(f.f_lineno)
+                if f.f_lineno is not None
+                else LineNumber(f.f_code.co_firstlineno)
+            ),
             ByteCodeIndex(f.f_lasti),
         ]
         Scalene.__alloc_sigq.put([0])
@@ -660,6 +669,15 @@ class Scalene:
         """Set up the signal handlers to handle interrupts for profiling and start the
         timer interrupts."""
         next_interval = Scalene._sample_cpu_interval()
+        # On Windows, pre-initialize the time values so the first timer callback
+        # can record samples. Without this, the first call just initializes time
+        # and returns, but on Windows the program may finish before the second call.
+        if sys.platform == "win32":
+            now = TimeInfo()
+            now.sys, now.user = get_times()
+            now.virtual = time.process_time()
+            now.wallclock = time.perf_counter()
+            Scalene.__last_signal_time = now
         # On Windows, pass the signal queues for memory polling only if memory profiling is enabled
         alloc_sigq = None
         memcpy_sigq = None
@@ -682,7 +700,16 @@ class Scalene:
         signum: SignumType,
         this_frame: FrameType | None,
     ) -> None:
-        """Handle CPU signals."""
+        """Handle CPU signals.
+
+        Note: On Windows, this handler is called directly from a background thread
+        (not via signals) because signal.raise_signal() cannot be called from
+        background threads. The handler uses sys._current_frames() which is
+        thread-safe, so this is safe to call from any thread.
+        """
+        # Initialize next_interval with a default value in case an exception occurs
+        # before it's assigned. This prevents NameError in the finally block.
+        next_interval = Scalene._sample_cpu_interval()
         try:
             # Get current time stats.
             now = TimeInfo()
@@ -694,21 +721,30 @@ class Scalene:
                 or Scalene.__last_signal_time.wallclock == 0
             ):
                 # Initialization: store values and update on the next pass.
+                # On Windows, we pre-initialize in enable_signals() so this
+                # shouldn't be reached, but handle it just in case.
                 Scalene.__last_signal_time = now
-                next_interval = Scalene._sample_cpu_interval()
                 if sys.platform != "win32":
                     Scalene.__signal_manager.restart_timer(next_interval)
                 return
 
             if Scalene.__accelerator:
-                (gpu_load, gpu_mem_used) = Scalene.__accelerator.get_stats()
+                gpu_load, gpu_mem_used = Scalene.__accelerator.get_stats()
             else:
-                (gpu_load, gpu_mem_used) = (0.0, 0.0)
+                gpu_load, gpu_mem_used = (0.0, 0.0)
 
             # Process this CPU sample.
+            frames = compute_frames_to_record(Scalene._should_trace)
+            # Debug for Windows CI
+            if sys.platform == "win32":
+                print(
+                    f"Scalene debug: cpu_signal_handler got {len(frames)} frames to process",
+                    file=sys.stderr,
+                    flush=True,
+                )
             Scalene._process_cpu_sample(
                 signum,
-                compute_frames_to_record(Scalene._should_trace),
+                frames,
                 now,
                 gpu_load,
                 gpu_mem_used,
@@ -1037,6 +1073,7 @@ class Scalene:
         """Turn off the profiling signals."""
         if sys.platform == "win32":
             Scalene.__signal_manager.set_timer_signals(False)
+            Scalene.__signal_manager.stop_timer_thread()
             Scalene.__signal_manager.stop_windows_memory_polling()
             Scalene.stop_signal_queues()
             return
@@ -1097,6 +1134,13 @@ class Scalene:
                 Scalene.__invalidate_queue,
                 Scalene._should_trace,
             )
+        # Initialize PyTorch profiler if torch is available and GPU profiling is enabled
+        # This allows accurate attribution of JIT-compiled PyTorch code
+        # Skip when gpu=False (i.e., --cpu-only mode) to avoid overhead
+        if is_torch_available() and Scalene.__args.gpu:
+            Scalene.__torch_profiler = TorchProfiler()
+            Scalene.__torch_profiler.start()
+
         # If --off is set, tell all children to not profile and stop profiling before we even start.
         if "off" not in Scalene.__args or not Scalene.__args.off:
             self.start()
@@ -1117,6 +1161,70 @@ class Scalene:
 
         finally:
             self.stop()
+            # Stop PyTorch profiler and merge timing data into statistics
+            if Scalene.__torch_profiler is not None:
+                try:
+                    Scalene.__torch_profiler.stop()
+                    # Merge torch CPU timing into statistics
+                    for (
+                        filename,
+                        line_times,
+                    ) in Scalene.__torch_profiler.line_times.items():
+                        for lineno, time_us in line_times.items():
+                            # Convert from microseconds to seconds
+                            Scalene.__stats.cpu_stats.torch_cpu_time[
+                                Filename(filename)
+                            ][LineNumber(lineno)] += (time_us / 1_000_000)
+                    # Merge torch GPU timing into statistics (when CUDA is available)
+                    for (
+                        filename,
+                        line_times,
+                    ) in Scalene.__torch_profiler.gpu_line_times.items():
+                        for lineno, time_us in line_times.items():
+                            # Convert from microseconds to seconds
+                            Scalene.__stats.cpu_stats.torch_gpu_time[
+                                Filename(filename)
+                            ][LineNumber(lineno)] += (time_us / 1_000_000)
+                    # For Apple Silicon: distribute MPS GPU timing proportionally
+                    # to lines based on their PyTorch CPU time. This enables
+                    # per-process GPU timing on macOS where per-line GPU timing
+                    # isn't available from torch.profiler.
+                    if platform.system() == "Darwin" and hasattr(
+                        Scalene.__torch_profiler, "get_mps_total_time"
+                    ):
+                        mps_time = Scalene.__torch_profiler.get_mps_total_time()
+                        if mps_time > 0:
+                            # Calculate total torch CPU time across all lines
+                            total_torch_cpu_time = 0.0
+                            for (
+                                _filename,
+                                line_times,
+                            ) in Scalene.__torch_profiler.line_times.items():
+                                for _lineno, time_us in line_times.items():
+                                    total_torch_cpu_time += time_us
+                            # Distribute MPS time proportionally to torch CPU time
+                            if total_torch_cpu_time > 0:
+                                for (
+                                    filename,
+                                    line_times,
+                                ) in Scalene.__torch_profiler.line_times.items():
+                                    for lineno, time_us in line_times.items():
+                                        # Proportion of total torch CPU time
+                                        proportion = time_us / total_torch_cpu_time
+                                        # Assign proportional MPS GPU time
+                                        Scalene.__stats.cpu_stats.torch_gpu_time[
+                                            Filename(filename)
+                                        ][LineNumber(lineno)] += (mps_time * proportion)
+                            # Also update accelerator for aggregate stats
+                            if Scalene.__accelerator is not None and hasattr(
+                                Scalene.__accelerator, "set_torch_mps_time"
+                            ):
+                                Scalene.__accelerator.set_torch_mps_time(mps_time)
+                except Exception:
+                    # Silently handle any errors during torch profiler cleanup
+                    pass
+                finally:
+                    Scalene.__torch_profiler = None
             if Scalene.__args.memory:
                 # Disable line tracing and clean up tracer resources
                 disable_tracing()
@@ -1126,7 +1234,7 @@ class Scalene:
         # Leaving here in case of reversion
         # sys.settrace(None)
         stats = Scalene.__stats
-        (last_file, last_line, _) = Scalene.last_profiled_tuple()
+        last_file, last_line, _ = Scalene.last_profiled_tuple()
         stats.memory_stats.memory_malloc_count[last_file][last_line] += 1
         stats.memory_stats.memory_aggregate_footprint[last_file][
             last_line
@@ -1351,10 +1459,7 @@ class Scalene:
 
                 win_profiler = get_windows_profiler()
                 if not win_profiler.load_dll():
-                    print(
-                        "Warning: Failed to load libscalene.dll. Memory profiling disabled.",
-                        file=sys.stderr,
-                    )
+                    # Detailed error already printed by load_dll()
                     args.memory = False
                 elif not win_profiler.initialize():
                     print(

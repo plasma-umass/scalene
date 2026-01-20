@@ -1,23 +1,106 @@
 import { Buffer } from "buffer";
-window.Buffer = Buffer;
-import vegaEmbed from 'vega-embed';
+(window as unknown as { Buffer: typeof Buffer }).Buffer = Buffer;
+import vegaEmbed from "vega-embed";
 
 import { Prism } from "./prism";
 import Tablesort from "./tablesort";
 import { proposeOptimization } from "./optimizations";
 import { unescapeUnicode, memory_consumed_str, time_consumed_str } from "./utils";
-import { makeBar, makeGPUPie, makeMemoryPie, makeMemoryBar, makeSparkline, makeNRTBar, makeNCTimeBar, makeNCNRTPie, makeTotalNeuronBar,
-	 Lightning, Explosion, RightTriangle, DownTriangle, WhiteLightning, WhiteExplosion} from "./gui-elements";
-import { checkApiKey } from "./openai";
+import {
+  makeBar,
+  makeGPUPie,
+  makeMemoryPie,
+  makeMemoryBar,
+  makeSparkline,
+  makeNRTBar,
+  makeNCTimeBar,
+  makeTotalNeuronBar,
+  Lightning,
+  Explosion,
+  RightTriangle,
+  DownTriangle,
+  WhiteLightning,
+  WhiteExplosion,
+} from "./gui-elements";
+import { checkApiKey, fetchOpenAIModels } from "./openai";
+import { fetchGeminiModels } from "./gemini";
 import { fetchModelNames } from "./ollama";
 import { observeDOM, processPersistentElements } from "./persistence";
 
-window.checkApiKey = checkApiKey;
+// Expose checkApiKey globally
+(window as unknown as { checkApiKey: typeof checkApiKey }).checkApiKey = checkApiKey;
 
-export function vsNavigate(filename, lineno) {
+// Type declarations
+declare const example_profile: Profile;
+declare const profile: Profile;
+
+interface LineData {
+  lineno: number;
+  line: string;
+  n_cpu_percent_python: number;
+  n_cpu_percent_c: number;
+  n_sys_percent: number;
+  n_core_utilization: number;
+  n_peak_mb: number;
+  n_avg_mb: number;
+  n_python_fraction: number;
+  n_copy_mb_s: number;
+  n_copy_mb: number;
+  n_gpu_percent: number;
+  n_gpu_peak_memory_mb: number;
+  n_usage_fraction: number;
+  n_malloc_mb: number;
+  memory_samples: [number, number][];
+  start_region_line: number;
+  end_region_line: number;
+  nrt_time_ms?: number;
+  nrt_percent?: number;
+  nc_time_ms?: number;
+  cpu_samples_nc_overlap_percent?: number;
+}
+
+interface FunctionData extends LineData {}
+
+interface FileData {
+  lines: LineData[];
+  functions: FunctionData[];
+  imports: string[];
+  percent_cpu_time: number;
+  leaks?: Record<number, { velocity_mb_s: number }>;
+}
+
+interface Profile {
+  files: Record<string, FileData>;
+  gpu: boolean;
+  gpu_device: string;
+  memory: boolean;
+  max_footprint_mb: number;
+  elapsed_time_sec: number;
+  samples: [number, number][];
+  growth_rate: number;
+  program?: string;
+  stacks?: unknown;
+}
+
+interface Column {
+  title: [string, string];
+  color: string;
+  width: number;
+  info?: string;
+}
+
+interface TableParams {
+  functions: boolean;
+}
+
+declare const globalThis: {
+  profile: Profile;
+};
+
+export function vsNavigate(filename: string, lineno: number): void {
   // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
   try {
-    const vscode = acquireVsCodeApi();
+    const vscode = (window as unknown as { acquireVsCodeApi: () => { postMessage: (msg: unknown) => void } }).acquireVsCodeApi();
     vscode.postMessage({
       command: "jumpToLine",
       filePath: filename,
@@ -30,96 +113,104 @@ export function vsNavigate(filename, lineno) {
 
 const maxLinesPerRegion = 50; // Only show regions that are no more than this many lines.
 
-let showedExplosion = {}; // Used so we only show one explosion per region.
+let showedExplosion: Record<string, boolean> = {}; // Used so we only show one explosion per region.
 
-export function proposeOptimizationRegion(filename, file_number, line) {
+export function proposeOptimizationRegion(
+  filename: string,
+  file_number: number,
+  line: string
+): void {
   proposeOptimization(
     filename,
     file_number,
     JSON.parse(decodeURIComponent(line)),
-    { regions: true },
+    { regions: true }
   );
 }
 
-export function proposeOptimizationLine(filename, file_number, line) {
+export function proposeOptimizationLine(
+  filename: string,
+  file_number: number,
+  line: string
+): void {
   proposeOptimization(
     filename,
     file_number,
     JSON.parse(decodeURIComponent(line)),
-    { regions: false },
+    { regions: false }
   );
 }
 
 const CPUColor = "blue";
 const MemoryColor = "green";
 const CopyColor = "goldenrod";
-let columns = [];
+let columns: Column[] = [];
 
-function stringLines(lines) {
-    const docstringLines = new Set();
+function stringLines(lines: string[]): Set<number> {
+  const docstringLines = new Set<number>();
 
-    let inDocstring = false;      // Are we currently inside a docstring?
-    let docstringDelimiter = null; // Either `'''` or `"""` when in a docstring.
+  let inDocstring = false;
+  let docstringDelimiter: string | null = null;
 
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        let searchIndex = 0;
-        // We'll record if we were already in a docstring at the start of this line.
-        let wasInDocstring = inDocstring;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    let searchIndex = 0;
+    const wasInDocstring = inDocstring;
 
-        // Repeatedly look for triple quotes in the current line.
-        while (true) {
-            // Find the next occurrence of either `'''` or `"""`.
-            const nextTripleSingle = line.indexOf("'''", searchIndex);
-            const nextTripleDouble = line.indexOf('"""', searchIndex);
+    while (true) {
+      const nextTripleSingle = line.indexOf("'''", searchIndex);
+      const nextTripleDouble = line.indexOf('"""', searchIndex);
 
-            // Figure out which one occurs first (if either).
-            let nextIndex = -1;
-            let foundDelimiter = null;
+      let nextIndex = -1;
+      let foundDelimiter: string | null = null;
 
-            if (nextTripleSingle !== -1 && (nextTripleDouble === -1 || nextTripleSingle < nextTripleDouble)) {
-                nextIndex = nextTripleSingle;
-                foundDelimiter = "'''";
-            } else if (nextTripleDouble !== -1 && (nextTripleSingle === -1 || nextTripleDouble < nextTripleSingle)) {
-                nextIndex = nextTripleDouble;
-                foundDelimiter = '"""';
-            }
+      if (
+        nextTripleSingle !== -1 &&
+        (nextTripleDouble === -1 || nextTripleSingle < nextTripleDouble)
+      ) {
+        nextIndex = nextTripleSingle;
+        foundDelimiter = "'''";
+      } else if (
+        nextTripleDouble !== -1 &&
+        (nextTripleSingle === -1 || nextTripleDouble < nextTripleSingle)
+      ) {
+        nextIndex = nextTripleDouble;
+        foundDelimiter = '"""';
+      }
 
-            // If no further triple quotes found in this line, break out of the loop.
-            if (nextIndex === -1) {
-                break;
-            }
+      if (nextIndex === -1) {
+        break;
+      }
 
-            // Advance searchIndex so that subsequent searches move past this point.
-            searchIndex = nextIndex + 3;
+      searchIndex = nextIndex + 3;
 
-            // Toggle logic if we've found a triple quote.
-            if (!inDocstring) {
-                // Not in a docstring, so this starts one.
-                inDocstring = true;
-                docstringDelimiter = foundDelimiter;
-            } else {
-                // Already in a docstring, check if it matches our current delimiter.
-                if (docstringDelimiter === foundDelimiter) {
-                    // This ends our current docstring.
-                    inDocstring = false;
-                    docstringDelimiter = null;
-                }
-            }
+      if (!inDocstring) {
+        inDocstring = true;
+        docstringDelimiter = foundDelimiter;
+      } else {
+        if (docstringDelimiter === foundDelimiter) {
+          inDocstring = false;
+          docstringDelimiter = null;
         }
-
-        // If we were in a docstring at any point during this line, mark it.
-        // (If wasInDocstring was true at the start or inDocstring is true now,
-        //  it means this line is part of a docstring.)
-        if (wasInDocstring || inDocstring) {
-            docstringLines.add(i);
-        }
+      }
     }
-    return docstringLines;
+
+    if (wasInDocstring || inDocstring) {
+      docstringLines.add(i);
+    }
+  }
+  return docstringLines;
 }
 
-function makeTableHeader(fname, gpu, gpu_device, memory, params, hasNeuronData) {
-  let tableTitle;
+function makeTableHeader(
+  fname: string,
+  gpu: boolean,
+  gpu_device: string,
+  memory: boolean,
+  params: TableParams,
+  hasNeuronData: boolean
+): string {
+  let tableTitle: string;
   if (params["functions"]) {
     tableTitle = "function profile";
   } else {
@@ -133,8 +224,7 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params, hasNeuronData) 
       info: "Execution time (Python + native + system)",
     },
   ];
-  
-  // Add Unused Device % as the second column if neuron data exists
+
   if (hasNeuronData) {
     columns.push({
       title: ["Unused Device", "%"],
@@ -143,7 +233,7 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params, hasNeuronData) 
       info: "Percentage of CPU samples where device was not being utilized concurrently",
     });
   }
-  
+
   if (memory) {
     columns = columns.concat([
       {
@@ -192,7 +282,6 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params, hasNeuronData) 
       info: `Peak ${gpu_device} memory allocated by line / function (may be inaccurate if ${gpu_device} is not dedicated)`,
     });
   }
-  // Only add NRT/NC columns if neuron data exists in the profile
   if (hasNeuronData) {
     columns.push({
       title: ["NRT", "%"],
@@ -202,18 +291,19 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params, hasNeuronData) 
     });
     columns.push({
       title: ["NC", "time"],
-      color: "darkorange", 
+      color: "darkorange",
       width: 0,
       info: "Neuron Compute time",
     });
   }
   columns.push({ title: ["", ""], color: "black", width: 100 });
+
   let s = "";
   s += '<thead class="thead-light">';
   s += '<tr data-sort-method="thead">';
   for (const col of columns) {
     s += `<th class="F${escape(
-      fname,
+      fname
     )}-nonline"><font style="font-variant: small-caps; text-decoration: underline; width:${
       col.width
     }" color=${col.color}>`;
@@ -224,7 +314,7 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params, hasNeuronData) 
     }
     s += "</font>&nbsp;&nbsp;</th>";
   }
-  let id;
+  let id: string;
   if (params["functions"]) {
     id = "functionProfile";
   } else {
@@ -243,49 +333,48 @@ function makeTableHeader(fname, gpu, gpu_device, memory, params, hasNeuronData) 
   return s;
 }
 
-function hideEmptyProfiles() {
-  const elts = document.getElementsByClassName("empty-profile");
+function hideEmptyProfiles(): void {
+  const elts = document.getElementsByClassName("empty-profile") as HTMLCollectionOf<HTMLElement>;
   for (const elt of elts) {
-    const s = elt.style;
-    s.display = "none";
+    elt.style.display = "none";
   }
 }
 
-export function toggleReduced() {
-  const elts = document.getElementsByClassName("empty-profile");
+export function toggleReduced(): void {
+  const elts = document.getElementsByClassName("empty-profile") as HTMLCollectionOf<HTMLElement>;
   for (const elt of elts) {
-    const s = elt.style;
-    if (s.display == "") {
-      s.display = "none";
+    if (elt.style.display === "") {
+      elt.style.display = "none";
     } else {
-      s.display = "";
+      elt.style.display = "";
     }
   }
 }
 
 function makeProfileLine(
-  line,
-  inDocstring,
-  filename,
-  file_number,
-  prof,
-  cpu_bars,
-  memory_bars,
-  memory_sparklines,
-  memory_activity,
-  gpu_pies,
-  propose_optimizations,
-  nrt_bars,
-  nc_bars,
-  nc_nrt_pies,
-  total_nc_time_for_file,
-  hasNeuronData,
-) {
+  line: LineData,
+  inDocstring: boolean,
+  filename: string,
+  file_number: number,
+  prof: Profile,
+  cpu_bars: (unknown | null)[],
+  memory_bars: (unknown | null)[],
+  memory_sparklines: (unknown | null)[],
+  memory_activity: (unknown | null)[],
+  gpu_pies: (unknown | null)[],
+  propose_optimizations: boolean,
+  nrt_bars: (unknown | null)[],
+  nc_bars: (unknown | null)[],
+  nc_nrt_pies: (unknown | null)[],
+  total_nc_time_for_file: number,
+  hasNeuronData: boolean
+): string {
   let total_time =
     line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
   let total_region_time = 0;
   let region_has_memory_results = 0;
-  let region_has_gpu_results = 0;
+  let region_has_gpu_results = false;
+
   for (
     let lineno = line.start_region_line;
     lineno < line.end_region_line;
@@ -300,51 +389,54 @@ function makeProfileLine(
       currline.n_avg_mb +
       currline.n_peak_mb +
       currline.memory_samples.length +
-      (currline.n_usage_fraction >= 0.01);
-    region_has_gpu_results |= line.n_gpu_percent >= 1.0;
+      (currline.n_usage_fraction >= 0.01 ? 1 : 0);
+    region_has_gpu_results = region_has_gpu_results || line.n_gpu_percent >= 1.0;
   }
-  // Disable optimization proposals for low CPU runtime lines.
 
-  // TODO: tailor prompt for memory optimization when that's the only inefficiency.
-  // ALSO propose optimizations not just for execution time but also for memory usage.
   if (propose_optimizations) {
     if (total_time < 1.0 && line.start_region_line === line.end_region_line) {
       propose_optimizations = false;
     }
-    if (line.start_region_line != line.end_region_line) {
+    if (line.start_region_line !== line.end_region_line) {
       if (total_region_time < 1.0) {
         propose_optimizations = false;
       }
     }
   }
+
   const has_memory_results =
     line.n_avg_mb +
     line.n_peak_mb +
     line.memory_samples.length +
-    (line.n_usage_fraction >= 0.01);
+    (line.n_usage_fraction >= 0.01 ? 1 : 0);
   const has_gpu_results = line.n_gpu_percent >= 1.0;
-  const has_nrt_results = (line.nrt_time_ms !== undefined && line.nrt_time_ms > 0) || 
-                          (line.nc_time_ms !== undefined && line.nc_time_ms > 0);
+  const has_nrt_results =
+    (line.nrt_time_ms !== undefined && line.nrt_time_ms > 0) ||
+    (line.nc_time_ms !== undefined && line.nc_time_ms > 0);
   const start_region_line = line.start_region_line;
   const end_region_line = line.end_region_line;
-  // Only show the explosion (optimizing a whole region) once.
-  let explosionString;
-  let showExplosion;
+
+  let explosionString: string;
+  let showExplosion: boolean;
+  const regionKey = `${start_region_line - 1},${end_region_line}`;
+
   if (
     start_region_line === end_region_line ||
-    [[start_region_line - 1, end_region_line]] in showedExplosion
+    regionKey in showedExplosion
   ) {
     explosionString = WhiteExplosion;
     showExplosion = false;
   } else {
     explosionString = Explosion;
     if (start_region_line && end_region_line) {
-      showedExplosion[[start_region_line - 1, end_region_line]] = true;
+      showedExplosion[regionKey] = true;
       showExplosion = true;
+    } else {
+      showExplosion = false;
     }
   }
-  // If the region is too big, for some definition of "too big", don't show it.
-  showExplosion &= end_region_line - start_region_line <= maxLinesPerRegion;
+
+  showExplosion = showExplosion && end_region_line - start_region_line <= maxLinesPerRegion;
 
   let s = "";
   if (
@@ -353,7 +445,7 @@ function makeProfileLine(
     (has_gpu_results && prof.gpu && !hasNeuronData) ||
     has_nrt_results ||
     (showExplosion &&
-      start_region_line != end_region_line &&
+      start_region_line !== end_region_line &&
       (total_region_time >= 1.0 ||
         region_has_memory_results ||
         (region_has_gpu_results && prof.gpu && !hasNeuronData)))
@@ -362,6 +454,7 @@ function makeProfileLine(
   } else {
     s += "<tr class='empty-profile'>";
   }
+
   const total_time_str = String(total_time.toFixed(1)).padStart(10, " ");
   s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${total_time_str}'>`;
   s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>`;
@@ -371,38 +464,43 @@ function makeProfileLine(
         line.n_cpu_percent_python,
         line.n_cpu_percent_c,
         line.n_sys_percent,
-        { height: 20, width: 100 },
-      ),
+        { height: 20, width: 100 }
+      )
     );
   } else {
     cpu_bars.push(null);
   }
   s += "</td>";
-  
-  // Add Unused Device % column as second column if neuron data exists
+
   if (hasNeuronData) {
-    // Only show unused device % for lines that have CPU >= 1% or device (NRT) info
-    if ((total_time >= 1.0 || has_nrt_results) && line.cpu_samples_nc_overlap_percent !== undefined) {
+    if (
+      (total_time >= 1.0 || has_nrt_results) &&
+      line.cpu_samples_nc_overlap_percent !== undefined
+    ) {
       const overlap_percent = line.cpu_samples_nc_overlap_percent || 0;
-      const unused_percent = 100 - overlap_percent; // Calculate as 1 - current percentage
-      let color = "green"; // Green for low unused (good)
+      const unused_percent = 100 - overlap_percent;
+      let color = "green";
       if (unused_percent >= 60) {
-        color = "darkred"; // Dark red for high unused (bad)
+        color = "darkred";
       } else if (unused_percent >= 30) {
-        color = "goldenrod"; // Yellow/golden for middle range
+        color = "goldenrod";
       }
-      
-      s += `<td style="width: 100; vertical-align: middle; padding-right: 8px;" align="right" data-sort='${unused_percent.toFixed(1)}'>`;
-      s += `<font style="font-size: small" color="${color}">${unused_percent.toFixed(1)}%&nbsp;&nbsp;&nbsp;</font>`;
+
+      s += `<td style="width: 100; vertical-align: middle; padding-right: 8px;" align="right" data-sort='${unused_percent.toFixed(
+        1
+      )}'>`;
+      s += `<font style="font-size: small" color="${color}">${unused_percent.toFixed(
+        1
+      )}%&nbsp;&nbsp;&nbsp;</font>`;
       s += "</td>";
     } else {
       s += '<td style="width: 100; padding-right: 8px;"></td>';
     }
   }
-  
+
   if (prof.memory) {
     s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
-      line.n_peak_mb.toFixed(0),
+      line.n_peak_mb.toFixed(0)
     ).padStart(10, "0")}'>`;
     s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
     if (line.n_peak_mb) {
@@ -410,17 +508,17 @@ function makeProfileLine(
         makeMemoryBar(
           line.n_peak_mb.toFixed(0),
           "peak memory",
-          parseFloat(line.n_python_fraction),
+          parseFloat(String(line.n_python_fraction)),
           prof.max_footprint_mb.toFixed(2),
           "darkgreen",
-          { height: 20, width: 100 },
-        ),
+          { height: 20, width: 100 }
+        )
       );
     } else {
       memory_bars.push(null);
     }
     s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${String(
-      line.n_avg_mb.toFixed(0),
+      line.n_avg_mb.toFixed(0)
     ).padStart(10, "0")}'>`;
     s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
     s += "</td>";
@@ -429,11 +527,11 @@ function makeProfileLine(
         makeMemoryBar(
           line.n_avg_mb.toFixed(0),
           "average memory",
-          parseFloat(line.n_python_fraction),
+          parseFloat(String(line.n_python_fraction)),
           prof.max_footprint_mb.toFixed(2),
           "darkgreen",
-          { height: 20, width: 100 },
-        ),
+          { height: 20, width: 100 }
+        )
       );
     } else {
       memory_bars.push(null);
@@ -444,8 +542,9 @@ function makeProfileLine(
     if (line.memory_samples.length > 0) {
       let leak_velocity = 0;
       if ("leaks" in prof.files[filename]) {
-        if (line.lineno in prof.files[filename].leaks) {
-          leak_velocity = prof.files[filename].leaks[line.lineno].velocity_mb_s;
+        const leaks = prof.files[filename].leaks;
+        if (leaks && line.lineno in leaks) {
+          leak_velocity = leaks[line.lineno].velocity_mb_s;
         }
       }
       memory_sparklines.push(
@@ -454,8 +553,8 @@ function makeProfileLine(
           prof.elapsed_time_sec * 1e9,
           prof.max_footprint_mb,
           leak_velocity,
-          { height: 20, width: 75 },
-        ),
+          { height: 20, width: 75 }
+        )
       );
     } else {
       memory_sparklines.push(null);
@@ -467,23 +566,20 @@ function makeProfileLine(
         makeMemoryPie(
           100 *
             line.n_usage_fraction *
-            (1 - parseFloat(line.n_python_fraction)),
-          100 * line.n_usage_fraction * parseFloat(line.n_python_fraction),
-          { width: 30 },
-        ),
+            (1 - parseFloat(String(line.n_python_fraction))),
+          100 * line.n_usage_fraction * parseFloat(String(line.n_python_fraction)),
+          { width: 30 }
+        )
       );
     } else {
       memory_activity.push(null);
     }
-    //      s += `<font style="font-size: small">${String(
-    //        (100 * line.n_usage_fraction).toFixed(0)
-    //      ).padStart(10, " ")}%&nbsp;&nbsp;&nbsp;</font>`;
     s += "</td>";
     if (line.n_copy_mb_s < 1.0) {
       s += '<td style="width: 100"></td>';
     } else {
       s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_copy_mb_s.toFixed(
-        0,
+        0
       )}&nbsp;&nbsp;&nbsp;</font></td>`;
     }
   }
@@ -491,7 +587,6 @@ function makeProfileLine(
     if (line.n_gpu_percent < 1.0) {
       s += '<td style="width: 100"></td>';
     } else {
-      //	    s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${line.n_gpu_percent.toFixed(0)}%</font></td>`;
       s += `<td style="width: 50; vertical-align: middle" align="right" data-sort="${line.n_gpu_percent}">`;
       s += `<span style="height: 20; width: 30; vertical-align: middle" id="gpu_pie${gpu_pies.length}"></span>`;
       s += "</td>";
@@ -499,80 +594,73 @@ function makeProfileLine(
         makeGPUPie(line.n_gpu_percent, prof.gpu_device, {
           height: 20,
           width: 30,
-        }),
+        })
       );
-      // gpu_pies.push(makeGPUBar(line.n_gpu_percent, prof.gpu_device, { height: 20, width: 100 }));
     }
-    if (true) {
-      if (line.n_gpu_peak_memory_mb < 1.0 || line.n_gpu_percent < 1.0) {
-        s += '<td style="width: 100"></td>';
-      } else {
-        let mem = line.n_gpu_peak_memory_mb;
-        let memStr = "MB";
-        if (mem >= 1024) {
-          mem /= 1024;
-          memStr = "GB";
-        }
-        s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${mem.toFixed(0)}${memStr}&nbsp;&nbsp;</font></td>`;
+    if (line.n_gpu_peak_memory_mb < 1.0 || line.n_gpu_percent < 1.0) {
+      s += '<td style="width: 100"></td>';
+    } else {
+      let mem = line.n_gpu_peak_memory_mb;
+      let memStr = "MB";
+      if (mem >= 1024) {
+        mem /= 1024;
+        memStr = "GB";
       }
+      s += `<td style="width: 100; vertical-align: middle" align="right"><font style="font-size: small" color="${CopyColor}">${mem.toFixed(
+        0
+      )}${memStr}&nbsp;&nbsp;</font></td>`;
     }
   }
-  
-  // Add neuron columns only if the profile contains neuron data 
+
   if (hasNeuronData) {
-    // Add NRT columns
-    // NRT time bar
-    if ((line.nrt_time_ms !== undefined && line.nrt_time_ms > 0) || (line.nrt_percent !== undefined && line.nrt_percent > 0)) {
+    if (
+      (line.nrt_time_ms !== undefined && line.nrt_time_ms > 0) ||
+      (line.nrt_percent !== undefined && line.nrt_percent > 0)
+    ) {
       const sortValue = line.nrt_time_ms || line.nrt_percent || 0;
-      s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${sortValue.toFixed(1)}'>`;
+      s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${sortValue.toFixed(
+        1
+      )}'>`;
       s += `<span style="height: 20; width: 100; vertical-align: middle" id="nrt_bar${nrt_bars.length}"></span>`;
       s += "</td>";
       nrt_bars.push(
-        makeNRTBar(
-          line.nrt_time_ms || 0,
-          prof.elapsed_time_sec,
-          { height: 20, width: 100 },
-        ),
+        makeNRTBar(line.nrt_time_ms || 0, prof.elapsed_time_sec, {
+          height: 20,
+          width: 100,
+        })
       );
     } else {
       s += '<td style="width: 100"></td>';
       nrt_bars.push(null);
     }
-    
-    // Add NC time bar column
+
     if (line.nc_time_ms !== undefined && line.nc_time_ms > 0) {
-      s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${line.nc_time_ms.toFixed(1)}'>`;
+      s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${line.nc_time_ms.toFixed(
+        1
+      )}'>`;
       s += `<span style="height: 20; width: 100; vertical-align: middle" id="nc_bar${nc_bars.length}"></span>`;
       s += "</td>";
       nc_bars.push(
-        makeNCTimeBar(
-          line.nc_time_ms,
-          prof.elapsed_time_sec,
-          { height: 20, width: 100 },
-        ),
+        makeNCTimeBar(line.nc_time_ms, prof.elapsed_time_sec, {
+          height: 20,
+          width: 100,
+        })
       );
     } else {
       s += '<td style="width: 100"></td>';
       nc_bars.push(null);
     }
-    
   }
-  
+
   const empty_profile =
     total_time ||
     has_memory_results ||
     (has_gpu_results && prof.gpu && !hasNeuronData) ||
     has_nrt_results ||
-    end_region_line != start_region_line
+    end_region_line !== start_region_line
       ? ""
       : "empty-profile";
-  s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${
-    line.lineno
-  }"><span onclick="vsNavigate('${escape(filename)}',${
-    line.lineno
-  })"><font color="gray" style="font-size: 70%; vertical-align: middle" >${
-    line.lineno
-  }&nbsp;</font></span></td>`;
+  s += `<td align="right" class="dummy ${empty_profile}" style="vertical-align: middle; width: 50" data-sort="${line.lineno}"><span onclick="vsNavigate('${escape(filename)}',${line.lineno})"><font color="gray" style="font-size: 70%; vertical-align: middle" >${line.lineno}&nbsp;</font></span></td>`;
 
   const regionOptimizationString =
     propose_optimizations && showExplosion
@@ -583,16 +671,16 @@ function makeProfileLine(
   line.line = unescapeUnicode(line.line);
 
   const codeLine = Prism.highlight(line.line, Prism.languages.python, "python");
-  
+
   // If we are in a docstring, format it as such in the <span>
   let optionalInDocstring = "";
   if (inDocstring) {
-      optionalInDocstring = "token comment";
+    optionalInDocstring = "token comment";
   }
-  
+
   s += `<td style="height:10" align="left" bgcolor="whitesmoke" style="vertical-align: middle" data-sort="${line.lineno}">`;
-  let newLine = structuredClone(line);
-  // TODO: verify that this isn't double counting anything
+  const newLine = structuredClone(line);
+
   if (propose_optimizations && showExplosion) {
     // Construct a new line corresponding to this region.
     let mb_copied = 0;
@@ -607,16 +695,16 @@ function makeProfileLine(
         newLine.n_peak_mb = currline.n_peak_mb;
         newLine.n_python_fraction = currline.n_python_fraction;
       }
-      // TODO:
-      // GPU memory
       newLine.n_core_utilization +=
         (currline.n_cpu_percent_python + currline.n_cpu_percent_c) *
-        currline.n_core_utilization; // weigh by percentage
+        currline.n_core_utilization;
     }
     newLine.n_copy_mb_s = mb_copied / prof.elapsed_time_sec;
     s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for the entire region starting here." onclick="proposeOptimizationRegion('${escape(
-      filename,
-    )}', ${file_number}, '${encodeURIComponent(JSON.stringify(newLine))}'); event.preventDefault()">${regionOptimizationString}</span>`;
+      filename
+    )}', ${file_number}, '${encodeURIComponent(
+      JSON.stringify(newLine)
+    )}'); event.preventDefault()">${regionOptimizationString}</span>`;
   } else {
     s += regionOptimizationString;
   }
@@ -625,8 +713,11 @@ function makeProfileLine(
     ? `${Lightning}`
     : `${WhiteLightning}`;
   if (propose_optimizations) {
-    s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${escape(filename)}', ${file_number}, '${encodeURIComponent(JSON.stringify(line))}'); event.preventDefault()">${lineOptimizationString}</span>`;
-    // s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${escape(filename,)}', ${file_number}, ${JSON.stringify(line)}); event.preventDefault()">${lineOptimizationString}</span>`;
+    s += `<span style="vertical-align: middle; cursor: pointer" title="Propose an optimization for this line." onclick="proposeOptimizationLine('${escape(
+      filename
+    )}', ${file_number}, '${encodeURIComponent(
+      JSON.stringify(line)
+    )}'); event.preventDefault()">${lineOptimizationString}</span>`;
   } else {
     s += lineOptimizationString;
   }
@@ -636,45 +727,72 @@ function makeProfileLine(
 }
 
 // Track all profile ids so we can collapse and expand them en masse.
-let allIds = [];
+let allIds: string[] = [];
 
-export function collapseAll() {
+export function collapseAll(): void {
   for (const id of allIds) {
     collapseDisplay(id);
   }
 }
 
-export function expandAll() {
+export function expandAll(): void {
   for (const id of allIds) {
     expandDisplay(id);
   }
 }
 
-function collapseDisplay(id) {
+function collapseDisplay(id: string): void {
   const d = document.getElementById(`profile-${id}`);
-  d.style.display = "none";
-  document.getElementById(`button-${id}`).innerHTML = RightTriangle;
-}
-
-function expandDisplay(id) {
-  const d = document.getElementById(`profile-${id}`);
-  d.style.display = "block";
-  document.getElementById(`button-${id}`).innerHTML = DownTriangle;
-}
-
-export function toggleDisplay(id) {
-  const d = document.getElementById(`profile-${id}`);
-  if (d.style.display == "block") {
+  if (d) {
     d.style.display = "none";
-    document.getElementById(`button-${id}`).innerHTML = RightTriangle;
-  } else {
-    d.style.display = "block";
-    document.getElementById(`button-${id}`).innerHTML = DownTriangle;
+  }
+  const btn = document.getElementById(`button-${id}`);
+  if (btn) {
+    btn.innerHTML = RightTriangle;
   }
 }
 
-String.prototype.padWithNonBreakingSpaces = function (targetLength) {
-  let nbsp = "&nbsp;";
+function expandDisplay(id: string): void {
+  const d = document.getElementById(`profile-${id}`);
+  if (d) {
+    d.style.display = "block";
+  }
+  const btn = document.getElementById(`button-${id}`);
+  if (btn) {
+    btn.innerHTML = DownTriangle;
+  }
+}
+
+export function toggleDisplay(id: string): void {
+  const d = document.getElementById(`profile-${id}`);
+  if (d) {
+    if (d.style.display === "block") {
+      d.style.display = "none";
+      const btn = document.getElementById(`button-${id}`);
+      if (btn) {
+        btn.innerHTML = RightTriangle;
+      }
+    } else {
+      d.style.display = "block";
+      const btn = document.getElementById(`button-${id}`);
+      if (btn) {
+        btn.innerHTML = DownTriangle;
+      }
+    }
+  }
+}
+
+// Extend String prototype
+declare global {
+  interface String {
+    padWithNonBreakingSpaces(targetLength: number): string;
+  }
+}
+
+String.prototype.padWithNonBreakingSpaces = function (
+  targetLength: number
+): string {
+  const nbsp = "&nbsp;";
   let padding = "";
   let currentLength = this.length * nbsp.length;
   targetLength *= nbsp.length;
@@ -687,28 +805,25 @@ String.prototype.padWithNonBreakingSpaces = function (targetLength) {
   return padding + this;
 };
 
-async function display(prof) {
-  //    console.log(JSON.stringify(prof.stacks));
+async function display(prof: Profile): Promise<void> {
   // Clear explosions.
   showedExplosion = {};
-  
+
   // Compute overall usage and detect neuron data FIRST
   let cpu_python = 0;
   let cpu_native = 0;
   let cpu_system = 0;
   let mem_python = 0;
   let max_alloc = 0;
-  let cp = {};
-  let cn = {};
-  let cs = {};
-  let mp = {};
-  let ma = {};
-  let total_nc_time = {}; // Total NC time per file
-  let total_nrt_time = {}; // Total NRT time per file
-  let hasNeuronData = false; // Check if any neuron profiling data exists
-  let overall_nc_time = 0; // Total NC time across all files
-  let overall_nrt_time = 0; // Total NRT time across all files
-  
+  const cp: Record<string, number> = {};
+  const cn: Record<string, number> = {};
+  const cs: Record<string, number> = {};
+  const mp: Record<string, number> = {};
+  const ma: Record<string, number> = {};
+  const total_nc_time: Record<string, number> = {};
+  const total_nrt_time: Record<string, number> = {};
+  let hasNeuronData = false;
+
   for (const f in prof.files) {
     cp[f] = 0;
     cn[f] = 0;
@@ -727,7 +842,6 @@ async function display(prof) {
         mp[f] += line.n_peak_mb * line.n_python_fraction;
       }
       max_alloc += line.n_malloc_mb;
-      // Calculate total NC time for this file and detect neuron data
       if (line.nc_time_ms !== undefined && line.nc_time_ms > 0) {
         total_nc_time[f] += line.nc_time_ms;
         hasNeuronData = true;
@@ -744,42 +858,47 @@ async function display(prof) {
     cpu_native += cn[f];
     cpu_system += cs[f];
     mem_python += mp[f];
-    overall_nc_time += total_nc_time[f];
-    overall_nrt_time += total_nrt_time[f];
   }
 
   // Restore the API key from local storage (if any).
-  let old_key = "";
-  old_key = window.localStorage.getItem("scalene-api-key");
+  const old_key = window.localStorage.getItem("scalene-api-key");
 
   if (old_key) {
-    document.getElementById("api-key").value = old_key;
+    const apiKeyElement = document.getElementById("api-key") as HTMLInputElement | null;
+    if (apiKeyElement) {
+      apiKeyElement.value = old_key;
+    }
     // Update the status.
     checkApiKey(old_key);
   }
 
-  let selectedService = window.localStorage.getItem("scalene-service-select");
+  const selectedService = window.localStorage.getItem("scalene-service-select");
   if (selectedService) {
-    document.getElementById("service-select").value = selectedService;
+    const serviceSelect = document.getElementById("service-select") as HTMLSelectElement | null;
+    if (serviceSelect) {
+      serviceSelect.value = selectedService;
+    }
     toggleServiceFields();
   }
 
-  const gpu_checkbox = document.getElementById("use-gpu-checkbox") || "";
-  // Set the GPU checkbox on if the profile indicated the presence of a GPU.
-  if (gpu_checkbox.checked != prof.gpu) {
+  const gpu_checkbox = document.getElementById("use-gpu-checkbox") as HTMLInputElement | null;
+  if (gpu_checkbox && gpu_checkbox.checked !== prof.gpu) {
     gpu_checkbox.click();
   }
   if (prof.gpu) {
-    document.getElementById("accelerator-name").innerHTML = prof.gpu_device;
+    const acceleratorName = document.getElementById("accelerator-name");
+    if (acceleratorName) {
+      acceleratorName.innerHTML = prof.gpu_device;
+    }
   }
   globalThis.profile = prof;
-  let memory_sparklines = [];
-  let memory_activity = [];
-  let gpu_pies = [];
-  let memory_bars = [];
-  let nrt_bars = [];
-  let nc_bars = [];
-  let nc_nrt_pies = [];
+  const memory_sparklines: (unknown | null)[] = [];
+  const memory_activity: (unknown | null)[] = [];
+  const gpu_pies: (unknown | null)[] = [];
+  const memory_bars: (unknown | null)[] = [];
+  const nrt_bars: (unknown | null)[] = [];
+  const nc_bars: (unknown | null)[] = [];
+  const nc_nrt_pies: (unknown | null)[] = [];
   let tableID = 0;
   let s = "";
   s += '<span class="row justify-content-center">';
@@ -793,7 +912,7 @@ async function display(prof) {
     s += '<td width="10"></td>';
     s += '<td valign="middle" style="vertical-align: middle">';
     s += `<font style="font-size: small"><b>Memory timeline: </b>(max: ${memory_consumed_str(
-      prof.max_footprint_mb,
+      prof.max_footprint_mb
     )}, growth: ${prof.growth_rate.toFixed(1)}%)</font>`;
     s += "</td>";
   }
@@ -814,15 +933,15 @@ async function display(prof) {
         prof.elapsed_time_sec * 1e9,
         prof.max_footprint_mb,
         0,
-        { height: 20, width: 200 },
-      ),
+        { height: 20, width: 200 }
+      )
     );
   }
   s += "</tr>";
 
-  let cpu_bars = [];
+  const cpu_bars: (unknown | null)[] = [];
   cpu_bars.push(
-    makeBar(cpu_python, cpu_native, cpu_system, { height: 20, width: 200 }),
+    makeBar(cpu_python, cpu_native, cpu_system, { height: 20, width: 200 })
   );
   if (prof.memory) {
     memory_bars.push(
@@ -832,8 +951,8 @@ async function display(prof) {
         mem_python / max_alloc,
         prof.max_footprint_mb.toFixed(2),
         "darkgreen",
-        { height: 20, width: 150 },
-      ),
+        { height: 20, width: 150 }
+      )
     );
   }
 
@@ -857,14 +976,16 @@ async function display(prof) {
     </form>
     </div>`;
     const p = document.getElementById("profile");
-    p.innerHTML = s;
+    if (p) {
+      p.innerHTML = s;
+    }
     return;
   }
 
   s +=
     '<br class="text-left"><span style="font-size: 80%; color: blue; cursor : pointer;" onClick="expandAll()">&nbsp;show all</span> | <span style="font-size: 80%; color: blue; cursor : pointer;" onClick="collapseAll()">hide all</span>';
   s += ` | <span style="font-size: 80%; color: blue" onClick="document.getElementById('reduce-checkbox').click()">only display profiled lines&nbsp;</span><input type="checkbox" id="reduce-checkbox" checked onClick="toggleReduced()" /></br>`;
-  
+
   s += '<div class="container-fluid">';
 
   // Convert files to an array and sort it in descending order by percent of CPU time.
@@ -876,11 +997,10 @@ async function display(prof) {
   // Print profile for each file
   let fileIteration = 0;
   allIds = [];
-  let excludedFiles = new Set();
+  const excludedFiles = new Set<[string, FileData]>();
   for (const ff of files) {
     fileIteration++;
     // Stop once total CPU time / memory consumption are below some threshold (1%)
-    // NOTE: need to incorporate GPU time here as well. FIXME.
     if (ff[1].percent_cpu_time < 1.0 && ma[ff[0]] < 0.01 * max_alloc) {
       excludedFiles.add(ff);
       continue;
@@ -898,7 +1018,7 @@ async function display(prof) {
 
     s += `<span style="height: 20; width: 100; vertical-align: middle" id="cpu_bar${cpu_bars.length}"></span>&nbsp;`;
     cpu_bars.push(
-      makeBar(cp[ff[0]], cn[ff[0]], cs[ff[0]], { height: 20, width: 100 }),
+      makeBar(cp[ff[0]], cn[ff[0]], cs[ff[0]], { height: 20, width: 100 })
     );
     if (prof.memory) {
       s += `<span style="height: 20; width: 100; vertical-align: middle" id="memory_bar${memory_bars.length}"></span>`;
@@ -909,63 +1029,58 @@ async function display(prof) {
           mp[ff[0]] / ma[ff[0]],
           prof.max_footprint_mb.toFixed(2),
           "darkgreen",
-          { height: 20, width: 100 },
-        ),
+          { height: 20, width: 100 }
+        )
       );
     }
     s += `<font style="font-size: 90%">% of time = ${ff[1].percent_cpu_time
       .toFixed(1)
       .padWithNonBreakingSpaces(5)}% (${time_consumed_str(
-      (ff[1].percent_cpu_time / 100.0) * prof.elapsed_time_sec * 1e3,
+      (ff[1].percent_cpu_time / 100.0) * prof.elapsed_time_sec * 1e3
     ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(
-      prof.elapsed_time_sec * 1e3,
+      prof.elapsed_time_sec * 1e3
     ).padWithNonBreakingSpaces(8)})`;
-    
-    // Add neuron bars in the same format as CPU bars if neuron data exists
+
     if (hasNeuronData && total_nrt_time[ff[0]] > 0) {
       s += `<br /><span style="height: 20; width: 100; vertical-align: middle" id="nrt_bar${nrt_bars.length}"></span>&nbsp;`;
       nrt_bars.push(
-        makeTotalNeuronBar(
-          total_nrt_time[ff[0]],
-          prof.elapsed_time_sec,
-          "NRT",
-          "purple",
-          { height: 20, width: 100 },
-        ),
+        makeTotalNeuronBar(total_nrt_time[ff[0]], prof.elapsed_time_sec, "NRT", "purple", {
+          height: 20,
+          width: 100,
+        })
       );
-      const nrt_percent = (total_nrt_time[ff[0]] / 1000 / prof.elapsed_time_sec) * 100;
+      const nrt_percent =
+        (total_nrt_time[ff[0]] / 1000 / prof.elapsed_time_sec) * 100;
       s += `% of nrt time = ${nrt_percent
         .toFixed(1)
         .padWithNonBreakingSpaces(5)}% (${time_consumed_str(
-        total_nrt_time[ff[0]],
+        total_nrt_time[ff[0]]
       ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(
-        prof.elapsed_time_sec * 1e3,
+        prof.elapsed_time_sec * 1e3
       ).padWithNonBreakingSpaces(8)})`;
     }
-    
+
     if (hasNeuronData && total_nc_time[ff[0]] > 0) {
       s += `<br /><span style="height: 20; width: 100; vertical-align: middle" id="nc_bar${nc_bars.length}"></span>&nbsp;`;
       nc_bars.push(
-        makeTotalNeuronBar(
-          total_nc_time[ff[0]],
-          prof.elapsed_time_sec,
-          "NC",
-          "darkorange",
-          { height: 20, width: 100 },
-        ),
+        makeTotalNeuronBar(total_nc_time[ff[0]], prof.elapsed_time_sec, "NC", "darkorange", {
+          height: 20,
+          width: 100,
+        })
       );
-      const nc_percent = (total_nc_time[ff[0]] / 1000 / prof.elapsed_time_sec) * 100;
+      const nc_percent =
+        (total_nc_time[ff[0]] / 1000 / prof.elapsed_time_sec) * 100;
       s += `% of nc time = ${nc_percent
         .toFixed(1)
         .padWithNonBreakingSpaces(5)}% (${time_consumed_str(
-        total_nc_time[ff[0]],
+        total_nc_time[ff[0]]
       ).padWithNonBreakingSpaces(8)} / ${time_consumed_str(
-        prof.elapsed_time_sec * 1e3,
+        prof.elapsed_time_sec * 1e3
       ).padWithNonBreakingSpaces(8)})`;
     }
-    
+
     s += `</font>`;
-    
+
     s += `<br /><span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
     s += `${triangle}`;
     s += "</span>";
@@ -979,7 +1094,7 @@ async function display(prof) {
     }, hasNeuronData);
     s += "<tbody>";
     // Compute all docstring lines
-    const linesArray = ff[1].lines.map(entry => entry.line);
+    const linesArray = ff[1].lines.map((entry) => entry.line);
     const docstringLines = stringLines(linesArray);
     // Print per-line profiles.
     let prevLineno = -1;
@@ -990,14 +1105,13 @@ async function display(prof) {
 
       if (false) {
         // Disabling spacers
-        // Add a space whenever we skip a line.
         if (line.lineno > prevLineno + 1) {
           s += "<tr>";
           for (let i = 0; i < columns.length; i++) {
             s += "<td></td>";
           }
           s += `<td class="F${escape(
-            ff[0],
+            ff[0]
           )}-blankline" style="line-height: 1px; background-color: lightgray" data-sort="${
             prevLineno + 1
           }">&nbsp;</td>`;
@@ -1021,7 +1135,7 @@ async function display(prof) {
         nc_bars,
         nc_nrt_pies,
         total_nc_time[ff[0]],
-        hasNeuronData,
+        hasNeuronData
       );
     }
     s += "</tbody>";
@@ -1038,7 +1152,7 @@ async function display(prof) {
         const line = prof.files[ff[0]].functions[l];
         s += makeProfileLine(
           line,
-          false, // functions are not docstrings
+          false,
           ff[0],
           fileIteration,
           prof,
@@ -1047,19 +1161,17 @@ async function display(prof) {
           memory_sparklines,
           memory_activity,
           gpu_pies,
-          false, // no optimizations here
+          false,
           nrt_bars,
           nc_bars,
           nc_nrt_pies,
           total_nc_time[ff[0]],
-          hasNeuronData,
+          hasNeuronData
         );
       }
       s += "</table>";
     }
     s += "</div>";
-    //    fileIteration++;
-    // Insert empty lines between files.
     if (fileIteration < files.length) {
       s += "<hr>";
     }
@@ -1068,20 +1180,20 @@ async function display(prof) {
   files = files.filter((x) => !excludedFiles.has(x));
   s += "</div>";
   const p = document.getElementById("profile");
-  p.innerHTML = s;
+  if (p) {
+    p.innerHTML = s;
+  }
 
   // Logic for turning on and off the gray line separators.
-
-  // If you click on any header to sort (except line profiles), turn gray lines off.
   for (const ff of files) {
     const allHeaders = document.getElementsByClassName(
-      `F${escape(ff[0])}-nonline`,
+      `F${escape(ff[0])}-nonline`
     );
     for (let i = 0; i < allHeaders.length; i++) {
       allHeaders[i].addEventListener("click", () => {
         const all = document.getElementsByClassName(
-          `F${escape(ff[0])}-blankline`,
-        );
+          `F${escape(ff[0])}-blankline`
+        ) as HTMLCollectionOf<HTMLElement>;
         for (let i = 0; i < all.length; i++) {
           all[i].style.display = "none";
         }
@@ -1089,29 +1201,32 @@ async function display(prof) {
     }
   }
 
-  // If you click on the line profile header, and gray lines are off, turn them back on.
   for (const ff of files) {
-    document
-      .getElementById(`${escape(ff[0])}-lineProfile`)
-      .addEventListener("click", () => {
+    const lineProfileHeader = document.getElementById(`${escape(ff[0])}-lineProfile`);
+    if (lineProfileHeader) {
+      lineProfileHeader.addEventListener("click", () => {
         const all = document.getElementsByClassName(
-          `F${escape(ff[0])}-blankline`,
-        );
+          `F${escape(ff[0])}-blankline`
+        ) as HTMLCollectionOf<HTMLElement>;
         for (let i = 0; i < all.length; i++) {
           if (all[i].style.display === "none") {
             all[i].style.display = "block";
           }
         }
       });
+    }
   }
 
   for (let i = 0; i < tableID; i++) {
-    new Tablesort(document.getElementById(`table-${i}`), { ascending: true });
+    const tableElement = document.getElementById(`table-${i}`);
+    if (tableElement) {
+      new Tablesort(tableElement, { ascending: true });
+    }
   }
   memory_sparklines.forEach((p, index) => {
     if (p) {
       (async () => {
-        await vegaEmbed(`#memory_sparkline${index}`, p, {
+        await vegaEmbed(`#memory_sparkline${index}`, p as object, {
           actions: false,
           renderer: "svg",
         });
@@ -1119,11 +1234,11 @@ async function display(prof) {
     }
   });
 
-  function embedCharts(charts, prefix) {
+  function embedCharts(charts: (unknown | null)[], prefix: string): void {
     charts.forEach((chart, index) => {
       if (chart) {
         (async () => {
-          await vegaEmbed(`#${prefix}${index}`, chart, { actions: false });
+          await vegaEmbed(`#${prefix}${index}`, chart as object, { actions: false });
         })();
       }
     });
@@ -1133,20 +1248,19 @@ async function display(prof) {
   embedCharts(gpu_pies, "gpu_pie");
   embedCharts(memory_activity, "memory_activity");
   embedCharts(memory_bars, "memory_bar");
-  
-  // Embed neuron charts
+
   if (hasNeuronData) {
     for (let i = 0; i < nrt_bars.length; i++) {
       if (nrt_bars[i]) {
         (async () => {
-          await vegaEmbed(`#nrt_bar${i}`, nrt_bars[i], { actions: false });
+          await vegaEmbed(`#nrt_bar${i}`, nrt_bars[i] as object, { actions: false });
         })();
       }
     }
     for (let i = 0; i < nc_bars.length; i++) {
       if (nc_bars[i]) {
         (async () => {
-          await vegaEmbed(`#nc_bar${i}`, nc_bars[i], { actions: false });
+          await vegaEmbed(`#nc_bar${i}`, nc_bars[i] as object, { actions: false });
         })();
       }
     }
@@ -1161,69 +1275,210 @@ async function display(prof) {
   }
 }
 
-export function load(profile) {
+export function load(profile: Profile): void {
   (async () => {
-    // let resp = await fetch(jsonFile);
-    // let prof = await resp.json();
     await display(profile);
   })();
 }
 
-export function loadFetch() {
+export function loadFetch(): void {
   (async () => {
-    let resp = await fetch("profile.json");
-    let profile = await resp.json();
+    const resp = await fetch("profile.json");
+    const profile = await resp.json();
     load(profile);
   })();
 }
 
-export function loadFile() {
-  const input = document.getElementById("fileinput");
-  const file = input.files[0];
-  const fr = new FileReader();
-  fr.onload = doSomething;
-  fr.readAsText(file);
+export function loadFile(): void {
+  const input = document.getElementById("fileinput") as HTMLInputElement | null;
+  if (input && input.files && input.files[0]) {
+    const file = input.files[0];
+    const fr = new FileReader();
+    fr.onload = doSomething;
+    fr.readAsText(file);
+  }
 }
 
-function doSomething(e) {
-  let lines = e.target.result;
-  const profile = JSON.parse(lines);
-  load(profile);
+function doSomething(e: ProgressEvent<FileReader>): void {
+  const target = e.target;
+  if (target && target.result) {
+    const lines = target.result as string;
+    const profile = JSON.parse(lines);
+    load(profile);
+  }
 }
 
-export function loadDemo() {
+export function loadDemo(): void {
   load(example_profile);
 }
 
-// JavaScript function to toggle fields based on selected service
-export function toggleServiceFields() {
-  let service = document.getElementById("service-select").value;
+// Map service values to their field IDs
+const serviceFieldMap: Record<string, string> = {
+  openai: "openai-fields",
+  anthropic: "anthropic-fields",
+  gemini: "gemini-fields",
+  amazon: "amazon-fields",
+  local: "local-fields",
+  "azure-openai": "azure-openai-fields",
+};
+
+// Toggle provider fields based on selected service
+export function toggleServiceFields(): void {
+  const serviceSelect = document.getElementById("service-select") as HTMLSelectElement | null;
+  const service = serviceSelect?.value ?? "openai";
   window.localStorage.setItem("scalene-service-select", service);
-  document.getElementById("openai-fields").style.display =
-    service === "openai" ? "block" : "none";
-  document.getElementById("amazon-fields").style.display =
-    service === "amazon" ? "block" : "none";
-  document.getElementById("local-fields").style.display =
-    service === "local" ? "block" : "none";
-  document.getElementById("azure-openai-fields").style.display =
-    service === "azure-openai" ? "block" : "none";
+
+  // Hide all provider sections and show the selected one
+  Object.entries(serviceFieldMap).forEach(([key, fieldId]) => {
+    const field = document.getElementById(fieldId);
+    if (field) {
+      field.classList.toggle("active", key === service);
+    }
+  });
 }
 
-function revealInstallMessage() {
-  document.getElementById("install-models-message").style.display = "block";
-  document.getElementById("local-models-list").style.display = "none";
+// Toggle password visibility
+export function togglePassword(button: HTMLButtonElement): void {
+  const input = button.previousElementSibling as HTMLInputElement | null;
+  if (input) {
+    if (input.type === "password") {
+      input.type = "text";
+      button.textContent = "Hide";
+    } else {
+      input.type = "password";
+      button.textContent = "Show";
+    }
+  }
 }
 
+// Toggle advanced options visibility
+export function toggleAdvanced(toggle: HTMLElement): void {
+  const advancedOptions = toggle.nextElementSibling as HTMLElement | null;
+  if (advancedOptions) {
+    const isShown = advancedOptions.classList.toggle("show");
+    toggle.innerHTML = (isShown ? "&#9660;" : "&#9654;") + " Advanced options";
+  }
+}
 
-function createSelectElement(modelNames) {
-  // Create the select element
+// Helper to populate a select element with model options
+function populateModelSelect(
+  selectId: string,
+  models: string[],
+  currentValue?: string
+): void {
+  const select = document.getElementById(selectId) as HTMLSelectElement | null;
+  if (!select || models.length === 0) return;
+
+  // Save current selection
+  const savedValue = currentValue || select.value;
+
+  // Clear existing options
+  select.innerHTML = "";
+
+  // Add new options
+  models.forEach((model) => {
+    const option = document.createElement("option");
+    option.value = model;
+    option.textContent = model;
+    select.appendChild(option);
+  });
+
+  // Restore selection if it exists in the new list
+  if (models.includes(savedValue)) {
+    select.value = savedValue;
+  }
+}
+
+// Refresh OpenAI models from API
+export async function refreshOpenAIModels(): Promise<void> {
+  const apiKeyElement = document.getElementById("api-key") as HTMLInputElement | null;
+  const apiKey = apiKeyElement?.value ?? "";
+
+  if (!apiKey) {
+    alert("Please enter an OpenAI API key first.");
+    return;
+  }
+
+  // Find the refresh button and show loading state
+  const buttons = document.querySelectorAll("#openai-fields .btn-refresh");
+  buttons.forEach((btn) => {
+    btn.classList.add("loading");
+    (btn as HTMLButtonElement).disabled = true;
+    btn.textContent = "...";
+  });
+
+  try {
+    const models = await fetchOpenAIModels(apiKey);
+    if (models.length > 0) {
+      populateModelSelect("language-model-openai", models);
+    } else {
+      console.log("No models returned, keeping defaults");
+    }
+  } catch (error) {
+    console.error("Failed to fetch OpenAI models:", error);
+  } finally {
+    buttons.forEach((btn) => {
+      btn.classList.remove("loading");
+      (btn as HTMLButtonElement).disabled = false;
+      btn.innerHTML = "&#8635;";
+    });
+  }
+}
+
+// Refresh Gemini models from API
+export async function refreshGeminiModels(): Promise<void> {
+  const apiKeyElement = document.getElementById("gemini-api-key") as HTMLInputElement | null;
+  const apiKey = apiKeyElement?.value ?? "";
+
+  if (!apiKey) {
+    alert("Please enter a Gemini API key first.");
+    return;
+  }
+
+  // Find the refresh button and show loading state
+  const buttons = document.querySelectorAll("#gemini-fields .btn-refresh");
+  buttons.forEach((btn) => {
+    btn.classList.add("loading");
+    (btn as HTMLButtonElement).disabled = true;
+    btn.textContent = "...";
+  });
+
+  try {
+    const models = await fetchGeminiModels(apiKey);
+    if (models.length > 0) {
+      populateModelSelect("language-model-gemini", models);
+    } else {
+      console.log("No models returned, keeping defaults");
+    }
+  } catch (error) {
+    console.error("Failed to fetch Gemini models:", error);
+  } finally {
+    buttons.forEach((btn) => {
+      btn.classList.remove("loading");
+      (btn as HTMLButtonElement).disabled = false;
+      btn.innerHTML = "&#8635;";
+    });
+  }
+}
+
+function revealInstallMessage(): void {
+  const installMsg = document.getElementById("install-models-message");
+  const localModelsList = document.getElementById("local-models-list");
+  if (installMsg) {
+    installMsg.style.display = "block";
+  }
+  if (localModelsList) {
+    localModelsList.style.display = "none";
+  }
+}
+
+function createSelectElement(modelNames: string[]): HTMLSelectElement {
   const select = document.createElement("select");
   select.style.fontSize = "0.8rem";
   select.id = "language-model-local";
   select.classList.add("persistent");
   select.name = "language-model-local-label";
 
-  // Add options to the select element
   modelNames.forEach((modelName) => {
     const option = document.createElement("option");
     option.value = modelName;
@@ -1235,40 +1490,86 @@ function createSelectElement(modelNames) {
   return select;
 }
 
-function replaceDivWithSelect() {
-    const local_ip = document.getElementById("local-ip").value;
-    const local_port = document.getElementById("local-port").value;
-    fetchModelNames(local_ip, local_port, revealInstallMessage).then((modelNames) => {
-    // Create the select element with options
-    const selectElement = createSelectElement(modelNames);
+function replaceDivWithSelect(): void {
+  const localIpElement = document.getElementById("local-ip") as HTMLInputElement | null;
+  const localPortElement = document.getElementById("local-port") as HTMLInputElement | null;
+  const local_ip = localIpElement?.value ?? "127.0.0.1";
+  const local_port = localPortElement?.value ?? "11434";
 
-    // Find the div and replace its content with the select element
-    const div = document.getElementById("language-local-models");
-    if (div) {
-      div.innerHTML = ""; // Clear existing content
-      div.appendChild(selectElement);
-    } else {
-      console.error('Div with ID "language-local-models" not found.');
+  fetchModelNames(local_ip, local_port, revealInstallMessage).then(
+    (modelNames) => {
+      const selectElement = createSelectElement(modelNames);
+
+      const div = document.getElementById("language-local-models");
+      if (div) {
+        div.innerHTML = "";
+        div.appendChild(selectElement);
+      } else {
+        console.error('Div with ID "language-local-models" not found.');
+      }
     }
-    //    atLeastOneModel = true;
-  });
+  );
 }
 
 // Call the function to replace the div with the select element
 replaceDivWithSelect();
 
+// Declare envApiKeys as a global variable that may be injected by the template
+declare const envApiKeys: {
+  openai?: string;
+  anthropic?: string;
+  gemini?: string;
+  azure?: string;
+  azureUrl?: string;
+  awsAccessKey?: string;
+  awsSecretKey?: string;
+  awsRegion?: string;
+} | undefined;
+
+// Get the first provider option from the select element
+function getFirstProvider(): string {
+  const serviceSelect = document.getElementById("service-select") as HTMLSelectElement | null;
+  return serviceSelect?.options[0]?.value ?? "amazon";
+}
+
+// Determine default provider based on environment variables (alphabetical order)
+function getDefaultProvider(): string {
+  const firstProvider = getFirstProvider();
+  if (typeof envApiKeys === "undefined") {
+    return firstProvider;
+  }
+  // Check providers in alphabetical order
+  if (envApiKeys.awsAccessKey && envApiKeys.awsSecretKey) return "amazon";
+  if (envApiKeys.anthropic) return "anthropic";
+  if (envApiKeys.azure) return "azure-openai";
+  if (envApiKeys.gemini) return "gemini";
+  if (envApiKeys.openai) return "openai";
+  return firstProvider;
+}
+
+// Set default provider before persistence restores (so localStorage takes precedence)
+function initializeDefaultProvider(): void {
+  const serviceSelect = document.getElementById("service-select") as HTMLSelectElement | null;
+  if (serviceSelect) {
+    // Only set default if localStorage doesn't have a saved value
+    const savedService = localStorage.getItem("service-select");
+    if (!savedService) {
+      serviceSelect.value = getDefaultProvider();
+    }
+    toggleServiceFields();
+  }
+}
 
 document.addEventListener("DOMContentLoaded", () => {
+  initializeDefaultProvider();
   processPersistentElements();
 });
 
 observeDOM();
 
 // We periodically send a heartbeat to the server to keep it alive.
-// The server shuts down if it hasn't received a heartbeat in a sufficiently long interval;
-// This handles both the case when the browser tab is closed and when the browser is shut down.
-function sendHeartbeat() {
-  let xhr = new XMLHttpRequest();
+function sendHeartbeat(): void {
+  const xhr = new XMLHttpRequest();
   xhr.open("GET", "/heartbeat", true);
   xhr.send();
 }
@@ -1278,3 +1579,21 @@ window.addEventListener("load", () => {
 });
 
 setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
+
+// Expose functions globally for HTML onclick handlers
+(window as unknown as Record<string, unknown>).vsNavigate = vsNavigate;
+(window as unknown as Record<string, unknown>).proposeOptimizationRegion = proposeOptimizationRegion;
+(window as unknown as Record<string, unknown>).proposeOptimizationLine = proposeOptimizationLine;
+(window as unknown as Record<string, unknown>).collapseAll = collapseAll;
+(window as unknown as Record<string, unknown>).expandAll = expandAll;
+(window as unknown as Record<string, unknown>).toggleDisplay = toggleDisplay;
+(window as unknown as Record<string, unknown>).toggleReduced = toggleReduced;
+(window as unknown as Record<string, unknown>).load = load;
+(window as unknown as Record<string, unknown>).loadFetch = loadFetch;
+(window as unknown as Record<string, unknown>).loadFile = loadFile;
+(window as unknown as Record<string, unknown>).loadDemo = loadDemo;
+(window as unknown as Record<string, unknown>).toggleServiceFields = toggleServiceFields;
+(window as unknown as Record<string, unknown>).togglePassword = togglePassword;
+(window as unknown as Record<string, unknown>).toggleAdvanced = toggleAdvanced;
+(window as unknown as Record<string, unknown>).refreshOpenAIModels = refreshOpenAIModels;
+(window as unknown as Record<string, unknown>).refreshGeminiModels = refreshGeminiModels;

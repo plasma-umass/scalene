@@ -151,6 +151,9 @@ class ScaleneParseArgs:
         "memory_leak_detector": "memory_leak_detector",
         "profile-system-libraries": "profile_system_libraries",
         "profile_system_libraries": "profile_system_libraries",
+        # JIT control
+        "disable-jit": "disable_jit",
+        "disable_jit": "disable_jit",
         # On/off
         "on": "on",
         "off": "off",
@@ -490,6 +493,17 @@ class ScaleneParseArgs:
                 else advanced_help
             ),
         )
+        parser.add_argument(
+            "--disable-jit",
+            dest="disable_jit",
+            action="store_true",
+            default=defaults.disable_jit,
+            help=(
+                "disable PyTorch and JAX JIT for Python-level profiling (may break torch.jit.load)"
+                if show_advanced
+                else advanced_help
+            ),
+        )
         if sys.platform != "win32":
             # Turning profiling on and off from another process is currently not supported on Windows.
             group = parser.add_mutually_exclusive_group(required=False)
@@ -514,6 +528,14 @@ class ScaleneParseArgs:
             dest="ipython",
             action="store_const",
             const=True,
+            default=False,
+            help=argparse.SUPPRESS,
+        )
+        # --reduced-profile for Jupyter magic (display option, hidden in run)
+        parser.add_argument(
+            "--reduced-profile",
+            dest="reduced_profile",
+            action="store_true",
             default=False,
             help=argparse.SUPPRESS,
         )
@@ -980,20 +1002,17 @@ in Jupyter, cell mode:
         # 'run' subcommand - profile a program
         show_advanced = "--help-advanced" in sys.argv
         if show_advanced:
-            run_usage = dedent(
-                """Advanced options for scalene run:
+            run_usage = dedent("""Advanced options for scalene run:
 
 background profiling:
   Use --off to start with profiling disabled, then control it from another terminal:
     % scalene run --off prog.py          # start with profiling off
     % python3 -m scalene.profile --on  --pid <PID>   # resume profiling
     % python3 -m scalene.profile --off --pid <PID>   # suspend profiling
-"""
-            )
+""")
             run_epilog = ""
         else:
-            run_usage = dedent(
-                """Profile a Python program with Scalene.
+            run_usage = dedent("""Profile a Python program with Scalene.
 
 examples:
   % scalene run prog.py                 # profile, save to scalene-profile.json
@@ -1002,8 +1021,7 @@ examples:
   % scalene run -c scalene.yaml prog.py # load options from config file
   % scalene run prog.py --- --arg       # pass args to program
   % scalene run --help-advanced         # show advanced options
-"""
-            )
+""")
             run_epilog = ""
         run_parser = subparsers.add_parser(
             "run",
@@ -1028,16 +1046,14 @@ examples:
         ScaleneParseArgs._add_run_arguments(run_parser, defaults)
 
         # 'view' subcommand - view an existing profile
-        view_usage = dedent(
-            """View an existing Scalene profile.
+        view_usage = dedent("""View an existing Scalene profile.
 
 examples:
   % scalene view                    # open in browser
   % scalene view --cli              # view in terminal
   % scalene view --html             # save to scalene-profile.html
   % scalene view myprofile.json     # open specific profile in browser
-"""
-        )
+""")
         view_parser = subparsers.add_parser(
             "view",
             help="View an existing profile (JSON) in browser or terminal",
@@ -1153,6 +1169,8 @@ examples:
             args.use_legacy_tracer = defaults.use_legacy_tracer
         if not hasattr(args, "use_python_callback"):
             args.use_python_callback = defaults.use_python_callback
+        if not hasattr(args, "disable_jit"):
+            args.disable_jit = defaults.disable_jit
 
         # Validate file/directory arguments
         if args.outfile and os.path.isdir(args.outfile):
