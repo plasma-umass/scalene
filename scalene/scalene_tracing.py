@@ -218,10 +218,19 @@ class ScaleneTracing:
         ):
             return False
 
-        normalized_filename = Filename(
-            os.path.normpath(os.path.join(self._program_path, filename))
-        )
-        return self._program_path in normalized_filename
+        # Use proper path comparison for cross-platform compatibility.
+        # Check if the file is in the same directory tree as the program being profiled.
+        try:
+            file_path = pathlib.Path(filename).resolve()
+            program_path = pathlib.Path(self._program_path).resolve()
+            # Check if file is in program's directory or a subdirectory
+            return file_path.is_relative_to(program_path) or file_path.parent == program_path.parent
+        except (OSError, ValueError):
+            # Fall back to string comparison if path resolution fails
+            normalized_filename = Filename(
+                os.path.normpath(os.path.join(self._program_path, filename))
+            )
+            return self._program_path in normalized_filename
 
 
 def create_should_trace_func(
