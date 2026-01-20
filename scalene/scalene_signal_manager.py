@@ -111,18 +111,20 @@ class ScaleneSignalManager(Generic[T]):
         any thread, giving us access to all thread stacks including the main thread.
 
         Unlike Unix where setitimer controls timing, on Windows we use a simple
-        sleep-based loop. We use the provided sampling rate as the interval.
+        sleep-based loop. We sample first, then sleep, to ensure we record at least
+        one sample even if the program exits quickly.
         """
         assert sys.platform == "win32"
-        # Use the provided sampling rate as the interval
-        interval = cpu_sampling_rate
+        # Use a shorter interval on Windows to increase sampling frequency.
+        # This helps compensate for GIL contention between threads.
+        interval = min(cpu_sampling_rate, 0.01)  # At most 10ms between samples
         while self.timer_signals:
-            time.sleep(interval)
-            # Call the CPU signal handler directly instead of using raise_signal.
-            # Pass the cpu_signal value and None for frame (handler uses sys._current_frames()).
+            # Call the CPU signal handler first, then sleep.
+            # This ensures we record samples even if the program exits quickly.
             if self.__cpu_signal_handler is not None:
                 with contextlib.suppress(Exception):
                     self.__cpu_signal_handler(self.__signals.cpu_signal, None)
+            time.sleep(interval)
 
     def _windows_memory_poll_loop(self) -> None:
         """For Windows, periodically poll for memory profiling data."""
