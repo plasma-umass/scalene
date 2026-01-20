@@ -118,13 +118,19 @@ class ScaleneSignalManager(Generic[T]):
         # Use a shorter interval on Windows to increase sampling frequency.
         # This helps compensate for GIL contention between threads.
         interval = min(cpu_sampling_rate, 0.01)  # At most 10ms between samples
+        iteration = 0
+        print(f"Scalene Windows timer: starting with interval={interval}", file=sys.stderr, flush=True)
         while self.timer_signals:
+            iteration += 1
             # Call the CPU signal handler first, then sleep.
             # This ensures we record samples even if the program exits quickly.
             if self.__cpu_signal_handler is not None:
                 with contextlib.suppress(Exception):
                     self.__cpu_signal_handler(self.__signals.cpu_signal, None)
+            if iteration <= 5 or iteration % 100 == 0:
+                print(f"Scalene Windows timer: iteration {iteration}", file=sys.stderr, flush=True)
             time.sleep(interval)
+        print(f"Scalene Windows timer: exited after {iteration} iterations", file=sys.stderr, flush=True)
 
     def _windows_memory_poll_loop(self) -> None:
         """For Windows, periodically poll for memory profiling data."""
