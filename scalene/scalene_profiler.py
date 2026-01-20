@@ -723,9 +723,18 @@ class Scalene:
                 gpu_load, gpu_mem_used = (0.0, 0.0)
 
             # Process this CPU sample.
+            frames = compute_frames_to_record(Scalene._should_trace)
+            # Debug output for Windows CI
+            if sys.platform == "win32" and not frames:
+                import threading
+                all_frames = sys._current_frames()
+                main_tid = threading.main_thread().ident
+                if main_tid in all_frames:
+                    f = all_frames[main_tid]
+                    print(f"Scalene Windows debug: no frames passed filter. Main thread at {f.f_code.co_filename}:{f.f_lineno} in {f.f_code.co_name}", file=sys.stderr)
             Scalene._process_cpu_sample(
                 signum,
-                compute_frames_to_record(Scalene._should_trace),
+                frames,
                 now,
                 gpu_load,
                 gpu_mem_used,
