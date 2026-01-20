@@ -115,8 +115,11 @@ class ScaleneSignalManager(Generic[T]):
         """
         assert sys.platform == "win32"
         import sys as _sys
+        iteration = 0
+        print(f"Scalene Windows timer: loop started with interval {cpu_sampling_rate:.4f}s", file=_sys.stderr, flush=True)
         while self.timer_signals:
             time.sleep(cpu_sampling_rate)
+            iteration += 1
             # Call the CPU signal handler directly instead of using raise_signal.
             # Pass the cpu_signal value and None for frame (handler uses sys._current_frames()).
             if self.__cpu_signal_handler is not None:
@@ -124,7 +127,10 @@ class ScaleneSignalManager(Generic[T]):
                     self.__cpu_signal_handler(self.__signals.cpu_signal, None)
                 except Exception as e:
                     # Log exceptions to stderr for debugging, but keep the timer running
-                    print(f"Scalene Windows timer: {type(e).__name__}: {e}", file=_sys.stderr)
+                    print(f"Scalene Windows timer: {type(e).__name__}: {e}", file=_sys.stderr, flush=True)
+            if iteration <= 5 or iteration % 100 == 0:
+                print(f"Scalene Windows timer: iteration {iteration} completed", file=_sys.stderr, flush=True)
+        print(f"Scalene Windows timer: loop exited after {iteration} iterations (timer_signals={self.timer_signals})", file=_sys.stderr, flush=True)
 
     def _windows_memory_poll_loop(self) -> None:
         """For Windows, periodically poll for memory profiling data."""
