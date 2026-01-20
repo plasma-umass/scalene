@@ -33,7 +33,8 @@ class ScaleneTracing:
             program_path: Path of the program being profiled.
         """
         self._args = args
-        self._profiler_base = profiler_base
+        # Use resolved Path for proper cross-platform path comparison
+        self._profiler_base_path = pathlib.Path(profiler_base).resolve()
         self._program_path = program_path
         self._system_lib_paths: tuple[str, ...] = ()
         self._files_to_profile: set[Filename] = set()
@@ -78,8 +79,16 @@ class ScaleneTracing:
         """Return true if we should trace this filename and function."""
         if not filename:
             return False
-        if self._profiler_base in filename:
-            return False
+        # Use proper path comparison to exclude Scalene's own modules.
+        # This handles cross-platform path separators and case sensitivity correctly.
+        try:
+            resolved_path = pathlib.Path(filename).resolve()
+            if resolved_path.is_relative_to(self._profiler_base_path):
+                return False
+        except (OSError, ValueError):
+            # If we can't resolve the path, fall back to string comparison
+            if str(self._profiler_base_path) in filename:
+                return False
 
         # Check if this function is specifically decorated for profiling
         if self._should_trace_decorated_function(filename, func):
