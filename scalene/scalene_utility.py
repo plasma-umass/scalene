@@ -88,6 +88,10 @@ def compute_frames_to_record(
     )
     # Process all the frames to remove ones we aren't going to track.
     new_frames: List[Tuple[FrameType, int, FrameType]] = []
+    # On Windows, limit stack walking iterations to prevent blocking the
+    # background timer thread. The daemon thread can be killed if it takes
+    # too long, causing no samples to be recorded.
+    max_stack_depth = 100 if sys.platform != "win32" else 20
     for frame, tident in frames:
         orig_frame = frame
         if not frame:
@@ -102,7 +106,15 @@ def compute_frames_to_record(
             back = cast(FrameType, frame.f_back)
             fname = Filename(back.f_code.co_filename)
             func = back.f_code.co_name
+        iterations = 0
         while not should_trace(Filename(fname), func):
+            iterations += 1
+            if iterations > max_stack_depth:
+                # On Windows especially, we need to limit iterations
+                # to prevent blocking the timer thread too long.
+                # Set frame to None so we skip this frame entirely.
+                frame = cast(FrameType, None)
+                break
             # Walk the stack backwards until we hit a frame that
             # IS one we should trace (if there is one).  i.e., if
             # it's in the code being profiled, and it is just

@@ -669,6 +669,15 @@ class Scalene:
         """Set up the signal handlers to handle interrupts for profiling and start the
         timer interrupts."""
         next_interval = Scalene._sample_cpu_interval()
+        # On Windows, pre-initialize the time values so the first timer callback
+        # can record samples. Without this, the first call just initializes time
+        # and returns, but on Windows the program may finish before the second call.
+        if sys.platform == "win32":
+            now = TimeInfo()
+            now.sys, now.user = get_times()
+            now.virtual = time.process_time()
+            now.wallclock = time.perf_counter()
+            Scalene.__last_signal_time = now
         # On Windows, pass the signal queues for memory polling only if memory profiling is enabled
         alloc_sigq = None
         memcpy_sigq = None
@@ -691,7 +700,16 @@ class Scalene:
         signum: SignumType,
         this_frame: FrameType | None,
     ) -> None:
-        """Handle CPU signals."""
+        """Handle CPU signals.
+
+        Note: On Windows, this handler is called directly from a background thread
+        (not via signals) because signal.raise_signal() cannot be called from
+        background threads. The handler uses sys._current_frames() which is
+        thread-safe, so this is safe to call from any thread.
+        """
+        # Initialize next_interval with a default value in case an exception occurs
+        # before it's assigned. This prevents NameError in the finally block.
+        next_interval = Scalene._sample_cpu_interval()
         try:
             # Get current time stats.
             now = TimeInfo()
@@ -703,8 +721,9 @@ class Scalene:
                 or Scalene.__last_signal_time.wallclock == 0
             ):
                 # Initialization: store values and update on the next pass.
+                # On Windows, we pre-initialize in enable_signals() so this
+                # shouldn't be reached, but handle it just in case.
                 Scalene.__last_signal_time = now
-                next_interval = Scalene._sample_cpu_interval()
                 if sys.platform != "win32":
                     Scalene.__signal_manager.restart_timer(next_interval)
                 return
@@ -715,9 +734,13 @@ class Scalene:
                 gpu_load, gpu_mem_used = (0.0, 0.0)
 
             # Process this CPU sample.
+            frames = compute_frames_to_record(Scalene._should_trace)
+            # Debug for Windows CI
+            if sys.platform == "win32":
+                print(f"Scalene debug: cpu_signal_handler got {len(frames)} frames to process", file=sys.stderr, flush=True)
             Scalene._process_cpu_sample(
                 signum,
-                compute_frames_to_record(Scalene._should_trace),
+                frames,
                 now,
                 gpu_load,
                 gpu_mem_used,
@@ -1046,6 +1069,7 @@ class Scalene:
         """Turn off the profiling signals."""
         if sys.platform == "win32":
             Scalene.__signal_manager.set_timer_signals(False)
+            Scalene.__signal_manager.stop_timer_thread()
             Scalene.__signal_manager.stop_windows_memory_polling()
             Scalene.stop_signal_queues()
             return
