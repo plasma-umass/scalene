@@ -691,7 +691,16 @@ class Scalene:
         signum: SignumType,
         this_frame: FrameType | None,
     ) -> None:
-        """Handle CPU signals."""
+        """Handle CPU signals.
+
+        Note: On Windows, this handler is called directly from a background thread
+        (not via signals) because signal.raise_signal() cannot be called from
+        background threads. The handler uses sys._current_frames() which is
+        thread-safe, so this is safe to call from any thread.
+        """
+        # Initialize next_interval with a default value in case an exception occurs
+        # before it's assigned. This prevents NameError in the finally block.
+        next_interval = Scalene._sample_cpu_interval()
         try:
             # Get current time stats.
             now = TimeInfo()
@@ -704,7 +713,6 @@ class Scalene:
             ):
                 # Initialization: store values and update on the next pass.
                 Scalene.__last_signal_time = now
-                next_interval = Scalene._sample_cpu_interval()
                 if sys.platform != "win32":
                     Scalene.__signal_manager.restart_timer(next_interval)
                 return

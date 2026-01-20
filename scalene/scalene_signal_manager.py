@@ -43,6 +43,10 @@ class ScaleneSignalManager(Generic[T]):
         # Timer control for Windows
         self.timer_signals = True
 
+        # Store CPU signal handler for direct calling on Windows
+        # (signal.raise_signal cannot be called from background threads)
+        self.__cpu_signal_handler: Optional[SignalHandlerFunction] = None
+
     def get_signals(self) -> ScaleneSignals:
         """Return the ScaleneSignals instance."""
         return self.__signals
@@ -77,14 +81,20 @@ class ScaleneSignalManager(Generic[T]):
         import queue
 
         self.timer_signals = True
+        # Store the CPU signal handler for direct calling from the timer thread.
+        # On Windows, signal.raise_signal() cannot be called from background threads
+        # (it raises ValueError), so we call the handler directly instead.
+        self.__cpu_signal_handler = cpu_signal_handler
+        # Also register as actual signal handler for any external signal delivery
         self.__orig_signal(
             self.__signals.cpu_signal,
             cpu_signal_handler,
         )
-        # On Windows, we simulate timer signals by running a background thread.
+        # On Windows, we simulate timer signals by running a background thread
+        # that directly calls the CPU signal handler (not using signals).
         self.timer_signals = True
         self.__windows_queue = queue.Queue()
-        t = threading.Thread(target=lambda: self.windows_timer_loop(cpu_sampling_rate))
+        t = threading.Thread(target=lambda: self.windows_timer_loop(cpu_sampling_rate), daemon=True)
         t.start()
         self.__windows_queue.put(None)
         self.start_signal_queues()
@@ -101,14 +111,27 @@ class ScaleneSignalManager(Generic[T]):
             mem_thread.start()
 
     def windows_timer_loop(self, cpu_sampling_rate: float) -> None:
-        """For Windows, send periodic timer signals; launch as a background thread."""
+        """For Windows, periodically call the CPU signal handler from a background thread.
+
+        Note: We cannot use signal.raise_signal() from background threads on Windows
+        (it raises ValueError). Instead, we call the CPU signal handler directly.
+        The handler uses sys._current_frames() which is thread-safe and works from
+        any thread, giving us access to all thread stacks including the main thread.
+        """
         assert sys.platform == "win32"
         self.timer_signals = True
         while self.timer_signals:
             if self.__windows_queue:
                 self.__windows_queue.get()
             time.sleep(cpu_sampling_rate)
-            self.__orig_raise_signal(self.__signals.cpu_signal)
+            # Call the CPU signal handler directly instead of using raise_signal.
+            # Pass the cpu_signal value and None for frame (handler uses sys._current_frames()).
+            if self.__cpu_signal_handler is not None:
+                try:
+                    self.__cpu_signal_handler(self.__signals.cpu_signal, None)
+                except Exception:
+                    # Silently ignore exceptions to keep the timer running
+                    pass
 
     def _windows_memory_poll_loop(self) -> None:
         """For Windows, periodically poll for memory profiling data."""
