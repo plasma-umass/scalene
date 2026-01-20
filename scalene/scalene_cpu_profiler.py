@@ -66,6 +66,10 @@ class ScaleneCPUProfiler:
 
         # Skip samples with negative values (can occur in multi-process settings)
         if any([elapsed.virtual < 0, elapsed.wallclock < 0, elapsed.user < 0]):
+            # Debug for Windows CI
+            import sys
+            if sys.platform == "win32":
+                print(f"Scalene Windows debug: skipping sample with negative elapsed values: virtual={elapsed.virtual}, wallclock={elapsed.wallclock}, user={elapsed.user}", file=sys.stderr)
             return
 
         # Calculate CPU utilization
@@ -178,6 +182,10 @@ class ScaleneCPUProfiler:
         del new_frames
         del is_thread_sleeping
         self._stats.cpu_stats.total_cpu_samples += total_time
+        # Debug for Windows CI - print every 100 samples
+        import sys
+        if sys.platform == "win32" and int(self._stats.cpu_stats.total_cpu_samples * 100) % 100 == 0:
+            print(f"Scalene Windows debug: recorded sample, total_cpu_samples={self._stats.cpu_stats.total_cpu_samples:.4f}, total_time={total_time:.6f}", file=sys.stderr)
 
     def _update_main_thread_stats(
         self,
