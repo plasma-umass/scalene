@@ -58,7 +58,7 @@ with contextlib.suppress(Exception):
                 if parts and parts[0] == "run":
                     parts = parts[1:]
                 sys.argv = ["scalene", "run", "--ipython", *parts]
-                (args, _left) = ScaleneParseArgs.parse_args()
+                args, _left = ScaleneParseArgs.parse_args()
                 # print(f"{args=}, {_left=}")
             else:
                 args = ScaleneArguments()
@@ -77,7 +77,7 @@ with contextlib.suppress(Exception):
                 if parts and parts[0] == "run":
                     parts = parts[1:]
                 sys.argv = ["scalene", "run", "--ipython", *parts]
-                (args, left) = ScaleneParseArgs.parse_args()
+                args, left = ScaleneParseArgs.parse_args()
                 if args:
                     self.run_code(args, " ".join(left))  # type: ignore
 

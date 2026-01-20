@@ -615,7 +615,7 @@ class Scalene:
         # If so, increment.
 
         invalidated = pywhere.get_last_profiled_invalidated()
-        (fname, lineno, _lasti) = Scalene.last_profiled_tuple()
+        fname, lineno, _lasti = Scalene.last_profiled_tuple()
         if not invalidated and this_frame and not (on_stack(this_frame, fname, lineno)):
             Scalene.update_profiled()
         pywhere.set_last_profiled_invalidated_false()
@@ -710,9 +710,9 @@ class Scalene:
                 return
 
             if Scalene.__accelerator:
-                (gpu_load, gpu_mem_used) = Scalene.__accelerator.get_stats()
+                gpu_load, gpu_mem_used = Scalene.__accelerator.get_stats()
             else:
-                (gpu_load, gpu_mem_used) = (0.0, 0.0)
+                gpu_load, gpu_mem_used = (0.0, 0.0)
 
             # Process this CPU sample.
             Scalene._process_cpu_sample(
@@ -1206,7 +1206,7 @@ class Scalene:
         # Leaving here in case of reversion
         # sys.settrace(None)
         stats = Scalene.__stats
-        (last_file, last_line, _) = Scalene.last_profiled_tuple()
+        last_file, last_line, _ = Scalene.last_profiled_tuple()
         stats.memory_stats.memory_malloc_count[last_file][last_line] += 1
         stats.memory_stats.memory_aggregate_footprint[last_file][
             last_line

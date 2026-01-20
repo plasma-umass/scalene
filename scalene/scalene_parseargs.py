@@ -1002,20 +1002,17 @@ in Jupyter, cell mode:
         # 'run' subcommand - profile a program
         show_advanced = "--help-advanced" in sys.argv
         if show_advanced:
-            run_usage = dedent(
-                """Advanced options for scalene run:
+            run_usage = dedent("""Advanced options for scalene run:
 
 background profiling:
   Use --off to start with profiling disabled, then control it from another terminal:
     % scalene run --off prog.py          # start with profiling off
     % python3 -m scalene.profile --on  --pid <PID>   # resume profiling
     % python3 -m scalene.profile --off --pid <PID>   # suspend profiling
-"""
-            )
+""")
             run_epilog = ""
         else:
-            run_usage = dedent(
-                """Profile a Python program with Scalene.
+            run_usage = dedent("""Profile a Python program with Scalene.
 
 examples:
   % scalene run prog.py                 # profile, save to scalene-profile.json
@@ -1024,8 +1021,7 @@ examples:
   % scalene run -c scalene.yaml prog.py # load options from config file
   % scalene run prog.py --- --arg       # pass args to program
   % scalene run --help-advanced         # show advanced options
-"""
-            )
+""")
             run_epilog = ""
         run_parser = subparsers.add_parser(
             "run",
@@ -1050,16 +1046,14 @@ examples:
         ScaleneParseArgs._add_run_arguments(run_parser, defaults)
 
         # 'view' subcommand - view an existing profile
-        view_usage = dedent(
-            """View an existing Scalene profile.
+        view_usage = dedent("""View an existing Scalene profile.
 
 examples:
   % scalene view                    # open in browser
   % scalene view --cli              # view in terminal
   % scalene view --html             # save to scalene-profile.html
   % scalene view myprofile.json     # open specific profile in browser
-"""
-        )
+""")
         view_parser = subparsers.add_parser(
             "view",
             help="View an existing profile (JSON) in browser or terminal",
