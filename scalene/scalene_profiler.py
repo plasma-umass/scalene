@@ -669,6 +669,15 @@ class Scalene:
         """Set up the signal handlers to handle interrupts for profiling and start the
         timer interrupts."""
         next_interval = Scalene._sample_cpu_interval()
+        # On Windows, pre-initialize the time values so the first timer callback
+        # can record samples. Without this, the first call just initializes time
+        # and returns, but on Windows the program may finish before the second call.
+        if sys.platform == "win32":
+            now = TimeInfo()
+            now.sys, now.user = get_times()
+            now.virtual = time.process_time()
+            now.wallclock = time.perf_counter()
+            Scalene.__last_signal_time = now
         # On Windows, pass the signal queues for memory polling only if memory profiling is enabled
         alloc_sigq = None
         memcpy_sigq = None
@@ -712,6 +721,8 @@ class Scalene:
                 or Scalene.__last_signal_time.wallclock == 0
             ):
                 # Initialization: store values and update on the next pass.
+                # On Windows, we pre-initialize in enable_signals() so this
+                # shouldn't be reached, but handle it just in case.
                 Scalene.__last_signal_time = now
                 if sys.platform != "win32":
                     Scalene.__signal_manager.restart_timer(next_interval)
