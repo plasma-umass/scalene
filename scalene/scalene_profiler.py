@@ -1431,10 +1431,7 @@ class Scalene:
 
                 win_profiler = get_windows_profiler()
                 if not win_profiler.load_dll():
-                    print(
-                        "Warning: Failed to load libscalene.dll. Memory profiling disabled.",
-                        file=sys.stderr,
-                    )
+                    # Detailed error already printed by load_dll()
                     args.memory = False
                 elif not win_profiler.initialize():
                     print(

@@ -40,9 +40,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
     if _use_rt_signals:
         # Allocate real-time signals for each Scalene signal that might conflict
         # SIGRTMIN+0 is often used by threading libraries, so start from SIGRTMIN+1
-        rt_base = (
-            getattr(signal, "SIGRTMIN") + 1
-        )  # noqa: B009 - dynamic access needed for cross-platform mypy
+        rt_base = getattr(signal, "SIGRTMIN") + 1  # noqa: B009
         start_signal, stop_signal = scalene.get_lifecycle_signals()
         # Map lifecycle and memory signals to real-time signals
         rt_offset = 0

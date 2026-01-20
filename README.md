@@ -430,12 +430,14 @@ code...
 <details open>
 <summary>Using <code>pip</code> (Mac OS X, Linux, Windows, and WSL2)</summary>
 
-Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms.
+Scalene is distributed as a `pip` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and Windows platforms.
 
-> **Note**
+> **Note for Windows users**
 >
-> The Windows version currently only supports CPU and GPU profiling, but not memory or copy profiling.
-> 
+> Starting with Scalene 2.0, Windows supports full memory profiling. If you
+> encounter issues, ensure you have the [Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+> installed. If building from source, you will need Visual C++ Build Tools and CMake.
+>
 
 You can install it as follows:
 ```console
@@ -465,12 +467,14 @@ For Ubuntu/Debian:
   % conda install -c conda-forge scalene
 ```
 
-Scalene is distributed as a `conda` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and (with limitations) Windows platforms.
+Scalene is distributed as a `conda` package and works on Mac OS X, Linux (including Ubuntu in [Windows WSL2](https://docs.microsoft.com/en-us/windows/wsl/wsl2-index)) and Windows platforms.
 
-> **Note**
+> **Note for Windows users**
 >
-> The Windows version currently only supports CPU and GPU profiling, but not memory or copy profiling.
-> 
+> Starting with Scalene 2.0, Windows supports full memory profiling. If you
+> encounter issues, ensure you have the [Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+> installed.
+>
 </details>
 
 <details>
