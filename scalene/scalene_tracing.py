@@ -224,7 +224,10 @@ class ScaleneTracing:
             file_path = pathlib.Path(filename).resolve()
             program_path = pathlib.Path(self._program_path).resolve()
             # Check if file is in program's directory or a subdirectory
-            return file_path.is_relative_to(program_path) or file_path.parent == program_path.parent
+            return (
+                file_path.is_relative_to(program_path)
+                or file_path.parent == program_path.parent
+            )
         except (OSError, ValueError):
             # Fall back to string comparison if path resolution fails
             normalized_filename = Filename(

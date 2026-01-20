@@ -737,7 +737,11 @@ class Scalene:
             frames = compute_frames_to_record(Scalene._should_trace)
             # Debug for Windows CI
             if sys.platform == "win32":
-                print(f"Scalene debug: cpu_signal_handler got {len(frames)} frames to process", file=sys.stderr, flush=True)
+                print(
+                    f"Scalene debug: cpu_signal_handler got {len(frames)} frames to process",
+                    file=sys.stderr,
+                    flush=True,
+                )
             Scalene._process_cpu_sample(
                 signum,
                 frames,
