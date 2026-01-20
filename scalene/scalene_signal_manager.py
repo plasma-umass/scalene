@@ -141,23 +141,23 @@ class ScaleneSignalManager(Generic[T]):
 
         # Use a very short interval - 1ms or less
         interval = min(cpu_sampling_rate, 0.001)
-        iteration = 0
-        print(f"Scalene Windows timer: starting, interval={interval}, switch_interval=0.001", file=sys.stderr, flush=True)
+
+        # Initial delay to let user code start executing before we begin sampling.
+        # Without this, the first samples would be taken during Scalene's
+        # initialization rather than during the user's actual code.
+        time.sleep(0.01)  # 10ms initial delay
+
         try:
             while self.timer_signals:
-                iteration += 1
                 # Call the CPU signal handler first, then sleep.
                 # This ensures we record samples even if the program exits quickly.
                 if self.__cpu_signal_handler is not None:
                     with contextlib.suppress(Exception):
                         self.__cpu_signal_handler(self.__signals.cpu_signal, None)
-                if iteration <= 5 or iteration % 100 == 0:
-                    print(f"Scalene Windows timer: iteration {iteration}", file=sys.stderr, flush=True)
                 time.sleep(interval)
         finally:
             # Restore original switch interval
             sys.setswitchinterval(original_switch_interval)
-            print(f"Scalene Windows timer: exited after {iteration} iterations", file=sys.stderr, flush=True)
 
     def _windows_memory_poll_loop(self) -> None:
         """For Windows, periodically poll for memory profiling data."""

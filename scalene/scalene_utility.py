@@ -128,13 +128,7 @@ def compute_frames_to_record(
                 func = frame.f_code.co_name
         if frame:
             new_frames.append((frame, tident, orig_frame))
-            # Debug for Windows CI
-            if sys.platform == "win32":
-                print(f"Scalene debug: ADDED frame from {frame.f_code.co_filename}:{frame.f_lineno}", file=sys.stderr, flush=True)
     del frames[:]
-    # Debug for Windows CI
-    if sys.platform == "win32":
-        print(f"Scalene debug: compute_frames_to_record returning {len(new_frames)} frames", file=sys.stderr, flush=True)
     return new_frames
 
 
