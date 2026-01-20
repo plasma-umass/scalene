@@ -1055,6 +1055,7 @@ class Scalene:
         """Turn off the profiling signals."""
         if sys.platform == "win32":
             Scalene.__signal_manager.set_timer_signals(False)
+            Scalene.__signal_manager.stop_timer_thread()
             Scalene.__signal_manager.stop_windows_memory_polling()
             Scalene.stop_signal_queues()
             return

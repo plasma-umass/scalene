@@ -43,6 +43,9 @@ class ScaleneSignalManager(Generic[T]):
         # (signal.raise_signal cannot be called from background threads)
         self.__cpu_signal_handler: Optional[SignalHandlerFunction] = None
 
+        # Timer thread reference for Windows (for proper cleanup)
+        self.__timer_thread: Optional[threading.Thread] = None
+
     def get_signals(self) -> ScaleneSignals:
         """Return the ScaleneSignals instance."""
         return self.__signals
@@ -65,6 +68,16 @@ class ScaleneSignalManager(Generic[T]):
         for sigq in self.__sigqueues:
             sigq.stop()
 
+    def stop_timer_thread(self) -> None:
+        """Stop the Windows timer thread and wait for it to finish."""
+        if sys.platform != "win32":
+            return
+        self.timer_signals = False
+        if hasattr(self, "_ScaleneSignalManager__timer_thread") and self.__timer_thread:
+            # Give the thread a short time to finish its current iteration
+            self.__timer_thread.join(timeout=0.1)
+            self.__timer_thread = None
+
     def enable_signals_win32(
         self,
         cpu_signal_handler: SignalHandlerFunction,
@@ -85,10 +98,14 @@ class ScaleneSignalManager(Generic[T]):
             self.__signals.cpu_signal,
             cpu_signal_handler,
         )
-        # On Windows, we simulate timer signals by running a background daemon thread
+        # On Windows, we simulate timer signals by running a NON-daemon thread
         # that directly calls the CPU signal handler with a fixed sampling rate.
-        t = threading.Thread(target=lambda: self.windows_timer_loop(cpu_sampling_rate), daemon=True)
-        t.start()
+        # The thread must be non-daemon so it can continue sampling while main
+        # thread is still running, even if main finishes early.
+        self.__timer_thread = threading.Thread(
+            target=lambda: self.windows_timer_loop(cpu_sampling_rate), daemon=False
+        )
+        self.__timer_thread.start()
         self.start_signal_queues()
 
         # On Windows, start a memory polling thread to periodically process
@@ -111,26 +128,36 @@ class ScaleneSignalManager(Generic[T]):
         any thread, giving us access to all thread stacks including the main thread.
 
         Unlike Unix where setitimer controls timing, on Windows we use a simple
-        sleep-based loop. We sample first, then sleep, to ensure we record at least
-        one sample even if the program exits quickly.
+        sleep-based loop. We use a very short sleep to maximize sampling during
+        CPU-bound code execution.
         """
         assert sys.platform == "win32"
-        # Use a shorter interval on Windows to increase sampling frequency.
-        # This helps compensate for GIL contention between threads.
-        interval = min(cpu_sampling_rate, 0.01)  # At most 10ms between samples
+        # On Windows, the GIL prevents the timer thread from running while
+        # the main thread is executing Python code. We use a very short sleep
+        # to give the timer thread more opportunities to run.
+        # Also reduce the switch interval to make the GIL release more frequently.
+        original_switch_interval = sys.getswitchinterval()
+        sys.setswitchinterval(0.001)  # 1ms switch interval for more frequent sampling
+
+        # Use a very short interval - 1ms or less
+        interval = min(cpu_sampling_rate, 0.001)
         iteration = 0
-        print(f"Scalene Windows timer: starting with interval={interval}", file=sys.stderr, flush=True)
-        while self.timer_signals:
-            iteration += 1
-            # Call the CPU signal handler first, then sleep.
-            # This ensures we record samples even if the program exits quickly.
-            if self.__cpu_signal_handler is not None:
-                with contextlib.suppress(Exception):
-                    self.__cpu_signal_handler(self.__signals.cpu_signal, None)
-            if iteration <= 5 or iteration % 100 == 0:
-                print(f"Scalene Windows timer: iteration {iteration}", file=sys.stderr, flush=True)
-            time.sleep(interval)
-        print(f"Scalene Windows timer: exited after {iteration} iterations", file=sys.stderr, flush=True)
+        print(f"Scalene Windows timer: starting, interval={interval}, switch_interval=0.001", file=sys.stderr, flush=True)
+        try:
+            while self.timer_signals:
+                iteration += 1
+                # Call the CPU signal handler first, then sleep.
+                # This ensures we record samples even if the program exits quickly.
+                if self.__cpu_signal_handler is not None:
+                    with contextlib.suppress(Exception):
+                        self.__cpu_signal_handler(self.__signals.cpu_signal, None)
+                if iteration <= 5 or iteration % 100 == 0:
+                    print(f"Scalene Windows timer: iteration {iteration}", file=sys.stderr, flush=True)
+                time.sleep(interval)
+        finally:
+            # Restore original switch interval
+            sys.setswitchinterval(original_switch_interval)
+            print(f"Scalene Windows timer: exited after {iteration} iterations", file=sys.stderr, flush=True)
 
     def _windows_memory_poll_loop(self) -> None:
         """For Windows, periodically poll for memory profiling data."""
