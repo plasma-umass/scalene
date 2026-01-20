@@ -5,6 +5,7 @@ This module extracts signal handling functionality from the main Scalene class
 to improve code organization and reduce complexity.
 """
 
+import contextlib
 import os
 import signal
 import sys
@@ -126,12 +127,10 @@ class ScaleneSignalManager(Generic[T]):
             time.sleep(cpu_sampling_rate)
             # Call the CPU signal handler directly instead of using raise_signal.
             # Pass the cpu_signal value and None for frame (handler uses sys._current_frames()).
+            # Use contextlib.suppress to silently ignore exceptions and keep the timer running.
             if self.__cpu_signal_handler is not None:
-                try:
+                with contextlib.suppress(Exception):
                     self.__cpu_signal_handler(self.__signals.cpu_signal, None)
-                except Exception:
-                    # Silently ignore exceptions to keep the timer running
-                    pass
 
     def _windows_memory_poll_loop(self) -> None:
         """For Windows, periodically poll for memory profiling data."""
