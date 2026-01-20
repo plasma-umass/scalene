@@ -65,6 +65,9 @@ def compute_frames_to_record(
     Returns final frame (up to a line in a file we are profiling), the
     thread identifier, and the original frame.
     """
+    # Debug for Windows CI
+    if sys.platform == "win32":
+        print("Scalene Windows debug: compute_frames_to_record start", file=sys.stderr, flush=True)
     frames: List[Tuple[FrameType, int]] = [
         (
             cast(
@@ -76,6 +79,8 @@ def compute_frames_to_record(
         for t in threading.enumerate()
         if t != threading.main_thread()
     ]
+    if sys.platform == "win32":
+        print(f"Scalene Windows debug: got {len(frames)} non-main frames", file=sys.stderr, flush=True)
     # Put the main thread in the front.
 
     tid = cast(int, threading.main_thread().ident)
@@ -86,6 +91,8 @@ def compute_frames_to_record(
             tid,
         ),
     )
+    if sys.platform == "win32":
+        print(f"Scalene Windows debug: total {len(frames)} frames", file=sys.stderr, flush=True)
     # Process all the frames to remove ones we aren't going to track.
     new_frames: List[Tuple[FrameType, int, FrameType]] = []
     for frame, tident in frames:
@@ -117,6 +124,8 @@ def compute_frames_to_record(
         if frame:
             new_frames.append((frame, tident, orig_frame))
     del frames[:]
+    if sys.platform == "win32":
+        print(f"Scalene Windows debug: compute_frames_to_record returning {len(new_frames)} frames", file=sys.stderr, flush=True)
     return new_frames
 
 
