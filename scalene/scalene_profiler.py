@@ -698,14 +698,6 @@ class Scalene:
         background threads. The handler uses sys._current_frames() which is
         thread-safe, so this is safe to call from any thread.
         """
-        # Debug for Windows CI - track handler calls
-        if sys.platform == "win32":
-            if not hasattr(Scalene, "_win_handler_count"):
-                Scalene._win_handler_count = 0
-            Scalene._win_handler_count += 1
-            if Scalene._win_handler_count <= 3 or Scalene._win_handler_count % 100 == 0:
-                print(f"Scalene Windows debug: handler called {Scalene._win_handler_count} times", file=sys.stderr)
-
         # Initialize next_interval with a default value in case an exception occurs
         # before it's assigned. This prevents NameError in the finally block.
         next_interval = Scalene._sample_cpu_interval()
@@ -731,24 +723,7 @@ class Scalene:
                 gpu_load, gpu_mem_used = (0.0, 0.0)
 
             # Process this CPU sample.
-            if sys.platform == "win32":
-                print("Scalene Windows debug: about to compute frames", file=sys.stderr, flush=True)
             frames = compute_frames_to_record(Scalene._should_trace)
-            # Debug output for Windows CI
-            if sys.platform == "win32":
-                print(f"Scalene Windows debug: got {len(frames)} frames", file=sys.stderr, flush=True)
-                if not frames:
-                    import threading
-                    all_frames = sys._current_frames()
-                    main_tid = threading.main_thread().ident
-                    if main_tid in all_frames:
-                        f = all_frames[main_tid]
-                        print(f"Scalene Windows debug: Main thread at {f.f_code.co_filename}:{f.f_lineno} in {f.f_code.co_name}", file=sys.stderr, flush=True)
-                else:
-                    f = frames[0][0]
-                    print(f"Scalene Windows debug: first frame at {f.f_code.co_filename}:{f.f_lineno} in {f.f_code.co_name}", file=sys.stderr, flush=True)
-            if sys.platform == "win32":
-                print("Scalene Windows debug: about to process CPU sample", file=sys.stderr, flush=True)
             Scalene._process_cpu_sample(
                 signum,
                 frames,
@@ -758,8 +733,6 @@ class Scalene:
                 Scalene.__last_signal_time,
                 Scalene.__is_thread_sleeping,
             )
-            if sys.platform == "win32":
-                print("Scalene Windows debug: processed CPU sample", file=sys.stderr, flush=True)
             elapsed = now.wallclock - Scalene.__last_signal_time.wallclock
             # Store the latest values as the previously recorded values.
             Scalene.__last_signal_time = now
@@ -785,7 +758,6 @@ class Scalene:
                     Scalene.__signal_manager.restart_timer(next_interval)
         finally:
             if sys.platform == "win32":
-                print("Scalene Windows debug: handler completing", file=sys.stderr, flush=True)
                 Scalene.__signal_manager.restart_timer(next_interval)
 
     @staticmethod

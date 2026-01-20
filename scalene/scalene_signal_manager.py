@@ -111,31 +111,18 @@ class ScaleneSignalManager(Generic[T]):
         any thread, giving us access to all thread stacks including the main thread.
 
         Unlike Unix where setitimer controls timing, on Windows we use a simple
-        sleep-based loop. We use a short, fixed interval (1ms) to maximize the
-        chances of collecting samples before the GIL is needed by other code.
+        sleep-based loop. We use the provided sampling rate as the interval.
         """
         assert sys.platform == "win32"
-        import sys as _sys
-        iteration = 0
-        # Use a very short fixed interval to maximize sampling opportunities.
-        # On Windows, the background thread competes for the GIL with the main thread,
-        # so we need to check frequently.
-        interval = 0.001  # 1ms - shorter intervals help catch samples
-        print(f"Scalene Windows timer: loop started with interval {interval:.4f}s (original rate: {cpu_sampling_rate:.4f}s)", file=_sys.stderr, flush=True)
+        # Use the provided sampling rate as the interval
+        interval = cpu_sampling_rate
         while self.timer_signals:
             time.sleep(interval)
-            iteration += 1
             # Call the CPU signal handler directly instead of using raise_signal.
             # Pass the cpu_signal value and None for frame (handler uses sys._current_frames()).
             if self.__cpu_signal_handler is not None:
-                try:
+                with contextlib.suppress(Exception):
                     self.__cpu_signal_handler(self.__signals.cpu_signal, None)
-                except Exception as e:
-                    # Log exceptions to stderr for debugging, but keep the timer running
-                    print(f"Scalene Windows timer: {type(e).__name__}: {e}", file=_sys.stderr, flush=True)
-            if iteration <= 5 or iteration % 100 == 0:
-                print(f"Scalene Windows timer: iteration {iteration} completed", file=_sys.stderr, flush=True)
-        print(f"Scalene Windows timer: loop exited after {iteration} iterations (timer_signals={self.timer_signals})", file=_sys.stderr, flush=True)
 
     def _windows_memory_poll_loop(self) -> None:
         """For Windows, periodically poll for memory profiling data."""
