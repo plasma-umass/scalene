@@ -23,13 +23,8 @@ class ScaleneSignalManager(Generic[T]):
     """Manages signal handling for Scalene profiler."""
 
     def __init__(self) -> None:
-        import queue
-
         self.__signals = ScaleneSignals()
         self.__sigqueues: List[ScaleneSigQueue[T]] = []
-        self.__windows_queue: Optional[queue.Queue[Optional[T]]] = (
-            None  # Will be initialized if needed
-        )
 
         # Store original signal functions
         self.__orig_signal = signal.signal
@@ -79,7 +74,6 @@ class ScaleneSignalManager(Generic[T]):
     ) -> None:
         """Enable signals for Windows platform."""
         assert sys.platform == "win32"
-        import queue
 
         self.timer_signals = True
         # Store the CPU signal handler for direct calling from the timer thread.
@@ -91,13 +85,10 @@ class ScaleneSignalManager(Generic[T]):
             self.__signals.cpu_signal,
             cpu_signal_handler,
         )
-        # On Windows, we simulate timer signals by running a background thread
-        # that directly calls the CPU signal handler (not using signals).
-        self.timer_signals = True
-        self.__windows_queue = queue.Queue()
+        # On Windows, we simulate timer signals by running a background daemon thread
+        # that directly calls the CPU signal handler with a fixed sampling rate.
         t = threading.Thread(target=lambda: self.windows_timer_loop(cpu_sampling_rate), daemon=True)
         t.start()
-        self.__windows_queue.put(None)
         self.start_signal_queues()
 
         # On Windows, start a memory polling thread to periodically process
@@ -118,12 +109,12 @@ class ScaleneSignalManager(Generic[T]):
         (it raises ValueError). Instead, we call the CPU signal handler directly.
         The handler uses sys._current_frames() which is thread-safe and works from
         any thread, giving us access to all thread stacks including the main thread.
+
+        Unlike Unix where setitimer controls timing, on Windows we use a simple
+        sleep-based loop with a fixed sampling rate.
         """
         assert sys.platform == "win32"
-        self.timer_signals = True
         while self.timer_signals:
-            if self.__windows_queue:
-                self.__windows_queue.get()
             time.sleep(cpu_sampling_rate)
             # Call the CPU signal handler directly instead of using raise_signal.
             # Pass the cpu_signal value and None for frame (handler uses sys._current_frames()).
@@ -228,12 +219,15 @@ class ScaleneSignalManager(Generic[T]):
         self.__orig_kill(pid, signal_type)
 
     def restart_timer(self, interval: float) -> None:
-        """Restart the CPU profiling timer with the specified interval."""
+        """Restart the CPU profiling timer with the specified interval.
+
+        On Windows, this is a no-op because the timer thread runs at a fixed
+        sampling rate and doesn't need to be restarted after each sample.
+        """
         if sys.platform != "win32":
             self.__orig_setitimer(
                 self.__signals.cpu_timer_signal,
                 interval,
             )
-        else:
-            if self.__windows_queue:
-                self.__windows_queue.put(None)
+        # On Windows, the timer thread runs continuously at a fixed rate,
+        # so there's nothing to restart.
