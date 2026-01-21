@@ -920,10 +920,11 @@ class ScaleneParseArgs:
         generate_html(
             profile_fname=Filename(profile_file),
             output_fname=Filename(output_file),
+            standalone=args.standalone,
         )
 
-        # If --html was specified, just save the file without opening browser
-        if args.html_only:
+        # If --html or --standalone was specified, just save the file without opening browser
+        if args.html_only or args.standalone:
             print(f"Profile saved to: {output_file}")
         else:
             # Open the browser
@@ -1052,6 +1053,7 @@ examples:
   % scalene view                    # open in browser
   % scalene view --cli              # view in terminal
   % scalene view --html             # save to scalene-profile.html
+  % scalene view --standalone       # save as single self-contained HTML file
   % scalene view myprofile.json     # open specific profile in browser
 """)
         view_parser = subparsers.add_parser(
@@ -1088,6 +1090,13 @@ examples:
             action="store_true",
             default=False,
             help="only show lines with activity (--cli mode)",
+        )
+        view_parser.add_argument(
+            "--standalone",
+            dest="standalone",
+            action="store_true",
+            default=False,
+            help="Save as a single self-contained HTML file with all assets embedded (implies --html)",
         )
 
         # Check if user provided a .py file without a subcommand

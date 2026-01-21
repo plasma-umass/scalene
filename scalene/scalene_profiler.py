@@ -814,6 +814,18 @@ class Scalene:
             # Write the JSON to the output file.
             with open(outfile, "w") as f:
                 f.write(json.dumps(json_output, sort_keys=True, indent=4) + "\n")
+            # Print instructions for viewing the profile
+            if json_output and not Scalene.__is_child:
+                # Only include filename if non-default output was used
+                file_arg = (
+                    "" if outfile == Scalene.__profile_filename else f" {outfile}"
+                )
+                print(
+                    f"\nScalene: profile saved to {outfile}\n"
+                    f"  To view in browser:  scalene view{file_arg}\n"
+                    f"  To view in terminal: scalene view --cli{file_arg}",
+                    file=sys.stderr,
+                )
             return json_output != {}
 
         else:
@@ -1494,19 +1506,13 @@ class Scalene:
         Scalene.__stats.clear_all()
         sys.argv = left
         with contextlib.suppress(Exception):
-            if not is_jupyter:
+            # Only set start method to fork if one hasn't been set yet
+            # This respects user's choice (e.g., spawn on macOS)
+            if (
+                not is_jupyter
+                and multiprocessing.get_start_method(allow_none=True) is None
+            ):
                 multiprocessing.set_start_method("fork")
-
-                def multiprocessing_warning(
-                    method: str | None, force: bool = False
-                ) -> None:
-                    # The 'force' parameter is present for compatibility with multiprocessing.set_start_method, but is ignored.
-                    if method != "fork":
-                        warnings.warn(
-                            "Scalene currently only supports the `fork` multiprocessing start method."
-                        )
-
-                multiprocessing.set_start_method = multiprocessing_warning
         spec = None
         try:
             Scalene._process_args(args)
@@ -1515,8 +1521,15 @@ class Scalene:
             try:
                 # Handle direct invocation of a string by executing the string and returning.
                 if len(sys.argv) >= 2 and sys.argv[0] == "-c":
+                    code_to_exec = sys.argv[1]
+                    # Set sys.argv to match Python's native behavior:
+                    # When running "python -c <code> <args>", sys.argv is ['-c'] + <args>
+                    # The code string itself is not included in sys.argv.
+                    # This is important for multiprocessing spawn mode, which checks
+                    # sys.argv[1] == '--multiprocessing-fork'
+                    sys.argv = [sys.argv[0]] + sys.argv[2:]
                     try:
-                        exec(sys.argv[1])
+                        exec(code_to_exec)
                     except SyntaxError:
                         traceback.print_exc()
                         sys.exit(1)

@@ -3,24 +3,32 @@ import multiprocessing.synchronize
 import random
 import sys
 import threading
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple, Union
 
 from scalene.scalene_profiler import Scalene
 
 
-def _make_replacement_semlock() -> "ReplacementSemLock":
-    # create it using the default mp context so it is spawn-safe on Windows
-    ctx = multiprocessing.get_context()
+def _make_replacement_semlock(method: Optional[str] = None) -> "ReplacementSemLock":
+    # Create lock using the specified context method for spawn-safety
+    ctx = multiprocessing.get_context(method)
     return ReplacementSemLock(ctx=ctx)
 
 
 class ReplacementSemLock(multiprocessing.synchronize.Lock):
     def __init__(
-        self, ctx: Optional[multiprocessing.context.DefaultContext] = None
+        self,
+        ctx: Optional[
+            Union[
+                multiprocessing.context.DefaultContext,
+                multiprocessing.context.BaseContext,
+            ]
+        ] = None,
     ) -> None:
         # Ensure to use the appropriate context while initializing
         if ctx is None:
             ctx = multiprocessing.get_context()
+        # Store the context method for pickling (spawn-safety)
+        self._ctx_method: Optional[str] = getattr(ctx, "_name", None)
         super().__init__(ctx=ctx)
 
     def __enter__(self) -> bool:
@@ -44,7 +52,8 @@ class ReplacementSemLock(multiprocessing.synchronize.Lock):
         super().__exit__(*args)
 
     def __reduce__(self) -> Tuple[Callable[..., Any], Tuple[Any, ...]]:
-        return (_make_replacement_semlock, ())
+        # Pass the context method to preserve it across spawn
+        return (_make_replacement_semlock, (self._ctx_method,))
 
 
 # important: force the class to live in the module name that workers will import

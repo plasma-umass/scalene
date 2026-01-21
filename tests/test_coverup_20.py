@@ -18,14 +18,7 @@ def mock_environment():
         yield mock_env
 
 
-@pytest.fixture
-def mock_read_file_content():
-    with patch("scalene.launchbrowser.read_file_content") as mock_read:
-        mock_read.return_value = "file content"
-        yield mock_read
-
-
-def test_generate_html_file_not_found(mock_environment, mock_read_file_content):
+def test_generate_html_file_not_found(mock_environment):
     with tempfile.TemporaryDirectory() as tmpdirname:
         profile_fname = os.path.join(tmpdirname, "nonexistent_profile.prof")
         output_fname = os.path.join(tmpdirname, "output.html")
@@ -34,7 +27,7 @@ def test_generate_html_file_not_found(mock_environment, mock_read_file_content):
         assert not os.path.exists(output_fname)
 
 
-def test_generate_html_success(mock_environment, mock_read_file_content):
+def test_generate_html_success(mock_environment):
     with tempfile.TemporaryDirectory() as tmpdirname:
         profile_fname = os.path.join(tmpdirname, "profile.prof")
         output_fname = os.path.join(tmpdirname, "output.html")
@@ -48,7 +41,7 @@ def test_generate_html_success(mock_environment, mock_read_file_content):
         assert content == "rendered content"
 
 
-def test_generate_html_os_error(mock_environment, mock_read_file_content):
+def test_generate_html_os_error(mock_environment):
     with tempfile.TemporaryDirectory() as tmpdirname:
         profile_fname = os.path.join(tmpdirname, "profile.prof")
         output_fname = os.path.join(tmpdirname, "output.html")

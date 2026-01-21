@@ -60,6 +60,13 @@ def test_replacement_sem_lock_reduce(replacement_sem_lock):
     assert callable(
         reduced[0]
     ), "__reduce__ should return a callable as the first element"
+    # Second element is a tuple containing the context method (e.g., 'spawn', 'fork', or None)
     assert (
-        reduced[1] == ()
-    ), "__reduce__ should return an empty tuple as the second element"
+        len(reduced[1]) == 1
+    ), "__reduce__ should return a tuple with the context method"
+    assert reduced[1][0] in (
+        None,
+        "fork",
+        "spawn",
+        "forkserver",
+    ), "__reduce__ should return a valid context method"

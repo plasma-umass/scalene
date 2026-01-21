@@ -25,9 +25,10 @@ def doit1(x):
     #    x = [i*i for i in range(1,1000)][0]
     y = 1
     #    w, v = LA.eig(np.diag(arr)) # (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)))
-    x = [i * i for i in range(0, 100000)][99999]
-    y1 = [i * i for i in range(0, 200000)][199999]
-    z1 = [i for i in range(0, 300000)][299999]
+    # Increased workload to ensure reliable sampling in CI
+    x = [i * i for i in range(0, 500000)][499999]
+    y1 = [i * i for i in range(0, 500000)][499999]
+    z1 = [i for i in range(0, 500000)][499999]
     z = x * y
     #    z = np.multiply(x, y)
     return z

@@ -225,24 +225,26 @@ def flamegraph_format(stacks: Dict[Tuple[StackFrame], StackStats]) -> str:
     return output
 
 
-def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
-    """Apply a template to generate a single HTML payload containing the current profile."""
+def generate_html(
+    profile_fname: Filename, output_fname: Filename, standalone: bool = False
+) -> None:
+    """Apply a template to generate a single HTML payload containing the current profile.
+
+    Args:
+        profile_fname: Path to the JSON profile file
+        output_fname: Path to write the HTML output
+        standalone: If True, embed all assets (JS, CSS, images) for a self-contained file
+    """
+    import base64
 
     def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
         file_path = os.path.join(directory, subdirectory, filename)
-        file_content = ""
-        try:
-            file_content = pathlib.Path(file_path).read_text(encoding="utf-8")
-        except UnicodeDecodeError as e:
-            # Create a new error with just the custom message
-            raise UnicodeDecodeError(
-                "utf-8",
-                b"",
-                0,
-                0,
-                f"Failed to decode file {file_path}. Ensure the file is UTF-8 encoded.",
-            ) from e
-        return file_content
+        return pathlib.Path(file_path).read_text(encoding="utf-8")
+
+    def read_binary_as_base64(directory: str, subdirectory: str, filename: str) -> str:
+        file_path = os.path.join(directory, subdirectory, filename)
+        with open(file_path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
 
     try:
         # Load the profile
@@ -265,15 +267,7 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         # or when we're generating HTML before the JSON profile exists.
         profile = ""
 
-    # Load the GUI JavaScript file.
     scalene_dir = os.path.dirname(__file__)
-
-    file_contents = {
-        "scalene_gui_js_text": read_file_content(
-            scalene_dir, "scalene-gui", "scalene-gui-bundle.js"
-        ),
-        "prism_css_text": read_file_content(scalene_dir, "scalene-gui", "prism.css"),
-    }
 
     # Read API keys from environment variables (if set)
     api_keys = {
@@ -289,6 +283,31 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         or os.environ.get("AWS_REGION", ""),
     }
 
+    # For standalone mode, embed all assets
+    embedded_assets: Dict[str, str] = {}
+    if standalone:
+        embedded_assets = {
+            "jquery_js": read_file_content(
+                scalene_dir, "scalene-gui", "jquery-3.6.0.slim.min.js"
+            ),
+            "bootstrap_css": read_file_content(
+                scalene_dir, "scalene-gui", "bootstrap.min.css"
+            ),
+            "bootstrap_js": read_file_content(
+                scalene_dir, "scalene-gui", "bootstrap.bundle.min.js"
+            ),
+            "prism_css": read_file_content(scalene_dir, "scalene-gui", "prism.css"),
+            "gui_js": read_file_content(
+                scalene_dir, "scalene-gui", "scalene-gui-bundle.js"
+            ),
+            "favicon_base64": read_binary_as_base64(
+                scalene_dir, "scalene-gui", "favicon.ico"
+            ),
+            "logo_base64": read_binary_as_base64(
+                scalene_dir, "scalene-gui", "scalene-image.png"
+            ),
+        }
+
     # Put the profile and everything else into the template.
     environment = Environment(
         loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
@@ -296,11 +315,11 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
     template = environment.get_template("index.html.template")
     rendered_content = template.render(
         profile=profile,
-        gui_js=file_contents["scalene_gui_js_text"],
-        prism_css=file_contents["prism_css_text"],
         scalene_version=scalene_version,
         scalene_date=scalene_date,
         api_keys=api_keys,
+        standalone=standalone,
+        **embedded_assets,
     )
 
     # Write the rendered content to the specified output file.
@@ -327,6 +346,21 @@ def show_browser(file_path: str, port: int, orig_python: str = "python3") -> Non
 
     # Copy file to the temporary directory
     shutil.copy(file_path, os.path.join(temp_dir, "index.html"))
+
+    # Copy vendored assets for offline support (issue #982)
+    scalene_gui_dir = os.path.join(os.path.dirname(__file__), "scalene-gui")
+    for asset in [
+        "favicon.ico",
+        "scalene-image.png",
+        "jquery-3.6.0.slim.min.js",
+        "bootstrap.min.css",
+        "bootstrap.bundle.min.js",
+        "prism.css",
+        "scalene-gui-bundle.js",
+    ]:
+        src = os.path.join(scalene_gui_dir, asset)
+        if os.path.exists(src):
+            shutil.copy(src, os.path.join(temp_dir, asset))
 
     # Open web browser in a new subprocess
     curr_dir = os.getcwd()

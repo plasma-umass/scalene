@@ -125,6 +125,16 @@ Web-based GUI built with TypeScript, bundled with esbuild.
 - **`launchbrowser.py`** - Opens browser to GUI (default port 11235)
 - **`find_browser.py`** - Cross-platform browser detection
 
+**Vendored Assets (for offline support):**
+- **`jquery-3.6.0.slim.min.js`** - jQuery (vendored locally, not loaded from CDN)
+- **`bootstrap.min.css`** - Bootstrap 5.1.3 CSS
+- **`bootstrap.bundle.min.js`** - Bootstrap 5.1.3 JS with Popper
+- **`prism.css`** - Syntax highlighting styles
+- **`favicon.ico`** - Scalene favicon
+- **`scalene-image.png`** - Scalene logo
+
+These assets are copied to a temp directory when serving via HTTP, enabling the GUI to work in air-gapped/offline environments.
+
 **Building the GUI:**
 ```bash
 cd scalene/scalene-gui
@@ -237,6 +247,22 @@ Add class `persistent` to inputs that should be saved/restored from localStorage
 ```
 The `persistence.ts` module handles save/restore automatically.
 
+**Standalone HTML Generation:**
+The `generate_html()` function in `scalene_utility.py` supports a `standalone` parameter:
+- When `standalone=False` (default): Assets are referenced as local files (e.g., `<script src="jquery-3.6.0.slim.min.js">`)
+- When `standalone=True`: All assets are embedded inline (JS/CSS as text, images as base64)
+
+The Jinja2 template uses conditionals:
+```html
+{% if standalone %}
+<script>{{ jquery_js }}</script>
+<style>{{ bootstrap_css }}</style>
+{% else %}
+<script src="jquery-3.6.0.slim.min.js"></script>
+<link href="bootstrap.min.css" rel="stylesheet">
+{% endif %}
+```
+
 ### Module Imports
 
 When importing submodules, be explicit:
@@ -272,6 +298,31 @@ pip install pytest pytest-asyncio hypothesis
 for v in 3.9 3.10 3.11 3.12 3.13 3.14; do
     python$v -m pytest tests/test_coverup_83.py -v
 done
+```
+
+### Flaky Smoketests
+
+The smoketests in `test/` can be flaky due to timing/sampling issues inherent to profiling:
+
+- **"No non-zero lines in X"** - The profiler didn't collect enough samples. This happens when the test runs too quickly or signal delivery timing varies.
+- **"Expected function 'X' not returned"** - A function wasn't sampled. Common with short-running functions.
+
+These failures are usually timing-related and pass on re-run. They're more common on CI due to variable machine load.
+
+### Port Binding in Tests
+
+When testing port availability, never use hardcoded ports - they may already be in use on CI runners:
+
+```python
+# Bad - port 49200 might be in use
+port = 49200
+sock.bind(("", port))
+
+# Good - find an available port first
+port = find_available_port(49200, 49300)
+if port is None:
+    return  # Skip test if no ports available
+sock.bind(("", port))
 ```
 
 ## CI/CD (`.github/workflows/`)
@@ -409,8 +460,20 @@ scalene run prog.py --- --arg            # pass args to program
 scalene view                             # open in browser
 scalene view --cli                       # view in terminal
 scalene view --html                      # save to scalene-profile.html
+scalene view --standalone                # save as self-contained HTML (all assets embedded)
 scalene view myprofile.json              # open specific profile
 ```
+
+### Profile Completion Message
+
+After profiling completes, Scalene prints instructions for viewing the profile:
+```
+Scalene: profile saved to scalene-profile.json
+  To view in browser:  scalene view
+  To view in terminal: scalene view --cli
+```
+
+The filename is only included in the command if a non-default output file was used.
 
 ### YAML Configuration
 
