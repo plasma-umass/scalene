@@ -91,6 +91,7 @@ python3 -m scalene run your_prog.py              # equivalent alternative
 scalene view                                     # open profile in browser
 scalene view --cli                               # view in terminal
 scalene view --html                              # save to scalene-profile.html
+scalene view --standalone                        # save as self-contained HTML
 
 # Common profiling options
 scalene run --cpu-only your_prog.py              # only profile CPU (faster)
@@ -205,7 +206,9 @@ By default, once Scalene has profiled your program, it will open a
 tab in a web browser with an interactive user interface (all processing is done
 locally). Hover over bars to see breakdowns of CPU and memory
 consumption, and click on underlined column headers to sort the
-columns. The generated file `profile.html` is self-contained and can be saved for later use.
+columns. The GUI works fully offline with no internet connection required.
+
+Use `scalene view --standalone` to generate a completely self-contained HTML file with all assets embedded, perfect for sharing or archiving.
 
 [![Scalene web GUI](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example.png)](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/scalene-gui-example-full.png)
 
@@ -384,12 +387,14 @@ examples:
   % scalene view                    # open in browser
   % scalene view --cli              # view in terminal
   % scalene view --html             # save to scalene-profile.html
+  % scalene view --standalone       # save as self-contained HTML
   % scalene view myprofile.json     # open specific profile in browser
 
 options:
   -h, --help     show this help message and exit
   --cli          display profile in the terminal
   --html         save to scalene-profile.html (no browser)
+  --standalone   save as self-contained HTML with all assets embedded
   -r, --reduced  only show lines with activity (--cli mode)
 ```
 </details>
