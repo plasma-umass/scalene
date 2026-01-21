@@ -980,7 +980,8 @@ class ScaleneParseArgs:
                 for key, value in sorted(config.items()):
                     # Mask sensitive values
                     if "key" in key or "secret" in key:
-                        display_value = value[:8] + "..." if len(value) > 8 else "***"
+                        # Never reveal any part of secret values
+                        display_value = "***"
                     else:
                         display_value = value
                     print(f"  {key}: {display_value}")
@@ -1011,7 +1012,8 @@ class ScaleneParseArgs:
             if value:
                 # Mask sensitive values
                 if "key" in key or "secret" in key:
-                    display_value = value[:8] + "..." if len(value) > 8 else "***"
+                    # Do not reveal any portion of secret values
+                    display_value = "***"
                 else:
                     display_value = value
                 print(f"{key}: {display_value} (from {source})")
