@@ -16,7 +16,10 @@ def _make_replacement_semlock(method: Optional[str] = None) -> "ReplacementSemLo
 
 class ReplacementSemLock(multiprocessing.synchronize.Lock):
     def __init__(
-        self, ctx: Optional[multiprocessing.context.DefaultContext] = None
+        self,
+        ctx: Optional[
+            multiprocessing.context.DefaultContext | multiprocessing.context.BaseContext
+        ] = None,
     ) -> None:
         # Ensure to use the appropriate context while initializing
         if ctx is None:
