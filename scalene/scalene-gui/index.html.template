@@ -248,8 +248,9 @@
 
     <script>
       const profile = {{ profile }}
-      // API keys from environment variables (if set)
+      // API keys and settings from config file/environment variables (if set)
       const envApiKeys = {
+        // API Keys
         openai: "{{ api_keys.openai_api_key | default('', true) }}",
         anthropic: "{{ api_keys.anthropic_api_key | default('', true) }}",
         gemini: "{{ api_keys.gemini_api_key | default('', true) }}",
@@ -257,7 +258,22 @@
         azureUrl: "{{ api_keys.azure_api_url | default('', true) }}",
         awsAccessKey: "{{ api_keys.aws_access_key | default('', true) }}",
         awsSecretKey: "{{ api_keys.aws_secret_key | default('', true) }}",
-        awsRegion: "{{ api_keys.aws_region | default('', true) }}"
+        awsRegion: "{{ api_keys.aws_region | default('', true) }}",
+        // Custom models
+        openaiModel: "{{ api_keys.openai_model | default('', true) }}",
+        anthropicModel: "{{ api_keys.anthropic_model | default('', true) }}",
+        geminiModel: "{{ api_keys.gemini_model | default('', true) }}",
+        azureModel: "{{ api_keys.azure_model | default('', true) }}",
+        awsModel: "{{ api_keys.aws_model | default('', true) }}",
+        ollamaModel: "{{ api_keys.ollama_model | default('', true) }}",
+        // Custom URLs
+        openaiUrl: "{{ api_keys.openai_url | default('', true) }}",
+        anthropicUrl: "{{ api_keys.anthropic_url | default('', true) }}",
+        azureApiVersion: "{{ api_keys.azure_api_version | default('', true) }}",
+        ollamaHost: "{{ api_keys.ollama_host | default('', true) }}",
+        ollamaPort: "{{ api_keys.ollama_port | default('', true) }}",
+        // Default provider
+        defaultProvider: "{{ api_keys.default_provider | default('', true) }}"
       };
     </script>
     <script>

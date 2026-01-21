@@ -395,25 +395,64 @@ sock.bind(("", port))
    npx esbuild scalene-gui.ts --bundle --outfile=scalene-gui-bundle.js --format=iife --global-name=ScaleneGUI
    ```
 
-### Environment Variable API Keys
+### AI Configuration
 
-The GUI supports prepopulating API keys from environment variables:
+Scalene supports configuring AI provider settings through three mechanisms (in priority order):
 
-| Element ID | Environment Variable | Provider |
-|------------|---------------------|----------|
-| `api-key` | `OPENAI_API_KEY` | OpenAI |
-| `anthropic-api-key` | `ANTHROPIC_API_KEY` | Anthropic |
-| `gemini-api-key` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | Gemini |
-| `azure-api-key` | `AZURE_OPENAI_API_KEY` | Azure OpenAI |
-| `azure-api-url` | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI |
-| `aws-access-key` | `AWS_ACCESS_KEY_ID` | Amazon Bedrock |
-| `aws-secret-key` | `AWS_SECRET_ACCESS_KEY` | Amazon Bedrock |
-| `aws-region` | `AWS_DEFAULT_REGION` or `AWS_REGION` | Amazon Bedrock |
+1. **Environment variables** (highest priority)
+2. **Config file** (`~/.scalene/config.json`)
+3. **Browser localStorage** (lowest priority)
+
+#### Config File Management
+
+Use the `scalene config` command to manage AI settings stored in `~/.scalene/config.json`:
+
+```bash
+scalene config list                           # list all config values
+scalene config set openai_api_key sk-xxx     # set a value
+scalene config get openai_api_key            # get a value
+scalene config clear                          # clear all config
+scalene config path                           # show config file path
+```
+
+#### Available Configuration Keys
+
+| Key | Environment Variable | Description |
+|-----|---------------------|-------------|
+| `openai_api_key` | `OPENAI_API_KEY` | OpenAI API key |
+| `openai_model` | `OPENAI_MODEL` | Custom OpenAI model name |
+| `openai_url` | `OPENAI_API_BASE` | Custom OpenAI-compatible endpoint |
+| `anthropic_api_key` | `ANTHROPIC_API_KEY` | Anthropic API key |
+| `anthropic_model` | `ANTHROPIC_MODEL` | Custom Anthropic model name |
+| `anthropic_url` | `ANTHROPIC_API_BASE` | Custom Anthropic endpoint |
+| `gemini_api_key` | `GEMINI_API_KEY` / `GOOGLE_API_KEY` | Google Gemini API key |
+| `gemini_model` | `GEMINI_MODEL` | Custom Gemini model name |
+| `azure_api_key` | `AZURE_OPENAI_API_KEY` | Azure OpenAI API key |
+| `azure_api_url` | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint |
+| `azure_model` | `AZURE_OPENAI_MODEL` | Azure OpenAI deployment name |
+| `azure_api_version` | `AZURE_OPENAI_API_VERSION` | Azure API version |
+| `aws_access_key` | `AWS_ACCESS_KEY_ID` | AWS access key for Bedrock |
+| `aws_secret_key` | `AWS_SECRET_ACCESS_KEY` | AWS secret key for Bedrock |
+| `aws_region` | `AWS_DEFAULT_REGION` / `AWS_REGION` | AWS region for Bedrock |
+| `aws_model` | `AWS_BEDROCK_MODEL` | Bedrock model ID |
+| `ollama_host` | `OLLAMA_HOST` | Ollama server hostname |
+| `ollama_port` | `OLLAMA_PORT` | Ollama server port |
+| `ollama_model` | `OLLAMA_MODEL` | Ollama model name |
+| `default_provider` | `SCALENE_AI_PROVIDER` | Default AI provider to use |
+
+#### Implementation Details
+
+**Core module:** `scalene/scalene_ai_config.py`
+- `get_all_ai_config()` - Returns all config values (used by `scalene_utility.py`)
+- `get_config_value(key)` - Get a single value with priority resolution
+- `set_config_value(key, value)` - Set a value in the config file
+- `get_config_source(key)` - Returns where a value comes from ('env', 'config', or 'default')
 
 **Flow:**
-1. `scalene_utility.py` reads env vars and passes to Jinja2 template
-2. Template injects `envApiKeys` JavaScript object into page
-3. `persistence.ts` uses env vars as fallbacks when localStorage is empty
+1. `scalene_ai_config.py` reads config file and env vars
+2. `scalene_utility.py` calls `get_all_ai_config()` to get merged config
+3. Template injects `envApiKeys` JavaScript object into page
+4. `persistence.ts` uses these values as fallbacks when localStorage is empty
 
 ### Updating Version
 
@@ -434,7 +473,7 @@ See `requirements.txt` for full list.
 
 ## CLI Structure
 
-Scalene uses a verb-based CLI with two main subcommands:
+Scalene uses a verb-based CLI with three main subcommands:
 
 ```bash
 # Profile a program (saves to scalene-profile.json by default)
@@ -442,6 +481,9 @@ scalene run [options] yourprogram.py
 
 # View an existing profile
 scalene view [options] [profile.json]
+
+# Manage AI configuration
+scalene config [list|set|get|clear|path]
 ```
 
 ### Run Subcommand Options

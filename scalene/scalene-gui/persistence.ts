@@ -1,5 +1,6 @@
 // Declare envApiKeys as a global variable that may be injected by the template
 declare const envApiKeys: {
+  // API Keys
   openai?: string;
   anthropic?: string;
   gemini?: string;
@@ -8,10 +9,26 @@ declare const envApiKeys: {
   awsAccessKey?: string;
   awsSecretKey?: string;
   awsRegion?: string;
+  // Custom models
+  openaiModel?: string;
+  anthropicModel?: string;
+  geminiModel?: string;
+  azureModel?: string;
+  awsModel?: string;
+  ollamaModel?: string;
+  // Custom URLs
+  openaiUrl?: string;
+  anthropicUrl?: string;
+  azureApiVersion?: string;
+  ollamaHost?: string;
+  ollamaPort?: string;
+  // Default provider
+  defaultProvider?: string;
 } | undefined;
 
 // Map element IDs to their corresponding environment variable keys
 const envKeyMap: Record<string, keyof NonNullable<typeof envApiKeys>> = {
+  // API Keys
   "api-key": "openai",
   "anthropic-api-key": "anthropic",
   "gemini-api-key": "gemini",
@@ -20,6 +37,21 @@ const envKeyMap: Record<string, keyof NonNullable<typeof envApiKeys>> = {
   "aws-access-key": "awsAccessKey",
   "aws-secret-key": "awsSecretKey",
   "aws-region": "awsRegion",
+  // Custom models
+  "custom-model": "openaiModel",
+  "anthropic-custom-model": "anthropicModel",
+  "gemini-custom-model": "geminiModel",
+  "azure-custom-model": "azureModel",
+  "bedrock-model": "awsModel",
+  "ollama-model": "ollamaModel",
+  // Custom URLs
+  "custom-url": "openaiUrl",
+  "anthropic-custom-url": "anthropicUrl",
+  "azure-api-version": "azureApiVersion",
+  "ollama-ip": "ollamaHost",
+  "ollama-port": "ollamaPort",
+  // Default provider
+  "service": "defaultProvider",
 };
 
 function restoreState(el: HTMLInputElement): void {
