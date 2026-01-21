@@ -26,9 +26,15 @@ def test_find_available_port_returns_none_when_all_taken():
     """Test that find_available_port returns None when no ports available."""
     import socket
 
-    # Bind to a single port range to guarantee it's taken
-    port = 49200
+    # First find a port that's actually available
+    port = ScaleneJupyter.find_available_port(49200, 49300)
+    if port is None:
+        # All ports in range already taken, skip test
+        return
+
+    # Now bind to that port
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         sock.bind(("", port))
         # Now try to find a port in a range of just that one port
