@@ -15,6 +15,7 @@ def replacement_mp_get_context(scalene: Scalene) -> None:
                 "Scalene currently only supports the `multiprocessing` library on Mac and Unix platforms."
             )
             sys.exit(1)
-        return old_get_context("fork")
+        # Respect the user's requested method instead of forcing fork
+        return old_get_context(method)
 
     multiprocessing.get_context = replacement_get_context

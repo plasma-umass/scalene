@@ -1507,18 +1507,10 @@ class Scalene:
         sys.argv = left
         with contextlib.suppress(Exception):
             if not is_jupyter:
-                multiprocessing.set_start_method("fork")
-
-                def multiprocessing_warning(
-                    method: str | None, force: bool = False
-                ) -> None:
-                    # The 'force' parameter is present for compatibility with multiprocessing.set_start_method, but is ignored.
-                    if method != "fork":
-                        warnings.warn(
-                            "Scalene currently only supports the `fork` multiprocessing start method."
-                        )
-
-                multiprocessing.set_start_method = multiprocessing_warning
+                # Only set start method to fork if one hasn't been set yet
+                # This respects user's choice (e.g., spawn on macOS)
+                if multiprocessing.get_start_method(allow_none=True) is None:
+                    multiprocessing.set_start_method("fork")
         spec = None
         try:
             Scalene._process_args(args)
