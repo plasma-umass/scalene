@@ -3,7 +3,7 @@ import multiprocessing.synchronize
 import random
 import sys
 import threading
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple, Union
 
 from scalene.scalene_profiler import Scalene
 
@@ -18,7 +18,7 @@ class ReplacementSemLock(multiprocessing.synchronize.Lock):
     def __init__(
         self,
         ctx: Optional[
-            multiprocessing.context.DefaultContext | multiprocessing.context.BaseContext
+            Union[multiprocessing.context.DefaultContext, multiprocessing.context.BaseContext]
         ] = None,
     ) -> None:
         # Ensure to use the appropriate context while initializing
