@@ -1506,11 +1506,13 @@ class Scalene:
         Scalene.__stats.clear_all()
         sys.argv = left
         with contextlib.suppress(Exception):
-            if not is_jupyter:
-                # Only set start method to fork if one hasn't been set yet
-                # This respects user's choice (e.g., spawn on macOS)
-                if multiprocessing.get_start_method(allow_none=True) is None:
-                    multiprocessing.set_start_method("fork")
+            # Only set start method to fork if one hasn't been set yet
+            # This respects user's choice (e.g., spawn on macOS)
+            if (
+                not is_jupyter
+                and multiprocessing.get_start_method(allow_none=True) is None
+            ):
+                multiprocessing.set_start_method("fork")
         spec = None
         try:
             Scalene._process_args(args)
