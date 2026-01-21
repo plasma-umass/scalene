@@ -52,14 +52,24 @@ def smoketest(fname, rest):
     if not len(files) > 0:
         print("No files found in output")
         exit(1)
+    # Check that the target file (fname) has non-zero lines.
+    # With --profile-all, other files may be included but may not have
+    # any CPU activity, so we only require the target file to have activity.
+    target_file = None
     for _fname in files:
-
-        if not any(
-            (line["n_cpu_percent_c"] > 0 or line["n_cpu_percent_python"] > 0)
-            for line in files[_fname]["lines"]
-        ):
-            print("No non-zero lines in", _fname)
-            exit(1)
+        if fname in _fname or _fname in fname:
+            target_file = _fname
+            break
+    if target_file is None:
+        print(f"Target file {fname} not found in output")
+        print("Files in output:", list(files.keys()))
+        exit(1)
+    if not any(
+        (line["n_cpu_percent_c"] > 0 or line["n_cpu_percent_python"] > 0)
+        for line in files[target_file]["lines"]
+    ):
+        print("No non-zero lines in target file", target_file)
+        exit(1)
 
 
 if __name__ == "__main__":
