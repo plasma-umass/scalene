@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 from jinja2 import Environment, FileSystemLoader
 
+from scalene.scalene_ai_config import get_all_ai_config
 from scalene.scalene_config import scalene_date, scalene_version
 from scalene.scalene_statistics import (
     Filename,
@@ -269,19 +270,8 @@ def generate_html(
 
     scalene_dir = os.path.dirname(__file__)
 
-    # Read API keys from environment variables (if set)
-    api_keys = {
-        "openai_api_key": os.environ.get("OPENAI_API_KEY", ""),
-        "anthropic_api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
-        "gemini_api_key": os.environ.get("GEMINI_API_KEY", "")
-        or os.environ.get("GOOGLE_API_KEY", ""),
-        "azure_api_key": os.environ.get("AZURE_OPENAI_API_KEY", ""),
-        "azure_api_url": os.environ.get("AZURE_OPENAI_ENDPOINT", ""),
-        "aws_access_key": os.environ.get("AWS_ACCESS_KEY_ID", ""),
-        "aws_secret_key": os.environ.get("AWS_SECRET_ACCESS_KEY", ""),
-        "aws_region": os.environ.get("AWS_DEFAULT_REGION", "")
-        or os.environ.get("AWS_REGION", ""),
-    }
+    # Read AI configuration (env vars > config file > defaults)
+    api_keys = get_all_ai_config()
 
     # For standalone mode, embed all assets
     embedded_assets: Dict[str, str] = {}

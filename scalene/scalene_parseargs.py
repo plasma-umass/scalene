@@ -10,6 +10,16 @@ import yaml
 from rich.text import Text as RichText
 
 from scalene.find_browser import find_browser
+from scalene.scalene_ai_config import (
+    VALID_CONFIG_KEYS,
+    clear_config,
+    get_all_ai_config,
+    get_config_file,
+    get_config_source,
+    get_config_value,
+    list_config,
+    set_config_value,
+)
 from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_config import scalene_date, scalene_version
 from scalene.scalene_statistics import Filename
@@ -947,6 +957,87 @@ class ScaleneParseArgs:
         sys.exit(0)
 
     @staticmethod
+    def _handle_config_command(
+        args: argparse.Namespace, parser: argparse.ArgumentParser
+    ) -> NoReturn:
+        """Handle the 'config' subcommand to manage AI configuration."""
+        config_command = getattr(args, "config_command", None)
+
+        if config_command is None:
+            parser.print_help()
+            sys.exit(1)
+
+        if config_command == "list":
+            # List all configuration values from the config file
+            config = list_config()
+            if not config:
+                print("No configuration stored.")
+                print(f"Config file: {get_config_file()}")
+            else:
+                print("Scalene AI Configuration:")
+                print(f"Config file: {get_config_file()}")
+                print()
+                for key, value in sorted(config.items()):
+                    # Mask sensitive values
+                    if "key" in key or "secret" in key:
+                        # Never reveal any part of secret values
+                        display_value = "***"
+                    else:
+                        display_value = value
+                    print(f"  {key}: {display_value}")
+            sys.exit(0)
+
+        elif config_command == "set":
+            key = args.key
+            value = args.value
+            if key not in VALID_CONFIG_KEYS:
+                print(f"Error: Invalid key '{key}'", file=sys.stderr)
+                print(f"Valid keys: {', '.join(sorted(VALID_CONFIG_KEYS))}", file=sys.stderr)
+                sys.exit(1)
+            if set_config_value(key, value):
+                print(f"Set {key} = {'***' if 'key' in key or 'secret' in key else value}")
+            else:
+                print(f"Error: Failed to set {key}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif config_command == "get":
+            key = args.key
+            if key not in VALID_CONFIG_KEYS:
+                print(f"Error: Invalid key '{key}'", file=sys.stderr)
+                print(f"Valid keys: {', '.join(sorted(VALID_CONFIG_KEYS))}", file=sys.stderr)
+                sys.exit(1)
+            value = get_config_value(key)
+            source = get_config_source(key)
+            if value:
+                # Mask sensitive values
+                if "key" in key or "secret" in key:
+                    # Do not reveal any portion of secret values
+                    display_value = "***"
+                else:
+                    display_value = value
+                print(f"{key}: {display_value} (from {source})")
+            else:
+                print(f"{key}: (not set)")
+            sys.exit(0)
+
+        elif config_command == "clear":
+            if clear_config():
+                print("Configuration cleared.")
+            else:
+                print("Error: Failed to clear configuration", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif config_command == "path":
+            print(get_config_file())
+            sys.exit(0)
+
+        else:
+            parser.print_help()
+            sys.exit(1)
+
+    @staticmethod
     def parse_args() -> Tuple[argparse.Namespace, List[str]]:
         # In IPython, intercept exit cleanly (because sys.exit triggers a backtrace).
         with contextlib.suppress(BaseException):
@@ -1099,11 +1190,74 @@ examples:
             help="Save as a single self-contained HTML file with all assets embedded (implies --html)",
         )
 
+        # 'config' subcommand - manage AI configuration
+        config_usage = dedent("""Manage Scalene AI configuration stored in ~/.scalene/config.json.
+
+examples:
+  % scalene config list                           # list all config values
+  % scalene config set openai_api_key sk-xxx     # set a value
+  % scalene config get openai_api_key            # get a value
+  % scalene config clear                          # clear all config
+  % scalene config path                           # show config file path
+
+available keys:
+  openai_api_key, openai_model, openai_url
+  anthropic_api_key, anthropic_model, anthropic_url
+  gemini_api_key, gemini_model
+  azure_api_key, azure_api_url, azure_model, azure_api_version
+  aws_access_key, aws_secret_key, aws_region, aws_model
+  ollama_host, ollama_port, ollama_model
+  default_provider
+""")
+        config_parser = subparsers.add_parser(
+            "config",
+            help="Manage AI configuration (~/.scalene/config.json)",
+            description=config_usage,
+            formatter_class=argparse.RawTextHelpFormatter,
+        )
+        config_subparsers = config_parser.add_subparsers(
+            dest="config_command", help="Config commands"
+        )
+
+        # config list
+        config_subparsers.add_parser(
+            "list",
+            help="List all configuration values",
+        )
+
+        # config set <key> <value>
+        set_parser = config_subparsers.add_parser(
+            "set",
+            help="Set a configuration value",
+        )
+        set_parser.add_argument("key", type=str, help="Configuration key")
+        set_parser.add_argument("value", type=str, help="Configuration value")
+
+        # config get <key>
+        get_parser = config_subparsers.add_parser(
+            "get",
+            help="Get a configuration value",
+        )
+        get_parser.add_argument("key", type=str, help="Configuration key")
+
+        # config clear
+        config_subparsers.add_parser(
+            "clear",
+            help="Clear all configuration",
+        )
+
+        # config path
+        config_subparsers.add_parser(
+            "path",
+            help="Show config file path",
+        )
+
         # Check if user provided a .py file without a subcommand
         # This catches the common mistake of `scalene foo.py` instead of `scalene run foo.py`
         if len(sys.argv) > 1 and sys.argv[1] not in (
             "run",
             "view",
+            "config",
             "-h",
             "--help",
             "--version",
@@ -1125,6 +1279,11 @@ examples:
         if args.command == "view":
             ScaleneParseArgs._handle_view_command(args)
             # _handle_view_command calls sys.exit, so we never reach here
+
+        # Handle the 'config' command immediately
+        if args.command == "config":
+            ScaleneParseArgs._handle_config_command(args, config_parser)
+            # _handle_config_command calls sys.exit, so we never reach here
 
         # For 'run' command, continue with normal processing
         if args.command == "run":
