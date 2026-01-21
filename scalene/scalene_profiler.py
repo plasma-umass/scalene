@@ -1521,8 +1521,15 @@ class Scalene:
             try:
                 # Handle direct invocation of a string by executing the string and returning.
                 if len(sys.argv) >= 2 and sys.argv[0] == "-c":
+                    code_to_exec = sys.argv[1]
+                    # Set sys.argv to match Python's native behavior:
+                    # When running "python -c <code> <args>", sys.argv is ['-c'] + <args>
+                    # The code string itself is not included in sys.argv.
+                    # This is important for multiprocessing spawn mode, which checks
+                    # sys.argv[1] == '--multiprocessing-fork'
+                    sys.argv = [sys.argv[0]] + sys.argv[2:]
                     try:
-                        exec(sys.argv[1])
+                        exec(code_to_exec)
                     except SyntaxError:
                         traceback.print_exc()
                         sys.exit(1)
