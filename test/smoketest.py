@@ -56,10 +56,15 @@ def smoketest(fname, rest):
     # With --profile-all, other files may be included but may not have
     # any CPU activity, so we only require the target file to have activity.
     target_file = None
+    # Normalize the target filename for cross-platform comparison
+    fname_parts = pathlib.PurePath(fname).parts
     for _fname in files:
-        if fname in _fname or _fname in fname:
-            target_file = _fname
-            break
+        # Check if the target path parts appear at the end of the profiled path
+        _fname_parts = pathlib.PurePath(_fname).parts
+        if len(_fname_parts) >= len(fname_parts):
+            if _fname_parts[-len(fname_parts):] == fname_parts:
+                target_file = _fname
+                break
     if target_file is None:
         print(f"Target file {fname} not found in output")
         print("Files in output:", list(files.keys()))
