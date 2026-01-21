@@ -15,11 +15,6 @@ from typing import Any, NewType
 from jinja2 import Environment, FileSystemLoader
 
 
-def read_file_content(directory: str, subdirectory: str, filename: str) -> str:
-    file_path = os.path.join(directory, subdirectory, filename)
-    return pathlib.Path(file_path).read_text()
-
-
 def launch_browser_insecure(url: str) -> None:
     if platform.system() == "Windows":
         chrome_path = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
@@ -117,15 +112,7 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         profile = "{}"
         # return
 
-    # Load the GUI JavaScript file.
     scalene_dir = os.path.dirname(__file__)
-
-    file_contents = {
-        "scalene_gui_js_text": read_file_content(
-            scalene_dir, "scalene-gui", "scalene-gui-bundle.js"
-        ),
-        "prism_css_text": read_file_content(scalene_dir, "scalene-gui", "prism.css"),
-    }
 
     # Put the profile and everything else into the template.
     environment = Environment(
@@ -138,10 +125,9 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         import scalene.scalene_config as scalene_config
     rendered_content = template.render(
         profile=profile,
-        gui_js=file_contents["scalene_gui_js_text"],
-        prism_css=file_contents["prism_css_text"],
         scalene_version=scalene_config.scalene_version,
         scalene_date=scalene_config.scalene_date,
+        api_keys={},
     )
 
     # Write the rendered content to the specified output file.
@@ -160,8 +146,25 @@ def start(filename: str, port: int) -> None:
     if filename == "demo":
         generate_html(Filename("demo"), Filename("demo.html"))
         filename = "demo.html"
-    shutil.copy(filename, os.path.join(tempfile.gettempdir(), "index.html"))
-    os.chdir(tempfile.gettempdir())
+    temp_dir = tempfile.gettempdir()
+    shutil.copy(filename, os.path.join(temp_dir, "index.html"))
+
+    # Copy vendored assets for offline support (issue #982)
+    scalene_gui_dir = os.path.join(os.path.dirname(__file__), "scalene-gui")
+    for asset in [
+        "favicon.ico",
+        "scalene-image.png",
+        "jquery-3.6.0.slim.min.js",
+        "bootstrap.min.css",
+        "bootstrap.bundle.min.js",
+        "prism.css",
+        "scalene-gui-bundle.js",
+    ]:
+        src = os.path.join(scalene_gui_dir, asset)
+        if os.path.exists(src):
+            shutil.copy(src, os.path.join(temp_dir, asset))
+
+    os.chdir(temp_dir)
     server_thread = threading.Thread(target=run_server, args=[HOST, port])
     server_thread.start()
     threading.Thread(target=monitor_heartbeat).start()

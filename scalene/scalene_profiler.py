@@ -814,6 +814,16 @@ class Scalene:
             # Write the JSON to the output file.
             with open(outfile, "w") as f:
                 f.write(json.dumps(json_output, sort_keys=True, indent=4) + "\n")
+            # Print instructions for viewing the profile
+            if json_output and not Scalene.__is_child:
+                # Only include filename if non-default output was used
+                file_arg = "" if outfile == Scalene.__profile_filename else f" {outfile}"
+                print(
+                    f"\nScalene: profile saved to {outfile}\n"
+                    f"  To view in browser:  scalene view{file_arg}\n"
+                    f"  To view in terminal: scalene view --cli{file_arg}",
+                    file=sys.stderr,
+                )
             return json_output != {}
 
         else:

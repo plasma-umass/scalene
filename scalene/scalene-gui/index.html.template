@@ -6,12 +6,18 @@
   <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval' data: blob:; style-src * 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src * 'unsafe-inline' 'unsafe-eval' data: blob:; font-src * 'unsafe-inline' 'unsafe-eval' data: blob:; object-src * 'unsafe-inline' 'unsafe-eval' data: blob:; media-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
 <!--    <meta http-equiv="Content-Security-Policy" content="default-src * data: blob: vscode-webview-resource: 'unsafe-inline' 'unsafe-eval' ; script-src * data: blob: vscode-webview-resource: 'unsafe-inline' 'unsafe-eval';"> -->
     <title>Scalene</title>
-    <link rel="icon" href="https://raw.githubusercontent.com/plasma-umass/scalene/master/scalene/scalene-gui/favicon.ico" type="image/x-icon">
-    <!-- Latest compiled and minified CSS -->
-    <script src="https://code.jquery.com/jquery-3.6.0.slim.min.js"></script>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+    <!-- Assets: embedded for standalone mode, local files otherwise (issue #982) -->
+    {% if standalone %}
+    <link rel="icon" href="data:image/x-icon;base64,{{ favicon_base64 }}" type="image/x-icon">
+    <script>{{ jquery_js }}</script>
+    <style>{{ bootstrap_css }}</style>
+    <script>{{ bootstrap_js }}</script>
+    {% else %}
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="jquery-3.6.0.slim.min.js"></script>
+    <link href="bootstrap.min.css" rel="stylesheet">
+    <script src="bootstrap.bundle.min.js"></script>
+    {% endif %}
     <style>
 #vg-tooltip-element {
   z-index: 2000;
@@ -20,9 +26,11 @@
   padding: 0 0 90px 0;
 }
     </style>
-    <style>
-      {{ prism_css }}
-    </style>
+    {% if standalone %}
+    <style>{{ prism_css }}</style>
+    {% else %}
+    <link href="prism.css" rel="stylesheet">
+    {% endif %}
     <style>
       .table-condensed>thead>tr>th, .table-condensed>tbody>tr>th, .table-condensed>tfoot>tr>th, .table-condensed>thead>tr>td, .table-condensed>tbody>tr>td, .table-condensed>tfoot>tr>td{
 	  padding: 1px; border-spacing: 0px; border:none;
@@ -224,14 +232,18 @@
         color: #0d6efd;
     }
     </style>
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4JXPHEBMTY"></script>
+    <!-- Google Analytics - only loads when online (for offline support, issue #982) -->
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      
-      gtag('config', 'G-4JXPHEBMTY');
+      if (navigator.onLine) {
+        var script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://www.googletagmanager.com/gtag/js?id=G-4JXPHEBMTY';
+        document.head.appendChild(script);
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-4JXPHEBMTY');
+      }
     </script>
 
     <script>
@@ -260,7 +272,12 @@
     <div class="header">
       <p class="text-center">
 	<a href="https://github.com/plasma-umass/scalene">
-	  <img src="https://github.com/plasma-umass/scalene/raw/master/scalene/scalene-gui/scalene-image.png" height="100">
+	  <!-- Logo (vendored locally for offline support, issue #982) -->
+	  {% if standalone %}
+	  <img src="data:image/png;base64,{{ logo_base64 }}" height="100">
+	  {% else %}
+	  <img src="scalene-image.png" height="100">
+	  {% endif %}
 	</a>
       </p>
     </div>
@@ -501,12 +518,15 @@
     </div>
     <div id="profile">
     </div>
+    {% if standalone %}
+    <script type="text/javascript">{{ gui_js }}</script>
+    {% else %}
+    <script src="scalene-gui-bundle.js"></script>
+    {% endif %}
     <script type="text/javascript">
-      {{ gui_js }}
       window.addEventListener("load", () => {
 	  load(profile);
       });
-      //load(profile);
     </script>
       <nav class="navbar fixed-bottom navbar-default justify-content-center bg-light bg-opacity-75" style="backdrop-filter: blur(2px);">
 	<div class="container justify-content-center">
