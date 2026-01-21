@@ -817,7 +817,9 @@ class Scalene:
             # Print instructions for viewing the profile
             if json_output and not Scalene.__is_child:
                 # Only include filename if non-default output was used
-                file_arg = "" if outfile == Scalene.__profile_filename else f" {outfile}"
+                file_arg = (
+                    "" if outfile == Scalene.__profile_filename else f" {outfile}"
+                )
                 print(
                     f"\nScalene: profile saved to {outfile}\n"
                     f"  To view in browser:  scalene view{file_arg}\n"
