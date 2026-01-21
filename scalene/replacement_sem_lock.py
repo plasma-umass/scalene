@@ -18,7 +18,10 @@ class ReplacementSemLock(multiprocessing.synchronize.Lock):
     def __init__(
         self,
         ctx: Optional[
-            Union[multiprocessing.context.DefaultContext, multiprocessing.context.BaseContext]
+            Union[
+                multiprocessing.context.DefaultContext,
+                multiprocessing.context.BaseContext,
+            ]
         ] = None,
     ) -> None:
         # Ensure to use the appropriate context while initializing
