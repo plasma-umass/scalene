@@ -271,6 +271,7 @@ class Scalene:
             patch_module_functions_with_signal_blocking(os, signal.SIGALRM)
 
         # Import all replacement functions.
+        import scalene.replacement_exec
         import scalene.replacement_exit
         import scalene.replacement_get_context
         import scalene.replacement_lock

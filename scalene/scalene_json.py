@@ -1,4 +1,5 @@
 import copy
+import linecache
 import math
 import random
 import re
@@ -580,12 +581,19 @@ class ScaleneJSON:
                 )
 
             # Print out the the profile for the source, line by line.
+            # First try to read from the filesystem
             full_fname = fname
+            code_lines = None
             try:
                 with open(full_fname, encoding="utf-8") as source_file:
                     code_lines = source_file.readlines()
-
             except (FileNotFoundError, OSError):
+                # For exec'd code, the source may be in linecache
+                # (e.g., files named <exec_N> or <eval_N>)
+                cached_lines = linecache.getlines(fname)
+                if cached_lines:
+                    code_lines = cached_lines
+            if code_lines is None:
                 continue
             # Find all enclosing regions (loops or function defs) for each line of code.
 
