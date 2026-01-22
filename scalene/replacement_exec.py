@@ -141,7 +141,9 @@ def replacement_exec(scalene: Scalene) -> None:  # noqa: ARG001
         if isinstance(source, str) and _is_synthetic_filename(filename):
             _register_source_in_linecache(filename, source)
 
-        return orig_compile(source, filename, mode, flags, dont_inherit, optimize, **kwargs)
+        return orig_compile(
+            source, filename, mode, flags, dont_inherit, optimize, **kwargs
+        )
 
     builtins.exec = exec_replacement  # type: ignore[assignment]
     builtins.eval = eval_replacement  # type: ignore[assignment]
