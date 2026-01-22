@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import math
-import threading
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, Callable
 
 from scalene.runningstats import RunningStats
 from scalene.scalene_funcutils import ScaleneFuncUtils
@@ -14,7 +13,7 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
-from scalene.scalene_utility import add_stack, enter_function_meta
+from scalene.scalene_utility import _main_thread_id, add_stack, enter_function_meta
 from scalene.time_info import TimeInfo
 
 if TYPE_CHECKING:
@@ -123,8 +122,7 @@ class ScaleneCPUProfiler:
             else LineNumber(main_thread_frame.f_code.co_firstlineno)
         )
 
-        main_tid = cast(int, threading.main_thread().ident)
-        if not is_thread_sleeping[main_tid]:
+        if not is_thread_sleeping[_main_thread_id]:
             self._update_main_thread_stats(
                 fname,
                 lineno,

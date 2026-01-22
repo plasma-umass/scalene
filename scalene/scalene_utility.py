@@ -1,5 +1,4 @@
 import functools
-import http.server
 import os
 import pathlib
 import shutil
@@ -13,8 +12,6 @@ import webbrowser
 from types import BuiltinFunctionType, FrameType, FunctionType, ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
-from jinja2 import Environment, FileSystemLoader
-
 from scalene.scalene_config import scalene_date, scalene_version
 from scalene.scalene_statistics import (
     Filename,
@@ -23,6 +20,10 @@ from scalene.scalene_statistics import (
     StackFrame,
     StackStats,
 )
+
+# Cache the main thread ID to avoid repeated calls to threading.main_thread()
+# This is safe because the main thread ID never changes during program execution.
+_main_thread_id: int = cast(int, threading.main_thread().ident)
 
 
 def enter_function_meta(
@@ -65,25 +66,24 @@ def compute_frames_to_record(
     Returns final frame (up to a line in a file we are profiling), the
     thread identifier, and the original frame.
     """
+    # Get all current frames once (avoid multiple calls to sys._current_frames())
+    all_frames = sys._current_frames()
+
+    # Build list of non-main thread frames
     frames: List[Tuple[FrameType, int]] = [
         (
-            cast(
-                FrameType,
-                sys._current_frames().get(cast(int, t.ident), None),
-            ),
+            cast(FrameType, all_frames.get(cast(int, t.ident), None)),
             cast(int, t.ident),
         )
         for t in threading.enumerate()
-        if t != threading.main_thread()
+        if t.ident != _main_thread_id
     ]
     # Put the main thread in the front.
-
-    tid = cast(int, threading.main_thread().ident)
     frames.insert(
         0,
         (
-            sys._current_frames().get(tid, cast(FrameType, None)),
-            tid,
+            all_frames.get(_main_thread_id, cast(FrameType, None)),
+            _main_thread_id,
         ),
     )
     # Process all the frames to remove ones we aren't going to track.
@@ -309,6 +309,8 @@ def generate_html(
         }
 
     # Put the profile and everything else into the template.
+    from jinja2 import Environment, FileSystemLoader
+
     environment = Environment(
         loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
     )
@@ -331,6 +333,8 @@ def generate_html(
 
 
 def start_server(port: int, directory: str) -> None:
+    import http.server
+
     try:
         handler = http.server.SimpleHTTPRequestHandler
         with socketserver.TCPServer(("", port), handler) as httpd:
