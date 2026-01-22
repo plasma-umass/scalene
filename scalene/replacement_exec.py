@@ -86,9 +86,9 @@ def replacement_exec(scalene: Scalene) -> None:  # noqa: ARG001
                 __locals = caller_frame.f_locals
 
         if __locals is None:
-            orig_exec(__source, __globals)  # type: ignore[call-overload]
+            orig_exec(__source, __globals)
         else:
-            orig_exec(__source, __globals, __locals, **kwargs)  # type: ignore[call-overload]
+            orig_exec(__source, __globals, __locals, **kwargs)
 
     def eval_replacement(
         __source: Any,
@@ -119,9 +119,9 @@ def replacement_exec(scalene: Scalene) -> None:  # noqa: ARG001
                 __locals = caller_frame.f_locals
 
         if __locals is None:
-            return orig_eval(__source, __globals)  # type: ignore[call-overload]
+            return orig_eval(__source, __globals)
         else:
-            return orig_eval(__source, __globals, __locals)  # type: ignore[call-overload]
+            return orig_eval(__source, __globals, __locals)
 
     def compile_replacement(
         source: Any,
@@ -145,4 +145,4 @@ def replacement_exec(scalene: Scalene) -> None:  # noqa: ARG001
 
     builtins.exec = exec_replacement  # type: ignore[assignment]
     builtins.eval = eval_replacement  # type: ignore[assignment]
-    builtins.compile = compile_replacement
+    builtins.compile = compile_replacement  # type: ignore[assignment]

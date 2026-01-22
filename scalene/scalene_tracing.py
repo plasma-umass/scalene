@@ -110,9 +110,12 @@ class ScaleneTracing:
 
         # Handle special non-file cases
         # Allow exec/eval virtual filenames through (e.g., <exec@myfile.py:42>)
-        if filename[0] == "<" and filename[-1] == ">":
-            if not (filename.startswith("<exec@") or filename.startswith("<eval@")):
-                return False
+        if (
+            filename[0] == "<"
+            and filename[-1] == ">"
+            and not (filename.startswith("<exec@") or filename.startswith("<eval@"))
+        ):
+            return False
 
         # Final decision: profile-all or program directory check
         return self._should_trace_by_location(filename)

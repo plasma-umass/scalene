@@ -271,6 +271,7 @@ class Scalene:
             patch_module_functions_with_signal_blocking(os, signal.SIGALRM)
 
         # Import all replacement functions.
+        import scalene.replacement_exec
         import scalene.replacement_exit
         import scalene.replacement_get_context
         import scalene.replacement_lock
@@ -278,7 +279,6 @@ class Scalene:
         import scalene.replacement_pjoin
         import scalene.replacement_signal_fns
         import scalene.replacement_thread_join
-        import scalene.replacement_exec
 
         if sys.platform != "win32":
             import scalene.replacement_fork
