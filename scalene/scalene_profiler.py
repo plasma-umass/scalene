@@ -278,6 +278,7 @@ class Scalene:
         import scalene.replacement_pjoin
         import scalene.replacement_signal_fns
         import scalene.replacement_thread_join
+        import scalene.replacement_exec
 
         if sys.platform != "win32":
             import scalene.replacement_fork

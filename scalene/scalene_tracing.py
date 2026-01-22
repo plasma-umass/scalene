@@ -109,8 +109,10 @@ class ScaleneTracing:
             return False
 
         # Handle special non-file cases
+        # Allow exec/eval virtual filenames through (e.g., <exec@myfile.py:42>)
         if filename[0] == "<" and filename[-1] == ">":
-            return False
+            if not (filename.startswith("<exec@") or filename.startswith("<eval@")):
+                return False
 
         # Final decision: profile-all or program directory check
         return self._should_trace_by_location(filename)
@@ -210,6 +212,11 @@ class ScaleneTracing:
     def _should_trace_by_location(self, filename: Filename) -> bool:
         """Determine if we should trace based on file location."""
         if self._args.profile_all:
+            return True
+
+        # Always trace exec/eval virtual filenames (e.g., <exec@myfile.py:42>)
+        # These represent dynamically executed code from the user's program
+        if filename.startswith("<exec@") or filename.startswith("<eval@"):
             return True
 
         # Skip system libraries unless explicitly requested

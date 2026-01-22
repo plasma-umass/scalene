@@ -1,3 +1,4 @@
+import linecache
 import os
 import random
 import sys
@@ -511,11 +512,19 @@ class ScaleneOutput:
             if not fname:
                 continue
             # Print out the profile for the source, line by line.
+            # First try to read from the filesystem
             full_fname = os.path.normpath(os.path.join(program_path, fname))
+            code_lines = None
             try:
                 with open(full_fname) as source_file:
                     code_lines = source_file.read()
             except (FileNotFoundError, OSError):
+                # For exec'd code, the source may be in linecache
+                # (e.g., files named <exec_N> or <eval_N>)
+                cached_lines = linecache.getlines(fname)
+                if cached_lines:
+                    code_lines = "".join(cached_lines)
+            if code_lines is None:
                 continue
 
             # We track whether we should put in ellipsis (for reduced profiles)
