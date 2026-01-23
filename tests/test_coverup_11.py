@@ -1,6 +1,6 @@
-# file scalene/runningstats.py:12-24
-# lines [12, 13, 14, 15, 16, 20, 21, 23, 24]
-# branches ['14->15', '14->23']
+# file scalene/runningstats.py:17-28
+# lines [17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
+# branches ['19->20', '19->24']
 
 import pytest
 from scalene.runningstats import RunningStats
@@ -30,9 +30,11 @@ def test_runningstats_add(cleanup):
     assert rs3._m1 == (rs1._m1 * rs1._n + rs2._m1 * rs2._n) / (rs1._n + rs2._n)
     assert rs3._peak == max(rs1._peak, rs2._peak)
 
-    # Test when other._n is 0
+    # Test when other._n is 0 - should copy values from rs1
     rs4 = RunningStats()
     rs4._n = 0
     rs5 = rs1 + rs4
 
-    assert rs5 is rs1
+    assert rs5._n == rs1._n
+    assert rs5._m1 == rs1._m1
+    assert rs5._peak == rs1._peak

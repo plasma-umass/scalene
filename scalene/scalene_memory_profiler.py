@@ -9,8 +9,7 @@ import contextlib
 import os
 import threading
 import time
-from types import FrameType
-from typing import List, Optional, Tuple, cast
+from typing import List, Optional, Tuple
 
 import scalene.scalene_config
 from scalene.scalene_arguments import ScaleneArguments
@@ -145,13 +144,15 @@ class ScaleneMemoryProfiler:
                 )
                 arr.append(profiling_sample)
 
-        stats.memory_stats.alloc_samples += len(arr)
+        # Cache memory_stats reference to avoid repeated attribute lookups
+        mem_stats = stats.memory_stats
+        mem_stats.alloc_samples += len(arr)
 
         # Iterate through the array to compute the new current footprint
         # and update the global __memory_footprint_samples. Since on some systems,
         # we get free events before mallocs, force `before` to always be at least 0.
-        before = max(stats.memory_stats.current_footprint, 0)
-        prevmax = stats.memory_stats.max_footprint
+        before = max(mem_stats.current_footprint, 0)
+        prevmax = mem_stats.max_footprint
         freed_last_trigger = 0
         for item in arr:
             is_malloc = item.action == self.MALLOC_ACTION
@@ -160,55 +161,40 @@ class ScaleneMemoryProfiler:
                 # We should not account for this in the user-facing profile.
             count = item.count / self.BYTES_PER_MB
             if is_malloc:
-                stats.memory_stats.current_footprint += count
-                if (
-                    stats.memory_stats.current_footprint
-                    > stats.memory_stats.max_footprint
-                ):
-                    stats.memory_stats.max_footprint = (
-                        stats.memory_stats.current_footprint
-                    )
-                    stats.memory_stats.max_footprint_python_fraction = (
-                        item.python_fraction
-                    )
-                    stats.memory_stats.max_footprint_loc = (item.filename, item.lineno)
+                mem_stats.current_footprint += count
+                if mem_stats.current_footprint > mem_stats.max_footprint:
+                    mem_stats.max_footprint = mem_stats.current_footprint
+                    mem_stats.max_footprint_python_fraction = item.python_fraction
+                    mem_stats.max_footprint_loc = (item.filename, item.lineno)
             else:
                 assert item.action in [
                     self.FREE_ACTION,
                     self.FREE_ACTION_SAMPLED,
                 ]
-                stats.memory_stats.current_footprint -= count
+                mem_stats.current_footprint -= count
                 # Force current footprint to be non-negative; this
                 # code is needed because Scalene can miss some initial
                 # allocations at startup.
-                stats.memory_stats.current_footprint = max(
-                    0, stats.memory_stats.current_footprint
-                )
+                mem_stats.current_footprint = max(0, mem_stats.current_footprint)
                 if (
                     item.action == self.FREE_ACTION_SAMPLED
-                    and stats.memory_stats.last_malloc_triggered[2] == item.pointer
+                    and mem_stats.last_malloc_triggered[2] == item.pointer
                 ):
                     freed_last_trigger += 1
             timestamp = time.monotonic_ns() - start_time
-            stats.memory_stats.memory_footprint_samples.append(
-                (
-                    timestamp,
-                    stats.memory_stats.current_footprint,
-                )
+            mem_stats.memory_footprint_samples.append(
+                (timestamp, mem_stats.current_footprint)
             )
-        after = stats.memory_stats.current_footprint
+        after = mem_stats.current_footprint
 
         if freed_last_trigger:
             if freed_last_trigger <= 1:
                 # We freed the last allocation trigger. Adjust scores.
-                this_fn, this_ln, _this_ptr = stats.memory_stats.last_malloc_triggered
+                this_fn, this_ln, _this_ptr = mem_stats.last_malloc_triggered
                 if this_ln != 0:
-                    mallocs, frees = stats.memory_stats.leak_score[this_fn][this_ln]
-                    stats.memory_stats.leak_score[this_fn][this_ln] = (
-                        mallocs,
-                        frees + 1,
-                    )
-            stats.memory_stats.last_malloc_triggered = (
+                    mallocs, frees = mem_stats.leak_score[this_fn][this_ln]
+                    mem_stats.leak_score[this_fn][this_ln] = (mallocs, frees + 1)
+            mem_stats.last_malloc_triggered = (
                 Filename(""),
                 LineNumber(0),
                 Address("0x0"),
@@ -229,120 +215,89 @@ class ScaleneMemoryProfiler:
                 with invalidate_mutex:
                     last_file, last_line = invalidate_queue.pop(0)
 
-                stats.memory_stats.memory_malloc_count[last_file][last_line] += 1
-                stats.memory_stats.memory_aggregate_footprint[last_file][
+                mem_stats.memory_malloc_count[last_file][last_line] += 1
+                mem_stats.memory_aggregate_footprint[last_file][
                     last_line
-                ] += stats.memory_stats.memory_current_highwater_mark[last_file][
-                    last_line
-                ]
-                stats.memory_stats.memory_current_footprint[last_file][last_line] = 0
-                stats.memory_stats.memory_current_highwater_mark[last_file][
-                    last_line
-                ] = 0
+                ] += mem_stats.memory_current_highwater_mark[last_file][last_line]
+                mem_stats.memory_current_footprint[last_file][last_line] = 0
+                mem_stats.memory_current_highwater_mark[last_file][last_line] = 0
                 continue
 
+            # Cache per-item filename and lineno for repeated use
+            fname = item.filename
+            lineno = item.lineno
+
             # Add the byte index to the set for this line (if it's not there already).
-            stats.bytei_map[item.filename][item.lineno].add(item.bytecode_index)
+            stats.bytei_map[fname][lineno].add(item.bytecode_index)
             count = item.count / self.BYTES_PER_MB
             if is_malloc:
                 allocs += count
                 curr += count
-                assert curr <= stats.memory_stats.max_footprint
+                assert curr <= mem_stats.max_footprint
                 malloc_pointer = item.pointer
-                stats.memory_stats.memory_malloc_samples[item.filename][
-                    item.lineno
-                ] += count
-                stats.memory_stats.memory_python_samples[item.filename][
-                    item.lineno
-                ] += (item.python_fraction * count)
-                stats.memory_stats.malloc_samples[item.filename] += 1
-                stats.memory_stats.total_memory_malloc_samples += count
+
+                # Cache inner dictionaries for this filename to reduce lookups
+                malloc_samples_file = mem_stats.memory_malloc_samples[fname]
+                python_samples_file = mem_stats.memory_python_samples[fname]
+                current_footprint_file = mem_stats.memory_current_footprint[fname]
+                highwater_file = mem_stats.memory_current_highwater_mark[fname]
+                max_footprint_file = mem_stats.memory_max_footprint[fname]
+
+                malloc_samples_file[lineno] += count
+                python_samples_file[lineno] += item.python_fraction * count
+                mem_stats.malloc_samples[fname] += 1
+                mem_stats.total_memory_malloc_samples += count
+
                 # Update current and max footprints for this file & line.
-                stats.memory_stats.memory_current_footprint[item.filename][
-                    item.lineno
-                ] += count
-                stats.memory_stats.memory_current_highwater_mark[item.filename][
-                    item.lineno
-                ] = max(
-                    stats.memory_stats.memory_current_highwater_mark[item.filename][
-                        item.lineno
-                    ],
-                    stats.memory_stats.memory_current_footprint[item.filename][
-                        item.lineno
-                    ],
-                )
-                assert (
-                    stats.memory_stats.current_footprint
-                    <= stats.memory_stats.max_footprint
-                )
-                stats.memory_stats.memory_max_footprint[item.filename][item.lineno] = (
-                    max(
-                        stats.memory_stats.memory_current_footprint[item.filename][
-                            item.lineno
-                        ],
-                        stats.memory_stats.memory_max_footprint[item.filename][
-                            item.lineno
-                        ],
-                    )
-                )
+                current_footprint_file[lineno] += count
+                new_current = current_footprint_file[lineno]
+                highwater_file[lineno] = max(highwater_file[lineno], new_current)
+
+                assert mem_stats.current_footprint <= mem_stats.max_footprint
+
+                max_footprint_file[lineno] = max(new_current, max_footprint_file[lineno])
                 # Ensure that the max footprint never goes above the true max footprint.
-                # This is a work-around for a condition that in theory should never happen, but...
-                stats.memory_stats.memory_max_footprint[item.filename][item.lineno] = (
-                    min(
-                        stats.memory_stats.max_footprint,
-                        stats.memory_stats.memory_max_footprint[item.filename][
-                            item.lineno
-                        ],
-                    )
+                max_footprint_file[lineno] = min(
+                    mem_stats.max_footprint, max_footprint_file[lineno]
                 )
-                assert (
-                    stats.memory_stats.current_footprint
-                    <= stats.memory_stats.max_footprint
-                )
-                assert (
-                    stats.memory_stats.memory_max_footprint[item.filename][item.lineno]
-                    <= stats.memory_stats.max_footprint
-                )
+
+                assert mem_stats.current_footprint <= mem_stats.max_footprint
+                assert max_footprint_file[lineno] <= mem_stats.max_footprint
             else:
                 assert item.action in [
                     self.FREE_ACTION,
                     self.FREE_ACTION_SAMPLED,
                 ]
                 curr -= count
-                stats.memory_stats.memory_free_samples[item.filename][
-                    item.lineno
-                ] += count
-                stats.memory_stats.memory_free_count[item.filename][item.lineno] += 1
-                stats.memory_stats.total_memory_free_samples += count
-                stats.memory_stats.memory_current_footprint[item.filename][
-                    item.lineno
-                ] -= count
-                # Ensure that we never drop the current footprint below 0.
-                stats.memory_stats.memory_current_footprint[item.filename][
-                    item.lineno
-                ] = max(
-                    0,
-                    stats.memory_stats.memory_current_footprint[item.filename][
-                        item.lineno
-                    ],
-                )
 
-            stats.memory_stats.per_line_footprint_samples[item.filename][
-                item.lineno
-            ].append([time.monotonic_ns() - start_time, max(0, curr)])
+                # Cache inner dictionaries for this filename
+                free_samples_file = mem_stats.memory_free_samples[fname]
+                free_count_file = mem_stats.memory_free_count[fname]
+                current_footprint_file = mem_stats.memory_current_footprint[fname]
+
+                free_samples_file[lineno] += count
+                free_count_file[lineno] += 1
+                mem_stats.total_memory_free_samples += count
+                current_footprint_file[lineno] -= count
+                # Ensure that we never drop the current footprint below 0.
+                current_footprint_file[lineno] = max(0, current_footprint_file[lineno])
+
+            mem_stats.per_line_footprint_samples[fname][lineno].append(
+                [time.monotonic_ns() - start_time, max(0, curr)]
+            )
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
-                last_malloc = (item.filename, item.lineno, malloc_pointer)
-        stats.memory_stats.allocation_velocity = (
-            stats.memory_stats.allocation_velocity[0] + (after - before),
-            stats.memory_stats.allocation_velocity[1] + allocs,
+                last_malloc = (fname, lineno, malloc_pointer)
+        mem_stats.allocation_velocity = (
+            mem_stats.allocation_velocity[0] + (after - before),
+            mem_stats.allocation_velocity[1] + allocs,
         )
         if (
             args.memory_leak_detector
-            and prevmax < stats.memory_stats.max_footprint
-            and stats.memory_stats.max_footprint > 100
+            and prevmax < mem_stats.max_footprint
+            and mem_stats.max_footprint > 100
         ):
-            stats.memory_stats.last_malloc_triggered = last_malloc
-            fname, lineno, _ = last_malloc
-            mallocs, frees = stats.memory_stats.leak_score[fname][lineno]
-            stats.memory_stats.leak_score[fname][lineno] = (mallocs + 1, frees)
+            mem_stats.last_malloc_triggered = last_malloc
+            leak_fname, leak_lineno, _ = last_malloc
+            mallocs, frees = mem_stats.leak_score[leak_fname][leak_lineno]
+            mem_stats.leak_score[leak_fname][leak_lineno] = (mallocs + 1, frees)

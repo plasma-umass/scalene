@@ -254,6 +254,96 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   return 0;
 }
 
+// Collect frames from all threads for CPU profiling.
+// Returns a list of (thread_id, orig_frame) tuples - one per thread.
+// Main thread is placed first in the list.
+// NOTE: Does NOT filter frames - caller must apply should_trace filtering.
+static PyObject* collect_frames_to_record(PyObject* self, PyObject* args) {
+  if (!Py_IsInitialized()) {
+    return PyList_New(0);  // Return empty list if Python not initialized
+  }
+
+  // Collect all thread states first
+  std::vector<std::pair<PyThreadState*, unsigned long>> thread_states;
+  PyThreadState* main_thread = nullptr;
+  unsigned long main_thread_id = 0;
+
+  PyInterpreterState* interp = PyInterpreterState_Main();
+  if (!interp) {
+    return PyList_New(0);
+  }
+
+  // Find main thread (smallest ID) and collect all threads
+  for (PyThreadState* t = PyInterpreterState_ThreadHead(interp);
+       t != nullptr;
+       t = PyThreadState_Next(t)) {
+    unsigned long tid = t->thread_id;
+    thread_states.push_back({t, tid});
+    if (main_thread == nullptr || main_thread->id > t->id) {
+      main_thread = t;
+      main_thread_id = tid;
+    }
+  }
+
+  // Create result list
+  PyObject* result = PyList_New(0);
+  if (!result) {
+    return nullptr;
+  }
+
+  // Helper lambda to add a thread's frame to result
+  auto add_thread_frame = [&](PyThreadState* tstate, unsigned long tid) {
+    PyPtr<PyFrameObject> frame = PyThreadState_GetFrame(tstate);
+    if (!static_cast<PyFrameObject*>(frame)) {
+      return;  // No frame for this thread
+    }
+
+    // Create tuple (thread_id, frame)
+    PyObject* tuple = PyTuple_New(2);
+    if (tuple) {
+      PyTuple_SET_ITEM(tuple, 0, PyLong_FromUnsignedLong(tid));
+      Py_INCREF(static_cast<PyFrameObject*>(frame));
+      PyTuple_SET_ITEM(tuple, 1, reinterpret_cast<PyObject*>(
+          static_cast<PyFrameObject*>(frame)));
+      PyList_Append(result, tuple);
+      Py_DECREF(tuple);
+    }
+  };
+
+  // Process main thread first
+  if (main_thread) {
+    add_thread_frame(main_thread, main_thread_id);
+  }
+
+  // Process other threads
+  for (size_t i = 0; i < thread_states.size(); i++) {
+    PyThreadState* tstate = thread_states[i].first;
+    unsigned long tid = thread_states[i].second;
+    if (tstate != main_thread) {
+      add_thread_frame(tstate, tid);
+    }
+  }
+
+  return result;
+}
+
+// Set up TraceConfig only (doesn't require libscalene)
+// Used for CPU-only profiling where we need TraceConfig for frame filtering
+static PyObject* setup_trace_config(PyObject* self, PyObject* args) {
+  PyObject* a_list;
+  PyObject* base_path;
+  int profile_all;
+  if (!PyArg_ParseTuple(args, "OOp", &a_list, &base_path, &profile_all))
+    return NULL;
+  auto is_list = PyList_Check(a_list);
+  if (!is_list) {
+    PyErr_SetString(PyExc_Exception, "Requires list or list-like object");
+    return NULL;
+  }
+  TraceConfig::setInstance(new TraceConfig(a_list, base_path, profile_all));
+  Py_RETURN_NONE;
+}
+
 static PyObject* register_files_to_profile(PyObject* self, PyObject* args) {
   PyObject* a_list;
   PyObject* base_path;
@@ -874,10 +964,14 @@ static PyObject* disable_settrace(PyObject* self, PyObject* args) {
 // }
 
 static PyMethodDef EmbMethods[] = {
+    {"setup_trace_config", setup_trace_config, METH_VARARGS,
+     "Set up TraceConfig for frame filtering (doesn't require libscalene)"},
     {"register_files_to_profile", register_files_to_profile, METH_VARARGS,
      "Provides list of things into allocator"},
     {"print_files_to_profile", print_files_to_profile, METH_NOARGS,
      "printing for debug"},
+    {"collect_frames_to_record", collect_frames_to_record, METH_NOARGS,
+     "Collect frames from all threads for CPU profiling"},
     //  {"return_buffer", return_buffer, METH_NOARGS, ""},
     {"enable_settrace", enable_settrace, METH_VARARGS, ""},
     {"disable_settrace", disable_settrace, METH_NOARGS, ""},
