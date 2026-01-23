@@ -30,10 +30,10 @@ _main_thread_id: int = cast(int, threading.main_thread().ident)
 # logic than Python's ScaleneTracing.should_trace (missing exclusion rules,
 # profile-only rules, Jupyter handling, etc.). Until the C logic matches
 # Python, we use the Python fallback for correctness.
+_ENABLE_FAST_FRAMES = False  # Set to True when C logic matches Python
 try:
     from scalene import pywhere  # type: ignore
-    # Disable C extension for now - set to True to enable when C logic matches Python
-    _has_fast_frames = False and hasattr(pywhere, 'collect_frames_to_record')
+    _has_fast_frames = _ENABLE_FAST_FRAMES and hasattr(pywhere, 'collect_frames_to_record')
 except ImportError:
     _has_fast_frames = False
 
