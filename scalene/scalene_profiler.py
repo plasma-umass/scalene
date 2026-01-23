@@ -1428,6 +1428,21 @@ class Scalene:
         Scalene.run_profiler(args, left)
 
     @staticmethod
+    def _setup_trace_config() -> None:
+        """Set up TraceConfig for frame filtering (needed by C extension)."""
+        try:
+            from scalene import pywhere  # type: ignore
+            if hasattr(pywhere, 'setup_trace_config'):
+                profile_only_list = Scalene.__args.profile_only.split(",")
+                pywhere.setup_trace_config(
+                    list(Scalene.__files_to_profile) + profile_only_list,
+                    Scalene.__program_path,
+                    Scalene.__args.profile_all,
+                )
+        except ImportError:
+            pass  # pywhere not available
+
+    @staticmethod
     def _register_files_to_profile() -> None:
         """Tells the pywhere module, which tracks memory, which files to profile."""
         from scalene import pywhere  # type: ignore
@@ -1597,6 +1612,9 @@ class Scalene:
                     # Update tracing module with the program path
                     if hasattr(Scalene, "_Scalene__tracing"):
                         Scalene.__tracing.set_program_path(Scalene.__program_path)
+
+                    # Set up TraceConfig for CPU profiling (needed for C extension frame filtering)
+                    Scalene._setup_trace_config()
 
                     # Grab local and global variables.
                     if Scalene.__args.memory:

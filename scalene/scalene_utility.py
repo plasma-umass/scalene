@@ -25,6 +25,13 @@ from scalene.scalene_statistics import (
 # This is safe because the main thread ID never changes during program execution.
 _main_thread_id: int = cast(int, threading.main_thread().ident)
 
+# Try to import the fast C implementation for frame collection
+try:
+    from scalene import pywhere  # type: ignore
+    _has_fast_frames = hasattr(pywhere, 'collect_frames_to_record')
+except ImportError:
+    _has_fast_frames = False
+
 
 def enter_function_meta(
     frame: FrameType,
@@ -66,6 +73,11 @@ def compute_frames_to_record(
     Returns final frame (up to a line in a file we are profiling), the
     thread identifier, and the original frame.
     """
+    # Use fast C implementation if available (filters frames using TraceConfig)
+    if _has_fast_frames:
+        return pywhere.collect_frames_to_record()  # type: ignore
+
+    # Fall back to Python implementation
     # Get all current frames once (avoid multiple calls to sys._current_frames())
     all_frames = sys._current_frames()
 
