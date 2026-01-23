@@ -133,6 +133,38 @@ class ScaleneAnalysis:
         return regions
 
     @staticmethod
+    def find_functions(src: str) -> Dict[int, Tuple[int, int]]:
+        """Returns a mapping from each line to its enclosing function's or class's (start, end) lines.
+        Lines not inside any function or class map to (0, 0).
+        For nested structures, returns the narrowest (innermost) enclosing function/class.
+        """
+        src = ScaleneAnalysis.strip_magic_line(src)
+        srclines = src.split("\n")
+        tree = ast.parse(src)
+        functions: Dict[int, Tuple[int, int]] = {}
+
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                assert node.end_lineno
+                for line in range(node.lineno, node.end_lineno + 1):
+                    # If already in a function/class, keep the narrowest (innermost) one
+                    if line in functions:
+                        existing_start, existing_end = functions[line]
+                        existing_size = existing_end - existing_start
+                        new_size = node.end_lineno - node.lineno
+                        if new_size < existing_size:
+                            functions[line] = (node.lineno, node.end_lineno)
+                    else:
+                        functions[line] = (node.lineno, node.end_lineno)
+
+        # Fill in lines not in any function/class
+        for lineno, _ in enumerate(srclines, 1):
+            if lineno not in functions:
+                functions[lineno] = (0, 0)
+
+        return functions
+
+    @staticmethod
     def find_outermost_loop(src: str) -> Dict[int, Tuple[int, int]]:
         # Filter out the first line if in a Jupyter notebook and it starts with a magic (% or %%).
         src = ScaleneAnalysis.strip_magic_line(src)
