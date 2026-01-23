@@ -68,16 +68,22 @@ class TraceConfig {
     const auto PATH_SEP = "/";
 #endif
 
+    // Always exclude Scalene's own files, regardless of profile_all
+    auto scalene_lib = std::string("scalene") + std::string(PATH_SEP) +
+                       std::string("scalene");
+    if (strstr(filename, scalene_lib.c_str())) {
+      _memoize.insert(
+          std::pair<std::string, bool>(std::string(filename), false));
+      return false;
+    }
+
     if (!profile_all) {
       auto python_lib =
           std::string("lib") + std::string(PATH_SEP) + std::string("python");
-      auto scalene_lib = std::string("scalene") + std::string(PATH_SEP) +
-                         std::string("scalene");
       auto anaconda_lib =
           std::string("anaconda3") + std::string(PATH_SEP) + std::string("lib");
 
       if (strstr(filename, python_lib.c_str()) ||
-          strstr(filename, scalene_lib.c_str()) ||
           strstr(filename, anaconda_lib.c_str()) ||
           strstr(filename, "site-packages") != nullptr ||
           (strstr(filename, "<") &&

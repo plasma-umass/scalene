@@ -1,5 +1,4 @@
 import functools
-import http.server
 import os
 import pathlib
 import shutil
@@ -13,8 +12,6 @@ import webbrowser
 from types import BuiltinFunctionType, FrameType, FunctionType, ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
-from jinja2 import Environment, FileSystemLoader
-
 from scalene.scalene_config import scalene_date, scalene_version
 from scalene.scalene_statistics import (
     Filename,
@@ -23,6 +20,20 @@ from scalene.scalene_statistics import (
     StackFrame,
     StackStats,
 )
+
+# Cache the main thread ID to avoid repeated calls to threading.main_thread()
+# This is safe because the main thread ID never changes during program execution.
+_main_thread_id: int = cast(int, threading.main_thread().ident)
+
+# Try to import the fast C implementation for frame collection.
+# The C extension collects frames from threads quickly using Python C API,
+# then Python does the should_trace filtering (which has complex logic).
+try:
+    from scalene import pywhere  # type: ignore
+
+    _has_fast_frames = hasattr(pywhere, "collect_frames_to_record")
+except ImportError:
+    _has_fast_frames = False
 
 
 def enter_function_meta(
@@ -65,27 +76,33 @@ def compute_frames_to_record(
     Returns final frame (up to a line in a file we are profiling), the
     thread identifier, and the original frame.
     """
-    frames: List[Tuple[FrameType, int]] = [
-        (
-            cast(
-                FrameType,
-                sys._current_frames().get(cast(int, t.ident), None),
+    # Collect frames from all threads. Use C extension if available for speed,
+    # otherwise fall back to Python implementation.
+    frames: List[Tuple[FrameType, int]]
+    if _has_fast_frames:
+        # C extension returns (thread_id, frame) tuples, main thread first
+        raw_frames = pywhere.collect_frames_to_record()
+        frames = [(frame, tid) for tid, frame in raw_frames]
+    else:
+        # Pure Python implementation
+        all_frames = sys._current_frames()
+        # Build list of non-main thread frames
+        frames = [
+            (
+                cast(FrameType, all_frames.get(cast(int, t.ident), None)),
+                cast(int, t.ident),
+            )
+            for t in threading.enumerate()
+            if t.ident != _main_thread_id
+        ]
+        # Put the main thread in the front.
+        frames.insert(
+            0,
+            (
+                all_frames.get(_main_thread_id, cast(FrameType, None)),
+                _main_thread_id,
             ),
-            cast(int, t.ident),
         )
-        for t in threading.enumerate()
-        if t != threading.main_thread()
-    ]
-    # Put the main thread in the front.
-
-    tid = cast(int, threading.main_thread().ident)
-    frames.insert(
-        0,
-        (
-            sys._current_frames().get(tid, cast(FrameType, None)),
-            tid,
-        ),
-    )
     # Process all the frames to remove ones we aren't going to track.
     new_frames: List[Tuple[FrameType, int, FrameType]] = []
     # On Windows, limit stack walking iterations to prevent blocking the
@@ -309,6 +326,8 @@ def generate_html(
         }
 
     # Put the profile and everything else into the template.
+    from jinja2 import Environment, FileSystemLoader
+
     environment = Environment(
         loader=FileSystemLoader(os.path.join(scalene_dir, "scalene-gui"))
     )
@@ -331,6 +350,8 @@ def generate_html(
 
 
 def start_server(port: int, directory: str) -> None:
+    import http.server
+
     try:
         handler = http.server.SimpleHTTPRequestHandler
         with socketserver.TCPServer(("", port), handler) as httpd:

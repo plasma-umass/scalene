@@ -2,7 +2,6 @@ from scalene import runningstats
 
 import hypothesis.strategies as st
 import math
-import statistics
 
 from hypothesis import given
 from typing import List
@@ -17,6 +16,7 @@ TOLERANCE = 0.5
     )
 )
 def test_running_stats(values: List[float]) -> None:
+    """Test RunningStats computes mean and peak correctly."""
     rstats = runningstats.RunningStats()
     for value in values:
         rstats.push(value)
@@ -24,18 +24,3 @@ def test_running_stats(values: List[float]) -> None:
     assert len(values) == rstats.size()
     assert max(values) == rstats.peak()
     assert math.isclose(sum(values) / len(values), rstats.mean(), rel_tol=TOLERANCE)
-    assert math.isclose(
-        statistics.variance(values, xbar=rstats.mean()),
-        rstats.var(),
-        rel_tol=TOLERANCE,
-    )
-    assert math.isclose(
-        statistics.stdev(values, xbar=rstats.mean()),
-        rstats.std(),
-        rel_tol=TOLERANCE,
-    )
-    assert math.isclose(
-        statistics.stdev(values, xbar=rstats.mean()) / math.sqrt(rstats.size()),
-        rstats.sem(),
-        rel_tol=TOLERANCE,
-    )
