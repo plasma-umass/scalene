@@ -30,7 +30,8 @@ _main_thread_id: int = cast(int, threading.main_thread().ident)
 # then Python does the should_trace filtering (which has complex logic).
 try:
     from scalene import pywhere  # type: ignore
-    _has_fast_frames = hasattr(pywhere, 'collect_frames_to_record')
+
+    _has_fast_frames = hasattr(pywhere, "collect_frames_to_record")
 except ImportError:
     _has_fast_frames = False
 

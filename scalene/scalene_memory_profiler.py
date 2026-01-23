@@ -255,7 +255,9 @@ class ScaleneMemoryProfiler:
 
                 assert mem_stats.current_footprint <= mem_stats.max_footprint
 
-                max_footprint_file[lineno] = max(new_current, max_footprint_file[lineno])
+                max_footprint_file[lineno] = max(
+                    new_current, max_footprint_file[lineno]
+                )
                 # Ensure that the max footprint never goes above the true max footprint.
                 max_footprint_file[lineno] = min(
                     mem_stats.max_footprint, max_footprint_file[lineno]
