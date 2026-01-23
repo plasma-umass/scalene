@@ -26,14 +26,11 @@ from scalene.scalene_statistics import (
 _main_thread_id: int = cast(int, threading.main_thread().ident)
 
 # Try to import the fast C implementation for frame collection.
-# NOTE: Currently disabled because C TraceConfig::should_trace has simpler
-# logic than Python's ScaleneTracing.should_trace (missing exclusion rules,
-# profile-only rules, Jupyter handling, etc.). Until the C logic matches
-# Python, we use the Python fallback for correctness.
-_ENABLE_FAST_FRAMES = False  # Set to True when C logic matches Python
+# The C extension collects frames from threads quickly using Python C API,
+# then Python does the should_trace filtering (which has complex logic).
 try:
     from scalene import pywhere  # type: ignore
-    _has_fast_frames = _ENABLE_FAST_FRAMES and hasattr(pywhere, 'collect_frames_to_record')
+    _has_fast_frames = hasattr(pywhere, 'collect_frames_to_record')
 except ImportError:
     _has_fast_frames = False
 
@@ -78,31 +75,33 @@ def compute_frames_to_record(
     Returns final frame (up to a line in a file we are profiling), the
     thread identifier, and the original frame.
     """
-    # Use fast C implementation if available (filters frames using TraceConfig)
+    # Collect frames from all threads. Use C extension if available for speed,
+    # otherwise fall back to Python implementation.
+    frames: List[Tuple[FrameType, int]]
     if _has_fast_frames:
-        return pywhere.collect_frames_to_record()  # type: ignore
-
-    # Fall back to Python implementation
-    # Get all current frames once (avoid multiple calls to sys._current_frames())
-    all_frames = sys._current_frames()
-
-    # Build list of non-main thread frames
-    frames: List[Tuple[FrameType, int]] = [
-        (
-            cast(FrameType, all_frames.get(cast(int, t.ident), None)),
-            cast(int, t.ident),
+        # C extension returns (thread_id, frame) tuples, main thread first
+        raw_frames = pywhere.collect_frames_to_record()  # type: ignore
+        frames = [(frame, tid) for tid, frame in raw_frames]
+    else:
+        # Pure Python implementation
+        all_frames = sys._current_frames()
+        # Build list of non-main thread frames
+        frames = [
+            (
+                cast(FrameType, all_frames.get(cast(int, t.ident), None)),
+                cast(int, t.ident),
+            )
+            for t in threading.enumerate()
+            if t.ident != _main_thread_id
+        ]
+        # Put the main thread in the front.
+        frames.insert(
+            0,
+            (
+                all_frames.get(_main_thread_id, cast(FrameType, None)),
+                _main_thread_id,
+            ),
         )
-        for t in threading.enumerate()
-        if t.ident != _main_thread_id
-    ]
-    # Put the main thread in the front.
-    frames.insert(
-        0,
-        (
-            all_frames.get(_main_thread_id, cast(FrameType, None)),
-            _main_thread_id,
-        ),
-    )
     # Process all the frames to remove ones we aren't going to track.
     new_frames: List[Tuple[FrameType, int, FrameType]] = []
     # On Windows, limit stack walking iterations to prevent blocking the

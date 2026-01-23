@@ -255,24 +255,13 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
 }
 
 // Collect frames from all threads for CPU profiling.
-// Returns a list of (filtered_frame, thread_id, orig_frame) tuples.
+// Returns a list of (thread_id, orig_frame) tuples - one per thread.
 // Main thread is placed first in the list.
+// NOTE: Does NOT filter frames - caller must apply should_trace filtering.
 static PyObject* collect_frames_to_record(PyObject* self, PyObject* args) {
   if (!Py_IsInitialized()) {
     return PyList_New(0);  // Return empty list if Python not initialized
   }
-
-  auto traceConfig = TraceConfig::getInstance();
-  if (!traceConfig) {
-    return PyList_New(0);  // Return empty list if no trace config
-  }
-
-  // Platform-specific max stack depth (matches Python implementation)
-#ifdef _WIN32
-  const int max_stack_depth = 20;
-#else
-  const int max_stack_depth = 100;
-#endif
 
   // Collect all thread states first
   std::vector<std::pair<PyThreadState*, unsigned long>> thread_states;
@@ -302,75 +291,28 @@ static PyObject* collect_frames_to_record(PyObject* self, PyObject* args) {
     return nullptr;
   }
 
-  // Helper lambda to process a thread and add to result
-  auto process_thread = [&](PyThreadState* tstate, unsigned long tid) {
-    PyPtr<PyFrameObject> orig_frame = PyThreadState_GetFrame(tstate);
-    if (!static_cast<PyFrameObject*>(orig_frame)) {
+  // Helper lambda to add a thread's frame to result
+  auto add_thread_frame = [&](PyThreadState* tstate, unsigned long tid) {
+    PyPtr<PyFrameObject> frame = PyThreadState_GetFrame(tstate);
+    if (!static_cast<PyFrameObject*>(frame)) {
       return;  // No frame for this thread
     }
 
-    PyPtr<PyFrameObject> frame = orig_frame;
-    Py_XINCREF(static_cast<PyFrameObject*>(frame));  // Keep reference
-
-    int iterations = 0;
-    bool found = false;
-
-    while (static_cast<PyFrameObject*>(frame) != nullptr && iterations < max_stack_depth) {
-      PyPtr<PyCodeObject> code = PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
-      if (!static_cast<PyCodeObject*>(code)) {
-        break;
-      }
-
-      PyPtr<> co_filename = PyUnicode_AsASCIIString(
-          static_cast<PyCodeObject*>(code)->co_filename);
-
-      const char* filename_str = nullptr;
-      if (static_cast<PyObject*>(co_filename)) {
-        filename_str = PyBytes_AsString(static_cast<PyObject*>(co_filename));
-      }
-
-      // Handle eval/compile case (no filename)
-      if (!filename_str || strlen(filename_str) == 0) {
-        PyPtr<PyFrameObject> back = PyFrame_GetBack(static_cast<PyFrameObject*>(frame));
-        if (static_cast<PyFrameObject*>(back)) {
-          frame = back;
-          iterations++;
-          continue;
-        }
-        break;
-      }
-
-      // Check if we should trace this file
-      if (traceConfig->should_trace(const_cast<char*>(filename_str))) {
-        found = true;
-        break;
-      }
-
-      // Walk up the stack
-      frame = PyFrame_GetBack(static_cast<PyFrameObject*>(frame));
-      iterations++;
-    }
-
-    if (found && static_cast<PyFrameObject*>(frame)) {
-      // Create tuple (frame, thread_id, orig_frame)
-      PyObject* tuple = PyTuple_New(3);
-      if (tuple) {
-        Py_INCREF(static_cast<PyFrameObject*>(frame));
-        Py_INCREF(static_cast<PyFrameObject*>(orig_frame));
-        PyTuple_SET_ITEM(tuple, 0, reinterpret_cast<PyObject*>(
-            static_cast<PyFrameObject*>(frame)));
-        PyTuple_SET_ITEM(tuple, 1, PyLong_FromUnsignedLong(tid));
-        PyTuple_SET_ITEM(tuple, 2, reinterpret_cast<PyObject*>(
-            static_cast<PyFrameObject*>(orig_frame)));
-        PyList_Append(result, tuple);
-        Py_DECREF(tuple);
-      }
+    // Create tuple (thread_id, frame)
+    PyObject* tuple = PyTuple_New(2);
+    if (tuple) {
+      PyTuple_SET_ITEM(tuple, 0, PyLong_FromUnsignedLong(tid));
+      Py_INCREF(static_cast<PyFrameObject*>(frame));
+      PyTuple_SET_ITEM(tuple, 1, reinterpret_cast<PyObject*>(
+          static_cast<PyFrameObject*>(frame)));
+      PyList_Append(result, tuple);
+      Py_DECREF(tuple);
     }
   };
 
   // Process main thread first
   if (main_thread) {
-    process_thread(main_thread, main_thread_id);
+    add_thread_frame(main_thread, main_thread_id);
   }
 
   // Process other threads
@@ -378,7 +320,7 @@ static PyObject* collect_frames_to_record(PyObject* self, PyObject* args) {
     PyThreadState* tstate = thread_states[i].first;
     unsigned long tid = thread_states[i].second;
     if (tstate != main_thread) {
-      process_thread(tstate, tid);
+      add_thread_frame(tstate, tid);
     }
   }
 
