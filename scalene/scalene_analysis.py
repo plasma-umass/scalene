@@ -136,7 +136,8 @@ class ScaleneAnalysis:
     def find_functions(src: str) -> Dict[int, Tuple[int, int]]:
         """Returns a mapping from each line to its enclosing function's or class's (start, end) lines.
         Lines not inside any function or class map to (0, 0).
-        For nested structures, returns the narrowest (innermost) enclosing function/class."""
+        For nested structures, returns the narrowest (innermost) enclosing function/class.
+        """
         src = ScaleneAnalysis.strip_magic_line(src)
         srclines = src.split("\n")
         tree = ast.parse(src)
