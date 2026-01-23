@@ -80,7 +80,7 @@ def compute_frames_to_record(
     frames: List[Tuple[FrameType, int]]
     if _has_fast_frames:
         # C extension returns (thread_id, frame) tuples, main thread first
-        raw_frames = pywhere.collect_frames_to_record()  # type: ignore
+        raw_frames = pywhere.collect_frames_to_record()
         frames = [(frame, tid) for tid, frame in raw_frames]
     else:
         # Pure Python implementation
