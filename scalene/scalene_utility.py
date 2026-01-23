@@ -25,12 +25,17 @@ from scalene.scalene_statistics import (
 # This is safe because the main thread ID never changes during program execution.
 _main_thread_id: int = cast(int, threading.main_thread().ident)
 
-# C extension for frame collection exists but is disabled for now.
-# The C TraceConfig::should_trace has simpler logic than Python's
-# ScaleneTracing.should_trace (missing exclusion rules, profile-only rules,
-# Jupyter handling, etc.). Until the C logic matches Python, we use the
-# Python fallback for correctness.
-_has_fast_frames = False
+# Try to import the fast C implementation for frame collection.
+# NOTE: Currently disabled because C TraceConfig::should_trace has simpler
+# logic than Python's ScaleneTracing.should_trace (missing exclusion rules,
+# profile-only rules, Jupyter handling, etc.). Until the C logic matches
+# Python, we use the Python fallback for correctness.
+try:
+    from scalene import pywhere  # type: ignore
+    # Disable C extension for now - set to True to enable when C logic matches Python
+    _has_fast_frames = False and hasattr(pywhere, 'collect_frames_to_record')
+except ImportError:
+    _has_fast_frames = False
 
 
 def enter_function_meta(

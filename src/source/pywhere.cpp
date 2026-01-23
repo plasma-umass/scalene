@@ -374,7 +374,9 @@ static PyObject* collect_frames_to_record(PyObject* self, PyObject* args) {
   }
 
   // Process other threads
-  for (const auto& [tstate, tid] : thread_states) {
+  for (size_t i = 0; i < thread_states.size(); i++) {
+    PyThreadState* tstate = thread_states[i].first;
+    unsigned long tid = thread_states[i].second;
     if (tstate != main_thread) {
       process_thread(tstate, tid);
     }
