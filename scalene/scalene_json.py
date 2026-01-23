@@ -88,6 +88,8 @@ class LineDetail(FunctionDetail):
     end_outermost_loop: PositiveInt
     start_region_line: PositiveInt
     end_region_line: PositiveInt
+    start_function_line: NonNegativeInt = 0
+    end_function_line: NonNegativeInt = 0
 
 
 class LeakInfo(BaseModel):
@@ -601,6 +603,7 @@ class ScaleneJSON:
 
             enclosing_regions = ScaleneAnalysis.find_regions(code_str)
             outer_loop = ScaleneAnalysis.find_outermost_loop(code_str)
+            function_boundaries = ScaleneAnalysis.find_functions(code_str)
             imports = ScaleneAnalysis.get_native_imported_modules(code_str)
 
             output["files"][fname_print] = {
@@ -633,6 +636,8 @@ class ScaleneJSON:
                     profile_line["end_region_line"] = enclosing_regions[lineno][1]
                     profile_line["start_outermost_loop"] = outer_loop[lineno][0]
                     profile_line["end_outermost_loop"] = outer_loop[lineno][1]
+                    profile_line["start_function_line"] = function_boundaries[lineno][0]
+                    profile_line["end_function_line"] = function_boundaries[lineno][1]
                     line_profiles.append(profile_line)
 
             # Second pass: normalize CPU percentages to sum to <= 100%

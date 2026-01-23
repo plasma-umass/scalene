@@ -53,6 +53,8 @@ interface LineData {
   memory_samples: [number, number][];
   start_region_line: number;
   end_region_line: number;
+  start_function_line: number;
+  end_function_line: number;
   nrt_time_ms?: number;
   nrt_percent?: number;
   nc_time_ms?: number;
@@ -333,22 +335,45 @@ function makeTableHeader(
   return s;
 }
 
-function hideEmptyProfiles(): void {
-  const elts = document.getElementsByClassName("empty-profile") as HTMLCollectionOf<HTMLElement>;
-  for (const elt of elts) {
-    elt.style.display = "none";
+// Display mode constants
+type DisplayMode = "all" | "profiled-lines" | "profiled-functions";
+
+// Apply display mode for a specific file
+export function applyFileDisplayMode(fileId: string, mode: DisplayMode): void {
+  const rows = document.querySelectorAll(`tr[data-file="${fileId}"]`) as NodeListOf<HTMLElement>;
+
+  for (const row of rows) {
+    if (mode === "all") {
+      // Show everything
+      row.style.display = "";
+    } else if (mode === "profiled-lines") {
+      // Show only lines with profiling data
+      if (row.classList.contains("empty-profile") || row.classList.contains("function-context")) {
+        row.style.display = "none";
+      } else {
+        row.style.display = "";
+      }
+    } else {
+      // profiled-functions: show profiled lines + function context
+      if (row.classList.contains("empty-profile")) {
+        row.style.display = "none";
+      } else {
+        row.style.display = "";
+      }
+    }
   }
 }
 
-export function toggleReduced(): void {
-  const elts = document.getElementsByClassName("empty-profile") as HTMLCollectionOf<HTMLElement>;
-  for (const elt of elts) {
-    if (elt.style.display === "") {
-      elt.style.display = "none";
-    } else {
-      elt.style.display = "";
-    }
+export function onFileDisplayModeChange(fileId: string): void {
+  const select = document.getElementById(`display-mode-${fileId}`) as HTMLSelectElement | null;
+  if (select) {
+    applyFileDisplayMode(fileId, select.value as DisplayMode);
   }
+}
+
+// Legacy support for old checkbox toggle (now does nothing)
+export function toggleReduced(): void {
+  // No-op for backwards compatibility
 }
 
 function makeProfileLine(
@@ -367,7 +392,8 @@ function makeProfileLine(
   nc_bars: (unknown | null)[],
   nc_nrt_pies: (unknown | null)[],
   total_nc_time_for_file: number,
-  hasNeuronData: boolean
+  hasNeuronData: boolean,
+  profiledFunctions: Set<string> = new Set()
 ): string {
   let total_time =
     line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
@@ -438,8 +464,8 @@ function makeProfileLine(
 
   showExplosion = showExplosion && end_region_line - start_region_line <= maxLinesPerRegion;
 
-  let s = "";
-  if (
+  // Determine if this line has profiling data
+  const hasProfileData =
     total_time > 1.0 ||
     has_memory_results ||
     (has_gpu_results && prof.gpu && !hasNeuronData) ||
@@ -448,12 +474,29 @@ function makeProfileLine(
       start_region_line !== end_region_line &&
       (total_region_time >= 1.0 ||
         region_has_memory_results ||
-        (region_has_gpu_results && prof.gpu && !hasNeuronData)))
-  ) {
-    s += "<tr>";
-  } else {
-    s += "<tr class='empty-profile'>";
+        (region_has_gpu_results && prof.gpu && !hasNeuronData)));
+
+  // Determine if this line is in a profiled function/class
+  const functionKey = line.start_function_line > 0
+    ? `${line.start_function_line},${line.end_function_line}`
+    : "";
+  const inProfiledFunction = functionKey !== "" && profiledFunctions.has(functionKey);
+
+  // Classify the line:
+  // - hasProfileData: always visible
+  // - inProfiledFunction but no data: function-context (visible in "profiled functions" mode)
+  // - not in profiled function and no data: empty-profile (only visible in "all" mode)
+  let s = "";
+  let rowClass = "";
+  if (!hasProfileData) {
+    if (inProfiledFunction) {
+      rowClass = "function-context";
+    } else {
+      rowClass = "empty-profile";
+    }
   }
+  const fileId = `file-${file_number}`;
+  s += `<tr class="${rowClass}" data-file="${fileId}">`;
 
   const total_time_str = String(total_time.toFixed(1)).padStart(10, " ");
   s += `<td style="height: 20; width: 100; vertical-align: middle" align="left" data-sort='${total_time_str}'>`;
@@ -983,8 +1026,7 @@ async function display(prof: Profile): Promise<void> {
   }
 
   s +=
-    '<br class="text-left"><span style="font-size: 80%; color: blue; cursor : pointer;" onClick="expandAll()">&nbsp;show all</span> | <span style="font-size: 80%; color: blue; cursor : pointer;" onClick="collapseAll()">hide all</span>';
-  s += ` | <span style="font-size: 80%; color: blue" onClick="document.getElementById('reduce-checkbox').click()">only display profiled lines&nbsp;</span><input type="checkbox" id="reduce-checkbox" checked onClick="toggleReduced()" /></br>`;
+    '<br class="text-left"><span style="font-size: 80%; color: blue; cursor : pointer;" onClick="expandAll()">&nbsp;show all</span> | <span style="font-size: 80%; color: blue; cursor : pointer;" onClick="collapseAll()">hide all</span></br>';
 
   s += '<div class="container-fluid">';
 
@@ -1085,6 +1127,11 @@ async function display(prof: Profile): Promise<void> {
     s += `${triangle}`;
     s += "</span>";
     s += `<code> ${ff[0]}</code>`;
+    s += ` <select id="display-mode-${id}" style="font-size: 80%; margin-left: 10px;" onchange="onFileDisplayModeChange('${id}')">`;
+    s += `<option value="profiled-functions" selected>profiled functions</option>`;
+    s += `<option value="profiled-lines">profiled lines only</option>`;
+    s += `<option value="all">all lines</option>`;
+    s += `</select>`;
     s += `</p>`;
     s += `<div style="${displayStr}" id="profile-${id}">`;
     s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
@@ -1096,6 +1143,34 @@ async function display(prof: Profile): Promise<void> {
     // Compute all docstring lines
     const linesArray = ff[1].lines.map((entry) => entry.line);
     const docstringLines = stringLines(linesArray);
+
+    // First pass: identify functions/classes that contain profiled lines
+    const profiledFunctions = new Set<string>();
+    for (const line of ff[1].lines) {
+      const total_time =
+        line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
+      const has_memory_results =
+        line.n_avg_mb +
+        line.n_peak_mb +
+        line.memory_samples.length +
+        (line.n_usage_fraction >= 0.01 ? 1 : 0);
+      const has_gpu_results = line.n_gpu_percent >= 1.0;
+      const has_nrt_results =
+        (line.nrt_time_ms !== undefined && line.nrt_time_ms > 0) ||
+        (line.nc_time_ms !== undefined && line.nc_time_ms > 0);
+
+      const hasProfileData =
+        total_time > 1.0 ||
+        has_memory_results ||
+        (has_gpu_results && prof.gpu && !hasNeuronData) ||
+        has_nrt_results;
+
+      if (hasProfileData && line.start_function_line > 0) {
+        const functionKey = `${line.start_function_line},${line.end_function_line}`;
+        profiledFunctions.add(functionKey);
+      }
+    }
+
     // Print per-line profiles.
     let prevLineno = -1;
     let index = -1;
@@ -1135,7 +1210,8 @@ async function display(prof: Profile): Promise<void> {
         nc_bars,
         nc_nrt_pies,
         total_nc_time[ff[0]],
-        hasNeuronData
+        hasNeuronData,
+        profiledFunctions
       );
     }
     s += "</tbody>";
@@ -1266,8 +1342,10 @@ async function display(prof: Profile): Promise<void> {
     }
   }
 
-  // Hide all empty profiles by default.
-  hideEmptyProfiles();
+  // Apply the default display mode for each file.
+  for (const id of allIds) {
+    applyFileDisplayMode(id, "profiled-functions");
+  }
   if (prof.program) {
     document.title = "Scalene - " + prof.program;
   } else {
@@ -1588,6 +1666,7 @@ setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
 (window as unknown as Record<string, unknown>).expandAll = expandAll;
 (window as unknown as Record<string, unknown>).toggleDisplay = toggleDisplay;
 (window as unknown as Record<string, unknown>).toggleReduced = toggleReduced;
+(window as unknown as Record<string, unknown>).onFileDisplayModeChange = onFileDisplayModeChange;
 (window as unknown as Record<string, unknown>).load = load;
 (window as unknown as Record<string, unknown>).loadFetch = loadFetch;
 (window as unknown as Record<string, unknown>).loadFile = loadFile;
