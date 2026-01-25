@@ -68,6 +68,10 @@ class TorchProfiler(ScaleneLibraryProfiler):
         """Check if PyTorch is available for profiling."""
         return _torch_available
 
+    @property
+    def name(self) -> str:
+        return "PyTorch"
+
     def start(self) -> None:
         """Start the PyTorch profiler."""
         if not _torch_available or _torch is None:
