@@ -271,10 +271,7 @@ class ChromeTraceProfiler(ScaleneLibraryProfiler):
         gpu_indicators = ("gpu", "cuda", "kernel", "xla:gpu", "device:")
         if any(ind in name for ind in gpu_indicators):
             return True
-        if any(ind in cat for ind in gpu_indicators):
-            return True
-
-        return False
+        return any(ind in cat for ind in gpu_indicators)
 
     def _extract_source_info(
         self, event: dict[str, Any]
