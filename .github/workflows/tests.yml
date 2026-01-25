@@ -58,7 +58,8 @@ jobs:
       run: |
         python3 -m pip install pytest pytest-asyncio hypothesis
         python3 -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-        python3 -m pip install .
+        # Install JAX and TensorFlow for library profiler tests (Python < 3.13 only)
+        python3 -m pip install -e ".[test]" || python3 -m pip install -e .
 
     - name: run tests
       run: |
