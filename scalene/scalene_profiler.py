@@ -96,6 +96,7 @@ from scalene.scalene_statistics import (
     ProfilingSample,
     ScaleneStatistics,
 )
+from scalene.scalene_library_profiler import LibraryProfilerRegistry
 from scalene.scalene_torch import TorchProfiler, is_torch_available
 from scalene.scalene_tracer import (
     ScaleneTracer,
@@ -207,8 +208,11 @@ class Scalene:
     __cpu_profiler: ScaleneCPUProfiler
     __tracing: ScaleneTracing
 
-    # PyTorch profiler integration (for JIT code attribution)
+    # Library profiler registry for framework integrations
+    # (PyTorch, JAX, TensorFlow, etc.)
     # See https://github.com/plasma-umass/scalene/issues/908
+    __library_profilers: LibraryProfilerRegistry = LibraryProfilerRegistry()
+    # Keep direct reference to torch profiler for MPS-specific handling
     __torch_profiler: TorchProfiler | None = None
 
     # when did we last receive a signal?
@@ -1147,12 +1151,17 @@ class Scalene:
                 Scalene.__invalidate_queue,
                 Scalene._should_trace,
             )
-        # Initialize PyTorch profiler if torch is available and GPU profiling is enabled
-        # This allows accurate attribution of JIT-compiled PyTorch code
+        # Initialize library profilers (PyTorch, JAX, TensorFlow, etc.)
+        # This allows accurate attribution of JIT-compiled code in these frameworks
         # Skip when gpu=False (i.e., --cpu-only mode) to avoid overhead
-        if is_torch_available() and Scalene.__args.gpu:
-            Scalene.__torch_profiler = TorchProfiler()
-            Scalene.__torch_profiler.start()
+        if Scalene.__args.gpu:
+            Scalene.__library_profilers.initialize()
+            Scalene.__library_profilers.start_all()
+            # Keep reference to torch profiler for MPS-specific handling
+            for profiler in Scalene.__library_profilers.get_profilers():
+                if isinstance(profiler, TorchProfiler):
+                    Scalene.__torch_profiler = profiler
+                    break
 
         # If --off is set, tell all children to not profile and stop profiling before we even start.
         if "off" not in Scalene.__args or not Scalene.__args.off:
@@ -1174,10 +1183,12 @@ class Scalene:
 
         finally:
             self.stop()
-            # Stop PyTorch profiler and merge timing data into statistics
+            # Stop all library profilers and merge timing data into statistics
+            Scalene.__library_profilers.stop_all()
+            # Handle PyTorch-specific timing (MPS on Apple Silicon)
+            # Note: stop() already called by stop_all() above
             if Scalene.__torch_profiler is not None:
                 try:
-                    Scalene.__torch_profiler.stop()
                     # Merge torch CPU timing into statistics
                     for (
                         filename,

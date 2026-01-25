@@ -8,8 +8,9 @@ See https://github.com/plasma-umass/scalene/issues/908
 """
 
 import time
-from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any, List
+
+from scalene.scalene_library_profiler import ScaleneLibraryProfiler
 
 # Check if PyTorch is available at import time
 _torch_available = False
@@ -44,7 +45,7 @@ def is_mps_available() -> bool:
     return _mps_available
 
 
-class TorchProfiler:
+class TorchProfiler(ScaleneLibraryProfiler):
     """Wraps torch.profiler to capture operation timing on CPU and GPU.
 
     This profiler uses PyTorch's built-in profiling infrastructure with
@@ -54,21 +55,18 @@ class TorchProfiler:
     """
 
     def __init__(self) -> None:
+        super().__init__()
         self._profiler: Any = None
-        self._enabled: bool = False
         self._gpu_enabled: bool = False
         # MPS (Apple Silicon GPU) timing
         self._mps_enabled: bool = False
         self._mps_start_time: float = 0.0
         self._mps_total_time: float = 0.0  # Total MPS GPU time in seconds
-        # Dict[filename, Dict[lineno, total_time_us]] for CPU time
-        self.line_times: Dict[str, Dict[int, float]] = defaultdict(
-            lambda: defaultdict(float)
-        )
-        # Dict[filename, Dict[lineno, total_time_us]] for GPU/CUDA time
-        self.gpu_line_times: Dict[str, Dict[int, float]] = defaultdict(
-            lambda: defaultdict(float)
-        )
+        # Note: line_times and gpu_line_times are inherited from base class
+
+    def is_available(self) -> bool:
+        """Check if PyTorch is available for profiling."""
+        return _torch_available
 
     def start(self) -> None:
         """Start the PyTorch profiler."""
@@ -176,17 +174,7 @@ class TorchProfiler:
             # Silently handle any errors during event processing
             pass
 
-    def get_line_time(self, filename: str, lineno: int) -> float:
-        """Get total PyTorch CPU operation time (in seconds) for a source line."""
-        return self.line_times.get(filename, {}).get(lineno, 0.0) / 1_000_000
-
-    def get_gpu_line_time(self, filename: str, lineno: int) -> float:
-        """Get total PyTorch GPU/CUDA time (in seconds) for a source line."""
-        return self.gpu_line_times.get(filename, {}).get(lineno, 0.0) / 1_000_000
-
-    def has_gpu_timing(self) -> bool:
-        """Check if any GPU timing was captured."""
-        return len(self.gpu_line_times) > 0
+    # Note: get_line_time, get_gpu_line_time, has_gpu_timing inherited from base class
 
     def get_mps_total_time(self) -> float:
         """Get total MPS (Apple Silicon GPU) time in seconds.
@@ -202,6 +190,5 @@ class TorchProfiler:
 
     def clear(self) -> None:
         """Clear all collected timing data."""
-        self.line_times.clear()
-        self.gpu_line_times.clear()
+        super().clear()
         self._mps_total_time = 0.0
