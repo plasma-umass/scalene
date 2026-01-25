@@ -87,7 +87,8 @@ class TensorFlowProfiler(ChromeTraceProfiler):
             # Profiler failed to start; disable silently to avoid disrupting user code
             self._enabled = False
             self._profiling_active = False
-            self._trace_dir = None
+            # Clean up any trace directory that may have been created before failure
+            self._cleanup_trace_dir()
 
     def stop(self) -> None:
         """Stop the TensorFlow profiler and process collected traces."""

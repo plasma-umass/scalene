@@ -77,6 +77,7 @@ from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_cpu_profiler import ScaleneCPUProfiler
 from scalene.scalene_funcutils import ScaleneFuncUtils
+from scalene.scalene_jax import JaxProfiler
 from scalene.scalene_json import ScaleneJSON
 from scalene.scalene_library_registry import LibraryProfilerRegistry
 from scalene.scalene_lifecycle import ScaleneLifecycle
@@ -97,6 +98,7 @@ from scalene.scalene_statistics import (
     ProfilingSample,
     ScaleneStatistics,
 )
+from scalene.scalene_tensorflow import TensorFlowProfiler
 from scalene.scalene_torch import TorchProfiler, is_torch_available
 from scalene.scalene_tracer import (
     ScaleneTracer,
@@ -1249,6 +1251,56 @@ class Scalene:
                     pass
                 finally:
                     Scalene.__torch_profiler = None
+
+            # Merge JAX and TensorFlow timing data into statistics
+            for profiler in Scalene.__library_profilers.get_profilers():
+                try:
+                    if isinstance(profiler, JaxProfiler):
+                        # Merge JAX CPU timing into statistics
+                        for (
+                            filename,
+                            line_times,
+                        ) in profiler.line_times.items():
+                            for lineno, time_us in line_times.items():
+                                # Convert from microseconds to seconds
+                                Scalene.__stats.cpu_stats.jax_cpu_time[
+                                    Filename(filename)
+                                ][LineNumber(lineno)] += (time_us / 1_000_000)
+                        # Merge JAX GPU timing into statistics
+                        for (
+                            filename,
+                            line_times,
+                        ) in profiler.gpu_line_times.items():
+                            for lineno, time_us in line_times.items():
+                                # Convert from microseconds to seconds
+                                Scalene.__stats.cpu_stats.jax_gpu_time[
+                                    Filename(filename)
+                                ][LineNumber(lineno)] += (time_us / 1_000_000)
+                    elif isinstance(profiler, TensorFlowProfiler):
+                        # Merge TensorFlow CPU timing into statistics
+                        for (
+                            filename,
+                            line_times,
+                        ) in profiler.line_times.items():
+                            for lineno, time_us in line_times.items():
+                                # Convert from microseconds to seconds
+                                Scalene.__stats.cpu_stats.tensorflow_cpu_time[
+                                    Filename(filename)
+                                ][LineNumber(lineno)] += (time_us / 1_000_000)
+                        # Merge TensorFlow GPU timing into statistics
+                        for (
+                            filename,
+                            line_times,
+                        ) in profiler.gpu_line_times.items():
+                            for lineno, time_us in line_times.items():
+                                # Convert from microseconds to seconds
+                                Scalene.__stats.cpu_stats.tensorflow_gpu_time[
+                                    Filename(filename)
+                                ][LineNumber(lineno)] += (time_us / 1_000_000)
+                except Exception:
+                    # Silently handle any errors during profiler data merge
+                    pass
+
             if Scalene.__args.memory:
                 # Disable line tracing and clean up tracer resources
                 disable_tracing()

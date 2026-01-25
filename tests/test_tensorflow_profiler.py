@@ -9,6 +9,10 @@ import tempfile
 
 import pytest
 
+# Note: JaxProfiler is imported here to serve as an additional concrete
+# profiler implementation in the library profiler registry tests (e.g.,
+# test_registry_aggregates_line_times). This allows verification that
+# the registry correctly handles multiple profiler types, not just TensorFlow.
 from scalene.scalene_jax import JaxProfiler
 from scalene.scalene_library_profiler import ChromeTraceProfiler, ScaleneLibraryProfiler
 

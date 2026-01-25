@@ -169,6 +169,26 @@ class CPUStatistics:
             lambda: defaultdict(float)
         )
 
+        # JAX operation time per location (in seconds), attributed via jax.profiler
+        self.jax_cpu_time: dict[Any, dict[Any, float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
+
+        # JAX GPU time per location (in seconds)
+        self.jax_gpu_time: dict[Any, dict[Any, float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
+
+        # TensorFlow operation time per location (in seconds), attributed via tf.profiler
+        self.tensorflow_cpu_time: dict[Any, dict[Any, float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
+
+        # TensorFlow GPU time per location (in seconds)
+        self.tensorflow_gpu_time: dict[Any, dict[Any, float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
+
     def clear(self) -> None:
         """Reset all CPU statistics."""
         self.cpu_samples_python.clear()
@@ -180,6 +200,10 @@ class CPUStatistics:
         self.total_cpu_samples = 0.0
         self.torch_cpu_time.clear()
         self.torch_gpu_time.clear()
+        self.jax_cpu_time.clear()
+        self.jax_gpu_time.clear()
+        self.tensorflow_cpu_time.clear()
+        self.tensorflow_gpu_time.clear()
 
 
 class MemoryStatistics:
