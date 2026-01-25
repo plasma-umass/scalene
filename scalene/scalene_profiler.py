@@ -78,7 +78,7 @@ from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_cpu_profiler import ScaleneCPUProfiler
 from scalene.scalene_funcutils import ScaleneFuncUtils
 from scalene.scalene_json import ScaleneJSON
-from scalene.scalene_library_profiler import LibraryProfilerRegistry
+from scalene.scalene_library_registry import LibraryProfilerRegistry
 from scalene.scalene_lifecycle import ScaleneLifecycle
 from scalene.scalene_mapfile import ScaleneMapFile
 from scalene.scalene_memory_profiler import ScaleneMemoryProfiler

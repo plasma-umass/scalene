@@ -625,7 +625,7 @@ class TestLibraryProfilerRegistry:
 
     def test_registry_initialization(self):
         """Test that registry can be initialized."""
-        from scalene.scalene_library_profiler import LibraryProfilerRegistry
+        from scalene.scalene_library_registry import LibraryProfilerRegistry
 
         registry = LibraryProfilerRegistry()
         registry.initialize()
@@ -637,7 +637,7 @@ class TestLibraryProfilerRegistry:
 
     def test_registry_aggregates_line_times(self):
         """Test that registry correctly aggregates line times from all profilers."""
-        from scalene.scalene_library_profiler import LibraryProfilerRegistry
+        from scalene.scalene_library_registry import LibraryProfilerRegistry
 
         registry = LibraryProfilerRegistry()
 
@@ -657,7 +657,7 @@ class TestLibraryProfilerRegistry:
 
     def test_registry_aggregates_gpu_times(self):
         """Test that registry correctly aggregates GPU times from all profilers."""
-        from scalene.scalene_library_profiler import LibraryProfilerRegistry
+        from scalene.scalene_library_registry import LibraryProfilerRegistry
 
         registry = LibraryProfilerRegistry()
 
@@ -677,7 +677,7 @@ class TestLibraryProfilerRegistry:
 
     def test_registry_start_stop_all(self):
         """Test that registry can start and stop all profilers."""
-        from scalene.scalene_library_profiler import LibraryProfilerRegistry
+        from scalene.scalene_library_registry import LibraryProfilerRegistry
 
         registry = LibraryProfilerRegistry()
         registry.initialize()
@@ -693,7 +693,7 @@ class TestLibraryProfilerRegistry:
 
     def test_registry_empty_line_times(self):
         """Test that registry returns 0 for empty profilers."""
-        from scalene.scalene_library_profiler import LibraryProfilerRegistry
+        from scalene.scalene_library_registry import LibraryProfilerRegistry
 
         registry = LibraryProfilerRegistry()
         # Don't initialize, so no profilers registered
