@@ -14,7 +14,6 @@ See https://www.tensorflow.org/guide/profiler
 
 from __future__ import annotations
 
-import os
 import tempfile
 from typing import Any
 
@@ -109,32 +108,6 @@ class TensorFlowProfiler(ChromeTraceProfiler):
             self._profiling_active = False
             # Clean up trace directory
             self._cleanup_trace_dir()
-
-    def _process_traces(self) -> None:
-        """Parse TensorFlow trace files to extract timing information.
-
-        TensorFlow traces are in TensorBoard/Chrome trace event format.
-        We look for trace.json files and parse them for timing data.
-        Also handles .trace files (protobuf format) if present.
-        """
-        if not self._trace_dir or not os.path.exists(self._trace_dir):
-            return
-
-        try:
-            # Look for trace files (Chrome trace event format)
-            # TensorFlow saves traces in plugins/profile/<run>/... structure
-            for root, _, files in os.walk(self._trace_dir):
-                for filename in files:
-                    if filename.endswith(".json") or filename.endswith(".json.gz"):
-                        trace_path = os.path.join(root, filename)
-                        self._parse_trace_file(trace_path)
-                    elif filename.endswith(".trace"):
-                        # TensorFlow protobuf trace format
-                        # Parsing requires TensorFlow's internal libraries
-                        # For now, we skip this and rely on JSON traces
-                        pass
-        except Exception:
-            pass  # Silently handle parse errors to avoid disrupting user code
 
     def _extract_source_info(
         self, event: dict[str, Any]

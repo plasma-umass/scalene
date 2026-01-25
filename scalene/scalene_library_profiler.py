@@ -232,7 +232,49 @@ class ChromeTraceProfiler(ScaleneLibraryProfiler):
         if filename and lineno:
             with contextlib.suppress(ValueError, TypeError):
                 lineno = int(lineno)
-                self.line_times[filename][lineno] += duration_us
+                # Route to GPU or CPU timing based on event metadata
+                if self._is_gpu_event(event):
+                    self.gpu_line_times[filename][lineno] += duration_us
+                else:
+                    self.line_times[filename][lineno] += duration_us
+
+    def _is_gpu_event(self, event: dict[str, Any]) -> bool:
+        """Determine if a trace event represents GPU execution.
+
+        Chrome trace events may include device/stream information indicating
+        whether an operation ran on CPU or GPU. This method checks common
+        indicators used by JAX and TensorFlow.
+
+        Subclasses can override this for library-specific GPU detection.
+
+        Args:
+            event: A trace event dictionary.
+
+        Returns:
+            True if the event appears to be a GPU operation.
+        """
+        args = event.get("args", {})
+        name = event.get("name", "").lower()
+        cat = event.get("cat", "").lower()
+
+        # Check for explicit device type in args
+        device_type = str(args.get("device_type", "")).lower()
+        if device_type in ("gpu", "cuda", "xla:gpu"):
+            return True
+
+        # Check stream name for GPU indicators
+        stream = str(args.get("stream", "")).lower()
+        if any(gpu_ind in stream for gpu_ind in ("gpu", "cuda", "device")):
+            return True
+
+        # Check event name/category for GPU kernel indicators
+        gpu_indicators = ("gpu", "cuda", "kernel", "xla:gpu", "device:")
+        if any(ind in name for ind in gpu_indicators):
+            return True
+        if any(ind in cat for ind in gpu_indicators):
+            return True
+
+        return False
 
     def _extract_source_info(
         self, event: dict[str, Any]

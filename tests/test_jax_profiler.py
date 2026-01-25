@@ -569,3 +569,163 @@ class TestJaxTraceFileParsing:
             assert profiler.line_times["gzip_test.py"][1] == 5000
         finally:
             os.unlink(trace_file)
+
+
+class TestGpuTimingAttribution:
+    """Tests for GPU vs CPU timing attribution in Chrome trace events."""
+
+    def test_cpu_event_goes_to_line_times(self):
+        """Test that CPU events are attributed to line_times."""
+        profiler = JaxProfiler()
+
+        event = {
+            "ph": "X",
+            "dur": 1000,
+            "name": "MatMul",
+            "args": {"file": "test.py", "line": 10}
+        }
+
+        profiler._process_trace_event(event)
+
+        assert profiler.line_times["test.py"][10] == 1000
+        assert len(profiler.gpu_line_times) == 0
+
+    def test_gpu_event_by_device_type(self):
+        """Test that events with GPU device_type go to gpu_line_times."""
+        profiler = JaxProfiler()
+
+        event = {
+            "ph": "X",
+            "dur": 2000,
+            "name": "MatMul",
+            "args": {
+                "file": "test.py",
+                "line": 20,
+                "device_type": "GPU"
+            }
+        }
+
+        profiler._process_trace_event(event)
+
+        assert profiler.gpu_line_times["test.py"][20] == 2000
+        assert len(profiler.line_times) == 0
+
+    def test_gpu_event_by_cuda_device(self):
+        """Test that events with CUDA device go to gpu_line_times."""
+        profiler = JaxProfiler()
+
+        event = {
+            "ph": "X",
+            "dur": 3000,
+            "name": "Kernel",
+            "args": {
+                "file": "test.py",
+                "line": 30,
+                "device_type": "cuda"
+            }
+        }
+
+        profiler._process_trace_event(event)
+
+        assert profiler.gpu_line_times["test.py"][30] == 3000
+        assert len(profiler.line_times) == 0
+
+    def test_gpu_event_by_stream_name(self):
+        """Test that events with GPU stream go to gpu_line_times."""
+        profiler = JaxProfiler()
+
+        event = {
+            "ph": "X",
+            "dur": 4000,
+            "name": "Conv2D",
+            "args": {
+                "file": "test.py",
+                "line": 40,
+                "stream": "GPU:0/stream:1"
+            }
+        }
+
+        profiler._process_trace_event(event)
+
+        assert profiler.gpu_line_times["test.py"][40] == 4000
+        assert len(profiler.line_times) == 0
+
+    def test_gpu_event_by_kernel_name(self):
+        """Test that events with kernel in name go to gpu_line_times."""
+        profiler = JaxProfiler()
+
+        event = {
+            "ph": "X",
+            "dur": 5000,
+            "name": "cuDNN_kernel_123",
+            "args": {"file": "test.py", "line": 50}
+        }
+
+        profiler._process_trace_event(event)
+
+        assert profiler.gpu_line_times["test.py"][50] == 5000
+        assert len(profiler.line_times) == 0
+
+    def test_gpu_event_by_category(self):
+        """Test that events with GPU category go to gpu_line_times."""
+        profiler = JaxProfiler()
+
+        event = {
+            "ph": "X",
+            "dur": 6000,
+            "name": "MatMul",
+            "cat": "cuda",
+            "args": {"file": "test.py", "line": 60}
+        }
+
+        profiler._process_trace_event(event)
+
+        assert profiler.gpu_line_times["test.py"][60] == 6000
+        assert len(profiler.line_times) == 0
+
+    def test_xla_gpu_device(self):
+        """Test that XLA GPU events are detected."""
+        profiler = JaxProfiler()
+
+        event = {
+            "ph": "X",
+            "dur": 7000,
+            "name": "xla::MatMul",
+            "args": {
+                "file": "test.py",
+                "line": 70,
+                "device_type": "xla:gpu"
+            }
+        }
+
+        profiler._process_trace_event(event)
+
+        assert profiler.gpu_line_times["test.py"][70] == 7000
+        assert len(profiler.line_times) == 0
+
+    def test_mixed_cpu_and_gpu_events(self):
+        """Test that mixed events are correctly separated."""
+        profiler = JaxProfiler()
+
+        cpu_event = {
+            "ph": "X",
+            "dur": 1000,
+            "name": "PyFunc",
+            "args": {"file": "test.py", "line": 10}
+        }
+        gpu_event = {
+            "ph": "X",
+            "dur": 2000,
+            "name": "Kernel",
+            "args": {
+                "file": "test.py",
+                "line": 20,
+                "device_type": "GPU"
+            }
+        }
+
+        profiler._process_trace_event(cpu_event)
+        profiler._process_trace_event(gpu_event)
+
+        assert profiler.line_times["test.py"][10] == 1000
+        assert profiler.gpu_line_times["test.py"][20] == 2000
