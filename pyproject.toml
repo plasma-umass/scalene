@@ -49,6 +49,20 @@ dependencies = [
 
 dynamic = ["version"]   # computed by setup.py
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "hypothesis>=6.0",
+    # TensorFlow for testing library profiler integration
+    # TensorFlow doesn't support Python 3.14+ yet
+    "tensorflow>=2.15; python_version < '3.14' and platform_system != 'Windows'",
+    # JAX for testing library profiler integration
+    # JAX doesn't support Windows
+    "jax>=0.4.20; python_version < '3.14' and platform_system != 'Windows'",
+    "jaxlib>=0.4.20; python_version < '3.14' and platform_system != 'Windows'",
+]
+
 [project.urls]
 "Homepage" = "https://github.com/plasma-umass/scalene"
 "Repository" = "https://github.com/plasma-umass/scalene"

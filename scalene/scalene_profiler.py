@@ -77,7 +77,10 @@ from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_cpu_profiler import ScaleneCPUProfiler
 from scalene.scalene_funcutils import ScaleneFuncUtils
+from scalene.scalene_jax import JaxProfiler
 from scalene.scalene_json import ScaleneJSON
+from scalene.scalene_library_profiler import ScaleneLibraryProfiler
+from scalene.scalene_library_registry import LibraryProfilerRegistry
 from scalene.scalene_lifecycle import ScaleneLifecycle
 from scalene.scalene_mapfile import ScaleneMapFile
 from scalene.scalene_memory_profiler import ScaleneMemoryProfiler
@@ -96,6 +99,7 @@ from scalene.scalene_statistics import (
     ProfilingSample,
     ScaleneStatistics,
 )
+from scalene.scalene_tensorflow import TensorFlowProfiler
 from scalene.scalene_torch import TorchProfiler, is_torch_available
 from scalene.scalene_tracer import (
     ScaleneTracer,
@@ -207,8 +211,11 @@ class Scalene:
     __cpu_profiler: ScaleneCPUProfiler
     __tracing: ScaleneTracing
 
-    # PyTorch profiler integration (for JIT code attribution)
+    # Library profiler registry for framework integrations
+    # (PyTorch, JAX, TensorFlow, etc.)
     # See https://github.com/plasma-umass/scalene/issues/908
+    __library_profilers: LibraryProfilerRegistry = LibraryProfilerRegistry()
+    # Keep direct reference to torch profiler for MPS-specific handling
     __torch_profiler: TorchProfiler | None = None
 
     # when did we last receive a signal?
@@ -1107,6 +1114,97 @@ class Scalene:
                 Scalene._disable_signals(retry=False)
 
     @staticmethod
+    def _merge_profiler_timing(
+        profiler: ScaleneLibraryProfiler,
+        cpu_stats: dict[Any, dict[Any, float]],
+        gpu_stats: dict[Any, dict[Any, float]],
+    ) -> None:
+        """Merge timing data from a library profiler into statistics.
+
+        Args:
+            profiler: The library profiler to merge data from.
+            cpu_stats: The CPU timing statistics dict to merge into.
+            gpu_stats: The GPU timing statistics dict to merge into.
+        """
+        # Merge CPU timing (convert from microseconds to seconds)
+        for filename, line_times in profiler.line_times.items():
+            for lineno, time_us in line_times.items():
+                cpu_stats[Filename(filename)][LineNumber(lineno)] += time_us / 1_000_000
+        # Merge GPU timing (convert from microseconds to seconds)
+        for filename, line_times in profiler.gpu_line_times.items():
+            for lineno, time_us in line_times.items():
+                gpu_stats[Filename(filename)][LineNumber(lineno)] += time_us / 1_000_000
+
+    @staticmethod
+    def _merge_library_profiler_timing() -> None:
+        """Merge timing data from all library profilers into statistics."""
+        stats = Scalene.__stats.cpu_stats
+
+        # Mapping from profiler type to (cpu_stats, gpu_stats)
+        profiler_stats_map: dict[type, tuple[dict[Any, dict[Any, float]], dict[Any, dict[Any, float]]]] = {
+            TorchProfiler: (stats.torch_cpu_time, stats.torch_gpu_time),
+            JaxProfiler: (stats.jax_cpu_time, stats.jax_gpu_time),
+            TensorFlowProfiler: (stats.tensorflow_cpu_time, stats.tensorflow_gpu_time),
+        }
+
+        for profiler in Scalene.__library_profilers.get_profilers():
+            try:
+                profiler_type = type(profiler)
+                if profiler_type in profiler_stats_map:
+                    cpu_stats, gpu_stats = profiler_stats_map[profiler_type]
+                    Scalene._merge_profiler_timing(profiler, cpu_stats, gpu_stats)
+
+                # Handle PyTorch MPS-specific timing (Apple Silicon)
+                if isinstance(profiler, TorchProfiler):
+                    Scalene._handle_mps_timing(profiler)
+            except Exception:
+                # Silently handle any errors during profiler data merge
+                pass
+
+        # Clear torch profiler reference
+        Scalene.__torch_profiler = None
+
+    @staticmethod
+    def _handle_mps_timing(profiler: TorchProfiler) -> None:
+        """Handle Apple Silicon MPS GPU timing distribution.
+
+        For Apple Silicon, distribute MPS GPU timing proportionally
+        to lines based on their PyTorch CPU time. This enables
+        per-process GPU timing on macOS where per-line GPU timing
+        isn't available from torch.profiler.
+        """
+        if platform.system() != "Darwin":
+            return
+        if not hasattr(profiler, "get_mps_total_time"):
+            return
+
+        mps_time = profiler.get_mps_total_time()
+        if mps_time <= 0:
+            return
+
+        # Calculate total torch CPU time across all lines
+        total_torch_cpu_time = sum(
+            time_us
+            for line_times in profiler.line_times.values()
+            for time_us in line_times.values()
+        )
+
+        # Distribute MPS time proportionally to torch CPU time
+        if total_torch_cpu_time > 0:
+            for filename, line_times in profiler.line_times.items():
+                for lineno, time_us in line_times.items():
+                    proportion = time_us / total_torch_cpu_time
+                    Scalene.__stats.cpu_stats.torch_gpu_time[
+                        Filename(filename)
+                    ][LineNumber(lineno)] += mps_time * proportion
+
+        # Update accelerator for aggregate stats
+        if Scalene.__accelerator is not None and hasattr(
+            Scalene.__accelerator, "set_torch_mps_time"
+        ):
+            Scalene.__accelerator.set_torch_mps_time(mps_time)
+
+    @staticmethod
     def _exit_handler() -> None:
         """When we exit, disable all signals."""
         Scalene._disable_signals()
@@ -1147,12 +1245,17 @@ class Scalene:
                 Scalene.__invalidate_queue,
                 Scalene._should_trace,
             )
-        # Initialize PyTorch profiler if torch is available and GPU profiling is enabled
-        # This allows accurate attribution of JIT-compiled PyTorch code
+        # Initialize library profilers (PyTorch, JAX, TensorFlow, etc.)
+        # This allows accurate attribution of JIT-compiled code in these frameworks
         # Skip when gpu=False (i.e., --cpu-only mode) to avoid overhead
-        if is_torch_available() and Scalene.__args.gpu:
-            Scalene.__torch_profiler = TorchProfiler()
-            Scalene.__torch_profiler.start()
+        if Scalene.__args.gpu:
+            Scalene.__library_profilers.initialize()
+            Scalene.__library_profilers.start_all()
+            # Keep reference to torch profiler for MPS-specific handling
+            for profiler in Scalene.__library_profilers.get_profilers():
+                if isinstance(profiler, TorchProfiler):
+                    Scalene.__torch_profiler = profiler
+                    break
 
         # If --off is set, tell all children to not profile and stop profiling before we even start.
         if "off" not in Scalene.__args or not Scalene.__args.off:
@@ -1174,70 +1277,10 @@ class Scalene:
 
         finally:
             self.stop()
-            # Stop PyTorch profiler and merge timing data into statistics
-            if Scalene.__torch_profiler is not None:
-                try:
-                    Scalene.__torch_profiler.stop()
-                    # Merge torch CPU timing into statistics
-                    for (
-                        filename,
-                        line_times,
-                    ) in Scalene.__torch_profiler.line_times.items():
-                        for lineno, time_us in line_times.items():
-                            # Convert from microseconds to seconds
-                            Scalene.__stats.cpu_stats.torch_cpu_time[
-                                Filename(filename)
-                            ][LineNumber(lineno)] += (time_us / 1_000_000)
-                    # Merge torch GPU timing into statistics (when CUDA is available)
-                    for (
-                        filename,
-                        line_times,
-                    ) in Scalene.__torch_profiler.gpu_line_times.items():
-                        for lineno, time_us in line_times.items():
-                            # Convert from microseconds to seconds
-                            Scalene.__stats.cpu_stats.torch_gpu_time[
-                                Filename(filename)
-                            ][LineNumber(lineno)] += (time_us / 1_000_000)
-                    # For Apple Silicon: distribute MPS GPU timing proportionally
-                    # to lines based on their PyTorch CPU time. This enables
-                    # per-process GPU timing on macOS where per-line GPU timing
-                    # isn't available from torch.profiler.
-                    if platform.system() == "Darwin" and hasattr(
-                        Scalene.__torch_profiler, "get_mps_total_time"
-                    ):
-                        mps_time = Scalene.__torch_profiler.get_mps_total_time()
-                        if mps_time > 0:
-                            # Calculate total torch CPU time across all lines
-                            total_torch_cpu_time = 0.0
-                            for (
-                                _filename,
-                                line_times,
-                            ) in Scalene.__torch_profiler.line_times.items():
-                                for _lineno, time_us in line_times.items():
-                                    total_torch_cpu_time += time_us
-                            # Distribute MPS time proportionally to torch CPU time
-                            if total_torch_cpu_time > 0:
-                                for (
-                                    filename,
-                                    line_times,
-                                ) in Scalene.__torch_profiler.line_times.items():
-                                    for lineno, time_us in line_times.items():
-                                        # Proportion of total torch CPU time
-                                        proportion = time_us / total_torch_cpu_time
-                                        # Assign proportional MPS GPU time
-                                        Scalene.__stats.cpu_stats.torch_gpu_time[
-                                            Filename(filename)
-                                        ][LineNumber(lineno)] += (mps_time * proportion)
-                            # Also update accelerator for aggregate stats
-                            if Scalene.__accelerator is not None and hasattr(
-                                Scalene.__accelerator, "set_torch_mps_time"
-                            ):
-                                Scalene.__accelerator.set_torch_mps_time(mps_time)
-                except Exception:
-                    # Silently handle any errors during torch profiler cleanup
-                    pass
-                finally:
-                    Scalene.__torch_profiler = None
+            # Stop all library profilers and merge timing data into statistics
+            Scalene.__library_profilers.stop_all()
+            Scalene._merge_library_profiler_timing()
+
             if Scalene.__args.memory:
                 # Disable line tracing and clean up tracer resources
                 disable_tracing()
