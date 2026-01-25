@@ -11,9 +11,16 @@ rather than relying on signal handlers that can't see native frames during
 execution.
 """
 
+from __future__ import annotations
+
+import contextlib
+import gzip
+import json
+import os
+import shutil
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Dict, List, Tuple
+from typing import Any
 
 
 class ScaleneLibraryProfiler(ABC):
@@ -28,12 +35,12 @@ class ScaleneLibraryProfiler(ABC):
     """
 
     def __init__(self) -> None:
-        # Dict[filename, Dict[lineno, total_time_us]] for CPU time
-        self.line_times: Dict[str, Dict[int, float]] = defaultdict(
+        # dict[filename, dict[lineno, total_time_us]] for CPU time
+        self.line_times: dict[str, dict[int, float]] = defaultdict(
             lambda: defaultdict(float)
         )
-        # Dict[filename, Dict[lineno, total_time_us]] for GPU time
-        self.gpu_line_times: Dict[str, Dict[int, float]] = defaultdict(
+        # dict[filename, dict[lineno, total_time_us]] for GPU time
+        self.gpu_line_times: dict[str, dict[int, float]] = defaultdict(
             lambda: defaultdict(float)
         )
         self._enabled: bool = False
@@ -108,7 +115,7 @@ class ScaleneLibraryProfiler(ABC):
         """
         return len(self.gpu_line_times) > 0
 
-    def get_all_times(self) -> List[Tuple[str, int, float, float]]:
+    def get_all_times(self) -> list[tuple[str, int, float, float]]:
         """Get all timing data as a list of (filename, lineno, cpu_time, gpu_time).
 
         Returns:
@@ -133,6 +140,137 @@ class ScaleneLibraryProfiler(ABC):
         self.gpu_line_times.clear()
 
 
+class ChromeTraceProfiler(ScaleneLibraryProfiler):
+    """Base class for profilers that parse Chrome trace event format.
+
+    JAX and TensorFlow both write traces in Chrome trace event format
+    (TensorBoard format). This class provides common parsing logic.
+
+    Subclasses should implement:
+    - is_available(): Check if the library is installed
+    - start(): Start the library's profiler
+    - stop(): Stop profiler and call _process_traces()
+    - name property: Return the profiler name
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._trace_dir: str | None = None
+        self._profiling_active: bool = False
+
+    def _process_traces(self) -> None:
+        """Parse trace files to extract timing information.
+
+        Traces are in Chrome trace event format. We look for .json and
+        .json.gz files and parse them for timing data.
+        """
+        if not self._trace_dir or not os.path.exists(self._trace_dir):
+            return
+
+        try:
+            for root, _, files in os.walk(self._trace_dir):
+                for filename in files:
+                    if filename.endswith(".json") or filename.endswith(".json.gz"):
+                        trace_path = os.path.join(root, filename)
+                        self._parse_trace_file(trace_path)
+        except Exception:
+            pass  # Silently handle parse errors to avoid disrupting user code
+
+    def _parse_trace_file(self, trace_path: str) -> None:
+        """Parse a Chrome trace event format file.
+
+        The trace file contains events with timing information.
+        We extract events and try to attribute them to Python source.
+
+        Args:
+            trace_path: Path to the trace JSON file.
+        """
+        try:
+            if trace_path.endswith(".gz"):
+                with gzip.open(trace_path, "rt") as f:
+                    data = json.load(f)
+            else:
+                with open(trace_path) as f:
+                    data = json.load(f)
+
+            # Chrome trace format can be an array or an object with traceEvents
+            events = data if isinstance(data, list) else data.get("traceEvents", [])
+
+            for event in events:
+                self._process_trace_event(event)
+        except Exception:
+            pass  # Silently handle malformed trace files
+
+    def _process_trace_event(self, event: dict[str, Any]) -> None:
+        """Process a single trace event and extract timing.
+
+        Chrome trace events have the following relevant fields:
+        - name: Event name (e.g., operation name)
+        - ph: Phase (B=begin, E=end, X=complete, etc.)
+        - ts: Timestamp in microseconds
+        - dur: Duration in microseconds (only for X events)
+        - args: Additional arguments (may contain Python source info)
+
+        Note: We only process "X" (complete) events because they have
+        duration. Begin (B) and End (E) events would require pairing logic.
+
+        Args:
+            event: A trace event dictionary.
+        """
+        # Only process complete events (X) - these have duration
+        # B (begin) and E (end) events don't have 'dur' and would need pairing
+        phase = event.get("ph", "")
+        if phase != "X":
+            return
+
+        duration_us = event.get("dur", 0)
+        if duration_us <= 0:
+            return
+
+        # Extract source info and attribute timing
+        filename, lineno = self._extract_source_info(event)
+        if filename and lineno:
+            with contextlib.suppress(ValueError, TypeError):
+                lineno = int(lineno)
+                self.line_times[filename][lineno] += duration_us
+
+    def _extract_source_info(
+        self, event: dict[str, Any]
+    ) -> tuple[str | None, int | None]:
+        """Extract Python source file and line from a trace event.
+
+        Subclasses can override this to handle library-specific trace formats.
+
+        Args:
+            event: A trace event dictionary.
+
+        Returns:
+            Tuple of (filename, lineno) or (None, None) if not found.
+        """
+        args = event.get("args", {})
+
+        # Look for source file/line information in common field names
+        filename = args.get("file") or args.get("filename") or args.get("source_file")
+        lineno = args.get("line") or args.get("lineno") or args.get("source_line")
+
+        return filename, lineno
+
+    def _cleanup_trace_dir(self) -> None:
+        """Remove temporary trace directory and its contents."""
+        if not self._trace_dir:
+            return
+
+        with contextlib.suppress(Exception):
+            if os.path.exists(self._trace_dir):
+                shutil.rmtree(self._trace_dir)
+        self._trace_dir = None
+
+    def clear(self) -> None:
+        """Clear all collected timing data."""
+        super().clear()
+        self._cleanup_trace_dir()
+
+
 class LibraryProfilerRegistry:
     """Registry for managing multiple library profilers.
 
@@ -141,7 +279,7 @@ class LibraryProfilerRegistry:
     """
 
     def __init__(self) -> None:
-        self._profilers: List[ScaleneLibraryProfiler] = []
+        self._profilers: list[ScaleneLibraryProfiler] = []
         self._initialized: bool = False
 
     def register(self, profiler: ScaleneLibraryProfiler) -> None:
@@ -204,7 +342,7 @@ class LibraryProfilerRegistry:
         for profiler in self._profilers:
             profiler.clear()
 
-    def get_profilers(self) -> List[ScaleneLibraryProfiler]:
+    def get_profilers(self) -> list[ScaleneLibraryProfiler]:
         """Get all registered profilers."""
         return self._profilers
 

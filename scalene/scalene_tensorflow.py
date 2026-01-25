@@ -14,13 +14,11 @@ See https://www.tensorflow.org/guide/profiler
 
 from __future__ import annotations
 
-import contextlib
-import json
 import os
 import tempfile
 from typing import Any
 
-from scalene.scalene_library_profiler import ScaleneLibraryProfiler
+from scalene.scalene_library_profiler import ChromeTraceProfiler
 
 # Check if TensorFlow is available at import time
 _tf_available = False
@@ -47,7 +45,7 @@ def is_gpu_available() -> bool:
     return _gpu_available
 
 
-class TensorFlowProfiler(ScaleneLibraryProfiler):
+class TensorFlowProfiler(ChromeTraceProfiler):
     """Wraps tf.profiler.experimental to capture operation timing.
 
     TensorFlow's profiler writes traces to a directory in TensorBoard format.
@@ -58,11 +56,6 @@ class TensorFlowProfiler(ScaleneLibraryProfiler):
     rather than programmatic access, so per-line attribution is limited
     compared to PyTorch's profiler.
     """
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._trace_dir: str | None = None
-        self._profiling_active: bool = False
 
     def is_available(self) -> bool:
         """Check if TensorFlow is available for profiling."""
@@ -122,6 +115,7 @@ class TensorFlowProfiler(ScaleneLibraryProfiler):
 
         TensorFlow traces are in TensorBoard/Chrome trace event format.
         We look for trace.json files and parse them for timing data.
+        Also handles .trace files (protobuf format) if present.
         """
         if not self._trace_dir or not os.path.exists(self._trace_dir):
             return
@@ -136,79 +130,29 @@ class TensorFlowProfiler(ScaleneLibraryProfiler):
                         self._parse_trace_file(trace_path)
                     elif filename.endswith(".trace"):
                         # TensorFlow protobuf trace format
-                        trace_path = os.path.join(root, filename)
-                        self._parse_protobuf_trace(trace_path)
+                        # Parsing requires TensorFlow's internal libraries
+                        # For now, we skip this and rely on JSON traces
+                        pass
         except Exception:
             pass  # Silently handle parse errors to avoid disrupting user code
 
-    def _parse_trace_file(self, trace_path: str) -> None:
-        """Parse a Chrome trace event format file.
+    def _extract_source_info(
+        self, event: dict[str, Any]
+    ) -> tuple[str | None, int | None]:
+        """Extract Python source file and line from a TensorFlow trace event.
 
-        The trace file contains events with timing information.
-        We extract events and try to attribute them to Python source.
-
-        Args:
-            trace_path: Path to the trace JSON file.
-        """
-        import gzip
-
-        try:
-            # Handle gzipped files
-            if trace_path.endswith(".gz"):
-                with gzip.open(trace_path, "rt") as f:
-                    data = json.load(f)
-            else:
-                with open(trace_path) as f:
-                    data = json.load(f)
-
-            # Chrome trace format can be an array or an object with traceEvents
-            events = data if isinstance(data, list) else data.get("traceEvents", [])
-
-            for event in events:
-                self._process_trace_event(event)
-        except Exception:
-            pass  # Silently handle malformed trace files
-
-    def _parse_protobuf_trace(self, trace_path: str) -> None:
-        """Parse a TensorFlow protobuf trace file.
-
-        TensorFlow can write traces in protobuf format which contains
-        more detailed information than the JSON format.
-
-        Args:
-            trace_path: Path to the .trace file.
-        """
-        # Parsing protobuf traces requires TensorFlow's internal libraries
-        # For now, we skip this and rely on JSON traces
-        _ = trace_path  # Unused for now
-
-    def _process_trace_event(self, event: dict[str, Any]) -> None:
-        """Process a single trace event and extract timing.
-
-        Chrome trace events have the following relevant fields:
-        - name: Event name (e.g., operation name)
-        - ph: Phase (B=begin, E=end, X=complete, etc.)
-        - ts: Timestamp in microseconds
-        - dur: Duration in microseconds (for X events)
-        - args: Additional arguments (may contain Python source info)
+        TensorFlow may include Python stack information in trace events,
+        which we use to attribute timing to source lines.
 
         Args:
             event: A trace event dictionary.
+
+        Returns:
+            Tuple of (filename, lineno) or (None, None) if not found.
         """
-        # Only process complete events (X) or duration events
-        phase = event.get("ph", "")
-        if phase not in ("X", "B", "E"):
-            return
-
-        duration_us = event.get("dur", 0)
-        if duration_us <= 0:
-            return
-
-        # Try to extract Python source information from args
         args = event.get("args", {})
 
-        # Look for source file/line information
-        # TensorFlow may include this in various forms
+        # Look for source file/line information in common field names
         filename = args.get("file") or args.get("filename") or args.get("source_file")
         lineno = args.get("line") or args.get("lineno") or args.get("source_line")
 
@@ -222,25 +166,4 @@ class TensorFlowProfiler(ScaleneLibraryProfiler):
                     filename = frame.get("file") or frame.get("filename")
                     lineno = frame.get("line") or frame.get("lineno")
 
-        if filename and lineno:
-            with contextlib.suppress(ValueError, TypeError):
-                lineno = int(lineno)
-                # Attribute the duration to this source line
-                self.line_times[filename][lineno] += duration_us
-
-    def _cleanup_trace_dir(self) -> None:
-        """Remove temporary trace directory and its contents."""
-        if not self._trace_dir:
-            return
-
-        import shutil
-
-        with contextlib.suppress(Exception):
-            if os.path.exists(self._trace_dir):
-                shutil.rmtree(self._trace_dir)
-        self._trace_dir = None
-
-    def clear(self) -> None:
-        """Clear all collected timing data."""
-        super().clear()
-        self._cleanup_trace_dir()
+        return filename, lineno

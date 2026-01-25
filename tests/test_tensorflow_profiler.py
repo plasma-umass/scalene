@@ -4,14 +4,16 @@ These tests verify that Scalene's TensorFlow profiler correctly captures
 timing information and attributes it back to Python source lines.
 """
 
-import pytest
-import tempfile
 import os
+import tempfile
+
+import pytest
+
+from scalene.scalene_jax import JaxProfiler
+from scalene.scalene_library_profiler import ChromeTraceProfiler, ScaleneLibraryProfiler
 
 # Import the profiler module (this should always work even without TensorFlow)
 from scalene.scalene_tensorflow import TensorFlowProfiler, is_tensorflow_available
-from scalene.scalene_jax import JaxProfiler
-from scalene.scalene_library_profiler import ScaleneLibraryProfiler
 
 
 class TestTensorFlowProfilerUnit:
@@ -19,13 +21,17 @@ class TestTensorFlowProfilerUnit:
 
     def test_tensorflow_profiler_import(self):
         """Test that scalene_tensorflow module can be imported."""
-        from scalene.scalene_tensorflow import TensorFlowProfiler, is_tensorflow_available
+        from scalene.scalene_tensorflow import (
+            TensorFlowProfiler,
+            is_tensorflow_available,
+        )
         # is_tensorflow_available should return a boolean
         assert isinstance(is_tensorflow_available(), bool)
 
     def test_tensorflow_profiler_extends_base_class(self):
-        """Test that TensorFlowProfiler extends ScaleneLibraryProfiler."""
+        """Test that TensorFlowProfiler extends ChromeTraceProfiler and ScaleneLibraryProfiler."""
         profiler = TensorFlowProfiler()
+        assert isinstance(profiler, ChromeTraceProfiler)
         assert isinstance(profiler, ScaleneLibraryProfiler)
 
     def test_tensorflow_profiler_init(self):
@@ -591,8 +597,8 @@ class TestTensorFlowTraceFileParsing:
 
     def test_parse_trace_file_gzipped(self):
         """Test parsing a gzipped trace file."""
-        import json
         import gzip
+        import json
 
         profiler = TensorFlowProfiler()
 

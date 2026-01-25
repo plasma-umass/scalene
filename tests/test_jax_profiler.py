@@ -4,13 +4,14 @@ These tests verify that Scalene's JAX profiler correctly captures
 timing information and attributes it back to Python source lines.
 """
 
-import pytest
-import tempfile
 import os
+import tempfile
+
+import pytest
 
 # Import the profiler module (this should always work even without JAX)
 from scalene.scalene_jax import JaxProfiler, is_jax_available
-from scalene.scalene_library_profiler import ScaleneLibraryProfiler
+from scalene.scalene_library_profiler import ChromeTraceProfiler, ScaleneLibraryProfiler
 
 
 class TestJaxProfilerUnit:
@@ -23,8 +24,9 @@ class TestJaxProfilerUnit:
         assert isinstance(is_jax_available(), bool)
 
     def test_jax_profiler_extends_base_class(self):
-        """Test that JaxProfiler extends ScaleneLibraryProfiler."""
+        """Test that JaxProfiler extends ChromeTraceProfiler and ScaleneLibraryProfiler."""
         profiler = JaxProfiler()
+        assert isinstance(profiler, ChromeTraceProfiler)
         assert isinstance(profiler, ScaleneLibraryProfiler)
 
     def test_jax_profiler_init(self):
@@ -546,8 +548,8 @@ class TestJaxTraceFileParsing:
 
     def test_parse_trace_file_gzipped(self):
         """Test parsing a gzipped trace file."""
-        import json
         import gzip
+        import json
 
         profiler = JaxProfiler()
 
