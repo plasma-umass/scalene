@@ -131,7 +131,9 @@ class ScaleneLibraryProfiler(ABC):
                 cpu_us = cpu_times.get(lineno, 0.0)
                 gpu_us = gpu_times.get(lineno, 0.0)
                 # Convert to seconds
-                result.append((filename, lineno, cpu_us / 1_000_000, gpu_us / 1_000_000))
+                result.append(
+                    (filename, lineno, cpu_us / 1_000_000, gpu_us / 1_000_000)
+                )
         return result
 
     def clear(self) -> None:

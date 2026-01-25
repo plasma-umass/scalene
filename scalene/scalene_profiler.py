@@ -1141,7 +1141,9 @@ class Scalene:
         stats = Scalene.__stats.cpu_stats
 
         # Mapping from profiler type to (cpu_stats, gpu_stats)
-        profiler_stats_map: dict[type, tuple[dict[Any, dict[Any, float]], dict[Any, dict[Any, float]]]] = {
+        profiler_stats_map: dict[
+            type, tuple[dict[Any, dict[Any, float]], dict[Any, dict[Any, float]]]
+        ] = {
             TorchProfiler: (stats.torch_cpu_time, stats.torch_gpu_time),
             JaxProfiler: (stats.jax_cpu_time, stats.jax_gpu_time),
             TensorFlowProfiler: (stats.tensorflow_cpu_time, stats.tensorflow_gpu_time),
@@ -1194,9 +1196,9 @@ class Scalene:
             for filename, line_times in profiler.line_times.items():
                 for lineno, time_us in line_times.items():
                     proportion = time_us / total_torch_cpu_time
-                    Scalene.__stats.cpu_stats.torch_gpu_time[
-                        Filename(filename)
-                    ][LineNumber(lineno)] += mps_time * proportion
+                    Scalene.__stats.cpu_stats.torch_gpu_time[Filename(filename)][
+                        LineNumber(lineno)
+                    ] += (mps_time * proportion)
 
         # Update accelerator for aggregate stats
         if Scalene.__accelerator is not None and hasattr(
