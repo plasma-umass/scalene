@@ -13,7 +13,7 @@ execution.
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 
 class ScaleneLibraryProfiler(ABC):
@@ -176,7 +176,7 @@ class LibraryProfilerRegistry:
             jax_profiler = JaxProfiler()
             self.register(jax_profiler)
         except ImportError:
-            pass
+            pass  # JAX not installed, skip
 
         # Register TensorFlow profiler if available
         try:
@@ -185,7 +185,7 @@ class LibraryProfilerRegistry:
             tf_profiler = TensorFlowProfiler()
             self.register(tf_profiler)
         except ImportError:
-            pass
+            pass  # TensorFlow not installed, skip
 
         self._initialized = True
 

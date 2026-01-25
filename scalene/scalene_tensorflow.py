@@ -15,7 +15,7 @@ See https://www.tensorflow.org/guide/profiler
 import json
 import os
 import tempfile
-from typing import Any, Optional
+from typing import Any
 
 from scalene.scalene_library_profiler import ScaleneLibraryProfiler
 
@@ -31,7 +31,7 @@ try:
     # Check for GPU availability
     _gpu_available = len(tf.config.list_physical_devices("GPU")) > 0
 except ImportError:
-    pass
+    pass  # TensorFlow not installed
 
 
 def is_tensorflow_available() -> bool:
@@ -58,7 +58,7 @@ class TensorFlowProfiler(ScaleneLibraryProfiler):
 
     def __init__(self) -> None:
         super().__init__()
-        self._trace_dir: Optional[str] = None
+        self._trace_dir: str | None = None
         self._profiling_active: bool = False
 
     def is_available(self) -> bool:
@@ -89,7 +89,7 @@ class TensorFlowProfiler(ScaleneLibraryProfiler):
             self._enabled = True
             self._profiling_active = True
         except Exception:
-            # If profiler fails to start, just disable it
+            # Profiler failed to start; disable silently to avoid disrupting user code
             self._enabled = False
             self._profiling_active = False
             self._trace_dir = None
@@ -107,8 +107,7 @@ class TensorFlowProfiler(ScaleneLibraryProfiler):
             if self._trace_dir:
                 self._process_traces()
         except Exception:
-            # Silently handle any errors during profiler shutdown
-            pass
+            pass  # Silently handle errors during shutdown to avoid disrupting user code
         finally:
             self._enabled = False
             self._profiling_active = False
@@ -137,8 +136,7 @@ class TensorFlowProfiler(ScaleneLibraryProfiler):
                         trace_path = os.path.join(root, filename)
                         self._parse_protobuf_trace(trace_path)
         except Exception:
-            # Silently handle parse errors
-            pass
+            pass  # Silently handle parse errors to avoid disrupting user code
 
     def _parse_trace_file(self, trace_path: str) -> None:
         """Parse a Chrome trace event format file.
@@ -166,8 +164,7 @@ class TensorFlowProfiler(ScaleneLibraryProfiler):
             for event in events:
                 self._process_trace_event(event)
         except Exception:
-            # Silently handle parse errors
-            pass
+            pass  # Silently handle malformed trace files
 
     def _parse_protobuf_trace(self, trace_path: str) -> None:
         """Parse a TensorFlow protobuf trace file.
@@ -228,7 +225,7 @@ class TensorFlowProfiler(ScaleneLibraryProfiler):
                 # Attribute the duration to this source line
                 self.line_times[filename][lineno] += duration_us
             except (ValueError, TypeError):
-                pass
+                pass  # Skip events with invalid line numbers
 
     def _cleanup_trace_dir(self) -> None:
         """Remove temporary trace directory and its contents."""
@@ -241,7 +238,7 @@ class TensorFlowProfiler(ScaleneLibraryProfiler):
             if os.path.exists(self._trace_dir):
                 shutil.rmtree(self._trace_dir)
         except Exception:
-            pass
+            pass  # Best-effort cleanup; ignore errors
         finally:
             self._trace_dir = None
 
