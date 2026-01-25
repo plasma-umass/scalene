@@ -14,6 +14,7 @@ See https://www.tensorflow.org/guide/profiler
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import tempfile
@@ -222,27 +223,22 @@ class TensorFlowProfiler(ScaleneLibraryProfiler):
                     lineno = frame.get("line") or frame.get("lineno")
 
         if filename and lineno:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 lineno = int(lineno)
                 # Attribute the duration to this source line
                 self.line_times[filename][lineno] += duration_us
-            except (ValueError, TypeError):
-                pass  # Skip events with invalid line numbers
 
     def _cleanup_trace_dir(self) -> None:
         """Remove temporary trace directory and its contents."""
         if not self._trace_dir:
             return
 
-        try:
-            import shutil
+        import shutil
 
+        with contextlib.suppress(Exception):
             if os.path.exists(self._trace_dir):
                 shutil.rmtree(self._trace_dir)
-        except Exception:
-            pass  # Best-effort cleanup; ignore errors
-        finally:
-            self._trace_dir = None
+        self._trace_dir = None
 
     def clear(self) -> None:
         """Clear all collected timing data."""
