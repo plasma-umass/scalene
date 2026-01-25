@@ -12,6 +12,8 @@ This is a basic implementation that captures overall timing.
 See https://www.tensorflow.org/guide/profiler
 """
 
+from __future__ import annotations
+
 import json
 import os
 import tempfile
