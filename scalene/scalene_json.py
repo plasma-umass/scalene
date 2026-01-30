@@ -333,19 +333,15 @@ class ScaleneJSON:
         else:
             n_copy_mb_s = 0
 
-        stats.memory_stats.per_line_footprint_samples[fname][line_no] = (
-            self.compress_samples(
-                stats.memory_stats.per_line_footprint_samples[fname][line_no],
-                stats.memory_stats.max_footprint,
-            )
+        per_line_samples = self.compress_samples(
+            stats.memory_stats.per_line_footprint_samples[fname][line_no].reservoir,
+            stats.memory_stats.max_footprint,
         )
 
         payload = {
             "line": line,
             "lineno": line_no,
-            "memory_samples": stats.memory_stats.per_line_footprint_samples[fname][
-                line_no
-            ],
+            "memory_samples": per_line_samples,
             "cpu_samples_list": stats.cpu_stats.cpu_samples_list[fname][line_no],
             "n_avg_mb": n_avg_mb,
             "n_copy_mb_s": n_copy_mb_s,
@@ -413,11 +409,10 @@ class ScaleneJSON:
             return {}
         growth_rate = 0.0
         if profile_memory:
-            stats.memory_stats.memory_footprint_samples = self.compress_samples(
-                stats.memory_stats.memory_footprint_samples,
+            compressed_footprint_samples = self.compress_samples(
+                stats.memory_stats.memory_footprint_samples.reservoir,
                 stats.memory_stats.max_footprint,
             )
-
             # Compute growth rate (slope), between 0 and 1.
             if stats.memory_stats.allocation_velocity[1] > 0:
                 growth_rate = (
@@ -425,8 +420,6 @@ class ScaleneJSON:
                     * stats.memory_stats.allocation_velocity[0]
                     / stats.memory_stats.allocation_velocity[1]
                 )
-        else:
-            stats.memory_stats.memory_footprint_samples = []
 
         # Adjust the program name if it was a Jupyter cell.
         result = re.match(r"_ipython-input-([0-9]+)-.*", program)
@@ -484,7 +477,7 @@ class ScaleneJSON:
             "gpu": self.gpu,
             "gpu_device": self.gpu_device,
             "memory": profile_memory,
-            "samples": stats.memory_stats.memory_footprint_samples,
+            "samples": compressed_footprint_samples if profile_memory else [],
             "stacks": stks,
         }
 

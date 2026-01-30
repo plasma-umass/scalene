@@ -49,6 +49,17 @@ class sorted_reservoir:
         j = random.randint(0, self.k - 1)
         self.reservoir_[j] = item
 
+    def __len__(self: Self) -> int:
+        """Return the number of items currently in the reservoir."""
+        return self.count
+
+    def __iadd__(self: Self, other: "sorted_reservoir | List[Any]") -> Self:
+        """Merge another reservoir or list into this one via repeated append."""
+        items = other.reservoir_ if isinstance(other, sorted_reservoir) else other
+        for item in items:
+            self.append(item)
+        return self
+
     @property
     def reservoir(self: Self) -> "list[Any]":
         """Returns a sorted reservoir."""
