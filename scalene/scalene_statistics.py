@@ -21,6 +21,8 @@ import cloudpickle
 from pydantic import PositiveInt
 
 from scalene.runningstats import RunningStats
+from scalene.scalene_config import MEMORY_FOOTPRINT_RESERVOIR_SIZE
+from scalene.sorted_reservoir import sorted_reservoir
 
 Address = NewType("Address", str)
 Filename = NewType("Filename", str)
@@ -286,12 +288,20 @@ class MemoryStatistics:
         self.max_footprint_python_fraction: float = 0
         self.max_footprint_loc: tuple[Filename, LineNumber] | None = None
 
-        # Memory footprint samples (time, footprint)
-        self.memory_footprint_samples: list[tuple[float, float]] = []
+        # Memory footprint samples (time, footprint), bounded via reservoir sampling
+        self.memory_footprint_samples: sorted_reservoir = sorted_reservoir(
+            MEMORY_FOOTPRINT_RESERVOIR_SIZE, key=lambda x: x[0]
+        )
 
         # Same, but per line
-        self.per_line_footprint_samples: dict[Any, dict[Any, list[Any]]] = defaultdict(
-            lambda: defaultdict(list)
+        self.per_line_footprint_samples: dict[
+            Any, dict[Any, sorted_reservoir]
+        ] = defaultdict(
+            lambda: defaultdict(
+                lambda: sorted_reservoir(
+                    MEMORY_FOOTPRINT_RESERVOIR_SIZE, key=lambda x: x[0]
+                )
+            )
         )
 
     def clear(self) -> None:
@@ -699,14 +709,6 @@ class ScaleneStatistics:
                     self.memory_stats.per_line_footprint_samples,
                     x.memory_stats.per_line_footprint_samples,
                 )
-                # Sorting each of the per_line_footprint_sample lists by time
-                for filename in self.memory_stats.per_line_footprint_samples:
-                    for lineno in self.memory_stats.per_line_footprint_samples[
-                        filename
-                    ]:
-                        self.memory_stats.per_line_footprint_samples[filename][
-                            lineno
-                        ].sort(key=lambda x: x[0])
                 self.increment_per_line_samples(
                     self.memory_stats.memory_malloc_count,
                     x.memory_stats.memory_malloc_count,
@@ -753,7 +755,6 @@ class ScaleneStatistics:
                 self.memory_stats.memory_footprint_samples += (
                     x.memory_stats.memory_footprint_samples
                 )
-                self.memory_stats.memory_footprint_samples.sort(key=lambda x: x[0])
 
                 # Restore careful function_map handling
                 for k, val in x.function_map.items():

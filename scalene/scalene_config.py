@@ -8,3 +8,7 @@ SCALENE_PORT = 11235
 
 # Must equal src/include/sampleheap.hpp NEWLINE *minus 1*
 NEWLINE_TRIGGER_LENGTH = 98820  # SampleHeap<...>::NEWLINE-1
+
+# Maximum number of memory footprint samples to retain (via reservoir sampling).
+# Used for both global and per-line memory sparklines.
+MEMORY_FOOTPRINT_RESERVOIR_SIZE = 100

@@ -330,9 +330,8 @@ class ScaleneOutput:
         mem_usage_line: Union[Text, str] = ""
         growth_rate = 0.0
         if profile_memory:
-            samples = stats.memory_stats.memory_footprint_samples
+            samples = stats.memory_stats.memory_footprint_samples.reservoir
             if len(samples) > 0:
-                # Randomly downsample samples
                 if len(samples) > ScaleneOutput.max_sparkline_len_file:
                     random_samples = sorted(
                         random.sample(samples, ScaleneOutput.max_sparkline_len_file)
