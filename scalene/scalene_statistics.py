@@ -294,12 +294,12 @@ class MemoryStatistics:
         )
 
         # Same, but per line
-        self.per_line_footprint_samples: dict[
-            Any, dict[Any, sorted_reservoir]
-        ] = defaultdict(
-            lambda: defaultdict(
-                lambda: sorted_reservoir(
-                    MEMORY_FOOTPRINT_RESERVOIR_SIZE, key=lambda x: x[0]
+        self.per_line_footprint_samples: dict[Any, dict[Any, sorted_reservoir]] = (
+            defaultdict(
+                lambda: defaultdict(
+                    lambda: sorted_reservoir(
+                        MEMORY_FOOTPRINT_RESERVOIR_SIZE, key=lambda x: x[0]
+                    )
                 )
             )
         )
