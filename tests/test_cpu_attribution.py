@@ -85,42 +85,68 @@ _MULTI_FNAME = Filename("/fake/test_multi.py")
 def _get_line(instr: dis.Instruction) -> Optional[int]:
     """Get the line number from an instruction, compatible across Python versions.
 
-    Python < 3.14: starts_line is int | None (the line number or None).
-    Python >= 3.14: starts_line is bool; line_number holds the actual number.
+    Python < 3.13: starts_line is int | None (the line number or None).
+    Python >= 3.13: starts_line is bool; line_number holds the actual number.
+
+    NOTE: On Python < 3.13, this only returns a value for the *first*
+    instruction on each source line.  Use ``_instructions_with_lines``
+    when you need a line for every instruction.
     """
     if hasattr(instr, "line_number"):
-        # Python 3.14+
+        # Python 3.13+
         return instr.line_number
-    # Python < 3.14: starts_line IS the line number (int or None)
+    # Python < 3.13: starts_line IS the line number (int or None)
     return instr.starts_line  # type: ignore[return-value]
+
+
+def _instructions_with_lines(
+    code: types.CodeType,
+) -> list[tuple[dis.Instruction, int | None]]:
+    """Return instructions paired with their effective line number.
+
+    On Python < 3.13, ``starts_line`` is only set on the first instruction
+    of each source line.  This propagates the line forward so every
+    instruction carries its effective line number.
+    """
+    result: list[tuple[dis.Instruction, int | None]] = []
+    current_line: int | None = None
+    for instr in dis.get_instructions(code):
+        line = _get_line(instr)
+        if line is not None:
+            current_line = line
+        result.append((instr, current_line))
+    return result
 
 
 def _is_new_line(instr: dis.Instruction) -> bool:
     """Check if this instruction starts a new line."""
     if hasattr(instr, "line_number"):
-        # Python 3.14+: starts_line is a bool
+        # Python 3.13+: starts_line is a bool
         return bool(instr.starts_line)
-    # Python < 3.14: starts_line is an int (line number) or None
+    # Python < 3.13: starts_line is an int (line number) or None
     return instr.starts_line is not None  # type: ignore[union-attr]
 
 
-def _find_instruction(code: types.CodeType, opname_prefix: str, target_line: int):
+def _find_instruction(
+    code: types.CodeType, opname_prefix: str, target_line: int
+) -> dis.Instruction:
     """Find the first instruction matching *opname_prefix* on *target_line*."""
-    for instr in dis.get_instructions(code):
-        line = _get_line(instr)
+    for instr, line in _instructions_with_lines(code):
         if line == target_line and instr.opname.startswith(opname_prefix):
             return instr
     raise ValueError(f"No {opname_prefix}* instruction found on line {target_line}")
 
 
-def _first_instr_on_line(code: types.CodeType, target_line: int):
+def _first_instr_on_line(
+    code: types.CodeType, target_line: int
+) -> dis.Instruction:
     """Return the first instruction whose line_number == target_line."""
     for instr in dis.get_instructions(code):
         if _get_line(instr) == target_line and _is_new_line(instr):
             return instr
-    # Fallback: any instruction on the target line.
-    for instr in dis.get_instructions(code):
-        if _get_line(instr) == target_line:
+    # Fallback: any instruction on the target line (with line tracking).
+    for instr, line in _instructions_with_lines(code):
+        if line == target_line:
             return instr
     raise ValueError(f"No instruction found on line {target_line}")
 

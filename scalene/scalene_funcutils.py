@@ -51,32 +51,26 @@ class ScaleneFuncUtils:
         Returns ``None`` if *lineno* is not the first body line of any loop.
         """
         best: Optional[tuple[int, ...]] = None
+        all_instrs = ScaleneFuncUtils._instructions_with_lines(code)
 
-        for instr in dis.get_instructions(code):
+        for instr, _ in all_instrs:
             op_name = instr.opname
             if op_name not in ScaleneFuncUtils.__backward_jump_opcodes:
                 continue
 
             # Determine target offset for backward jump
-            if op_name == "JUMP_ABSOLUTE":
-                target = instr.argval
-                if target >= instr.offset:
-                    continue  # forward jump, skip
-            else:
-                target = instr.argval  # dis resolves to absolute offset
-
+            target = instr.argval  # dis resolves to absolute offset
             if target >= instr.offset:
                 continue  # not actually backward
 
             # Collect distinct source lines in [target, instr.offset]
             lines: list[int] = []
             seen: set[int] = set()
-            for i2 in dis.get_instructions(code):
+            for i2, line in all_instrs:
                 if i2.offset < target:
                     continue
                 if i2.offset > instr.offset:
                     break
-                line = ScaleneFuncUtils._instr_line(i2)
                 if line is not None and line not in seen:
                     lines.append(line)
                     seen.add(line)
@@ -98,10 +92,34 @@ class ScaleneFuncUtils:
 
     @staticmethod
     def _instr_line(instr: dis.Instruction) -> Optional[int]:
-        """Get the line number from an instruction across Python versions."""
-        if sys.version_info >= (3, 14):
+        """Get the line number from an instruction across Python versions.
+
+        On Python >= 3.13, ``line_number`` is set on every instruction.
+        On Python < 3.13, ``starts_line`` is ``int | None`` but only set
+        on the *first* instruction of each source line.  Callers that need
+        a line for every instruction should track the current line across
+        the instruction stream (see ``_instructions_with_lines``).
+        """
+        if sys.version_info >= (3, 13):
             return instr.line_number
         return instr.starts_line
+
+    @staticmethod
+    def _instructions_with_lines(code: CodeType) -> list[tuple[dis.Instruction, Optional[int]]]:
+        """Return instructions paired with their effective line number.
+
+        On Python < 3.13, ``starts_line`` is only set on the first
+        instruction of each source line.  This helper propagates the
+        line forward so every instruction has a line number.
+        """
+        result: list[tuple[dis.Instruction, Optional[int]]] = []
+        current_line: Optional[int] = None
+        for instr in dis.get_instructions(code):
+            line = ScaleneFuncUtils._instr_line(instr)
+            if line is not None:
+                current_line = line
+            result.append((instr, current_line))
+        return result
 
     @staticmethod
     @lru_cache(maxsize=None)
@@ -113,11 +131,9 @@ class ScaleneFuncUtils:
         its source line, or ``None`` if no preceding CALL is found.
         """
         last_call_line: Optional[int] = None
-        for instr in dis.get_instructions(code):
+        for instr, line in ScaleneFuncUtils._instructions_with_lines(code):
             if instr.offset >= bytei:
                 break
-            if instr.opcode in ScaleneFuncUtils.__call_opcodes:
-                line = ScaleneFuncUtils._instr_line(instr)
-                if line is not None:
-                    last_call_line = line
+            if instr.opcode in ScaleneFuncUtils.__call_opcodes and line is not None:
+                last_call_line = line
         return last_call_line
