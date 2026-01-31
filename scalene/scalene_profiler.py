@@ -1341,7 +1341,7 @@ class Scalene:
                 return exit_status
 
         assert did_output
-        if Scalene.__args.web or Scalene.__args.html:
+        if Scalene.__args.web or Scalene.__args.html or Scalene._in_jupyter():
             profile_filename = Scalene.__profile_filename
             if Scalene.__args.outfile:
                 profile_filename = os.path.join(
@@ -1356,6 +1356,8 @@ class Scalene:
                     if not Scalene.__args.outfile
                     else Scalene.__args.outfile
                 ),
+                standalone=Scalene._in_jupyter()
+                or getattr(Scalene.__args, "standalone", False),
             )
         if Scalene._in_jupyter():
             from scalene.scalene_jupyter import ScaleneJupyter
