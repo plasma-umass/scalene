@@ -1356,7 +1356,8 @@ class Scalene:
                     if not Scalene.__args.outfile
                     else Scalene.__args.outfile
                 ),
-                standalone=Scalene._in_jupyter() or getattr(Scalene.__args, "standalone", False),
+                standalone=Scalene._in_jupyter()
+                or getattr(Scalene.__args, "standalone", False),
             )
         if Scalene._in_jupyter():
             from scalene.scalene_jupyter import ScaleneJupyter
