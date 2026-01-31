@@ -159,7 +159,10 @@ class ScaleneCPUProfiler:
                         main_thread_frame.f_code,
                         ByteCodeIndex(main_thread_frame.f_lasti),
                     )
-                    if preceding_call_line is not None and LineNumber(preceding_call_line) != lineno:
+                    if (
+                        preceding_call_line is not None
+                        and LineNumber(preceding_call_line) != lineno
+                    ):
                         c_time_lineno = LineNumber(preceding_call_line)
 
                 if c_time_lineno != lineno:
@@ -271,7 +274,9 @@ class ScaleneCPUProfiler:
         cpu_stats.cpu_utilization[fname][lineno].push(cpu_utilization)
         cpu_stats.core_utilization[fname][lineno].push(core_utilization)
 
-        gpu_stats.gpu_samples[fname][lineno] += gpu_load * elapsed.wallclock * gpu_weight
+        gpu_stats.gpu_samples[fname][lineno] += (
+            gpu_load * elapsed.wallclock * gpu_weight
+        )
         gpu_stats.n_gpu_samples[fname][lineno] += elapsed.wallclock * gpu_weight
         gpu_stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 

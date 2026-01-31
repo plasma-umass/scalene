@@ -114,7 +114,9 @@ class ScaleneFuncUtils:
         return instr.starts_line
 
     @staticmethod
-    def _instructions_with_lines(code: CodeType) -> list[tuple[dis.Instruction, Optional[int]]]:
+    def _instructions_with_lines(
+        code: CodeType,
+    ) -> list[tuple[dis.Instruction, Optional[int]]]:
         """Return instructions paired with their effective line number.
 
         On Python < 3.13, ``starts_line`` is only set on the first
