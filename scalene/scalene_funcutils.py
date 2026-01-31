@@ -1,7 +1,8 @@
 import dis
+import sys
 from functools import lru_cache
 from types import CodeType
-from typing import FrozenSet
+from typing import FrozenSet, Optional
 
 from scalene.scalene_statistics import ByteCodeIndex
 
@@ -29,3 +30,29 @@ class ScaleneFuncUtils:
             (ins.offset == bytei and ins.opcode in ScaleneFuncUtils.__call_opcodes)
             for ins in dis.get_instructions(code)
         )
+
+    @staticmethod
+    def _instr_line(instr: dis.Instruction) -> Optional[int]:
+        """Get the line number from an instruction across Python versions."""
+        if sys.version_info >= (3, 14):
+            return instr.line_number  # type: ignore[attr-defined]
+        return instr.starts_line  # type: ignore[return-value]
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def find_preceding_call_line(code: CodeType, bytei: ByteCodeIndex) -> Optional[int]:
+        """Find the line of the nearest CALL instruction preceding *bytei*.
+
+        Walks backward through the instruction stream looking for the last
+        CALL opcode that appears before the given bytecode index.  Returns
+        its source line, or ``None`` if no preceding CALL is found.
+        """
+        last_call_line: Optional[int] = None
+        for instr in dis.get_instructions(code):
+            if instr.offset >= bytei:
+                break
+            if instr.opcode in ScaleneFuncUtils.__call_opcodes:
+                line = ScaleneFuncUtils._instr_line(instr)
+                if line is not None:
+                    last_call_line = line
+        return last_call_line
