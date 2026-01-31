@@ -31,18 +31,16 @@ class ScaleneFuncUtils:
             for ins in dis.get_instructions(code)
         )
 
-    # Backward-jump opcodes used for loop detection.
-    __backward_jump_opcodes: FrozenSet[str] = frozenset(
-        name for name in dis.opmap
-        if name in ("JUMP_BACKWARD", "JUMP_BACKWARD_NO_INTERRUPT", "JUMP_ABSOLUTE")
-    )
+    # All jump opcodes (absolute and relative).  dis.hasjabs and
+    # dis.hasjrel are lists of opcode *integers* on all Python versions.
+    __jump_opcodes: FrozenSet[int] = frozenset(dis.hasjabs) | frozenset(dis.hasjrel)
 
     @staticmethod
     @lru_cache(maxsize=None)
     def get_loop_body_lines(code: CodeType, lineno: int) -> Optional[tuple[int, ...]]:
         """Return all lines of the innermost loop whose first body line is *lineno*.
 
-        When CPython's eval-breaker fires at a JUMP_BACKWARD instruction
+        When CPython's eval-breaker fires at a backward jump instruction
         the signal handler sees f_lineno equal to the first body line of
         the loop.  This method detects that situation and returns a tuple
         of all distinct source lines in the loop (condition + body) so the
@@ -54,14 +52,14 @@ class ScaleneFuncUtils:
         all_instrs = ScaleneFuncUtils._instructions_with_lines(code)
 
         for instr, _ in all_instrs:
-            op_name = instr.opname
-            if op_name not in ScaleneFuncUtils.__backward_jump_opcodes:
+            # Detect any backward jump (loop back-edge).
+            # On Python < 3.11, while loops may use POP_JUMP_IF_TRUE
+            # for backward jumps; on 3.11+, JUMP_BACKWARD is used.
+            if instr.opcode not in ScaleneFuncUtils.__jump_opcodes:
                 continue
-
-            # Determine target offset for backward jump
-            target = instr.argval  # dis resolves to absolute offset
-            if target >= instr.offset:
-                continue  # not actually backward
+            target = instr.argval
+            if not isinstance(target, int) or target >= instr.offset:
+                continue  # not a backward jump
 
             # Collect distinct source lines in [target, instr.offset]
             lines: list[int] = []
