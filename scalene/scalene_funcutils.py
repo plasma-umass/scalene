@@ -62,8 +62,10 @@ class ScaleneFuncUtils:
                 continue  # not a backward jump
 
             # Collect distinct source lines in [target, instr.offset]
+            # and check whether any CALL instructions appear in the body.
             lines: list[int] = []
             seen: set[int] = set()
+            has_call = False
             for i2, line in all_instrs:
                 if i2.offset < target:
                     continue
@@ -72,9 +74,18 @@ class ScaleneFuncUtils:
                 if line is not None and line not in seen:
                     lines.append(line)
                     seen.add(line)
+                if i2.opcode in ScaleneFuncUtils.__call_opcodes:
+                    has_call = True
 
             # Need at least condition + one body line
             if len(lines) < 2:
+                continue
+
+            # Skip loops with function calls — their lines have
+            # non-uniform cost, so even redistribution would distort
+            # the profile.  Let the normal C-time attribution handle
+            # these instead.
+            if has_call:
                 continue
 
             first_body_line = lines[1]

@@ -432,6 +432,21 @@ _NESTED_WORKLOAD_CODE: types.CodeType = next(
 _NESTED_FNAME = Filename("/fake/test_nested.py")
 
 
+# Source with a loop containing function calls — redistribution should NOT apply.
+_CALL_LOOP_SOURCE = """\
+def call_loop_work(data):
+    for i in range(1000):
+        result = sorted(data)
+        x = result[0] + 1
+"""
+
+_CALL_LOOP_CODE = compile(_CALL_LOOP_SOURCE, "/fake/test_call_loop.py", "exec")
+_CALL_LOOP_WORKLOAD_CODE: types.CodeType = next(
+    c for c in _CALL_LOOP_CODE.co_consts if isinstance(c, types.CodeType)
+)
+_CALL_LOOP_FNAME = Filename("/fake/test_call_loop.py")
+
+
 class TestGetLoopBodyLines:
     """Tests for ScaleneFuncUtils.get_loop_body_lines."""
 
@@ -482,6 +497,26 @@ class TestGetLoopBodyLines:
         ]
         # At most one line per loop should trigger redistribution
         assert len(triggering) <= 1
+
+    def test_loop_with_calls_returns_none(self) -> None:
+        """Loops containing CALL instructions should NOT trigger redistribution.
+
+        When a loop body contains function calls (e.g., sorted()), the lines
+        have non-uniform cost.  Even redistribution would distort the profile,
+        so get_loop_body_lines should return None for these loops.
+        """
+        all_lines = []
+        for instr in dis.get_instructions(_CALL_LOOP_WORKLOAD_CODE):
+            line = _get_line(instr)
+            if line is not None and line not in all_lines:
+                all_lines.append(line)
+
+        for l in all_lines:
+            result = ScaleneFuncUtils.get_loop_body_lines(_CALL_LOOP_WORKLOAD_CODE, l)
+            assert result is None, (
+                f"Loop with CALL instructions should not trigger redistribution "
+                f"(line {l} returned {result})"
+            )
 
     def test_nested_loop_picks_innermost(self) -> None:
         """For nested loops, the innermost matching loop is selected."""
