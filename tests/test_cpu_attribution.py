@@ -12,7 +12,7 @@ attributes C time to that line instead.
 import dis
 import threading
 import types
-from typing import Optional
+from typing import List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -101,15 +101,15 @@ def _get_line(instr: dis.Instruction) -> Optional[int]:
 
 def _instructions_with_lines(
     code: types.CodeType,
-) -> list[tuple[dis.Instruction, int | None]]:
+) -> List[Tuple[dis.Instruction, Optional[int]]]:
     """Return instructions paired with their effective line number.
 
     On Python < 3.13, ``starts_line`` is only set on the first instruction
     of each source line.  This propagates the line forward so every
     instruction carries its effective line number.
     """
-    result: list[tuple[dis.Instruction, int | None]] = []
-    current_line: int | None = None
+    result: List[Tuple[dis.Instruction, Optional[int]]] = []
+    current_line: Optional[int] = None
     for instr in dis.get_instructions(code):
         line = _get_line(instr)
         if line is not None:

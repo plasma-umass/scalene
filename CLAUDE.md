@@ -177,6 +177,17 @@ else:
     # Older Python versions
 ```
 
+**Type Annotation Compatibility (Python 3.8/3.9):**
+- **Do NOT use `X | Y` union syntax** in runtime-evaluated annotations (PEP 604 requires Python 3.10+). Use `Optional[X]` or `Union[X, Y]` from `typing` instead.
+- **Do NOT use `list[X]`, `dict[K, V]`, `tuple[X, ...]`** in runtime-evaluated annotations (PEP 585 lowercase generics require Python 3.9+). Use `List`, `Dict`, `Tuple` from `typing` for 3.8 support.
+- Adding `from __future__ import annotations` makes all annotations strings (not evaluated at runtime), which allows modern syntax on older Python. However, this can break code that inspects annotations at runtime (e.g., dataclasses, pydantic).
+- The safest approach for this codebase: use `typing.Optional`, `typing.Union`, `typing.List`, `typing.Tuple`, `typing.Dict` in all annotation positions that are evaluated at runtime (function signatures, variable annotations outside `if TYPE_CHECKING` blocks).
+
+**Python 3.13 Changes (`dis` module):**
+- `dis.Instruction.starts_line` changed from `int | None` (line number) to `bool`
+- New `dis.Instruction.line_number` attribute (`int | None`) added for the actual line number
+- On Python < 3.13, `starts_line` is only set on the **first** instruction of each source line; use a line-tracking loop to propagate line numbers to subsequent instructions
+
 **Python 3.14 Changes:**
 - `argparse` now has built-in colored help output (`color=True` parameter)
 - `RichArgParser` uses Rich for colors on Python < 3.14, native argparse colors on 3.14+
