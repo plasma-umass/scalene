@@ -232,7 +232,8 @@
         color: #0d6efd;
     }
     </style>
-    <!-- Google Analytics - only loads when online (for offline support, issue #982) -->
+    <!-- Google Analytics - disabled in standalone mode for offline support (issue #982) -->
+    {% if not standalone %}
     <script>
       if (navigator.onLine) {
         var script = document.createElement('script');
@@ -245,6 +246,7 @@
         gtag('config', 'G-4JXPHEBMTY');
       }
     </script>
+    {% endif %}
 
     <script>
       const profile = {{ profile }}
