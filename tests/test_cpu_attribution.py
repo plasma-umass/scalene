@@ -408,7 +408,7 @@ _NESTED_FNAME = Filename("/fake/test_nested.py")
 class TestGetLoopBodyLines:
     """Tests for ScaleneFuncUtils.get_loop_body_lines."""
 
-    def test_first_body_line_detected(self):
+    def test_first_body_line_detected(self) -> None:
         """The first body line of the while loop triggers redistribution."""
         # Collect distinct source lines from the loop code object
         all_lines = []
@@ -430,7 +430,7 @@ class TestGetLoopBodyLines:
         # Should include condition + body lines (at least 3)
         assert len(loop_lines) >= 3
 
-    def test_non_loop_line_returns_none(self):
+    def test_non_loop_line_returns_none(self) -> None:
         """Lines outside any loop return None."""
         all_lines = []
         for instr in dis.get_instructions(_PURE_WORKLOAD_CODE):
@@ -441,7 +441,7 @@ class TestGetLoopBodyLines:
         for l in all_lines:
             assert ScaleneFuncUtils.get_loop_body_lines(_PURE_WORKLOAD_CODE, l) is None
 
-    def test_mid_body_line_returns_none(self):
+    def test_mid_body_line_returns_none(self) -> None:
         """A line in the middle of a loop body does NOT trigger redistribution."""
         all_lines = []
         for instr in dis.get_instructions(_LOOP_WORKLOAD_CODE):
@@ -456,7 +456,7 @@ class TestGetLoopBodyLines:
         # At most one line per loop should trigger redistribution
         assert len(triggering) <= 1
 
-    def test_nested_loop_picks_innermost(self):
+    def test_nested_loop_picks_innermost(self) -> None:
         """For nested loops, the innermost matching loop is selected."""
         all_lines = []
         for instr in dis.get_instructions(_NESTED_WORKLOAD_CODE):
@@ -476,14 +476,14 @@ class TestLoopRedistribution:
     """Verify that loop-top samples are redistributed evenly."""
 
     @pytest.fixture()
-    def stats(self):
+    def stats(self) -> ScaleneStatistics:
         return ScaleneStatistics()
 
     @pytest.fixture()
-    def profiler(self, stats):
+    def profiler(self, stats: ScaleneStatistics) -> ScaleneCPUProfiler:
         return ScaleneCPUProfiler(stats, available_cpus=1)
 
-    def test_loop_body_time_redistributed(self, profiler, stats):
+    def test_loop_body_time_redistributed(self, profiler: ScaleneCPUProfiler, stats: ScaleneStatistics) -> None:
         """When the signal fires at the first body line, time is split across all loop lines."""
         # Find the first body line that triggers redistribution
         all_lines = []
@@ -501,7 +501,7 @@ class TestLoopRedistribution:
                 loop_lines = result
                 break
 
-        if first_body_line is None:
+        if first_body_line is None or loop_lines is None:
             pytest.skip("No loop detected in bytecode")
 
         # Get the bytecode offset for the first body line
@@ -534,7 +534,7 @@ class TestLoopRedistribution:
                 f"C time on line {ll} should be evenly distributed"
             )
 
-    def test_no_loop_redistribution_mid_body(self, profiler, stats):
+    def test_no_loop_redistribution_mid_body(self, profiler: ScaleneCPUProfiler, stats: ScaleneStatistics) -> None:
         """Signal mid-loop uses normal (non-redistributed) attribution."""
         all_lines = []
         for instr in dis.get_instructions(_LOOP_WORKLOAD_CODE):
@@ -585,6 +585,7 @@ class TestLoopRedistribution:
         assert py > 0, "Time should be attributed to the mid-body line"
         # No other line in the loop should have time
         loop_lines = ScaleneFuncUtils.get_loop_body_lines(_LOOP_WORKLOAD_CODE, first_body_line)
+        assert loop_lines is not None
         for ll in loop_lines:
             if ll != mid_line:
                 other_py = stats.cpu_stats.cpu_samples_python[_LOOP_FNAME].get(LineNumber(ll), 0.0)

@@ -39,7 +39,7 @@ class ScaleneFuncUtils:
 
     @staticmethod
     @lru_cache(maxsize=None)
-    def get_loop_body_lines(code: CodeType, lineno: int) -> Optional[tuple]:
+    def get_loop_body_lines(code: CodeType, lineno: int) -> Optional[tuple[int, ...]]:
         """Return all lines of the innermost loop whose first body line is *lineno*.
 
         When CPython's eval-breaker fires at a JUMP_BACKWARD instruction
@@ -50,7 +50,7 @@ class ScaleneFuncUtils:
 
         Returns ``None`` if *lineno* is not the first body line of any loop.
         """
-        best: Optional[tuple] = None
+        best: Optional[tuple[int, ...]] = None
 
         for instr in dis.get_instructions(code):
             op_name = instr.opname
