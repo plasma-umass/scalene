@@ -12,6 +12,7 @@ attributes C time to that line instead.
 import dis
 import threading
 import types
+from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -81,7 +82,7 @@ _MULTI_WORKLOAD_CODE: types.CodeType = next(
 _MULTI_FNAME = Filename("/fake/test_multi.py")
 
 
-def _get_line(instr: dis.Instruction) -> int | None:
+def _get_line(instr: dis.Instruction) -> Optional[int]:
     """Get the line number from an instruction, compatible across Python versions.
 
     Python < 3.14: starts_line is int | None (the line number or None).
