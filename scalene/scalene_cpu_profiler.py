@@ -123,19 +123,87 @@ class ScaleneCPUProfiler:
         )
 
         if not is_thread_sleeping[_main_thread_id]:
-            self._update_main_thread_stats(
-                fname,
-                lineno,
-                now,
-                average_python_time,
-                average_c_time,
-                average_cpu_time,
-                cpu_utilization,
-                core_utilization,
-                gpu_load,
-                gpu_mem_used,
-                elapsed,
+            # Check for loop-top sampling bias.  CPython checks eval_breaker
+            # at JUMP_BACKWARD, so signals are preferentially delivered at the
+            # first body line of tight loops.  When detected, redistribute the
+            # sample evenly across all loop lines.
+            loop_lines = ScaleneFuncUtils.get_loop_body_lines(
+                main_thread_frame.f_code, lineno
             )
+            if loop_lines is not None and len(loop_lines) > 1:
+                n = len(loop_lines)
+                for ll in loop_lines:
+                    self._update_main_thread_stats(
+                        fname,
+                        LineNumber(ll),
+                        now,
+                        average_python_time / n,
+                        average_c_time / n,
+                        average_cpu_time / n,
+                        cpu_utilization,
+                        core_utilization,
+                        gpu_load,
+                        gpu_mem_used,
+                        elapsed,
+                        gpu_weight=1.0 / n,
+                    )
+            else:
+                # Check if C time should be attributed to a preceding CALL line.
+                # When a C extension call runs on line N, the signal is deferred
+                # until the call returns, by which point f_lineno has advanced to
+                # line N+1.  Walk backward from f_lasti to find the CALL and
+                # split the attribution.
+                c_time_lineno = lineno
+                if average_c_time > 0:
+                    preceding_call_line = ScaleneFuncUtils.find_preceding_call_line(
+                        main_thread_frame.f_code,
+                        ByteCodeIndex(main_thread_frame.f_lasti),
+                    )
+                    if preceding_call_line is not None and LineNumber(preceding_call_line) != lineno:
+                        c_time_lineno = LineNumber(preceding_call_line)
+
+                if c_time_lineno != lineno:
+                    # Split: C time on the CALL line, Python time on f_lineno.
+                    self._update_main_thread_stats(
+                        fname,
+                        c_time_lineno,
+                        now,
+                        0.0,
+                        average_c_time,
+                        average_c_time,
+                        cpu_utilization,
+                        core_utilization,
+                        gpu_load,
+                        gpu_mem_used,
+                        elapsed,
+                    )
+                    self._update_main_thread_stats(
+                        fname,
+                        lineno,
+                        now,
+                        average_python_time,
+                        0.0,
+                        average_python_time,
+                        cpu_utilization,
+                        core_utilization,
+                        gpu_load,
+                        gpu_mem_used,
+                        elapsed,
+                    )
+                else:
+                    self._update_main_thread_stats(
+                        fname,
+                        lineno,
+                        now,
+                        average_python_time,
+                        average_c_time,
+                        average_cpu_time,
+                        cpu_utilization,
+                        core_utilization,
+                        gpu_load,
+                        gpu_mem_used,
+                        elapsed,
+                    )
 
         # Process other threads
         for frame, tident, orig_frame in new_frames:
@@ -190,6 +258,7 @@ class ScaleneCPUProfiler:
         gpu_load: float,
         gpu_mem_used: float,
         elapsed: TimeInfo,
+        gpu_weight: float = 1.0,
     ) -> None:
         """Update statistics for the main thread."""
         cpu_stats = self._stats.cpu_stats
@@ -202,8 +271,8 @@ class ScaleneCPUProfiler:
         cpu_stats.cpu_utilization[fname][lineno].push(cpu_utilization)
         cpu_stats.core_utilization[fname][lineno].push(core_utilization)
 
-        gpu_stats.gpu_samples[fname][lineno] += gpu_load * elapsed.wallclock
-        gpu_stats.n_gpu_samples[fname][lineno] += elapsed.wallclock
+        gpu_stats.gpu_samples[fname][lineno] += gpu_load * elapsed.wallclock * gpu_weight
+        gpu_stats.n_gpu_samples[fname][lineno] += elapsed.wallclock * gpu_weight
         gpu_stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
     def _update_thread_stats(
