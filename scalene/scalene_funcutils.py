@@ -100,8 +100,8 @@ class ScaleneFuncUtils:
     def _instr_line(instr: dis.Instruction) -> Optional[int]:
         """Get the line number from an instruction across Python versions."""
         if sys.version_info >= (3, 14):
-            return instr.line_number  # type: ignore[attr-defined]
-        return instr.starts_line  # type: ignore[return-value]
+            return instr.line_number
+        return instr.starts_line
 
     @staticmethod
     @lru_cache(maxsize=None)
