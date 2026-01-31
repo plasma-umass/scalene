@@ -31,6 +31,71 @@ class ScaleneFuncUtils:
             for ins in dis.get_instructions(code)
         )
 
+    # Backward-jump opcodes used for loop detection.
+    __backward_jump_opcodes: FrozenSet[str] = frozenset(
+        name for name in dis.opmap
+        if name in ("JUMP_BACKWARD", "JUMP_BACKWARD_NO_INTERRUPT", "JUMP_ABSOLUTE")
+    )
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def get_loop_body_lines(code: CodeType, lineno: int) -> Optional[tuple]:
+        """Return all lines of the innermost loop whose first body line is *lineno*.
+
+        When CPython's eval-breaker fires at a JUMP_BACKWARD instruction
+        the signal handler sees f_lineno equal to the first body line of
+        the loop.  This method detects that situation and returns a tuple
+        of all distinct source lines in the loop (condition + body) so the
+        caller can redistribute the sample evenly.
+
+        Returns ``None`` if *lineno* is not the first body line of any loop.
+        """
+        best: Optional[tuple] = None
+
+        for instr in dis.get_instructions(code):
+            op_name = instr.opname
+            if op_name not in ScaleneFuncUtils.__backward_jump_opcodes:
+                continue
+
+            # Determine target offset for backward jump
+            if op_name == "JUMP_ABSOLUTE":
+                target = instr.argval
+                if target >= instr.offset:
+                    continue  # forward jump, skip
+            else:
+                target = instr.argval  # dis resolves to absolute offset
+
+            if target >= instr.offset:
+                continue  # not actually backward
+
+            # Collect distinct source lines in [target, instr.offset]
+            lines: list[int] = []
+            seen: set[int] = set()
+            for i2 in dis.get_instructions(code):
+                if i2.offset < target:
+                    continue
+                if i2.offset > instr.offset:
+                    break
+                line = ScaleneFuncUtils._instr_line(i2)
+                if line is not None and line not in seen:
+                    lines.append(line)
+                    seen.add(line)
+
+            # Need at least condition + one body line
+            if len(lines) < 2:
+                continue
+
+            first_body_line = lines[1]
+            if first_body_line != lineno:
+                continue
+
+            loop_span = instr.offset - target
+            # Pick innermost (smallest span) matching loop
+            if best is None or loop_span < len(best):
+                best = tuple(lines)
+
+        return best
+
     @staticmethod
     def _instr_line(instr: dis.Instruction) -> Optional[int]:
         """Get the line number from an instruction across Python versions."""
