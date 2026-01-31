@@ -188,6 +188,12 @@ else:
 - New `dis.Instruction.line_number` attribute (`int | None`) added for the actual line number
 - On Python < 3.13, `starts_line` is only set on the **first** instruction of each source line; use a line-tracking loop to propagate line numbers to subsequent instructions
 
+**Bytecode/Opcode Compatibility (`dis` module):**
+- **Never match specific opcode names** (e.g., `JUMP_BACKWARD`, `JUMP_ABSOLUTE`, `POP_JUMP_IF_TRUE`). Opcode names change across Python versions — for example, Python 3.10 while loops use `POP_JUMP_IF_TRUE` for backward jumps, Python 3.11+ uses `JUMP_BACKWARD`, and `JUMP_ABSOLUTE` was removed in 3.12.
+- **Always use abstract `dis` module categories** when possible: `dis.hasjabs` (absolute jump opcodes), `dis.hasjrel` (relative jump opcodes), `dis.hasconst`, `dis.hasname`, etc. These are maintained by CPython and work across all versions.
+- For call detection, matching `opname.startswith("CALL")` is acceptable since that prefix has been stable, but prefer opcode integer sets over name strings for hot paths.
+- When checking jump direction (forward vs backward), use `instr.argval` (which `dis` resolves to an absolute offset) and compare against `instr.offset`, rather than relying on opcode names to imply direction.
+
 **Python 3.14 Changes:**
 - `argparse` now has built-in colored help output (`color=True` parameter)
 - `RichArgParser` uses Rich for colors on Python < 3.14, native argparse colors on 3.14+
