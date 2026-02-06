@@ -98,10 +98,11 @@ class ScaleneSignalManager(Generic[T]):
             self.__signals.cpu_signal,
             cpu_signal_handler,
         )
-        # On Windows, we simulate timer signals by running a NON-daemon thread
-        # that directly calls the CPU signal handler with a fixed sampling rate.
-        # The thread must be non-daemon so it can continue sampling while main
-        # thread is still running, even if main finishes early.
+        # On Windows, we simulate timer signals by running a non-daemon thread
+        # that directly calls the CPU signal handler at the configured sampling rate.
+        # The thread must be non-daemon so it can continue sampling while the main
+        # thread is still running, even if main finishes early (short-running programs).
+        # Cleanup is handled by stop_timer_thread() called from _disable_signals().
         self.__timer_thread = threading.Thread(
             target=lambda: self.windows_timer_loop(cpu_sampling_rate), daemon=False
         )
@@ -128,36 +129,22 @@ class ScaleneSignalManager(Generic[T]):
         any thread, giving us access to all thread stacks including the main thread.
 
         Unlike Unix where setitimer controls timing, on Windows we use a simple
-        sleep-based loop. We use a very short sleep to maximize sampling during
-        CPU-bound code execution.
+        sleep-based loop at the user-configured sampling rate.
         """
         assert sys.platform == "win32"
-        # On Windows, the GIL prevents the timer thread from running while
-        # the main thread is executing Python code. We use a very short sleep
-        # to give the timer thread more opportunities to run.
-        # Also reduce the switch interval to make the GIL release more frequently.
-        original_switch_interval = sys.getswitchinterval()
-        sys.setswitchinterval(0.001)  # 1ms switch interval for more frequent sampling
-
-        # Use a very short interval - 1ms or less
-        interval = min(cpu_sampling_rate, 0.001)
 
         # Initial delay to let user code start executing before we begin sampling.
         # Without this, the first samples would be taken during Scalene's
         # initialization rather than during the user's actual code.
         time.sleep(0.01)  # 10ms initial delay
 
-        try:
-            while self.timer_signals:
-                # Call the CPU signal handler first, then sleep.
-                # This ensures we record samples even if the program exits quickly.
-                if self.__cpu_signal_handler is not None:
-                    with contextlib.suppress(Exception):
-                        self.__cpu_signal_handler(self.__signals.cpu_signal, None)
-                time.sleep(interval)
-        finally:
-            # Restore original switch interval
-            sys.setswitchinterval(original_switch_interval)
+        while self.timer_signals:
+            # Call the CPU signal handler first, then sleep.
+            # This ensures we record samples even if the program exits quickly.
+            if self.__cpu_signal_handler is not None:
+                with contextlib.suppress(Exception):
+                    self.__cpu_signal_handler(self.__signals.cpu_signal, None)
+            time.sleep(cpu_sampling_rate)
 
     def _windows_memory_poll_loop(self) -> None:
         """For Windows, periodically poll for memory profiling data."""

@@ -177,6 +177,23 @@ else:
     # Older Python versions
 ```
 
+**Type Annotation Compatibility (Python 3.8/3.9):**
+- **Do NOT use `X | Y` union syntax** in runtime-evaluated annotations (PEP 604 requires Python 3.10+). Use `Optional[X]` or `Union[X, Y]` from `typing` instead.
+- **Do NOT use `list[X]`, `dict[K, V]`, `tuple[X, ...]`** in runtime-evaluated annotations (PEP 585 lowercase generics require Python 3.9+). Use `List`, `Dict`, `Tuple` from `typing` for 3.8 support.
+- Adding `from __future__ import annotations` makes all annotations strings (not evaluated at runtime), which allows modern syntax on older Python. However, this can break code that inspects annotations at runtime (e.g., dataclasses, pydantic).
+- The safest approach for this codebase: use `typing.Optional`, `typing.Union`, `typing.List`, `typing.Tuple`, `typing.Dict` in all annotation positions that are evaluated at runtime (function signatures, variable annotations outside `if TYPE_CHECKING` blocks).
+
+**Python 3.13 Changes (`dis` module):**
+- `dis.Instruction.starts_line` changed from `int | None` (line number) to `bool`
+- New `dis.Instruction.line_number` attribute (`int | None`) added for the actual line number
+- On Python < 3.13, `starts_line` is only set on the **first** instruction of each source line; use a line-tracking loop to propagate line numbers to subsequent instructions
+
+**Bytecode/Opcode Compatibility (`dis` module):**
+- **Never match specific opcode names** (e.g., `JUMP_BACKWARD`, `JUMP_ABSOLUTE`, `POP_JUMP_IF_TRUE`). Opcode names change across Python versions — for example, Python 3.10 while loops use `POP_JUMP_IF_TRUE` for backward jumps, Python 3.11+ uses `JUMP_BACKWARD`, and `JUMP_ABSOLUTE` was removed in 3.12.
+- **Always use abstract `dis` module categories** when possible: `dis.hasjabs` (absolute jump opcodes), `dis.hasjrel` (relative jump opcodes), `dis.hasconst`, `dis.hasname`, etc. These are maintained by CPython and work across all versions.
+- For call detection, matching `opname.startswith("CALL")` is acceptable since that prefix has been stable, but prefer opcode integer sets over name strings for hot paths.
+- When checking jump direction (forward vs backward), use `instr.argval` (which `dis` resolves to an absolute offset) and compare against `instr.offset`, rather than relying on opcode names to imply direction.
+
 **Python 3.14 Changes:**
 - `argparse` now has built-in colored help output (`color=True` parameter)
 - `RichArgParser` uses Rich for colors on Python < 3.14, native argparse colors on 3.14+

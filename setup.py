@@ -274,6 +274,7 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
         # Ensure vendor dependencies are available before building extensions
         if sys.platform == "win32":
             fetch_vendor_deps_windows()
+            self._fix_windows_arch_mismatch()
         else:
             self.spawn([make_command(), "vendor-deps"])
 
@@ -298,6 +299,40 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
             self.build_libscalene_windows()
         else:
             self.build_libscalene(arch_flags)
+
+    def _fix_windows_arch_mismatch(self):
+        """Fix MSVC toolchain arch mismatch on ARM64 Windows with x64 Python.
+
+        On ARM64 Windows, MSVC may auto-select the ARM64 cross-compiler,
+        but if the Python interpreter is x64 (running under emulation),
+        the ARM64 object files won't link against the x64 python3XX.lib.
+        Force the toolchain to match the Python interpreter's architecture.
+        """
+        import platform
+
+        machine = platform.machine().lower()
+        # Determine Python's target arch from the platform tag
+        plat = sysconfig.get_platform()  # e.g. 'win-amd64' or 'win-arm64'
+        if "arm64" in plat:
+            target_arch = "arm64"
+        elif "amd64" in plat or "x86_64" in plat:
+            target_arch = "x64"
+        else:
+            target_arch = "x86"
+
+        is_arm64_host = machine in ("arm64", "aarch64")
+        if is_arm64_host and target_arch == "x64":
+            # ARM64 Windows but x64 Python — force x64 toolchain
+            print(f"Detected ARM64 host with x64 Python (platform={sysconfig.get_platform()})")
+            print("Setting VSCMD_ARG_TGT_ARCH=x64 to select correct MSVC toolchain")
+            environ["VSCMD_ARG_TGT_ARCH"] = "x64"
+            # Also reinitialize the compiler to pick up the correct toolchain
+            try:
+                from setuptools._distutils._msvccompiler import MSVCCompiler
+            except ImportError:
+                from distutils._msvccompiler import MSVCCompiler
+            self.compiler = MSVCCompiler()
+            self.compiler.initialize()
 
     def build_libscalene(self, arch_flags):
         scalene_temp = path.join(self.build_temp, "scalene")

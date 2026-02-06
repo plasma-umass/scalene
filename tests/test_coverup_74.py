@@ -53,7 +53,11 @@ def test_scalene_statistics():
     assert scalene_stats.memory_stats.max_footprint == 0.0
     assert scalene_stats.memory_stats.max_footprint_python_fraction == 0
     assert scalene_stats.memory_stats.max_footprint_loc is None
-    assert isinstance(scalene_stats.memory_stats.memory_footprint_samples, list)
+    from scalene.sorted_reservoir import sorted_reservoir
+
+    assert isinstance(
+        scalene_stats.memory_stats.memory_footprint_samples, sorted_reservoir
+    )
     assert isinstance(
         scalene_stats.memory_stats.per_line_footprint_samples, defaultdict
     )

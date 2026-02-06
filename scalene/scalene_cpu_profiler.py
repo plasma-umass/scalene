@@ -23,15 +23,20 @@ if TYPE_CHECKING:
 class ScaleneCPUProfiler:
     """Handles CPU profiling sample processing."""
 
-    def __init__(self, stats: ScaleneStatistics, available_cpus: int) -> None:
+    def __init__(
+        self, stats: ScaleneStatistics, available_cpus: int, use_virtual_time: bool
+    ) -> None:
         """Initialize the CPU profiler.
 
         Args:
             stats: The statistics object to update with CPU samples.
             available_cpus: Number of available CPUs for utilization calculations.
+            use_virtual_time: Whether we're using virtual time (SIGVTALRM) or
+                wall clock time (SIGALRM) for CPU sampling.
         """
         self._stats = stats
         self._available_cpus = available_cpus
+        self._use_virtual_time = use_virtual_time
 
     def process_cpu_sample(
         self,
@@ -85,6 +90,17 @@ class ScaleneCPUProfiler:
         gpu_time = gpu_load * elapsed.wallclock
         self._stats.gpu_stats.total_gpu_samples += gpu_time
 
+        # Compute Python vs C (native) time attribution.
+        #
+        # The interval-based formula assumes python_time ≈ last_cpu_interval
+        # and c_time is the "excess" CPU time beyond that (from deferred signals
+        # during C calls). This works when signals are deferred, but when the
+        # signal happens to fire while Python is running, c_time ≈ 0 even if
+        # significant C time occurred earlier in the interval.
+        #
+        # In wall clock mode, we augment this with instruction-based detection:
+        # if we're at a CALL instruction (just returned from C), we attribute
+        # ALL time to native since the signal was likely deferred during the call.
         python_time = last_cpu_interval
         c_time = max(elapsed.virtual - python_time, 0)
         total_time = python_time + c_time
@@ -123,19 +139,135 @@ class ScaleneCPUProfiler:
         )
 
         if not is_thread_sleeping[_main_thread_id]:
-            self._update_main_thread_stats(
-                fname,
-                lineno,
-                now,
-                average_python_time,
-                average_c_time,
-                average_cpu_time,
-                cpu_utilization,
-                core_utilization,
-                gpu_load,
-                gpu_mem_used,
-                elapsed,
+            # Check for loop-top sampling bias.  CPython checks eval_breaker
+            # at JUMP_BACKWARD, so signals are preferentially delivered at the
+            # first body line of tight loops.  When detected, redistribute the
+            # sample evenly across all loop lines.
+            loop_lines = ScaleneFuncUtils.get_loop_body_lines(
+                main_thread_frame.f_code, lineno
             )
+            if loop_lines is not None and len(loop_lines) > 1:
+                n = len(loop_lines)
+                for ll in loop_lines:
+                    self._update_main_thread_stats(
+                        fname,
+                        LineNumber(ll),
+                        now,
+                        average_python_time / n,
+                        average_c_time / n,
+                        average_cpu_time / n,
+                        cpu_utilization,
+                        core_utilization,
+                        gpu_load,
+                        gpu_mem_used,
+                        elapsed,
+                        gpu_weight=1.0 / n,
+                    )
+            else:
+                # Determine Python vs C time attribution.
+                #
+                # The interval-based formula gives us:
+                #   python_time = last_cpu_interval (timer interval)
+                #   c_time = elapsed.virtual - python_time (excess from deferral)
+                #
+                # When c_time > 0, the signal was deferred during a C call, so
+                # attribute C time to the preceding CALL line (if found).
+                #
+                # In wall clock mode, we also check if we're currently AT a CALL
+                # instruction. If so, the signal was likely deferred during that
+                # call, and ALL time (including python_time) should go to native.
+                # This handles the case where elapsed.virtual ≈ last_cpu_interval
+                # (c_time ≈ 0) but we're still returning from C code.
+                is_at_call = ScaleneFuncUtils.is_call_function(
+                    main_thread_frame.f_code,
+                    ByteCodeIndex(main_thread_frame.f_lasti),
+                )
+
+                if not self._use_virtual_time and is_at_call:
+                    # Wall clock mode at a CALL instruction: attribute all time
+                    # to native on this line. The signal was deferred during the
+                    # C call, so even python_time was spent in C, not Python.
+                    self._update_main_thread_stats(
+                        fname,
+                        lineno,
+                        now,
+                        0.0,
+                        average_cpu_time,
+                        average_cpu_time,
+                        cpu_utilization,
+                        core_utilization,
+                        gpu_load,
+                        gpu_mem_used,
+                        elapsed,
+                    )
+                elif average_c_time > 0:
+                    # Signal was deferred (c_time > 0). Find the preceding CALL
+                    # line to attribute C time correctly.
+                    preceding_call_line = ScaleneFuncUtils.find_preceding_call_line(
+                        main_thread_frame.f_code,
+                        ByteCodeIndex(main_thread_frame.f_lasti),
+                    )
+                    if (
+                        preceding_call_line is not None
+                        and LineNumber(preceding_call_line) != lineno
+                    ):
+                        # Split: C time on the CALL line, Python time on f_lineno.
+                        self._update_main_thread_stats(
+                            fname,
+                            LineNumber(preceding_call_line),
+                            now,
+                            0.0,
+                            average_c_time,
+                            average_c_time,
+                            cpu_utilization,
+                            core_utilization,
+                            gpu_load,
+                            gpu_mem_used,
+                            elapsed,
+                        )
+                        self._update_main_thread_stats(
+                            fname,
+                            lineno,
+                            now,
+                            average_python_time,
+                            0.0,
+                            average_python_time,
+                            cpu_utilization,
+                            core_utilization,
+                            gpu_load,
+                            gpu_mem_used,
+                            elapsed,
+                        )
+                    else:
+                        # CALL is on the same line or not found; keep together.
+                        self._update_main_thread_stats(
+                            fname,
+                            lineno,
+                            now,
+                            average_python_time,
+                            average_c_time,
+                            average_cpu_time,
+                            cpu_utilization,
+                            core_utilization,
+                            gpu_load,
+                            gpu_mem_used,
+                            elapsed,
+                        )
+                else:
+                    # No C time detected; attribute as computed.
+                    self._update_main_thread_stats(
+                        fname,
+                        lineno,
+                        now,
+                        average_python_time,
+                        average_c_time,
+                        average_cpu_time,
+                        cpu_utilization,
+                        core_utilization,
+                        gpu_load,
+                        gpu_mem_used,
+                        elapsed,
+                    )
 
         # Process other threads
         for frame, tident, orig_frame in new_frames:
@@ -190,6 +322,7 @@ class ScaleneCPUProfiler:
         gpu_load: float,
         gpu_mem_used: float,
         elapsed: TimeInfo,
+        gpu_weight: float = 1.0,
     ) -> None:
         """Update statistics for the main thread."""
         cpu_stats = self._stats.cpu_stats
@@ -202,8 +335,10 @@ class ScaleneCPUProfiler:
         cpu_stats.cpu_utilization[fname][lineno].push(cpu_utilization)
         cpu_stats.core_utilization[fname][lineno].push(core_utilization)
 
-        gpu_stats.gpu_samples[fname][lineno] += gpu_load * elapsed.wallclock
-        gpu_stats.n_gpu_samples[fname][lineno] += elapsed.wallclock
+        gpu_stats.gpu_samples[fname][lineno] += (
+            gpu_load * elapsed.wallclock * gpu_weight
+        )
+        gpu_stats.n_gpu_samples[fname][lineno] += elapsed.wallclock * gpu_weight
         gpu_stats.gpu_mem_samples[fname][lineno].push(gpu_mem_used)
 
     def _update_thread_stats(
