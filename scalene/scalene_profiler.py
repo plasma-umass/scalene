@@ -333,7 +333,9 @@ class Scalene:
             cpu_count = os.cpu_count()
             Scalene.__availableCPUs = cpu_count if cpu_count is not None else 1
         Scalene.__cpu_profiler = ScaleneCPUProfiler(
-            Scalene.__stats, Scalene.__availableCPUs
+            Scalene.__stats,
+            Scalene.__availableCPUs,
+            Scalene.__args.use_virtual_time,
         )
         Scalene.__tracing = ScaleneTracing(
             Scalene.__args,
