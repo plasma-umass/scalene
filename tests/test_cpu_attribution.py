@@ -231,7 +231,7 @@ class TestMainThreadCTimeAttribution:
 
     @pytest.fixture()
     def profiler(self, stats):
-        return ScaleneCPUProfiler(stats, available_cpus=1)
+        return ScaleneCPUProfiler(stats, available_cpus=1, use_virtual_time=True)
 
     def test_c_time_attributed_to_call_line(self, profiler, stats):
         """C time from sorted() on line 2 is correctly placed on line 2,
@@ -354,7 +354,7 @@ class TestNonMainThreadAttribution:
 
     @pytest.fixture()
     def profiler(self, stats):
-        return ScaleneCPUProfiler(stats, available_cpus=1)
+        return ScaleneCPUProfiler(stats, available_cpus=1, use_virtual_time=True)
 
     def test_thread_at_call_instruction_attributes_to_c(self, profiler, stats):
         """When a non-main thread's f_lasti is at a CALL, time goes to C."""
@@ -392,6 +392,109 @@ class TestNonMainThreadAttribution:
         assert c_samples > 0, (
             "Non-main thread at a CALL instruction should attribute time to C"
         )
+
+
+# ---------------------------------------------------------------------------
+# Wall clock mode tests (issue #999)
+# ---------------------------------------------------------------------------
+
+
+class TestWallClockModeAttribution:
+    """Verify that wall clock mode correctly attributes Python vs C time.
+
+    Issue: https://github.com/plasma-umass/scalene/issues/999
+
+    In wall clock mode (SIGALRM), the interval-based formula doesn't work
+    because elapsed.virtual ≈ last_cpu_interval for CPU-bound work. Instead,
+    we check if the instruction pointer is at a CALL opcode to determine
+    whether time should be attributed to Python or C (native).
+    """
+
+    @pytest.fixture()
+    def stats(self) -> ScaleneStatistics:
+        return ScaleneStatistics()
+
+    @pytest.fixture()
+    def profiler_wall_clock(self, stats: ScaleneStatistics) -> ScaleneCPUProfiler:
+        """Create a profiler in wall clock mode (use_virtual_time=False)."""
+        return ScaleneCPUProfiler(stats, available_cpus=1, use_virtual_time=False)
+
+    def test_at_call_instruction_attributes_to_c(
+        self, profiler_wall_clock: ScaleneCPUProfiler, stats: ScaleneStatistics
+    ) -> None:
+        """In wall clock mode, time at a CALL instruction goes to C (native)."""
+        sorted_line = _WORKLOAD_CODE.co_firstlineno + 1
+        call_instr = _find_instruction(_WORKLOAD_CODE, "CALL", sorted_line)
+        main_tid = threading.main_thread().ident
+
+        frame = _make_frame(_WORKLOAD_CODE, sorted_line, call_instr.offset)
+
+        # Simulate wall clock mode: elapsed.virtual ≈ last_cpu_interval
+        prev = TimeInfo(virtual=0.0, wallclock=0.0, sys=0.0, user=0.0)
+        now = TimeInfo(virtual=0.01, wallclock=0.01, sys=0.0, user=0.01)
+
+        profiler_wall_clock.process_cpu_sample(
+            new_frames=[(frame, main_tid, frame)],
+            now=now,
+            gpu_load=0.0,
+            gpu_mem_used=0.0,
+            prev=prev,
+            is_thread_sleeping={main_tid: False},
+            should_trace=lambda _fn, _func: True,
+            last_cpu_interval=0.01,
+            stacks_enabled=False,
+        )
+
+        c_samples = stats.cpu_stats.cpu_samples_c[_FNAME].get(
+            LineNumber(sorted_line), 0.0
+        )
+        python_samples = stats.cpu_stats.cpu_samples_python[_FNAME].get(
+            LineNumber(sorted_line), 0.0
+        )
+
+        # In wall clock mode at a CALL instruction, all time should go to C
+        assert c_samples > 0, "Time at CALL should be attributed to C (native)"
+        assert python_samples == pytest.approx(
+            0.0, abs=1e-6
+        ), "No Python time at CALL instruction"
+
+    def test_not_at_call_attributes_to_python(
+        self, profiler_wall_clock: ScaleneCPUProfiler, stats: ScaleneStatistics
+    ) -> None:
+        """In wall clock mode, time NOT at a CALL instruction goes to Python."""
+        pure_python_line = _WORKLOAD_CODE.co_firstlineno + 2  # "x = 1 + 2"
+        instr = _first_instr_on_line(_WORKLOAD_CODE, pure_python_line)
+        main_tid = threading.main_thread().ident
+
+        frame = _make_frame(_WORKLOAD_CODE, pure_python_line, instr.offset)
+
+        prev = TimeInfo(virtual=0.0, wallclock=0.0, sys=0.0, user=0.0)
+        now = TimeInfo(virtual=0.01, wallclock=0.01, sys=0.0, user=0.01)
+
+        profiler_wall_clock.process_cpu_sample(
+            new_frames=[(frame, main_tid, frame)],
+            now=now,
+            gpu_load=0.0,
+            gpu_mem_used=0.0,
+            prev=prev,
+            is_thread_sleeping={main_tid: False},
+            should_trace=lambda _fn, _func: True,
+            last_cpu_interval=0.01,
+            stacks_enabled=False,
+        )
+
+        c_samples = stats.cpu_stats.cpu_samples_c[_FNAME].get(
+            LineNumber(pure_python_line), 0.0
+        )
+        python_samples = stats.cpu_stats.cpu_samples_python[_FNAME].get(
+            LineNumber(pure_python_line), 0.0
+        )
+
+        # Not at a CALL instruction, so all time goes to Python
+        assert python_samples > 0, "Time not at CALL should be attributed to Python"
+        assert c_samples == pytest.approx(
+            0.0, abs=1e-6
+        ), "No C time when not at CALL instruction"
 
 
 # ---------------------------------------------------------------------------
@@ -543,7 +646,7 @@ class TestLoopRedistribution:
 
     @pytest.fixture()
     def profiler(self, stats: ScaleneStatistics) -> ScaleneCPUProfiler:
-        return ScaleneCPUProfiler(stats, available_cpus=1)
+        return ScaleneCPUProfiler(stats, available_cpus=1, use_virtual_time=True)
 
     def test_loop_body_time_redistributed(self, profiler: ScaleneCPUProfiler, stats: ScaleneStatistics) -> None:
         """When the signal fires at the first body line, time is split across all loop lines."""
