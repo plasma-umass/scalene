@@ -58,15 +58,19 @@ def replacement_exec(scalene: Scalene) -> None:  # noqa: ARG001
 
     def exec_replacement(
         __source: Any,
-        __globals: Optional[Dict[str, Any]] = None,
-        __locals: Optional[Dict[str, Any]] = None,
         /,
+        globals: Optional[Dict[str, Any]] = None,
+        locals: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """Replacement for exec() that tracks source code.
 
         When given a string, we compile it with a unique virtual filename
         and register the source in linecache for profiling.
+
+        Note: In Python 3.14+, exec() accepts globals/locals as keyword arguments,
+        plus a keyword-only 'closure' parameter. We use 'globals' and 'locals'
+        as parameter names (shadowing builtins) to match the built-in signature.
         """
         # Get caller frame - needed both for virtual filename and for
         # getting globals/locals when not provided
@@ -80,26 +84,30 @@ def replacement_exec(scalene: Scalene) -> None:  # noqa: ARG001
 
         # When globals/locals are not specified, exec() uses the caller's frame.
         # Since we're wrapping exec, we need to explicitly get the caller's frame.
-        if __globals is None:
-            __globals = caller_frame.f_globals
-            if __locals is None:
-                __locals = caller_frame.f_locals
+        if globals is None:
+            globals = caller_frame.f_globals
+            if locals is None:
+                locals = caller_frame.f_locals
 
-        if __locals is None:
-            orig_exec(__source, __globals)
+        if locals is None:
+            orig_exec(__source, globals, **kwargs)
         else:
-            orig_exec(__source, __globals, __locals, **kwargs)
+            orig_exec(__source, globals, locals, **kwargs)
 
     def eval_replacement(
         __source: Any,
-        __globals: Optional[Dict[str, Any]] = None,
-        __locals: Optional[Dict[str, Any]] = None,
         /,
+        globals: Optional[Dict[str, Any]] = None,
+        locals: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """Replacement for eval() that tracks source code.
 
         When given a string, we compile it with a unique virtual filename
         and register the source in linecache for profiling.
+
+        Note: In Python 3.14+, eval() accepts globals/locals as keyword arguments.
+        We use 'globals' and 'locals' as parameter names (shadowing builtins)
+        to match the built-in signature exactly.
         """
         # Get caller frame - needed both for virtual filename and for
         # getting globals/locals when not provided
@@ -113,15 +121,15 @@ def replacement_exec(scalene: Scalene) -> None:  # noqa: ARG001
 
         # When globals/locals are not specified, eval() uses the caller's frame.
         # Since we're wrapping eval, we need to explicitly get the caller's frame.
-        if __globals is None:
-            __globals = caller_frame.f_globals
-            if __locals is None:
-                __locals = caller_frame.f_locals
+        if globals is None:
+            globals = caller_frame.f_globals
+            if locals is None:
+                locals = caller_frame.f_locals
 
-        if __locals is None:
-            return orig_eval(__source, __globals)
+        if locals is None:
+            return orig_eval(__source, globals)
         else:
-            return orig_eval(__source, __globals, __locals)
+            return orig_eval(__source, globals, locals)
 
     def compile_replacement(
         source: Any,

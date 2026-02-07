@@ -2,7 +2,7 @@ import dis
 import sys
 from functools import lru_cache
 from types import CodeType
-from typing import FrozenSet, Optional
+from typing import FrozenSet, List, Optional, Set, Tuple
 
 from scalene.scalene_statistics import ByteCodeIndex
 
@@ -37,7 +37,7 @@ class ScaleneFuncUtils:
 
     @staticmethod
     @lru_cache(maxsize=None)
-    def get_loop_body_lines(code: CodeType, lineno: int) -> Optional[tuple[int, ...]]:
+    def get_loop_body_lines(code: CodeType, lineno: int) -> Optional[Tuple[int, ...]]:
         """Return all lines of the innermost loop whose first body line is *lineno*.
 
         When CPython's eval-breaker fires at a backward jump instruction
@@ -48,7 +48,7 @@ class ScaleneFuncUtils:
 
         Returns ``None`` if *lineno* is not the first body line of any loop.
         """
-        best: Optional[tuple[int, ...]] = None
+        best: Optional[Tuple[int, ...]] = None
         all_instrs = ScaleneFuncUtils._instructions_with_lines(code)
 
         for instr, _ in all_instrs:
@@ -63,8 +63,8 @@ class ScaleneFuncUtils:
 
             # Collect distinct source lines in [target, instr.offset]
             # and check whether any CALL instructions appear in the body.
-            lines: list[int] = []
-            seen: set[int] = set()
+            lines: List[int] = []
+            seen: Set[int] = set()
             has_call = False
             for i2, line in all_instrs:
                 if i2.offset < target:
@@ -116,14 +116,14 @@ class ScaleneFuncUtils:
     @staticmethod
     def _instructions_with_lines(
         code: CodeType,
-    ) -> list[tuple[dis.Instruction, Optional[int]]]:
+    ) -> List[Tuple[dis.Instruction, Optional[int]]]:
         """Return instructions paired with their effective line number.
 
         On Python < 3.13, ``starts_line`` is only set on the first
         instruction of each source line.  This helper propagates the
         line forward so every instruction has a line number.
         """
-        result: list[tuple[dis.Instruction, Optional[int]]] = []
+        result: List[Tuple[dis.Instruction, Optional[int]]] = []
         current_line: Optional[int] = None
         for instr in dis.get_instructions(code):
             line = ScaleneFuncUtils._instr_line(instr)
