@@ -1,7 +1,7 @@
 import math
 import random
 import sys
-from typing import Any, Callable, List
+from typing import Any, Callable, List, Union
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -53,7 +53,7 @@ class sorted_reservoir:
         """Return the number of items currently in the reservoir."""
         return self.count
 
-    def __iadd__(self: Self, other: "sorted_reservoir | List[Any]") -> Self:
+    def __iadd__(self: Self, other: "Union[sorted_reservoir, List[Any]]") -> Self:
         """Merge another reservoir or list into this one via repeated append."""
         items = other.reservoir_ if isinstance(other, sorted_reservoir) else other
         for item in items:
@@ -61,7 +61,7 @@ class sorted_reservoir:
         return self
 
     @property
-    def reservoir(self: Self) -> "list[Any]":
+    def reservoir(self: Self) -> "List[Any]":
         """Returns a sorted reservoir."""
         if not self.sorted_:
             self.reservoir_ = sorted(self.reservoir_, key=self.key)

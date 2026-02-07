@@ -4,7 +4,7 @@ import os
 import re
 import sys
 from textwrap import dedent
-from typing import Any, List, NoReturn, Optional, Tuple, Union
+from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 
 import yaml
 from rich.text import Text as RichText
@@ -160,7 +160,7 @@ class ScaleneParseArgs:
     }
 
     @staticmethod
-    def _load_config_file(config_path: str) -> dict[str, Any]:
+    def _load_config_file(config_path: str) -> Dict[str, Any]:
         """Load and parse a YAML configuration file.
 
         Args:
@@ -196,7 +196,7 @@ class ScaleneParseArgs:
         return config
 
     @staticmethod
-    def _apply_config_to_args(args: argparse.Namespace, config: dict[str, Any]) -> None:
+    def _apply_config_to_args(args: argparse.Namespace, config: Dict[str, Any]) -> None:
         """Apply configuration from a YAML file to parsed arguments.
 
         Config file values are used as defaults - command line arguments take precedence.
@@ -559,7 +559,7 @@ class ScaleneParseArgs:
 
     @staticmethod
     def _display_profile_cli(
-        profile_data: dict[str, Any],
+        profile_data: Dict[str, Any],
         column_width: int = 132,
         reduced_profile: bool = False,
     ) -> None:
@@ -847,7 +847,7 @@ class ScaleneParseArgs:
                 highlighted_line = Text.from_ansi(capture.get().rstrip())
 
                 # Build row based on what was profiled
-                row: list[Any] = [str(lineno), python_str, native_str, sys_str]
+                row: List[Any] = [str(lineno), python_str, native_str, sys_str]
 
                 if has_gpu:
                     row.append(gpu_str)
