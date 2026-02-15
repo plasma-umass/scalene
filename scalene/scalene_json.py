@@ -342,7 +342,9 @@ class ScaleneJSON:
             "line": line,
             "lineno": line_no,
             "memory_samples": per_line_samples,
-            "cpu_samples_list": stats.cpu_stats.cpu_samples_list[fname][line_no].reservoir,
+            "cpu_samples_list": stats.cpu_stats.cpu_samples_list[fname][
+                line_no
+            ].reservoir,
             "n_avg_mb": n_avg_mb,
             "n_copy_mb_s": n_copy_mb_s,
             "n_core_utilization": mean_core_util,
