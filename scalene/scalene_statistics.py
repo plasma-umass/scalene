@@ -21,7 +21,10 @@ import cloudpickle
 from pydantic import PositiveInt
 
 from scalene.runningstats import RunningStats
-from scalene.scalene_config import MEMORY_FOOTPRINT_RESERVOIR_SIZE
+from scalene.scalene_config import (
+    CPU_SAMPLES_RESERVOIR_SIZE,
+    MEMORY_FOOTPRINT_RESERVOIR_SIZE,
+)
 from scalene.sorted_reservoir import sorted_reservoir
 
 Address = NewType("Address", str)
@@ -155,8 +158,10 @@ class CPUStatistics:
         # How many CPU samples have been collected
         self.total_cpu_samples: float = 0.0
 
-        self.cpu_samples_list: dict[Any, dict[Any, list[float]]] = defaultdict(
-            lambda: defaultdict(list)
+        self.cpu_samples_list: dict[Any, dict[Any, sorted_reservoir]] = defaultdict(
+            lambda: defaultdict(
+                lambda: sorted_reservoir(CPU_SAMPLES_RESERVOIR_SIZE, key=lambda x: x)
+            )
         )
 
         # PyTorch operation time per location (in seconds), attributed via torch.profiler
@@ -745,6 +750,11 @@ class ScaleneStatistics:
                     self.cpu_stats.cpu_samples[filename] += x.cpu_stats.cpu_samples[
                         filename
                     ]
+
+                # Merge cpu_samples_list (reservoir-sampled wallclock timestamps)
+                self.increment_per_line_samples(
+                    self.cpu_stats.cpu_samples_list, x.cpu_stats.cpu_samples_list
+                )
 
                 self.memory_stats.total_memory_free_samples += (
                     x.memory_stats.total_memory_free_samples
