@@ -754,6 +754,12 @@ class Scalene:
                 Scalene.__last_signal_time,
                 Scalene.__is_thread_sleeping,
             )
+            # Advance library profiler schedules (e.g., torch profiler
+            # periodic flush) to keep memory bounded.
+            # See https://github.com/plasma-umass/scalene/issues/991
+            if Scalene.__torch_profiler is not None:
+                Scalene.__torch_profiler.step()
+
             elapsed = now.wallclock - Scalene.__last_signal_time.wallclock
             # Store the latest values as the previously recorded values.
             Scalene.__last_signal_time = now
