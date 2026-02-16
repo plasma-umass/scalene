@@ -9,7 +9,7 @@ from scalene.scalene_profiler import Scalene
 
 
 @Scalene.shim
-def replacement_asyncio(scalene: Scalene) -> None:  # type: ignore[arg-type]
+def replacement_asyncio(scalene: Scalene) -> None:
     """Activate async profiling instrumentation when --async is enabled.
 
     This is called during profiler initialization. The actual enable/disable
