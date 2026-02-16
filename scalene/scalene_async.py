@@ -36,6 +36,7 @@ class ScaleneAsync:
 
     # Task ID -> suspended task info (for Strategy B / sys.monitoring)
     _suspended_tasks: dict[int, SuspendedTaskInfo] = {}
+    _MAX_SUSPENDED_TASKS = 10000  # Cap to prevent unbounded growth
 
     # Currently active task ID (for Strategy B)
     _active_task_id: int | None = None
@@ -268,6 +269,10 @@ class ScaleneAsync:
         lineno = code.co_firstlineno
         now_ns = time.monotonic_ns()
         task_name = task.get_name()
+        # Prune stale entries if dict grows too large (tasks that yielded
+        # but were cancelled/GC'd without resuming)
+        if len(cls._suspended_tasks) >= cls._MAX_SUSPENDED_TASKS:
+            cls._suspended_tasks.clear()
         cls._suspended_tasks[task_id] = SuspendedTaskInfo(
             filename, lineno, now_ns, task_name
         )

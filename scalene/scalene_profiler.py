@@ -1026,7 +1026,9 @@ class Scalene:
             if Scalene._should_trace(filename, ""):
                 stats.async_stats.async_await_samples[filename][lineno] += per_task_time
                 stats.async_stats.total_async_await_samples += per_task_time
-                stats.async_stats.async_task_names[filename][lineno].add(task_name)
+                task_names_set = stats.async_stats.async_task_names[filename][lineno]
+                if len(task_names_set) < 100:
+                    task_names_set.add(task_name)
                 # Track concurrency: how many tasks were suspended in this sample
                 stats.async_stats.async_concurrency[filename][lineno].push(num_suspended)
 
