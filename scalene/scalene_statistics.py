@@ -393,7 +393,7 @@ class AsyncStatistics:
         self.is_coroutine: dict[str, bool] = {}
 
         # Concurrency tracking: how many tasks were suspended at each sample
-        self.async_concurrency: dict[Any, dict[Any, "RunningStats"]] = defaultdict(
+        self.async_concurrency: dict[Any, dict[Any, RunningStats]] = defaultdict(
             lambda: defaultdict(RunningStats)
         )
 

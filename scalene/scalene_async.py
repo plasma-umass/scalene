@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import time
-from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
+from typing import Any, NamedTuple
 
 
 class SuspendedTaskInfo(NamedTuple):
@@ -35,13 +35,13 @@ class ScaleneAsync:
     _enabled: bool = False
 
     # Task ID -> suspended task info (for Strategy B / sys.monitoring)
-    _suspended_tasks: Dict[int, SuspendedTaskInfo] = {}
+    _suspended_tasks: dict[int, SuspendedTaskInfo] = {}
 
     # Currently active task ID (for Strategy B)
-    _active_task_id: Optional[int] = None
+    _active_task_id: int | None = None
 
     # Module names that indicate event loop internals
-    _EVENT_LOOP_MODULES: Set[str] = frozenset({  # type: ignore[assignment]
+    _EVENT_LOOP_MODULES: set[str] = frozenset({  # type: ignore[assignment]
         "asyncio.base_events",
         "asyncio.events",
         "asyncio.runners",
@@ -54,7 +54,7 @@ class ScaleneAsync:
     })
 
     # Function names within event loop modules that indicate idle/selecting
-    _EVENT_LOOP_FUNCTIONS: Set[str] = frozenset({  # type: ignore[assignment]
+    _EVENT_LOOP_FUNCTIONS: set[str] = frozenset({  # type: ignore[assignment]
         "_run_once",
         "select",
         "_poll",
@@ -103,7 +103,7 @@ class ScaleneAsync:
         return False
 
     @classmethod
-    def get_suspended_snapshot(cls) -> List[SuspendedTaskInfo]:
+    def get_suspended_snapshot(cls) -> list[SuspendedTaskInfo]:
         """Return a snapshot of currently suspended tasks.
 
         This is designed to be lightweight and safe to call from
@@ -117,7 +117,7 @@ class ScaleneAsync:
         return cls._poll_suspended_tasks()
 
     @classmethod
-    def _poll_suspended_tasks(cls) -> List[SuspendedTaskInfo]:
+    def _poll_suspended_tasks(cls) -> list[SuspendedTaskInfo]:
         """Strategy A: Poll asyncio.all_tasks() to find suspended coroutines.
 
         This is called from the signal queue processor (daemon thread),
@@ -125,7 +125,7 @@ class ScaleneAsync:
         tasks may have changed state, but over many samples this gives
         correct proportional attribution.
         """
-        result: List[SuspendedTaskInfo] = []
+        result: list[SuspendedTaskInfo] = []
         try:
             loop = asyncio.get_event_loop()
             if not loop.is_running():
@@ -157,14 +157,14 @@ class ScaleneAsync:
         return result
 
     @classmethod
-    def walk_await_chain(cls, coro: Any) -> List[Tuple[str, int, str]]:
+    def walk_await_chain(cls, coro: Any) -> list[tuple[str, int, str]]:
         """Walk the await chain of a coroutine.
 
         Returns a list of (filename, lineno, function_name) tuples
         representing the logical async call chain from outermost to innermost.
         """
-        chain: List[Tuple[str, int, str]] = []
-        visited: Set[int] = set()
+        chain: list[tuple[str, int, str]] = []
+        visited: set[int] = set()
         current = coro
         while current is not None:
             coro_id = id(current)
