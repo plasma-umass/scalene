@@ -45,6 +45,9 @@ jobs:
       if: matrix.os != 'windows-latest'
       run: python test/smoketest.py test/multiprocessing_test.py
 
+    - name: multiprocessing spawn pool smoke test
+      run: python test/smoketest.py test/pool_spawn_test.py --cpu-only
+
       # Note: test/smoketest.py only handles single JSON, rather than multiple in sequence.
     - name: profile-interval smoke test
       run: python -m scalene run --profile-interval=2 test/testme.py && python -m scalene view --cli
