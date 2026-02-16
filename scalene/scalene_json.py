@@ -56,6 +56,11 @@ class FunctionDetail(BaseModel):
     n_python_fraction: float = Field(..., ge=0, le=1)
     n_sys_percent: float = Field(..., ge=0, le=100)
     n_usage_fraction: float = Field(..., ge=0, le=1)
+    n_async_await_percent: float = Field(0, ge=0, le=100)
+    n_async_concurrency_mean: float = Field(0, ge=0)
+    n_async_concurrency_peak: float = Field(0, ge=0)
+    async_task_names: List[str] = Field(default_factory=list)
+    is_coroutine: StrictBool = False
 
     @model_validator(mode="after")
     def check_cpu_percentages(self) -> Any:
@@ -108,6 +113,7 @@ class FileDetail(BaseModel):
 class ScaleneJSONSchema(BaseModel):
     alloc_samples: NonNegativeInt
     args: Optional[List[str]] = None
+    async_profile: StrictBool = False
     elapsed_time_sec: NonNegativeFloat
     start_time_absolute: NonNegativeFloat
     start_time_perf: NonNegativeFloat
@@ -198,6 +204,7 @@ class ScaleneJSON:
         stats: ScaleneStatistics,
         profile_this_code: Callable[[Filename, LineNumber], bool],
         profile_memory: bool = False,
+        profile_async: bool = False,
         force_print: bool = False,
     ) -> Dict[str, Any]:
         """Print at most one line of the profile (true == printed one)."""
@@ -231,6 +238,11 @@ class ScaleneJSON:
                 "n_usage_fraction": 0,
                 "n_python_fraction": 0,
                 "n_copy_mb_s": 0,
+                "n_async_await_percent": 0,
+                "n_async_concurrency_mean": 0,
+                "n_async_concurrency_peak": 0,
+                "async_task_names": [],
+                "is_coroutine": False,
                 "memory_samples": [],
             }
 
@@ -338,6 +350,29 @@ class ScaleneJSON:
             stats.memory_stats.max_footprint,
         )
 
+        # Compute async await percentage and concurrency
+        n_async_await_percent = 0.0
+        n_async_concurrency_mean = 0.0
+        n_async_concurrency_peak = 0.0
+        async_task_names_list: list[str] = []
+        is_coroutine_fn = False
+        if profile_async and stats.async_stats.total_async_await_samples > 0:
+            n_async_await_samples = stats.async_stats.async_await_samples[fname][line_no]
+            n_async_await_percent = (
+                n_async_await_samples * 100 / stats.async_stats.total_async_await_samples
+            )
+            concurrency = stats.async_stats.async_concurrency[fname][line_no]
+            if concurrency.size() > 0:
+                n_async_concurrency_mean = concurrency.mean()
+                n_async_concurrency_peak = concurrency.peak()
+            task_names = stats.async_stats.async_task_names[fname][line_no]
+            if task_names:
+                async_task_names_list = sorted(task_names)
+        # Check if the function at this line is a coroutine
+        fn_name = stats.function_map.get(fname, {}).get(line_no, "")
+        if fn_name:
+            is_coroutine_fn = stats.async_stats.is_coroutine.get(str(fn_name), False)
+
         payload = {
             "line": line,
             "lineno": line_no,
@@ -360,6 +395,11 @@ class ScaleneJSON:
             "n_python_fraction": n_python_fraction,
             "n_sys_percent": n_sys_percent,
             "n_usage_fraction": n_usage_fraction,
+            "n_async_await_percent": n_async_await_percent,
+            "n_async_concurrency_mean": n_async_concurrency_mean,
+            "n_async_concurrency_peak": n_async_concurrency_peak,
+            "async_task_names": async_task_names_list,
+            "is_coroutine": is_coroutine_fn,
         }
         try:
             FunctionDetail(**payload)
@@ -380,6 +420,7 @@ class ScaleneJSON:
         program_args: Optional[List[str]],
         profile_memory: bool = True,
         reduced_profile: bool = False,
+        profile_async: bool = False,
     ) -> Dict[str, Any]:
         """Write the profile out."""
         # Get the children's stats, if any.
@@ -391,21 +432,23 @@ class ScaleneJSON:
             and not stats.memory_stats.total_memory_malloc_samples
             and not stats.memory_stats.total_memory_free_samples
             and not stats.gpu_stats.n_gpu_samples[program]
+            and not (profile_async and stats.async_stats.total_async_await_samples)
         ):
             # Nothing to output.
             return {}
         # Collect all instrumented filenames.
-        all_instrumented_files: List[Filename] = list(
-            set(
-                list(stats.cpu_stats.cpu_samples_python.keys())
-                + list(stats.cpu_stats.cpu_samples_c.keys())
-                + list(stats.cpu_stats.torch_cpu_time.keys())
-                + list(stats.cpu_stats.torch_gpu_time.keys())
-                + list(stats.memory_stats.memory_free_samples.keys())
-                + list(stats.memory_stats.memory_malloc_samples.keys())
-                + list(stats.gpu_stats.gpu_samples.keys())
-            )
+        file_keys = (
+            list(stats.cpu_stats.cpu_samples_python.keys())
+            + list(stats.cpu_stats.cpu_samples_c.keys())
+            + list(stats.cpu_stats.torch_cpu_time.keys())
+            + list(stats.cpu_stats.torch_gpu_time.keys())
+            + list(stats.memory_stats.memory_free_samples.keys())
+            + list(stats.memory_stats.memory_malloc_samples.keys())
+            + list(stats.gpu_stats.gpu_samples.keys())
         )
+        if profile_async:
+            file_keys += list(stats.async_stats.async_await_samples.keys())
+        all_instrumented_files: List[Filename] = list(set(file_keys))
         if not all_instrumented_files:
             # We didn't collect samples in source files.
             return {}
@@ -479,6 +522,7 @@ class ScaleneJSON:
             "gpu": self.gpu,
             "gpu_device": self.gpu_device,
             "memory": profile_memory,
+            "async_profile": profile_async,
             "samples": compressed_footprint_samples if profile_memory else [],
             "stacks": stks,
         }
@@ -624,6 +668,7 @@ class ScaleneJSON:
                     stats=stats,
                     profile_this_code=profile_this_code,
                     profile_memory=profile_memory,
+                    profile_async=profile_async,
                     force_print=False,
                 )
                 if profile_line:
@@ -699,6 +744,7 @@ class ScaleneJSON:
                         stats=fn_stats,
                         profile_this_code=profile_this_code,
                         profile_memory=profile_memory,
+                        profile_async=profile_async,
                         force_print=True,
                     )
                     if profile_line:

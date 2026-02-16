@@ -372,6 +372,40 @@ class GPUStatistics:
         self.total_gpu_samples = 0.0
 
 
+class AsyncStatistics:
+    """Statistics related to async/await profiling."""
+
+    def __init__(self) -> None:
+        # Samples where a coroutine was suspended at this line (await-time attribution)
+        self.async_await_samples: dict[Any, dict[Any, float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
+
+        # Total async await samples collected
+        self.total_async_await_samples: float = 0.0
+
+        # Map of (filename, lineno) -> set of task names seen suspended there
+        self.async_task_names: dict[Any, dict[Any, set[str]]] = defaultdict(
+            lambda: defaultdict(set)
+        )
+
+        # Whether each function is a coroutine (detected via CO_COROUTINE flag)
+        self.is_coroutine: dict[str, bool] = {}
+
+        # Concurrency tracking: how many tasks were suspended at each sample
+        self.async_concurrency: dict[Any, dict[Any, "RunningStats"]] = defaultdict(
+            lambda: defaultdict(RunningStats)
+        )
+
+    def clear(self) -> None:
+        """Reset all async statistics."""
+        self.async_await_samples.clear()
+        self.total_async_await_samples = 0.0
+        self.async_task_names.clear()
+        self.is_coroutine.clear()
+        self.async_concurrency.clear()
+
+
 class ScaleneStatistics:
     @classmethod
     def _get_payload_contents(cls) -> list[str]:
@@ -396,6 +430,12 @@ class ScaleneStatistics:
             if not attr.startswith("_") and not callable(getattr(gpu_stats, attr)):
                 contents.append(f"gpu_stats.{attr}")
 
+        # Async statistics
+        async_stats_obj = AsyncStatistics()
+        for attr in dir(async_stats_obj):
+            if not attr.startswith("_") and not callable(getattr(async_stats_obj, attr)):
+                contents.append(f"async_stats.{attr}")
+
         # General statistics (attributes directly on ScaleneStatistics)
         # Create a temporary instance to inspect attributes
         temp_stats = cls()
@@ -404,7 +444,7 @@ class ScaleneStatistics:
             if (
                 not attr.startswith("_")
                 and not callable(getattr(temp_stats, attr))
-                and not attr.startswith(("memory_stats", "cpu_stats", "gpu_stats"))
+                and not attr.startswith(("memory_stats", "cpu_stats", "gpu_stats", "async_stats"))
                 and attr not in ("start_time", "payload_contents")
             ):
                 contents.append(attr)
@@ -478,6 +518,7 @@ class ScaleneStatistics:
         self.cpu_stats = CPUStatistics()
         self.memory_stats = MemoryStatistics()
         self.gpu_stats = GPUStatistics()
+        self.async_stats = AsyncStatistics()
 
         # maps byte indices to line numbers (collected at runtime)
         # [filename][lineno] -> set(byteindex)
@@ -500,6 +541,7 @@ class ScaleneStatistics:
         self.cpu_stats.clear()
         self.memory_stats.clear()
         self.gpu_stats.clear()
+        self.async_stats.clear()
         self.bytei_map.clear()
 
     def clear_all(self) -> None:
@@ -528,6 +570,9 @@ class ScaleneStatistics:
         fn_stats.gpu_stats.n_gpu_samples = self.gpu_stats.n_gpu_samples
         fn_stats.memory_stats.total_memory_malloc_samples = (
             self.memory_stats.total_memory_malloc_samples
+        )
+        fn_stats.async_stats.total_async_await_samples = (
+            self.async_stats.total_async_await_samples
         )
         first_line_no = LineNumber(1)
         fn_stats.function_map = self.function_map
@@ -596,6 +641,21 @@ class ScaleneStatistics:
             fn_stats.memory_stats.memory_aggregate_footprint[fn_name][
                 first_line_no
             ] += self.memory_stats.memory_aggregate_footprint[filename][line_no]
+            # Async await samples
+            fn_stats.async_stats.async_await_samples[fn_name][
+                first_line_no
+            ] += self.async_stats.async_await_samples[filename][line_no]
+            # Async concurrency
+            concurrency = self.async_stats.async_concurrency[filename][line_no]
+            if concurrency.size() > 0:
+                fn_stats.async_stats.async_concurrency[fn_name][first_line_no] = (
+                    fn_stats.async_stats.async_concurrency[fn_name][first_line_no]
+                    + concurrency
+                )
+            # Async task names
+            task_names = self.async_stats.async_task_names[filename][line_no]
+            if task_names:
+                fn_stats.async_stats.async_task_names[fn_name][first_line_no].update(task_names)
 
         return fn_stats
 
@@ -765,6 +825,22 @@ class ScaleneStatistics:
                 self.memory_stats.memory_footprint_samples += (
                     x.memory_stats.memory_footprint_samples
                 )
+
+                # Merge async stats
+                self.increment_per_line_samples(
+                    self.async_stats.async_await_samples,
+                    x.async_stats.async_await_samples,
+                )
+                self.async_stats.total_async_await_samples += (
+                    x.async_stats.total_async_await_samples
+                )
+                # Merge async concurrency stats
+                for fname in x.async_stats.async_concurrency:
+                    for lineno in x.async_stats.async_concurrency[fname]:
+                        self.async_stats.async_concurrency[fname][lineno] = (
+                            self.async_stats.async_concurrency[fname][lineno]
+                            + x.async_stats.async_concurrency[fname][lineno]
+                        )
 
                 # Restore careful function_map handling
                 for k, val in x.function_map.items():

@@ -74,6 +74,7 @@ from scalene.get_module_details import _get_module_details
 from scalene.redirect_python import redirect_python
 from scalene.scalene_accelerator import ScaleneAccelerator
 from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_async import ScaleneAsync
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_cpu_profiler import ScaleneCPUProfiler
 from scalene.scalene_funcutils import ScaleneFuncUtils
@@ -251,9 +252,10 @@ class Scalene:
 
     child_pids: set[int] = set()  # Needs to be unmangled to be accessed by shims
 
-    # Signal queues for allocations and memcpy
+    # Signal queues for allocations, memcpy, and async
     __alloc_sigq: ScaleneSigQueue[Any]
     __memcpy_sigq: ScaleneSigQueue[Any]
+    __async_sigq: ScaleneSigQueue[Any]
     __sigqueues: list[ScaleneSigQueue[Any]]
 
     client_timer: ScaleneClientTimer = ScaleneClientTimer()
@@ -291,16 +293,21 @@ class Scalene:
             import scalene.replacement_fork
             import scalene.replacement_poll_selector  # noqa: F401
 
+        import scalene.replacement_asyncio  # noqa: F401
+
         Scalene.__args = ScaleneArguments(**vars(arguments))
         Scalene.__alloc_sigq = ScaleneSigQueue(Scalene._alloc_sigqueue_processor)
         Scalene.__memcpy_sigq = ScaleneSigQueue(Scalene._memcpy_sigqueue_processor)
+        Scalene.__async_sigq = ScaleneSigQueue(Scalene._async_sigqueue_processor)
         Scalene.__sigqueues = [
             Scalene.__alloc_sigq,
             Scalene.__memcpy_sigq,
+            Scalene.__async_sigq,
         ]
         # Add signal queues to the signal manager
         Scalene.__signal_manager.add_signal_queue(Scalene.__alloc_sigq)
         Scalene.__signal_manager.add_signal_queue(Scalene.__memcpy_sigq)
+        Scalene.__signal_manager.add_signal_queue(Scalene.__async_sigq)
         Scalene.__invalidate_mutex = Scalene.get_original_lock()
 
         Scalene.__windows_queue = queue.Queue()
@@ -760,6 +767,19 @@ class Scalene:
             if Scalene.__torch_profiler is not None:
                 Scalene.__torch_profiler.step()
 
+            # Async profiling: when the main thread is in the event loop,
+            # snapshot suspended coroutines for await-time attribution.
+            # Use this_frame (the raw signal handler frame) since
+            # compute_frames_to_record filters out non-user frames,
+            # and the event loop frames (selectors, asyncio) are
+            # exactly the ones we need to detect.
+            if Scalene.__args.async_profile and ScaleneAsync._enabled:
+                check_frame = this_frame
+                if check_frame is not None and ScaleneAsync.is_in_event_loop(check_frame):
+                    suspended = ScaleneAsync.get_suspended_snapshot()
+                    if suspended:
+                        Scalene.__async_sigq.put((suspended,))
+
             elapsed = now.wallclock - Scalene.__last_signal_time.wallclock
             # Store the latest values as the previously recorded values.
             Scalene.__last_signal_time = now
@@ -802,6 +822,7 @@ class Scalene:
                 program_args,
                 profile_memory=Scalene.__args.memory,
                 reduced_profile=Scalene.__args.reduced_profile,
+                profile_async=Scalene.__args.async_profile,
             )
             # Since the default value returned for "there are no samples"
             # is `{}`, we use a sentinel value `{"is_child": True}`
@@ -859,6 +880,7 @@ class Scalene:
                 Scalene.__program_path,
                 program_args,
                 profile_memory=Scalene.__args.memory,
+                profile_async=Scalene.__args.async_profile,
                 reduced_profile=Scalene.__args.reduced_profile,
             )
             return did_output
@@ -980,6 +1002,35 @@ class Scalene:
             Scalene.__memory_profiler.process_memcpy_samples()
 
     @staticmethod
+    def _async_sigqueue_processor(
+        suspended_tasks: list[Any],
+    ) -> None:
+        """Process async await samples from the signal queue.
+
+        Distributes the CPU sample interval proportionally across
+        all currently-suspended coroutines. Over many samples, each
+        await line gets credit proportional to its actual wait time.
+        """
+        if not suspended_tasks:
+            return
+        interval = Scalene.__last_cpu_interval
+        if interval <= 0:
+            return
+        num_suspended = len(suspended_tasks)
+        per_task_time = interval / num_suspended
+        stats = Scalene.__stats
+        for task_info in suspended_tasks:
+            filename = Filename(task_info.filename)
+            lineno = LineNumber(task_info.lineno)
+            task_name = task_info.task_name
+            if Scalene._should_trace(filename, ""):
+                stats.async_stats.async_await_samples[filename][lineno] += per_task_time
+                stats.async_stats.total_async_await_samples += per_task_time
+                stats.async_stats.async_task_names[filename][lineno].add(task_name)
+                # Track concurrency: how many tasks were suspended in this sample
+                stats.async_stats.async_concurrency[filename][lineno].push(num_suspended)
+
+    @staticmethod
     def _should_trace(filename: Filename, func: str) -> bool:
         """Return true if we should trace this filename and function.
 
@@ -1015,9 +1066,17 @@ class Scalene:
 
             pywhere.set_scalene_done_false()
 
+        # Enable async profiling if requested
+        if Scalene.__args.async_profile:
+            ScaleneAsync.enable()
+
     @staticmethod
     def stop() -> None:
         """Complete profiling."""
+        # Disable async profiling
+        if Scalene.__args.async_profile:
+            ScaleneAsync.disable()
+
         if Scalene.__args.memory:
             from scalene import pywhere  # type: ignore
 
