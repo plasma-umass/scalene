@@ -378,6 +378,13 @@ class Scalene:
                 and not getattr(Scalene.__args, "gpu", False)
             ):
                 cmdline += " --cpu-only"
+            # Add the --program-path so children know which files to profile.
+            if Scalene.__program_path:
+                path_str = str(Scalene.__program_path)
+                if sys.platform == "win32":
+                    cmdline += f' --program-path="{path_str}"'
+                else:
+                    cmdline += f" --program-path='{path_str}'"
             # Add the --pid field so we can propagate it to the child.
             cmdline += f" --pid={os.getpid()} ---"
             # Build the commands to pass along other arguments
@@ -1555,10 +1562,12 @@ class Scalene:
         Scalene.__stats.clear_all()
         sys.argv = left
         with contextlib.suppress(Exception):
-            # Only set start method to fork if one hasn't been set yet
-            # This respects user's choice (e.g., spawn on macOS)
+            # Only set start method to fork if one hasn't been set yet.
+            # This respects user's choice (e.g., spawn on macOS).
+            # On Windows, fork is not available; leave the default (spawn).
             if (
                 not is_jupyter
+                and sys.platform != "win32"
                 and multiprocessing.get_start_method(allow_none=True) is None
             ):
                 multiprocessing.set_start_method("fork")
@@ -1577,12 +1586,44 @@ class Scalene:
                     # This is important for multiprocessing spawn mode, which checks
                     # sys.argv[1] == '--multiprocessing-fork'
                     sys.argv = [sys.argv[0]] + sys.argv[2:]
-                    try:
-                        exec(code_to_exec)
-                    except SyntaxError:
-                        traceback.print_exc()
-                        sys.exit(1)
-                    sys.exit(0)
+                    if Scalene.__is_child:
+                        # Child process (e.g., multiprocessing worker): profile the code.
+                        # Set program path so _should_trace knows which files to profile.
+                        if Scalene.__args.program_path:
+                            Scalene.__program_path = Filename(
+                                os.path.abspath(Scalene.__args.program_path)
+                            )
+                        import __main__
+
+                        the_locals = __main__.__dict__
+                        the_globals = __main__.__dict__
+                        the_globals["__file__"] = "-c"
+                        the_globals["__spec__"] = None
+                        child_code: Any = ""
+                        try:
+                            child_code = compile(code_to_exec, "-c", "exec")
+                        except SyntaxError:
+                            traceback.print_exc()
+                            sys.exit(1)
+                        gc.collect()
+                        profiler = Scalene(args, Filename("-c"))
+                        try:
+                            exit_status = profiler.profile_code(
+                                child_code, the_locals, the_globals, left
+                            )
+                            sys.exit(exit_status)
+                        except Exception as ex:
+                            template = "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
+                            message = template.format(type(ex).__name__, ex.args)
+                            print(message, file=sys.stderr)
+                            sys.exit(1)
+                    else:
+                        try:
+                            exec(code_to_exec)
+                        except SyntaxError:
+                            traceback.print_exc()
+                            sys.exit(1)
+                        sys.exit(0)
 
                 if len(sys.argv) >= 2 and sys.argv[0] == "-m":
                     module = True

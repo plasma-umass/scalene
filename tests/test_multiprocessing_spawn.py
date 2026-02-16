@@ -15,12 +15,6 @@ import sys
 
 import pytest
 
-# Skip on Windows where multiprocessing has different behavior
-pytestmark = pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="Multiprocessing spawn tests not applicable on Windows",
-)
-
 
 class TestReplacementSemLockPickling:
     """Test that ReplacementSemLock can be pickled for spawn mode."""
@@ -54,6 +48,7 @@ class TestReplacementSemLockPickling:
         assert len(reduced[1]) == 1
         assert reduced[1][0] == "spawn"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fork not available on Windows")
     def test_semlock_reduce_with_fork_context(self):
         """Test that __reduce__ works with fork context too."""
         from scalene.replacement_sem_lock import ReplacementSemLock
@@ -81,6 +76,7 @@ class TestGetContextReplacement:
         ctx = multiprocessing.get_context("spawn")
         assert ctx._name == "spawn"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fork not available on Windows")
     def test_get_context_respects_fork(self):
         """Test that get_context returns fork context when requested."""
         ctx = multiprocessing.get_context("fork")
@@ -111,6 +107,7 @@ class TestSpawnModeIntegration:
         with lock:
             pass  # Should not deadlock
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fork not available on Windows")
     def test_lock_pickle_with_different_contexts(self):
         """Test that locks can be pickled regardless of context type."""
         from scalene.replacement_sem_lock import ReplacementSemLock
