@@ -244,6 +244,7 @@ class ScaleneAsync:
             )
             monitoring.free_tool_id(tool_id)
         except (ValueError, AttributeError):
+            # Best-effort cleanup: tool ID may already be freed or monitoring unavailable.
             pass
 
     @classmethod
