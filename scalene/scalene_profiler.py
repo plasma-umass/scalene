@@ -1667,9 +1667,7 @@ class Scalene:
                             try:
                                 exec(compile(code_to_exec, "-c", "exec"))
                             except SystemExit as se:
-                                sys.exit(
-                                    se.code if isinstance(se.code, int) else 1
-                                )
+                                sys.exit(se.code if isinstance(se.code, int) else 1)
                             except Exception:
                                 traceback.print_exc()
                                 sys.exit(1)
