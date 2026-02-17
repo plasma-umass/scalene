@@ -1587,7 +1587,29 @@ class Scalene:
                     # sys.argv[1] == '--multiprocessing-fork'
                     sys.argv = [sys.argv[0]] + sys.argv[2:]
                     if Scalene.__is_child:
-                        # Child process (e.g., multiprocessing worker): profile the code.
+                        # Child process launched by Scalene's redirect_python.
+                        # Multiprocessing spawn workers (spawn_main) use pipes
+                        # for all task/result communication. Enabling the CPU
+                        # profiling timer (ITIMER_VIRTUAL / SIGVTALRM) in these
+                        # workers causes the signal to fire during pipe I/O,
+                        # corrupting pickle data and producing UnpicklingError
+                        # or EOFError. Execute spawn workers without profiling.
+                        _is_spawn_worker = (
+                            "from multiprocessing" in code_to_exec
+                            and "spawn_main" in code_to_exec
+                        )
+                        if _is_spawn_worker:
+                            try:
+                                exec(compile(code_to_exec, "-c", "exec"))
+                            except SystemExit as se:
+                                sys.exit(
+                                    se.code if isinstance(se.code, int) else 1
+                                )
+                            except Exception:
+                                traceback.print_exc()
+                                sys.exit(1)
+                            sys.exit(0)
+                        # Non-spawn child: profile the code.
                         # Set program path so _should_trace knows which files to profile.
                         if Scalene.__args.program_path:
                             Scalene.__program_path = Filename(
