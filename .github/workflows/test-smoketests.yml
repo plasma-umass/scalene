@@ -46,17 +46,12 @@ jobs:
       run: python test/smoketest.py test/multiprocessing_test.py
 
     # NOTE: This test verifies that spawn-mode Pool.map completes under
-    # Scalene without hanging (regression test for #998). We don't use
-    # smoketest.py because profiling spawn workers can intermittently
-    # produce pickle errors on Linux CI due to signal/pipe interactions.
-    # Allow exit code 1 (memoryview cleanup warning on Windows) but
-    # fail on crashes (exit code > 1). Use shell: bash for consistency.
+    # Scalene without hanging (regression test for #998). Uses a wrapper
+    # script with subprocess timeout because the multiprocessing resource
+    # tracker can hang during cleanup on some platforms.
     - name: multiprocessing spawn pool smoke test
-      shell: bash
-      run: |
-        python -m scalene run --cpu-only test/pool_spawn_test.py; rc=$?
-        if [ $rc -gt 1 ]; then exit $rc; fi
-      timeout-minutes: 3
+      run: python test/smoketest_pool_spawn.py
+      timeout-minutes: 5
 
       # Note: test/smoketest.py only handles single JSON, rather than multiple in sequence.
     - name: profile-interval smoke test
