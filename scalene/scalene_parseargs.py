@@ -377,7 +377,13 @@ class ScaleneParseArgs:
             dest="async_profile",
             action="store_true",
             default=defaults.async_profile,
-            help="profile async/await time" if show_advanced else advanced_help,
+            help="profile async/await time (default: on)" if show_advanced else advanced_help,
+        )
+        parser.add_argument(
+            "--no-async",
+            dest="async_profile",
+            action="store_false",
+            help="disable async/await profiling" if show_advanced else advanced_help,
         )
         parser.add_argument(
             "--profile-interval",

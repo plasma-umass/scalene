@@ -86,7 +86,7 @@ def _set_defaults() -> ScaleneArgumentsDict:
         "use_legacy_tracer": False,
         "use_python_callback": False,
         "disable_jit": False,
-        "async_profile": False,
+        "async_profile": True,
     }
 
 
