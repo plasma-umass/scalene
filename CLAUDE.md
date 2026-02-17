@@ -608,3 +608,11 @@ This breaks `std::vsnprintf` in `<string>` and other headers. **Fix:** Include C
 ## Profiling Guide
 
 See [Scalene-Agents.md](Scalene-Agents.md) for detailed information about interpreting Scalene's profiling output, including Python vs C time, memory metrics, and optimization strategies.
+
+## Debugging Guide
+
+See [Scalene-Debugging.md](Scalene-Debugging.md) for signal handler debugging, async profiling debugging, the profile output pipeline (three separate renderers!), and unbounded growth prevention patterns.
+
+## GUI Development Guide
+
+See [Scalene-GUI.md](Scalene-GUI.md) for adding new columns, Vega-Lite chart types, pie chart best practices (two-wedge rendering, rotating pies), and the chart rendering flow.
