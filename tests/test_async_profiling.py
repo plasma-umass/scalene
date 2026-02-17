@@ -283,6 +283,7 @@ class TestPollingStrategy:
             try:
                 await task
             except asyncio.CancelledError:
+                # Expected: the task was explicitly cancelled as part of this test.
                 pass
 
         asyncio.run(runner())
