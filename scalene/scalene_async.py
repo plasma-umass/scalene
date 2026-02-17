@@ -42,26 +42,30 @@ class ScaleneAsync:
     _active_task_id: int | None = None
 
     # Module names that indicate event loop internals
-    _EVENT_LOOP_MODULES: set[str] = frozenset({  # type: ignore[assignment]
-        "asyncio.base_events",
-        "asyncio.events",
-        "asyncio.runners",
-        "asyncio.selector_events",
-        "asyncio.proactor_events",
-        "asyncio.unix_events",
-        "asyncio.windows_events",
-        "selectors",
-        "_selector",
-    })
+    _EVENT_LOOP_MODULES: set[str] = frozenset(
+        {  # type: ignore[assignment]
+            "asyncio.base_events",
+            "asyncio.events",
+            "asyncio.runners",
+            "asyncio.selector_events",
+            "asyncio.proactor_events",
+            "asyncio.unix_events",
+            "asyncio.windows_events",
+            "selectors",
+            "_selector",
+        }
+    )
 
     # Function names within event loop modules that indicate idle/selecting
-    _EVENT_LOOP_FUNCTIONS: set[str] = frozenset({  # type: ignore[assignment]
-        "_run_once",
-        "select",
-        "_poll",
-        "run_forever",
-        "run_until_complete",
-    })
+    _EVENT_LOOP_FUNCTIONS: set[str] = frozenset(
+        {  # type: ignore[assignment]
+            "_run_once",
+            "select",
+            "_poll",
+            "run_forever",
+            "run_until_complete",
+        }
+    )
 
     @classmethod
     def enable(cls) -> None:
@@ -152,7 +156,11 @@ class ScaleneAsync:
                 # Coroutine is currently executing (not suspended) or finished
                 continue
             filename = cr_frame.f_code.co_filename
-            lineno = cr_frame.f_lineno if cr_frame.f_lineno is not None else cr_frame.f_code.co_firstlineno
+            lineno = (
+                cr_frame.f_lineno
+                if cr_frame.f_lineno is not None
+                else cr_frame.f_code.co_firstlineno
+            )
             task_name = task.get_name()
             result.append(SuspendedTaskInfo(filename, lineno, now_ns, task_name))
         return result
@@ -176,7 +184,11 @@ class ScaleneAsync:
             cr_frame = getattr(current, "cr_frame", None)
             if cr_frame is not None:
                 filename = cr_frame.f_code.co_filename
-                lineno = cr_frame.f_lineno if cr_frame.f_lineno is not None else cr_frame.f_code.co_firstlineno
+                lineno = (
+                    cr_frame.f_lineno
+                    if cr_frame.f_lineno is not None
+                    else cr_frame.f_code.co_firstlineno
+                )
                 func_name = cr_frame.f_code.co_name
                 chain.append((filename, lineno, func_name))
 

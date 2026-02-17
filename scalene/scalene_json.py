@@ -357,9 +357,13 @@ class ScaleneJSON:
         async_task_names_list: list[str] = []
         is_coroutine_fn = False
         if profile_async and stats.async_stats.total_async_await_samples > 0:
-            n_async_await_samples = stats.async_stats.async_await_samples[fname][line_no]
+            n_async_await_samples = stats.async_stats.async_await_samples[fname][
+                line_no
+            ]
             n_async_await_percent = (
-                n_async_await_samples * 100 / stats.async_stats.total_async_await_samples
+                n_async_await_samples
+                * 100
+                / stats.async_stats.total_async_await_samples
             )
             concurrency = stats.async_stats.async_concurrency[fname][line_no]
             if concurrency.size() > 0:

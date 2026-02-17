@@ -775,7 +775,9 @@ class Scalene:
             # exactly the ones we need to detect.
             if Scalene.__args.async_profile and ScaleneAsync._enabled:
                 check_frame = this_frame
-                if check_frame is not None and ScaleneAsync.is_in_event_loop(check_frame):
+                if check_frame is not None and ScaleneAsync.is_in_event_loop(
+                    check_frame
+                ):
                     suspended = ScaleneAsync.get_suspended_snapshot()
                     if suspended:
                         Scalene.__async_sigq.put((suspended,))
@@ -1030,7 +1032,9 @@ class Scalene:
                 if len(task_names_set) < 100:
                     task_names_set.add(task_name)
                 # Track concurrency: how many tasks were suspended in this sample
-                stats.async_stats.async_concurrency[filename][lineno].push(num_suspended)
+                stats.async_stats.async_concurrency[filename][lineno].push(
+                    num_suspended
+                )
 
     @staticmethod
     def _should_trace(filename: Filename, func: str) -> bool:

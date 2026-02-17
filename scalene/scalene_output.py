@@ -238,7 +238,9 @@ class ScaleneOutput:
                 row.append(n_async_await_str)
             if self.gpu:
                 row.append(ngpus)
-            row.extend([n_python_fraction_str, n_growth_mem_str, nufs, n_copy_mb_s_str, line])
+            row.extend(
+                [n_python_fraction_str, n_growth_mem_str, nufs, n_copy_mb_s_str, line]
+            )
             tbl.add_row(*row)
         else:
 
@@ -488,9 +490,13 @@ class ScaleneOutput:
                     no_wrap=True,
                     width=6,
                 )
-                other_columns_width = 75 + (6 if self.gpu else 0) + (6 if profile_async else 0)
+                other_columns_width = (
+                    75 + (6 if self.gpu else 0) + (6 if profile_async else 0)
+                )
             else:
-                other_columns_width = 37 + (5 if self.gpu else 0) + (6 if profile_async else 0)
+                other_columns_width = (
+                    37 + (5 if self.gpu else 0) + (6 if profile_async else 0)
+                )
             tbl.add_column(
                 "\n" + fname_print,
                 width=column_width - other_columns_width,

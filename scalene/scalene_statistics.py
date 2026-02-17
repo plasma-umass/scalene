@@ -433,7 +433,9 @@ class ScaleneStatistics:
         # Async statistics
         async_stats_obj = AsyncStatistics()
         for attr in dir(async_stats_obj):
-            if not attr.startswith("_") and not callable(getattr(async_stats_obj, attr)):
+            if not attr.startswith("_") and not callable(
+                getattr(async_stats_obj, attr)
+            ):
                 contents.append(f"async_stats.{attr}")
 
         # General statistics (attributes directly on ScaleneStatistics)
@@ -444,7 +446,9 @@ class ScaleneStatistics:
             if (
                 not attr.startswith("_")
                 and not callable(getattr(temp_stats, attr))
-                and not attr.startswith(("memory_stats", "cpu_stats", "gpu_stats", "async_stats"))
+                and not attr.startswith(
+                    ("memory_stats", "cpu_stats", "gpu_stats", "async_stats")
+                )
                 and attr not in ("start_time", "payload_contents")
             ):
                 contents.append(attr)
@@ -655,7 +659,9 @@ class ScaleneStatistics:
             # Async task names
             task_names = self.async_stats.async_task_names[filename][line_no]
             if task_names:
-                fn_stats.async_stats.async_task_names[fn_name][first_line_no].update(task_names)
+                fn_stats.async_stats.async_task_names[fn_name][first_line_no].update(
+                    task_names
+                )
 
         return fn_stats
 

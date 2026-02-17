@@ -377,7 +377,11 @@ class ScaleneParseArgs:
             dest="async_profile",
             action="store_true",
             default=defaults.async_profile,
-            help="profile async/await time (default: on)" if show_advanced else advanced_help,
+            help=(
+                "profile async/await time (default: on)"
+                if show_advanced
+                else advanced_help
+            ),
         )
         parser.add_argument(
             "--no-async",
@@ -900,8 +904,10 @@ class ScaleneParseArgs:
                 fn_with_activity = [
                     f
                     for f in functions
-                    if f.get("n_cpu_percent_python", 0) + f.get("n_cpu_percent_c", 0)
-                    + f.get("n_async_await_percent", 0) > 0
+                    if f.get("n_cpu_percent_python", 0)
+                    + f.get("n_cpu_percent_c", 0)
+                    + f.get("n_async_await_percent", 0)
+                    > 0
                 ]
                 if fn_with_activity:
                     console.print("\n[bold]Function summaries:[/bold]")
