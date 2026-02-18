@@ -274,6 +274,19 @@ class Scalene:
         arguments: argparse.Namespace,
         program_being_profiled: Filename | None = None,
     ) -> None:
+        # Suppress BufferError during BytesIO cleanup. On Python 3.13+,
+        # multiprocessing's internal BytesIO objects can have active
+        # memoryview exports at shutdown, producing harmless but noisy
+        # "Exception ignored" messages on stderr.
+        _orig_unraisablehook = sys.unraisablehook
+
+        def _suppress_buffer_error(args: Any) -> None:
+            if args.exc_type is BufferError:
+                return
+            _orig_unraisablehook(args)
+
+        sys.unraisablehook = _suppress_buffer_error
+
         # Wrap all os calls so that they disable SIGALRM (the signal used for CPU sampling).
         # This fixes https://github.com/plasma-umass/scalene/issues/841.
         if sys.platform != "win32":
