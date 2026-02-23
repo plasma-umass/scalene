@@ -82,6 +82,9 @@ class ScaleneOutput:
                 console.print(Markdown(output_str, style=self.memory_color))
                 number += 1
 
+    # Color for async await time
+    async_color = "cyan"
+
     def output_profile_line(
         self,
         json: ScaleneJSON,
@@ -96,6 +99,7 @@ class ScaleneOutput:
         suppress_lineno_print: bool = False,
         is_function_summary: bool = False,
         profile_memory: bool = False,
+        profile_async: bool = False,
         reduced_profile: bool = False,
     ) -> bool:
         """Print at most one line of the profile (true == printed one)."""
@@ -146,6 +150,12 @@ class ScaleneOutput:
         sys_str: str = (
             "" if obj["n_sys_percent"] < 1 else f"{obj['n_sys_percent']:4.0f}%"
         )
+
+        # Async await time
+        n_async_await_str: str = ""
+        if profile_async:
+            await_pct = obj.get("n_async_await_percent", 0)
+            n_async_await_str = "" if await_pct < 1 else f"{await_pct:5.0f}%"
         if not is_function_summary:
             print_line_no = "" if suppress_lineno_print else str(line_no)
         else:
@@ -222,31 +232,16 @@ class ScaleneOutput:
                 "" if obj["n_copy_mb_s"] < 0.5 else f"{obj['n_copy_mb_s']:6.0f}"
             )
 
+            # Build the row entries list for flexible column insertion
+            row: list[Any] = [print_line_no, ncpps, ncpcs, sys_str]
+            if profile_async:
+                row.append(n_async_await_str)
             if self.gpu:
-                tbl.add_row(
-                    print_line_no,
-                    ncpps,  # n_cpu_percent_python_str,
-                    ncpcs,  # n_cpu_percent_c_str,
-                    sys_str,
-                    ngpus,
-                    n_python_fraction_str,
-                    n_growth_mem_str,
-                    nufs,  # spark_str + n_usage_fraction_str,
-                    n_copy_mb_s_str,
-                    line,
-                )
-            else:
-                tbl.add_row(
-                    print_line_no,
-                    ncpps,  # n_cpu_percent_python_str,
-                    ncpcs,  # n_cpu_percent_c_str,
-                    sys_str,
-                    n_python_fraction_str,
-                    n_growth_mem_str,
-                    nufs,  # spark_str + n_usage_fraction_str,
-                    n_copy_mb_s_str,
-                    line,
-                )
+                row.append(ngpus)
+            row.extend(
+                [n_python_fraction_str, n_growth_mem_str, nufs, n_copy_mb_s_str, line]
+            )
+            tbl.add_row(*row)
         else:
 
             # Red highlight
@@ -269,23 +264,13 @@ class ScaleneOutput:
             if reduced_profile and not ncpps + ncpcs + ngpus + nsys:
                 return False
 
+            row = [print_line_no, ncpps, ncpcs, sys_str]
+            if profile_async:
+                row.append(n_async_await_str)
             if self.gpu:
-                tbl.add_row(
-                    print_line_no,
-                    ncpps,  # n_cpu_percent_python_str,
-                    ncpcs,  # n_cpu_percent_c_str,
-                    sys_str,
-                    ngpus,  # n_gpu_percent_str
-                    line,
-                )
-            else:
-                tbl.add_row(
-                    print_line_no,
-                    ncpps,  # n_cpu_percent_python_str,
-                    ncpcs,  # n_cpu_percent_c_str,
-                    sys_str,
-                    line,
-                )
+                row.append(ngpus)
+            row.append(line)
+            tbl.add_row(*row)
 
         return True
 
@@ -299,6 +284,7 @@ class ScaleneOutput:
         program_path: Filename,
         program_args: Optional[List[str]],
         profile_memory: bool = True,
+        profile_async: bool = False,
         reduced_profile: bool = False,
     ) -> bool:
         """Write the profile out."""
@@ -462,6 +448,13 @@ class ScaleneOutput:
                 no_wrap=True,
                 width=6,
             )
+            if profile_async:
+                tbl.add_column(
+                    Markdown("––––––  \n_await_", style=self.async_color),
+                    style=self.async_color,
+                    no_wrap=True,
+                    width=6,
+                )
             if self.gpu:
                 tbl.add_column(
                     Markdown("––––––  \n_GPU_", style=self.gpu_color),
@@ -497,9 +490,13 @@ class ScaleneOutput:
                     no_wrap=True,
                     width=6,
                 )
-                other_columns_width = 75 + (6 if self.gpu else 0)
+                other_columns_width = (
+                    75 + (6 if self.gpu else 0) + (6 if profile_async else 0)
+                )
             else:
-                other_columns_width = 37 + (5 if self.gpu else 0)
+                other_columns_width = (
+                    37 + (5 if self.gpu else 0) + (6 if profile_async else 0)
+                )
             tbl.add_column(
                 "\n" + fname_print,
                 width=column_width - other_columns_width,
@@ -559,6 +556,7 @@ class ScaleneOutput:
                     stats=stats,
                     profile_this_code=profile_this_code,
                     profile_memory=profile_memory,
+                    profile_async=profile_async,
                     force_print=False,
                     suppress_lineno_print=False,
                     is_function_summary=False,
@@ -626,6 +624,7 @@ class ScaleneOutput:
                         stats=fn_stats,
                         profile_this_code=profile_this_code,
                         profile_memory=profile_memory,
+                        profile_async=profile_async,
                         force_print=True,
                         suppress_lineno_print=True,
                         is_function_summary=True,

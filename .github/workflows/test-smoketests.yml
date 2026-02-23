@@ -45,6 +45,14 @@ jobs:
       if: matrix.os != 'windows-latest'
       run: python test/smoketest.py test/multiprocessing_test.py
 
+    # NOTE: This test verifies that spawn-mode Pool.map completes under
+    # Scalene without hanging (regression test for #998). Uses a wrapper
+    # script with subprocess timeout because the multiprocessing resource
+    # tracker can hang during cleanup on some platforms.
+    - name: multiprocessing spawn pool smoke test
+      run: python test/smoketest_pool_spawn.py
+      timeout-minutes: 5
+
       # Note: test/smoketest.py only handles single JSON, rather than multiple in sequence.
     - name: profile-interval smoke test
       run: python -m scalene run --profile-interval=2 test/testme.py && python -m scalene view --cli

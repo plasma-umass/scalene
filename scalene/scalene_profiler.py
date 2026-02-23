@@ -74,6 +74,7 @@ from scalene.get_module_details import _get_module_details
 from scalene.redirect_python import redirect_python
 from scalene.scalene_accelerator import ScaleneAccelerator
 from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_async import ScaleneAsync
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_cpu_profiler import ScaleneCPUProfiler
 from scalene.scalene_funcutils import ScaleneFuncUtils
@@ -251,9 +252,10 @@ class Scalene:
 
     child_pids: set[int] = set()  # Needs to be unmangled to be accessed by shims
 
-    # Signal queues for allocations and memcpy
+    # Signal queues for allocations, memcpy, and async
     __alloc_sigq: ScaleneSigQueue[Any]
     __memcpy_sigq: ScaleneSigQueue[Any]
+    __async_sigq: ScaleneSigQueue[Any]
     __sigqueues: list[ScaleneSigQueue[Any]]
 
     client_timer: ScaleneClientTimer = ScaleneClientTimer()
@@ -272,6 +274,19 @@ class Scalene:
         arguments: argparse.Namespace,
         program_being_profiled: Filename | None = None,
     ) -> None:
+        # Suppress BufferError during BytesIO cleanup. On Python 3.13+,
+        # multiprocessing's internal BytesIO objects can have active
+        # memoryview exports at shutdown, producing harmless but noisy
+        # "Exception ignored" messages on stderr.
+        _orig_unraisablehook = sys.unraisablehook
+
+        def _suppress_buffer_error(args: Any) -> None:
+            if args.exc_type is BufferError:
+                return
+            _orig_unraisablehook(args)
+
+        sys.unraisablehook = _suppress_buffer_error
+
         # Wrap all os calls so that they disable SIGALRM (the signal used for CPU sampling).
         # This fixes https://github.com/plasma-umass/scalene/issues/841.
         if sys.platform != "win32":
@@ -291,16 +306,21 @@ class Scalene:
             import scalene.replacement_fork
             import scalene.replacement_poll_selector  # noqa: F401
 
+        import scalene.replacement_asyncio  # noqa: F401
+
         Scalene.__args = ScaleneArguments(**vars(arguments))
         Scalene.__alloc_sigq = ScaleneSigQueue(Scalene._alloc_sigqueue_processor)
         Scalene.__memcpy_sigq = ScaleneSigQueue(Scalene._memcpy_sigqueue_processor)
+        Scalene.__async_sigq = ScaleneSigQueue(Scalene._async_sigqueue_processor)
         Scalene.__sigqueues = [
             Scalene.__alloc_sigq,
             Scalene.__memcpy_sigq,
+            Scalene.__async_sigq,
         ]
         # Add signal queues to the signal manager
         Scalene.__signal_manager.add_signal_queue(Scalene.__alloc_sigq)
         Scalene.__signal_manager.add_signal_queue(Scalene.__memcpy_sigq)
+        Scalene.__signal_manager.add_signal_queue(Scalene.__async_sigq)
         Scalene.__invalidate_mutex = Scalene.get_original_lock()
 
         Scalene.__windows_queue = queue.Queue()
@@ -378,6 +398,13 @@ class Scalene:
                 and not getattr(Scalene.__args, "gpu", False)
             ):
                 cmdline += " --cpu-only"
+            # Add the --program-path so children know which files to profile.
+            if Scalene.__program_path:
+                path_str = str(Scalene.__program_path)
+                if sys.platform == "win32":
+                    cmdline += f' --program-path="{path_str}"'
+                else:
+                    cmdline += f" --program-path='{path_str}'"
             # Add the --pid field so we can propagate it to the child.
             cmdline += f" --pid={os.getpid()} ---"
             # Build the commands to pass along other arguments
@@ -754,6 +781,27 @@ class Scalene:
                 Scalene.__last_signal_time,
                 Scalene.__is_thread_sleeping,
             )
+            # Advance library profiler schedules (e.g., torch profiler
+            # periodic flush) to keep memory bounded.
+            # See https://github.com/plasma-umass/scalene/issues/991
+            if Scalene.__torch_profiler is not None:
+                Scalene.__torch_profiler.step()
+
+            # Async profiling: when the main thread is in the event loop,
+            # snapshot suspended coroutines for await-time attribution.
+            # Use this_frame (the raw signal handler frame) since
+            # compute_frames_to_record filters out non-user frames,
+            # and the event loop frames (selectors, asyncio) are
+            # exactly the ones we need to detect.
+            if Scalene.__args.async_profile and ScaleneAsync._enabled:
+                check_frame = this_frame
+                if check_frame is not None and ScaleneAsync.is_in_event_loop(
+                    check_frame
+                ):
+                    suspended = ScaleneAsync.get_suspended_snapshot()
+                    if suspended:
+                        Scalene.__async_sigq.put((suspended,))
+
             elapsed = now.wallclock - Scalene.__last_signal_time.wallclock
             # Store the latest values as the previously recorded values.
             Scalene.__last_signal_time = now
@@ -796,6 +844,7 @@ class Scalene:
                 program_args,
                 profile_memory=Scalene.__args.memory,
                 reduced_profile=Scalene.__args.reduced_profile,
+                profile_async=Scalene.__args.async_profile,
             )
             # Since the default value returned for "there are no samples"
             # is `{}`, we use a sentinel value `{"is_child": True}`
@@ -853,6 +902,7 @@ class Scalene:
                 Scalene.__program_path,
                 program_args,
                 profile_memory=Scalene.__args.memory,
+                profile_async=Scalene.__args.async_profile,
                 reduced_profile=Scalene.__args.reduced_profile,
             )
             return did_output
@@ -974,6 +1024,39 @@ class Scalene:
             Scalene.__memory_profiler.process_memcpy_samples()
 
     @staticmethod
+    def _async_sigqueue_processor(
+        suspended_tasks: list[Any],
+    ) -> None:
+        """Process async await samples from the signal queue.
+
+        Distributes the CPU sample interval proportionally across
+        all currently-suspended coroutines. Over many samples, each
+        await line gets credit proportional to its actual wait time.
+        """
+        if not suspended_tasks:
+            return
+        interval = Scalene.__last_cpu_interval
+        if interval <= 0:
+            return
+        num_suspended = len(suspended_tasks)
+        per_task_time = interval / num_suspended
+        stats = Scalene.__stats
+        for task_info in suspended_tasks:
+            filename = Filename(task_info.filename)
+            lineno = LineNumber(task_info.lineno)
+            task_name = task_info.task_name
+            if Scalene._should_trace(filename, ""):
+                stats.async_stats.async_await_samples[filename][lineno] += per_task_time
+                stats.async_stats.total_async_await_samples += per_task_time
+                task_names_set = stats.async_stats.async_task_names[filename][lineno]
+                if len(task_names_set) < 100:
+                    task_names_set.add(task_name)
+                # Track concurrency: how many tasks were suspended in this sample
+                stats.async_stats.async_concurrency[filename][lineno].push(
+                    num_suspended
+                )
+
+    @staticmethod
     def _should_trace(filename: Filename, func: str) -> bool:
         """Return true if we should trace this filename and function.
 
@@ -1009,9 +1092,17 @@ class Scalene:
 
             pywhere.set_scalene_done_false()
 
+        # Enable async profiling if requested
+        if Scalene.__args.async_profile:
+            ScaleneAsync.enable()
+
     @staticmethod
     def stop() -> None:
         """Complete profiling."""
+        # Disable async profiling
+        if Scalene.__args.async_profile:
+            ScaleneAsync.disable()
+
         if Scalene.__args.memory:
             from scalene import pywhere  # type: ignore
 
@@ -1549,10 +1640,12 @@ class Scalene:
         Scalene.__stats.clear_all()
         sys.argv = left
         with contextlib.suppress(Exception):
-            # Only set start method to fork if one hasn't been set yet
-            # This respects user's choice (e.g., spawn on macOS)
+            # Only set start method to fork if one hasn't been set yet.
+            # This respects user's choice (e.g., spawn on macOS).
+            # On Windows, fork is not available; leave the default (spawn).
             if (
                 not is_jupyter
+                and sys.platform != "win32"
                 and multiprocessing.get_start_method(allow_none=True) is None
             ):
                 multiprocessing.set_start_method("fork")
@@ -1571,12 +1664,64 @@ class Scalene:
                     # This is important for multiprocessing spawn mode, which checks
                     # sys.argv[1] == '--multiprocessing-fork'
                     sys.argv = [sys.argv[0]] + sys.argv[2:]
-                    try:
-                        exec(code_to_exec)
-                    except SyntaxError:
-                        traceback.print_exc()
-                        sys.exit(1)
-                    sys.exit(0)
+                    if Scalene.__is_child:
+                        # Child process launched by Scalene's redirect_python.
+                        # Multiprocessing spawn workers (spawn_main) use pipes
+                        # for all task/result communication. Enabling the CPU
+                        # profiling timer (ITIMER_VIRTUAL / SIGVTALRM) in these
+                        # workers causes the signal to fire during pipe I/O,
+                        # corrupting pickle data and producing UnpicklingError
+                        # or EOFError. Execute spawn workers without profiling.
+                        _is_spawn_worker = (
+                            "from multiprocessing" in code_to_exec
+                            and "spawn_main" in code_to_exec
+                        )
+                        if _is_spawn_worker:
+                            try:
+                                exec(compile(code_to_exec, "-c", "exec"))
+                            except SystemExit as se:
+                                sys.exit(se.code if isinstance(se.code, int) else 1)
+                            except Exception:
+                                traceback.print_exc()
+                                sys.exit(1)
+                            sys.exit(0)
+                        # Non-spawn child: profile the code.
+                        # Set program path so _should_trace knows which files to profile.
+                        if Scalene.__args.program_path:
+                            Scalene.__program_path = Filename(
+                                os.path.abspath(Scalene.__args.program_path)
+                            )
+                        import __main__
+
+                        the_locals = __main__.__dict__
+                        the_globals = __main__.__dict__
+                        the_globals["__file__"] = "-c"
+                        the_globals["__spec__"] = None
+                        child_code: Any = ""
+                        try:
+                            child_code = compile(code_to_exec, "-c", "exec")
+                        except SyntaxError:
+                            traceback.print_exc()
+                            sys.exit(1)
+                        gc.collect()
+                        profiler = Scalene(args, Filename("-c"))
+                        try:
+                            exit_status = profiler.profile_code(
+                                child_code, the_locals, the_globals, left
+                            )
+                            sys.exit(exit_status)
+                        except Exception as ex:
+                            template = "Scalene: An exception of type {0} occurred. Arguments:\n{1!r}"
+                            message = template.format(type(ex).__name__, ex.args)
+                            print(message, file=sys.stderr)
+                            sys.exit(1)
+                    else:
+                        try:
+                            exec(code_to_exec)
+                        except SyntaxError:
+                            traceback.print_exc()
+                            sys.exit(1)
+                        sys.exit(0)
 
                 if len(sys.argv) >= 2 and sys.argv[0] == "-m":
                     module = True

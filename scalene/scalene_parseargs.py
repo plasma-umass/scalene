@@ -4,7 +4,7 @@ import os
 import re
 import sys
 from textwrap import dedent
-from typing import Any, List, NoReturn, Optional, Tuple, Union
+from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 
 import yaml
 from rich.text import Text as RichText
@@ -160,7 +160,7 @@ class ScaleneParseArgs:
     }
 
     @staticmethod
-    def _load_config_file(config_path: str) -> dict[str, Any]:
+    def _load_config_file(config_path: str) -> Dict[str, Any]:
         """Load and parse a YAML configuration file.
 
         Args:
@@ -196,7 +196,7 @@ class ScaleneParseArgs:
         return config
 
     @staticmethod
-    def _apply_config_to_args(args: argparse.Namespace, config: dict[str, Any]) -> None:
+    def _apply_config_to_args(args: argparse.Namespace, config: Dict[str, Any]) -> None:
         """Apply configuration from a YAML file to parsed arguments.
 
         Config file values are used as defaults - command line arguments take precedence.
@@ -371,6 +371,23 @@ class ScaleneParseArgs:
             action="store_true",
             default=defaults.stacks,
             help="collect stack traces" if show_advanced else advanced_help,
+        )
+        parser.add_argument(
+            "--async",
+            dest="async_profile",
+            action="store_true",
+            default=defaults.async_profile,
+            help=(
+                "profile async/await time (default: on)"
+                if show_advanced
+                else advanced_help
+            ),
+        )
+        parser.add_argument(
+            "--no-async",
+            dest="async_profile",
+            action="store_false",
+            help="disable async/await profiling" if show_advanced else advanced_help,
         )
         parser.add_argument(
             "--profile-interval",
@@ -559,7 +576,7 @@ class ScaleneParseArgs:
 
     @staticmethod
     def _display_profile_cli(
-        profile_data: dict[str, Any],
+        profile_data: Dict[str, Any],
         column_width: int = 132,
         reduced_profile: bool = False,
     ) -> None:
@@ -589,6 +606,7 @@ class ScaleneParseArgs:
         # Check what was profiled
         has_memory = profile_data.get("memory", False)
         has_gpu = profile_data.get("gpu", False)
+        has_async = profile_data.get("async_profile", False)
 
         files = profile_data.get("files", {})
         if not files:
@@ -639,6 +657,8 @@ class ScaleneParseArgs:
                 other_columns_width = 75 + (6 if has_gpu else 0)
             else:
                 other_columns_width = 37 + (5 if has_gpu else 0)
+            if has_async:
+                other_columns_width += 7
             code_width = column_width - other_columns_width
 
             # Create table matching original styling
@@ -680,6 +700,14 @@ class ScaleneParseArgs:
                 tbl.add_column(
                     Markdown("––––––  \n_GPU_", style=ScaleneParseArgs.gpu_color),
                     style=ScaleneParseArgs.gpu_color,
+                    no_wrap=True,
+                    width=6,
+                )
+
+            if has_async:
+                tbl.add_column(
+                    Markdown("Await  \n_%_", style="cyan"),
+                    style="cyan",
                     no_wrap=True,
                     width=6,
                 )
@@ -767,12 +795,14 @@ class ScaleneParseArgs:
                 copy_str = f"{copy_mb:6.0f}" if copy_mb >= 0.5 else ""
 
                 # Check if we should print this line
+                await_pct_val = line_info.get("n_async_await_percent", 0)
                 has_activity = (
                     python_pct >= 1
                     or native_pct >= 1
                     or sys_pct >= 1
                     or gpu_pct >= 1
                     or usage_frac >= 0.01
+                    or (has_async and await_pct_val >= 1)
                 )
 
                 if reduced_profile and not has_activity:
@@ -847,10 +877,17 @@ class ScaleneParseArgs:
                 highlighted_line = Text.from_ansi(capture.get().rstrip())
 
                 # Build row based on what was profiled
-                row: list[Any] = [str(lineno), python_str, native_str, sys_str]
+                row: List[Any] = [str(lineno), python_str, native_str, sys_str]
 
                 if has_gpu:
                     row.append(gpu_str)
+
+                if has_async:
+                    await_pct = line_info.get("n_async_await_percent", 0)
+                    await_str: Union[str, RichText] = (
+                        f"{await_pct:4.0f}%" if await_pct >= 1 else ""
+                    )
+                    row.append(await_str)
 
                 if has_memory:
                     row.extend(
@@ -867,7 +904,9 @@ class ScaleneParseArgs:
                 fn_with_activity = [
                     f
                     for f in functions
-                    if f.get("n_cpu_percent_python", 0) + f.get("n_cpu_percent_c", 0)
+                    if f.get("n_cpu_percent_python", 0)
+                    + f.get("n_cpu_percent_c", 0)
+                    + f.get("n_async_await_percent", 0)
                     > 0
                 ]
                 if fn_with_activity:
@@ -877,10 +916,15 @@ class ScaleneParseArgs:
                         func_lineno = func.get("lineno", 0)
                         func_python = func.get("n_cpu_percent_python", 0)
                         func_native = func.get("n_cpu_percent_c", 0)
-                        console.print(
+                        parts = (
                             f"  {func_name} [bold]([/bold]line [cyan]{func_lineno}[/cyan][bold])[/bold]: "
                             f"[cyan]{func_python:.0f}[/cyan]% Python, [cyan]{func_native:.0f}[/cyan]% native"
                         )
+                        if has_async:
+                            func_await = func.get("n_async_await_percent", 0)
+                            if func_await >= 1:
+                                parts += f", [cyan]{func_await:.0f}[/cyan]% await"
+                        console.print(parts)
             console.print()
 
     @staticmethod

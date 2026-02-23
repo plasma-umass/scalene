@@ -51,6 +51,8 @@ class ScaleneArgumentsDict(TypedDict, total=False):
     use_python_callback: bool
     # Disable PyTorch and JAX JIT for Python-level profiling (may break torch.jit.load)
     disable_jit: bool
+    # Enable async/await profiling
+    async_profile: bool
 
 
 def _set_defaults() -> ScaleneArgumentsDict:
@@ -84,6 +86,7 @@ def _set_defaults() -> ScaleneArgumentsDict:
         "use_legacy_tracer": False,
         "use_python_callback": False,
         "disable_jit": False,
+        "async_profile": True,
     }
 
 

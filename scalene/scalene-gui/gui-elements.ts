@@ -186,10 +186,10 @@ export function makeBar(
   };
 }
 
-export function makeGPUPie(
-  util: number,
-  gpu_device: string,
-  params: ChartParams
+export function makeAwaitPie(
+  await_pct: number,
+  params: ChartParams,
+  startAngle: number = 0
 ): object {
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
@@ -207,9 +207,14 @@ export function makeGPUPie(
     data: {
       values: [
         {
-          category: 1,
-          value: util.toFixed(1),
-          c: "in use: " + util.toFixed(1) + "%",
+          category: "await",
+          value: await_pct.toFixed(1),
+          c: "await: " + await_pct.toFixed(1) + "%",
+        },
+        {
+          category: "other",
+          value: (100 - await_pct).toFixed(1),
+          c: "",
         },
       ],
     },
@@ -218,13 +223,74 @@ export function makeGPUPie(
       theta: {
         field: "value",
         type: "quantitative",
-        scale: { domain: [0, 100] },
+        scale: {
+          range: [startAngle, startAngle + 2 * Math.PI],
+        },
       },
       color: {
-        field: "c",
+        field: "category",
         type: "nominal",
         legend: false,
-        scale: { range: ["goldenrod", "#f4e6c2"] },
+        scale: {
+          domain: ["await", "other"],
+          range: ["darkcyan", "#e0f2f1"],
+        },
+      },
+      tooltip: [{ field: "c", type: "nominal", title: "await" }],
+    },
+  };
+}
+
+export function makeGPUPie(
+  util: number,
+  gpu_device: string,
+  params: ChartParams,
+  startAngle: number = 0
+): object {
+  return {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    config: {
+      view: {
+        stroke: "transparent",
+      },
+    },
+    autosize: {
+      contains: "padding",
+    },
+    width: params.width,
+    height: params.height,
+    padding: 0,
+    data: {
+      values: [
+        {
+          category: "in use",
+          value: util.toFixed(1),
+          c: "in use: " + util.toFixed(1) + "%",
+        },
+        {
+          category: "idle",
+          value: (100 - util).toFixed(1),
+          c: "",
+        },
+      ],
+    },
+    mark: "arc",
+    encoding: {
+      theta: {
+        field: "value",
+        type: "quantitative",
+        scale: {
+          range: [startAngle, startAngle + 2 * Math.PI],
+        },
+      },
+      color: {
+        field: "category",
+        type: "nominal",
+        legend: false,
+        scale: {
+          domain: ["in use", "idle"],
+          range: ["goldenrod", "#f4e6c2"],
+        },
       },
       tooltip: [{ field: "c", type: "nominal", title: gpu_device }],
     },

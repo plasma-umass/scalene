@@ -1,7 +1,7 @@
 import os
 import signal
 import sys
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Set, Tuple
 
 from scalene.scalene_profiler import Scalene
 
@@ -27,7 +27,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
         new_cpu_signal = signal.SIGFPE
 
     # Track which warnings we've already printed to avoid spam
-    _warned_signals: set[int] = set()
+    _warned_signals: Set[int] = set()
 
     # On Linux, we can use real-time signals (SIGRTMIN+n) for cleaner signal redirection.
     # Real-time signals are guaranteed to be delivered and queued, and are rarely used by libraries.
@@ -36,7 +36,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
 
     # Map original signals to their alternate (redirected) signals
     # On Linux: use real-time signals; on other platforms: None (use chaining)
-    _signal_redirects: dict[int, int] = {}
+    _signal_redirects: Dict[int, int] = {}
     if _use_rt_signals:
         # Allocate real-time signals for each Scalene signal that might conflict
         # SIGRTMIN+0 is often used by threading libraries, so start from SIGRTMIN+1
@@ -57,7 +57,7 @@ def replacement_signal_fns(scalene: Scalene) -> None:
 
     # Store chained handlers for platforms without real-time signal support
     # Maps signal number -> user's handler
-    _chained_handlers: dict[int, Any] = {}
+    _chained_handlers: Dict[int, Any] = {}
 
     def _make_chained_handler(scalene_handler: Any, user_handler: Any) -> Any:
         """Create a handler that calls both Scalene's handler and the user's handler."""

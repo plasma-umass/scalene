@@ -7,6 +7,7 @@ import Tablesort from "./tablesort";
 import { proposeOptimization } from "./optimizations";
 import { unescapeUnicode, memory_consumed_str, time_consumed_str } from "./utils";
 import {
+  makeAwaitPie,
   makeBar,
   makeGPUPie,
   makeMemoryPie,
@@ -59,6 +60,11 @@ interface LineData {
   nrt_percent?: number;
   nc_time_ms?: number;
   cpu_samples_nc_overlap_percent?: number;
+  n_async_await_percent?: number;
+  n_async_concurrency_mean?: number;
+  n_async_concurrency_peak?: number;
+  async_task_names?: string[];
+  is_coroutine?: boolean;
 }
 
 interface FunctionData extends LineData {}
@@ -76,6 +82,7 @@ interface Profile {
   gpu: boolean;
   gpu_device: string;
   memory: boolean;
+  async_profile?: boolean;
   max_footprint_mb: number;
   elapsed_time_sec: number;
   samples: [number, number][];
@@ -146,6 +153,7 @@ export function proposeOptimizationLine(
 const CPUColor = "blue";
 const MemoryColor = "green";
 const CopyColor = "goldenrod";
+const AsyncColor = "darkcyan";
 let columns: Column[] = [];
 
 function stringLines(lines: string[]): Set<number> {
@@ -210,7 +218,8 @@ function makeTableHeader(
   gpu_device: string,
   memory: boolean,
   params: TableParams,
-  hasNeuronData: boolean
+  hasNeuronData: boolean,
+  async_profile: boolean = false
 ): string {
   let tableTitle: string;
   if (params["functions"]) {
@@ -226,6 +235,15 @@ function makeTableHeader(
       info: "Execution time (Python + native + system)",
     },
   ];
+
+  if (async_profile) {
+    columns.push({
+      title: ["await", "%"],
+      color: AsyncColor,
+      width: 0,
+      info: "Percentage of async await time spent at this line",
+    });
+  }
 
   if (hasNeuronData) {
     columns.push({
@@ -393,7 +411,10 @@ function makeProfileLine(
   nc_nrt_pies: (unknown | null)[],
   total_nc_time_for_file: number,
   hasNeuronData: boolean,
-  profiledFunctions: Set<string> = new Set()
+  profiledFunctions: Set<string> = new Set(),
+  async_profile: boolean = false,
+  await_pies: (unknown | null)[] = [],
+  pieAngles: { await: number; gpu: number } = { await: 0, gpu: 0 }
 ): string {
   let total_time =
     line.n_cpu_percent_python + line.n_cpu_percent_c + line.n_sys_percent;
@@ -465,11 +486,13 @@ function makeProfileLine(
   showExplosion = showExplosion && end_region_line - start_region_line <= maxLinesPerRegion;
 
   // Determine if this line has profiling data
+  const has_async_results = async_profile && (line.n_async_await_percent || 0) >= 1.0;
   const hasProfileData =
     total_time > 1.0 ||
     has_memory_results ||
     (has_gpu_results && prof.gpu && !hasNeuronData) ||
     has_nrt_results ||
+    has_async_results ||
     (showExplosion &&
       start_region_line !== end_region_line &&
       (total_region_time >= 1.0 ||
@@ -514,6 +537,22 @@ function makeProfileLine(
     cpu_bars.push(null);
   }
   s += "</td>";
+
+  if (async_profile) {
+    const await_pct = line.n_async_await_percent || 0;
+    if (await_pct >= 1.0) {
+      s += `<td style="width: 50; vertical-align: middle; text-align: center" data-sort="${await_pct}">`;
+      s += `<span style="height: 20; width: 30; vertical-align: middle" id="await_pie${await_pies.length}"></span>`;
+      s += "</td>";
+      await_pies.push(
+        makeAwaitPie(await_pct, { height: 20, width: 30 }, pieAngles.await)
+      );
+      pieAngles.await += (await_pct / 100) * 2 * Math.PI;
+    } else {
+      s += '<td style="width: 50"></td>';
+      await_pies.push(null);
+    }
+  }
 
   if (hasNeuronData) {
     if (
@@ -637,8 +676,9 @@ function makeProfileLine(
         makeGPUPie(line.n_gpu_percent, prof.gpu_device, {
           height: 20,
           width: 30,
-        })
+        }, pieAngles.gpu)
       );
+      pieAngles.gpu += (line.n_gpu_percent / 100) * 2 * Math.PI;
     }
     if (line.n_gpu_peak_memory_mb < 1.0 || line.n_gpu_percent < 1.0) {
       s += '<td style="width: 100"></td>';
@@ -938,6 +978,7 @@ async function display(prof: Profile): Promise<void> {
   const memory_sparklines: (unknown | null)[] = [];
   const memory_activity: (unknown | null)[] = [];
   const gpu_pies: (unknown | null)[] = [];
+  const await_pies: (unknown | null)[] = [];
   const memory_bars: (unknown | null)[] = [];
   const nrt_bars: (unknown | null)[] = [];
   const nc_bars: (unknown | null)[] = [];
@@ -1138,7 +1179,7 @@ async function display(prof: Profile): Promise<void> {
     tableID++;
     s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, {
       functions: false,
-    }, hasNeuronData);
+    }, hasNeuronData, prof.async_profile || false);
     s += "<tbody>";
     // Compute all docstring lines
     const linesArray = ff[1].lines.map((entry) => entry.line);
@@ -1174,6 +1215,7 @@ async function display(prof: Profile): Promise<void> {
     // Print per-line profiles.
     let prevLineno = -1;
     let index = -1;
+    const linePieAngles = { await: 0, gpu: 0 };
     for (const l in ff[1].lines) {
       index += 1;
       const line = ff[1].lines[l];
@@ -1211,7 +1253,10 @@ async function display(prof: Profile): Promise<void> {
         nc_nrt_pies,
         total_nc_time[ff[0]],
         hasNeuronData,
-        profiledFunctions
+        profiledFunctions,
+        prof.async_profile || false,
+        await_pies,
+        linePieAngles
       );
     }
     s += "</tbody>";
@@ -1221,9 +1266,10 @@ async function display(prof: Profile): Promise<void> {
       s += `<table class="profile table table-hover table-condensed" id="table-${tableID}">`;
       s += makeTableHeader(ff[0], prof.gpu, prof.gpu_device, prof.memory, {
         functions: true,
-      }, hasNeuronData);
+      }, hasNeuronData, prof.async_profile || false);
       s += "<tbody>";
       tableID++;
+      const fnPieAngles = { await: 0, gpu: 0 };
       for (const l in prof.files[ff[0]].functions) {
         const line = prof.files[ff[0]].functions[l];
         s += makeProfileLine(
@@ -1242,7 +1288,11 @@ async function display(prof: Profile): Promise<void> {
           nc_bars,
           nc_nrt_pies,
           total_nc_time[ff[0]],
-          hasNeuronData
+          hasNeuronData,
+          new Set(),
+          prof.async_profile || false,
+          await_pies,
+          fnPieAngles
         );
       }
       s += "</table>";
@@ -1322,6 +1372,7 @@ async function display(prof: Profile): Promise<void> {
 
   embedCharts(cpu_bars, "cpu_bar");
   embedCharts(gpu_pies, "gpu_pie");
+  embedCharts(await_pies, "await_pie");
   embedCharts(memory_activity, "memory_activity");
   embedCharts(memory_bars, "memory_bar");
 
