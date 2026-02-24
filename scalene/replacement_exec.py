@@ -11,6 +11,8 @@ By wrapping these builtins, we:
 3. Compile/execute using our virtual filename so profiler samples reference it
 """
 
+import __future__
+
 import builtins
 import linecache
 import os
@@ -19,6 +21,21 @@ from types import FrameType
 from typing import Any, Dict, Optional
 
 from scalene.scalene_profiler import Scalene
+
+# Bitmask covering all __future__ compiler flags. compile() inherits these
+# from the calling frame when dont_inherit=False, but our wrappers break
+# that inheritance chain. We extract them from the real caller's co_flags
+# to propagate them explicitly. This is the same approach CPython's doctest
+# module uses and covers all past and future __future__ features.
+_FUTURE_FLAGS_MASK = 0
+for _name in __future__.all_feature_names:
+    _FUTURE_FLAGS_MASK |= getattr(__future__, _name).compiler_flag
+del _name
+
+
+def _caller_future_flags(frame: FrameType) -> int:
+    """Extract __future__ compiler flags from a frame's code object."""
+    return frame.f_code.co_flags & _FUTURE_FLAGS_MASK
 
 
 def _is_synthetic_filename(filename: str) -> bool:
@@ -79,7 +96,14 @@ def replacement_exec(scalene: Scalene) -> None:  # noqa: ARG001
         if isinstance(__source, str):
             virtual_filename = _make_virtual_filename("exec", caller_frame)
             _register_source_in_linecache(virtual_filename, __source)
-            code_obj = orig_compile(__source, virtual_filename, "exec")
+            # Propagate the caller's __future__ flags (e.g. annotations)
+            # so that code compiled here behaves the same as if exec()
+            # compiled it directly in the caller's context.
+            flags = _caller_future_flags(caller_frame)
+            code_obj = orig_compile(
+                __source, virtual_filename, "exec",
+                flags=flags, dont_inherit=True,
+            )
             __source = code_obj
 
         # When globals/locals are not specified, exec() uses the caller's frame.
@@ -116,7 +140,11 @@ def replacement_exec(scalene: Scalene) -> None:  # noqa: ARG001
         if isinstance(__source, str):
             virtual_filename = _make_virtual_filename("eval", caller_frame)
             _register_source_in_linecache(virtual_filename, __source)
-            code_obj = orig_compile(__source, virtual_filename, "eval")
+            flags = _caller_future_flags(caller_frame)
+            code_obj = orig_compile(
+                __source, virtual_filename, "eval",
+                flags=flags, dont_inherit=True,
+            )
             __source = code_obj
 
         # When globals/locals are not specified, eval() uses the caller's frame.
@@ -148,6 +176,14 @@ def replacement_exec(scalene: Scalene) -> None:  # noqa: ARG001
         """
         if isinstance(source, str) and _is_synthetic_filename(filename):
             _register_source_in_linecache(filename, source)
+
+        if not dont_inherit:
+            # The real compile() would inherit __future__ flags from its
+            # caller's frame. Since our wrapper is now the immediate caller,
+            # we must manually propagate flags from the real caller.
+            caller_frame = sys._getframe(1)
+            flags |= _caller_future_flags(caller_frame)
+            dont_inherit = True
 
         return orig_compile(
             source, filename, mode, flags, dont_inherit, optimize, **kwargs
