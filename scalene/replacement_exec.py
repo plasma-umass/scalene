@@ -101,8 +101,11 @@ def replacement_exec(scalene: Scalene) -> None:  # noqa: ARG001
             # compiled it directly in the caller's context.
             flags = _caller_future_flags(caller_frame)
             code_obj = orig_compile(
-                __source, virtual_filename, "exec",
-                flags=flags, dont_inherit=True,
+                __source,
+                virtual_filename,
+                "exec",
+                flags=flags,
+                dont_inherit=True,
             )
             __source = code_obj
 
@@ -142,8 +145,11 @@ def replacement_exec(scalene: Scalene) -> None:  # noqa: ARG001
             _register_source_in_linecache(virtual_filename, __source)
             flags = _caller_future_flags(caller_frame)
             code_obj = orig_compile(
-                __source, virtual_filename, "eval",
-                flags=flags, dont_inherit=True,
+                __source,
+                virtual_filename,
+                "eval",
+                flags=flags,
+                dont_inherit=True,
             )
             __source = code_obj
 
