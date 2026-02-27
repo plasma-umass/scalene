@@ -24,10 +24,8 @@ T = TypeVar("T")
 # _kernel32 is only set on Windows where ctypes.windll is available.
 _LIFECYCLE_START_EVENT = "Local\\scalene-lifecycle-start-{pid}"
 _LIFECYCLE_STOP_EVENT = "Local\\scalene-lifecycle-stop-{pid}"
-_SYNCHRONIZE = 0x00100000
 _EVENT_MODIFY_STATE = 0x0002
 _WAIT_OBJECT_0 = 0
-_WAIT_TIMEOUT = 0x00000102
 
 if sys.platform == "win32":
     _kernel32: Any = ctypes.windll.kernel32  # type: ignore[attr-defined]

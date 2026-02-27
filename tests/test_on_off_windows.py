@@ -24,7 +24,6 @@ from scalene.scalene_signal_manager import (
     _LIFECYCLE_START_EVENT,
     _LIFECYCLE_STOP_EVENT,
     _WAIT_OBJECT_0,
-    _WAIT_TIMEOUT,
 )
 
 
@@ -339,7 +338,6 @@ class TestModuleConstants:
 
     def test_wait_constants(self):
         assert _WAIT_OBJECT_0 == 0
-        assert _WAIT_TIMEOUT == 0x00000102
         assert _EVENT_MODIFY_STATE == 0x0002
 
 
