@@ -38,6 +38,12 @@ jobs:
     - name: Build scalene
       run: pip -v install -e .
 
+    - name: --off flag smoke test
+      # Verify that --off starts with profiling disabled and the program
+      # still runs to completion. This is the primary cross-platform test
+      # for the --on/--off lifecycle feature (issue #1009).
+      run: python -m scalene run --off --cpu-only test/testme.py
+
     - name: cpu-only smoke test
       run: python test/smoketest.py test/testme.py --cpu-only
 
