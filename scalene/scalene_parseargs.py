@@ -526,19 +526,13 @@ class ScaleneParseArgs:
             "--on",
             action="store_true",
             help=(
-                "start with profiling on (default)"
-                if show_advanced
-                else advanced_help
+                "start with profiling on (default)" if show_advanced else advanced_help
             ),
         )
         group.add_argument(
             "--off",
             action="store_true",
-            help=(
-                "start with profiling off"
-                if show_advanced
-                else advanced_help
-            ),
+            help=("start with profiling off" if show_advanced else advanced_help),
         )
 
         # Internal/hidden options (always hidden)

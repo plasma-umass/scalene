@@ -299,9 +299,7 @@ class ScaleneSignalManager(Generic[T]):
         )
         while self.__lifecycle_watcher_active:
             # Wait on both events with 100ms timeout
-            result = _kernel32.WaitForMultipleObjects(
-                2, handle_array, False, 100
-            )
+            result = _kernel32.WaitForMultipleObjects(2, handle_array, False, 100)
             if result == _WAIT_OBJECT_0:
                 # Start event signaled
                 with contextlib.suppress(Exception):
@@ -337,15 +335,17 @@ class ScaleneSignalManager(Generic[T]):
             template = _LIFECYCLE_START_EVENT if start else _LIFECYCLE_STOP_EVENT
             event_name = template.format(pid=pid)
             # Need EVENT_MODIFY_STATE to call SetEvent
-            handle = _kernel32.OpenEventW(
-                _EVENT_MODIFY_STATE, False, event_name
-            )
+            handle = _kernel32.OpenEventW(_EVENT_MODIFY_STATE, False, event_name)
             if handle:
                 _kernel32.SetEvent(handle)
                 _kernel32.CloseHandle(handle)
         else:
             signals = ScaleneSignals()
-            sig = signals.start_profiling_signal if start else signals.stop_profiling_signal
+            sig = (
+                signals.start_profiling_signal
+                if start
+                else signals.stop_profiling_signal
+            )
             os.kill(pid, sig)
 
     def send_lifecycle_start_to_child(self, pid: int) -> None:
@@ -353,18 +353,14 @@ class ScaleneSignalManager(Generic[T]):
         if sys.platform == "win32":
             self.signal_lifecycle_event(pid, start=True)
         else:
-            self.__orig_kill(
-                pid, self.__signals.start_profiling_signal
-            )
+            self.__orig_kill(pid, self.__signals.start_profiling_signal)
 
     def send_lifecycle_stop_to_child(self, pid: int) -> None:
         """Send a stop-profiling signal to a child process (cross-platform)."""
         if sys.platform == "win32":
             self.signal_lifecycle_event(pid, start=False)
         else:
-            self.__orig_kill(
-                pid, self.__signals.stop_profiling_signal
-            )
+            self.__orig_kill(pid, self.__signals.stop_profiling_signal)
 
     def send_signal_to_children(
         self, child_pids: "Set[int]", signal_type: signal.Signals
