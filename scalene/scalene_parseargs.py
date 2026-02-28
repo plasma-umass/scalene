@@ -521,23 +521,25 @@ class ScaleneParseArgs:
                 else advanced_help
             ),
         )
-        if sys.platform != "win32":
-            # Turning profiling on and off from another process is currently not supported on Windows.
-            group = parser.add_mutually_exclusive_group(required=False)
-            group.add_argument(
-                "--on",
-                action="store_true",
-                help=(
-                    "start with profiling on (default)"
-                    if show_advanced
-                    else advanced_help
-                ),
-            )
-            group.add_argument(
-                "--off",
-                action="store_true",
-                help="start with profiling off" if show_advanced else advanced_help,
-            )
+        group = parser.add_mutually_exclusive_group(required=False)
+        group.add_argument(
+            "--on",
+            action="store_true",
+            help=(
+                "start with profiling on (default)"
+                if show_advanced
+                else advanced_help
+            ),
+        )
+        group.add_argument(
+            "--off",
+            action="store_true",
+            help=(
+                "start with profiling off"
+                if show_advanced
+                else advanced_help
+            ),
+        )
 
         # Internal/hidden options (always hidden)
         parser.add_argument(
@@ -1235,9 +1237,9 @@ examples:
                 )
                 sys.exit(1)
 
-        # Hack to simplify functionality for Windows platforms.
+        # On Windows, pid-based external control uses named events (not signals),
+        # so clear pid here — it's only relevant for profile.py invocations.
         if sys.platform == "win32":
-            args.on = True
             args.pid = 0
         left += args.unused_args
 

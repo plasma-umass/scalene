@@ -6,17 +6,31 @@ to improve code organization and reduce complexity.
 """
 
 import contextlib
+import ctypes
 import os
 import signal
 import sys
 import threading
 import time
-from typing import Generic, List, Optional, Set, TypeVar
+from typing import Any, Generic, List, Optional, Set, TypeVar
 
 from scalene.scalene_signals import ScaleneSignals, SignalHandlerFunction
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
 T = TypeVar("T")
+
+# Windows Named Event constants for lifecycle control.
+# The string templates and integer constants are always defined;
+# _kernel32 is only set on Windows where ctypes.windll is available.
+_LIFECYCLE_START_EVENT = "Local\\scalene-lifecycle-start-{pid}"
+_LIFECYCLE_STOP_EVENT = "Local\\scalene-lifecycle-stop-{pid}"
+_EVENT_MODIFY_STATE = 0x0002
+_WAIT_OBJECT_0 = 0
+
+if sys.platform == "win32":
+    _kernel32: Any = ctypes.windll.kernel32  # type: ignore[attr-defined]
+else:
+    _kernel32: Any = None
 
 
 class ScaleneSignalManager(Generic[T]):
@@ -45,6 +59,12 @@ class ScaleneSignalManager(Generic[T]):
 
         # Timer thread reference for Windows (for proper cleanup)
         self.__timer_thread: Optional[threading.Thread] = None
+
+        # Windows lifecycle event handles and watcher thread
+        self.__lifecycle_start_event: Optional[int] = None
+        self.__lifecycle_stop_event: Optional[int] = None
+        self.__lifecycle_watcher_thread: Optional[threading.Thread] = None
+        self.__lifecycle_watcher_active = False
 
     def get_signals(self) -> ScaleneSignals:
         """Return the ScaleneSignals instance."""
@@ -214,8 +234,16 @@ class ScaleneSignalManager(Generic[T]):
         stop_signal_handler: SignalHandlerFunction,
         interruption_handler: SignalHandlerFunction,
     ) -> None:
-        """Setup lifecycle control signals."""
-        if sys.platform != "win32":
+        """Setup lifecycle control signals.
+
+        On Unix, registers SIGILL/SIGBUS handlers for start/stop.
+        On Windows, creates named events and a watcher thread.
+        """
+        if sys.platform == "win32":
+            self._setup_lifecycle_signals_win32(
+                start_signal_handler, stop_signal_handler
+            )
+        else:
             for sig, handler in [
                 (
                     self.__signals.start_profiling_signal,
@@ -229,6 +257,114 @@ class ScaleneSignalManager(Generic[T]):
                 self.__orig_signal(sig, handler)
                 self.__orig_siginterrupt(sig, False)
         self.__orig_signal(signal.SIGINT, interruption_handler)
+
+    def _setup_lifecycle_signals_win32(
+        self,
+        start_handler: SignalHandlerFunction,
+        stop_handler: SignalHandlerFunction,
+    ) -> None:
+        """Create Windows Named Events and start a watcher thread for lifecycle control."""
+        pid = os.getpid()
+        start_name = _LIFECYCLE_START_EVENT.format(pid=pid)
+        stop_name = _LIFECYCLE_STOP_EVENT.format(pid=pid)
+
+        # Create auto-reset events (bManualReset=False, bInitialState=False)
+        self.__lifecycle_start_event = _kernel32.CreateEventW(
+            None, False, False, start_name
+        )
+        self.__lifecycle_stop_event = _kernel32.CreateEventW(
+            None, False, False, stop_name
+        )
+        if not self.__lifecycle_start_event or not self.__lifecycle_stop_event:
+            return
+
+        self.__lifecycle_watcher_active = True
+        self.__lifecycle_watcher_thread = threading.Thread(
+            target=self._lifecycle_watcher_loop_win32,
+            args=(start_handler, stop_handler),
+            daemon=True,
+        )
+        self.__lifecycle_watcher_thread.start()
+
+    def _lifecycle_watcher_loop_win32(
+        self,
+        start_handler: SignalHandlerFunction,
+        stop_handler: SignalHandlerFunction,
+    ) -> None:
+        """Watch Windows Named Events and call start/stop handlers when signaled."""
+        # Build an array of two HANDLEs for WaitForMultipleObjects
+        handle_array = (ctypes.c_void_p * 2)(
+            self.__lifecycle_start_event,  # index 0 = start
+            self.__lifecycle_stop_event,  # index 1 = stop
+        )
+        while self.__lifecycle_watcher_active:
+            # Wait on both events with 100ms timeout
+            result = _kernel32.WaitForMultipleObjects(
+                2, handle_array, False, 100
+            )
+            if result == _WAIT_OBJECT_0:
+                # Start event signaled
+                with contextlib.suppress(Exception):
+                    start_handler(0, None)
+            elif result == _WAIT_OBJECT_0 + 1:
+                # Stop event signaled
+                with contextlib.suppress(Exception):
+                    stop_handler(0, None)
+            # _WAIT_TIMEOUT or error: loop again
+
+    def stop_lifecycle_watcher(self) -> None:
+        """Stop the Windows lifecycle watcher thread and close event handles."""
+        self.__lifecycle_watcher_active = False
+        if self.__lifecycle_watcher_thread is not None:
+            self.__lifecycle_watcher_thread.join(timeout=0.2)
+            self.__lifecycle_watcher_thread = None
+        if sys.platform == "win32":
+            if self.__lifecycle_start_event:
+                _kernel32.CloseHandle(self.__lifecycle_start_event)
+                self.__lifecycle_start_event = None
+            if self.__lifecycle_stop_event:
+                _kernel32.CloseHandle(self.__lifecycle_stop_event)
+                self.__lifecycle_stop_event = None
+
+    @staticmethod
+    def signal_lifecycle_event(pid: int, start: bool) -> None:
+        """Signal a lifecycle event for a given PID.
+
+        On Unix, sends SIGILL (start) or SIGBUS (stop).
+        On Windows, opens and signals the corresponding named event.
+        """
+        if sys.platform == "win32":
+            template = _LIFECYCLE_START_EVENT if start else _LIFECYCLE_STOP_EVENT
+            event_name = template.format(pid=pid)
+            # Need EVENT_MODIFY_STATE to call SetEvent
+            handle = _kernel32.OpenEventW(
+                _EVENT_MODIFY_STATE, False, event_name
+            )
+            if handle:
+                _kernel32.SetEvent(handle)
+                _kernel32.CloseHandle(handle)
+        else:
+            signals = ScaleneSignals()
+            sig = signals.start_profiling_signal if start else signals.stop_profiling_signal
+            os.kill(pid, sig)
+
+    def send_lifecycle_start_to_child(self, pid: int) -> None:
+        """Send a start-profiling signal to a child process (cross-platform)."""
+        if sys.platform == "win32":
+            self.signal_lifecycle_event(pid, start=True)
+        else:
+            self.__orig_kill(
+                pid, self.__signals.start_profiling_signal
+            )
+
+    def send_lifecycle_stop_to_child(self, pid: int) -> None:
+        """Send a stop-profiling signal to a child process (cross-platform)."""
+        if sys.platform == "win32":
+            self.signal_lifecycle_event(pid, start=False)
+        else:
+            self.__orig_kill(
+                pid, self.__signals.stop_profiling_signal
+            )
 
     def send_signal_to_children(
         self, child_pids: "Set[int]", signal_type: signal.Signals
