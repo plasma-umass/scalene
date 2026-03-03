@@ -198,6 +198,14 @@ class SampleHeap : public SuperHeap {
     }
   }
 
+  ATTRIBUTE_ALWAYS_INLINE inline void free_sized(void* ptr, size_t) {
+    free(ptr);
+  }
+
+  ATTRIBUTE_ALWAYS_INLINE inline void free_aligned_sized(void* ptr, size_t, size_t) {
+    free(ptr);
+  }
+
   inline void register_free(size_t realSize, void* ptr) {
     if (p_scalene_done) return;
     size_t sampleFreeSize;
