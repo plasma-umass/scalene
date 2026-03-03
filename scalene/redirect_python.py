@@ -20,7 +20,7 @@ def redirect_python(preface: str, cmdline: str, python_alias_dir: pathlib.Path) 
         f"python{sys.version_info.major}.{sys.version_info.minor}{base_python_extension}",
     ]
 
-    shebang = "@echo off" if sys.platform == "win32" else "#!/bin/bash"
+    shebang = "@echo off" if sys.platform == "win32" else "#!/usr/bin/env bash"
     all_args = "%*" if sys.platform == "win32" else '"$@"'
 
     payload = (
