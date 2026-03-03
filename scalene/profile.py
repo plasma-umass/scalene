@@ -1,9 +1,6 @@
 import argparse
-import os
 import sys
 from textwrap import dedent
-
-from scalene.scalene_signals import ScaleneSignals
 
 usage = dedent("""Turn Scalene profiling on or off for a specific process.""")
 
@@ -24,11 +21,12 @@ if len(sys.argv) == 1 or args.pid == 0:
     sys.exit(-1)
 
 try:
+    from scalene.scalene_signal_manager import ScaleneSignalManager
+
+    ScaleneSignalManager.signal_lifecycle_event(args.pid, start=args.on)
     if args.on:
-        os.kill(args.pid, ScaleneSignals().start_profiling_signal)
         print("Scalene: profiling turned on.")
     else:
-        os.kill(args.pid, ScaleneSignals().stop_profiling_signal)
         print("Scalene: profiling turned off.")
 
 except ProcessLookupError:

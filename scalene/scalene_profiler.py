@@ -1151,9 +1151,7 @@ class Scalene:
         See scalene_parseargs.py.
         """
         for pid in Scalene.child_pids:
-            Scalene.__signal_manager.send_signal_to_child(
-                pid, Scalene.__signal_manager.get_signals().start_profiling_signal
-            )
+            Scalene.__signal_manager.send_lifecycle_start_to_child(pid)
         Scalene.start()
 
     @staticmethod
@@ -1166,9 +1164,7 @@ class Scalene:
         See scalene_parseargs.py.
         """
         for pid in Scalene.child_pids:
-            Scalene.__signal_manager.send_signal_to_child(
-                pid, Scalene.__signal_manager.get_signals().stop_profiling_signal
-            )
+            Scalene.__signal_manager.send_lifecycle_stop_to_child(pid)
         Scalene.stop()
         # Output the profile if `--outfile` was set to a file.
         if Scalene.__output.output_file:
@@ -1180,6 +1176,7 @@ class Scalene:
         if sys.platform == "win32":
             Scalene.__signal_manager.set_timer_signals(False)
             Scalene.__signal_manager.stop_timer_thread()
+            Scalene.__signal_manager.stop_lifecycle_watcher()
             Scalene.__signal_manager.stop_windows_memory_polling()
             Scalene.stop_signal_queues()
             return
@@ -1588,14 +1585,11 @@ class Scalene:
                 file=sys.stderr,
             )
             sys.exit(1)
-        if sys.platform != "win32":
-            Scalene.__signal_manager.setup_lifecycle_signals(
-                Scalene._start_signal_handler,
-                Scalene._stop_signal_handler,
-                Scalene._interruption_handler,
-            )
-        else:
-            Scalene.__orig_signal(signal.SIGINT, Scalene._interruption_handler)
+        Scalene.__signal_manager.setup_lifecycle_signals(
+            Scalene._start_signal_handler,
+            Scalene._stop_signal_handler,
+            Scalene._interruption_handler,
+        )
         did_preload = False if is_jupyter else ScalenePreload.setup_preload(args)
 
         # On Windows, load the libscalene DLL for memory profiling
