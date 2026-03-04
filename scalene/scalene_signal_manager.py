@@ -11,7 +11,6 @@ import os
 import signal
 import sys
 import threading
-import time
 from typing import Any, Generic, List, Optional, Set, TypeVar
 
 from scalene.scalene_signals import ScaleneSignals, SignalHandlerFunction
@@ -53,6 +52,10 @@ class ScaleneSignalManager(Generic[T]):
         # Timer control for Windows
         self.timer_signals = True
 
+        # Events for interruptible sleep in Windows timer/memory threads
+        self.__stop_event = threading.Event()
+        self.__mem_stop_event = threading.Event()
+
         # Store CPU signal handler for direct calling on Windows
         # (signal.raise_signal cannot be called from background threads)
         self.__cpu_signal_handler: Optional[SignalHandlerFunction] = None
@@ -93,9 +96,9 @@ class ScaleneSignalManager(Generic[T]):
         if sys.platform != "win32":
             return
         self.timer_signals = False
+        self.__stop_event.set()
         if hasattr(self, "_ScaleneSignalManager__timer_thread") and self.__timer_thread:
-            # Give the thread a short time to finish its current iteration
-            self.__timer_thread.join(timeout=0.1)
+            self.__timer_thread.join(timeout=2.0)
             self.__timer_thread = None
 
     def enable_signals_win32(
@@ -123,6 +126,7 @@ class ScaleneSignalManager(Generic[T]):
         # The thread must be non-daemon so it can continue sampling while the main
         # thread is still running, even if main finishes early (short-running programs).
         # Cleanup is handled by stop_timer_thread() called from _disable_signals().
+        self.__stop_event.clear()
         self.__timer_thread = threading.Thread(
             target=lambda: self.windows_timer_loop(cpu_sampling_rate), daemon=False
         )
@@ -135,6 +139,7 @@ class ScaleneSignalManager(Generic[T]):
             self.__alloc_sigq_win = alloc_sigq
             self.__memcpy_sigq_win = memcpy_sigq
             self.__memory_polling_active = True
+            self.__mem_stop_event.clear()
             mem_thread = threading.Thread(
                 target=self._windows_memory_poll_loop, daemon=True
             )
@@ -156,15 +161,19 @@ class ScaleneSignalManager(Generic[T]):
         # Initial delay to let user code start executing before we begin sampling.
         # Without this, the first samples would be taken during Scalene's
         # initialization rather than during the user's actual code.
-        time.sleep(0.01)  # 10ms initial delay
+        if self.__stop_event.wait(0.01):
+            return
 
         while self.timer_signals:
-            # Call the CPU signal handler first, then sleep.
+            # Call the CPU signal handler first, then wait.
             # This ensures we record samples even if the program exits quickly.
             if self.__cpu_signal_handler is not None:
                 with contextlib.suppress(Exception):
                     self.__cpu_signal_handler(self.__signals.cpu_signal, None)
-            time.sleep(cpu_sampling_rate)
+            # Use Event.wait() instead of time.sleep() so stop_timer_thread()
+            # can interrupt the wait immediately by setting the event.
+            if self.__stop_event.wait(cpu_sampling_rate):
+                break
 
     def _windows_memory_poll_loop(self) -> None:
         """For Windows, periodically poll for memory profiling data."""
@@ -172,7 +181,10 @@ class ScaleneSignalManager(Generic[T]):
         # Poll every 10ms for memory data
         poll_interval = 0.01
         while getattr(self, "_ScaleneSignalManager__memory_polling_active", False):
-            time.sleep(poll_interval)
+            # Use Event.wait() instead of time.sleep() so
+            # stop_windows_memory_polling() can interrupt immediately.
+            if self.__mem_stop_event.wait(poll_interval):
+                break
             # Trigger malloc/free processing
             if (
                 hasattr(self, "_ScaleneSignalManager__alloc_sigq_win")
@@ -188,6 +200,7 @@ class ScaleneSignalManager(Generic[T]):
 
     def stop_windows_memory_polling(self) -> None:
         """Stop the Windows memory polling thread."""
+        self.__mem_stop_event.set()
         if hasattr(self, "_ScaleneSignalManager__memory_polling_active"):
             self.__memory_polling_active = False
 
