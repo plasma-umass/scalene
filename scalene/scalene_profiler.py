@@ -1673,6 +1673,10 @@ class Scalene:
                                 sys.stdout.reconfigure(line_buffering=False)  # type: ignore[union-attr]
                                 sys.stderr.reconfigure(line_buffering=False)  # type: ignore[union-attr]
                             except Exception:
+                                # reconfigure() may not exist (Python < 3.7)
+                                # or fail on non-standard streams (e.g., pytest
+                                # capture objects). The env var above is the
+                                # primary mechanism; reconfigure is best-effort.
                                 pass
                         elif flag == "-B":
                             sys.dont_write_bytecode = True
