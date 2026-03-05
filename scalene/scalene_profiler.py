@@ -1658,9 +1658,21 @@ class Scalene:
                 # "-u" as a filename.
                 # See https://github.com/plasma-umass/scalene/issues/863
                 _PY_NO_ARG_FLAGS = {
-                    "-b", "-B", "-d", "-E", "-i", "-I",
-                    "-O", "-OO", "-q", "-R", "-s", "-S",
-                    "-u", "-v", "-x",
+                    "-b",
+                    "-B",
+                    "-d",
+                    "-E",
+                    "-i",
+                    "-I",
+                    "-O",
+                    "-OO",
+                    "-q",
+                    "-R",
+                    "-s",
+                    "-S",
+                    "-u",
+                    "-v",
+                    "-x",
                 }
                 _PY_WITH_ARG_FLAGS = {"-W", "-X"}
                 while sys.argv:
