@@ -1649,6 +1649,41 @@ class Scalene:
             progs = None
             exit_status = 0
             try:
+                # Strip Python interpreter flags (e.g., -u, -B, -O) that
+                # may precede -c or -m when a subprocess is spawned via
+                # redirect_python.  For example, pytest-xdist launches
+                # workers with "python -u ..." which becomes
+                # "python -m scalene run ... --- -u -c ..." after
+                # redirection.  Without stripping, Scalene misinterprets
+                # "-u" as a filename.
+                # See https://github.com/plasma-umass/scalene/issues/863
+                _PY_NO_ARG_FLAGS = {
+                    "-b", "-B", "-d", "-E", "-i", "-I",
+                    "-O", "-OO", "-q", "-R", "-s", "-S",
+                    "-u", "-v", "-x",
+                }
+                _PY_WITH_ARG_FLAGS = {"-W", "-X"}
+                while sys.argv:
+                    if sys.argv[0] in _PY_NO_ARG_FLAGS:
+                        flag = sys.argv.pop(0)
+                        # Apply flags whose effects we can still honor.
+                        if flag == "-u":
+                            os.environ["PYTHONUNBUFFERED"] = "1"
+                            try:
+                                sys.stdout.reconfigure(line_buffering=False)  # type: ignore[union-attr]
+                                sys.stderr.reconfigure(line_buffering=False)  # type: ignore[union-attr]
+                            except Exception:
+                                pass
+                        elif flag == "-B":
+                            sys.dont_write_bytecode = True
+                        elif flag == "-v":
+                            os.environ["PYTHONVERBOSE"] = "1"
+                    elif sys.argv[0] in _PY_WITH_ARG_FLAGS and len(sys.argv) >= 2:
+                        sys.argv.pop(0)  # flag
+                        sys.argv.pop(0)  # its argument
+                    else:
+                        break
+
                 # Handle direct invocation of a string by executing the string and returning.
                 if len(sys.argv) >= 2 and sys.argv[0] == "-c":
                     code_to_exec = sys.argv[1]
