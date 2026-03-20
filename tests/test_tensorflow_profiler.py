@@ -172,8 +172,8 @@ class TestTensorFlowProfilerWithoutTF:
 
 
 @pytest.mark.skipif(
-    not is_tensorflow_available(),
-    reason="TensorFlow not installed",
+    not TensorFlowProfiler().is_available(),
+    reason="TensorFlow profiler not available (not installed or incompatible version)",
 )
 class TestTensorFlowProfilerWithTF:
     """Tests that require TensorFlow to be installed."""

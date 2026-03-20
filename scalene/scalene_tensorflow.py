@@ -23,6 +23,7 @@ from scalene.scalene_library_profiler import ChromeTraceProfiler
 _tf_available = False
 _tf: Any = None
 _gpu_available = False
+_tf_version: tuple[int, int] = (0, 0)
 try:
     import tensorflow as tf
 
@@ -31,9 +32,7 @@ try:
     # Check for GPU availability
     _gpu_available = len(tf.config.list_physical_devices("GPU")) > 0
 
-    # TensorFlow 2.21+ has a bug where trace.enabled is a bool but
-    # internal code calls it as a function (TypeError: 'bool' object is not callable).
-    # Fix this for affected versions by making enabled callable again.
+    # Parse TensorFlow version for compatibility checks
     try:
         version_parts = tf.__version__.split(".")
         major = int(version_parts[0])
@@ -41,16 +40,6 @@ try:
         _tf_version = (major, minor)
     except (AttributeError, ValueError, IndexError):
         _tf_version = (0, 0)
-
-    if _tf_version >= (2, 21):
-        try:
-            from tensorflow.python.profiler import trace as _tf_trace
-
-            if hasattr(_tf_trace, "enabled") and not callable(_tf_trace.enabled):
-                _enabled_value = _tf_trace.enabled
-                _tf_trace.enabled = lambda: _enabled_value
-        except (ImportError, AttributeError):
-            pass
 except ImportError:
     pass  # TensorFlow not installed
 
@@ -78,8 +67,18 @@ class TensorFlowProfiler(ChromeTraceProfiler):
     """
 
     def is_available(self) -> bool:
-        """Check if TensorFlow is available for profiling."""
-        return _tf_available
+        """Check if TensorFlow is available for profiling.
+
+        Returns False for TensorFlow 2.21+ due to internal API changes
+        that make profiling incompatible.
+        """
+        if not _tf_available:
+            return False
+        # TF 2.21+ changed trace.enabled from a function to a bool,
+        # breaking internal profiler tracing during @tf.function execution
+        if _tf_version >= (2, 21):
+            return False
+        return True
 
     @property
     def name(self) -> str:
@@ -87,7 +86,7 @@ class TensorFlowProfiler(ChromeTraceProfiler):
 
     def start(self) -> None:
         """Start the TensorFlow profiler."""
-        if not _tf_available or _tf is None:
+        if not self.is_available() or _tf is None:
             return
 
         try:
