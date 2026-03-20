@@ -17,7 +17,11 @@ from scalene.scalene_jax import JaxProfiler
 from scalene.scalene_library_profiler import ChromeTraceProfiler, ScaleneLibraryProfiler
 
 # Import the profiler module (this should always work even without TensorFlow)
-from scalene.scalene_tensorflow import TensorFlowProfiler, is_tensorflow_available
+from scalene.scalene_tensorflow import (
+    TensorFlowProfiler,
+    is_profiler_broken,
+    is_tensorflow_available,
+)
 
 
 class TestTensorFlowProfilerUnit:
@@ -168,7 +172,10 @@ class TestTensorFlowProfilerWithoutTF:
         assert profiler._enabled is False
 
 
-@pytest.mark.skipif(not is_tensorflow_available(), reason="TensorFlow not installed")
+@pytest.mark.skipif(
+    not is_tensorflow_available() or is_profiler_broken(),
+    reason="TensorFlow not installed or profiler has known bugs (TF 2.21+)",
+)
 class TestTensorFlowProfilerWithTF:
     """Tests that require TensorFlow to be installed."""
 

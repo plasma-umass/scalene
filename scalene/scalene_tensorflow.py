@@ -23,6 +23,7 @@ from scalene.scalene_library_profiler import ChromeTraceProfiler
 _tf_available = False
 _tf: Any = None
 _gpu_available = False
+_tf_profiler_broken = False  # True if TF has known profiler bugs (e.g., TF 2.21+)
 try:
     import tensorflow as tf
 
@@ -30,6 +31,17 @@ try:
     _tf_available = True
     # Check for GPU availability
     _gpu_available = len(tf.config.list_physical_devices("GPU")) > 0
+
+    # TensorFlow 2.21+ has a bug where trace.enabled is a bool but
+    # internal code calls it as a function (TypeError: 'bool' object is not callable).
+    # Detect this condition and mark profiler as broken.
+    try:
+        from tensorflow.python.profiler import trace as _tf_trace
+
+        if hasattr(_tf_trace, "enabled") and not callable(_tf_trace.enabled):
+            _tf_profiler_broken = True
+    except (ImportError, AttributeError):
+        pass
 except ImportError:
     pass  # TensorFlow not installed
 
@@ -42,6 +54,16 @@ def is_tensorflow_available() -> bool:
 def is_gpu_available() -> bool:
     """Check if GPU is available for TensorFlow."""
     return _gpu_available
+
+
+def is_profiler_broken() -> bool:
+    """Check if TensorFlow's profiler has known bugs.
+
+    TensorFlow 2.21+ has a bug where trace.enabled is a bool but internal
+    code calls it as a function, causing TypeError. This returns True if
+    that condition is detected.
+    """
+    return _tf_profiler_broken
 
 
 class TensorFlowProfiler(ChromeTraceProfiler):
@@ -58,7 +80,8 @@ class TensorFlowProfiler(ChromeTraceProfiler):
 
     def is_available(self) -> bool:
         """Check if TensorFlow is available for profiling."""
-        return _tf_available
+        # TensorFlow 2.21+ has a bug that makes profiling impossible
+        return _tf_available and not _tf_profiler_broken
 
     @property
     def name(self) -> str:
@@ -69,20 +92,43 @@ class TensorFlowProfiler(ChromeTraceProfiler):
         if not _tf_available or _tf is None:
             return
 
+        # TensorFlow 2.21+ has a bug that makes profiling crash.
+        # Skip gracefully rather than cause errors in user code.
+        if _tf_profiler_broken:
+            return
+
         try:
             # Create a temporary directory for traces
             self._trace_dir = tempfile.mkdtemp(prefix="scalene_tf_")
 
-            # Configure profiler options for Python tracing
-            options = _tf.profiler.experimental.ProfilerOptions(
-                python_tracer_level=1,  # Enable Python tracing
-                host_tracer_level=2,  # Include high-level execution details
-            )
+            # Try to start the profiler. TensorFlow 2.21+ changed the API,
+            # so we try multiple approaches for compatibility.
+            started = False
 
-            # Start profiling - TensorFlow will write traces to this directory
-            _tf.profiler.experimental.start(self._trace_dir, options=options)
-            self._enabled = True
-            self._profiling_active = True
+            # First, try the simple API without options (works on TF 2.21+)
+            try:
+                _tf.profiler.experimental.start(self._trace_dir)
+                started = True
+            except (TypeError, AttributeError):
+                pass
+
+            # If that didn't work, try with ProfilerOptions (TF 2.15-2.20)
+            if not started:
+                try:
+                    options = _tf.profiler.experimental.ProfilerOptions(
+                        python_tracer_level=1,  # Enable Python tracing
+                        host_tracer_level=2,  # Include high-level execution details
+                    )
+                    _tf.profiler.experimental.start(self._trace_dir, options=options)
+                    started = True
+                except (TypeError, AttributeError):
+                    pass
+
+            if started:
+                self._enabled = True
+                self._profiling_active = True
+            else:
+                raise RuntimeError("Could not start TensorFlow profiler")
         except Exception:
             # Profiler failed to start; disable silently to avoid disrupting user code
             self._enabled = False
