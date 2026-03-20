@@ -33,14 +33,24 @@ try:
 
     # TensorFlow 2.21+ changed trace.enabled from a callable to a bool.
     # The internal Trace class still calls enabled(), so we need to make
-    # it callable again for compatibility.
+    # it callable again for compatibility. We check by version since the
+    # runtime check is unreliable (enabled may appear callable at import).
     try:
-        from tensorflow.python.profiler import trace as _tf_trace
+        version_parts = tf.__version__.split(".")
+        major = int(version_parts[0])
+        minor = int(version_parts[1].split("rc")[0].split("a")[0].split("b")[0])
+        if major > 2 or (major == 2 and minor >= 21):
+            from tensorflow.python.profiler import trace as _tf_trace
 
-        if hasattr(_tf_trace, "enabled") and not callable(_tf_trace.enabled):
-            _enabled_value = _tf_trace.enabled
-            _tf_trace.enabled = lambda: _enabled_value
-    except (ImportError, AttributeError):
+            if hasattr(_tf_trace, "enabled"):
+                _orig_enabled = _tf_trace.enabled
+                if callable(_orig_enabled):
+                    # It's a function, wrap it to always return a callable
+                    _tf_trace.enabled = lambda: _orig_enabled()
+                else:
+                    # It's a bool, wrap it
+                    _tf_trace.enabled = lambda: _orig_enabled
+    except (ImportError, AttributeError, ValueError, IndexError):
         pass
 except ImportError:
     pass  # TensorFlow not installed
