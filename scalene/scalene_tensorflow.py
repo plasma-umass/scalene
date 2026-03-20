@@ -23,7 +23,6 @@ from scalene.scalene_library_profiler import ChromeTraceProfiler
 _tf_available = False
 _tf: Any = None
 _gpu_available = False
-_tf_version: tuple[int, int] = (0, 0)
 try:
     import tensorflow as tf
 
@@ -32,14 +31,17 @@ try:
     # Check for GPU availability
     _gpu_available = len(tf.config.list_physical_devices("GPU")) > 0
 
-    # Parse TensorFlow version for compatibility checks
+    # TensorFlow 2.21+ changed trace.enabled from a callable to a bool.
+    # The internal Trace class still calls enabled(), so we need to make
+    # it callable again for compatibility.
     try:
-        version_parts = tf.__version__.split(".")
-        major = int(version_parts[0])
-        minor = int(version_parts[1].split("rc")[0].split("a")[0].split("b")[0])
-        _tf_version = (major, minor)
-    except (AttributeError, ValueError, IndexError):
-        _tf_version = (0, 0)
+        from tensorflow.python.profiler import trace as _tf_trace
+
+        if hasattr(_tf_trace, "enabled") and not callable(_tf_trace.enabled):
+            _enabled_value = _tf_trace.enabled
+            _tf_trace.enabled = lambda: _enabled_value
+    except (ImportError, AttributeError):
+        pass
 except ImportError:
     pass  # TensorFlow not installed
 
@@ -67,14 +69,8 @@ class TensorFlowProfiler(ChromeTraceProfiler):
     """
 
     def is_available(self) -> bool:
-        """Check if TensorFlow is available for profiling.
-
-        Returns False for TensorFlow 2.21+ due to internal API changes
-        that make profiling incompatible.
-        """
-        # TF 2.21+ changed trace.enabled from a function to a bool,
-        # breaking internal profiler tracing during @tf.function execution
-        return _tf_available and _tf_version < (2, 21)
+        """Check if TensorFlow is available for profiling."""
+        return _tf_available
 
     @property
     def name(self) -> str:

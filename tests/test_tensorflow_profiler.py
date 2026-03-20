@@ -50,16 +50,10 @@ class TestTensorFlowProfilerUnit:
         assert len(profiler.line_times) == 0
         assert len(profiler.gpu_line_times) == 0
 
-    def test_tensorflow_profiler_is_available_requires_tensorflow(self):
-        """Test is_available() requires TensorFlow to be installed.
-
-        Note: is_available() may return False even when TensorFlow is
-        installed if the version is incompatible (e.g., TF 2.21+).
-        """
+    def test_tensorflow_profiler_is_available_matches_import(self):
+        """Test is_available() matches module-level availability."""
         profiler = TensorFlowProfiler()
-        # If profiler is available, TensorFlow must be installed
-        if profiler.is_available():
-            assert is_tensorflow_available()
+        assert profiler.is_available() == is_tensorflow_available()
 
     def test_tensorflow_profiler_name(self):
         """Test that profiler has correct name."""
@@ -178,8 +172,8 @@ class TestTensorFlowProfilerWithoutTF:
 
 
 @pytest.mark.skipif(
-    not TensorFlowProfiler().is_available(),
-    reason="TensorFlow profiler not available (not installed or incompatible version)",
+    not is_tensorflow_available(),
+    reason="TensorFlow not installed",
 )
 class TestTensorFlowProfilerWithTF:
     """Tests that require TensorFlow to be installed."""
