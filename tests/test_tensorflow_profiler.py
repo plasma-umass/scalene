@@ -52,9 +52,13 @@ class TestTensorFlowProfilerUnit:
         assert len(profiler.gpu_line_times) == 0
 
     def test_tensorflow_profiler_is_available_matches_import(self):
-        """Test is_available() matches module-level availability."""
+        """Test is_available() matches module-level availability.
+
+        Note: is_available() returns False if TensorFlow is installed but
+        the profiler has known bugs (e.g., TF 2.21+).
+        """
         profiler = TensorFlowProfiler()
-        assert profiler.is_available() == is_tensorflow_available()
+        assert profiler.is_available() == (is_tensorflow_available() and not is_profiler_broken())
 
     def test_tensorflow_profiler_name(self):
         """Test that profiler has correct name."""
