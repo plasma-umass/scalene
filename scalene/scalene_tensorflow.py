@@ -33,15 +33,24 @@ try:
 
     # TensorFlow 2.21+ has a bug where trace.enabled is a bool but
     # internal code calls it as a function (TypeError: 'bool' object is not callable).
-    # Fix this by monkey-patching enabled to be a callable that returns the bool.
+    # Fix this for affected versions by making enabled callable again.
     try:
-        from tensorflow.python.profiler import trace as _tf_trace
+        version_parts = tf.__version__.split(".")
+        major = int(version_parts[0])
+        minor = int(version_parts[1].split("rc")[0].split("a")[0].split("b")[0])
+        _tf_version = (major, minor)
+    except (AttributeError, ValueError, IndexError):
+        _tf_version = (0, 0)
 
-        if hasattr(_tf_trace, "enabled") and not callable(_tf_trace.enabled):
-            _enabled_value = _tf_trace.enabled
-            _tf_trace.enabled = lambda: _enabled_value
-    except (ImportError, AttributeError):
-        pass
+    if _tf_version >= (2, 21):
+        try:
+            from tensorflow.python.profiler import trace as _tf_trace
+
+            if hasattr(_tf_trace, "enabled") and not callable(_tf_trace.enabled):
+                _enabled_value = _tf_trace.enabled
+                _tf_trace.enabled = lambda: _enabled_value
+        except (ImportError, AttributeError):
+            pass
 except ImportError:
     pass  # TensorFlow not installed
 
