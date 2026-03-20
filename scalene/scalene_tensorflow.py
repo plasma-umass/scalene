@@ -72,13 +72,9 @@ class TensorFlowProfiler(ChromeTraceProfiler):
         Returns False for TensorFlow 2.21+ due to internal API changes
         that make profiling incompatible.
         """
-        if not _tf_available:
-            return False
         # TF 2.21+ changed trace.enabled from a function to a bool,
         # breaking internal profiler tracing during @tf.function execution
-        if _tf_version >= (2, 21):
-            return False
-        return True
+        return _tf_available and _tf_version < (2, 21)
 
     @property
     def name(self) -> str:
