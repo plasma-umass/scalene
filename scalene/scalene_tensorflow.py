@@ -34,12 +34,17 @@ try:
 
     # TensorFlow 2.21+ has a bug where trace.enabled is a bool but
     # internal code calls it as a function (TypeError: 'bool' object is not callable).
-    # Detect this condition and mark profiler as broken.
+    # Detect this condition by actually trying to call enabled().
     try:
         from tensorflow.python.profiler import trace as _tf_trace
 
-        if hasattr(_tf_trace, "enabled") and not callable(_tf_trace.enabled):
-            _tf_profiler_broken = True
+        # Check if enabled exists and try to call it
+        if hasattr(_tf_trace, "enabled"):
+            try:
+                # This will raise TypeError if enabled is a bool instead of a function
+                _tf_trace.enabled()
+            except TypeError:
+                _tf_profiler_broken = True
     except (ImportError, AttributeError):
         pass
 except ImportError:
