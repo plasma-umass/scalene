@@ -23,7 +23,6 @@ from scalene.scalene_library_profiler import ChromeTraceProfiler
 _tf_available = False
 _tf: Any = None
 _gpu_available = False
-_tf_profiler_broken = False  # True if TF has known profiler bugs (e.g., TF 2.21+)
 try:
     import tensorflow as tf
 
@@ -34,26 +33,15 @@ try:
 
     # TensorFlow 2.21+ has a bug where trace.enabled is a bool but
     # internal code calls it as a function (TypeError: 'bool' object is not callable).
-    # Detect this via version check since runtime detection is unreliable.
+    # Fix this by monkey-patching enabled to be a callable that returns the bool.
     try:
-        # Parse version string (e.g., "2.21.0" -> (2, 21, 0))
-        version_parts = tf.__version__.split(".")
-        major = int(version_parts[0])
-        minor = int(version_parts[1].split("rc")[0].split("a")[0].split("b")[0])
-        if major > 2 or (major == 2 and minor >= 21):
-            _tf_profiler_broken = True
-    except (AttributeError, ValueError, IndexError):
-        # Fallback: try calling enabled() directly
-        try:
-            from tensorflow.python.profiler import trace as _tf_trace
+        from tensorflow.python.profiler import trace as _tf_trace
 
-            if hasattr(_tf_trace, "enabled"):
-                try:
-                    _tf_trace.enabled()
-                except TypeError:
-                    _tf_profiler_broken = True
-        except (ImportError, AttributeError):
-            pass
+        if hasattr(_tf_trace, "enabled") and not callable(_tf_trace.enabled):
+            _enabled_value = _tf_trace.enabled
+            _tf_trace.enabled = lambda: _enabled_value
+    except (ImportError, AttributeError):
+        pass
 except ImportError:
     pass  # TensorFlow not installed
 
@@ -66,16 +54,6 @@ def is_tensorflow_available() -> bool:
 def is_gpu_available() -> bool:
     """Check if GPU is available for TensorFlow."""
     return _gpu_available
-
-
-def is_profiler_broken() -> bool:
-    """Check if TensorFlow's profiler has known bugs.
-
-    TensorFlow 2.21+ has a bug where trace.enabled is a bool but internal
-    code calls it as a function, causing TypeError. This returns True if
-    that condition is detected.
-    """
-    return _tf_profiler_broken
 
 
 class TensorFlowProfiler(ChromeTraceProfiler):
@@ -92,8 +70,7 @@ class TensorFlowProfiler(ChromeTraceProfiler):
 
     def is_available(self) -> bool:
         """Check if TensorFlow is available for profiling."""
-        # TensorFlow 2.21+ has a bug that makes profiling impossible
-        return _tf_available and not _tf_profiler_broken
+        return _tf_available
 
     @property
     def name(self) -> str:
@@ -102,11 +79,6 @@ class TensorFlowProfiler(ChromeTraceProfiler):
     def start(self) -> None:
         """Start the TensorFlow profiler."""
         if not _tf_available or _tf is None:
-            return
-
-        # TensorFlow 2.21+ has a bug that makes profiling crash.
-        # Skip gracefully rather than cause errors in user code.
-        if _tf_profiler_broken:
             return
 
         try:

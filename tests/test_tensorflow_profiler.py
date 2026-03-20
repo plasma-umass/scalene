@@ -19,7 +19,6 @@ from scalene.scalene_library_profiler import ChromeTraceProfiler, ScaleneLibrary
 # Import the profiler module (this should always work even without TensorFlow)
 from scalene.scalene_tensorflow import (
     TensorFlowProfiler,
-    is_profiler_broken,
     is_tensorflow_available,
 )
 
@@ -52,13 +51,9 @@ class TestTensorFlowProfilerUnit:
         assert len(profiler.gpu_line_times) == 0
 
     def test_tensorflow_profiler_is_available_matches_import(self):
-        """Test is_available() matches module-level availability.
-
-        Note: is_available() returns False if TensorFlow is installed but
-        the profiler has known bugs (e.g., TF 2.21+).
-        """
+        """Test is_available() matches module-level availability."""
         profiler = TensorFlowProfiler()
-        assert profiler.is_available() == (is_tensorflow_available() and not is_profiler_broken())
+        assert profiler.is_available() == is_tensorflow_available()
 
     def test_tensorflow_profiler_name(self):
         """Test that profiler has correct name."""
@@ -177,8 +172,8 @@ class TestTensorFlowProfilerWithoutTF:
 
 
 @pytest.mark.skipif(
-    not is_tensorflow_available() or is_profiler_broken(),
-    reason="TensorFlow not installed or profiler has known bugs (TF 2.21+)",
+    not is_tensorflow_available(),
+    reason="TensorFlow not installed",
 )
 class TestTensorFlowProfilerWithTF:
     """Tests that require TensorFlow to be installed."""
