@@ -59,7 +59,11 @@ def _apply_trace_compatibility_fix() -> None:
         if hasattr(_tf_trace, "enabled"):
             current = _tf_trace.enabled
             # Only patch if not already patched (check if it's our lambda)
-            if not callable(current) or not hasattr(current, "__name__") or current.__name__ != "<lambda>":
+            if (
+                not callable(current)
+                or not hasattr(current, "__name__")
+                or current.__name__ != "<lambda>"
+            ):
                 if callable(current):
                     _tf_trace.enabled = lambda _f=current: _f()
                 else:
