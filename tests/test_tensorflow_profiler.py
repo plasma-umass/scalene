@@ -19,6 +19,7 @@ from scalene.scalene_library_profiler import ChromeTraceProfiler, ScaleneLibrary
 # Import the profiler module (this should always work even without TensorFlow)
 from scalene.scalene_tensorflow import (
     TensorFlowProfiler,
+    _apply_trace_compatibility_fix,
     is_tensorflow_available,
 )
 
@@ -167,6 +168,50 @@ class TestTensorFlowProfilerWithoutTF:
         """Test that stop() is safe to call without start()."""
         profiler = TensorFlowProfiler()
         # Should not raise
+        profiler.stop()
+        assert profiler._enabled is False
+
+
+class TestTensorFlowCompatibilityFix:
+    """Tests for TensorFlow version compatibility handling."""
+
+    @pytest.mark.skipif(
+        not is_tensorflow_available(),
+        reason="TensorFlow not installed",
+    )
+    def test_trace_enabled_is_callable_after_fix(self):
+        """Test that trace.enabled is callable after applying the fix."""
+        # Apply the compatibility fix
+        _apply_trace_compatibility_fix()
+
+        # Import the trace module and check that enabled is callable
+        from tensorflow.python.profiler import trace
+
+        assert callable(trace.enabled), "trace.enabled should be callable after fix"
+        # Calling it should not raise
+        result = trace.enabled()
+        assert isinstance(result, bool), "trace.enabled() should return a bool"
+
+    @pytest.mark.skipif(
+        not is_tensorflow_available(),
+        reason="TensorFlow not installed",
+    )
+    def test_profiler_works_with_tf_function(self):
+        """Test that profiling works with @tf.function decorated code."""
+        import tensorflow as tf
+
+        profiler = TensorFlowProfiler()
+        profiler.start()
+
+        # This should not raise TypeError even on TF 2.21+
+        @tf.function
+        def simple_compute(x):
+            return x * 2
+
+        x = tf.constant([1.0, 2.0, 3.0])
+        result = simple_compute(x)
+        _ = result.numpy()  # Force execution
+
         profiler.stop()
         assert profiler._enabled is False
 

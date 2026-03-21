@@ -23,6 +23,7 @@ from scalene.scalene_library_profiler import ChromeTraceProfiler
 _tf_available = False
 _tf: Any = None
 _gpu_available = False
+_tf_version: tuple[int, int] = (0, 0)
 try:
     import tensorflow as tf
 
@@ -31,29 +32,40 @@ try:
     # Check for GPU availability
     _gpu_available = len(tf.config.list_physical_devices("GPU")) > 0
 
-    # TensorFlow 2.21+ changed trace.enabled from a callable to a bool.
-    # The internal Trace class still calls enabled(), so we need to make
-    # it callable again for compatibility. We check by version since the
-    # runtime check is unreliable (enabled may appear callable at import).
+    # Parse TensorFlow version for compatibility handling
     try:
         version_parts = tf.__version__.split(".")
         major = int(version_parts[0])
         minor = int(version_parts[1].split("rc")[0].split("a")[0].split("b")[0])
-        if major > 2 or (major == 2 and minor >= 21):
-            from tensorflow.python.profiler import trace as _tf_trace
-
-            if hasattr(_tf_trace, "enabled"):
-                _orig_enabled = _tf_trace.enabled
-                if callable(_orig_enabled):
-                    # It's a function, wrap it to always return a callable
-                    _tf_trace.enabled = lambda: _orig_enabled()
-                else:
-                    # It's a bool, wrap it
-                    _tf_trace.enabled = lambda: _orig_enabled
-    except (ImportError, AttributeError, ValueError, IndexError):
+        _tf_version = (major, minor)
+    except (AttributeError, ValueError, IndexError):
         pass
 except ImportError:
     pass  # TensorFlow not installed
+
+
+def _apply_trace_compatibility_fix() -> None:
+    """Apply compatibility fix for TensorFlow 2.21+ trace.enabled issue.
+
+    TF 2.21+ changed trace.enabled from a callable to a bool, but internal
+    code still calls enabled(). This wraps it in a lambda to make it callable.
+    """
+    if _tf_version < (2, 21):
+        return
+
+    try:
+        from tensorflow.python.profiler import trace as _tf_trace
+
+        if hasattr(_tf_trace, "enabled"):
+            current = _tf_trace.enabled
+            # Only patch if not already patched (check if it's our lambda)
+            if not callable(current) or not hasattr(current, "__name__") or current.__name__ != "<lambda>":
+                if callable(current):
+                    _tf_trace.enabled = lambda _f=current: _f()
+                else:
+                    _tf_trace.enabled = lambda _v=current: _v
+    except (ImportError, AttributeError):
+        pass
 
 
 def is_tensorflow_available() -> bool:
@@ -90,6 +102,9 @@ class TensorFlowProfiler(ChromeTraceProfiler):
         """Start the TensorFlow profiler."""
         if not self.is_available() or _tf is None:
             return
+
+        # Apply compatibility fix for TF 2.21+ before starting
+        _apply_trace_compatibility_fix()
 
         try:
             # Create a temporary directory for traces
