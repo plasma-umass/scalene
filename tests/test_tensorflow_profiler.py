@@ -17,7 +17,11 @@ from scalene.scalene_jax import JaxProfiler
 from scalene.scalene_library_profiler import ChromeTraceProfiler, ScaleneLibraryProfiler
 
 # Import the profiler module (this should always work even without TensorFlow)
-from scalene.scalene_tensorflow import TensorFlowProfiler, is_tensorflow_available
+from scalene.scalene_tensorflow import (
+    TensorFlowProfiler,
+    _apply_trace_compatibility_fix,
+    is_tensorflow_available,
+)
 
 
 class TestTensorFlowProfilerUnit:
@@ -168,7 +172,63 @@ class TestTensorFlowProfilerWithoutTF:
         assert profiler._enabled is False
 
 
-@pytest.mark.skipif(not is_tensorflow_available(), reason="TensorFlow not installed")
+class TestTensorFlowCompatibilityFix:
+    """Tests for TensorFlow version compatibility handling."""
+
+    @pytest.mark.skipif(
+        not is_tensorflow_available(),
+        reason="TensorFlow not installed",
+    )
+    def test_trace_enabled_works_after_fix(self):
+        """Test that trace.enabled works after applying the fix.
+
+        In TF < 2.21, enabled is a bool checked directly.
+        In TF >= 2.21, enabled should be callable after our fix.
+        """
+        import scalene.scalene_tensorflow as tf_module
+
+        # Apply the compatibility fix
+        _apply_trace_compatibility_fix()
+
+        from tensorflow.python.profiler import trace
+
+        # For TF 2.21+, enabled should be callable after fix
+        if tf_module._tf_version >= (2, 21):
+            assert callable(trace.enabled), "trace.enabled should be callable after fix for TF 2.21+"
+            result = trace.enabled()
+            assert isinstance(result, bool), "trace.enabled() should return a bool"
+        else:
+            # For older TF, enabled is a bool (checked directly, not called)
+            assert isinstance(trace.enabled, bool), "trace.enabled should be a bool for TF < 2.21"
+
+    @pytest.mark.skipif(
+        not is_tensorflow_available(),
+        reason="TensorFlow not installed",
+    )
+    def test_profiler_works_with_tf_function(self):
+        """Test that profiling works with @tf.function decorated code."""
+        import tensorflow as tf
+
+        profiler = TensorFlowProfiler()
+        profiler.start()
+
+        # This should not raise TypeError even on TF 2.21+
+        @tf.function
+        def simple_compute(x):
+            return x * 2
+
+        x = tf.constant([1.0, 2.0, 3.0])
+        result = simple_compute(x)
+        _ = result.numpy()  # Force execution
+
+        profiler.stop()
+        assert profiler._enabled is False
+
+
+@pytest.mark.skipif(
+    not is_tensorflow_available(),
+    reason="TensorFlow not installed",
+)
 class TestTensorFlowProfilerWithTF:
     """Tests that require TensorFlow to be installed."""
 

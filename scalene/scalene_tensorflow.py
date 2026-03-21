@@ -23,6 +23,7 @@ from scalene.scalene_library_profiler import ChromeTraceProfiler
 _tf_available = False
 _tf: Any = None
 _gpu_available = False
+_tf_version: tuple[int, int] = (0, 0)
 try:
     import tensorflow as tf
 
@@ -30,8 +31,41 @@ try:
     _tf_available = True
     # Check for GPU availability
     _gpu_available = len(tf.config.list_physical_devices("GPU")) > 0
+
+    # Parse TensorFlow version for compatibility handling
+    try:
+        version_parts = tf.__version__.split(".")
+        major = int(version_parts[0])
+        minor = int(version_parts[1].split("rc")[0].split("a")[0].split("b")[0])
+        _tf_version = (major, minor)
+    except (AttributeError, ValueError, IndexError):
+        pass
 except ImportError:
     pass  # TensorFlow not installed
+
+
+def _apply_trace_compatibility_fix() -> None:
+    """Apply compatibility fix for TensorFlow 2.21+ trace.enabled issue.
+
+    TF 2.21+ changed trace.enabled from a callable to a bool, but internal
+    code still calls enabled(). This wraps it in a lambda to make it callable.
+    """
+    if _tf_version < (2, 21):
+        return
+
+    try:
+        from tensorflow.python.profiler import trace as _tf_trace
+
+        if hasattr(_tf_trace, "enabled"):
+            current = _tf_trace.enabled
+            # Only patch if not already patched (check if it's our lambda)
+            if not callable(current) or not hasattr(current, "__name__") or current.__name__ != "<lambda>":
+                if callable(current):
+                    _tf_trace.enabled = lambda _f=current: _f()
+                else:
+                    _tf_trace.enabled = lambda _v=current: _v
+    except (ImportError, AttributeError):
+        pass
 
 
 def is_tensorflow_available() -> bool:
@@ -66,23 +100,44 @@ class TensorFlowProfiler(ChromeTraceProfiler):
 
     def start(self) -> None:
         """Start the TensorFlow profiler."""
-        if not _tf_available or _tf is None:
+        if not self.is_available() or _tf is None:
             return
+
+        # Apply compatibility fix for TF 2.21+ before starting
+        _apply_trace_compatibility_fix()
 
         try:
             # Create a temporary directory for traces
             self._trace_dir = tempfile.mkdtemp(prefix="scalene_tf_")
 
-            # Configure profiler options for Python tracing
-            options = _tf.profiler.experimental.ProfilerOptions(
-                python_tracer_level=1,  # Enable Python tracing
-                host_tracer_level=2,  # Include high-level execution details
-            )
+            # Try to start the profiler. TensorFlow 2.21+ changed the API,
+            # so we try multiple approaches for compatibility.
+            started = False
 
-            # Start profiling - TensorFlow will write traces to this directory
-            _tf.profiler.experimental.start(self._trace_dir, options=options)
-            self._enabled = True
-            self._profiling_active = True
+            # First, try the simple API without options (works on TF 2.21+)
+            try:
+                _tf.profiler.experimental.start(self._trace_dir)
+                started = True
+            except (TypeError, AttributeError):
+                pass
+
+            # If that didn't work, try with ProfilerOptions (TF 2.15-2.20)
+            if not started:
+                try:
+                    options = _tf.profiler.experimental.ProfilerOptions(
+                        python_tracer_level=1,  # Enable Python tracing
+                        host_tracer_level=2,  # Include high-level execution details
+                    )
+                    _tf.profiler.experimental.start(self._trace_dir, options=options)
+                    started = True
+                except (TypeError, AttributeError):
+                    pass
+
+            if started:
+                self._enabled = True
+                self._profiling_active = True
+            else:
+                raise RuntimeError("Could not start TensorFlow profiler")
         except Exception:
             # Profiler failed to start; disable silently to avoid disrupting user code
             self._enabled = False
