@@ -7,6 +7,7 @@ import pytest
 import random
 import sys
 import threading
+
 from scalene.replacement_sem_lock import ReplacementSemLock
 from scalene.scalene_profiler import Scalene
 

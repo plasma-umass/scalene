@@ -34,11 +34,14 @@ _FORCE_PYTHON_CALLBACK = False
 # On Python < 3.12, this will be None. On 3.12+, it's the monitoring module.
 _monitoring: Any = getattr(sys, "monitoring", None)
 
-# Unique tool ID for Scalene's sys.monitoring registration
-# We use sys.monitoring.PROFILER_ID which is available for profiling tools
+# Unique tool ID for Scalene's sys.monitoring registration.
+# We prefer PROFILER_ID but fall back to IDs 3 or 4 if it's taken (e.g., by PyTorch).
+# IDs 3 and 4 are unassigned in sys.monitoring (0=DEBUGGER, 1=COVERAGE, 2=PROFILER, 5=OPTIMIZER).
 _SCALENE_TOOL_ID: int = 0
+_CANDIDATE_TOOL_IDS: list[int] = []
 if _SYS_MONITORING_AVAILABLE:
     _SCALENE_TOOL_ID = _monitoring.PROFILER_ID
+    _CANDIDATE_TOOL_IDS = [_monitoring.PROFILER_ID, 3, 4]
 
 
 def set_use_legacy_tracer(use_legacy: bool) -> None:
@@ -160,9 +163,25 @@ class ScaleneTracer:
     @classmethod
     def _setup_monitoring(cls) -> None:
         """Set up sys.monitoring callbacks for Python 3.12+."""
-        with contextlib.suppress(ValueError):
-            # Register Scalene as a monitoring tool
-            _monitoring.use_tool_id(_SCALENE_TOOL_ID, "scalene")
+        global _SCALENE_TOOL_ID
+
+        # Try to claim a tool ID, preferring PROFILER_ID but falling back if taken
+        tool_claimed = False
+        for candidate_id in _CANDIDATE_TOOL_IDS:
+            try:
+                _monitoring.use_tool_id(candidate_id, "scalene")
+                _SCALENE_TOOL_ID = candidate_id
+                tool_claimed = True
+                break
+            except ValueError:
+                # This ID is already in use, try the next one
+                continue
+
+        if not tool_claimed:
+            # All candidate IDs are taken; fall back to legacy tracer
+            global _FORCE_LEGACY_TRACER
+            _FORCE_LEGACY_TRACER = True
+            return
 
         # Choose between C callback (3.13+) and Python callback (3.12)
         if _use_c_callback() and cls._pywhere is not None:

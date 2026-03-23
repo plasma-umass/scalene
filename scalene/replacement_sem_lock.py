@@ -3,13 +3,15 @@ import multiprocessing.synchronize
 import random
 import sys
 import threading
+import warnings
 from typing import Any, Callable, Optional, Tuple, Union
 
 from scalene.scalene_profiler import Scalene
 
 
 def _make_replacement_semlock(method: Optional[str] = None) -> "ReplacementSemLock":
-    # Create lock using the specified context method for spawn-safety
+    # Create lock using the specified context method for spawn-safety.
+    # The ReplacementSemLock constructor handles BrokenPipeError fallback.
     ctx = multiprocessing.get_context(method)
     return ReplacementSemLock(ctx=ctx)
 
@@ -29,7 +31,27 @@ class ReplacementSemLock(multiprocessing.synchronize.Lock):
             ctx = multiprocessing.get_context()
         # Store the context method for pickling (spawn-safety)
         self._ctx_method: Optional[str] = getattr(ctx, "_name", None)
-        super().__init__(ctx=ctx)
+        try:
+            super().__init__(ctx=ctx)
+        except BrokenPipeError:
+            # On some systems (e.g., NixOS with Python 3.13+), the multiprocessing
+            # resource tracker subprocess can die unexpectedly when using spawn
+            # context, causing BrokenPipeError. Fall back to fork context on
+            # platforms where it's available.
+            # See: https://github.com/plasma-umass/scalene/issues/1017
+            if sys.platform != "win32" and self._ctx_method in ("spawn", "forkserver"):
+                warnings.warn(
+                    f"Multiprocessing resource tracker failed with {self._ctx_method!r} "
+                    f"context, falling back to 'fork' context. "
+                    f"See https://github.com/plasma-umass/scalene/issues/1017",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                ctx = multiprocessing.get_context("fork")
+                self._ctx_method = "fork"
+                super().__init__(ctx=ctx)
+            else:
+                raise
 
     def __enter__(self) -> bool:
         switch_interval = sys.getswitchinterval()
