@@ -79,11 +79,17 @@ def compute_frames_to_record(
     # Collect frames from all threads. Use C extension if available for speed,
     # otherwise fall back to Python implementation.
     frames: List[Tuple[FrameType, int]]
+    use_python_fallback = True
     if _has_fast_frames:
-        # C extension returns (thread_id, frame) tuples, main thread first
-        raw_frames = pywhere.collect_frames_to_record()
-        frames = [(frame, tid) for tid, frame in raw_frames]
-    else:
+        try:
+            # C extension returns (thread_id, frame) tuples, main thread first
+            raw_frames = pywhere.collect_frames_to_record()
+            if raw_frames:
+                frames = [(frame, tid) for tid, frame in raw_frames]
+                use_python_fallback = False
+        except (ValueError, TypeError, RuntimeError):
+            pass
+    if use_python_fallback:
         # Pure Python implementation
         all_frames = sys._current_frames()
         # Build list of non-main thread frames

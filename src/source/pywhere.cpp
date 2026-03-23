@@ -263,8 +263,16 @@ static PyObject* collect_frames_to_record(PyObject* self, PyObject* args) {
     return PyList_New(0);  // Return empty list if Python not initialized
   }
 
-  // Collect all thread states first
-  std::vector<std::pair<PyThreadState*, unsigned long>> thread_states;
+  // Collect all thread states first.
+  // We store the native thread_id (unsigned long) for each thread, and use
+  // PyThreadState_GetID() (the sequential uint64_t id) to find the main thread
+  // (smallest sequential ID = first created = main thread).
+  struct ThreadInfo {
+    PyThreadState* tstate;
+    unsigned long native_tid;
+    uint64_t sequential_id;
+  };
+  std::vector<ThreadInfo> thread_states;
   PyThreadState* main_thread = nullptr;
   unsigned long main_thread_id = 0;
 
@@ -273,15 +281,18 @@ static PyObject* collect_frames_to_record(PyObject* self, PyObject* args) {
     return PyList_New(0);
   }
 
-  // Find main thread (smallest ID) and collect all threads
+  // Find main thread (smallest sequential ID) and collect all threads.
+  // Use PyThreadState_GetID() instead of direct t->id struct access
+  // for compatibility with Python 3.13+ where struct layouts may differ.
   for (PyThreadState* t = PyInterpreterState_ThreadHead(interp);
        t != nullptr;
        t = PyThreadState_Next(t)) {
-    unsigned long tid = t->thread_id;
-    thread_states.push_back({t, tid});
-    if (main_thread == nullptr || main_thread->id > t->id) {
+    uint64_t seq_id = PyThreadState_GetID(t);
+    unsigned long native_tid = t->thread_id;
+    thread_states.push_back({t, native_tid, seq_id});
+    if (main_thread == nullptr || PyThreadState_GetID(main_thread) > seq_id) {
       main_thread = t;
-      main_thread_id = tid;
+      main_thread_id = native_tid;
     }
   }
 
@@ -317,10 +328,8 @@ static PyObject* collect_frames_to_record(PyObject* self, PyObject* args) {
 
   // Process other threads
   for (size_t i = 0; i < thread_states.size(); i++) {
-    PyThreadState* tstate = thread_states[i].first;
-    unsigned long tid = thread_states[i].second;
-    if (tstate != main_thread) {
-      add_thread_frame(tstate, tid);
+    if (thread_states[i].tstate != main_thread) {
+      add_thread_frame(thread_states[i].tstate, thread_states[i].native_tid);
     }
   }
 
