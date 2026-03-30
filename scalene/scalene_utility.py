@@ -410,11 +410,21 @@ def patch_module_functions_with_signal_blocking(
 ) -> None:
     """Patch all functions in the given module to block the specified signal during execution."""
 
+    # Record the PID of the process that installs the patches.
+    # Child processes (e.g., multiprocessing resource_tracker) inherit
+    # the patched module but should not alter their signal masks, as
+    # that can kill the resource tracker and cause BrokenPipeError when
+    # the parent tries to register shared resources (issue #1017).
+    profiler_pid = os.getpid()
+
     def signal_blocking_wrapper(func: Union[BuiltinFunctionType, FunctionType]) -> Any:
         """Wrap a function to block the specified signal during its execution."""
 
         @functools.wraps(func)
         def wrapped(*args: Any, **kwargs: Any) -> Any:
+            if os.getpid() != profiler_pid:
+                # In a child process — skip signal blocking.
+                return func(*args, **kwargs)
             # Block the specified signal temporarily
             original_sigmask = signal.pthread_sigmask(
                 signal.SIG_BLOCK, [signal_to_block]
