@@ -415,14 +415,17 @@ def patch_module_functions_with_signal_blocking(
     # the patched module but should not alter their signal masks, as
     # that can kill the resource tracker and cause BrokenPipeError when
     # the parent tries to register shared resources (issue #1017).
-    profiler_pid = os.getpid()
+    # Use a direct reference to the builtin getpid to avoid infinite
+    # recursion when the os module itself is the one being patched.
+    _getpid = os.getpid
+    profiler_pid = _getpid()
 
     def signal_blocking_wrapper(func: Union[BuiltinFunctionType, FunctionType]) -> Any:
         """Wrap a function to block the specified signal during its execution."""
 
         @functools.wraps(func)
         def wrapped(*args: Any, **kwargs: Any) -> Any:
-            if os.getpid() != profiler_pid:
+            if _getpid() != profiler_pid:
                 # In a child process — skip signal blocking.
                 return func(*args, **kwargs)
             # Block the specified signal temporarily
