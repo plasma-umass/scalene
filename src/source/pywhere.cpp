@@ -1013,4 +1013,12 @@ static PyModuleDef EmbedModule = {PyModuleDef_HEAD_INIT,
                                   NULL,
                                   NULL};
 
-PyMODINIT_FUNC PyInit_pywhere() { return PyModule_Create(&EmbedModule); }
+PyMODINIT_FUNC PyInit_pywhere() {
+  PyObject* m = PyModule_Create(&EmbedModule);
+#ifdef Py_GIL_DISABLED
+  if (m != NULL) {
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_USED);
+  }
+#endif
+  return m;
+}
