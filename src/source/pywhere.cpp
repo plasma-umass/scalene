@@ -915,15 +915,6 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
 }
 
 static PyObject* populate_struct(PyObject* self, PyObject* args) {
-  // Re-install Scalene's allocator wrappers in case Py_Initialize reset them.
-  // This is needed on free-threaded Python where the runtime reinitializes
-  // allocators to mimalloc during startup, overwriting our LD_PRELOAD setup.
-  {
-    typedef void (*reinstall_fn)();
-    auto fn = (reinstall_fn)dlsym(RTLD_DEFAULT, "scalene_reinstall_local_allocators");
-    if (fn) fn();
-  }
-
   PyObject* scalene_module(
       PyImport_GetModule(PyUnicode_FromString("scalene")));  // New reference
   PyObject* scalene_dict(
@@ -1046,6 +1037,15 @@ PyMODINIT_FUNC PyInit_pywhere() {
 #ifdef Py_GIL_DISABLED
   if (m != NULL) {
     PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+  }
+  // On free-threaded Python, Py_Initialize resets allocators to mimalloc,
+  // overwriting any wrappers from libscalene's static constructors.
+  // Re-install them here during module init, where the import lock
+  // ensures no other Python thread is running (safe for PyMem_SetAllocator).
+  {
+    typedef void (*reinstall_fn)();
+    auto fn = (reinstall_fn)dlsym(RTLD_DEFAULT, "scalene_reinstall_local_allocators");
+    if (fn) fn();
   }
 #endif
   return m;
