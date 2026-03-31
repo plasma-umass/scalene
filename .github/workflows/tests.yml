@@ -15,16 +15,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
+      fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest ]
-        python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
+        python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.13t', '3.14t' ]
 
     steps:
     - uses: actions/checkout@v4
 
     - name: select Xcode version
       # MacOS > 14.2 requires Xcode >= 15.3; otherwise loading native extension modules fails with e.g.:
-      # dlopen(/opt/homebrew/lib/python3.11/site-packages/slipcover/probe.abi3.so, 0x0002): bad bind opcode 0x00 
+      # dlopen(/opt/homebrew/lib/python3.11/site-packages/slipcover/probe.abi3.so, 0x0002): bad bind opcode 0x00
       if: startsWith(matrix.os, 'macos-')
       run: |
         if [ -d /Applications/Xcode_15.3.app/Contents/Developer ]; then sudo xcode-select --switch /Applications/Xcode_15.3.app/Contents/Developer; fi
@@ -45,6 +46,11 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
 
+    - name: Install system build dependencies
+      # Free-threaded Python may lack pre-built wheels for packages like lxml
+      if: runner.os == 'Linux'
+      run: sudo apt-get install -y libxml2-dev libxslt-dev
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -57,10 +63,28 @@ jobs:
     - name: install test dependencies
       run: |
         python3 -m pip install pytest pytest-asyncio hypothesis
-        python3 -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-        # Install JAX and TensorFlow for library profiler tests (Python < 3.13 only)
+        # torch/JAX/TensorFlow may not be available on free-threaded Python builds
+        python3 -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python3 -m pip install -e ".[test]" || python3 -m pip install -e .
 
+    - name: Enable core dumps for free-threaded builds
+      if: runner.os == 'Linux' && endsWith(matrix.python, 't')
+      run: |
+        ulimit -c unlimited
+        echo '/tmp/core.%e.%p' | sudo tee /proc/sys/kernel/core_pattern
+        sudo apt-get install -y gdb
+
     - name: run tests
+      # Free-threaded Python support is experimental; don't block CI on failures
+      continue-on-error: ${{ endsWith(matrix.python, 't') }}
       run: |
         python3 -m pytest
+
+    - name: Collect crash backtraces
+      if: failure() && runner.os == 'Linux' && endsWith(matrix.python, 't')
+      run: |
+        for core in /tmp/core.*; do
+          [ -f "$core" ] || continue
+          echo "=== Backtrace from $core ==="
+          gdb -batch -ex "thread apply all bt full" python3 "$core" 2>/dev/null || true
+        done
