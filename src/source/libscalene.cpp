@@ -119,12 +119,6 @@ class MakeLocalAllocator {
                   .realloc = local_realloc,
                   .free = local_free};
 
-#ifdef Py_GIL_DISABLED
-    // On free-threaded Python, we set PYTHONMALLOC=malloc to route all
-    // Python allocations through C malloc (intercepted via LD_PRELOAD).
-    // No need to wrap the Python allocator with PyMem_SetAllocator,
-    // which is not thread-safe after Py_Initialize.
-#else
     DL_FUNCTION(PyMem_GetAllocator);
     DL_FUNCTION(PyMem_SetAllocator);
 
@@ -134,7 +128,6 @@ class MakeLocalAllocator {
       dlPyMem_GetAllocator(Domain, get_original_allocator());
       dlPyMem_SetAllocator(Domain, &localAlloc);
     }
-#endif
   }
 
   // Re-install allocator wrappers. Called after Py_Initialize to handle

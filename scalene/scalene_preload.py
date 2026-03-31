@@ -12,7 +12,7 @@ from typing import Dict
 
 import scalene
 
-_is_free_threaded = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
+_is_free_threaded: bool = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 
 class ScalenePreload:
@@ -21,6 +21,12 @@ class ScalenePreload:
         env = {
             "SCALENE_ALLOCATION_SAMPLING_WINDOW": str(args.allocation_sampling_window)
         }
+
+        # On free-threaded Python (3.13t+), memory profiling requires the GIL
+        # because PyMem_SetAllocator is not thread-safe (non-atomic struct copy).
+        # CPU-only profiling works with true free-threading.
+        if _is_free_threaded and args.memory and "PYTHON_GIL" not in os.environ:
+            env["PYTHON_GIL"] = "1"
 
         # JIT disabling is opt-in via --disable-jit flag.
         # See https://github.com/plasma-umass/scalene/issues/908
@@ -42,11 +48,8 @@ class ScalenePreload:
                 env["DYLD_INSERT_LIBRARIES"] = os.path.join(
                     scalene.__path__[0], "libscalene.dylib"
                 )
-                if _is_free_threaded:
-                    # On free-threaded Python, force C malloc for all Python
-                    # allocations so they go through DYLD_INSERT_LIBRARIES.
-                    env["PYTHONMALLOC"] = "malloc"
-                elif "PYTHONMALLOC" in env:
+                # Disable command-line specified PYTHONMALLOC.
+                if "PYTHONMALLOC" in env:
                     del env["PYTHONMALLOC"]
             # required for multiprocessing support, even without libscalene
             env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
@@ -73,13 +76,8 @@ class ScalenePreload:
                     env["LD_PRELOAD"] = new_ld_preload
                 elif new_ld_preload not in os.environ["LD_PRELOAD"].split(":"):
                     env["LD_PRELOAD"] = f'{new_ld_preload}:{os.environ["LD_PRELOAD"]}'
-                if _is_free_threaded:
-                    # On free-threaded Python, force C malloc for all Python
-                    # allocations. This routes everything through LD_PRELOAD
-                    # interposition, avoiding the thread-unsafe PyMem_SetAllocator.
-                    env["PYTHONMALLOC"] = "malloc"
-                elif "PYTHONMALLOC" in os.environ:
-                    # Disable command-line specified PYTHONMALLOC.
+                # Disable command-line specified PYTHONMALLOC.
+                if "PYTHONMALLOC" in os.environ:
                     env["PYTHONMALLOC"] = "default"
 
         elif sys.platform == "win32":
