@@ -79,7 +79,7 @@ jobs:
       run: |
         echo 'x = [i*i for i in range(500000)]' > /tmp/test_ft.py
         # Run under gdb following the child (preloaded) process
-        gdb -batch -ex 'set follow-fork-mode child' -ex run -ex 'thread apply all bt' --args python3 -m scalene run --memory -o /tmp/ft_profile.json /tmp/test_ft.py 2>&1 | tail -80 || true
+        gdb -batch -ex 'set follow-fork-mode child' -ex 'set pagination off' -ex run -ex 'thread apply all bt 30' --args python3 -m scalene run --memory -o /tmp/ft_profile.json /tmp/test_ft.py 2>&1 || true
 
     - name: run tests
       run: |
