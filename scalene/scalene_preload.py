@@ -31,17 +31,6 @@ class ScalenePreload:
         if _is_free_threaded_build() and "PYTHON_GIL" not in os.environ:
             env["PYTHON_GIL"] = "1"
 
-        # Free-threaded Python replaced pymalloc with mimalloc, which has
-        # a different allocation layout. libscalene's heap interposition
-        # is not yet compatible, so disable memory profiling.
-        if _is_free_threaded_build() and args.memory:
-            args.memory = False
-            warnings.warn(
-                "Scalene warning: memory profiling is not yet supported "
-                "on free-threaded Python (no-GIL builds). "
-                "Continuing with CPU-only profiling."
-            )
-
         # JIT disabling is opt-in via --disable-jit flag.
         # See https://github.com/plasma-umass/scalene/issues/908
         # Disabling JIT allows for more accurate Python-level profiling

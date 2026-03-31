@@ -130,6 +130,20 @@ class MakeLocalAllocator {
     }
   }
 
+  // Re-install allocator wrappers. Called after Py_Initialize to handle
+  // runtimes (e.g. free-threaded Python) that reset allocators during init.
+  void reinstall(decltype(PyMem_GetAllocator)* getter,
+                 decltype(PyMem_SetAllocator)* setter) {
+    // Check if our allocator is still installed
+    PyMemAllocatorEx current;
+    getter(Domain, &current);
+    if (current.malloc != local_malloc) {
+      // Allocator was reset — save the new original and re-wrap
+      getter(Domain, get_original_allocator());
+      setter(Domain, &localAlloc);
+    }
+  }
+
  private:
   /// @brief the actual allocator we use to satisfy object allocations
   PyMemAllocatorEx localAlloc;
@@ -250,6 +264,23 @@ std::atomic_bool __attribute((visibility("default"))) p_scalene_done{true};
 
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;
+
+// Re-install Scalene's allocator wrappers after Py_Initialize.
+// Free-threaded Python (3.13t+) may reset allocators during init,
+// overwriting our static-constructor setup. pywhere calls this
+// from populate_struct() to ensure the allocators are in place.
+extern "C" __attribute__((visibility("default")))
+void scalene_reinstall_local_allocators() {
+  // Re-run the allocator wrapping: save the current (post-init)
+  // allocator as the "original" and install our wrapper on top.
+  DL_FUNCTION(PyMem_GetAllocator);
+  DL_FUNCTION(PyMem_SetAllocator);
+
+  if (dlPyMem_GetAllocator != nullptr && dlPyMem_SetAllocator != nullptr) {
+    l_mem.reinstall(dlPyMem_GetAllocator, dlPyMem_SetAllocator);
+    l_obj.reinstall(dlPyMem_GetAllocator, dlPyMem_SetAllocator);
+  }
+}
 
 #if defined(__APPLE__)
 MAC_INTERPOSE(xxmemcpy, memcpy);
