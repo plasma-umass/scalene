@@ -1038,15 +1038,6 @@ PyMODINIT_FUNC PyInit_pywhere() {
   if (m != NULL) {
     PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
   }
-  // On free-threaded Python, Py_Initialize resets allocators to mimalloc,
-  // overwriting any wrappers from libscalene's static constructors.
-  // Re-install them here during module init, where the import lock
-  // ensures no other Python thread is running (safe for PyMem_SetAllocator).
-  {
-    typedef void (*reinstall_fn)();
-    auto fn = (reinstall_fn)dlsym(RTLD_DEFAULT, "scalene_reinstall_local_allocators");
-    if (fn) fn();
-  }
 #endif
   return m;
 }

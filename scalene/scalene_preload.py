@@ -6,10 +6,13 @@ import signal
 import struct
 import subprocess
 import sys
+import sysconfig
 import warnings
 from typing import Dict
 
 import scalene
+
+_is_free_threaded = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 
 class ScalenePreload:
@@ -39,8 +42,11 @@ class ScalenePreload:
                 env["DYLD_INSERT_LIBRARIES"] = os.path.join(
                     scalene.__path__[0], "libscalene.dylib"
                 )
-                # Disable command-line specified PYTHONMALLOC.
-                if "PYTHONMALLOC" in env:
+                if _is_free_threaded:
+                    # On free-threaded Python, force C malloc for all Python
+                    # allocations so they go through DYLD_INSERT_LIBRARIES.
+                    env["PYTHONMALLOC"] = "malloc"
+                elif "PYTHONMALLOC" in env:
                     del env["PYTHONMALLOC"]
             # required for multiprocessing support, even without libscalene
             env["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
@@ -67,13 +73,13 @@ class ScalenePreload:
                     env["LD_PRELOAD"] = new_ld_preload
                 elif new_ld_preload not in os.environ["LD_PRELOAD"].split(":"):
                     env["LD_PRELOAD"] = f'{new_ld_preload}:{os.environ["LD_PRELOAD"]}'
-                # Disable command-line specified PYTHONMALLOC.
-                if "PYTHONMALLOC" in os.environ:
-                    # Since the environment dict is updated
-                    # with a `.update` call, we need to make sure
-                    # that there's some value for PYTHONMALLOC in
-                    # what we return if we want to squash an anomalous
-                    # value
+                if _is_free_threaded:
+                    # On free-threaded Python, force C malloc for all Python
+                    # allocations. This routes everything through LD_PRELOAD
+                    # interposition, avoiding the thread-unsafe PyMem_SetAllocator.
+                    env["PYTHONMALLOC"] = "malloc"
+                elif "PYTHONMALLOC" in os.environ:
+                    # Disable command-line specified PYTHONMALLOC.
                     env["PYTHONMALLOC"] = "default"
 
         elif sys.platform == "win32":
