@@ -119,6 +119,13 @@ class MakeLocalAllocator {
                   .realloc = local_realloc,
                   .free = local_free};
 
+#ifdef Py_GIL_DISABLED
+    // On free-threaded Python, Py_Initialize resets allocators to mimalloc.
+    // Objects allocated with our wrapper before init would be freed with
+    // mimalloc after init, causing SIGSEGV due to ScaleneHeader mismatch.
+    // Defer allocator setup to scalene_reinstall_local_allocators() which
+    // runs after Py_Initialize via pywhere's populate_struct().
+#else
     DL_FUNCTION(PyMem_GetAllocator);
     DL_FUNCTION(PyMem_SetAllocator);
 
@@ -128,6 +135,7 @@ class MakeLocalAllocator {
       dlPyMem_GetAllocator(Domain, get_original_allocator());
       dlPyMem_SetAllocator(Domain, &localAlloc);
     }
+#endif
   }
 
   // Re-install allocator wrappers. Called after Py_Initialize to handle
