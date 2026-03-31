@@ -74,6 +74,13 @@ jobs:
         echo '/tmp/core.%e.%p' | sudo tee /proc/sys/kernel/core_pattern
         sudo apt-get install -y gdb
 
+    - name: Quick memory profiling smoke test
+      if: runner.os == 'Linux' && endsWith(matrix.python, 't')
+      run: |
+        echo 'x = [i*i for i in range(500000)]' > /tmp/test_ft.py
+        # Run under gdb to get backtrace on crash
+        gdb -batch -ex run -ex 'thread apply all bt' --args python3 -m scalene run --memory -o /tmp/ft_profile.json /tmp/test_ft.py 2>&1 | tail -60 || true
+
     - name: run tests
       run: |
         python3 -m pytest
