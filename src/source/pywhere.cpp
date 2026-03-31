@@ -915,15 +915,6 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
 }
 
 static PyObject* populate_struct(PyObject* self, PyObject* args) {
-  // Re-install Scalene's allocator wrappers in case Py_Initialize reset them.
-  // Safe here because on free-threaded Python, PYTHON_GIL=1 is set for memory
-  // profiling, serializing all Python threads.
-  {
-    typedef void (*reinstall_fn)();
-    auto fn = (reinstall_fn)dlsym(RTLD_DEFAULT, "scalene_reinstall_local_allocators");
-    if (fn) fn();
-  }
-
   PyObject* scalene_module(
       PyImport_GetModule(PyUnicode_FromString("scalene")));  // New reference
   PyObject* scalene_dict(
@@ -1045,7 +1036,7 @@ PyMODINIT_FUNC PyInit_pywhere() {
   PyObject* m = PyModule_Create(&EmbedModule);
 #ifdef Py_GIL_DISABLED
   if (m != NULL) {
-    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_USED);
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
   }
 #endif
   return m;

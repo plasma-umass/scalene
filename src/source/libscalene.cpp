@@ -104,6 +104,27 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 #define PYMALLOC_MAX_SIZE 512
 
 /**
+ * @brief Double-buffered allocator storage for atomic swap.
+ *
+ * Allows updating the "original" allocator (e.g., when Py_Initialize
+ * resets it) without tearing — readers always see a consistent struct.
+ */
+struct OriginalAllocatorStorage {
+  PyMemAllocatorEx buffers[2];
+  std::atomic<int> idx{0};
+
+  PyMemAllocatorEx* current() {
+    return &buffers[idx.load(std::memory_order_acquire)];
+  }
+
+  void update(const PyMemAllocatorEx* alloc) {
+    int new_idx = 1 - idx.load(std::memory_order_relaxed);
+    buffers[new_idx] = *alloc;  // Copy to inactive buffer
+    idx.store(new_idx, std::memory_order_release);  // Atomic swap
+  }
+};
+
+/**
  * @brief replace local Python allocators with our own sampling variants
  *
  * @tparam Domain the Python domain of allocator we replace
@@ -119,40 +140,41 @@ class MakeLocalAllocator {
                   .realloc = local_realloc,
                   .free = local_free};
 
-    DL_FUNCTION(PyMem_GetAllocator);
-    DL_FUNCTION(PyMem_SetAllocator);
+    auto real_get = get_real_PyMem_GetAllocator();
+    auto real_set = get_real_PyMem_SetAllocator();
 
-    if (dlPyMem_GetAllocator != nullptr && dlPyMem_SetAllocator != nullptr) {
-      // if these aren't found, chances are we were preloaded onto something
-      // other than Python
-      dlPyMem_GetAllocator(Domain, get_original_allocator());
-      dlPyMem_SetAllocator(Domain, &localAlloc);
+    if (real_get != nullptr && real_set != nullptr) {
+      // Save the current (pre-init) allocator as the original
+      real_get(Domain, get_originals().current());
+      // Install our wrapper via the REAL SetAllocator (bypassing interposition)
+      real_set(Domain, &localAlloc);
+      _installed = true;
     }
   }
 
-  // Re-install allocator wrappers. Called after Py_Initialize to handle
-  // runtimes (e.g. free-threaded Python) that reset allocators during init.
-  void reinstall(decltype(PyMem_GetAllocator)* getter,
-                 decltype(PyMem_SetAllocator)* setter) {
-    // Check if our allocator is still installed
-    PyMemAllocatorEx current;
-    getter(Domain, &current);
-    if (current.malloc != local_malloc) {
-      // Allocator was reset — save the new original and re-wrap
-      getter(Domain, get_original_allocator());
-      setter(Domain, &localAlloc);
-    }
+  static bool is_installed() { return _installed; }
+
+  static OriginalAllocatorStorage& get_originals() {
+    static OriginalAllocatorStorage storage;
+    return storage;
+  }
+
+  // Get the real (non-interposed) PyMem_GetAllocator
+  static auto get_real_PyMem_GetAllocator() {
+    static auto fn = (decltype(PyMem_GetAllocator)*)dlsym(RTLD_NEXT, "PyMem_GetAllocator");
+    return fn;
+  }
+
+  // Get the real (non-interposed) PyMem_SetAllocator
+  static auto get_real_PyMem_SetAllocator() {
+    static auto fn = (decltype(PyMem_SetAllocator)*)dlsym(RTLD_NEXT, "PyMem_SetAllocator");
+    return fn;
   }
 
  private:
   /// @brief the actual allocator we use to satisfy object allocations
   PyMemAllocatorEx localAlloc;
-
-  static inline PyMemAllocatorEx *get_original_allocator() {
-    // poor man's "static inline" member
-    static PyMemAllocatorEx original_allocator;
-    return &original_allocator;
-  }
+  static inline bool _installed = false;
 
   static inline void *local_malloc(void *ctx, size_t len) {
     MallocRecursionGuard m;
@@ -171,13 +193,13 @@ class MakeLocalAllocator {
 #if USE_HEADERS
     void *buf = nullptr;
     const auto allocSize = len + sizeof(ScaleneHeader);
-    buf = get_original_allocator()->malloc(get_original_allocator()->ctx,
-                                           allocSize);
+    auto* orig = get_originals().current();
+    buf = orig->malloc(orig->ctx, allocSize);
     auto *header = new (buf) ScaleneHeader(len);
     class Nada {};
 #else
-    auto *header = (ScaleneHeader *)get_original_allocator()->malloc(
-        get_original_allocator()->ctx, len);
+    auto* orig = get_originals().current();
+    auto *header = (ScaleneHeader *)orig->malloc(orig->ctx, len);
 #endif
     assert(header);  // We expect this to always succeed.
     if (!m.wasInMalloc()) {
@@ -210,8 +232,8 @@ class MakeLocalAllocator {
       if (!m.wasInMalloc()) {
         TheHeapWrapper::register_free(sz, ptr);
       }
-      get_original_allocator()->free(get_original_allocator()->ctx,
-                                     ScaleneHeader::getHeader(ptr));
+      auto* orig = get_originals().current();
+      orig->free(orig->ctx, ScaleneHeader::getHeader(ptr));
     }
   }
 
@@ -226,9 +248,10 @@ class MakeLocalAllocator {
     const auto sz = ScaleneHeader::getSize(ptr);
     void *p = nullptr;
     const auto allocSize = new_size + sizeof(ScaleneHeader);
-    void *buf = get_original_allocator()->realloc(get_original_allocator()->ctx,
-                                                  ScaleneHeader::getHeader(ptr),
-                                                  allocSize);
+    auto* orig = get_originals().current();
+    void *buf = orig->realloc(orig->ctx,
+                              ScaleneHeader::getHeader(ptr),
+                              allocSize);
     ScaleneHeader *result = new (buf) ScaleneHeader(new_size);
     if (result && !m.wasInMalloc()) {
       if (sz < new_size) {
@@ -265,20 +288,44 @@ std::atomic_bool __attribute((visibility("default"))) p_scalene_done{true};
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;
 
-// Re-install Scalene's allocator wrappers after Py_Initialize.
-// Free-threaded Python (3.13t+) may reset allocators during init,
-// overwriting our static-constructor setup. pywhere calls this
-// from populate_struct() to ensure the allocators are in place.
+// Interpose on PyMem_SetAllocator to prevent Py_Initialize from overwriting
+// our allocator wrapper. When CPython tries to set a new allocator, we
+// atomically update the "original" that our wrapper delegates to, but keep
+// our wrapper installed. This avoids calling PyMem_SetAllocator after init
+// (which is not thread-safe) while ensuring our wrapper survives init.
 extern "C" __attribute__((visibility("default")))
-void scalene_reinstall_local_allocators() {
-  // Re-run the allocator wrapping: save the current (post-init)
-  // allocator as the "original" and install our wrapper on top.
-  DL_FUNCTION(PyMem_GetAllocator);
-  DL_FUNCTION(PyMem_SetAllocator);
+void PyMem_SetAllocator(PyMemAllocatorDomain domain, PyMemAllocatorEx *allocator) {
+  if (domain == PYMEM_DOMAIN_MEM && l_mem.is_installed()) {
+    // Atomically update the original allocator our wrapper delegates to
+    l_mem.get_originals().update(allocator);
+    return;  // Keep our wrapper installed
+  }
+  if (domain == PYMEM_DOMAIN_OBJ && l_obj.is_installed()) {
+    l_obj.get_originals().update(allocator);
+    return;
+  }
+  // For other domains or before our wrapper is installed, pass through
+  auto real_set = MakeLocalAllocator<PYMEM_DOMAIN_MEM>::get_real_PyMem_SetAllocator();
+  if (real_set) {
+    real_set(domain, allocator);
+  }
+}
 
-  if (dlPyMem_GetAllocator != nullptr && dlPyMem_SetAllocator != nullptr) {
-    l_mem.reinstall(dlPyMem_GetAllocator, dlPyMem_SetAllocator);
-    l_obj.reinstall(dlPyMem_GetAllocator, dlPyMem_SetAllocator);
+// Also interpose PyMem_GetAllocator so CPython sees the "intended" allocator,
+// not our wrapper. This prevents confusion in debug/diagnostic code.
+extern "C" __attribute__((visibility("default")))
+void PyMem_GetAllocator(PyMemAllocatorDomain domain, PyMemAllocatorEx *allocator) {
+  if (domain == PYMEM_DOMAIN_MEM && l_mem.is_installed()) {
+    *allocator = *l_mem.get_originals().current();
+    return;
+  }
+  if (domain == PYMEM_DOMAIN_OBJ && l_obj.is_installed()) {
+    *allocator = *l_obj.get_originals().current();
+    return;
+  }
+  auto real_get = MakeLocalAllocator<PYMEM_DOMAIN_MEM>::get_real_PyMem_GetAllocator();
+  if (real_get) {
+    real_get(domain, allocator);
   }
 }
 

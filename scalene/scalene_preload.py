@@ -6,13 +6,10 @@ import signal
 import struct
 import subprocess
 import sys
-import sysconfig
 import warnings
 from typing import Dict
 
 import scalene
-
-_is_free_threaded: bool = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 
 class ScalenePreload:
@@ -21,12 +18,6 @@ class ScalenePreload:
         env = {
             "SCALENE_ALLOCATION_SAMPLING_WINDOW": str(args.allocation_sampling_window)
         }
-
-        # On free-threaded Python (3.13t+), memory profiling requires the GIL
-        # because PyMem_SetAllocator is not thread-safe (non-atomic struct copy).
-        # CPU-only profiling works with true free-threading.
-        if _is_free_threaded and args.memory and "PYTHON_GIL" not in os.environ:
-            env["PYTHON_GIL"] = "1"
 
         # JIT disabling is opt-in via --disable-jit flag.
         # See https://github.com/plasma-umass/scalene/issues/908
