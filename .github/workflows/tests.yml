@@ -15,6 +15,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
+      fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest ]
         python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.13t', '3.14t' ]
@@ -44,6 +45,11 @@ jobs:
       # https://github.com/actions/virtual-environments/issues/2557
       if: matrix.os == 'macos-latest'
       run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
+
+    - name: Install system build dependencies
+      # Free-threaded Python may lack pre-built wheels for packages like lxml
+      if: runner.os == 'Linux'
+      run: sudo apt-get install -y libxml2-dev libxslt-dev
 
     - name: Install dependencies
       run: |
