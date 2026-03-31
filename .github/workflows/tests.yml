@@ -75,8 +75,6 @@ jobs:
         sudo apt-get install -y gdb
 
     - name: run tests
-      # Free-threaded Python support is experimental; don't block CI on failures
-      continue-on-error: ${{ endsWith(matrix.python, 't') }}
       run: |
         python3 -m pytest
 

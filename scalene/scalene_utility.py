@@ -6,6 +6,7 @@ import signal
 import socketserver
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import threading
 import webbrowser
@@ -24,6 +25,11 @@ from scalene.scalene_statistics import (
 # Cache the main thread ID to avoid repeated calls to threading.main_thread()
 # This is safe because the main thread ID never changes during program execution.
 _main_thread_id: int = cast(int, threading.main_thread().ident)
+
+# On free-threaded Python, the C fast path for frame collection iterates
+# thread states without synchronization. Use the pure-Python path instead
+# (sys._current_frames() is internally thread-safe in CPython).
+_is_free_threaded: bool = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 # Try to import the fast C implementation for frame collection.
 # The C extension collects frames from threads quickly using Python C API,
@@ -79,7 +85,7 @@ def compute_frames_to_record(
     # Collect frames from all threads. Use C extension if available for speed,
     # otherwise fall back to Python implementation.
     frames: List[Tuple[FrameType, int]]
-    if _has_fast_frames:
+    if _has_fast_frames and not _is_free_threaded:
         # C extension returns (thread_id, frame) tuples, main thread first
         raw_frames = pywhere.collect_frames_to_record()
         frames = [(frame, tid) for tid, frame in raw_frames]

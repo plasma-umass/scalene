@@ -6,16 +6,10 @@ import signal
 import struct
 import subprocess
 import sys
-import sysconfig
 import warnings
 from typing import Dict
 
 import scalene
-
-
-def _is_free_threaded_build() -> bool:
-    """Check if the current Python is a free-threaded (no-GIL) build."""
-    return bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 
 class ScalenePreload:
@@ -24,12 +18,6 @@ class ScalenePreload:
         env = {
             "SCALENE_ALLOCATION_SAMPLING_WINDOW": str(args.allocation_sampling_window)
         }
-
-        # On free-threaded Python (3.13t+), Scalene's native extensions
-        # require the GIL to be enabled for safe operation (frame walking,
-        # signal handling, memory interposition). Force the GIL on.
-        if _is_free_threaded_build() and "PYTHON_GIL" not in os.environ:
-            env["PYTHON_GIL"] = "1"
 
         # JIT disabling is opt-in via --disable-jit flag.
         # See https://github.com/plasma-umass/scalene/issues/908
