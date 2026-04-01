@@ -78,11 +78,12 @@ jobs:
       if: runner.os == 'Linux' && endsWith(matrix.python, 't')
       run: |
         echo 'x = [i*i for i in range(500000)]' > /tmp/test_ft.py
-        echo "=== Testing PYTHONMALLOC=malloc ==="
-        PYTHONMALLOC=malloc python3 -c "print('PYTHONMALLOC=malloc works')" 2>&1 || echo "PYTHONMALLOC=malloc not supported"
+        echo "=== Check PyMem_SetAllocator symbol ==="
+        nm -D $(python3 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")/libpython*.so 2>/dev/null | grep PyMem_SetAllocator || echo "Symbol not found in libpython"
+        echo "=== Check libscalene symbols ==="
+        nm -D $(python3 -c "import scalene; print(scalene.__path__[0])")/libscalene.so 2>/dev/null | grep "PyMem_\|get_real" || echo "No PyMem symbols in libscalene"
         echo "=== Running scalene with memory profiling ==="
-        timeout 30 python3 -m scalene run --memory -o /tmp/ft_profile.json /tmp/test_ft.py 2>&1 || echo "Exit code: $?"
-        cat /tmp/ft_profile.json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Profile has {len(d.get(\"files\",{}))} files')" 2>&1 || echo "No valid profile"
+        LD_PRELOAD=libscalene.so LD_LIBRARY_PATH=$(python3 -c "import scalene; print(scalene.__path__[0])"):$LD_LIBRARY_PATH SCALENE_ALLOCATION_SAMPLING_WINDOW=10485767 gdb -batch -ex 'set follow-fork-mode child' -ex 'set pagination off' -ex run -ex 'thread apply all bt 15' --args python3 -m scalene run --memory -o /tmp/ft_profile.json /tmp/test_ft.py 2>&1 | tail -50 || true
 
     - name: run tests
       run: |
