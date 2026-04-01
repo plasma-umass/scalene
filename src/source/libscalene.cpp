@@ -178,6 +178,17 @@ class MakeLocalAllocator {
 
   static inline void *local_malloc(void *ctx, size_t len) {
     MallocRecursionGuard m;
+#ifdef Py_GIL_DISABLED
+    // On free-threaded Python, we cannot prepend ScaleneHeader because the
+    // GC directly scans mimalloc heap pages expecting valid Python objects.
+    // Track allocations without modifying them.
+    auto* orig = get_originals().current();
+    void *ptr = orig->malloc(orig->ctx, len);
+    if (ptr && !m.wasInMalloc()) {
+      TheHeapWrapper::register_malloc(len, ptr);
+    }
+    return ptr;
+#else
 #if 1
     // Ensure all allocation requests are multiples of eight,
     // mirroring the actual allocation sizes employed by pymalloc
@@ -221,12 +232,22 @@ class MakeLocalAllocator {
     assert(ScaleneHeader::getSize(ScaleneHeader::getObject(header)) >= len);
 #endif
     return ScaleneHeader::getObject(header);
+#endif  // Py_GIL_DISABLED
   }
 
   static inline void local_free(void *ctx, void *ptr) {
     // ignore nullptr
     if (ptr) {
       MallocRecursionGuard m;
+#ifdef Py_GIL_DISABLED
+      if (!m.wasInMalloc()) {
+        // We don't have ScaleneHeader on free-threaded Python, so we
+        // can't recover the exact size. Use 0 for sampling purposes.
+        TheHeapWrapper::register_free(0, ptr);
+      }
+      auto* orig = get_originals().current();
+      orig->free(orig->ctx, ptr);
+#else
       const auto sz = ScaleneHeader::getSize(ptr);
 
       if (!m.wasInMalloc()) {
@@ -234,6 +255,7 @@ class MakeLocalAllocator {
       }
       auto* orig = get_originals().current();
       orig->free(orig->ctx, ScaleneHeader::getHeader(ptr));
+#endif
     }
   }
 
@@ -244,6 +266,15 @@ class MakeLocalAllocator {
     if (!ptr) {
       return local_malloc(ctx, new_size);
     }
+#ifdef Py_GIL_DISABLED
+    MallocRecursionGuard m;
+    auto* orig = get_originals().current();
+    void *result = orig->realloc(orig->ctx, ptr, new_size);
+    if (result && !m.wasInMalloc()) {
+      TheHeapWrapper::register_malloc(new_size, result);
+    }
+    return result;
+#else
     MallocRecursionGuard m;
     const auto sz = ScaleneHeader::getSize(ptr);
     void *p = nullptr;
@@ -264,12 +295,13 @@ class MakeLocalAllocator {
     ScaleneHeader::setSize(ScaleneHeader::getObject(result), new_size);
     p = ScaleneHeader::getObject(result);
     return p;
+#endif
   }
 
   static inline void *local_calloc(void *ctx, size_t nelem, size_t elsize) {
     const auto nbytes = nelem * elsize;
     void *obj = local_malloc(ctx, nbytes);
-    if (true) {  // obj) {
+    if (obj) {
       memset(obj, 0, nbytes);
     }
     return obj;
