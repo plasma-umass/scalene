@@ -20,7 +20,6 @@
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
 #include "scaleneheader.hpp"
-#include "sharded_size_map.hpp"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
@@ -96,6 +95,7 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 #if !defined(_WIN32)
 
 #include <Python.h>
+#include "sharded_size_map.hpp"
 
 #define DL_FUNCTION(name) \
   static decltype(name) *dl##name = (decltype(name) *)dlsym(RTLD_DEFAULT, #name)
