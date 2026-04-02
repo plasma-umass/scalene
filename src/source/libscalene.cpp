@@ -125,6 +125,10 @@ struct OriginalAllocatorStorage {
   }
 };
 
+#ifdef Py_GIL_DISABLED
+static ShardedSizeMap g_size_map;
+#endif
+
 /**
  * @brief replace local Python allocators with our own sampling variants
  *
@@ -325,10 +329,6 @@ decltype(p_whereInPython)
     __attribute((visibility("default"))) p_whereInPython{nullptr};
 
 std::atomic_bool __attribute((visibility("default"))) p_scalene_done{true};
-
-#ifdef Py_GIL_DISABLED
-static ShardedSizeMap g_size_map;
-#endif
 
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;
