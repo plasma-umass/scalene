@@ -12,17 +12,22 @@
 
 #ifdef Py_GIL_DISABLED
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <unordered_map>
 
-#include "spinlock.h"
-
 class ShardedSizeMap {
   static constexpr unsigned NUM_SHARDS = 128;
 
+  struct SpinLock {
+    std::atomic_flag flag = ATOMIC_FLAG_INIT;
+    void lock() { while (flag.test_and_set(std::memory_order_acquire)) {} }
+    void unlock() { flag.clear(std::memory_order_release); }
+  };
+
   struct Shard {
-    HL::SpinLockType lock;
+    SpinLock lock;
     std::unordered_map<void*, size_t> map;
   };
 
