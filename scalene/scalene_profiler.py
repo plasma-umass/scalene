@@ -196,7 +196,7 @@ class Scalene:
 
     __args = ScaleneArguments()
     __signals = ScaleneSignals()
-    __signal_manager: ScaleneSignalManager[Any] = ScaleneSignalManager()
+    __signal_manager: ScaleneSignalManager = ScaleneSignalManager()
     __stats = ScaleneStatistics()
     __memory_profiler = ScaleneMemoryProfiler(__stats)
     __output = ScaleneOutput()
@@ -253,10 +253,10 @@ class Scalene:
     child_pids: set[int] = set()  # Needs to be unmangled to be accessed by shims
 
     # Signal queues for allocations, memcpy, and async
-    __alloc_sigq: ScaleneSigQueue[Any]
-    __memcpy_sigq: ScaleneSigQueue[Any]
-    __async_sigq: ScaleneSigQueue[Any]
-    __sigqueues: list[ScaleneSigQueue[Any]]
+    __alloc_sigq: ScaleneSigQueue
+    __memcpy_sigq: ScaleneSigQueue
+    __async_sigq: ScaleneSigQueue
+    __sigqueues: list[ScaleneSigQueue]
 
     client_timer: ScaleneClientTimer = ScaleneClientTimer()
 

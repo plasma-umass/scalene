@@ -28,7 +28,7 @@ class ScaleneLifecycle:
         self,
         args: ScaleneArguments,
         stats: ScaleneStatistics,
-        signal_manager: ScaleneSignalManager[Any],
+        signal_manager: ScaleneSignalManager,
         output: ScaleneOutput,
         json_output: ScaleneJSON,
     ) -> None:

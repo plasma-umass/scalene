@@ -11,12 +11,10 @@ import os
 import signal
 import sys
 import threading
-from typing import Any, Generic, List, Optional, Set, TypeVar
+from typing import Any, List, Optional, Set
 
 from scalene.scalene_signals import ScaleneSignals, SignalHandlerFunction
 from scalene.scalene_sigqueue import ScaleneSigQueue
-
-T = TypeVar("T")
 
 # Windows Named Event constants for lifecycle control.
 # The string templates and integer constants are always defined;
@@ -32,12 +30,12 @@ else:
     _kernel32: Any = None
 
 
-class ScaleneSignalManager(Generic[T]):
+class ScaleneSignalManager:
     """Manages signal handling for Scalene profiler."""
 
     def __init__(self) -> None:
         self.__signals = ScaleneSignals()
-        self.__sigqueues: List[ScaleneSigQueue[T]] = []
+        self.__sigqueues: List[ScaleneSigQueue] = []
 
         # Store original signal functions
         self.__orig_signal = signal.signal
@@ -77,7 +75,7 @@ class ScaleneSignalManager(Generic[T]):
         """Enable or disable timer signals."""
         self.timer_signals = enabled
 
-    def add_signal_queue(self, sigqueue: ScaleneSigQueue[T]) -> None:
+    def add_signal_queue(self, sigqueue: ScaleneSigQueue) -> None:
         """Add a signal queue to be managed."""
         self.__sigqueues.append(sigqueue)
 
@@ -105,8 +103,8 @@ class ScaleneSignalManager(Generic[T]):
         self,
         cpu_signal_handler: SignalHandlerFunction,
         cpu_sampling_rate: float,
-        alloc_sigq: Optional[ScaleneSigQueue[T]] = None,
-        memcpy_sigq: Optional[ScaleneSigQueue[T]] = None,
+        alloc_sigq: Optional[ScaleneSigQueue] = None,
+        memcpy_sigq: Optional[ScaleneSigQueue] = None,
     ) -> None:
         """Enable signals for Windows platform."""
         assert sys.platform == "win32"
@@ -190,13 +188,13 @@ class ScaleneSignalManager(Generic[T]):
                 hasattr(self, "_ScaleneSignalManager__alloc_sigq_win")
                 and self.__alloc_sigq_win
             ):
-                self.__alloc_sigq_win.put([0])  # type: ignore[arg-type]
+                self.__alloc_sigq_win.put([0])
             # Trigger memcpy processing
             if (
                 hasattr(self, "_ScaleneSignalManager__memcpy_sigq_win")
                 and self.__memcpy_sigq_win
             ):
-                self.__memcpy_sigq_win.put((0, None))  # type: ignore[arg-type]
+                self.__memcpy_sigq_win.put((0, None))
 
     def stop_windows_memory_polling(self) -> None:
         """Stop the Windows memory polling thread."""
@@ -212,8 +210,8 @@ class ScaleneSignalManager(Generic[T]):
         term_signal_handler: SignalHandlerFunction,
         cpu_signal_handler: SignalHandlerFunction,
         cpu_sampling_rate: float,
-        alloc_sigq: Optional[ScaleneSigQueue[T]] = None,
-        memcpy_sigq: Optional[ScaleneSigQueue[T]] = None,
+        alloc_sigq: Optional[ScaleneSigQueue] = None,
+        memcpy_sigq: Optional[ScaleneSigQueue] = None,
     ) -> None:
         """Set up the signal handlers to handle interrupts for profiling and start the
         timer interrupts."""
