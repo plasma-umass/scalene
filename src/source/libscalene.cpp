@@ -20,6 +20,7 @@
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
 #include "scaleneheader.hpp"
+#include "sharded_size_map.hpp"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
@@ -181,10 +182,11 @@ class MakeLocalAllocator {
 #ifdef Py_GIL_DISABLED
     // On free-threaded Python, we cannot prepend ScaleneHeader because the
     // GC directly scans mimalloc heap pages expecting valid Python objects.
-    // Track allocations without modifying them.
+    // Track sizes out-of-band via a sharded hash table instead.
     auto* orig = get_originals().current();
     void *ptr = orig->malloc(orig->ctx, len);
     if (ptr && !m.wasInMalloc()) {
+      g_size_map.insert(ptr, len);
       TheHeapWrapper::register_malloc(len, ptr);
     }
     return ptr;
@@ -240,10 +242,9 @@ class MakeLocalAllocator {
     if (ptr) {
       MallocRecursionGuard m;
 #ifdef Py_GIL_DISABLED
+      const auto sz = g_size_map.remove(ptr);
       if (!m.wasInMalloc()) {
-        // We don't have ScaleneHeader on free-threaded Python, so we
-        // can't recover the exact size. Use 0 for sampling purposes.
-        TheHeapWrapper::register_free(0, ptr);
+        TheHeapWrapper::register_free(sz, ptr);
       }
       auto* orig = get_originals().current();
       orig->free(orig->ctx, ptr);
@@ -268,10 +269,18 @@ class MakeLocalAllocator {
     }
 #ifdef Py_GIL_DISABLED
     MallocRecursionGuard m;
+    const auto old_size = g_size_map.remove(ptr);
     auto* orig = get_originals().current();
     void *result = orig->realloc(orig->ctx, ptr, new_size);
-    if (result && !m.wasInMalloc()) {
-      TheHeapWrapper::register_malloc(new_size, result);
+    if (result) {
+      if (!m.wasInMalloc()) {
+        g_size_map.insert(result, new_size);
+        if (new_size > old_size) {
+          TheHeapWrapper::register_malloc(new_size - old_size, result);
+        } else if (old_size > new_size) {
+          TheHeapWrapper::register_free(old_size - new_size, ptr);
+        }
+      }
     }
     return result;
 #else
@@ -316,6 +325,10 @@ decltype(p_whereInPython)
     __attribute((visibility("default"))) p_whereInPython{nullptr};
 
 std::atomic_bool __attribute((visibility("default"))) p_scalene_done{true};
+
+#ifdef Py_GIL_DISABLED
+static ShardedSizeMap g_size_map;
+#endif
 
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;

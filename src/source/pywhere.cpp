@@ -58,6 +58,15 @@ const int NEWLINE_TRIGGER_LENGTH = 98820;
 
 static std::atomic<bool> last_profiled_invalidated{false};
 
+#ifdef Py_GIL_DISABLED
+// Cached main thread state for safe fallback attribution on free-threaded
+// Python.  Set once during PyInit_pywhere (single-threaded context) and
+// read from any thread's malloc path.  PyThreadState_GetFrame() uses
+// atomic loads on free-threaded builds, so reading another thread's frame
+// is safe.
+static PyThreadState* g_main_tstate = nullptr;
+#endif
+
 // sys.monitoring support for Python 3.13+
 #if PY_VERSION_HEX >= 0x030D0000
 // Tool ID for sys.monitoring (PROFILER_ID = 2)
@@ -209,9 +218,11 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   if (static_cast<PyFrameObject*>(frame) == nullptr) {
 #ifdef Py_GIL_DISABLED
     // On free-threaded Python, iterating thread states is unsafe without
-    // the GIL. Native thread allocations are left unattributed rather than
-    // risking a data race on the thread list.
-    return 0;
+    // the GIL.  Instead, use the cached main thread state — safe because
+    // PyThreadState_GetFrame uses atomic loads on free-threaded builds.
+    if (g_main_tstate) {
+      frame = PyPtr<PyFrameObject>(PyThreadState_GetFrame(g_main_tstate));
+    }
 #else
     // Various packages may create native threads; attribute what they do
     // to what the main thread is doing, as it's likely to have requested it.
@@ -1046,6 +1057,19 @@ PyMODINIT_FUNC PyInit_pywhere() {
 #ifdef Py_GIL_DISABLED
   if (m != NULL) {
     PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+    // Cache the main thread state for safe fallback attribution later.
+    // Module init is single-threaded, so iterating the thread list is safe.
+    PyInterpreterState* interp = PyInterpreterState_Main();
+    if (interp) {
+      PyThreadState* main = nullptr;
+      for (PyThreadState* t = PyInterpreterState_ThreadHead(interp);
+           t != nullptr; t = PyThreadState_Next(t)) {
+        if (main == nullptr || main->id > t->id) {
+          main = t;
+        }
+      }
+      g_main_tstate = main;
+    }
   }
 #endif
   return m;
