@@ -19,7 +19,6 @@
 #include "heapredirect.h"
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
-#include "scaleneheader.hpp"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"

@@ -374,7 +374,7 @@ def run_numpy_test(tmpdir):
     # np.random.rand should be visible.  Because sampling is probabilistic,
     # we use a generous threshold: at least 10 MB attributed.
     # On free-threaded builds this specifically exercises the ShardedSizeMap
-    # path (no ScaleneHeader), so a failure here means size tracking broke.
+    # path, so a failure here means size tracking broke.
     check(m["total_malloc_mb"] > 10,
           f"Expected >10 MB malloc with numpy native allocs, "
           f"got {m['total_malloc_mb']:.1f} MB")
@@ -453,7 +453,7 @@ def run_concurrency_test(tmpdir):
       - Memory attribution scales with thread count (no lost allocs).
       - Profiling *overhead* (profiled time minus bare time) does not grow
         super-linearly with thread count, which would indicate lock
-        contention in ShardedSizeMap or ScaleneHeader.
+        contention in ShardedSizeMap.
     """
     script = os.path.join(tmpdir, "concurrency_workload.py")
     with open(script, "w") as f:
