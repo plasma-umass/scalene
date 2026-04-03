@@ -398,55 +398,82 @@ def run_numpy_test(tmpdir):
 
 CONCURRENCY_WORKLOAD = """\
 import os
+import time
 import threading
 import numpy as np
 
 N_THREADS = int(os.environ["SCALENE_TEST_NTHREADS"])
-# Each thread allocates ALLOC_MB of native memory via numpy.
-ALLOC_MB = 50
+N_ITERS = 50         # alloc/free cycles per thread
+ARRAY_SIZE = 4_000_000  # float64 -> ~32 MB per allocation
 
-def allocator_thread(tid):
-    n_floats = (ALLOC_MB * 1024 * 1024) // 8  # float64 = 8 bytes
-    arrays = []
-    # Do several rounds to give the sampler more chances to observe.
-    for _ in range(3):
-        arrays.append(np.random.rand(n_floats))
-    # Touch the data so it's not optimised away.
-    return sum(a.sum() for a in arrays)
+def allocator_thread():
+    \"\"\"Repeatedly allocate and free native memory.\"\"\"
+    for _ in range(N_ITERS):
+        a = np.random.rand(ARRAY_SIZE)
+        _ = a.sum()          # touch it
+        del a                # free it
 
 results = [None] * N_THREADS
 
 def target(tid):
-    results[tid] = allocator_thread(tid)
+    allocator_thread()
+    results[tid] = True
 
+t0 = time.perf_counter()
 threads = [threading.Thread(target=target, args=(i,)) for i in range(N_THREADS)]
 for t in threads:
     t.start()
 for t in threads:
     t.join()
+elapsed = time.perf_counter() - t0
 
-print(f"threads={N_THREADS} results={len([r for r in results if r is not None])}")
+print(f"ELAPSED={elapsed:.4f}")
+print(f"threads={N_THREADS} done={sum(1 for r in results if r)}")
 """
 
 
-def run_concurrency_test(tmpdir):
-    """Phase 3: verify that concurrent native allocations scale.
+def _run_workload_bare(script, n_threads):
+    """Run the workload *without* Scalene and return wall-clock time."""
+    proc = subprocess.run(
+        [sys.executable, script],
+        capture_output=True, text=True, timeout=180,
+        env={**os.environ, "SCALENE_TEST_NTHREADS": str(n_threads)},
+    )
+    for line in proc.stdout.splitlines():
+        if line.startswith("ELAPSED="):
+            return float(line.split("=", 1)[1])
+    return 0.0
 
-    Run the same per-thread workload at 1, 2, 4, and 8 threads.  Each
-    thread allocates ~150 MB of numpy arrays (native malloc).  If the
-    profiler's size tracking is correct, total attributed memory should
-    scale roughly with thread count.  A failure here means the
-    ShardedSizeMap (free-threaded) or ScaleneHeader (regular) is losing
-    allocations under contention.
+
+def run_concurrency_test(tmpdir):
+    """Phase 3: verify concurrent native alloc/free scales correctly.
+
+    Each thread does 50 cycles of allocate-and-free (~32 MB numpy arrays
+    via native malloc).  We run at 1, 2, 4, and 8 threads and check:
+      - Memory attribution scales with thread count (no lost allocs).
+      - Profiling *overhead* (profiled time minus bare time) does not grow
+        super-linearly with thread count, which would indicate lock
+        contention in ShardedSizeMap or ScaleneHeader.
     """
     script = os.path.join(tmpdir, "concurrency_workload.py")
     with open(script, "w") as f:
         f.write(CONCURRENCY_WORKLOAD)
 
     thread_counts = [1, 2, 4, 8]
-    results = {}  # n_threads -> total_malloc_mb
+    mem_results = {}       # n_threads -> total_malloc_mb
+    profiled_times = {}    # n_threads -> elapsed with Scalene
+    bare_times = {}        # n_threads -> elapsed without Scalene
 
-    print("\nPhase 3: concurrency scaling (native memory)...")
+    print("\nPhase 3: concurrency scaling (native alloc/free)...")
+
+    # First, measure bare (unprofiled) times to establish baseline.
+    print("  Bare (no profiler):")
+    for n in thread_counts:
+        bare_times[n] = _run_workload_bare(script, n)
+        print(f"    {n:2d} thread(s): {bare_times[n]:.2f}s")
+
+    # Then, run with Scalene.
+    print("  Profiled (Scalene):")
     for n in thread_counts:
         out = os.path.join(tmpdir, f"profile_conc_{n}.json")
         profile, rc, stderr = run_scalene(
@@ -465,44 +492,58 @@ def run_concurrency_test(tmpdir):
               f"Files: {list(profile['files'].keys())}")
 
         m = extract_metrics(profile, fname)
-        results[n] = m["total_malloc_mb"]
-        print(f"  {n:2d} thread(s): {m['total_malloc_mb']:8.1f} MB malloc, "
-              f"{m['lines_with_memory']} lines, "
-              f"footprint {m['max_footprint_mb']:.1f} MB")
+        mem_results[n] = m["total_malloc_mb"]
+        profiled_times[n] = profile.get("elapsed_time_sec", 0.0)
 
-    # ---- Validate scaling ----
-    # Each thread allocates ~150 MB (3 rounds × 50 MB).  With N threads
-    # the nominal total is N × 150 MB.  Sampling is probabilistic so we
-    # can't expect exact numbers, but we can check:
-    #
-    # 1. Every thread count reports *some* memory (> 1 MB).
+        print(f"    {n:2d} thread(s): {m['total_malloc_mb']:8.1f} MB malloc, "
+              f"footprint {m['max_footprint_mb']:.1f} MB, "
+              f"elapsed {profiled_times[n]:.2f}s")
+
+    # ── Memory scaling checks ──
     for n in thread_counts:
-        check(results[n] > 1,
-              f"No memory attributed at {n} threads ({results[n]:.1f} MB)")
+        check(mem_results[n] > 1,
+              f"No memory attributed at {n} threads ({mem_results[n]:.1f} MB)")
 
-    # 2. More threads should report more total memory.  We check that
-    #    8 threads attributes at least 2× what 1 thread does.  This is
-    #    generous — nominal ratio is 8× — to tolerate sampling variance.
-    ratio_8_to_1 = results[8] / max(results[1], 0.01)
-    print(f"\n  Scaling ratio (8 threads / 1 thread): {ratio_8_to_1:.2f}x "
-          f"(nominal 8x)")
+    # 8 threads should attribute at least 2× what 1 thread does.
+    ratio_8_to_1 = mem_results[8] / max(mem_results[1], 0.01)
+    print(f"\n  Memory scaling (8T / 1T): {ratio_8_to_1:.2f}x (nominal 8x)")
     check(ratio_8_to_1 >= 2.0,
-          f"Memory attribution did not scale with threads: "
-          f"8-thread={results[8]:.1f} MB vs 1-thread={results[1]:.1f} MB "
+          f"Memory attribution did not scale: "
+          f"8T={mem_results[8]:.1f} MB vs 1T={mem_results[1]:.1f} MB "
           f"(ratio {ratio_8_to_1:.2f}x, expected >= 2x)")
 
-    # 3. The 8-thread run should attribute a substantial fraction of
-    #    the nominal 1200 MB (8 × 150 MB).  Require at least 20% to be
-    #    visible — very conservative, but catches total tracking failure.
-    nominal_8 = 8 * 150
-    fraction = results[8] / nominal_8
-    print(f"  8-thread coverage: {results[8]:.1f} / {nominal_8} MB "
-          f"= {fraction:.0%}")
-    check(fraction >= 0.20,
-          f"8-thread memory too low: {results[8]:.1f} MB, "
-          f"expected >= 20% of {nominal_8} MB")
+    # ── Overhead scaling checks ──
+    # The slowdown factor = profiled_time / bare_time measures how much
+    # Scalene slows the workload.  If size tracking has no contention,
+    # the slowdown factor should be roughly constant regardless of thread
+    # count (Scalene adds per-alloc overhead, but it doesn't serialise
+    # threads).  A global lock would cause the slowdown factor to *grow*
+    # with threads because threads queue behind it.
+    #
+    # We compare the slowdown at 8 threads vs 1 thread.  If the 8T
+    # slowdown is more than 3× the 1T slowdown, something is serialising.
+    # This is generous for noisy CI.
+    slowdown = {}
+    print("  Slowdown (profiled / bare):")
+    for n in thread_counts:
+        if bare_times[n] > 0.1:
+            slowdown[n] = profiled_times[n] / bare_times[n]
+            print(f"    {n:2d}T: {slowdown[n]:.2f}x "
+                  f"({bare_times[n]:.2f}s → {profiled_times[n]:.2f}s)")
+        else:
+            print(f"    {n:2d}T: bare too fast ({bare_times[n]:.3f}s), skipping")
 
-    return results
+    if 1 in slowdown and 8 in slowdown:
+        contention_ratio = slowdown[8] / slowdown[1]
+        print(f"  Contention ratio (8T slowdown / 1T slowdown): "
+              f"{contention_ratio:.2f}x")
+        check(contention_ratio <= 3.0,
+              f"Profiling slowdown grew with threads: "
+              f"1T={slowdown[1]:.2f}x, 8T={slowdown[8]:.2f}x "
+              f"(contention ratio {contention_ratio:.2f}x, limit 3x). "
+              f"Possible lock contention in size tracking.")
+
+    return mem_results
 
 
 # ── Main ────────────────────────────────────────────────────────────
