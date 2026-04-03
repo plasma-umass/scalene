@@ -34,7 +34,6 @@
 #include "printf.h"
 #include "pywhere.hpp"
 #include "samplefile.hpp"
-#include "scaleneheader.hpp"
 #include "thresholdsampler.hpp"
 
 static SampleFile& getSampleFile() {
@@ -102,15 +101,11 @@ class SampleHeap : public SuperHeap {
       // if `malloc` itself was called by client code.
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
-        if (sz == NEWLINE + sizeof(ScaleneHeader)) {
-          // FIXME
-          //
-          // If we ourselves are allocating a NEWLINE, we're doing
-          // it through the Python allocator, so if it's an actual newline
-          // I don't think we should ever get here. I think our original intention
-          // is that we shouldn't count NEWLINE records that we already counted,
-          // but I think if we get to this line here, we didn't actually create a NEWLINE
-          // and should count it. 
+        if (sz == NEWLINE) {
+          // NEWLINE sentinel — don't double-count.  In practice this
+          // branch is unreachable: NEWLINE allocations go through
+          // MakeLocalAllocator (which sets MallocRecursionGuard), so
+          // we never enter this block for them.
           return ptr;
         }
         register_malloc(realSize, ptr, false);  // false -> invoked from C/C++

@@ -74,11 +74,30 @@ jobs:
         echo '/tmp/core.%e.%p' | sudo tee /proc/sys/kernel/core_pattern
         sudo apt-get install -y gdb
 
+    - name: Quick memory profiling smoke test
+      if: runner.os == 'Linux' && endsWith(matrix.python, 't')
+      run: |
+        echo 'x = [i*i for i in range(500000)]' > /tmp/test_ft.py
+        echo "=== Check PyMem_SetAllocator symbol ==="
+        nm -D $(python3 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")/libpython*.so 2>/dev/null | grep PyMem_SetAllocator || echo "Symbol not found in libpython"
+        echo "=== Check libscalene symbols ==="
+        nm -D $(python3 -c "import scalene; print(scalene.__path__[0])")/libscalene.so 2>/dev/null | grep "PyMem_\|get_real" || echo "No PyMem symbols in libscalene"
+        echo "=== Running scalene with memory profiling ==="
+        LD_PRELOAD=libscalene.so LD_LIBRARY_PATH=$(python3 -c "import scalene; print(scalene.__path__[0])"):$LD_LIBRARY_PATH SCALENE_ALLOCATION_SAMPLING_WINDOW=10485767 gdb -batch -ex 'set follow-fork-mode child' -ex 'set pagination off' -ex run -ex 'thread apply all bt 15' --args python3 -m scalene run --memory -o /tmp/ft_profile.json /tmp/test_ft.py 2>&1 | tail -50 || true
+
     - name: run tests
       # Free-threaded Python support is experimental; don't block CI on failures
       continue-on-error: ${{ endsWith(matrix.python, 't') }}
       run: |
         python3 -m pytest
+
+    - name: Free-threaded parity test
+      # Runs on ALL matrix entries to verify CPU+memory profiling with
+      # native code and threads produces comparable results everywhere.
+      if: runner.os != 'Windows'
+      continue-on-error: ${{ endsWith(matrix.python, 't') }}
+      run: |
+        python3 test/test_freethreaded_parity.py
 
     - name: Collect crash backtraces
       if: failure() && runner.os == 'Linux' && endsWith(matrix.python, 't')

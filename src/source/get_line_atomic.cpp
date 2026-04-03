@@ -79,7 +79,7 @@ PyMODINIT_FUNC PyInit_get_line_atomic(void) {
   PyObject* m = PyModule_Create(&mmaphlspinlockmodule);
 #ifdef Py_GIL_DISABLED
   if (m != NULL) {
-    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_USED);
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
   }
 #endif
   return m;

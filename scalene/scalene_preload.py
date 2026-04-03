@@ -81,11 +81,6 @@ class ScalenePreload:
                     env["LD_PRELOAD"] = f'{new_ld_preload}:{os.environ["LD_PRELOAD"]}'
                 # Disable command-line specified PYTHONMALLOC.
                 if "PYTHONMALLOC" in os.environ:
-                    # Since the environment dict is updated
-                    # with a `.update` call, we need to make sure
-                    # that there's some value for PYTHONMALLOC in
-                    # what we return if we want to squash an anomalous
-                    # value
                     env["PYTHONMALLOC"] = "default"
 
         elif sys.platform == "win32":
