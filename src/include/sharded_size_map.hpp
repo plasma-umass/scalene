@@ -3,19 +3,17 @@
 #ifndef SHARDED_SIZE_MAP_HPP
 #define SHARDED_SIZE_MAP_HPP
 
-// Out-of-band allocation size tracking for free-threaded Python.
+// Out-of-band allocation size tracking.
 //
-// On free-threaded Python, ScaleneHeader cannot be prepended to allocations
-// because the GC directly scans mimalloc heap pages expecting valid Python
-// objects. This sharded hash table tracks ptr -> size out of band so that
-// local_free() can recover the allocation size for accurate sampling.
+// Tracks ptr -> size in a sharded flat hash table so that local_free()
+// can recover the allocation size for accurate sampling.  This avoids
+// prepending a header to each allocation, which would shift pymalloc
+// size classes and (on free-threaded Python) break GC page scanning.
 //
 // Design: 128 shards, each with a spinlock and an open-addressed flat
 // hash table using linear probing.  Per-entry cost is 16 bytes (two
-// pointers), matching ScaleneHeader's overhead.  No heap allocation for
-// individual entries — only bulk array resizes on growth.
-
-#ifdef Py_GIL_DISABLED
+// pointers).  No heap allocation for individual entries — only bulk
+// array resizes on growth.
 
 #include <atomic>
 #include <cstddef>
@@ -163,7 +161,5 @@ class ShardedSizeMap {
     return 0;
   }
 };
-
-#endif  // Py_GIL_DISABLED
 
 #endif  // SHARDED_SIZE_MAP_HPP
