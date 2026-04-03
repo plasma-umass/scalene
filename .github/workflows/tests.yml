@@ -91,6 +91,14 @@ jobs:
       run: |
         python3 -m pytest
 
+    - name: Free-threaded parity test
+      # Runs on ALL matrix entries to verify CPU+memory profiling with
+      # native code and threads produces comparable results everywhere.
+      if: runner.os != 'Windows'
+      continue-on-error: ${{ endsWith(matrix.python, 't') }}
+      run: |
+        python3 test/test_freethreaded_parity.py
+
     - name: Collect crash backtraces
       if: failure() && runner.os == 'Linux' && endsWith(matrix.python, 't')
       run: |
