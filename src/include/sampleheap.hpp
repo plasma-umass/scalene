@@ -101,13 +101,6 @@ class SampleHeap : public SuperHeap {
       // if `malloc` itself was called by client code.
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
-        if (sz == NEWLINE) {
-          // NEWLINE sentinel — don't double-count.  In practice this
-          // branch is unreachable: NEWLINE allocations go through
-          // MakeLocalAllocator (which sets MallocRecursionGuard), so
-          // we never enter this block for them.
-          return ptr;
-        }
         register_malloc(realSize, ptr, false);  // false -> invoked from C/C++
       }
     }

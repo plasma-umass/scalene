@@ -96,10 +96,6 @@ class SampleHeap : public SuperHeap {
     if (pythonDetected() && !g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
-        if (sz == NEWLINE) {
-          // NEWLINE sentinel — don't double-count.
-          return ptr;
-        }
         register_malloc(realSize, ptr, false);
       }
     }
