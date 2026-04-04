@@ -101,6 +101,11 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 
 static ShardedSizeMap g_size_map;
 
+// Must match SampleHeap::NEWLINE (the NEWLINE sentinel allocation size).
+// Python allocates bytearray(NEWLINE_TRIGGER_LENGTH) = bytearray(98820),
+// which internally allocates 98821 bytes (with null terminator).
+static constexpr size_t NEWLINE_SENTINEL_SIZE = 98821;
+
 /**
  * @brief replace local Python allocators with our own sampling variants
  *
@@ -152,8 +157,15 @@ class MakeLocalAllocator {
     void *ptr = get_original_allocator()->malloc(
         get_original_allocator()->ctx, len);
     if (ptr && !m.wasInMalloc()) {
-      g_size_map.insert(ptr, len);
-      TheHeapWrapper::register_malloc(len, ptr);
+      if (unlikely(len == NEWLINE_SENTINEL_SIZE)) {
+        // NEWLINE sentinel: pass to register_malloc for the line-change
+        // record, but do NOT track in the size map — the corresponding
+        // free must not feed into the allocation sampler.
+        TheHeapWrapper::register_malloc(len, ptr);
+      } else {
+        g_size_map.insert(ptr, len);
+        TheHeapWrapper::register_malloc(len, ptr);
+      }
     }
     return ptr;
   }
@@ -162,9 +174,10 @@ class MakeLocalAllocator {
     if (ptr) {
       MallocRecursionGuard m;
       const auto sz = g_size_map.remove(ptr);
-      if (!m.wasInMalloc()) {
+      if (!m.wasInMalloc() && sz > 0) {
         TheHeapWrapper::register_free(sz, ptr);
       }
+      // sz == 0 for NEWLINE sentinel (not in size map) — skip register_free.
       get_original_allocator()->free(get_original_allocator()->ctx, ptr);
     }
   }
