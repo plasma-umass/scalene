@@ -24,7 +24,7 @@ def test_scalene_arguments_initialization(clean_scalene_arguments):
     assert args.stacks == False
     assert args.cpu_percent_threshold == 1
     assert args.cpu_sampling_rate == 0.01
-    assert args.allocation_sampling_window == 1048576
+    assert args.allocation_sampling_window == 10485767
     assert args.html == False
     assert args.json == True
     assert args.column_width == 132

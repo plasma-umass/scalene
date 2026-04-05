@@ -63,7 +63,7 @@ def _set_defaults() -> ScaleneArgumentsDict:
         "stacks": False,
         "cpu_percent_threshold": 1,
         "cpu_sampling_rate": 0.01,
-        "allocation_sampling_window": 1048576,
+        "allocation_sampling_window": 10485767,
         "html": False,
         "json": True,
         "column_width": 132,
