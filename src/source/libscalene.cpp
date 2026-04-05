@@ -19,6 +19,7 @@
 #include "heapredirect.h"
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
+#include "scaleneheader.hpp"
 
 #if defined(__APPLE__)
 #include "macinterpose.h"
@@ -99,12 +100,23 @@ extern "C" ATTRIBUTE_EXPORT char *LOCAL_PREFIX(strcpy)(char *dst,
 #define DL_FUNCTION(name) \
   static decltype(name) *dl##name = (decltype(name) *)dlsym(RTLD_DEFAULT, #name)
 
+#ifdef Py_GIL_DISABLED
 static ShardedSizeMap g_size_map;
+#endif
+
+// Maximum size allocated internally by pymalloc;
+// aka "SMALL_REQUEST_THRESHOLD" in cpython/Objects/obmalloc.c
+#define PYMALLOC_MAX_SIZE 512
 
 /**
  * @brief replace local Python allocators with our own sampling variants
  *
  * @tparam Domain the Python domain of allocator we replace
+ *
+ * On regular Python, uses ScaleneHeader (16-byte inline header) for
+ * O(1) size recovery — just pointer arithmetic, no locks or hashing.
+ * On free-threaded Python, uses ShardedSizeMap (out-of-band hash table)
+ * because prepending headers breaks GC page scanning.
  */
 
 template <PyMemAllocatorDomain Domain>
@@ -149,6 +161,8 @@ class MakeLocalAllocator {
 
   static inline void *local_malloc(void *ctx, size_t len) {
     MallocRecursionGuard m;
+#ifdef Py_GIL_DISABLED
+    // Free-threaded: track size out-of-band via sharded hash table.
     void *ptr = get_original_allocator()->malloc(
         get_original_allocator()->ctx, len);
     if (ptr && !m.wasInMalloc()) {
@@ -156,16 +170,42 @@ class MakeLocalAllocator {
       TheHeapWrapper::register_malloc(len, ptr);
     }
     return ptr;
+#else
+    // Regular Python: prepend ScaleneHeader for O(1) size recovery.
+    if (len <= PYMALLOC_MAX_SIZE) {
+      if (unlikely(len == 0)) {
+        len = 8;
+      }
+      len = (len + 7) & ~7;
+    }
+    const auto allocSize = len + sizeof(ScaleneHeader);
+    void *buf = get_original_allocator()->malloc(
+        get_original_allocator()->ctx, allocSize);
+    auto *header = new (buf) ScaleneHeader(len);
+    if (!m.wasInMalloc()) {
+      TheHeapWrapper::register_malloc(len, ScaleneHeader::getObject(header));
+    }
+    return ScaleneHeader::getObject(header);
+#endif
   }
 
   static inline void local_free(void *ctx, void *ptr) {
     if (ptr) {
       MallocRecursionGuard m;
+#ifdef Py_GIL_DISABLED
       const auto sz = g_size_map.remove(ptr);
       if (!m.wasInMalloc()) {
         TheHeapWrapper::register_free(sz, ptr);
       }
       get_original_allocator()->free(get_original_allocator()->ctx, ptr);
+#else
+      const auto sz = ScaleneHeader::getSize(ptr);
+      if (!m.wasInMalloc()) {
+        TheHeapWrapper::register_free(sz, ptr);
+      }
+      get_original_allocator()->free(get_original_allocator()->ctx,
+                                     ScaleneHeader::getHeader(ptr));
+#endif
     }
   }
 
@@ -177,6 +217,7 @@ class MakeLocalAllocator {
       return local_malloc(ctx, new_size);
     }
     MallocRecursionGuard m;
+#ifdef Py_GIL_DISABLED
     const auto old_size = g_size_map.remove(ptr);
     void *result = get_original_allocator()->realloc(
         get_original_allocator()->ctx, ptr, new_size);
@@ -191,6 +232,24 @@ class MakeLocalAllocator {
       }
     }
     return result;
+#else
+    const auto sz = ScaleneHeader::getSize(ptr);
+    const auto allocSize = new_size + sizeof(ScaleneHeader);
+    void *buf = get_original_allocator()->realloc(
+        get_original_allocator()->ctx,
+        ScaleneHeader::getHeader(ptr), allocSize);
+    ScaleneHeader *result = new (buf) ScaleneHeader(new_size);
+    if (result && !m.wasInMalloc()) {
+      if (sz < new_size) {
+        TheHeapWrapper::register_malloc(new_size - sz,
+                                        ScaleneHeader::getObject(result));
+      } else if (sz > new_size) {
+        TheHeapWrapper::register_free(sz - new_size, ptr);
+      }
+    }
+    ScaleneHeader::setSize(ScaleneHeader::getObject(result), new_size);
+    return ScaleneHeader::getObject(result);
+#endif
   }
 
   static inline void *local_calloc(void *ctx, size_t nelem, size_t elsize) {
