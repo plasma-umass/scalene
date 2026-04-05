@@ -1375,6 +1375,17 @@ class Scalene:
         # Leaving here in case of reversion
         # sys.settrace(None)
         stats = Scalene.__stats
+        # Drain any remaining malloc/free/NEWLINE records from the mapfile
+        # that haven't been read yet (records only get read when a malloc or
+        # free signal fires; if the program's net allocation stays below the
+        # sampling threshold, records accumulate unread).
+        if Scalene.__memory_profiler:
+            Scalene.__memory_profiler.process_malloc_free_samples(
+                Scalene.__start_time,
+                Scalene.__args,
+                Scalene.__invalidate_mutex,
+                Scalene.__invalidate_queue,
+            )
         last_file, last_line, _ = Scalene.last_profiled_tuple()
         stats.memory_stats.memory_malloc_count[last_file][last_line] += 1
         stats.memory_stats.memory_aggregate_footprint[last_file][

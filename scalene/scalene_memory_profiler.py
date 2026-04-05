@@ -130,8 +130,6 @@ class ScaleneMemoryProfiler:
                     continue
                 if int(curr_pid) != int(pid):
                     continue
-                if int(reported_lineno) == -1:
-                    continue
                 profiling_sample = ProfilingSample(
                     action=action,
                     alloc_time=int(alloc_time_str),
@@ -213,7 +211,10 @@ class ScaleneMemoryProfiler:
                 and item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1
             ):
                 with invalidate_mutex:
-                    last_file, last_line = invalidate_queue.pop(0)
+                    if invalidate_queue:
+                        last_file, last_line = invalidate_queue.pop(0)
+                    else:
+                        continue
 
                 mem_stats.memory_malloc_count[last_file][last_line] += 1
                 mem_stats.memory_aggregate_footprint[last_file][

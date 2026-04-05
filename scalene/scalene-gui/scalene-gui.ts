@@ -607,7 +607,7 @@ function makeProfileLine(
     if (line.n_avg_mb) {
       memory_bars.push(
         makeMemoryBar(
-          line.n_avg_mb.toFixed(0),
+          line.n_avg_mb.toFixed(1),
           "average memory",
           parseFloat(String(line.n_python_fraction)),
           prof.max_footprint_mb.toFixed(2),
@@ -922,7 +922,7 @@ async function display(prof: Profile): Promise<void> {
       cs[f] += line.n_sys_percent;
       if (line.n_peak_mb > ma[f]) {
         ma[f] = line.n_peak_mb;
-        mp[f] += line.n_peak_mb * line.n_python_fraction;
+        mp[f] = line.n_peak_mb * line.n_python_fraction;
       }
       max_alloc += line.n_malloc_mb;
       if (line.nc_time_ms !== undefined && line.nc_time_ms > 0) {
@@ -1032,7 +1032,7 @@ async function display(prof: Profile): Promise<void> {
       makeMemoryBar(
         prof.max_footprint_mb.toFixed(2),
         "memory",
-        mem_python / max_alloc,
+        prof.max_footprint_python_fraction,
         prof.max_footprint_mb.toFixed(2),
         "darkgreen",
         { height: 20, width: 150 }
