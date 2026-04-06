@@ -473,6 +473,7 @@ export function makeMemoryBar(
             legend: false,
             scale: { range: [color, "#50C878", "green"] },
           },
+          tooltip: { field: "c", type: "nominal" },
         },
       },
       {

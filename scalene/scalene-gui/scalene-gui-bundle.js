@@ -70241,7 +70241,8 @@ ${toHex(hashedRequest)}`;
               type: "nominal",
               legend: false,
               scale: { range: [color5, "#50C878", "green"] }
-            }
+            },
+            tooltip: { field: "c", type: "nominal" }
           }
         },
         {
@@ -71436,7 +71437,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       if (line4.n_avg_mb) {
         memory_bars.push(
           makeMemoryBar(
-            line4.n_avg_mb.toFixed(0),
+            line4.n_avg_mb.toFixed(1),
             "average memory",
             parseFloat(String(line4.n_python_fraction)),
             prof.max_footprint_mb.toFixed(2),
@@ -71695,7 +71696,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
         cs[f2] += line4.n_sys_percent;
         if (line4.n_peak_mb > ma2[f2]) {
           ma2[f2] = line4.n_peak_mb;
-          mp[f2] += line4.n_peak_mb * line4.n_python_fraction;
+          mp[f2] = line4.n_peak_mb * line4.n_python_fraction;
         }
         max_alloc += line4.n_malloc_mb;
         if (line4.nc_time_ms !== void 0 && line4.nc_time_ms > 0) {
@@ -71795,7 +71796,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
         makeMemoryBar(
           prof.max_footprint_mb.toFixed(2),
           "memory",
-          mem_python / max_alloc,
+          prof.max_footprint_python_fraction,
           prof.max_footprint_mb.toFixed(2),
           "darkgreen",
           { height: 20, width: 150 }

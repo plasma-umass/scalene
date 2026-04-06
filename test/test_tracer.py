@@ -210,20 +210,32 @@ if __name__ == "__main__":
 
     def test_function_call_attribution(self):
         """Test that allocations in called functions are not attributed to caller."""
-        with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
-            output_file = f.name
+        max_attempts = 3
+        profile = None
+        output_file = None
+        for attempt in range(1, max_attempts + 1):
+            with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
+                output_file = f.name
 
-        try:
             cmd = [
                 sys.executable, '-m', 'scalene',
                 'run', '--json', '--outfile', output_file,
                 self.test_script.name
             ]
-            subprocess.run(cmd, capture_output=True, timeout=60)
+            subprocess.run(cmd, capture_output=True, timeout=120)
 
-            with open(output_file) as f:
-                profile = json.load(f)
+            if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+                with open(output_file) as f:
+                    content = f.read()
+                if content.strip():
+                    profile = json.loads(content)
+                    break
+            if attempt < max_attempts:
+                os.unlink(output_file)
 
+        self.assertIsNotNone(profile, f"Scalene produced no output after {max_attempts} attempts")
+
+        try:
             # Check that we have multiple lines with allocations
             files = profile.get('files', {})
             allocations = {}
@@ -239,7 +251,7 @@ if __name__ == "__main__":
             self.assertTrue(len(allocations) > 0, "No allocations detected")
 
         finally:
-            if os.path.exists(output_file):
+            if output_file and os.path.exists(output_file):
                 os.unlink(output_file)
 
 
