@@ -428,7 +428,7 @@ class ScaleneOutput:
                 style="dim",
                 justify="right",
                 no_wrap=True,
-                width=4,
+                width=6,
             )
             tbl.add_column(
                 Markdown("Time  " + "\n" + "_Python_", style="blue"),
