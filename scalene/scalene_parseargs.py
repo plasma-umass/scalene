@@ -671,7 +671,7 @@ class ScaleneParseArgs:
                 style="dim",
                 justify="right",
                 no_wrap=True,
-                width=4,
+                width=6,
             )
             tbl.add_column(
                 Markdown("Time  \n_Python_", style="blue"),
