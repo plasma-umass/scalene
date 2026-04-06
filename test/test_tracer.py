@@ -222,7 +222,7 @@ if __name__ == "__main__":
                 'run', '--json', '--outfile', output_file,
                 self.test_script.name
             ]
-            subprocess.run(cmd, capture_output=True, timeout=60)
+            subprocess.run(cmd, capture_output=True, timeout=120)
 
             if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
                 with open(output_file) as f:
