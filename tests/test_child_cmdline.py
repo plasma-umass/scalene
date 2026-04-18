@@ -23,6 +23,12 @@ import textwrap
 
 import pytest
 
+from scalene.scalene_arguments import (
+    CHILD_PROPAGATED_ARGS,
+    ChildArgSpec,
+    _set_defaults,
+    _validate_child_propagated_args,
+)
 from scalene.scalene_profiler import Scalene
 
 
@@ -109,6 +115,31 @@ def test_cpu_only_suppressed_when_memory_or_gpu_on():
     cmdline_gpu = Scalene._build_child_cmdline(_ns(cpu=True, gpu=True), "", 1)
     assert "--cpu-only" not in cmdline_mem
     assert "--cpu-only" not in cmdline_gpu
+
+
+# ---------------------------------------------------------------------------
+# Tests for the declarative spec table
+# ---------------------------------------------------------------------------
+
+
+def test_child_arg_specs_reference_known_attrs():
+    """Every spec must name an attribute that ScaleneArguments actually
+    has, so a typo can't silently disable propagation."""
+    known = set(_set_defaults().keys()) | {"off", "on"}
+    for spec in CHILD_PROPAGATED_ARGS:
+        assert spec.attr in known, (
+            f"{spec.attr!r} is not a Scalene argument; fix the spec or "
+            f"add the attribute to ScaleneArgumentsDict."
+        )
+
+
+def test_validate_rejects_unknown_attr(monkeypatch):
+    bad = CHILD_PROPAGATED_ARGS + (ChildArgSpec("not_a_real_arg", "--bogus"),)
+    monkeypatch.setattr(
+        "scalene.scalene_arguments.CHILD_PROPAGATED_ARGS", bad
+    )
+    with pytest.raises(ValueError, match="not_a_real_arg"):
+        _validate_child_propagated_args()
 
 
 # ---------------------------------------------------------------------------

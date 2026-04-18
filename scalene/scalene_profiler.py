@@ -73,7 +73,10 @@ from scalene.find_browser import find_browser
 from scalene.get_module_details import _get_module_details
 from scalene.redirect_python import redirect_python
 from scalene.scalene_accelerator import ScaleneAccelerator
-from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_arguments import (
+    CHILD_PROPAGATED_ARGS,
+    ScaleneArguments,
+)
 from scalene.scalene_async import ScaleneAsync
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_cpu_profiler import ScaleneCPUProfiler
@@ -422,11 +425,13 @@ class Scalene:
 
         The python alias wraps subprocess invocations of Python so that
         child processes (e.g. pytest-xdist workers, multiprocessing pools)
-        are themselves profiled. Only flags that affect what the child
-        collects and reports need to be propagated; flags that just control
-        parent-side output are set by the parent when it merges child
-        stats. See issue #1022: without forwarding scope flags like
-        --profile-all, child profilers silently drop all samples.
+        are themselves profiled. Scope-affecting flags must be forwarded
+        so the child applies the same filters; otherwise (issue #1022) the
+        child silently drops every sample.
+
+        The set of forwarded flags is declared in
+        scalene_arguments.CHILD_PROPAGATED_ARGS — add entries there for new
+        scope-affecting flags rather than editing this method.
         """
 
         def quote(value: str) -> str:
@@ -434,39 +439,31 @@ class Scalene:
                 return f'"{value}"'
             return f"'{value}'"
 
-        cmdline = ""
-        if "off" in args and args.off:
-            cmdline += " --off"
-        if getattr(args, "use_virtual_time", False):
-            cmdline += " --use-virtual-time"
-        if getattr(args, "gpu", False):
-            cmdline += " --gpu"
-        if getattr(args, "memory", False):
-            cmdline += " --memory"
+        parts = []
+        for spec in CHILD_PROPAGATED_ARGS:
+            value = getattr(args, spec.attr, None)
+            if spec.takes_value:
+                if value:
+                    parts.append(f"{spec.flag}={quote(str(value))}")
+            else:
+                emit = (not value) if spec.invert else bool(value)
+                if emit:
+                    parts.append(spec.flag)
+
+        # --cpu-only is derived: it's the run-subcommand spelling for "CPU
+        # sampling on, neither memory nor GPU profiling enabled". There is
+        # no standalone --cpu flag on the run subcommand to forward.
         if (
             getattr(args, "cpu", False)
             and not getattr(args, "memory", False)
             and not getattr(args, "gpu", False)
         ):
-            cmdline += " --cpu-only"
-        if getattr(args, "profile_all", False):
-            cmdline += " --profile-all"
-        if getattr(args, "profile_system_libraries", False):
-            cmdline += " --profile-system-libraries"
-        if getattr(args, "stacks", False):
-            cmdline += " --stacks"
-        if not getattr(args, "async_profile", True):
-            cmdline += " --no-async"
-        profile_only = getattr(args, "profile_only", "")
-        if profile_only:
-            cmdline += f" --profile-only={quote(profile_only)}"
-        profile_exclude = getattr(args, "profile_exclude", "")
-        if profile_exclude:
-            cmdline += f" --profile-exclude={quote(profile_exclude)}"
+            parts.append("--cpu-only")
+
         if program_path:
-            cmdline += f" --program-path={quote(str(program_path))}"
-        cmdline += f" --pid={parent_pid} ---"
-        return cmdline
+            parts.append(f"--program-path={quote(str(program_path))}")
+        parts.append(f"--pid={parent_pid} ---")
+        return " " + " ".join(parts)
 
     if sys.platform != "win32":
         __orig_setitimer = signal.setitimer

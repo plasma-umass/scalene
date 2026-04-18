@@ -1,7 +1,7 @@
 import argparse
 import platform
 import sys
-from typing import Any, Optional, TypedDict
+from typing import Any, NamedTuple, Optional, Tuple, TypedDict
 
 from typing_extensions import Unpack
 
@@ -103,3 +103,68 @@ class ScaleneArguments(argparse.Namespace):
         if self.cli or self.json:
             self.web = False
             self.no_browser = True
+
+
+class ChildArgSpec(NamedTuple):
+    """How a Scalene argument propagates to subprocess children.
+
+    The python alias wraps subprocess invocations so children re-run under
+    Scalene; each spec describes one flag the parent must forward so the
+    child applies the same profiling scope.
+
+    Fields:
+        attr: Namespace attribute name (e.g. "profile_all").
+        flag: CLI flag the child sees (e.g. "--profile-all").
+        takes_value: If True, emit "<flag>=<quoted-value>" when truthy.
+                     If False, emit just <flag> based on a boolean.
+        invert: If True, emit when attr is *false* (used by --no-async,
+                whose dest async_profile defaults to True).
+    """
+
+    attr: str
+    flag: str
+    takes_value: bool = False
+    invert: bool = False
+
+
+# Single source of truth for which run-time arguments must be forwarded
+# from the parent profiler to its subprocess children via the python alias.
+#
+# Add an entry here whenever you introduce a new run-subcommand flag that
+# affects what samples a child collects or how it filters them. Output-
+# formatting flags (--json, --html, --cli, --outfile, --port, ...) and
+# parent-only flags do NOT belong here: the parent merges per-child stats
+# and renders the final output itself.
+#
+# Special cases handled directly in _build_child_cmdline (not listed here):
+#   * --cpu-only is derived as (cpu and not memory and not gpu).
+#   * --program-path is passed separately because it carries the resolved
+#     absolute path computed by Scalene at startup, not args.program_path.
+#   * --pid is always emitted with the parent's pid.
+CHILD_PROPAGATED_ARGS: Tuple[ChildArgSpec, ...] = (
+    ChildArgSpec("off", "--off"),
+    ChildArgSpec("use_virtual_time", "--use-virtual-time"),
+    ChildArgSpec("gpu", "--gpu"),
+    ChildArgSpec("memory", "--memory"),
+    ChildArgSpec("profile_all", "--profile-all"),
+    ChildArgSpec("profile_system_libraries", "--profile-system-libraries"),
+    ChildArgSpec("stacks", "--stacks"),
+    ChildArgSpec("async_profile", "--no-async", invert=True),
+    ChildArgSpec("profile_only", "--profile-only", takes_value=True),
+    ChildArgSpec("profile_exclude", "--profile-exclude", takes_value=True),
+)
+
+
+def _validate_child_propagated_args() -> None:
+    # "off" is set dynamically by --on/--off, not in ScaleneArgumentsDict.
+    known = set(_set_defaults().keys()) | {"off", "on"}
+    for spec in CHILD_PROPAGATED_ARGS:
+        if spec.attr not in known:
+            raise ValueError(
+                f"CHILD_PROPAGATED_ARGS references unknown attribute "
+                f"{spec.attr!r}; add it to ScaleneArgumentsDict or remove "
+                f"the spec."
+            )
+
+
+_validate_child_propagated_args()
