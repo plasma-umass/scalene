@@ -380,33 +380,9 @@ class Scalene:
                 tempfile.mkdtemp(prefix="scalene")
             )
             Scalene.__pid = 0
-            cmdline = ""
-            # Pass along commands from the invoking command line.
-            if "off" in Scalene.__args and Scalene.__args.off:
-                cmdline += " --off"
-            # Only pass along options that are valid for the 'run' subcommand
-            if getattr(Scalene.__args, "use_virtual_time", False):
-                cmdline += " --use-virtual-time"
-            if getattr(Scalene.__args, "gpu", False):
-                cmdline += " --gpu"
-            if getattr(Scalene.__args, "memory", False):
-                cmdline += " --memory"
-            # Note: --cpu is now --cpu-only; only pass if we are CPU-only (no memory/gpu)
-            if (
-                getattr(Scalene.__args, "cpu", False)
-                and not getattr(Scalene.__args, "memory", False)
-                and not getattr(Scalene.__args, "gpu", False)
-            ):
-                cmdline += " --cpu-only"
-            # Add the --program-path so children know which files to profile.
-            if Scalene.__program_path:
-                path_str = str(Scalene.__program_path)
-                if sys.platform == "win32":
-                    cmdline += f' --program-path="{path_str}"'
-                else:
-                    cmdline += f" --program-path='{path_str}'"
-            # Add the --pid field so we can propagate it to the child.
-            cmdline += f" --pid={os.getpid()} ---"
+            cmdline = Scalene._build_child_cmdline(
+                Scalene.__args, Scalene.__program_path, os.getpid()
+            )
             # Build the commands to pass along other arguments
             environ = ScalenePreload.get_preload_environ(Scalene.__args)
             if sys.platform == "win32":
@@ -437,6 +413,60 @@ class Scalene:
         return cast(
             "tuple[Filename, LineNumber, ByteCodeIndex]", Scalene.__last_profiled
         )
+
+    @staticmethod
+    def _build_child_cmdline(
+        args: argparse.Namespace, program_path: str, parent_pid: int
+    ) -> str:
+        """Build the Scalene command-line to embed in the python alias script.
+
+        The python alias wraps subprocess invocations of Python so that
+        child processes (e.g. pytest-xdist workers, multiprocessing pools)
+        are themselves profiled. Only flags that affect what the child
+        collects and reports need to be propagated; flags that just control
+        parent-side output are set by the parent when it merges child
+        stats. See issue #1022: without forwarding scope flags like
+        --profile-all, child profilers silently drop all samples.
+        """
+
+        def quote(value: str) -> str:
+            if sys.platform == "win32":
+                return f'"{value}"'
+            return f"'{value}'"
+
+        cmdline = ""
+        if "off" in args and args.off:
+            cmdline += " --off"
+        if getattr(args, "use_virtual_time", False):
+            cmdline += " --use-virtual-time"
+        if getattr(args, "gpu", False):
+            cmdline += " --gpu"
+        if getattr(args, "memory", False):
+            cmdline += " --memory"
+        if (
+            getattr(args, "cpu", False)
+            and not getattr(args, "memory", False)
+            and not getattr(args, "gpu", False)
+        ):
+            cmdline += " --cpu-only"
+        if getattr(args, "profile_all", False):
+            cmdline += " --profile-all"
+        if getattr(args, "profile_system_libraries", False):
+            cmdline += " --profile-system-libraries"
+        if getattr(args, "stacks", False):
+            cmdline += " --stacks"
+        if not getattr(args, "async_profile", True):
+            cmdline += " --no-async"
+        profile_only = getattr(args, "profile_only", "")
+        if profile_only:
+            cmdline += f" --profile-only={quote(profile_only)}"
+        profile_exclude = getattr(args, "profile_exclude", "")
+        if profile_exclude:
+            cmdline += f" --profile-exclude={quote(profile_exclude)}"
+        if program_path:
+            cmdline += f" --program-path={quote(str(program_path))}"
+        cmdline += f" --pid={parent_pid} ---"
+        return cmdline
 
     if sys.platform != "win32":
         __orig_setitimer = signal.setitimer
