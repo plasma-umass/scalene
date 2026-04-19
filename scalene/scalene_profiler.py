@@ -73,7 +73,10 @@ from scalene.find_browser import find_browser
 from scalene.get_module_details import _get_module_details
 from scalene.redirect_python import redirect_python
 from scalene.scalene_accelerator import ScaleneAccelerator
-from scalene.scalene_arguments import ScaleneArguments
+from scalene.scalene_arguments import (
+    CHILD_PROPAGATED_ARGS,
+    ScaleneArguments,
+)
 from scalene.scalene_async import ScaleneAsync
 from scalene.scalene_client_timer import ScaleneClientTimer
 from scalene.scalene_cpu_profiler import ScaleneCPUProfiler
@@ -380,33 +383,9 @@ class Scalene:
                 tempfile.mkdtemp(prefix="scalene")
             )
             Scalene.__pid = 0
-            cmdline = ""
-            # Pass along commands from the invoking command line.
-            if "off" in Scalene.__args and Scalene.__args.off:
-                cmdline += " --off"
-            # Only pass along options that are valid for the 'run' subcommand
-            if getattr(Scalene.__args, "use_virtual_time", False):
-                cmdline += " --use-virtual-time"
-            if getattr(Scalene.__args, "gpu", False):
-                cmdline += " --gpu"
-            if getattr(Scalene.__args, "memory", False):
-                cmdline += " --memory"
-            # Note: --cpu is now --cpu-only; only pass if we are CPU-only (no memory/gpu)
-            if (
-                getattr(Scalene.__args, "cpu", False)
-                and not getattr(Scalene.__args, "memory", False)
-                and not getattr(Scalene.__args, "gpu", False)
-            ):
-                cmdline += " --cpu-only"
-            # Add the --program-path so children know which files to profile.
-            if Scalene.__program_path:
-                path_str = str(Scalene.__program_path)
-                if sys.platform == "win32":
-                    cmdline += f' --program-path="{path_str}"'
-                else:
-                    cmdline += f" --program-path='{path_str}'"
-            # Add the --pid field so we can propagate it to the child.
-            cmdline += f" --pid={os.getpid()} ---"
+            cmdline = Scalene._build_child_cmdline(
+                Scalene.__args, Scalene.__program_path, os.getpid()
+            )
             # Build the commands to pass along other arguments
             environ = ScalenePreload.get_preload_environ(Scalene.__args)
             if sys.platform == "win32":
@@ -437,6 +416,54 @@ class Scalene:
         return cast(
             "tuple[Filename, LineNumber, ByteCodeIndex]", Scalene.__last_profiled
         )
+
+    @staticmethod
+    def _build_child_cmdline(
+        args: argparse.Namespace, program_path: str, parent_pid: int
+    ) -> str:
+        """Build the Scalene command-line to embed in the python alias script.
+
+        The python alias wraps subprocess invocations of Python so that
+        child processes (e.g. pytest-xdist workers, multiprocessing pools)
+        are themselves profiled. Scope-affecting flags must be forwarded
+        so the child applies the same filters; otherwise (issue #1022) the
+        child silently drops every sample.
+
+        The set of forwarded flags is declared in
+        scalene_arguments.CHILD_PROPAGATED_ARGS — add entries there for new
+        scope-affecting flags rather than editing this method.
+        """
+
+        def quote(value: str) -> str:
+            if sys.platform == "win32":
+                return f'"{value}"'
+            return f"'{value}'"
+
+        parts = []
+        for spec in CHILD_PROPAGATED_ARGS:
+            value = getattr(args, spec.attr, None)
+            if spec.takes_value:
+                if value:
+                    parts.append(f"{spec.flag}={quote(str(value))}")
+            else:
+                emit = (not value) if spec.invert else bool(value)
+                if emit:
+                    parts.append(spec.flag)
+
+        # --cpu-only is derived: it's the run-subcommand spelling for "CPU
+        # sampling on, neither memory nor GPU profiling enabled". There is
+        # no standalone --cpu flag on the run subcommand to forward.
+        if (
+            getattr(args, "cpu", False)
+            and not getattr(args, "memory", False)
+            and not getattr(args, "gpu", False)
+        ):
+            parts.append("--cpu-only")
+
+        if program_path:
+            parts.append(f"--program-path={quote(str(program_path))}")
+        parts.append(f"--pid={parent_pid} ---")
+        return " " + " ".join(parts)
 
     if sys.platform != "win32":
         __orig_setitimer = signal.setitimer
