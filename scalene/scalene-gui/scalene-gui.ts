@@ -84,6 +84,7 @@ interface Profile {
   memory: boolean;
   async_profile?: boolean;
   max_footprint_mb: number;
+  native_allocations_mb?: number;
   elapsed_time_sec: number;
   samples: [number, number][];
   growth_rate: number;
@@ -995,9 +996,13 @@ async function display(prof: Profile): Promise<void> {
     s += `<td><font style="font-size: small"><b>Memory:</b> <font color="darkgreen">Python</font> | <font color="#50C878">native</font><br /></font></td>`;
     s += '<td width="10"></td>';
     s += '<td valign="middle" style="vertical-align: middle">';
+    const nativeMb = prof.native_allocations_mb ?? 0;
+    const nativeNote = nativeMb > 0
+      ? `, ${memory_consumed_str(nativeMb)} from native threads`
+      : "";
     s += `<font style="font-size: small"><b>Memory timeline: </b>(max: ${memory_consumed_str(
       prof.max_footprint_mb
-    )}, growth: ${prof.growth_rate.toFixed(1)}%)</font>`;
+    )}, growth: ${prof.growth_rate.toFixed(1)}%${nativeNote})</font>`;
     s += "</td>";
   }
   s += "</tr>";

@@ -338,11 +338,20 @@ class ScaleneOutput:
                         * stats.memory_stats.allocation_velocity[0]
                         / stats.memory_stats.allocation_velocity[1]
                     )
+                native_samples = stats.memory_stats.memory_malloc_samples.get(
+                    Filename("<native>"), {}
+                )
+                native_allocations_mb = sum(native_samples.values())
+                native_note = (
+                    f" ({ScaleneJSON.memory_consumed_str(native_allocations_mb)} from native threads)"
+                    if native_allocations_mb > 0
+                    else ""
+                )
                 mem_usage_line = Text.assemble(
                     "Memory usage: ",
                     ((spark_str, self.memory_color)),
                     (
-                        f" (max: {ScaleneJSON.memory_consumed_str(stats.memory_stats.max_footprint)}, growth rate: {growth_rate:3.0f}%)\n"
+                        f" (max: {ScaleneJSON.memory_consumed_str(stats.memory_stats.max_footprint)}, growth rate: {growth_rate:3.0f}%{native_note})\n"
                     ),
                 )
 
@@ -504,6 +513,11 @@ class ScaleneOutput:
             )
             # Print out the the profile for the source, line by line.
             if fname == "<BOGUS>":
+                continue
+            if fname == "<native>":
+                # Pseudo-file for allocations made by native threads that
+                # have no Python frame (see pywhere.cpp). Bytes are tallied
+                # in stats/JSON; there is no source to render.
                 continue
             if not fname:
                 continue

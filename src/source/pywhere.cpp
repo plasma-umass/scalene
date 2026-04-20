@@ -58,15 +58,6 @@ const int NEWLINE_TRIGGER_LENGTH = 98820;
 
 static std::atomic<bool> last_profiled_invalidated{false};
 
-#ifdef Py_GIL_DISABLED
-// Cached main thread state for safe fallback attribution on free-threaded
-// Python.  Set once during PyInit_pywhere (single-threaded context) and
-// read from any thread's malloc path.  PyThreadState_GetFrame() uses
-// atomic loads on free-threaded builds, so reading another thread's frame
-// is safe.
-static PyThreadState* g_main_tstate = nullptr;
-#endif
-
 // sys.monitoring support for Python 3.13+
 #if PY_VERSION_HEX >= 0x030D0000
 // Tool ID for sys.monitoring (PROFILER_ID = 2)
@@ -137,26 +128,6 @@ typedef struct _frame {
 typedef PyFrameObject PyFrameType;
 #endif
 
-static PyPtr<PyFrameObject> findMainPythonThread_frame() {
-  PyThreadState* main = nullptr;
-
-  PyThreadState* t = PyInterpreterState_ThreadHead(PyInterpreterState_Main());
-  for (; t != nullptr; t = PyThreadState_Next(t)) {
-    // Recognize the main thread as the one with the smallest ID.
-    // In Juan's experiments, it's the last thread on the list and has id 1.
-    //
-    // FIXME this could be brittle...  another way would be to use
-    // _PyRuntime.main_thread (a native thread ID) and compare it to
-    // PyThreadState.thread_id, with the caveats that main_thread, etc.
-    // might go away or change, and thread_id is initialized with the
-    // native thread ID of whichever thread creates that PyThreadState.
-    if (main == nullptr || main->id > t->id) {
-      main = t;
-    }
-  }
-
-  return PyPtr<PyFrameObject>(main ? PyThreadState_GetFrame(main) : nullptr);
-}
 // I'm not sure whether last_profiled_invalidated is quite needed, so I'm
 // leaving this infrastructure here
 //
@@ -216,18 +187,18 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
       threadState ? PyThreadState_GetFrame(threadState) : nullptr;
 
   if (static_cast<PyFrameObject*>(frame) == nullptr) {
-#ifdef Py_GIL_DISABLED
-    // On free-threaded Python, iterating thread states is unsafe without
-    // the GIL.  Instead, use the cached main thread state — safe because
-    // PyThreadState_GetFrame uses atomic loads on free-threaded builds.
-    if (g_main_tstate) {
-      frame = PyPtr<PyFrameObject>(PyThreadState_GetFrame(g_main_tstate));
-    }
-#else
-    // Various packages may create native threads; attribute what they do
-    // to what the main thread is doing, as it's likely to have requested it.
-    frame = findMainPythonThread_frame();  // note this may be nullptr
-#endif
+    // This thread has no live Python frame (typically a native thread
+    // spawned by a C extension — OpenBLAS/MKL workers, a std::thread in a
+    // native lib, a Rust/Tokio runtime thread, etc.). Previously we fell
+    // back to the main thread's current frame, which smeared native-thread
+    // allocations onto whatever line the main thread happened to be on
+    // (e.g., time.sleep), producing very misleading per-line attribution
+    // under concurrency — see issue #857. Emit a <native> sentinel so the
+    // bytes are still counted but bucketed separately from user code.
+    filename = "<native>";
+    lineno = 0;
+    bytei = 0;
+    return 1;
   }
 
   auto traceConfig = TraceConfig::getInstance();
@@ -1057,19 +1028,6 @@ PyMODINIT_FUNC PyInit_pywhere() {
 #ifdef Py_GIL_DISABLED
   if (m != NULL) {
     PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
-    // Cache the main thread state for safe fallback attribution later.
-    // Module init is single-threaded, so iterating the thread list is safe.
-    PyInterpreterState* interp = PyInterpreterState_Main();
-    if (interp) {
-      PyThreadState* main = nullptr;
-      for (PyThreadState* t = PyInterpreterState_ThreadHead(interp);
-           t != nullptr; t = PyThreadState_Next(t)) {
-        if (main == nullptr || main->id > t->id) {
-          main = t;
-        }
-      }
-      g_main_tstate = main;
-    }
   }
 #endif
   return m;

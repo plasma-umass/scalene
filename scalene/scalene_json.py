@@ -500,6 +500,14 @@ class ScaleneJSON:
             }
             stks.append((this_stk, stack_stats_dict))
 
+        # Aggregate bytes from native-thread allocations that have no
+        # Python frame (see pywhere.cpp <native> sentinel). These are not
+        # attributable to any source line, so surface them at the top level.
+        native_samples = stats.memory_stats.memory_malloc_samples.get(
+            Filename("<native>"), {}
+        )
+        native_allocations_mb = sum(native_samples.values())
+
         output: Dict[str, Any] = {
             "program": program,
             "entrypoint_dir": entrypoint_dir,
@@ -511,6 +519,7 @@ class ScaleneJSON:
             "start_time_perf": stats.start_time_perf,
             "growth_rate": growth_rate,
             "max_footprint_mb": stats.memory_stats.max_footprint,
+            "native_allocations_mb": native_allocations_mb,
             "max_footprint_python_fraction": stats.memory_stats.max_footprint_python_fraction,
             "max_footprint_fname": (
                 stats.memory_stats.max_footprint_loc[0]
@@ -519,7 +528,10 @@ class ScaleneJSON:
             ),
             "max_footprint_lineno": (
                 stats.memory_stats.max_footprint_loc[1]
-                if stats.memory_stats.max_footprint_loc
+                if (
+                    stats.memory_stats.max_footprint_loc
+                    and stats.memory_stats.max_footprint_loc[1] > 0
+                )
                 else None
             ),
             "files": {},
