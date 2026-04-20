@@ -78,6 +78,33 @@ def run() -> int:
         return 1
 
     files = data.get("files", {})
+    alloc_samples = data.get("alloc_samples", 0)
+    native_mb = data.get("native_allocations_mb", 0) or 0
+    max_footprint_mb = data.get("max_footprint_mb", 0) or 0
+
+    # Per-file roll-up across every memory field. On CI we saw runs where
+    # alloc_samples was non-zero but n_malloc_mb was zero on every line of
+    # every file — a signal to widen the diagnostic, not just fail.
+    def line_totals(lines):
+        return {
+            "n_malloc_mb": sum((l.get("n_malloc_mb", 0) or 0) for l in lines),
+            "n_peak_mb": sum((l.get("n_peak_mb", 0) or 0) for l in lines),
+            "n_avg_mb": sum((l.get("n_avg_mb", 0) or 0) for l in lines),
+            "n_mallocs": sum((l.get("n_mallocs", 0) or 0) for l in lines),
+        }
+
+    print(f"alloc_samples            = {alloc_samples}")
+    print(f"native_allocations_mb    = {native_mb:.2f}")
+    print(f"max_footprint_mb         = {max_footprint_mb:.2f}")
+    print("per-file totals:")
+    for fname, info in files.items():
+        t = line_totals(info.get("lines", []))
+        print(
+            f"  {fname}: malloc_mb={t['n_malloc_mb']:.2f} "
+            f"peak_mb={t['n_peak_mb']:.2f} avg_mb={t['n_avg_mb']:.2f} "
+            f"n_mallocs={t['n_mallocs']}"
+        )
+
     target = None
     for fname, info in files.items():
         if pathlib.PurePath(fname).name == workload.name:
@@ -87,11 +114,8 @@ def run() -> int:
         print("workload file missing from profile; files present:", list(files.keys()))
         return 1
 
-    alloc_samples = data.get("alloc_samples", 0)
-    native_mb = data.get("native_allocations_mb", 0) or 0
     sleep_line = find_line(target["lines"], "time.sleep(2.0)")
     worker_line = find_line(target["lines"], "np.zeros")
-
     if sleep_line is None or worker_line is None:
         print("could not locate sleep / np.zeros lines in profile")
         print("lines present:", [l["lineno"] for l in target["lines"]])
@@ -99,16 +123,29 @@ def run() -> int:
 
     sleep_mb = sleep_line.get("n_malloc_mb", 0) or 0
     worker_mb = worker_line.get("n_malloc_mb", 0) or 0
+    sleep_peak = sleep_line.get("n_peak_mb", 0) or 0
+    worker_peak = worker_line.get("n_peak_mb", 0) or 0
+    print(
+        f"worker np.zeros (line {worker_line['lineno']}) "
+        f"malloc_mb={worker_mb:.2f} peak_mb={worker_peak:.2f}"
+    )
+    print(
+        f"main  time.sleep (line {sleep_line['lineno']}) "
+        f"malloc_mb={sleep_mb:.2f} peak_mb={sleep_peak:.2f}"
+    )
 
-    print(f"alloc_samples            = {alloc_samples}")
-    print(f"native_allocations_mb    = {native_mb:.2f}")
-    print(f"worker np.zeros (line {worker_line['lineno']}) malloc_mb = {worker_mb:.2f}")
-    print(f"main  time.sleep (line {sleep_line['lineno']}) malloc_mb = {sleep_mb:.2f}")
-
-    if alloc_samples == 0 and native_mb == 0:
-        # Memory sampling didn't fire at all on this platform/run. Don't
-        # flake — the rest of the CI matrix will catch regressions.
-        print("WARNING: no memory samples collected; skipping regression checks")
+    # Total bytes attributed anywhere in the profile. If this is zero we
+    # genuinely have nothing to assert on — the memory sampler didn't
+    # deposit anything on this runner. Don't flake; rely on the rest of
+    # the matrix (and local runs) to catch regressions.
+    total_malloc_mb_all_files = sum(
+        line_totals(info.get("lines", []))["n_malloc_mb"] for info in files.values()
+    )
+    attributed_anywhere = (
+        total_malloc_mb_all_files > 0 or native_mb > 0 or max_footprint_mb > 0
+    )
+    if not attributed_anywhere:
+        print("WARNING: no memory bytes attributed anywhere; skipping regression checks")
         return 0
 
     ok = True
@@ -118,12 +155,11 @@ def run() -> int:
             f"(> {SLEEP_MAX_MB:.0f} MB). Regression of issue #659."
         )
         ok = False
-    total_per_line_mb = sum((l.get("n_malloc_mb", 0) or 0) for l in target["lines"])
-    if total_per_line_mb >= WORKER_MIN_MB and worker_mb < WORKER_MIN_MB:
+    if total_malloc_mb_all_files >= WORKER_MIN_MB and worker_mb < WORKER_MIN_MB:
         print(
-            f"FAIL: sampling fired ({total_per_line_mb:.2f} MB across lines) "
-            f"but worker np.zeros got only {worker_mb:.2f} MB — attribution "
-            f"appears wrong in a different way."
+            f"FAIL: sampling deposited {total_malloc_mb_all_files:.2f} MB "
+            f"across the profile but worker np.zeros got only "
+            f"{worker_mb:.2f} MB — attribution appears wrong."
         )
         ok = False
 
