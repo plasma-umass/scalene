@@ -88,3 +88,12 @@ jobs:
       run: |
         python -m pip install git+https://github.com/sternj/import_stress_test
         python -m scalene run --- -m import_stress_test && python -m scalene view --cli
+
+    # Regression test for https://github.com/plasma-umass/scalene/discussions/659.
+    # Uses --memory attribution; verifies that a numpy workload on a
+    # threading.Thread does not smear allocations onto the main thread's
+    # time.sleep line. The test self-skips its assertions if memory sampling
+    # produced zero samples on this runner (avoids flakes when signal timing
+    # prevents the allocator sampler from firing).
+    - name: issue #659 per-thread memory attribution
+      run: python test/smoketest_issue_659.py
