@@ -134,20 +134,11 @@ def run() -> int:
         f"malloc_mb={sleep_mb:.2f} peak_mb={sleep_peak:.2f}"
     )
 
-    # Total bytes attributed anywhere in the profile. If this is zero we
-    # genuinely have nothing to assert on — the memory sampler didn't
-    # deposit anything on this runner. Don't flake; rely on the rest of
-    # the matrix (and local runs) to catch regressions.
-    total_malloc_mb_all_files = sum(
-        line_totals(info.get("lines", []))["n_malloc_mb"] for info in files.values()
-    )
-    attributed_anywhere = (
-        total_malloc_mb_all_files > 0 or native_mb > 0 or max_footprint_mb > 0
-    )
-    if not attributed_anywhere:
-        print("WARNING: no memory bytes attributed anywhere; skipping regression checks")
-        return 0
+    workload_total_mb = line_totals(target["lines"])["n_malloc_mb"]
 
+    # The regression check for sleep_mb > SLEEP_MAX_MB is unconditional:
+    # the bug symptom was hundreds of MB on time.sleep, so if we see that,
+    # fail regardless of anything else.
     ok = True
     if sleep_mb > SLEEP_MAX_MB:
         print(
@@ -155,13 +146,25 @@ def run() -> int:
             f"(> {SLEEP_MAX_MB:.0f} MB). Regression of issue #659."
         )
         ok = False
-    if total_malloc_mb_all_files >= WORKER_MIN_MB and worker_mb < WORKER_MIN_MB:
+
+    # The "worker got its share" check only makes sense when the workload
+    # file itself received non-trivial attribution. On some runners (seen
+    # on Windows) only ~1 sample fires and it lands on a stdlib file like
+    # threading.py — meaning the workload code wasn't sampled at all, and
+    # there's nothing to validate about intra-file attribution.
+    if workload_total_mb >= WORKER_MIN_MB and worker_mb < WORKER_MIN_MB:
         print(
-            f"FAIL: sampling deposited {total_malloc_mb_all_files:.2f} MB "
-            f"across the profile but worker np.zeros got only "
-            f"{worker_mb:.2f} MB — attribution appears wrong."
+            f"FAIL: workload file saw {workload_total_mb:.2f} MB attributed "
+            f"but worker np.zeros got only {worker_mb:.2f} MB — attribution "
+            f"appears wrong within the workload."
         )
         ok = False
+    elif workload_total_mb < WORKER_MIN_MB:
+        print(
+            f"NOTE: workload file received only {workload_total_mb:.2f} MB "
+            f"of attribution; skipping intra-file attribution check "
+            f"(rely on other matrix cells)."
+        )
 
     return 0 if ok else 1
 
