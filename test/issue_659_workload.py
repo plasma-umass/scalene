@@ -16,20 +16,23 @@ def worker() -> None:
     # scalene's os-function wrappers during pathlib init).
     import numpy as np
 
-    # Retain allocations so cumulative footprint grows well past scalene's
-    # 1 MB sampling window. Also touch every page so the allocator can't
-    # skip the mapping work.
-    arrays = []
-    for _ in range(32):
-        a = np.zeros((2048, 2048), dtype=np.float64)  # ~32 MB each, ~1 GB total
+    # Mix of short-lived churn (128 iterations × 8 MB) for many tracer events
+    # and a few retained 32 MB arrays so the footprint grows past scalene's
+    # 1 MB sampling threshold. We need both: the churn reliably fires the
+    # Python line tracer, and the retained growth pushes RSS up so the
+    # allocator-side sampler crosses multiple windows.
+    retained = []
+    for i in range(128):
+        a = np.zeros((1024, 1024), dtype=np.float64)  # ~8 MB
         a += 1.0
-        arrays.append(a)
+        if i % 16 == 0:
+            retained.append(np.zeros((2048, 2048), dtype=np.float64))  # ~32 MB
 
 
 def main() -> None:
     t = threading.Thread(target=worker)
     t.start()
-    time.sleep(3.0)  # MUST NOT be charged with worker's allocations
+    time.sleep(2.0)  # MUST NOT be charged with worker's allocations
     t.join()
 
 
