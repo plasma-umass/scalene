@@ -153,6 +153,23 @@ def run() -> int:
         )
         ok = False
 
+    # If the profiler saw real memory activity (max_footprint_mb reflects
+    # actual peak RSS attributable to sampled allocations), then the workload
+    # file MUST receive the bulk of the attribution. A previous regression
+    # (fixed alongside this test) accidentally excluded the workload via a
+    # too-broad "scalene/scalene" path-substring filter in TraceConfig, and
+    # all ~1280 MB of worker allocations ended up on threading.py with
+    # max_footprint_mb still showing ~272 MB. Catch that shape: footprint
+    # grew, but the workload file got nothing.
+    if max_footprint_mb >= WORKER_MIN_MB and workload_total_mb < WORKER_MIN_MB:
+        print(
+            f"FAIL: max_footprint_mb={max_footprint_mb:.2f} MB indicates the "
+            f"allocator sampler fired, but the workload file received only "
+            f"{workload_total_mb:.2f} MB of attribution. Allocations are "
+            f"being charged to the wrong file (e.g., threading.py)."
+        )
+        ok = False
+
     # The "worker got its share" check only makes sense when the workload
     # file itself received non-trivial attribution. On some runners (seen
     # on Windows) only ~1 sample fires and it lands on a stdlib file like
