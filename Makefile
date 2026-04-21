@@ -3,7 +3,7 @@ PYTHON = python3
 PYTHON_SOURCES = scalene/[a-z]*.py
 C_SOURCES = src/source/get_line_atomic.cpp src/include/*.h* # src/source/libscalene.cpp 
 
-CXXFLAGS = /Ox /DNDEBUG /std:c++17 /Zi
+CXXFLAGS = /Ox /DNDEBUG /std:c++14 /Zi
 CXX = cl
 
 MAIN_INCLUDES  = -Isrc -Isrc/include
