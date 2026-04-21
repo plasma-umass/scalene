@@ -23,6 +23,7 @@
 
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -82,27 +83,18 @@ class TraceConfig {
     // skip user frames and misattribute allocations to threading.py instead
     // of issue_659_workload.py — see #659.
     {
-      const char* last_slash = strrchr(filename, '/');
-      const char* last_bslash = strrchr(filename, '\\');
-      const char* last_sep =
-          (last_bslash && last_bslash > last_slash) ? last_bslash : last_slash;
-      if (last_sep) {
-        const char* prev_sep = nullptr;
-        for (const char* p = last_sep - 1; p >= filename; --p) {
-          if (*p == '/' || *p == '\\') {
-            prev_sep = p;
-            break;
-          }
-        }
-        const char* parent_start = prev_sep ? (prev_sep + 1) : filename;
-        size_t parent_len = (size_t)(last_sep - parent_start);
-        const char target[] = "scalene";
-        size_t target_len = sizeof(target) - 1;
-        if (parent_len == target_len &&
-            strncmp(parent_start, target, target_len) == 0) {
+      const std::string_view separators{"/\\", 2};
+      const std::string_view path{filename};
+      const auto last_sep = path.find_last_of(separators);
+      if (last_sep != std::string_view::npos) {
+        const auto before_basename = path.substr(0, last_sep);
+        const auto parent_start = before_basename.find_last_of(separators);
+        const auto parent_dir = (parent_start == std::string_view::npos)
+                                    ? before_basename
+                                    : before_basename.substr(parent_start + 1);
+        if (parent_dir == "scalene") {
           std::lock_guard<std::mutex> lock(_memoizeMutex);
-          _memoize.insert(
-              std::pair<std::string, bool>(std::string(filename), false));
+          _memoize.emplace(std::string{path}, false);
           return false;
         }
       }
