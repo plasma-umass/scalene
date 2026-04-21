@@ -83,18 +83,19 @@ class TraceConfig {
     // skip user frames and misattribute allocations to threading.py instead
     // of issue_659_workload.py — see #659.
     {
-      const std::string_view separators{"/\\", 2};
+      using namespace std::string_view_literals;
+      constexpr auto separators = "/\\"sv;
       const std::string_view path{filename};
-      const auto last_sep = path.find_last_of(separators);
-      if (last_sep != std::string_view::npos) {
+      if (const auto last_sep = path.find_last_of(separators);
+          last_sep != std::string_view::npos) {
         const auto before_basename = path.substr(0, last_sep);
         const auto parent_start = before_basename.find_last_of(separators);
         const auto parent_dir = (parent_start == std::string_view::npos)
                                     ? before_basename
                                     : before_basename.substr(parent_start + 1);
-        if (parent_dir == "scalene") {
-          std::lock_guard<std::mutex> lock(_memoizeMutex);
-          _memoize.emplace(std::string{path}, false);
+        if (parent_dir == "scalene"sv) {
+          std::lock_guard lock{_memoizeMutex};
+          _memoize.emplace(path, false);
           return false;
         }
       }
