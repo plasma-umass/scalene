@@ -71763,9 +71763,11 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       s2 += `<td><font style="font-size: small"><b>Memory:</b> <font color="darkgreen">Python</font> | <font color="#50C878">native</font><br /></font></td>`;
       s2 += '<td width="10"></td>';
       s2 += '<td valign="middle" style="vertical-align: middle">';
+      const nativeMb = prof.native_allocations_mb ?? 0;
+      const nativeNote = nativeMb > 0 ? `, ${memory_consumed_str(nativeMb)} from native threads` : "";
       s2 += `<font style="font-size: small"><b>Memory timeline: </b>(max: ${memory_consumed_str(
         prof.max_footprint_mb
-      )}, growth: ${prof.growth_rate.toFixed(1)}%)</font>`;
+      )}, growth: ${prof.growth_rate.toFixed(1)}%${nativeNote})</font>`;
       s2 += "</td>";
     }
     s2 += "</tr>";
