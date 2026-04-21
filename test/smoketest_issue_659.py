@@ -55,6 +55,12 @@ def run() -> int:
         "scalene",
         "run",
         "--memory",
+        # --profile-all is required on CI runners: without it, the allocator
+        # interposer's attribution filter excludes allocations whose nearest
+        # Python frame is inside numpy/stdlib, so max_footprint_mb stays 0
+        # even though bytes are allocated. test_freethreaded_parity.py on
+        # master uses --profile-all for the same reason.
+        "--profile-all",
         "-o",
         str(outfile),
         str(workload),
