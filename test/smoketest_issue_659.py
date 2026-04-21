@@ -114,7 +114,7 @@ def run() -> int:
         print("workload file missing from profile; files present:", list(files.keys()))
         return 1
 
-    sleep_line = find_line(target["lines"], "time.sleep(2.0)")
+    sleep_line = find_line(target["lines"], "time.sleep(")
     worker_line = find_line(target["lines"], "np.zeros")
     if sleep_line is None or worker_line is None:
         print("could not locate sleep / np.zeros lines in profile")

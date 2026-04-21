@@ -16,16 +16,20 @@ def worker() -> None:
     # scalene's os-function wrappers during pathlib init).
     import numpy as np
 
-    for _ in range(128):
-        a = np.zeros((1024, 1024), dtype=np.float64)  # ~8 MB
+    # Retain allocations so cumulative footprint grows well past scalene's
+    # 1 MB sampling window. Also touch every page so the allocator can't
+    # skip the mapping work.
+    arrays = []
+    for _ in range(32):
+        a = np.zeros((2048, 2048), dtype=np.float64)  # ~32 MB each, ~1 GB total
         a += 1.0
-        del a
+        arrays.append(a)
 
 
 def main() -> None:
     t = threading.Thread(target=worker)
     t.start()
-    time.sleep(2.0)  # MUST NOT be charged with worker's allocations
+    time.sleep(3.0)  # MUST NOT be charged with worker's allocations
     t.join()
 
 
