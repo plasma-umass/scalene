@@ -77,7 +77,9 @@ class ScaleneCPUProfiler:
         if elapsed.wallclock != 0:
             cpu_utilization = elapsed.user / elapsed.wallclock
 
-        core_utilization = cpu_utilization / self._available_cpus
+        # Clamp to [0, 1]: measurement noise between user and wallclock
+        # accounting can push the ratio slightly above 1.0 on multi-core systems.
+        core_utilization = min(cpu_utilization / self._available_cpus, 1.0)
         if cpu_utilization > 1.0:
             cpu_utilization = 1.0
             elapsed.wallclock = elapsed.user
