@@ -461,6 +461,7 @@ class ScaleneStatistics:
             "elapsed_time",
             "memory_stats.alloc_samples",
             "stacks",
+            "native_stacks",
             "cpu_stats.total_cpu_samples",
             "cpu_stats.cpu_samples_c",
             "cpu_stats.cpu_samples_python",
@@ -518,6 +519,11 @@ class ScaleneStatistics:
             lambda: StackStats(0, 0.0, 0.0, 0.0)
         )
 
+        # Native (C/C++) stacks captured during CPU samples. Keyed by a tuple
+        # of raw instruction pointers (innermost-first). Symbol resolution
+        # happens at report time, not in the signal handler.
+        self.native_stacks: dict[Tuple[int, ...], int] = defaultdict(int)
+
         # Initialize statistics classes
         self.cpu_stats = CPUStatistics()
         self.memory_stats = MemoryStatistics()
@@ -542,6 +548,7 @@ class ScaleneStatistics:
         self.start_time = 0
         self.elapsed_time = 0
         self.stacks.clear()
+        self.native_stacks.clear()
         self.cpu_stats.clear()
         self.memory_stats.clear()
         self.gpu_stats.clear()
@@ -754,6 +761,8 @@ class ScaleneStatistics:
                 self.elapsed_time = max(self.elapsed_time, x.elapsed_time)
                 self.memory_stats.alloc_samples += x.memory_stats.alloc_samples
                 self.stacks.update(x.stacks)
+                for stk, hits in x.native_stacks.items():
+                    self.native_stacks[stk] += hits
                 self.cpu_stats.total_cpu_samples += x.cpu_stats.total_cpu_samples
                 self.gpu_stats.total_gpu_samples += x.gpu_stats.total_gpu_samples
 

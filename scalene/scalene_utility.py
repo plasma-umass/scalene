@@ -41,6 +41,22 @@ try:
 except ImportError:
     _has_fast_frames = False
 
+# Native (C/C++) stack unwinder. Built as a separate Python extension that
+# wraps libunwind on Linux and _Unwind_Backtrace on macOS. Optional: if the
+# extension fails to import (e.g. minimal install, unsupported platform),
+# native stack collection is silently disabled.
+try:
+    from scalene import _scalene_unwind  # type: ignore
+
+    _native_unwind_available = bool(getattr(_scalene_unwind, "available", 0))
+    if _native_unwind_available:
+        # Pre-fault the unwinder so the first call from a signal handler
+        # doesn't trigger a lazy dlopen of libgcc_s (signal-unsafe).
+        _scalene_unwind.warmup()
+except ImportError:
+    _scalene_unwind = None  # type: ignore
+    _native_unwind_available = False
+
 
 def enter_function_meta(
     frame: FrameType,
@@ -192,6 +208,43 @@ def add_stack(
             prev_stats.c_time + c_time,
             prev_stats.cpu_samples + cpu_samples,
         )
+
+
+def install_native_stack_unwinder(sig: int) -> bool:
+    """Install the C-level sigaction handler that captures interrupted
+    native stacks. Must be called *after* CPython's per-signal trampoline
+    has been registered (i.e. after signal.signal()), because the handler
+    chains to whatever was previously installed for the signal.
+
+    Returns True on first install, False if already installed or unsupported.
+    """
+    if not _native_unwind_available:
+        return False
+    try:
+        return bool(
+            _scalene_unwind.install_signal_unwinder(int(sig))  # type: ignore[union-attr]
+        )
+    except Exception:
+        return False
+
+
+def drain_native_stacks(
+    native_stacks: Dict[Tuple[int, ...], int],
+) -> None:
+    """Drain stacks captured by the C signal handler since the last call,
+    aggregating each into the supplied dict by hit count. Cheap and safe to
+    call from the Python-level CPU signal handler — it only does an atomic
+    load, a list build, and dict accounting.
+    """
+    if not _native_unwind_available:
+        return
+    try:
+        captured = _scalene_unwind.drain_native_stack_buffer()  # type: ignore[union-attr]
+    except Exception:
+        return
+    for stk in captured:
+        if stk:
+            native_stacks[stk] += 1
 
 
 def on_stack(

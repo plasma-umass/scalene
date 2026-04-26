@@ -7,7 +7,7 @@ from collections import defaultdict
 from enum import Enum
 from operator import itemgetter
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from pydantic import (
     BaseModel,
@@ -500,6 +500,58 @@ class ScaleneJSON:
             }
             stks.append((this_stk, stack_stats_dict))
 
+        # Convert native (C/C++) stacks into a JSON-friendly form. Each stack
+        # is stored as a tuple of raw IPs; resolve them now via
+        # _scalene_unwind.resolve_ip (signal-unsafe, fine here at report
+        # time). Cache by IP because the same address typically appears
+        # across many stacks.
+        #
+        # Strip the signal-handler entry frames at the top of each stack —
+        # the innermost frames will always be our own scalene_signal_unwinder
+        # and the kernel signal trampoline. They're not useful information
+        # to the user. We do this by symbol/module match rather than a fixed
+        # skip count so it stays correct across platforms and inlining.
+        native_stks: List[Tuple[List[List[Any]], int]] = []
+        if stats.native_stacks:
+            try:
+                from scalene import _scalene_unwind  # type: ignore
+                resolve = _scalene_unwind.resolve_ip
+            except ImportError:
+                resolve = None  # type: ignore[assignment]
+
+            def is_scalene_handler_frame(frame: List[Any]) -> bool:
+                module, symbol, _ip, _off = frame
+                if symbol and "scalene_signal_unwinder" in symbol:
+                    return True
+                if symbol in ("_sigtramp", "__restore_rt"):
+                    return True
+                if module and "_scalene_unwind" in module:
+                    return True
+                return False
+
+            ip_cache: Dict[int, List[Any]] = {}
+            for stk, hits in stats.native_stacks.items():
+                resolved_frames: List[List[Any]] = []
+                for ip in stk:
+                    if ip in ip_cache:
+                        resolved_frames.append(ip_cache[ip])
+                        continue
+                    info = resolve(ip) if resolve is not None else None
+                    if info is None:
+                        frame_repr: List[Any] = ["", "", ip, 0]
+                    else:
+                        module, symbol, offset = info
+                        frame_repr = [module, symbol, ip, offset]
+                    ip_cache[ip] = frame_repr
+                    resolved_frames.append(frame_repr)
+                # Drop the leading handler/trampoline frames.
+                while resolved_frames and is_scalene_handler_frame(
+                    resolved_frames[0]
+                ):
+                    resolved_frames.pop(0)
+                if resolved_frames:
+                    native_stks.append((resolved_frames, hits))
+
         # Aggregate bytes from native-thread allocations that have no
         # Python frame (see pywhere.cpp <native> sentinel). These are not
         # attributable to any source line, so surface them at the top level.
@@ -541,6 +593,7 @@ class ScaleneJSON:
             "async_profile": profile_async,
             "samples": compressed_footprint_samples if profile_memory else [],
             "stacks": stks,
+            "native_stacks": native_stks,
         }
 
         # Build a list of files we will actually report on.
