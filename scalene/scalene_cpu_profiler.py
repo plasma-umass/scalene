@@ -13,7 +13,12 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
-from scalene.scalene_utility import _main_thread_id, add_stack, enter_function_meta
+from scalene.scalene_utility import (
+    _main_thread_id,
+    add_combined_stack,
+    add_stack,
+    enter_function_meta,
+)
 from scalene.time_info import TimeInfo
 
 if TYPE_CHECKING:
@@ -49,6 +54,7 @@ class ScaleneCPUProfiler:
         should_trace: Callable[[Filename, str], bool],
         last_cpu_interval: float,
         stacks_enabled: bool,
+        native_drains: list[tuple[int, ...]] | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
@@ -62,6 +68,9 @@ class ScaleneCPUProfiler:
             should_trace: Function to check if a file/function should be traced.
             last_cpu_interval: The last CPU sampling interval.
             stacks_enabled: Whether stack collection is enabled.
+            native_drains: Native (C/C++) stacks captured by the C-level
+                signal-handler unwinder during this sampling pass; used to
+                build stitched Python+native stacks (combined_stacks).
         """
         if not new_frames:
             return
@@ -131,6 +140,13 @@ class ScaleneCPUProfiler:
                 average_c_time,
                 average_cpu_time,
             )
+            if native_drains:
+                add_combined_stack(
+                    main_thread_frame,
+                    should_trace,
+                    native_drains,
+                    self._stats.combined_stacks,
+                )
 
         enter_function_meta(main_thread_frame, should_trace, self._stats)
         fname = Filename(main_thread_frame.f_code.co_filename)

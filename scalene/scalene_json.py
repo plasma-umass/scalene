@@ -608,6 +608,83 @@ class ScaleneJSON:
                 if resolved_frames:
                     native_stks.append((resolved_frames, hits))
 
+        # Stitched Python+native stacks. Frames in stats.combined_stacks are
+        # tagged tuples (outermost-first):
+        #   ("py", filename, function, line)  or  ("native", ip)
+        # Resolve native IPs and trim contiguous CPython runtime frames at
+        # the seam (i.e. between Python and native segments) so the visible
+        # stack ends with real C/C++ user code rather than _PyEval_*.
+        combined_stks: List[Tuple[List[Dict[str, Any]], int]] = []
+        if stats.combined_stacks:
+            try:
+                from scalene import _scalene_unwind  # type: ignore
+
+                resolve = _scalene_unwind.resolve_ip
+            except ImportError:
+                resolve = None
+
+            ip_cache_combined: Dict[int, List[Any]] = {}
+
+            def _resolve(ip: int) -> List[Any]:
+                if ip in ip_cache_combined:
+                    return ip_cache_combined[ip]
+                info = resolve(ip) if resolve is not None else None
+                if info is None:
+                    rep: List[Any] = ["", "", ip, 0]
+                else:
+                    module, symbol, offset = info
+                    rep = [module, symbol, ip, offset]
+                ip_cache_combined[ip] = rep
+                return rep
+
+            for stk, hits in stats.combined_stacks.items():
+                # Find the seam: index of first native frame.
+                seam = next(
+                    (i for i, f in enumerate(stk) if f and f[0] == "native"),
+                    len(stk),
+                )
+                py_segment = stk[:seam]
+                native_segment_raw = stk[seam:]
+
+                # Resolve native IPs, then trim handler/runtime frames using
+                # the existing helpers. The native segment as stored is
+                # outermost-first (entry -> leaf), but _trim_native_stack
+                # expects leaf-first (it pops handlers from the front, runtime
+                # from the back), so reverse before trimming and reverse back.
+                resolved_leaf_first = [
+                    _resolve(int(f[1])) for f in native_segment_raw
+                ]
+                resolved_leaf_first.reverse()
+                trimmed_leaf_first = _trim_native_stack(resolved_leaf_first)
+                trimmed = list(reversed(trimmed_leaf_first))
+
+                out_frames: List[Dict[str, Any]] = []
+                for f in py_segment:
+                    # ("py", filename, function, line)
+                    out_frames.append(
+                        {
+                            "kind": "py",
+                            "display_name": str(f[2]),
+                            "filename_or_module": str(f[1]),
+                            "line": int(f[3]),
+                            "ip": None,
+                            "offset": None,
+                        }
+                    )
+                for module, symbol, ip, offset in trimmed:
+                    out_frames.append(
+                        {
+                            "kind": "native",
+                            "display_name": str(symbol),
+                            "filename_or_module": str(module),
+                            "line": None,
+                            "ip": int(ip),
+                            "offset": int(offset),
+                        }
+                    )
+                if out_frames:
+                    combined_stks.append((out_frames, hits))
+
         # Aggregate bytes from native-thread allocations that have no
         # Python frame (see pywhere.cpp <native> sentinel). These are not
         # attributable to any source line, so surface them at the top level.
@@ -650,6 +727,7 @@ class ScaleneJSON:
             "samples": compressed_footprint_samples if profile_memory else [],
             "stacks": stks,
             "native_stacks": native_stks,
+            "combined_stacks": combined_stks,
         }
 
         # Build a list of files we will actually report on.

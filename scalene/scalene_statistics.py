@@ -462,6 +462,7 @@ class ScaleneStatistics:
             "memory_stats.alloc_samples",
             "stacks",
             "native_stacks",
+            "combined_stacks",
             "cpu_stats.total_cpu_samples",
             "cpu_stats.cpu_samples_c",
             "cpu_stats.cpu_samples_python",
@@ -524,6 +525,17 @@ class ScaleneStatistics:
         # happens at report time, not in the signal handler.
         self.native_stacks: dict[tuple[int, ...], int] = defaultdict(int)
 
+        # Stitched Python+native stacks captured during CPU samples, together
+        # with hit count. Each stack is a tuple of tagged frame tuples
+        # (outermost-first) where each entry is one of:
+        #   ("py", filename: str, function_name: str, line_number: int)
+        #   ("native", ip: int)
+        # Native IPs are resolved (and CPython runtime tail trimmed) at
+        # report time, mirroring how native_stacks is handled.
+        self.combined_stacks: dict[tuple[tuple[Any, ...], ...], int] = defaultdict(
+            int
+        )
+
         # Initialize statistics classes
         self.cpu_stats = CPUStatistics()
         self.memory_stats = MemoryStatistics()
@@ -549,6 +561,7 @@ class ScaleneStatistics:
         self.elapsed_time = 0
         self.stacks.clear()
         self.native_stacks.clear()
+        self.combined_stacks.clear()
         self.cpu_stats.clear()
         self.memory_stats.clear()
         self.gpu_stats.clear()
@@ -763,6 +776,8 @@ class ScaleneStatistics:
                 self.stacks.update(x.stacks)
                 for stk, hits in x.native_stacks.items():
                     self.native_stacks[stk] += hits
+                for cstk, chits in x.combined_stacks.items():
+                    self.combined_stacks[cstk] += chits
                 self.cpu_stats.total_cpu_samples += x.cpu_stats.total_cpu_samples
                 self.gpu_stats.total_gpu_samples += x.gpu_stats.total_gpu_samples
 

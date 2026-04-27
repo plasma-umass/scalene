@@ -228,21 +228,80 @@ def install_native_stack_unwinder(sig: int) -> bool:
 
 def drain_native_stacks(
     native_stacks: Dict[Tuple[int, ...], int],
-) -> None:
+) -> List[Tuple[int, ...]]:
     """Drain stacks captured by the C signal handler since the last call,
     aggregating each into the supplied dict by hit count. Cheap and safe to
     call from the Python-level CPU signal handler — it only does an atomic
     load, a list build, and dict accounting.
+
+    Returns the non-empty drained tuples so the caller can use them for
+    stitched-stack assembly. The aggregation into ``native_stacks`` still
+    happens as a side effect to preserve backward compatibility.
     """
     if not _native_unwind_available:
-        return
+        return []
     try:
         captured = _scalene_unwind.drain_native_stack_buffer()
     except Exception:
-        return
+        return []
+    nonempty: List[Tuple[int, ...]] = []
     for stk in captured:
         if stk:
             native_stacks[stk] += 1
+            nonempty.append(stk)
+    return nonempty
+
+
+def add_combined_stack(
+    frame: Optional[FrameType],
+    should_trace: Callable[[Filename, str], bool],
+    native_drains: List[Tuple[int, ...]],
+    combined_stacks: Dict[Tuple[Tuple[Any, ...], ...], int],
+) -> None:
+    """Build stitched Python+native stacks for the current CPU sample.
+
+    Walks ``frame`` back through ``f_back`` to build the Python chain
+    (outermost-first), filtering with ``should_trace`` so Scalene's own
+    profiler frames and other non-user code are excluded. Each native drain
+    is then appended as its own native segment, producing one stitched
+    stack per drain. Native IPs are stored unresolved; symbol resolution
+    and CPython-runtime trimming happen at JSON serialization time.
+
+    If multiple native stacks were drained for one Python handler
+    invocation, each one is attached to the same Python chain (best-effort
+    v1 policy — see STITCHED_STACK.md).
+    """
+    if not native_drains:
+        return
+
+    py_chain: List[Tuple[Any, ...]] = []
+    f: Optional[FrameType] = frame
+    while f is not None:
+        if should_trace(Filename(f.f_code.co_filename), f.f_code.co_name):
+            line = (
+                int(f.f_lineno)
+                if f.f_lineno is not None
+                else int(f.f_code.co_firstlineno)
+            )
+            py_chain.insert(
+                0,
+                (
+                    "py",
+                    str(f.f_code.co_filename),
+                    str(get_fully_qualified_name(f)),
+                    line,
+                ),
+            )
+        f = f.f_back
+
+    py_chain_tuple = tuple(py_chain)
+    for native_stk in native_drains:
+        # native_stk is leaf-first; the stitched layout we want is
+        # outermost-to-innermost, so the native segment appends in order
+        # native-entry -> native-leaf, which means reversing the
+        # leaf-first tuple from the unwinder.
+        native_segment = tuple(("native", ip) for ip in reversed(native_stk))
+        combined_stacks[py_chain_tuple + native_segment] += 1
 
 
 def on_stack(
