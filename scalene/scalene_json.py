@@ -36,6 +36,76 @@ class GPUDevice(str, Enum):
     no_gpu = ""
 
 
+# Native-frame trimming helpers used when serializing native_stacks.
+#
+# Each frame is a 4-element list: [module, symbol, ip, offset].
+# We strip two kinds of noise:
+#   1. Scalene's own signal-handler / kernel-trampoline frames at the
+#      innermost (leaf) end of the stack.
+#   2. CPython interpreter / runtime / process-entry frames at the
+#      outermost (root) end of the stack.
+#
+# Stacks come back from the unwinder leaf-first, i.e. index 0 is the
+# innermost frame and index -1 is the outermost.
+
+_CPYTHON_RUNTIME_SYMBOLS = frozenset({
+    # interpreter eval loop
+    "Py_RunMain",
+    "Py_BytesMain",
+    "Py_Main",
+    "PyEval_EvalCode",
+    "_PyEval_EvalFrameDefault",
+    "_PyEval_Vector",
+    # generic call dispatch
+    "call_method",
+    "slot_tp_init",
+    "type_call",
+    "builtin_exec",
+    "run_mod",
+    # process entry points beneath Py_RunMain
+    "_start",
+    "__libc_start_main",
+    "__libc_start_call_main",
+})
+
+_CPYTHON_RUNTIME_SYMBOL_PREFIXES = (
+    "PyObject_Vectorcall",
+    "_PyObject_Vectorcall",
+    "pymain_",
+)
+
+
+def _is_scalene_handler_frame(frame: List[Any]) -> bool:
+    module, symbol, _ip, _off = frame
+    if symbol and "scalene_signal_unwinder" in symbol:
+        return True
+    if symbol in ("_sigtramp", "__restore_rt"):
+        return True
+    return bool(module and "_scalene_unwind" in module)
+
+
+def _is_cpython_runtime_frame(frame: List[Any]) -> bool:
+    _module, symbol, _ip, _off = frame
+    if not symbol:
+        return False
+    if symbol in _CPYTHON_RUNTIME_SYMBOLS:
+        return True
+    return bool(symbol.startswith(_CPYTHON_RUNTIME_SYMBOL_PREFIXES))
+
+
+def _trim_native_stack(frames: List[List[Any]]) -> List[List[Any]]:
+    """Drop the signal-handler entry frames at the leaf end and the
+    CPython runtime / process-entry frames at the root end. Operates on
+    a copy and returns a new list so callers can keep the originals.
+    """
+    out = list(frames)
+    while out and _is_scalene_handler_frame(out[0]):
+        out.pop(0)
+    while out and _is_cpython_runtime_frame(out[-1]):
+        out.pop()
+    return out
+
+
 class FunctionDetail(BaseModel):
     line: str
     lineno: LineNumber
@@ -506,11 +576,10 @@ class ScaleneJSON:
         # time). Cache by IP because the same address typically appears
         # across many stacks.
         #
-        # Strip the signal-handler entry frames at the top of each stack —
-        # the innermost frames will always be our own scalene_signal_unwinder
-        # and the kernel signal trampoline. They're not useful information
-        # to the user. We do this by symbol/module match rather than a fixed
-        # skip count so it stays correct across platforms and inlining.
+        # Trim is done by _trim_native_stack: it drops Scalene's own
+        # signal-handler/trampoline frames at the leaf end and contiguous
+        # CPython interpreter/process-entry frames at the root end, so what
+        # the user sees starts and ends with real C/C++ user code.
         native_stks: List[Tuple[List[List[Any]], int]] = []
         if stats.native_stacks:
             try:
@@ -519,14 +588,6 @@ class ScaleneJSON:
                 resolve = _scalene_unwind.resolve_ip
             except ImportError:
                 resolve = None
-
-            def is_scalene_handler_frame(frame: List[Any]) -> bool:
-                module, symbol, _ip, _off = frame
-                if symbol and "scalene_signal_unwinder" in symbol:
-                    return True
-                if symbol in ("_sigtramp", "__restore_rt"):
-                    return True
-                return bool(module and "_scalene_unwind" in module)
 
             ip_cache: Dict[int, List[Any]] = {}
             for stk, hits in stats.native_stacks.items():
@@ -543,9 +604,7 @@ class ScaleneJSON:
                         frame_repr = [module, symbol, ip, offset]
                     ip_cache[ip] = frame_repr
                     resolved_frames.append(frame_repr)
-                # Drop the leading handler/trampoline frames.
-                while resolved_frames and is_scalene_handler_frame(resolved_frames[0]):
-                    resolved_frames.pop(0)
+                resolved_frames = _trim_native_stack(resolved_frames)
                 if resolved_frames:
                     native_stks.append((resolved_frames, hits))
 

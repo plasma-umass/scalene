@@ -44,6 +44,11 @@ from pathlib import Path
 import pytest
 
 from scalene import _scalene_unwind
+from scalene.scalene_json import (
+    _is_cpython_runtime_frame,
+    _is_scalene_handler_frame,
+    _trim_native_stack,
+)
 
 WINDOWS = sys.platform == "win32"
 SA_SIGINFO = getattr(signal, "SA_SIGINFO", None)
@@ -355,3 +360,174 @@ def test_scalene_subprocess_no_stacks_smoke(tmp_path):
         "Expected empty native_stacks without --stacks; got "
         f"{len(profile.get('native_stacks', []))} entries"
     )
+
+
+# ---------------------------------------------------------------------------
+# Native-stack frame classification + trimming (pure-Python helpers)
+# ---------------------------------------------------------------------------
+
+
+def _f(module: str = "", symbol: str = "", ip: int = 0x1000, offset: int = 0):
+    """Build a resolved-frame list as scalene_json.py constructs them."""
+    return [module, symbol, ip, offset]
+
+
+class TestIsScaleneHandlerFrame:
+    def test_matches_unwinder_symbol(self):
+        assert _is_scalene_handler_frame(
+            _f(symbol="scalene_signal_unwinder")
+        )
+
+    def test_matches_macos_sigtramp(self):
+        assert _is_scalene_handler_frame(_f(symbol="_sigtramp"))
+
+    def test_matches_linux_restore_rt(self):
+        assert _is_scalene_handler_frame(_f(symbol="__restore_rt"))
+
+    def test_matches_module_path(self):
+        assert _is_scalene_handler_frame(
+            _f(module="/site-packages/scalene/_scalene_unwind.so", symbol="")
+        )
+
+    def test_user_frame_is_not_handler(self):
+        assert not _is_scalene_handler_frame(
+            _f(module="/lib/libBLAS.dylib", symbol="cblas_dgemm")
+        )
+
+    def test_unresolved_frame_is_not_handler(self):
+        assert not _is_scalene_handler_frame(_f())
+
+
+class TestIsCPythonRuntimeFrame:
+    def test_matches_exact_eval_frame(self):
+        assert _is_cpython_runtime_frame(_f(symbol="_PyEval_EvalFrameDefault"))
+
+    def test_matches_py_runmain(self):
+        assert _is_cpython_runtime_frame(_f(symbol="Py_RunMain"))
+
+    def test_matches_vectorcall_prefix(self):
+        assert _is_cpython_runtime_frame(_f(symbol="PyObject_Vectorcall"))
+        assert _is_cpython_runtime_frame(
+            _f(symbol="_PyObject_VectorcallTstate")
+        )
+
+    def test_matches_pymain_prefix(self):
+        assert _is_cpython_runtime_frame(_f(symbol="pymain_run_python"))
+
+    def test_matches_libc_entrypoints(self):
+        assert _is_cpython_runtime_frame(_f(symbol="_start"))
+        assert _is_cpython_runtime_frame(_f(symbol="__libc_start_main"))
+
+    def test_unresolved_frame_is_not_runtime(self):
+        # Empty symbol must not be treated as runtime (would over-trim
+        # otherwise resolvable user frames whose symbol lookup failed).
+        assert not _is_cpython_runtime_frame(_f(symbol=""))
+
+    def test_user_symbol_is_not_runtime(self):
+        assert not _is_cpython_runtime_frame(_f(symbol="cblas_dgemm"))
+        # A user function whose name happens to share a prefix with
+        # something we don't trim must still pass through.
+        assert not _is_cpython_runtime_frame(_f(symbol="my_call_method"))
+
+
+class TestTrimNativeStack:
+    def test_strips_leading_handler_frames(self):
+        frames = [
+            _f(symbol="scalene_signal_unwinder"),
+            _f(symbol="_sigtramp"),
+            _f(module="/lib/libBLAS.dylib", symbol="cblas_dgemm"),
+        ]
+        trimmed = _trim_native_stack(frames)
+        assert [f[1] for f in trimmed] == ["cblas_dgemm"]
+
+    def test_strips_trailing_cpython_runtime_frames(self):
+        frames = [
+            _f(module="/lib/libBLAS.dylib", symbol="cblas_dgemm"),
+            _f(
+                module="/.../_multiarray_umath.so",
+                symbol="array_function_simple_impl",
+            ),
+            _f(symbol="_PyEval_EvalFrameDefault"),
+            _f(symbol="_PyEval_EvalFrameDefault"),
+            _f(symbol="_PyEval_Vector"),
+            _f(symbol="Py_RunMain"),
+            _f(symbol="__libc_start_main"),
+            _f(symbol="_start"),
+        ]
+        trimmed = _trim_native_stack(frames)
+        assert [f[1] for f in trimmed] == [
+            "cblas_dgemm",
+            "array_function_simple_impl",
+        ]
+
+    def test_strips_both_ends(self):
+        frames = [
+            _f(symbol="scalene_signal_unwinder"),
+            _f(symbol="_sigtramp"),
+            _f(module="/lib/libBLAS.dylib", symbol="cblas_dgemm"),
+            _f(symbol="_PyEval_EvalFrameDefault"),
+            _f(symbol="Py_RunMain"),
+        ]
+        trimmed = _trim_native_stack(frames)
+        assert [f[1] for f in trimmed] == ["cblas_dgemm"]
+
+    def test_only_runtime_returns_empty(self):
+        # A sample that landed entirely in the interpreter trims to
+        # nothing, and the caller drops empty stacks.
+        frames = [
+            _f(symbol="_PyEval_EvalFrameDefault"),
+            _f(symbol="Py_RunMain"),
+            _f(symbol="_start"),
+        ]
+        assert _trim_native_stack(frames) == []
+
+    def test_only_handler_returns_empty(self):
+        frames = [
+            _f(symbol="scalene_signal_unwinder"),
+            _f(symbol="_sigtramp"),
+        ]
+        assert _trim_native_stack(frames) == []
+
+    def test_does_not_trim_runtime_in_middle(self):
+        # An interpreter frame sandwiched between native frames stays:
+        # we only trim CONTIGUOUS runtime frames from the root end.
+        frames = [
+            _f(symbol="numpy_callback"),
+            _f(symbol="_PyEval_EvalFrameDefault"),
+            _f(module="/lib/libBLAS.dylib", symbol="cblas_dgemm"),
+            _f(symbol="_PyEval_EvalFrameDefault"),
+            _f(symbol="Py_RunMain"),
+        ]
+        trimmed = _trim_native_stack(frames)
+        assert [f[1] for f in trimmed] == [
+            "numpy_callback",
+            "_PyEval_EvalFrameDefault",
+            "cblas_dgemm",
+        ]
+
+    def test_keeps_unresolved_frames(self):
+        # Unresolved IPs (empty symbol) must not be trimmed — they may
+        # be real user code that just failed to symbolize.
+        frames = [
+            _f(symbol="scalene_signal_unwinder"),
+            _f(ip=0xDEADBEEF),
+            _f(module="/lib/libBLAS.dylib", symbol="cblas_dgemm"),
+            _f(symbol="Py_RunMain"),
+        ]
+        trimmed = _trim_native_stack(frames)
+        assert len(trimmed) == 2
+        assert trimmed[0][2] == 0xDEADBEEF
+        assert trimmed[1][1] == "cblas_dgemm"
+
+    def test_does_not_mutate_input(self):
+        frames = [
+            _f(symbol="scalene_signal_unwinder"),
+            _f(module="/lib/libBLAS.dylib", symbol="cblas_dgemm"),
+            _f(symbol="Py_RunMain"),
+        ]
+        original = [list(f) for f in frames]
+        _trim_native_stack(frames)
+        assert frames == original
+
+    def test_empty_input_returns_empty(self):
+        assert _trim_native_stack([]) == []
