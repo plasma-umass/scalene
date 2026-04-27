@@ -233,7 +233,12 @@ _SCALENE_WORKLOAD = textwrap.dedent("""
 
 
 def _run_scalene_or_skip(tmp_path: Path, *extra_args: str) -> dict:
-    """Run scalene in a subprocess; skip on any environmental failure."""
+    """Run scalene in a subprocess; skip on any environmental failure.
+
+    pytest.skip raises pytest.skip.Exception (a subclass of BaseException),
+    so the helper never returns past it — but CodeQL's flow analysis can't
+    see that. Each skip path therefore raises explicitly.
+    """
     workload = tmp_path / "workload.py"
     workload.write_text(_SCALENE_WORKLOAD)
     out = tmp_path / "profile.json"
@@ -258,6 +263,7 @@ def _run_scalene_or_skip(tmp_path: Path, *extra_args: str) -> dict:
             f"scalene subprocess timed out (>{_SUBPROCESS_TIMEOUT_SEC}s); "
             "likely environmental, not a native-stack regression"
         )
+        raise  # unreachable; placates flow analysis
     if proc.returncode != 0:
         pytest.skip(
             f"scalene exited {proc.returncode}; treating as environmental.\n"
@@ -266,9 +272,11 @@ def _run_scalene_or_skip(tmp_path: Path, *extra_args: str) -> dict:
     if not out.exists() or out.stat().st_size == 0:
         pytest.skip("scalene produced no profile JSON; environmental")
     try:
-        return json.loads(out.read_text())
+        loaded = json.loads(out.read_text())
     except json.JSONDecodeError:
         pytest.skip("profile JSON unreadable; environmental")
+        raise  # unreachable; placates flow analysis
+    return loaded
 
 
 @pytest.mark.skipif(
