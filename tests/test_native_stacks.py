@@ -45,9 +45,8 @@ import pytest
 
 from scalene import _scalene_unwind
 
-
 WINDOWS = sys.platform == "win32"
-SA_SIGINFO = 0x40  # POSIX-defined; same value on Linux and macOS
+SA_SIGINFO = getattr(signal, "SA_SIGINFO", None)
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +135,8 @@ def test_signal_handler_captures_interrupted_stack():
         if hasattr(_scalene_unwind, "handler_status"):
             cur, ours, flags = _scalene_unwind.handler_status(sig)
             assert cur == ours, "our handler must be the kernel-installed one"
-            assert flags & SA_SIGINFO, "SA_SIGINFO must be set"
+            if SA_SIGINFO is not None:
+                assert flags & SA_SIGINFO, "SA_SIGINFO must be set"
 
         # Drain any prior state and arm a fast wall-clock timer.
         _scalene_unwind.drain_native_stack_buffer()
@@ -183,30 +183,32 @@ def test_handler_not_installed_by_default():
     """Importing _scalene_unwind must NOT install any signal handler.
 
     This protects the contract that Scalene only touches signal handlers
-    when --stacks is set. The check is approximate (we can't read every
-    signal cheaply) but install_signal_unwinder is the only way handlers
-    end up installed, and we never call it at import time.
+    when --stacks is set. Run the check in a fresh subprocess so it isn't
+    polluted by earlier tests that may have monkey-patched signal handling
+    in the main pytest process.
     """
-    if not hasattr(_scalene_unwind, "handler_status"):
-        pytest.skip("handler_status helper not available")
-    # SIGUSR2 is unlikely to have anything attached; if our extension
-    # leaks an install onto some signal at import, this test wouldn't
-    # catch it directly. Instead, verify that for SIGALRM (the typical
-    # CPU sampling signal) the handler isn't ours unless explicitly
-    # installed. We check before any test in this module installs it.
-    # In a fresh process this is reliable; under pytest the order of
-    # tests in this file installs SIGALRM in a later test, so to make
-    # this independent we install + uninstall in this test only.
-    sig = signal.SIGALRM
-    prev = signal.signal(sig, signal.SIG_DFL)
-    try:
+    code = textwrap.dedent("""
+        import json
+        import signal
+        from scalene import _scalene_unwind
+
+        sig = signal.SIGALRM
+        signal.signal(sig, signal.SIG_DFL)
         cur, ours, _flags = _scalene_unwind.handler_status(sig)
-        assert cur != ours, (
-            "our C handler should not be installed without an explicit "
-            "install_signal_unwinder() call"
-        )
-    finally:
-        signal.signal(sig, prev)
+        print(json.dumps({"installed": cur == ours}))
+    """)
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+    result = json.loads(proc.stdout)
+    assert result["installed"] is False, (
+        "our C handler should not be installed without an explicit "
+        "install_signal_unwinder() call"
+    )
 
 
 # ---------------------------------------------------------------------------
