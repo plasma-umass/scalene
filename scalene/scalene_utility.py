@@ -221,9 +221,7 @@ def install_native_stack_unwinder(sig: int) -> bool:
     if not _native_unwind_available:
         return False
     try:
-        return bool(
-            _scalene_unwind.install_signal_unwinder(int(sig))
-        )
+        return bool(_scalene_unwind.install_signal_unwinder(int(sig)))
     except Exception:
         return False
 

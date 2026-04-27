@@ -515,6 +515,7 @@ class ScaleneJSON:
         if stats.native_stacks:
             try:
                 from scalene import _scalene_unwind  # type: ignore
+
                 resolve = _scalene_unwind.resolve_ip
             except ImportError:
                 resolve = None
@@ -543,9 +544,7 @@ class ScaleneJSON:
                     ip_cache[ip] = frame_repr
                     resolved_frames.append(frame_repr)
                 # Drop the leading handler/trampoline frames.
-                while resolved_frames and is_scalene_handler_frame(
-                    resolved_frames[0]
-                ):
+                while resolved_frames and is_scalene_handler_frame(resolved_frames[0]):
                     resolved_frames.pop(0)
                 if resolved_frames:
                     native_stks.append((resolved_frames, hits))
