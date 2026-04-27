@@ -464,6 +464,63 @@ pywhere = Extension(
     language="c++",
 )
 
+
+def native_unwind_extension():
+    """scalene._scalene_unwind: native (C/C++) stack unwinder.
+
+    Linux:   links against vendored static libunwind.
+    macOS:   uses system <unwind.h> (_Unwind_Backtrace from libSystem).
+    Windows: builds as a stub (returns empty stacks); a StackWalk64-based
+             backend is a future Phase 2.
+    """
+    sources = ["src/source/native_unwind.cpp"]
+    include_dirs = ["."]
+    extra_objects = []
+    libraries = []
+    extra_link_args_local = list(get_extra_link_args())
+
+    if sys.platform.startswith("linux"):
+        libunwind_dir = path.join(path.dirname(__file__), "vendor", "libunwind")
+        include_dirs.append(path.join(libunwind_dir, "include"))
+        # Static archives produced by libunwind's autotools build. Order
+        # matters: the per-arch archive must come before the generic one.
+        libs_dir = path.join(libunwind_dir, "src", ".libs")
+        # Probe for the per-arch archive we should use. We let the link line
+        # fall through to whatever exists; libunwind builds exactly one of
+        # these per host.
+        per_arch_candidates = [
+            "libunwind-x86_64.a",
+            "libunwind-aarch64.a",
+            "libunwind-arm.a",
+            "libunwind-ppc64.a",
+        ]
+        for cand in per_arch_candidates:
+            p = path.join(libs_dir, cand)
+            if path.exists(p):
+                extra_objects.append(p)
+                break
+        extra_objects.append(path.join(libs_dir, "libunwind.a"))
+        libraries.append("dl")
+    elif sys.platform == "darwin":
+        # _Unwind_Backtrace is provided by libSystem; no extra linkage needed.
+        pass
+    # On Windows we just compile the stub.
+
+    return Extension(
+        "scalene._scalene_unwind",
+        sources=sources,
+        include_dirs=include_dirs,
+        extra_objects=extra_objects,
+        libraries=libraries,
+        extra_compile_args=extra_compile_args(),
+        extra_link_args=extra_link_args_local,
+        py_limited_api=False,
+        language="c++",
+    )
+
+
+native_unwind = native_unwind_extension()
+
 # If we're testing packaging, build using a ".devN" suffix in the version number,
 # so that we can upload new files (as testpypi/pypi don't allow re-uploading files with
 # the same name as previously uploaded).
@@ -501,7 +558,7 @@ setup(
         "egg_info": EggInfoCommand,
         "build_ext": BuildExtCommand,
     },
-    ext_modules=[get_line_atomic, pywhere],  # Now supported on all platforms
+    ext_modules=[get_line_atomic, pywhere, native_unwind],  # Now supported on all platforms
     include_package_data=True,
     options={"bdist_wheel": bdist_wheel_options()},
 )

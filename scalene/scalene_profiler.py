@@ -119,9 +119,11 @@ from scalene.scalene_tracing import ScaleneTracing
 from scalene.scalene_utility import (
     add_stack,
     compute_frames_to_record,
+    drain_native_stacks,
     enter_function_meta,
     generate_html,
     get_fully_qualified_name,
+    install_native_stack_unwinder,
     on_stack,
     patch_module_functions_with_signal_blocking,
 )
@@ -758,6 +760,25 @@ class Scalene:
             alloc_sigq,
             memcpy_sigq,
         )
+        # If --stacks was requested, install a C-level sigaction handler on
+        # the CPU sampling signal that captures the interrupted thread's
+        # native stack into a lock-free ring buffer. The Python-level
+        # cpu_signal_handler drains the buffer on each invocation. This
+        # must run *after* the Python handler is registered above, so we
+        # chain to CPython's signal trampoline rather than replacing it.
+        # If --stacks was requested, install a C-level sigaction handler on
+        # the CPU sampling signal that captures the interrupted thread's
+        # native stack into a lock-free ring buffer. The Python-level
+        # cpu_signal_handler drains the buffer on each invocation. This
+        # must run *after* the Python handler is registered above, so we
+        # chain to CPython's signal trampoline rather than replacing it.
+        # Use the signal manager's view of the CPU signal — Scalene.__signals
+        # is a separate ScaleneSignals instance that may not reflect the
+        # virtual-vs-real-time choice driven by --use-virtual-time.
+        if Scalene.__args.stacks and sys.platform != "win32":
+            install_native_stack_unwinder(
+                Scalene.__signal_manager.get_signals().cpu_signal
+            )
 
     @staticmethod
     def cpu_signal_handler(
@@ -796,6 +817,19 @@ class Scalene:
                 gpu_load, gpu_mem_used = Scalene.__accelerator.get_stats()
             else:
                 gpu_load, gpu_mem_used = (0.0, 0.0)
+
+            # Drain native (C/C++) stacks captured by our C-level sigaction
+            # handler. Those stacks reflect the *interrupted* user code (e.g.
+            # numpy mid-call), unlike anything we could unwind from here —
+            # by the time this Python handler runs, the interrupted C call
+            # has already returned to the bytecode interpreter.
+            # Drain native (C/C++) stacks captured by our C-level sigaction
+            # handler. Those stacks reflect the *interrupted* user code (e.g.
+            # numpy mid-call), unlike anything we could unwind from here —
+            # by the time this Python handler runs, the interrupted C call
+            # has already returned to the bytecode interpreter.
+            if Scalene.__args.stacks:
+                drain_native_stacks(Scalene.__stats.native_stacks)
 
             # Process this CPU sample.
             frames = compute_frames_to_record(Scalene._should_trace)
