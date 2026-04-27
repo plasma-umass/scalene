@@ -54,7 +54,7 @@ try:
         # doesn't trigger a lazy dlopen of libgcc_s (signal-unsafe).
         _scalene_unwind.warmup()
 except ImportError:
-    _scalene_unwind = None  # type: ignore
+    _scalene_unwind = None
     _native_unwind_available = False
 
 
@@ -222,7 +222,7 @@ def install_native_stack_unwinder(sig: int) -> bool:
         return False
     try:
         return bool(
-            _scalene_unwind.install_signal_unwinder(int(sig))  # type: ignore[union-attr]
+            _scalene_unwind.install_signal_unwinder(int(sig))
         )
     except Exception:
         return False
@@ -239,7 +239,7 @@ def drain_native_stacks(
     if not _native_unwind_available:
         return
     try:
-        captured = _scalene_unwind.drain_native_stack_buffer()  # type: ignore[union-attr]
+        captured = _scalene_unwind.drain_native_stack_buffer()
     except Exception:
         return
     for stk in captured:

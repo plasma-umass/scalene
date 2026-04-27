@@ -522,7 +522,7 @@ class ScaleneStatistics:
         # Native (C/C++) stacks captured during CPU samples. Keyed by a tuple
         # of raw instruction pointers (innermost-first). Symbol resolution
         # happens at report time, not in the signal handler.
-        self.native_stacks: dict[Tuple[int, ...], int] = defaultdict(int)
+        self.native_stacks: dict[tuple[int, ...], int] = defaultdict(int)
 
         # Initialize statistics classes
         self.cpu_stats = CPUStatistics()

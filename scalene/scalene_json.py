@@ -517,7 +517,7 @@ class ScaleneJSON:
                 from scalene import _scalene_unwind  # type: ignore
                 resolve = _scalene_unwind.resolve_ip
             except ImportError:
-                resolve = None  # type: ignore[assignment]
+                resolve = None
 
             def is_scalene_handler_frame(frame: List[Any]) -> bool:
                 module, symbol, _ip, _off = frame
@@ -525,9 +525,7 @@ class ScaleneJSON:
                     return True
                 if symbol in ("_sigtramp", "__restore_rt"):
                     return True
-                if module and "_scalene_unwind" in module:
-                    return True
-                return False
+                return bool(module and "_scalene_unwind" in module)
 
             ip_cache: Dict[int, List[Any]] = {}
             for stk, hits in stats.native_stacks.items():
