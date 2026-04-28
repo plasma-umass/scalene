@@ -71091,12 +71091,23 @@ Your output should only consist of valid Python code. Output the resulting Pytho
     const decoded = filename.indexOf("%") >= 0 ? decodeURIComponent(filename) : filename;
     const fileNumber = fileNumberByFilename.get(decoded);
     if (fileNumber !== void 0) {
-      const fileSection = document.getElementById(`profile-file-${fileNumber}`);
+      const fileId = `file-${fileNumber}`;
+      const fileSection = document.getElementById(`profile-${fileId}`);
       if (fileSection && fileSection.style.display === "none") {
-        toggleDisplay(`file-${fileNumber}`);
+        toggleDisplay(fileId);
       }
       const target2 = document.getElementById(`code-${fileNumber}-${lineno}`);
       if (target2) {
+        const tr2 = target2.closest("tr");
+        if (tr2 && tr2.style.display === "none") {
+          const select2 = document.getElementById(
+            `display-mode-${fileId}`
+          );
+          if (select2) {
+            select2.value = "all";
+          }
+          applyFileDisplayMode(fileId, "all");
+        }
         target2.scrollIntoView({ behavior: "smooth", block: "center" });
         const td = target2.closest("td");
         const flashTarget = td ?? target2;

@@ -155,13 +155,28 @@ export function vsNavigate(filename: string, lineno: number): void {
   // are `code-${file_number}-${lineno}`.
   const fileNumber = fileNumberByFilename.get(decoded);
   if (fileNumber !== undefined) {
-    const fileSection = document.getElementById(`profile-file-${fileNumber}`);
+    const fileId = `file-${fileNumber}`;
+    const fileSection = document.getElementById(`profile-${fileId}`);
     if (fileSection && fileSection.style.display === "none") {
       // Expand the per-file section first so the line can scroll into view.
-      toggleDisplay(`file-${fileNumber}`);
+      toggleDisplay(fileId);
     }
     const target = document.getElementById(`code-${fileNumber}-${lineno}`);
     if (target) {
+      // The line span exists in the DOM, but the surrounding <tr> may be
+      // hidden by the file's display mode (default is "profiled-functions",
+      // which suppresses empty rows). If so, switch the per-file display
+      // mode to "all" so the line is actually visible after scroll.
+      const tr = target.closest("tr") as HTMLElement | null;
+      if (tr && tr.style.display === "none") {
+        const select = document.getElementById(
+          `display-mode-${fileId}`,
+        ) as HTMLSelectElement | null;
+        if (select) {
+          select.value = "all";
+        }
+        applyFileDisplayMode(fileId, "all");
+      }
       target.scrollIntoView({ behavior: "smooth", block: "center" });
       // Brief yellow flash so the user can see what got selected.
       const td = target.closest("td") as HTMLElement | null;
