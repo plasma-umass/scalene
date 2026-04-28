@@ -532,9 +532,7 @@ class ScaleneStatistics:
         #   ("native", ip: int)
         # Native IPs are resolved (and CPython runtime tail trimmed) at
         # report time, mirroring how native_stacks is handled.
-        self.combined_stacks: dict[tuple[tuple[Any, ...], ...], int] = defaultdict(
-            int
-        )
+        self.combined_stacks: dict[tuple[tuple[Any, ...], ...], int] = defaultdict(int)
 
         # Initialize statistics classes
         self.cpu_stats = CPUStatistics()

@@ -48,25 +48,27 @@ class GPUDevice(str, Enum):
 # Stacks come back from the unwinder leaf-first, i.e. index 0 is the
 # innermost frame and index -1 is the outermost.
 
-_CPYTHON_RUNTIME_SYMBOLS = frozenset({
-    # interpreter eval loop
-    "Py_RunMain",
-    "Py_BytesMain",
-    "Py_Main",
-    "PyEval_EvalCode",
-    "_PyEval_EvalFrameDefault",
-    "_PyEval_Vector",
-    # generic call dispatch
-    "call_method",
-    "slot_tp_init",
-    "type_call",
-    "builtin_exec",
-    "run_mod",
-    # process entry points beneath Py_RunMain
-    "_start",
-    "__libc_start_main",
-    "__libc_start_call_main",
-})
+_CPYTHON_RUNTIME_SYMBOLS = frozenset(
+    {
+        # interpreter eval loop
+        "Py_RunMain",
+        "Py_BytesMain",
+        "Py_Main",
+        "PyEval_EvalCode",
+        "_PyEval_EvalFrameDefault",
+        "_PyEval_Vector",
+        # generic call dispatch
+        "call_method",
+        "slot_tp_init",
+        "type_call",
+        "builtin_exec",
+        "run_mod",
+        # process entry points beneath Py_RunMain
+        "_start",
+        "__libc_start_main",
+        "__libc_start_call_main",
+    }
+)
 
 _CPYTHON_RUNTIME_SYMBOL_PREFIXES = (
     "PyObject_Vectorcall",
@@ -651,9 +653,7 @@ class ScaleneJSON:
                 # outermost-first (entry -> leaf), but _trim_native_stack
                 # expects leaf-first (it pops handlers from the front, runtime
                 # from the back), so reverse before trimming and reverse back.
-                resolved_leaf_first = [
-                    _resolve(int(f[1])) for f in native_segment_raw
-                ]
+                resolved_leaf_first = [_resolve(int(f[1])) for f in native_segment_raw]
                 resolved_leaf_first.reverse()
                 trimmed_leaf_first = _trim_native_stack(resolved_leaf_first)
                 trimmed = list(reversed(trimmed_leaf_first))
