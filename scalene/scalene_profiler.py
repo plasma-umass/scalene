@@ -1112,7 +1112,6 @@ class Scalene:
             Scalene.__last_cpu_interval,
             Scalene.__args.stacks,
             native_drains or [],
-            should_trace_for_stitched_stack=Scalene._should_trace_for_stitched_stack,
             suspended_async_tasks=suspended_async_tasks,
         )
 
@@ -1177,21 +1176,6 @@ class Scalene:
         Caching is handled by ScaleneTracing.should_trace via lru_cache.
         """
         return Scalene.__tracing.should_trace(filename, func)
-
-    @staticmethod
-    def _should_trace_for_stitched_stack(
-        filename: Filename, func: str
-    ) -> bool:
-        """Looser filter used only by the stitched-stacks timeline view.
-
-        Lets asyncio / selectors frames through so async-blocking time
-        has a Python call chain in the timeline. The line-level
-        accounting paths still use _should_trace, so this is invisible
-        outside combined_stacks.
-        """
-        return Scalene.__tracing.should_trace_for_stitched_stack(
-            filename, func
-        )
 
     @staticmethod
     def start() -> None:
