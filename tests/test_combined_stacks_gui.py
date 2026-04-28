@@ -123,11 +123,14 @@ def test_section_present_when_combined_stacks_populated(tmp_path: pathlib.Path) 
     profile = _build_profile(with_combined_stacks=True)
     html = _render(tmp_path, profile)
 
-    # CSS rule from the template
+    # CSS rules from the template
     assert ".combined-stacks-section" in html
+    assert ".combined-stacks-flame" in html
     # Bundle JS embedded inline (standalone mode)
     assert "renderCombinedStacks" in html
     assert "toggleCombinedStacks" in html
+    # Flame-chart helpers from the bundle
+    assert "buildFlameTree" in html
     # The profile JSON literal includes our combined_stacks data
     assert "marker_native_symbol" in html
     assert "user_outer_function" in html
@@ -171,7 +174,7 @@ def test_standalone_renders_without_crash_on_minimal_profile(
 def test_css_rule_present_in_both_modes(
     tmp_path: pathlib.Path, standalone: bool
 ) -> None:
-    """The .combined-stacks-section / .combined-stack-card rules must be
+    """The .combined-stacks-section / .combined-stacks-flame rules must be
     in the inline <style> block regardless of standalone mode."""
     profile = _build_profile(with_combined_stacks=True)
     profile_path = tmp_path / "profile.json"
@@ -182,4 +185,4 @@ def test_css_rule_present_in_both_modes(
     )
     html = html_path.read_text(encoding="utf-8")
     assert ".combined-stacks-section" in html
-    assert ".combined-stack-card" in html
+    assert ".combined-stacks-flame" in html

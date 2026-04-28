@@ -234,8 +234,9 @@
     .combined-stacks-section {
         margin-top: 1em;
     }
-    .combined-stack-card ol li {
-        line-height: 1.4;
+    .combined-stacks-flame > div:hover {
+        outline: 2px solid #333;
+        z-index: 10;
     }
     </style>
     <!-- Google Analytics - disabled in standalone mode for offline support (issue #982) -->

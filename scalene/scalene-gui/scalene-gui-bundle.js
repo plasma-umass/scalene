@@ -71669,56 +71669,129 @@ Your output should only consist of valid Python code. Output the resulting Pytho
   function escapeHtml(s2) {
     return s2.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
-  function basename(path3) {
-    if (!path3) return "";
-    const parts = path3.split(/[\\/]/);
-    return parts[parts.length - 1] || path3;
+  var FLAME_ROW_HEIGHT = 18;
+  var FLAME_MIN_LABEL_WIDTH_PCT = 1.5;
+  function buildFlameTree(stacks) {
+    const root = {
+      kind: "root",
+      name: "(all stacks)",
+      filename: "",
+      line: null,
+      code_line: void 0,
+      selfHits: 0,
+      totalHits: 0,
+      children: []
+    };
+    const childMaps = /* @__PURE__ */ new WeakMap();
+    childMaps.set(root, /* @__PURE__ */ new Map());
+    for (const [frames, hits] of stacks) {
+      let node = root;
+      node.totalHits += hits;
+      for (const f2 of frames) {
+        const key2 = `${f2.kind}|${f2.filename_or_module}|${f2.kind === "py" ? f2.line : "x"}|${f2.display_name}`;
+        const map4 = childMaps.get(node);
+        if (!map4) continue;
+        let child = map4.get(key2);
+        if (!child) {
+          child = {
+            kind: f2.kind,
+            name: f2.display_name,
+            filename: f2.filename_or_module,
+            line: f2.kind === "py" ? f2.line : null,
+            code_line: f2.kind === "py" ? f2.code_line : void 0,
+            selfHits: 0,
+            totalHits: 0,
+            children: []
+          };
+          map4.set(key2, child);
+          childMaps.set(child, /* @__PURE__ */ new Map());
+          node.children.push(child);
+        }
+        child.totalHits += hits;
+        node = child;
+      }
+      node.selfHits += hits;
+    }
+    function sortDescByHits(n2) {
+      n2.children.sort((a4, b3) => b3.totalHits - a4.totalHits);
+      for (const c4 of n2.children) sortDescByHits(c4);
+    }
+    sortDescByHits(root);
+    return root;
   }
-  var COMBINED_STACKS_TOP_N = 20;
+  function flameMaxDepth(node) {
+    if (node.children.length === 0) return 0;
+    let m4 = 0;
+    for (const c4 of node.children) {
+      const d2 = flameMaxDepth(c4);
+      if (d2 > m4) m4 = d2;
+    }
+    return 1 + m4;
+  }
+  function flameColor(name4, kind) {
+    if (kind === "root") return "#ddd";
+    let h3 = 0;
+    for (let i2 = 0; i2 < name4.length; i2++) {
+      h3 = (h3 << 5) - h3 + name4.charCodeAt(i2) | 0;
+    }
+    const hue2 = Math.abs(h3) % 360;
+    if (kind === "py") return `hsl(${hue2}, 45%, 78%)`;
+    return `hsl(${(hue2 + 30) % 360}, 70%, 65%)`;
+  }
+  function renderFlameNode(node, depth, leftPct, widthPct, total) {
+    const pct = total > 0 ? (node.totalHits / total * 100).toFixed(1) : "0.0";
+    const codeLineText = (node.code_line ?? "").trim();
+    let tooltip2;
+    if (node.kind === "py") {
+      const tail = codeLineText ? `
+${codeLineText}` : "";
+      tooltip2 = `[py] ${node.name}
+${node.filename}:${node.line}
+${node.totalHits} hits (${pct}%)${tail}`;
+    } else {
+      tooltip2 = `[native] ${node.name}
+${node.filename}
+${node.totalHits} hits (${pct}%)`;
+    }
+    const top = depth * FLAME_ROW_HEIGHT;
+    const color5 = flameColor(node.name, node.kind);
+    const showLabel = widthPct >= FLAME_MIN_LABEL_WIDTH_PCT;
+    const labelHtml = showLabel ? escapeHtml(node.name) : "";
+    const cursor3 = node.kind === "py" && node.line !== null ? "pointer" : "default";
+    const clickAttr = node.kind === "py" && node.line !== null ? ` onclick="vsNavigate('${escape(node.filename)}',${node.line})"` : "";
+    return `<div style="position:absolute;top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;height:${FLAME_ROW_HEIGHT - 1}px;background:${color5};border:1px solid rgba(0,0,0,0.12);overflow:hidden;font-family:monospace;font-size:11px;line-height:${FLAME_ROW_HEIGHT - 1}px;padding:0 4px;white-space:nowrap;text-overflow:ellipsis;cursor:${cursor3};box-sizing:border-box;" title="${escapeHtml(tooltip2)}"${clickAttr}>${labelHtml}</div>`;
+  }
+  function renderFlameRecursive(node, depth, leftPct, widthPct, total) {
+    let s2 = "";
+    if (depth > 0) {
+      s2 += renderFlameNode(node, depth - 1, leftPct, widthPct, total);
+    }
+    let childLeft = leftPct;
+    for (const child of node.children) {
+      const childWidth = total > 0 ? child.totalHits / total * widthPct * (total / node.totalHits) : 0;
+      const w3 = node.totalHits > 0 ? child.totalHits / node.totalHits * widthPct : 0;
+      s2 += renderFlameRecursive(child, depth + 1, childLeft, w3, total);
+      childLeft += w3;
+    }
+    return s2;
+  }
   function renderCombinedStacks(prof) {
     const stacks = prof.combined_stacks ?? [];
     if (stacks.length === 0) return "";
-    const sorted = [...stacks].sort((a4, b3) => b3[1] - a4[1]).slice(0, COMBINED_STACKS_TOP_N);
-    const totalHits = stacks.reduce((sum3, e4) => sum3 + e4[1], 0);
+    const root = buildFlameTree(stacks);
+    const totalHits = root.totalHits;
+    const depth = flameMaxDepth(root);
+    const containerHeight = depth * FLAME_ROW_HEIGHT;
     let s2 = `<hr><div class="container-fluid combined-stacks-section">`;
     s2 += `<p style="margin-bottom: 4px;">`;
     s2 += `<span id="button-combined-stacks" title="Click to show or hide stitched Python+native call stacks." style="cursor: pointer; color: blue;" onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
     s2 += ` <strong>Combined Python + native call stacks</strong> `;
-    s2 += `<span class="text-muted" style="font-size: 80%;">top ${sorted.length} of ${stacks.length} stitched stacks (${totalHits} total samples)</span>`;
+    s2 += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples \u2014 hover for details, click a [py] frame to jump to its source line</span>`;
     s2 += `</p>`;
     s2 += `<div id="combined-stacks-body" style="display: none;">`;
-    for (const [frames, hits] of sorted) {
-      const pct = totalHits > 0 ? (100 * hits / totalHits).toFixed(1) : "0.0";
-      s2 += `<div class="combined-stack-card" style="border: 1px solid #ddd; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px; background: #fafafa;">`;
-      s2 += `<div style="font-size: 90%; margin-bottom: 4px;"><span class="badge bg-primary">${hits} hits</span> <span class="text-muted">(${pct}%)</span></div>`;
-      s2 += `<ol class="combined-stack-frames" style="margin: 0; padding-left: 18px; font-family: monospace; font-size: 85%;">`;
-      for (const f2 of frames) {
-        const base = basename(f2.filename_or_module);
-        if (f2.kind === "py") {
-          const safeFn = escape(f2.filename_or_module);
-          const code = (f2.code_line ?? "").trim();
-          let label;
-          if (code) {
-            const highlighted = Prism2.highlight(code, Prism2.languages.python, "python");
-            label = `<code class="language-python" style="white-space: pre;">${highlighted}</code>`;
-          } else if (f2.display_name === "<module>") {
-            label = `<span class="text-muted">&lt;top level&gt;</span>`;
-          } else {
-            label = escapeHtml(f2.display_name);
-          }
-          s2 += `<li><span style="color: #0a6;">[py]</span> `;
-          s2 += `${label} `;
-          s2 += `<span style="cursor: pointer; color: #0a58ca; text-decoration: underline;" `;
-          s2 += `title="Click to open ${escapeHtml(f2.filename_or_module)}:${f2.line} in VS Code" `;
-          s2 += `onclick="vsNavigate('${safeFn}',${f2.line})">${escapeHtml(base)}:${f2.line}</span></li>`;
-        } else {
-          s2 += `<li><span style="color: #a30;">[native]</span> `;
-          s2 += `${escapeHtml(f2.display_name)} <span class="text-muted">${escapeHtml(base)}</span></li>`;
-        }
-      }
-      s2 += `</ol></div>`;
-    }
-    s2 += `</div></div>`;
+    s2 += `<div class="combined-stacks-flame" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;">`;
+    s2 += renderFlameRecursive(root, 0, 0, 100, totalHits);
+    s2 += `</div></div></div>`;
     return s2;
   }
   function toggleCombinedStacks() {

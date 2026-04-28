@@ -933,60 +933,177 @@ function basename(path: string): string {
   return parts[parts.length - 1] || path;
 }
 
-const COMBINED_STACKS_TOP_N = 20;
+// Flame-chart rendering for combined_stacks. Stacks sharing a common
+// outermost-prefix collapse into wider parent rectangles; siblings split.
+// Layout is "icicle" — root at top, leaves at bottom — which reads
+// naturally for call-from-the-top stacks (outermost-first).
+const FLAME_ROW_HEIGHT = 18;
+const FLAME_MIN_LABEL_WIDTH_PCT = 1.5;
+
+interface FlameNode {
+  kind: "py" | "native" | "root";
+  name: string;
+  filename: string;
+  line: number | null;
+  code_line: string | undefined;
+  selfHits: number;
+  totalHits: number;
+  children: FlameNode[];
+}
+
+function buildFlameTree(stacks: CombinedStackEntry[]): FlameNode {
+  const root: FlameNode = {
+    kind: "root",
+    name: "(all stacks)",
+    filename: "",
+    line: null,
+    code_line: undefined,
+    selfHits: 0,
+    totalHits: 0,
+    children: [],
+  };
+  const childMaps = new WeakMap<FlameNode, Map<string, FlameNode>>();
+  childMaps.set(root, new Map());
+  for (const [frames, hits] of stacks) {
+    let node: FlameNode = root;
+    node.totalHits += hits;
+    for (const f of frames) {
+      const key = `${f.kind}|${f.filename_or_module}|${
+        f.kind === "py" ? f.line : "x"
+      }|${f.display_name}`;
+      const map = childMaps.get(node);
+      if (!map) continue;
+      let child = map.get(key);
+      if (!child) {
+        child = {
+          kind: f.kind,
+          name: f.display_name,
+          filename: f.filename_or_module,
+          line: f.kind === "py" ? f.line : null,
+          code_line: f.kind === "py" ? f.code_line : undefined,
+          selfHits: 0,
+          totalHits: 0,
+          children: [],
+        };
+        map.set(key, child);
+        childMaps.set(child, new Map());
+        node.children.push(child);
+      }
+      child.totalHits += hits;
+      node = child;
+    }
+    node.selfHits += hits;
+  }
+  function sortDescByHits(n: FlameNode): void {
+    n.children.sort((a, b) => b.totalHits - a.totalHits);
+    for (const c of n.children) sortDescByHits(c);
+  }
+  sortDescByHits(root);
+  return root;
+}
+
+function flameMaxDepth(node: FlameNode): number {
+  if (node.children.length === 0) return 0;
+  let m = 0;
+  for (const c of node.children) {
+    const d = flameMaxDepth(c);
+    if (d > m) m = d;
+  }
+  return 1 + m;
+}
+
+function flameColor(name: string, kind: "py" | "native" | "root"): string {
+  if (kind === "root") return "#ddd";
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  }
+  const hue = Math.abs(h) % 360;
+  // py frames muted/cool, native frames warmer/saturated so the seam is
+  // visible at a glance.
+  if (kind === "py") return `hsl(${hue}, 45%, 78%)`;
+  return `hsl(${(hue + 30) % 360}, 70%, 65%)`;
+}
+
+function renderFlameNode(
+  node: FlameNode,
+  depth: number,
+  leftPct: number,
+  widthPct: number,
+  total: number,
+): string {
+  const pct = total > 0 ? ((node.totalHits / total) * 100).toFixed(1) : "0.0";
+  const codeLineText = (node.code_line ?? "").trim();
+  let tooltip: string;
+  if (node.kind === "py") {
+    const tail = codeLineText ? `\n${codeLineText}` : "";
+    tooltip = `[py] ${node.name}\n${node.filename}:${node.line}\n${node.totalHits} hits (${pct}%)${tail}`;
+  } else {
+    tooltip = `[native] ${node.name}\n${node.filename}\n${node.totalHits} hits (${pct}%)`;
+  }
+  const top = depth * FLAME_ROW_HEIGHT;
+  const color = flameColor(node.name, node.kind);
+  const showLabel = widthPct >= FLAME_MIN_LABEL_WIDTH_PCT;
+  const labelHtml = showLabel ? escapeHtml(node.name) : "";
+  const cursor = node.kind === "py" && node.line !== null ? "pointer" : "default";
+  const clickAttr =
+    node.kind === "py" && node.line !== null
+      ? ` onclick="vsNavigate('${escape(node.filename)}',${node.line})"`
+      : "";
+  return (
+    `<div style="position:absolute;` +
+    `top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
+    `height:${FLAME_ROW_HEIGHT - 1}px;background:${color};` +
+    `border:1px solid rgba(0,0,0,0.12);overflow:hidden;` +
+    `font-family:monospace;font-size:11px;` +
+    `line-height:${FLAME_ROW_HEIGHT - 1}px;padding:0 4px;` +
+    `white-space:nowrap;text-overflow:ellipsis;cursor:${cursor};box-sizing:border-box;"` +
+    ` title="${escapeHtml(tooltip)}"${clickAttr}>${labelHtml}</div>`
+  );
+}
+
+function renderFlameRecursive(
+  node: FlameNode,
+  depth: number,
+  leftPct: number,
+  widthPct: number,
+  total: number,
+): string {
+  let s = "";
+  if (depth > 0) {
+    s += renderFlameNode(node, depth - 1, leftPct, widthPct, total);
+  }
+  let childLeft = leftPct;
+  for (const child of node.children) {
+    const childWidth = total > 0 ? (child.totalHits / total) * widthPct * (total / node.totalHits) : 0;
+    // Equivalent: child.totalHits / node.totalHits * widthPct (parent's width slice).
+    const w = node.totalHits > 0 ? (child.totalHits / node.totalHits) * widthPct : 0;
+    s += renderFlameRecursive(child, depth + 1, childLeft, w, total);
+    childLeft += w;
+    void childWidth;
+  }
+  return s;
+}
 
 export function renderCombinedStacks(prof: Profile): string {
   const stacks = prof.combined_stacks ?? [];
   if (stacks.length === 0) return "";
 
-  const sorted = [...stacks].sort((a, b) => b[1] - a[1]).slice(0, COMBINED_STACKS_TOP_N);
-  const totalHits = stacks.reduce((sum, e) => sum + e[1], 0);
+  const root = buildFlameTree(stacks);
+  const totalHits = root.totalHits;
+  const depth = flameMaxDepth(root);
+  const containerHeight = depth * FLAME_ROW_HEIGHT;
 
   let s = `<hr><div class="container-fluid combined-stacks-section">`;
   s += `<p style="margin-bottom: 4px;">`;
   s += `<span id="button-combined-stacks" title="Click to show or hide stitched Python+native call stacks." style="cursor: pointer; color: blue;" onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
   s += ` <strong>Combined Python + native call stacks</strong> `;
-  s += `<span class="text-muted" style="font-size: 80%;">top ${sorted.length} of ${stacks.length} stitched stacks (${totalHits} total samples)</span>`;
+  s += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples — hover for details, click a [py] frame to jump to its source line</span>`;
   s += `</p>`;
   s += `<div id="combined-stacks-body" style="display: none;">`;
-  for (const [frames, hits] of sorted) {
-    const pct = totalHits > 0 ? ((100 * hits) / totalHits).toFixed(1) : "0.0";
-    s += `<div class="combined-stack-card" style="border: 1px solid #ddd; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px; background: #fafafa;">`;
-    s += `<div style="font-size: 90%; margin-bottom: 4px;"><span class="badge bg-primary">${hits} hits</span> <span class="text-muted">(${pct}%)</span></div>`;
-    s += `<ol class="combined-stack-frames" style="margin: 0; padding-left: 18px; font-family: monospace; font-size: 85%;">`;
-    for (const f of frames) {
-      const base = basename(f.filename_or_module);
-      if (f.kind === "py") {
-        // Show the actual source line of code (syntax-highlighted) — much
-        // more useful than the bare function name, especially for module
-        // top-level frames where the qualname is just "<module>". Falls
-        // back to the function name when the source isn't readable.
-        // file:line is the click target for vsNavigate, matching the
-        // per-line table convention at scalene-gui.ts:768.
-        const safeFn = escape(f.filename_or_module);
-        const code = (f.code_line ?? "").trim();
-        let label: string;
-        if (code) {
-          const highlighted = Prism.highlight(code, Prism.languages.python, "python");
-          label = `<code class="language-python" style="white-space: pre;">${highlighted}</code>`;
-        } else if (f.display_name === "<module>") {
-          label = `<span class="text-muted">&lt;top level&gt;</span>`;
-        } else {
-          label = escapeHtml(f.display_name);
-        }
-        s += `<li><span style="color: #0a6;">[py]</span> `;
-        s += `${label} `;
-        s += `<span style="cursor: pointer; color: #0a58ca; text-decoration: underline;" `;
-        s += `title="Click to open ${escapeHtml(f.filename_or_module)}:${f.line} in VS Code" `;
-        s += `onclick="vsNavigate('${safeFn}',${f.line})">${escapeHtml(base)}:${f.line}</span></li>`;
-      } else {
-        s += `<li><span style="color: #a30;">[native]</span> `;
-        s += `${escapeHtml(f.display_name)} <span class="text-muted">${escapeHtml(base)}</span></li>`;
-      }
-    }
-    s += `</ol></div>`;
-  }
-  s += `</div></div>`;
+  s += `<div class="combined-stacks-flame" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;">`;
+  s += renderFlameRecursive(root, 0, 0, 100, totalHits);
+  s += `</div></div></div>`;
   return s;
 }
 
