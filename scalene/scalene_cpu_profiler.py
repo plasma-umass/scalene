@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from scalene.runningstats import RunningStats
 from scalene.scalene_funcutils import ScaleneFuncUtils
@@ -15,6 +15,7 @@ from scalene.scalene_statistics import (
 )
 from scalene.scalene_utility import (
     _main_thread_id,
+    add_async_await_run,
     add_combined_stack,
     add_stack,
     enter_function_meta,
@@ -55,6 +56,10 @@ class ScaleneCPUProfiler:
         last_cpu_interval: float,
         stacks_enabled: bool,
         native_drains: list[tuple[int, ...]] | None = None,
+        should_trace_for_stitched_stack: (
+            Callable[[Filename, str], bool] | None
+        ) = None,
+        suspended_async_tasks: list[Any] | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
@@ -130,6 +135,9 @@ class ScaleneCPUProfiler:
 
         # Process main thread
         main_thread_frame = new_frames[0][0]
+        # The original (unfiltered) innermost frame, before
+        # compute_frames_to_record walked back to a user-code frame.
+        main_thread_orig_frame = new_frames[0][2]
 
         if stacks_enabled:
             add_stack(
@@ -141,12 +149,45 @@ class ScaleneCPUProfiler:
                 average_cpu_time,
             )
             if native_drains:
-                add_combined_stack(
-                    main_thread_frame,
-                    should_trace,
-                    native_drains,
-                    self._stats.combined_stacks,
+                # Use the stitched-stack-only filter if provided, so async
+                # frames (asyncio/*, selectors.py) appear in the timeline
+                # call chain even though they're filtered out of the
+                # line-level should_trace path. We also start the walk from
+                # the *original* innermost frame, not main_thread_frame
+                # (which has already been walked back past asyncio frames
+                # by compute_frames_to_record).
+                stitched_filter = (
+                    should_trace_for_stitched_stack
+                    if should_trace_for_stitched_stack is not None
+                    else should_trace
                 )
+                # Async-aware path: when this sample landed inside the
+                # event loop with coroutines suspended, the raw stack is
+                # misleading (it shows the loop blocked in epoll/select).
+                # Mirror the existing per-line "await %" attribution by
+                # emitting one synthetic stitched run per suspended task
+                # at its await point. Falls through to the regular
+                # combined-stack path when no tasks are suspended.
+                wrote_async_runs = False
+                if suspended_async_tasks:
+                    wrote_async_runs = add_async_await_run(
+                        suspended_async_tasks,
+                        stitched_filter,
+                        self._stats.combined_stacks,
+                        timeline=self._stats.combined_stacks_timeline,
+                        timeline_cap=self._stats.combined_stacks_timeline_max_runs,
+                        timestamp=now.wallclock,
+                    )
+                if not wrote_async_runs:
+                    add_combined_stack(
+                        main_thread_orig_frame,
+                        stitched_filter,
+                        native_drains,
+                        self._stats.combined_stacks,
+                        timeline=self._stats.combined_stacks_timeline,
+                        timeline_cap=self._stats.combined_stacks_timeline_max_runs,
+                        timestamp=now.wallclock,
+                    )
 
         enter_function_meta(main_thread_frame, should_trace, self._stats)
         fname = Filename(main_thread_frame.f_code.co_filename)

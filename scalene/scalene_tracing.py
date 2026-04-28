@@ -45,22 +45,26 @@ class ScaleneTracing:
         self._args = args
         # Clear the cache when args change
         self.should_trace.cache_clear()
+        self.should_trace_for_stitched_stack.cache_clear()
 
     def set_program_path(self, program_path: Filename) -> None:
         """Update the program path."""
         self._program_path = program_path
         # Clear the cache when program path changes
         self.should_trace.cache_clear()
+        self.should_trace_for_stitched_stack.cache_clear()
 
     def add_file_to_profile(self, filename: Filename) -> None:
         """Add a file to the set of files to profile (for @profile decorator)."""
         self._files_to_profile.add(filename)
         self.should_trace.cache_clear()
+        self.should_trace_for_stitched_stack.cache_clear()
 
     def add_function_to_profile(self, filename: Filename, func: Any) -> None:
         """Add a function to profile (for @profile decorator)."""
         self._functions_to_profile[filename].add(func)
         self.should_trace.cache_clear()
+        self.should_trace_for_stitched_stack.cache_clear()
 
     @property
     def files_to_profile(self) -> set[Filename]:
@@ -71,6 +75,40 @@ class ScaleneTracing:
     def functions_to_profile(self) -> dict[Filename, set[Any]]:
         """Get the dict of functions to profile."""
         return self._functions_to_profile
+
+    @functools.lru_cache(maxsize=None)  # noqa: B019
+    def should_trace_for_stitched_stack(
+        self, filename: Filename, func: str
+    ) -> bool:
+        """Looser variant of should_trace used only by the experimental
+        timeline view (stats.combined_stacks / combined_stacks_timeline).
+
+        Returns True for everything should_trace returns True for, plus
+        Python frames inside ``asyncio/*`` and ``selectors.py``. Without
+        this, async programs running under default Scalene mode show up
+        as a single native ``select_kqueue_control_impl`` / ``epoll_wait``
+        leaf in the stitched stack with no Python context, because the
+        regular should_trace filters out stdlib modules. The line-level
+        CPU/memory accounting still uses the strict should_trace, so this
+        change is invisible to the rest of the profiler.
+        """
+        if self.should_trace(filename, func):
+            return True
+        return self._is_async_io_stdlib_module(filename)
+
+    @staticmethod
+    def _is_async_io_stdlib_module(filename: Filename) -> bool:
+        """True if filename is a stdlib asyncio module or selectors.py.
+
+        Pure path-based test — no resolve(), no Path arithmetic — so it's
+        cheap enough to call on every captured frame.
+        """
+        if not filename:
+            return False
+        norm = filename.replace("\\", "/")
+        if "/asyncio/" in norm and norm.endswith(".py"):
+            return True
+        return norm.endswith("/selectors.py") or norm == "selectors.py"
 
     # Using lru_cache on instance method is safe here since ScaleneTracing
     # is a singleton-like object that lives for the profiler's lifetime.

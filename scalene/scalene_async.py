@@ -15,12 +15,20 @@ from typing import Any, NamedTuple
 
 
 class SuspendedTaskInfo(NamedTuple):
-    """Information about a suspended async task."""
+    """Information about a suspended async task.
+
+    ``func_name`` is the qualified name of the function the task is
+    suspended in (used by the experimental timeline view to label the
+    synthetic await frames). It may be empty when sys.monitoring fires
+    PY_YIELD before the frame is observable; the timeline falls back to
+    a placeholder in that case.
+    """
 
     filename: str
     lineno: int
     suspend_time_ns: int
     task_name: str
+    func_name: str = ""
 
 
 class ScaleneAsync:
@@ -162,7 +170,14 @@ class ScaleneAsync:
                 else cr_frame.f_code.co_firstlineno
             )
             task_name = task.get_name()
-            result.append(SuspendedTaskInfo(filename, lineno, now_ns, task_name))
+            func_name = getattr(
+                cr_frame.f_code, "co_qualname", cr_frame.f_code.co_name
+            )
+            result.append(
+                SuspendedTaskInfo(
+                    filename, lineno, now_ns, task_name, func_name
+                )
+            )
         return result
 
     @classmethod
@@ -282,12 +297,13 @@ class ScaleneAsync:
         lineno = code.co_firstlineno
         now_ns = time.monotonic_ns()
         task_name = task.get_name()
+        func_name = getattr(code, "co_qualname", code.co_name)
         # Prune stale entries if dict grows too large (tasks that yielded
         # but were cancelled/GC'd without resuming)
         if len(cls._suspended_tasks) >= cls._MAX_SUSPENDED_TASKS:
             cls._suspended_tasks.clear()
         cls._suspended_tasks[task_id] = SuspendedTaskInfo(
-            filename, lineno, now_ns, task_name
+            filename, lineno, now_ns, task_name, func_name
         )
 
     @classmethod

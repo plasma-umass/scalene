@@ -15,8 +15,12 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 from scalene.scalene_config import scalene_date, scalene_version
 from scalene.scalene_statistics import (
+    CombinedStackKey,
+    CombinedStackRun,
     Filename,
     LineNumber,
+    NativeFrameKey,
+    PyFrameKey,
     ScaleneStatistics,
     StackFrame,
     StackStats,
@@ -256,7 +260,10 @@ def add_combined_stack(
     frame: Optional[FrameType],
     should_trace: Callable[[Filename, str], bool],
     native_drains: List[Tuple[int, ...]],
-    combined_stacks: Dict[Tuple[Tuple[Any, ...], ...], int],
+    combined_stacks: Dict[CombinedStackKey, int],
+    timeline: Optional[List[CombinedStackRun]] = None,
+    timeline_cap: int = 100000,
+    timestamp: float = 0.0,
 ) -> None:
     """Build stitched Python+native stacks for the current CPU sample.
 
@@ -270,11 +277,16 @@ def add_combined_stack(
     If multiple native stacks were drained for one Python handler
     invocation, each one is attached to the same Python chain (best-effort
     v1 policy — see STITCHED_STACK.md).
+
+    If ``timeline`` is provided, each stitched stack is also recorded as a
+    run-length-encoded timeline entry: consecutive samples with the same
+    stack key extend the trailing run's count instead of appending new
+    entries. ``timestamp`` is the wallclock time of this sample.
     """
     if not native_drains:
         return
 
-    py_chain: List[Tuple[Any, ...]] = []
+    py_chain: List[PyFrameKey] = []
     f: Optional[FrameType] = frame
     while f is not None:
         if should_trace(Filename(f.f_code.co_filename), f.f_code.co_name):
@@ -285,23 +297,110 @@ def add_combined_stack(
             )
             py_chain.insert(
                 0,
-                (
-                    "py",
-                    str(f.f_code.co_filename),
-                    str(get_fully_qualified_name(f)),
-                    line,
+                PyFrameKey(
+                    filename=str(f.f_code.co_filename),
+                    function=str(get_fully_qualified_name(f)),
+                    line=line,
                 ),
             )
         f = f.f_back
 
-    py_chain_tuple = tuple(py_chain)
+    py_chain_tuple: Tuple[PyFrameKey, ...] = tuple(py_chain)
     for native_stk in native_drains:
         # native_stk is leaf-first; the stitched layout we want is
         # outermost-to-innermost, so the native segment appends in order
         # native-entry -> native-leaf, which means reversing the
         # leaf-first tuple from the unwinder.
-        native_segment = tuple(("native", ip) for ip in reversed(native_stk))
-        combined_stacks[py_chain_tuple + native_segment] += 1
+        native_segment: Tuple[NativeFrameKey, ...] = tuple(
+            NativeFrameKey(ip=ip) for ip in reversed(native_stk)
+        )
+        key: CombinedStackKey = py_chain_tuple + native_segment
+        combined_stacks[key] += 1
+        if timeline is not None:
+            if timeline and timeline[-1].stack_key == key:
+                timeline[-1].count += 1
+            elif len(timeline) < timeline_cap:
+                timeline.append(
+                    CombinedStackRun(
+                        timestamp=timestamp, stack_key=key, count=1
+                    )
+                )
+            # If we hit the cap and the trailing run has a different key,
+            # we silently drop the new run; the aggregate combined_stacks
+            # still records the hit so totals remain correct.
+
+
+def add_async_await_run(
+    suspended_tasks: List[Any],
+    should_trace: Callable[[Filename, str], bool],
+    combined_stacks: Dict[CombinedStackKey, int],
+    timeline: Optional[List[CombinedStackRun]] = None,
+    timeline_cap: int = 100000,
+    timestamp: float = 0.0,
+) -> bool:
+    """Record one synthetic stitched-stack run per suspended async task.
+
+    When the main thread is sampled inside the asyncio event loop with
+    coroutines suspended, the *raw* stack is misleading: every sample
+    looks like ``_run_once -> selector.select -> epoll_wait``, attributing
+    everything to the loop. The existing per-line ``await %`` accounting
+    addresses this by crediting the lines where each suspended coroutine
+    yielded; this helper does the same for the timeline view, replacing
+    the event-loop stack with one synthetic single-frame stack per
+    suspended task at its await point.
+
+    Each task's frame is added to ``combined_stacks`` (with hit count
+    coalesced across calls) and to the RLE ``timeline`` (extending the
+    trailing run when the same task stays suspended at the same line).
+
+    Returns True iff at least one run was recorded — the caller uses
+    this to decide whether to skip the regular ``add_combined_stack``
+    call for this sample (avoiding double-counting).
+
+    ``suspended_tasks`` is typed as ``List[Any]`` to keep this module
+    independent of ``scalene_async`` (avoids an import cycle); each
+    element is duck-typed as a SuspendedTaskInfo namedtuple.
+    """
+    if not suspended_tasks:
+        return False
+    recorded = False
+    for task in suspended_tasks:
+        filename = Filename(task.filename)
+        if not should_trace(filename, ""):
+            continue
+        func_name: str = task.func_name or "<await>"
+        # Display name layout: `[await] func_name (Task-N)`.
+        #   - The "[await]" prefix is a stable token the timeline view's
+        #     I/O classifier matches on, so the GC/IO tracks light up
+        #     correctly for async-blocked time.
+        #   - The "(Task-N)" suffix keeps concurrent tasks awaiting at
+        #     the same line distinct, so a fan-out like
+        #     ``asyncio.gather(*[f() for _ in range(N)])`` produces N
+        #     parallel bars rather than one collapsed run.
+        display = (
+            f"[await] {func_name} ({task.task_name})"
+            if task.task_name
+            else f"[await] {func_name}"
+        )
+        key: CombinedStackKey = (
+            PyFrameKey(
+                filename=str(filename),
+                function=display,
+                line=int(task.lineno),
+            ),
+        )
+        combined_stacks[key] += 1
+        if timeline is not None:
+            if timeline and timeline[-1].stack_key == key:
+                timeline[-1].count += 1
+            elif len(timeline) < timeline_cap:
+                timeline.append(
+                    CombinedStackRun(
+                        timestamp=timestamp, stack_key=key, count=1
+                    )
+                )
+        recorded = True
+    return recorded
 
 
 def on_stack(

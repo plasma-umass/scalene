@@ -34,6 +34,7 @@ Coverage map vs. PR #1034 test plan:
 """
 
 import json
+import re
 import signal
 import subprocess
 import sys
@@ -275,7 +276,11 @@ _SCALENE_WORKLOAD = textwrap.dedent("""
 """)
 
 
-def _run_scalene_or_skip(tmp_path: Path, *extra_args: str) -> dict:
+def _run_scalene_or_skip(
+    tmp_path: Path,
+    *extra_args: str,
+    workload_source: str = _SCALENE_WORKLOAD,
+) -> dict:
     """Run scalene in a subprocess; skip on any environmental failure.
 
     pytest.skip raises pytest.skip.Exception (a subclass of BaseException),
@@ -283,7 +288,7 @@ def _run_scalene_or_skip(tmp_path: Path, *extra_args: str) -> dict:
     see that. Each skip path therefore raises explicitly.
     """
     workload = tmp_path / "workload.py"
-    workload.write_text(_SCALENE_WORKLOAD)
+    workload.write_text(workload_source)
     out = tmp_path / "profile.json"
     cmd = [
         sys.executable,
@@ -362,14 +367,246 @@ def test_scalene_subprocess_no_stacks_smoke(tmp_path):
     )
 
 
+# Workload used by the async I/O classification test. Spends most of its
+# wallclock in asyncio.sleep, which the event loop implements via the
+# selector (kqueue/epoll). Default Scalene mode (wallclock signals) fires
+# samples while the process is blocked in select_*(), so the leaf native
+# frame should land in the selector backend and get classified as I/O.
+_SCALENE_ASYNC_WORKLOAD = textwrap.dedent("""
+    import asyncio
+
+    async def slow_io():
+        for _ in range(20):
+            await asyncio.sleep(0.05)
+
+    async def main():
+        await asyncio.gather(*[slow_io() for _ in range(10)])
+
+    if __name__ == '__main__':
+        asyncio.run(main())
+""")
+
+
+# Workload used by the timeline classification test. Three back-to-back
+# phases sized to last ~1s each so signal-based sampling lands many hits
+# in each.
+#
+#   1. CPU-bound sqrt loop (baseline; no GC, no I/O).
+#   2. File I/O burst — repeatedly write and read back a temp file. Lands
+#      samples in libc read/write and the CPython _io module so the
+#      timeline's I/O classifier picks them up.
+#   3. Forced GC — build cyclic garbage and call gc.collect() in a tight
+#      loop. Samples land in CPython's gc_collect_main / _PyGC_*, which
+#      the GC classifier picks up.
+_SCALENE_GC_IO_WORKLOAD = textwrap.dedent("""
+    import gc
+    import math
+    import os
+    import tempfile
+    import time
+
+    def cpu_phase(duration):
+        s = 0.0
+        end = time.monotonic() + duration
+        while time.monotonic() < end:
+            for i in range(50_000):
+                s += math.sqrt(i * 1.234)
+        return s
+
+    def io_phase(duration):
+        # NamedTemporaryFile on Windows can't be reopened while held; we
+        # close it explicitly and reopen by path.
+        fd, path = tempfile.mkstemp(suffix='.scalene-timeline-io')
+        os.close(fd)
+        try:
+            payload = ('x' * 200 + '\\n') * 2000
+            end = time.monotonic() + duration
+            while time.monotonic() < end:
+                with open(path, 'w') as f:
+                    f.write(payload)
+                with open(path) as f:
+                    f.read()
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+    def gc_phase(duration):
+        cycles = []
+        end = time.monotonic() + duration
+        while time.monotonic() < end:
+            for _ in range(100):
+                a = []
+                b = [a]
+                a.append(b)
+                cycles.append(a)
+            gc.collect()
+        return len(cycles)
+
+    if __name__ == '__main__':
+        cpu_phase(1.0)
+        io_phase(1.0)
+        gc_phase(1.0)
+""")
+
+
+# Mirrors the GC/IO classification in scalene-gui.ts's classifyFrame() so
+# this test stays in sync with what the GUI actually highlights. Keep
+# these patterns aligned with GC_NAME_PATTERNS / IO_NAME_PATTERNS /
+# IO_FILE_PATTERNS in scalene-gui.ts.
+#
+# `_` is a regex word character, so `\bword\b` won't match `os_read` or
+# `select_kqueue_control_impl`. We use `(?:\b|_)` as a tokenizer on each
+# side instead — matches at word boundaries OR underscores, which is how
+# native CPython / libc symbols are actually structured.
+_GC_NAME_PATTERNS = (
+    re.compile(r"(?:\b|_)gc[._]collect(?:_|\b)", re.IGNORECASE),
+    re.compile(r"(?:\b|_)PyGC(?:_|\b)"),
+    re.compile(r"(?:\b|_)_PyGC_"),
+    re.compile(r"(?:\b|_)gc_collect_main(?:_|\b)"),
+)
+_IO_NAME_PATTERNS = (
+    # Synthetic await frame emitted by add_async_await_run when a sample
+    # lands inside the event loop with coroutines suspended. Treated as
+    # I/O — async waits are conceptually I/O-bound time.
+    re.compile(r"^\[await\]"),
+    re.compile(r"(?:\b|_)read(?:v)?(?:_|\b)"),
+    re.compile(r"(?:\b|_)pread(?:v)?(?:_|\b)"),
+    re.compile(r"(?:\b|_)write(?:v)?(?:_|\b)"),
+    re.compile(r"(?:\b|_)pwrite(?:v)?(?:_|\b)"),
+    re.compile(r"(?:\b|_)recv(?:from|msg)?(?:_|\b)"),
+    re.compile(r"(?:\b|_)send(?:to|msg)?(?:_|\b)"),
+    re.compile(r"(?:\b|_)select(?:_|\b)"),
+    re.compile(r"(?:\b|_)epoll(?:_|\b)"),
+    re.compile(r"(?:\b|_)kevent(?:_|\b)"),
+    re.compile(r"(?:\b|_)kqueue(?:_|\b)"),
+    re.compile(r"(?:\b|_)poll(?:_|\b)"),
+    re.compile(r"(?:\b|_)accept[0-9]*(?:_|\b)"),
+    re.compile(r"(?:\b|_)connect(?:_|\b)"),
+    re.compile(r"(?:\b|_)open(?:at|dir)?(?:_|\b)"),
+    re.compile(r"(?:\b|_)fsync(?:_|\b)"),
+    re.compile(r"(?:\b|_)fread(?:_|\b)"),
+    re.compile(r"(?:\b|_)fwrite(?:_|\b)"),
+)
+_IO_FILE_PATTERNS = (
+    re.compile(r"\b_io\b"),
+    re.compile(r"\bsocket\.py$"),
+    re.compile(r"\bselectors\.py$"),
+    re.compile(r"\basyncio\b"),
+)
+
+
+def _classify_frame(frame: dict) -> str:
+    name = frame.get("display_name") or ""
+    if any(p.search(name) for p in _GC_NAME_PATTERNS):
+        return "gc"
+    if any(p.search(name) for p in _IO_NAME_PATTERNS):
+        return "io"
+    if frame.get("kind") == "py":
+        path = frame.get("filename_or_module") or ""
+        if any(p.search(path) for p in _IO_FILE_PATTERNS):
+            return "io"
+    return "other"
+
+
+def _has_classified_run(profile: dict, kind: str) -> bool:
+    """True if any timeline run's stitched stack has a frame of `kind`."""
+    stacks = profile.get("combined_stacks", [])
+    timeline = profile.get("combined_stacks_timeline", [])
+    for ev in timeline:
+        idx = ev.get("stack_index", -1)
+        if idx < 0 or idx >= len(stacks):
+            continue
+        frames = stacks[idx][0] if stacks[idx] else []
+        if any(_classify_frame(f) == kind for f in frames):
+            return True
+    return False
+
+
+@pytest.mark.skipif(
+    WINDOWS, reason="--stacks native unwinder not on Windows"
+)
+def test_scalene_subprocess_timeline_classifies_gc_and_io(tmp_path):
+    """End-to-end: a workload that does file I/O and forces GC should
+    populate combined_stacks_timeline with runs whose stitched stacks
+    contain frames the GUI classifier flags as I/O and GC respectively.
+
+    Sampling is probabilistic, so this test skips (rather than fails)
+    when no timeline runs were collected at all — same shape as the
+    existing native_stacks smoke test.
+    """
+    profile = _run_scalene_or_skip(
+        tmp_path, "--stacks", workload_source=_SCALENE_GC_IO_WORKLOAD
+    )
+
+    timeline = profile.get("combined_stacks_timeline", [])
+    if not timeline:
+        pytest.skip(
+            "no timeline runs collected this run (sampling may not have "
+            "fired during the GC/IO phases); not a classifier regression"
+        )
+
+    # RLE shape sanity: every event has the three required fields.
+    for ev in timeline:
+        assert "t_sec" in ev and "stack_index" in ev and "count" in ev
+        assert ev["count"] >= 1
+        assert ev["t_sec"] >= 0
+
+    assert _has_classified_run(profile, "io"), (
+        "expected at least one timeline run classified as I/O. "
+        f"timeline length: {len(timeline)}, distinct stacks: "
+        f"{len(profile.get('combined_stacks', []))}"
+    )
+    assert _has_classified_run(profile, "gc"), (
+        "expected at least one timeline run classified as GC. "
+        f"timeline length: {len(timeline)}, distinct stacks: "
+        f"{len(profile.get('combined_stacks', []))}"
+    )
+
+
+@pytest.mark.skipif(
+    WINDOWS, reason="--stacks native unwinder not on Windows"
+)
+def test_scalene_subprocess_timeline_classifies_async_blocking_as_io(tmp_path):
+    """An asyncio program that spends most of its time in
+    ``await asyncio.sleep`` blocks the event loop in the selector backend
+    (epoll/kqueue/select). Scalene's default wallclock-signal sampler
+    fires during those blocked syscalls, so the native leaf lands in
+    ``epoll_wait`` / ``select_kqueue_control_impl`` / similar — which the
+    GUI's I/O classifier is supposed to flag.
+
+    Skips on environmental flakiness (no samples landed) the same way the
+    other subprocess smoke tests do.
+    """
+    profile = _run_scalene_or_skip(
+        tmp_path, "--stacks", workload_source=_SCALENE_ASYNC_WORKLOAD
+    )
+
+    timeline = profile.get("combined_stacks_timeline", [])
+    if not timeline:
+        pytest.skip(
+            "no timeline runs collected this run; sampling may not have "
+            "fired during the asyncio.sleep waits"
+        )
+
+    assert _has_classified_run(profile, "io"), (
+        "expected at least one timeline run classified as I/O for an "
+        "asyncio workload. Stacks captured: "
+        f"{[[f['display_name'] for f in stk[0]] for stk in profile.get('combined_stacks', [])][:5]}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Native-stack frame classification + trimming (pure-Python helpers)
 # ---------------------------------------------------------------------------
 
 
 def _f(module: str = "", symbol: str = "", ip: int = 0x1000, offset: int = 0):
-    """Build a resolved-frame list as scalene_json.py constructs them."""
-    return [module, symbol, ip, offset]
+    """Build a resolved native frame as scalene_json.py constructs them."""
+    from scalene.scalene_json import _ResolvedNativeFrame
+
+    return _ResolvedNativeFrame(module=module, symbol=symbol, ip=ip, offset=offset)
 
 
 class TestIsScaleneHandlerFrame:
@@ -438,7 +675,7 @@ class TestTrimNativeStack:
             _f(module="/lib/libBLAS.dylib", symbol="cblas_dgemm"),
         ]
         trimmed = _trim_native_stack(frames)
-        assert [f[1] for f in trimmed] == ["cblas_dgemm"]
+        assert [f.symbol for f in trimmed] == ["cblas_dgemm"]
 
     def test_strips_trailing_cpython_runtime_frames(self):
         frames = [
@@ -455,7 +692,7 @@ class TestTrimNativeStack:
             _f(symbol="_start"),
         ]
         trimmed = _trim_native_stack(frames)
-        assert [f[1] for f in trimmed] == [
+        assert [f.symbol for f in trimmed] == [
             "cblas_dgemm",
             "array_function_simple_impl",
         ]
@@ -469,7 +706,7 @@ class TestTrimNativeStack:
             _f(symbol="Py_RunMain"),
         ]
         trimmed = _trim_native_stack(frames)
-        assert [f[1] for f in trimmed] == ["cblas_dgemm"]
+        assert [f.symbol for f in trimmed] == ["cblas_dgemm"]
 
     def test_only_runtime_returns_empty(self):
         # A sample that landed entirely in the interpreter trims to
@@ -499,7 +736,7 @@ class TestTrimNativeStack:
             _f(symbol="Py_RunMain"),
         ]
         trimmed = _trim_native_stack(frames)
-        assert [f[1] for f in trimmed] == [
+        assert [f.symbol for f in trimmed] == [
             "numpy_callback",
             "_PyEval_EvalFrameDefault",
             "cblas_dgemm",
@@ -516,8 +753,8 @@ class TestTrimNativeStack:
         ]
         trimmed = _trim_native_stack(frames)
         assert len(trimmed) == 2
-        assert trimmed[0][2] == 0xDEADBEEF
-        assert trimmed[1][1] == "cblas_dgemm"
+        assert trimmed[0].ip == 0xDEADBEEF
+        assert trimmed[1].symbol == "cblas_dgemm"
 
     def test_does_not_mutate_input(self):
         frames = [
@@ -525,7 +762,10 @@ class TestTrimNativeStack:
             _f(module="/lib/libBLAS.dylib", symbol="cblas_dgemm"),
             _f(symbol="Py_RunMain"),
         ]
-        original = [list(f) for f in frames]
+        # _ResolvedNativeFrame is frozen, so input mutation would raise
+        # rather than silently corrupt — but we still want to verify the
+        # list itself is untouched.
+        original = list(frames)
         _trim_native_stack(frames)
         assert frames == original
 
@@ -575,6 +815,7 @@ class TestAddCombinedStack:
     def test_outermost_to_innermost_python_chain(self):
         from collections import defaultdict
 
+        from scalene.scalene_statistics import PyFrameKey
         from scalene.scalene_utility import add_combined_stack
 
         # Build a chain: main (line 1) -> middle (line 7) -> leaf (line 12).
@@ -589,8 +830,8 @@ class TestAddCombinedStack:
 
         assert len(combined) == 1
         stk = next(iter(combined.keys()))
-        py_frames = [f for f in stk if f[0] == "py"]
-        assert [(f[2], f[3]) for f in py_frames] == [
+        py_frames = [f for f in stk if isinstance(f, PyFrameKey)]
+        assert [(f.function, f.line) for f in py_frames] == [
             ("main", 1),
             ("middle", 7),
             ("leaf", 12),
@@ -599,6 +840,7 @@ class TestAddCombinedStack:
     def test_native_segment_appended_in_outermost_first_order(self):
         from collections import defaultdict
 
+        from scalene.scalene_statistics import NativeFrameKey
         from scalene.scalene_utility import add_combined_stack
 
         frame = _make_frame("/p.py", "f", 3)
@@ -608,13 +850,14 @@ class TestAddCombinedStack:
         add_combined_stack(frame, lambda *_: True, [native_drain], combined)
 
         stk = next(iter(combined.keys()))
-        native_ips = [f[1] for f in stk if f[0] == "native"]
+        native_ips = [f.ip for f in stk if isinstance(f, NativeFrameKey)]
         # Outermost-first => entry first, leaf last => reversed.
         assert native_ips == [0x3333, 0x2222, 0x1111]
 
     def test_multiple_drains_each_attached_to_python_chain(self):
         from collections import defaultdict
 
+        from scalene.scalene_statistics import PyFrameKey
         from scalene.scalene_utility import add_combined_stack
 
         frame = _make_frame("/p.py", "f", 3)
@@ -629,7 +872,7 @@ class TestAddCombinedStack:
         # Three distinct stitched stacks, each anchored on the same Python
         # chain — best-effort v1 policy.
         assert len(combined) == 3
-        py_anchor = ("py", "/p.py", "f", 3)
+        py_anchor = PyFrameKey(filename="/p.py", function="f", line=3)
         for stk, hits in combined.items():
             assert hits == 1
             assert stk[0] == py_anchor
@@ -653,6 +896,7 @@ class TestAddCombinedStack:
     def test_should_trace_filters_python_frames(self):
         from collections import defaultdict
 
+        from scalene.scalene_statistics import PyFrameKey
         from scalene.scalene_utility import add_combined_stack
 
         scalene_internal = _make_frame(
@@ -672,10 +916,10 @@ class TestAddCombinedStack:
         add_combined_stack(user_inner, trace, [(0xAAAA,)], combined)
 
         stk = next(iter(combined.keys()))
-        py_frames = [f for f in stk if f[0] == "py"]
+        py_frames = [f for f in stk if isinstance(f, PyFrameKey)]
         # Scalene's profiler frame must be filtered out — only user frames
         # remain in the stitched Python segment.
-        assert [(f[1], f[2]) for f in py_frames] == [
+        assert [(f.filename, f.function) for f in py_frames] == [
             ("/usercode.py", "main"),
             ("/usercode.py", "hot"),
         ]
@@ -683,6 +927,7 @@ class TestAddCombinedStack:
     def test_handles_frame_with_none_lineno(self):
         from collections import defaultdict
 
+        from scalene.scalene_statistics import PyFrameKey
         from scalene.scalene_utility import add_combined_stack
 
         # Python 3.11+ may report f_lineno=None during cleanup; fall back to
@@ -693,8 +938,8 @@ class TestAddCombinedStack:
         add_combined_stack(frame, lambda *_: True, [(0xAAAA,)], combined)
 
         stk = next(iter(combined.keys()))
-        py_frames = [f for f in stk if f[0] == "py"]
-        assert py_frames[0][3] == 42  # used co_firstlineno
+        py_frames = [f for f in stk if isinstance(f, PyFrameKey)]
+        assert py_frames[0].line == 42  # used co_firstlineno
 
 
 # ---------------------------------------------------------------------------
@@ -752,13 +997,15 @@ class TestCombinedStacksJson:
         )
 
     def test_native_segment_resolved_and_trimmed(self, monkeypatch, tmp_path):
+        from scalene.scalene_statistics import NativeFrameKey, PyFrameKey
+
         # Stack as stored: outermost-first.
         # Python: main / hot
         # Native (entry -> leaf): _PyEval_EvalFrameDefault, _multiarray_umath::do_work, libBLAS::cblas_dgemm
         # After seam trim, _PyEval_EvalFrameDefault should be dropped because
         # it sits between Python and the real native leaf segment.
-        py_main = ("py", "prog.py", "main", 10)
-        py_hot = ("py", "prog.py", "hot", 22)
+        py_main = PyFrameKey("prog.py", "main", 10)
+        py_hot = PyFrameKey("prog.py", "hot", 22)
         ip_eval = 0xE000
         ip_callsite = 0xC000
         ip_leaf = 0x1000
@@ -779,9 +1026,9 @@ class TestCombinedStacksJson:
         stack = (
             py_main,
             py_hot,
-            ("native", ip_eval),
-            ("native", ip_callsite),
-            ("native", ip_leaf),
+            NativeFrameKey(ip_eval),
+            NativeFrameKey(ip_callsite),
+            NativeFrameKey(ip_leaf),
         )
         stats = _build_stats_with_combined(stack, hits=4)
         profile = self._emit(stats, tmp_path)
@@ -816,8 +1063,10 @@ class TestCombinedStacksJson:
             assert isinstance(f["ip"], int) and f["ip"] != 0
 
     def test_pure_python_stack_emits_unchanged(self, tmp_path):
-        py_main = ("py", "prog.py", "main", 1)
-        py_hot = ("py", "prog.py", "hot", 5)
+        from scalene.scalene_statistics import PyFrameKey
+
+        py_main = PyFrameKey("prog.py", "main", 1)
+        py_hot = PyFrameKey("prog.py", "hot", 5)
         stack = (py_main, py_hot)
         stats = _build_stats_with_combined(stack, hits=2)
         profile = self._emit(stats, tmp_path)
@@ -830,9 +1079,11 @@ class TestCombinedStacksJson:
         assert [f["display_name"] for f in frames] == ["main", "hot"]
 
     def test_pure_runtime_native_segment_drops(self, monkeypatch, tmp_path):
+        from scalene.scalene_statistics import NativeFrameKey, PyFrameKey
+
         # If the native segment is entirely interpreter / process-entry
         # frames, trimming leaves nothing — only the Python part remains.
-        py_main = ("py", "prog.py", "main", 1)
+        py_main = PyFrameKey("prog.py", "main", 1)
         ip_eval = 0xE000
         ip_runmain = 0xF000
         mapping = {
@@ -845,7 +1096,7 @@ class TestCombinedStacksJson:
             unwind_mod, "resolve_ip", self._resolve_stub(mapping)
         )
 
-        stack = (py_main, ("native", ip_eval), ("native", ip_runmain))
+        stack = (py_main, NativeFrameKey(ip_eval), NativeFrameKey(ip_runmain))
         stats = _build_stats_with_combined(stack, hits=1)
         profile = self._emit(stats, tmp_path)
 
@@ -862,7 +1113,11 @@ class TestCombinedStacksJson:
         '<module>' top-level frames). Missing files / out-of-range lines
         produce empty strings, never crashes."""
         from scalene.scalene_json import ScaleneJSON
-        from scalene.scalene_statistics import Filename, ScaleneStatistics
+        from scalene.scalene_statistics import (
+            Filename,
+            PyFrameKey,
+            ScaleneStatistics,
+        )
 
         src = tmp_path / "src.py"
         src.write_text("a = 1\nb = 2\nc = a + b\n")  # 3 lines
@@ -870,9 +1125,9 @@ class TestCombinedStacksJson:
         stats = ScaleneStatistics()
         # Three frames: existing line, missing file, out-of-range line.
         stk = (
-            ("py", str(src), "module_top", 3),
-            ("py", "/nonexistent/file.py", "missing_file_fn", 1),
-            ("py", str(src), "out_of_range_fn", 999),
+            PyFrameKey(str(src), "module_top", 3),
+            PyFrameKey("/nonexistent/file.py", "missing_file_fn", 1),
+            PyFrameKey(str(src), "out_of_range_fn", 999),
         )
         stats.combined_stacks[stk] = 4
         stats.cpu_stats.total_cpu_samples = 1.0
@@ -908,7 +1163,14 @@ class TestCombinedStacksJson:
         with hit counts summed. Regression for the "same stack listed
         multiple times" bug — sample-time aggregation is keyed by raw IPs
         but the display layer should dedupe by user-visible fields."""
-        py_main = ("py", "prog.py", "main", 1)
+        from scalene.scalene_statistics import (
+            Filename,
+            NativeFrameKey,
+            PyFrameKey,
+            ScaleneStatistics,
+        )
+
+        py_main = PyFrameKey("prog.py", "main", 1)
         ip_a = 0xAAA0
         ip_b = 0xAAB0  # different IP, same function -> same display
         # Both IPs resolve to the same symbol/module; only offset differs.
@@ -923,11 +1185,10 @@ class TestCombinedStacksJson:
         )
 
         from scalene.scalene_json import ScaleneJSON
-        from scalene.scalene_statistics import Filename, ScaleneStatistics
 
         stats = ScaleneStatistics()
-        stats.combined_stacks[(py_main, ("native", ip_a))] = 3
-        stats.combined_stacks[(py_main, ("native", ip_b))] = 5
+        stats.combined_stacks[(py_main, NativeFrameKey(ip_a))] = 3
+        stats.combined_stacks[(py_main, NativeFrameKey(ip_b))] = 5
         stats.cpu_stats.total_cpu_samples = 1.0
         stats.cpu_stats.cpu_samples_python["/dummy.py"][1] = 1.0
         stats.cpu_stats.cpu_samples["/dummy.py"] = 1.0

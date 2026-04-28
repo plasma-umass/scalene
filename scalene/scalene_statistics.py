@@ -5,6 +5,7 @@ import pathlib
 import pickle
 import time
 from collections import defaultdict
+from dataclasses import dataclass
 from functools import total_ordering
 from typing import (
     Any,
@@ -32,6 +33,61 @@ Filename = NewType("Filename", str)
 LineNumber = NewType("LineNumber", PositiveInt)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 T = TypeVar("T")
+
+@dataclass(frozen=True)
+class PyFrameKey:
+    """A Python frame in a stitched stack, as captured at sample time.
+
+    Frozen so instances are hashable and usable as parts of dict keys
+    (specifically inside CombinedStackKey tuples used to key
+    ``ScaleneStatistics.combined_stacks``).
+    """
+
+    filename: str
+    function: str
+    line: int
+
+
+@dataclass(frozen=True)
+class NativeFrameKey:
+    """A native (C/C++) frame in a stitched stack, captured as a raw
+    instruction pointer. Symbol resolution happens at report time, not
+    in the signal handler. Frozen for the same reason as PyFrameKey.
+    """
+
+    ip: int
+
+
+# A single frame in a stitched stack — either a Python frame or a native
+# frame. Discriminate with isinstance(frame, PyFrameKey) /
+# isinstance(frame, NativeFrameKey) at use sites.
+CombinedFrameKey = Union[PyFrameKey, NativeFrameKey]
+# A complete stitched stack, outermost-first.
+CombinedStackKey = Tuple[CombinedFrameKey, ...]
+
+
+@dataclass
+class CombinedStackRun:
+    """One run-length-encoded entry in the stitched-stacks timeline.
+
+    A "run" is a contiguous sequence of CPU samples that all hit the same
+    stitched stack. Storing samples this way collapses tight loops (which
+    fire the same stack thousands of times in a row) into a single entry,
+    so the timeline can cover arbitrarily long profiling sessions without
+    truncation.
+
+    Attributes:
+        timestamp: Wallclock seconds at which the first sample of the run
+            was taken. Reported as-is; the JSON serializer normalizes
+            against the first run's timestamp before emitting.
+        stack_key: The stitched stack — same shape as the keys of
+            ``ScaleneStatistics.combined_stacks``.
+        count: Number of consecutive CPU samples in this run.
+    """
+
+    timestamp: float
+    stack_key: CombinedStackKey
+    count: int
 
 
 class ProfilingSample:
@@ -463,6 +519,7 @@ class ScaleneStatistics:
             "stacks",
             "native_stacks",
             "combined_stacks",
+            "combined_stacks_timeline",
             "cpu_stats.total_cpu_samples",
             "cpu_stats.cpu_samples_c",
             "cpu_stats.cpu_samples_python",
@@ -526,13 +583,19 @@ class ScaleneStatistics:
         self.native_stacks: dict[tuple[int, ...], int] = defaultdict(int)
 
         # Stitched Python+native stacks captured during CPU samples, together
-        # with hit count. Each stack is a tuple of tagged frame tuples
-        # (outermost-first) where each entry is one of:
-        #   ("py", filename: str, function_name: str, line_number: int)
-        #   ("native", ip: int)
-        # Native IPs are resolved (and CPython runtime tail trimmed) at
-        # report time, mirroring how native_stacks is handled.
-        self.combined_stacks: dict[tuple[tuple[Any, ...], ...], int] = defaultdict(int)
+        # with hit count. Each stack is a CombinedStackKey: a tuple of tagged
+        # frame tuples (outermost-first). Native IPs are resolved (and
+        # CPython runtime tail trimmed) at report time, mirroring how
+        # native_stacks is handled.
+        self.combined_stacks: dict[CombinedStackKey, int] = defaultdict(int)
+
+        # Run-length-encoded per-sample timeline of stitched stacks for the
+        # experimental timeline view. Consecutive identical stacks collapse
+        # into one CombinedStackRun, so a tight loop firing the same stack
+        # thousands of times in a row is one entry. A soft cap protects
+        # against pathological cases where every sample differs.
+        self.combined_stacks_timeline: list[CombinedStackRun] = []
+        self.combined_stacks_timeline_max_runs = 100000
 
         # Initialize statistics classes
         self.cpu_stats = CPUStatistics()
@@ -560,6 +623,7 @@ class ScaleneStatistics:
         self.stacks.clear()
         self.native_stacks.clear()
         self.combined_stacks.clear()
+        self.combined_stacks_timeline.clear()
         self.cpu_stats.clear()
         self.memory_stats.clear()
         self.gpu_stats.clear()
@@ -776,6 +840,28 @@ class ScaleneStatistics:
                     self.native_stacks[stk] += hits
                 for cstk, chits in x.combined_stacks.items():
                     self.combined_stacks[cstk] += chits
+                # Timelines are interleaved by start time so the merged
+                # timeline reflects the actual chronology across processes.
+                # Cap-aware: each side already obeys its own soft cap, and
+                # we apply the cap once more after merging.
+                if x.combined_stacks_timeline:
+                    merged_timeline: list[CombinedStackRun] = []
+                    a = self.combined_stacks_timeline
+                    b = x.combined_stacks_timeline
+                    i = j = 0
+                    while i < len(a) and j < len(b):
+                        if a[i].timestamp <= b[j].timestamp:
+                            merged_timeline.append(a[i])
+                            i += 1
+                        else:
+                            merged_timeline.append(b[j])
+                            j += 1
+                    merged_timeline.extend(a[i:])
+                    merged_timeline.extend(b[j:])
+                    cap = self.combined_stacks_timeline_max_runs
+                    if len(merged_timeline) > cap:
+                        merged_timeline = merged_timeline[:cap]
+                    self.combined_stacks_timeline = merged_timeline
                 self.cpu_stats.total_cpu_samples += x.cpu_stats.total_cpu_samples
                 self.gpu_stats.total_gpu_samples += x.gpu_stats.total_gpu_samples
 

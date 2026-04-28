@@ -864,6 +864,28 @@ class Scalene:
             if Scalene.__args.stacks:
                 native_drains = drain_native_stacks(Scalene.__stats.native_stacks)
 
+            # Async profiling snapshot: if the main thread is currently
+            # blocked in the event loop, capture the list of suspended
+            # coroutines now (before _process_cpu_sample). The list flows
+            # into both (a) the async sigqueue, which drives per-line
+            # await% attribution, and (b) the stitched-stack timeline,
+            # which uses it to replace the misleading event-loop stack
+            # with one synthetic await frame per suspended task.
+            #
+            # Use this_frame (the raw signal handler frame) for the event
+            # loop check — compute_frames_to_record filters out non-user
+            # frames, but the event loop frames are exactly what we need.
+            suspended: list[Any] | None = None
+            if (
+                Scalene.__args.async_profile
+                and ScaleneAsync._enabled
+                and this_frame is not None
+                and ScaleneAsync.is_in_event_loop(this_frame)
+            ):
+                snapshot = ScaleneAsync.get_suspended_snapshot()
+                if snapshot:
+                    suspended = snapshot
+
             # Process this CPU sample.
             frames = compute_frames_to_record(Scalene._should_trace)
             Scalene._process_cpu_sample(
@@ -875,6 +897,7 @@ class Scalene:
                 Scalene.__last_signal_time,
                 Scalene.__is_thread_sleeping,
                 native_drains,
+                suspended_async_tasks=suspended,
             )
             # Advance library profiler schedules (e.g., torch profiler
             # periodic flush) to keep memory bounded.
@@ -882,20 +905,10 @@ class Scalene:
             if Scalene.__torch_profiler is not None:
                 Scalene.__torch_profiler.step()
 
-            # Async profiling: when the main thread is in the event loop,
-            # snapshot suspended coroutines for await-time attribution.
-            # Use this_frame (the raw signal handler frame) since
-            # compute_frames_to_record filters out non-user frames,
-            # and the event loop frames (selectors, asyncio) are
-            # exactly the ones we need to detect.
-            if Scalene.__args.async_profile and ScaleneAsync._enabled:
-                check_frame = this_frame
-                if check_frame is not None and ScaleneAsync.is_in_event_loop(
-                    check_frame
-                ):
-                    suspended = ScaleneAsync.get_suspended_snapshot()
-                    if suspended:
-                        Scalene.__async_sigq.put((suspended,))
+            # Per-line await% attribution still flows through the async
+            # sigqueue (separate from the timeline view).
+            if suspended:
+                Scalene.__async_sigq.put((suspended,))
 
             elapsed = now.wallclock - Scalene.__last_signal_time.wallclock
             # Store the latest values as the previously recorded values.
@@ -1071,6 +1084,7 @@ class Scalene:
         prev: TimeInfo,
         is_thread_sleeping: dict[int, bool],
         native_drains: list[tuple[int, ...]] | None = None,
+        suspended_async_tasks: list[Any] | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
@@ -1098,6 +1112,8 @@ class Scalene:
             Scalene.__last_cpu_interval,
             Scalene.__args.stacks,
             native_drains or [],
+            should_trace_for_stitched_stack=Scalene._should_trace_for_stitched_stack,
+            suspended_async_tasks=suspended_async_tasks,
         )
 
     @staticmethod
@@ -1161,6 +1177,21 @@ class Scalene:
         Caching is handled by ScaleneTracing.should_trace via lru_cache.
         """
         return Scalene.__tracing.should_trace(filename, func)
+
+    @staticmethod
+    def _should_trace_for_stitched_stack(
+        filename: Filename, func: str
+    ) -> bool:
+        """Looser filter used only by the stitched-stacks timeline view.
+
+        Lets asyncio / selectors frames through so async-blocking time
+        has a Python call chain in the timeline. The line-level
+        accounting paths still use _should_trace, so this is invisible
+        outside combined_stacks.
+        """
+        return Scalene.__tracing.should_trace_for_stitched_stack(
+            filename, func
+        )
 
     @staticmethod
     def start() -> None:

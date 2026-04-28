@@ -112,6 +112,16 @@ interface Profile {
   program?: string;
   stacks?: unknown;
   combined_stacks?: CombinedStackEntry[];
+  combined_stacks_timeline?: CombinedStackTimelineEvent[];
+}
+
+interface CombinedStackTimelineEvent {
+  /** Start time of the run, seconds since the first sample. */
+  t_sec: number;
+  /** Index into prof.combined_stacks. */
+  stack_index: number;
+  /** Number of CPU samples that fired this same stack consecutively. */
+  count: number;
 }
 
 interface Column {
@@ -1135,6 +1145,336 @@ export function toggleCombinedStacks(): void {
   }
 }
 
+// Timeline view (experimental) for combined_stacks_timeline.
+//
+// Layout, inspired by Chrome DevTools / Firefox Profiler "Stack Chart":
+//   - x-axis is wallclock time (samples normalized to [0, elapsed_time]).
+//   - y-axis (icicle) is stack depth: outermost frame at the top, leaf at
+//     the bottom. The full stack at each time bucket is drawn as a stack
+//     of horizontal frames.
+//   - Above the main panel are GC and I/O activity tracks: thin bars whose
+//     opacity reflects the share of samples in that time bucket whose
+//     stack contains a frame classified as GC or I/O respectively.
+//
+// Data is run-length-encoded: each event in combined_stacks_timeline says
+// "starting at t_sec, the next `count` samples all hit combined_stacks
+// entry stack_index". We compute each run's duration from the next run's
+// start, with elapsed_time capping the trailing run.
+
+const TIMELINE_ROW_HEIGHT = 14;
+const TIMELINE_MIN_LABEL_WIDTH_PX = 40;
+const TIMELINE_TRACK_HEIGHT = 10;
+const TIMELINE_TRACK_GAP = 2;
+const TIMELINE_BUCKETS = 600; // resolution along x (vertical pixel columns).
+
+type FrameClass = "gc" | "io" | "other";
+
+// Native symbols are typically `prefix_root_suffix` (e.g.
+// `select_kqueue_control_impl`, `_io_FileIO_read`, `os_read`,
+// `BaseEventLoop_run_once`). A plain `\bread\b` won't match `os_read`
+// because `_` is a regex word character — there's no word boundary
+// between `_` and `r`. To classify these robustly we treat `_` as a
+// token separator equivalent to a word boundary on both sides:
+// `(?:\b|_)read(?:_|\b)` matches `read`, `os_read`, `_io_FileIO_read`,
+// `read_buf`, etc., without falsely matching `mread` or `readme`.
+const GC_NAME_PATTERNS = [
+  /(?:\b|_)gc[._]collect(?:_|\b)/i,
+  /(?:\b|_)PyGC(?:_|\b)/,
+  /(?:\b|_)_PyGC_/,
+  /(?:\b|_)gc_collect_main(?:_|\b)/,
+  /(?:\b|_)deallocate(?:_|\b)/,
+];
+const IO_NAME_PATTERNS = [
+  // Synthetic await frame emitted by add_async_await_run when a sample
+  // lands inside the event loop with coroutines suspended. Kept first
+  // since the literal "[await]" prefix is the cheapest possible match.
+  /^\[await\]/,
+  /(?:\b|_)read(?:v)?(?:_|\b)/,
+  /(?:\b|_)pread(?:v)?(?:_|\b)/,
+  /(?:\b|_)write(?:v)?(?:_|\b)/,
+  /(?:\b|_)pwrite(?:v)?(?:_|\b)/,
+  /(?:\b|_)recv(?:from|msg)?(?:_|\b)/,
+  /(?:\b|_)send(?:to|msg)?(?:_|\b)/,
+  /(?:\b|_)select(?:_|\b)/,
+  /(?:\b|_)epoll(?:_|\b)/,
+  /(?:\b|_)kevent(?:_|\b)/,
+  /(?:\b|_)kqueue(?:_|\b)/,
+  /(?:\b|_)poll(?:_|\b)/,
+  /(?:\b|_)accept[0-9]*(?:_|\b)/,
+  /(?:\b|_)connect(?:_|\b)/,
+  /(?:\b|_)open(?:at|dir)?(?:_|\b)/,
+  /(?:\b|_)close(?:_|\b)/,
+  /(?:\b|_)fsync(?:_|\b)/,
+  /(?:\b|_)fread(?:_|\b)/,
+  /(?:\b|_)fwrite(?:_|\b)/,
+  /(?:\b|_)lseek(?:_|\b)/,
+];
+const IO_FILE_PATTERNS = [
+  /\b_io\b/,
+  /\bsocket\.py$/,
+  /\bsocket\b/,
+  /\bselectors\.py$/,
+  /\bselector_events\.py$/,
+  /\basyncio\b/,
+  /\bsubprocess\.py$/,
+];
+
+function classifyFrame(f: CombinedFrame): FrameClass {
+  const name = f.display_name ?? "";
+  for (const re of GC_NAME_PATTERNS) {
+    if (re.test(name)) return "gc";
+  }
+  for (const re of IO_NAME_PATTERNS) {
+    if (re.test(name)) return "io";
+  }
+  if (f.kind === "py") {
+    for (const re of IO_FILE_PATTERNS) {
+      if (re.test(f.filename_or_module ?? "")) return "io";
+    }
+  }
+  return "other";
+}
+
+function classifyStack(stack: CombinedFrame[]): {
+  gc: boolean;
+  io: boolean;
+} {
+  let gc = false;
+  let io = false;
+  for (const f of stack) {
+    const c = classifyFrame(f);
+    if (c === "gc") gc = true;
+    else if (c === "io") io = true;
+    if (gc && io) break;
+  }
+  return { gc, io };
+}
+
+function timelineColor(name: string, kind: "py" | "native"): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  }
+  const hue = Math.abs(h) % 360;
+  if (kind === "py") return `hsl(${hue}, 45%, 78%)`;
+  return `hsl(${(hue + 30) % 360}, 70%, 65%)`;
+}
+
+interface TimelineRun {
+  startSec: number;
+  endSec: number;
+  stackIndex: number;
+  hits: number;
+}
+
+function buildTimelineRuns(
+  events: CombinedStackTimelineEvent[],
+  totalElapsedSec: number,
+): { runs: TimelineRun[]; totalSec: number } {
+  if (events.length === 0) return { runs: [], totalSec: 0 };
+  const runs: TimelineRun[] = [];
+  // Each run's end is the next run's start; the last run's end is
+  // either the explicit elapsed time (if larger) or its start plus a
+  // small synthetic duration (so a single-sample run still has a
+  // visible width).
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i];
+    const next = events[i + 1];
+    let end: number;
+    if (next) {
+      end = next.t_sec;
+    } else {
+      // Last run extends to elapsed_time, or — if elapsed_time isn't
+      // populated — uses a synthetic 1ms-per-sample tail.
+      const synthetic = ev.t_sec + ev.count * 0.001;
+      end = Math.max(ev.t_sec, totalElapsedSec || synthetic, synthetic);
+    }
+    if (end <= ev.t_sec) end = ev.t_sec; // guard
+    runs.push({
+      startSec: ev.t_sec,
+      endSec: end,
+      stackIndex: ev.stack_index,
+      hits: ev.count,
+    });
+  }
+  const totalSec =
+    Math.max(totalElapsedSec, runs[runs.length - 1].endSec) - runs[0].startSec;
+  return { runs, totalSec };
+}
+
+function renderTimelineFrames(
+  runs: TimelineRun[],
+  stacks: CombinedStackEntry[],
+  totalSec: number,
+  startSec: number,
+): string {
+  let s = "";
+  for (const run of runs) {
+    const stackEntry = stacks[run.stackIndex];
+    if (!stackEntry) continue;
+    const frames = stackEntry[0];
+    const leftPct = ((run.startSec - startSec) / totalSec) * 100;
+    const widthPct = ((run.endSec - run.startSec) / totalSec) * 100;
+    if (widthPct <= 0) continue;
+    const showLabels =
+      (widthPct / 100) * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
+    for (let depth = 0; depth < frames.length; depth++) {
+      const f = frames[depth];
+      const color = timelineColor(f.display_name, f.kind);
+      const top = depth * TIMELINE_ROW_HEIGHT;
+      const tooltip =
+        f.kind === "py"
+          ? `[py] ${f.display_name}\n${f.filename_or_module}:${f.line}\n` +
+            `${run.startSec.toFixed(3)}s — ${run.endSec.toFixed(3)}s ` +
+            `(${run.hits} samples)`
+          : `[native] ${f.display_name}\n${f.filename_or_module}\n` +
+            `${run.startSec.toFixed(3)}s — ${run.endSec.toFixed(3)}s ` +
+            `(${run.hits} samples)`;
+      const label = showLabels ? escapeHtml(f.display_name) : "";
+      const cursor =
+        f.kind === "py" && f.line !== null ? "pointer" : "default";
+      const clickAttr =
+        f.kind === "py" && f.line !== null
+          ? ` onclick="vsNavigate('${escape(f.filename_or_module)}',${f.line})"`
+          : "";
+      s +=
+        `<div style="position:absolute;` +
+        `top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
+        `height:${TIMELINE_ROW_HEIGHT - 1}px;background:${color};` +
+        `border:1px solid rgba(0,0,0,0.10);overflow:hidden;` +
+        `font-family:monospace;font-size:10px;` +
+        `line-height:${TIMELINE_ROW_HEIGHT - 1}px;padding:0 2px;` +
+        `white-space:nowrap;text-overflow:ellipsis;cursor:${cursor};` +
+        `box-sizing:border-box;"` +
+        ` title="${escapeHtml(tooltip)}"${clickAttr}>${label}</div>`;
+    }
+  }
+  return s;
+}
+
+function renderTimelineTrack(
+  label: string,
+  color: string,
+  runs: TimelineRun[],
+  classifiedRuns: boolean[],
+  totalSec: number,
+  startSec: number,
+  topPx: number,
+): string {
+  let s = "";
+  s +=
+    `<div style="position:absolute;left:0;top:${topPx}px;` +
+    `width:60px;height:${TIMELINE_TRACK_HEIGHT}px;` +
+    `font-family:monospace;font-size:10px;` +
+    `line-height:${TIMELINE_TRACK_HEIGHT}px;color:#444;">${label}</div>`;
+  s +=
+    `<div style="position:absolute;left:60px;right:0;top:${topPx}px;` +
+    `height:${TIMELINE_TRACK_HEIGHT}px;background:#f7f7f7;border:1px solid #ddd;box-sizing:border-box;">`;
+  for (let i = 0; i < runs.length; i++) {
+    if (!classifiedRuns[i]) continue;
+    const run = runs[i];
+    const leftPct = ((run.startSec - startSec) / totalSec) * 100;
+    const widthPct = ((run.endSec - run.startSec) / totalSec) * 100;
+    if (widthPct <= 0) continue;
+    s +=
+      `<div style="position:absolute;` +
+      `left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
+      `top:0;height:100%;background:${color};` +
+      `box-sizing:border-box;" title="${escapeHtml(label)} during ` +
+      `${run.startSec.toFixed(3)}s — ${run.endSec.toFixed(3)}s"></div>`;
+  }
+  s += `</div>`;
+  return s;
+}
+
+export function renderCombinedStacksTimeline(prof: Profile): string {
+  const events = prof.combined_stacks_timeline ?? [];
+  const stacks = prof.combined_stacks ?? [];
+  if (events.length === 0 || stacks.length === 0) return "";
+
+  const elapsed = prof.elapsed_time_sec ?? 0;
+  const { runs, totalSec } = buildTimelineRuns(events, elapsed);
+  if (runs.length === 0 || totalSec <= 0) return "";
+
+  const startSec = runs[0].startSec;
+
+  // Pre-classify each run so the GC / I/O tracks don't redo the work.
+  let maxDepth = 0;
+  const isGcRun: boolean[] = new Array(runs.length).fill(false);
+  const isIoRun: boolean[] = new Array(runs.length).fill(false);
+  for (let i = 0; i < runs.length; i++) {
+    const stackEntry = stacks[runs[i].stackIndex];
+    if (!stackEntry) continue;
+    const frames = stackEntry[0];
+    if (frames.length > maxDepth) maxDepth = frames.length;
+    const c = classifyStack(frames);
+    isGcRun[i] = c.gc;
+    isIoRun[i] = c.io;
+  }
+
+  // Track header (GC / I/O), spacer, then the depth-stacked main panel.
+  const trackGcTop = 0;
+  const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const mainTop =
+    trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+  const mainHeight = Math.max(maxDepth, 1) * TIMELINE_ROW_HEIGHT;
+  const containerHeight = mainTop + mainHeight + 4;
+
+  let s = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
+  s += `<p style="margin-bottom: 4px;">`;
+  s += `<span id="button-combined-timeline" title="Click to show or hide the experimental timeline view." style="cursor: pointer; color: blue;" onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
+  s += ` <strong>Stitched stack timeline</strong> `;
+  s += `<span class="badge bg-warning text-dark" style="font-size: 70%; vertical-align: middle;">experimental</span> `;
+  s += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s — x: time, y: stack depth (outermost on top); GC and I/O tracks shown above</span>`;
+  s += `</p>`;
+  s += `<div id="combined-timeline-body" style="display: none;">`;
+  s +=
+    `<div class="combined-stacks-timeline" style="position:relative;width:100%;` +
+    `height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;` +
+    `overflow-x:auto;padding:0;">`;
+  // Tracks live in their own absolute slots above the main panel.
+  // Bumping the track left by 60px so the labels don't overlap.
+  s += renderTimelineTrack(
+    "GC",
+    "#d62728",
+    runs,
+    isGcRun,
+    totalSec,
+    startSec,
+    trackGcTop,
+  );
+  s += renderTimelineTrack(
+    "I/O",
+    "#1f77b4",
+    runs,
+    isIoRun,
+    totalSec,
+    startSec,
+    trackIoTop,
+  );
+  // Main panel: shift right by 60px so it visually aligns with track bars.
+  s +=
+    `<div style="position:absolute;left:60px;right:0;top:${mainTop}px;` +
+    `height:${mainHeight}px;background:#fafafa;border:1px solid #ddd;box-sizing:border-box;">`;
+  s += renderTimelineFrames(runs, stacks, totalSec, startSec);
+  s += `</div>`;
+  s += `</div></div></div>`;
+  return s;
+}
+
+export function toggleCombinedStacksTimeline(): void {
+  const body = document.getElementById("combined-timeline-body");
+  const btn = document.getElementById("button-combined-timeline");
+  if (!body || !btn) return;
+  if (body.style.display === "none") {
+    body.style.display = "block";
+    btn.innerHTML = DownTriangle;
+  } else {
+    body.style.display = "none";
+    btn.innerHTML = RightTriangle;
+  }
+}
+
 export function toggleDisplay(id: string): void {
   const d = document.getElementById(`profile-${id}`);
   if (d) {
@@ -1601,6 +1941,7 @@ async function display(prof: Profile): Promise<void> {
   files = files.filter((x) => !excludedFiles.has(x));
   s += "</div>";
   s += renderCombinedStacks(prof);
+  s += renderCombinedStacksTimeline(prof);
   const p = document.getElementById("profile");
   if (p) {
     p.innerHTML = s;
@@ -2013,6 +2354,7 @@ setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
 (window as unknown as Record<string, unknown>).expandAll = expandAll;
 (window as unknown as Record<string, unknown>).toggleDisplay = toggleDisplay;
 (window as unknown as Record<string, unknown>).toggleCombinedStacks = toggleCombinedStacks;
+(window as unknown as Record<string, unknown>).toggleCombinedStacksTimeline = toggleCombinedStacksTimeline;
 (window as unknown as Record<string, unknown>).toggleReduced = toggleReduced;
 (window as unknown as Record<string, unknown>).onFileDisplayModeChange = onFileDisplayModeChange;
 (window as unknown as Record<string, unknown>).load = load;
