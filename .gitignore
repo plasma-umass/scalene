@@ -155,3 +155,43 @@ vendor/
 
 # Node modules
 node_modules/
+
+# Scalene profile outputs (default file names)
+scalene-profile.json
+scalene-profile.html
+
+# IPython per-input profile state (created when running %scalene/%scrun cells)
+_ipython-input-*-profile
+
+# Jupyter autosaves
+Untitled*.ipynb
+
+# Editor backup files
+*~
+\#*\#
+.\#*
+
+# Windows shell artifact ("> nul" leaves an actual file named "nul" on POSIX)
+/nul
+
+# Native build artifacts
+scalene/Release/
+scalene/libscalene.dll
+scalene/libscalene.dylib.dSYM/
+
+# macOS debug symbol bundles (built alongside .dylib via dsymutil)
+*.dSYM/
+
+# C-extension test fixtures built locally in test/
+test/*.dylib
+test/*.so
+
+# esbuild source maps
+scalene/scalene-gui/*.js.map
+
+# Per-developer scratch files at the repo root. Real tests live in
+# tests/ and test/; loose test-foo.json / test_foo.py files at the
+# repo root are from manual dev runs.
+/test-*.json
+/test-*.py
+/test_*.py
