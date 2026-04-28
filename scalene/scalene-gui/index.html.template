@@ -231,6 +231,13 @@
     .btn-refresh.loading {
         color: #0d6efd;
     }
+    .combined-stacks-section {
+        margin-top: 1em;
+    }
+    .combined-stacks-flame > div:hover {
+        outline: 2px solid #333;
+        z-index: 10;
+    }
     </style>
     <!-- Google Analytics - disabled in standalone mode for offline support (issue #982) -->
     {% if not standalone %}

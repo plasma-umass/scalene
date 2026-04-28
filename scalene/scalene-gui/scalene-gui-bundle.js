@@ -2456,7 +2456,9 @@ var ScaleneGUI = (() => {
     proposeOptimizationRegion: () => proposeOptimizationRegion,
     refreshGeminiModels: () => refreshGeminiModels,
     refreshOpenAIModels: () => refreshOpenAIModels,
+    renderCombinedStacks: () => renderCombinedStacks,
     toggleAdvanced: () => toggleAdvanced,
+    toggleCombinedStacks: () => toggleCombinedStacks,
     toggleDisplay: () => toggleDisplay,
     togglePassword: () => togglePassword,
     toggleReduced: () => toggleReduced,
@@ -71083,10 +71085,48 @@ Your output should only consist of valid Python code. Output the resulting Pytho
         filePath: filename,
         lineNumber: lineno
       });
+      return;
+    } catch {
+    }
+    const decoded = filename.indexOf("%") >= 0 ? decodeURIComponent(filename) : filename;
+    const fileNumber = fileNumberByFilename.get(decoded);
+    if (fileNumber !== void 0) {
+      const fileId = `file-${fileNumber}`;
+      const fileSection = document.getElementById(`profile-${fileId}`);
+      if (fileSection && fileSection.style.display === "none") {
+        toggleDisplay(fileId);
+      }
+      const target2 = document.getElementById(`code-${fileNumber}-${lineno}`);
+      if (target2) {
+        const tr2 = target2.closest("tr");
+        if (tr2 && tr2.style.display === "none") {
+          const select2 = document.getElementById(
+            `display-mode-${fileId}`
+          );
+          if (select2) {
+            select2.value = "all";
+          }
+          applyFileDisplayMode(fileId, "all");
+        }
+        target2.scrollIntoView({ behavior: "smooth", block: "center" });
+        const td = target2.closest("td");
+        const flashTarget = td ?? target2;
+        const prevBg = flashTarget.style.backgroundColor;
+        flashTarget.style.transition = "background-color 0.2s ease";
+        flashTarget.style.backgroundColor = "#fff3a8";
+        window.setTimeout(() => {
+          flashTarget.style.backgroundColor = prevBg;
+        }, 1200);
+        return;
+      }
+    }
+    try {
+      window.location.href = `vscode://file/${decoded}:${lineno}:1`;
     } catch {
     }
   }
   var maxLinesPerRegion = 50;
+  var fileNumberByFilename = /* @__PURE__ */ new Map();
   var showedExplosion = {};
   function proposeOptimizationRegion(filename, file_number, line4) {
     proposeOptimization(
@@ -71637,6 +71677,146 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       btn.innerHTML = DownTriangle;
     }
   }
+  function escapeHtml(s2) {
+    return s2.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  var FLAME_ROW_HEIGHT = 18;
+  var FLAME_MIN_LABEL_WIDTH_PCT = 1.5;
+  function buildFlameTree(stacks) {
+    const root = {
+      kind: "root",
+      name: "(all stacks)",
+      filename: "",
+      line: null,
+      code_line: void 0,
+      selfHits: 0,
+      totalHits: 0,
+      children: []
+    };
+    const childMaps = /* @__PURE__ */ new WeakMap();
+    childMaps.set(root, /* @__PURE__ */ new Map());
+    for (const [frames, hits] of stacks) {
+      let node = root;
+      node.totalHits += hits;
+      for (const f2 of frames) {
+        const key2 = `${f2.kind}|${f2.filename_or_module}|${f2.kind === "py" ? f2.line : "x"}|${f2.display_name}`;
+        const map4 = childMaps.get(node);
+        if (!map4) continue;
+        let child = map4.get(key2);
+        if (!child) {
+          child = {
+            kind: f2.kind,
+            name: f2.display_name,
+            filename: f2.filename_or_module,
+            line: f2.kind === "py" ? f2.line : null,
+            code_line: f2.kind === "py" ? f2.code_line : void 0,
+            selfHits: 0,
+            totalHits: 0,
+            children: []
+          };
+          map4.set(key2, child);
+          childMaps.set(child, /* @__PURE__ */ new Map());
+          node.children.push(child);
+        }
+        child.totalHits += hits;
+        node = child;
+      }
+      node.selfHits += hits;
+    }
+    function sortDescByHits(n2) {
+      n2.children.sort((a4, b3) => b3.totalHits - a4.totalHits);
+      for (const c4 of n2.children) sortDescByHits(c4);
+    }
+    sortDescByHits(root);
+    return root;
+  }
+  function flameMaxDepth(node) {
+    if (node.children.length === 0) return 0;
+    let m4 = 0;
+    for (const c4 of node.children) {
+      const d2 = flameMaxDepth(c4);
+      if (d2 > m4) m4 = d2;
+    }
+    return 1 + m4;
+  }
+  function flameColor(name4, kind) {
+    if (kind === "root") return "#ddd";
+    let h3 = 0;
+    for (let i2 = 0; i2 < name4.length; i2++) {
+      h3 = (h3 << 5) - h3 + name4.charCodeAt(i2) | 0;
+    }
+    const hue2 = Math.abs(h3) % 360;
+    if (kind === "py") return `hsl(${hue2}, 45%, 78%)`;
+    return `hsl(${(hue2 + 30) % 360}, 70%, 65%)`;
+  }
+  function renderFlameNode(node, depth, leftPct, widthPct, total) {
+    const pct = total > 0 ? (node.totalHits / total * 100).toFixed(1) : "0.0";
+    const codeLineText = (node.code_line ?? "").trim();
+    let tooltip2;
+    if (node.kind === "py") {
+      const tail = codeLineText ? `
+${codeLineText}` : "";
+      tooltip2 = `[py] ${node.name}
+${node.filename}:${node.line}
+${node.totalHits} hits (${pct}%)${tail}`;
+    } else {
+      tooltip2 = `[native] ${node.name}
+${node.filename}
+${node.totalHits} hits (${pct}%)`;
+    }
+    const top = depth * FLAME_ROW_HEIGHT;
+    const color5 = flameColor(node.name, node.kind);
+    const showLabel = widthPct >= FLAME_MIN_LABEL_WIDTH_PCT;
+    const labelHtml = showLabel ? escapeHtml(node.name) : "";
+    const cursor3 = node.kind === "py" && node.line !== null ? "pointer" : "default";
+    const clickAttr = node.kind === "py" && node.line !== null ? ` onclick="vsNavigate('${escape(node.filename)}',${node.line})"` : "";
+    return `<div style="position:absolute;top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;height:${FLAME_ROW_HEIGHT - 1}px;background:${color5};border:1px solid rgba(0,0,0,0.12);overflow:hidden;font-family:monospace;font-size:11px;line-height:${FLAME_ROW_HEIGHT - 1}px;padding:0 4px;white-space:nowrap;text-overflow:ellipsis;cursor:${cursor3};box-sizing:border-box;" title="${escapeHtml(tooltip2)}"${clickAttr}>${labelHtml}</div>`;
+  }
+  function renderFlameRecursive(node, depth, leftPct, widthPct, total) {
+    let s2 = "";
+    if (depth > 0) {
+      s2 += renderFlameNode(node, depth - 1, leftPct, widthPct, total);
+    }
+    let childLeft = leftPct;
+    for (const child of node.children) {
+      const childWidth = total > 0 ? child.totalHits / total * widthPct * (total / node.totalHits) : 0;
+      const w3 = node.totalHits > 0 ? child.totalHits / node.totalHits * widthPct : 0;
+      s2 += renderFlameRecursive(child, depth + 1, childLeft, w3, total);
+      childLeft += w3;
+    }
+    return s2;
+  }
+  function renderCombinedStacks(prof) {
+    const stacks = prof.combined_stacks ?? [];
+    if (stacks.length === 0) return "";
+    const root = buildFlameTree(stacks);
+    const totalHits = root.totalHits;
+    const depth = flameMaxDepth(root);
+    const containerHeight = depth * FLAME_ROW_HEIGHT;
+    let s2 = `<hr><div class="container-fluid combined-stacks-section">`;
+    s2 += `<p style="margin-bottom: 4px;">`;
+    s2 += `<span id="button-combined-stacks" title="Click to show or hide stitched Python+native call stacks." style="cursor: pointer; color: blue;" onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
+    s2 += ` <strong>Combined Python + native call stacks</strong> `;
+    s2 += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples \u2014 hover for details, click a [py] frame to jump to its source line</span>`;
+    s2 += `</p>`;
+    s2 += `<div id="combined-stacks-body" style="display: none;">`;
+    s2 += `<div class="combined-stacks-flame" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;">`;
+    s2 += renderFlameRecursive(root, 0, 0, 100, totalHits);
+    s2 += `</div></div></div>`;
+    return s2;
+  }
+  function toggleCombinedStacks() {
+    const body = document.getElementById("combined-stacks-body");
+    const btn = document.getElementById("button-combined-stacks");
+    if (!body || !btn) return;
+    if (body.style.display === "none") {
+      body.style.display = "block";
+      btn.innerHTML = DownTriangle;
+    } else {
+      body.style.display = "none";
+      btn.innerHTML = RightTriangle;
+    }
+  }
   function toggleDisplay(id2) {
     const d2 = document.getElementById(`profile-${id2}`);
     if (d2) {
@@ -71837,6 +72017,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
     let fileIteration = 0;
     allIds = [];
     const excludedFiles = /* @__PURE__ */ new Set();
+    fileNumberByFilename.clear();
     for (const ff of files4) {
       fileIteration++;
       if (ff[1].percent_cpu_time < 1 && ma2[ff[0]] < 0.01 * max_alloc) {
@@ -71845,6 +72026,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       }
       const id2 = `file-${fileIteration}`;
       allIds.push(id2);
+      fileNumberByFilename.set(ff[0], fileIteration);
       s2 += '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px)">';
       let displayStr = "display:block;";
       let triangle = DownTriangle;
@@ -72022,6 +72204,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
     }
     files4 = files4.filter((x5) => !excludedFiles.has(x5));
     s2 += "</div>";
+    s2 += renderCombinedStacks(prof);
     const p2 = document.getElementById("profile");
     if (p2) {
       p2.innerHTML = s2;
@@ -72346,6 +72529,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
   window.collapseAll = collapseAll;
   window.expandAll = expandAll;
   window.toggleDisplay = toggleDisplay;
+  window.toggleCombinedStacks = toggleCombinedStacks;
   window.toggleReduced = toggleReduced;
   window.onFileDisplayModeChange = onFileDisplayModeChange;
   window.load = load3;

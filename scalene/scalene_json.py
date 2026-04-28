@@ -627,6 +627,31 @@ class ScaleneJSON:
 
             ip_cache_combined: Dict[int, List[Any]] = {}
 
+            # Cache source-file line lookups so we read each Python file at
+            # most once during combined_stacks emission. linecache would do
+            # this too, but we already have the file-read pattern below.
+            source_cache: Dict[str, Optional[List[str]]] = {}
+
+            def _source_line(filename: str, lineno: int) -> str:
+                """Return the source line (stripped, no trailing newline) for
+                filename:lineno, or '' if the file can't be read or the line
+                is out of range. linecache fallback handles exec'd code."""
+                if filename in source_cache:
+                    lines = source_cache[filename]
+                else:
+                    lines = None
+                    try:
+                        with open(filename, encoding="utf-8") as src:
+                            lines = src.readlines()
+                    except (OSError, UnicodeDecodeError):
+                        cached = linecache.getlines(filename)
+                        if cached:
+                            lines = cached
+                    source_cache[filename] = lines
+                if lines is None or lineno < 1 or lineno > len(lines):
+                    return ""
+                return lines[lineno - 1].rstrip()
+
             def _resolve(ip: int) -> List[Any]:
                 if ip in ip_cache_combined:
                     return ip_cache_combined[ip]
@@ -639,6 +664,14 @@ class ScaleneJSON:
                 ip_cache_combined[ip] = rep
                 return rep
 
+            # Aggregate by the resolved + trimmed display key so that two raw
+            # samples that landed on different IPs but resolved to the same
+            # (symbol, module) frames collapse into one entry. Without this,
+            # near-identical stacks appear as duplicates because sample-time
+            # aggregation in stats.combined_stacks is keyed by raw IPs.
+            combined_aggregated: Dict[
+                Tuple[Tuple[Any, ...], ...], Tuple[List[Dict[str, Any]], int]
+            ] = {}
             for stk, hits in stats.combined_stacks.items():
                 # Find the seam: index of first native frame.
                 seam = next(
@@ -661,12 +694,15 @@ class ScaleneJSON:
                 out_frames: List[Dict[str, Any]] = []
                 for f in py_segment:
                     # ("py", filename, function, line)
+                    py_filename = str(f[1])
+                    py_line = int(f[3])
                     out_frames.append(
                         {
                             "kind": "py",
                             "display_name": str(f[2]),
-                            "filename_or_module": str(f[1]),
-                            "line": int(f[3]),
+                            "filename_or_module": py_filename,
+                            "line": py_line,
+                            "code_line": _source_line(py_filename, py_line),
                             "ip": None,
                             "offset": None,
                         }
@@ -682,8 +718,29 @@ class ScaleneJSON:
                             "offset": int(offset),
                         }
                     )
-                if out_frames:
-                    combined_stks.append((out_frames, hits))
+                if not out_frames:
+                    continue
+                # Build dedup key from the user-visible fields only. Native
+                # ip/offset intentionally excluded so different instructions
+                # within the same function collapse to one entry.
+                dedup_key = tuple(
+                    (
+                        f["kind"],
+                        f["display_name"],
+                        f["filename_or_module"],
+                        f["line"],
+                    )
+                    for f in out_frames
+                )
+                existing = combined_aggregated.get(dedup_key)
+                if existing is None:
+                    combined_aggregated[dedup_key] = (out_frames, hits)
+                else:
+                    combined_aggregated[dedup_key] = (
+                        existing[0],
+                        existing[1] + hits,
+                    )
+            combined_stks.extend(combined_aggregated.values())
 
         # Aggregate bytes from native-thread allocations that have no
         # Python frame (see pywhere.cpp <native> sentinel). These are not

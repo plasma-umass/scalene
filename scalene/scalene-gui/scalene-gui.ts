@@ -77,6 +77,27 @@ interface FileData {
   leaks?: Record<number, { velocity_mb_s: number }>;
 }
 
+type CombinedFrame =
+  | {
+      kind: "py";
+      display_name: string;
+      filename_or_module: string;
+      line: number;
+      code_line?: string;
+      ip: null;
+      offset: null;
+    }
+  | {
+      kind: "native";
+      display_name: string;
+      filename_or_module: string;
+      line: null;
+      ip: number;
+      offset: number;
+    };
+
+type CombinedStackEntry = [CombinedFrame[], number];
+
 interface Profile {
   files: Record<string, FileData>;
   gpu: boolean;
@@ -90,6 +111,7 @@ interface Profile {
   growth_rate: number;
   program?: string;
   stacks?: unknown;
+  combined_stacks?: CombinedStackEntry[];
 }
 
 interface Column {
@@ -108,20 +130,84 @@ declare const globalThis: {
 };
 
 export function vsNavigate(filename: string, lineno: number): void {
-  // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
+  // VS Code webview: use the host postMessage API.
   try {
-    const vscode = (window as unknown as { acquireVsCodeApi: () => { postMessage: (msg: unknown) => void } }).acquireVsCodeApi();
+    const vscode = (
+      window as unknown as {
+        acquireVsCodeApi: () => { postMessage: (msg: unknown) => void };
+      }
+    ).acquireVsCodeApi();
     vscode.postMessage({
       command: "jumpToLine",
       filePath: filename,
       lineNumber: lineno,
     });
+    return;
   } catch {
-    // Do nothing
+    // Not running in VS Code's webview — fall through to in-page nav.
+  }
+
+  const decoded =
+    filename.indexOf("%") >= 0 ? decodeURIComponent(filename) : filename;
+
+  // Standalone browser: scroll to the line within the rendered per-file
+  // table. file_number is assigned during display() and the line span IDs
+  // are `code-${file_number}-${lineno}`.
+  const fileNumber = fileNumberByFilename.get(decoded);
+  if (fileNumber !== undefined) {
+    const fileId = `file-${fileNumber}`;
+    const fileSection = document.getElementById(`profile-${fileId}`);
+    if (fileSection && fileSection.style.display === "none") {
+      // Expand the per-file section first so the line can scroll into view.
+      toggleDisplay(fileId);
+    }
+    const target = document.getElementById(`code-${fileNumber}-${lineno}`);
+    if (target) {
+      // The line span exists in the DOM, but the surrounding <tr> may be
+      // hidden by the file's display mode (default is "profiled-functions",
+      // which suppresses empty rows). If so, switch the per-file display
+      // mode to "all" so the line is actually visible after scroll.
+      const tr = target.closest("tr") as HTMLElement | null;
+      if (tr && tr.style.display === "none") {
+        const select = document.getElementById(
+          `display-mode-${fileId}`,
+        ) as HTMLSelectElement | null;
+        if (select) {
+          select.value = "all";
+        }
+        applyFileDisplayMode(fileId, "all");
+      }
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Brief yellow flash so the user can see what got selected.
+      const td = target.closest("td") as HTMLElement | null;
+      const flashTarget = td ?? target;
+      const prevBg = flashTarget.style.backgroundColor;
+      flashTarget.style.transition = "background-color 0.2s ease";
+      flashTarget.style.backgroundColor = "#fff3a8";
+      window.setTimeout(() => {
+        flashTarget.style.backgroundColor = prevBg;
+      }, 1200);
+      return;
+    }
+  }
+
+  // File isn't displayed in the GUI (excluded by the per-file CPU/memory
+  // threshold, or referenced from a stack but not in prof.files). Last
+  // resort: vscode:// URL — opens VS Code if installed, otherwise no-op.
+  try {
+    window.location.href = `vscode://file/${decoded}:${lineno}:1`;
+  } catch {
+    // Truly nothing we can do.
   }
 }
 
 const maxLinesPerRegion = 50; // Only show regions that are no more than this many lines.
+
+// Filled in by display() each time the profile renders. Maps the filename
+// (matching keys of prof.files) to the file_number used in per-line code
+// span IDs (`code-${file_number}-${lineno}`). vsNavigate() consults this
+// to scroll within the page when running in a regular browser.
+const fileNumberByFilename: Map<string, number> = new Map();
 
 let showedExplosion: Record<string, boolean> = {}; // Used so we only show one explosion per region.
 
@@ -847,6 +933,208 @@ function expandDisplay(id: string): void {
   }
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function basename(path: string): string {
+  if (!path) return "";
+  const parts = path.split(/[\\/]/);
+  return parts[parts.length - 1] || path;
+}
+
+// Flame-chart rendering for combined_stacks. Stacks sharing a common
+// outermost-prefix collapse into wider parent rectangles; siblings split.
+// Layout is "icicle" — root at top, leaves at bottom — which reads
+// naturally for call-from-the-top stacks (outermost-first).
+const FLAME_ROW_HEIGHT = 18;
+const FLAME_MIN_LABEL_WIDTH_PCT = 1.5;
+
+interface FlameNode {
+  kind: "py" | "native" | "root";
+  name: string;
+  filename: string;
+  line: number | null;
+  code_line: string | undefined;
+  selfHits: number;
+  totalHits: number;
+  children: FlameNode[];
+}
+
+function buildFlameTree(stacks: CombinedStackEntry[]): FlameNode {
+  const root: FlameNode = {
+    kind: "root",
+    name: "(all stacks)",
+    filename: "",
+    line: null,
+    code_line: undefined,
+    selfHits: 0,
+    totalHits: 0,
+    children: [],
+  };
+  const childMaps = new WeakMap<FlameNode, Map<string, FlameNode>>();
+  childMaps.set(root, new Map());
+  for (const [frames, hits] of stacks) {
+    let node: FlameNode = root;
+    node.totalHits += hits;
+    for (const f of frames) {
+      const key = `${f.kind}|${f.filename_or_module}|${
+        f.kind === "py" ? f.line : "x"
+      }|${f.display_name}`;
+      const map = childMaps.get(node);
+      if (!map) continue;
+      let child = map.get(key);
+      if (!child) {
+        child = {
+          kind: f.kind,
+          name: f.display_name,
+          filename: f.filename_or_module,
+          line: f.kind === "py" ? f.line : null,
+          code_line: f.kind === "py" ? f.code_line : undefined,
+          selfHits: 0,
+          totalHits: 0,
+          children: [],
+        };
+        map.set(key, child);
+        childMaps.set(child, new Map());
+        node.children.push(child);
+      }
+      child.totalHits += hits;
+      node = child;
+    }
+    node.selfHits += hits;
+  }
+  function sortDescByHits(n: FlameNode): void {
+    n.children.sort((a, b) => b.totalHits - a.totalHits);
+    for (const c of n.children) sortDescByHits(c);
+  }
+  sortDescByHits(root);
+  return root;
+}
+
+function flameMaxDepth(node: FlameNode): number {
+  if (node.children.length === 0) return 0;
+  let m = 0;
+  for (const c of node.children) {
+    const d = flameMaxDepth(c);
+    if (d > m) m = d;
+  }
+  return 1 + m;
+}
+
+function flameColor(name: string, kind: "py" | "native" | "root"): string {
+  if (kind === "root") return "#ddd";
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  }
+  const hue = Math.abs(h) % 360;
+  // py frames muted/cool, native frames warmer/saturated so the seam is
+  // visible at a glance.
+  if (kind === "py") return `hsl(${hue}, 45%, 78%)`;
+  return `hsl(${(hue + 30) % 360}, 70%, 65%)`;
+}
+
+function renderFlameNode(
+  node: FlameNode,
+  depth: number,
+  leftPct: number,
+  widthPct: number,
+  total: number,
+): string {
+  const pct = total > 0 ? ((node.totalHits / total) * 100).toFixed(1) : "0.0";
+  const codeLineText = (node.code_line ?? "").trim();
+  let tooltip: string;
+  if (node.kind === "py") {
+    const tail = codeLineText ? `\n${codeLineText}` : "";
+    tooltip = `[py] ${node.name}\n${node.filename}:${node.line}\n${node.totalHits} hits (${pct}%)${tail}`;
+  } else {
+    tooltip = `[native] ${node.name}\n${node.filename}\n${node.totalHits} hits (${pct}%)`;
+  }
+  const top = depth * FLAME_ROW_HEIGHT;
+  const color = flameColor(node.name, node.kind);
+  const showLabel = widthPct >= FLAME_MIN_LABEL_WIDTH_PCT;
+  const labelHtml = showLabel ? escapeHtml(node.name) : "";
+  const cursor = node.kind === "py" && node.line !== null ? "pointer" : "default";
+  const clickAttr =
+    node.kind === "py" && node.line !== null
+      ? ` onclick="vsNavigate('${escape(node.filename)}',${node.line})"`
+      : "";
+  return (
+    `<div style="position:absolute;` +
+    `top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
+    `height:${FLAME_ROW_HEIGHT - 1}px;background:${color};` +
+    `border:1px solid rgba(0,0,0,0.12);overflow:hidden;` +
+    `font-family:monospace;font-size:11px;` +
+    `line-height:${FLAME_ROW_HEIGHT - 1}px;padding:0 4px;` +
+    `white-space:nowrap;text-overflow:ellipsis;cursor:${cursor};box-sizing:border-box;"` +
+    ` title="${escapeHtml(tooltip)}"${clickAttr}>${labelHtml}</div>`
+  );
+}
+
+function renderFlameRecursive(
+  node: FlameNode,
+  depth: number,
+  leftPct: number,
+  widthPct: number,
+  total: number,
+): string {
+  let s = "";
+  if (depth > 0) {
+    s += renderFlameNode(node, depth - 1, leftPct, widthPct, total);
+  }
+  let childLeft = leftPct;
+  for (const child of node.children) {
+    const childWidth = total > 0 ? (child.totalHits / total) * widthPct * (total / node.totalHits) : 0;
+    // Equivalent: child.totalHits / node.totalHits * widthPct (parent's width slice).
+    const w = node.totalHits > 0 ? (child.totalHits / node.totalHits) * widthPct : 0;
+    s += renderFlameRecursive(child, depth + 1, childLeft, w, total);
+    childLeft += w;
+    void childWidth;
+  }
+  return s;
+}
+
+export function renderCombinedStacks(prof: Profile): string {
+  const stacks = prof.combined_stacks ?? [];
+  if (stacks.length === 0) return "";
+
+  const root = buildFlameTree(stacks);
+  const totalHits = root.totalHits;
+  const depth = flameMaxDepth(root);
+  const containerHeight = depth * FLAME_ROW_HEIGHT;
+
+  let s = `<hr><div class="container-fluid combined-stacks-section">`;
+  s += `<p style="margin-bottom: 4px;">`;
+  s += `<span id="button-combined-stacks" title="Click to show or hide stitched Python+native call stacks." style="cursor: pointer; color: blue;" onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
+  s += ` <strong>Combined Python + native call stacks</strong> `;
+  s += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples — hover for details, click a [py] frame to jump to its source line</span>`;
+  s += `</p>`;
+  s += `<div id="combined-stacks-body" style="display: none;">`;
+  s += `<div class="combined-stacks-flame" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;">`;
+  s += renderFlameRecursive(root, 0, 0, 100, totalHits);
+  s += `</div></div></div>`;
+  return s;
+}
+
+export function toggleCombinedStacks(): void {
+  const body = document.getElementById("combined-stacks-body");
+  const btn = document.getElementById("button-combined-stacks");
+  if (!body || !btn) return;
+  if (body.style.display === "none") {
+    body.style.display = "block";
+    btn.innerHTML = DownTriangle;
+  } else {
+    body.style.display = "none";
+    btn.innerHTML = RightTriangle;
+  }
+}
+
 export function toggleDisplay(id: string): void {
   const d = document.getElementById(`profile-${id}`);
   if (d) {
@@ -1086,6 +1374,7 @@ async function display(prof: Profile): Promise<void> {
   let fileIteration = 0;
   allIds = [];
   const excludedFiles = new Set<[string, FileData]>();
+  fileNumberByFilename.clear();
   for (const ff of files) {
     fileIteration++;
     // Stop once total CPU time / memory consumption are below some threshold (1%)
@@ -1095,6 +1384,7 @@ async function display(prof: Profile): Promise<void> {
     }
     const id = `file-${fileIteration}`;
     allIds.push(id);
+    fileNumberByFilename.set(ff[0], fileIteration);
     s +=
       '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px)">';
     let displayStr = "display:block;";
@@ -1310,6 +1600,7 @@ async function display(prof: Profile): Promise<void> {
   // Remove any excluded files.
   files = files.filter((x) => !excludedFiles.has(x));
   s += "</div>";
+  s += renderCombinedStacks(prof);
   const p = document.getElementById("profile");
   if (p) {
     p.innerHTML = s;
@@ -1721,6 +2012,7 @@ setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
 (window as unknown as Record<string, unknown>).collapseAll = collapseAll;
 (window as unknown as Record<string, unknown>).expandAll = expandAll;
 (window as unknown as Record<string, unknown>).toggleDisplay = toggleDisplay;
+(window as unknown as Record<string, unknown>).toggleCombinedStacks = toggleCombinedStacks;
 (window as unknown as Record<string, unknown>).toggleReduced = toggleReduced;
 (window as unknown as Record<string, unknown>).onFileDisplayModeChange = onFileDisplayModeChange;
 (window as unknown as Record<string, unknown>).load = load;
