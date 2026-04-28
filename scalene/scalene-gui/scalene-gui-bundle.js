@@ -71085,6 +71085,12 @@ Your output should only consist of valid Python code. Output the resulting Pytho
         filePath: filename,
         lineNumber: lineno
       });
+      return;
+    } catch {
+    }
+    try {
+      const decoded = filename.indexOf("%") >= 0 ? decodeURIComponent(filename) : filename;
+      window.location.href = `vscode://file/${decoded}:${lineno}:1`;
     } catch {
     }
   }
@@ -71669,8 +71675,18 @@ Your output should only consist of valid Python code. Output the resulting Pytho
         const base = basename(f2.filename_or_module);
         if (f2.kind === "py") {
           const safeFn = escape(f2.filename_or_module);
+          const code = (f2.code_line ?? "").trim();
+          let label;
+          if (code) {
+            const highlighted = Prism2.highlight(code, Prism2.languages.python, "python");
+            label = `<code class="language-python" style="white-space: pre;">${highlighted}</code>`;
+          } else if (f2.display_name === "<module>") {
+            label = `<span class="text-muted">&lt;top level&gt;</span>`;
+          } else {
+            label = escapeHtml(f2.display_name);
+          }
           s2 += `<li><span style="color: #0a6;">[py]</span> `;
-          s2 += `${escapeHtml(f2.display_name)} `;
+          s2 += `${label} `;
           s2 += `<span style="cursor: pointer; color: #0a58ca; text-decoration: underline;" `;
           s2 += `title="Click to open ${escapeHtml(f2.filename_or_module)}:${f2.line} in VS Code" `;
           s2 += `onclick="vsNavigate('${safeFn}',${f2.line})">${escapeHtml(base)}:${f2.line}</span></li>`;

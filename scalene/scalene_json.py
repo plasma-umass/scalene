@@ -627,6 +627,31 @@ class ScaleneJSON:
 
             ip_cache_combined: Dict[int, List[Any]] = {}
 
+            # Cache source-file line lookups so we read each Python file at
+            # most once during combined_stacks emission. linecache would do
+            # this too, but we already have the file-read pattern below.
+            source_cache: Dict[str, Optional[List[str]]] = {}
+
+            def _source_line(filename: str, lineno: int) -> str:
+                """Return the source line (stripped, no trailing newline) for
+                filename:lineno, or '' if the file can't be read or the line
+                is out of range. linecache fallback handles exec'd code."""
+                if filename in source_cache:
+                    lines = source_cache[filename]
+                else:
+                    lines = None
+                    try:
+                        with open(filename, encoding="utf-8") as src:
+                            lines = src.readlines()
+                    except (OSError, UnicodeDecodeError):
+                        cached = linecache.getlines(filename)
+                        if cached:
+                            lines = cached
+                    source_cache[filename] = lines
+                if lines is None or lineno < 1 or lineno > len(lines):
+                    return ""
+                return lines[lineno - 1].rstrip()
+
             def _resolve(ip: int) -> List[Any]:
                 if ip in ip_cache_combined:
                     return ip_cache_combined[ip]
@@ -669,12 +694,15 @@ class ScaleneJSON:
                 out_frames: List[Dict[str, Any]] = []
                 for f in py_segment:
                     # ("py", filename, function, line)
+                    py_filename = str(f[1])
+                    py_line = int(f[3])
                     out_frames.append(
                         {
                             "kind": "py",
                             "display_name": str(f[2]),
-                            "filename_or_module": str(f[1]),
-                            "line": int(f[3]),
+                            "filename_or_module": py_filename,
+                            "line": py_line,
+                            "code_line": _source_line(py_filename, py_line),
                             "ip": None,
                             "offset": None,
                         }

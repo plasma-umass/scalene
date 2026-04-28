@@ -83,6 +83,7 @@ type CombinedFrame =
       display_name: string;
       filename_or_module: string;
       line: number;
+      code_line?: string;
       ip: null;
       offset: null;
     }
@@ -129,16 +130,32 @@ declare const globalThis: {
 };
 
 export function vsNavigate(filename: string, lineno: number): void {
-  // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
+  // If we are in VS Code's webview, postMessage to the host. In a regular
+  // browser, fall back to the vscode:// URL scheme — macOS / Windows route
+  // these to VS Code if it's installed. The browser shows a one-time
+  // permission prompt on first use, then silently opens the file.
   try {
-    const vscode = (window as unknown as { acquireVsCodeApi: () => { postMessage: (msg: unknown) => void } }).acquireVsCodeApi();
+    const vscode = (
+      window as unknown as {
+        acquireVsCodeApi: () => { postMessage: (msg: unknown) => void };
+      }
+    ).acquireVsCodeApi();
     vscode.postMessage({
       command: "jumpToLine",
       filePath: filename,
       lineNumber: lineno,
     });
+    return;
   } catch {
-    // Do nothing
+    // Not running in VS Code's webview — fall through.
+  }
+  try {
+    const decoded =
+      filename.indexOf("%") >= 0 ? decodeURIComponent(filename) : filename;
+    // vscode://file/<absolute-path>:<line>:<col> — column 1 is fine for line nav.
+    window.location.href = `vscode://file/${decoded}:${lineno}:1`;
+  } catch {
+    // Last-resort no-op.
   }
 }
 
@@ -907,12 +924,25 @@ export function renderCombinedStacks(prof: Profile): string {
     for (const f of frames) {
       const base = basename(f.filename_or_module);
       if (f.kind === "py") {
-        // Match the per-line table convention (scalene-gui.ts:768): the
-        // file:line text is the click target for vsNavigate, not the
-        // function name. The function name stays as plain text.
+        // Show the actual source line of code (syntax-highlighted) — much
+        // more useful than the bare function name, especially for module
+        // top-level frames where the qualname is just "<module>". Falls
+        // back to the function name when the source isn't readable.
+        // file:line is the click target for vsNavigate, matching the
+        // per-line table convention at scalene-gui.ts:768.
         const safeFn = escape(f.filename_or_module);
+        const code = (f.code_line ?? "").trim();
+        let label: string;
+        if (code) {
+          const highlighted = Prism.highlight(code, Prism.languages.python, "python");
+          label = `<code class="language-python" style="white-space: pre;">${highlighted}</code>`;
+        } else if (f.display_name === "<module>") {
+          label = `<span class="text-muted">&lt;top level&gt;</span>`;
+        } else {
+          label = escapeHtml(f.display_name);
+        }
         s += `<li><span style="color: #0a6;">[py]</span> `;
-        s += `${escapeHtml(f.display_name)} `;
+        s += `${label} `;
         s += `<span style="cursor: pointer; color: #0a58ca; text-decoration: underline;" `;
         s += `title="Click to open ${escapeHtml(f.filename_or_module)}:${f.line} in VS Code" `;
         s += `onclick="vsNavigate('${safeFn}',${f.line})">${escapeHtml(base)}:${f.line}</span></li>`;
