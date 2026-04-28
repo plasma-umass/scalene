@@ -152,6 +152,19 @@ def require_python(version: tuple[int, int]) -> None:
 require_python((MINIMUM_PYTHON_VERSION_MAJOR, MINIMUM_PYTHON_VERSION_MINOR))
 
 
+# Re-entry guards for memory signal handlers. malloc_signal_handler (and
+# free_signal_handler) call _should_trace, which constructs a pathlib.Path
+# whose internals call into the signal_blocking_wrapper-patched os module.
+# Allocations inside that path can re-trigger the malloc-sampling signal,
+# and on --use-legacy-tracer runs PyEval_SetTrace adds another way for the
+# handler to recurse via the trace callback. Either way the Python stack
+# can overflow (issue #1038). The guard drops the inner sample rather
+# than re-entering. Plain module-level bools are sufficient: Python signal
+# handlers registered via signal.signal() only ever run on the main thread.
+_in_malloc_handler = False
+_in_free_handler = False
+
+
 class Scalene:
     """The Scalene profiler itself."""
 
@@ -656,6 +669,22 @@ class Scalene:
         this_frame: FrameType | None,
     ) -> None:
         """Handle allocation signals."""
+        # Drop the sample if we're already inside this handler — see the
+        # _in_malloc_handler comment above and issue #1038.
+        global _in_malloc_handler
+        if _in_malloc_handler:
+            return
+        _in_malloc_handler = True
+        try:
+            Scalene._malloc_signal_handler_body(signum, this_frame)
+        finally:
+            _in_malloc_handler = False
+
+    @staticmethod
+    def _malloc_signal_handler_body(
+        signum: SignumType,
+        this_frame: FrameType | None,
+    ) -> None:
         if not Scalene.__args.memory:
             # This should never happen, but we fail gracefully.
             return
@@ -716,9 +745,17 @@ class Scalene:
         this_frame: FrameType | None,
     ) -> None:
         """Handle free signals."""
-        if this_frame:
-            enter_function_meta(this_frame, Scalene._should_trace, Scalene.__stats)
-        Scalene.__alloc_sigq.put([0])
+        # Same recursion-guard story as malloc_signal_handler — see #1038.
+        global _in_free_handler
+        if _in_free_handler:
+            return
+        _in_free_handler = True
+        try:
+            if this_frame:
+                enter_function_meta(this_frame, Scalene._should_trace, Scalene.__stats)
+            Scalene.__alloc_sigq.put([0])
+        finally:
+            _in_free_handler = False
         del this_frame
 
     @staticmethod
