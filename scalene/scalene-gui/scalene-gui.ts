@@ -130,10 +130,7 @@ declare const globalThis: {
 };
 
 export function vsNavigate(filename: string, lineno: number): void {
-  // If we are in VS Code's webview, postMessage to the host. In a regular
-  // browser, fall back to the vscode:// URL scheme — macOS / Windows route
-  // these to VS Code if it's installed. The browser shows a one-time
-  // permission prompt on first use, then silently opens the file.
+  // VS Code webview: use the host postMessage API.
   try {
     const vscode = (
       window as unknown as {
@@ -147,19 +144,55 @@ export function vsNavigate(filename: string, lineno: number): void {
     });
     return;
   } catch {
-    // Not running in VS Code's webview — fall through.
+    // Not running in VS Code's webview — fall through to in-page nav.
   }
+
+  const decoded =
+    filename.indexOf("%") >= 0 ? decodeURIComponent(filename) : filename;
+
+  // Standalone browser: scroll to the line within the rendered per-file
+  // table. file_number is assigned during display() and the line span IDs
+  // are `code-${file_number}-${lineno}`.
+  const fileNumber = fileNumberByFilename.get(decoded);
+  if (fileNumber !== undefined) {
+    const fileSection = document.getElementById(`profile-file-${fileNumber}`);
+    if (fileSection && fileSection.style.display === "none") {
+      // Expand the per-file section first so the line can scroll into view.
+      toggleDisplay(`file-${fileNumber}`);
+    }
+    const target = document.getElementById(`code-${fileNumber}-${lineno}`);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Brief yellow flash so the user can see what got selected.
+      const td = target.closest("td") as HTMLElement | null;
+      const flashTarget = td ?? target;
+      const prevBg = flashTarget.style.backgroundColor;
+      flashTarget.style.transition = "background-color 0.2s ease";
+      flashTarget.style.backgroundColor = "#fff3a8";
+      window.setTimeout(() => {
+        flashTarget.style.backgroundColor = prevBg;
+      }, 1200);
+      return;
+    }
+  }
+
+  // File isn't displayed in the GUI (excluded by the per-file CPU/memory
+  // threshold, or referenced from a stack but not in prof.files). Last
+  // resort: vscode:// URL — opens VS Code if installed, otherwise no-op.
   try {
-    const decoded =
-      filename.indexOf("%") >= 0 ? decodeURIComponent(filename) : filename;
-    // vscode://file/<absolute-path>:<line>:<col> — column 1 is fine for line nav.
     window.location.href = `vscode://file/${decoded}:${lineno}:1`;
   } catch {
-    // Last-resort no-op.
+    // Truly nothing we can do.
   }
 }
 
 const maxLinesPerRegion = 50; // Only show regions that are no more than this many lines.
+
+// Filled in by display() each time the profile renders. Maps the filename
+// (matching keys of prof.files) to the file_number used in per-line code
+// span IDs (`code-${file_number}-${lineno}`). vsNavigate() consults this
+// to scroll within the page when running in a regular browser.
+const fileNumberByFilename: Map<string, number> = new Map();
 
 let showedExplosion: Record<string, boolean> = {}; // Used so we only show one explosion per region.
 
@@ -1209,6 +1242,7 @@ async function display(prof: Profile): Promise<void> {
   let fileIteration = 0;
   allIds = [];
   const excludedFiles = new Set<[string, FileData]>();
+  fileNumberByFilename.clear();
   for (const ff of files) {
     fileIteration++;
     // Stop once total CPU time / memory consumption are below some threshold (1%)
@@ -1218,6 +1252,7 @@ async function display(prof: Profile): Promise<void> {
     }
     const id = `file-${fileIteration}`;
     allIds.push(id);
+    fileNumberByFilename.set(ff[0], fileIteration);
     s +=
       '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px)">';
     let displayStr = "display:block;";

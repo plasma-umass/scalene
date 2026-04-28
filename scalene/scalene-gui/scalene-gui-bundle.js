@@ -71088,13 +71088,34 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       return;
     } catch {
     }
+    const decoded = filename.indexOf("%") >= 0 ? decodeURIComponent(filename) : filename;
+    const fileNumber = fileNumberByFilename.get(decoded);
+    if (fileNumber !== void 0) {
+      const fileSection = document.getElementById(`profile-file-${fileNumber}`);
+      if (fileSection && fileSection.style.display === "none") {
+        toggleDisplay(`file-${fileNumber}`);
+      }
+      const target2 = document.getElementById(`code-${fileNumber}-${lineno}`);
+      if (target2) {
+        target2.scrollIntoView({ behavior: "smooth", block: "center" });
+        const td = target2.closest("td");
+        const flashTarget = td ?? target2;
+        const prevBg = flashTarget.style.backgroundColor;
+        flashTarget.style.transition = "background-color 0.2s ease";
+        flashTarget.style.backgroundColor = "#fff3a8";
+        window.setTimeout(() => {
+          flashTarget.style.backgroundColor = prevBg;
+        }, 1200);
+        return;
+      }
+    }
     try {
-      const decoded = filename.indexOf("%") >= 0 ? decodeURIComponent(filename) : filename;
       window.location.href = `vscode://file/${decoded}:${lineno}:1`;
     } catch {
     }
   }
   var maxLinesPerRegion = 50;
+  var fileNumberByFilename = /* @__PURE__ */ new Map();
   var showedExplosion = {};
   function proposeOptimizationRegion(filename, file_number, line4) {
     proposeOptimization(
@@ -71912,6 +71933,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
     let fileIteration = 0;
     allIds = [];
     const excludedFiles = /* @__PURE__ */ new Set();
+    fileNumberByFilename.clear();
     for (const ff of files4) {
       fileIteration++;
       if (ff[1].percent_cpu_time < 1 && ma2[ff[0]] < 0.01 * max_alloc) {
@@ -71920,6 +71942,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       }
       const id2 = `file-${fileIteration}`;
       allIds.push(id2);
+      fileNumberByFilename.set(ff[0], fileIteration);
       s2 += '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px)">';
       let displayStr = "display:block;";
       let triangle = DownTriangle;
