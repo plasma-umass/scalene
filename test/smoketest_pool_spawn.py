@@ -13,13 +13,19 @@ cmd = [sys.executable, "-m", "scalene", "run", "--cpu-only", "test/pool_spawn_te
 print("COMMAND", " ".join(cmd))
 
 try:
-    proc = subprocess.run(cmd, timeout=120)
+    proc = subprocess.run(cmd, timeout=120, capture_output=True, text=True)
     rc = proc.returncode
-except subprocess.TimeoutExpired:
+    out, err = proc.stdout, proc.stderr
+except subprocess.TimeoutExpired as e:
     # Timeout during cleanup is acceptable — the profiled program completed
     # but Python's multiprocessing resource tracker can hang on shutdown.
     print("Process timed out (likely cleanup hang), treating as success")
     rc = 0
+    out = (e.stdout or b"").decode(errors="replace") if e.stdout else ""
+    err = (e.stderr or b"").decode(errors="replace") if e.stderr else ""
+
+print(out, end="")
+print(err, end="", file=sys.stderr)
 
 # Allow exit codes 0 (success) and 1 (memoryview cleanup warning on Windows)
 if rc > 1:

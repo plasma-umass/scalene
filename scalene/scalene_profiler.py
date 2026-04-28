@@ -823,13 +823,9 @@ class Scalene:
             # numpy mid-call), unlike anything we could unwind from here —
             # by the time this Python handler runs, the interrupted C call
             # has already returned to the bytecode interpreter.
-            # Drain native (C/C++) stacks captured by our C-level sigaction
-            # handler. Those stacks reflect the *interrupted* user code (e.g.
-            # numpy mid-call), unlike anything we could unwind from here —
-            # by the time this Python handler runs, the interrupted C call
-            # has already returned to the bytecode interpreter.
+            native_drains: list[tuple[int, ...]] = []
             if Scalene.__args.stacks:
-                drain_native_stacks(Scalene.__stats.native_stacks)
+                native_drains = drain_native_stacks(Scalene.__stats.native_stacks)
 
             # Process this CPU sample.
             frames = compute_frames_to_record(Scalene._should_trace)
@@ -841,6 +837,7 @@ class Scalene:
                 gpu_mem_used,
                 Scalene.__last_signal_time,
                 Scalene.__is_thread_sleeping,
+                native_drains,
             )
             # Advance library profiler schedules (e.g., torch profiler
             # periodic flush) to keep memory bounded.
@@ -1036,6 +1033,7 @@ class Scalene:
         gpu_mem_used: float,
         prev: TimeInfo,
         is_thread_sleeping: dict[int, bool],
+        native_drains: list[tuple[int, ...]] | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
@@ -1062,6 +1060,7 @@ class Scalene:
             Scalene._should_trace,
             Scalene.__last_cpu_interval,
             Scalene.__args.stacks,
+            native_drains or [],
         )
 
     @staticmethod
