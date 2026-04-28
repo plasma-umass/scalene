@@ -23,11 +23,13 @@ class TestSuspendedTaskInfo:
 
     def test_namedtuple_unpacking(self) -> None:
         info = SuspendedTaskInfo("test.py", 10, 500, "my_task")
-        filename, lineno, ns, name = info
+        filename, lineno, ns, name, func, chain = info
         assert filename == "test.py"
         assert lineno == 10
         assert ns == 500
         assert name == "my_task"
+        assert func == ""  # default for the optional func_name field
+        assert chain == ()  # default for the optional chain field
 
 
 # --- ScaleneAsync tests ---

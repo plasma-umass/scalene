@@ -2457,8 +2457,10 @@ var ScaleneGUI = (() => {
     refreshGeminiModels: () => refreshGeminiModels,
     refreshOpenAIModels: () => refreshOpenAIModels,
     renderCombinedStacks: () => renderCombinedStacks,
+    renderCombinedStacksTimeline: () => renderCombinedStacksTimeline,
     toggleAdvanced: () => toggleAdvanced,
     toggleCombinedStacks: () => toggleCombinedStacks,
+    toggleCombinedStacksTimeline: () => toggleCombinedStacksTimeline,
     toggleDisplay: () => toggleDisplay,
     togglePassword: () => togglePassword,
     toggleReduced: () => toggleReduced,
@@ -69969,8 +69971,8 @@ ${toHex(hashedRequest)}`;
   var Explosion = "&#128165;";
   var WhiteLightning = `<span style="opacity:0">${Lightning}</span>`;
   var WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`;
-  var RightTriangle = "&#9658";
-  var DownTriangle = "&#9660";
+  var RightTriangle = "&#9658;";
+  var DownTriangle = "&#9660;";
   function makeTooltip(title2, value3) {
     const secs = value3 / 100 * globalThis.profile.elapsed_time_sec;
     return `(${title2}) ` + value3.toFixed(1) + "% [" + time_consumed_str(secs * 1e3) + "]";
@@ -71795,7 +71797,7 @@ ${node.totalHits} hits (${pct}%)`;
     const containerHeight = depth * FLAME_ROW_HEIGHT;
     let s2 = `<hr><div class="container-fluid combined-stacks-section">`;
     s2 += `<p style="margin-bottom: 4px;">`;
-    s2 += `<span id="button-combined-stacks" title="Click to show or hide stitched Python+native call stacks." style="cursor: pointer; color: blue;" onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
+    s2 += `<span id="button-combined-stacks" class="disclosure-triangle" title="Click to show or hide stitched Python+native call stacks." onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
     s2 += ` <strong>Combined Python + native call stacks</strong> `;
     s2 += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples \u2014 hover for details, click a [py] frame to jump to its source line</span>`;
     s2 += `</p>`;
@@ -71808,6 +71810,223 @@ ${node.totalHits} hits (${pct}%)`;
   function toggleCombinedStacks() {
     const body = document.getElementById("combined-stacks-body");
     const btn = document.getElementById("button-combined-stacks");
+    if (!body || !btn) return;
+    if (body.style.display === "none") {
+      body.style.display = "block";
+      btn.innerHTML = DownTriangle;
+    } else {
+      body.style.display = "none";
+      btn.innerHTML = RightTriangle;
+    }
+  }
+  var TIMELINE_ROW_HEIGHT = 14;
+  var TIMELINE_MIN_LABEL_WIDTH_PX = 40;
+  var TIMELINE_TRACK_HEIGHT = 10;
+  var TIMELINE_TRACK_GAP = 2;
+  var TIMELINE_BUCKETS = 600;
+  var GC_NAME_PATTERNS = [
+    /(?:\b|_)gc[._]collect(?:_|\b)/i,
+    /(?:\b|_)PyGC(?:_|\b)/,
+    /(?:\b|_)_PyGC_/,
+    /(?:\b|_)gc_collect_main(?:_|\b)/,
+    /(?:\b|_)deallocate(?:_|\b)/
+  ];
+  var IO_NAME_PATTERNS = [
+    // Synthetic await frame emitted by add_async_await_run when a sample
+    // lands inside the event loop with coroutines suspended. Kept first
+    // since the literal "[await]" prefix is the cheapest possible match.
+    /^\[await\]/,
+    /(?:\b|_)read(?:v)?(?:_|\b)/,
+    /(?:\b|_)pread(?:v)?(?:_|\b)/,
+    /(?:\b|_)write(?:v)?(?:_|\b)/,
+    /(?:\b|_)pwrite(?:v)?(?:_|\b)/,
+    /(?:\b|_)recv(?:from|msg)?(?:_|\b)/,
+    /(?:\b|_)send(?:to|msg)?(?:_|\b)/,
+    /(?:\b|_)select(?:_|\b)/,
+    /(?:\b|_)epoll(?:_|\b)/,
+    /(?:\b|_)kevent(?:_|\b)/,
+    /(?:\b|_)kqueue(?:_|\b)/,
+    /(?:\b|_)poll(?:_|\b)/,
+    /(?:\b|_)accept[0-9]*(?:_|\b)/,
+    /(?:\b|_)connect(?:_|\b)/,
+    /(?:\b|_)open(?:at|dir)?(?:_|\b)/,
+    /(?:\b|_)close(?:_|\b)/,
+    /(?:\b|_)fsync(?:_|\b)/,
+    /(?:\b|_)fread(?:_|\b)/,
+    /(?:\b|_)fwrite(?:_|\b)/,
+    /(?:\b|_)lseek(?:_|\b)/
+  ];
+  var IO_FILE_PATTERNS = [
+    /\b_io\b/,
+    /\bsocket\.py$/,
+    /\bsocket\b/,
+    /\bselectors\.py$/,
+    /\bselector_events\.py$/,
+    /\basyncio\b/,
+    /\bsubprocess\.py$/
+  ];
+  function classifyFrame(f2) {
+    const name4 = f2.display_name ?? "";
+    for (const re3 of GC_NAME_PATTERNS) {
+      if (re3.test(name4)) return "gc";
+    }
+    for (const re3 of IO_NAME_PATTERNS) {
+      if (re3.test(name4)) return "io";
+    }
+    if (f2.kind === "py") {
+      for (const re3 of IO_FILE_PATTERNS) {
+        if (re3.test(f2.filename_or_module ?? "")) return "io";
+      }
+    }
+    return "other";
+  }
+  function classifyStack(stack2) {
+    let gc = false;
+    let io = false;
+    for (const f2 of stack2) {
+      const c4 = classifyFrame(f2);
+      if (c4 === "gc") gc = true;
+      else if (c4 === "io") io = true;
+      if (gc && io) break;
+    }
+    return { gc, io };
+  }
+  function timelineColor(name4, kind) {
+    let h3 = 0;
+    for (let i2 = 0; i2 < name4.length; i2++) {
+      h3 = (h3 << 5) - h3 + name4.charCodeAt(i2) | 0;
+    }
+    const hue2 = Math.abs(h3) % 360;
+    if (kind === "py") return `hsl(${hue2}, 45%, 78%)`;
+    return `hsl(${(hue2 + 30) % 360}, 70%, 65%)`;
+  }
+  function buildTimelineRuns(events3, totalElapsedSec) {
+    if (events3.length === 0) return { runs: [], totalSec: 0 };
+    const runs = [];
+    for (let i2 = 0; i2 < events3.length; i2++) {
+      const ev = events3[i2];
+      const next = events3[i2 + 1];
+      let end;
+      if (next) {
+        end = next.t_sec;
+      } else {
+        const synthetic = ev.t_sec + ev.count * 1e-3;
+        end = Math.max(ev.t_sec, totalElapsedSec || synthetic, synthetic);
+      }
+      if (end <= ev.t_sec) end = ev.t_sec;
+      runs.push({
+        startSec: ev.t_sec,
+        endSec: end,
+        stackIndex: ev.stack_index,
+        hits: ev.count
+      });
+    }
+    const totalSec = Math.max(totalElapsedSec, runs[runs.length - 1].endSec) - runs[0].startSec;
+    return { runs, totalSec };
+  }
+  function renderTimelineFrames(runs, stacks, totalSec, startSec) {
+    let s2 = "";
+    for (const run2 of runs) {
+      const stackEntry = stacks[run2.stackIndex];
+      if (!stackEntry) continue;
+      const frames = stackEntry[0];
+      const leftPct = (run2.startSec - startSec) / totalSec * 100;
+      const widthPct = (run2.endSec - run2.startSec) / totalSec * 100;
+      if (widthPct <= 0) continue;
+      const showLabels = widthPct / 100 * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
+      for (let depth = 0; depth < frames.length; depth++) {
+        const f2 = frames[depth];
+        const color5 = timelineColor(f2.display_name, f2.kind);
+        const top = depth * TIMELINE_ROW_HEIGHT;
+        const tooltip2 = f2.kind === "py" ? `[py] ${f2.display_name}
+${f2.filename_or_module}:${f2.line}
+${run2.startSec.toFixed(3)}s \u2014 ${run2.endSec.toFixed(3)}s (${run2.hits} samples)` : `[native] ${f2.display_name}
+${f2.filename_or_module}
+${run2.startSec.toFixed(3)}s \u2014 ${run2.endSec.toFixed(3)}s (${run2.hits} samples)`;
+        const label = showLabels ? escapeHtml(f2.display_name) : "";
+        const cursor3 = f2.kind === "py" && f2.line !== null ? "pointer" : "default";
+        const clickAttr = f2.kind === "py" && f2.line !== null ? ` onclick="vsNavigate('${escape(f2.filename_or_module)}',${f2.line})"` : "";
+        s2 += `<div style="position:absolute;top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;height:${TIMELINE_ROW_HEIGHT - 1}px;background:${color5};border:1px solid rgba(0,0,0,0.10);overflow:hidden;font-family:monospace;font-size:10px;line-height:${TIMELINE_ROW_HEIGHT - 1}px;padding:0 2px;white-space:nowrap;text-overflow:ellipsis;cursor:${cursor3};box-sizing:border-box;" title="${escapeHtml(tooltip2)}"${clickAttr}>${label}</div>`;
+      }
+    }
+    return s2;
+  }
+  function renderTimelineTrack(label, color5, runs, classifiedRuns, totalSec, startSec, topPx) {
+    let s2 = "";
+    s2 += `<div style="position:absolute;left:0;top:${topPx}px;width:60px;height:${TIMELINE_TRACK_HEIGHT}px;font-family:monospace;font-size:10px;line-height:${TIMELINE_TRACK_HEIGHT}px;color:#444;">${label}</div>`;
+    s2 += `<div style="position:absolute;left:60px;right:0;top:${topPx}px;height:${TIMELINE_TRACK_HEIGHT}px;background:#f7f7f7;border:1px solid #ddd;box-sizing:border-box;">`;
+    for (let i2 = 0; i2 < runs.length; i2++) {
+      if (!classifiedRuns[i2]) continue;
+      const run2 = runs[i2];
+      const leftPct = (run2.startSec - startSec) / totalSec * 100;
+      const widthPct = (run2.endSec - run2.startSec) / totalSec * 100;
+      if (widthPct <= 0) continue;
+      s2 += `<div style="position:absolute;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;top:0;height:100%;background:${color5};box-sizing:border-box;" title="${escapeHtml(label)} during ${run2.startSec.toFixed(3)}s \u2014 ${run2.endSec.toFixed(3)}s"></div>`;
+    }
+    s2 += `</div>`;
+    return s2;
+  }
+  function renderCombinedStacksTimeline(prof) {
+    const events3 = prof.combined_stacks_timeline ?? [];
+    const stacks = prof.combined_stacks ?? [];
+    if (events3.length === 0 || stacks.length === 0) return "";
+    const elapsed = prof.elapsed_time_sec ?? 0;
+    const { runs, totalSec } = buildTimelineRuns(events3, elapsed);
+    if (runs.length === 0 || totalSec <= 0) return "";
+    const startSec = runs[0].startSec;
+    let maxDepth2 = 0;
+    const isGcRun = new Array(runs.length).fill(false);
+    const isIoRun = new Array(runs.length).fill(false);
+    for (let i2 = 0; i2 < runs.length; i2++) {
+      const stackEntry = stacks[runs[i2].stackIndex];
+      if (!stackEntry) continue;
+      const frames = stackEntry[0];
+      if (frames.length > maxDepth2) maxDepth2 = frames.length;
+      const c4 = classifyStack(frames);
+      isGcRun[i2] = c4.gc;
+      isIoRun[i2] = c4.io;
+    }
+    const trackGcTop = 0;
+    const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+    const mainTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+    const mainHeight = Math.max(maxDepth2, 1) * TIMELINE_ROW_HEIGHT;
+    const containerHeight = mainTop + mainHeight + 4;
+    let s2 = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
+    s2 += `<p style="margin-bottom: 4px;">`;
+    s2 += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the experimental timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
+    s2 += ` <strong>Stitched stack timeline</strong> `;
+    s2 += `<span class="badge bg-warning text-dark" style="font-size: 70%; vertical-align: middle;">experimental</span> `;
+    s2 += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s \u2014 x: time, y: stack depth (outermost on top); GC and I/O tracks shown above</span>`;
+    s2 += `</p>`;
+    s2 += `<div id="combined-timeline-body" style="display: none;">`;
+    s2 += `<div class="combined-stacks-timeline" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;padding:0;">`;
+    s2 += renderTimelineTrack(
+      "GC",
+      "#d62728",
+      runs,
+      isGcRun,
+      totalSec,
+      startSec,
+      trackGcTop
+    );
+    s2 += renderTimelineTrack(
+      "I/O",
+      "#1f77b4",
+      runs,
+      isIoRun,
+      totalSec,
+      startSec,
+      trackIoTop
+    );
+    s2 += `<div style="position:absolute;left:60px;right:0;top:${mainTop}px;height:${mainHeight}px;background:#fafafa;border:1px solid #ddd;box-sizing:border-box;">`;
+    s2 += renderTimelineFrames(runs, stacks, totalSec, startSec);
+    s2 += `</div>`;
+    s2 += `</div></div></div>`;
+    return s2;
+  }
+  function toggleCombinedStacksTimeline() {
+    const body = document.getElementById("combined-timeline-body");
+    const btn = document.getElementById("button-combined-timeline");
     if (!body || !btn) return;
     if (body.style.display === "none") {
       body.style.display = "block";
@@ -72087,7 +72306,7 @@ ${node.totalHits} hits (${pct}%)`;
         ).padWithNonBreakingSpaces(8)})`;
       }
       s2 += `</font>`;
-      s2 += `<br /><span id="button-${id2}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id2}')">`;
+      s2 += `<br /><span id="button-${id2}" class="disclosure-triangle" title="Click to show or hide profile." onClick="toggleDisplay('${id2}')">`;
       s2 += `${triangle}`;
       s2 += "</span>";
       s2 += `<code> ${ff[0]}</code>`;
@@ -72205,6 +72424,7 @@ ${node.totalHits} hits (${pct}%)`;
     files4 = files4.filter((x5) => !excludedFiles.has(x5));
     s2 += "</div>";
     s2 += renderCombinedStacks(prof);
+    s2 += renderCombinedStacksTimeline(prof);
     const p2 = document.getElementById("profile");
     if (p2) {
       p2.innerHTML = s2;
@@ -72530,6 +72750,7 @@ ${node.totalHits} hits (${pct}%)`;
   window.expandAll = expandAll;
   window.toggleDisplay = toggleDisplay;
   window.toggleCombinedStacks = toggleCombinedStacks;
+  window.toggleCombinedStacksTimeline = toggleCombinedStacksTimeline;
   window.toggleReduced = toggleReduced;
   window.onFileDisplayModeChange = onFileDisplayModeChange;
   window.load = load3;

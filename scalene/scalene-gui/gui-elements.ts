@@ -4,8 +4,8 @@ export const Lightning = "&#9889;"; // lightning bolt (for optimizing a line)
 export const Explosion = "&#128165;"; // explosion (for optimizing a region)
 export const WhiteLightning = `<span style="opacity:0">${Lightning}</span>`; // invisible but same width as lightning bolt
 export const WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`; // invisible but same width as explosion
-export const RightTriangle = "&#9658"; // right-facing triangle symbol (collapsed view)
-export const DownTriangle = "&#9660"; // downward-facing triangle symbol (expanded view)
+export const RightTriangle = "&#9658;"; // right-facing triangle symbol (collapsed view)
+export const DownTriangle = "&#9660;"; // downward-facing triangle symbol (expanded view)
 
 // Type for chart parameters
 export interface ChartParams {

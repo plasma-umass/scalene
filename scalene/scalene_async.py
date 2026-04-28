@@ -15,12 +15,29 @@ from typing import Any, NamedTuple
 
 
 class SuspendedTaskInfo(NamedTuple):
-    """Information about a suspended async task."""
+    """Information about a suspended async task.
+
+    ``func_name`` is the qualified name of the function the task is
+    suspended in (used by the experimental timeline view to label the
+    synthetic await frames). It may be empty when sys.monitoring fires
+    PY_YIELD before the frame is observable; the timeline falls back to
+    a placeholder in that case.
+
+    ``chain`` is the nested-coroutine call chain leading to the
+    suspension, captured at suspend time via ``walk_await_chain``. Each
+    element is ``(filename, lineno, func_name)`` and the tuple is
+    outermost-first (matches the combined_stacks convention). When
+    populated, the timeline uses it to render a multi-frame synthetic
+    stack instead of a single ``[await]`` leaf, giving the user the
+    full call chain that led up to the await.
+    """
 
     filename: str
     lineno: int
     suspend_time_ns: int
     task_name: str
+    func_name: str = ""
+    chain: tuple[tuple[str, int, str], ...] = ()
 
 
 class ScaleneAsync:
@@ -162,7 +179,15 @@ class ScaleneAsync:
                 else cr_frame.f_code.co_firstlineno
             )
             task_name = task.get_name()
-            result.append(SuspendedTaskInfo(filename, lineno, now_ns, task_name))
+            func_name = getattr(
+                cr_frame.f_code, "co_qualname", cr_frame.f_code.co_name
+            )
+            chain = tuple(cls.walk_await_chain(coro))
+            result.append(
+                SuspendedTaskInfo(
+                    filename, lineno, now_ns, task_name, func_name, chain
+                )
+            )
         return result
 
     @classmethod
@@ -282,12 +307,22 @@ class ScaleneAsync:
         lineno = code.co_firstlineno
         now_ns = time.monotonic_ns()
         task_name = task.get_name()
+        func_name = getattr(code, "co_qualname", code.co_name)
+        # Walk the await chain at yield time so the timeline can render
+        # the full nested-coroutine call chain leading up to this await,
+        # not just the innermost suspended frame.
+        try:
+            chain: tuple[tuple[str, int, str], ...] = tuple(
+                cls.walk_await_chain(task.get_coro())
+            )
+        except Exception:
+            chain = ()
         # Prune stale entries if dict grows too large (tasks that yielded
         # but were cancelled/GC'd without resuming)
         if len(cls._suspended_tasks) >= cls._MAX_SUSPENDED_TASKS:
             cls._suspended_tasks.clear()
         cls._suspended_tasks[task_id] = SuspendedTaskInfo(
-            filename, lineno, now_ns, task_name
+            filename, lineno, now_ns, task_name, func_name, chain
         )
 
     @classmethod
