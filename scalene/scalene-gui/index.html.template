@@ -231,6 +231,12 @@
     .btn-refresh.loading {
         color: #0d6efd;
     }
+    .combined-stacks-section {
+        margin-top: 1em;
+    }
+    .combined-stack-card ol li {
+        line-height: 1.4;
+    }
     </style>
     <!-- Google Analytics - disabled in standalone mode for offline support (issue #982) -->
     {% if not standalone %}

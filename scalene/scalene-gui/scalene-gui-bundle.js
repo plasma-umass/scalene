@@ -2456,7 +2456,9 @@ var ScaleneGUI = (() => {
     proposeOptimizationRegion: () => proposeOptimizationRegion,
     refreshGeminiModels: () => refreshGeminiModels,
     refreshOpenAIModels: () => refreshOpenAIModels,
+    renderCombinedStacks: () => renderCombinedStacks,
     toggleAdvanced: () => toggleAdvanced,
+    toggleCombinedStacks: () => toggleCombinedStacks,
     toggleDisplay: () => toggleDisplay,
     togglePassword: () => togglePassword,
     toggleReduced: () => toggleReduced,
@@ -71637,6 +71639,61 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       btn.innerHTML = DownTriangle;
     }
   }
+  function escapeHtml(s2) {
+    return s2.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function basename(path3) {
+    if (!path3) return "";
+    const parts = path3.split(/[\\/]/);
+    return parts[parts.length - 1] || path3;
+  }
+  var COMBINED_STACKS_TOP_N = 20;
+  function renderCombinedStacks(prof) {
+    const stacks = prof.combined_stacks ?? [];
+    if (stacks.length === 0) return "";
+    const sorted = [...stacks].sort((a4, b3) => b3[1] - a4[1]).slice(0, COMBINED_STACKS_TOP_N);
+    const totalHits = stacks.reduce((sum3, e4) => sum3 + e4[1], 0);
+    let s2 = `<hr><div class="container-fluid combined-stacks-section">`;
+    s2 += `<p style="margin-bottom: 4px;">`;
+    s2 += `<span id="button-combined-stacks" title="Click to show or hide stitched Python+native call stacks." style="cursor: pointer; color: blue;" onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
+    s2 += ` <strong>Combined Python + native call stacks</strong> `;
+    s2 += `<span class="text-muted" style="font-size: 80%;">top ${sorted.length} of ${stacks.length} stitched stacks (${totalHits} total samples)</span>`;
+    s2 += `</p>`;
+    s2 += `<div id="combined-stacks-body" style="display: none;">`;
+    for (const [frames, hits] of sorted) {
+      const pct = totalHits > 0 ? (100 * hits / totalHits).toFixed(1) : "0.0";
+      s2 += `<div class="combined-stack-card" style="border: 1px solid #ddd; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px; background: #fafafa;">`;
+      s2 += `<div style="font-size: 90%; margin-bottom: 4px;"><span class="badge bg-primary">${hits} hits</span> <span class="text-muted">(${pct}%)</span></div>`;
+      s2 += `<ol class="combined-stack-frames" style="margin: 0; padding-left: 18px; font-family: monospace; font-size: 85%;">`;
+      for (const f2 of frames) {
+        const base = basename(f2.filename_or_module);
+        if (f2.kind === "py") {
+          const safeFn = encodeURIComponent(f2.filename_or_module);
+          s2 += `<li><span style="color: #0a6;">[py]</span> `;
+          s2 += `<a href="javascript:vsNavigate('${safeFn}', ${f2.line})">${escapeHtml(f2.display_name)}</a> `;
+          s2 += `<span class="text-muted">${escapeHtml(base)}:${f2.line}</span></li>`;
+        } else {
+          s2 += `<li><span style="color: #a30;">[native]</span> `;
+          s2 += `${escapeHtml(f2.display_name)} <span class="text-muted">${escapeHtml(base)}</span></li>`;
+        }
+      }
+      s2 += `</ol></div>`;
+    }
+    s2 += `</div></div>`;
+    return s2;
+  }
+  function toggleCombinedStacks() {
+    const body = document.getElementById("combined-stacks-body");
+    const btn = document.getElementById("button-combined-stacks");
+    if (!body || !btn) return;
+    if (body.style.display === "none") {
+      body.style.display = "block";
+      btn.innerHTML = DownTriangle;
+    } else {
+      body.style.display = "none";
+      btn.innerHTML = RightTriangle;
+    }
+  }
   function toggleDisplay(id2) {
     const d2 = document.getElementById(`profile-${id2}`);
     if (d2) {
@@ -72022,6 +72079,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
     }
     files4 = files4.filter((x5) => !excludedFiles.has(x5));
     s2 += "</div>";
+    s2 += renderCombinedStacks(prof);
     const p2 = document.getElementById("profile");
     if (p2) {
       p2.innerHTML = s2;
@@ -72346,6 +72404,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
   window.collapseAll = collapseAll;
   window.expandAll = expandAll;
   window.toggleDisplay = toggleDisplay;
+  window.toggleCombinedStacks = toggleCombinedStacks;
   window.toggleReduced = toggleReduced;
   window.onFileDisplayModeChange = onFileDisplayModeChange;
   window.load = load3;

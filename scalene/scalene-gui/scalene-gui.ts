@@ -77,6 +77,26 @@ interface FileData {
   leaks?: Record<number, { velocity_mb_s: number }>;
 }
 
+type CombinedFrame =
+  | {
+      kind: "py";
+      display_name: string;
+      filename_or_module: string;
+      line: number;
+      ip: null;
+      offset: null;
+    }
+  | {
+      kind: "native";
+      display_name: string;
+      filename_or_module: string;
+      line: null;
+      ip: number;
+      offset: number;
+    };
+
+type CombinedStackEntry = [CombinedFrame[], number];
+
 interface Profile {
   files: Record<string, FileData>;
   gpu: boolean;
@@ -90,6 +110,7 @@ interface Profile {
   growth_rate: number;
   program?: string;
   stacks?: unknown;
+  combined_stacks?: CombinedStackEntry[];
 }
 
 interface Column {
@@ -847,6 +868,73 @@ function expandDisplay(id: string): void {
   }
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function basename(path: string): string {
+  if (!path) return "";
+  const parts = path.split(/[\\/]/);
+  return parts[parts.length - 1] || path;
+}
+
+const COMBINED_STACKS_TOP_N = 20;
+
+export function renderCombinedStacks(prof: Profile): string {
+  const stacks = prof.combined_stacks ?? [];
+  if (stacks.length === 0) return "";
+
+  const sorted = [...stacks].sort((a, b) => b[1] - a[1]).slice(0, COMBINED_STACKS_TOP_N);
+  const totalHits = stacks.reduce((sum, e) => sum + e[1], 0);
+
+  let s = `<hr><div class="container-fluid combined-stacks-section">`;
+  s += `<p style="margin-bottom: 4px;">`;
+  s += `<span id="button-combined-stacks" title="Click to show or hide stitched Python+native call stacks." style="cursor: pointer; color: blue;" onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
+  s += ` <strong>Combined Python + native call stacks</strong> `;
+  s += `<span class="text-muted" style="font-size: 80%;">top ${sorted.length} of ${stacks.length} stitched stacks (${totalHits} total samples)</span>`;
+  s += `</p>`;
+  s += `<div id="combined-stacks-body" style="display: none;">`;
+  for (const [frames, hits] of sorted) {
+    const pct = totalHits > 0 ? ((100 * hits) / totalHits).toFixed(1) : "0.0";
+    s += `<div class="combined-stack-card" style="border: 1px solid #ddd; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px; background: #fafafa;">`;
+    s += `<div style="font-size: 90%; margin-bottom: 4px;"><span class="badge bg-primary">${hits} hits</span> <span class="text-muted">(${pct}%)</span></div>`;
+    s += `<ol class="combined-stack-frames" style="margin: 0; padding-left: 18px; font-family: monospace; font-size: 85%;">`;
+    for (const f of frames) {
+      const base = basename(f.filename_or_module);
+      if (f.kind === "py") {
+        const safeFn = encodeURIComponent(f.filename_or_module);
+        s += `<li><span style="color: #0a6;">[py]</span> `;
+        s += `<a href="javascript:vsNavigate('${safeFn}', ${f.line})">${escapeHtml(f.display_name)}</a> `;
+        s += `<span class="text-muted">${escapeHtml(base)}:${f.line}</span></li>`;
+      } else {
+        s += `<li><span style="color: #a30;">[native]</span> `;
+        s += `${escapeHtml(f.display_name)} <span class="text-muted">${escapeHtml(base)}</span></li>`;
+      }
+    }
+    s += `</ol></div>`;
+  }
+  s += `</div></div>`;
+  return s;
+}
+
+export function toggleCombinedStacks(): void {
+  const body = document.getElementById("combined-stacks-body");
+  const btn = document.getElementById("button-combined-stacks");
+  if (!body || !btn) return;
+  if (body.style.display === "none") {
+    body.style.display = "block";
+    btn.innerHTML = DownTriangle;
+  } else {
+    body.style.display = "none";
+    btn.innerHTML = RightTriangle;
+  }
+}
+
 export function toggleDisplay(id: string): void {
   const d = document.getElementById(`profile-${id}`);
   if (d) {
@@ -1310,6 +1398,7 @@ async function display(prof: Profile): Promise<void> {
   // Remove any excluded files.
   files = files.filter((x) => !excludedFiles.has(x));
   s += "</div>";
+  s += renderCombinedStacks(prof);
   const p = document.getElementById("profile");
   if (p) {
     p.innerHTML = s;
@@ -1721,6 +1810,7 @@ setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
 (window as unknown as Record<string, unknown>).collapseAll = collapseAll;
 (window as unknown as Record<string, unknown>).expandAll = expandAll;
 (window as unknown as Record<string, unknown>).toggleDisplay = toggleDisplay;
+(window as unknown as Record<string, unknown>).toggleCombinedStacks = toggleCombinedStacks;
 (window as unknown as Record<string, unknown>).toggleReduced = toggleReduced;
 (window as unknown as Record<string, unknown>).onFileDisplayModeChange = onFileDisplayModeChange;
 (window as unknown as Record<string, unknown>).load = load;

@@ -33,6 +33,7 @@ declare global {
     files: Record<string, FileProfile>;
     program?: string;
     stacks?: unknown;
+    combined_stacks?: unknown;
   };
 }
 
