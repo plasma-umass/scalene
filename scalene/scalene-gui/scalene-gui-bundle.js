@@ -69971,8 +69971,8 @@ ${toHex(hashedRequest)}`;
   var Explosion = "&#128165;";
   var WhiteLightning = `<span style="opacity:0">${Lightning}</span>`;
   var WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`;
-  var RightTriangle = "&#9658";
-  var DownTriangle = "&#9660";
+  var RightTriangle = "&#9658;";
+  var DownTriangle = "&#9660;";
   function makeTooltip(title2, value3) {
     const secs = value3 / 100 * globalThis.profile.elapsed_time_sec;
     return `(${title2}) ` + value3.toFixed(1) + "% [" + time_consumed_str(secs * 1e3) + "]";
@@ -71797,7 +71797,7 @@ ${node.totalHits} hits (${pct}%)`;
     const containerHeight = depth * FLAME_ROW_HEIGHT;
     let s2 = `<hr><div class="container-fluid combined-stacks-section">`;
     s2 += `<p style="margin-bottom: 4px;">`;
-    s2 += `<span id="button-combined-stacks" title="Click to show or hide stitched Python+native call stacks." style="cursor: pointer; color: blue;" onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
+    s2 += `<span id="button-combined-stacks" class="disclosure-triangle" title="Click to show or hide stitched Python+native call stacks." onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
     s2 += ` <strong>Combined Python + native call stacks</strong> `;
     s2 += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples \u2014 hover for details, click a [py] frame to jump to its source line</span>`;
     s2 += `</p>`;
@@ -71993,7 +71993,7 @@ ${run2.startSec.toFixed(3)}s \u2014 ${run2.endSec.toFixed(3)}s (${run2.hits} sam
     const containerHeight = mainTop + mainHeight + 4;
     let s2 = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
     s2 += `<p style="margin-bottom: 4px;">`;
-    s2 += `<span id="button-combined-timeline" title="Click to show or hide the experimental timeline view." style="cursor: pointer; color: blue;" onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
+    s2 += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the experimental timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
     s2 += ` <strong>Stitched stack timeline</strong> `;
     s2 += `<span class="badge bg-warning text-dark" style="font-size: 70%; vertical-align: middle;">experimental</span> `;
     s2 += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s \u2014 x: time, y: stack depth (outermost on top); GC and I/O tracks shown above</span>`;
@@ -72306,7 +72306,7 @@ ${run2.startSec.toFixed(3)}s \u2014 ${run2.endSec.toFixed(3)}s (${run2.hits} sam
         ).padWithNonBreakingSpaces(8)})`;
       }
       s2 += `</font>`;
-      s2 += `<br /><span id="button-${id2}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id2}')">`;
+      s2 += `<br /><span id="button-${id2}" class="disclosure-triangle" title="Click to show or hide profile." onClick="toggleDisplay('${id2}')">`;
       s2 += `${triangle}`;
       s2 += "</span>";
       s2 += `<code> ${ff[0]}</code>`;

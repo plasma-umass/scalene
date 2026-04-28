@@ -1121,7 +1121,7 @@ export function renderCombinedStacks(prof: Profile): string {
 
   let s = `<hr><div class="container-fluid combined-stacks-section">`;
   s += `<p style="margin-bottom: 4px;">`;
-  s += `<span id="button-combined-stacks" title="Click to show or hide stitched Python+native call stacks." style="cursor: pointer; color: blue;" onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
+  s += `<span id="button-combined-stacks" class="disclosure-triangle" title="Click to show or hide stitched Python+native call stacks." onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
   s += ` <strong>Combined Python + native call stacks</strong> `;
   s += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples — hover for details, click a [py] frame to jump to its source line</span>`;
   s += `</p>`;
@@ -1422,7 +1422,7 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
 
   let s = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
   s += `<p style="margin-bottom: 4px;">`;
-  s += `<span id="button-combined-timeline" title="Click to show or hide the experimental timeline view." style="cursor: pointer; color: blue;" onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
+  s += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the experimental timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
   s += ` <strong>Stitched stack timeline</strong> `;
   s += `<span class="badge bg-warning text-dark" style="font-size: 70%; vertical-align: middle;">experimental</span> `;
   s += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s — x: time, y: stack depth (outermost on top); GC and I/O tracks shown above</span>`;
@@ -1799,7 +1799,7 @@ async function display(prof: Profile): Promise<void> {
 
     s += `</font>`;
 
-    s += `<br /><span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
+    s += `<br /><span id="button-${id}" class="disclosure-triangle" title="Click to show or hide profile." onClick="toggleDisplay('${id}')">`;
     s += `${triangle}`;
     s += "</span>";
     s += `<code> ${ff[0]}</code>`;
