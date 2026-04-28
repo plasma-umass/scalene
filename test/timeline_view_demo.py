@@ -78,9 +78,21 @@ def gc_phase(duration: float) -> int:
     return len(cycles)
 
 
-async def _slow_io() -> None:
+async def _wait_for_data() -> None:
+    # Innermost user await — this is where samples actually land. The
+    # synthetic timeline frame for this line carries the [await] marker.
+    await asyncio.sleep(0.05)
+
+
+async def _fetch_one(_url: int) -> None:
+    # Sync work + nested user-async await, so the timeline shows
+    # _slow_io -> _fetch_one -> _wait_for_data as a multi-frame stack.
     for _ in range(20):
-        await asyncio.sleep(0.05)
+        await _wait_for_data()
+
+
+async def _slow_io() -> None:
+    await _fetch_one(0)
 
 
 async def _async_main(concurrency: int) -> None:

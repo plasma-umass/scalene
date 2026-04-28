@@ -22,6 +22,14 @@ class SuspendedTaskInfo(NamedTuple):
     synthetic await frames). It may be empty when sys.monitoring fires
     PY_YIELD before the frame is observable; the timeline falls back to
     a placeholder in that case.
+
+    ``chain`` is the nested-coroutine call chain leading to the
+    suspension, captured at suspend time via ``walk_await_chain``. Each
+    element is ``(filename, lineno, func_name)`` and the tuple is
+    outermost-first (matches the combined_stacks convention). When
+    populated, the timeline uses it to render a multi-frame synthetic
+    stack instead of a single ``[await]`` leaf, giving the user the
+    full call chain that led up to the await.
     """
 
     filename: str
@@ -29,6 +37,7 @@ class SuspendedTaskInfo(NamedTuple):
     suspend_time_ns: int
     task_name: str
     func_name: str = ""
+    chain: tuple[tuple[str, int, str], ...] = ()
 
 
 class ScaleneAsync:
@@ -173,9 +182,10 @@ class ScaleneAsync:
             func_name = getattr(
                 cr_frame.f_code, "co_qualname", cr_frame.f_code.co_name
             )
+            chain = tuple(cls.walk_await_chain(coro))
             result.append(
                 SuspendedTaskInfo(
-                    filename, lineno, now_ns, task_name, func_name
+                    filename, lineno, now_ns, task_name, func_name, chain
                 )
             )
         return result
@@ -298,12 +308,21 @@ class ScaleneAsync:
         now_ns = time.monotonic_ns()
         task_name = task.get_name()
         func_name = getattr(code, "co_qualname", code.co_name)
+        # Walk the await chain at yield time so the timeline can render
+        # the full nested-coroutine call chain leading up to this await,
+        # not just the innermost suspended frame.
+        try:
+            chain: tuple[tuple[str, int, str], ...] = tuple(
+                cls.walk_await_chain(task.get_coro())
+            )
+        except Exception:
+            chain = ()
         # Prune stale entries if dict grows too large (tasks that yielded
         # but were cancelled/GC'd without resuming)
         if len(cls._suspended_tasks) >= cls._MAX_SUSPENDED_TASKS:
             cls._suspended_tasks.clear()
         cls._suspended_tasks[task_id] = SuspendedTaskInfo(
-            filename, lineno, now_ns, task_name, func_name
+            filename, lineno, now_ns, task_name, func_name, chain
         )
 
     @classmethod

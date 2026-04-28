@@ -365,30 +365,65 @@ def add_async_await_run(
         return False
     recorded = False
     for task in suspended_tasks:
-        filename = Filename(task.filename)
-        if not should_trace(filename, ""):
-            continue
-        func_name: str = task.func_name or "<await>"
-        # Display name layout: `[await] func_name (Task-N)`.
-        #   - The "[await]" prefix is a stable token the timeline view's
-        #     I/O classifier matches on, so the GC/IO tracks light up
-        #     correctly for async-blocked time.
-        #   - The "(Task-N)" suffix keeps concurrent tasks awaiting at
-        #     the same line distinct, so a fan-out like
-        #     ``asyncio.gather(*[f() for _ in range(N)])`` produces N
-        #     parallel bars rather than one collapsed run.
-        display = (
-            f"[await] {func_name} ({task.task_name})"
-            if task.task_name
-            else f"[await] {func_name}"
-        )
-        key: CombinedStackKey = (
-            PyFrameKey(
-                filename=str(filename),
-                function=display,
-                line=int(task.lineno),
-            ),
-        )
+        # Build the stitched stack for this task. When ``chain`` is
+        # populated (the nested-coroutine call chain captured at
+        # suspend time, outermost-first), render every frame in it; the
+        # innermost frame carries the "[await]" prefix so the timeline
+        # I/O classifier picks the run up. When ``chain`` is empty
+        # (older Pythons, edge cases), fall back to a single ``[await]``
+        # frame using the leaf info we already have.
+        chain = getattr(task, "chain", ()) or ()
+        # The task_name suffix keeps concurrent tasks awaiting at the
+        # same line distinct in the timeline (e.g. asyncio.gather of N
+        # copies produces N parallel rows rather than one merged run).
+        task_suffix = f" ({task.task_name})" if task.task_name else ""
+
+        py_frames: list[PyFrameKey] = []
+        if chain:
+            # Filter first so "is leaf" reflects the deepest frame we're
+            # actually keeping. Otherwise an inner asyncio frame that
+            # gets filtered out would steal the [await] marker from the
+            # user-code frame above it, and concurrent tasks awaiting at
+            # the same line would lose their (Task-N) suffix and collapse
+            # into a single undifferentiated row.
+            filtered: list[tuple[Filename, int, str]] = []
+            for cf, cl, cfunc in chain:
+                cf_filename = Filename(cf)
+                if not should_trace(cf_filename, ""):
+                    continue
+                filtered.append((cf_filename, cl, cfunc))
+            for i, (cf_filename, cl, cfunc) in enumerate(filtered):
+                is_leaf = i == len(filtered) - 1
+                func_label = (
+                    f"[await] {cfunc or '<await>'}{task_suffix}"
+                    if is_leaf
+                    else (cfunc or "<coroutine>")
+                )
+                py_frames.append(
+                    PyFrameKey(
+                        filename=str(cf_filename),
+                        function=func_label,
+                        line=int(cl),
+                    )
+                )
+
+        # Either chain was empty, or every chain frame got filtered out
+        # by should_trace — fall back to the single-frame leaf so the
+        # task still shows up in the timeline.
+        if not py_frames:
+            filename = Filename(task.filename)
+            if not should_trace(filename, ""):
+                continue
+            func_name: str = task.func_name or "<await>"
+            py_frames.append(
+                PyFrameKey(
+                    filename=str(filename),
+                    function=f"[await] {func_name}{task_suffix}",
+                    line=int(task.lineno),
+                )
+            )
+
+        key: CombinedStackKey = tuple(py_frames)
         combined_stacks[key] += 1
         if timeline is not None:
             if timeline and timeline[-1].stack_key == key:
