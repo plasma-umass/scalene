@@ -34,6 +34,7 @@ LineNumber = NewType("LineNumber", PositiveInt)
 ByteCodeIndex = NewType("ByteCodeIndex", int)
 T = TypeVar("T")
 
+
 @dataclass(frozen=True)
 class PyFrameKey:
     """A Python frame in a stitched stack, as captured at sample time.

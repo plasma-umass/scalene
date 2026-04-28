@@ -179,14 +179,10 @@ class ScaleneAsync:
                 else cr_frame.f_code.co_firstlineno
             )
             task_name = task.get_name()
-            func_name = getattr(
-                cr_frame.f_code, "co_qualname", cr_frame.f_code.co_name
-            )
+            func_name = getattr(cr_frame.f_code, "co_qualname", cr_frame.f_code.co_name)
             chain = tuple(cls.walk_await_chain(coro))
             result.append(
-                SuspendedTaskInfo(
-                    filename, lineno, now_ns, task_name, func_name, chain
-                )
+                SuspendedTaskInfo(filename, lineno, now_ns, task_name, func_name, chain)
             )
         return result
 

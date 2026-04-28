@@ -321,9 +321,7 @@ def add_combined_stack(
                 timeline[-1].count += 1
             elif len(timeline) < timeline_cap:
                 timeline.append(
-                    CombinedStackRun(
-                        timestamp=timestamp, stack_key=key, count=1
-                    )
+                    CombinedStackRun(timestamp=timestamp, stack_key=key, count=1)
                 )
             # If we hit the cap and the trailing run has a different key,
             # we silently drop the new run; the aggregate combined_stacks
@@ -430,9 +428,7 @@ def add_async_await_run(
                 timeline[-1].count += 1
             elif len(timeline) < timeline_cap:
                 timeline.append(
-                    CombinedStackRun(
-                        timestamp=timestamp, stack_key=key, count=1
-                    )
+                    CombinedStackRun(timestamp=timestamp, stack_key=key, count=1)
                 )
         recorded = True
     return recorded
