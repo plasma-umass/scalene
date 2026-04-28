@@ -907,10 +907,15 @@ export function renderCombinedStacks(prof: Profile): string {
     for (const f of frames) {
       const base = basename(f.filename_or_module);
       if (f.kind === "py") {
-        const safeFn = encodeURIComponent(f.filename_or_module);
+        // Match the per-line table convention (scalene-gui.ts:768): the
+        // file:line text is the click target for vsNavigate, not the
+        // function name. The function name stays as plain text.
+        const safeFn = escape(f.filename_or_module);
         s += `<li><span style="color: #0a6;">[py]</span> `;
-        s += `<a href="javascript:vsNavigate('${safeFn}', ${f.line})">${escapeHtml(f.display_name)}</a> `;
-        s += `<span class="text-muted">${escapeHtml(base)}:${f.line}</span></li>`;
+        s += `${escapeHtml(f.display_name)} `;
+        s += `<span style="cursor: pointer; color: #0a58ca; text-decoration: underline;" `;
+        s += `title="Click to open ${escapeHtml(f.filename_or_module)}:${f.line} in VS Code" `;
+        s += `onclick="vsNavigate('${safeFn}',${f.line})">${escapeHtml(base)}:${f.line}</span></li>`;
       } else {
         s += `<li><span style="color: #a30;">[native]</span> `;
         s += `${escapeHtml(f.display_name)} <span class="text-muted">${escapeHtml(base)}</span></li>`;

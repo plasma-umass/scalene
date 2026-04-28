@@ -71668,10 +71668,12 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       for (const f2 of frames) {
         const base = basename(f2.filename_or_module);
         if (f2.kind === "py") {
-          const safeFn = encodeURIComponent(f2.filename_or_module);
+          const safeFn = escape(f2.filename_or_module);
           s2 += `<li><span style="color: #0a6;">[py]</span> `;
-          s2 += `<a href="javascript:vsNavigate('${safeFn}', ${f2.line})">${escapeHtml(f2.display_name)}</a> `;
-          s2 += `<span class="text-muted">${escapeHtml(base)}:${f2.line}</span></li>`;
+          s2 += `${escapeHtml(f2.display_name)} `;
+          s2 += `<span style="cursor: pointer; color: #0a58ca; text-decoration: underline;" `;
+          s2 += `title="Click to open ${escapeHtml(f2.filename_or_module)}:${f2.line} in VS Code" `;
+          s2 += `onclick="vsNavigate('${safeFn}',${f2.line})">${escapeHtml(base)}:${f2.line}</span></li>`;
         } else {
           s2 += `<li><span style="color: #a30;">[native]</span> `;
           s2 += `${escapeHtml(f2.display_name)} <span class="text-muted">${escapeHtml(base)}</span></li>`;

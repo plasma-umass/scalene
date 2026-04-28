@@ -855,6 +855,59 @@ class TestCombinedStacksJson:
         # Only the Python anchor remains.
         assert [f["kind"] for f in frames] == ["py"]
 
+    def test_dedupe_stacks_with_same_resolved_display(self, monkeypatch, tmp_path):
+        """Two raw stacks that differ only in native IP/offset but resolve
+        to the same (symbol, module) frames must collapse into one entry,
+        with hit counts summed. Regression for the "same stack listed
+        multiple times" bug — sample-time aggregation is keyed by raw IPs
+        but the display layer should dedupe by user-visible fields."""
+        py_main = ("py", "prog.py", "main", 1)
+        ip_a = 0xAAA0
+        ip_b = 0xAAB0  # different IP, same function -> same display
+        # Both IPs resolve to the same symbol/module; only offset differs.
+        mapping = {
+            ip_a: ("/lib/libBLAS.dylib", "cblas_dgemm", 16),
+            ip_b: ("/lib/libBLAS.dylib", "cblas_dgemm", 32),
+        }
+        import scalene._scalene_unwind as unwind_mod  # type: ignore
+
+        monkeypatch.setattr(
+            unwind_mod, "resolve_ip", self._resolve_stub(mapping)
+        )
+
+        from scalene.scalene_json import ScaleneJSON
+        from scalene.scalene_statistics import Filename, ScaleneStatistics
+
+        stats = ScaleneStatistics()
+        stats.combined_stacks[(py_main, ("native", ip_a))] = 3
+        stats.combined_stacks[(py_main, ("native", ip_b))] = 5
+        stats.cpu_stats.total_cpu_samples = 1.0
+        stats.cpu_stats.cpu_samples_python["/dummy.py"][1] = 1.0
+        stats.cpu_stats.cpu_samples["/dummy.py"] = 1.0
+        stats.elapsed_time = 1.0
+
+        out = ScaleneJSON()
+        profile = out.output_profiles(
+            program=Filename("prog.py"),
+            stats=stats,
+            pid=0,
+            profile_this_code=lambda f, l: True,
+            python_alias_dir=tmp_path,
+            program_path=Filename("prog.py"),
+            entrypoint_dir=Filename(str(tmp_path)),
+            program_args=[],
+            profile_memory=False,
+            reduced_profile=False,
+            profile_async=False,
+        )
+
+        combined = profile["combined_stacks"]
+        assert len(combined) == 1, (
+            f"expected 1 deduplicated stack, got {len(combined)}: {combined}"
+        )
+        _frames, hits = combined[0]
+        assert hits == 8, f"expected 3 + 5 = 8 hits after dedup, got {hits}"
+
     def test_no_combined_stacks_emits_empty_list(self, tmp_path):
         from scalene.scalene_json import ScaleneJSON
         from scalene.scalene_statistics import Filename, ScaleneStatistics
