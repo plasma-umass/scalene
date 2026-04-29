@@ -71829,7 +71829,22 @@ ${node.totalHits} hits (${pct}%)`;
     /(?:\b|_)PyGC(?:_|\b)/,
     /(?:\b|_)_PyGC_/,
     /(?:\b|_)gc_collect_main(?:_|\b)/,
-    /(?:\b|_)deallocate(?:_|\b)/
+    /(?:\b|_)gc_collect_region(?:_|\b)/,
+    /(?:\b|_)deallocate(?:_|\b)/,
+    // Internal helpers from gcmodule.c that often appear as the leaf on
+    // Python 3.9–3.12 (where the static `collect()` workhorse + helpers
+    // are what the unwinder lands on rather than the gc_collect_main /
+    // _PyGC_Collect names introduced in 3.13).
+    /(?:\b|_)collect_with_callback(?:_|\b)/,
+    /(?:\b|_)subtract_refs(?:_|\b)/,
+    /(?:\b|_)move_unreachable(?:_|\b)/,
+    /(?:\b|_)untrack_tuples(?:_|\b)/,
+    /(?:\b|_)untrack_dicts(?:_|\b)/,
+    /(?:\b|_)deduce_unreachable(?:_|\b)/,
+    /(?:\b|_)delete_garbage(?:_|\b)/,
+    /(?:\b|_)handle_weakrefs(?:_|\b)/,
+    /(?:\b|_)invoke_gc_callback(?:_|\b)/,
+    /(?:\b|_)move_legacy_finalizers?(?:_|\b)/
   ];
   var IO_NAME_PATTERNS = [
     // Synthetic await frame emitted by add_async_await_run when a sample
