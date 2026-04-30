@@ -34,7 +34,8 @@ export async function fetchModelNames(
     }
     return modelNames;
   } catch (error) {
-    console.error("Error fetching model names:", error);
+    // This is expected when Ollama isn't running - not a real error
+    console.log("Ollama not available (this is normal if you're not using local models)");
     revealInstallMessage();
     return [];
   }
