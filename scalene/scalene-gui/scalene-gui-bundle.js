@@ -1786,7 +1786,7 @@ var ScaleneGUI = (() => {
       function numberIsNaN(obj) {
         return obj !== obj;
       }
-      var hexSliceLookupTable = function() {
+      var hexSliceLookupTable = (function() {
         const alphabet = "0123456789abcdef";
         const table = new Array(256);
         for (let i2 = 0; i2 < 16; ++i2) {
@@ -1796,7 +1796,7 @@ var ScaleneGUI = (() => {
           }
         }
         return table;
-      }();
+      })();
       function defineBigIntMethod(fn) {
         return typeof BigInt === "undefined" ? BufferBigIntNotDefined : fn;
       }
@@ -1809,28 +1809,28 @@ var ScaleneGUI = (() => {
   // node_modules/bowser/es5.js
   var require_es5 = __commonJS({
     "node_modules/bowser/es5.js"(exports2, module5) {
-      !function(e4, t4) {
+      !(function(e4, t4) {
         "object" == typeof exports2 && "object" == typeof module5 ? module5.exports = t4() : "function" == typeof define && define.amd ? define([], t4) : "object" == typeof exports2 ? exports2.bowser = t4() : e4.bowser = t4();
-      }(exports2, function() {
-        return function(e4) {
+      })(exports2, (function() {
+        return (function(e4) {
           var t4 = {};
-          function r2(i2) {
-            if (t4[i2]) return t4[i2].exports;
-            var n2 = t4[i2] = { i: i2, l: false, exports: {} };
-            return e4[i2].call(n2.exports, n2, n2.exports, r2), n2.l = true, n2.exports;
+          function r2(n2) {
+            if (t4[n2]) return t4[n2].exports;
+            var i2 = t4[n2] = { i: n2, l: false, exports: {} };
+            return e4[n2].call(i2.exports, i2, i2.exports, r2), i2.l = true, i2.exports;
           }
-          return r2.m = e4, r2.c = t4, r2.d = function(e6, t5, i2) {
-            r2.o(e6, t5) || Object.defineProperty(e6, t5, { enumerable: true, get: i2 });
+          return r2.m = e4, r2.c = t4, r2.d = function(e6, t5, n2) {
+            r2.o(e6, t5) || Object.defineProperty(e6, t5, { enumerable: true, get: n2 });
           }, r2.r = function(e6) {
             "undefined" != typeof Symbol && Symbol.toStringTag && Object.defineProperty(e6, Symbol.toStringTag, { value: "Module" }), Object.defineProperty(e6, "__esModule", { value: true });
           }, r2.t = function(e6, t5) {
             if (1 & t5 && (e6 = r2(e6)), 8 & t5) return e6;
             if (4 & t5 && "object" == typeof e6 && e6 && e6.__esModule) return e6;
-            var i2 = /* @__PURE__ */ Object.create(null);
-            if (r2.r(i2), Object.defineProperty(i2, "default", { enumerable: true, value: e6 }), 2 & t5 && "string" != typeof e6) for (var n2 in e6) r2.d(i2, n2, function(t6) {
+            var n2 = /* @__PURE__ */ Object.create(null);
+            if (r2.r(n2), Object.defineProperty(n2, "default", { enumerable: true, value: e6 }), 2 & t5 && "string" != typeof e6) for (var i2 in e6) r2.d(n2, i2, function(t6) {
               return e6[t6];
-            }.bind(null, n2));
-            return i2;
+            }.bind(null, i2));
+            return n2;
           }, r2.n = function(e6) {
             var t5 = e6 && e6.__esModule ? function() {
               return e6.default;
@@ -1841,10 +1841,10 @@ var ScaleneGUI = (() => {
           }, r2.o = function(e6, t5) {
             return Object.prototype.hasOwnProperty.call(e6, t5);
           }, r2.p = "", r2(r2.s = 90);
-        }({ 17: function(e4, t4, r2) {
+        })({ 17: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var i2 = r2(18), n2 = function() {
+          var n2 = r2(18), i2 = (function() {
             function e6() {
             }
             return e6.getFirstMatch = function(e7, t5) {
@@ -1881,9 +1881,9 @@ var ScaleneGUI = (() => {
                   return;
               }
             }, e6.getMacOSVersionName = function(e7) {
-              var t5 = e7.split(".").splice(0, 2).map(function(e8) {
+              var t5 = e7.split(".").splice(0, 2).map((function(e8) {
                 return parseInt(e8, 10) || 0;
-              });
+              }));
               if (t5.push(0), 10 === t5[0]) switch (t5[1]) {
                 case 5:
                   return "Leopard";
@@ -1911,21 +1911,21 @@ var ScaleneGUI = (() => {
                   return;
               }
             }, e6.getAndroidVersionName = function(e7) {
-              var t5 = e7.split(".").splice(0, 2).map(function(e8) {
+              var t5 = e7.split(".").splice(0, 2).map((function(e8) {
                 return parseInt(e8, 10) || 0;
-              });
+              }));
               if (t5.push(0), !(1 === t5[0] && t5[1] < 5)) return 1 === t5[0] && t5[1] < 6 ? "Cupcake" : 1 === t5[0] && t5[1] >= 6 ? "Donut" : 2 === t5[0] && t5[1] < 2 ? "Eclair" : 2 === t5[0] && 2 === t5[1] ? "Froyo" : 2 === t5[0] && t5[1] > 2 ? "Gingerbread" : 3 === t5[0] ? "Honeycomb" : 4 === t5[0] && t5[1] < 1 ? "Ice Cream Sandwich" : 4 === t5[0] && t5[1] < 4 ? "Jelly Bean" : 4 === t5[0] && t5[1] >= 4 ? "KitKat" : 5 === t5[0] ? "Lollipop" : 6 === t5[0] ? "Marshmallow" : 7 === t5[0] ? "Nougat" : 8 === t5[0] ? "Oreo" : 9 === t5[0] ? "Pie" : void 0;
             }, e6.getVersionPrecision = function(e7) {
               return e7.split(".").length;
-            }, e6.compareVersions = function(t5, r3, i3) {
-              void 0 === i3 && (i3 = false);
-              var n3 = e6.getVersionPrecision(t5), s2 = e6.getVersionPrecision(r3), a4 = Math.max(n3, s2), o2 = 0, u5 = e6.map([t5, r3], function(t6) {
-                var r4 = a4 - e6.getVersionPrecision(t6), i4 = t6 + new Array(r4 + 1).join(".0");
-                return e6.map(i4.split("."), function(e7) {
+            }, e6.compareVersions = function(t5, r3, n3) {
+              void 0 === n3 && (n3 = false);
+              var i3 = e6.getVersionPrecision(t5), s2 = e6.getVersionPrecision(r3), a4 = Math.max(i3, s2), o2 = 0, u5 = e6.map([t5, r3], (function(t6) {
+                var r4 = a4 - e6.getVersionPrecision(t6), n4 = t6 + new Array(r4 + 1).join(".0");
+                return e6.map(n4.split("."), (function(e7) {
                   return new Array(20 - e7.length).join("0") + e7;
-                }).reverse();
-              });
-              for (i3 && (o2 = a4 - Math.min(n3, s2)), a4 -= 1; a4 >= o2; ) {
+                })).reverse();
+              }));
+              for (n3 && (o2 = a4 - Math.min(i3, s2)), a4 -= 1; a4 >= o2; ) {
                 if (u5[0][a4] > u5[1][a4]) return 1;
                 if (u5[0][a4] === u5[1][a4]) {
                   if (a4 === o2) return 0;
@@ -1933,63 +1933,63 @@ var ScaleneGUI = (() => {
                 } else if (u5[0][a4] < u5[1][a4]) return -1;
               }
             }, e6.map = function(e7, t5) {
-              var r3, i3 = [];
+              var r3, n3 = [];
               if (Array.prototype.map) return Array.prototype.map.call(e7, t5);
-              for (r3 = 0; r3 < e7.length; r3 += 1) i3.push(t5(e7[r3]));
-              return i3;
+              for (r3 = 0; r3 < e7.length; r3 += 1) n3.push(t5(e7[r3]));
+              return n3;
             }, e6.find = function(e7, t5) {
-              var r3, i3;
+              var r3, n3;
               if (Array.prototype.find) return Array.prototype.find.call(e7, t5);
-              for (r3 = 0, i3 = e7.length; r3 < i3; r3 += 1) {
-                var n3 = e7[r3];
-                if (t5(n3, r3)) return n3;
+              for (r3 = 0, n3 = e7.length; r3 < n3; r3 += 1) {
+                var i3 = e7[r3];
+                if (t5(i3, r3)) return i3;
               }
             }, e6.assign = function(e7) {
-              for (var t5, r3, i3 = e7, n3 = arguments.length, s2 = new Array(n3 > 1 ? n3 - 1 : 0), a4 = 1; a4 < n3; a4++) s2[a4 - 1] = arguments[a4];
+              for (var t5, r3, n3 = e7, i3 = arguments.length, s2 = new Array(i3 > 1 ? i3 - 1 : 0), a4 = 1; a4 < i3; a4++) s2[a4 - 1] = arguments[a4];
               if (Object.assign) return Object.assign.apply(Object, [e7].concat(s2));
               var o2 = function() {
                 var e8 = s2[t5];
-                "object" == typeof e8 && null !== e8 && Object.keys(e8).forEach(function(t6) {
-                  i3[t6] = e8[t6];
-                });
+                "object" == typeof e8 && null !== e8 && Object.keys(e8).forEach((function(t6) {
+                  n3[t6] = e8[t6];
+                }));
               };
               for (t5 = 0, r3 = s2.length; t5 < r3; t5 += 1) o2();
               return e7;
             }, e6.getBrowserAlias = function(e7) {
-              return i2.BROWSER_ALIASES_MAP[e7];
+              return n2.BROWSER_ALIASES_MAP[e7];
             }, e6.getBrowserTypeByAlias = function(e7) {
-              return i2.BROWSER_MAP[e7] || "";
+              return n2.BROWSER_MAP[e7] || "";
             }, e6;
-          }();
-          t4.default = n2, e4.exports = t4.default;
+          })();
+          t4.default = i2, e4.exports = t4.default;
         }, 18: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.ENGINE_MAP = t4.OS_MAP = t4.PLATFORMS_MAP = t4.BROWSER_MAP = t4.BROWSER_ALIASES_MAP = void 0;
-          t4.BROWSER_ALIASES_MAP = { "Amazon Silk": "amazon_silk", "Android Browser": "android", Bada: "bada", BlackBerry: "blackberry", Chrome: "chrome", Chromium: "chromium", Electron: "electron", Epiphany: "epiphany", Firefox: "firefox", Focus: "focus", Generic: "generic", "Google Search": "google_search", Googlebot: "googlebot", "Internet Explorer": "ie", "K-Meleon": "k_meleon", Maxthon: "maxthon", "Microsoft Edge": "edge", "MZ Browser": "mz", "NAVER Whale Browser": "naver", Opera: "opera", "Opera Coast": "opera_coast", "Pale Moon": "pale_moon", PhantomJS: "phantomjs", Puffin: "puffin", QupZilla: "qupzilla", QQ: "qq", QQLite: "qqlite", Safari: "safari", Sailfish: "sailfish", "Samsung Internet for Android": "samsung_internet", SeaMonkey: "seamonkey", Sleipnir: "sleipnir", Swing: "swing", Tizen: "tizen", "UC Browser": "uc", Vivaldi: "vivaldi", "WebOS Browser": "webos", WeChat: "wechat", "Yandex Browser": "yandex", Roku: "roku" };
-          t4.BROWSER_MAP = { amazon_silk: "Amazon Silk", android: "Android Browser", bada: "Bada", blackberry: "BlackBerry", chrome: "Chrome", chromium: "Chromium", electron: "Electron", epiphany: "Epiphany", firefox: "Firefox", focus: "Focus", generic: "Generic", googlebot: "Googlebot", google_search: "Google Search", ie: "Internet Explorer", k_meleon: "K-Meleon", maxthon: "Maxthon", edge: "Microsoft Edge", mz: "MZ Browser", naver: "NAVER Whale Browser", opera: "Opera", opera_coast: "Opera Coast", pale_moon: "Pale Moon", phantomjs: "PhantomJS", puffin: "Puffin", qupzilla: "QupZilla", qq: "QQ Browser", qqlite: "QQ Browser Lite", safari: "Safari", sailfish: "Sailfish", samsung_internet: "Samsung Internet for Android", seamonkey: "SeaMonkey", sleipnir: "Sleipnir", swing: "Swing", tizen: "Tizen", uc: "UC Browser", vivaldi: "Vivaldi", webos: "WebOS Browser", wechat: "WeChat", yandex: "Yandex Browser" };
-          t4.PLATFORMS_MAP = { tablet: "tablet", mobile: "mobile", desktop: "desktop", tv: "tv", bot: "bot" };
+          t4.BROWSER_ALIASES_MAP = { "Amazon Silk": "amazon_silk", "Android Browser": "android", Bada: "bada", BlackBerry: "blackberry", Chrome: "chrome", Chromium: "chromium", Electron: "electron", Epiphany: "epiphany", Firefox: "firefox", Focus: "focus", Generic: "generic", "Google Search": "google_search", Googlebot: "googlebot", "Internet Explorer": "ie", "K-Meleon": "k_meleon", Maxthon: "maxthon", "Microsoft Edge": "edge", "MZ Browser": "mz", "NAVER Whale Browser": "naver", Opera: "opera", "Opera Coast": "opera_coast", PhantomJS: "phantomjs", Puffin: "puffin", QupZilla: "qupzilla", QQ: "qq", QQLite: "qqlite", Safari: "safari", Sailfish: "sailfish", "Samsung Internet for Android": "samsung_internet", SeaMonkey: "seamonkey", Sleipnir: "sleipnir", Swing: "swing", Tizen: "tizen", "UC Browser": "uc", Vivaldi: "vivaldi", "WebOS Browser": "webos", WeChat: "wechat", "Yandex Browser": "yandex", Roku: "roku" };
+          t4.BROWSER_MAP = { amazon_silk: "Amazon Silk", android: "Android Browser", bada: "Bada", blackberry: "BlackBerry", chrome: "Chrome", chromium: "Chromium", electron: "Electron", epiphany: "Epiphany", firefox: "Firefox", focus: "Focus", generic: "Generic", googlebot: "Googlebot", google_search: "Google Search", ie: "Internet Explorer", k_meleon: "K-Meleon", maxthon: "Maxthon", edge: "Microsoft Edge", mz: "MZ Browser", naver: "NAVER Whale Browser", opera: "Opera", opera_coast: "Opera Coast", phantomjs: "PhantomJS", puffin: "Puffin", qupzilla: "QupZilla", qq: "QQ Browser", qqlite: "QQ Browser Lite", safari: "Safari", sailfish: "Sailfish", samsung_internet: "Samsung Internet for Android", seamonkey: "SeaMonkey", sleipnir: "Sleipnir", swing: "Swing", tizen: "Tizen", uc: "UC Browser", vivaldi: "Vivaldi", webos: "WebOS Browser", wechat: "WeChat", yandex: "Yandex Browser" };
+          t4.PLATFORMS_MAP = { tablet: "tablet", mobile: "mobile", desktop: "desktop", tv: "tv" };
           t4.OS_MAP = { WindowsPhone: "Windows Phone", Windows: "Windows", MacOS: "macOS", iOS: "iOS", Android: "Android", WebOS: "WebOS", BlackBerry: "BlackBerry", Bada: "Bada", Tizen: "Tizen", Linux: "Linux", ChromeOS: "Chrome OS", PlayStation4: "PlayStation 4", Roku: "Roku" };
           t4.ENGINE_MAP = { EdgeHTML: "EdgeHTML", Blink: "Blink", Trident: "Trident", Presto: "Presto", Gecko: "Gecko", WebKit: "WebKit" };
         }, 90: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var i2, n2 = (i2 = r2(91)) && i2.__esModule ? i2 : { default: i2 }, s2 = r2(18);
+          var n2, i2 = (n2 = r2(91)) && n2.__esModule ? n2 : { default: n2 }, s2 = r2(18);
           function a4(e6, t5) {
             for (var r3 = 0; r3 < t5.length; r3++) {
-              var i3 = t5[r3];
-              i3.enumerable = i3.enumerable || false, i3.configurable = true, "value" in i3 && (i3.writable = true), Object.defineProperty(e6, i3.key, i3);
+              var n3 = t5[r3];
+              n3.enumerable = n3.enumerable || false, n3.configurable = true, "value" in n3 && (n3.writable = true), Object.defineProperty(e6, n3.key, n3);
             }
           }
-          var o2 = function() {
+          var o2 = (function() {
             function e6() {
             }
-            var t5, r3, i3;
+            var t5, r3, n3;
             return e6.getParser = function(e7, t6) {
               if (void 0 === t6 && (t6 = false), "string" != typeof e7) throw new Error("UserAgent should be a string");
-              return new n2.default(e7, t6);
+              return new i2.default(e7, t6);
             }, e6.parse = function(e7) {
-              return new n2.default(e7).getResult();
-            }, t5 = e6, i3 = [{ key: "BROWSER_MAP", get: function() {
+              return new i2.default(e7).getResult();
+            }, t5 = e6, n3 = [{ key: "BROWSER_MAP", get: function() {
               return s2.BROWSER_MAP;
             } }, { key: "ENGINE_MAP", get: function() {
               return s2.ENGINE_MAP;
@@ -1997,17 +1997,17 @@ var ScaleneGUI = (() => {
               return s2.OS_MAP;
             } }, { key: "PLATFORMS_MAP", get: function() {
               return s2.PLATFORMS_MAP;
-            } }], (r3 = null) && a4(t5.prototype, r3), i3 && a4(t5, i3), e6;
-          }();
+            } }], (r3 = null) && a4(t5.prototype, r3), n3 && a4(t5, n3), e6;
+          })();
           t4.default = o2, e4.exports = t4.default;
         }, 91: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var i2 = u5(r2(92)), n2 = u5(r2(93)), s2 = u5(r2(94)), a4 = u5(r2(95)), o2 = u5(r2(17));
+          var n2 = u5(r2(92)), i2 = u5(r2(93)), s2 = u5(r2(94)), a4 = u5(r2(95)), o2 = u5(r2(17));
           function u5(e6) {
             return e6 && e6.__esModule ? e6 : { default: e6 };
           }
-          var d2 = function() {
+          var d2 = (function() {
             function e6(e7, t6) {
               if (void 0 === t6 && (t6 = false), null == e7 || "" === e7) throw new Error("UserAgent parameter can't be empty");
               this._ua = e7, this.parsedResult = {}, true !== t6 && this.parse();
@@ -2020,13 +2020,13 @@ var ScaleneGUI = (() => {
             }, t5.parseBrowser = function() {
               var e7 = this;
               this.parsedResult.browser = {};
-              var t6 = o2.default.find(i2.default, function(t7) {
+              var t6 = o2.default.find(n2.default, (function(t7) {
                 if ("function" == typeof t7.test) return t7.test(e7);
-                if (Array.isArray(t7.test)) return t7.test.some(function(t8) {
+                if (t7.test instanceof Array) return t7.test.some((function(t8) {
                   return e7.test(t8);
-                });
+                }));
                 throw new Error("Browser's test function is not valid");
-              });
+              }));
               return t6 && (this.parsedResult.browser = t6.describe(this.getUA())), this.parsedResult.browser;
             }, t5.getBrowser = function() {
               return this.parsedResult.browser ? this.parsedResult.browser : this.parseBrowser();
@@ -2039,13 +2039,13 @@ var ScaleneGUI = (() => {
             }, t5.parseOS = function() {
               var e7 = this;
               this.parsedResult.os = {};
-              var t6 = o2.default.find(n2.default, function(t7) {
+              var t6 = o2.default.find(i2.default, (function(t7) {
                 if ("function" == typeof t7.test) return t7.test(e7);
-                if (Array.isArray(t7.test)) return t7.test.some(function(t8) {
+                if (t7.test instanceof Array) return t7.test.some((function(t8) {
                   return e7.test(t8);
-                });
+                }));
                 throw new Error("Browser's test function is not valid");
-              });
+              }));
               return t6 && (this.parsedResult.os = t6.describe(this.getUA())), this.parsedResult.os;
             }, t5.getOSName = function(e7) {
               var t6 = this.getOS().name;
@@ -2061,13 +2061,13 @@ var ScaleneGUI = (() => {
             }, t5.parsePlatform = function() {
               var e7 = this;
               this.parsedResult.platform = {};
-              var t6 = o2.default.find(s2.default, function(t7) {
+              var t6 = o2.default.find(s2.default, (function(t7) {
                 if ("function" == typeof t7.test) return t7.test(e7);
-                if (Array.isArray(t7.test)) return t7.test.some(function(t8) {
+                if (t7.test instanceof Array) return t7.test.some((function(t8) {
                   return e7.test(t8);
-                });
+                }));
                 throw new Error("Browser's test function is not valid");
-              });
+              }));
               return t6 && (this.parsedResult.platform = t6.describe(this.getUA())), this.parsedResult.platform;
             }, t5.getEngine = function() {
               return this.parsedResult.engine ? this.parsedResult.engine : this.parseEngine();
@@ -2076,52 +2076,52 @@ var ScaleneGUI = (() => {
             }, t5.parseEngine = function() {
               var e7 = this;
               this.parsedResult.engine = {};
-              var t6 = o2.default.find(a4.default, function(t7) {
+              var t6 = o2.default.find(a4.default, (function(t7) {
                 if ("function" == typeof t7.test) return t7.test(e7);
-                if (Array.isArray(t7.test)) return t7.test.some(function(t8) {
+                if (t7.test instanceof Array) return t7.test.some((function(t8) {
                   return e7.test(t8);
-                });
+                }));
                 throw new Error("Browser's test function is not valid");
-              });
+              }));
               return t6 && (this.parsedResult.engine = t6.describe(this.getUA())), this.parsedResult.engine;
             }, t5.parse = function() {
               return this.parseBrowser(), this.parseOS(), this.parsePlatform(), this.parseEngine(), this;
             }, t5.getResult = function() {
               return o2.default.assign({}, this.parsedResult);
             }, t5.satisfies = function(e7) {
-              var t6 = this, r3 = {}, i3 = 0, n3 = {}, s3 = 0;
-              if (Object.keys(e7).forEach(function(t7) {
+              var t6 = this, r3 = {}, n3 = 0, i3 = {}, s3 = 0;
+              if (Object.keys(e7).forEach((function(t7) {
                 var a6 = e7[t7];
-                "string" == typeof a6 ? (n3[t7] = a6, s3 += 1) : "object" == typeof a6 && (r3[t7] = a6, i3 += 1);
-              }), i3 > 0) {
-                var a5 = Object.keys(r3), u6 = o2.default.find(a5, function(e8) {
+                "string" == typeof a6 ? (i3[t7] = a6, s3 += 1) : "object" == typeof a6 && (r3[t7] = a6, n3 += 1);
+              })), n3 > 0) {
+                var a5 = Object.keys(r3), u6 = o2.default.find(a5, (function(e8) {
                   return t6.isOS(e8);
-                });
+                }));
                 if (u6) {
                   var d3 = this.satisfies(r3[u6]);
                   if (void 0 !== d3) return d3;
                 }
-                var c4 = o2.default.find(a5, function(e8) {
+                var c4 = o2.default.find(a5, (function(e8) {
                   return t6.isPlatform(e8);
-                });
+                }));
                 if (c4) {
                   var f2 = this.satisfies(r3[c4]);
                   if (void 0 !== f2) return f2;
                 }
               }
               if (s3 > 0) {
-                var l2 = Object.keys(n3), h3 = o2.default.find(l2, function(e8) {
+                var l2 = Object.keys(i3), h3 = o2.default.find(l2, (function(e8) {
                   return t6.isBrowser(e8, true);
-                });
-                if (void 0 !== h3) return this.compareVersion(n3[h3]);
+                }));
+                if (void 0 !== h3) return this.compareVersion(i3[h3]);
               }
             }, t5.isBrowser = function(e7, t6) {
               void 0 === t6 && (t6 = false);
-              var r3 = this.getBrowserName().toLowerCase(), i3 = e7.toLowerCase(), n3 = o2.default.getBrowserTypeByAlias(i3);
-              return t6 && n3 && (i3 = n3.toLowerCase()), i3 === r3;
+              var r3 = this.getBrowserName().toLowerCase(), n3 = e7.toLowerCase(), i3 = o2.default.getBrowserTypeByAlias(n3);
+              return t6 && i3 && (n3 = i3.toLowerCase()), n3 === r3;
             }, t5.compareVersion = function(e7) {
-              var t6 = [0], r3 = e7, i3 = false, n3 = this.getBrowserVersion();
-              if ("string" == typeof n3) return ">" === e7[0] || "<" === e7[0] ? (r3 = e7.substr(1), "=" === e7[1] ? (i3 = true, r3 = e7.substr(2)) : t6 = [], ">" === e7[0] ? t6.push(1) : t6.push(-1)) : "=" === e7[0] ? r3 = e7.substr(1) : "~" === e7[0] && (i3 = true, r3 = e7.substr(1)), t6.indexOf(o2.default.compareVersions(n3, r3, i3)) > -1;
+              var t6 = [0], r3 = e7, n3 = false, i3 = this.getBrowserVersion();
+              if ("string" == typeof i3) return ">" === e7[0] || "<" === e7[0] ? (r3 = e7.substr(1), "=" === e7[1] ? (n3 = true, r3 = e7.substr(2)) : t6 = [], ">" === e7[0] ? t6.push(1) : t6.push(-1)) : "=" === e7[0] ? r3 = e7.substr(1) : "~" === e7[0] && (n3 = true, r3 = e7.substr(1)), t6.indexOf(o2.default.compareVersions(i3, r3, n3)) > -1;
             }, t5.isOS = function(e7) {
               return this.getOSName(true) === String(e7).toLowerCase();
             }, t5.isPlatform = function(e7) {
@@ -2132,210 +2132,207 @@ var ScaleneGUI = (() => {
               return void 0 === t6 && (t6 = false), this.isBrowser(e7, t6) || this.isOS(e7) || this.isPlatform(e7);
             }, t5.some = function(e7) {
               var t6 = this;
-              return void 0 === e7 && (e7 = []), e7.some(function(e8) {
+              return void 0 === e7 && (e7 = []), e7.some((function(e8) {
                 return t6.is(e8);
-              });
+              }));
             }, e6;
-          }();
+          })();
           t4.default = d2, e4.exports = t4.default;
         }, 92: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var i2, n2 = (i2 = r2(17)) && i2.__esModule ? i2 : { default: i2 };
+          var n2, i2 = (n2 = r2(17)) && n2.__esModule ? n2 : { default: n2 };
           var s2 = /version\/(\d+(\.?_?\d+)+)/i, a4 = [{ test: [/googlebot/i], describe: function(e6) {
-            var t5 = { name: "Googlebot" }, r3 = n2.default.getFirstMatch(/googlebot\/(\d+(\.\d+))/i, e6) || n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Googlebot" }, r3 = i2.default.getFirstMatch(/googlebot\/(\d+(\.\d+))/i, e6) || i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/opera/i], describe: function(e6) {
-            var t5 = { name: "Opera" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:opera)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Opera" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:opera)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/opr\/|opios/i], describe: function(e6) {
-            var t5 = { name: "Opera" }, r3 = n2.default.getFirstMatch(/(?:opr|opios)[\s/](\S+)/i, e6) || n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Opera" }, r3 = i2.default.getFirstMatch(/(?:opr|opios)[\s/](\S+)/i, e6) || i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/SamsungBrowser/i], describe: function(e6) {
-            var t5 = { name: "Samsung Internet for Android" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:SamsungBrowser)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Samsung Internet for Android" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:SamsungBrowser)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/Whale/i], describe: function(e6) {
-            var t5 = { name: "NAVER Whale Browser" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:whale)[\s/](\d+(?:\.\d+)+)/i, e6);
-            return r3 && (t5.version = r3), t5;
-          } }, { test: [/PaleMoon/i], describe: function(e6) {
-            var t5 = { name: "Pale Moon" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:PaleMoon)[\s/](\d+(?:\.\d+)+)/i, e6);
+            var t5 = { name: "NAVER Whale Browser" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:whale)[\s/](\d+(?:\.\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/MZBrowser/i], describe: function(e6) {
-            var t5 = { name: "MZ Browser" }, r3 = n2.default.getFirstMatch(/(?:MZBrowser)[\s/](\d+(?:\.\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "MZ Browser" }, r3 = i2.default.getFirstMatch(/(?:MZBrowser)[\s/](\d+(?:\.\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/focus/i], describe: function(e6) {
-            var t5 = { name: "Focus" }, r3 = n2.default.getFirstMatch(/(?:focus)[\s/](\d+(?:\.\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Focus" }, r3 = i2.default.getFirstMatch(/(?:focus)[\s/](\d+(?:\.\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/swing/i], describe: function(e6) {
-            var t5 = { name: "Swing" }, r3 = n2.default.getFirstMatch(/(?:swing)[\s/](\d+(?:\.\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Swing" }, r3 = i2.default.getFirstMatch(/(?:swing)[\s/](\d+(?:\.\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/coast/i], describe: function(e6) {
-            var t5 = { name: "Opera Coast" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:coast)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Opera Coast" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:coast)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/opt\/\d+(?:.?_?\d+)+/i], describe: function(e6) {
-            var t5 = { name: "Opera Touch" }, r3 = n2.default.getFirstMatch(/(?:opt)[\s/](\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Opera Touch" }, r3 = i2.default.getFirstMatch(/(?:opt)[\s/](\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/yabrowser/i], describe: function(e6) {
-            var t5 = { name: "Yandex Browser" }, r3 = n2.default.getFirstMatch(/(?:yabrowser)[\s/](\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Yandex Browser" }, r3 = i2.default.getFirstMatch(/(?:yabrowser)[\s/](\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/ucbrowser/i], describe: function(e6) {
-            var t5 = { name: "UC Browser" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:ucbrowser)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "UC Browser" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:ucbrowser)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/Maxthon|mxios/i], describe: function(e6) {
-            var t5 = { name: "Maxthon" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:Maxthon|mxios)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Maxthon" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:Maxthon|mxios)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/epiphany/i], describe: function(e6) {
-            var t5 = { name: "Epiphany" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:epiphany)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Epiphany" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:epiphany)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/puffin/i], describe: function(e6) {
-            var t5 = { name: "Puffin" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:puffin)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Puffin" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:puffin)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/sleipnir/i], describe: function(e6) {
-            var t5 = { name: "Sleipnir" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:sleipnir)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Sleipnir" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:sleipnir)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/k-meleon/i], describe: function(e6) {
-            var t5 = { name: "K-Meleon" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:k-meleon)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "K-Meleon" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:k-meleon)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/micromessenger/i], describe: function(e6) {
-            var t5 = { name: "WeChat" }, r3 = n2.default.getFirstMatch(/(?:micromessenger)[\s/](\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "WeChat" }, r3 = i2.default.getFirstMatch(/(?:micromessenger)[\s/](\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/qqbrowser/i], describe: function(e6) {
-            var t5 = { name: /qqbrowserlite/i.test(e6) ? "QQ Browser Lite" : "QQ Browser" }, r3 = n2.default.getFirstMatch(/(?:qqbrowserlite|qqbrowser)[/](\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: /qqbrowserlite/i.test(e6) ? "QQ Browser Lite" : "QQ Browser" }, r3 = i2.default.getFirstMatch(/(?:qqbrowserlite|qqbrowser)[/](\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/msie|trident/i], describe: function(e6) {
-            var t5 = { name: "Internet Explorer" }, r3 = n2.default.getFirstMatch(/(?:msie |rv:)(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Internet Explorer" }, r3 = i2.default.getFirstMatch(/(?:msie |rv:)(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/\sedg\//i], describe: function(e6) {
-            var t5 = { name: "Microsoft Edge" }, r3 = n2.default.getFirstMatch(/\sedg\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Microsoft Edge" }, r3 = i2.default.getFirstMatch(/\sedg\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/edg([ea]|ios)/i], describe: function(e6) {
-            var t5 = { name: "Microsoft Edge" }, r3 = n2.default.getSecondMatch(/edg([ea]|ios)\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Microsoft Edge" }, r3 = i2.default.getSecondMatch(/edg([ea]|ios)\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/vivaldi/i], describe: function(e6) {
-            var t5 = { name: "Vivaldi" }, r3 = n2.default.getFirstMatch(/vivaldi\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Vivaldi" }, r3 = i2.default.getFirstMatch(/vivaldi\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/seamonkey/i], describe: function(e6) {
-            var t5 = { name: "SeaMonkey" }, r3 = n2.default.getFirstMatch(/seamonkey\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "SeaMonkey" }, r3 = i2.default.getFirstMatch(/seamonkey\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/sailfish/i], describe: function(e6) {
-            var t5 = { name: "Sailfish" }, r3 = n2.default.getFirstMatch(/sailfish\s?browser\/(\d+(\.\d+)?)/i, e6);
+            var t5 = { name: "Sailfish" }, r3 = i2.default.getFirstMatch(/sailfish\s?browser\/(\d+(\.\d+)?)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/silk/i], describe: function(e6) {
-            var t5 = { name: "Amazon Silk" }, r3 = n2.default.getFirstMatch(/silk\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Amazon Silk" }, r3 = i2.default.getFirstMatch(/silk\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/phantom/i], describe: function(e6) {
-            var t5 = { name: "PhantomJS" }, r3 = n2.default.getFirstMatch(/phantomjs\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "PhantomJS" }, r3 = i2.default.getFirstMatch(/phantomjs\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/slimerjs/i], describe: function(e6) {
-            var t5 = { name: "SlimerJS" }, r3 = n2.default.getFirstMatch(/slimerjs\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "SlimerJS" }, r3 = i2.default.getFirstMatch(/slimerjs\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/blackberry|\bbb\d+/i, /rim\stablet/i], describe: function(e6) {
-            var t5 = { name: "BlackBerry" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/blackberry[\d]+\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "BlackBerry" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/blackberry[\d]+\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/(web|hpw)[o0]s/i], describe: function(e6) {
-            var t5 = { name: "WebOS Browser" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/w(?:eb)?[o0]sbrowser\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "WebOS Browser" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/w(?:eb)?[o0]sbrowser\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/bada/i], describe: function(e6) {
-            var t5 = { name: "Bada" }, r3 = n2.default.getFirstMatch(/dolfin\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Bada" }, r3 = i2.default.getFirstMatch(/dolfin\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/tizen/i], describe: function(e6) {
-            var t5 = { name: "Tizen" }, r3 = n2.default.getFirstMatch(/(?:tizen\s?)?browser\/(\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Tizen" }, r3 = i2.default.getFirstMatch(/(?:tizen\s?)?browser\/(\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/qupzilla/i], describe: function(e6) {
-            var t5 = { name: "QupZilla" }, r3 = n2.default.getFirstMatch(/(?:qupzilla)[\s/](\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "QupZilla" }, r3 = i2.default.getFirstMatch(/(?:qupzilla)[\s/](\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/firefox|iceweasel|fxios/i], describe: function(e6) {
-            var t5 = { name: "Firefox" }, r3 = n2.default.getFirstMatch(/(?:firefox|iceweasel|fxios)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Firefox" }, r3 = i2.default.getFirstMatch(/(?:firefox|iceweasel|fxios)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/electron/i], describe: function(e6) {
-            var t5 = { name: "Electron" }, r3 = n2.default.getFirstMatch(/(?:electron)\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Electron" }, r3 = i2.default.getFirstMatch(/(?:electron)\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/MiuiBrowser/i], describe: function(e6) {
-            var t5 = { name: "Miui" }, r3 = n2.default.getFirstMatch(/(?:MiuiBrowser)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Miui" }, r3 = i2.default.getFirstMatch(/(?:MiuiBrowser)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/chromium/i], describe: function(e6) {
-            var t5 = { name: "Chromium" }, r3 = n2.default.getFirstMatch(/(?:chromium)[\s/](\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Chromium" }, r3 = i2.default.getFirstMatch(/(?:chromium)[\s/](\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/chrome|crios|crmo/i], describe: function(e6) {
-            var t5 = { name: "Chrome" }, r3 = n2.default.getFirstMatch(/(?:chrome|crios|crmo)\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Chrome" }, r3 = i2.default.getFirstMatch(/(?:chrome|crios|crmo)\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/GSA/i], describe: function(e6) {
-            var t5 = { name: "Google Search" }, r3 = n2.default.getFirstMatch(/(?:GSA)\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Google Search" }, r3 = i2.default.getFirstMatch(/(?:GSA)\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: function(e6) {
             var t5 = !e6.test(/like android/i), r3 = e6.test(/android/i);
             return t5 && r3;
           }, describe: function(e6) {
-            var t5 = { name: "Android Browser" }, r3 = n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Android Browser" }, r3 = i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/playstation 4/i], describe: function(e6) {
-            var t5 = { name: "PlayStation 4" }, r3 = n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "PlayStation 4" }, r3 = i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/safari|applewebkit/i], describe: function(e6) {
-            var t5 = { name: "Safari" }, r3 = n2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Safari" }, r3 = i2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/.*/i], describe: function(e6) {
             var t5 = -1 !== e6.search("\\(") ? /^(.*)\/(.*)[ \t]\((.*)/ : /^(.*)\/(.*) /;
-            return { name: n2.default.getFirstMatch(t5, e6), version: n2.default.getSecondMatch(t5, e6) };
+            return { name: i2.default.getFirstMatch(t5, e6), version: i2.default.getSecondMatch(t5, e6) };
           } }];
           t4.default = a4, e4.exports = t4.default;
         }, 93: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var i2, n2 = (i2 = r2(17)) && i2.__esModule ? i2 : { default: i2 }, s2 = r2(18);
+          var n2, i2 = (n2 = r2(17)) && n2.__esModule ? n2 : { default: n2 }, s2 = r2(18);
           var a4 = [{ test: [/Roku\/DVP/], describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/Roku\/DVP-(\d+\.\d+)/i, e6);
+            var t5 = i2.default.getFirstMatch(/Roku\/DVP-(\d+\.\d+)/i, e6);
             return { name: s2.OS_MAP.Roku, version: t5 };
           } }, { test: [/windows phone/i], describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/windows phone (?:os)?\s?(\d+(\.\d+)*)/i, e6);
+            var t5 = i2.default.getFirstMatch(/windows phone (?:os)?\s?(\d+(\.\d+)*)/i, e6);
             return { name: s2.OS_MAP.WindowsPhone, version: t5 };
           } }, { test: [/windows /i], describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/Windows ((NT|XP)( \d\d?.\d)?)/i, e6), r3 = n2.default.getWindowsVersionName(t5);
+            var t5 = i2.default.getFirstMatch(/Windows ((NT|XP)( \d\d?.\d)?)/i, e6), r3 = i2.default.getWindowsVersionName(t5);
             return { name: s2.OS_MAP.Windows, version: t5, versionName: r3 };
           } }, { test: [/Macintosh(.*?) FxiOS(.*?)\//], describe: function(e6) {
-            var t5 = { name: s2.OS_MAP.iOS }, r3 = n2.default.getSecondMatch(/(Version\/)(\d[\d.]+)/, e6);
+            var t5 = { name: s2.OS_MAP.iOS }, r3 = i2.default.getSecondMatch(/(Version\/)(\d[\d.]+)/, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/macintosh/i], describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/mac os x (\d+(\.?_?\d+)+)/i, e6).replace(/[_\s]/g, "."), r3 = n2.default.getMacOSVersionName(t5), i3 = { name: s2.OS_MAP.MacOS, version: t5 };
-            return r3 && (i3.versionName = r3), i3;
+            var t5 = i2.default.getFirstMatch(/mac os x (\d+(\.?_?\d+)+)/i, e6).replace(/[_\s]/g, "."), r3 = i2.default.getMacOSVersionName(t5), n3 = { name: s2.OS_MAP.MacOS, version: t5 };
+            return r3 && (n3.versionName = r3), n3;
           } }, { test: [/(ipod|iphone|ipad)/i], describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/os (\d+([_\s]\d+)*) like mac os x/i, e6).replace(/[_\s]/g, ".");
+            var t5 = i2.default.getFirstMatch(/os (\d+([_\s]\d+)*) like mac os x/i, e6).replace(/[_\s]/g, ".");
             return { name: s2.OS_MAP.iOS, version: t5 };
           } }, { test: function(e6) {
             var t5 = !e6.test(/like android/i), r3 = e6.test(/android/i);
             return t5 && r3;
           }, describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/android[\s/-](\d+(\.\d+)*)/i, e6), r3 = n2.default.getAndroidVersionName(t5), i3 = { name: s2.OS_MAP.Android, version: t5 };
-            return r3 && (i3.versionName = r3), i3;
+            var t5 = i2.default.getFirstMatch(/android[\s/-](\d+(\.\d+)*)/i, e6), r3 = i2.default.getAndroidVersionName(t5), n3 = { name: s2.OS_MAP.Android, version: t5 };
+            return r3 && (n3.versionName = r3), n3;
           } }, { test: [/(web|hpw)[o0]s/i], describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/(?:web|hpw)[o0]s\/(\d+(\.\d+)*)/i, e6), r3 = { name: s2.OS_MAP.WebOS };
+            var t5 = i2.default.getFirstMatch(/(?:web|hpw)[o0]s\/(\d+(\.\d+)*)/i, e6), r3 = { name: s2.OS_MAP.WebOS };
             return t5 && t5.length && (r3.version = t5), r3;
           } }, { test: [/blackberry|\bbb\d+/i, /rim\stablet/i], describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/rim\stablet\sos\s(\d+(\.\d+)*)/i, e6) || n2.default.getFirstMatch(/blackberry\d+\/(\d+([_\s]\d+)*)/i, e6) || n2.default.getFirstMatch(/\bbb(\d+)/i, e6);
+            var t5 = i2.default.getFirstMatch(/rim\stablet\sos\s(\d+(\.\d+)*)/i, e6) || i2.default.getFirstMatch(/blackberry\d+\/(\d+([_\s]\d+)*)/i, e6) || i2.default.getFirstMatch(/\bbb(\d+)/i, e6);
             return { name: s2.OS_MAP.BlackBerry, version: t5 };
           } }, { test: [/bada/i], describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/bada\/(\d+(\.\d+)*)/i, e6);
+            var t5 = i2.default.getFirstMatch(/bada\/(\d+(\.\d+)*)/i, e6);
             return { name: s2.OS_MAP.Bada, version: t5 };
           } }, { test: [/tizen/i], describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/tizen[/\s](\d+(\.\d+)*)/i, e6);
+            var t5 = i2.default.getFirstMatch(/tizen[/\s](\d+(\.\d+)*)/i, e6);
             return { name: s2.OS_MAP.Tizen, version: t5 };
           } }, { test: [/linux/i], describe: function() {
             return { name: s2.OS_MAP.Linux };
           } }, { test: [/CrOS/], describe: function() {
             return { name: s2.OS_MAP.ChromeOS };
           } }, { test: [/PlayStation 4/], describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/PlayStation 4[/\s](\d+(\.\d+)*)/i, e6);
+            var t5 = i2.default.getFirstMatch(/PlayStation 4[/\s](\d+(\.\d+)*)/i, e6);
             return { name: s2.OS_MAP.PlayStation4, version: t5 };
           } }];
           t4.default = a4, e4.exports = t4.default;
         }, 94: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var i2, n2 = (i2 = r2(17)) && i2.__esModule ? i2 : { default: i2 }, s2 = r2(18);
+          var n2, i2 = (n2 = r2(17)) && n2.__esModule ? n2 : { default: n2 }, s2 = r2(18);
           var a4 = [{ test: [/googlebot/i], describe: function() {
-            return { type: s2.PLATFORMS_MAP.bot, vendor: "Google" };
+            return { type: "bot", vendor: "Google" };
           } }, { test: [/huawei/i], describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/(can-l01)/i, e6) && "Nova", r3 = { type: s2.PLATFORMS_MAP.mobile, vendor: "Huawei" };
+            var t5 = i2.default.getFirstMatch(/(can-l01)/i, e6) && "Nova", r3 = { type: s2.PLATFORMS_MAP.mobile, vendor: "Huawei" };
             return t5 && (r3.model = t5), r3;
           } }, { test: [/nexus\s*(?:7|8|9|10).*/i], describe: function() {
             return { type: s2.PLATFORMS_MAP.tablet, vendor: "Nexus" };
@@ -2353,13 +2350,10 @@ var ScaleneGUI = (() => {
             var t5 = e6.test(/ipod|iphone/i), r3 = e6.test(/like (ipod|iphone)/i);
             return t5 && !r3;
           }, describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/(ipod|iphone)/i, e6);
+            var t5 = i2.default.getFirstMatch(/(ipod|iphone)/i, e6);
             return { type: s2.PLATFORMS_MAP.mobile, vendor: "Apple", model: t5 };
           } }, { test: [/nexus\s*[0-6].*/i, /galaxy nexus/i], describe: function() {
             return { type: s2.PLATFORMS_MAP.mobile, vendor: "Nexus" };
-          } }, { test: [/Nokia/i], describe: function(e6) {
-            var t5 = n2.default.getFirstMatch(/Nokia\s+([0-9]+(\.[0-9]+)?)/i, e6), r3 = { type: s2.PLATFORMS_MAP.mobile, vendor: "Nokia" };
-            return t5 && (r3.model = t5), r3;
           } }, { test: [/[^-]mobi/i], describe: function() {
             return { type: s2.PLATFORMS_MAP.mobile };
           } }, { test: function(e6) {
@@ -2408,36 +2402,36 @@ var ScaleneGUI = (() => {
         }, 95: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var i2, n2 = (i2 = r2(17)) && i2.__esModule ? i2 : { default: i2 }, s2 = r2(18);
+          var n2, i2 = (n2 = r2(17)) && n2.__esModule ? n2 : { default: n2 }, s2 = r2(18);
           var a4 = [{ test: function(e6) {
             return "microsoft edge" === e6.getBrowserName(true);
           }, describe: function(e6) {
             if (/\sedg\//i.test(e6)) return { name: s2.ENGINE_MAP.Blink };
-            var t5 = n2.default.getFirstMatch(/edge\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = i2.default.getFirstMatch(/edge\/(\d+(\.?_?\d+)+)/i, e6);
             return { name: s2.ENGINE_MAP.EdgeHTML, version: t5 };
           } }, { test: [/trident/i], describe: function(e6) {
-            var t5 = { name: s2.ENGINE_MAP.Trident }, r3 = n2.default.getFirstMatch(/trident\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: s2.ENGINE_MAP.Trident }, r3 = i2.default.getFirstMatch(/trident\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: function(e6) {
             return e6.test(/presto/i);
           }, describe: function(e6) {
-            var t5 = { name: s2.ENGINE_MAP.Presto }, r3 = n2.default.getFirstMatch(/presto\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: s2.ENGINE_MAP.Presto }, r3 = i2.default.getFirstMatch(/presto\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: function(e6) {
             var t5 = e6.test(/gecko/i), r3 = e6.test(/like gecko/i);
             return t5 && !r3;
           }, describe: function(e6) {
-            var t5 = { name: s2.ENGINE_MAP.Gecko }, r3 = n2.default.getFirstMatch(/gecko\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: s2.ENGINE_MAP.Gecko }, r3 = i2.default.getFirstMatch(/gecko\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/(apple)?webkit\/537\.36/i], describe: function() {
             return { name: s2.ENGINE_MAP.Blink };
           } }, { test: [/(apple)?webkit/i], describe: function(e6) {
-            var t5 = { name: s2.ENGINE_MAP.WebKit }, r3 = n2.default.getFirstMatch(/webkit\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: s2.ENGINE_MAP.WebKit }, r3 = i2.default.getFirstMatch(/webkit\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }];
           t4.default = a4, e4.exports = t4.default;
         } });
-      });
+      }));
     }
   });
 
@@ -2479,7 +2473,7 @@ var ScaleneGUI = (() => {
     ).slice(2, -3);
     const maxLength = indent === "" ? Infinity : options.maxLength === void 0 ? 80 : options.maxLength;
     let { replacer: replacer2 } = options;
-    return function _stringify(obj, currentIndent, reserved) {
+    return (function _stringify(obj, currentIndent, reserved) {
       if (obj && typeof obj.toJSON === "function") {
         obj = obj.toJSON();
       }
@@ -2545,7 +2539,7 @@ ${currentIndent}`
         }
       }
       return string;
-    }(passedObj, "", 0);
+    })(passedObj, "", 0);
   }
 
   // node_modules/vega/build/vega.module.js
@@ -6034,7 +6028,7 @@ ${currentIndent}`
       df.error(err);
     }
   }
-  var TUPLE_ID_KEY = Symbol("vega_id");
+  var TUPLE_ID_KEY = /* @__PURE__ */ Symbol("vega_id");
   var TUPLE_ID = 1;
   function isTuple(t4) {
     return !!(t4 && tupleid(t4));
@@ -11998,7 +11992,7 @@ ${currentIndent}`
       this._y.push(+y5);
     }
   };
-  var bundle_default = function custom(beta) {
+  var bundle_default = (function custom(beta) {
     function bundle2(context3) {
       return beta === 1 ? new Basis(context3) : new Bundle(context3, beta);
     }
@@ -12006,7 +12000,7 @@ ${currentIndent}`
       return custom(+beta2);
     };
     return bundle2;
-  }(0.85);
+  })(0.85);
 
   // node_modules/d3-shape/src/curve/cardinal.js
   function point2(that, x5, y5) {
@@ -12068,7 +12062,7 @@ ${currentIndent}`
       this._y0 = this._y1, this._y1 = this._y2, this._y2 = y5;
     }
   };
-  var cardinal_default = function custom2(tension) {
+  var cardinal_default = (function custom2(tension) {
     function cardinal(context3) {
       return new Cardinal(context3, tension);
     }
@@ -12076,7 +12070,7 @@ ${currentIndent}`
       return custom2(+tension2);
     };
     return cardinal;
-  }(0);
+  })(0);
 
   // node_modules/d3-shape/src/curve/cardinalClosed.js
   function CardinalClosed(context3, tension) {
@@ -12133,7 +12127,7 @@ ${currentIndent}`
       this._y0 = this._y1, this._y1 = this._y2, this._y2 = y5;
     }
   };
-  var cardinalClosed_default = function custom3(tension) {
+  var cardinalClosed_default = (function custom3(tension) {
     function cardinal(context3) {
       return new CardinalClosed(context3, tension);
     }
@@ -12141,7 +12135,7 @@ ${currentIndent}`
       return custom3(+tension2);
     };
     return cardinal;
-  }(0);
+  })(0);
 
   // node_modules/d3-shape/src/curve/cardinalOpen.js
   function CardinalOpen(context3, tension) {
@@ -12187,7 +12181,7 @@ ${currentIndent}`
       this._y0 = this._y1, this._y1 = this._y2, this._y2 = y5;
     }
   };
-  var cardinalOpen_default = function custom4(tension) {
+  var cardinalOpen_default = (function custom4(tension) {
     function cardinal(context3) {
       return new CardinalOpen(context3, tension);
     }
@@ -12195,7 +12189,7 @@ ${currentIndent}`
       return custom4(+tension2);
     };
     return cardinal;
-  }(0);
+  })(0);
 
   // node_modules/d3-shape/src/curve/catmullRom.js
   function point3(that, x5, y5) {
@@ -12266,7 +12260,7 @@ ${currentIndent}`
       this._y0 = this._y1, this._y1 = this._y2, this._y2 = y5;
     }
   };
-  var catmullRom_default = function custom5(alpha) {
+  var catmullRom_default = (function custom5(alpha) {
     function catmullRom(context3) {
       return alpha ? new CatmullRom(context3, alpha) : new Cardinal(context3, 0);
     }
@@ -12274,7 +12268,7 @@ ${currentIndent}`
       return custom5(+alpha2);
     };
     return catmullRom;
-  }(0.5);
+  })(0.5);
 
   // node_modules/d3-shape/src/curve/catmullRomClosed.js
   function CatmullRomClosed(context3, alpha) {
@@ -12337,7 +12331,7 @@ ${currentIndent}`
       this._y0 = this._y1, this._y1 = this._y2, this._y2 = y5;
     }
   };
-  var catmullRomClosed_default = function custom6(alpha) {
+  var catmullRomClosed_default = (function custom6(alpha) {
     function catmullRom(context3) {
       return alpha ? new CatmullRomClosed(context3, alpha) : new CardinalClosed(context3, 0);
     }
@@ -12345,7 +12339,7 @@ ${currentIndent}`
       return custom6(+alpha2);
     };
     return catmullRom;
-  }(0.5);
+  })(0.5);
 
   // node_modules/d3-shape/src/curve/catmullRomOpen.js
   function CatmullRomOpen(context3, alpha) {
@@ -12397,7 +12391,7 @@ ${currentIndent}`
       this._y0 = this._y1, this._y1 = this._y2, this._y2 = y5;
     }
   };
-  var catmullRomOpen_default = function custom7(alpha) {
+  var catmullRomOpen_default = (function custom7(alpha) {
     function catmullRom(context3) {
       return alpha ? new CatmullRomOpen(context3, alpha) : new CardinalOpen(context3, 0);
     }
@@ -12405,7 +12399,7 @@ ${currentIndent}`
       return custom7(+alpha2);
     };
     return catmullRom;
-  }(0.5);
+  })(0.5);
 
   // node_modules/d3-shape/src/curve/linearClosed.js
   function LinearClosed(context3) {
@@ -12684,7 +12678,7 @@ ${currentIndent}`
   }
 
   // node_modules/d3-scale/src/ordinal.js
-  var implicit = Symbol("implicit");
+  var implicit = /* @__PURE__ */ Symbol("implicit");
   function ordinal() {
     var index4 = new InternMap(), domain4 = [], range7 = [], unknown = implicit;
     function scale7(d2) {
@@ -13291,7 +13285,7 @@ ${currentIndent}`
   }
 
   // node_modules/d3-interpolate/src/rgb.js
-  var rgb_default = function rgbGamma(y5) {
+  var rgb_default = (function rgbGamma(y5) {
     var color5 = gamma(y5);
     function rgb2(start, end) {
       var r2 = color5((start = rgb(start)).r, (end = rgb(end)).r), g2 = color5(start.g, end.g), b3 = color5(start.b, end.b), opacity2 = nogamma(start.opacity, end.opacity);
@@ -13305,7 +13299,7 @@ ${currentIndent}`
     }
     rgb2.gamma = rgbGamma;
     return rgb2;
-  }(1);
+  })(1);
   function rgbSpline(spline) {
     return function(colors2) {
       var n2 = colors2.length, r2 = new Array(n2), g2 = new Array(n2), b3 = new Array(n2), i2, color5;
@@ -13569,7 +13563,7 @@ ${currentIndent}`
   function tanh(x5) {
     return ((x5 = Math.exp(2 * x5)) - 1) / (x5 + 1);
   }
-  var zoom_default = function zoomRho(rho, rho2, rho4) {
+  var zoom_default = (function zoomRho(rho, rho2, rho4) {
     function zoom3(p02, p1) {
       var ux0 = p02[0], uy0 = p02[1], w0 = p02[2], ux1 = p1[0], uy1 = p1[1], w1 = p1[2], dx = ux1 - ux0, dy = uy1 - uy0, d2 = dx * dx + dy * dy, i2, S;
       if (d2 < epsilon22) {
@@ -13601,7 +13595,7 @@ ${currentIndent}`
       return zoomRho(_1, _2, _4);
     };
     return zoom3;
-  }(Math.SQRT2, 2, 4);
+  })(Math.SQRT2, 2, 4);
 
   // node_modules/d3-interpolate/src/hsl.js
   function hsl2(hue2) {
@@ -13649,7 +13643,7 @@ ${currentIndent}`
 
   // node_modules/d3-interpolate/src/cubehelix.js
   function cubehelix2(hue2) {
-    return function cubehelixGamma(y5) {
+    return (function cubehelixGamma(y5) {
       y5 = +y5;
       function cubehelix3(start, end) {
         var h3 = hue2((start = cubehelix(start)).h, (end = cubehelix(end)).h), s2 = nogamma(start.s, end.s), l2 = nogamma(start.l, end.l), opacity2 = nogamma(start.opacity, end.opacity);
@@ -13663,7 +13657,7 @@ ${currentIndent}`
       }
       cubehelix3.gamma = cubehelixGamma;
       return cubehelix3;
-    }(1);
+    })(1);
   }
   var cubehelix_default = cubehelix2(hue);
   var cubehelixLong = cubehelix2(nogamma);
@@ -14606,7 +14600,7 @@ ${currentIndent}`
     return scale7;
   }
   var scales = /* @__PURE__ */ new Map();
-  var VEGA_SCALE = Symbol("vega_scale");
+  var VEGA_SCALE = /* @__PURE__ */ Symbol("vega_scale");
   function registerScale(scale7) {
     scale7[VEGA_SCALE] = true;
     return scale7;
@@ -26285,7 +26279,7 @@ ${currentIndent}`
     }
     return rows;
   }
-  var squarify_default = function custom9(ratio) {
+  var squarify_default = (function custom9(ratio) {
     function squarify(parent, x06, y06, x12, y12) {
       squarifyRatio(ratio, parent, x06, y06, x12, y12);
     }
@@ -26293,7 +26287,7 @@ ${currentIndent}`
       return custom9((x5 = +x5) > 1 ? x5 : 1);
     };
     return squarify;
-  }(phi);
+  })(phi);
 
   // node_modules/d3-hierarchy/src/treemap/index.js
   function treemap_default() {
@@ -26399,7 +26393,7 @@ ${currentIndent}`
   }
 
   // node_modules/d3-hierarchy/src/treemap/resquarify.js
-  var resquarify_default = function custom10(ratio) {
+  var resquarify_default = (function custom10(ratio) {
     function resquarify(parent, x06, y06, x12, y12) {
       if ((rows = parent._squarify) && rows.ratio === ratio) {
         var rows, row, nodes, i2, j2 = -1, n2, m4 = rows.length, value3 = parent.value;
@@ -26419,7 +26413,7 @@ ${currentIndent}`
       return custom10((x5 = +x5) > 1 ? x5 : 1);
     };
     return resquarify;
-  }(phi);
+  })(phi);
 
   // node_modules/vega-hierarchy/build/vega-hierarchy.module.js
   function lookup3(tree, key2, filter3) {
@@ -31319,7 +31313,7 @@ ${currentIndent}`
   }
 
   // node_modules/vega-selections/build/vega-selection.module.js
-  var SELECTION_GETTER = Symbol("vega_selection_getter");
+  var SELECTION_GETTER = /* @__PURE__ */ Symbol("vega_selection_getter");
   function getter2(f2) {
     if (!f2.getter || !f2.getter[SELECTION_GETTER]) {
       f2.getter = field(f2.field);
@@ -37803,7 +37797,7 @@ ${currentIndent}`
   }
   function stringify2(data3) {
     const seen = [];
-    return function _stringify(node) {
+    return (function _stringify(node) {
       if (node && node.toJSON && typeof node.toJSON === "function") {
         node = node.toJSON();
       }
@@ -37842,7 +37836,7 @@ ${currentIndent}`
       }
       seen.splice(seenIndex, 1);
       return `{${out}}`;
-    }(data3);
+    })(data3);
   }
   function hasProperty(obj, key2) {
     return isObject(obj) && has(obj, key2) && obj[key2] !== void 0;
@@ -57894,7 +57888,7 @@ ${currentIndent}`
   var version4 = pkg2.version;
 
   // node_modules/vega-embed/build/vega-embed.module.js
-  var __extends = /* @__PURE__ */ function() {
+  var __extends = /* @__PURE__ */ (function() {
     var extendStatics = function(d2, b3) {
       extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d3, b4) {
         d3.__proto__ = b4;
@@ -57910,7 +57904,7 @@ ${currentIndent}`
       }
       d2.prototype = b3 === null ? Object.create(b3) : (__.prototype = b3.prototype, new __());
     };
-  }();
+  })();
   var _hasOwnProperty = Object.prototype.hasOwnProperty;
   function hasOwnProperty(obj, key2) {
     return _hasOwnProperty.call(obj, key2);
@@ -58003,7 +57997,7 @@ ${currentIndent}`
   }
   var PatchError = (
     /** @class */
-    function(_super) {
+    (function(_super) {
       __extends(PatchError2, _super);
       function PatchError2(message, name4, index4, operation, tree) {
         var _newTarget = this.constructor;
@@ -58017,7 +58011,7 @@ ${currentIndent}`
         return _this;
       }
       return PatchError2;
-    }(Error)
+    })(Error)
   );
   var JsonPatchError = PatchError;
   var deepClone = _deepClone;
@@ -58352,23 +58346,23 @@ ${currentIndent}`
   var beforeDict = /* @__PURE__ */ new WeakMap();
   var Mirror = (
     /** @class */
-    /* @__PURE__ */ function() {
+    /* @__PURE__ */ (function() {
       function Mirror2(obj) {
         this.observers = /* @__PURE__ */ new Map();
         this.obj = obj;
       }
       return Mirror2;
-    }()
+    })()
   );
   var ObserverInfo = (
     /** @class */
-    /* @__PURE__ */ function() {
+    /* @__PURE__ */ (function() {
       function ObserverInfo2(callback, observer) {
         this.callback = callback;
         this.observer = observer;
       }
       return ObserverInfo2;
-    }()
+    })()
   );
   function getMirror(obj) {
     return beforeDict.get(obj);
@@ -59104,7 +59098,7 @@ ${currentIndent}`
   function requireComparator() {
     if (hasRequiredComparator) return comparator2;
     hasRequiredComparator = 1;
-    const ANY = Symbol("SemVer ANY");
+    const ANY = /* @__PURE__ */ Symbol("SemVer ANY");
     class Comparator {
       static get ANY() {
         return ANY;
@@ -60214,7 +60208,7 @@ ${currentIndent}`
 
   // prism.js
   var _self = typeof window !== "undefined" ? window : typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope ? self : {};
-  var Prism2 = function(_self2) {
+  var Prism2 = (function(_self2) {
     var lang = /(?:^|\s)lang(?:uage)?-([\w-]+)(?=\s|$)/i;
     var uniqueId2 = 0;
     var plainTextGrammar = {};
@@ -61120,7 +61114,7 @@ ${currentIndent}`
       }
     }
     return _;
-  }(_self);
+  })(_self);
   if (typeof module !== "undefined" && module.exports) {
     module.exports = Prism2;
   }
@@ -62236,7 +62230,7 @@ ${currentIndent}`
       }
       return modelNames;
     } catch (error3) {
-      console.error("Error fetching model names:", error3);
+      console.log("Ollama not available (this is normal if you're not using local models)");
       revealInstallMessage2();
       return [];
     }
@@ -62756,6 +62750,16 @@ ${currentIndent}`
     };
   }
 
+  // node_modules/@smithy/core/dist-es/middleware-http-auth-scheme/getHttpAuthSchemePlugin.js
+  var httpAuthSchemeMiddlewareOptions = {
+    step: "serialize",
+    tags: ["HTTP_AUTH_SCHEME"],
+    name: "httpAuthSchemeMiddleware",
+    override: true,
+    relation: "before",
+    toMiddleware: serializerMiddlewareOption.name
+  };
+
   // node_modules/@smithy/core/dist-es/middleware-http-signing/httpSigningMiddleware.js
   var defaultErrorHandler = (signingProperties) => (error3) => {
     throw error3;
@@ -63244,6 +63248,494 @@ ${currentIndent}`
     });
   }
 
+  // node_modules/@smithy/core/dist-es/submodules/schema/deref.js
+  var deref2 = (schemaRef) => {
+    if (typeof schemaRef === "function") {
+      return schemaRef();
+    }
+    return schemaRef;
+  };
+
+  // node_modules/@smithy/core/dist-es/submodules/schema/TypeRegistry.js
+  var TypeRegistry = class _TypeRegistry {
+    constructor(namespace, schemas = /* @__PURE__ */ new Map()) {
+      this.namespace = namespace;
+      this.schemas = schemas;
+    }
+    static for(namespace) {
+      if (!_TypeRegistry.registries.has(namespace)) {
+        _TypeRegistry.registries.set(namespace, new _TypeRegistry(namespace));
+      }
+      return _TypeRegistry.registries.get(namespace);
+    }
+    register(shapeId, schema) {
+      const qualifiedName = this.normalizeShapeId(shapeId);
+      const registry = _TypeRegistry.for(this.getNamespace(shapeId));
+      registry.schemas.set(qualifiedName, schema);
+    }
+    getSchema(shapeId) {
+      const id2 = this.normalizeShapeId(shapeId);
+      if (!this.schemas.has(id2)) {
+        throw new Error(`@smithy/core/schema - schema not found for ${id2}`);
+      }
+      return this.schemas.get(id2);
+    }
+    getBaseException() {
+      for (const [id2, schema] of this.schemas.entries()) {
+        if (id2.startsWith("smithy.ts.sdk.synthetic.") && id2.endsWith("ServiceException")) {
+          return schema;
+        }
+      }
+      return void 0;
+    }
+    find(predicate) {
+      return [...this.schemas.values()].find(predicate);
+    }
+    destroy() {
+      _TypeRegistry.registries.delete(this.namespace);
+      this.schemas.clear();
+    }
+    normalizeShapeId(shapeId) {
+      if (shapeId.includes("#")) {
+        return shapeId;
+      }
+      return this.namespace + "#" + shapeId;
+    }
+    getNamespace(shapeId) {
+      return this.normalizeShapeId(shapeId).split("#")[0];
+    }
+  };
+  TypeRegistry.registries = /* @__PURE__ */ new Map();
+
+  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/Schema.js
+  var Schema = class {
+    constructor(name4, traits) {
+      this.name = name4;
+      this.traits = traits;
+    }
+  };
+
+  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/ListSchema.js
+  var ListSchema = class _ListSchema extends Schema {
+    constructor(name4, traits, valueSchema) {
+      super(name4, traits);
+      this.name = name4;
+      this.traits = traits;
+      this.valueSchema = valueSchema;
+      this.symbol = _ListSchema.symbol;
+    }
+    static [Symbol.hasInstance](lhs) {
+      const isPrototype = _ListSchema.prototype.isPrototypeOf(lhs);
+      if (!isPrototype && typeof lhs === "object" && lhs !== null) {
+        const list = lhs;
+        return list.symbol === _ListSchema.symbol;
+      }
+      return isPrototype;
+    }
+  };
+  ListSchema.symbol = /* @__PURE__ */ Symbol.for("@smithy/core/schema::ListSchema");
+
+  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/MapSchema.js
+  var MapSchema = class _MapSchema extends Schema {
+    constructor(name4, traits, keySchema, valueSchema) {
+      super(name4, traits);
+      this.name = name4;
+      this.traits = traits;
+      this.keySchema = keySchema;
+      this.valueSchema = valueSchema;
+      this.symbol = _MapSchema.symbol;
+    }
+    static [Symbol.hasInstance](lhs) {
+      const isPrototype = _MapSchema.prototype.isPrototypeOf(lhs);
+      if (!isPrototype && typeof lhs === "object" && lhs !== null) {
+        const map4 = lhs;
+        return map4.symbol === _MapSchema.symbol;
+      }
+      return isPrototype;
+    }
+  };
+  MapSchema.symbol = /* @__PURE__ */ Symbol.for("@smithy/core/schema::MapSchema");
+
+  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/StructureSchema.js
+  var StructureSchema = class _StructureSchema extends Schema {
+    constructor(name4, traits, memberNames, memberList) {
+      super(name4, traits);
+      this.name = name4;
+      this.traits = traits;
+      this.memberNames = memberNames;
+      this.memberList = memberList;
+      this.symbol = _StructureSchema.symbol;
+      this.members = {};
+      for (let i2 = 0; i2 < memberNames.length; ++i2) {
+        this.members[memberNames[i2]] = Array.isArray(memberList[i2]) ? memberList[i2] : [memberList[i2], 0];
+      }
+    }
+    static [Symbol.hasInstance](lhs) {
+      const isPrototype = _StructureSchema.prototype.isPrototypeOf(lhs);
+      if (!isPrototype && typeof lhs === "object" && lhs !== null) {
+        const struct = lhs;
+        return struct.symbol === _StructureSchema.symbol;
+      }
+      return isPrototype;
+    }
+  };
+  StructureSchema.symbol = /* @__PURE__ */ Symbol.for("@smithy/core/schema::StructureSchema");
+
+  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/ErrorSchema.js
+  var ErrorSchema = class _ErrorSchema extends StructureSchema {
+    constructor(name4, traits, memberNames, memberList, ctor) {
+      super(name4, traits, memberNames, memberList);
+      this.name = name4;
+      this.traits = traits;
+      this.memberNames = memberNames;
+      this.memberList = memberList;
+      this.ctor = ctor;
+      this.symbol = _ErrorSchema.symbol;
+    }
+    static [Symbol.hasInstance](lhs) {
+      const isPrototype = _ErrorSchema.prototype.isPrototypeOf(lhs);
+      if (!isPrototype && typeof lhs === "object" && lhs !== null) {
+        const err = lhs;
+        return err.symbol === _ErrorSchema.symbol;
+      }
+      return isPrototype;
+    }
+  };
+  ErrorSchema.symbol = /* @__PURE__ */ Symbol.for("@smithy/core/schema::ErrorSchema");
+
+  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/sentinels.js
+  var SCHEMA = {
+    BLOB: 21,
+    STREAMING_BLOB: 42,
+    BOOLEAN: 2,
+    STRING: 0,
+    NUMERIC: 1,
+    BIG_INTEGER: 17,
+    BIG_DECIMAL: 19,
+    DOCUMENT: 15,
+    TIMESTAMP_DEFAULT: 4,
+    TIMESTAMP_DATE_TIME: 5,
+    TIMESTAMP_HTTP_DATE: 6,
+    TIMESTAMP_EPOCH_SECONDS: 7,
+    LIST_MODIFIER: 64,
+    MAP_MODIFIER: 128
+  };
+
+  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/SimpleSchema.js
+  var SimpleSchema = class _SimpleSchema extends Schema {
+    constructor(name4, schemaRef, traits) {
+      super(name4, traits);
+      this.name = name4;
+      this.schemaRef = schemaRef;
+      this.traits = traits;
+      this.symbol = _SimpleSchema.symbol;
+    }
+    static [Symbol.hasInstance](lhs) {
+      const isPrototype = _SimpleSchema.prototype.isPrototypeOf(lhs);
+      if (!isPrototype && typeof lhs === "object" && lhs !== null) {
+        const sim = lhs;
+        return sim.symbol === _SimpleSchema.symbol;
+      }
+      return isPrototype;
+    }
+  };
+  SimpleSchema.symbol = /* @__PURE__ */ Symbol.for("@smithy/core/schema::SimpleSchema");
+
+  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/NormalizedSchema.js
+  var NormalizedSchema = class _NormalizedSchema {
+    constructor(ref2, memberName) {
+      this.ref = ref2;
+      this.memberName = memberName;
+      this.symbol = _NormalizedSchema.symbol;
+      const traitStack = [];
+      let _ref = ref2;
+      let schema = ref2;
+      this._isMemberSchema = false;
+      while (Array.isArray(_ref)) {
+        traitStack.push(_ref[1]);
+        _ref = _ref[0];
+        schema = deref2(_ref);
+        this._isMemberSchema = true;
+      }
+      if (traitStack.length > 0) {
+        this.memberTraits = {};
+        for (let i2 = traitStack.length - 1; i2 >= 0; --i2) {
+          const traitSet = traitStack[i2];
+          Object.assign(this.memberTraits, _NormalizedSchema.translateTraits(traitSet));
+        }
+      } else {
+        this.memberTraits = 0;
+      }
+      if (schema instanceof _NormalizedSchema) {
+        this.name = schema.name;
+        this.traits = schema.traits;
+        this._isMemberSchema = schema._isMemberSchema;
+        this.schema = schema.schema;
+        this.memberTraits = Object.assign({}, schema.getMemberTraits(), this.getMemberTraits());
+        this.normalizedTraits = void 0;
+        this.ref = schema.ref;
+        this.memberName = memberName ?? schema.memberName;
+        return;
+      }
+      this.schema = deref2(schema);
+      if (this.schema && typeof this.schema === "object") {
+        this.traits = this.schema?.traits ?? {};
+      } else {
+        this.traits = 0;
+      }
+      this.name = (typeof this.schema === "object" ? this.schema?.name : void 0) ?? this.memberName ?? this.getSchemaName();
+      if (this._isMemberSchema && !memberName) {
+        throw new Error(`@smithy/core/schema - NormalizedSchema member schema ${this.getName(true)} must initialize with memberName argument.`);
+      }
+    }
+    static [Symbol.hasInstance](lhs) {
+      const isPrototype = _NormalizedSchema.prototype.isPrototypeOf(lhs);
+      if (!isPrototype && typeof lhs === "object" && lhs !== null) {
+        const ns = lhs;
+        return ns.symbol === _NormalizedSchema.symbol;
+      }
+      return isPrototype;
+    }
+    static of(ref2, memberName) {
+      if (ref2 instanceof _NormalizedSchema) {
+        return ref2;
+      }
+      return new _NormalizedSchema(ref2, memberName);
+    }
+    static translateTraits(indicator) {
+      if (typeof indicator === "object") {
+        return indicator;
+      }
+      indicator = indicator | 0;
+      const traits = {};
+      if ((indicator & 1) === 1) {
+        traits.httpLabel = 1;
+      }
+      if ((indicator >> 1 & 1) === 1) {
+        traits.idempotent = 1;
+      }
+      if ((indicator >> 2 & 1) === 1) {
+        traits.idempotencyToken = 1;
+      }
+      if ((indicator >> 3 & 1) === 1) {
+        traits.sensitive = 1;
+      }
+      if ((indicator >> 4 & 1) === 1) {
+        traits.httpPayload = 1;
+      }
+      if ((indicator >> 5 & 1) === 1) {
+        traits.httpResponseCode = 1;
+      }
+      if ((indicator >> 6 & 1) === 1) {
+        traits.httpQueryParams = 1;
+      }
+      return traits;
+    }
+    static memberFrom(memberSchema, memberName) {
+      if (memberSchema instanceof _NormalizedSchema) {
+        memberSchema.memberName = memberName;
+        memberSchema._isMemberSchema = true;
+        return memberSchema;
+      }
+      return new _NormalizedSchema(memberSchema, memberName);
+    }
+    getSchema() {
+      if (this.schema instanceof _NormalizedSchema) {
+        return this.schema = this.schema.getSchema();
+      }
+      if (this.schema instanceof SimpleSchema) {
+        return deref2(this.schema.schemaRef);
+      }
+      return deref2(this.schema);
+    }
+    getName(withNamespace = false) {
+      if (!withNamespace) {
+        if (this.name && this.name.includes("#")) {
+          return this.name.split("#")[1];
+        }
+      }
+      return this.name || void 0;
+    }
+    getMemberName() {
+      if (!this.isMemberSchema()) {
+        throw new Error(`@smithy/core/schema - cannot get member name on non-member schema: ${this.getName(true)}`);
+      }
+      return this.memberName;
+    }
+    isMemberSchema() {
+      return this._isMemberSchema;
+    }
+    isUnitSchema() {
+      return this.getSchema() === "unit";
+    }
+    isListSchema() {
+      const inner = this.getSchema();
+      if (typeof inner === "number") {
+        return inner >= SCHEMA.LIST_MODIFIER && inner < SCHEMA.MAP_MODIFIER;
+      }
+      return inner instanceof ListSchema;
+    }
+    isMapSchema() {
+      const inner = this.getSchema();
+      if (typeof inner === "number") {
+        return inner >= SCHEMA.MAP_MODIFIER && inner <= 255;
+      }
+      return inner instanceof MapSchema;
+    }
+    isDocumentSchema() {
+      return this.getSchema() === SCHEMA.DOCUMENT;
+    }
+    isStructSchema() {
+      const inner = this.getSchema();
+      return inner !== null && typeof inner === "object" && "members" in inner || inner instanceof StructureSchema;
+    }
+    isBlobSchema() {
+      return this.getSchema() === SCHEMA.BLOB || this.getSchema() === SCHEMA.STREAMING_BLOB;
+    }
+    isTimestampSchema() {
+      const schema = this.getSchema();
+      return typeof schema === "number" && schema >= SCHEMA.TIMESTAMP_DEFAULT && schema <= SCHEMA.TIMESTAMP_EPOCH_SECONDS;
+    }
+    isStringSchema() {
+      return this.getSchema() === SCHEMA.STRING;
+    }
+    isBooleanSchema() {
+      return this.getSchema() === SCHEMA.BOOLEAN;
+    }
+    isNumericSchema() {
+      return this.getSchema() === SCHEMA.NUMERIC;
+    }
+    isBigIntegerSchema() {
+      return this.getSchema() === SCHEMA.BIG_INTEGER;
+    }
+    isBigDecimalSchema() {
+      return this.getSchema() === SCHEMA.BIG_DECIMAL;
+    }
+    isStreaming() {
+      const streaming = !!this.getMergedTraits().streaming;
+      if (streaming) {
+        return true;
+      }
+      return this.getSchema() === SCHEMA.STREAMING_BLOB;
+    }
+    getMergedTraits() {
+      if (this.normalizedTraits) {
+        return this.normalizedTraits;
+      }
+      this.normalizedTraits = {
+        ...this.getOwnTraits(),
+        ...this.getMemberTraits()
+      };
+      return this.normalizedTraits;
+    }
+    getMemberTraits() {
+      return _NormalizedSchema.translateTraits(this.memberTraits);
+    }
+    getOwnTraits() {
+      return _NormalizedSchema.translateTraits(this.traits);
+    }
+    getKeySchema() {
+      if (this.isDocumentSchema()) {
+        return _NormalizedSchema.memberFrom([SCHEMA.DOCUMENT, 0], "key");
+      }
+      if (!this.isMapSchema()) {
+        throw new Error(`@smithy/core/schema - cannot get key schema for non-map schema: ${this.getName(true)}`);
+      }
+      const schema = this.getSchema();
+      if (typeof schema === "number") {
+        return _NormalizedSchema.memberFrom([63 & schema, 0], "key");
+      }
+      return _NormalizedSchema.memberFrom([schema.keySchema, 0], "key");
+    }
+    getValueSchema() {
+      const schema = this.getSchema();
+      if (typeof schema === "number") {
+        if (this.isMapSchema()) {
+          return _NormalizedSchema.memberFrom([63 & schema, 0], "value");
+        } else if (this.isListSchema()) {
+          return _NormalizedSchema.memberFrom([63 & schema, 0], "member");
+        }
+      }
+      if (schema && typeof schema === "object") {
+        if (this.isStructSchema()) {
+          throw new Error(`cannot call getValueSchema() with StructureSchema ${this.getName(true)}`);
+        }
+        const collection = schema;
+        if ("valueSchema" in collection) {
+          if (this.isMapSchema()) {
+            return _NormalizedSchema.memberFrom([collection.valueSchema, 0], "value");
+          } else if (this.isListSchema()) {
+            return _NormalizedSchema.memberFrom([collection.valueSchema, 0], "member");
+          }
+        }
+      }
+      if (this.isDocumentSchema()) {
+        return _NormalizedSchema.memberFrom([SCHEMA.DOCUMENT, 0], "value");
+      }
+      throw new Error(`@smithy/core/schema - the schema ${this.getName(true)} does not have a value member.`);
+    }
+    getMemberSchema(member) {
+      if (this.isStructSchema()) {
+        const struct = this.getSchema();
+        if (!(member in struct.members)) {
+          throw new Error(`@smithy/core/schema - the schema ${this.getName(true)} does not have a member with name=${member}.`);
+        }
+        return _NormalizedSchema.memberFrom(struct.members[member], member);
+      }
+      if (this.isDocumentSchema()) {
+        return _NormalizedSchema.memberFrom([SCHEMA.DOCUMENT, 0], member);
+      }
+      throw new Error(`@smithy/core/schema - the schema ${this.getName(true)} does not have members.`);
+    }
+    getMemberSchemas() {
+      const { schema } = this;
+      const struct = schema;
+      if (!struct || typeof struct !== "object") {
+        return {};
+      }
+      if ("members" in struct) {
+        const buffer = {};
+        for (const member of struct.memberNames) {
+          buffer[member] = this.getMemberSchema(member);
+        }
+        return buffer;
+      }
+      return {};
+    }
+    *structIterator() {
+      if (this.isUnitSchema()) {
+        return;
+      }
+      if (!this.isStructSchema()) {
+        throw new Error("@smithy/core/schema - cannot acquire structIterator on non-struct schema.");
+      }
+      const struct = this.getSchema();
+      for (let i2 = 0; i2 < struct.memberNames.length; ++i2) {
+        yield [struct.memberNames[i2], _NormalizedSchema.memberFrom([struct.memberList[i2], 0], struct.memberNames[i2])];
+      }
+    }
+    getSchemaName() {
+      const schema = this.getSchema();
+      if (typeof schema === "number") {
+        const _schema = 63 & schema;
+        const container = 192 & schema;
+        const type3 = Object.entries(SCHEMA).find(([, value3]) => {
+          return value3 === _schema;
+        })?.[0] ?? "Unknown";
+        switch (container) {
+          case SCHEMA.MAP_MODIFIER:
+            return `${type3}Map`;
+          case SCHEMA.LIST_MODIFIER:
+            return `${type3}List`;
+          case 0:
+            return type3;
+        }
+      }
+      return "Unknown";
+    }
+  };
+  NormalizedSchema.symbol = /* @__PURE__ */ Symbol.for("@smithy/core/schema::NormalizedSchema");
+
   // node_modules/@smithy/core/dist-es/submodules/serde/parse-utils.js
   var MAX_FLOAT = Math.ceil(2 ** 127 * (2 - 2 ** -23));
   var expectLong = (value3) => {
@@ -63293,53 +63785,38 @@ ${currentIndent}`
     warn: console.warn
   };
 
-  // node_modules/uuid/dist/esm-browser/rng.js
-  var getRandomValues;
-  var rnds8 = new Uint8Array(16);
-  function rng() {
-    if (!getRandomValues) {
-      getRandomValues = typeof crypto !== "undefined" && crypto.getRandomValues && crypto.getRandomValues.bind(crypto);
-      if (!getRandomValues) {
-        throw new Error("crypto.getRandomValues() not supported. See https://github.com/uuidjs/uuid#getrandomvalues-not-supported");
+  // node_modules/@smithy/core/dist-es/submodules/serde/date-utils.js
+  var RFC3339 = new RegExp(/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?[zZ]$/);
+  var RFC3339_WITH_OFFSET = new RegExp(/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(([-+]\d{2}\:\d{2})|[zZ])$/);
+  var IMF_FIXDATE = new RegExp(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d{2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? GMT$/);
+  var RFC_850_DATE = new RegExp(/^(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), (\d{2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? GMT$/);
+  var ASC_TIME = new RegExp(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ( [1-9]|\d{2}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? (\d{4})$/);
+  var FIFTY_YEARS_IN_MILLIS = 50 * 365 * 24 * 60 * 60 * 1e3;
+
+  // node_modules/@smithy/core/dist-es/submodules/serde/lazy-json.js
+  var LazyJsonString = function LazyJsonString2(val) {
+    const str = Object.assign(new String(val), {
+      deserializeJSON() {
+        return JSON.parse(String(val));
+      },
+      toString() {
+        return String(val);
+      },
+      toJSON() {
+        return String(val);
       }
-    }
-    return getRandomValues(rnds8);
-  }
-
-  // node_modules/uuid/dist/esm-browser/stringify.js
-  var byteToHex = [];
-  for (let i2 = 0; i2 < 256; ++i2) {
-    byteToHex.push((i2 + 256).toString(16).slice(1));
-  }
-  function unsafeStringify(arr, offset4 = 0) {
-    return byteToHex[arr[offset4 + 0]] + byteToHex[arr[offset4 + 1]] + byteToHex[arr[offset4 + 2]] + byteToHex[arr[offset4 + 3]] + "-" + byteToHex[arr[offset4 + 4]] + byteToHex[arr[offset4 + 5]] + "-" + byteToHex[arr[offset4 + 6]] + byteToHex[arr[offset4 + 7]] + "-" + byteToHex[arr[offset4 + 8]] + byteToHex[arr[offset4 + 9]] + "-" + byteToHex[arr[offset4 + 10]] + byteToHex[arr[offset4 + 11]] + byteToHex[arr[offset4 + 12]] + byteToHex[arr[offset4 + 13]] + byteToHex[arr[offset4 + 14]] + byteToHex[arr[offset4 + 15]];
-  }
-
-  // node_modules/uuid/dist/esm-browser/native.js
-  var randomUUID = typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID.bind(crypto);
-  var native_default = {
-    randomUUID
+    });
+    return str;
   };
-
-  // node_modules/uuid/dist/esm-browser/v4.js
-  function v4(options, buf, offset4) {
-    if (native_default.randomUUID && !buf && !options) {
-      return native_default.randomUUID();
+  LazyJsonString.from = (object2) => {
+    if (object2 && typeof object2 === "object" && (object2 instanceof LazyJsonString || "deserializeJSON" in object2)) {
+      return object2;
+    } else if (typeof object2 === "string" || Object.getPrototypeOf(object2) === String.prototype) {
+      return LazyJsonString(String(object2));
     }
-    options = options || {};
-    const rnds = options.random || (options.rng || rng)();
-    rnds[6] = rnds[6] & 15 | 64;
-    rnds[8] = rnds[8] & 63 | 128;
-    if (buf) {
-      offset4 = offset4 || 0;
-      for (let i2 = 0; i2 < 16; ++i2) {
-        buf[offset4 + i2] = rnds[i2];
-      }
-      return buf;
-    }
-    return unsafeStringify(rnds);
-  }
-  var v4_default = v4;
+    return LazyJsonString(JSON.stringify(object2));
+  };
+  LazyJsonString.fromObject = LazyJsonString.from;
 
   // node_modules/@smithy/core/dist-es/submodules/protocols/resolve-path.js
   var resolvedPath = (resolvedPath2, input, memberName, labelValueProvider, uriLabel, isGreedyLabel) => {
@@ -66237,7 +66714,7 @@ ${toHex(hashedRequest)}`;
   // node_modules/@aws-crypto/crc32/build/module/aws_crc32.js
   var AwsCrc32 = (
     /** @class */
-    function() {
+    (function() {
       function AwsCrc322() {
         this.crc32 = new Crc32();
       }
@@ -66257,13 +66734,13 @@ ${toHex(hashedRequest)}`;
         this.crc32 = new Crc32();
       };
       return AwsCrc322;
-    }()
+    })()
   );
 
   // node_modules/@aws-crypto/crc32/build/module/index.js
   var Crc32 = (
     /** @class */
-    function() {
+    (function() {
       function Crc322() {
         this.checksum = 4294967295;
       }
@@ -66289,7 +66766,7 @@ ${toHex(hashedRequest)}`;
         return (this.checksum ^ 4294967295) >>> 0;
       };
       return Crc322;
-    }()
+    })()
   );
   var a_lookUpTable = [
     0,
@@ -67606,7 +68083,6 @@ ${toHex(hashedRequest)}`;
       }
       if (endpointFromConfig) {
         clientConfig.endpoint = () => Promise.resolve(toEndpointV1(endpointFromConfig));
-        clientConfig.isCustomEndpoint = true;
       }
     }
     const endpointParams = await resolveParams(commandInput, instructionsSupplier, clientConfig);
@@ -68002,6 +68478,54 @@ ${toHex(hashedRequest)}`;
     }
   };
 
+  // node_modules/uuid/dist/esm-browser/rng.js
+  var getRandomValues;
+  var rnds8 = new Uint8Array(16);
+  function rng() {
+    if (!getRandomValues) {
+      getRandomValues = typeof crypto !== "undefined" && crypto.getRandomValues && crypto.getRandomValues.bind(crypto);
+      if (!getRandomValues) {
+        throw new Error("crypto.getRandomValues() not supported. See https://github.com/uuidjs/uuid#getrandomvalues-not-supported");
+      }
+    }
+    return getRandomValues(rnds8);
+  }
+
+  // node_modules/uuid/dist/esm-browser/stringify.js
+  var byteToHex = [];
+  for (let i2 = 0; i2 < 256; ++i2) {
+    byteToHex.push((i2 + 256).toString(16).slice(1));
+  }
+  function unsafeStringify(arr, offset4 = 0) {
+    return byteToHex[arr[offset4 + 0]] + byteToHex[arr[offset4 + 1]] + byteToHex[arr[offset4 + 2]] + byteToHex[arr[offset4 + 3]] + "-" + byteToHex[arr[offset4 + 4]] + byteToHex[arr[offset4 + 5]] + "-" + byteToHex[arr[offset4 + 6]] + byteToHex[arr[offset4 + 7]] + "-" + byteToHex[arr[offset4 + 8]] + byteToHex[arr[offset4 + 9]] + "-" + byteToHex[arr[offset4 + 10]] + byteToHex[arr[offset4 + 11]] + byteToHex[arr[offset4 + 12]] + byteToHex[arr[offset4 + 13]] + byteToHex[arr[offset4 + 14]] + byteToHex[arr[offset4 + 15]];
+  }
+
+  // node_modules/uuid/dist/esm-browser/native.js
+  var randomUUID = typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID.bind(crypto);
+  var native_default = {
+    randomUUID
+  };
+
+  // node_modules/uuid/dist/esm-browser/v4.js
+  function v4(options, buf, offset4) {
+    if (native_default.randomUUID && !buf && !options) {
+      return native_default.randomUUID();
+    }
+    options = options || {};
+    const rnds = options.random || (options.rng || rng)();
+    rnds[6] = rnds[6] & 15 | 64;
+    rnds[8] = rnds[8] & 63 | 128;
+    if (buf) {
+      offset4 = offset4 || 0;
+      for (let i2 = 0; i2 < 16; ++i2) {
+        buf[offset4 + i2] = rnds[i2];
+      }
+      return buf;
+    }
+    return unsafeStringify(rnds);
+  }
+  var v4_default = v4;
+
   // node_modules/@smithy/middleware-retry/dist-es/util.js
   var asSdkError = (error3) => {
     if (error3 instanceof Error)
@@ -68212,7 +68736,7 @@ ${toHex(hashedRequest)}`;
   var package_default2 = {
     name: "@aws-sdk/client-bedrock-runtime",
     description: "AWS SDK for JavaScript Bedrock Runtime Client for Node.js, Browser and React Native",
-    version: "3.864.0",
+    version: "3.844.0",
     scripts: {
       build: "concurrently 'yarn:build:cjs' 'yarn:build:es' 'yarn:build:types'",
       "build:cjs": "node ../../scripts/compilation/inline client-bedrock-runtime",
@@ -68231,49 +68755,49 @@ ${toHex(hashedRequest)}`;
     dependencies: {
       "@aws-crypto/sha256-browser": "5.2.0",
       "@aws-crypto/sha256-js": "5.2.0",
-      "@aws-sdk/core": "3.864.0",
-      "@aws-sdk/credential-provider-node": "3.864.0",
-      "@aws-sdk/eventstream-handler-node": "3.862.0",
-      "@aws-sdk/middleware-eventstream": "3.862.0",
-      "@aws-sdk/middleware-host-header": "3.862.0",
-      "@aws-sdk/middleware-logger": "3.862.0",
-      "@aws-sdk/middleware-recursion-detection": "3.862.0",
-      "@aws-sdk/middleware-user-agent": "3.864.0",
-      "@aws-sdk/middleware-websocket": "3.862.0",
-      "@aws-sdk/region-config-resolver": "3.862.0",
-      "@aws-sdk/token-providers": "3.864.0",
-      "@aws-sdk/types": "3.862.0",
-      "@aws-sdk/util-endpoints": "3.862.0",
-      "@aws-sdk/util-user-agent-browser": "3.862.0",
-      "@aws-sdk/util-user-agent-node": "3.864.0",
-      "@smithy/config-resolver": "^4.1.5",
-      "@smithy/core": "^3.8.0",
-      "@smithy/eventstream-serde-browser": "^4.0.5",
-      "@smithy/eventstream-serde-config-resolver": "^4.1.3",
-      "@smithy/eventstream-serde-node": "^4.0.5",
-      "@smithy/fetch-http-handler": "^5.1.1",
-      "@smithy/hash-node": "^4.0.5",
-      "@smithy/invalid-dependency": "^4.0.5",
-      "@smithy/middleware-content-length": "^4.0.5",
-      "@smithy/middleware-endpoint": "^4.1.18",
-      "@smithy/middleware-retry": "^4.1.19",
-      "@smithy/middleware-serde": "^4.0.9",
-      "@smithy/middleware-stack": "^4.0.5",
-      "@smithy/node-config-provider": "^4.1.4",
-      "@smithy/node-http-handler": "^4.1.1",
-      "@smithy/protocol-http": "^5.1.3",
-      "@smithy/smithy-client": "^4.4.10",
-      "@smithy/types": "^4.3.2",
-      "@smithy/url-parser": "^4.0.5",
+      "@aws-sdk/core": "3.844.0",
+      "@aws-sdk/credential-provider-node": "3.844.0",
+      "@aws-sdk/eventstream-handler-node": "3.840.0",
+      "@aws-sdk/middleware-eventstream": "3.840.0",
+      "@aws-sdk/middleware-host-header": "3.840.0",
+      "@aws-sdk/middleware-logger": "3.840.0",
+      "@aws-sdk/middleware-recursion-detection": "3.840.0",
+      "@aws-sdk/middleware-user-agent": "3.844.0",
+      "@aws-sdk/middleware-websocket": "3.844.0",
+      "@aws-sdk/region-config-resolver": "3.840.0",
+      "@aws-sdk/token-providers": "3.844.0",
+      "@aws-sdk/types": "3.840.0",
+      "@aws-sdk/util-endpoints": "3.844.0",
+      "@aws-sdk/util-user-agent-browser": "3.840.0",
+      "@aws-sdk/util-user-agent-node": "3.844.0",
+      "@smithy/config-resolver": "^4.1.4",
+      "@smithy/core": "^3.7.0",
+      "@smithy/eventstream-serde-browser": "^4.0.4",
+      "@smithy/eventstream-serde-config-resolver": "^4.1.2",
+      "@smithy/eventstream-serde-node": "^4.0.4",
+      "@smithy/fetch-http-handler": "^5.1.0",
+      "@smithy/hash-node": "^4.0.4",
+      "@smithy/invalid-dependency": "^4.0.4",
+      "@smithy/middleware-content-length": "^4.0.4",
+      "@smithy/middleware-endpoint": "^4.1.14",
+      "@smithy/middleware-retry": "^4.1.15",
+      "@smithy/middleware-serde": "^4.0.8",
+      "@smithy/middleware-stack": "^4.0.4",
+      "@smithy/node-config-provider": "^4.1.3",
+      "@smithy/node-http-handler": "^4.1.0",
+      "@smithy/protocol-http": "^5.1.2",
+      "@smithy/smithy-client": "^4.4.6",
+      "@smithy/types": "^4.3.1",
+      "@smithy/url-parser": "^4.0.4",
       "@smithy/util-base64": "^4.0.0",
       "@smithy/util-body-length-browser": "^4.0.0",
       "@smithy/util-body-length-node": "^4.0.0",
-      "@smithy/util-defaults-mode-browser": "^4.0.26",
-      "@smithy/util-defaults-mode-node": "^4.0.26",
-      "@smithy/util-endpoints": "^3.0.7",
-      "@smithy/util-middleware": "^4.0.5",
-      "@smithy/util-retry": "^4.0.7",
-      "@smithy/util-stream": "^4.2.4",
+      "@smithy/util-defaults-mode-browser": "^4.0.22",
+      "@smithy/util-defaults-mode-node": "^4.0.22",
+      "@smithy/util-endpoints": "^3.0.6",
+      "@smithy/util-middleware": "^4.0.4",
+      "@smithy/util-retry": "^4.0.6",
+      "@smithy/util-stream": "^4.2.3",
       "@smithy/util-utf8": "^4.0.0",
       "@types/uuid": "^9.0.1",
       tslib: "^2.6.2",
@@ -68374,7 +68898,7 @@ ${toHex(hashedRequest)}`;
   // node_modules/@aws-crypto/sha256-browser/build/module/webCryptoSha256.js
   var Sha256 = (
     /** @class */
-    function() {
+    (function() {
       function Sha2564(secret) {
         this.toHash = new Uint8Array(0);
         this.secret = secret;
@@ -68420,7 +68944,7 @@ ${toHex(hashedRequest)}`;
         }
       };
       return Sha2564;
-    }()
+    })()
   );
 
   // node_modules/@aws-crypto/sha256-js/build/module/constants.js
@@ -68507,7 +69031,7 @@ ${toHex(hashedRequest)}`;
   // node_modules/@aws-crypto/sha256-js/build/module/RawSha256.js
   var RawSha256 = (
     /** @class */
-    function() {
+    (function() {
       function RawSha2562() {
         this.state = Int32Array.from(INIT2);
         this.temp = new Int32Array(64);
@@ -68599,13 +69123,13 @@ ${toHex(hashedRequest)}`;
         state[7] += state7;
       };
       return RawSha2562;
-    }()
+    })()
   );
 
   // node_modules/@aws-crypto/sha256-js/build/module/jsSha256.js
   var Sha2562 = (
     /** @class */
-    function() {
+    (function() {
       function Sha2564(secret) {
         this.secret = secret;
         this.hash = new RawSha256();
@@ -68659,7 +69183,7 @@ ${toHex(hashedRequest)}`;
         }
       };
       return Sha2564;
-    }()
+    })()
   );
   function bufferFromSecret(secret) {
     var input = convertToBuffer(secret);
@@ -68707,7 +69231,7 @@ ${toHex(hashedRequest)}`;
   // node_modules/@aws-crypto/sha256-browser/build/module/crossPlatformSha256.js
   var Sha2563 = (
     /** @class */
-    function() {
+    (function() {
       function Sha2564(secret) {
         if (supportsWebCrypto(locateWindow())) {
           this.hash = new Sha256(secret);
@@ -68725,7 +69249,7 @@ ${toHex(hashedRequest)}`;
         this.hash.reset();
       };
       return Sha2564;
-    }()
+    })()
   );
 
   // node_modules/@aws-sdk/util-user-agent-browser/dist-es/index.js
@@ -69118,26 +69642,6 @@ ${toHex(hashedRequest)}`;
       return visitor._(value3.$unknown[0], value3.$unknown[1]);
     };
   })(GuardrailContentBlock || (GuardrailContentBlock = {}));
-  var GuardrailAutomatedReasoningFinding;
-  (function(GuardrailAutomatedReasoningFinding2) {
-    GuardrailAutomatedReasoningFinding2.visit = (value3, visitor) => {
-      if (value3.valid !== void 0)
-        return visitor.valid(value3.valid);
-      if (value3.invalid !== void 0)
-        return visitor.invalid(value3.invalid);
-      if (value3.satisfiable !== void 0)
-        return visitor.satisfiable(value3.satisfiable);
-      if (value3.impossible !== void 0)
-        return visitor.impossible(value3.impossible);
-      if (value3.translationAmbiguous !== void 0)
-        return visitor.translationAmbiguous(value3.translationAmbiguous);
-      if (value3.tooComplex !== void 0)
-        return visitor.tooComplex(value3.tooComplex);
-      if (value3.noTranslations !== void 0)
-        return visitor.noTranslations(value3.noTranslations);
-      return visitor._(value3.$unknown[0], value3.$unknown[1]);
-    };
-  })(GuardrailAutomatedReasoningFinding || (GuardrailAutomatedReasoningFinding = {}));
   var CitationLocation;
   (function(CitationLocation2) {
     CitationLocation2.visit = (value3, visitor) => {
@@ -71785,6 +72289,7 @@ ${node.totalHits} hits (${pct}%)`;
       const w3 = node.totalHits > 0 ? child.totalHits / node.totalHits * widthPct : 0;
       s2 += renderFlameRecursive(child, depth + 1, childLeft, w3, total);
       childLeft += w3;
+      void childWidth;
     }
     return s2;
   }
@@ -71939,25 +72444,58 @@ ${node.totalHits} hits (${pct}%)`;
     const totalSec = Math.max(totalElapsedSec, runs[runs.length - 1].endSec) - runs[0].startSec;
     return { runs, totalSec };
   }
+  function frameKey(f2) {
+    if (f2.kind === "py") {
+      return `py:${f2.filename_or_module}:${f2.line}`;
+    }
+    return `native:${f2.filename_or_module}:${f2.display_name}`;
+  }
   function renderTimelineFrames(runs, stacks, totalSec, startSec) {
-    let s2 = "";
+    const segmentsByDepth = /* @__PURE__ */ new Map();
     for (const run2 of runs) {
       const stackEntry = stacks[run2.stackIndex];
       if (!stackEntry) continue;
       const frames = stackEntry[0];
-      const leftPct = (run2.startSec - startSec) / totalSec * 100;
-      const widthPct = (run2.endSec - run2.startSec) / totalSec * 100;
-      if (widthPct <= 0) continue;
-      const showLabels = widthPct / 100 * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
+      const runStart = run2.startSec;
+      const runEnd = run2.endSec;
+      if (runEnd <= runStart) continue;
       for (let depth = 0; depth < frames.length; depth++) {
         const f2 = frames[depth];
+        const key2 = frameKey(f2);
+        if (!segmentsByDepth.has(depth)) {
+          segmentsByDepth.set(depth, []);
+        }
+        const segments2 = segmentsByDepth.get(depth);
+        const last = segments2.length > 0 ? segments2[segments2.length - 1] : null;
+        if (last && frameKey(last.frame) === key2 && last.endSec === runStart) {
+          last.endSec = runEnd;
+          last.totalHits += run2.hits;
+        } else {
+          segments2.push({
+            frame: f2,
+            startSec: runStart,
+            endSec: runEnd,
+            totalHits: run2.hits,
+            depth
+          });
+        }
+      }
+    }
+    let s2 = "";
+    for (const [depth, segments2] of segmentsByDepth) {
+      for (const seg of segments2) {
+        const f2 = seg.frame;
+        const leftPct = (seg.startSec - startSec) / totalSec * 100;
+        const widthPct = (seg.endSec - seg.startSec) / totalSec * 100;
+        if (widthPct <= 0) continue;
+        const showLabels = widthPct / 100 * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
         const color5 = timelineColor(f2.display_name, f2.kind);
         const top = depth * TIMELINE_ROW_HEIGHT;
         const tooltip2 = f2.kind === "py" ? `[py] ${f2.display_name}
 ${f2.filename_or_module}:${f2.line}
-${run2.startSec.toFixed(3)}s \u2014 ${run2.endSec.toFixed(3)}s (${run2.hits} samples)` : `[native] ${f2.display_name}
+${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} samples)` : `[native] ${f2.display_name}
 ${f2.filename_or_module}
-${run2.startSec.toFixed(3)}s \u2014 ${run2.endSec.toFixed(3)}s (${run2.hits} samples)`;
+${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} samples)`;
         const label = showLabels ? escapeHtml(f2.display_name) : "";
         const cursor3 = f2.kind === "py" && f2.line !== null ? "pointer" : "default";
         const clickAttr = f2.kind === "py" && f2.line !== null ? ` onclick="vsNavigate('${escape(f2.filename_or_module)}',${f2.line})"` : "";

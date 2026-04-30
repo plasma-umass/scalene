@@ -1317,34 +1317,85 @@ function buildTimelineRuns(
   return { runs, totalSec };
 }
 
+interface MergedSegment {
+  frame: CombinedFrame;
+  startSec: number;
+  endSec: number;
+  totalHits: number;
+  depth: number;
+}
+
+function frameKey(f: CombinedFrame): string {
+  if (f.kind === "py") {
+    return `py:${f.filename_or_module}:${f.line}`;
+  }
+  return `native:${f.filename_or_module}:${f.display_name}`;
+}
+
 function renderTimelineFrames(
   runs: TimelineRun[],
   stacks: CombinedStackEntry[],
   totalSec: number,
   startSec: number,
 ): string {
-  let s = "";
+  // Build segments per depth, then merge consecutive ones with the same location
+  const segmentsByDepth: Map<number, MergedSegment[]> = new Map();
+
   for (const run of runs) {
     const stackEntry = stacks[run.stackIndex];
     if (!stackEntry) continue;
     const frames = stackEntry[0];
-    const leftPct = ((run.startSec - startSec) / totalSec) * 100;
-    const widthPct = ((run.endSec - run.startSec) / totalSec) * 100;
-    if (widthPct <= 0) continue;
-    const showLabels =
-      (widthPct / 100) * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
+    const runStart = run.startSec;
+    const runEnd = run.endSec;
+    if (runEnd <= runStart) continue;
+
     for (let depth = 0; depth < frames.length; depth++) {
       const f = frames[depth];
+      const key = frameKey(f);
+
+      if (!segmentsByDepth.has(depth)) {
+        segmentsByDepth.set(depth, []);
+      }
+      const segments = segmentsByDepth.get(depth)!;
+
+      // Try to merge with the last segment if it has the same key and is adjacent
+      const last = segments.length > 0 ? segments[segments.length - 1] : null;
+      if (last && frameKey(last.frame) === key && last.endSec === runStart) {
+        last.endSec = runEnd;
+        last.totalHits += run.hits;
+      } else {
+        segments.push({
+          frame: f,
+          startSec: runStart,
+          endSec: runEnd,
+          totalHits: run.hits,
+          depth: depth,
+        });
+      }
+    }
+  }
+
+  // Render merged segments
+  let s = "";
+  for (const [depth, segments] of segmentsByDepth) {
+    for (const seg of segments) {
+      const f = seg.frame;
+      const leftPct = ((seg.startSec - startSec) / totalSec) * 100;
+      const widthPct = ((seg.endSec - seg.startSec) / totalSec) * 100;
+      if (widthPct <= 0) continue;
+
+      const showLabels =
+        (widthPct / 100) * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
       const color = timelineColor(f.display_name, f.kind);
       const top = depth * TIMELINE_ROW_HEIGHT;
       const tooltip =
         f.kind === "py"
           ? `[py] ${f.display_name}\n${f.filename_or_module}:${f.line}\n` +
-            `${run.startSec.toFixed(3)}s — ${run.endSec.toFixed(3)}s ` +
-            `(${run.hits} samples)`
+            `${seg.startSec.toFixed(3)}s — ${seg.endSec.toFixed(3)}s ` +
+            `(${seg.totalHits} samples)`
           : `[native] ${f.display_name}\n${f.filename_or_module}\n` +
-            `${run.startSec.toFixed(3)}s — ${run.endSec.toFixed(3)}s ` +
-            `(${run.hits} samples)`;
+            `${seg.startSec.toFixed(3)}s — ${seg.endSec.toFixed(3)}s ` +
+            `(${seg.totalHits} samples)`;
       const label = showLabels ? escapeHtml(f.display_name) : "";
       const cursor =
         f.kind === "py" && f.line !== null ? "pointer" : "default";
