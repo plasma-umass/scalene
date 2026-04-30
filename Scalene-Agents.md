@@ -60,6 +60,34 @@ High system time may indicate:
 - Too many small network requests (batch API calls)
 - Suboptimal disk access patterns
 
+## Stack-Sample Outputs (`--stacks`)
+
+When run with `--stacks`, Scalene records three top-level stack views in the JSON profile. They share the same CPU samples but expose different slices of each one:
+
+- **`stacks`** — Python-only call chains, filtered to user-traceable frames.
+- **`native_stacks`** — C/C++ frames from the interrupted thread, captured by Scalene's signal-handler unwinder. Each entry is a list of `[module, symbol, ip, offset]` frames (innermost-first), trimmed to drop Scalene's own handler frames at the leaf and CPython interpreter / process-entry frames at the root.
+- **`combined_stacks`** — Stitched Python + native chains for the same sample. Each frame is a structured dict so the seam is explicit:
+
+```json
+{"kind": "py",     "display_name": "hot",         "filename_or_module": "/app/work.py",     "line": 42, "ip": null,    "offset": null}
+{"kind": "native", "display_name": "cblas_dgemm", "filename_or_module": "/lib/libBLAS.so",  "line": null, "ip": 140735, "offset": 32}
+```
+
+Frames are stored outermost-first (caller → callee). The Python segment runs from the program entry point down through user functions; the native segment picks up where Python called into C and runs to the actual interrupted leaf. The seam between the two ends with the deepest user-traceable Python frame and starts with the first native frame outside CPython's interpreter loop.
+
+**How to read it:**
+
+- A stack with only `py` frames means the sample landed in pure Python — no native code was running at the moment of interrupt.
+- A stack ending in a `native` frame from a known library (numpy, BLAS, lxml, etc.) means time was actually spent in that library's C code, called from the listed Python frame. This is information `stacks` alone cannot show — the Python eval loop has already returned by the time the Python signal handler runs.
+- Multiple `combined_stacks` entries with the same Python prefix and different native leaves are normal: the same Python call site routes work into different C functions.
+
+**When `combined_stacks` adds information beyond `n_cpu_percent_c`:** the per-line `n_cpu_percent_c` tells you *how much* of a line's time is in C. `combined_stacks` tells you *which* C function. If a line shows 85% C time, the stitched stack is what shows whether it's BLAS, regex, JSON parsing, or something else.
+
+**Caveats:**
+- `combined_stacks` is best-effort: if multiple native stacks are drained for one Python sample, each is attached to the same Python anchor (v1 policy). Hit counts are reliable; the per-stack breakdown is approximate.
+- Native frames whose symbols couldn't be resolved by `dladdr` show empty `display_name` / `filename_or_module` and a non-zero `ip`.
+- Not yet collected on Windows (the native unwinder is a stub there); `combined_stacks` will be empty.
+
 ## Optimization Decision Tree
 
 1. **Check Python vs C time split**

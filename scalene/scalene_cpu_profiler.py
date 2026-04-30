@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from scalene.runningstats import RunningStats
 from scalene.scalene_funcutils import ScaleneFuncUtils
@@ -13,7 +13,13 @@ from scalene.scalene_statistics import (
     LineNumber,
     ScaleneStatistics,
 )
-from scalene.scalene_utility import _main_thread_id, add_stack, enter_function_meta
+from scalene.scalene_utility import (
+    _main_thread_id,
+    add_async_await_run,
+    add_combined_stack,
+    add_stack,
+    enter_function_meta,
+)
 from scalene.time_info import TimeInfo
 
 if TYPE_CHECKING:
@@ -49,6 +55,8 @@ class ScaleneCPUProfiler:
         should_trace: Callable[[Filename, str], bool],
         last_cpu_interval: float,
         stacks_enabled: bool,
+        native_drains: list[tuple[int, ...]] | None = None,
+        suspended_async_tasks: list[Any] | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
@@ -62,6 +70,9 @@ class ScaleneCPUProfiler:
             should_trace: Function to check if a file/function should be traced.
             last_cpu_interval: The last CPU sampling interval.
             stacks_enabled: Whether stack collection is enabled.
+            native_drains: Native (C/C++) stacks captured by the C-level
+                signal-handler unwinder during this sampling pass; used to
+                build stitched Python+native stacks (combined_stacks).
         """
         if not new_frames:
             return
@@ -77,7 +88,9 @@ class ScaleneCPUProfiler:
         if elapsed.wallclock != 0:
             cpu_utilization = elapsed.user / elapsed.wallclock
 
-        core_utilization = cpu_utilization / self._available_cpus
+        # Clamp to [0, 1]: measurement noise between user and wallclock
+        # accounting can push the ratio slightly above 1.0 on multi-core systems.
+        core_utilization = min(cpu_utilization / self._available_cpus, 1.0)
         if cpu_utilization > 1.0:
             cpu_utilization = 1.0
             elapsed.wallclock = elapsed.user
@@ -129,6 +142,35 @@ class ScaleneCPUProfiler:
                 average_c_time,
                 average_cpu_time,
             )
+            if native_drains:
+                # Async-aware path: when this sample landed inside the
+                # event loop with coroutines suspended, the raw stack is
+                # misleading (the main thread is blocked in
+                # epoll/select while no task is using CPU). Mirror the
+                # existing per-line "await %" attribution by emitting
+                # one synthetic stitched run per suspended task at its
+                # await point. Falls through to the regular combined
+                # stack path when no tasks are suspended.
+                wrote_async_runs = False
+                if suspended_async_tasks:
+                    wrote_async_runs = add_async_await_run(
+                        suspended_async_tasks,
+                        should_trace,
+                        self._stats.combined_stacks,
+                        timeline=self._stats.combined_stacks_timeline,
+                        timeline_cap=self._stats.combined_stacks_timeline_max_runs,
+                        timestamp=now.wallclock,
+                    )
+                if not wrote_async_runs:
+                    add_combined_stack(
+                        main_thread_frame,
+                        should_trace,
+                        native_drains,
+                        self._stats.combined_stacks,
+                        timeline=self._stats.combined_stacks_timeline,
+                        timeline_cap=self._stats.combined_stacks_timeline_max_runs,
+                        timestamp=now.wallclock,
+                    )
 
         enter_function_meta(main_thread_frame, should_trace, self._stats)
         fname = Filename(main_thread_frame.f_code.co_filename)

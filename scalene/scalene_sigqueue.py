@@ -1,22 +1,23 @@
 import queue
 import threading
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Callable, Optional, Sequence
 
-T = TypeVar("T")
+# Items are tuples or lists that get unpacked as arguments to the processor.
+_Item = Sequence[Any]
 
 
-class ScaleneSigQueue(Generic[T]):
-    def __init__(self, process: Any) -> None:
-        self.queue: queue.SimpleQueue[Optional[T]] = queue.SimpleQueue()
+class ScaleneSigQueue:
+    def __init__(self, process: Callable[..., Any]) -> None:
+        self.queue: queue.SimpleQueue[Optional[_Item]] = queue.SimpleQueue()
         self.process = process
         self.thread: Optional[threading.Thread] = None
         self.lock = threading.RLock()  # held while processing an item
 
-    def put(self, item: Optional[T]) -> None:
+    def put(self, item: Optional[_Item]) -> None:
         """Add an item to the queue."""
         self.queue.put(item)
 
-    def get(self) -> Optional[T]:
+    def get(self) -> Optional[_Item]:
         """Get one item from the queue."""
         return self.queue.get()
 

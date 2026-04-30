@@ -52,9 +52,12 @@ class TraceConfig {
       return false;
     }
 
-    auto res = _memoize.find(filename);
-    if (res != _memoize.end()) {
-      return res->second;
+    {
+      std::lock_guard<std::mutex> lock(_memoizeMutex);
+      auto res = _memoize.find(filename);
+      if (res != _memoize.end()) {
+        return res->second;
+      }
     }
     // Return false if filename contains paths corresponding to the native
     // Python libraries. This is to avoid profiling the Python interpreter
@@ -68,13 +71,41 @@ class TraceConfig {
     const auto PATH_SEP = "/";
 #endif
 
-    // Always exclude Scalene's own files, regardless of profile_all
-    auto scalene_lib = std::string("scalene") + std::string(PATH_SEP) +
-                       std::string("scalene");
-    if (strstr(filename, scalene_lib.c_str())) {
-      _memoize.insert(
-          std::pair<std::string, bool>(std::string(filename), false));
-      return false;
+    // Always exclude Scalene's own files, regardless of profile_all.
+    //
+    // Scalene's package lives in a directory named exactly "scalene". A file
+    // is a scalene-internal file iff its *immediate* parent directory is
+    // "scalene". The previous check (strstr for "scalene/scalene") was a
+    // substring match that also matched user paths like
+    // /home/runner/work/scalene/scalene/test/foo.py (the GitHub Actions
+    // checkout path for this very repo), which caused the stack walker to
+    // skip user frames and misattribute allocations to threading.py instead
+    // of issue_659_workload.py — see #659.
+    {
+      const char* last_slash = strrchr(filename, '/');
+      const char* last_bslash = strrchr(filename, '\\');
+      const char* last_sep =
+          (last_bslash && last_bslash > last_slash) ? last_bslash : last_slash;
+      if (last_sep) {
+        const char* prev_sep = nullptr;
+        for (const char* p = last_sep - 1; p >= filename; --p) {
+          if (*p == '/' || *p == '\\') {
+            prev_sep = p;
+            break;
+          }
+        }
+        const char* parent_start = prev_sep ? (prev_sep + 1) : filename;
+        size_t parent_len = (size_t)(last_sep - parent_start);
+        const char target[] = "scalene";
+        size_t target_len = sizeof(target) - 1;
+        if (parent_len == target_len &&
+            strncmp(parent_start, target, target_len) == 0) {
+          std::lock_guard<std::mutex> lock(_memoizeMutex);
+          _memoize.insert(
+              std::pair<std::string, bool>(std::string(filename), false));
+          return false;
+        }
+      }
     }
 
     if (!profile_all) {
@@ -88,6 +119,7 @@ class TraceConfig {
           strstr(filename, "site-packages") != nullptr ||
           (strstr(filename, "<") &&
            (strstr(filename, "<ipython") || strstr(filename, "<frozen")))) {
+        std::lock_guard<std::mutex> lock(_memoizeMutex);
         _memoize.insert(
             std::pair<std::string, bool>(std::string(filename), false));
         return false;
@@ -97,6 +129,7 @@ class TraceConfig {
     if (owner != nullptr) {
       for (char* traceable : items) {
         if (strstr(filename, traceable)) {
+          std::lock_guard<std::mutex> lock(_memoizeMutex);
           _memoize.insert(
               std::pair<std::string, bool>(std::string(filename), true));
           return true;
@@ -104,27 +137,28 @@ class TraceConfig {
       }
     }
 
-    // Temporarily change the current working directory to the original program
-    // path.
-    char original_cwd_buf[PATH_MAX];
-#ifdef _WIN32
-    auto oldcwd = _getcwd(original_cwd_buf, PATH_MAX);
-#else
-    auto oldcwd = getcwd(original_cwd_buf, PATH_MAX);
-#endif
-    chdir(scalene_base_path);
+    // Resolve relative filenames against the original program path.
+    // We avoid chdir() because it mutates process-wide state and is
+    // unsafe in free-threaded Python where multiple threads profile.
     char resolved_path[PATH_MAX];
+    bool did_resolve_path = false;
 
-    // Check to see if the file we are profiling is in the original path.
-    bool did_resolve_path = realpath(filename, resolved_path);
+    if (filename[0] == '/' || filename[0] == '\\') {
+      // Absolute path — resolve directly
+      did_resolve_path = realpath(filename, resolved_path);
+    } else {
+      // Relative path — prepend scalene_base_path
+      std::string full_path = std::string(scalene_base_path) + "/" + filename;
+      did_resolve_path = realpath(full_path.c_str(), resolved_path);
+    }
+
     bool result = false;
     if (did_resolve_path) {
       // True if we found this file in the original path.
       result = (strstr(resolved_path, scalene_base_path) != nullptr);
     }
 
-    // Now change back to the original current working directory.
-    chdir(oldcwd);
+    std::lock_guard<std::mutex> lock(_memoizeMutex);
     _memoize.insert(
         std::pair<std::string, bool>(std::string(filename), result));
     return result;
@@ -159,6 +193,7 @@ class TraceConfig {
   bool profile_all;
 
   static std::mutex _instanceMutex;
+  static std::mutex _memoizeMutex;
   static TraceConfig* _instance;
   static std::unordered_map<std::string, bool> _memoize;
 };

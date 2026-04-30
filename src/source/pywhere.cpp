@@ -56,7 +56,7 @@ static void* win_dlsym(const char* symbol) {
 // #include "printf.h"
 const int NEWLINE_TRIGGER_LENGTH = 98820;
 
-static bool last_profiled_invalidated = false;
+static std::atomic<bool> last_profiled_invalidated{false};
 
 // sys.monitoring support for Python 3.13+
 #if PY_VERSION_HEX >= 0x030D0000
@@ -64,16 +64,14 @@ static bool last_profiled_invalidated = false;
 static const int SCALENE_TOOL_ID = 2;
 
 // Whether sys.monitoring tracing is currently active
-static bool sysmon_tracing_active = false;
+static std::atomic<bool> sysmon_tracing_active{false};
 
-// Call depth tracking to avoid on_stack check
-// When we enable tracing, we record the call depth
-// When we see a LINE event at the same or lower depth, we know we've moved to a new line
-static int sysmon_initial_call_depth = 0;
-static int sysmon_current_call_depth = 0;
+// Call depth tracking — per-thread since each thread has its own call stack
+static thread_local int sysmon_initial_call_depth = 0;
+static thread_local int sysmon_current_call_depth = 0;
 
-// Cached sys.monitoring.DISABLE constant
-static PyObject* sysmon_DISABLE = nullptr;
+// Cached sys.monitoring.DISABLE constant (set once, read many)
+static std::atomic<PyObject*> sysmon_DISABLE{nullptr};
 #endif
 // An RAII class to simplify acquiring and releasing the GIL.
 class GIL {
@@ -130,26 +128,6 @@ typedef struct _frame {
 typedef PyFrameObject PyFrameType;
 #endif
 
-static PyPtr<PyFrameObject> findMainPythonThread_frame() {
-  PyThreadState* main = nullptr;
-
-  PyThreadState* t = PyInterpreterState_ThreadHead(PyInterpreterState_Main());
-  for (; t != nullptr; t = PyThreadState_Next(t)) {
-    // Recognize the main thread as the one with the smallest ID.
-    // In Juan's experiments, it's the last thread on the list and has id 1.
-    //
-    // FIXME this could be brittle...  another way would be to use
-    // _PyRuntime.main_thread (a native thread ID) and compare it to
-    // PyThreadState.thread_id, with the caveats that main_thread, etc.
-    // might go away or change, and thread_id is initialized with the
-    // native thread ID of whichever thread creates that PyThreadState.
-    if (main == nullptr || main->id > t->id) {
-      main = t;
-    }
-  }
-
-  return PyPtr<PyFrameObject>(main ? PyThreadState_GetFrame(main) : nullptr);
-}
 // I'm not sure whether last_profiled_invalidated is quite needed, so I'm
 // leaving this infrastructure here
 //
@@ -209,9 +187,18 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
       threadState ? PyThreadState_GetFrame(threadState) : nullptr;
 
   if (static_cast<PyFrameObject*>(frame) == nullptr) {
-    // Various packages may create native threads; attribute what they do
-    // to what the main thread is doing, as it's likely to have requested it.
-    frame = findMainPythonThread_frame();  // note this may be nullptr
+    // This thread has no live Python frame (typically a native thread
+    // spawned by a C extension — OpenBLAS/MKL workers, a std::thread in a
+    // native lib, a Rust/Tokio runtime thread, etc.). Previously we fell
+    // back to the main thread's current frame, which smeared native-thread
+    // allocations onto whatever line the main thread happened to be on
+    // (e.g., time.sleep), producing very misleading per-line attribution
+    // under concurrency — see issue #857. Emit a <native> sentinel so the
+    // bytes are still counted but bucketed separately from user code.
+    filename = "<native>";
+    lineno = 0;
+    bytei = 0;
+    return 1;
   }
 
   auto traceConfig = TraceConfig::getInstance();
@@ -387,6 +374,7 @@ typedef struct {
 } unchanging_modules;
 
 static unchanging_modules module_pointers;
+static std::atomic<bool> module_pointers_ready{false};
 
 static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
   while (frame != NULL) {
@@ -433,6 +421,10 @@ static int get_call_depth() {
 // Finalize the current line for sys.monitoring
 static void sysmon_finalize_line() {
   sysmon_tracing_active = false;
+
+  if (!module_pointers_ready.load(std::memory_order_acquire)) {
+    return;
+  }
 
   // Get the last profiled location
   PyObject* last_fname = PyList_GetItem(module_pointers.scalene_last_profiled, 0);
@@ -492,7 +484,7 @@ static void sysmon_finalize_line() {
 
 // Initialize the cached DISABLE constant
 static void ensure_sysmon_disable_cached() {
-  if (sysmon_DISABLE != nullptr) {
+  if (sysmon_DISABLE.load(std::memory_order_acquire) != nullptr) {
     return;
   }
   PyObject* sys_module = PyImport_ImportModule("sys");
@@ -500,7 +492,9 @@ static void ensure_sysmon_disable_cached() {
   PyObject* monitoring = PyObject_GetAttrString(sys_module, "monitoring");
   Py_DECREF(sys_module);
   if (!monitoring) return;
-  sysmon_DISABLE = PyObject_GetAttrString(monitoring, "DISABLE");
+  sysmon_DISABLE.store(
+      PyObject_GetAttrString(monitoring, "DISABLE"),
+      std::memory_order_release);
   Py_DECREF(monitoring);
   // Keep a reference to DISABLE for the lifetime of the module
 }
@@ -522,8 +516,13 @@ static PyObject* sysmon_line_callback(PyObject* self, PyObject* args) {
   }
 
   if (!sysmon_tracing_active) {
-    Py_INCREF(sysmon_DISABLE);
-    return sysmon_DISABLE;
+    Py_INCREF(sysmon_DISABLE.load());
+    return sysmon_DISABLE.load();
+  }
+
+  if (!module_pointers_ready.load(std::memory_order_acquire)) {
+    Py_INCREF(sysmon_DISABLE.load());
+    return sysmon_DISABLE.load();
   }
 
   // Get the last profiled location
@@ -531,8 +530,8 @@ static PyObject* sysmon_line_callback(PyObject* self, PyObject* args) {
   PyObject* last_lineno_obj = PyList_GetItem(module_pointers.scalene_last_profiled, 1);
 
   if (last_fname == nullptr || last_lineno_obj == nullptr) {
-    Py_INCREF(sysmon_DISABLE);
-    return sysmon_DISABLE;
+    Py_INCREF(sysmon_DISABLE.load());
+    return sysmon_DISABLE.load();
   }
 
   long last_lineno = PyLong_AsLong(last_lineno_obj);
@@ -561,8 +560,8 @@ static PyObject* sysmon_line_callback(PyObject* self, PyObject* args) {
   // We've moved to a genuinely different line - finalize the previous line
   sysmon_finalize_line();
 
-  Py_INCREF(sysmon_DISABLE);
-  return sysmon_DISABLE;
+  Py_INCREF(sysmon_DISABLE.load());
+  return sysmon_DISABLE.load();
 }
 
 // CALL event callback for sys.monitoring - tracks call depth
@@ -898,6 +897,15 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
 }
 
 static PyObject* populate_struct(PyObject* self, PyObject* args) {
+  // Re-install Scalene's allocator wrappers in case Py_Initialize reset them.
+  // This is needed on free-threaded Python where the runtime reinitializes
+  // allocators to mimalloc during startup, overwriting our LD_PRELOAD setup.
+  {
+    typedef void (*reinstall_fn)();
+    auto fn = (reinstall_fn)dlsym(RTLD_DEFAULT, "scalene_reinstall_local_allocators");
+    if (fn) fn();
+  }
+
   PyObject* scalene_module(
       PyImport_GetModule(PyUnicode_FromString("scalene")));  // New reference
   PyObject* scalene_dict(
@@ -925,10 +933,12 @@ static PyObject* populate_struct(PyObject* self, PyObject* args) {
                      invalidate_queue,
                      nada,
                      zero};
+  module_pointers_ready.store(true, std::memory_order_release);
   Py_RETURN_NONE;
 }
 
 static PyObject* depopulate_struct(PyObject* self, PyObject* args) {
+  module_pointers_ready.store(false, std::memory_order_release);
   auto m = module_pointers;
   Py_DECREF(m.scalene_module);
   Py_DECREF(m.scalene_dict);
@@ -1013,4 +1023,12 @@ static PyModuleDef EmbedModule = {PyModuleDef_HEAD_INIT,
                                   NULL,
                                   NULL};
 
-PyMODINIT_FUNC PyInit_pywhere() { return PyModule_Create(&EmbedModule); }
+PyMODINIT_FUNC PyInit_pywhere() {
+  PyObject* m = PyModule_Create(&EmbedModule);
+#ifdef Py_GIL_DISABLED
+  if (m != NULL) {
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+  }
+#endif
+  return m;
+}

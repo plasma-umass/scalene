@@ -22,7 +22,6 @@
 #include "printf.h"
 #include "pywhere.hpp"
 #include "samplefile_win.hpp"
-#include "scaleneheader.hpp"
 #include "thresholdsampler.hpp"
 
 // Windows doesn't have SIGXCPU/SIGXFSZ, so we use Windows Events instead
@@ -97,9 +96,6 @@ class SampleHeap : public SuperHeap {
     if (pythonDetected() && !g.wasInMalloc()) {
       auto realSize = SuperHeap::getSize(ptr);
       if (realSize > 0) {
-        if (sz == NEWLINE + sizeof(ScaleneHeader)) {
-          return ptr;
-        }
         register_malloc(realSize, ptr, false);
       }
     }

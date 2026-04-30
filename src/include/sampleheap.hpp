@@ -169,34 +169,23 @@ class SampleHeap : public SuperHeap {
                               bool inPythonAllocator = true) {
     if (p_scalene_done) return;
     assert(realSize);
-    // If this is the special NEWLINE value, trigger an update.
+    // If this is the special NEWLINE value, write a boundary marker
+    // (with lineno=-1 so the Python reader filters it from per-line
+    // attribution), then increment the sampler to stay balanced with
+    // the matching free — but suppress process_malloc so we don't
+    // write a second sample record attributed to the current line.
     if (unlikely(realSize == NEWLINE)) {
       std::string filename;
-      // Originally, we had the following check around this line:
-      //
-      // ```
-      // if (where != nullptr && where(filename, lineno, bytei))
-      // ```
-      // 
-      // This was to prevent a NEWLINE record from being accidentally triggered by
-      // non-Scalene code.
-      //
-      // However, by definition, we trigger a NEWLINE _after_ the line has
-      // been executed, specifically on a `PyTrace_Line` event.
-      //
-      // If the absolute last line of a program makes an allocation, 
-      // the next PyTrace_Line will occur inside `scalene_profiler.py` and not any client
-      // code, since the line after the last line of the program is when Scalene starts its
-      // teardown. 
-      // 
-      // In this case.  the `whereInPython` function will return 0, since whereInPython checks
-      // if the current frame is in client code and the Scalene profiler teardown code is by definition 
-      // not. 
-      //
-      // This risks letting allocations of length NEWLINE_TRIGGER_LENGTH that are not true NEWLINEs
-      // create a NEWLINE record, but we view this as incredibly improbable. 
       writeCount(MallocSignal, realSize, ptr, filename, -1, -1);
       mallocTriggered()++;
+      // Balance the sampler without triggering a sample record.
+      size_t dummy;
+      _allocationSampler.increment(realSize, ptr, dummy);
+      if (inPythonAllocator) {
+        _pythonCount += realSize;
+      } else {
+        _cCount += realSize;
+      }
       return;
     }
     size_t sampleMallocSize;

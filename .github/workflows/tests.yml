@@ -13,18 +13,19 @@ on:
 jobs:
   run-tests:
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest ]
-        python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
+        python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.13t', '3.14t' ]
 
     steps:
     - uses: actions/checkout@v4
 
     - name: select Xcode version
       # MacOS > 14.2 requires Xcode >= 15.3; otherwise loading native extension modules fails with e.g.:
-      # dlopen(/opt/homebrew/lib/python3.11/site-packages/slipcover/probe.abi3.so, 0x0002): bad bind opcode 0x00 
+      # dlopen(/opt/homebrew/lib/python3.11/site-packages/slipcover/probe.abi3.so, 0x0002): bad bind opcode 0x00
       if: startsWith(matrix.os, 'macos-')
       run: |
         if [ -d /Applications/Xcode_15.3.app/Contents/Developer ]; then sudo xcode-select --switch /Applications/Xcode_15.3.app/Contents/Developer; fi
@@ -45,6 +46,11 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
 
+    - name: Install system build dependencies
+      # Free-threaded Python may lack pre-built wheels for packages like lxml
+      if: runner.os == 'Linux'
+      run: sudo apt-get install -y libxml2-dev libxslt-dev
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -57,10 +63,47 @@ jobs:
     - name: install test dependencies
       run: |
         python3 -m pip install pytest pytest-asyncio hypothesis
-        python3 -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-        # Install JAX and TensorFlow for library profiler tests (Python < 3.13 only)
+        # torch/JAX/TensorFlow may not be available on free-threaded Python builds
+        python3 -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python3 -m pip install -e ".[test]" || python3 -m pip install -e .
 
+    - name: Enable core dumps for free-threaded builds
+      if: runner.os == 'Linux' && endsWith(matrix.python, 't')
+      run: |
+        ulimit -c unlimited
+        echo '/tmp/core.%e.%p' | sudo tee /proc/sys/kernel/core_pattern
+        sudo apt-get install -y gdb
+
+    - name: Quick memory profiling smoke test
+      if: runner.os == 'Linux' && endsWith(matrix.python, 't')
+      run: |
+        echo 'x = [i*i for i in range(500000)]' > /tmp/test_ft.py
+        echo "=== Check PyMem_SetAllocator symbol ==="
+        nm -D $(python3 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")/libpython*.so 2>/dev/null | grep PyMem_SetAllocator || echo "Symbol not found in libpython"
+        echo "=== Check libscalene symbols ==="
+        nm -D $(python3 -c "import scalene; print(scalene.__path__[0])")/libscalene.so 2>/dev/null | grep "PyMem_\|get_real" || echo "No PyMem symbols in libscalene"
+        echo "=== Running scalene with memory profiling ==="
+        LD_PRELOAD=libscalene.so LD_LIBRARY_PATH=$(python3 -c "import scalene; print(scalene.__path__[0])"):$LD_LIBRARY_PATH SCALENE_ALLOCATION_SAMPLING_WINDOW=10485767 gdb -batch -ex 'set follow-fork-mode child' -ex 'set pagination off' -ex run -ex 'thread apply all bt 15' --args python3 -m scalene run --memory -o /tmp/ft_profile.json /tmp/test_ft.py 2>&1 | tail -50 || true
+
     - name: run tests
+      # Free-threaded Python support is experimental; don't block CI on failures
+      continue-on-error: ${{ endsWith(matrix.python, 't') }}
       run: |
         python3 -m pytest
+
+    - name: Free-threaded parity test
+      # Runs on ALL matrix entries to verify CPU+memory profiling with
+      # native code and threads produces comparable results everywhere.
+      if: runner.os != 'Windows'
+      continue-on-error: ${{ endsWith(matrix.python, 't') }}
+      run: |
+        python3 test/test_freethreaded_parity.py
+
+    - name: Collect crash backtraces
+      if: failure() && runner.os == 'Linux' && endsWith(matrix.python, 't')
+      run: |
+        for core in /tmp/core.*; do
+          [ -f "$core" ] || continue
+          echo "=== Backtrace from $core ==="
+          gdb -batch -ex "thread apply all bt full" python3 "$core" 2>/dev/null || true
+        done

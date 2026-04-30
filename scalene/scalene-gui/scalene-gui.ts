@@ -77,6 +77,27 @@ interface FileData {
   leaks?: Record<number, { velocity_mb_s: number }>;
 }
 
+type CombinedFrame =
+  | {
+      kind: "py";
+      display_name: string;
+      filename_or_module: string;
+      line: number;
+      code_line?: string;
+      ip: null;
+      offset: null;
+    }
+  | {
+      kind: "native";
+      display_name: string;
+      filename_or_module: string;
+      line: null;
+      ip: number;
+      offset: number;
+    };
+
+type CombinedStackEntry = [CombinedFrame[], number];
+
 interface Profile {
   files: Record<string, FileData>;
   gpu: boolean;
@@ -84,11 +105,23 @@ interface Profile {
   memory: boolean;
   async_profile?: boolean;
   max_footprint_mb: number;
+  native_allocations_mb?: number;
   elapsed_time_sec: number;
   samples: [number, number][];
   growth_rate: number;
   program?: string;
   stacks?: unknown;
+  combined_stacks?: CombinedStackEntry[];
+  combined_stacks_timeline?: CombinedStackTimelineEvent[];
+}
+
+interface CombinedStackTimelineEvent {
+  /** Start time of the run, seconds since the first sample. */
+  t_sec: number;
+  /** Index into prof.combined_stacks. */
+  stack_index: number;
+  /** Number of CPU samples that fired this same stack consecutively. */
+  count: number;
 }
 
 interface Column {
@@ -107,20 +140,84 @@ declare const globalThis: {
 };
 
 export function vsNavigate(filename: string, lineno: number): void {
-  // If we are in VS Code, clicking on a line number in Scalene's web UI will navigate to that line in the source code.
+  // VS Code webview: use the host postMessage API.
   try {
-    const vscode = (window as unknown as { acquireVsCodeApi: () => { postMessage: (msg: unknown) => void } }).acquireVsCodeApi();
+    const vscode = (
+      window as unknown as {
+        acquireVsCodeApi: () => { postMessage: (msg: unknown) => void };
+      }
+    ).acquireVsCodeApi();
     vscode.postMessage({
       command: "jumpToLine",
       filePath: filename,
       lineNumber: lineno,
     });
+    return;
   } catch {
-    // Do nothing
+    // Not running in VS Code's webview — fall through to in-page nav.
+  }
+
+  const decoded =
+    filename.indexOf("%") >= 0 ? decodeURIComponent(filename) : filename;
+
+  // Standalone browser: scroll to the line within the rendered per-file
+  // table. file_number is assigned during display() and the line span IDs
+  // are `code-${file_number}-${lineno}`.
+  const fileNumber = fileNumberByFilename.get(decoded);
+  if (fileNumber !== undefined) {
+    const fileId = `file-${fileNumber}`;
+    const fileSection = document.getElementById(`profile-${fileId}`);
+    if (fileSection && fileSection.style.display === "none") {
+      // Expand the per-file section first so the line can scroll into view.
+      toggleDisplay(fileId);
+    }
+    const target = document.getElementById(`code-${fileNumber}-${lineno}`);
+    if (target) {
+      // The line span exists in the DOM, but the surrounding <tr> may be
+      // hidden by the file's display mode (default is "profiled-functions",
+      // which suppresses empty rows). If so, switch the per-file display
+      // mode to "all" so the line is actually visible after scroll.
+      const tr = target.closest("tr") as HTMLElement | null;
+      if (tr && tr.style.display === "none") {
+        const select = document.getElementById(
+          `display-mode-${fileId}`,
+        ) as HTMLSelectElement | null;
+        if (select) {
+          select.value = "all";
+        }
+        applyFileDisplayMode(fileId, "all");
+      }
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Brief yellow flash so the user can see what got selected.
+      const td = target.closest("td") as HTMLElement | null;
+      const flashTarget = td ?? target;
+      const prevBg = flashTarget.style.backgroundColor;
+      flashTarget.style.transition = "background-color 0.2s ease";
+      flashTarget.style.backgroundColor = "#fff3a8";
+      window.setTimeout(() => {
+        flashTarget.style.backgroundColor = prevBg;
+      }, 1200);
+      return;
+    }
+  }
+
+  // File isn't displayed in the GUI (excluded by the per-file CPU/memory
+  // threshold, or referenced from a stack but not in prof.files). Last
+  // resort: vscode:// URL — opens VS Code if installed, otherwise no-op.
+  try {
+    window.location.href = `vscode://file/${decoded}:${lineno}:1`;
+  } catch {
+    // Truly nothing we can do.
   }
 }
 
 const maxLinesPerRegion = 50; // Only show regions that are no more than this many lines.
+
+// Filled in by display() each time the profile renders. Maps the filename
+// (matching keys of prof.files) to the file_number used in per-line code
+// span IDs (`code-${file_number}-${lineno}`). vsNavigate() consults this
+// to scroll within the page when running in a regular browser.
+const fileNumberByFilename: Map<string, number> = new Map();
 
 let showedExplosion: Record<string, boolean> = {}; // Used so we only show one explosion per region.
 
@@ -607,7 +704,7 @@ function makeProfileLine(
     if (line.n_avg_mb) {
       memory_bars.push(
         makeMemoryBar(
-          line.n_avg_mb.toFixed(0),
+          line.n_avg_mb.toFixed(1),
           "average memory",
           parseFloat(String(line.n_python_fraction)),
           prof.max_footprint_mb.toFixed(2),
@@ -846,6 +943,553 @@ function expandDisplay(id: string): void {
   }
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function basename(path: string): string {
+  if (!path) return "";
+  const parts = path.split(/[\\/]/);
+  return parts[parts.length - 1] || path;
+}
+
+// Flame-chart rendering for combined_stacks. Stacks sharing a common
+// outermost-prefix collapse into wider parent rectangles; siblings split.
+// Layout is "icicle" — root at top, leaves at bottom — which reads
+// naturally for call-from-the-top stacks (outermost-first).
+const FLAME_ROW_HEIGHT = 18;
+const FLAME_MIN_LABEL_WIDTH_PCT = 1.5;
+
+interface FlameNode {
+  kind: "py" | "native" | "root";
+  name: string;
+  filename: string;
+  line: number | null;
+  code_line: string | undefined;
+  selfHits: number;
+  totalHits: number;
+  children: FlameNode[];
+}
+
+function buildFlameTree(stacks: CombinedStackEntry[]): FlameNode {
+  const root: FlameNode = {
+    kind: "root",
+    name: "(all stacks)",
+    filename: "",
+    line: null,
+    code_line: undefined,
+    selfHits: 0,
+    totalHits: 0,
+    children: [],
+  };
+  const childMaps = new WeakMap<FlameNode, Map<string, FlameNode>>();
+  childMaps.set(root, new Map());
+  for (const [frames, hits] of stacks) {
+    let node: FlameNode = root;
+    node.totalHits += hits;
+    for (const f of frames) {
+      const key = `${f.kind}|${f.filename_or_module}|${
+        f.kind === "py" ? f.line : "x"
+      }|${f.display_name}`;
+      const map = childMaps.get(node);
+      if (!map) continue;
+      let child = map.get(key);
+      if (!child) {
+        child = {
+          kind: f.kind,
+          name: f.display_name,
+          filename: f.filename_or_module,
+          line: f.kind === "py" ? f.line : null,
+          code_line: f.kind === "py" ? f.code_line : undefined,
+          selfHits: 0,
+          totalHits: 0,
+          children: [],
+        };
+        map.set(key, child);
+        childMaps.set(child, new Map());
+        node.children.push(child);
+      }
+      child.totalHits += hits;
+      node = child;
+    }
+    node.selfHits += hits;
+  }
+  function sortDescByHits(n: FlameNode): void {
+    n.children.sort((a, b) => b.totalHits - a.totalHits);
+    for (const c of n.children) sortDescByHits(c);
+  }
+  sortDescByHits(root);
+  return root;
+}
+
+function flameMaxDepth(node: FlameNode): number {
+  if (node.children.length === 0) return 0;
+  let m = 0;
+  for (const c of node.children) {
+    const d = flameMaxDepth(c);
+    if (d > m) m = d;
+  }
+  return 1 + m;
+}
+
+function flameColor(name: string, kind: "py" | "native" | "root"): string {
+  if (kind === "root") return "#ddd";
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  }
+  const hue = Math.abs(h) % 360;
+  // py frames muted/cool, native frames warmer/saturated so the seam is
+  // visible at a glance.
+  if (kind === "py") return `hsl(${hue}, 45%, 78%)`;
+  return `hsl(${(hue + 30) % 360}, 70%, 65%)`;
+}
+
+function renderFlameNode(
+  node: FlameNode,
+  depth: number,
+  leftPct: number,
+  widthPct: number,
+  total: number,
+): string {
+  const pct = total > 0 ? ((node.totalHits / total) * 100).toFixed(1) : "0.0";
+  const codeLineText = (node.code_line ?? "").trim();
+  let tooltip: string;
+  if (node.kind === "py") {
+    const tail = codeLineText ? `\n${codeLineText}` : "";
+    tooltip = `[py] ${node.name}\n${node.filename}:${node.line}\n${node.totalHits} hits (${pct}%)${tail}`;
+  } else {
+    tooltip = `[native] ${node.name}\n${node.filename}\n${node.totalHits} hits (${pct}%)`;
+  }
+  const top = depth * FLAME_ROW_HEIGHT;
+  const color = flameColor(node.name, node.kind);
+  const showLabel = widthPct >= FLAME_MIN_LABEL_WIDTH_PCT;
+  const labelHtml = showLabel ? escapeHtml(node.name) : "";
+  const cursor = node.kind === "py" && node.line !== null ? "pointer" : "default";
+  const clickAttr =
+    node.kind === "py" && node.line !== null
+      ? ` onclick="vsNavigate('${escape(node.filename)}',${node.line})"`
+      : "";
+  return (
+    `<div style="position:absolute;` +
+    `top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
+    `height:${FLAME_ROW_HEIGHT - 1}px;background:${color};` +
+    `border:1px solid rgba(0,0,0,0.12);overflow:hidden;` +
+    `font-family:monospace;font-size:11px;` +
+    `line-height:${FLAME_ROW_HEIGHT - 1}px;padding:0 4px;` +
+    `white-space:nowrap;text-overflow:ellipsis;cursor:${cursor};box-sizing:border-box;"` +
+    ` title="${escapeHtml(tooltip)}"${clickAttr}>${labelHtml}</div>`
+  );
+}
+
+function renderFlameRecursive(
+  node: FlameNode,
+  depth: number,
+  leftPct: number,
+  widthPct: number,
+  total: number,
+): string {
+  let s = "";
+  if (depth > 0) {
+    s += renderFlameNode(node, depth - 1, leftPct, widthPct, total);
+  }
+  let childLeft = leftPct;
+  for (const child of node.children) {
+    const childWidth = total > 0 ? (child.totalHits / total) * widthPct * (total / node.totalHits) : 0;
+    // Equivalent: child.totalHits / node.totalHits * widthPct (parent's width slice).
+    const w = node.totalHits > 0 ? (child.totalHits / node.totalHits) * widthPct : 0;
+    s += renderFlameRecursive(child, depth + 1, childLeft, w, total);
+    childLeft += w;
+    void childWidth;
+  }
+  return s;
+}
+
+export function renderCombinedStacks(prof: Profile): string {
+  const stacks = prof.combined_stacks ?? [];
+  if (stacks.length === 0) return "";
+
+  const root = buildFlameTree(stacks);
+  const totalHits = root.totalHits;
+  const depth = flameMaxDepth(root);
+  const containerHeight = depth * FLAME_ROW_HEIGHT;
+
+  let s = `<hr><div class="container-fluid combined-stacks-section">`;
+  s += `<p style="margin-bottom: 4px;">`;
+  s += `<span id="button-combined-stacks" class="disclosure-triangle" title="Click to show or hide stitched Python+native call stacks." onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
+  s += ` <strong>Combined Python + native call stacks</strong> `;
+  s += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples — hover for details, click a [py] frame to jump to its source line</span>`;
+  s += `</p>`;
+  s += `<div id="combined-stacks-body" style="display: none;">`;
+  s += `<div class="combined-stacks-flame" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;">`;
+  s += renderFlameRecursive(root, 0, 0, 100, totalHits);
+  s += `</div></div></div>`;
+  return s;
+}
+
+export function toggleCombinedStacks(): void {
+  const body = document.getElementById("combined-stacks-body");
+  const btn = document.getElementById("button-combined-stacks");
+  if (!body || !btn) return;
+  if (body.style.display === "none") {
+    body.style.display = "block";
+    btn.innerHTML = DownTriangle;
+  } else {
+    body.style.display = "none";
+    btn.innerHTML = RightTriangle;
+  }
+}
+
+// Timeline view (experimental) for combined_stacks_timeline.
+//
+// Layout, inspired by Chrome DevTools / Firefox Profiler "Stack Chart":
+//   - x-axis is wallclock time (samples normalized to [0, elapsed_time]).
+//   - y-axis (icicle) is stack depth: outermost frame at the top, leaf at
+//     the bottom. The full stack at each time bucket is drawn as a stack
+//     of horizontal frames.
+//   - Above the main panel are GC and I/O activity tracks: thin bars whose
+//     opacity reflects the share of samples in that time bucket whose
+//     stack contains a frame classified as GC or I/O respectively.
+//
+// Data is run-length-encoded: each event in combined_stacks_timeline says
+// "starting at t_sec, the next `count` samples all hit combined_stacks
+// entry stack_index". We compute each run's duration from the next run's
+// start, with elapsed_time capping the trailing run.
+
+const TIMELINE_ROW_HEIGHT = 14;
+const TIMELINE_MIN_LABEL_WIDTH_PX = 40;
+const TIMELINE_TRACK_HEIGHT = 10;
+const TIMELINE_TRACK_GAP = 2;
+const TIMELINE_BUCKETS = 600; // resolution along x (vertical pixel columns).
+
+type FrameClass = "gc" | "io" | "other";
+
+// Native symbols are typically `prefix_root_suffix` (e.g.
+// `select_kqueue_control_impl`, `_io_FileIO_read`, `os_read`,
+// `BaseEventLoop_run_once`). A plain `\bread\b` won't match `os_read`
+// because `_` is a regex word character — there's no word boundary
+// between `_` and `r`. To classify these robustly we treat `_` as a
+// token separator equivalent to a word boundary on both sides:
+// `(?:\b|_)read(?:_|\b)` matches `read`, `os_read`, `_io_FileIO_read`,
+// `read_buf`, etc., without falsely matching `mread` or `readme`.
+const GC_NAME_PATTERNS = [
+  /(?:\b|_)gc[._]collect(?:_|\b)/i,
+  /(?:\b|_)PyGC(?:_|\b)/,
+  /(?:\b|_)_PyGC_/,
+  /(?:\b|_)gc_collect_main(?:_|\b)/,
+  /(?:\b|_)gc_collect_region(?:_|\b)/,
+  /(?:\b|_)deallocate(?:_|\b)/,
+  // Internal helpers from gcmodule.c that often appear as the leaf on
+  // Python 3.9–3.12 (where the static `collect()` workhorse + helpers
+  // are what the unwinder lands on rather than the gc_collect_main /
+  // _PyGC_Collect names introduced in 3.13).
+  /(?:\b|_)collect_with_callback(?:_|\b)/,
+  /(?:\b|_)subtract_refs(?:_|\b)/,
+  /(?:\b|_)move_unreachable(?:_|\b)/,
+  /(?:\b|_)untrack_tuples(?:_|\b)/,
+  /(?:\b|_)untrack_dicts(?:_|\b)/,
+  /(?:\b|_)deduce_unreachable(?:_|\b)/,
+  /(?:\b|_)delete_garbage(?:_|\b)/,
+  /(?:\b|_)handle_weakrefs(?:_|\b)/,
+  /(?:\b|_)invoke_gc_callback(?:_|\b)/,
+  /(?:\b|_)move_legacy_finalizers?(?:_|\b)/,
+];
+const IO_NAME_PATTERNS = [
+  // Synthetic await frame emitted by add_async_await_run when a sample
+  // lands inside the event loop with coroutines suspended. Kept first
+  // since the literal "[await]" prefix is the cheapest possible match.
+  /^\[await\]/,
+  /(?:\b|_)read(?:v)?(?:_|\b)/,
+  /(?:\b|_)pread(?:v)?(?:_|\b)/,
+  /(?:\b|_)write(?:v)?(?:_|\b)/,
+  /(?:\b|_)pwrite(?:v)?(?:_|\b)/,
+  /(?:\b|_)recv(?:from|msg)?(?:_|\b)/,
+  /(?:\b|_)send(?:to|msg)?(?:_|\b)/,
+  /(?:\b|_)select(?:_|\b)/,
+  /(?:\b|_)epoll(?:_|\b)/,
+  /(?:\b|_)kevent(?:_|\b)/,
+  /(?:\b|_)kqueue(?:_|\b)/,
+  /(?:\b|_)poll(?:_|\b)/,
+  /(?:\b|_)accept[0-9]*(?:_|\b)/,
+  /(?:\b|_)connect(?:_|\b)/,
+  /(?:\b|_)open(?:at|dir)?(?:_|\b)/,
+  /(?:\b|_)close(?:_|\b)/,
+  /(?:\b|_)fsync(?:_|\b)/,
+  /(?:\b|_)fread(?:_|\b)/,
+  /(?:\b|_)fwrite(?:_|\b)/,
+  /(?:\b|_)lseek(?:_|\b)/,
+];
+const IO_FILE_PATTERNS = [
+  /\b_io\b/,
+  /\bsocket\.py$/,
+  /\bsocket\b/,
+  /\bselectors\.py$/,
+  /\bselector_events\.py$/,
+  /\basyncio\b/,
+  /\bsubprocess\.py$/,
+];
+
+function classifyFrame(f: CombinedFrame): FrameClass {
+  const name = f.display_name ?? "";
+  for (const re of GC_NAME_PATTERNS) {
+    if (re.test(name)) return "gc";
+  }
+  for (const re of IO_NAME_PATTERNS) {
+    if (re.test(name)) return "io";
+  }
+  if (f.kind === "py") {
+    for (const re of IO_FILE_PATTERNS) {
+      if (re.test(f.filename_or_module ?? "")) return "io";
+    }
+  }
+  return "other";
+}
+
+function classifyStack(stack: CombinedFrame[]): {
+  gc: boolean;
+  io: boolean;
+} {
+  let gc = false;
+  let io = false;
+  for (const f of stack) {
+    const c = classifyFrame(f);
+    if (c === "gc") gc = true;
+    else if (c === "io") io = true;
+    if (gc && io) break;
+  }
+  return { gc, io };
+}
+
+function timelineColor(name: string, kind: "py" | "native"): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  }
+  const hue = Math.abs(h) % 360;
+  if (kind === "py") return `hsl(${hue}, 45%, 78%)`;
+  return `hsl(${(hue + 30) % 360}, 70%, 65%)`;
+}
+
+interface TimelineRun {
+  startSec: number;
+  endSec: number;
+  stackIndex: number;
+  hits: number;
+}
+
+function buildTimelineRuns(
+  events: CombinedStackTimelineEvent[],
+  totalElapsedSec: number,
+): { runs: TimelineRun[]; totalSec: number } {
+  if (events.length === 0) return { runs: [], totalSec: 0 };
+  const runs: TimelineRun[] = [];
+  // Each run's end is the next run's start; the last run's end is
+  // either the explicit elapsed time (if larger) or its start plus a
+  // small synthetic duration (so a single-sample run still has a
+  // visible width).
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i];
+    const next = events[i + 1];
+    let end: number;
+    if (next) {
+      end = next.t_sec;
+    } else {
+      // Last run extends to elapsed_time, or — if elapsed_time isn't
+      // populated — uses a synthetic 1ms-per-sample tail.
+      const synthetic = ev.t_sec + ev.count * 0.001;
+      end = Math.max(ev.t_sec, totalElapsedSec || synthetic, synthetic);
+    }
+    if (end <= ev.t_sec) end = ev.t_sec; // guard
+    runs.push({
+      startSec: ev.t_sec,
+      endSec: end,
+      stackIndex: ev.stack_index,
+      hits: ev.count,
+    });
+  }
+  const totalSec =
+    Math.max(totalElapsedSec, runs[runs.length - 1].endSec) - runs[0].startSec;
+  return { runs, totalSec };
+}
+
+function renderTimelineFrames(
+  runs: TimelineRun[],
+  stacks: CombinedStackEntry[],
+  totalSec: number,
+  startSec: number,
+): string {
+  let s = "";
+  for (const run of runs) {
+    const stackEntry = stacks[run.stackIndex];
+    if (!stackEntry) continue;
+    const frames = stackEntry[0];
+    const leftPct = ((run.startSec - startSec) / totalSec) * 100;
+    const widthPct = ((run.endSec - run.startSec) / totalSec) * 100;
+    if (widthPct <= 0) continue;
+    const showLabels =
+      (widthPct / 100) * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
+    for (let depth = 0; depth < frames.length; depth++) {
+      const f = frames[depth];
+      const color = timelineColor(f.display_name, f.kind);
+      const top = depth * TIMELINE_ROW_HEIGHT;
+      const tooltip =
+        f.kind === "py"
+          ? `[py] ${f.display_name}\n${f.filename_or_module}:${f.line}\n` +
+            `${run.startSec.toFixed(3)}s — ${run.endSec.toFixed(3)}s ` +
+            `(${run.hits} samples)`
+          : `[native] ${f.display_name}\n${f.filename_or_module}\n` +
+            `${run.startSec.toFixed(3)}s — ${run.endSec.toFixed(3)}s ` +
+            `(${run.hits} samples)`;
+      const label = showLabels ? escapeHtml(f.display_name) : "";
+      const cursor =
+        f.kind === "py" && f.line !== null ? "pointer" : "default";
+      const clickAttr =
+        f.kind === "py" && f.line !== null
+          ? ` onclick="vsNavigate('${escape(f.filename_or_module)}',${f.line})"`
+          : "";
+      s +=
+        `<div style="position:absolute;` +
+        `top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
+        `height:${TIMELINE_ROW_HEIGHT - 1}px;background:${color};` +
+        `border:1px solid rgba(0,0,0,0.10);overflow:hidden;` +
+        `font-family:monospace;font-size:10px;` +
+        `line-height:${TIMELINE_ROW_HEIGHT - 1}px;padding:0 2px;` +
+        `white-space:nowrap;text-overflow:ellipsis;cursor:${cursor};` +
+        `box-sizing:border-box;"` +
+        ` title="${escapeHtml(tooltip)}"${clickAttr}>${label}</div>`;
+    }
+  }
+  return s;
+}
+
+function renderTimelineTrack(
+  label: string,
+  color: string,
+  runs: TimelineRun[],
+  classifiedRuns: boolean[],
+  totalSec: number,
+  startSec: number,
+  topPx: number,
+): string {
+  let s = "";
+  s +=
+    `<div style="position:absolute;left:0;top:${topPx}px;` +
+    `width:60px;height:${TIMELINE_TRACK_HEIGHT}px;` +
+    `font-family:monospace;font-size:10px;` +
+    `line-height:${TIMELINE_TRACK_HEIGHT}px;color:#444;">${label}</div>`;
+  s +=
+    `<div style="position:absolute;left:60px;right:0;top:${topPx}px;` +
+    `height:${TIMELINE_TRACK_HEIGHT}px;background:#f7f7f7;border:1px solid #ddd;box-sizing:border-box;">`;
+  for (let i = 0; i < runs.length; i++) {
+    if (!classifiedRuns[i]) continue;
+    const run = runs[i];
+    const leftPct = ((run.startSec - startSec) / totalSec) * 100;
+    const widthPct = ((run.endSec - run.startSec) / totalSec) * 100;
+    if (widthPct <= 0) continue;
+    s +=
+      `<div style="position:absolute;` +
+      `left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
+      `top:0;height:100%;background:${color};` +
+      `box-sizing:border-box;" title="${escapeHtml(label)} during ` +
+      `${run.startSec.toFixed(3)}s — ${run.endSec.toFixed(3)}s"></div>`;
+  }
+  s += `</div>`;
+  return s;
+}
+
+export function renderCombinedStacksTimeline(prof: Profile): string {
+  const events = prof.combined_stacks_timeline ?? [];
+  const stacks = prof.combined_stacks ?? [];
+  if (events.length === 0 || stacks.length === 0) return "";
+
+  const elapsed = prof.elapsed_time_sec ?? 0;
+  const { runs, totalSec } = buildTimelineRuns(events, elapsed);
+  if (runs.length === 0 || totalSec <= 0) return "";
+
+  const startSec = runs[0].startSec;
+
+  // Pre-classify each run so the GC / I/O tracks don't redo the work.
+  let maxDepth = 0;
+  const isGcRun: boolean[] = new Array(runs.length).fill(false);
+  const isIoRun: boolean[] = new Array(runs.length).fill(false);
+  for (let i = 0; i < runs.length; i++) {
+    const stackEntry = stacks[runs[i].stackIndex];
+    if (!stackEntry) continue;
+    const frames = stackEntry[0];
+    if (frames.length > maxDepth) maxDepth = frames.length;
+    const c = classifyStack(frames);
+    isGcRun[i] = c.gc;
+    isIoRun[i] = c.io;
+  }
+
+  // Track header (GC / I/O), spacer, then the depth-stacked main panel.
+  const trackGcTop = 0;
+  const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const mainTop =
+    trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+  const mainHeight = Math.max(maxDepth, 1) * TIMELINE_ROW_HEIGHT;
+  const containerHeight = mainTop + mainHeight + 4;
+
+  let s = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
+  s += `<p style="margin-bottom: 4px;">`;
+  s += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the experimental timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
+  s += ` <strong>Stitched stack timeline</strong> `;
+  s += `<span class="badge bg-warning text-dark" style="font-size: 70%; vertical-align: middle;">experimental</span> `;
+  s += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s — x: time, y: stack depth (outermost on top); GC and I/O tracks shown above</span>`;
+  s += `</p>`;
+  s += `<div id="combined-timeline-body" style="display: none;">`;
+  s +=
+    `<div class="combined-stacks-timeline" style="position:relative;width:100%;` +
+    `height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;` +
+    `overflow-x:auto;padding:0;">`;
+  // Tracks live in their own absolute slots above the main panel.
+  // Bumping the track left by 60px so the labels don't overlap.
+  s += renderTimelineTrack(
+    "GC",
+    "#d62728",
+    runs,
+    isGcRun,
+    totalSec,
+    startSec,
+    trackGcTop,
+  );
+  s += renderTimelineTrack(
+    "I/O",
+    "#1f77b4",
+    runs,
+    isIoRun,
+    totalSec,
+    startSec,
+    trackIoTop,
+  );
+  // Main panel: shift right by 60px so it visually aligns with track bars.
+  s +=
+    `<div style="position:absolute;left:60px;right:0;top:${mainTop}px;` +
+    `height:${mainHeight}px;background:#fafafa;border:1px solid #ddd;box-sizing:border-box;">`;
+  s += renderTimelineFrames(runs, stacks, totalSec, startSec);
+  s += `</div>`;
+  s += `</div></div></div>`;
+  return s;
+}
+
+export function toggleCombinedStacksTimeline(): void {
+  const body = document.getElementById("combined-timeline-body");
+  const btn = document.getElementById("button-combined-timeline");
+  if (!body || !btn) return;
+  if (body.style.display === "none") {
+    body.style.display = "block";
+    btn.innerHTML = DownTriangle;
+  } else {
+    body.style.display = "none";
+    btn.innerHTML = RightTriangle;
+  }
+}
+
 export function toggleDisplay(id: string): void {
   const d = document.getElementById(`profile-${id}`);
   if (d) {
@@ -922,7 +1566,7 @@ async function display(prof: Profile): Promise<void> {
       cs[f] += line.n_sys_percent;
       if (line.n_peak_mb > ma[f]) {
         ma[f] = line.n_peak_mb;
-        mp[f] += line.n_peak_mb * line.n_python_fraction;
+        mp[f] = line.n_peak_mb * line.n_python_fraction;
       }
       max_alloc += line.n_malloc_mb;
       if (line.nc_time_ms !== undefined && line.nc_time_ms > 0) {
@@ -995,9 +1639,13 @@ async function display(prof: Profile): Promise<void> {
     s += `<td><font style="font-size: small"><b>Memory:</b> <font color="darkgreen">Python</font> | <font color="#50C878">native</font><br /></font></td>`;
     s += '<td width="10"></td>';
     s += '<td valign="middle" style="vertical-align: middle">';
+    const nativeMb = prof.native_allocations_mb ?? 0;
+    const nativeNote = nativeMb > 0
+      ? `, ${memory_consumed_str(nativeMb)} from native threads`
+      : "";
     s += `<font style="font-size: small"><b>Memory timeline: </b>(max: ${memory_consumed_str(
       prof.max_footprint_mb
-    )}, growth: ${prof.growth_rate.toFixed(1)}%)</font>`;
+    )}, growth: ${prof.growth_rate.toFixed(1)}%${nativeNote})</font>`;
     s += "</td>";
   }
   s += "</tr>";
@@ -1032,7 +1680,7 @@ async function display(prof: Profile): Promise<void> {
       makeMemoryBar(
         prof.max_footprint_mb.toFixed(2),
         "memory",
-        mem_python / max_alloc,
+        prof.max_footprint_python_fraction,
         prof.max_footprint_mb.toFixed(2),
         "darkgreen",
         { height: 20, width: 150 }
@@ -1081,6 +1729,7 @@ async function display(prof: Profile): Promise<void> {
   let fileIteration = 0;
   allIds = [];
   const excludedFiles = new Set<[string, FileData]>();
+  fileNumberByFilename.clear();
   for (const ff of files) {
     fileIteration++;
     // Stop once total CPU time / memory consumption are below some threshold (1%)
@@ -1090,6 +1739,7 @@ async function display(prof: Profile): Promise<void> {
     }
     const id = `file-${fileIteration}`;
     allIds.push(id);
+    fileNumberByFilename.set(ff[0], fileIteration);
     s +=
       '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px)">';
     let displayStr = "display:block;";
@@ -1164,7 +1814,7 @@ async function display(prof: Profile): Promise<void> {
 
     s += `</font>`;
 
-    s += `<br /><span id="button-${id}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id}')">`;
+    s += `<br /><span id="button-${id}" class="disclosure-triangle" title="Click to show or hide profile." onClick="toggleDisplay('${id}')">`;
     s += `${triangle}`;
     s += "</span>";
     s += `<code> ${ff[0]}</code>`;
@@ -1305,6 +1955,8 @@ async function display(prof: Profile): Promise<void> {
   // Remove any excluded files.
   files = files.filter((x) => !excludedFiles.has(x));
   s += "</div>";
+  s += renderCombinedStacks(prof);
+  s += renderCombinedStacksTimeline(prof);
   const p = document.getElementById("profile");
   if (p) {
     p.innerHTML = s;
@@ -1716,6 +2368,8 @@ setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
 (window as unknown as Record<string, unknown>).collapseAll = collapseAll;
 (window as unknown as Record<string, unknown>).expandAll = expandAll;
 (window as unknown as Record<string, unknown>).toggleDisplay = toggleDisplay;
+(window as unknown as Record<string, unknown>).toggleCombinedStacks = toggleCombinedStacks;
+(window as unknown as Record<string, unknown>).toggleCombinedStacksTimeline = toggleCombinedStacksTimeline;
 (window as unknown as Record<string, unknown>).toggleReduced = toggleReduced;
 (window as unknown as Record<string, unknown>).onFileDisplayModeChange = onFileDisplayModeChange;
 (window as unknown as Record<string, unknown>).load = load;

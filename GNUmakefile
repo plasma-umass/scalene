@@ -65,7 +65,33 @@ vendor/printf/printf.cpp:
 	sed -e 's/^#define printf printf_/\/\/&/' vendor/printf/printf.h > $(TMP)/printf.h.$$ && mv $(TMP)/printf.h.$$ vendor/printf/printf.h
 	sed -e 's/^#define vsnprintf vsnprintf_/\/\/&/' vendor/printf/printf.h > $(TMP)/printf.h.$$ && mv $(TMP)/printf.h.$$ vendor/printf/printf.h
 
-vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp
+# libunwind: only vendored/built on Linux. macOS uses system <unwind.h> (_Unwind_Backtrace).
+LIBUNWIND_VERSION := 1.8.1
+LIBUNWIND_DIR := vendor/libunwind
+LIBUNWIND_LIB  := $(LIBUNWIND_DIR)/src/.libs/libunwind.a
+
+ifeq ($(shell uname -s),Linux)
+LIBUNWIND_TARGET := $(LIBUNWIND_LIB)
+else
+LIBUNWIND_TARGET :=
+endif
+
+$(LIBUNWIND_DIR)/configure:
+	mkdir -p vendor
+	cd vendor && curl -fsSL https://github.com/libunwind/libunwind/releases/download/v$(LIBUNWIND_VERSION)/libunwind-$(LIBUNWIND_VERSION).tar.gz | tar xz
+	rm -rf $(LIBUNWIND_DIR)
+	mv vendor/libunwind-$(LIBUNWIND_VERSION) $(LIBUNWIND_DIR)
+
+$(LIBUNWIND_LIB): $(LIBUNWIND_DIR)/configure
+	cd $(LIBUNWIND_DIR) && \
+	  ./configure --enable-static --disable-shared --disable-tests \
+	              --disable-documentation --disable-coredump \
+	              --disable-ptrace --disable-setjmp \
+	              --disable-minidebuginfo --disable-zlibdebuginfo \
+	              CFLAGS="-fPIC -O2" && \
+	  $(MAKE) -j
+
+vendor-deps: vendor/Heap-Layers vendor/printf/printf.cpp $(LIBUNWIND_TARGET)
 
 mypy:
 	# Requires: pip install mypy types-PyYAML

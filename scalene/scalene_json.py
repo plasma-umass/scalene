@@ -4,10 +4,11 @@ import math
 import random
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 from enum import Enum
 from operator import itemgetter
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from pydantic import (
     BaseModel,
@@ -23,17 +24,141 @@ from pydantic import (
 from scalene.scalene_analysis import ScaleneAnalysis
 from scalene.scalene_leak_analysis import ScaleneLeakAnalysis
 from scalene.scalene_statistics import (
+    CombinedStackKey,
     Filename,
     LineNumber,
+    NativeFrameKey,
+    PyFrameKey,
     ScaleneStatistics,
     StackStats,
 )
+
+
+class CombinedStackTimelineEvent(BaseModel):
+    """One run-length-encoded entry in the JSON-serialized stitched-stacks
+    timeline. ``t_sec`` is the start time of the run, normalized to seconds
+    since the first sample. ``stack_index`` is an index into
+    ``ScaleneJSONSchema.combined_stacks``. ``count`` is the number of CPU
+    samples that fired this same stack consecutively.
+    """
+
+    t_sec: NonNegativeFloat
+    stack_index: NonNegativeInt
+    count: PositiveInt
+
+
+@dataclass(frozen=True)
+class _ResolvedNativeFrame:
+    """A native stack frame after IP resolution. Used internally by the
+    native_stacks and combined_stacks serializers; not part of the public
+    JSON schema (the public JSON shape uses CombinedStackFrame for combined
+    stacks, and an inline list-of-dicts for native_stacks).
+
+    Frozen so instances are hashable / safely shareable from the IP cache.
+    A plain dataclass rather than Pydantic BaseModel because this type is
+    instantiated per native frame in hot serialization loops and never
+    crosses the JSON boundary directly — Pydantic validation overhead is
+    pure cost here.
+    """
+
+    module: str
+    symbol: str
+    ip: int
+    offset: int
+
+
+class CombinedStackFrame(BaseModel):
+    """One frame inside a serialized stitched stack
+    (ScaleneJSONSchema.combined_stacks). Either ``kind == "py"`` (with line
+    info) or ``kind == "native"`` (with ip/offset).
+    """
+
+    kind: str  # "py" or "native"
+    display_name: str
+    filename_or_module: str
+    line: Optional[int]
+    code_line: Optional[str] = None
+    ip: Optional[int]
+    offset: Optional[int]
 
 
 class GPUDevice(str, Enum):
     nvidia = "GPU"
     neuron = "Neuron"
     no_gpu = ""
+
+
+# Native-frame trimming helpers used when serializing native_stacks.
+#
+# Each frame is a _ResolvedNativeFrame (module, symbol, ip, offset).
+# We strip two kinds of noise:
+#   1. Scalene's own signal-handler / kernel-trampoline frames at the
+#      innermost (leaf) end of the stack.
+#   2. CPython interpreter / runtime / process-entry frames at the
+#      outermost (root) end of the stack.
+#
+# Stacks come back from the unwinder leaf-first, i.e. index 0 is the
+# innermost frame and index -1 is the outermost.
+
+_CPYTHON_RUNTIME_SYMBOLS = frozenset(
+    {
+        # interpreter eval loop
+        "Py_RunMain",
+        "Py_BytesMain",
+        "Py_Main",
+        "PyEval_EvalCode",
+        "_PyEval_EvalFrameDefault",
+        "_PyEval_Vector",
+        # generic call dispatch
+        "call_method",
+        "slot_tp_init",
+        "type_call",
+        "builtin_exec",
+        "run_mod",
+        # process entry points beneath Py_RunMain
+        "_start",
+        "__libc_start_main",
+        "__libc_start_call_main",
+    }
+)
+
+_CPYTHON_RUNTIME_SYMBOL_PREFIXES = (
+    "PyObject_Vectorcall",
+    "_PyObject_Vectorcall",
+    "pymain_",
+)
+
+
+def _is_scalene_handler_frame(frame: _ResolvedNativeFrame) -> bool:
+    if frame.symbol and "scalene_signal_unwinder" in frame.symbol:
+        return True
+    if frame.symbol in ("_sigtramp", "__restore_rt"):
+        return True
+    return bool(frame.module and "_scalene_unwind" in frame.module)
+
+
+def _is_cpython_runtime_frame(frame: _ResolvedNativeFrame) -> bool:
+    symbol = frame.symbol
+    if not symbol:
+        return False
+    if symbol in _CPYTHON_RUNTIME_SYMBOLS:
+        return True
+    return bool(symbol.startswith(_CPYTHON_RUNTIME_SYMBOL_PREFIXES))
+
+
+def _trim_native_stack(
+    frames: List[_ResolvedNativeFrame],
+) -> List[_ResolvedNativeFrame]:
+    """Drop the signal-handler entry frames at the leaf end and the
+    CPython runtime / process-entry frames at the root end. Operates on
+    a copy and returns a new list so callers can keep the originals.
+    """
+    out = list(frames)
+    while out and _is_scalene_handler_frame(out[0]):
+        out.pop(0)
+    while out and _is_cpython_runtime_frame(out[-1]):
+        out.pop()
+    return out
 
 
 class FunctionDetail(BaseModel):
@@ -500,6 +625,247 @@ class ScaleneJSON:
             }
             stks.append((this_stk, stack_stats_dict))
 
+        # Convert native (C/C++) stacks into a JSON-friendly form. Each stack
+        # is stored as a tuple of raw IPs; resolve them now via
+        # _scalene_unwind.resolve_ip (signal-unsafe, fine here at report
+        # time). Cache by IP because the same address typically appears
+        # across many stacks.
+        #
+        # Trim is done by _trim_native_stack: it drops Scalene's own
+        # signal-handler/trampoline frames at the leaf end and contiguous
+        # CPython interpreter/process-entry frames at the root end, so what
+        # the user sees starts and ends with real C/C++ user code.
+        native_stks: List[Tuple[List[_ResolvedNativeFrame], int]] = []
+        if stats.native_stacks:
+            try:
+                from scalene import _scalene_unwind  # type: ignore
+
+                resolve = _scalene_unwind.resolve_ip
+            except ImportError:
+                resolve = None
+
+            ip_cache: Dict[int, _ResolvedNativeFrame] = {}
+            for stk, hits in stats.native_stacks.items():
+                resolved_frames: List[_ResolvedNativeFrame] = []
+                for ip in stk:
+                    cached = ip_cache.get(ip)
+                    if cached is not None:
+                        resolved_frames.append(cached)
+                        continue
+                    info = resolve(ip) if resolve is not None else None
+                    if info is None:
+                        frame = _ResolvedNativeFrame(
+                            module="", symbol="", ip=ip, offset=0
+                        )
+                    else:
+                        module, symbol, offset = info
+                        frame = _ResolvedNativeFrame(
+                            module=module, symbol=symbol, ip=ip, offset=offset
+                        )
+                    ip_cache[ip] = frame
+                    resolved_frames.append(frame)
+                resolved_frames = _trim_native_stack(resolved_frames)
+                if resolved_frames:
+                    native_stks.append((resolved_frames, hits))
+
+        # Stitched Python+native stacks. stats.combined_stacks is keyed by
+        # CombinedStackKey: a tuple of PyFrameKey | NativeFrameKey instances
+        # (outermost-first). Resolve native IPs and trim contiguous CPython
+        # runtime frames at the seam (i.e. between Python and native
+        # segments) so the visible stack ends with real C/C++ user code
+        # rather than _PyEval_*.
+        combined_stks: List[Tuple[List[CombinedStackFrame], int]] = []
+        combined_stks_timeline: List[Dict[str, Any]] = []
+        if stats.combined_stacks:
+            try:
+                from scalene import _scalene_unwind  # type: ignore
+
+                resolve = _scalene_unwind.resolve_ip
+            except ImportError:
+                resolve = None
+
+            ip_cache_combined: Dict[int, _ResolvedNativeFrame] = {}
+
+            # Cache source-file line lookups so we read each Python file at
+            # most once during combined_stacks emission. linecache would do
+            # this too, but we already have the file-read pattern below.
+            source_cache: Dict[str, Optional[List[str]]] = {}
+
+            def _source_line(filename: str, lineno: int) -> str:
+                """Return the source line (stripped, no trailing newline) for
+                filename:lineno, or '' if the file can't be read or the line
+                is out of range. linecache fallback handles exec'd code."""
+                if filename in source_cache:
+                    lines = source_cache[filename]
+                else:
+                    lines = None
+                    try:
+                        with open(filename, encoding="utf-8") as src:
+                            lines = src.readlines()
+                    except (OSError, UnicodeDecodeError):
+                        cached = linecache.getlines(filename)
+                        if cached:
+                            lines = cached
+                    source_cache[filename] = lines
+                if lines is None or lineno < 1 or lineno > len(lines):
+                    return ""
+                return lines[lineno - 1].rstrip()
+
+            def _resolve(ip: int) -> _ResolvedNativeFrame:
+                cached = ip_cache_combined.get(ip)
+                if cached is not None:
+                    return cached
+                info = resolve(ip) if resolve is not None else None
+                if info is None:
+                    rep = _ResolvedNativeFrame(module="", symbol="", ip=ip, offset=0)
+                else:
+                    module, symbol, offset = info
+                    rep = _ResolvedNativeFrame(
+                        module=module, symbol=symbol, ip=ip, offset=offset
+                    )
+                ip_cache_combined[ip] = rep
+                return rep
+
+            # Aggregate by the resolved + trimmed display key so that two raw
+            # samples that landed on different IPs but resolved to the same
+            # (symbol, module) frames collapse into one entry. Without this,
+            # near-identical stacks appear as duplicates because sample-time
+            # aggregation in stats.combined_stacks is keyed by raw IPs.
+            #
+            # The dedup key is a tuple of (kind, display_name, location, line)
+            # quadruples — same shape as a CombinedStackFrame's user-visible
+            # fields, but as a hashable tuple. Native ip/offset are excluded
+            # so different instructions in the same function collapse.
+            DedupFrame = Tuple[str, str, str, Optional[int]]
+            DedupKey = Tuple[DedupFrame, ...]
+            combined_aggregated: Dict[
+                DedupKey, Tuple[List[CombinedStackFrame], int]
+            ] = {}
+            # Map each raw stack key (as stored in stats.combined_stacks and
+            # in stats.combined_stacks_timeline) to its dedup_key so the
+            # timeline can later be emitted as indices into the final
+            # combined_stks list.
+            raw_to_dedup_key: Dict[CombinedStackKey, DedupKey] = {}
+            for stk, hits in stats.combined_stacks.items():
+                # Find the seam: index of first native frame.
+                seam = next(
+                    (
+                        i
+                        for i, frame in enumerate(stk)
+                        if isinstance(frame, NativeFrameKey)
+                    ),
+                    len(stk),
+                )
+                # Slicing a tuple yields a tuple; the type narrows imperfectly
+                # so we cast at use sites with isinstance checks below.
+                py_segment = stk[:seam]
+                native_segment_raw = stk[seam:]
+
+                # Resolve native IPs, then trim handler/runtime frames using
+                # the existing helpers. The native segment as stored is
+                # outermost-first (entry -> leaf), but _trim_native_stack
+                # expects leaf-first, so reverse before trimming and back
+                # after.
+                resolved_leaf_first: List[_ResolvedNativeFrame] = []
+                for native_frame in native_segment_raw:
+                    if not isinstance(native_frame, NativeFrameKey):
+                        continue
+                    resolved_leaf_first.append(_resolve(native_frame.ip))
+                resolved_leaf_first.reverse()
+                trimmed_leaf_first = _trim_native_stack(resolved_leaf_first)
+                trimmed = list(reversed(trimmed_leaf_first))
+
+                out_frames: List[CombinedStackFrame] = []
+                for py_frame in py_segment:
+                    if not isinstance(py_frame, PyFrameKey):
+                        continue
+                    out_frames.append(
+                        CombinedStackFrame(
+                            kind="py",
+                            display_name=py_frame.function,
+                            filename_or_module=py_frame.filename,
+                            line=py_frame.line,
+                            code_line=_source_line(py_frame.filename, py_frame.line),
+                            ip=None,
+                            offset=None,
+                        )
+                    )
+                for native in trimmed:
+                    out_frames.append(
+                        CombinedStackFrame(
+                            kind="native",
+                            display_name=native.symbol,
+                            filename_or_module=native.module,
+                            line=None,
+                            code_line=None,
+                            ip=native.ip,
+                            offset=native.offset,
+                        )
+                    )
+                if not out_frames:
+                    continue
+                dedup_key: DedupKey = tuple(
+                    (
+                        frame.kind,
+                        frame.display_name,
+                        frame.filename_or_module,
+                        frame.line,
+                    )
+                    for frame in out_frames
+                )
+                existing = combined_aggregated.get(dedup_key)
+                if existing is None:
+                    combined_aggregated[dedup_key] = (out_frames, hits)
+                else:
+                    combined_aggregated[dedup_key] = (
+                        existing[0],
+                        existing[1] + hits,
+                    )
+                raw_to_dedup_key[stk] = dedup_key
+            # combined_stks order matches insertion order of combined_aggregated.
+            dedup_to_index: Dict[DedupKey, int] = {
+                k: i for i, k in enumerate(combined_aggregated.keys())
+            }
+            combined_stks.extend(combined_aggregated.values())
+
+            # Build the run-length-encoded timeline of stitched stacks for
+            # the experimental timeline view. Each emitted event is a
+            # CombinedStackTimelineEvent — t_sec is normalized relative to
+            # the first sample so the GUI can place events on a
+            # [0, elapsed_time] axis; stack_index references combined_stks.
+            if stats.combined_stacks_timeline and combined_stks:
+                t0 = stats.combined_stacks_timeline[0].timestamp
+                for run in stats.combined_stacks_timeline:
+                    run_dedup_key = raw_to_dedup_key.get(run.stack_key)
+                    if run_dedup_key is None:
+                        continue
+                    idx = dedup_to_index.get(run_dedup_key)
+                    if idx is None:
+                        continue
+                    # Two adjacent runs may have collapsed to the same
+                    # dedup_key (different raw IPs in the same function).
+                    # Merge them so the wire format stays compact.
+                    if (
+                        combined_stks_timeline
+                        and combined_stks_timeline[-1]["stack_index"] == idx
+                    ):
+                        combined_stks_timeline[-1]["count"] += run.count
+                    else:
+                        event = CombinedStackTimelineEvent(
+                            t_sec=round(run.timestamp - t0, 6),
+                            stack_index=idx,
+                            count=run.count,
+                        )
+                        combined_stks_timeline.append(event.model_dump())
+
+        # Aggregate bytes from native-thread allocations that have no
+        # Python frame (see pywhere.cpp <native> sentinel). These are not
+        # attributable to any source line, so surface them at the top level.
+        native_samples = stats.memory_stats.memory_malloc_samples.get(
+            Filename("<native>"), {}
+        )
+        native_allocations_mb = sum(native_samples.values())
+
         output: Dict[str, Any] = {
             "program": program,
             "entrypoint_dir": entrypoint_dir,
@@ -511,6 +877,7 @@ class ScaleneJSON:
             "start_time_perf": stats.start_time_perf,
             "growth_rate": growth_rate,
             "max_footprint_mb": stats.memory_stats.max_footprint,
+            "native_allocations_mb": native_allocations_mb,
             "max_footprint_python_fraction": stats.memory_stats.max_footprint_python_fraction,
             "max_footprint_fname": (
                 stats.memory_stats.max_footprint_loc[0]
@@ -519,7 +886,10 @@ class ScaleneJSON:
             ),
             "max_footprint_lineno": (
                 stats.memory_stats.max_footprint_loc[1]
-                if stats.memory_stats.max_footprint_loc
+                if (
+                    stats.memory_stats.max_footprint_loc
+                    and stats.memory_stats.max_footprint_loc[1] > 0
+                )
                 else None
             ),
             "files": {},
@@ -529,6 +899,23 @@ class ScaleneJSON:
             "async_profile": profile_async,
             "samples": compressed_footprint_samples if profile_memory else [],
             "stacks": stks,
+            # _ResolvedNativeFrame is a dataclass, not a dict; reshape into
+            # the on-wire [module, symbol, ip, offset] list at the output
+            # boundary (preserves the existing JSON layout).
+            "native_stacks": [
+                (
+                    [[f.module, f.symbol, f.ip, f.offset] for f in frames],
+                    hits,
+                )
+                for frames, hits in native_stks
+            ],
+            # Pydantic CombinedStackFrame instances aren't JSON-serializable
+            # directly; convert to plain dicts at the output boundary.
+            "combined_stacks": [
+                ([frame.model_dump() for frame in frames], hits)
+                for frames, hits in combined_stks
+            ],
+            "combined_stacks_timeline": combined_stks_timeline,
         }
 
         # Build a list of files we will actually report on.

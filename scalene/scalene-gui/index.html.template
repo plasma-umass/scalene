@@ -22,8 +22,22 @@
 #vg-tooltip-element {
   z-index: 2000;
 }
- body { 
+ body {
   padding: 0 0 90px 0;
+}
+/* Disclosure-triangle toggle buttons (matches CSrankings .hovertip).
+ * The default Bootstrap 5 font stack includes Apple Color Emoji, which
+ * on macOS/iOS will hijack characters like U+25BA (▶) and render them as
+ * a colored "play button" emoji glyph. Force a plain text font here so
+ * the triangle renders as a normal text glyph in both collapsed and
+ * expanded states, matching the look CSrankings uses. */
+.disclosure-triangle {
+  font-family: Helvetica, Arial, sans-serif;
+  font-variant-emoji: text;
+  cursor: pointer;
+  color: blue;
+  user-select: none;
+  -webkit-user-select: none;
 }
     </style>
     {% if standalone %}
@@ -230,6 +244,13 @@
     }
     .btn-refresh.loading {
         color: #0d6efd;
+    }
+    .combined-stacks-section {
+        margin-top: 1em;
+    }
+    .combined-stacks-flame > div:hover {
+        outline: 2px solid #333;
+        z-index: 10;
     }
     </style>
     <!-- Google Analytics - disabled in standalone mode for offline support (issue #982) -->

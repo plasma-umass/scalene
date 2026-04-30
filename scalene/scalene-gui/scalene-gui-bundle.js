@@ -2456,7 +2456,11 @@ var ScaleneGUI = (() => {
     proposeOptimizationRegion: () => proposeOptimizationRegion,
     refreshGeminiModels: () => refreshGeminiModels,
     refreshOpenAIModels: () => refreshOpenAIModels,
+    renderCombinedStacks: () => renderCombinedStacks,
+    renderCombinedStacksTimeline: () => renderCombinedStacksTimeline,
     toggleAdvanced: () => toggleAdvanced,
+    toggleCombinedStacks: () => toggleCombinedStacks,
+    toggleCombinedStacksTimeline: () => toggleCombinedStacksTimeline,
     toggleDisplay: () => toggleDisplay,
     togglePassword: () => togglePassword,
     toggleReduced: () => toggleReduced,
@@ -69967,8 +69971,8 @@ ${toHex(hashedRequest)}`;
   var Explosion = "&#128165;";
   var WhiteLightning = `<span style="opacity:0">${Lightning}</span>`;
   var WhiteExplosion = `<span style="opacity:0">${Explosion}</span>`;
-  var RightTriangle = "&#9658";
-  var DownTriangle = "&#9660";
+  var RightTriangle = "&#9658;";
+  var DownTriangle = "&#9660;";
   function makeTooltip(title2, value3) {
     const secs = value3 / 100 * globalThis.profile.elapsed_time_sec;
     return `(${title2}) ` + value3.toFixed(1) + "% [" + time_consumed_str(secs * 1e3) + "]";
@@ -70241,7 +70245,8 @@ ${toHex(hashedRequest)}`;
               type: "nominal",
               legend: false,
               scale: { range: [color5, "#50C878", "green"] }
-            }
+            },
+            tooltip: { field: "c", type: "nominal" }
           }
         },
         {
@@ -71082,10 +71087,48 @@ Your output should only consist of valid Python code. Output the resulting Pytho
         filePath: filename,
         lineNumber: lineno
       });
+      return;
+    } catch {
+    }
+    const decoded = filename.indexOf("%") >= 0 ? decodeURIComponent(filename) : filename;
+    const fileNumber = fileNumberByFilename.get(decoded);
+    if (fileNumber !== void 0) {
+      const fileId = `file-${fileNumber}`;
+      const fileSection = document.getElementById(`profile-${fileId}`);
+      if (fileSection && fileSection.style.display === "none") {
+        toggleDisplay(fileId);
+      }
+      const target2 = document.getElementById(`code-${fileNumber}-${lineno}`);
+      if (target2) {
+        const tr2 = target2.closest("tr");
+        if (tr2 && tr2.style.display === "none") {
+          const select2 = document.getElementById(
+            `display-mode-${fileId}`
+          );
+          if (select2) {
+            select2.value = "all";
+          }
+          applyFileDisplayMode(fileId, "all");
+        }
+        target2.scrollIntoView({ behavior: "smooth", block: "center" });
+        const td = target2.closest("td");
+        const flashTarget = td ?? target2;
+        const prevBg = flashTarget.style.backgroundColor;
+        flashTarget.style.transition = "background-color 0.2s ease";
+        flashTarget.style.backgroundColor = "#fff3a8";
+        window.setTimeout(() => {
+          flashTarget.style.backgroundColor = prevBg;
+        }, 1200);
+        return;
+      }
+    }
+    try {
+      window.location.href = `vscode://file/${decoded}:${lineno}:1`;
     } catch {
     }
   }
   var maxLinesPerRegion = 50;
+  var fileNumberByFilename = /* @__PURE__ */ new Map();
   var showedExplosion = {};
   function proposeOptimizationRegion(filename, file_number, line4) {
     proposeOptimization(
@@ -71436,7 +71479,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       if (line4.n_avg_mb) {
         memory_bars.push(
           makeMemoryBar(
-            line4.n_avg_mb.toFixed(0),
+            line4.n_avg_mb.toFixed(1),
             "average memory",
             parseFloat(String(line4.n_python_fraction)),
             prof.max_footprint_mb.toFixed(2),
@@ -71636,6 +71679,378 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       btn.innerHTML = DownTriangle;
     }
   }
+  function escapeHtml(s2) {
+    return s2.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  var FLAME_ROW_HEIGHT = 18;
+  var FLAME_MIN_LABEL_WIDTH_PCT = 1.5;
+  function buildFlameTree(stacks) {
+    const root = {
+      kind: "root",
+      name: "(all stacks)",
+      filename: "",
+      line: null,
+      code_line: void 0,
+      selfHits: 0,
+      totalHits: 0,
+      children: []
+    };
+    const childMaps = /* @__PURE__ */ new WeakMap();
+    childMaps.set(root, /* @__PURE__ */ new Map());
+    for (const [frames, hits] of stacks) {
+      let node = root;
+      node.totalHits += hits;
+      for (const f2 of frames) {
+        const key2 = `${f2.kind}|${f2.filename_or_module}|${f2.kind === "py" ? f2.line : "x"}|${f2.display_name}`;
+        const map4 = childMaps.get(node);
+        if (!map4) continue;
+        let child = map4.get(key2);
+        if (!child) {
+          child = {
+            kind: f2.kind,
+            name: f2.display_name,
+            filename: f2.filename_or_module,
+            line: f2.kind === "py" ? f2.line : null,
+            code_line: f2.kind === "py" ? f2.code_line : void 0,
+            selfHits: 0,
+            totalHits: 0,
+            children: []
+          };
+          map4.set(key2, child);
+          childMaps.set(child, /* @__PURE__ */ new Map());
+          node.children.push(child);
+        }
+        child.totalHits += hits;
+        node = child;
+      }
+      node.selfHits += hits;
+    }
+    function sortDescByHits(n2) {
+      n2.children.sort((a4, b3) => b3.totalHits - a4.totalHits);
+      for (const c4 of n2.children) sortDescByHits(c4);
+    }
+    sortDescByHits(root);
+    return root;
+  }
+  function flameMaxDepth(node) {
+    if (node.children.length === 0) return 0;
+    let m4 = 0;
+    for (const c4 of node.children) {
+      const d2 = flameMaxDepth(c4);
+      if (d2 > m4) m4 = d2;
+    }
+    return 1 + m4;
+  }
+  function flameColor(name4, kind) {
+    if (kind === "root") return "#ddd";
+    let h3 = 0;
+    for (let i2 = 0; i2 < name4.length; i2++) {
+      h3 = (h3 << 5) - h3 + name4.charCodeAt(i2) | 0;
+    }
+    const hue2 = Math.abs(h3) % 360;
+    if (kind === "py") return `hsl(${hue2}, 45%, 78%)`;
+    return `hsl(${(hue2 + 30) % 360}, 70%, 65%)`;
+  }
+  function renderFlameNode(node, depth, leftPct, widthPct, total) {
+    const pct = total > 0 ? (node.totalHits / total * 100).toFixed(1) : "0.0";
+    const codeLineText = (node.code_line ?? "").trim();
+    let tooltip2;
+    if (node.kind === "py") {
+      const tail = codeLineText ? `
+${codeLineText}` : "";
+      tooltip2 = `[py] ${node.name}
+${node.filename}:${node.line}
+${node.totalHits} hits (${pct}%)${tail}`;
+    } else {
+      tooltip2 = `[native] ${node.name}
+${node.filename}
+${node.totalHits} hits (${pct}%)`;
+    }
+    const top = depth * FLAME_ROW_HEIGHT;
+    const color5 = flameColor(node.name, node.kind);
+    const showLabel = widthPct >= FLAME_MIN_LABEL_WIDTH_PCT;
+    const labelHtml = showLabel ? escapeHtml(node.name) : "";
+    const cursor3 = node.kind === "py" && node.line !== null ? "pointer" : "default";
+    const clickAttr = node.kind === "py" && node.line !== null ? ` onclick="vsNavigate('${escape(node.filename)}',${node.line})"` : "";
+    return `<div style="position:absolute;top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;height:${FLAME_ROW_HEIGHT - 1}px;background:${color5};border:1px solid rgba(0,0,0,0.12);overflow:hidden;font-family:monospace;font-size:11px;line-height:${FLAME_ROW_HEIGHT - 1}px;padding:0 4px;white-space:nowrap;text-overflow:ellipsis;cursor:${cursor3};box-sizing:border-box;" title="${escapeHtml(tooltip2)}"${clickAttr}>${labelHtml}</div>`;
+  }
+  function renderFlameRecursive(node, depth, leftPct, widthPct, total) {
+    let s2 = "";
+    if (depth > 0) {
+      s2 += renderFlameNode(node, depth - 1, leftPct, widthPct, total);
+    }
+    let childLeft = leftPct;
+    for (const child of node.children) {
+      const childWidth = total > 0 ? child.totalHits / total * widthPct * (total / node.totalHits) : 0;
+      const w3 = node.totalHits > 0 ? child.totalHits / node.totalHits * widthPct : 0;
+      s2 += renderFlameRecursive(child, depth + 1, childLeft, w3, total);
+      childLeft += w3;
+    }
+    return s2;
+  }
+  function renderCombinedStacks(prof) {
+    const stacks = prof.combined_stacks ?? [];
+    if (stacks.length === 0) return "";
+    const root = buildFlameTree(stacks);
+    const totalHits = root.totalHits;
+    const depth = flameMaxDepth(root);
+    const containerHeight = depth * FLAME_ROW_HEIGHT;
+    let s2 = `<hr><div class="container-fluid combined-stacks-section">`;
+    s2 += `<p style="margin-bottom: 4px;">`;
+    s2 += `<span id="button-combined-stacks" class="disclosure-triangle" title="Click to show or hide stitched Python+native call stacks." onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
+    s2 += ` <strong>Combined Python + native call stacks</strong> `;
+    s2 += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples \u2014 hover for details, click a [py] frame to jump to its source line</span>`;
+    s2 += `</p>`;
+    s2 += `<div id="combined-stacks-body" style="display: none;">`;
+    s2 += `<div class="combined-stacks-flame" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;">`;
+    s2 += renderFlameRecursive(root, 0, 0, 100, totalHits);
+    s2 += `</div></div></div>`;
+    return s2;
+  }
+  function toggleCombinedStacks() {
+    const body = document.getElementById("combined-stacks-body");
+    const btn = document.getElementById("button-combined-stacks");
+    if (!body || !btn) return;
+    if (body.style.display === "none") {
+      body.style.display = "block";
+      btn.innerHTML = DownTriangle;
+    } else {
+      body.style.display = "none";
+      btn.innerHTML = RightTriangle;
+    }
+  }
+  var TIMELINE_ROW_HEIGHT = 14;
+  var TIMELINE_MIN_LABEL_WIDTH_PX = 40;
+  var TIMELINE_TRACK_HEIGHT = 10;
+  var TIMELINE_TRACK_GAP = 2;
+  var TIMELINE_BUCKETS = 600;
+  var GC_NAME_PATTERNS = [
+    /(?:\b|_)gc[._]collect(?:_|\b)/i,
+    /(?:\b|_)PyGC(?:_|\b)/,
+    /(?:\b|_)_PyGC_/,
+    /(?:\b|_)gc_collect_main(?:_|\b)/,
+    /(?:\b|_)gc_collect_region(?:_|\b)/,
+    /(?:\b|_)deallocate(?:_|\b)/,
+    // Internal helpers from gcmodule.c that often appear as the leaf on
+    // Python 3.9–3.12 (where the static `collect()` workhorse + helpers
+    // are what the unwinder lands on rather than the gc_collect_main /
+    // _PyGC_Collect names introduced in 3.13).
+    /(?:\b|_)collect_with_callback(?:_|\b)/,
+    /(?:\b|_)subtract_refs(?:_|\b)/,
+    /(?:\b|_)move_unreachable(?:_|\b)/,
+    /(?:\b|_)untrack_tuples(?:_|\b)/,
+    /(?:\b|_)untrack_dicts(?:_|\b)/,
+    /(?:\b|_)deduce_unreachable(?:_|\b)/,
+    /(?:\b|_)delete_garbage(?:_|\b)/,
+    /(?:\b|_)handle_weakrefs(?:_|\b)/,
+    /(?:\b|_)invoke_gc_callback(?:_|\b)/,
+    /(?:\b|_)move_legacy_finalizers?(?:_|\b)/
+  ];
+  var IO_NAME_PATTERNS = [
+    // Synthetic await frame emitted by add_async_await_run when a sample
+    // lands inside the event loop with coroutines suspended. Kept first
+    // since the literal "[await]" prefix is the cheapest possible match.
+    /^\[await\]/,
+    /(?:\b|_)read(?:v)?(?:_|\b)/,
+    /(?:\b|_)pread(?:v)?(?:_|\b)/,
+    /(?:\b|_)write(?:v)?(?:_|\b)/,
+    /(?:\b|_)pwrite(?:v)?(?:_|\b)/,
+    /(?:\b|_)recv(?:from|msg)?(?:_|\b)/,
+    /(?:\b|_)send(?:to|msg)?(?:_|\b)/,
+    /(?:\b|_)select(?:_|\b)/,
+    /(?:\b|_)epoll(?:_|\b)/,
+    /(?:\b|_)kevent(?:_|\b)/,
+    /(?:\b|_)kqueue(?:_|\b)/,
+    /(?:\b|_)poll(?:_|\b)/,
+    /(?:\b|_)accept[0-9]*(?:_|\b)/,
+    /(?:\b|_)connect(?:_|\b)/,
+    /(?:\b|_)open(?:at|dir)?(?:_|\b)/,
+    /(?:\b|_)close(?:_|\b)/,
+    /(?:\b|_)fsync(?:_|\b)/,
+    /(?:\b|_)fread(?:_|\b)/,
+    /(?:\b|_)fwrite(?:_|\b)/,
+    /(?:\b|_)lseek(?:_|\b)/
+  ];
+  var IO_FILE_PATTERNS = [
+    /\b_io\b/,
+    /\bsocket\.py$/,
+    /\bsocket\b/,
+    /\bselectors\.py$/,
+    /\bselector_events\.py$/,
+    /\basyncio\b/,
+    /\bsubprocess\.py$/
+  ];
+  function classifyFrame(f2) {
+    const name4 = f2.display_name ?? "";
+    for (const re3 of GC_NAME_PATTERNS) {
+      if (re3.test(name4)) return "gc";
+    }
+    for (const re3 of IO_NAME_PATTERNS) {
+      if (re3.test(name4)) return "io";
+    }
+    if (f2.kind === "py") {
+      for (const re3 of IO_FILE_PATTERNS) {
+        if (re3.test(f2.filename_or_module ?? "")) return "io";
+      }
+    }
+    return "other";
+  }
+  function classifyStack(stack2) {
+    let gc = false;
+    let io = false;
+    for (const f2 of stack2) {
+      const c4 = classifyFrame(f2);
+      if (c4 === "gc") gc = true;
+      else if (c4 === "io") io = true;
+      if (gc && io) break;
+    }
+    return { gc, io };
+  }
+  function timelineColor(name4, kind) {
+    let h3 = 0;
+    for (let i2 = 0; i2 < name4.length; i2++) {
+      h3 = (h3 << 5) - h3 + name4.charCodeAt(i2) | 0;
+    }
+    const hue2 = Math.abs(h3) % 360;
+    if (kind === "py") return `hsl(${hue2}, 45%, 78%)`;
+    return `hsl(${(hue2 + 30) % 360}, 70%, 65%)`;
+  }
+  function buildTimelineRuns(events3, totalElapsedSec) {
+    if (events3.length === 0) return { runs: [], totalSec: 0 };
+    const runs = [];
+    for (let i2 = 0; i2 < events3.length; i2++) {
+      const ev = events3[i2];
+      const next = events3[i2 + 1];
+      let end;
+      if (next) {
+        end = next.t_sec;
+      } else {
+        const synthetic = ev.t_sec + ev.count * 1e-3;
+        end = Math.max(ev.t_sec, totalElapsedSec || synthetic, synthetic);
+      }
+      if (end <= ev.t_sec) end = ev.t_sec;
+      runs.push({
+        startSec: ev.t_sec,
+        endSec: end,
+        stackIndex: ev.stack_index,
+        hits: ev.count
+      });
+    }
+    const totalSec = Math.max(totalElapsedSec, runs[runs.length - 1].endSec) - runs[0].startSec;
+    return { runs, totalSec };
+  }
+  function renderTimelineFrames(runs, stacks, totalSec, startSec) {
+    let s2 = "";
+    for (const run2 of runs) {
+      const stackEntry = stacks[run2.stackIndex];
+      if (!stackEntry) continue;
+      const frames = stackEntry[0];
+      const leftPct = (run2.startSec - startSec) / totalSec * 100;
+      const widthPct = (run2.endSec - run2.startSec) / totalSec * 100;
+      if (widthPct <= 0) continue;
+      const showLabels = widthPct / 100 * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
+      for (let depth = 0; depth < frames.length; depth++) {
+        const f2 = frames[depth];
+        const color5 = timelineColor(f2.display_name, f2.kind);
+        const top = depth * TIMELINE_ROW_HEIGHT;
+        const tooltip2 = f2.kind === "py" ? `[py] ${f2.display_name}
+${f2.filename_or_module}:${f2.line}
+${run2.startSec.toFixed(3)}s \u2014 ${run2.endSec.toFixed(3)}s (${run2.hits} samples)` : `[native] ${f2.display_name}
+${f2.filename_or_module}
+${run2.startSec.toFixed(3)}s \u2014 ${run2.endSec.toFixed(3)}s (${run2.hits} samples)`;
+        const label = showLabels ? escapeHtml(f2.display_name) : "";
+        const cursor3 = f2.kind === "py" && f2.line !== null ? "pointer" : "default";
+        const clickAttr = f2.kind === "py" && f2.line !== null ? ` onclick="vsNavigate('${escape(f2.filename_or_module)}',${f2.line})"` : "";
+        s2 += `<div style="position:absolute;top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;height:${TIMELINE_ROW_HEIGHT - 1}px;background:${color5};border:1px solid rgba(0,0,0,0.10);overflow:hidden;font-family:monospace;font-size:10px;line-height:${TIMELINE_ROW_HEIGHT - 1}px;padding:0 2px;white-space:nowrap;text-overflow:ellipsis;cursor:${cursor3};box-sizing:border-box;" title="${escapeHtml(tooltip2)}"${clickAttr}>${label}</div>`;
+      }
+    }
+    return s2;
+  }
+  function renderTimelineTrack(label, color5, runs, classifiedRuns, totalSec, startSec, topPx) {
+    let s2 = "";
+    s2 += `<div style="position:absolute;left:0;top:${topPx}px;width:60px;height:${TIMELINE_TRACK_HEIGHT}px;font-family:monospace;font-size:10px;line-height:${TIMELINE_TRACK_HEIGHT}px;color:#444;">${label}</div>`;
+    s2 += `<div style="position:absolute;left:60px;right:0;top:${topPx}px;height:${TIMELINE_TRACK_HEIGHT}px;background:#f7f7f7;border:1px solid #ddd;box-sizing:border-box;">`;
+    for (let i2 = 0; i2 < runs.length; i2++) {
+      if (!classifiedRuns[i2]) continue;
+      const run2 = runs[i2];
+      const leftPct = (run2.startSec - startSec) / totalSec * 100;
+      const widthPct = (run2.endSec - run2.startSec) / totalSec * 100;
+      if (widthPct <= 0) continue;
+      s2 += `<div style="position:absolute;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;top:0;height:100%;background:${color5};box-sizing:border-box;" title="${escapeHtml(label)} during ${run2.startSec.toFixed(3)}s \u2014 ${run2.endSec.toFixed(3)}s"></div>`;
+    }
+    s2 += `</div>`;
+    return s2;
+  }
+  function renderCombinedStacksTimeline(prof) {
+    const events3 = prof.combined_stacks_timeline ?? [];
+    const stacks = prof.combined_stacks ?? [];
+    if (events3.length === 0 || stacks.length === 0) return "";
+    const elapsed = prof.elapsed_time_sec ?? 0;
+    const { runs, totalSec } = buildTimelineRuns(events3, elapsed);
+    if (runs.length === 0 || totalSec <= 0) return "";
+    const startSec = runs[0].startSec;
+    let maxDepth2 = 0;
+    const isGcRun = new Array(runs.length).fill(false);
+    const isIoRun = new Array(runs.length).fill(false);
+    for (let i2 = 0; i2 < runs.length; i2++) {
+      const stackEntry = stacks[runs[i2].stackIndex];
+      if (!stackEntry) continue;
+      const frames = stackEntry[0];
+      if (frames.length > maxDepth2) maxDepth2 = frames.length;
+      const c4 = classifyStack(frames);
+      isGcRun[i2] = c4.gc;
+      isIoRun[i2] = c4.io;
+    }
+    const trackGcTop = 0;
+    const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+    const mainTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+    const mainHeight = Math.max(maxDepth2, 1) * TIMELINE_ROW_HEIGHT;
+    const containerHeight = mainTop + mainHeight + 4;
+    let s2 = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
+    s2 += `<p style="margin-bottom: 4px;">`;
+    s2 += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the experimental timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
+    s2 += ` <strong>Stitched stack timeline</strong> `;
+    s2 += `<span class="badge bg-warning text-dark" style="font-size: 70%; vertical-align: middle;">experimental</span> `;
+    s2 += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s \u2014 x: time, y: stack depth (outermost on top); GC and I/O tracks shown above</span>`;
+    s2 += `</p>`;
+    s2 += `<div id="combined-timeline-body" style="display: none;">`;
+    s2 += `<div class="combined-stacks-timeline" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;padding:0;">`;
+    s2 += renderTimelineTrack(
+      "GC",
+      "#d62728",
+      runs,
+      isGcRun,
+      totalSec,
+      startSec,
+      trackGcTop
+    );
+    s2 += renderTimelineTrack(
+      "I/O",
+      "#1f77b4",
+      runs,
+      isIoRun,
+      totalSec,
+      startSec,
+      trackIoTop
+    );
+    s2 += `<div style="position:absolute;left:60px;right:0;top:${mainTop}px;height:${mainHeight}px;background:#fafafa;border:1px solid #ddd;box-sizing:border-box;">`;
+    s2 += renderTimelineFrames(runs, stacks, totalSec, startSec);
+    s2 += `</div>`;
+    s2 += `</div></div></div>`;
+    return s2;
+  }
+  function toggleCombinedStacksTimeline() {
+    const body = document.getElementById("combined-timeline-body");
+    const btn = document.getElementById("button-combined-timeline");
+    if (!body || !btn) return;
+    if (body.style.display === "none") {
+      body.style.display = "block";
+      btn.innerHTML = DownTriangle;
+    } else {
+      body.style.display = "none";
+      btn.innerHTML = RightTriangle;
+    }
+  }
   function toggleDisplay(id2) {
     const d2 = document.getElementById(`profile-${id2}`);
     if (d2) {
@@ -71695,7 +72110,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
         cs[f2] += line4.n_sys_percent;
         if (line4.n_peak_mb > ma2[f2]) {
           ma2[f2] = line4.n_peak_mb;
-          mp[f2] += line4.n_peak_mb * line4.n_python_fraction;
+          mp[f2] = line4.n_peak_mb * line4.n_python_fraction;
         }
         max_alloc += line4.n_malloc_mb;
         if (line4.nc_time_ms !== void 0 && line4.nc_time_ms > 0) {
@@ -71762,9 +72177,11 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       s2 += `<td><font style="font-size: small"><b>Memory:</b> <font color="darkgreen">Python</font> | <font color="#50C878">native</font><br /></font></td>`;
       s2 += '<td width="10"></td>';
       s2 += '<td valign="middle" style="vertical-align: middle">';
+      const nativeMb = prof.native_allocations_mb ?? 0;
+      const nativeNote = nativeMb > 0 ? `, ${memory_consumed_str(nativeMb)} from native threads` : "";
       s2 += `<font style="font-size: small"><b>Memory timeline: </b>(max: ${memory_consumed_str(
         prof.max_footprint_mb
-      )}, growth: ${prof.growth_rate.toFixed(1)}%)</font>`;
+      )}, growth: ${prof.growth_rate.toFixed(1)}%${nativeNote})</font>`;
       s2 += "</td>";
     }
     s2 += "</tr>";
@@ -71795,7 +72212,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
         makeMemoryBar(
           prof.max_footprint_mb.toFixed(2),
           "memory",
-          mem_python / max_alloc,
+          prof.max_footprint_python_fraction,
           prof.max_footprint_mb.toFixed(2),
           "darkgreen",
           { height: 20, width: 150 }
@@ -71834,6 +72251,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
     let fileIteration = 0;
     allIds = [];
     const excludedFiles = /* @__PURE__ */ new Set();
+    fileNumberByFilename.clear();
     for (const ff of files4) {
       fileIteration++;
       if (ff[1].percent_cpu_time < 1 && ma2[ff[0]] < 0.01 * max_alloc) {
@@ -71842,6 +72260,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
       }
       const id2 = `file-${fileIteration}`;
       allIds.push(id2);
+      fileNumberByFilename.set(ff[0], fileIteration);
       s2 += '<p class="text-left sticky-top bg-white bg-opacity-75" style="backdrop-filter: blur(2px)">';
       let displayStr = "display:block;";
       let triangle = DownTriangle;
@@ -71902,7 +72321,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
         ).padWithNonBreakingSpaces(8)})`;
       }
       s2 += `</font>`;
-      s2 += `<br /><span id="button-${id2}" title="Click to show or hide profile." style="cursor: pointer; color: blue;" onClick="toggleDisplay('${id2}')">`;
+      s2 += `<br /><span id="button-${id2}" class="disclosure-triangle" title="Click to show or hide profile." onClick="toggleDisplay('${id2}')">`;
       s2 += `${triangle}`;
       s2 += "</span>";
       s2 += `<code> ${ff[0]}</code>`;
@@ -72019,6 +72438,8 @@ Your output should only consist of valid Python code. Output the resulting Pytho
     }
     files4 = files4.filter((x5) => !excludedFiles.has(x5));
     s2 += "</div>";
+    s2 += renderCombinedStacks(prof);
+    s2 += renderCombinedStacksTimeline(prof);
     const p2 = document.getElementById("profile");
     if (p2) {
       p2.innerHTML = s2;
@@ -72343,6 +72764,8 @@ Your output should only consist of valid Python code. Output the resulting Pytho
   window.collapseAll = collapseAll;
   window.expandAll = expandAll;
   window.toggleDisplay = toggleDisplay;
+  window.toggleCombinedStacks = toggleCombinedStacks;
+  window.toggleCombinedStacksTimeline = toggleCombinedStacksTimeline;
   window.toggleReduced = toggleReduced;
   window.onFileDisplayModeChange = onFileDisplayModeChange;
   window.load = load3;

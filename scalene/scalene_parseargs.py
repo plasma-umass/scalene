@@ -598,6 +598,7 @@ class ScaleneParseArgs:
         elapsed_time = profile_data.get("elapsed_time_sec", 0) * 1000  # Convert to ms
         max_footprint = profile_data.get("max_footprint_mb", 0)
         growth_rate = profile_data.get("growth_rate", 0)
+        native_allocations_mb = profile_data.get("native_allocations_mb", 0)
 
         # Check what was profiled
         has_memory = profile_data.get("memory", False)
@@ -612,10 +613,15 @@ class ScaleneParseArgs:
         # Memory usage line (shown once at the top)
         mem_usage_line: Any = ""
         if has_memory and max_footprint > 0:
+            native_note = (
+                f" ({ScaleneJSON.memory_consumed_str(native_allocations_mb)} from native threads)"
+                if native_allocations_mb > 0
+                else ""
+            )
             mem_usage_line = Text.assemble(
                 "Memory usage: ",
                 (
-                    f"(max: {ScaleneJSON.memory_consumed_str(max_footprint)}, growth rate: {growth_rate:3.0f}%)\n",
+                    f"(max: {ScaleneJSON.memory_consumed_str(max_footprint)}, growth rate: {growth_rate:3.0f}%{native_note})\n",
                     ScaleneParseArgs.memory_color,
                 ),
             )
@@ -671,7 +677,7 @@ class ScaleneParseArgs:
                 style="dim",
                 justify="right",
                 no_wrap=True,
-                width=4,
+                width=6,
             )
             tbl.add_column(
                 Markdown("Time  \n_Python_", style="blue"),
