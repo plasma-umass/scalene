@@ -267,6 +267,9 @@ class MakeLocalAllocator {
 decltype(p_whereInPython)
     __attribute((visibility("default"))) p_whereInPython{nullptr};
 
+decltype(p_whereInPythonWithStack)
+    __attribute((visibility("default"))) p_whereInPythonWithStack{nullptr};
+
 std::atomic_bool __attribute((visibility("default"))) p_scalene_done{true};
 
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
