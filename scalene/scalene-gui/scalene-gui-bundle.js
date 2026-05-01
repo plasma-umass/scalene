@@ -2452,10 +2452,12 @@ var ScaleneGUI = (() => {
     refreshOpenAIModels: () => refreshOpenAIModels,
     renderCombinedStacks: () => renderCombinedStacks,
     renderCombinedStacksTimeline: () => renderCombinedStacksTimeline,
+    renderMemoryStacks: () => renderMemoryStacks,
     toggleAdvanced: () => toggleAdvanced,
     toggleCombinedStacks: () => toggleCombinedStacks,
     toggleCombinedStacksTimeline: () => toggleCombinedStacksTimeline,
     toggleDisplay: () => toggleDisplay,
+    toggleMemoryStacks: () => toggleMemoryStacks,
     togglePassword: () => togglePassword,
     toggleReduced: () => toggleReduced,
     toggleServiceFields: () => toggleServiceFields,
@@ -72255,20 +72257,21 @@ Your output should only consist of valid Python code. Output the resulting Pytho
     if (kind === "py") return `hsl(${hue2}, 45%, 78%)`;
     return `hsl(${(hue2 + 30) % 360}, 70%, 65%)`;
   }
-  function renderFlameNode(node, depth, leftPct, widthPct, total) {
+  function renderFlameNode(node, depth, leftPct, widthPct, total, formatQuantity = (q2) => `${q2} hits`) {
     const pct = total > 0 ? (node.totalHits / total * 100).toFixed(1) : "0.0";
     const codeLineText = (node.code_line ?? "").trim();
+    const qty = formatQuantity(node.totalHits);
     let tooltip2;
     if (node.kind === "py") {
       const tail = codeLineText ? `
 ${codeLineText}` : "";
       tooltip2 = `[py] ${node.name}
 ${node.filename}:${node.line}
-${node.totalHits} hits (${pct}%)${tail}`;
+${qty} (${pct}%)${tail}`;
     } else {
       tooltip2 = `[native] ${node.name}
 ${node.filename}
-${node.totalHits} hits (${pct}%)`;
+${qty} (${pct}%)`;
     }
     const top = depth * FLAME_ROW_HEIGHT;
     const color5 = flameColor(node.name, node.kind);
@@ -72276,18 +72279,18 @@ ${node.totalHits} hits (${pct}%)`;
     const labelHtml = showLabel ? escapeHtml(node.name) : "";
     const cursor3 = node.kind === "py" && node.line !== null ? "pointer" : "default";
     const clickAttr = node.kind === "py" && node.line !== null ? ` onclick="vsNavigate('${escape(node.filename)}',${node.line})"` : "";
-    return `<div style="position:absolute;top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;height:${FLAME_ROW_HEIGHT - 1}px;background:${color5};border:1px solid rgba(0,0,0,0.12);overflow:hidden;font-family:monospace;font-size:11px;line-height:${FLAME_ROW_HEIGHT - 1}px;padding:0 4px;white-space:nowrap;text-overflow:ellipsis;cursor:${cursor3};box-sizing:border-box;" title="${escapeHtml(tooltip2)}"${clickAttr}>${labelHtml}</div>`;
+    return `<div class="flame-segment" style="position:absolute;top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;height:${FLAME_ROW_HEIGHT - 1}px;background:${color5};border:1px solid rgba(0,0,0,0.12);overflow:hidden;font-family:monospace;font-size:11px;line-height:${FLAME_ROW_HEIGHT - 1}px;padding:0 4px;white-space:nowrap;text-overflow:ellipsis;cursor:${cursor3};box-sizing:border-box;" title="${escapeHtml(tooltip2)}"${clickAttr}>${labelHtml}</div>`;
   }
-  function renderFlameRecursive(node, depth, leftPct, widthPct, total) {
+  function renderFlameRecursive(node, depth, leftPct, widthPct, total, formatQuantity) {
     let s2 = "";
     if (depth > 0) {
-      s2 += renderFlameNode(node, depth - 1, leftPct, widthPct, total);
+      s2 += renderFlameNode(node, depth - 1, leftPct, widthPct, total, formatQuantity);
     }
     let childLeft = leftPct;
     for (const child of node.children) {
       const childWidth = total > 0 ? child.totalHits / total * widthPct * (total / node.totalHits) : 0;
       const w3 = node.totalHits > 0 ? child.totalHits / node.totalHits * widthPct : 0;
-      s2 += renderFlameRecursive(child, depth + 1, childLeft, w3, total);
+      s2 += renderFlameRecursive(child, depth + 1, childLeft, w3, total, formatQuantity);
       childLeft += w3;
       void childWidth;
     }
@@ -72303,7 +72306,7 @@ ${node.totalHits} hits (${pct}%)`;
     let s2 = `<hr><div class="container-fluid combined-stacks-section">`;
     s2 += `<p style="margin-bottom: 4px;">`;
     s2 += `<span id="button-combined-stacks" class="disclosure-triangle" title="Click to show or hide stitched Python+native call stacks." onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
-    s2 += ` <strong>Combined Python + native call stacks</strong> `;
+    s2 += ` <strong>Call stacks</strong> `;
     s2 += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples \u2014 hover for details, click a [py] frame to jump to its source line</span>`;
     s2 += `</p>`;
     s2 += `<div id="combined-stacks-body" style="display: none;">`;
@@ -72315,6 +72318,44 @@ ${node.totalHits} hits (${pct}%)`;
   function toggleCombinedStacks() {
     const body = document.getElementById("combined-stacks-body");
     const btn = document.getElementById("button-combined-stacks");
+    if (!body || !btn) return;
+    if (body.style.display === "none") {
+      body.style.display = "block";
+      btn.innerHTML = DownTriangle;
+    } else {
+      body.style.display = "none";
+      btn.innerHTML = RightTriangle;
+    }
+  }
+  function formatMb(mb2) {
+    if (mb2 >= 1024) return `${(mb2 / 1024).toFixed(2)} GB`;
+    if (mb2 >= 1) return `${mb2.toFixed(2)} MB`;
+    if (mb2 >= 1e-3) return `${(mb2 * 1024).toFixed(2)} KB`;
+    return `${(mb2 * 1024 * 1024).toFixed(0)} B`;
+  }
+  function renderMemoryStacks(prof) {
+    const stacks = prof.memory_stacks ?? [];
+    if (stacks.length === 0) return "";
+    const root = buildFlameTree(stacks);
+    const totalMb = root.totalHits;
+    if (totalMb <= 0) return "";
+    const depth = flameMaxDepth(root);
+    const containerHeight = depth * FLAME_ROW_HEIGHT;
+    let s2 = `<hr><div class="container-fluid memory-stacks-section">`;
+    s2 += `<p style="margin-bottom: 4px;">`;
+    s2 += `<span id="button-memory-stacks" class="disclosure-triangle" title="Click to show or hide memory-weighted call stacks." onClick="toggleMemoryStacks()">${RightTriangle}</span>`;
+    s2 += ` <strong>Memory stacks</strong> `;
+    s2 += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stacks, ${formatMb(totalMb)} attributed \u2014 frame widths are proportional to MB allocated; hover for details, click a frame to jump to its source line</span>`;
+    s2 += `</p>`;
+    s2 += `<div id="memory-stacks-body" style="display: none;">`;
+    s2 += `<div class="memory-stacks-flame" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;">`;
+    s2 += renderFlameRecursive(root, 0, 0, 100, totalMb, formatMb);
+    s2 += `</div></div></div>`;
+    return s2;
+  }
+  function toggleMemoryStacks() {
+    const body = document.getElementById("memory-stacks-body");
+    const btn = document.getElementById("button-memory-stacks");
     if (!body || !btn) return;
     if (body.style.display === "none") {
       body.style.display = "block";
@@ -72499,7 +72540,7 @@ ${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} s
         const label = showLabels ? escapeHtml(f2.display_name) : "";
         const cursor3 = f2.kind === "py" && f2.line !== null ? "pointer" : "default";
         const clickAttr = f2.kind === "py" && f2.line !== null ? ` onclick="vsNavigate('${escape(f2.filename_or_module)}',${f2.line})"` : "";
-        s2 += `<div style="position:absolute;top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;height:${TIMELINE_ROW_HEIGHT - 1}px;background:${color5};border:1px solid rgba(0,0,0,0.10);overflow:hidden;font-family:monospace;font-size:10px;line-height:${TIMELINE_ROW_HEIGHT - 1}px;padding:0 2px;white-space:nowrap;text-overflow:ellipsis;cursor:${cursor3};box-sizing:border-box;" title="${escapeHtml(tooltip2)}"${clickAttr}>${label}</div>`;
+        s2 += `<div class="flame-segment" style="position:absolute;top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;height:${TIMELINE_ROW_HEIGHT - 1}px;background:${color5};border:1px solid rgba(0,0,0,0.10);overflow:hidden;font-family:monospace;font-size:10px;line-height:${TIMELINE_ROW_HEIGHT - 1}px;padding:0 2px;white-space:nowrap;text-overflow:ellipsis;cursor:${cursor3};box-sizing:border-box;" title="${escapeHtml(tooltip2)}"${clickAttr}>${label}</div>`;
       }
     }
     return s2;
@@ -72514,7 +72555,7 @@ ${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} s
       const leftPct = (run2.startSec - startSec) / totalSec * 100;
       const widthPct = (run2.endSec - run2.startSec) / totalSec * 100;
       if (widthPct <= 0) continue;
-      s2 += `<div style="position:absolute;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;top:0;height:100%;background:${color5};box-sizing:border-box;" title="${escapeHtml(label)} during ${run2.startSec.toFixed(3)}s \u2014 ${run2.endSec.toFixed(3)}s"></div>`;
+      s2 += `<div class="flame-segment" style="position:absolute;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;top:0;height:100%;background:${color5};box-sizing:border-box;" title="${escapeHtml(label)} during ${run2.startSec.toFixed(3)}s \u2014 ${run2.endSec.toFixed(3)}s"></div>`;
     }
     s2 += `</div>`;
     return s2;
@@ -72547,7 +72588,7 @@ ${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} s
     let s2 = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
     s2 += `<p style="margin-bottom: 4px;">`;
     s2 += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the experimental timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
-    s2 += ` <strong>Stitched stack timeline</strong> `;
+    s2 += ` <strong>Timeline</strong> `;
     s2 += `<span class="badge bg-warning text-dark" style="font-size: 70%; vertical-align: middle;">experimental</span> `;
     s2 += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s \u2014 x: time, y: stack depth (outermost on top); GC and I/O tracks shown above</span>`;
     s2 += `</p>`;
@@ -72978,6 +73019,7 @@ ${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} s
     s2 += "</div>";
     s2 += renderCombinedStacks(prof);
     s2 += renderCombinedStacksTimeline(prof);
+    s2 += renderMemoryStacks(prof);
     const p2 = document.getElementById("profile");
     if (p2) {
       p2.innerHTML = s2;
@@ -73304,6 +73346,7 @@ ${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} s
   window.toggleDisplay = toggleDisplay;
   window.toggleCombinedStacks = toggleCombinedStacks;
   window.toggleCombinedStacksTimeline = toggleCombinedStacksTimeline;
+  window.toggleMemoryStacks = toggleMemoryStacks;
   window.toggleReduced = toggleReduced;
   window.onFileDisplayModeChange = onFileDisplayModeChange;
   window.load = load3;

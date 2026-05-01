@@ -692,6 +692,12 @@ class Scalene:
 
         if this_frame:
             enter_function_meta(this_frame, Scalene._should_trace, Scalene.__stats)
+        # Note: per-sample call-stack capture is now performed synchronously
+        # in C++ inside process_malloc (see whereInPythonWithStack). The
+        # Python-side async-signal handler no longer captures stacks, since
+        # by the time it runs the true allocator frame may have already
+        # returned — giving misleading attribution.
+        #
         # Walk the stack till we find a line of code in a file we are tracing.
         found_frame = False
         f = this_frame
@@ -714,14 +720,23 @@ class Scalene:
         if not invalidated and this_frame and not (on_stack(this_frame, fname, lineno)):
             Scalene.update_profiled()
         pywhere.set_last_profiled_invalidated_false()
-        # In the setprofile callback, we rely on
-        # __last_profiled always having the same memory address.
-        # This is an optimization to not have to traverse the Scalene profiler
-        # object's dictionary every time we want to update the last profiled line.
+        # Per-line malloc attribution (n_mallocs / the memory timeline
+        # sparkline) is driven by __last_profiled, updated from this async
+        # handler. That means it reflects the frame Python was executing
+        # when the handler fired — not necessarily the exact allocator
+        # line, if the allocator was a short-lived function that already
+        # returned. The memory flame-chart view is unaffected: it uses the
+        # synchronously-captured stack in the sample record (item.stack in
+        # process_malloc_free_samples).
         #
-        # A previous change to this code set Scalene.__last_profiled = [fname, lineno, lasti],
-        # which created a new list object and set the __last_profiled attribute to the new list. This
-        # made the object held in `pywhere.cpp` out of date, and caused the profiler to not update the last profiled line.
+        # A previous change tried to publish __last_profiled from C++
+        # inside process_malloc for perfect per-line accuracy, but
+        # PyList_SetItem on slots the sys.monitoring LINE callback holds
+        # borrowed references to segfaulted under Linux 3.13; reverted.
+        #
+        # The [:] in-place assignment (not plain =) matters: pywhere.cpp
+        # caches a pointer to this list and depends on its identity
+        # remaining stable.
         Scalene.__last_profiled[:] = [
             Filename(f.f_code.co_filename),
             (
