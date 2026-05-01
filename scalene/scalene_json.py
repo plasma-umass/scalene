@@ -954,8 +954,10 @@ class ScaleneJSON:
             for stk, mb in stats.memory_stacks.items():
                 frames: List[Dict[str, Any]] = []
                 for sf in stk:
-                    display = sf.function_name if sf.function_name else (
-                        _resolved_name(sf.filename, sf.line_number)
+                    display = (
+                        sf.function_name
+                        if sf.function_name
+                        else (_resolved_name(sf.filename, sf.line_number))
                     )
                     frames.append(
                         {
@@ -963,9 +965,7 @@ class ScaleneJSON:
                             "display_name": display,
                             "filename_or_module": sf.filename,
                             "line": sf.line_number,
-                            "code_line": _mem_source_line(
-                                sf.filename, sf.line_number
-                            ),
+                            "code_line": _mem_source_line(sf.filename, sf.line_number),
                             "ip": None,
                             "offset": None,
                         }
