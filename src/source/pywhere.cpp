@@ -446,14 +446,45 @@ static std::atomic<bool> module_pointers_ready{false};
 // signal handler happens to run. Must be called with the GIL held (the
 // caller — whereInPythonWithStack — holds it via RAII the whole way).
 //
+// Only the main thread publishes. The __last_profiled / invalidate_queue
+// per-line accounting path is inherently main-thread-focused: the trace
+// callback (and sys.monitoring LINE event) only observes the thread that
+// is currently executing Python bytecode, and the line-tracker's state is
+// a single shared slot. A worker thread that allocates while the main
+// thread is asleep would otherwise race against the main thread's tracer
+// and can produce invalid PyObject references under concurrent access
+// (observed as SIGSEGV in issue_659 smoketest's numpy-in-worker pattern).
+//
 // Building Python objects here *can* allocate, but we're inside
 // process_malloc with MallocRecursionGuard asserted on this thread, so the
 // allocator interposer skips sample-accounting on any malloc this function
-// triggers. That keeps Scalene's own activity from appearing in the user's
+// triggers. That keeps Scalene's own activity from appearing in the
 // profile.
 static void update_last_profiled(const std::string& filename, int lineno,
                                  int bytei) {
   if (!module_pointers_ready.load(std::memory_order_acquire)) {
+    return;
+  }
+  // Only the main thread is allowed to touch __last_profiled. Look up the
+  // main thread the same way collect_frames_to_record does (smallest
+  // PyThreadState->id on the main interpreter). If we're not that thread,
+  // skip — the tracer will not observe our leaf anyway.
+  PyInterpreterState* interp = PyInterpreterState_Main();
+  if (interp == nullptr) {
+    return;
+  }
+  PyThreadState* here = PyGILState_GetThisThreadState();
+  if (here == nullptr) {
+    return;
+  }
+  PyThreadState* main_tstate = nullptr;
+  for (PyThreadState* t = PyInterpreterState_ThreadHead(interp); t != nullptr;
+       t = PyThreadState_Next(t)) {
+    if (main_tstate == nullptr || main_tstate->id > t->id) {
+      main_tstate = t;
+    }
+  }
+  if (main_tstate == nullptr || main_tstate != here) {
     return;
   }
   PyObject* new_fname = PyUnicode_FromString(filename.c_str());
