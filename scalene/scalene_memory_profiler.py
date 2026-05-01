@@ -140,12 +140,12 @@ class ScaleneMemoryProfiler:
                 stack_field = parts[9] if len(parts) == 10 else ""
                 if int(curr_pid) != int(pid):
                     continue
-                stack_tuple: Optional[Tuple["StackFrame", ...]] = None
+                stack_tuple: Optional[Tuple[StackFrame, ...]] = None
                 if stack_field and stack_field.startswith("|"):
                     # Format: "|file1;lineno1|file2;lineno2|..." (leaf-first).
                     # Reverse so the resulting tuple is outermost-first to
                     # match the add_stack convention used elsewhere.
-                    frames: List["StackFrame"] = []
+                    frames: List[StackFrame] = []
                     for segment in stack_field.split("|"):
                         if not segment:
                             continue

@@ -102,7 +102,7 @@ class ProfilingSample:
         filename: Filename,
         lineno: LineNumber,
         bytecode_index: ByteCodeIndex,
-        stack: Optional[Tuple["StackFrame", ...]] = None,
+        stack: tuple[StackFrame, ...] | None = None,
     ) -> None:
         self.action = action
         self.alloc_time = alloc_time
