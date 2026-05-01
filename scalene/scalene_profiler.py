@@ -720,14 +720,32 @@ class Scalene:
         if not invalidated and this_frame and not (on_stack(this_frame, fname, lineno)):
             Scalene.update_profiled()
         pywhere.set_last_profiled_invalidated_false()
-        # __last_profiled is published synchronously from C++ inside
-        # process_malloc (see update_last_profiled in pywhere.cpp), using the
-        # true allocator frame. We deliberately do NOT overwrite it here
-        # with this_frame: the async signal handler runs at the next
-        # bytecode boundary, by which time a short-lived allocator frame
-        # may have already returned, and this_frame points at the caller.
-        # Relying on the C++-side update means per-line malloc counts
-        # credit the real allocator line, not the caller.
+        # Per-line malloc attribution (n_mallocs / the memory timeline
+        # sparkline) is driven by __last_profiled, updated from this async
+        # handler. That means it reflects the frame Python was executing
+        # when the handler fired — not necessarily the exact allocator
+        # line, if the allocator was a short-lived function that already
+        # returned. The memory flame-chart view is unaffected: it uses the
+        # synchronously-captured stack in the sample record (item.stack in
+        # process_malloc_free_samples).
+        #
+        # A previous change tried to publish __last_profiled from C++
+        # inside process_malloc for perfect per-line accuracy, but
+        # PyList_SetItem on slots the sys.monitoring LINE callback holds
+        # borrowed references to segfaulted under Linux 3.13; reverted.
+        #
+        # The [:] in-place assignment (not plain =) matters: pywhere.cpp
+        # caches a pointer to this list and depends on its identity
+        # remaining stable.
+        Scalene.__last_profiled[:] = [
+            Filename(f.f_code.co_filename),
+            (
+                LineNumber(f.f_lineno)
+                if f.f_lineno is not None
+                else LineNumber(f.f_code.co_firstlineno)
+            ),
+            ByteCodeIndex(f.f_lasti),
+        ]
         Scalene.__alloc_sigq.put([0])
         # Enable line tracing to detect when execution moves to a different line.
         # On Python 3.12+, this uses sys.monitoring; on earlier versions,

@@ -271,27 +271,25 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
   return whereInPythonImpl(filename, lineno, bytei, nullptr, 0, nullptr);
 }
 
-// Forward declaration of the update function defined later in this file
-// (after module_pointers is in scope). Publishes the synchronously-
-// captured leaf into Scalene.__last_profiled; see comment at the
-// definition for the full rationale.
-static void update_last_profiled(const std::string& filename, int lineno,
-                                 int bytei);
-
 int whereInPythonWithStack(std::string& filename, int& lineno, int& bytei,
                            char* stack_buf, size_t stack_buf_size,
                            size_t* stack_bytes_written) {
-  int r = whereInPythonImpl(filename, lineno, bytei, stack_buf, stack_buf_size,
-                            stack_bytes_written);
-  // Publish the synchronously-captured leaf to __last_profiled so that the
-  // per-line malloc counter credits the true allocator line, not whatever
-  // the async signal handler happens to see when it finally runs.
-  // Skip sentinels ("<BOGUS>" / "<native>") — these don't correspond to a
-  // real traced Python line.
-  if (r == 1 && !filename.empty() && filename[0] != '<') {
-    update_last_profiled(filename, lineno, bytei);
-  }
-  return r;
+  // NOTE: An earlier version of this function also published the
+  // synchronously-captured leaf into Scalene.__last_profiled so that
+  // per-line malloc counts (the n_mallocs field / memory timeline
+  // sparkline) would credit the true allocator line rather than whichever
+  // frame the async Python signal handler happened to see. That publish
+  // path turned out to be unsafe on Python 3.13 under Linux (observed as
+  // SIGSEGV in the decorator smoketest): the sys.monitoring LINE callback
+  // and the per-line update path can hold borrowed references to the slots
+  // we were about to overwrite via PyList_SetItem. Rather than fight the
+  // lifetimes, we keep the stack buffer populated (memory-stacks view
+  // remains accurate) and let the existing async-handler-driven Python
+  // logic continue to maintain __last_profiled. Per-line malloc attribution
+  // (bytes) still works correctly because it keys off the sample record's
+  // own (filename, lineno), which whereInPython stamps synchronously.
+  return whereInPythonImpl(filename, lineno, bytei, stack_buf, stack_buf_size,
+                           stack_bytes_written);
 }
 
 // Collect frames from all threads for CPU profiling.
@@ -439,77 +437,6 @@ typedef struct {
 
 static unchanging_modules module_pointers;
 static std::atomic<bool> module_pointers_ready{false};
-
-// After a successful synchronous stack walk in process_malloc, publish the
-// true leaf into Scalene.__last_profiled so that the line tracer credits
-// per-line malloc counts to the real allocator, not wherever the async
-// signal handler happens to run. Must be called with the GIL held (the
-// caller — whereInPythonWithStack — holds it via RAII the whole way).
-//
-// Only the main thread publishes. The __last_profiled / invalidate_queue
-// per-line accounting path is inherently main-thread-focused: the trace
-// callback (and sys.monitoring LINE event) only observes the thread that
-// is currently executing Python bytecode, and the line-tracker's state is
-// a single shared slot. A worker thread that allocates while the main
-// thread is asleep would otherwise race against the main thread's tracer
-// and can produce invalid PyObject references under concurrent access
-// (observed as SIGSEGV in issue_659 smoketest's numpy-in-worker pattern).
-//
-// Building Python objects here *can* allocate, but we're inside
-// process_malloc with MallocRecursionGuard asserted on this thread, so the
-// allocator interposer skips sample-accounting on any malloc this function
-// triggers. That keeps Scalene's own activity from appearing in the
-// profile.
-static void update_last_profiled(const std::string& filename, int lineno,
-                                 int bytei) {
-  if (!module_pointers_ready.load(std::memory_order_acquire)) {
-    return;
-  }
-  // Only the main thread is allowed to touch __last_profiled. Look up the
-  // main thread the same way collect_frames_to_record does (smallest
-  // PyThreadState->id on the main interpreter). If we're not that thread,
-  // skip — the tracer will not observe our leaf anyway.
-  PyInterpreterState* interp = PyInterpreterState_Main();
-  if (interp == nullptr) {
-    return;
-  }
-  PyThreadState* here = PyGILState_GetThisThreadState();
-  if (here == nullptr) {
-    return;
-  }
-  PyThreadState* main_tstate = nullptr;
-  for (PyThreadState* t = PyInterpreterState_ThreadHead(interp); t != nullptr;
-       t = PyThreadState_Next(t)) {
-    if (main_tstate == nullptr || main_tstate->id > t->id) {
-      main_tstate = t;
-    }
-  }
-  if (main_tstate == nullptr || main_tstate != here) {
-    return;
-  }
-  PyObject* new_fname = PyUnicode_FromString(filename.c_str());
-  if (new_fname == nullptr) {
-    PyErr_Clear();
-    return;
-  }
-  PyObject* new_lineno = PyLong_FromLong(lineno);
-  if (new_lineno == nullptr) {
-    Py_DECREF(new_fname);
-    PyErr_Clear();
-    return;
-  }
-  PyObject* new_bytei = PyLong_FromLong(bytei);
-  if (new_bytei == nullptr) {
-    Py_DECREF(new_fname);
-    Py_DECREF(new_lineno);
-    PyErr_Clear();
-    return;
-  }
-  // PyList_SetItem steals the reference.
-  PyList_SetItem(module_pointers.scalene_last_profiled, 0, new_fname);
-  PyList_SetItem(module_pointers.scalene_last_profiled, 1, new_lineno);
-  PyList_SetItem(module_pointers.scalene_last_profiled, 2, new_bytei);
-}
 
 static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
   while (frame != NULL) {
