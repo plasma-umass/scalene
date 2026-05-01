@@ -113,6 +113,7 @@ interface Profile {
   stacks?: unknown;
   combined_stacks?: CombinedStackEntry[];
   combined_stacks_timeline?: CombinedStackTimelineEvent[];
+  memory_stacks?: CombinedStackEntry[];
 }
 
 interface CombinedStackTimelineEvent {
@@ -1056,15 +1057,17 @@ function renderFlameNode(
   leftPct: number,
   widthPct: number,
   total: number,
+  formatQuantity: (q: number) => string = (q) => `${q} hits`,
 ): string {
   const pct = total > 0 ? ((node.totalHits / total) * 100).toFixed(1) : "0.0";
   const codeLineText = (node.code_line ?? "").trim();
+  const qty = formatQuantity(node.totalHits);
   let tooltip: string;
   if (node.kind === "py") {
     const tail = codeLineText ? `\n${codeLineText}` : "";
-    tooltip = `[py] ${node.name}\n${node.filename}:${node.line}\n${node.totalHits} hits (${pct}%)${tail}`;
+    tooltip = `[py] ${node.name}\n${node.filename}:${node.line}\n${qty} (${pct}%)${tail}`;
   } else {
-    tooltip = `[native] ${node.name}\n${node.filename}\n${node.totalHits} hits (${pct}%)`;
+    tooltip = `[native] ${node.name}\n${node.filename}\n${qty} (${pct}%)`;
   }
   const top = depth * FLAME_ROW_HEIGHT;
   const color = flameColor(node.name, node.kind);
@@ -1076,7 +1079,7 @@ function renderFlameNode(
       ? ` onclick="vsNavigate('${escape(node.filename)}',${node.line})"`
       : "";
   return (
-    `<div style="position:absolute;` +
+    `<div class="flame-segment" style="position:absolute;` +
     `top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
     `height:${FLAME_ROW_HEIGHT - 1}px;background:${color};` +
     `border:1px solid rgba(0,0,0,0.12);overflow:hidden;` +
@@ -1093,17 +1096,18 @@ function renderFlameRecursive(
   leftPct: number,
   widthPct: number,
   total: number,
+  formatQuantity?: (q: number) => string,
 ): string {
   let s = "";
   if (depth > 0) {
-    s += renderFlameNode(node, depth - 1, leftPct, widthPct, total);
+    s += renderFlameNode(node, depth - 1, leftPct, widthPct, total, formatQuantity);
   }
   let childLeft = leftPct;
   for (const child of node.children) {
     const childWidth = total > 0 ? (child.totalHits / total) * widthPct * (total / node.totalHits) : 0;
     // Equivalent: child.totalHits / node.totalHits * widthPct (parent's width slice).
     const w = node.totalHits > 0 ? (child.totalHits / node.totalHits) * widthPct : 0;
-    s += renderFlameRecursive(child, depth + 1, childLeft, w, total);
+    s += renderFlameRecursive(child, depth + 1, childLeft, w, total, formatQuantity);
     childLeft += w;
     void childWidth;
   }
@@ -1122,7 +1126,7 @@ export function renderCombinedStacks(prof: Profile): string {
   let s = `<hr><div class="container-fluid combined-stacks-section">`;
   s += `<p style="margin-bottom: 4px;">`;
   s += `<span id="button-combined-stacks" class="disclosure-triangle" title="Click to show or hide stitched Python+native call stacks." onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
-  s += ` <strong>Combined Python + native call stacks</strong> `;
+  s += ` <strong>Call stacks</strong> `;
   s += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples — hover for details, click a [py] frame to jump to its source line</span>`;
   s += `</p>`;
   s += `<div id="combined-stacks-body" style="display: none;">`;
@@ -1135,6 +1139,52 @@ export function renderCombinedStacks(prof: Profile): string {
 export function toggleCombinedStacks(): void {
   const body = document.getElementById("combined-stacks-body");
   const btn = document.getElementById("button-combined-stacks");
+  if (!body || !btn) return;
+  if (body.style.display === "none") {
+    body.style.display = "block";
+    btn.innerHTML = DownTriangle;
+  } else {
+    body.style.display = "none";
+    btn.innerHTML = RightTriangle;
+  }
+}
+
+// Memory-weighted flame chart. Each stack entry's weight is MB allocated,
+// so frame widths are proportional to bytes attributed to that call path
+// at malloc-sample time (not hit counts). Reuses the flame-tree machinery.
+function formatMb(mb: number): string {
+  if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
+  if (mb >= 1) return `${mb.toFixed(2)} MB`;
+  if (mb >= 0.001) return `${(mb * 1024).toFixed(2)} KB`;
+  return `${(mb * 1024 * 1024).toFixed(0)} B`;
+}
+
+export function renderMemoryStacks(prof: Profile): string {
+  const stacks = prof.memory_stacks ?? [];
+  if (stacks.length === 0) return "";
+
+  const root = buildFlameTree(stacks);
+  const totalMb = root.totalHits;
+  if (totalMb <= 0) return "";
+  const depth = flameMaxDepth(root);
+  const containerHeight = depth * FLAME_ROW_HEIGHT;
+
+  let s = `<hr><div class="container-fluid memory-stacks-section">`;
+  s += `<p style="margin-bottom: 4px;">`;
+  s += `<span id="button-memory-stacks" class="disclosure-triangle" title="Click to show or hide memory-weighted call stacks." onClick="toggleMemoryStacks()">${RightTriangle}</span>`;
+  s += ` <strong>Memory stacks</strong> `;
+  s += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stacks, ${formatMb(totalMb)} attributed — frame widths are proportional to MB allocated; hover for details, click a frame to jump to its source line</span>`;
+  s += `</p>`;
+  s += `<div id="memory-stacks-body" style="display: none;">`;
+  s += `<div class="memory-stacks-flame" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;">`;
+  s += renderFlameRecursive(root, 0, 0, 100, totalMb, formatMb);
+  s += `</div></div></div>`;
+  return s;
+}
+
+export function toggleMemoryStacks(): void {
+  const body = document.getElementById("memory-stacks-body");
+  const btn = document.getElementById("button-memory-stacks");
   if (!body || !btn) return;
   if (body.style.display === "none") {
     body.style.display = "block";
@@ -1404,7 +1454,7 @@ function renderTimelineFrames(
           ? ` onclick="vsNavigate('${escape(f.filename_or_module)}',${f.line})"`
           : "";
       s +=
-        `<div style="position:absolute;` +
+        `<div class="flame-segment" style="position:absolute;` +
         `top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
         `height:${TIMELINE_ROW_HEIGHT - 1}px;background:${color};` +
         `border:1px solid rgba(0,0,0,0.10);overflow:hidden;` +
@@ -1443,7 +1493,7 @@ function renderTimelineTrack(
     const widthPct = ((run.endSec - run.startSec) / totalSec) * 100;
     if (widthPct <= 0) continue;
     s +=
-      `<div style="position:absolute;` +
+      `<div class="flame-segment" style="position:absolute;` +
       `left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
       `top:0;height:100%;background:${color};` +
       `box-sizing:border-box;" title="${escapeHtml(label)} during ` +
@@ -1489,7 +1539,7 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
   let s = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
   s += `<p style="margin-bottom: 4px;">`;
   s += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the experimental timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
-  s += ` <strong>Stitched stack timeline</strong> `;
+  s += ` <strong>Timeline</strong> `;
   s += `<span class="badge bg-warning text-dark" style="font-size: 70%; vertical-align: middle;">experimental</span> `;
   s += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s — x: time, y: stack depth (outermost on top); GC and I/O tracks shown above</span>`;
   s += `</p>`;
@@ -2008,6 +2058,7 @@ async function display(prof: Profile): Promise<void> {
   s += "</div>";
   s += renderCombinedStacks(prof);
   s += renderCombinedStacksTimeline(prof);
+  s += renderMemoryStacks(prof);
   const p = document.getElementById("profile");
   if (p) {
     p.innerHTML = s;
@@ -2421,6 +2472,7 @@ setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
 (window as unknown as Record<string, unknown>).toggleDisplay = toggleDisplay;
 (window as unknown as Record<string, unknown>).toggleCombinedStacks = toggleCombinedStacks;
 (window as unknown as Record<string, unknown>).toggleCombinedStacksTimeline = toggleCombinedStacksTimeline;
+(window as unknown as Record<string, unknown>).toggleMemoryStacks = toggleMemoryStacks;
 (window as unknown as Record<string, unknown>).toggleReduced = toggleReduced;
 (window as unknown as Record<string, unknown>).onFileDisplayModeChange = onFileDisplayModeChange;
 (window as unknown as Record<string, unknown>).load = load;

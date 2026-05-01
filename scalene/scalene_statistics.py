@@ -102,6 +102,7 @@ class ProfilingSample:
         filename: Filename,
         lineno: LineNumber,
         bytecode_index: ByteCodeIndex,
+        stack: Optional[Tuple["StackFrame", ...]] = None,
     ) -> None:
         self.action = action
         self.alloc_time = alloc_time
@@ -111,6 +112,10 @@ class ProfilingSample:
         self.filename = filename
         self.lineno = lineno
         self.bytecode_index = bytecode_index
+        # Python call stack captured synchronously at allocation time by
+        # whereInPythonWithStack (leaf-first); None when the native side
+        # predates sync-stack capture or stacks weren't requested.
+        self.stack = stack
 
 
 @total_ordering
@@ -521,6 +526,7 @@ class ScaleneStatistics:
             "native_stacks",
             "combined_stacks",
             "combined_stacks_timeline",
+            "memory_stacks",
             "cpu_stats.total_cpu_samples",
             "cpu_stats.cpu_samples_c",
             "cpu_stats.cpu_samples_python",
@@ -598,6 +604,12 @@ class ScaleneStatistics:
         self.combined_stacks_timeline: list[CombinedStackRun] = []
         self.combined_stacks_timeline_max_runs = 100000
 
+        # Python call stacks captured at malloc-sample time, weighted by the
+        # bytes attributed to each sampled allocation (in MB). Populated only
+        # when both --memory and --stacks are enabled. Used to render a
+        # memory-weighted flame chart.
+        self.memory_stacks: dict[tuple[StackFrame, ...], float] = defaultdict(float)
+
         # Initialize statistics classes
         self.cpu_stats = CPUStatistics()
         self.memory_stats = MemoryStatistics()
@@ -625,6 +637,7 @@ class ScaleneStatistics:
         self.native_stacks.clear()
         self.combined_stacks.clear()
         self.combined_stacks_timeline.clear()
+        self.memory_stacks.clear()
         self.cpu_stats.clear()
         self.memory_stats.clear()
         self.gpu_stats.clear()
@@ -841,6 +854,8 @@ class ScaleneStatistics:
                     self.native_stacks[stk] += hits
                 for cstk, chits in x.combined_stacks.items():
                     self.combined_stacks[cstk] += chits
+                for mstk, mmb in x.memory_stacks.items():
+                    self.memory_stacks[mstk] += mmb
                 # Timelines are interleaved by start time so the merged
                 # timeline reflects the actual chronology across processes.
                 # Cap-aware: each side already obeys its own soft cap, and

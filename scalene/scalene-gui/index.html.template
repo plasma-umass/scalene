@@ -248,7 +248,11 @@
     .combined-stacks-section {
         margin-top: 1em;
     }
-    .combined-stacks-flame > div:hover {
+    /* Shared hover highlight for all flame/stack/timeline segments. */
+    .flame-segment {
+        pointer-events: auto;
+    }
+    .flame-segment:hover {
         outline: 2px solid #333;
         z-index: 10;
     }

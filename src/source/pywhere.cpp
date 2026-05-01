@@ -167,16 +167,29 @@ PyObject* set_scalene_done_false(PyObject* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
-int whereInPython(std::string& filename, int& lineno, int& bytei) {
+// Core stack-walk used by both whereInPython and whereInPythonWithStack.
+// If ``stack_buf`` is non-null and ``stack_buf_size`` > 0, every traced
+// frame encountered (leaf-first) is appended to the buffer as the
+// substring "|<filename>;<lineno>". No dynamic allocation is performed
+// inside the stack-writing path — the caller owns the buffer. This is
+// deliberate: this function runs inside ``process_malloc`` on the
+// allocator hot path, so any heap traffic here would either recurse
+// through libscalene's interposer or become a visible artifact in the
+// recorded profile.
+//
+// ``stack_bytes_written`` is updated to reflect the total bytes appended
+// (never greater than ``stack_buf_size`` — truncation is silent). The
+// returned triple (filename/lineno/bytei) always refers to the innermost
+// traced frame found, matching whereInPython's historical contract.
+static int whereInPythonImpl(std::string& filename, int& lineno, int& bytei,
+                             char* stack_buf, size_t stack_buf_size,
+                             size_t* stack_bytes_written) {
+  if (stack_bytes_written != nullptr) {
+    *stack_bytes_written = 0;
+  }
   if (!Py_IsInitialized()) {  // No python, no python stack.
     return 0;
   }
-  // This function walks the Python stack until it finds a frame
-  // corresponding to a file we are actually profiling. On success,
-  // it updates filename, lineno, and byte code index appropriately,
-  // and returns 1.  If the stack walk encounters no such file, it
-  // sets the filename to the pseudo-filename "<BOGUS>" for special
-  // treatment within Scalene, and returns 0.
   filename = "<BOGUS>";
   lineno = 1;
   bytei = 0;
@@ -187,14 +200,7 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
       threadState ? PyThreadState_GetFrame(threadState) : nullptr;
 
   if (static_cast<PyFrameObject*>(frame) == nullptr) {
-    // This thread has no live Python frame (typically a native thread
-    // spawned by a C extension — OpenBLAS/MKL workers, a std::thread in a
-    // native lib, a Rust/Tokio runtime thread, etc.). Previously we fell
-    // back to the main thread's current frame, which smeared native-thread
-    // allocations onto whatever line the main thread happened to be on
-    // (e.g., time.sleep), producing very misleading per-line attribution
-    // under concurrency — see issue #857. Emit a <native> sentinel so the
-    // bytes are still counted but bucketed separately from user code.
+    // Native thread with no live Python frame — see whereInPython comment.
     filename = "<native>";
     lineno = 0;
     bytei = 0;
@@ -206,6 +212,9 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
     return 0;
   }
 
+  bool found_leaf = false;
+  size_t written = 0;
+  const bool want_stack = (stack_buf != nullptr && stack_buf_size > 0);
   while (static_cast<PyFrameObject*>(frame) != nullptr) {
     PyPtr<PyCodeObject> code =
         PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
@@ -213,32 +222,76 @@ int whereInPython(std::string& filename, int& lineno, int& bytei) {
         PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
 
     if (!(static_cast<PyObject*>(co_filename))) {
-      return 0;
+      if (stack_bytes_written != nullptr) *stack_bytes_written = written;
+      return found_leaf ? 1 : 0;
     }
 
     auto filenameStr = PyBytes_AsString(static_cast<PyObject*>(co_filename));
-    if (filenameStr == NULL || strlen(filenameStr) == 0) {
-      continue;
-    }
-
-    if (traceConfig->should_trace(filenameStr)) {
+    if (filenameStr != NULL && strlen(filenameStr) > 0 &&
+        traceConfig->should_trace(filenameStr)) {
+      int this_lineno = PyFrame_GetLineNumber(static_cast<PyFrameObject*>(frame));
+      if (!found_leaf) {
 #if defined(PyPy_FatalError)
-      // If this macro is defined, we are compiling PyPy, which
-      // AFAICT does not have any way to access bytecode index, so
-      // we punt and set it to 0.
-      bytei = 0;
+        bytei = 0;
 #else
-      bytei = PyFrame_GetLasti(static_cast<PyFrameObject*>(frame));
+        bytei = PyFrame_GetLasti(static_cast<PyFrameObject*>(frame));
 #endif
-      lineno = PyFrame_GetLineNumber(static_cast<PyFrameObject*>(frame));
-
-      filename = filenameStr;
-      return 1;
+        lineno = this_lineno;
+        filename = filenameStr;
+        found_leaf = true;
+        // When caller only wants the leaf (no stack buffer), stop here to
+        // preserve whereInPython's historical cost.
+        if (!want_stack) {
+          return 1;
+        }
+      }
+      if (want_stack && written < stack_buf_size) {
+        // Append "|<filename>;<lineno>" into the caller buffer. Use
+        // snprintf into the remaining slice; on truncation, stop adding
+        // further frames — the frames that made it in are still valid.
+        size_t remaining = stack_buf_size - written;
+        int n = snprintf(stack_buf + written, remaining, "|%s;%d",
+                         filenameStr, this_lineno);
+        if (n <= 0 || (size_t)n >= remaining) {
+          // Truncated — roll back the partial write and stop.
+          stack_buf[written] = '\0';
+          break;
+        }
+        written += (size_t)n;
+      }
     }
 
     frame = PyFrame_GetBack(static_cast<PyFrameObject*>(frame));
   }
-  return 0;
+  if (stack_bytes_written != nullptr) *stack_bytes_written = written;
+  return found_leaf ? 1 : 0;
+}
+
+int whereInPython(std::string& filename, int& lineno, int& bytei) {
+  return whereInPythonImpl(filename, lineno, bytei, nullptr, 0, nullptr);
+}
+
+// Forward declaration of the update function defined later in this file
+// (after module_pointers is in scope). Publishes the synchronously-
+// captured leaf into Scalene.__last_profiled; see comment at the
+// definition for the full rationale.
+static void update_last_profiled(const std::string& filename, int lineno,
+                                 int bytei);
+
+int whereInPythonWithStack(std::string& filename, int& lineno, int& bytei,
+                           char* stack_buf, size_t stack_buf_size,
+                           size_t* stack_bytes_written) {
+  int r = whereInPythonImpl(filename, lineno, bytei, stack_buf, stack_buf_size,
+                            stack_bytes_written);
+  // Publish the synchronously-captured leaf to __last_profiled so that the
+  // per-line malloc counter credits the true allocator line, not whatever
+  // the async signal handler happens to see when it finally runs.
+  // Skip sentinels ("<BOGUS>" / "<native>") — these don't correspond to a
+  // real traced Python line.
+  if (r == 1 && !filename.empty() && filename[0] != '<') {
+    update_last_profiled(filename, lineno, bytei);
+  }
+  return r;
 }
 
 // Collect frames from all threads for CPU profiling.
@@ -352,6 +405,17 @@ static PyObject* register_files_to_profile(PyObject* self, PyObject* args) {
   }
   *p_where = whereInPython;
 
+  // Also publish the stack-capturing variant so the native sampler can walk
+  // the Python stack synchronously at allocation time. Absence is
+  // non-fatal: older libscalene builds won't have this symbol, and the
+  // sampler simply falls back to the leaf-only path.
+  auto p_where_stack =
+      (decltype(p_whereInPythonWithStack)*)dlsym(RTLD_DEFAULT,
+                                                 "p_whereInPythonWithStack");
+  if (p_where_stack != nullptr) {
+    *p_where_stack = whereInPythonWithStack;
+  }
+
   Py_RETURN_NONE;
 }
 
@@ -375,6 +439,46 @@ typedef struct {
 
 static unchanging_modules module_pointers;
 static std::atomic<bool> module_pointers_ready{false};
+
+// After a successful synchronous stack walk in process_malloc, publish the
+// true leaf into Scalene.__last_profiled so that the line tracer credits
+// per-line malloc counts to the real allocator, not wherever the async
+// signal handler happens to run. Must be called with the GIL held (the
+// caller — whereInPythonWithStack — holds it via RAII the whole way).
+//
+// Building Python objects here *can* allocate, but we're inside
+// process_malloc with MallocRecursionGuard asserted on this thread, so the
+// allocator interposer skips sample-accounting on any malloc this function
+// triggers. That keeps Scalene's own activity from appearing in the user's
+// profile.
+static void update_last_profiled(const std::string& filename, int lineno,
+                                 int bytei) {
+  if (!module_pointers_ready.load(std::memory_order_acquire)) {
+    return;
+  }
+  PyObject* new_fname = PyUnicode_FromString(filename.c_str());
+  if (new_fname == nullptr) {
+    PyErr_Clear();
+    return;
+  }
+  PyObject* new_lineno = PyLong_FromLong(lineno);
+  if (new_lineno == nullptr) {
+    Py_DECREF(new_fname);
+    PyErr_Clear();
+    return;
+  }
+  PyObject* new_bytei = PyLong_FromLong(bytei);
+  if (new_bytei == nullptr) {
+    Py_DECREF(new_fname);
+    Py_DECREF(new_lineno);
+    PyErr_Clear();
+    return;
+  }
+  // PyList_SetItem steals the reference.
+  PyList_SetItem(module_pointers.scalene_last_profiled, 0, new_fname);
+  PyList_SetItem(module_pointers.scalene_last_profiled, 1, new_lineno);
+  PyList_SetItem(module_pointers.scalene_last_profiled, 2, new_bytei);
+}
 
 static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
   while (frame != NULL) {

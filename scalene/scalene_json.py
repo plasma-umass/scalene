@@ -33,6 +33,10 @@ from scalene.scalene_statistics import (
     StackStats,
 )
 
+# Python `def` header regex shared between CPU- and memory-stack name
+# resolution. Captures the leading indent and the function name.
+_DEF_RE = re.compile(r"^(\s*)(?:async\s+)?def\s+([A-Za-z_][A-Za-z_0-9]*)\s*\(")
+
 
 class CombinedStackTimelineEvent(BaseModel):
     """One run-length-encoded entry in the JSON-serialized stitched-stacks
@@ -256,6 +260,7 @@ class ScaleneJSONSchema(BaseModel):
     program: str
     samples: List[List[NonNegativeFloat]]
     stacks: List[List[Any]]
+    memory_stacks: List[List[Any]] = Field(default_factory=list)
 
 
 class ScaleneJSON:
@@ -866,6 +871,108 @@ class ScaleneJSON:
         )
         native_allocations_mb = sum(native_samples.values())
 
+        # Serialize memory_stacks: Python call stacks captured at malloc-
+        # sample time, weighted by MB attributed to each sample. Reuses the
+        # combined_stacks wire shape (list of (frames, weight)) with only
+        # kind="py" frames so the GUI's flame-tree builder works unchanged.
+        #
+        # Function names are resolved here (at JSON serialization time)
+        # rather than during sample processing, because name resolution
+        # requires reading source files — if we did it on the sigqueue
+        # thread, the resulting allocations would be captured by the
+        # interposer and show up as artifacts in the user's profile.
+        memory_stks: List[Tuple[List[Dict[str, Any]], float]] = []
+        if stats.memory_stacks:
+            mem_source_cache: Dict[str, Optional[List[str]]] = {}
+
+            def _mem_source_line(filename: str, lineno: int) -> str:
+                if filename in mem_source_cache:
+                    lines = mem_source_cache[filename]
+                else:
+                    lines = None
+                    try:
+                        with open(filename, encoding="utf-8") as src:
+                            lines = src.readlines()
+                    except (OSError, UnicodeDecodeError):
+                        cached = linecache.getlines(filename)
+                        if cached:
+                            lines = cached
+                    mem_source_cache[filename] = lines
+                if lines is None or lineno < 1 or lineno > len(lines):
+                    return ""
+                return lines[lineno - 1].rstrip()
+
+            def _enclosing_function(filename: str, lineno: int) -> Optional[str]:
+                """Find the enclosing `def` name for (filename, lineno) by
+                scanning source text. Returns None if no enclosing function
+                (i.e. module scope). Mirrors the rule used for CPU stacks:
+                a def encloses the line iff its body indent is strictly less
+                than the target line's indent."""
+                lines_list = mem_source_cache.get(filename)
+                if lines_list is None and filename not in mem_source_cache:
+                    # Force population via the same helper used for code_line.
+                    _mem_source_line(filename, 1)
+                    lines_list = mem_source_cache.get(filename)
+                if not lines_list or lineno < 1 or lineno > len(lines_list):
+                    return None
+                target_line = lines_list[lineno - 1]
+                stripped = target_line.lstrip()
+                if not stripped or stripped.startswith("#"):
+                    return None
+                target_indent = len(target_line) - len(stripped)
+                if target_indent <= 0:
+                    return None
+                for i in range(lineno - 2, -1, -1):
+                    line = lines_list[i]
+                    m = _DEF_RE.match(line)
+                    if m:
+                        header_indent = len(m.group(1))
+                        if header_indent < target_indent:
+                            return m.group(2)
+                        continue
+                    ls = line.lstrip()
+                    if not ls or ls.startswith("#"):
+                        continue
+                    ind = len(line) - len(ls)
+                    if ind < target_indent:
+                        if ind == 0:
+                            return None
+                        target_indent = ind
+                return None
+
+            name_cache: Dict[Tuple[str, int], Optional[str]] = {}
+
+            def _resolved_name(filename: str, lineno: int) -> str:
+                key = (filename, lineno)
+                if key in name_cache:
+                    cached_name = name_cache[key]
+                else:
+                    cached_name = _enclosing_function(filename, lineno)
+                    name_cache[key] = cached_name
+                return cached_name if cached_name else "<module>"
+
+            for stk, mb in stats.memory_stacks.items():
+                frames: List[Dict[str, Any]] = []
+                for sf in stk:
+                    display = sf.function_name if sf.function_name else (
+                        _resolved_name(sf.filename, sf.line_number)
+                    )
+                    frames.append(
+                        {
+                            "kind": "py",
+                            "display_name": display,
+                            "filename_or_module": sf.filename,
+                            "line": sf.line_number,
+                            "code_line": _mem_source_line(
+                                sf.filename, sf.line_number
+                            ),
+                            "ip": None,
+                            "offset": None,
+                        }
+                    )
+                if frames and mb > 0:
+                    memory_stks.append((frames, round(mb, 6)))
+
         output: Dict[str, Any] = {
             "program": program,
             "entrypoint_dir": entrypoint_dir,
@@ -916,6 +1023,10 @@ class ScaleneJSON:
                 for frames, hits in combined_stks
             ],
             "combined_stacks_timeline": combined_stks_timeline,
+            # Memory-weighted Python stacks for the memory flame chart.
+            # Each entry is (frames, mb). Only populated when --stacks and
+            # --memory are both enabled.
+            "memory_stacks": memory_stks,
         }
 
         # Build a list of files we will actually report on.

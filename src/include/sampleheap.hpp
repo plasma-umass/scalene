@@ -176,7 +176,7 @@ class SampleHeap : public SuperHeap {
     // write a second sample record attributed to the current line.
     if (unlikely(realSize == NEWLINE)) {
       std::string filename;
-      writeCount(MallocSignal, realSize, ptr, filename, -1, -1);
+      writeCount(MallocSignal, realSize, ptr, filename, -1, -1, nullptr, 0);
       mallocTriggered()++;
       // Balance the sampler without triggering a sample record.
       size_t dummy;
@@ -207,9 +207,37 @@ class SampleHeap : public SuperHeap {
     int lineno;
     int bytei;
 
+    // Prefer the stack-capturing variant so we get the full Python call
+    // chain synchronously at allocation time. Uses a fixed-size on-stack
+    // character buffer so that walking the Python stack does NOT allocate
+    // via the system allocator (which would either recurse through
+    // Scalene's own interposer or leave visible artifacts in the profile).
+    // Falls back to leaf-only when libscalene predates the with-stack
+    // symbol.
+    decltype(whereInPythonWithStack)* where_stack = p_whereInPythonWithStack;
+    if (where_stack != nullptr) {
+      char stack_buf[STACK_BUF_SIZE];
+      stack_buf[0] = '\0';
+      size_t stack_bytes = 0;
+      if (where_stack(filename, lineno, bytei, stack_buf, sizeof(stack_buf),
+                      &stack_bytes)) {
+        writeCount(MallocSignal, sampleMalloc, ptr, filename, lineno, bytei,
+                   stack_buf, stack_bytes);
+#if !SCALENE_DISABLE_SIGNALS
+        raise(MallocSignal);
+#endif
+        _lastMallocTrigger = ptr;
+        _freedLastMallocTrigger = false;
+        _pythonCount = 0;
+        _cCount = 0;
+        mallocTriggered()++;
+      }
+      return;
+    }
     decltype(whereInPython)* where = p_whereInPython;
     if (where != nullptr && where(filename, lineno, bytei)) {
-      writeCount(MallocSignal, sampleMalloc, ptr, filename, lineno, bytei);
+      writeCount(MallocSignal, sampleMalloc, ptr, filename, lineno, bytei,
+                 nullptr, 0);
 #if !SCALENE_DISABLE_SIGNALS
       raise(MallocSignal);
 #endif
@@ -269,7 +297,8 @@ class SampleHeap : public SuperHeap {
     }
 #endif
 
-    writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei);
+    writeCount(FreeSignal, sampleFree, nullptr, filename, lineno, bytei,
+               nullptr, 0);
 #if !SCALENE_DISABLE_SIGNALS
     raise(FreeSignal);
 #endif
@@ -324,24 +353,64 @@ class SampleHeap : public SuperHeap {
   static constexpr auto flags = O_RDWR | O_CREAT;
   static constexpr auto perms = S_IRUSR | S_IWUSR;
 
+  // Size of the on-stack buffer used to collect Python frames in
+  // process_malloc. Must stay well below SampleFile::MAX_BUFSIZE so the
+  // combined record (leaf fields + stack) still fits.
+  static constexpr size_t STACK_BUF_SIZE = 2048;
+
   void writeCount(AllocSignal sig, uint64_t count, void* ptr,
-                  const std::string& filename, int lineno, int bytei) {
+                  const std::string& filename, int lineno, int bytei,
+                  const char* stack_buf, size_t stack_bytes) {
     char buf[SampleFile::MAX_BUFSIZE];
     if (_pythonCount == 0) {
       _pythonCount = 1;  // prevent 0/0
     }
-    snprintf_(
+    int written = snprintf_(
         buf, sizeof(buf),
 #if defined(__APPLE__)
-        "%c,%llu,%llu,%f,%d,%p,%s,%d,%d\n\n",
+        "%c,%llu,%llu,%f,%d,%p,%s,%d,%d",
 #else
-        "%c,%lu,%lu,%f,%d,%p,%s,%d,%d\n\n",
+        "%c,%lu,%lu,%f,%d,%p,%s,%d,%d",
 #endif
         ((sig == MallocSignal) ? 'M' : ((_freedLastMallocTrigger) ? 'f' : 'F')),
         mallocTriggered() + freeTriggered(), count,
         (float)_pythonCount / (_pythonCount + _cCount), getpid(),
         _freedLastMallocTrigger ? _lastMallocTrigger : ptr, filename.c_str(),
         lineno, bytei);
+    // Optionally append synchronously-captured Python stack. stack_buf is
+    // already shaped as "|file1;line1|file2;line2|..." (leaf-first) by
+    // whereInPythonWithStack; we just copy it verbatim after a ','
+    // separator. Silently truncate if the record would exceed the mapfile
+    // line buffer. We deliberately avoid std::string/std::vector here: on
+    // the allocator hot path, any heap traffic would either recurse
+    // through Scalene's own malloc interposer or leave artifacts in the
+    // profile.
+    if (stack_buf != nullptr && stack_bytes > 0 && written > 0 &&
+        written < (int)sizeof(buf)) {
+      const int reserve = 3;  // room for "\n\n\0"
+      int room = (int)sizeof(buf) - written - reserve;
+      if (room > 1) {
+        buf[written++] = ',';
+        int copy_n = (int)stack_bytes < room - 1 ? (int)stack_bytes : room - 1;
+        // Memcpy is heap-free; stack_buf has no embedded NULs because
+        // whereInPythonWithStack uses snprintf to build it.
+        for (int i = 0; i < copy_n; ++i) {
+          buf[written + i] = stack_buf[i];
+        }
+        written += copy_n;
+      }
+    }
+    // Final newline pair terminates the record (the mapfile reader splits on
+    // '\n'). Leave room for both characters plus a NUL byte.
+    if (written + 3 <= (int)sizeof(buf)) {
+      buf[written++] = '\n';
+      buf[written++] = '\n';
+      buf[written] = '\0';
+    } else {
+      buf[sizeof(buf) - 3] = '\n';
+      buf[sizeof(buf) - 2] = '\n';
+      buf[sizeof(buf) - 1] = '\0';
+    }
     // Ensure we don't report last-malloc-freed multiple times.
     _freedLastMallocTrigger = false;
     getSampleFile().writeToFile(buf);

@@ -692,6 +692,12 @@ class Scalene:
 
         if this_frame:
             enter_function_meta(this_frame, Scalene._should_trace, Scalene.__stats)
+        # Note: per-sample call-stack capture is now performed synchronously
+        # in C++ inside process_malloc (see whereInPythonWithStack). The
+        # Python-side async-signal handler no longer captures stacks, since
+        # by the time it runs the true allocator frame may have already
+        # returned — giving misleading attribution.
+        #
         # Walk the stack till we find a line of code in a file we are tracing.
         found_frame = False
         f = this_frame
@@ -714,23 +720,14 @@ class Scalene:
         if not invalidated and this_frame and not (on_stack(this_frame, fname, lineno)):
             Scalene.update_profiled()
         pywhere.set_last_profiled_invalidated_false()
-        # In the setprofile callback, we rely on
-        # __last_profiled always having the same memory address.
-        # This is an optimization to not have to traverse the Scalene profiler
-        # object's dictionary every time we want to update the last profiled line.
-        #
-        # A previous change to this code set Scalene.__last_profiled = [fname, lineno, lasti],
-        # which created a new list object and set the __last_profiled attribute to the new list. This
-        # made the object held in `pywhere.cpp` out of date, and caused the profiler to not update the last profiled line.
-        Scalene.__last_profiled[:] = [
-            Filename(f.f_code.co_filename),
-            (
-                LineNumber(f.f_lineno)
-                if f.f_lineno is not None
-                else LineNumber(f.f_code.co_firstlineno)
-            ),
-            ByteCodeIndex(f.f_lasti),
-        ]
+        # __last_profiled is published synchronously from C++ inside
+        # process_malloc (see update_last_profiled in pywhere.cpp), using the
+        # true allocator frame. We deliberately do NOT overwrite it here
+        # with this_frame: the async signal handler runs at the next
+        # bytecode boundary, by which time a short-lived allocator frame
+        # may have already returned, and this_frame points at the caller.
+        # Relying on the C++-side update means per-line malloc counts
+        # credit the real allocator line, not the caller.
         Scalene.__alloc_sigq.put([0])
         # Enable line tracing to detect when execution moves to a different line.
         # On Python 3.12+, this uses sys.monitoring; on earlier versions,
