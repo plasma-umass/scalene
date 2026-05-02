@@ -119,6 +119,49 @@ def test_bundle_contains_new_render_helpers() -> None:
     )
 
 
+def test_bundle_contains_timeline_axis_helpers() -> None:
+    """The timeline view ships a time-axis ruler with gridlines. The axis
+    helpers (pickTimelineTickIntervalSec / renderTimelineAxis /
+    renderTimelineGridlines) must be present in the bundle, and the two
+    DOM class names the axis + gridlines use must appear verbatim so
+    stylesheets / downstream tooling can target them."""
+    assert BUNDLE_PATH.exists(), f"missing bundle at {BUNDLE_PATH}"
+    src = BUNDLE_PATH.read_text(encoding="utf-8")
+    for sym in (
+        "pickTimelineTickIntervalSec",
+        "formatTimelineTickLabel",
+        "renderTimelineAxis",
+        "renderTimelineGridlines",
+        "timeline-axis",
+        "timeline-gridlines",
+    ):
+        assert sym in src, (
+            f"expected {sym!r} in bundle — re-run "
+            f"`npx esbuild scalene-gui.ts --bundle ...` and commit"
+        )
+
+
+def test_static_html_has_no_experimental_badge(tmp_path: pathlib.Path) -> None:
+    """The timeline view is no longer labeled as "experimental".
+    Regression guard — future styling changes must not re-introduce a
+    warning-colored badge around it."""
+    profile = _build_profile(with_combined_stacks=True)
+    profile["combined_stacks_timeline"] = [
+        {"t_sec": 0.0, "stack_index": 0, "count": 1},
+    ]
+    profile["elapsed_time_sec"] = 1.0
+    html = _render(tmp_path, profile)
+    # Case-insensitive substring match on both the text and the Bootstrap
+    # badge class that previously wrapped it.
+    lowered = html.lower()
+    assert "experimental" not in lowered, (
+        "'experimental' text leaked into rendered timeline HTML"
+    )
+    assert "bg-warning text-dark" not in html, (
+        "the experimental warning-colored badge must not be rendered"
+    )
+
+
 def test_section_present_when_combined_stacks_populated(tmp_path: pathlib.Path) -> None:
     profile = _build_profile(with_combined_stacks=True)
     html = _render(tmp_path, profile)

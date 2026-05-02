@@ -1238,16 +1238,19 @@ export function toggleMemoryStacks(): void {
   }
 }
 
-// Timeline view (experimental) for combined_stacks_timeline.
+// Timeline view for combined_stacks_timeline.
 //
 // Layout, inspired by Chrome DevTools / Firefox Profiler "Stack Chart":
-//   - x-axis is wallclock time (samples normalized to [0, elapsed_time]).
-//   - y-axis (icicle) is stack depth: outermost frame at the top, leaf at
-//     the bottom. The full stack at each time bucket is drawn as a stack
-//     of horizontal frames.
-//   - Above the main panel are GC and I/O activity tracks: thin bars whose
-//     opacity reflects the share of samples in that time bucket whose
-//     stack contains a frame classified as GC or I/O respectively.
+//   - Top: time-axis ruler with labeled ticks at a "nice" interval
+//     (1ms / 10ms / 100ms / 1s / 10s depending on total duration).
+//     Vertical gridlines extend from each tick down through the tracks
+//     and the main panel so the eye can line up events against time.
+//   - GC and I/O activity tracks: thin bars whose opacity reflects the
+//     share of samples in that time bucket whose stack contains a frame
+//     classified as GC or I/O respectively.
+//   - Main panel: y-axis (icicle) is stack depth. Outermost frame at the
+//     top, leaf at the bottom. The full stack at each time bucket is
+//     drawn as a stack of horizontal frames.
 //
 // Data is run-length-encoded: each event in combined_stacks_timeline says
 // "starting at t_sec, the next `count` samples all hit combined_stacks
@@ -1259,6 +1262,19 @@ const TIMELINE_MIN_LABEL_WIDTH_PX = 40;
 const TIMELINE_TRACK_HEIGHT = 10;
 const TIMELINE_TRACK_GAP = 2;
 const TIMELINE_BUCKETS = 600; // resolution along x (vertical pixel columns).
+
+// Time-axis ruler.
+const TIMELINE_AXIS_HEIGHT = 18; // enough for one line of 10px monospace text
+const TIMELINE_AXIS_GAP = 2; // spacing between axis and the first track
+// Target minimum spacing between adjacent tick labels, in pixels. Tick
+// intervals are chosen so most labels sit at least this far apart; we then
+// space them to a "nice" 1/2/5 × 10^k time value rather than a pixel grid
+// so the labels read as round numbers.
+const TIMELINE_MIN_TICK_SPACING_PX = 60;
+// Left gutter that the tracks and main panel use (for the "GC" / "I/O"
+// row labels). The axis and gridlines have to align with this same
+// offset so ticks sit above their matching time slices.
+const TIMELINE_LEFT_GUTTER_PX = 60;
 
 type FrameClass = "gc" | "io" | "other";
 
@@ -1511,6 +1527,152 @@ function renderTimelineFrames(
   return s;
 }
 
+// Pick a "nice" tick interval that produces round time labels (e.g. 100ms,
+// 200ms, 500ms, 1s, 2s, 5s) while keeping the number of visible ticks in a
+// reasonable range given the available pixel width. The algorithm is the
+// standard 1/2/5 decade-based "pretty ticks": start at the raw interval
+// implied by TIMELINE_MIN_TICK_SPACING_PX and round up to the next
+// {1, 2, 5} × 10^k value.
+function pickTimelineTickIntervalSec(
+  totalSec: number,
+  pixelWidth: number,
+): number {
+  if (totalSec <= 0 || pixelWidth <= 0) return 0;
+  const maxTicks = Math.max(2, Math.floor(pixelWidth / TIMELINE_MIN_TICK_SPACING_PX));
+  const rawStep = totalSec / maxTicks;
+  if (rawStep <= 0) return 0;
+  const decade = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const normalized = rawStep / decade; // in [1, 10)
+  let niceFactor: number;
+  if (normalized <= 1) niceFactor = 1;
+  else if (normalized <= 2) niceFactor = 2;
+  else if (normalized <= 5) niceFactor = 5;
+  else niceFactor = 10;
+  return niceFactor * decade;
+}
+
+// Format a time value in seconds for the axis ruler. Uses ms for values
+// under 1s (with enough precision to distinguish adjacent ticks) and s for
+// values ≥ 1s. Digits after the decimal come from the *step*, not the
+// absolute value — a 100ms step produces integer-ms labels even at t=2.3s,
+// which would render as "2.3s" (not "2300ms"), following Chrome DevTools
+// conventions.
+function formatTimelineTickLabel(sec: number, stepSec: number): string {
+  // Render t=0 as a bare "0" so the leftmost label reads cleanly
+  // regardless of whether the rest of the axis is in ms or s.
+  if (sec === 0) return "0";
+  if (sec >= 1) {
+    // Number of decimals needed to distinguish ticks at this step.
+    // step >= 1s → 0 decimals ("1s", "2s"); step = 0.1 → 1 decimal ("1.5s");
+    // step = 0.01 → 2 decimals ("1.23s").
+    const digits =
+      stepSec >= 1 ? 0 : stepSec >= 0.1 ? 1 : stepSec >= 0.01 ? 2 : 3;
+    return `${sec.toFixed(digits)}s`;
+  }
+  // Sub-second values: render in ms. Fractional ms only for sub-ms steps.
+  const ms = sec * 1000;
+  const digits = stepSec >= 0.001 ? 0 : 2;
+  return `${ms.toFixed(digits)}ms`;
+}
+
+// Render the top time-axis ruler. Returns only the axis strip — the caller
+// is responsible for rendering overlay gridlines (``renderTimelineGridlines``)
+// that span the full container height, since the ruler sits in its own
+// absolute slot and the gridlines need to stretch through the tracks +
+// main panel below.
+function renderTimelineAxis(
+  totalSec: number,
+  startSec: number,
+  topPx: number,
+): { html: string; tickOffsetsSec: number[]; stepSec: number } {
+  if (totalSec <= 0) {
+    return { html: "", tickOffsetsSec: [], stepSec: 0 };
+  }
+  // We don't know the container's pixel width at render time (CSS does the
+  // sizing), so estimate from TIMELINE_BUCKETS — the same resolution the
+  // frame-label visibility heuristic uses. That gives a consistent tick
+  // density regardless of viewport.
+  const stepSec = pickTimelineTickIntervalSec(totalSec, TIMELINE_BUCKETS);
+  if (stepSec <= 0) {
+    return { html: "", tickOffsetsSec: [], stepSec: 0 };
+  }
+  // Collect tick offsets (in seconds, relative to startSec) at multiples of
+  // stepSec that land inside [0, totalSec]. Always include 0 so the leftmost
+  // label reads as the run's start time.
+  const tickOffsetsSec: number[] = [];
+  // Floating-point add-up of `k * step` for integer k accumulates error; use
+  // multiplication so each tick is as exact as the step itself.
+  const nTicks = Math.floor(totalSec / stepSec) + 1;
+  for (let k = 0; k <= nTicks; k++) {
+    const offset = k * stepSec;
+    if (offset > totalSec + stepSec * 0.5) break;
+    tickOffsetsSec.push(offset);
+  }
+  let s = "";
+  s +=
+    `<div style="position:absolute;left:0;top:${topPx}px;` +
+    `width:${TIMELINE_LEFT_GUTTER_PX}px;height:${TIMELINE_AXIS_HEIGHT}px;` +
+    `font-family:monospace;font-size:10px;color:#444;` +
+    `line-height:${TIMELINE_AXIS_HEIGHT}px;text-align:right;padding-right:4px;` +
+    `box-sizing:border-box;">time</div>`;
+  s +=
+    `<div class="timeline-axis" style="position:absolute;` +
+    `left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;top:${topPx}px;` +
+    `height:${TIMELINE_AXIS_HEIGHT}px;border-bottom:1px solid #bbb;` +
+    `box-sizing:border-box;">`;
+  for (const offset of tickOffsetsSec) {
+    const leftPct = (offset / totalSec) * 100;
+    // Tick mark: 4px vertical tick flush against the axis bottom.
+    s +=
+      `<div style="position:absolute;left:${leftPct.toFixed(4)}%;` +
+      `bottom:0;width:1px;height:4px;background:#888;"></div>`;
+    // Label: translate -50% so the text is centered under the tick. The
+    // leftmost and rightmost labels would otherwise hang off the container;
+    // nudge them inward so they stay readable.
+    const isFirst = offset === 0;
+    const isLast = offset >= totalSec - stepSec * 0.5;
+    const transform = isFirst
+      ? "translateX(0)"
+      : isLast
+        ? "translateX(-100%)"
+        : "translateX(-50%)";
+    const label = formatTimelineTickLabel(startSec + offset, stepSec);
+    s +=
+      `<div style="position:absolute;left:${leftPct.toFixed(4)}%;` +
+      `top:0;transform:${transform};font-family:monospace;font-size:10px;` +
+      `color:#444;white-space:nowrap;line-height:${TIMELINE_AXIS_HEIGHT - 4}px;` +
+      `padding:0 2px;">${label}</div>`;
+  }
+  s += `</div>`;
+  return { html: s, tickOffsetsSec, stepSec };
+}
+
+// Render vertical gridlines aligned with the axis ticks. The gridlines are
+// a separate overlay that spans from the top of the track row through the
+// bottom of the main panel, so they visually tie the whole timeline
+// together. Rendered *before* the tracks / main panel so frame rectangles
+// draw on top (the gridlines are meant to be a subtle background).
+function renderTimelineGridlines(
+  tickOffsetsSec: number[],
+  totalSec: number,
+  topPx: number,
+  heightPx: number,
+): string {
+  if (totalSec <= 0 || tickOffsetsSec.length === 0 || heightPx <= 0) return "";
+  let s =
+    `<div class="timeline-gridlines" style="position:absolute;` +
+    `left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;top:${topPx}px;` +
+    `height:${heightPx}px;pointer-events:none;">`;
+  for (const offset of tickOffsetsSec) {
+    const leftPct = (offset / totalSec) * 100;
+    s +=
+      `<div style="position:absolute;left:${leftPct.toFixed(4)}%;top:0;` +
+      `bottom:0;width:1px;background:rgba(0,0,0,0.08);"></div>`;
+  }
+  s += `</div>`;
+  return s;
+}
+
 function renderTimelineTrack(
   label: string,
   color: string,
@@ -1523,12 +1685,14 @@ function renderTimelineTrack(
   let s = "";
   s +=
     `<div style="position:absolute;left:0;top:${topPx}px;` +
-    `width:60px;height:${TIMELINE_TRACK_HEIGHT}px;` +
+    `width:${TIMELINE_LEFT_GUTTER_PX}px;height:${TIMELINE_TRACK_HEIGHT}px;` +
     `font-family:monospace;font-size:10px;` +
-    `line-height:${TIMELINE_TRACK_HEIGHT}px;color:#444;">${label}</div>`;
+    `line-height:${TIMELINE_TRACK_HEIGHT}px;color:#444;` +
+    `text-align:right;padding-right:4px;box-sizing:border-box;">${label}</div>`;
   s +=
-    `<div style="position:absolute;left:60px;right:0;top:${topPx}px;` +
-    `height:${TIMELINE_TRACK_HEIGHT}px;background:#f7f7f7;border:1px solid #ddd;box-sizing:border-box;">`;
+    `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
+    `top:${topPx}px;height:${TIMELINE_TRACK_HEIGHT}px;background:#f7f7f7;` +
+    `border:1px solid #ddd;box-sizing:border-box;">`;
   for (let i = 0; i < runs.length; i++) {
     if (!classifiedRuns[i]) continue;
     const run = runs[i];
@@ -1571,19 +1735,26 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
     isIoRun[i] = c.io;
   }
 
-  // Track header (GC / I/O), spacer, then the depth-stacked main panel.
-  const trackGcTop = 0;
+  // Layout from the top down: axis ruler, gap, GC track, I/O track,
+  // spacer, main depth-stacked panel. Gridlines are a single overlay that
+  // spans the tracks + main panel (but not the axis itself, since the
+  // axis already has its own tick marks).
+  const axisTop = 0;
+  const trackGcTop = axisTop + TIMELINE_AXIS_HEIGHT + TIMELINE_AXIS_GAP;
   const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
   const mainTop =
     trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
   const mainHeight = Math.max(maxDepth, 1) * TIMELINE_ROW_HEIGHT;
   const containerHeight = mainTop + mainHeight + 4;
+  const gridlinesTop = trackGcTop;
+  const gridlinesHeight = mainTop + mainHeight - gridlinesTop;
+
+  const axis = renderTimelineAxis(totalSec, startSec, axisTop);
 
   let s = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
   s += `<p style="margin-bottom: 4px;">`;
-  s += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the experimental timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
+  s += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
   s += ` <strong>Timeline</strong> `;
-  s += `<span class="badge bg-warning text-dark" style="font-size: 70%; vertical-align: middle;">experimental</span> `;
   s += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s — x: time, y: stack depth (outermost on top); GC and I/O tracks shown above</span>`;
   s += `</p>`;
   s += `<div id="combined-timeline-body" style="display: none;">`;
@@ -1591,6 +1762,16 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
     `<div class="combined-stacks-timeline" style="position:relative;width:100%;` +
     `height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;` +
     `overflow-x:auto;padding:0;">`;
+  // Axis first so gridlines (next) lay on top where the track row begins.
+  s += axis.html;
+  // Gridlines span the full tracks + main panel. pointer-events:none on the
+  // overlay keeps hover/click on the frames below it.
+  s += renderTimelineGridlines(
+    axis.tickOffsetsSec,
+    totalSec,
+    gridlinesTop,
+    gridlinesHeight,
+  );
   // Tracks live in their own absolute slots above the main panel.
   // Bumping the track left by 60px so the labels don't overlap.
   s += renderTimelineTrack(
@@ -1613,8 +1794,9 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
   );
   // Main panel: shift right by 60px so it visually aligns with track bars.
   s +=
-    `<div style="position:absolute;left:60px;right:0;top:${mainTop}px;` +
-    `height:${mainHeight}px;background:#fafafa;border:1px solid #ddd;box-sizing:border-box;">`;
+    `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
+    `top:${mainTop}px;height:${mainHeight}px;background:#fafafa;` +
+    `border:1px solid #ddd;box-sizing:border-box;">`;
   s += renderTimelineFrames(runs, stacks, totalSec, startSec);
   s += `</div>`;
   s += `</div></div></div>`;
