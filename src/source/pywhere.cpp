@@ -149,21 +149,26 @@ PyObject* set_last_profiled_invalidated_false(PyObject* self, PyObject* args) {
 }
 
 PyObject* set_scalene_done_true(PyObject* self, PyObject* args) {
+  // Resolve p_scalene_done from the preloaded libscalene. The symbol is
+  // only present on runs that preloaded the allocator interposer (i.e.
+  // memory profiling). When it's absent (CPU-only / platforms without
+  // libscalene) there is nothing to gate, so return successfully rather
+  // than raising — this lets callers safely invoke set_scalene_done_true
+  // during shutdown regardless of the profiling mode.
   auto scalene_done = (std::atomic_bool*)dlsym(RTLD_DEFAULT, "p_scalene_done");
-  if (scalene_done == nullptr) {
-    PyErr_SetString(PyExc_Exception, "Unable to find p_scalene_done");
-    return NULL;
+  if (scalene_done != nullptr) {
+    *scalene_done = true;
   }
-  *scalene_done = true;
   Py_RETURN_NONE;
 }
 PyObject* set_scalene_done_false(PyObject* self, PyObject* args) {
+  // Symmetric to set_scalene_done_true. When the interposer isn't
+  // loaded, nothing is tracking allocations and there is nothing to
+  // un-gate; silently succeed.
   auto scalene_done = (std::atomic_bool*)dlsym(RTLD_DEFAULT, "p_scalene_done");
-  if (scalene_done == nullptr) {
-    PyErr_SetString(PyExc_Exception, "Unable to find p_whereInPython");
-    return NULL;
+  if (scalene_done != nullptr) {
+    *scalene_done = false;
   }
-  *scalene_done = false;
   Py_RETURN_NONE;
 }
 
@@ -371,14 +376,21 @@ static PyObject* setup_trace_config(PyObject* self, PyObject* args) {
   PyObject* a_list;
   PyObject* base_path;
   int profile_all;
-  if (!PyArg_ParseTuple(args, "OOp", &a_list, &base_path, &profile_all))
+  PyObject* scalene_pkg_path = nullptr;
+  // Optional 4th arg: canonical path to the scalene package directory, used
+  // by TraceConfig::should_trace to recognize Scalene-internal frames via
+  // an absolute-path prefix match. Callers that don't pass it fall back to
+  // the legacy "immediate parent directory named scalene" heuristic alone.
+  if (!PyArg_ParseTuple(args, "OOp|O", &a_list, &base_path, &profile_all,
+                        &scalene_pkg_path))
     return NULL;
   auto is_list = PyList_Check(a_list);
   if (!is_list) {
     PyErr_SetString(PyExc_Exception, "Requires list or list-like object");
     return NULL;
   }
-  TraceConfig::setInstance(new TraceConfig(a_list, base_path, profile_all));
+  TraceConfig::setInstance(
+      new TraceConfig(a_list, base_path, profile_all, scalene_pkg_path));
   Py_RETURN_NONE;
 }
 
@@ -386,14 +398,17 @@ static PyObject* register_files_to_profile(PyObject* self, PyObject* args) {
   PyObject* a_list;
   PyObject* base_path;
   int profile_all;
-  if (!PyArg_ParseTuple(args, "OOp", &a_list, &base_path, &profile_all))
+  PyObject* scalene_pkg_path = nullptr;
+  if (!PyArg_ParseTuple(args, "OOp|O", &a_list, &base_path, &profile_all,
+                        &scalene_pkg_path))
     return NULL;
   auto is_list = PyList_Check(a_list);
   if (!is_list) {
     PyErr_SetString(PyExc_Exception, "Requires list or list-like object");
     return NULL;
   }
-  TraceConfig::setInstance(new TraceConfig(a_list, base_path, profile_all));
+  TraceConfig::setInstance(
+      new TraceConfig(a_list, base_path, profile_all, scalene_pkg_path));
 
   auto p_where =
       (decltype(p_whereInPython)*)dlsym(RTLD_DEFAULT, "p_whereInPython");

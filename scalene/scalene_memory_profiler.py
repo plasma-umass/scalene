@@ -24,6 +24,7 @@ from scalene.scalene_statistics import (
     ScaleneStatistics,
     StackFrame,
 )
+from scalene.scalene_utility import intern_stack_frame
 
 
 class ScaleneMemoryProfiler:
@@ -158,7 +159,7 @@ class ScaleneMemoryProfiler:
                         except ValueError:
                             continue
                         frames.append(
-                            StackFrame(
+                            intern_stack_frame(
                                 filename=fn,
                                 function_name="",
                                 line_number=ln,

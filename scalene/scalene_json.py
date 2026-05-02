@@ -65,6 +65,7 @@ class _ResolvedNativeFrame:
     pure cost here.
     """
 
+    __slots__ = ("module", "symbol", "ip", "offset")
     module: str
     symbol: str
     ip: int
