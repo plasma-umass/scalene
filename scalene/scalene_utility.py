@@ -278,9 +278,11 @@ def add_stack(
                 intern_stack_frame(
                     str(f.f_code.co_filename),
                     str(get_fully_qualified_name(f)),
-                    int(f.f_lineno)
-                    if f.f_lineno is not None
-                    else int(f.f_code.co_firstlineno),
+                    (
+                        int(f.f_lineno)
+                        if f.f_lineno is not None
+                        else int(f.f_code.co_firstlineno)
+                    ),
                 ),
             )
         f = f.f_back

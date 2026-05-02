@@ -1728,9 +1728,7 @@ class Scalene:
         try:
             scalene_pkg_file = getattr(_scalene_pkg, "__file__", None)
             if scalene_pkg_file:
-                scalene_pkg_path = os.path.realpath(
-                    os.path.dirname(scalene_pkg_file)
-                )
+                scalene_pkg_path = os.path.realpath(os.path.dirname(scalene_pkg_file))
         except (TypeError, ValueError, OSError):
             scalene_pkg_path = None
 
