@@ -27,6 +27,7 @@ from scalene.scalene_utility import generate_html
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 BUNDLE_PATH = REPO_ROOT / "scalene" / "scalene-gui" / "scalene-gui-bundle.js"
+TS_SOURCE_PATH = REPO_ROOT / "scalene" / "scalene-gui" / "scalene-gui.ts"
 
 
 def _build_profile(*, with_combined_stacks: bool) -> Dict[str, Any]:
@@ -107,85 +108,93 @@ def _render(tmp_path: pathlib.Path, profile: Dict[str, Any]) -> str:
 
 
 def test_bundle_contains_new_render_helpers() -> None:
-    """The TS source must have been rebuilt before this PR is merged."""
-    assert BUNDLE_PATH.exists(), f"missing bundle at {BUNDLE_PATH}"
-    src = BUNDLE_PATH.read_text(encoding="utf-8")
-    assert "renderCombinedStacks" in src, (
-        "renderCombinedStacks() missing from bundle — re-run "
-        "`npx esbuild scalene-gui.ts --bundle ...` and commit the bundle"
-    )
-    assert "toggleCombinedStacks" in src, (
-        "toggleCombinedStacks() missing from bundle — re-run esbuild"
-    )
+    """The TS source must have been rebuilt before this PR is merged.
 
-
-def test_bundle_contains_timeline_axis_helpers() -> None:
-    """The timeline view ships a time-axis ruler with gridlines. The axis
-    helpers (pickNiceTickInterval / renderTimelineAxis /
-    renderTimelineGridlines) must be present in the bundle, and the two
-    DOM class names the axis + gridlines use must appear verbatim so
-    stylesheets / downstream tooling can target them."""
+    Only checks exported identifiers and DOM class-name strings, which
+    survive minification. Internal helper function names are mangled by
+    `esbuild --minify` and are asserted on via the TypeScript source
+    below.
+    """
     assert BUNDLE_PATH.exists(), f"missing bundle at {BUNDLE_PATH}"
     src = BUNDLE_PATH.read_text(encoding="utf-8")
     for sym in (
-        "pickNiceTickInterval",
-        "formatTimelineTickLabel",
-        "renderTimelineAxis",
-        "renderTimelineGridlines",
+        # Exported names (attached to the IIFE's exports object, preserved)
+        "renderCombinedStacks",
+        "toggleCombinedStacks",
+        "renderCombinedStacksTimeline",
+        "renderMemoryStacks",
+        # DOM class-name string literals (preserved — they're data, not code)
         "timeline-axis",
         "timeline-gridlines",
-    ):
-        assert sym in src, (
-            f"expected {sym!r} in bundle — re-run "
-            f"`npx esbuild scalene-gui.ts --bundle ...` and commit"
-        )
-
-
-def test_bundle_contains_memory_axis_helpers() -> None:
-    """The memory flame chart ships an MB-axis ruler with gridlines (a
-    parallel to the timeline's time axis, using the same 1/2/5 pretty-ticks
-    algorithm). The axis helpers and DOM class names must be present in
-    the bundle."""
-    assert BUNDLE_PATH.exists(), f"missing bundle at {BUNDLE_PATH}"
-    src = BUNDLE_PATH.read_text(encoding="utf-8")
-    for sym in (
-        "pickNiceTickInterval",  # shared with the timeline axis
-        "formatMemoryTickLabel",
-        "renderMemoryAxis",
-        "renderMemoryGridlines",
         "memory-axis",
         "memory-gridlines",
     ):
         assert sym in src, (
             f"expected {sym!r} in bundle — re-run "
-            f"`npx esbuild scalene-gui.ts --bundle ...` and commit"
+            f"`npm --prefix scalene/scalene-gui run build` and commit"
         )
 
 
-def test_bundle_timeline_tooltips_use_source_lookup() -> None:
+def test_ts_source_contains_timeline_axis_helpers() -> None:
+    """The timeline view ships a time-axis ruler with gridlines. The axis
+    helpers (pickNiceTickInterval / renderTimelineAxis /
+    renderTimelineGridlines) are internal to the bundle; we assert their
+    existence at the TS source level so the check isn't sensitive to
+    whether the bundle was built with minification."""
+    assert TS_SOURCE_PATH.exists(), f"missing TS source at {TS_SOURCE_PATH}"
+    src = TS_SOURCE_PATH.read_text(encoding="utf-8")
+    for sym in (
+        "pickNiceTickInterval",
+        "formatTimelineTickLabel",
+        "renderTimelineAxis",
+        "renderTimelineGridlines",
+    ):
+        assert sym in src, f"expected {sym!r} in TS source"
+
+
+def test_ts_source_contains_memory_axis_helpers() -> None:
+    """Same, for the memory flame chart's MB-axis helpers."""
+    assert TS_SOURCE_PATH.exists(), f"missing TS source at {TS_SOURCE_PATH}"
+    src = TS_SOURCE_PATH.read_text(encoding="utf-8")
+    for sym in (
+        "pickNiceTickInterval",  # shared with the timeline axis
+        "formatMemoryTickLabel",
+        "renderMemoryAxis",
+        "renderMemoryGridlines",
+    ):
+        assert sym in src, f"expected {sym!r} in TS source"
+
+
+def test_timeline_tooltips_use_source_lookup() -> None:
     """Timeline tooltips (on individual frame rectangles in the stitched
     stacks timeline) must pull their source-line text from
     ``profile.files`` via the same ``makeFileSourceLookup`` helper the
     flame-chart tooltips use. This guards against a regression where
     ``renderCombinedStacksTimeline`` silently stops passing the lookup
     to ``renderTimelineFrames`` and tooltips lose their source-line
-    tail."""
-    assert BUNDLE_PATH.exists(), f"missing bundle at {BUNDLE_PATH}"
-    src = BUNDLE_PATH.read_text(encoding="utf-8")
+    tail.
+
+    Scans the TypeScript source rather than the compiled bundle because
+    minification renames local identifiers and rewrites the function
+    declaration form (``function foo(...) {...}`` → an aliased arrow
+    assignment with ``__name(..., "foo")`` runtime tagging). The code-
+    flow wiring we want to assert lives at the source level; the bundle
+    merely reflects it.
+    """
+    assert TS_SOURCE_PATH.exists(), f"missing TS source at {TS_SOURCE_PATH}"
+    src = TS_SOURCE_PATH.read_text(encoding="utf-8")
     # The helper has to exist; the renderer has to call it; and the
     # timeline renderer has to receive it.
     assert "makeFileSourceLookup" in src
     assert "renderTimelineFrames" in src
-    # Find the renderCombinedStacksTimeline function body and verify it
-    # threads makeFileSourceLookup into the renderTimelineFrames call.
-    # esbuild output preserves identifier names by default (no minify in
-    # our build command), so both identifiers appear verbatim.
     marker = "renderCombinedStacksTimeline"
     start = src.find(f"function {marker}")
-    assert start != -1, f"{marker!r} definition not found in bundle"
-    # Cap the span at the next top-level function/export definition after
+    assert start != -1, f"{marker!r} definition not found in TS source"
+    # Cap the span at the next top-level function definition after
     # this one so we don't accidentally match an unrelated later call.
-    end = src.find("function ", start + len(marker) + 10)
+    end = src.find("\nfunction ", start + len(marker) + 10)
+    if end == -1:
+        end = src.find("\nexport function ", start + len(marker) + 10)
     body = src[start:end] if end > start else src[start:]
     assert "makeFileSourceLookup" in body, (
         "renderCombinedStacksTimeline no longer constructs the file "
@@ -303,11 +312,10 @@ def test_section_present_when_combined_stacks_populated(tmp_path: pathlib.Path) 
     # CSS rules from the template
     assert ".combined-stacks-section" in html
     assert ".flame-segment" in html
-    # Bundle JS embedded inline (standalone mode)
+    # Exported names from the bundle (survive minification because they're
+    # attached to the IIFE's exports object)
     assert "renderCombinedStacks" in html
     assert "toggleCombinedStacks" in html
-    # Flame-chart helpers from the bundle
-    assert "buildFlameTree" in html
     # The profile JSON literal includes our combined_stacks data
     assert "marker_native_symbol" in html
     assert "user_outer_function" in html

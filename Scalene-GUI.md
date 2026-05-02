@@ -10,7 +10,7 @@
    - Add cell rendering in `makeProfileLine()` — push chart specs to array
    - Pass array through both call sites (line profile loop + function profile loop)
    - Add `embedCharts(await_pies, "await_pie")` at the end
-3. **Rebuild**: `npx esbuild scalene-gui.ts --bundle --outfile=scalene-gui-bundle.js --format=iife --global-name=ScaleneGUI`
+3. **Rebuild**: `npm --prefix scalene/scalene-gui run build` — produces a minified `scalene-gui-bundle.js`. The raw `esbuild` command is defined in `scalene/scalene-gui/package.json`; don't invoke esbuild directly without `--minify` or the checked-in bundle will balloon ~2.3× on disk.
 4. **`scalene_json.py`**: Add field to `FunctionDetail`, compute in payload
 5. **`scalene_output.py`**: Add column for CLI `--html` output
 6. **`scalene_parseargs.py`**: Add column in `_display_profile_cli()` for `scalene view --cli`
