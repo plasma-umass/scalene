@@ -76,13 +76,17 @@ class CombinedStackFrame(BaseModel):
     """One frame inside a serialized stitched stack
     (ScaleneJSONSchema.combined_stacks). Either ``kind == "py"`` (with line
     info) or ``kind == "native"`` (with ip/offset).
+
+    Note: prior versions carried a ``code_line`` field with the source text
+    at the py frame's ``(filename, line)``. The GUI now looks that up on
+    demand from the already-emitted ``files[filename].lines`` section so
+    the string isn't duplicated for every frame appearance.
     """
 
     kind: str  # "py" or "native"
     display_name: str
     filename_or_module: str
     line: Optional[int]
-    code_line: Optional[str] = None
     ip: Optional[int]
     offset: Optional[int]
 
@@ -240,6 +244,17 @@ class FileDetail(BaseModel):
     percent_cpu_time: NonNegativeFloat
 
 
+# The combined_stacks / memory_stacks wire shape is a list of [frames, count]
+# pairs, where `frames` is itself a list of CombinedStackFrame dicts. Pydantic
+# v2 deserializes tuples from JSON arrays and treats nested BaseModels as
+# first-class validators, so declaring the type as Tuple[List[...], int]
+# pins both the outer arity and the inner frame shape. The count payload
+# differs per section: CPU combined_stacks uses integer hit counts; memory
+# flame chart uses float MB. Both must be non-negative.
+CombinedStackEntry = Tuple[List[CombinedStackFrame], NonNegativeInt]
+MemoryStackEntry = Tuple[List[CombinedStackFrame], NonNegativeFloat]
+
+
 class ScaleneJSONSchema(BaseModel):
     alloc_samples: NonNegativeInt
     args: Optional[List[str]] = None
@@ -261,7 +276,22 @@ class ScaleneJSONSchema(BaseModel):
     program: str
     samples: List[List[NonNegativeFloat]]
     stacks: List[List[Any]]
-    memory_stacks: List[List[Any]] = Field(default_factory=list)
+    memory_stacks: List[MemoryStackEntry] = Field(default_factory=list)
+    # Stitched Python+native call stacks (emitted when --stacks is set).
+    # Each entry validates its inner frames via CombinedStackFrame, so a
+    # profile with a malformed frame (wrong kind, missing filename, etc.)
+    # raises ValidationError at load time rather than crashing the GUI
+    # at render time.
+    combined_stacks: List[CombinedStackEntry] = Field(default_factory=list)
+    # Run-length-encoded timeline of stitched stacks. CombinedStackTimelineEvent
+    # pins the wire shape (t_sec, stack_index, count).
+    combined_stacks_timeline: List[CombinedStackTimelineEvent] = Field(
+        default_factory=list
+    )
+    # Top-level aggregates emitted by the JSON writer but previously not
+    # declared in the schema. Making them explicit lets pydantic enforce the
+    # types (and catches regressions if future emitters drop or rename them).
+    native_allocations_mb: NonNegativeFloat = 0.0
 
 
 class ScaleneJSON:
@@ -631,48 +661,16 @@ class ScaleneJSON:
             }
             stks.append((this_stk, stack_stats_dict))
 
-        # Convert native (C/C++) stacks into a JSON-friendly form. Each stack
-        # is stored as a tuple of raw IPs; resolve them now via
-        # _scalene_unwind.resolve_ip (signal-unsafe, fine here at report
-        # time). Cache by IP because the same address typically appears
-        # across many stacks.
-        #
-        # Trim is done by _trim_native_stack: it drops Scalene's own
-        # signal-handler/trampoline frames at the leaf end and contiguous
-        # CPython interpreter/process-entry frames at the root end, so what
-        # the user sees starts and ends with real C/C++ user code.
-        native_stks: List[Tuple[List[_ResolvedNativeFrame], int]] = []
-        if stats.native_stacks:
-            try:
-                from scalene import _scalene_unwind  # type: ignore
-
-                resolve = _scalene_unwind.resolve_ip
-            except ImportError:
-                resolve = None
-
-            ip_cache: Dict[int, _ResolvedNativeFrame] = {}
-            for stk, hits in stats.native_stacks.items():
-                resolved_frames: List[_ResolvedNativeFrame] = []
-                for ip in stk:
-                    cached = ip_cache.get(ip)
-                    if cached is not None:
-                        resolved_frames.append(cached)
-                        continue
-                    info = resolve(ip) if resolve is not None else None
-                    if info is None:
-                        frame = _ResolvedNativeFrame(
-                            module="", symbol="", ip=ip, offset=0
-                        )
-                    else:
-                        module, symbol, offset = info
-                        frame = _ResolvedNativeFrame(
-                            module=module, symbol=symbol, ip=ip, offset=offset
-                        )
-                    ip_cache[ip] = frame
-                    resolved_frames.append(frame)
-                resolved_frames = _trim_native_stack(resolved_frames)
-                if resolved_frames:
-                    native_stks.append((resolved_frames, hits))
+        # Note: a standalone ``native_stacks`` section used to be emitted
+        # here (raw IP tuples resolved + trimmed into a list of (frames,
+        # hits) entries). It was fully redundant with ``combined_stacks``
+        # below — every native stack captured alongside a Python chain
+        # already appears in the stitched view, and no GUI or CLI consumer
+        # read ``native_stacks`` independently. See P6 in the
+        # overhead-reduction work. The underlying ``stats.native_stacks``
+        # aggregate is still populated at sample time and still
+        # round-trips through the cloudpickle payload, but the JSON wire
+        # format no longer duplicates it.
 
         # Stitched Python+native stacks. stats.combined_stacks is keyed by
         # CombinedStackKey: a tuple of PyFrameKey | NativeFrameKey instances
@@ -692,30 +690,12 @@ class ScaleneJSON:
 
             ip_cache_combined: Dict[int, _ResolvedNativeFrame] = {}
 
-            # Cache source-file line lookups so we read each Python file at
-            # most once during combined_stacks emission. linecache would do
-            # this too, but we already have the file-read pattern below.
-            source_cache: Dict[str, Optional[List[str]]] = {}
-
-            def _source_line(filename: str, lineno: int) -> str:
-                """Return the source line (stripped, no trailing newline) for
-                filename:lineno, or '' if the file can't be read or the line
-                is out of range. linecache fallback handles exec'd code."""
-                if filename in source_cache:
-                    lines = source_cache[filename]
-                else:
-                    lines = None
-                    try:
-                        with open(filename, encoding="utf-8") as src:
-                            lines = src.readlines()
-                    except (OSError, UnicodeDecodeError):
-                        cached = linecache.getlines(filename)
-                        if cached:
-                            lines = cached
-                    source_cache[filename] = lines
-                if lines is None or lineno < 1 or lineno > len(lines):
-                    return ""
-                return lines[lineno - 1].rstrip()
+            # Source lines used to be embedded in every py frame as a
+            # ``code_line`` field. The GUI now resolves source text on the
+            # fly from the ``files[filename].lines`` section already present
+            # in the profile, so the per-frame copy (often the same 45-char
+            # string repeated dozens of times per profile) is no longer
+            # needed. See P5 in the overhead-reduction work.
 
             def _resolve(ip: int) -> _ResolvedNativeFrame:
                 cached = ip_cache_combined.get(ip)
@@ -791,7 +771,6 @@ class ScaleneJSON:
                             display_name=py_frame.function,
                             filename_or_module=py_frame.filename,
                             line=py_frame.line,
-                            code_line=_source_line(py_frame.filename, py_frame.line),
                             ip=None,
                             offset=None,
                         )
@@ -803,7 +782,6 @@ class ScaleneJSON:
                             display_name=native.symbol,
                             filename_or_module=native.module,
                             line=None,
-                            code_line=None,
                             ip=native.ip,
                             offset=native.offset,
                         )
@@ -884,24 +862,27 @@ class ScaleneJSON:
         # interposer and show up as artifacts in the user's profile.
         memory_stks: List[Tuple[List[Dict[str, Any]], float]] = []
         if stats.memory_stacks:
+            # We still read each source file up to once, but only to
+            # resolve enclosing-def names for ``display_name``. The
+            # per-frame ``code_line`` string is no longer emitted (the GUI
+            # looks it up on demand from ``files[filename].lines`` — see
+            # P5). ``_mem_source_load`` populates the cache; callers ask
+            # ``_mem_source_lines`` for the cached list.
             mem_source_cache: Dict[str, Optional[List[str]]] = {}
 
-            def _mem_source_line(filename: str, lineno: int) -> str:
+            def _mem_source_load(filename: str) -> Optional[List[str]]:
                 if filename in mem_source_cache:
-                    lines = mem_source_cache[filename]
-                else:
-                    lines = None
-                    try:
-                        with open(filename, encoding="utf-8") as src:
-                            lines = src.readlines()
-                    except (OSError, UnicodeDecodeError):
-                        cached = linecache.getlines(filename)
-                        if cached:
-                            lines = cached
-                    mem_source_cache[filename] = lines
-                if lines is None or lineno < 1 or lineno > len(lines):
-                    return ""
-                return lines[lineno - 1].rstrip()
+                    return mem_source_cache[filename]
+                lines: Optional[List[str]] = None
+                try:
+                    with open(filename, encoding="utf-8") as src:
+                        lines = src.readlines()
+                except (OSError, UnicodeDecodeError):
+                    cached = linecache.getlines(filename)
+                    if cached:
+                        lines = cached
+                mem_source_cache[filename] = lines
+                return lines
 
             def _enclosing_function(filename: str, lineno: int) -> Optional[str]:
                 """Find the enclosing `def` name for (filename, lineno) by
@@ -909,11 +890,7 @@ class ScaleneJSON:
                 (i.e. module scope). Mirrors the rule used for CPU stacks:
                 a def encloses the line iff its body indent is strictly less
                 than the target line's indent."""
-                lines_list = mem_source_cache.get(filename)
-                if lines_list is None and filename not in mem_source_cache:
-                    # Force population via the same helper used for code_line.
-                    _mem_source_line(filename, 1)
-                    lines_list = mem_source_cache.get(filename)
+                lines_list = _mem_source_load(filename)
                 if not lines_list or lineno < 1 or lineno > len(lines_list):
                     return None
                 target_line = lines_list[lineno - 1]
@@ -966,7 +943,6 @@ class ScaleneJSON:
                             "display_name": display,
                             "filename_or_module": sf.filename,
                             "line": sf.line_number,
-                            "code_line": _mem_source_line(sf.filename, sf.line_number),
                             "ip": None,
                             "offset": None,
                         }
@@ -1010,13 +986,12 @@ class ScaleneJSON:
             # _ResolvedNativeFrame is a dataclass, not a dict; reshape into
             # the on-wire [module, symbol, ip, offset] list at the output
             # boundary (preserves the existing JSON layout).
-            "native_stacks": [
-                (
-                    [[f.module, f.symbol, f.ip, f.offset] for f in frames],
-                    hits,
-                )
-                for frames, hits in native_stks
-            ],
+            # ``native_stacks`` was previously emitted here as a list of
+            # resolved-and-trimmed native-frame tuples. It was redundant
+            # with ``combined_stacks`` (see comment above at the deleted
+            # native_stks construction) and no consumer read it. Dropped
+            # from the JSON wire format; the in-process aggregate at
+            # ``stats.native_stacks`` is unchanged.
             # Pydantic CombinedStackFrame instances aren't JSON-serializable
             # directly; convert to plain dicts at the output boundary.
             "combined_stacks": [
