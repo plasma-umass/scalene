@@ -121,19 +121,40 @@ def test_bundle_contains_new_render_helpers() -> None:
 
 def test_bundle_contains_timeline_axis_helpers() -> None:
     """The timeline view ships a time-axis ruler with gridlines. The axis
-    helpers (pickTimelineTickIntervalSec / renderTimelineAxis /
+    helpers (pickNiceTickInterval / renderTimelineAxis /
     renderTimelineGridlines) must be present in the bundle, and the two
     DOM class names the axis + gridlines use must appear verbatim so
     stylesheets / downstream tooling can target them."""
     assert BUNDLE_PATH.exists(), f"missing bundle at {BUNDLE_PATH}"
     src = BUNDLE_PATH.read_text(encoding="utf-8")
     for sym in (
-        "pickTimelineTickIntervalSec",
+        "pickNiceTickInterval",
         "formatTimelineTickLabel",
         "renderTimelineAxis",
         "renderTimelineGridlines",
         "timeline-axis",
         "timeline-gridlines",
+    ):
+        assert sym in src, (
+            f"expected {sym!r} in bundle — re-run "
+            f"`npx esbuild scalene-gui.ts --bundle ...` and commit"
+        )
+
+
+def test_bundle_contains_memory_axis_helpers() -> None:
+    """The memory flame chart ships an MB-axis ruler with gridlines (a
+    parallel to the timeline's time axis, using the same 1/2/5 pretty-ticks
+    algorithm). The axis helpers and DOM class names must be present in
+    the bundle."""
+    assert BUNDLE_PATH.exists(), f"missing bundle at {BUNDLE_PATH}"
+    src = BUNDLE_PATH.read_text(encoding="utf-8")
+    for sym in (
+        "pickNiceTickInterval",  # shared with the timeline axis
+        "formatMemoryTickLabel",
+        "renderMemoryAxis",
+        "renderMemoryGridlines",
+        "memory-axis",
+        "memory-gridlines",
     ):
         assert sym in src, (
             f"expected {sym!r} in bundle — re-run "

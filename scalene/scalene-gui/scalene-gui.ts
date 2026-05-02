@@ -1202,6 +1202,110 @@ function formatMb(mb: number): string {
   return `${(mb * 1024 * 1024).toFixed(0)} B`;
 }
 
+// Memory-chart axis. Mirrors the timeline ruler: a horizontal strip at
+// the top of the memory flame chart with labeled ticks at "nice" MB
+// intervals (1 / 2 / 5 × 10^k MB), plus faint vertical gridlines at each
+// tick that extend down through the flame chart below.
+//
+// The flame-chart x-axis measures *cumulative* MB allocated across the
+// root's children: the leftmost pixel is 0 MB, the rightmost is
+// ``totalMb``. A user looking at the chart can then answer "how much of
+// the total did allocations above 100 MB account for?" at a glance
+// rather than summing frame widths by eye.
+
+const MEMORY_AXIS_HEIGHT = 18;
+const MEMORY_AXIS_GAP = 2;
+
+// Format an MB tick label. Differs from formatMb (which targets tooltips
+// and always shows two decimals) — axis labels prefer round integers
+// ("100 MB", "1.0 GB") and drop unit clutter when they'd be redundant
+// with neighboring ticks. The ``stepMb`` argument controls precision:
+// fractional MB only appear when the step itself is fractional.
+function formatMemoryTickLabel(mb: number, stepMb: number): string {
+  if (mb === 0) return "0";
+  if (mb >= 1024) {
+    const gb = mb / 1024;
+    const digits = stepMb >= 1024 ? 0 : stepMb >= 102.4 ? 1 : 2;
+    return `${gb.toFixed(digits)} GB`;
+  }
+  if (mb >= 1) {
+    const digits = stepMb >= 1 ? 0 : stepMb >= 0.1 ? 1 : 2;
+    return `${mb.toFixed(digits)} MB`;
+  }
+  // Sub-MB: KB. Fractional KB only for sub-KB steps.
+  const kb = mb * 1024;
+  const digits = stepMb * 1024 >= 1 ? 0 : 1;
+  return `${kb.toFixed(digits)} KB`;
+}
+
+function renderMemoryAxis(
+  totalMb: number,
+  topPx: number,
+): { html: string; tickOffsetsMb: number[]; stepMb: number } {
+  if (totalMb <= 0) return { html: "", tickOffsetsMb: [], stepMb: 0 };
+  // Same "nice ticks" algorithm as the timeline — decade-scaled 1/2/5
+  // steps. TIMELINE_BUCKETS is our standard pixel-width proxy (same used
+  // to gate frame-label visibility), so tick density matches the
+  // timeline ruler's density.
+  const stepMb = pickNiceTickInterval(totalMb, TIMELINE_BUCKETS);
+  if (stepMb <= 0) return { html: "", tickOffsetsMb: [], stepMb: 0 };
+  const tickOffsetsMb: number[] = [];
+  const nTicks = Math.floor(totalMb / stepMb) + 1;
+  for (let k = 0; k <= nTicks; k++) {
+    const offset = k * stepMb;
+    if (offset > totalMb + stepMb * 0.5) break;
+    tickOffsetsMb.push(offset);
+  }
+  let s = "";
+  s +=
+    `<div class="memory-axis" style="position:absolute;left:0;right:0;` +
+    `top:${topPx}px;height:${MEMORY_AXIS_HEIGHT}px;` +
+    `border-bottom:1px solid #bbb;box-sizing:border-box;">`;
+  for (const offset of tickOffsetsMb) {
+    const leftPct = (offset / totalMb) * 100;
+    // Tick mark at the bottom of the strip.
+    s +=
+      `<div style="position:absolute;left:${leftPct.toFixed(4)}%;` +
+      `bottom:0;width:1px;height:4px;background:#888;"></div>`;
+    // Label, centered under the tick; first/last nudged to stay inside.
+    const isFirst = offset === 0;
+    const isLast = offset >= totalMb - stepMb * 0.5;
+    const transform = isFirst
+      ? "translateX(0)"
+      : isLast
+        ? "translateX(-100%)"
+        : "translateX(-50%)";
+    const label = formatMemoryTickLabel(offset, stepMb);
+    s +=
+      `<div style="position:absolute;left:${leftPct.toFixed(4)}%;` +
+      `top:0;transform:${transform};font-family:monospace;font-size:10px;` +
+      `color:#444;white-space:nowrap;line-height:${MEMORY_AXIS_HEIGHT - 4}px;` +
+      `padding:0 2px;">${label}</div>`;
+  }
+  s += `</div>`;
+  return { html: s, tickOffsetsMb, stepMb };
+}
+
+function renderMemoryGridlines(
+  tickOffsetsMb: number[],
+  totalMb: number,
+  topPx: number,
+  heightPx: number,
+): string {
+  if (totalMb <= 0 || tickOffsetsMb.length === 0 || heightPx <= 0) return "";
+  let s =
+    `<div class="memory-gridlines" style="position:absolute;left:0;right:0;` +
+    `top:${topPx}px;height:${heightPx}px;pointer-events:none;">`;
+  for (const offset of tickOffsetsMb) {
+    const leftPct = (offset / totalMb) * 100;
+    s +=
+      `<div style="position:absolute;left:${leftPct.toFixed(4)}%;top:0;` +
+      `bottom:0;width:1px;background:rgba(0,0,0,0.08);"></div>`;
+  }
+  s += `</div>`;
+  return s;
+}
+
 export function renderMemoryStacks(prof: Profile): string {
   const stacks = prof.memory_stacks ?? [];
   if (stacks.length === 0) return "";
@@ -1210,7 +1314,15 @@ export function renderMemoryStacks(prof: Profile): string {
   const totalMb = root.totalHits;
   if (totalMb <= 0) return "";
   const depth = flameMaxDepth(root);
-  const containerHeight = depth * FLAME_ROW_HEIGHT;
+
+  // Layout: axis ruler at top, gap, then the flame chart. Gridlines
+  // overlay the flame chart only (not the axis itself — the axis has
+  // its own tick marks).
+  const axisTop = 0;
+  const flameTop = axisTop + MEMORY_AXIS_HEIGHT + MEMORY_AXIS_GAP;
+  const flameHeight = depth * FLAME_ROW_HEIGHT;
+  const containerHeight = flameTop + flameHeight;
+  const axis = renderMemoryAxis(totalMb, axisTop);
 
   let s = `<hr><div class="container-fluid memory-stacks-section">`;
   s += `<p style="margin-bottom: 4px;">`;
@@ -1219,8 +1331,23 @@ export function renderMemoryStacks(prof: Profile): string {
   s += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stacks, ${formatMb(totalMb)} attributed — frame widths are proportional to MB allocated; hover for details, click a frame to jump to its source line</span>`;
   s += `</p>`;
   s += `<div id="memory-stacks-body" style="display: none;">`;
-  s += `<div class="memory-stacks-flame" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;">`;
+  s +=
+    `<div class="memory-stacks-flame" style="position:relative;width:100%;` +
+    `height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;` +
+    `overflow-x:auto;">`;
+  // Axis first, then gridlines (overlay), then flame chart slotted below.
+  s += axis.html;
+  s += renderMemoryGridlines(
+    axis.tickOffsetsMb,
+    totalMb,
+    flameTop,
+    flameHeight,
+  );
+  s +=
+    `<div style="position:absolute;left:0;right:0;top:${flameTop}px;` +
+    `height:${flameHeight}px;">`;
   s += renderFlameRecursive(root, 0, 0, 100, totalMb, formatMb);
+  s += `</div>`;
   s += `</div></div></div>`;
   return s;
 }
@@ -1541,19 +1668,17 @@ function renderTimelineFrames(
   return s;
 }
 
-// Pick a "nice" tick interval that produces round time labels (e.g. 100ms,
-// 200ms, 500ms, 1s, 2s, 5s) while keeping the number of visible ticks in a
-// reasonable range given the available pixel width. The algorithm is the
-// standard 1/2/5 decade-based "pretty ticks": start at the raw interval
-// implied by TIMELINE_MIN_TICK_SPACING_PX and round up to the next
-// {1, 2, 5} × 10^k value.
-function pickTimelineTickIntervalSec(
-  totalSec: number,
-  pixelWidth: number,
-): number {
-  if (totalSec <= 0 || pixelWidth <= 0) return 0;
+// Pick a "nice" tick interval that produces round labels (e.g. 100, 200,
+// 500, 1000) while keeping the number of visible ticks in a reasonable
+// range given the available pixel width. The algorithm is the standard
+// 1/2/5 decade-based "pretty ticks": start at the raw interval implied by
+// TIMELINE_MIN_TICK_SPACING_PX and round up to the next {1, 2, 5} × 10^k
+// value. Unit-agnostic — used for both the timeline's time axis (seconds)
+// and the memory flame chart's magnitude axis (MB).
+function pickNiceTickInterval(total: number, pixelWidth: number): number {
+  if (total <= 0 || pixelWidth <= 0) return 0;
   const maxTicks = Math.max(2, Math.floor(pixelWidth / TIMELINE_MIN_TICK_SPACING_PX));
-  const rawStep = totalSec / maxTicks;
+  const rawStep = total / maxTicks;
   if (rawStep <= 0) return 0;
   const decade = Math.pow(10, Math.floor(Math.log10(rawStep)));
   const normalized = rawStep / decade; // in [1, 10)
@@ -1606,7 +1731,7 @@ function renderTimelineAxis(
   // sizing), so estimate from TIMELINE_BUCKETS — the same resolution the
   // frame-label visibility heuristic uses. That gives a consistent tick
   // density regardless of viewport.
-  const stepSec = pickTimelineTickIntervalSec(totalSec, TIMELINE_BUCKETS);
+  const stepSec = pickNiceTickInterval(totalSec, TIMELINE_BUCKETS);
   if (stepSec <= 0) {
     return { html: "", tickOffsetsSec: [], stepSec: 0 };
   }

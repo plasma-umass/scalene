@@ -71851,6 +71851,58 @@ ${qty} (${pct}%)`;
     if (mb2 >= 1e-3) return `${(mb2 * 1024).toFixed(2)} KB`;
     return `${(mb2 * 1024 * 1024).toFixed(0)} B`;
   }
+  var MEMORY_AXIS_HEIGHT = 18;
+  var MEMORY_AXIS_GAP = 2;
+  function formatMemoryTickLabel(mb2, stepMb) {
+    if (mb2 === 0) return "0";
+    if (mb2 >= 1024) {
+      const gb = mb2 / 1024;
+      const digits2 = stepMb >= 1024 ? 0 : stepMb >= 102.4 ? 1 : 2;
+      return `${gb.toFixed(digits2)} GB`;
+    }
+    if (mb2 >= 1) {
+      const digits2 = stepMb >= 1 ? 0 : stepMb >= 0.1 ? 1 : 2;
+      return `${mb2.toFixed(digits2)} MB`;
+    }
+    const kb = mb2 * 1024;
+    const digits = stepMb * 1024 >= 1 ? 0 : 1;
+    return `${kb.toFixed(digits)} KB`;
+  }
+  function renderMemoryAxis(totalMb, topPx) {
+    if (totalMb <= 0) return { html: "", tickOffsetsMb: [], stepMb: 0 };
+    const stepMb = pickNiceTickInterval(totalMb, TIMELINE_BUCKETS);
+    if (stepMb <= 0) return { html: "", tickOffsetsMb: [], stepMb: 0 };
+    const tickOffsetsMb = [];
+    const nTicks = Math.floor(totalMb / stepMb) + 1;
+    for (let k2 = 0; k2 <= nTicks; k2++) {
+      const offset4 = k2 * stepMb;
+      if (offset4 > totalMb + stepMb * 0.5) break;
+      tickOffsetsMb.push(offset4);
+    }
+    let s2 = "";
+    s2 += `<div class="memory-axis" style="position:absolute;left:0;right:0;top:${topPx}px;height:${MEMORY_AXIS_HEIGHT}px;border-bottom:1px solid #bbb;box-sizing:border-box;">`;
+    for (const offset4 of tickOffsetsMb) {
+      const leftPct = offset4 / totalMb * 100;
+      s2 += `<div style="position:absolute;left:${leftPct.toFixed(4)}%;bottom:0;width:1px;height:4px;background:#888;"></div>`;
+      const isFirst = offset4 === 0;
+      const isLast = offset4 >= totalMb - stepMb * 0.5;
+      const transform4 = isFirst ? "translateX(0)" : isLast ? "translateX(-100%)" : "translateX(-50%)";
+      const label = formatMemoryTickLabel(offset4, stepMb);
+      s2 += `<div style="position:absolute;left:${leftPct.toFixed(4)}%;top:0;transform:${transform4};font-family:monospace;font-size:10px;color:#444;white-space:nowrap;line-height:${MEMORY_AXIS_HEIGHT - 4}px;padding:0 2px;">${label}</div>`;
+    }
+    s2 += `</div>`;
+    return { html: s2, tickOffsetsMb, stepMb };
+  }
+  function renderMemoryGridlines(tickOffsetsMb, totalMb, topPx, heightPx) {
+    if (totalMb <= 0 || tickOffsetsMb.length === 0 || heightPx <= 0) return "";
+    let s2 = `<div class="memory-gridlines" style="position:absolute;left:0;right:0;top:${topPx}px;height:${heightPx}px;pointer-events:none;">`;
+    for (const offset4 of tickOffsetsMb) {
+      const leftPct = offset4 / totalMb * 100;
+      s2 += `<div style="position:absolute;left:${leftPct.toFixed(4)}%;top:0;bottom:0;width:1px;background:rgba(0,0,0,0.08);"></div>`;
+    }
+    s2 += `</div>`;
+    return s2;
+  }
   function renderMemoryStacks(prof) {
     const stacks = prof.memory_stacks ?? [];
     if (stacks.length === 0) return "";
@@ -71858,7 +71910,11 @@ ${qty} (${pct}%)`;
     const totalMb = root.totalHits;
     if (totalMb <= 0) return "";
     const depth = flameMaxDepth(root);
-    const containerHeight = depth * FLAME_ROW_HEIGHT;
+    const axisTop = 0;
+    const flameTop = axisTop + MEMORY_AXIS_HEIGHT + MEMORY_AXIS_GAP;
+    const flameHeight = depth * FLAME_ROW_HEIGHT;
+    const containerHeight = flameTop + flameHeight;
+    const axis = renderMemoryAxis(totalMb, axisTop);
     let s2 = `<hr><div class="container-fluid memory-stacks-section">`;
     s2 += `<p style="margin-bottom: 4px;">`;
     s2 += `<span id="button-memory-stacks" class="disclosure-triangle" title="Click to show or hide memory-weighted call stacks." onClick="toggleMemoryStacks()">${RightTriangle}</span>`;
@@ -71867,7 +71923,16 @@ ${qty} (${pct}%)`;
     s2 += `</p>`;
     s2 += `<div id="memory-stacks-body" style="display: none;">`;
     s2 += `<div class="memory-stacks-flame" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;">`;
+    s2 += axis.html;
+    s2 += renderMemoryGridlines(
+      axis.tickOffsetsMb,
+      totalMb,
+      flameTop,
+      flameHeight
+    );
+    s2 += `<div style="position:absolute;left:0;right:0;top:${flameTop}px;height:${flameHeight}px;">`;
     s2 += renderFlameRecursive(root, 0, 0, 100, totalMb, formatMb);
+    s2 += `</div>`;
     s2 += `</div></div></div>`;
     return s2;
   }
@@ -72077,10 +72142,10 @@ ${range7} ${samples}`;
     }
     return s2;
   }
-  function pickTimelineTickIntervalSec(totalSec, pixelWidth) {
-    if (totalSec <= 0 || pixelWidth <= 0) return 0;
+  function pickNiceTickInterval(total, pixelWidth) {
+    if (total <= 0 || pixelWidth <= 0) return 0;
     const maxTicks = Math.max(2, Math.floor(pixelWidth / TIMELINE_MIN_TICK_SPACING_PX));
-    const rawStep = totalSec / maxTicks;
+    const rawStep = total / maxTicks;
     if (rawStep <= 0) return 0;
     const decade = Math.pow(10, Math.floor(Math.log10(rawStep)));
     const normalized = rawStep / decade;
@@ -72105,7 +72170,7 @@ ${range7} ${samples}`;
     if (totalSec <= 0) {
       return { html: "", tickOffsetsSec: [], stepSec: 0 };
     }
-    const stepSec = pickTimelineTickIntervalSec(totalSec, TIMELINE_BUCKETS);
+    const stepSec = pickNiceTickInterval(totalSec, TIMELINE_BUCKETS);
     if (stepSec <= 0) {
       return { html: "", tickOffsetsSec: [], stepSec: 0 };
     }
