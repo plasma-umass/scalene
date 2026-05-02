@@ -110,19 +110,18 @@ def _render(tmp_path: pathlib.Path, profile: Dict[str, Any]) -> str:
 def test_bundle_contains_new_render_helpers() -> None:
     """The TS source must have been rebuilt before this PR is merged.
 
-    Only checks exported identifiers and DOM class-name strings, which
-    survive minification. Internal helper function names are mangled by
-    `esbuild --minify` and are asserted on via the TypeScript source
-    below.
+    Only checks string literals that survive minification: function names
+    used in onClick handlers (which become string literals) and CSS class
+    names. Internal function names like renderCombinedStacks are mangled
+    by esbuild --minify and are asserted via the TypeScript source tests.
     """
     assert BUNDLE_PATH.exists(), f"missing bundle at {BUNDLE_PATH}"
     src = BUNDLE_PATH.read_text(encoding="utf-8")
     for sym in (
-        # Exported names (attached to the IIFE's exports object, preserved)
-        "renderCombinedStacks",
+        # Function names used in onClick handlers survive as string literals
         "toggleCombinedStacks",
-        "renderCombinedStacksTimeline",
-        "renderMemoryStacks",
+        "toggleCombinedStacksTimeline",
+        "toggleMemoryStacks",
         # DOM class-name string literals (preserved — they're data, not code)
         "timeline-axis",
         "timeline-gridlines",
@@ -312,9 +311,7 @@ def test_section_present_when_combined_stacks_populated(tmp_path: pathlib.Path) 
     # CSS rules from the template
     assert ".combined-stacks-section" in html
     assert ".flame-segment" in html
-    # Exported names from the bundle (survive minification because they're
-    # attached to the IIFE's exports object)
-    assert "renderCombinedStacks" in html
+    # Function names used in onClick handlers survive minification as strings
     assert "toggleCombinedStacks" in html
     # The profile JSON literal includes our combined_stacks data
     assert "marker_native_symbol" in html
