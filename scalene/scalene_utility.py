@@ -62,6 +62,91 @@ except ImportError:
     _native_unwind_available = False
 
 
+# Per-process intern caches for stitched-stack frame keys.
+#
+# Every CPU sample that captures a stitched stack constructs a fresh tuple of
+# PyFrameKey / NativeFrameKey instances. Without interning, two consecutive
+# samples on the same line allocate two distinct frame objects that compare
+# equal, and only the `combined_stacks` dict de-duplicates them (the one fed
+# into the timeline is retained for the lifetime of the profile). At high
+# sample rates the timeline list holds millions of these redundant objects.
+#
+# These caches ensure that equal frames share a single instance, so a tuple
+# captured twice at the same point is represented by the same Python objects
+# throughout. Combined with __slots__ on the frame dataclasses, this collapses
+# the timeline's per-run memory cost by roughly an order of magnitude.
+#
+# The caches are module-level because they belong to the profiler process (one
+# profile per process) and because add_combined_stack / add_async_await_run
+# are called from the CPU-sample sigqueue thread on a hot path — a single
+# dict lookup is cheaper than constructing a fresh dataclass instance.
+# Cleared on each ``clear_intern_caches()`` call (invoked from Scalene.start()
+# so that multiprocess runs / repeated magic-cell invocations don't leak state
+# across profiling sessions).
+_py_frame_intern: Dict[Tuple[str, str, int], PyFrameKey] = {}
+_native_frame_intern: Dict[int, NativeFrameKey] = {}
+
+
+def _intern_py_frame(filename: str, function: str, line: int) -> PyFrameKey:
+    """Return the shared PyFrameKey for (filename, function, line),
+    constructing and caching a new one on first sight. Not thread-safe by
+    design: callers are single-threaded (the sigqueue worker and the
+    CPU-sample Python handler, which are serialized by the GIL + sigqueue
+    lock). A racy double-insert would still be correctness-safe (both keys
+    hash-equal) but waste a slot.
+    """
+    key = (filename, function, line)
+    cached = _py_frame_intern.get(key)
+    if cached is None:
+        cached = PyFrameKey(filename=filename, function=function, line=line)
+        _py_frame_intern[key] = cached
+    return cached
+
+
+def _intern_native_frame(ip: int) -> NativeFrameKey:
+    """Return the shared NativeFrameKey for ``ip``, constructing one on
+    first sight. Same thread-safety caveat as _intern_py_frame."""
+    cached = _native_frame_intern.get(ip)
+    if cached is None:
+        cached = NativeFrameKey(ip=ip)
+        _native_frame_intern[ip] = cached
+    return cached
+
+
+def clear_intern_caches() -> None:
+    """Drop all cached frame-key instances. Safe to call any time the
+    profiler is between sessions. After a clear, subsequent samples
+    repopulate the caches from scratch."""
+    _py_frame_intern.clear()
+    _native_frame_intern.clear()
+    _stack_frame_intern.clear()
+
+
+# StackFrame intern cache for the memory-stacks path (parallel rationale to
+# the PyFrameKey cache above, but for the memory_stacks dict). Keyed by
+# (filename, function_name, line_number). Populated by ``intern_stack_frame``;
+# callers outside this module (notably scalene_memory_profiler) reuse it to
+# avoid reconstructing equal StackFrame objects for every malloc sample.
+_stack_frame_intern: Dict[Tuple[str, str, int], StackFrame] = {}
+
+
+def intern_stack_frame(
+    filename: str, function_name: str, line_number: int
+) -> StackFrame:
+    """Return a shared StackFrame for (filename, function_name, line_number).
+    Constructs and caches a new one on first sight."""
+    key = (filename, function_name, line_number)
+    cached = _stack_frame_intern.get(key)
+    if cached is None:
+        cached = StackFrame(
+            filename=filename,
+            function_name=function_name,
+            line_number=line_number,
+        )
+        _stack_frame_intern[key] = cached
+    return cached
+
+
 def enter_function_meta(
     frame: FrameType,
     should_trace: Callable[[Filename, str], bool],
@@ -190,10 +275,10 @@ def add_stack(
         if should_trace(Filename(f.f_code.co_filename), f.f_code.co_name):
             stk.insert(
                 0,
-                StackFrame(
-                    filename=str(f.f_code.co_filename),
-                    function_name=str(get_fully_qualified_name(f)),
-                    line_number=(
+                intern_stack_frame(
+                    str(f.f_code.co_filename),
+                    str(get_fully_qualified_name(f)),
+                    (
                         int(f.f_lineno)
                         if f.f_lineno is not None
                         else int(f.f_code.co_firstlineno)
@@ -297,10 +382,10 @@ def add_combined_stack(
             )
             py_chain.insert(
                 0,
-                PyFrameKey(
-                    filename=str(f.f_code.co_filename),
-                    function=str(get_fully_qualified_name(f)),
-                    line=line,
+                _intern_py_frame(
+                    str(f.f_code.co_filename),
+                    str(get_fully_qualified_name(f)),
+                    line,
                 ),
             )
         f = f.f_back
@@ -312,7 +397,7 @@ def add_combined_stack(
         # native-entry -> native-leaf, which means reversing the
         # leaf-first tuple from the unwinder.
         native_segment: Tuple[NativeFrameKey, ...] = tuple(
-            NativeFrameKey(ip=ip) for ip in reversed(native_stk)
+            _intern_native_frame(ip) for ip in reversed(native_stk)
         )
         key: CombinedStackKey = py_chain_tuple + native_segment
         combined_stacks[key] += 1
@@ -398,10 +483,10 @@ def add_async_await_run(
                     else (cfunc or "<coroutine>")
                 )
                 py_frames.append(
-                    PyFrameKey(
-                        filename=str(cf_filename),
-                        function=func_label,
-                        line=int(cl),
+                    _intern_py_frame(
+                        str(cf_filename),
+                        func_label,
+                        int(cl),
                     )
                 )
 
@@ -414,10 +499,10 @@ def add_async_await_run(
                 continue
             func_name: str = task.func_name or "<await>"
             py_frames.append(
-                PyFrameKey(
-                    filename=str(filename),
-                    function=f"[await] {func_name}{task_suffix}",
-                    line=int(task.lineno),
+                _intern_py_frame(
+                    str(filename),
+                    f"[await] {func_name}{task_suffix}",
+                    int(task.lineno),
                 )
             )
 

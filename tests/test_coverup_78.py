@@ -32,7 +32,14 @@ def test_register_files_to_profile(scalene_cleanup):
         # Call the method under test
         Scalene._register_files_to_profile()
 
-        # Check that pywhere.register_files_to_profile was called with the correct arguments
-        mock_register_files_to_profile.assert_called_once_with(
-            ["test3.py", "test1.py", "test2.py"], ".", False
-        )
+        # The 4th positional arg is the canonical path of the installed
+        # scalene package (used by TraceConfig to exclude Scalene-internal
+        # frames via an absolute-path prefix check). Value depends on the
+        # installation path, so assert it is a non-empty str rather than a
+        # fixed string.
+        assert mock_register_files_to_profile.call_count == 1
+        args, kwargs = mock_register_files_to_profile.call_args
+        assert args[0] == ["test3.py", "test1.py", "test2.py"]
+        assert args[1] == "."
+        assert args[2] is False
+        assert isinstance(args[3], str) and args[3]  # non-empty package path

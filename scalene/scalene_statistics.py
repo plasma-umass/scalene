@@ -42,8 +42,15 @@ class PyFrameKey:
     Frozen so instances are hashable and usable as parts of dict keys
     (specifically inside CombinedStackKey tuples used to key
     ``ScaleneStatistics.combined_stacks``).
+
+    __slots__ keeps each instance at ~200 bytes instead of ~650 bytes
+    (no per-instance __dict__). At the scale of the stitched-stacks
+    timeline this is the single biggest in-process memory win. Manual
+    slots tuple rather than ``slots=True`` because Scalene supports
+    Python 3.8.
     """
 
+    __slots__ = ("filename", "function", "line")
     filename: str
     function: str
     line: int
@@ -56,6 +63,7 @@ class NativeFrameKey:
     in the signal handler. Frozen for the same reason as PyFrameKey.
     """
 
+    __slots__ = ("ip",)
     ip: int
 
 
@@ -84,8 +92,14 @@ class CombinedStackRun:
         stack_key: The stitched stack — same shape as the keys of
             ``ScaleneStatistics.combined_stacks``.
         count: Number of consecutive CPU samples in this run.
+
+    Non-frozen so ``count`` can be incremented in place when the next
+    sample hits the same stack. __slots__ drops the per-run overhead
+    from ~590 bytes to ~150 bytes, which matters because the timeline
+    can hold up to ``combined_stacks_timeline_max_runs`` (100K) entries.
     """
 
+    __slots__ = ("timestamp", "stack_key", "count")
     timestamp: float
     stack_key: CombinedStackKey
     count: int
@@ -152,7 +166,16 @@ class MemcpyProfilingSample:
 
 
 class StackFrame:
-    """Represents a single frame in the stack."""
+    """Represents a single frame in the stack.
+
+    __slots__ drops each instance from ~660 bytes to ~80 bytes by
+    eliminating the per-instance __dict__. StackFrame is the element
+    type of ``ScaleneStatistics.memory_stacks`` keys, where every
+    malloc sample that flows through ``process_malloc_free_samples``
+    constructs fresh frames before the dict dedupes by equality.
+    """
+
+    __slots__ = ("filename", "function_name", "line_number")
 
     def __init__(self, filename: str, function_name: str, line_number: int) -> None:
         self.filename = filename
@@ -177,6 +200,8 @@ class StackFrame:
 
 class StackStats:
     """Represents statistics for a stack."""
+
+    __slots__ = ("count", "python_time", "c_time", "cpu_samples")
 
     def __init__(
         self, count: int, python_time: float, c_time: float, cpu_samples: float
