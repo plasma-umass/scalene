@@ -118,6 +118,7 @@ from scalene.scalene_tracer import (
 from scalene.scalene_tracing import ScaleneTracing
 from scalene.scalene_utility import (
     add_stack,
+    clear_intern_caches,
     compute_frames_to_record,
     drain_native_stacks,
     enter_function_meta,
@@ -1203,6 +1204,11 @@ class Scalene:
                 file=sys.stderr,
             )
             sys.exit(1)
+        # Drop any frame-key intern cache carried over from a prior session
+        # (Jupyter magic cells, repeated profile runs in the same process,
+        # etc.). Must happen before we start sampling so the cache reflects
+        # only the current run.
+        clear_intern_caches()
         Scalene.__stats.start_clock()
         Scalene.enable_signals()
         Scalene.__start_time = time.monotonic_ns()
@@ -1230,10 +1236,20 @@ class Scalene:
         if Scalene.__args.async_profile:
             ScaleneAsync.disable()
 
-        if Scalene.__args.memory:
+        # Flip p_scalene_done back to true so the allocator interposer
+        # stops recording — in particular, allocations made while we
+        # serialize the profile to JSON must not land in the profile
+        # itself. Called unconditionally (not gated on --memory) so the
+        # invariant "no allocations are tracked after stop()" holds even
+        # on code paths that exit through term_signal_handler or other
+        # non-standard shutdown routes. When libscalene isn't preloaded
+        # (CPU-only mode), set_scalene_done_true is a no-op by design.
+        try:
             from scalene import pywhere  # type: ignore
 
             pywhere.set_scalene_done_true()
+        except ImportError:
+            pass
 
         Scalene._disable_signals()
         Scalene.__stats.stop_clock()
@@ -1698,14 +1714,31 @@ class Scalene:
     @staticmethod
     def _register_files_to_profile() -> None:
         """Tells the pywhere module, which tracks memory, which files to profile."""
+        import scalene as _scalene_pkg
         from scalene import pywhere  # type: ignore
 
         profile_only_list = Scalene.__args.profile_only.split(",")
+
+        # Pass the canonical path of the installed scalene package so the C++
+        # TraceConfig can exclude Scalene-internal frames via an absolute-path
+        # prefix match, not just a parent-directory-name heuristic. The
+        # fallback "scalene" parent-directory check stays in place; this is
+        # additive belt-and-suspenders.
+        scalene_pkg_path: str | None = None
+        try:
+            scalene_pkg_file = getattr(_scalene_pkg, "__file__", None)
+            if scalene_pkg_file:
+                scalene_pkg_path = os.path.realpath(
+                    os.path.dirname(scalene_pkg_file)
+                )
+        except (TypeError, ValueError, OSError):
+            scalene_pkg_path = None
 
         pywhere.register_files_to_profile(
             list(Scalene.__files_to_profile) + profile_only_list,
             Scalene.__program_path,
             Scalene.__args.profile_all,
+            scalene_pkg_path,
         )
 
     @staticmethod
