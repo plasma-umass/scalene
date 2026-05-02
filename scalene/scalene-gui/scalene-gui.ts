@@ -1173,7 +1173,7 @@ export function renderCombinedStacks(prof: Profile): string {
   s += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples — hover for details, click a [py] frame to jump to its source line</span>`;
   s += `</p>`;
   s += `<div id="combined-stacks-body" style="display: none;">`;
-  s += `<div class="combined-stacks-flame" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;">`;
+  s += `<div class="combined-stacks-flame resizable-chart" style="position:relative;width:100%;height:${containerHeight}px;min-height:50px;max-height:80vh;border:1px solid #ccc;background:#f0f0f0;overflow:auto;resize:vertical;">`;
   s += renderFlameRecursive(root, 0, 0, 100, totalHits);
   s += `</div></div></div>`;
   return s;
@@ -1257,9 +1257,11 @@ function renderMemoryAxis(
     tickOffsetsMb.push(offset);
   }
   let s = "";
+  // Use position:sticky with top:0 so axis stays visible when scrolling
+  // vertically within the container.
   s +=
-    `<div class="memory-axis" style="position:absolute;left:0;right:0;` +
-    `top:${topPx}px;height:${MEMORY_AXIS_HEIGHT}px;` +
+    `<div class="memory-axis" style="position:sticky;top:0;left:0;right:0;z-index:10;` +
+    `height:${MEMORY_AXIS_HEIGHT}px;background:#f0f0f0;` +
     `border-bottom:1px solid #bbb;box-sizing:border-box;">`;
   for (const offset of tickOffsetsMb) {
     const leftPct = (offset / totalMb) * 100;
@@ -1293,6 +1295,8 @@ function renderMemoryGridlines(
   heightPx: number,
 ): string {
   if (totalMb <= 0 || tickOffsetsMb.length === 0 || heightPx <= 0) return "";
+  // Gridlines are position:absolute so they scroll with the flame chart content,
+  // keeping tick marks aligned with the data they represent.
   let s =
     `<div class="memory-gridlines" style="position:absolute;left:0;right:0;` +
     `top:${topPx}px;height:${heightPx}px;pointer-events:none;">`;
@@ -1332,21 +1336,22 @@ export function renderMemoryStacks(prof: Profile): string {
   s += `</p>`;
   s += `<div id="memory-stacks-body" style="display: none;">`;
   s +=
-    `<div class="memory-stacks-flame" style="position:relative;width:100%;` +
-    `height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;` +
-    `overflow-x:auto;">`;
-  // Axis first, then gridlines (overlay), then flame chart slotted below.
+    `<div class="memory-stacks-flame resizable-chart" style="position:relative;width:100%;` +
+    `height:${containerHeight}px;min-height:50px;max-height:80vh;border:1px solid #ccc;background:#f0f0f0;` +
+    `overflow:auto;resize:vertical;">`;
+  // Axis is sticky at top:0. Content wrapper is relative so it flows after axis.
   s += axis.html;
+  // Content wrapper: relative positioning, margin-top accounts for sticky axis height
+  s += `<div style="position:relative;width:100%;height:${flameHeight}px;">`;
   s += renderMemoryGridlines(
     axis.tickOffsetsMb,
     totalMb,
-    flameTop,
+    0,
     flameHeight,
   );
-  s +=
-    `<div style="position:absolute;left:0;right:0;top:${flameTop}px;` +
-    `height:${flameHeight}px;">`;
+  s += `<div style="position:absolute;left:0;right:0;top:0;height:${flameHeight}px;">`;
   s += renderFlameRecursive(root, 0, 0, 100, totalMb, formatMb);
+  s += `</div>`;
   s += `</div>`;
   s += `</div></div></div>`;
   return s;
@@ -1435,35 +1440,61 @@ const GC_NAME_PATTERNS = [
   /(?:\b|_)invoke_gc_callback(?:_|\b)/,
   /(?:\b|_)move_legacy_finalizers?(?:_|\b)/,
 ];
+// I/O syscall patterns - must be specific to avoid false positives.
+// These match actual blocking I/O syscalls, not general functions with
+// similar names (e.g., we want "read" the syscall, not "_PyBytes_Repeat").
 const IO_NAME_PATTERNS = [
   // Synthetic await frame emitted by add_async_await_run when a sample
-  // lands inside the event loop with coroutines suspended. Kept first
-  // since the literal "[await]" prefix is the cheapest possible match.
+  // lands inside the event loop with coroutines suspended.
   /^\[await\]/,
-  /(?:\b|_)read(?:v)?(?:_|\b)/,
-  /(?:\b|_)pread(?:v)?(?:_|\b)/,
-  /(?:\b|_)write(?:v)?(?:_|\b)/,
-  /(?:\b|_)pwrite(?:v)?(?:_|\b)/,
-  /(?:\b|_)recv(?:from|msg)?(?:_|\b)/,
-  /(?:\b|_)send(?:to|msg)?(?:_|\b)/,
-  /(?:\b|_)select(?:_|\b)/,
-  /(?:\b|_)epoll(?:_|\b)/,
-  /(?:\b|_)kevent(?:_|\b)/,
-  /(?:\b|_)kqueue(?:_|\b)/,
-  /(?:\b|_)poll(?:_|\b)/,
-  /(?:\b|_)accept[0-9]*(?:_|\b)/,
-  /(?:\b|_)connect(?:_|\b)/,
-  /(?:\b|_)open(?:at|dir)?(?:_|\b)/,
-  /(?:\b|_)close(?:_|\b)/,
-  /(?:\b|_)fsync(?:_|\b)/,
-  /(?:\b|_)fread(?:_|\b)/,
-  /(?:\b|_)fwrite(?:_|\b)/,
-  /(?:\b|_)lseek(?:_|\b)/,
+  // Exact syscall names (must be the whole symbol or at word boundary)
+  /^read$/,
+  /^write$/,
+  /^pread(?:64)?$/,
+  /^pwrite(?:64)?$/,
+  /^readv$/,
+  /^writev$/,
+  /^recv$/,
+  /^recvfrom$/,
+  /^recvmsg$/,
+  /^send$/,
+  /^sendto$/,
+  /^sendmsg$/,
+  /^select$/,
+  /^pselect$/,
+  /^poll$/,
+  /^ppoll$/,
+  /^epoll_wait$/,
+  /^epoll_pwait$/,
+  /^kevent$/,
+  /^accept$/,
+  /^accept4$/,
+  /^connect$/,
+  /^open$/,
+  /^openat$/,
+  /^close$/,
+  /^fsync$/,
+  /^fdatasync$/,
+  /^fread$/,
+  /^fwrite$/,
+  /^lseek$/,
+  // Underscore-prefixed variants (macOS/glibc internal names)
+  /^__(?:read|write|pread|pwrite|recv|send|select|poll|open|close)$/,
+  /^_(?:read|write|pread|pwrite|recv|send|select|poll|open|close)$/,
+  // pthread I/O-related blocking
+  /^pthread_cond_wait$/,
+  /^pthread_cond_timedwait$/,
+  /^__psynch_cvwait$/,  // macOS condition variable
+  // Python I/O module functions
+  /^_io_FileIO_read(?:all|into)?$/,
+  /^_io_FileIO_write$/,
+  /^_io_BufferedReader_read/,
+  /^_io_BufferedWriter_write/,
 ];
+// File path patterns for Python I/O modules
 const IO_FILE_PATTERNS = [
   /\b_io\b/,
   /\bsocket\.py$/,
-  /\bsocket\b/,
   /\bselectors\.py$/,
   /\bselector_events\.py$/,
   /\basyncio\b/,
@@ -1748,16 +1779,18 @@ function renderTimelineAxis(
     tickOffsetsSec.push(offset);
   }
   let s = "";
+  // Use position:sticky with top:0 so axis stays visible when scrolling
+  // vertically within the container.
   s +=
-    `<div style="position:absolute;left:0;top:${topPx}px;` +
+    `<div style="position:sticky;top:0;left:0;z-index:10;` +
     `width:${TIMELINE_LEFT_GUTTER_PX}px;height:${TIMELINE_AXIS_HEIGHT}px;` +
-    `font-family:monospace;font-size:10px;color:#444;` +
+    `font-family:monospace;font-size:10px;color:#444;background:#f0f0f0;` +
     `line-height:${TIMELINE_AXIS_HEIGHT}px;text-align:right;padding-right:4px;` +
-    `box-sizing:border-box;">time</div>`;
+    `box-sizing:border-box;float:left;">time</div>`;
   s +=
-    `<div class="timeline-axis" style="position:absolute;` +
-    `left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;top:${topPx}px;` +
-    `height:${TIMELINE_AXIS_HEIGHT}px;border-bottom:1px solid #bbb;` +
+    `<div class="timeline-axis" style="position:sticky;top:0;z-index:10;` +
+    `margin-left:${TIMELINE_LEFT_GUTTER_PX}px;height:${TIMELINE_AXIS_HEIGHT}px;` +
+    `border-bottom:1px solid #bbb;background:#f0f0f0;` +
     `box-sizing:border-box;">`;
   for (const offset of tickOffsetsSec) {
     const leftPct = (offset / totalSec) * 100;
@@ -1798,6 +1831,8 @@ function renderTimelineGridlines(
   heightPx: number,
 ): string {
   if (totalSec <= 0 || tickOffsetsSec.length === 0 || heightPx <= 0) return "";
+  // Gridlines are position:absolute so they scroll with the timeline content,
+  // keeping tick marks aligned with the data they represent.
   let s =
     `<div class="timeline-gridlines" style="position:absolute;` +
     `left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;top:${topPx}px;` +
@@ -1898,9 +1933,9 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
   s += `</p>`;
   s += `<div id="combined-timeline-body" style="display: none;">`;
   s +=
-    `<div class="combined-stacks-timeline" style="position:relative;width:100%;` +
-    `height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;` +
-    `overflow-x:auto;padding:0;">`;
+    `<div class="combined-stacks-timeline resizable-chart" style="position:relative;width:100%;` +
+    `height:${containerHeight}px;min-height:50px;max-height:80vh;border:1px solid #ccc;background:#f0f0f0;` +
+    `overflow:auto;resize:vertical;padding:0;">`;
   // Axis first so gridlines (next) lay on top where the track row begins.
   s += axis.html;
   // Gridlines span the full tracks + main panel. pointer-events:none on the
