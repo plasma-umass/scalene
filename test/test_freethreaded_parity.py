@@ -310,17 +310,49 @@ def run_base_test(tmpdir):
         print("  WARNING: No C/native CPU time detected (sampling may have missed it)")
 
     # ---- CPU-only mode ----
-    out_cpu = os.path.join(tmpdir, "profile_cpu.json")
+    # Signal-based CPU sampling on macOS CI runners is occasionally
+    # sparse enough that ``workload.py`` falls below
+    # ScaleneJSON.cpu_percent_threshold (=1%) and gets filtered out of
+    # the ``files`` section entirely — even though the run succeeded.
+    # Mirror the retry-on-empty-profile pattern used by the pytest
+    # bigmem fixture (tests/test_memory_stacks_bigmem.py) so a single
+    # flake doesn't fail the matrix.
     print("\nPhase 1b: base workload (cpu-only)...")
-    profile_cpu, rc_cpu, stderr_cpu = run_scalene(script, out_cpu, ["--cpu-only"])
+    CPU_ONLY_MAX_ATTEMPTS = 3
+    profile_cpu = None
+    fname_cpu = None
+    rc_cpu = 0
+    stderr_cpu = ""
+    for attempt in range(1, CPU_ONLY_MAX_ATTEMPTS + 1):
+        out_cpu = os.path.join(tmpdir, f"profile_cpu_{attempt}.json")
+        profile_cpu, rc_cpu, stderr_cpu = run_scalene(
+            script, out_cpu, ["--cpu-only"]
+        )
+        if rc_cpu != 0:
+            print(f"  attempt {attempt}: Scalene exited with code {rc_cpu}")
+            continue
+        if profile_cpu is None:
+            print(f"  attempt {attempt}: no JSON profile produced")
+            continue
+        fname_cpu = find_file(profile_cpu, "workload.py")
+        if fname_cpu is not None:
+            if attempt > 1:
+                print(f"  attempt {attempt}: got usable profile")
+            break
+        print(
+            f"  attempt {attempt}: workload.py not found in cpu-only profile "
+            f"(files: {list(profile_cpu.get('files', {}).keys())}) — retrying"
+        )
 
     if rc_cpu != 0:
         print(f"CPU-only Scalene exited with code {rc_cpu}\nSTDERR:\n{stderr_cpu}")
         sys.exit(1)
-
     check(profile_cpu is not None, "No JSON profile from cpu-only run")
-    fname_cpu = find_file(profile_cpu, "workload.py")
-    check(fname_cpu is not None, "workload.py not found in cpu-only profile")
+    check(
+        fname_cpu is not None,
+        f"workload.py not found in cpu-only profile after "
+        f"{CPU_ONLY_MAX_ATTEMPTS} attempts",
+    )
 
     m_cpu = extract_metrics(profile_cpu, fname_cpu)
     print(f"  CPU (total): {m_cpu['total_cpu']:.1f}%")
