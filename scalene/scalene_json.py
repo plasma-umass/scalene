@@ -72,7 +72,7 @@ def _init_demangler() -> Optional[Callable[[bytes], Optional[str]]]:
 
             def _demangle(mangled: bytes) -> Optional[str]:
                 status = ctypes.c_int()
-                result = demangle(mangled, None, None, ctypes.byref(status))
+                result: Optional[bytes] = demangle(mangled, None, None, ctypes.byref(status))
                 if status.value == 0 and result:
                     return result.decode("utf-8", errors="replace")
                 return None
