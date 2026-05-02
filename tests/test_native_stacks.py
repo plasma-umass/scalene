@@ -331,7 +331,10 @@ def _run_scalene_or_skip(
     WINDOWS, reason="--stacks native unwinder not on Windows"
 )
 def test_scalene_subprocess_with_stacks_smoke(tmp_path):
-    """End-to-end: --stacks should populate native_stacks when sampling fires."""
+    """End-to-end: --stacks should populate combined_stacks with native
+    segments when sampling fires. (The standalone ``native_stacks`` JSON
+    section was dropped in the P6 cleanup; every native stack captured
+    alongside a Python chain is already present in the stitched view.)"""
     profile = _run_scalene_or_skip(tmp_path, "--stacks")
 
     # If sampling didn't fire at all on this runner, skip — not a bug
@@ -339,31 +342,51 @@ def test_scalene_subprocess_with_stacks_smoke(tmp_path):
     if not profile.get("stacks"):
         pytest.skip(
             "Scalene produced no Python stacks on this runner; can't pin "
-            "an empty native_stacks on the unwinder."
+            "an empty combined_stacks native segment on the unwinder."
         )
 
-    native = profile.get("native_stacks")
-    assert isinstance(native, list)
-    assert len(native) > 0, (
-        "expected native_stacks to be populated when --stacks is set and "
+    combined = profile.get("combined_stacks")
+    assert isinstance(combined, list)
+    assert len(combined) > 0, (
+        "expected combined_stacks to be populated when --stacks is set and "
         "Scalene successfully sampled the workload"
     )
-    # Schema check: each entry is (frames, hits) with 4-tuple frames
-    for entry in native:
+    # At least one entry should contain a native frame — this is what
+    # the old native_stacks section was checking for. Schema sanity
+    # check: each entry is (frames, hits) with frames being dicts
+    # carrying kind/ip/offset/etc.
+    saw_native_frame = False
+    for entry in combined:
         assert isinstance(entry, list) and len(entry) == 2
         frames, hits = entry
         assert isinstance(hits, int) and hits >= 1
         assert isinstance(frames, list) and len(frames) >= 1
         for frame in frames:
-            assert isinstance(frame, list) and len(frame) == 4
+            assert isinstance(frame, dict)
+            assert frame.get("kind") in ("py", "native")
+            if frame["kind"] == "native":
+                saw_native_frame = True
+                assert isinstance(frame.get("ip"), int)
+                assert isinstance(frame.get("offset"), int)
+                assert isinstance(frame.get("filename_or_module"), str)
+                assert isinstance(frame.get("display_name"), str)
+    assert saw_native_frame, (
+        "expected at least one native frame across combined_stacks when "
+        "--stacks is set and Scalene successfully sampled the workload"
+    )
 
 
 def test_scalene_subprocess_no_stacks_smoke(tmp_path):
-    """Default (no --stacks) must not produce native_stacks."""
+    """Default (no --stacks) must not produce combined_stacks, and must
+    not emit the (now-removed) ``native_stacks`` JSON key at all."""
     profile = _run_scalene_or_skip(tmp_path)
-    assert profile.get("native_stacks", []) == [], (
-        "Expected empty native_stacks without --stacks; got "
-        f"{len(profile.get('native_stacks', []))} entries"
+    assert profile.get("combined_stacks", []) == [], (
+        "Expected empty combined_stacks without --stacks; got "
+        f"{len(profile.get('combined_stacks', []))} entries"
+    )
+    assert "native_stacks" not in profile, (
+        "native_stacks JSON key was dropped in P6; profile should not "
+        "emit it regardless of --stacks setting"
     )
 
 
@@ -1141,12 +1164,13 @@ class TestCombinedStacksJson:
         # Only the Python anchor remains.
         assert [f["kind"] for f in frames] == ["py"]
 
-    def test_py_frames_include_source_code_line(self, tmp_path):
-        """Each py frame in combined_stacks gets a code_line field with the
-        actual source line at that filename:lineno, so the GUI can display
-        something more useful than the bare function name (esp. for
-        '<module>' top-level frames). Missing files / out-of-range lines
-        produce empty strings, never crashes."""
+    def test_py_frames_omit_code_line(self, tmp_path):
+        """Py frames in combined_stacks must no longer carry a
+        ``code_line`` field. The GUI looks up source text on demand from
+        ``profile.files[filename].lines``, so duplicating the string on
+        every frame is pure wire overhead. Regression against re-adding
+        the field on a future refactor. See P5 in the overhead-reduction
+        work."""
         from scalene.scalene_json import ScaleneJSON
         from scalene.scalene_statistics import (
             Filename,
@@ -1155,15 +1179,10 @@ class TestCombinedStacksJson:
         )
 
         src = tmp_path / "src.py"
-        src.write_text("a = 1\nb = 2\nc = a + b\n")  # 3 lines
+        src.write_text("a = 1\nb = 2\nc = a + b\n")
 
         stats = ScaleneStatistics()
-        # Three frames: existing line, missing file, out-of-range line.
-        stk = (
-            PyFrameKey(str(src), "module_top", 3),
-            PyFrameKey("/nonexistent/file.py", "missing_file_fn", 1),
-            PyFrameKey(str(src), "out_of_range_fn", 999),
-        )
+        stk = (PyFrameKey(str(src), "module_top", 3),)
         stats.combined_stacks[stk] = 4
         stats.cpu_stats.total_cpu_samples = 1.0
         stats.cpu_stats.cpu_samples_python["/dummy.py"][1] = 1.0
@@ -1188,9 +1207,11 @@ class TestCombinedStacksJson:
         combined = profile["combined_stacks"]
         assert len(combined) == 1
         frames, _hits = combined[0]
-        assert frames[0]["code_line"] == "c = a + b"
-        assert frames[1]["code_line"] == ""  # file doesn't exist
-        assert frames[2]["code_line"] == ""  # line out of range
+        assert frames[0]["kind"] == "py"
+        assert "code_line" not in frames[0], (
+            "combined_stacks py frames must not carry a code_line field; "
+            "the GUI resolves source text from profile.files on demand."
+        )
 
     def test_dedupe_stacks_with_same_resolved_display(self, monkeypatch, tmp_path):
         """Two raw stacks that differ only in native IP/offset but resolve

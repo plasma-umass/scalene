@@ -30,9 +30,9 @@ var ScaleneGUI = (() => {
   ));
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-  // node_modules/base64-js/index.js
+  // scalene/scalene-gui/node_modules/base64-js/index.js
   var require_base64_js = __commonJS({
-    "node_modules/base64-js/index.js"(exports2) {
+    "scalene/scalene-gui/node_modules/base64-js/index.js"(exports2) {
       "use strict";
       exports2.byteLength = byteLength;
       exports2.toByteArray = toByteArray;
@@ -131,9 +131,9 @@ var ScaleneGUI = (() => {
     }
   });
 
-  // node_modules/ieee754/index.js
+  // scalene/scalene-gui/node_modules/ieee754/index.js
   var require_ieee754 = __commonJS({
-    "node_modules/ieee754/index.js"(exports2) {
+    "scalene/scalene-gui/node_modules/ieee754/index.js"(exports2) {
       exports2.read = function(buffer, offset4, isLE, mLen, nBytes) {
         var e4, m4;
         var eLen = nBytes * 8 - mLen - 1;
@@ -214,9 +214,9 @@ var ScaleneGUI = (() => {
     }
   });
 
-  // node_modules/buffer/index.js
+  // scalene/scalene-gui/node_modules/buffer/index.js
   var require_buffer = __commonJS({
-    "node_modules/buffer/index.js"(exports2) {
+    "scalene/scalene-gui/node_modules/buffer/index.js"(exports2) {
       "use strict";
       var base64 = require_base64_js();
       var ieee754 = require_ieee754();
@@ -1786,7 +1786,7 @@ var ScaleneGUI = (() => {
       function numberIsNaN(obj) {
         return obj !== obj;
       }
-      var hexSliceLookupTable = (function() {
+      var hexSliceLookupTable = function() {
         const alphabet = "0123456789abcdef";
         const table = new Array(256);
         for (let i2 = 0; i2 < 16; ++i2) {
@@ -1796,7 +1796,7 @@ var ScaleneGUI = (() => {
           }
         }
         return table;
-      })();
+      }();
       function defineBigIntMethod(fn) {
         return typeof BigInt === "undefined" ? BufferBigIntNotDefined : fn;
       }
@@ -1806,31 +1806,31 @@ var ScaleneGUI = (() => {
     }
   });
 
-  // node_modules/bowser/es5.js
+  // scalene/scalene-gui/node_modules/bowser/es5.js
   var require_es5 = __commonJS({
-    "node_modules/bowser/es5.js"(exports2, module5) {
-      !(function(e4, t4) {
+    "scalene/scalene-gui/node_modules/bowser/es5.js"(exports2, module5) {
+      !function(e4, t4) {
         "object" == typeof exports2 && "object" == typeof module5 ? module5.exports = t4() : "function" == typeof define && define.amd ? define([], t4) : "object" == typeof exports2 ? exports2.bowser = t4() : e4.bowser = t4();
-      })(exports2, (function() {
-        return (function(e4) {
+      }(exports2, function() {
+        return function(e4) {
           var t4 = {};
-          function r2(n2) {
-            if (t4[n2]) return t4[n2].exports;
-            var i2 = t4[n2] = { i: n2, l: false, exports: {} };
-            return e4[n2].call(i2.exports, i2, i2.exports, r2), i2.l = true, i2.exports;
+          function r2(i2) {
+            if (t4[i2]) return t4[i2].exports;
+            var n2 = t4[i2] = { i: i2, l: false, exports: {} };
+            return e4[i2].call(n2.exports, n2, n2.exports, r2), n2.l = true, n2.exports;
           }
-          return r2.m = e4, r2.c = t4, r2.d = function(e6, t5, n2) {
-            r2.o(e6, t5) || Object.defineProperty(e6, t5, { enumerable: true, get: n2 });
+          return r2.m = e4, r2.c = t4, r2.d = function(e6, t5, i2) {
+            r2.o(e6, t5) || Object.defineProperty(e6, t5, { enumerable: true, get: i2 });
           }, r2.r = function(e6) {
             "undefined" != typeof Symbol && Symbol.toStringTag && Object.defineProperty(e6, Symbol.toStringTag, { value: "Module" }), Object.defineProperty(e6, "__esModule", { value: true });
           }, r2.t = function(e6, t5) {
             if (1 & t5 && (e6 = r2(e6)), 8 & t5) return e6;
             if (4 & t5 && "object" == typeof e6 && e6 && e6.__esModule) return e6;
-            var n2 = /* @__PURE__ */ Object.create(null);
-            if (r2.r(n2), Object.defineProperty(n2, "default", { enumerable: true, value: e6 }), 2 & t5 && "string" != typeof e6) for (var i2 in e6) r2.d(n2, i2, function(t6) {
+            var i2 = /* @__PURE__ */ Object.create(null);
+            if (r2.r(i2), Object.defineProperty(i2, "default", { enumerable: true, value: e6 }), 2 & t5 && "string" != typeof e6) for (var n2 in e6) r2.d(i2, n2, function(t6) {
               return e6[t6];
-            }.bind(null, i2));
-            return n2;
+            }.bind(null, n2));
+            return i2;
           }, r2.n = function(e6) {
             var t5 = e6 && e6.__esModule ? function() {
               return e6.default;
@@ -1841,10 +1841,10 @@ var ScaleneGUI = (() => {
           }, r2.o = function(e6, t5) {
             return Object.prototype.hasOwnProperty.call(e6, t5);
           }, r2.p = "", r2(r2.s = 90);
-        })({ 17: function(e4, t4, r2) {
+        }({ 17: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var n2 = r2(18), i2 = (function() {
+          var i2 = r2(18), n2 = function() {
             function e6() {
             }
             return e6.getFirstMatch = function(e7, t5) {
@@ -1881,9 +1881,9 @@ var ScaleneGUI = (() => {
                   return;
               }
             }, e6.getMacOSVersionName = function(e7) {
-              var t5 = e7.split(".").splice(0, 2).map((function(e8) {
+              var t5 = e7.split(".").splice(0, 2).map(function(e8) {
                 return parseInt(e8, 10) || 0;
-              }));
+              });
               if (t5.push(0), 10 === t5[0]) switch (t5[1]) {
                 case 5:
                   return "Leopard";
@@ -1911,21 +1911,21 @@ var ScaleneGUI = (() => {
                   return;
               }
             }, e6.getAndroidVersionName = function(e7) {
-              var t5 = e7.split(".").splice(0, 2).map((function(e8) {
+              var t5 = e7.split(".").splice(0, 2).map(function(e8) {
                 return parseInt(e8, 10) || 0;
-              }));
+              });
               if (t5.push(0), !(1 === t5[0] && t5[1] < 5)) return 1 === t5[0] && t5[1] < 6 ? "Cupcake" : 1 === t5[0] && t5[1] >= 6 ? "Donut" : 2 === t5[0] && t5[1] < 2 ? "Eclair" : 2 === t5[0] && 2 === t5[1] ? "Froyo" : 2 === t5[0] && t5[1] > 2 ? "Gingerbread" : 3 === t5[0] ? "Honeycomb" : 4 === t5[0] && t5[1] < 1 ? "Ice Cream Sandwich" : 4 === t5[0] && t5[1] < 4 ? "Jelly Bean" : 4 === t5[0] && t5[1] >= 4 ? "KitKat" : 5 === t5[0] ? "Lollipop" : 6 === t5[0] ? "Marshmallow" : 7 === t5[0] ? "Nougat" : 8 === t5[0] ? "Oreo" : 9 === t5[0] ? "Pie" : void 0;
             }, e6.getVersionPrecision = function(e7) {
               return e7.split(".").length;
-            }, e6.compareVersions = function(t5, r3, n3) {
-              void 0 === n3 && (n3 = false);
-              var i3 = e6.getVersionPrecision(t5), s2 = e6.getVersionPrecision(r3), a4 = Math.max(i3, s2), o2 = 0, u5 = e6.map([t5, r3], (function(t6) {
-                var r4 = a4 - e6.getVersionPrecision(t6), n4 = t6 + new Array(r4 + 1).join(".0");
-                return e6.map(n4.split("."), (function(e7) {
+            }, e6.compareVersions = function(t5, r3, i3) {
+              void 0 === i3 && (i3 = false);
+              var n3 = e6.getVersionPrecision(t5), s2 = e6.getVersionPrecision(r3), a4 = Math.max(n3, s2), o2 = 0, u5 = e6.map([t5, r3], function(t6) {
+                var r4 = a4 - e6.getVersionPrecision(t6), i4 = t6 + new Array(r4 + 1).join(".0");
+                return e6.map(i4.split("."), function(e7) {
                   return new Array(20 - e7.length).join("0") + e7;
-                })).reverse();
-              }));
-              for (n3 && (o2 = a4 - Math.min(i3, s2)), a4 -= 1; a4 >= o2; ) {
+                }).reverse();
+              });
+              for (i3 && (o2 = a4 - Math.min(n3, s2)), a4 -= 1; a4 >= o2; ) {
                 if (u5[0][a4] > u5[1][a4]) return 1;
                 if (u5[0][a4] === u5[1][a4]) {
                   if (a4 === o2) return 0;
@@ -1933,63 +1933,63 @@ var ScaleneGUI = (() => {
                 } else if (u5[0][a4] < u5[1][a4]) return -1;
               }
             }, e6.map = function(e7, t5) {
-              var r3, n3 = [];
+              var r3, i3 = [];
               if (Array.prototype.map) return Array.prototype.map.call(e7, t5);
-              for (r3 = 0; r3 < e7.length; r3 += 1) n3.push(t5(e7[r3]));
-              return n3;
+              for (r3 = 0; r3 < e7.length; r3 += 1) i3.push(t5(e7[r3]));
+              return i3;
             }, e6.find = function(e7, t5) {
-              var r3, n3;
+              var r3, i3;
               if (Array.prototype.find) return Array.prototype.find.call(e7, t5);
-              for (r3 = 0, n3 = e7.length; r3 < n3; r3 += 1) {
-                var i3 = e7[r3];
-                if (t5(i3, r3)) return i3;
+              for (r3 = 0, i3 = e7.length; r3 < i3; r3 += 1) {
+                var n3 = e7[r3];
+                if (t5(n3, r3)) return n3;
               }
             }, e6.assign = function(e7) {
-              for (var t5, r3, n3 = e7, i3 = arguments.length, s2 = new Array(i3 > 1 ? i3 - 1 : 0), a4 = 1; a4 < i3; a4++) s2[a4 - 1] = arguments[a4];
+              for (var t5, r3, i3 = e7, n3 = arguments.length, s2 = new Array(n3 > 1 ? n3 - 1 : 0), a4 = 1; a4 < n3; a4++) s2[a4 - 1] = arguments[a4];
               if (Object.assign) return Object.assign.apply(Object, [e7].concat(s2));
               var o2 = function() {
                 var e8 = s2[t5];
-                "object" == typeof e8 && null !== e8 && Object.keys(e8).forEach((function(t6) {
-                  n3[t6] = e8[t6];
-                }));
+                "object" == typeof e8 && null !== e8 && Object.keys(e8).forEach(function(t6) {
+                  i3[t6] = e8[t6];
+                });
               };
               for (t5 = 0, r3 = s2.length; t5 < r3; t5 += 1) o2();
               return e7;
             }, e6.getBrowserAlias = function(e7) {
-              return n2.BROWSER_ALIASES_MAP[e7];
+              return i2.BROWSER_ALIASES_MAP[e7];
             }, e6.getBrowserTypeByAlias = function(e7) {
-              return n2.BROWSER_MAP[e7] || "";
+              return i2.BROWSER_MAP[e7] || "";
             }, e6;
-          })();
-          t4.default = i2, e4.exports = t4.default;
+          }();
+          t4.default = n2, e4.exports = t4.default;
         }, 18: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.ENGINE_MAP = t4.OS_MAP = t4.PLATFORMS_MAP = t4.BROWSER_MAP = t4.BROWSER_ALIASES_MAP = void 0;
-          t4.BROWSER_ALIASES_MAP = { "Amazon Silk": "amazon_silk", "Android Browser": "android", Bada: "bada", BlackBerry: "blackberry", Chrome: "chrome", Chromium: "chromium", Electron: "electron", Epiphany: "epiphany", Firefox: "firefox", Focus: "focus", Generic: "generic", "Google Search": "google_search", Googlebot: "googlebot", "Internet Explorer": "ie", "K-Meleon": "k_meleon", Maxthon: "maxthon", "Microsoft Edge": "edge", "MZ Browser": "mz", "NAVER Whale Browser": "naver", Opera: "opera", "Opera Coast": "opera_coast", PhantomJS: "phantomjs", Puffin: "puffin", QupZilla: "qupzilla", QQ: "qq", QQLite: "qqlite", Safari: "safari", Sailfish: "sailfish", "Samsung Internet for Android": "samsung_internet", SeaMonkey: "seamonkey", Sleipnir: "sleipnir", Swing: "swing", Tizen: "tizen", "UC Browser": "uc", Vivaldi: "vivaldi", "WebOS Browser": "webos", WeChat: "wechat", "Yandex Browser": "yandex", Roku: "roku" };
-          t4.BROWSER_MAP = { amazon_silk: "Amazon Silk", android: "Android Browser", bada: "Bada", blackberry: "BlackBerry", chrome: "Chrome", chromium: "Chromium", electron: "Electron", epiphany: "Epiphany", firefox: "Firefox", focus: "Focus", generic: "Generic", googlebot: "Googlebot", google_search: "Google Search", ie: "Internet Explorer", k_meleon: "K-Meleon", maxthon: "Maxthon", edge: "Microsoft Edge", mz: "MZ Browser", naver: "NAVER Whale Browser", opera: "Opera", opera_coast: "Opera Coast", phantomjs: "PhantomJS", puffin: "Puffin", qupzilla: "QupZilla", qq: "QQ Browser", qqlite: "QQ Browser Lite", safari: "Safari", sailfish: "Sailfish", samsung_internet: "Samsung Internet for Android", seamonkey: "SeaMonkey", sleipnir: "Sleipnir", swing: "Swing", tizen: "Tizen", uc: "UC Browser", vivaldi: "Vivaldi", webos: "WebOS Browser", wechat: "WeChat", yandex: "Yandex Browser" };
-          t4.PLATFORMS_MAP = { tablet: "tablet", mobile: "mobile", desktop: "desktop", tv: "tv" };
+          t4.BROWSER_ALIASES_MAP = { "Amazon Silk": "amazon_silk", "Android Browser": "android", Bada: "bada", BlackBerry: "blackberry", Chrome: "chrome", Chromium: "chromium", Electron: "electron", Epiphany: "epiphany", Firefox: "firefox", Focus: "focus", Generic: "generic", "Google Search": "google_search", Googlebot: "googlebot", "Internet Explorer": "ie", "K-Meleon": "k_meleon", Maxthon: "maxthon", "Microsoft Edge": "edge", "MZ Browser": "mz", "NAVER Whale Browser": "naver", Opera: "opera", "Opera Coast": "opera_coast", "Pale Moon": "pale_moon", PhantomJS: "phantomjs", Puffin: "puffin", QupZilla: "qupzilla", QQ: "qq", QQLite: "qqlite", Safari: "safari", Sailfish: "sailfish", "Samsung Internet for Android": "samsung_internet", SeaMonkey: "seamonkey", Sleipnir: "sleipnir", Swing: "swing", Tizen: "tizen", "UC Browser": "uc", Vivaldi: "vivaldi", "WebOS Browser": "webos", WeChat: "wechat", "Yandex Browser": "yandex", Roku: "roku" };
+          t4.BROWSER_MAP = { amazon_silk: "Amazon Silk", android: "Android Browser", bada: "Bada", blackberry: "BlackBerry", chrome: "Chrome", chromium: "Chromium", electron: "Electron", epiphany: "Epiphany", firefox: "Firefox", focus: "Focus", generic: "Generic", googlebot: "Googlebot", google_search: "Google Search", ie: "Internet Explorer", k_meleon: "K-Meleon", maxthon: "Maxthon", edge: "Microsoft Edge", mz: "MZ Browser", naver: "NAVER Whale Browser", opera: "Opera", opera_coast: "Opera Coast", pale_moon: "Pale Moon", phantomjs: "PhantomJS", puffin: "Puffin", qupzilla: "QupZilla", qq: "QQ Browser", qqlite: "QQ Browser Lite", safari: "Safari", sailfish: "Sailfish", samsung_internet: "Samsung Internet for Android", seamonkey: "SeaMonkey", sleipnir: "Sleipnir", swing: "Swing", tizen: "Tizen", uc: "UC Browser", vivaldi: "Vivaldi", webos: "WebOS Browser", wechat: "WeChat", yandex: "Yandex Browser" };
+          t4.PLATFORMS_MAP = { tablet: "tablet", mobile: "mobile", desktop: "desktop", tv: "tv", bot: "bot" };
           t4.OS_MAP = { WindowsPhone: "Windows Phone", Windows: "Windows", MacOS: "macOS", iOS: "iOS", Android: "Android", WebOS: "WebOS", BlackBerry: "BlackBerry", Bada: "Bada", Tizen: "Tizen", Linux: "Linux", ChromeOS: "Chrome OS", PlayStation4: "PlayStation 4", Roku: "Roku" };
           t4.ENGINE_MAP = { EdgeHTML: "EdgeHTML", Blink: "Blink", Trident: "Trident", Presto: "Presto", Gecko: "Gecko", WebKit: "WebKit" };
         }, 90: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var n2, i2 = (n2 = r2(91)) && n2.__esModule ? n2 : { default: n2 }, s2 = r2(18);
+          var i2, n2 = (i2 = r2(91)) && i2.__esModule ? i2 : { default: i2 }, s2 = r2(18);
           function a4(e6, t5) {
             for (var r3 = 0; r3 < t5.length; r3++) {
-              var n3 = t5[r3];
-              n3.enumerable = n3.enumerable || false, n3.configurable = true, "value" in n3 && (n3.writable = true), Object.defineProperty(e6, n3.key, n3);
+              var i3 = t5[r3];
+              i3.enumerable = i3.enumerable || false, i3.configurable = true, "value" in i3 && (i3.writable = true), Object.defineProperty(e6, i3.key, i3);
             }
           }
-          var o2 = (function() {
+          var o2 = function() {
             function e6() {
             }
-            var t5, r3, n3;
+            var t5, r3, i3;
             return e6.getParser = function(e7, t6) {
               if (void 0 === t6 && (t6 = false), "string" != typeof e7) throw new Error("UserAgent should be a string");
-              return new i2.default(e7, t6);
+              return new n2.default(e7, t6);
             }, e6.parse = function(e7) {
-              return new i2.default(e7).getResult();
-            }, t5 = e6, n3 = [{ key: "BROWSER_MAP", get: function() {
+              return new n2.default(e7).getResult();
+            }, t5 = e6, i3 = [{ key: "BROWSER_MAP", get: function() {
               return s2.BROWSER_MAP;
             } }, { key: "ENGINE_MAP", get: function() {
               return s2.ENGINE_MAP;
@@ -1997,17 +1997,17 @@ var ScaleneGUI = (() => {
               return s2.OS_MAP;
             } }, { key: "PLATFORMS_MAP", get: function() {
               return s2.PLATFORMS_MAP;
-            } }], (r3 = null) && a4(t5.prototype, r3), n3 && a4(t5, n3), e6;
-          })();
+            } }], (r3 = null) && a4(t5.prototype, r3), i3 && a4(t5, i3), e6;
+          }();
           t4.default = o2, e4.exports = t4.default;
         }, 91: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var n2 = u5(r2(92)), i2 = u5(r2(93)), s2 = u5(r2(94)), a4 = u5(r2(95)), o2 = u5(r2(17));
+          var i2 = u5(r2(92)), n2 = u5(r2(93)), s2 = u5(r2(94)), a4 = u5(r2(95)), o2 = u5(r2(17));
           function u5(e6) {
             return e6 && e6.__esModule ? e6 : { default: e6 };
           }
-          var d2 = (function() {
+          var d2 = function() {
             function e6(e7, t6) {
               if (void 0 === t6 && (t6 = false), null == e7 || "" === e7) throw new Error("UserAgent parameter can't be empty");
               this._ua = e7, this.parsedResult = {}, true !== t6 && this.parse();
@@ -2020,13 +2020,13 @@ var ScaleneGUI = (() => {
             }, t5.parseBrowser = function() {
               var e7 = this;
               this.parsedResult.browser = {};
-              var t6 = o2.default.find(n2.default, (function(t7) {
+              var t6 = o2.default.find(i2.default, function(t7) {
                 if ("function" == typeof t7.test) return t7.test(e7);
-                if (t7.test instanceof Array) return t7.test.some((function(t8) {
+                if (Array.isArray(t7.test)) return t7.test.some(function(t8) {
                   return e7.test(t8);
-                }));
+                });
                 throw new Error("Browser's test function is not valid");
-              }));
+              });
               return t6 && (this.parsedResult.browser = t6.describe(this.getUA())), this.parsedResult.browser;
             }, t5.getBrowser = function() {
               return this.parsedResult.browser ? this.parsedResult.browser : this.parseBrowser();
@@ -2039,13 +2039,13 @@ var ScaleneGUI = (() => {
             }, t5.parseOS = function() {
               var e7 = this;
               this.parsedResult.os = {};
-              var t6 = o2.default.find(i2.default, (function(t7) {
+              var t6 = o2.default.find(n2.default, function(t7) {
                 if ("function" == typeof t7.test) return t7.test(e7);
-                if (t7.test instanceof Array) return t7.test.some((function(t8) {
+                if (Array.isArray(t7.test)) return t7.test.some(function(t8) {
                   return e7.test(t8);
-                }));
+                });
                 throw new Error("Browser's test function is not valid");
-              }));
+              });
               return t6 && (this.parsedResult.os = t6.describe(this.getUA())), this.parsedResult.os;
             }, t5.getOSName = function(e7) {
               var t6 = this.getOS().name;
@@ -2061,13 +2061,13 @@ var ScaleneGUI = (() => {
             }, t5.parsePlatform = function() {
               var e7 = this;
               this.parsedResult.platform = {};
-              var t6 = o2.default.find(s2.default, (function(t7) {
+              var t6 = o2.default.find(s2.default, function(t7) {
                 if ("function" == typeof t7.test) return t7.test(e7);
-                if (t7.test instanceof Array) return t7.test.some((function(t8) {
+                if (Array.isArray(t7.test)) return t7.test.some(function(t8) {
                   return e7.test(t8);
-                }));
+                });
                 throw new Error("Browser's test function is not valid");
-              }));
+              });
               return t6 && (this.parsedResult.platform = t6.describe(this.getUA())), this.parsedResult.platform;
             }, t5.getEngine = function() {
               return this.parsedResult.engine ? this.parsedResult.engine : this.parseEngine();
@@ -2076,52 +2076,52 @@ var ScaleneGUI = (() => {
             }, t5.parseEngine = function() {
               var e7 = this;
               this.parsedResult.engine = {};
-              var t6 = o2.default.find(a4.default, (function(t7) {
+              var t6 = o2.default.find(a4.default, function(t7) {
                 if ("function" == typeof t7.test) return t7.test(e7);
-                if (t7.test instanceof Array) return t7.test.some((function(t8) {
+                if (Array.isArray(t7.test)) return t7.test.some(function(t8) {
                   return e7.test(t8);
-                }));
+                });
                 throw new Error("Browser's test function is not valid");
-              }));
+              });
               return t6 && (this.parsedResult.engine = t6.describe(this.getUA())), this.parsedResult.engine;
             }, t5.parse = function() {
               return this.parseBrowser(), this.parseOS(), this.parsePlatform(), this.parseEngine(), this;
             }, t5.getResult = function() {
               return o2.default.assign({}, this.parsedResult);
             }, t5.satisfies = function(e7) {
-              var t6 = this, r3 = {}, n3 = 0, i3 = {}, s3 = 0;
-              if (Object.keys(e7).forEach((function(t7) {
+              var t6 = this, r3 = {}, i3 = 0, n3 = {}, s3 = 0;
+              if (Object.keys(e7).forEach(function(t7) {
                 var a6 = e7[t7];
-                "string" == typeof a6 ? (i3[t7] = a6, s3 += 1) : "object" == typeof a6 && (r3[t7] = a6, n3 += 1);
-              })), n3 > 0) {
-                var a5 = Object.keys(r3), u6 = o2.default.find(a5, (function(e8) {
+                "string" == typeof a6 ? (n3[t7] = a6, s3 += 1) : "object" == typeof a6 && (r3[t7] = a6, i3 += 1);
+              }), i3 > 0) {
+                var a5 = Object.keys(r3), u6 = o2.default.find(a5, function(e8) {
                   return t6.isOS(e8);
-                }));
+                });
                 if (u6) {
                   var d3 = this.satisfies(r3[u6]);
                   if (void 0 !== d3) return d3;
                 }
-                var c4 = o2.default.find(a5, (function(e8) {
+                var c4 = o2.default.find(a5, function(e8) {
                   return t6.isPlatform(e8);
-                }));
+                });
                 if (c4) {
                   var f2 = this.satisfies(r3[c4]);
                   if (void 0 !== f2) return f2;
                 }
               }
               if (s3 > 0) {
-                var l2 = Object.keys(i3), h3 = o2.default.find(l2, (function(e8) {
+                var l2 = Object.keys(n3), h3 = o2.default.find(l2, function(e8) {
                   return t6.isBrowser(e8, true);
-                }));
-                if (void 0 !== h3) return this.compareVersion(i3[h3]);
+                });
+                if (void 0 !== h3) return this.compareVersion(n3[h3]);
               }
             }, t5.isBrowser = function(e7, t6) {
               void 0 === t6 && (t6 = false);
-              var r3 = this.getBrowserName().toLowerCase(), n3 = e7.toLowerCase(), i3 = o2.default.getBrowserTypeByAlias(n3);
-              return t6 && i3 && (n3 = i3.toLowerCase()), n3 === r3;
+              var r3 = this.getBrowserName().toLowerCase(), i3 = e7.toLowerCase(), n3 = o2.default.getBrowserTypeByAlias(i3);
+              return t6 && n3 && (i3 = n3.toLowerCase()), i3 === r3;
             }, t5.compareVersion = function(e7) {
-              var t6 = [0], r3 = e7, n3 = false, i3 = this.getBrowserVersion();
-              if ("string" == typeof i3) return ">" === e7[0] || "<" === e7[0] ? (r3 = e7.substr(1), "=" === e7[1] ? (n3 = true, r3 = e7.substr(2)) : t6 = [], ">" === e7[0] ? t6.push(1) : t6.push(-1)) : "=" === e7[0] ? r3 = e7.substr(1) : "~" === e7[0] && (n3 = true, r3 = e7.substr(1)), t6.indexOf(o2.default.compareVersions(i3, r3, n3)) > -1;
+              var t6 = [0], r3 = e7, i3 = false, n3 = this.getBrowserVersion();
+              if ("string" == typeof n3) return ">" === e7[0] || "<" === e7[0] ? (r3 = e7.substr(1), "=" === e7[1] ? (i3 = true, r3 = e7.substr(2)) : t6 = [], ">" === e7[0] ? t6.push(1) : t6.push(-1)) : "=" === e7[0] ? r3 = e7.substr(1) : "~" === e7[0] && (i3 = true, r3 = e7.substr(1)), t6.indexOf(o2.default.compareVersions(n3, r3, i3)) > -1;
             }, t5.isOS = function(e7) {
               return this.getOSName(true) === String(e7).toLowerCase();
             }, t5.isPlatform = function(e7) {
@@ -2132,207 +2132,210 @@ var ScaleneGUI = (() => {
               return void 0 === t6 && (t6 = false), this.isBrowser(e7, t6) || this.isOS(e7) || this.isPlatform(e7);
             }, t5.some = function(e7) {
               var t6 = this;
-              return void 0 === e7 && (e7 = []), e7.some((function(e8) {
+              return void 0 === e7 && (e7 = []), e7.some(function(e8) {
                 return t6.is(e8);
-              }));
+              });
             }, e6;
-          })();
+          }();
           t4.default = d2, e4.exports = t4.default;
         }, 92: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var n2, i2 = (n2 = r2(17)) && n2.__esModule ? n2 : { default: n2 };
+          var i2, n2 = (i2 = r2(17)) && i2.__esModule ? i2 : { default: i2 };
           var s2 = /version\/(\d+(\.?_?\d+)+)/i, a4 = [{ test: [/googlebot/i], describe: function(e6) {
-            var t5 = { name: "Googlebot" }, r3 = i2.default.getFirstMatch(/googlebot\/(\d+(\.\d+))/i, e6) || i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Googlebot" }, r3 = n2.default.getFirstMatch(/googlebot\/(\d+(\.\d+))/i, e6) || n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/opera/i], describe: function(e6) {
-            var t5 = { name: "Opera" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:opera)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Opera" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:opera)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/opr\/|opios/i], describe: function(e6) {
-            var t5 = { name: "Opera" }, r3 = i2.default.getFirstMatch(/(?:opr|opios)[\s/](\S+)/i, e6) || i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Opera" }, r3 = n2.default.getFirstMatch(/(?:opr|opios)[\s/](\S+)/i, e6) || n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/SamsungBrowser/i], describe: function(e6) {
-            var t5 = { name: "Samsung Internet for Android" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:SamsungBrowser)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Samsung Internet for Android" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:SamsungBrowser)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/Whale/i], describe: function(e6) {
-            var t5 = { name: "NAVER Whale Browser" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:whale)[\s/](\d+(?:\.\d+)+)/i, e6);
+            var t5 = { name: "NAVER Whale Browser" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:whale)[\s/](\d+(?:\.\d+)+)/i, e6);
+            return r3 && (t5.version = r3), t5;
+          } }, { test: [/PaleMoon/i], describe: function(e6) {
+            var t5 = { name: "Pale Moon" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:PaleMoon)[\s/](\d+(?:\.\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/MZBrowser/i], describe: function(e6) {
-            var t5 = { name: "MZ Browser" }, r3 = i2.default.getFirstMatch(/(?:MZBrowser)[\s/](\d+(?:\.\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "MZ Browser" }, r3 = n2.default.getFirstMatch(/(?:MZBrowser)[\s/](\d+(?:\.\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/focus/i], describe: function(e6) {
-            var t5 = { name: "Focus" }, r3 = i2.default.getFirstMatch(/(?:focus)[\s/](\d+(?:\.\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Focus" }, r3 = n2.default.getFirstMatch(/(?:focus)[\s/](\d+(?:\.\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/swing/i], describe: function(e6) {
-            var t5 = { name: "Swing" }, r3 = i2.default.getFirstMatch(/(?:swing)[\s/](\d+(?:\.\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Swing" }, r3 = n2.default.getFirstMatch(/(?:swing)[\s/](\d+(?:\.\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/coast/i], describe: function(e6) {
-            var t5 = { name: "Opera Coast" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:coast)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Opera Coast" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:coast)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/opt\/\d+(?:.?_?\d+)+/i], describe: function(e6) {
-            var t5 = { name: "Opera Touch" }, r3 = i2.default.getFirstMatch(/(?:opt)[\s/](\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Opera Touch" }, r3 = n2.default.getFirstMatch(/(?:opt)[\s/](\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/yabrowser/i], describe: function(e6) {
-            var t5 = { name: "Yandex Browser" }, r3 = i2.default.getFirstMatch(/(?:yabrowser)[\s/](\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Yandex Browser" }, r3 = n2.default.getFirstMatch(/(?:yabrowser)[\s/](\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/ucbrowser/i], describe: function(e6) {
-            var t5 = { name: "UC Browser" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:ucbrowser)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "UC Browser" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:ucbrowser)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/Maxthon|mxios/i], describe: function(e6) {
-            var t5 = { name: "Maxthon" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:Maxthon|mxios)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Maxthon" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:Maxthon|mxios)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/epiphany/i], describe: function(e6) {
-            var t5 = { name: "Epiphany" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:epiphany)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Epiphany" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:epiphany)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/puffin/i], describe: function(e6) {
-            var t5 = { name: "Puffin" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:puffin)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Puffin" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:puffin)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/sleipnir/i], describe: function(e6) {
-            var t5 = { name: "Sleipnir" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:sleipnir)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Sleipnir" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:sleipnir)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/k-meleon/i], describe: function(e6) {
-            var t5 = { name: "K-Meleon" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/(?:k-meleon)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "K-Meleon" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/(?:k-meleon)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/micromessenger/i], describe: function(e6) {
-            var t5 = { name: "WeChat" }, r3 = i2.default.getFirstMatch(/(?:micromessenger)[\s/](\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "WeChat" }, r3 = n2.default.getFirstMatch(/(?:micromessenger)[\s/](\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/qqbrowser/i], describe: function(e6) {
-            var t5 = { name: /qqbrowserlite/i.test(e6) ? "QQ Browser Lite" : "QQ Browser" }, r3 = i2.default.getFirstMatch(/(?:qqbrowserlite|qqbrowser)[/](\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: /qqbrowserlite/i.test(e6) ? "QQ Browser Lite" : "QQ Browser" }, r3 = n2.default.getFirstMatch(/(?:qqbrowserlite|qqbrowser)[/](\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/msie|trident/i], describe: function(e6) {
-            var t5 = { name: "Internet Explorer" }, r3 = i2.default.getFirstMatch(/(?:msie |rv:)(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Internet Explorer" }, r3 = n2.default.getFirstMatch(/(?:msie |rv:)(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/\sedg\//i], describe: function(e6) {
-            var t5 = { name: "Microsoft Edge" }, r3 = i2.default.getFirstMatch(/\sedg\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Microsoft Edge" }, r3 = n2.default.getFirstMatch(/\sedg\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/edg([ea]|ios)/i], describe: function(e6) {
-            var t5 = { name: "Microsoft Edge" }, r3 = i2.default.getSecondMatch(/edg([ea]|ios)\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Microsoft Edge" }, r3 = n2.default.getSecondMatch(/edg([ea]|ios)\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/vivaldi/i], describe: function(e6) {
-            var t5 = { name: "Vivaldi" }, r3 = i2.default.getFirstMatch(/vivaldi\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Vivaldi" }, r3 = n2.default.getFirstMatch(/vivaldi\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/seamonkey/i], describe: function(e6) {
-            var t5 = { name: "SeaMonkey" }, r3 = i2.default.getFirstMatch(/seamonkey\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "SeaMonkey" }, r3 = n2.default.getFirstMatch(/seamonkey\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/sailfish/i], describe: function(e6) {
-            var t5 = { name: "Sailfish" }, r3 = i2.default.getFirstMatch(/sailfish\s?browser\/(\d+(\.\d+)?)/i, e6);
+            var t5 = { name: "Sailfish" }, r3 = n2.default.getFirstMatch(/sailfish\s?browser\/(\d+(\.\d+)?)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/silk/i], describe: function(e6) {
-            var t5 = { name: "Amazon Silk" }, r3 = i2.default.getFirstMatch(/silk\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Amazon Silk" }, r3 = n2.default.getFirstMatch(/silk\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/phantom/i], describe: function(e6) {
-            var t5 = { name: "PhantomJS" }, r3 = i2.default.getFirstMatch(/phantomjs\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "PhantomJS" }, r3 = n2.default.getFirstMatch(/phantomjs\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/slimerjs/i], describe: function(e6) {
-            var t5 = { name: "SlimerJS" }, r3 = i2.default.getFirstMatch(/slimerjs\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "SlimerJS" }, r3 = n2.default.getFirstMatch(/slimerjs\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/blackberry|\bbb\d+/i, /rim\stablet/i], describe: function(e6) {
-            var t5 = { name: "BlackBerry" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/blackberry[\d]+\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "BlackBerry" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/blackberry[\d]+\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/(web|hpw)[o0]s/i], describe: function(e6) {
-            var t5 = { name: "WebOS Browser" }, r3 = i2.default.getFirstMatch(s2, e6) || i2.default.getFirstMatch(/w(?:eb)?[o0]sbrowser\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "WebOS Browser" }, r3 = n2.default.getFirstMatch(s2, e6) || n2.default.getFirstMatch(/w(?:eb)?[o0]sbrowser\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/bada/i], describe: function(e6) {
-            var t5 = { name: "Bada" }, r3 = i2.default.getFirstMatch(/dolfin\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Bada" }, r3 = n2.default.getFirstMatch(/dolfin\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/tizen/i], describe: function(e6) {
-            var t5 = { name: "Tizen" }, r3 = i2.default.getFirstMatch(/(?:tizen\s?)?browser\/(\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Tizen" }, r3 = n2.default.getFirstMatch(/(?:tizen\s?)?browser\/(\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/qupzilla/i], describe: function(e6) {
-            var t5 = { name: "QupZilla" }, r3 = i2.default.getFirstMatch(/(?:qupzilla)[\s/](\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "QupZilla" }, r3 = n2.default.getFirstMatch(/(?:qupzilla)[\s/](\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/firefox|iceweasel|fxios/i], describe: function(e6) {
-            var t5 = { name: "Firefox" }, r3 = i2.default.getFirstMatch(/(?:firefox|iceweasel|fxios)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Firefox" }, r3 = n2.default.getFirstMatch(/(?:firefox|iceweasel|fxios)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/electron/i], describe: function(e6) {
-            var t5 = { name: "Electron" }, r3 = i2.default.getFirstMatch(/(?:electron)\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Electron" }, r3 = n2.default.getFirstMatch(/(?:electron)\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/MiuiBrowser/i], describe: function(e6) {
-            var t5 = { name: "Miui" }, r3 = i2.default.getFirstMatch(/(?:MiuiBrowser)[\s/](\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Miui" }, r3 = n2.default.getFirstMatch(/(?:MiuiBrowser)[\s/](\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/chromium/i], describe: function(e6) {
-            var t5 = { name: "Chromium" }, r3 = i2.default.getFirstMatch(/(?:chromium)[\s/](\d+(\.?_?\d+)+)/i, e6) || i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Chromium" }, r3 = n2.default.getFirstMatch(/(?:chromium)[\s/](\d+(\.?_?\d+)+)/i, e6) || n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/chrome|crios|crmo/i], describe: function(e6) {
-            var t5 = { name: "Chrome" }, r3 = i2.default.getFirstMatch(/(?:chrome|crios|crmo)\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Chrome" }, r3 = n2.default.getFirstMatch(/(?:chrome|crios|crmo)\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/GSA/i], describe: function(e6) {
-            var t5 = { name: "Google Search" }, r3 = i2.default.getFirstMatch(/(?:GSA)\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: "Google Search" }, r3 = n2.default.getFirstMatch(/(?:GSA)\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: function(e6) {
             var t5 = !e6.test(/like android/i), r3 = e6.test(/android/i);
             return t5 && r3;
           }, describe: function(e6) {
-            var t5 = { name: "Android Browser" }, r3 = i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Android Browser" }, r3 = n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/playstation 4/i], describe: function(e6) {
-            var t5 = { name: "PlayStation 4" }, r3 = i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "PlayStation 4" }, r3 = n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/safari|applewebkit/i], describe: function(e6) {
-            var t5 = { name: "Safari" }, r3 = i2.default.getFirstMatch(s2, e6);
+            var t5 = { name: "Safari" }, r3 = n2.default.getFirstMatch(s2, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/.*/i], describe: function(e6) {
             var t5 = -1 !== e6.search("\\(") ? /^(.*)\/(.*)[ \t]\((.*)/ : /^(.*)\/(.*) /;
-            return { name: i2.default.getFirstMatch(t5, e6), version: i2.default.getSecondMatch(t5, e6) };
+            return { name: n2.default.getFirstMatch(t5, e6), version: n2.default.getSecondMatch(t5, e6) };
           } }];
           t4.default = a4, e4.exports = t4.default;
         }, 93: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var n2, i2 = (n2 = r2(17)) && n2.__esModule ? n2 : { default: n2 }, s2 = r2(18);
+          var i2, n2 = (i2 = r2(17)) && i2.__esModule ? i2 : { default: i2 }, s2 = r2(18);
           var a4 = [{ test: [/Roku\/DVP/], describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/Roku\/DVP-(\d+\.\d+)/i, e6);
+            var t5 = n2.default.getFirstMatch(/Roku\/DVP-(\d+\.\d+)/i, e6);
             return { name: s2.OS_MAP.Roku, version: t5 };
           } }, { test: [/windows phone/i], describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/windows phone (?:os)?\s?(\d+(\.\d+)*)/i, e6);
+            var t5 = n2.default.getFirstMatch(/windows phone (?:os)?\s?(\d+(\.\d+)*)/i, e6);
             return { name: s2.OS_MAP.WindowsPhone, version: t5 };
           } }, { test: [/windows /i], describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/Windows ((NT|XP)( \d\d?.\d)?)/i, e6), r3 = i2.default.getWindowsVersionName(t5);
+            var t5 = n2.default.getFirstMatch(/Windows ((NT|XP)( \d\d?.\d)?)/i, e6), r3 = n2.default.getWindowsVersionName(t5);
             return { name: s2.OS_MAP.Windows, version: t5, versionName: r3 };
           } }, { test: [/Macintosh(.*?) FxiOS(.*?)\//], describe: function(e6) {
-            var t5 = { name: s2.OS_MAP.iOS }, r3 = i2.default.getSecondMatch(/(Version\/)(\d[\d.]+)/, e6);
+            var t5 = { name: s2.OS_MAP.iOS }, r3 = n2.default.getSecondMatch(/(Version\/)(\d[\d.]+)/, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/macintosh/i], describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/mac os x (\d+(\.?_?\d+)+)/i, e6).replace(/[_\s]/g, "."), r3 = i2.default.getMacOSVersionName(t5), n3 = { name: s2.OS_MAP.MacOS, version: t5 };
-            return r3 && (n3.versionName = r3), n3;
+            var t5 = n2.default.getFirstMatch(/mac os x (\d+(\.?_?\d+)+)/i, e6).replace(/[_\s]/g, "."), r3 = n2.default.getMacOSVersionName(t5), i3 = { name: s2.OS_MAP.MacOS, version: t5 };
+            return r3 && (i3.versionName = r3), i3;
           } }, { test: [/(ipod|iphone|ipad)/i], describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/os (\d+([_\s]\d+)*) like mac os x/i, e6).replace(/[_\s]/g, ".");
+            var t5 = n2.default.getFirstMatch(/os (\d+([_\s]\d+)*) like mac os x/i, e6).replace(/[_\s]/g, ".");
             return { name: s2.OS_MAP.iOS, version: t5 };
           } }, { test: function(e6) {
             var t5 = !e6.test(/like android/i), r3 = e6.test(/android/i);
             return t5 && r3;
           }, describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/android[\s/-](\d+(\.\d+)*)/i, e6), r3 = i2.default.getAndroidVersionName(t5), n3 = { name: s2.OS_MAP.Android, version: t5 };
-            return r3 && (n3.versionName = r3), n3;
+            var t5 = n2.default.getFirstMatch(/android[\s/-](\d+(\.\d+)*)/i, e6), r3 = n2.default.getAndroidVersionName(t5), i3 = { name: s2.OS_MAP.Android, version: t5 };
+            return r3 && (i3.versionName = r3), i3;
           } }, { test: [/(web|hpw)[o0]s/i], describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/(?:web|hpw)[o0]s\/(\d+(\.\d+)*)/i, e6), r3 = { name: s2.OS_MAP.WebOS };
+            var t5 = n2.default.getFirstMatch(/(?:web|hpw)[o0]s\/(\d+(\.\d+)*)/i, e6), r3 = { name: s2.OS_MAP.WebOS };
             return t5 && t5.length && (r3.version = t5), r3;
           } }, { test: [/blackberry|\bbb\d+/i, /rim\stablet/i], describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/rim\stablet\sos\s(\d+(\.\d+)*)/i, e6) || i2.default.getFirstMatch(/blackberry\d+\/(\d+([_\s]\d+)*)/i, e6) || i2.default.getFirstMatch(/\bbb(\d+)/i, e6);
+            var t5 = n2.default.getFirstMatch(/rim\stablet\sos\s(\d+(\.\d+)*)/i, e6) || n2.default.getFirstMatch(/blackberry\d+\/(\d+([_\s]\d+)*)/i, e6) || n2.default.getFirstMatch(/\bbb(\d+)/i, e6);
             return { name: s2.OS_MAP.BlackBerry, version: t5 };
           } }, { test: [/bada/i], describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/bada\/(\d+(\.\d+)*)/i, e6);
+            var t5 = n2.default.getFirstMatch(/bada\/(\d+(\.\d+)*)/i, e6);
             return { name: s2.OS_MAP.Bada, version: t5 };
           } }, { test: [/tizen/i], describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/tizen[/\s](\d+(\.\d+)*)/i, e6);
+            var t5 = n2.default.getFirstMatch(/tizen[/\s](\d+(\.\d+)*)/i, e6);
             return { name: s2.OS_MAP.Tizen, version: t5 };
           } }, { test: [/linux/i], describe: function() {
             return { name: s2.OS_MAP.Linux };
           } }, { test: [/CrOS/], describe: function() {
             return { name: s2.OS_MAP.ChromeOS };
           } }, { test: [/PlayStation 4/], describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/PlayStation 4[/\s](\d+(\.\d+)*)/i, e6);
+            var t5 = n2.default.getFirstMatch(/PlayStation 4[/\s](\d+(\.\d+)*)/i, e6);
             return { name: s2.OS_MAP.PlayStation4, version: t5 };
           } }];
           t4.default = a4, e4.exports = t4.default;
         }, 94: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var n2, i2 = (n2 = r2(17)) && n2.__esModule ? n2 : { default: n2 }, s2 = r2(18);
+          var i2, n2 = (i2 = r2(17)) && i2.__esModule ? i2 : { default: i2 }, s2 = r2(18);
           var a4 = [{ test: [/googlebot/i], describe: function() {
-            return { type: "bot", vendor: "Google" };
+            return { type: s2.PLATFORMS_MAP.bot, vendor: "Google" };
           } }, { test: [/huawei/i], describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/(can-l01)/i, e6) && "Nova", r3 = { type: s2.PLATFORMS_MAP.mobile, vendor: "Huawei" };
+            var t5 = n2.default.getFirstMatch(/(can-l01)/i, e6) && "Nova", r3 = { type: s2.PLATFORMS_MAP.mobile, vendor: "Huawei" };
             return t5 && (r3.model = t5), r3;
           } }, { test: [/nexus\s*(?:7|8|9|10).*/i], describe: function() {
             return { type: s2.PLATFORMS_MAP.tablet, vendor: "Nexus" };
@@ -2350,10 +2353,13 @@ var ScaleneGUI = (() => {
             var t5 = e6.test(/ipod|iphone/i), r3 = e6.test(/like (ipod|iphone)/i);
             return t5 && !r3;
           }, describe: function(e6) {
-            var t5 = i2.default.getFirstMatch(/(ipod|iphone)/i, e6);
+            var t5 = n2.default.getFirstMatch(/(ipod|iphone)/i, e6);
             return { type: s2.PLATFORMS_MAP.mobile, vendor: "Apple", model: t5 };
           } }, { test: [/nexus\s*[0-6].*/i, /galaxy nexus/i], describe: function() {
             return { type: s2.PLATFORMS_MAP.mobile, vendor: "Nexus" };
+          } }, { test: [/Nokia/i], describe: function(e6) {
+            var t5 = n2.default.getFirstMatch(/Nokia\s+([0-9]+(\.[0-9]+)?)/i, e6), r3 = { type: s2.PLATFORMS_MAP.mobile, vendor: "Nokia" };
+            return t5 && (r3.model = t5), r3;
           } }, { test: [/[^-]mobi/i], describe: function() {
             return { type: s2.PLATFORMS_MAP.mobile };
           } }, { test: function(e6) {
@@ -2402,40 +2408,40 @@ var ScaleneGUI = (() => {
         }, 95: function(e4, t4, r2) {
           "use strict";
           t4.__esModule = true, t4.default = void 0;
-          var n2, i2 = (n2 = r2(17)) && n2.__esModule ? n2 : { default: n2 }, s2 = r2(18);
+          var i2, n2 = (i2 = r2(17)) && i2.__esModule ? i2 : { default: i2 }, s2 = r2(18);
           var a4 = [{ test: function(e6) {
             return "microsoft edge" === e6.getBrowserName(true);
           }, describe: function(e6) {
             if (/\sedg\//i.test(e6)) return { name: s2.ENGINE_MAP.Blink };
-            var t5 = i2.default.getFirstMatch(/edge\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = n2.default.getFirstMatch(/edge\/(\d+(\.?_?\d+)+)/i, e6);
             return { name: s2.ENGINE_MAP.EdgeHTML, version: t5 };
           } }, { test: [/trident/i], describe: function(e6) {
-            var t5 = { name: s2.ENGINE_MAP.Trident }, r3 = i2.default.getFirstMatch(/trident\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: s2.ENGINE_MAP.Trident }, r3 = n2.default.getFirstMatch(/trident\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: function(e6) {
             return e6.test(/presto/i);
           }, describe: function(e6) {
-            var t5 = { name: s2.ENGINE_MAP.Presto }, r3 = i2.default.getFirstMatch(/presto\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: s2.ENGINE_MAP.Presto }, r3 = n2.default.getFirstMatch(/presto\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: function(e6) {
             var t5 = e6.test(/gecko/i), r3 = e6.test(/like gecko/i);
             return t5 && !r3;
           }, describe: function(e6) {
-            var t5 = { name: s2.ENGINE_MAP.Gecko }, r3 = i2.default.getFirstMatch(/gecko\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: s2.ENGINE_MAP.Gecko }, r3 = n2.default.getFirstMatch(/gecko\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }, { test: [/(apple)?webkit\/537\.36/i], describe: function() {
             return { name: s2.ENGINE_MAP.Blink };
           } }, { test: [/(apple)?webkit/i], describe: function(e6) {
-            var t5 = { name: s2.ENGINE_MAP.WebKit }, r3 = i2.default.getFirstMatch(/webkit\/(\d+(\.?_?\d+)+)/i, e6);
+            var t5 = { name: s2.ENGINE_MAP.WebKit }, r3 = n2.default.getFirstMatch(/webkit\/(\d+(\.?_?\d+)+)/i, e6);
             return r3 && (t5.version = r3), t5;
           } }];
           t4.default = a4, e4.exports = t4.default;
         } });
-      }));
+      });
     }
   });
 
-  // scalene-gui.ts
+  // scalene/scalene-gui/scalene-gui.ts
   var scalene_gui_exports = {};
   __export(scalene_gui_exports, {
     applyFileDisplayMode: () => applyFileDisplayMode,
@@ -2465,7 +2471,7 @@ var ScaleneGUI = (() => {
   });
   var import_buffer3 = __toESM(require_buffer());
 
-  // node_modules/json-stringify-pretty-compact/index.js
+  // scalene/scalene-gui/node_modules/json-stringify-pretty-compact/index.js
   var stringOrChar = /("(?:[^\\"]|\\.)*")|[:,]/g;
   function stringify(passedObj, options = {}) {
     const indent = JSON.stringify(
@@ -2475,7 +2481,7 @@ var ScaleneGUI = (() => {
     ).slice(2, -3);
     const maxLength = indent === "" ? Infinity : options.maxLength === void 0 ? 80 : options.maxLength;
     let { replacer: replacer2 } = options;
-    return (function _stringify(obj, currentIndent, reserved) {
+    return function _stringify(obj, currentIndent, reserved) {
       if (obj && typeof obj.toJSON === "function") {
         obj = obj.toJSON();
       }
@@ -2541,10 +2547,10 @@ ${currentIndent}`
         }
       }
       return string;
-    })(passedObj, "", 0);
+    }(passedObj, "", 0);
   }
 
-  // node_modules/vega/build/vega.module.js
+  // scalene/scalene-gui/node_modules/vega/build/vega.module.js
   var vega_module_exports = {};
   __export(vega_module_exports, {
     Bounds: () => Bounds,
@@ -2781,7 +2787,7 @@ ${currentIndent}`
     zoomSymlog: () => zoomSymlog
   });
 
-  // node_modules/vega-util/build/vega-util.module.js
+  // scalene/scalene-gui/node_modules/vega-util/build/vega-util.module.js
   function accessor(fn, fields, name4) {
     fn.fields = fields || [];
     fn.fname = name4;
@@ -3398,7 +3404,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/d3-dsv/src/dsv.js
+  // scalene/scalene-gui/node_modules/d3-dsv/src/dsv.js
   var EOL = {};
   var EOF = {};
   var QUOTE = 34;
@@ -3518,12 +3524,12 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/topojson-client/src/identity.js
+  // scalene/scalene-gui/node_modules/topojson-client/src/identity.js
   function identity_default(x5) {
     return x5;
   }
 
-  // node_modules/topojson-client/src/transform.js
+  // scalene/scalene-gui/node_modules/topojson-client/src/transform.js
   function transform_default(transform4) {
     if (transform4 == null) return identity_default;
     var x06, y06, kx = transform4.scale[0], ky = transform4.scale[1], dx = transform4.translate[0], dy = transform4.translate[1];
@@ -3537,13 +3543,13 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/topojson-client/src/reverse.js
+  // scalene/scalene-gui/node_modules/topojson-client/src/reverse.js
   function reverse_default(array4, n2) {
     var t4, j2 = array4.length, i2 = j2 - n2;
     while (i2 < --j2) t4 = array4[i2], array4[i2++] = array4[j2], array4[j2] = t4;
   }
 
-  // node_modules/topojson-client/src/feature.js
+  // scalene/scalene-gui/node_modules/topojson-client/src/feature.js
   function feature_default(topology, o2) {
     if (typeof o2 === "string") o2 = topology.objects[o2];
     return o2.type === "GeometryCollection" ? { type: "FeatureCollection", features: o2.geometries.map(function(o3) {
@@ -3611,7 +3617,7 @@ ${currentIndent}`
     return geometry(o2);
   }
 
-  // node_modules/topojson-client/src/stitch.js
+  // scalene/scalene-gui/node_modules/topojson-client/src/stitch.js
   function stitch_default(topology, arcs) {
     var stitchedArcs = {}, fragmentByStart = {}, fragmentByEnd = {}, fragments = [], emptyIndex = -1;
     arcs.forEach(function(i2, j2) {
@@ -3677,7 +3683,7 @@ ${currentIndent}`
     return fragments;
   }
 
-  // node_modules/topojson-client/src/mesh.js
+  // scalene/scalene-gui/node_modules/topojson-client/src/mesh.js
   function mesh_default(topology) {
     return object(topology, meshArcs.apply(this, arguments));
   }
@@ -3728,17 +3734,17 @@ ${currentIndent}`
     return arcs;
   }
 
-  // node_modules/d3-array/src/ascending.js
+  // scalene/scalene-gui/node_modules/d3-array/src/ascending.js
   function ascending2(a4, b3) {
     return a4 == null || b3 == null ? NaN : a4 < b3 ? -1 : a4 > b3 ? 1 : a4 >= b3 ? 0 : NaN;
   }
 
-  // node_modules/d3-array/src/descending.js
+  // scalene/scalene-gui/node_modules/d3-array/src/descending.js
   function descending(a4, b3) {
     return a4 == null || b3 == null ? NaN : b3 < a4 ? -1 : b3 > a4 ? 1 : b3 >= a4 ? 0 : NaN;
   }
 
-  // node_modules/d3-array/src/bisector.js
+  // scalene/scalene-gui/node_modules/d3-array/src/bisector.js
   function bisector(f2) {
     let compare12, compare22, delta;
     if (f2.length !== 2) {
@@ -3782,7 +3788,7 @@ ${currentIndent}`
     return 0;
   }
 
-  // node_modules/d3-array/src/number.js
+  // scalene/scalene-gui/node_modules/d3-array/src/number.js
   function number(x5) {
     return x5 === null ? NaN : +x5;
   }
@@ -3803,14 +3809,14 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/d3-array/src/bisect.js
+  // scalene/scalene-gui/node_modules/d3-array/src/bisect.js
   var ascendingBisect = bisector(ascending2);
   var bisectRight = ascendingBisect.right;
   var bisectLeft = ascendingBisect.left;
   var bisectCenter = bisector(number).center;
   var bisect_default2 = bisectRight;
 
-  // node_modules/d3-array/src/variance.js
+  // scalene/scalene-gui/node_modules/d3-array/src/variance.js
   function variance(values4, valueof) {
     let count2 = 0;
     let delta;
@@ -3837,13 +3843,13 @@ ${currentIndent}`
     if (count2 > 1) return sum3 / (count2 - 1);
   }
 
-  // node_modules/d3-array/src/deviation.js
+  // scalene/scalene-gui/node_modules/d3-array/src/deviation.js
   function deviation(values4, valueof) {
     const v3 = variance(values4, valueof);
     return v3 ? Math.sqrt(v3) : v3;
   }
 
-  // node_modules/d3-array/src/fsum.js
+  // scalene/scalene-gui/node_modules/d3-array/src/fsum.js
   var Adder = class {
     constructor() {
       this._partials = new Float64Array(32);
@@ -3883,7 +3889,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/internmap/src/index.js
+  // scalene/scalene-gui/node_modules/internmap/src/index.js
   var InternMap = class extends Map {
     constructor(entries3, key2 = keyof) {
       super();
@@ -3941,12 +3947,12 @@ ${currentIndent}`
     return value3 !== null && typeof value3 === "object" ? value3.valueOf() : value3;
   }
 
-  // node_modules/d3-array/src/permute.js
+  // scalene/scalene-gui/node_modules/d3-array/src/permute.js
   function permute(source4, keys4) {
     return Array.from(keys4, (key2) => source4[key2]);
   }
 
-  // node_modules/d3-array/src/sort.js
+  // scalene/scalene-gui/node_modules/d3-array/src/sort.js
   function compareDefined(compare4 = ascending2) {
     if (compare4 === ascending2) return ascendingDefined;
     if (typeof compare4 !== "function") throw new TypeError("compare is not a function");
@@ -3960,7 +3966,7 @@ ${currentIndent}`
     return (a4 == null || !(a4 >= a4)) - (b3 == null || !(b3 >= b3)) || (a4 < b3 ? -1 : a4 > b3 ? 1 : 0);
   }
 
-  // node_modules/d3-array/src/ticks.js
+  // scalene/scalene-gui/node_modules/d3-array/src/ticks.js
   var e10 = Math.sqrt(50);
   var e5 = Math.sqrt(10);
   var e2 = Math.sqrt(2);
@@ -4010,7 +4016,7 @@ ${currentIndent}`
     return (reverse3 ? -1 : 1) * (inc < 0 ? 1 / -inc : inc);
   }
 
-  // node_modules/d3-array/src/max.js
+  // scalene/scalene-gui/node_modules/d3-array/src/max.js
   function max(values4, valueof) {
     let max4;
     if (valueof === void 0) {
@@ -4030,7 +4036,7 @@ ${currentIndent}`
     return max4;
   }
 
-  // node_modules/d3-array/src/min.js
+  // scalene/scalene-gui/node_modules/d3-array/src/min.js
   function min(values4, valueof) {
     let min4;
     if (valueof === void 0) {
@@ -4050,7 +4056,7 @@ ${currentIndent}`
     return min4;
   }
 
-  // node_modules/d3-array/src/quickselect.js
+  // scalene/scalene-gui/node_modules/d3-array/src/quickselect.js
   function quickselect(array4, k2, left = 0, right = Infinity, compare4) {
     k2 = Math.floor(k2);
     left = Math.floor(Math.max(0, left));
@@ -4091,7 +4097,7 @@ ${currentIndent}`
     array4[j2] = t4;
   }
 
-  // node_modules/d3-array/src/quantile.js
+  // scalene/scalene-gui/node_modules/d3-array/src/quantile.js
   function quantile(values4, p2, valueof) {
     values4 = Float64Array.from(numbers(values4, valueof));
     if (!(n2 = values4.length) || isNaN(p2 = +p2)) return;
@@ -4108,7 +4114,7 @@ ${currentIndent}`
     return value0 + (value1 - value0) * (i2 - i0);
   }
 
-  // node_modules/d3-array/src/mean.js
+  // scalene/scalene-gui/node_modules/d3-array/src/mean.js
   function mean(values4, valueof) {
     let count2 = 0;
     let sum3 = 0;
@@ -4129,12 +4135,12 @@ ${currentIndent}`
     if (count2) return sum3 / count2;
   }
 
-  // node_modules/d3-array/src/median.js
+  // scalene/scalene-gui/node_modules/d3-array/src/median.js
   function median(values4, valueof) {
     return quantile(values4, 0.5, valueof);
   }
 
-  // node_modules/d3-array/src/merge.js
+  // scalene/scalene-gui/node_modules/d3-array/src/merge.js
   function* flatten(arrays) {
     for (const array4 of arrays) {
       yield* array4;
@@ -4144,7 +4150,7 @@ ${currentIndent}`
     return Array.from(flatten(arrays));
   }
 
-  // node_modules/d3-array/src/range.js
+  // scalene/scalene-gui/node_modules/d3-array/src/range.js
   function range(start, stop2, step) {
     start = +start, stop2 = +stop2, step = (n2 = arguments.length) < 2 ? (stop2 = start, start = 0, 1) : n2 < 3 ? 1 : +step;
     var i2 = -1, n2 = Math.max(0, Math.ceil((stop2 - start) / step)) | 0, range7 = new Array(n2);
@@ -4154,7 +4160,7 @@ ${currentIndent}`
     return range7;
   }
 
-  // node_modules/d3-array/src/sum.js
+  // scalene/scalene-gui/node_modules/d3-array/src/sum.js
   function sum(values4, valueof) {
     let sum3 = 0;
     if (valueof === void 0) {
@@ -4174,7 +4180,7 @@ ${currentIndent}`
     return sum3;
   }
 
-  // node_modules/d3-array/src/intersection.js
+  // scalene/scalene-gui/node_modules/d3-array/src/intersection.js
   function intersection(values4, ...others) {
     values4 = new InternSet(values4);
     others = others.map(set);
@@ -4192,7 +4198,7 @@ ${currentIndent}`
     return values4 instanceof InternSet ? values4 : new InternSet(values4);
   }
 
-  // node_modules/d3-array/src/union.js
+  // scalene/scalene-gui/node_modules/d3-array/src/union.js
   function union(...others) {
     const set7 = new InternSet();
     for (const other of others) {
@@ -4203,7 +4209,7 @@ ${currentIndent}`
     return set7;
   }
 
-  // node_modules/d3-format/src/formatDecimal.js
+  // scalene/scalene-gui/node_modules/d3-format/src/formatDecimal.js
   function formatDecimal_default(x5) {
     return Math.abs(x5 = Math.round(x5)) >= 1e21 ? x5.toLocaleString("en").replace(/,/g, "") : x5.toString(10);
   }
@@ -4216,12 +4222,12 @@ ${currentIndent}`
     ];
   }
 
-  // node_modules/d3-format/src/exponent.js
+  // scalene/scalene-gui/node_modules/d3-format/src/exponent.js
   function exponent_default(x5) {
     return x5 = formatDecimalParts(Math.abs(x5)), x5 ? x5[1] : NaN;
   }
 
-  // node_modules/d3-format/src/formatGroup.js
+  // scalene/scalene-gui/node_modules/d3-format/src/formatGroup.js
   function formatGroup_default(grouping, thousands) {
     return function(value3, width2) {
       var i2 = value3.length, t4 = [], j2 = 0, g2 = grouping[0], length3 = 0;
@@ -4235,7 +4241,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-format/src/formatNumerals.js
+  // scalene/scalene-gui/node_modules/d3-format/src/formatNumerals.js
   function formatNumerals_default(numerals) {
     return function(value3) {
       return value3.replace(/[0-9]/g, function(i2) {
@@ -4244,7 +4250,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-format/src/formatSpecifier.js
+  // scalene/scalene-gui/node_modules/d3-format/src/formatSpecifier.js
   var re = /^(?:(.)?([<>=^]))?([+\-( ])?([$#])?(0)?(\d+)?(,)?(\.\d+)?(~)?([a-z%])?$/i;
   function formatSpecifier(specifier) {
     if (!(match3 = re.exec(specifier))) throw new Error("invalid format: " + specifier);
@@ -4279,7 +4285,7 @@ ${currentIndent}`
     return this.fill + this.align + this.sign + this.symbol + (this.zero ? "0" : "") + (this.width === void 0 ? "" : Math.max(1, this.width | 0)) + (this.comma ? "," : "") + (this.precision === void 0 ? "" : "." + Math.max(0, this.precision | 0)) + (this.trim ? "~" : "") + this.type;
   };
 
-  // node_modules/d3-format/src/formatTrim.js
+  // scalene/scalene-gui/node_modules/d3-format/src/formatTrim.js
   function formatTrim_default(s2) {
     out: for (var n2 = s2.length, i2 = 1, i0 = -1, i1; i2 < n2; ++i2) {
       switch (s2[i2]) {
@@ -4299,7 +4305,7 @@ ${currentIndent}`
     return i0 > 0 ? s2.slice(0, i0) + s2.slice(i1 + 1) : s2;
   }
 
-  // node_modules/d3-format/src/formatPrefixAuto.js
+  // scalene/scalene-gui/node_modules/d3-format/src/formatPrefixAuto.js
   var prefixExponent;
   function formatPrefixAuto_default(x5, p2) {
     var d2 = formatDecimalParts(x5, p2);
@@ -4308,7 +4314,7 @@ ${currentIndent}`
     return i2 === n2 ? coefficient : i2 > n2 ? coefficient + new Array(i2 - n2 + 1).join("0") : i2 > 0 ? coefficient.slice(0, i2) + "." + coefficient.slice(i2) : "0." + new Array(1 - i2).join("0") + formatDecimalParts(x5, Math.max(0, p2 + i2 - 1))[0];
   }
 
-  // node_modules/d3-format/src/formatRounded.js
+  // scalene/scalene-gui/node_modules/d3-format/src/formatRounded.js
   function formatRounded_default(x5, p2) {
     var d2 = formatDecimalParts(x5, p2);
     if (!d2) return x5 + "";
@@ -4316,7 +4322,7 @@ ${currentIndent}`
     return exponent < 0 ? "0." + new Array(-exponent).join("0") + coefficient : coefficient.length > exponent + 1 ? coefficient.slice(0, exponent + 1) + "." + coefficient.slice(exponent + 1) : coefficient + new Array(exponent - coefficient.length + 2).join("0");
   }
 
-  // node_modules/d3-format/src/formatTypes.js
+  // scalene/scalene-gui/node_modules/d3-format/src/formatTypes.js
   var formatTypes_default = {
     "%": (x5, p2) => (x5 * 100).toFixed(p2),
     "b": (x5) => Math.round(x5).toString(2),
@@ -4333,12 +4339,12 @@ ${currentIndent}`
     "x": (x5) => Math.round(x5).toString(16)
   };
 
-  // node_modules/d3-format/src/identity.js
+  // scalene/scalene-gui/node_modules/d3-format/src/identity.js
   function identity_default2(x5) {
     return x5;
   }
 
-  // node_modules/d3-format/src/locale.js
+  // scalene/scalene-gui/node_modules/d3-format/src/locale.js
   var map = Array.prototype.map;
   var prefixes = ["y", "z", "a", "f", "p", "n", "\xB5", "m", "", "k", "M", "G", "T", "P", "E", "Z", "Y"];
   function locale_default(locale4) {
@@ -4412,7 +4418,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-format/src/defaultLocale.js
+  // scalene/scalene-gui/node_modules/d3-format/src/defaultLocale.js
   var locale;
   var format;
   var formatPrefix;
@@ -4428,23 +4434,23 @@ ${currentIndent}`
     return locale;
   }
 
-  // node_modules/d3-format/src/precisionFixed.js
+  // scalene/scalene-gui/node_modules/d3-format/src/precisionFixed.js
   function precisionFixed_default(step) {
     return Math.max(0, -exponent_default(Math.abs(step)));
   }
 
-  // node_modules/d3-format/src/precisionPrefix.js
+  // scalene/scalene-gui/node_modules/d3-format/src/precisionPrefix.js
   function precisionPrefix_default(step, value3) {
     return Math.max(0, Math.max(-8, Math.min(8, Math.floor(exponent_default(value3) / 3))) * 3 - exponent_default(Math.abs(step)));
   }
 
-  // node_modules/d3-format/src/precisionRound.js
+  // scalene/scalene-gui/node_modules/d3-format/src/precisionRound.js
   function precisionRound_default(step, max4) {
     step = Math.abs(step), max4 = Math.abs(max4) - step;
     return Math.max(0, exponent_default(max4) - exponent_default(step)) + 1;
   }
 
-  // node_modules/d3-time/src/interval.js
+  // scalene/scalene-gui/node_modules/d3-time/src/interval.js
   var t0 = /* @__PURE__ */ new Date();
   var t1 = /* @__PURE__ */ new Date();
   function timeInterval(floori, offseti, count2, field3) {
@@ -4505,7 +4511,7 @@ ${currentIndent}`
     return interval3;
   }
 
-  // node_modules/d3-time/src/millisecond.js
+  // scalene/scalene-gui/node_modules/d3-time/src/millisecond.js
   var millisecond = timeInterval(() => {
   }, (date2, step) => {
     date2.setTime(+date2 + step);
@@ -4526,7 +4532,7 @@ ${currentIndent}`
   };
   var milliseconds = millisecond.range;
 
-  // node_modules/d3-time/src/duration.js
+  // scalene/scalene-gui/node_modules/d3-time/src/duration.js
   var durationSecond = 1e3;
   var durationMinute = durationSecond * 60;
   var durationHour = durationMinute * 60;
@@ -4535,7 +4541,7 @@ ${currentIndent}`
   var durationMonth = durationDay * 30;
   var durationYear = durationDay * 365;
 
-  // node_modules/d3-time/src/second.js
+  // scalene/scalene-gui/node_modules/d3-time/src/second.js
   var second = timeInterval((date2) => {
     date2.setTime(date2 - date2.getMilliseconds());
   }, (date2, step) => {
@@ -4547,7 +4553,7 @@ ${currentIndent}`
   });
   var seconds = second.range;
 
-  // node_modules/d3-time/src/minute.js
+  // scalene/scalene-gui/node_modules/d3-time/src/minute.js
   var timeMinute = timeInterval((date2) => {
     date2.setTime(date2 - date2.getMilliseconds() - date2.getSeconds() * durationSecond);
   }, (date2, step) => {
@@ -4569,7 +4575,7 @@ ${currentIndent}`
   });
   var utcMinutes = utcMinute.range;
 
-  // node_modules/d3-time/src/hour.js
+  // scalene/scalene-gui/node_modules/d3-time/src/hour.js
   var timeHour = timeInterval((date2) => {
     date2.setTime(date2 - date2.getMilliseconds() - date2.getSeconds() * durationSecond - date2.getMinutes() * durationMinute);
   }, (date2, step) => {
@@ -4591,7 +4597,7 @@ ${currentIndent}`
   });
   var utcHours = utcHour.range;
 
-  // node_modules/d3-time/src/day.js
+  // scalene/scalene-gui/node_modules/d3-time/src/day.js
   var timeDay = timeInterval(
     (date2) => date2.setHours(0, 0, 0, 0),
     (date2, step) => date2.setDate(date2.getDate() + step),
@@ -4620,7 +4626,7 @@ ${currentIndent}`
   });
   var unixDays = unixDay.range;
 
-  // node_modules/d3-time/src/week.js
+  // scalene/scalene-gui/node_modules/d3-time/src/week.js
   function timeWeekday(i2) {
     return timeInterval((date2) => {
       date2.setDate(date2.getDate() - (date2.getDay() + 7 - i2) % 7);
@@ -4670,7 +4676,7 @@ ${currentIndent}`
   var utcFridays = utcFriday.range;
   var utcSaturdays = utcSaturday.range;
 
-  // node_modules/d3-time/src/month.js
+  // scalene/scalene-gui/node_modules/d3-time/src/month.js
   var timeMonth = timeInterval((date2) => {
     date2.setDate(1);
     date2.setHours(0, 0, 0, 0);
@@ -4694,7 +4700,7 @@ ${currentIndent}`
   });
   var utcMonths = utcMonth.range;
 
-  // node_modules/d3-time/src/year.js
+  // scalene/scalene-gui/node_modules/d3-time/src/year.js
   var timeYear = timeInterval((date2) => {
     date2.setMonth(0, 1);
     date2.setHours(0, 0, 0, 0);
@@ -4736,7 +4742,7 @@ ${currentIndent}`
   };
   var utcYears = utcYear.range;
 
-  // node_modules/d3-time/src/ticks.js
+  // scalene/scalene-gui/node_modules/d3-time/src/ticks.js
   function ticker(year, month, week2, day, hour, minute) {
     const tickIntervals = [
       [second, 1, durationSecond],
@@ -4778,7 +4784,7 @@ ${currentIndent}`
   var [utcTicks, utcTickInterval] = ticker(utcYear, utcMonth, utcSunday, unixDay, utcHour, utcMinute);
   var [timeTicks, timeTickInterval] = ticker(timeYear, timeMonth, timeSunday, timeDay, timeHour, timeMinute);
 
-  // node_modules/vega-time/build/vega-time.module.js
+  // scalene/scalene-gui/node_modules/vega-time/build/vega-time.module.js
   var YEAR = "year";
   var QUARTER = "quarter";
   var MONTH = "month";
@@ -5043,7 +5049,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-time-format/src/locale.js
+  // scalene/scalene-gui/node_modules/d3-time-format/src/locale.js
   function localDate2(d2) {
     if (0 <= d2.y && d2.y < 100) {
       var date2 = new Date(-1, d2.m, d2.d, d2.H, d2.M, d2.S, d2.L);
@@ -5584,7 +5590,7 @@ ${currentIndent}`
     return Math.floor(+d2 / 1e3);
   }
 
-  // node_modules/d3-time-format/src/defaultLocale.js
+  // scalene/scalene-gui/node_modules/d3-time-format/src/defaultLocale.js
   var locale2;
   var timeFormat;
   var timeParse;
@@ -5609,7 +5615,7 @@ ${currentIndent}`
     return locale2;
   }
 
-  // node_modules/vega-format/build/vega-format.module.js
+  // scalene/scalene-gui/node_modules/vega-format/build/vega-format.module.js
   function memoize(method2) {
     const cache3 = {};
     return (spec) => cache3[spec] || (cache3[spec] = method2(spec));
@@ -5763,7 +5769,7 @@ ${currentIndent}`
     return defaultLocale3();
   }
 
-  // node_modules/vega-loader/build/vega-loader.browser.module.js
+  // scalene/scalene-gui/node_modules/vega-loader/build/vega-loader.browser.module.js
   var protocol_re = /^(data:|([A-Za-z]+:)?\/\/)/;
   var allowed_re = /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp|file|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
   var whitespace_re = /[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u2029\u205f\u3000]/g;
@@ -6001,7 +6007,7 @@ ${currentIndent}`
     // no file system access
   );
 
-  // node_modules/vega-dataflow/build/vega-dataflow.module.js
+  // scalene/scalene-gui/node_modules/vega-dataflow/build/vega-dataflow.module.js
   function UniqueList(idFunc) {
     const $2 = idFunc || identity, list = [], ids = {};
     list.add = (_) => {
@@ -6030,7 +6036,7 @@ ${currentIndent}`
       df.error(err);
     }
   }
-  var TUPLE_ID_KEY = /* @__PURE__ */ Symbol("vega_id");
+  var TUPLE_ID_KEY = Symbol("vega_id");
   var TUPLE_ID = 1;
   function isTuple(t4) {
     return !!(t4 && tupleid(t4));
@@ -7528,7 +7534,7 @@ ${currentIndent}`
     return has(transforms, type3) ? transforms[type3] : null;
   }
 
-  // node_modules/vega-transforms/build/vega-transforms.module.js
+  // scalene/scalene-gui/node_modules/vega-transforms/build/vega-transforms.module.js
   var vega_transforms_module_exports = {};
   __export(vega_transforms_module_exports, {
     aggregate: () => Aggregate,
@@ -7573,7 +7579,7 @@ ${currentIndent}`
     window: () => Window
   });
 
-  // node_modules/vega-statistics/build/vega-statistics.module.js
+  // scalene/scalene-gui/node_modules/vega-statistics/build/vega-statistics.module.js
   function* numbers2(values4, valueof) {
     if (valueof == null) {
       for (let value3 of values4) {
@@ -8460,7 +8466,7 @@ ${currentIndent}`
     return Math.abs(a0 - a1);
   }
 
-  // node_modules/vega-transforms/build/vega-transforms.module.js
+  // scalene/scalene-gui/node_modules/vega-transforms/build/vega-transforms.module.js
   function multikey(f2) {
     return (x5) => {
       const n2 = f2.length;
@@ -11318,7 +11324,7 @@ ${currentIndent}`
     if (r1 < n2 && !c4(d2[r1], d2[r1 + 1])) w3.i1 = bisect2.right(d2, d2[r1]);
   }
 
-  // node_modules/vega-view-transforms/build/vega-view-transforms.module.js
+  // scalene/scalene-gui/node_modules/vega-view-transforms/build/vega-view-transforms.module.js
   var vega_view_transforms_module_exports = {};
   __export(vega_view_transforms_module_exports, {
     bound: () => Bound,
@@ -11329,14 +11335,14 @@ ${currentIndent}`
     viewlayout: () => ViewLayout
   });
 
-  // node_modules/d3-shape/src/constant.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/constant.js
   function constant_default(x5) {
     return function constant3() {
       return x5;
     };
   }
 
-  // node_modules/d3-shape/src/math.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/math.js
   var abs = Math.abs;
   var atan2 = Math.atan2;
   var cos = Math.cos;
@@ -11355,7 +11361,7 @@ ${currentIndent}`
     return x5 >= 1 ? halfPi : x5 <= -1 ? -halfPi : Math.asin(x5);
   }
 
-  // node_modules/d3-path/src/path.js
+  // scalene/scalene-gui/node_modules/d3-path/src/path.js
   var pi2 = Math.PI;
   var tau2 = 2 * pi2;
   var epsilon3 = 1e-6;
@@ -11449,7 +11455,7 @@ ${currentIndent}`
   }
   path.prototype = Path.prototype;
 
-  // node_modules/d3-shape/src/path.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/path.js
   function withPath(shape2) {
     let digits = 3;
     shape2.digits = function(_) {
@@ -11466,7 +11472,7 @@ ${currentIndent}`
     return () => new Path(digits);
   }
 
-  // node_modules/d3-shape/src/arc.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/arc.js
   function arcInnerRadius(d2) {
     return d2.innerRadius;
   }
@@ -11595,13 +11601,13 @@ ${currentIndent}`
     return arc4;
   }
 
-  // node_modules/d3-shape/src/array.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/array.js
   var slice = Array.prototype.slice;
   function array_default(x5) {
     return typeof x5 === "object" && "length" in x5 ? x5 : Array.from(x5);
   }
 
-  // node_modules/d3-shape/src/curve/linear.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/linear.js
   function Linear(context3) {
     this._context = context3;
   }
@@ -11639,7 +11645,7 @@ ${currentIndent}`
     return new Linear(context3);
   }
 
-  // node_modules/d3-shape/src/point.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/point.js
   function x(p2) {
     return p2[0];
   }
@@ -11647,7 +11653,7 @@ ${currentIndent}`
     return p2[1];
   }
 
-  // node_modules/d3-shape/src/line.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/line.js
   function line_default(x5, y5) {
     var defined2 = constant_default(true), context3 = null, curve2 = linear_default, output3 = null, path3 = withPath(line4);
     x5 = typeof x5 === "function" ? x5 : x5 === void 0 ? x : constant_default(x5);
@@ -11682,7 +11688,7 @@ ${currentIndent}`
     return line4;
   }
 
-  // node_modules/d3-shape/src/area.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/area.js
   function area_default(x06, y06, y12) {
     var x12 = null, defined2 = constant_default(true), context3 = null, curve2 = linear_default, output3 = null, path3 = withPath(area4);
     x06 = typeof x06 === "function" ? x06 : x06 === void 0 ? x : constant_default(+x06);
@@ -11756,7 +11762,7 @@ ${currentIndent}`
     return area4;
   }
 
-  // node_modules/d3-shape/src/symbol/circle.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/symbol/circle.js
   var circle_default = {
     draw(context3, size) {
       const r2 = sqrt(size / pi);
@@ -11765,7 +11771,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/d3-shape/src/symbol.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/symbol.js
   function Symbol2(type3, size) {
     let context3 = null, path3 = withPath(symbol2);
     type3 = typeof type3 === "function" ? type3 : constant_default(type3 || circle_default);
@@ -11788,11 +11794,11 @@ ${currentIndent}`
     return symbol2;
   }
 
-  // node_modules/d3-shape/src/noop.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/noop.js
   function noop_default() {
   }
 
-  // node_modules/d3-shape/src/curve/basis.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/basis.js
   function point(that, x5, y5) {
     that._context.bezierCurveTo(
       (2 * that._x0 + that._x1) / 3,
@@ -11855,7 +11861,7 @@ ${currentIndent}`
     return new Basis(context3);
   }
 
-  // node_modules/d3-shape/src/curve/basisClosed.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/basisClosed.js
   function BasisClosed(context3) {
     this._context = context3;
   }
@@ -11915,7 +11921,7 @@ ${currentIndent}`
     return new BasisClosed(context3);
   }
 
-  // node_modules/d3-shape/src/curve/basisOpen.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/basisOpen.js
   function BasisOpen(context3) {
     this._context = context3;
   }
@@ -11963,7 +11969,7 @@ ${currentIndent}`
     return new BasisOpen(context3);
   }
 
-  // node_modules/d3-shape/src/curve/bundle.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/bundle.js
   function Bundle(context3, beta) {
     this._basis = new Basis(context3);
     this._beta = beta;
@@ -11994,7 +12000,7 @@ ${currentIndent}`
       this._y.push(+y5);
     }
   };
-  var bundle_default = (function custom(beta) {
+  var bundle_default = function custom(beta) {
     function bundle2(context3) {
       return beta === 1 ? new Basis(context3) : new Bundle(context3, beta);
     }
@@ -12002,9 +12008,9 @@ ${currentIndent}`
       return custom(+beta2);
     };
     return bundle2;
-  })(0.85);
+  }(0.85);
 
-  // node_modules/d3-shape/src/curve/cardinal.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/cardinal.js
   function point2(that, x5, y5) {
     that._context.bezierCurveTo(
       that._x1 + that._k * (that._x2 - that._x0),
@@ -12064,7 +12070,7 @@ ${currentIndent}`
       this._y0 = this._y1, this._y1 = this._y2, this._y2 = y5;
     }
   };
-  var cardinal_default = (function custom2(tension) {
+  var cardinal_default = function custom2(tension) {
     function cardinal(context3) {
       return new Cardinal(context3, tension);
     }
@@ -12072,9 +12078,9 @@ ${currentIndent}`
       return custom2(+tension2);
     };
     return cardinal;
-  })(0);
+  }(0);
 
-  // node_modules/d3-shape/src/curve/cardinalClosed.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/cardinalClosed.js
   function CardinalClosed(context3, tension) {
     this._context = context3;
     this._k = (1 - tension) / 6;
@@ -12129,7 +12135,7 @@ ${currentIndent}`
       this._y0 = this._y1, this._y1 = this._y2, this._y2 = y5;
     }
   };
-  var cardinalClosed_default = (function custom3(tension) {
+  var cardinalClosed_default = function custom3(tension) {
     function cardinal(context3) {
       return new CardinalClosed(context3, tension);
     }
@@ -12137,9 +12143,9 @@ ${currentIndent}`
       return custom3(+tension2);
     };
     return cardinal;
-  })(0);
+  }(0);
 
-  // node_modules/d3-shape/src/curve/cardinalOpen.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/cardinalOpen.js
   function CardinalOpen(context3, tension) {
     this._context = context3;
     this._k = (1 - tension) / 6;
@@ -12183,7 +12189,7 @@ ${currentIndent}`
       this._y0 = this._y1, this._y1 = this._y2, this._y2 = y5;
     }
   };
-  var cardinalOpen_default = (function custom4(tension) {
+  var cardinalOpen_default = function custom4(tension) {
     function cardinal(context3) {
       return new CardinalOpen(context3, tension);
     }
@@ -12191,9 +12197,9 @@ ${currentIndent}`
       return custom4(+tension2);
     };
     return cardinal;
-  })(0);
+  }(0);
 
-  // node_modules/d3-shape/src/curve/catmullRom.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/catmullRom.js
   function point3(that, x5, y5) {
     var x12 = that._x1, y12 = that._y1, x22 = that._x2, y22 = that._y2;
     if (that._l01_a > epsilon2) {
@@ -12262,7 +12268,7 @@ ${currentIndent}`
       this._y0 = this._y1, this._y1 = this._y2, this._y2 = y5;
     }
   };
-  var catmullRom_default = (function custom5(alpha) {
+  var catmullRom_default = function custom5(alpha) {
     function catmullRom(context3) {
       return alpha ? new CatmullRom(context3, alpha) : new Cardinal(context3, 0);
     }
@@ -12270,9 +12276,9 @@ ${currentIndent}`
       return custom5(+alpha2);
     };
     return catmullRom;
-  })(0.5);
+  }(0.5);
 
-  // node_modules/d3-shape/src/curve/catmullRomClosed.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/catmullRomClosed.js
   function CatmullRomClosed(context3, alpha) {
     this._context = context3;
     this._alpha = alpha;
@@ -12333,7 +12339,7 @@ ${currentIndent}`
       this._y0 = this._y1, this._y1 = this._y2, this._y2 = y5;
     }
   };
-  var catmullRomClosed_default = (function custom6(alpha) {
+  var catmullRomClosed_default = function custom6(alpha) {
     function catmullRom(context3) {
       return alpha ? new CatmullRomClosed(context3, alpha) : new CardinalClosed(context3, 0);
     }
@@ -12341,9 +12347,9 @@ ${currentIndent}`
       return custom6(+alpha2);
     };
     return catmullRom;
-  })(0.5);
+  }(0.5);
 
-  // node_modules/d3-shape/src/curve/catmullRomOpen.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/catmullRomOpen.js
   function CatmullRomOpen(context3, alpha) {
     this._context = context3;
     this._alpha = alpha;
@@ -12393,7 +12399,7 @@ ${currentIndent}`
       this._y0 = this._y1, this._y1 = this._y2, this._y2 = y5;
     }
   };
-  var catmullRomOpen_default = (function custom7(alpha) {
+  var catmullRomOpen_default = function custom7(alpha) {
     function catmullRom(context3) {
       return alpha ? new CatmullRomOpen(context3, alpha) : new CardinalOpen(context3, 0);
     }
@@ -12401,9 +12407,9 @@ ${currentIndent}`
       return custom7(+alpha2);
     };
     return catmullRom;
-  })(0.5);
+  }(0.5);
 
-  // node_modules/d3-shape/src/curve/linearClosed.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/linearClosed.js
   function LinearClosed(context3) {
     this._context = context3;
   }
@@ -12426,7 +12432,7 @@ ${currentIndent}`
     return new LinearClosed(context3);
   }
 
-  // node_modules/d3-shape/src/curve/monotone.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/monotone.js
   function sign(x5) {
     return x5 < 0 ? -1 : 1;
   }
@@ -12523,7 +12529,7 @@ ${currentIndent}`
     return new MonotoneY(context3);
   }
 
-  // node_modules/d3-shape/src/curve/natural.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/natural.js
   function Natural(context3) {
     this._context = context3;
   }
@@ -12576,7 +12582,7 @@ ${currentIndent}`
     return new Natural(context3);
   }
 
-  // node_modules/d3-shape/src/curve/step.js
+  // scalene/scalene-gui/node_modules/d3-shape/src/curve/step.js
   function Step(context3, t4) {
     this._context = context3;
     this._t = t4;
@@ -12632,7 +12638,7 @@ ${currentIndent}`
     return new Step(context3, 1);
   }
 
-  // node_modules/vega-canvas/build/vega-canvas.browser.module.js
+  // scalene/scalene-gui/node_modules/vega-canvas/build/vega-canvas.browser.module.js
   function domCanvas(w3, h3) {
     if (typeof document !== "undefined" && document.createElement) {
       const c4 = document.createElement("canvas");
@@ -12646,7 +12652,7 @@ ${currentIndent}`
   }
   var domImage = () => typeof Image !== "undefined" ? Image : null;
 
-  // node_modules/d3-scale/src/init.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/init.js
   function initRange(domain4, range7) {
     switch (arguments.length) {
       case 0:
@@ -12679,8 +12685,8 @@ ${currentIndent}`
     return this;
   }
 
-  // node_modules/d3-scale/src/ordinal.js
-  var implicit = /* @__PURE__ */ Symbol("implicit");
+  // scalene/scalene-gui/node_modules/d3-scale/src/ordinal.js
+  var implicit = Symbol("implicit");
   function ordinal() {
     var index4 = new InternMap(), domain4 = [], range7 = [], unknown = implicit;
     function scale7(d2) {
@@ -12713,7 +12719,7 @@ ${currentIndent}`
     return scale7;
   }
 
-  // node_modules/d3-interpolate/src/index.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/index.js
   var src_exports = {};
   __export(src_exports, {
     interpolate: () => value_default,
@@ -12745,7 +12751,7 @@ ${currentIndent}`
     quantize: () => quantize_default2
   });
 
-  // node_modules/d3-color/src/define.js
+  // scalene/scalene-gui/node_modules/d3-color/src/define.js
   function define_default(constructor, factory, prototype2) {
     constructor.prototype = factory.prototype = prototype2;
     prototype2.constructor = constructor;
@@ -12756,7 +12762,7 @@ ${currentIndent}`
     return prototype2;
   }
 
-  // node_modules/d3-color/src/color.js
+  // scalene/scalene-gui/node_modules/d3-color/src/color.js
   function Color() {
   }
   var darker = 0.7;
@@ -13093,11 +13099,11 @@ ${currentIndent}`
     return (h3 < 60 ? m1 + (m22 - m1) * h3 / 60 : h3 < 180 ? m22 : h3 < 240 ? m1 + (m22 - m1) * (240 - h3) / 60 : m1) * 255;
   }
 
-  // node_modules/d3-color/src/math.js
+  // scalene/scalene-gui/node_modules/d3-color/src/math.js
   var radians = Math.PI / 180;
   var degrees = 180 / Math.PI;
 
-  // node_modules/d3-color/src/lab.js
+  // scalene/scalene-gui/node_modules/d3-color/src/lab.js
   var K = 18;
   var Xn = 0.96422;
   var Yn = 1;
@@ -13192,7 +13198,7 @@ ${currentIndent}`
     }
   }));
 
-  // node_modules/d3-color/src/cubehelix.js
+  // scalene/scalene-gui/node_modules/d3-color/src/cubehelix.js
   var A = -0.14861;
   var B = 1.78277;
   var C = -0.29227;
@@ -13236,7 +13242,7 @@ ${currentIndent}`
     }
   }));
 
-  // node_modules/d3-interpolate/src/basis.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/basis.js
   function basis(t13, v0, v1, v22, v3) {
     var t22 = t13 * t13, t32 = t22 * t13;
     return ((1 - 3 * t13 + 3 * t22 - t32) * v0 + (4 - 6 * t22 + 3 * t32) * v1 + (1 + 3 * t13 + 3 * t22 - 3 * t32) * v22 + t32 * v3) / 6;
@@ -13249,7 +13255,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-interpolate/src/basisClosed.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/basisClosed.js
   function basisClosed_default2(values4) {
     var n2 = values4.length;
     return function(t4) {
@@ -13258,10 +13264,10 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-interpolate/src/constant.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/constant.js
   var constant_default2 = (x5) => () => x5;
 
-  // node_modules/d3-interpolate/src/color.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/color.js
   function linear2(a4, d2) {
     return function(t4) {
       return a4 + t4 * d2;
@@ -13286,8 +13292,8 @@ ${currentIndent}`
     return d2 ? linear2(a4, d2) : constant_default2(isNaN(a4) ? b3 : a4);
   }
 
-  // node_modules/d3-interpolate/src/rgb.js
-  var rgb_default = (function rgbGamma(y5) {
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/rgb.js
+  var rgb_default = function rgbGamma(y5) {
     var color5 = gamma(y5);
     function rgb2(start, end) {
       var r2 = color5((start = rgb(start)).r, (end = rgb(end)).r), g2 = color5(start.g, end.g), b3 = color5(start.b, end.b), opacity2 = nogamma(start.opacity, end.opacity);
@@ -13301,7 +13307,7 @@ ${currentIndent}`
     }
     rgb2.gamma = rgbGamma;
     return rgb2;
-  })(1);
+  }(1);
   function rgbSpline(spline) {
     return function(colors2) {
       var n2 = colors2.length, r2 = new Array(n2), g2 = new Array(n2), b3 = new Array(n2), i2, color5;
@@ -13326,7 +13332,7 @@ ${currentIndent}`
   var rgbBasis = rgbSpline(basis_default2);
   var rgbBasisClosed = rgbSpline(basisClosed_default2);
 
-  // node_modules/d3-interpolate/src/numberArray.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/numberArray.js
   function numberArray_default(a4, b3) {
     if (!b3) b3 = [];
     var n2 = a4 ? Math.min(b3.length, a4.length) : 0, c4 = b3.slice(), i2;
@@ -13339,7 +13345,7 @@ ${currentIndent}`
     return ArrayBuffer.isView(x5) && !(x5 instanceof DataView);
   }
 
-  // node_modules/d3-interpolate/src/array.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/array.js
   function array_default2(a4, b3) {
     return (isNumberArray(b3) ? numberArray_default : genericArray)(a4, b3);
   }
@@ -13353,7 +13359,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-interpolate/src/date.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/date.js
   function date_default(a4, b3) {
     var d2 = /* @__PURE__ */ new Date();
     return a4 = +a4, b3 = +b3, function(t4) {
@@ -13361,14 +13367,14 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-interpolate/src/number.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/number.js
   function number_default(a4, b3) {
     return a4 = +a4, b3 = +b3, function(t4) {
       return a4 * (1 - t4) + b3 * t4;
     };
   }
 
-  // node_modules/d3-interpolate/src/object.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/object.js
   function object_default(a4, b3) {
     var i2 = {}, c4 = {}, k2;
     if (a4 === null || typeof a4 !== "object") a4 = {};
@@ -13386,7 +13392,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-interpolate/src/string.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/string.js
   var reA = /[-+]?(?:\d+\.?\d*|\.?\d+)(?:[eE][-+]?\d+)?/g;
   var reB = new RegExp(reA.source, "g");
   function zero3(b3) {
@@ -13428,13 +13434,13 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/d3-interpolate/src/value.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/value.js
   function value_default(a4, b3) {
     var t4 = typeof b3, c4;
     return b3 == null || t4 === "boolean" ? constant_default2(b3) : (t4 === "number" ? number_default : t4 === "string" ? (c4 = color(b3)) ? (b3 = c4, rgb_default) : string_default : b3 instanceof color ? rgb_default : b3 instanceof Date ? date_default : isNumberArray(b3) ? numberArray_default : Array.isArray(b3) ? genericArray : typeof b3.valueOf !== "function" && typeof b3.toString !== "function" || isNaN(b3) ? object_default : number_default)(a4, b3);
   }
 
-  // node_modules/d3-interpolate/src/discrete.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/discrete.js
   function discrete_default(range7) {
     var n2 = range7.length;
     return function(t4) {
@@ -13442,7 +13448,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-interpolate/src/hue.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/hue.js
   function hue_default(a4, b3) {
     var i2 = hue(+a4, +b3);
     return function(t4) {
@@ -13451,14 +13457,14 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-interpolate/src/round.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/round.js
   function round_default(a4, b3) {
     return a4 = +a4, b3 = +b3, function(t4) {
       return Math.round(a4 * (1 - t4) + b3 * t4);
     };
   }
 
-  // node_modules/d3-interpolate/src/transform/decompose.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/transform/decompose.js
   var degrees2 = 180 / Math.PI;
   var identity2 = {
     translateX: 0,
@@ -13484,7 +13490,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-interpolate/src/transform/parse.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/transform/parse.js
   var svgNode;
   function parseCss(value3) {
     const m4 = new (typeof DOMMatrix === "function" ? DOMMatrix : WebKitCSSMatrix)(value3 + "");
@@ -13499,7 +13505,7 @@ ${currentIndent}`
     return decompose_default(value3.a, value3.b, value3.c, value3.d, value3.e, value3.f);
   }
 
-  // node_modules/d3-interpolate/src/transform/index.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/transform/index.js
   function interpolateTransform(parse7, pxComma, pxParen, degParen) {
     function pop(s2) {
       return s2.length ? s2.pop() + " " : "";
@@ -13554,7 +13560,7 @@ ${currentIndent}`
   var interpolateTransformCss = interpolateTransform(parseCss, "px, ", "px)", "deg)");
   var interpolateTransformSvg = interpolateTransform(parseSvg, ", ", ")", ")");
 
-  // node_modules/d3-interpolate/src/zoom.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/zoom.js
   var epsilon22 = 1e-12;
   function cosh(x5) {
     return ((x5 = Math.exp(x5)) + 1 / x5) / 2;
@@ -13565,7 +13571,7 @@ ${currentIndent}`
   function tanh(x5) {
     return ((x5 = Math.exp(2 * x5)) - 1) / (x5 + 1);
   }
-  var zoom_default = (function zoomRho(rho, rho2, rho4) {
+  var zoom_default = function zoomRho(rho, rho2, rho4) {
     function zoom3(p02, p1) {
       var ux0 = p02[0], uy0 = p02[1], w0 = p02[2], ux1 = p1[0], uy1 = p1[1], w1 = p1[2], dx = ux1 - ux0, dy = uy1 - uy0, d2 = dx * dx + dy * dy, i2, S;
       if (d2 < epsilon22) {
@@ -13597,9 +13603,9 @@ ${currentIndent}`
       return zoomRho(_1, _2, _4);
     };
     return zoom3;
-  })(Math.SQRT2, 2, 4);
+  }(Math.SQRT2, 2, 4);
 
-  // node_modules/d3-interpolate/src/hsl.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/hsl.js
   function hsl2(hue2) {
     return function(start, end) {
       var h3 = hue2((start = hsl(start)).h, (end = hsl(end)).h), s2 = nogamma(start.s, end.s), l2 = nogamma(start.l, end.l), opacity2 = nogamma(start.opacity, end.opacity);
@@ -13615,7 +13621,7 @@ ${currentIndent}`
   var hsl_default = hsl2(hue);
   var hslLong = hsl2(nogamma);
 
-  // node_modules/d3-interpolate/src/lab.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/lab.js
   function lab2(start, end) {
     var l2 = nogamma((start = lab(start)).l, (end = lab(end)).l), a4 = nogamma(start.a, end.a), b3 = nogamma(start.b, end.b), opacity2 = nogamma(start.opacity, end.opacity);
     return function(t4) {
@@ -13627,7 +13633,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-interpolate/src/hcl.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/hcl.js
   function hcl2(hue2) {
     return function(start, end) {
       var h3 = hue2((start = hcl(start)).h, (end = hcl(end)).h), c4 = nogamma(start.c, end.c), l2 = nogamma(start.l, end.l), opacity2 = nogamma(start.opacity, end.opacity);
@@ -13643,9 +13649,9 @@ ${currentIndent}`
   var hcl_default = hcl2(hue);
   var hclLong = hcl2(nogamma);
 
-  // node_modules/d3-interpolate/src/cubehelix.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/cubehelix.js
   function cubehelix2(hue2) {
-    return (function cubehelixGamma(y5) {
+    return function cubehelixGamma(y5) {
       y5 = +y5;
       function cubehelix3(start, end) {
         var h3 = hue2((start = cubehelix(start)).h, (end = cubehelix(end)).h), s2 = nogamma(start.s, end.s), l2 = nogamma(start.l, end.l), opacity2 = nogamma(start.opacity, end.opacity);
@@ -13659,12 +13665,12 @@ ${currentIndent}`
       }
       cubehelix3.gamma = cubehelixGamma;
       return cubehelix3;
-    })(1);
+    }(1);
   }
   var cubehelix_default = cubehelix2(hue);
   var cubehelixLong = cubehelix2(nogamma);
 
-  // node_modules/d3-interpolate/src/piecewise.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/piecewise.js
   function piecewise(interpolate3, values4) {
     if (values4 === void 0) values4 = interpolate3, interpolate3 = value_default;
     var i2 = 0, n2 = values4.length - 1, v3 = values4[0], I = new Array(n2 < 0 ? 0 : n2);
@@ -13675,26 +13681,26 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-interpolate/src/quantize.js
+  // scalene/scalene-gui/node_modules/d3-interpolate/src/quantize.js
   function quantize_default2(interpolator, n2) {
     var samples = new Array(n2);
     for (var i2 = 0; i2 < n2; ++i2) samples[i2] = interpolator(i2 / (n2 - 1));
     return samples;
   }
 
-  // node_modules/d3-scale/src/constant.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/constant.js
   function constants(x5) {
     return function() {
       return x5;
     };
   }
 
-  // node_modules/d3-scale/src/number.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/number.js
   function number2(x5) {
     return +x5;
   }
 
-  // node_modules/d3-scale/src/continuous.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/continuous.js
   var unit = [0, 1];
   function identity3(x5) {
     return x5;
@@ -13779,7 +13785,7 @@ ${currentIndent}`
     return transformer()(identity3, identity3);
   }
 
-  // node_modules/d3-scale/src/tickFormat.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/tickFormat.js
   function tickFormat(start, stop2, count2, specifier) {
     var step = tickStep(start, stop2, count2), precision;
     specifier = formatSpecifier(specifier == null ? ",f" : specifier);
@@ -13806,7 +13812,7 @@ ${currentIndent}`
     return format(specifier);
   }
 
-  // node_modules/d3-scale/src/linear.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/linear.js
   function linearish(scale7) {
     var domain4 = scale7.domain;
     scale7.ticks = function(count2) {
@@ -13861,7 +13867,7 @@ ${currentIndent}`
     return linearish(scale7);
   }
 
-  // node_modules/d3-scale/src/identity.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/identity.js
   function identity4(domain4) {
     var unknown;
     function scale7(x5) {
@@ -13881,7 +13887,7 @@ ${currentIndent}`
     return linearish(scale7);
   }
 
-  // node_modules/d3-scale/src/nice.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/nice.js
   function nice(domain4, interval3) {
     domain4 = domain4.slice();
     var i0 = 0, i1 = domain4.length - 1, x06 = domain4[i0], x12 = domain4[i1], t4;
@@ -13894,7 +13900,7 @@ ${currentIndent}`
     return domain4;
   }
 
-  // node_modules/d3-scale/src/log.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/log.js
   function transformLog(x5) {
     return Math.log(x5);
   }
@@ -14007,7 +14013,7 @@ ${currentIndent}`
     return scale7;
   }
 
-  // node_modules/d3-scale/src/symlog.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/symlog.js
   function transformSymlog(c4) {
     return function(x5) {
       return Math.sign(x5) * Math.log1p(Math.abs(x5 / c4));
@@ -14033,7 +14039,7 @@ ${currentIndent}`
     return initRange.apply(scale7, arguments);
   }
 
-  // node_modules/d3-scale/src/pow.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/pow.js
   function transformPow(exponent) {
     return function(x5) {
       return x5 < 0 ? -Math.pow(-x5, exponent) : Math.pow(x5, exponent);
@@ -14067,7 +14073,7 @@ ${currentIndent}`
     return pow3.apply(null, arguments).exponent(0.5);
   }
 
-  // node_modules/d3-scale/src/quantile.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/quantile.js
   function quantile2() {
     var domain4 = [], range7 = [], thresholds = [], unknown;
     function rescale() {
@@ -14108,7 +14114,7 @@ ${currentIndent}`
     return initRange.apply(scale7, arguments);
   }
 
-  // node_modules/d3-scale/src/quantize.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/quantize.js
   function quantize() {
     var x06 = 0, x12 = 1, n2 = 1, domain4 = [0.5], range7 = [0, 1], unknown;
     function scale7(x5) {
@@ -14142,7 +14148,7 @@ ${currentIndent}`
     return initRange.apply(linearish(scale7), arguments);
   }
 
-  // node_modules/d3-scale/src/threshold.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/threshold.js
   function threshold() {
     var domain4 = [0.5], range7 = [0, 1], unknown, n2 = 1;
     function scale7(x5) {
@@ -14167,7 +14173,7 @@ ${currentIndent}`
     return initRange.apply(scale7, arguments);
   }
 
-  // node_modules/d3-scale/src/time.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/time.js
   function date(t4) {
     return new Date(t4);
   }
@@ -14207,12 +14213,12 @@ ${currentIndent}`
     return initRange.apply(calendar(timeTicks, timeTickInterval, timeYear, timeMonth, timeSunday, timeDay, timeHour, timeMinute, second, timeFormat).domain([new Date(2e3, 0, 1), new Date(2e3, 0, 2)]), arguments);
   }
 
-  // node_modules/d3-scale/src/utcTime.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/utcTime.js
   function utcTime() {
     return initRange.apply(calendar(utcTicks, utcTickInterval, utcYear, utcMonth, utcSunday, utcDay, utcHour, utcMinute, second, utcFormat).domain([Date.UTC(2e3, 0, 1), Date.UTC(2e3, 0, 2)]), arguments);
   }
 
-  // node_modules/d3-scale/src/sequential.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/sequential.js
   function transformer2() {
     var x06 = 0, x12 = 1, t04, t13, k10, transform4, interpolator = identity3, clamp2 = false, unknown;
     function scale7(x5) {
@@ -14278,7 +14284,7 @@ ${currentIndent}`
     return sequentialPow.apply(null, arguments).exponent(0.5);
   }
 
-  // node_modules/d3-scale/src/diverging.js
+  // scalene/scalene-gui/node_modules/d3-scale/src/diverging.js
   function transformer3() {
     var x06 = 0, x12 = 0.5, x22 = 1, s2 = 1, t04, t13, t22, k10, k21, interpolator = identity3, transform4, clamp2 = false, unknown;
     function scale7(x5) {
@@ -14341,44 +14347,44 @@ ${currentIndent}`
     return divergingPow.apply(null, arguments).exponent(0.5);
   }
 
-  // node_modules/d3-scale-chromatic/src/colors.js
+  // scalene/scalene-gui/node_modules/d3-scale-chromatic/src/colors.js
   function colors_default(specifier) {
     var n2 = specifier.length / 6 | 0, colors2 = new Array(n2), i2 = 0;
     while (i2 < n2) colors2[i2] = "#" + specifier.slice(i2 * 6, ++i2 * 6);
     return colors2;
   }
 
-  // node_modules/d3-scale-chromatic/src/categorical/category10.js
+  // scalene/scalene-gui/node_modules/d3-scale-chromatic/src/categorical/category10.js
   var category10_default = colors_default("1f77b4ff7f0e2ca02cd627289467bd8c564be377c27f7f7fbcbd2217becf");
 
-  // node_modules/d3-scale-chromatic/src/categorical/Accent.js
+  // scalene/scalene-gui/node_modules/d3-scale-chromatic/src/categorical/Accent.js
   var Accent_default = colors_default("7fc97fbeaed4fdc086ffff99386cb0f0027fbf5b17666666");
 
-  // node_modules/d3-scale-chromatic/src/categorical/Dark2.js
+  // scalene/scalene-gui/node_modules/d3-scale-chromatic/src/categorical/Dark2.js
   var Dark2_default = colors_default("1b9e77d95f027570b3e7298a66a61ee6ab02a6761d666666");
 
-  // node_modules/d3-scale-chromatic/src/categorical/observable10.js
+  // scalene/scalene-gui/node_modules/d3-scale-chromatic/src/categorical/observable10.js
   var observable10_default = colors_default("4269d0efb118ff725c6cc5b03ca951ff8ab7a463f297bbf59c6b4e9498a0");
 
-  // node_modules/d3-scale-chromatic/src/categorical/Paired.js
+  // scalene/scalene-gui/node_modules/d3-scale-chromatic/src/categorical/Paired.js
   var Paired_default = colors_default("a6cee31f78b4b2df8a33a02cfb9a99e31a1cfdbf6fff7f00cab2d66a3d9affff99b15928");
 
-  // node_modules/d3-scale-chromatic/src/categorical/Pastel1.js
+  // scalene/scalene-gui/node_modules/d3-scale-chromatic/src/categorical/Pastel1.js
   var Pastel1_default = colors_default("fbb4aeb3cde3ccebc5decbe4fed9a6ffffcce5d8bdfddaecf2f2f2");
 
-  // node_modules/d3-scale-chromatic/src/categorical/Pastel2.js
+  // scalene/scalene-gui/node_modules/d3-scale-chromatic/src/categorical/Pastel2.js
   var Pastel2_default = colors_default("b3e2cdfdcdaccbd5e8f4cae4e6f5c9fff2aef1e2cccccccc");
 
-  // node_modules/d3-scale-chromatic/src/categorical/Set1.js
+  // scalene/scalene-gui/node_modules/d3-scale-chromatic/src/categorical/Set1.js
   var Set1_default = colors_default("e41a1c377eb84daf4a984ea3ff7f00ffff33a65628f781bf999999");
 
-  // node_modules/d3-scale-chromatic/src/categorical/Set2.js
+  // scalene/scalene-gui/node_modules/d3-scale-chromatic/src/categorical/Set2.js
   var Set2_default = colors_default("66c2a5fc8d628da0cbe78ac3a6d854ffd92fe5c494b3b3b3");
 
-  // node_modules/d3-scale-chromatic/src/categorical/Set3.js
+  // scalene/scalene-gui/node_modules/d3-scale-chromatic/src/categorical/Set3.js
   var Set3_default = colors_default("8dd3c7ffffb3bebadafb807280b1d3fdb462b3de69fccde5d9d9d9bc80bdccebc5ffed6f");
 
-  // node_modules/vega-scale/build/vega-scale.module.js
+  // scalene/scalene-gui/node_modules/vega-scale/build/vega-scale.module.js
   function bandSpace(count2, paddingInner2, paddingOuter2) {
     const space = count2 - paddingInner2 + paddingOuter2 * 2;
     return count2 ? space > 0 ? space : 1 : 0;
@@ -14602,7 +14608,7 @@ ${currentIndent}`
     return scale7;
   }
   var scales = /* @__PURE__ */ new Map();
-  var VEGA_SCALE = /* @__PURE__ */ Symbol("vega_scale");
+  var VEGA_SCALE = Symbol("vega_scale");
   function registerScale(scale7) {
     scale7[VEGA_SCALE] = true;
     return scale7;
@@ -14973,7 +14979,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-scenegraph/build/vega-scenegraph.module.js
+  // scalene/scalene-gui/node_modules/vega-scenegraph/build/vega-scenegraph.module.js
   var gradient_id = 0;
   function resetSVGGradientId() {
     gradient_id = 0;
@@ -19198,7 +19204,7 @@ ${currentIndent}`
     resetSVGGradientId();
   }
 
-  // node_modules/vega-view-transforms/build/vega-view-transforms.module.js
+  // scalene/scalene-gui/node_modules/vega-view-transforms/build/vega-view-transforms.module.js
   var Top = "top";
   var Left = "left";
   var Right = "right";
@@ -20141,7 +20147,7 @@ ${currentIndent}`
     view._resizeView(viewWidth2, viewHeight2, width2, height2, [left, top], auto.resize);
   }
 
-  // node_modules/vega-encode/build/vega-encode.module.js
+  // scalene/scalene-gui/node_modules/vega-encode/build/vega-encode.module.js
   var vega_encode_module_exports = {};
   __export(vega_encode_module_exports, {
     axisticks: () => AxisTicks,
@@ -20809,7 +20815,7 @@ ${currentIndent}`
     return groups;
   }
 
-  // node_modules/vega-geo/build/vega-geo.module.js
+  // scalene/scalene-gui/node_modules/vega-geo/build/vega-geo.module.js
   var vega_geo_module_exports = {};
   __export(vega_geo_module_exports, {
     contour: () => Contour,
@@ -20824,7 +20830,7 @@ ${currentIndent}`
     projection: () => Projection
   });
 
-  // node_modules/d3-geo/src/math.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/math.js
   var epsilon4 = 1e-6;
   var epsilon23 = 1e-12;
   var pi3 = Math.PI;
@@ -20855,11 +20861,11 @@ ${currentIndent}`
     return x5 > 1 ? halfPi2 : x5 < -1 ? -halfPi2 : Math.asin(x5);
   }
 
-  // node_modules/d3-geo/src/noop.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/noop.js
   function noop2() {
   }
 
-  // node_modules/d3-geo/src/stream.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/stream.js
   function streamGeometry(geometry, stream2) {
     if (geometry && streamGeometryType.hasOwnProperty(geometry.type)) {
       streamGeometryType[geometry.type](geometry, stream2);
@@ -20925,7 +20931,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/d3-geo/src/area.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/area.js
   var areaRingSum = new Adder();
   var areaSum = new Adder();
   var lambda00;
@@ -20976,7 +20982,7 @@ ${currentIndent}`
     return areaSum * 2;
   }
 
-  // node_modules/d3-geo/src/cartesian.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/cartesian.js
   function spherical(cartesian2) {
     return [atan22(cartesian2[1], cartesian2[0]), asin2(cartesian2[2])];
   }
@@ -21001,7 +21007,7 @@ ${currentIndent}`
     d2[0] /= l2, d2[1] /= l2, d2[2] /= l2;
   }
 
-  // node_modules/d3-geo/src/bounds.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/bounds.js
   var lambda02;
   var phi0;
   var lambda1;
@@ -21147,7 +21153,7 @@ ${currentIndent}`
     return lambda02 === Infinity || phi0 === Infinity ? [[NaN, NaN], [NaN, NaN]] : [[lambda02, phi0], [lambda1, phi1]];
   }
 
-  // node_modules/d3-geo/src/centroid.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/centroid.js
   var W0;
   var W1;
   var X0;
@@ -21258,7 +21264,7 @@ ${currentIndent}`
     return [atan22(y5, x5) * degrees3, asin2(z / m4) * degrees3];
   }
 
-  // node_modules/d3-geo/src/compose.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/compose.js
   function compose_default(a4, b3) {
     function compose(x5, y5) {
       return x5 = a4(x5, y5), b3(x5[0], x5[1]);
@@ -21269,7 +21275,7 @@ ${currentIndent}`
     return compose;
   }
 
-  // node_modules/d3-geo/src/rotation.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/rotation.js
   function rotationIdentity(lambda, phi2) {
     if (abs2(lambda) > pi3) lambda -= Math.round(lambda / tau3) * tau3;
     return [lambda, phi2];
@@ -21321,7 +21327,7 @@ ${currentIndent}`
     return forward;
   }
 
-  // node_modules/d3-geo/src/circle.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/circle.js
   function circleStream(stream2, radius2, delta, direction, t04, t13) {
     if (!delta) return;
     var cosRadius = cos2(radius2), sinRadius = sin2(radius2), step = direction * delta;
@@ -21345,7 +21351,7 @@ ${currentIndent}`
     return ((-point9[2] < 0 ? -radius2 : radius2) + tau3 - epsilon4) % tau3;
   }
 
-  // node_modules/d3-geo/src/clip/buffer.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/clip/buffer.js
   function buffer_default() {
     var lines = [], line4;
     return {
@@ -21368,12 +21374,12 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-geo/src/pointEqual.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/pointEqual.js
   function pointEqual_default(a4, b3) {
     return abs2(a4[0] - b3[0]) < epsilon4 && abs2(a4[1] - b3[1]) < epsilon4;
   }
 
-  // node_modules/d3-geo/src/clip/rejoin.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/clip/rejoin.js
   function Intersection(point9, points2, other, entry2) {
     this.x = point9;
     this.z = points2;
@@ -21451,7 +21457,7 @@ ${currentIndent}`
     b3.p = a4;
   }
 
-  // node_modules/d3-geo/src/polygonContains.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/polygonContains.js
   function longitude(point9) {
     return abs2(point9[0]) <= pi3 ? point9[0] : sign2(point9[0]) * ((abs2(point9[0]) + pi3) % tau3 - pi3);
   }
@@ -21482,7 +21488,7 @@ ${currentIndent}`
     return (angle2 < -epsilon4 || angle2 < epsilon4 && sum3 < -epsilon23) ^ winding & 1;
   }
 
-  // node_modules/d3-geo/src/clip/index.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/clip/index.js
   function clip_default(pointVisible, clipLine, interpolate3, start) {
     return function(sink) {
       var line4 = clipLine(sink), ringBuffer = buffer_default(), ringSink = clipLine(ringBuffer), polygonStarted = false, polygon, segments2, ring;
@@ -21576,7 +21582,7 @@ ${currentIndent}`
     return ((a4 = a4.x)[0] < 0 ? a4[1] - halfPi2 - epsilon4 : halfPi2 - a4[1]) - ((b3 = b3.x)[0] < 0 ? b3[1] - halfPi2 - epsilon4 : halfPi2 - b3[1]);
   }
 
-  // node_modules/d3-geo/src/clip/antimeridian.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/clip/antimeridian.js
   var antimeridian_default = clip_default(
     function() {
       return true;
@@ -21652,7 +21658,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/d3-geo/src/clip/circle.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/clip/circle.js
   function circle_default2(radius2) {
     var cr2 = cos2(radius2), delta = 2 * radians2, smallRadius = cr2 > 0, notHemisphere = abs2(cr2) > epsilon4;
     function interpolate3(from, to, direction, stream2) {
@@ -21754,7 +21760,7 @@ ${currentIndent}`
     return clip_default(visible, clipLine, interpolate3, smallRadius ? [0, -radius2] : [-pi3, radius2 - pi3]);
   }
 
-  // node_modules/d3-geo/src/clip/line.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/clip/line.js
   function line_default2(a4, b3, x06, y06, x12, y12) {
     var ax = a4[0], ay = a4[1], bx = b3[0], by = b3[1], t04 = 0, t13 = 1, dx = bx - ax, dy = by - ay, r2;
     r2 = x06 - ax;
@@ -21802,7 +21808,7 @@ ${currentIndent}`
     return true;
   }
 
-  // node_modules/d3-geo/src/clip/rectangle.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/clip/rectangle.js
   var clipMax = 1e9;
   var clipMin = -clipMax;
   function clipRectangle(x06, y06, x12, y12) {
@@ -21925,7 +21931,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-geo/src/graticule.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/graticule.js
   function graticuleX(y06, y12, dy) {
     var y5 = range(y06, y12 - epsilon4, dy).concat(y12);
     return function(x5) {
@@ -22017,10 +22023,10 @@ ${currentIndent}`
     return graticule2.extentMajor([[-180, -90 + epsilon4], [180, 90 - epsilon4]]).extentMinor([[-180, -80 - epsilon4], [180, 80 + epsilon4]]);
   }
 
-  // node_modules/d3-geo/src/identity.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/identity.js
   var identity_default3 = (x5) => x5;
 
-  // node_modules/d3-geo/src/path/area.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/path/area.js
   var areaSum2 = new Adder();
   var areaRingSum2 = new Adder();
   var x00;
@@ -22062,7 +22068,7 @@ ${currentIndent}`
   }
   var area_default3 = areaStream2;
 
-  // node_modules/d3-geo/src/path/bounds.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/path/bounds.js
   var x03 = Infinity;
   var y03 = x03;
   var x1 = -x03;
@@ -22087,7 +22093,7 @@ ${currentIndent}`
   }
   var bounds_default2 = boundsStream2;
 
-  // node_modules/d3-geo/src/path/centroid.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/path/centroid.js
   var X02 = 0;
   var Y02 = 0;
   var Z02 = 0;
@@ -22165,7 +22171,7 @@ ${currentIndent}`
   }
   var centroid_default2 = centroidStream2;
 
-  // node_modules/d3-geo/src/path/context.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/path/context.js
   function PathContext(context3) {
     this._context = context3;
   }
@@ -22208,7 +22214,7 @@ ${currentIndent}`
     result: noop2
   };
 
-  // node_modules/d3-geo/src/path/measure.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/path/measure.js
   var lengthSum = new Adder();
   var lengthRing;
   var x003;
@@ -22247,7 +22253,7 @@ ${currentIndent}`
   }
   var measure_default = lengthStream;
 
-  // node_modules/d3-geo/src/path/string.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/path/string.js
   var cacheDigits;
   var cacheAppend;
   var cacheRadius;
@@ -22334,7 +22340,7 @@ ${currentIndent}`
     return cacheAppend;
   }
 
-  // node_modules/d3-geo/src/path/index.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/path/index.js
   function path_default(projection3, context3) {
     let digits = 3, pointRadius = 4.5, projectionStream, contextStream;
     function path3(object2) {
@@ -22390,7 +22396,7 @@ ${currentIndent}`
     return path3.projection(projection3).digits(digits).context(context3);
   }
 
-  // node_modules/d3-geo/src/transform.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/transform.js
   function transformer4(methods2) {
     return function(stream2) {
       var s2 = new TransformStream2();
@@ -22423,7 +22429,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/d3-geo/src/projection/fit.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/fit.js
   function fit(projection3, fitBounds, object2) {
     var clip3 = projection3.clipExtent && projection3.clipExtent();
     projection3.scale(150).translate([0, 0]);
@@ -22455,7 +22461,7 @@ ${currentIndent}`
     }, object2);
   }
 
-  // node_modules/d3-geo/src/projection/resample.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/resample.js
   var maxDepth = 16;
   var cosMinDistance = cos2(30 * radians2);
   function resample_default(project3, delta2) {
@@ -22532,7 +22538,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-geo/src/projection/index.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/index.js
   var transformRadians = transformer4({
     point: function(x5, y5) {
       this.stream.point(x5 * radians2, y5 * radians2);
@@ -22654,7 +22660,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-geo/src/projection/conic.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/conic.js
   function conicProjection(projectAt) {
     var phi02 = 0, phi12 = pi3 / 3, m4 = projectionMutator(projectAt), p2 = m4(phi02, phi12);
     p2.parallels = function(_) {
@@ -22663,7 +22669,7 @@ ${currentIndent}`
     return p2;
   }
 
-  // node_modules/d3-geo/src/projection/cylindricalEqualArea.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/cylindricalEqualArea.js
   function cylindricalEqualAreaRaw(phi02) {
     var cosPhi02 = cos2(phi02);
     function forward(lambda, phi2) {
@@ -22675,7 +22681,7 @@ ${currentIndent}`
     return forward;
   }
 
-  // node_modules/d3-geo/src/projection/conicEqualArea.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/conicEqualArea.js
   function conicEqualAreaRaw(y06, y12) {
     var sy0 = sin2(y06), n2 = (sy0 + sin2(y12)) / 2;
     if (abs2(n2) < epsilon4) return cylindricalEqualAreaRaw(y06);
@@ -22696,12 +22702,12 @@ ${currentIndent}`
     return conicProjection(conicEqualAreaRaw).scale(155.424).center([0, 33.6442]);
   }
 
-  // node_modules/d3-geo/src/projection/albers.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/albers.js
   function albers_default() {
     return conicEqualArea_default().parallels([29.5, 45.5]).scale(1070).translate([480, 250]).rotate([96, 0]).center([-0.6, 38.7]);
   }
 
-  // node_modules/d3-geo/src/projection/albersUsa.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/albersUsa.js
   function multiplex(streams) {
     var n2 = streams.length;
     return {
@@ -22783,7 +22789,7 @@ ${currentIndent}`
     return albersUsa.scale(1070);
   }
 
-  // node_modules/d3-geo/src/projection/azimuthal.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/azimuthal.js
   function azimuthalRaw(scale7) {
     return function(x5, y5) {
       var cx = cos2(x5), cy = cos2(y5), k2 = scale7(cx * cy);
@@ -22804,7 +22810,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-geo/src/projection/azimuthalEqualArea.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/azimuthalEqualArea.js
   var azimuthalEqualAreaRaw = azimuthalRaw(function(cxcy) {
     return sqrt3(2 / (1 + cxcy));
   });
@@ -22815,7 +22821,7 @@ ${currentIndent}`
     return projection(azimuthalEqualAreaRaw).scale(124.75).clipAngle(180 - 1e-3);
   }
 
-  // node_modules/d3-geo/src/projection/azimuthalEquidistant.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/azimuthalEquidistant.js
   var azimuthalEquidistantRaw = azimuthalRaw(function(c4) {
     return (c4 = acos2(c4)) && c4 / sin2(c4);
   });
@@ -22826,7 +22832,7 @@ ${currentIndent}`
     return projection(azimuthalEquidistantRaw).scale(79.4188).clipAngle(180 - 1e-3);
   }
 
-  // node_modules/d3-geo/src/projection/mercator.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/mercator.js
   function mercatorRaw(lambda, phi2) {
     return [lambda, log4(tan((halfPi2 + phi2) / 2))];
   }
@@ -22857,7 +22863,7 @@ ${currentIndent}`
     return reclip();
   }
 
-  // node_modules/d3-geo/src/projection/conicConformal.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/conicConformal.js
   function tany(y5) {
     return tan((halfPi2 + y5) / 2);
   }
@@ -22885,7 +22891,7 @@ ${currentIndent}`
     return conicProjection(conicConformalRaw).scale(109.5).parallels([30, 30]);
   }
 
-  // node_modules/d3-geo/src/projection/equirectangular.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/equirectangular.js
   function equirectangularRaw(lambda, phi2) {
     return [lambda, phi2];
   }
@@ -22894,7 +22900,7 @@ ${currentIndent}`
     return projection(equirectangularRaw).scale(152.63);
   }
 
-  // node_modules/d3-geo/src/projection/conicEquidistant.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/conicEquidistant.js
   function conicEquidistantRaw(y06, y12) {
     var cy0 = cos2(y06), n2 = y06 === y12 ? sin2(y06) : (cy0 - cos2(y12)) / (y12 - y06), g2 = cy0 / n2 + y06;
     if (abs2(n2) < epsilon4) return equirectangularRaw;
@@ -22914,7 +22920,7 @@ ${currentIndent}`
     return conicProjection(conicEquidistantRaw).scale(131.154).center([0, 13.9389]);
   }
 
-  // node_modules/d3-geo/src/projection/equalEarth.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/equalEarth.js
   var A1 = 1.340264;
   var A2 = -0.081106;
   var A3 = 893e-6;
@@ -22945,7 +22951,7 @@ ${currentIndent}`
     return projection(equalEarthRaw).scale(177.158);
   }
 
-  // node_modules/d3-geo/src/projection/gnomonic.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/gnomonic.js
   function gnomonicRaw(x5, y5) {
     var cy = cos2(y5), k2 = cos2(x5) * cy;
     return [cy * sin2(x5) / k2, sin2(y5) / k2];
@@ -22955,7 +22961,7 @@ ${currentIndent}`
     return projection(gnomonicRaw).scale(144.049).clipAngle(60);
   }
 
-  // node_modules/d3-geo/src/projection/identity.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/identity.js
   function identity_default4() {
     var k2 = 1, tx = 0, ty = 0, sx = 1, sy = 1, alpha = 0, ca3, sa2, x06 = null, y06, x12, y12, kx = 1, ky = 1, transform4 = transformer4({
       point: function(x5, y5) {
@@ -23026,7 +23032,7 @@ ${currentIndent}`
     return projection3;
   }
 
-  // node_modules/d3-geo/src/projection/naturalEarth1.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/naturalEarth1.js
   function naturalEarth1Raw(lambda, phi2) {
     var phi22 = phi2 * phi2, phi4 = phi22 * phi22;
     return [
@@ -23049,7 +23055,7 @@ ${currentIndent}`
     return projection(naturalEarth1Raw).scale(175.295);
   }
 
-  // node_modules/d3-geo/src/projection/orthographic.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/orthographic.js
   function orthographicRaw(x5, y5) {
     return [cos2(y5) * sin2(x5), sin2(y5)];
   }
@@ -23058,7 +23064,7 @@ ${currentIndent}`
     return projection(orthographicRaw).scale(249.5).clipAngle(90 + epsilon4);
   }
 
-  // node_modules/d3-geo/src/projection/stereographic.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/stereographic.js
   function stereographicRaw(x5, y5) {
     var cy = cos2(y5), k2 = 1 + cos2(x5) * cy;
     return [cy * sin2(x5) / k2, sin2(y5) / k2];
@@ -23070,7 +23076,7 @@ ${currentIndent}`
     return projection(stereographicRaw).scale(250).clipAngle(142);
   }
 
-  // node_modules/d3-geo/src/projection/transverseMercator.js
+  // scalene/scalene-gui/node_modules/d3-geo/src/projection/transverseMercator.js
   function transverseMercatorRaw(lambda, phi2) {
     return [log4(tan((halfPi2 + phi2) / 2)), -lambda];
   }
@@ -23088,7 +23094,7 @@ ${currentIndent}`
     return rotate2([0, 0, 90]).scale(159.155);
   }
 
-  // node_modules/d3-geo-projection/src/math.js
+  // scalene/scalene-gui/node_modules/d3-geo-projection/src/math.js
   var abs3 = Math.abs;
   var cos3 = Math.cos;
   var sin3 = Math.sin;
@@ -23108,7 +23114,7 @@ ${currentIndent}`
     return x5 > 0 ? Math.sqrt(x5) : 0;
   }
 
-  // node_modules/d3-geo-projection/src/mollweide.js
+  // scalene/scalene-gui/node_modules/d3-geo-projection/src/mollweide.js
   function mollweideBromleyTheta(cp, phi2) {
     var cpsinPhi = cp * sin3(phi2), i2 = 30, delta;
     do
@@ -23130,7 +23136,7 @@ ${currentIndent}`
     return projection(mollweideRaw).scale(169.529);
   }
 
-  // node_modules/vega-projection/build/vega-projection.module.js
+  // scalene/scalene-gui/node_modules/vega-projection/build/vega-projection.module.js
   var defaultPath = path_default();
   var projectionProperties = [
     // standard properties in d3-geo
@@ -23210,7 +23216,7 @@ ${currentIndent}`
     projection2(key2, projections[key2]);
   }
 
-  // node_modules/vega-geo/build/vega-geo.module.js
+  // scalene/scalene-gui/node_modules/vega-geo/build/vega-geo.module.js
   function noop3() {
   }
   var cases = [[], [[[1, 1.5], [0.5, 1]]], [[[1.5, 1], [1, 1.5]]], [[[1.5, 1], [0.5, 1]]], [[[1, 0.5], [1.5, 1]]], [[[1, 1.5], [0.5, 1]], [[1, 0.5], [1.5, 1]]], [[[1, 0.5], [1, 1.5]]], [[[1, 0.5], [0.5, 1]]], [[[0.5, 1], [1, 0.5]]], [[[1, 1.5], [1, 0.5]]], [[[0.5, 1], [1, 0.5]], [[1.5, 1], [1, 1.5]]], [[[1.5, 1], [1, 0.5]]], [[[0.5, 1], [1.5, 1]]], [[[1, 1.5], [1.5, 1]]], [[[0.5, 1], [1, 1.5]]], []];
@@ -24176,13 +24182,13 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/vega-force/build/vega-force.module.js
+  // scalene/scalene-gui/node_modules/vega-force/build/vega-force.module.js
   var vega_force_module_exports = {};
   __export(vega_force_module_exports, {
     force: () => Force
   });
 
-  // node_modules/d3-force/src/center.js
+  // scalene/scalene-gui/node_modules/d3-force/src/center.js
   function center_default(x5, y5) {
     var nodes, strength = 1;
     if (x5 == null) x5 = 0;
@@ -24211,7 +24217,7 @@ ${currentIndent}`
     return force;
   }
 
-  // node_modules/d3-quadtree/src/add.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/add.js
   function add_default(d2) {
     const x5 = +this._x.call(null, d2), y5 = +this._y.call(null, d2);
     return add4(this.cover(x5, y5), x5, y5, d2);
@@ -24258,7 +24264,7 @@ ${currentIndent}`
     return this;
   }
 
-  // node_modules/d3-quadtree/src/cover.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/cover.js
   function cover_default(x5, y5) {
     if (isNaN(x5 = +x5) || isNaN(y5 = +y5)) return this;
     var x06 = this._x0, y06 = this._y0, x12 = this._x1, y12 = this._y1;
@@ -24294,7 +24300,7 @@ ${currentIndent}`
     return this;
   }
 
-  // node_modules/d3-quadtree/src/data.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/data.js
   function data_default() {
     var data3 = [];
     this.visit(function(node) {
@@ -24305,12 +24311,12 @@ ${currentIndent}`
     return data3;
   }
 
-  // node_modules/d3-quadtree/src/extent.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/extent.js
   function extent_default(_) {
     return arguments.length ? this.cover(+_[0][0], +_[0][1]).cover(+_[1][0], +_[1][1]) : isNaN(this._x0) ? void 0 : [[this._x0, this._y0], [this._x1, this._y1]];
   }
 
-  // node_modules/d3-quadtree/src/quad.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/quad.js
   function quad_default(node, x06, y06, x12, y12) {
     this.node = node;
     this.x0 = x06;
@@ -24319,7 +24325,7 @@ ${currentIndent}`
     this.y1 = y12;
   }
 
-  // node_modules/d3-quadtree/src/find.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/find.js
   function find_default(x5, y5, radius2) {
     var data3, x06 = this._x0, y06 = this._y0, x12, y12, x22, y22, x32 = this._x1, y32 = this._y1, quads = [], node = this._root, q2, i2;
     if (node) quads.push(new quad_default(node, x06, y06, x32, y32));
@@ -24357,7 +24363,7 @@ ${currentIndent}`
     return data3;
   }
 
-  // node_modules/d3-quadtree/src/remove.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/remove.js
   function remove_default(d2) {
     if (isNaN(x5 = +this._x.call(null, d2)) || isNaN(y5 = +this._y.call(null, d2))) return this;
     var parent, node = this._root, retainer, previous, next, x06 = this._x0, y06 = this._y0, x12 = this._x1, y12 = this._y1, x5, y5, xm, ym, right, bottom, i2, j2;
@@ -24387,12 +24393,12 @@ ${currentIndent}`
     return this;
   }
 
-  // node_modules/d3-quadtree/src/root.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/root.js
   function root_default() {
     return this._root;
   }
 
-  // node_modules/d3-quadtree/src/size.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/size.js
   function size_default() {
     var size = 0;
     this.visit(function(node) {
@@ -24403,7 +24409,7 @@ ${currentIndent}`
     return size;
   }
 
-  // node_modules/d3-quadtree/src/visit.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/visit.js
   function visit_default(callback) {
     var quads = [], q2, node = this._root, child, x06, y06, x12, y12;
     if (node) quads.push(new quad_default(node, this._x0, this._y0, this._x1, this._y1));
@@ -24419,7 +24425,7 @@ ${currentIndent}`
     return this;
   }
 
-  // node_modules/d3-quadtree/src/visitAfter.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/visitAfter.js
   function visitAfter_default(callback) {
     var quads = [], next = [], q2;
     if (this._root) quads.push(new quad_default(this._root, this._x0, this._y0, this._x1, this._y1));
@@ -24440,7 +24446,7 @@ ${currentIndent}`
     return this;
   }
 
-  // node_modules/d3-quadtree/src/x.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/x.js
   function defaultX(d2) {
     return d2[0];
   }
@@ -24448,7 +24454,7 @@ ${currentIndent}`
     return arguments.length ? (this._x = _, this) : this._x;
   }
 
-  // node_modules/d3-quadtree/src/y.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/y.js
   function defaultY(d2) {
     return d2[1];
   }
@@ -24456,7 +24462,7 @@ ${currentIndent}`
     return arguments.length ? (this._y = _, this) : this._y;
   }
 
-  // node_modules/d3-quadtree/src/quadtree.js
+  // scalene/scalene-gui/node_modules/d3-quadtree/src/quadtree.js
   function quadtree(nodes, x5, y5) {
     var tree = new Quadtree(x5 == null ? defaultX : x5, y5 == null ? defaultY : y5, NaN, NaN, NaN, NaN);
     return nodes == null ? tree : tree.addAll(nodes);
@@ -24506,19 +24512,19 @@ ${currentIndent}`
   treeProto.x = x_default;
   treeProto.y = y_default;
 
-  // node_modules/d3-force/src/constant.js
+  // scalene/scalene-gui/node_modules/d3-force/src/constant.js
   function constant_default3(x5) {
     return function() {
       return x5;
     };
   }
 
-  // node_modules/d3-force/src/jiggle.js
+  // scalene/scalene-gui/node_modules/d3-force/src/jiggle.js
   function jiggle_default(random2) {
     return (random2() - 0.5) * 1e-6;
   }
 
-  // node_modules/d3-force/src/collide.js
+  // scalene/scalene-gui/node_modules/d3-force/src/collide.js
   function x3(d2) {
     return d2.x + d2.vx;
   }
@@ -24591,7 +24597,7 @@ ${currentIndent}`
     return force;
   }
 
-  // node_modules/d3-force/src/link.js
+  // scalene/scalene-gui/node_modules/d3-force/src/link.js
   function index(d2) {
     return d2.index;
   }
@@ -24673,7 +24679,7 @@ ${currentIndent}`
     return force;
   }
 
-  // node_modules/d3-dispatch/src/dispatch.js
+  // scalene/scalene-gui/node_modules/d3-dispatch/src/dispatch.js
   var noop4 = { value: () => {
   } };
   function dispatch() {
@@ -24743,7 +24749,7 @@ ${currentIndent}`
   }
   var dispatch_default = dispatch;
 
-  // node_modules/d3-timer/src/timer.js
+  // scalene/scalene-gui/node_modules/d3-timer/src/timer.js
   var frame = 0;
   var timeout = 0;
   var interval = 0;
@@ -24845,7 +24851,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/d3-timer/src/interval.js
+  // scalene/scalene-gui/node_modules/d3-timer/src/interval.js
   function interval_default(callback, delay, time3) {
     var t4 = new Timer(), total = delay;
     if (delay == null) return t4.restart(callback, delay, time3), t4;
@@ -24862,7 +24868,7 @@ ${currentIndent}`
     return t4;
   }
 
-  // node_modules/d3-force/src/lcg.js
+  // scalene/scalene-gui/node_modules/d3-force/src/lcg.js
   var a = 1664525;
   var c = 1013904223;
   var m = 4294967296;
@@ -24871,7 +24877,7 @@ ${currentIndent}`
     return () => (s2 = (a * s2 + c) % m) / m;
   }
 
-  // node_modules/d3-force/src/simulation.js
+  // scalene/scalene-gui/node_modules/d3-force/src/simulation.js
   function x4(d2) {
     return d2.x;
   }
@@ -24980,7 +24986,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-force/src/manyBody.js
+  // scalene/scalene-gui/node_modules/d3-force/src/manyBody.js
   function manyBody_default() {
     var nodes, node, random2, alpha, strength = constant_default3(-30), strengths, distanceMin2 = 1, distanceMax2 = Infinity, theta2 = 0.81;
     function force(_) {
@@ -25059,7 +25065,7 @@ ${currentIndent}`
     return force;
   }
 
-  // node_modules/d3-force/src/x.js
+  // scalene/scalene-gui/node_modules/d3-force/src/x.js
   function x_default2(x5) {
     var strength = constant_default3(0.1), nodes, strengths, xz;
     if (typeof x5 !== "function") x5 = constant_default3(x5 == null ? 0 : +x5);
@@ -25090,7 +25096,7 @@ ${currentIndent}`
     return force;
   }
 
-  // node_modules/d3-force/src/y.js
+  // scalene/scalene-gui/node_modules/d3-force/src/y.js
   function y_default2(y5) {
     var strength = constant_default3(0.1), nodes, strengths, yz;
     if (typeof y5 !== "function") y5 = constant_default3(y5 == null ? 0 : +y5);
@@ -25121,7 +25127,7 @@ ${currentIndent}`
     return force;
   }
 
-  // node_modules/vega-force/build/vega-force.module.js
+  // scalene/scalene-gui/node_modules/vega-force/build/vega-force.module.js
   var ForceMap = {
     center: center_default,
     collide: collide_default,
@@ -25380,7 +25386,7 @@ ${currentIndent}`
     f2(isFunction(v3) ? (d2) => v3(d2, _) : v3);
   }
 
-  // node_modules/vega-hierarchy/build/vega-hierarchy.module.js
+  // scalene/scalene-gui/node_modules/vega-hierarchy/build/vega-hierarchy.module.js
   var vega_hierarchy_module_exports = {};
   __export(vega_hierarchy_module_exports, {
     nest: () => Nest,
@@ -25392,7 +25398,7 @@ ${currentIndent}`
     treemap: () => Treemap
   });
 
-  // node_modules/d3-hierarchy/src/cluster.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/cluster.js
   function defaultSeparation(a4, b3) {
     return a4.parent === b3.parent ? 1 : 2;
   }
@@ -25454,7 +25460,7 @@ ${currentIndent}`
     return cluster;
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/count.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/count.js
   function count(node) {
     var sum3 = 0, children4 = node.children, i2 = children4 && children4.length;
     if (!i2) sum3 = 1;
@@ -25465,7 +25471,7 @@ ${currentIndent}`
     return this.eachAfter(count);
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/each.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/each.js
   function each_default(callback, that) {
     let index4 = -1;
     for (const node of this) {
@@ -25474,7 +25480,7 @@ ${currentIndent}`
     return this;
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/eachBefore.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/eachBefore.js
   function eachBefore_default(callback, that) {
     var node = this, nodes = [node], children4, i2, index4 = -1;
     while (node = nodes.pop()) {
@@ -25488,7 +25494,7 @@ ${currentIndent}`
     return this;
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/eachAfter.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/eachAfter.js
   function eachAfter_default(callback, that) {
     var node = this, nodes = [node], next = [], children4, i2, n2, index4 = -1;
     while (node = nodes.pop()) {
@@ -25505,7 +25511,7 @@ ${currentIndent}`
     return this;
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/find.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/find.js
   function find_default2(callback, that) {
     let index4 = -1;
     for (const node of this) {
@@ -25515,7 +25521,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/sum.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/sum.js
   function sum_default(value3) {
     return this.eachAfter(function(node) {
       var sum3 = +value3(node.data) || 0, children4 = node.children, i2 = children4 && children4.length;
@@ -25524,7 +25530,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/sort.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/sort.js
   function sort_default(compare4) {
     return this.eachBefore(function(node) {
       if (node.children) {
@@ -25533,7 +25539,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/path.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/path.js
   function path_default2(end) {
     var start = this, ancestor = leastCommonAncestor(start, end), nodes = [start];
     while (start !== ancestor) {
@@ -25560,7 +25566,7 @@ ${currentIndent}`
     return c4;
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/ancestors.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/ancestors.js
   function ancestors_default() {
     var node = this, nodes = [node];
     while (node = node.parent) {
@@ -25569,12 +25575,12 @@ ${currentIndent}`
     return nodes;
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/descendants.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/descendants.js
   function descendants_default() {
     return Array.from(this);
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/leaves.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/leaves.js
   function leaves_default() {
     var leaves = [];
     this.eachBefore(function(node) {
@@ -25585,7 +25591,7 @@ ${currentIndent}`
     return leaves;
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/links.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/links.js
   function links_default() {
     var root = this, links = [];
     root.each(function(node) {
@@ -25596,7 +25602,7 @@ ${currentIndent}`
     return links;
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/iterator.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/iterator.js
   function* iterator_default() {
     var node = this, current2, next = [node], children4, i2, n2;
     do {
@@ -25612,7 +25618,7 @@ ${currentIndent}`
     } while (next.length);
   }
 
-  // node_modules/d3-hierarchy/src/hierarchy/index.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/hierarchy/index.js
   function hierarchy(data3, children4) {
     if (data3 instanceof Map) {
       data3 = [void 0, data3];
@@ -25675,7 +25681,7 @@ ${currentIndent}`
     [Symbol.iterator]: iterator_default
   };
 
-  // node_modules/d3-hierarchy/src/accessors.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/accessors.js
   function optional(f2) {
     return f2 == null ? null : required(f2);
   }
@@ -25684,7 +25690,7 @@ ${currentIndent}`
     return f2;
   }
 
-  // node_modules/d3-hierarchy/src/constant.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/constant.js
   function constantZero() {
     return 0;
   }
@@ -25694,7 +25700,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-hierarchy/src/lcg.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/lcg.js
   var a2 = 1664525;
   var c2 = 1013904223;
   var m2 = 4294967296;
@@ -25703,7 +25709,7 @@ ${currentIndent}`
     return () => (s2 = (a2 * s2 + c2) % m2) / m2;
   }
 
-  // node_modules/d3-hierarchy/src/array.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/array.js
   function array_default3(x5) {
     return typeof x5 === "object" && "length" in x5 ? x5 : Array.from(x5);
   }
@@ -25718,7 +25724,7 @@ ${currentIndent}`
     return array4;
   }
 
-  // node_modules/d3-hierarchy/src/pack/enclose.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/pack/enclose.js
   function packEncloseRandom(circles, random2) {
     var i2 = 0, n2 = (circles = shuffle(Array.from(circles), random2)).length, B3 = [], p2, e4;
     while (i2 < n2) {
@@ -25795,7 +25801,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-hierarchy/src/pack/siblings.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/pack/siblings.js
   function place(b3, a4, c4) {
     var dx = b3.x - a4.x, x5, a22, dy = b3.y - a4.y, y5, b22, d2 = dx * dx + dy * dy;
     if (d2) {
@@ -25876,7 +25882,7 @@ ${currentIndent}`
     return c4.r;
   }
 
-  // node_modules/d3-hierarchy/src/pack/index.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/pack/index.js
   function defaultRadius(d2) {
     return Math.sqrt(d2.value);
   }
@@ -25932,7 +25938,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/d3-hierarchy/src/treemap/round.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/treemap/round.js
   function round_default2(node) {
     node.x0 = Math.round(node.x0);
     node.y0 = Math.round(node.y0);
@@ -25940,7 +25946,7 @@ ${currentIndent}`
     node.y1 = Math.round(node.y1);
   }
 
-  // node_modules/d3-hierarchy/src/treemap/dice.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/treemap/dice.js
   function dice_default(parent, x06, y06, x12, y12) {
     var nodes = parent.children, node, i2 = -1, n2 = nodes.length, k2 = parent.value && (x12 - x06) / parent.value;
     while (++i2 < n2) {
@@ -25949,7 +25955,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/d3-hierarchy/src/partition.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/partition.js
   function partition_default() {
     var dx = 1, dy = 1, padding3 = 0, round = false;
     function partition6(root) {
@@ -25987,7 +25993,7 @@ ${currentIndent}`
     return partition6;
   }
 
-  // node_modules/d3-hierarchy/src/stratify.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/stratify.js
   var preroot = { depth: -1 };
   var ambiguous = {};
   var imputed = {};
@@ -26092,7 +26098,7 @@ ${currentIndent}`
     return false;
   }
 
-  // node_modules/d3-hierarchy/src/tree.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/tree.js
   function defaultSeparation2(a4, b3) {
     return a4.parent === b3.parent ? 1 : 2;
   }
@@ -26240,7 +26246,7 @@ ${currentIndent}`
     return tree;
   }
 
-  // node_modules/d3-hierarchy/src/treemap/slice.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/treemap/slice.js
   function slice_default(parent, x06, y06, x12, y12) {
     var nodes = parent.children, node, i2 = -1, n2 = nodes.length, k2 = parent.value && (y12 - y06) / parent.value;
     while (++i2 < n2) {
@@ -26249,7 +26255,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/d3-hierarchy/src/treemap/squarify.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/treemap/squarify.js
   var phi = (1 + Math.sqrt(5)) / 2;
   function squarifyRatio(ratio, parent, x06, y06, x12, y12) {
     var rows = [], nodes = parent.children, row, nodeValue, i0 = 0, i1 = 0, n2 = nodes.length, dx, dy, value3 = parent.value, sumValue, minValue, maxValue, newRatio, minRatio, alpha, beta;
@@ -26281,7 +26287,7 @@ ${currentIndent}`
     }
     return rows;
   }
-  var squarify_default = (function custom9(ratio) {
+  var squarify_default = function custom9(ratio) {
     function squarify(parent, x06, y06, x12, y12) {
       squarifyRatio(ratio, parent, x06, y06, x12, y12);
     }
@@ -26289,9 +26295,9 @@ ${currentIndent}`
       return custom9((x5 = +x5) > 1 ? x5 : 1);
     };
     return squarify;
-  })(phi);
+  }(phi);
 
-  // node_modules/d3-hierarchy/src/treemap/index.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/treemap/index.js
   function treemap_default() {
     var tile = squarify_default, round = false, dx = 1, dy = 1, paddingStack = [0], paddingInner2 = constantZero, paddingTop = constantZero, paddingRight = constantZero, paddingBottom = constantZero, paddingLeft = constantZero;
     function treemap(root) {
@@ -26355,7 +26361,7 @@ ${currentIndent}`
     return treemap;
   }
 
-  // node_modules/d3-hierarchy/src/treemap/binary.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/treemap/binary.js
   function binary_default(parent, x06, y06, x12, y12) {
     var nodes = parent.children, i2, n2 = nodes.length, sum3, sums = new Array(n2 + 1);
     for (sums[0] = sum3 = i2 = 0; i2 < n2; ++i2) {
@@ -26389,13 +26395,13 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/d3-hierarchy/src/treemap/sliceDice.js
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/treemap/sliceDice.js
   function sliceDice_default(parent, x06, y06, x12, y12) {
     (parent.depth & 1 ? slice_default : dice_default)(parent, x06, y06, x12, y12);
   }
 
-  // node_modules/d3-hierarchy/src/treemap/resquarify.js
-  var resquarify_default = (function custom10(ratio) {
+  // scalene/scalene-gui/node_modules/d3-hierarchy/src/treemap/resquarify.js
+  var resquarify_default = function custom10(ratio) {
     function resquarify(parent, x06, y06, x12, y12) {
       if ((rows = parent._squarify) && rows.ratio === ratio) {
         var rows, row, nodes, i2, j2 = -1, n2, m4 = rows.length, value3 = parent.value;
@@ -26415,9 +26421,9 @@ ${currentIndent}`
       return custom10((x5 = +x5) > 1 ? x5 : 1);
     };
     return resquarify;
-  })(phi);
+  }(phi);
 
-  // node_modules/vega-hierarchy/build/vega-hierarchy.module.js
+  // scalene/scalene-gui/node_modules/vega-hierarchy/build/vega-hierarchy.module.js
   function lookup3(tree, key2, filter3) {
     const map4 = {};
     tree.each((node) => {
@@ -26872,7 +26878,7 @@ ${currentIndent}`
     fields: Output2
   });
 
-  // node_modules/vega-label/build/vega-label.module.js
+  // scalene/scalene-gui/node_modules/vega-label/build/vega-label.module.js
   var vega_label_module_exports = {};
   __export(vega_label_module_exports, {
     label: () => Label
@@ -27465,7 +27471,7 @@ ${currentIndent}`
     }
   });
 
-  // node_modules/vega-regression/build/vega-regression.module.js
+  // scalene/scalene-gui/node_modules/vega-regression/build/vega-regression.module.js
   var vega_regression_module_exports = {};
   __export(vega_regression_module_exports, {
     loess: () => Loess,
@@ -27650,13 +27656,13 @@ ${currentIndent}`
     }
   });
 
-  // node_modules/vega-voronoi/build/vega-voronoi.module.js
+  // scalene/scalene-gui/node_modules/vega-voronoi/build/vega-voronoi.module.js
   var vega_voronoi_module_exports = {};
   __export(vega_voronoi_module_exports, {
     voronoi: () => Voronoi2
   });
 
-  // node_modules/robust-predicates/esm/util.js
+  // scalene/scalene-gui/node_modules/robust-predicates/esm/util.js
   var epsilon6 = 11102230246251565e-32;
   var splitter = 134217729;
   var resulterrbound = (3 + 8 * epsilon6) * epsilon6;
@@ -27740,7 +27746,7 @@ ${currentIndent}`
     return new Float64Array(n2);
   }
 
-  // node_modules/robust-predicates/esm/orient2d.js
+  // scalene/scalene-gui/node_modules/robust-predicates/esm/orient2d.js
   var ccwerrboundA = (3 + 16 * epsilon6) * epsilon6;
   var ccwerrboundB = (2 + 12 * epsilon6) * epsilon6;
   var ccwerrboundC = (9 + 64 * epsilon6) * epsilon6 * epsilon6;
@@ -27905,7 +27911,7 @@ ${currentIndent}`
     return -orient2dadapt(ax, ay, bx, by, cx, cy, detsum);
   }
 
-  // node_modules/robust-predicates/esm/orient3d.js
+  // scalene/scalene-gui/node_modules/robust-predicates/esm/orient3d.js
   var o3derrboundA = (7 + 56 * epsilon6) * epsilon6;
   var o3derrboundB = (3 + 28 * epsilon6) * epsilon6;
   var o3derrboundC = (26 + 288 * epsilon6) * epsilon6 * epsilon6;
@@ -27929,7 +27935,7 @@ ${currentIndent}`
   var fin = vec(192);
   var fin2 = vec(192);
 
-  // node_modules/robust-predicates/esm/incircle.js
+  // scalene/scalene-gui/node_modules/robust-predicates/esm/incircle.js
   var iccerrboundA = (10 + 96 * epsilon6) * epsilon6;
   var iccerrboundB = (4 + 48 * epsilon6) * epsilon6;
   var iccerrboundC = (44 + 576 * epsilon6) * epsilon6 * epsilon6;
@@ -27964,7 +27970,7 @@ ${currentIndent}`
   var fin3 = vec(1152);
   var fin22 = vec(1152);
 
-  // node_modules/robust-predicates/esm/insphere.js
+  // scalene/scalene-gui/node_modules/robust-predicates/esm/insphere.js
   var isperrboundA = (16 + 224 * epsilon6) * epsilon6;
   var isperrboundB = (5 + 72 * epsilon6) * epsilon6;
   var isperrboundC = (71 + 1408 * epsilon6) * epsilon6 * epsilon6;
@@ -28015,7 +28021,7 @@ ${currentIndent}`
   var zdet = vec(96);
   var fin4 = vec(1152);
 
-  // node_modules/delaunator/index.js
+  // scalene/scalene-gui/node_modules/delaunator/index.js
   var EPSILON2 = Math.pow(2, -52);
   var EDGE_STACK = new Uint32Array(512);
   var Delaunator = class _Delaunator {
@@ -28380,7 +28386,7 @@ ${currentIndent}`
     return p2[1];
   }
 
-  // node_modules/d3-delaunay/src/path.js
+  // scalene/scalene-gui/node_modules/d3-delaunay/src/path.js
   var epsilon7 = 1e-6;
   var Path2 = class {
     constructor() {
@@ -28418,7 +28424,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/d3-delaunay/src/polygon.js
+  // scalene/scalene-gui/node_modules/d3-delaunay/src/polygon.js
   var Polygon = class {
     constructor() {
       this._ = [];
@@ -28437,7 +28443,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/d3-delaunay/src/voronoi.js
+  // scalene/scalene-gui/node_modules/d3-delaunay/src/voronoi.js
   var Voronoi = class {
     constructor(delaunay, [xmin, ymin, xmax, ymax] = [0, 0, 960, 500]) {
       if (!((xmax = +xmax) >= (xmin = +xmin)) || !((ymax = +ymax) >= (ymin = +ymin))) throw new Error("invalid bounds");
@@ -28766,7 +28772,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/d3-delaunay/src/delaunay.js
+  // scalene/scalene-gui/node_modules/d3-delaunay/src/delaunay.js
   var tau5 = 2 * Math.PI;
   var pow5 = Math.pow;
   function pointX(p2) {
@@ -28983,7 +28989,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-voronoi/build/vega-voronoi.module.js
+  // scalene/scalene-gui/node_modules/vega-voronoi/build/vega-voronoi.module.js
   function Voronoi2(params2) {
     Transform.call(this, null, params2);
   }
@@ -29047,7 +29053,7 @@ ${currentIndent}`
     return p2.length === 2 && p2[0][0] === p2[1][0] && p2[0][1] === p2[1][1];
   }
 
-  // node_modules/vega-wordcloud/build/vega-wordcloud.module.js
+  // scalene/scalene-gui/node_modules/vega-wordcloud/build/vega-wordcloud.module.js
   var vega_wordcloud_module_exports = {};
   __export(vega_wordcloud_module_exports, {
     wordcloud: () => Wordcloud
@@ -29468,7 +29474,7 @@ ${currentIndent}`
     }
   });
 
-  // node_modules/vega-crossfilter/build/vega-crossfilter.module.js
+  // scalene/scalene-gui/node_modules/vega-crossfilter/build/vega-crossfilter.module.js
   var vega_crossfilter_module_exports = {};
   __export(vega_crossfilter_module_exports, {
     crossfilter: () => CrossFilter,
@@ -29951,7 +29957,7 @@ ${currentIndent}`
     }
   });
 
-  // node_modules/vega-expression/build/vega-expression.module.js
+  // scalene/scalene-gui/node_modules/vega-expression/build/vega-expression.module.js
   var RawCode = "RawCode";
   var Literal = "Literal";
   var Property = "Property";
@@ -31314,8 +31320,8 @@ ${currentIndent}`
     return codegen2;
   }
 
-  // node_modules/vega-selections/build/vega-selection.module.js
-  var SELECTION_GETTER = /* @__PURE__ */ Symbol("vega_selection_getter");
+  // scalene/scalene-gui/node_modules/vega-selections/build/vega-selection.module.js
+  var SELECTION_GETTER = Symbol("vega_selection_getter");
   function getter2(f2) {
     if (!f2.getter || !f2.getter[SELECTION_GETTER]) {
       f2.getter = field(f2.field);
@@ -31527,7 +31533,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-functions/build/vega-functions.module.js
+  // scalene/scalene-gui/node_modules/vega-functions/build/vega-functions.module.js
   function data(name4) {
     const data3 = this.context.data[name4];
     return data3 ? data3.values.value : [];
@@ -32146,7 +32152,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/vega-runtime/build/vega-runtime.module.js
+  // scalene/scalene-gui/node_modules/vega-runtime/build/vega-runtime.module.js
   function parse5(spec) {
     const ctx = this, operators = spec.operators || [];
     if (spec.background) {
@@ -32613,7 +32619,7 @@ ${currentIndent}`
     setState
   };
 
-  // node_modules/vega-view/build/vega-view.module.js
+  // scalene/scalene-gui/node_modules/vega-view/build/vega-view.module.js
   function initializeAria(view) {
     const el = view.container();
     if (el) {
@@ -33593,7 +33599,7 @@ ${currentIndent}`
     _watchPixelRatio: watchPixelRatio
   });
 
-  // node_modules/vega-event-selector/build/vega-event-selector.module.js
+  // scalene/scalene-gui/node_modules/vega-event-selector/build/vega-event-selector.module.js
   var VIEW2 = "view";
   var LBRACK = "[";
   var RBRACK = "]";
@@ -33758,7 +33764,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/vega-parser/build/vega-parser.module.js
+  // scalene/scalene-gui/node_modules/vega-parser/build/vega-parser.module.js
   function parseAutosize(spec) {
     return isObject(spec) ? spec : {
       type: spec || "pad"
@@ -36972,11 +36978,11 @@ ${currentIndent}`
     return parseView(spec, new Scope(config, options)).toRuntime();
   }
 
-  // node_modules/vega/build/vega.module.js
+  // scalene/scalene-gui/node_modules/vega/build/vega.module.js
   var version = "5.33.0";
   extend(transforms, vega_transforms_module_exports, vega_view_transforms_module_exports, vega_encode_module_exports, vega_geo_module_exports, vega_force_module_exports, vega_label_module_exports, vega_hierarchy_module_exports, vega_regression_module_exports, vega_voronoi_module_exports, vega_wordcloud_module_exports, vega_crossfilter_module_exports);
 
-  // node_modules/vega-interpreter/build/vega-interpreter.module.js
+  // scalene/scalene-gui/node_modules/vega-interpreter/build/vega-interpreter.module.js
   function adjustSpatial2(item, encode2, swap3) {
     let t4;
     if (encode2.x2) {
@@ -37257,7 +37263,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/index.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/index.js
   var src_exports3 = {};
   __export(src_exports3, {
     accessPathDepth: () => accessPathDepth,
@@ -37307,7 +37313,7 @@ ${currentIndent}`
     version: () => version2
   });
 
-  // node_modules/vega-lite/build/package.json
+  // scalene/scalene-gui/node_modules/vega-lite/build/package.json
   var package_default = {
     name: "vega-lite",
     author: 'Dominik Moritz, Kanit "Ham" Wongsuphasawat, Arvind Satyanarayan, Jeffrey Heer',
@@ -37453,7 +37459,7 @@ ${currentIndent}`
     packageManager: "yarn@1.22.22"
   };
 
-  // node_modules/vega-lite/build/src/logical.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/logical.js
   function isLogicalOr(op) {
     return hasProperty(op, "or");
   }
@@ -37490,7 +37496,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/util.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/util.js
   var duplicate = structuredClone;
   function never(message) {
     throw new Error(message);
@@ -37799,7 +37805,7 @@ ${currentIndent}`
   }
   function stringify2(data3) {
     const seen = [];
-    return (function _stringify(node) {
+    return function _stringify(node) {
       if (node && node.toJSON && typeof node.toJSON === "function") {
         node = node.toJSON();
       }
@@ -37838,13 +37844,13 @@ ${currentIndent}`
       }
       seen.splice(seenIndex, 1);
       return `{${out}}`;
-    })(data3);
+    }(data3);
   }
   function hasProperty(obj, key2) {
     return isObject(obj) && has(obj, key2) && obj[key2] !== void 0;
   }
 
-  // node_modules/vega-lite/build/src/channel.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/channel.js
   var ROW = "row";
   var COLUMN = "column";
   var FACET = "facet";
@@ -38333,7 +38339,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/aggregate.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/aggregate.js
   var AGGREGATE_OP_INDEX = {
     argmax: 1,
     argmin: 1,
@@ -38404,7 +38410,7 @@ ${currentIndent}`
     "max"
   ]);
 
-  // node_modules/vega-lite/build/src/bin.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/bin.js
   function binToString(bin3) {
     if (isBoolean(bin3)) {
       bin3 = normalizeBin(bin3, void 0);
@@ -38448,7 +38454,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/expr.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/expr.js
   function isExprRef(o2) {
     return hasProperty(o2, "expr");
   }
@@ -38461,7 +38467,7 @@ ${currentIndent}`
     return newIndex;
   }
 
-  // node_modules/vega-lite/build/src/title.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/title.js
   function extractTitleConfig(titleConfig) {
     const {
       // These are non-mark title config that need to be hardcoded
@@ -38512,7 +38518,7 @@ ${currentIndent}`
     return isString(v3) || isArray(v3) && isString(v3[0]);
   }
 
-  // node_modules/vega-lite/build/src/vega.schema.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/vega.schema.js
   function isSignalRef(o2) {
     return hasProperty(o2, "signal");
   }
@@ -38628,7 +38634,7 @@ ${currentIndent}`
     "cornerRadiusBottomRight"
   ];
 
-  // node_modules/vega-lite/build/src/compile/common.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/common.js
   function signalOrValueRefWithCondition(val) {
     const condition = isArray(val.condition) ? val.condition.map(conditionalSignalRefOrValue) : conditionalSignalRefOrValue(val.condition);
     return {
@@ -38791,7 +38797,7 @@ ${currentIndent}`
     throw new Error("It should never reach here");
   }
 
-  // node_modules/vega-lite/build/src/log/message.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/log/message.js
   var message_exports = {};
   __export(message_exports, {
     ADD_SAME_CHILD_TWICE: () => ADD_SAME_CHILD_TWICE,
@@ -39108,7 +39114,7 @@ ${currentIndent}`
     return `Domain for ${channel} is required for threshold scale.`;
   }
 
-  // node_modules/vega-lite/build/src/log/index.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/log/index.js
   var _LocalLogger_level;
   var main = logger(Warn);
   var current = main;
@@ -39131,7 +39137,7 @@ ${currentIndent}`
     current.debug(...args);
   }
 
-  // node_modules/vega-lite/build/src/datetime.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/datetime.js
   function isDateTime(o2) {
     if (o2 && isObject(o2)) {
       for (const part of TIMEUNIT_PARTS) {
@@ -39276,7 +39282,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/timeunit.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/timeunit.js
   var LOCAL_SINGLE_TIMEUNIT_INDEX = {
     year: 1,
     quarter: 1,
@@ -39496,7 +39502,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/predicate.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/predicate.js
   function isSelectionPredicate(predicate) {
     return hasProperty(predicate, "param");
   }
@@ -39604,7 +39610,7 @@ ${currentIndent}`
     return f2;
   }
 
-  // node_modules/vega-lite/build/src/type.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/type.js
   var Type = {
     quantitative: "quantitative",
     ordinal: "ordinal",
@@ -39647,7 +39653,7 @@ ${currentIndent}`
     return void 0;
   }
 
-  // node_modules/vega-lite/build/src/scale.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/scale.js
   var ScaleType = {
     // Continuous - Quantitative
     LINEAR: "linear",
@@ -39968,12 +39974,12 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/invalid.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/invalid.js
   function isScaleInvalidDataIncludeAsValue(invalidDataMode) {
     return isObject(invalidDataMode) && "value" in invalidDataMode;
   }
 
-  // node_modules/vega-lite/build/src/mark.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/mark.js
   var Mark3 = {
     arc: "arc",
     area: "area",
@@ -40105,7 +40111,7 @@ ${currentIndent}`
     return isMarkDef(m4) ? m4.type : m4;
   }
 
-  // node_modules/vega-lite/build/src/compile/invalid/normalizeInvalidDataMode.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/invalid/normalizeInvalidDataMode.js
   function normalizeInvalidDataMode(mode, { isPath }) {
     if (mode === void 0 || mode === "break-paths-show-path-domains") {
       return isPath ? "break-paths-show-domains" : "filter";
@@ -40115,7 +40121,7 @@ ${currentIndent}`
     return mode;
   }
 
-  // node_modules/vega-lite/build/src/compile/invalid/ScaleInvalidDataMode.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/invalid/ScaleInvalidDataMode.js
   function getScaleInvalidDataMode({ markDef, config, scaleChannel, scaleType: scaleType2, isCountAggregate }) {
     if (!scaleType2 || !hasContinuousDomain(scaleType2) || isCountAggregate) {
       return "always-valid";
@@ -40133,7 +40139,7 @@ ${currentIndent}`
     return mode === "break-paths-filter-domains" || mode === "break-paths-show-domains";
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/scaledZeroOrMinOrMax.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/scaledZeroOrMinOrMax.js
   function scaledZeroOrMinOrMax({ scaleName, scale: scale7, mode }) {
     const domain4 = `domain('${scaleName}')`;
     if (!scale7 || !scaleName) {
@@ -40155,7 +40161,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/invalid.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/invalid.js
   function getConditionalValueRefForIncludingInvalidValue({ scaleChannel, channelDef, scale: scale7, scaleName, markDef, config }) {
     const scaleType2 = scale7?.get("type");
     const fieldDef = getFieldDef(channelDef);
@@ -40188,7 +40194,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/valueref.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/valueref.js
   function midPointRefWithPositionInvalidTest(params2) {
     const { channel, channelDef, markDef, scale: scale7, scaleName, config } = params2;
     const scaleChannel = getMainRangeChannel(channel);
@@ -40338,7 +40344,7 @@ ${currentIndent}`
     return signalOrValueRef(value3);
   }
 
-  // node_modules/vega-lite/build/src/compile/format.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/format.js
   function isCustomFormatType(formatType) {
     return formatType && formatType !== "number" && formatType !== "time";
   }
@@ -40525,7 +40531,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/sort.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/sort.js
   var DEFAULT_SORT_OP = "min";
   var SORT_BY_CHANNEL_INDEX = {
     x: 1,
@@ -40554,7 +40560,7 @@ ${currentIndent}`
     return sort3 && isArray(sort3);
   }
 
-  // node_modules/vega-lite/build/src/spec/facet.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/spec/facet.js
   function isFacetMapping(f2) {
     return hasProperty(f2, "row") || hasProperty(f2, "column");
   }
@@ -40565,7 +40571,7 @@ ${currentIndent}`
     return hasProperty(spec, "facet");
   }
 
-  // node_modules/vega-lite/build/src/channeldef.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/channeldef.js
   function isConditionalParameter(c4) {
     return hasProperty(c4, "param");
   }
@@ -41179,7 +41185,7 @@ ${currentIndent}`
     return isScaleChannel(channel) && ["ordinal", "nominal"].includes(fieldDef.type);
   }
 
-  // node_modules/vega-lite/build/src/axis.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/axis.js
   var CONDITIONAL_AXIS_PROP_INDEX = {
     labelAlign: {
       part: "labels",
@@ -41464,12 +41470,12 @@ ${currentIndent}`
   };
   var AXIS_CONFIGS = keys3(AXIS_CONFIGS_INDEX);
 
-  // node_modules/vega-lite/build/src/spec/unit.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/spec/unit.js
   function isUnitSpec(spec) {
     return hasProperty(spec, "mark");
   }
 
-  // node_modules/vega-lite/build/src/compositemark/base.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compositemark/base.js
   var CompositeMarkNormalizer = class {
     constructor(name4, run2) {
       this.name = name4;
@@ -41483,7 +41489,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/encoding.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/encoding.js
   function channelHasField(encoding, channel) {
     const channelDef = encoding && encoding[channel];
     if (channelDef) {
@@ -41847,7 +41853,7 @@ ${currentIndent}`
     }, []);
   }
 
-  // node_modules/vega-lite/build/src/compositemark/common.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compositemark/common.js
   function filterTooltipWithAggregatedField(oldEncoding) {
     const { tooltip: tooltip2, ...filteredEncoding } = oldEncoding;
     if (!tooltip2) {
@@ -42013,7 +42019,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/compositemark/boxplot.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compositemark/boxplot.js
   var BOXPLOT = "boxplot";
   var BOXPLOT_PARTS = ["box", "median", "outliers", "rule", "ticks"];
   var boxPlotNormalizer = new CompositeMarkNormalizer(BOXPLOT, normalizeBoxPlot);
@@ -42312,7 +42318,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/vega-lite/build/src/compositemark/errorbar.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compositemark/errorbar.js
   var ERRORBAR = "errorbar";
   var ERRORBAR_PARTS = ["ticks", "rule"];
   var errorBarNormalizer = new CompositeMarkNormalizer(ERRORBAR, normalizeErrorBar);
@@ -42586,7 +42592,7 @@ ${currentIndent}`
     return `${titleCase(center)} ${operation} ${extent2}`;
   }
 
-  // node_modules/vega-lite/build/src/compositemark/errorband.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compositemark/errorband.js
   var ERRORBAND = "errorband";
   var ERRORBAND_PARTS = ["band", "borders"];
   var errorBandNormalizer = new CompositeMarkNormalizer(ERRORBAND, normalizeErrorBand);
@@ -42648,7 +42654,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/vega-lite/build/src/compositemark/index.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compositemark/index.js
   var compositeMarkRegistry = {};
   function add5(mark, run2, parts) {
     const normalizer = new CompositeMarkNormalizer(mark, run2);
@@ -42661,7 +42667,7 @@ ${currentIndent}`
   add5(ERRORBAR, normalizeErrorBar, ERRORBAR_PARTS);
   add5(ERRORBAND, normalizeErrorBand, ERRORBAND_PARTS);
 
-  // node_modules/vega-lite/build/src/guide.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/guide.js
   var VL_ONLY_LEGEND_CONFIG = [
     "gradientHorizontalMaxLength",
     "gradientHorizontalMinLength",
@@ -42670,7 +42676,7 @@ ${currentIndent}`
     "unselectedOpacity"
   ];
 
-  // node_modules/vega-lite/build/src/header.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/header.js
   var HEADER_TITLE_PROPERTIES_MAP = {
     titleAlign: "align",
     titleAnchor: "anchor",
@@ -42711,7 +42717,7 @@ ${currentIndent}`
   };
   var HEADER_CONFIGS = keys3(HEADER_CONFIGS_INDEX);
 
-  // node_modules/vega-lite/build/src/legend.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/legend.js
   var LEGEND_SCALE_CHANNELS = [
     "size",
     "shape",
@@ -42798,7 +42804,7 @@ ${currentIndent}`
   };
   var LEGEND_PROPERTIES = keys3(COMMON_LEGEND_PROPERTY_INDEX);
 
-  // node_modules/vega-lite/build/src/selection.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/selection.js
   var SELECTION_ID = "_vgsid_";
   var defaultConfig = {
     point: {
@@ -42828,7 +42834,7 @@ ${currentIndent}`
     return !!param2?.["select"];
   }
 
-  // node_modules/vega-lite/build/src/parameter.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/parameter.js
   function assembleParameterSignals(params2) {
     const signals = [];
     for (const param2 of params2 || []) {
@@ -42854,7 +42860,7 @@ ${currentIndent}`
     return signals;
   }
 
-  // node_modules/vega-lite/build/src/spec/concat.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/spec/concat.js
   function isAnyConcatSpec(spec) {
     return isVConcatSpec(spec) || isHConcatSpec(spec) || isConcatSpec(spec);
   }
@@ -42868,7 +42874,7 @@ ${currentIndent}`
     return hasProperty(spec, "hconcat");
   }
 
-  // node_modules/vega-lite/build/src/spec/base.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/spec/base.js
   function getStepFor({ step, offsetIsDiscrete }) {
     if (offsetIsDiscrete) {
       return step.for ?? "offset";
@@ -42922,7 +42928,7 @@ ${currentIndent}`
     return layout;
   }
 
-  // node_modules/vega-lite/build/src/config.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/config.js
   function getViewConfigContinuousSize(viewConfig, channel) {
     return viewConfig[channel] ?? viewConfig[channel === "width" ? "continuousWidth" : "continuousHeight"];
   }
@@ -43340,12 +43346,12 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/spec/layer.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/spec/layer.js
   function isLayerSpec(spec) {
     return hasProperty(spec, "layer");
   }
 
-  // node_modules/vega-lite/build/src/spec/repeat.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/spec/repeat.js
   function isRepeatSpec(spec) {
     return hasProperty(spec, "repeat");
   }
@@ -43353,7 +43359,7 @@ ${currentIndent}`
     return !isArray(spec.repeat) && hasProperty(spec.repeat, "layer");
   }
 
-  // node_modules/vega-lite/build/src/spec/map.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/spec/map.js
   var SpecMapper = class {
     map(spec, params2) {
       if (isFacetSpec(spec)) {
@@ -43420,7 +43426,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/stack.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/stack.js
   var STACK_OFFSET_INDEX = {
     zero: 1,
     center: 1,
@@ -43578,7 +43584,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/init.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/init.js
   function initMarkdef(originalMarkDef, encoding, config) {
     const markDef = replaceExprRef(originalMarkDef);
     const specifiedOrient = getMarkPropOrConfig("orient", markDef, config);
@@ -43725,7 +43731,7 @@ ${currentIndent}`
     return "vertical";
   }
 
-  // node_modules/vega-lite/build/src/normalize/pathoverlay.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/normalize/pathoverlay.js
   function dropLineAndPoint(markDef) {
     const { point: _point, line: _line, ...mark } = markDef;
     return keys3(mark).length > 1 ? mark : mark.type;
@@ -43857,7 +43863,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/normalize/repeater.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/normalize/repeater.js
   function replaceRepeaterInFacet(facet, repeater) {
     if (!repeater) {
       return facet;
@@ -43955,7 +43961,7 @@ ${currentIndent}`
     return out;
   }
 
-  // node_modules/vega-lite/build/src/normalize/ruleforrangedline.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/normalize/ruleforrangedline.js
   var RuleForRangedLineNormalizer = class {
     constructor() {
       this.name = "RuleForRangedLine";
@@ -43987,7 +43993,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/normalize/core.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/normalize/core.js
   var CoreNormalizer = class extends SpecMapper {
     constructor() {
       super(...arguments);
@@ -44237,7 +44243,7 @@ ${currentIndent}`
     return projection3 ?? parentProjection;
   }
 
-  // node_modules/vega-lite/build/src/transform.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/transform.js
   function isFilter(t4) {
     return hasProperty(t4, "filter");
   }
@@ -44315,7 +44321,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/vega-lite/build/src/normalize/selectioncompat.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/normalize/selectioncompat.js
   var SelectionCompatibilityNormalizer = class extends SpecMapper {
     map(spec, normParams) {
       normParams.emptySelections ?? (normParams.emptySelections = {});
@@ -44429,7 +44435,7 @@ ${currentIndent}`
     return op.selection ? normalizeSelectionComposition(op.selection) : normalizeLogicalComposition(op.test || op.filter, (o2) => o2.selection ? normalizeSelectionComposition(o2.selection) : o2);
   }
 
-  // node_modules/vega-lite/build/src/normalize/toplevelselection.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/normalize/toplevelselection.js
   var TopLevelSelectionsNormalizer = class extends SpecMapper {
     map(spec, normParams) {
       const selections = normParams.selections ?? [];
@@ -44484,7 +44490,7 @@ ${currentIndent}`
     } : params2;
   }
 
-  // node_modules/vega-lite/build/src/normalize/index.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/normalize/index.js
   function normalize3(spec, config) {
     if (config === void 0) {
       config = initConfig(spec.config);
@@ -44554,7 +44560,7 @@ ${currentIndent}`
     return autosize;
   }
 
-  // node_modules/vega-lite/build/src/spec/toplevel.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/spec/toplevel.js
   function isFitType(autoSizeType) {
     return ["fit", "fit-x", "fit-y"].includes(autoSizeType);
   }
@@ -44579,7 +44585,7 @@ ${currentIndent}`
     return o2;
   }
 
-  // node_modules/vega-lite/build/src/compile/split.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/split.js
   var Split = class _Split {
     constructor(explicit = {}, implicit2 = {}) {
       this.explicit = explicit;
@@ -44683,7 +44689,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/compile/data/index.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/index.js
   var AncestorParse = class extends Split {
     constructor(explicit = {}, implicit2 = {}, parseNothing = false) {
       super(explicit, implicit2);
@@ -44698,7 +44704,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/data.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/data.js
   function isUrlData(data3) {
     return hasProperty(data3, "url");
   }
@@ -44731,7 +44737,7 @@ ${currentIndent}`
     DataSourceType2[DataSourceType2["PostFilterInvalid"] = 6] = "PostFilterInvalid";
   })(DataSourceType || (DataSourceType = {}));
 
-  // node_modules/vega-lite/build/src/compile/invalid/datasources.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/invalid/datasources.js
   function getDataSourcesForHandlingInvalidValues({ invalid, isPath }) {
     const normalizedInvalid = normalizeInvalidDataMode(invalid, { isPath });
     switch (normalizedInvalid) {
@@ -44768,7 +44774,7 @@ ${currentIndent}`
     return scales2 === "include-invalid-values" ? DataSourceType.PreFilterInvalid : DataSourceType.PostFilterInvalid;
   }
 
-  // node_modules/vega-lite/build/src/compile/data/dataflow.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/dataflow.js
   var DataFlowNode = class {
     constructor(parent, debugName) {
       this.debugName = debugName;
@@ -44909,7 +44915,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/timeunit.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/timeunit.js
   function isTimeUnitTransformComponent(timeUnitComponent) {
     return timeUnitComponent.as !== void 0;
   }
@@ -45091,7 +45097,7 @@ ${currentIndent}`
     return `${1 - fraction} * ${start} + ${fraction} * ${end}`;
   }
 
-  // node_modules/vega-lite/build/src/compile/selection/project.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/project.js
   var TUPLE_FIELDS = "_tuple_fields";
   var SelectionProjectionComponent = class {
     constructor(...items) {
@@ -45217,7 +45223,7 @@ ${currentIndent}`
   };
   var project_default = project2;
 
-  // node_modules/vega-lite/build/src/compile/selection/point.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/point.js
   var CURR = "_curr";
   var ANIM_VALUE = "anim_value";
   var ANIM_CLOCK = "anim_clock";
@@ -45327,7 +45333,7 @@ ${currentIndent}`
   };
   var point_default = point7;
 
-  // node_modules/vega-lite/build/src/compile/selection/assemble.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/assemble.js
   function assembleProjection(proj) {
     const { signals, hasLegend, index: index4, ...rest } = proj;
     rest.field = replacePathInField(rest.field);
@@ -45486,7 +45492,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/vega-lite/build/src/compile/selection/scales.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/scales.js
   var scaleBindings = {
     defined: (selCmpt) => {
       return selCmpt.type === "interval" && selCmpt.resolve === "global" && selCmpt.bind && selCmpt.bind === "scales";
@@ -45552,7 +45558,7 @@ ${currentIndent}`
     return model.parent && isLayerModel(model.parent) && (!model.parent.parent || isTopLevelLayer(model.parent.parent));
   }
 
-  // node_modules/vega-lite/build/src/compile/selection/interval.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/interval.js
   var BRUSH = "_brush";
   var SCALE_TRIGGER = "_scale_trigger";
   var GEO_INIT_TICK = "geo_interval_init_tick";
@@ -45810,7 +45816,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/conditional.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/conditional.js
   function wrapCondition({ model, channelDef, vgChannel, invalidValueRef, mainRefFn }) {
     const condition = isConditionalDef(channelDef) && channelDef.condition;
     let valueRefs = [];
@@ -45843,7 +45849,7 @@ ${currentIndent}`
     return {};
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/text.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/text.js
   function text2(model, channel = "text") {
     const channelDef = model.encoding[channel];
     return wrapCondition({
@@ -45868,7 +45874,7 @@ ${currentIndent}`
     return void 0;
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/tooltip.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/tooltip.js
   function tooltip(model, opt = {}) {
     const { encoding, markDef, config, stack: stack2 } = model;
     const channelDef = encoding.tooltip;
@@ -45972,7 +45978,7 @@ ${currentIndent}`
     return keyValues.length > 0 ? { signal: `{${keyValues.join(", ")}}` } : void 0;
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/aria.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/aria.js
   function aria(model) {
     const { markDef, config } = model;
     const enableAria = getMarkPropOrConfig("aria", markDef, config);
@@ -46029,7 +46035,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/nonposition.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/nonposition.js
   function nonPosition(channel, model, opt = {}) {
     const { markDef, encoding, config } = model;
     const { vgChannel } = opt;
@@ -46076,7 +46082,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/color.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/color.js
   function color4(model, opt = { filled: void 0 }) {
     const { markDef, encoding, config } = model;
     const { type: markType2 } = markDef;
@@ -46113,7 +46119,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/zindex.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/zindex.js
   function zindex(model) {
     const { encoding, mark } = model;
     const order = encoding.order;
@@ -46130,7 +46136,7 @@ ${currentIndent}`
     return {};
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/offset.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/offset.js
   function positionOffset({ channel: baseChannel, markDef, encoding = {}, model, bandPosition }) {
     const channel = `${baseChannel}Offset`;
     const defaultValue = markDef[channel];
@@ -46156,7 +46162,7 @@ ${currentIndent}`
     return {};
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/position-point.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/position-point.js
   function pointPosition(channel, model, { defaultPos, vgChannel }) {
     const { encoding, markDef, config, stack: stack2 } = model;
     const channelDef = encoding[channel];
@@ -46271,7 +46277,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/position-align.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/position-align.js
   var ALIGNED_X_CHANNEL = {
     left: "x",
     center: "xc",
@@ -46302,7 +46308,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/position-range.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/position-range.js
   function pointOrRangePosition(channel, model, { defaultPos, defaultPos2, range: range7 }) {
     if (range7) {
       return rangePosition(channel, model, { defaultPos, defaultPos2 });
@@ -46411,7 +46417,7 @@ ${currentIndent}`
     return void 0;
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/position-rect.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/position-rect.js
   function rectPosition(model, channel) {
     const { config, encoding, markDef } = model;
     const mark = markDef.type;
@@ -46648,7 +46654,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/base.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/base.js
   var ALWAYS_IGNORE = /* @__PURE__ */ new Set(["aria", "width", "height"]);
   function baseEncodeEntry(model, ignore) {
     const { fill: fill2 = void 0, stroke: stroke2 = void 0 } = ignore.color === "include" ? color4(model) : {};
@@ -46679,7 +46685,7 @@ ${currentIndent}`
     }, {});
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/encode/defined.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/encode/defined.js
   function defined(model) {
     const { config, markDef } = model;
     const fieldsToBreakPath = /* @__PURE__ */ new Set();
@@ -46716,7 +46722,7 @@ ${currentIndent}`
     return void 0;
   }
 
-  // node_modules/vega-lite/build/src/compile/selection/nearest.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/nearest.js
   var VORONOI = "voronoi";
   var nearest = {
     defined: (selCmpt) => {
@@ -46777,7 +46783,7 @@ ${currentIndent}`
   };
   var nearest_default = nearest;
 
-  // node_modules/vega-lite/build/src/compile/selection/inputs.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/inputs.js
   var inputBindings = {
     defined: (selCmpt) => {
       return selCmpt.type === "point" && selCmpt.resolve === "global" && selCmpt.bind && selCmpt.bind !== "scales" && !isLegendBinding(selCmpt.bind);
@@ -46825,7 +46831,7 @@ ${currentIndent}`
   };
   var inputs_default = inputBindings;
 
-  // node_modules/vega-lite/build/src/compile/selection/toggle.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/toggle.js
   var TOGGLE = "_toggle";
   var toggle = {
     defined: (selCmpt) => {
@@ -46846,7 +46852,7 @@ ${currentIndent}`
   };
   var toggle_default = toggle;
 
-  // node_modules/vega-lite/build/src/compile/selection/clear.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/clear.js
   var clear = {
     defined: (selCmpt) => {
       return selCmpt.clear !== void 0 && selCmpt.clear !== false && !isTimerSelection(selCmpt);
@@ -46895,7 +46901,7 @@ ${currentIndent}`
   };
   var clear_default = clear;
 
-  // node_modules/vega-lite/build/src/compile/selection/legends.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/legends.js
   var legendBindings = {
     defined: (selCmpt) => {
       const spec = selCmpt.resolve === "global" && selCmpt.bind && isLegendBinding(selCmpt.bind);
@@ -46998,7 +47004,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/compile/selection/translate.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/translate.js
   var ANCHOR = "_translate_anchor";
   var DELTA = "_translate_delta";
   var translate3 = {
@@ -47066,7 +47072,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/vega-lite/build/src/compile/selection/zoom.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/zoom.js
   var ANCHOR2 = "_zoom_anchor";
   var DELTA2 = "_zoom_delta";
   var zoom2 = {
@@ -47132,7 +47138,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/vega-lite/build/src/compile/selection/index.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/index.js
   var STORE = "_store";
   var TUPLE = "_tuple";
   var MODIFY = "_modify";
@@ -47190,7 +47196,7 @@ ${currentIndent}`
     return selCmpt.events?.find((e4) => "type" in e4 && e4.type === "timer");
   }
 
-  // node_modules/vega-lite/node_modules/vega-expression/build/vega-expression.module.js
+  // scalene/scalene-gui/node_modules/vega-lite/node_modules/vega-expression/build/vega-expression.module.js
   var RawCode2 = "RawCode";
   var Literal2 = "Literal";
   var Property2 = "Property";
@@ -48375,7 +48381,7 @@ ${currentIndent}`
     return expr2;
   }
 
-  // node_modules/vega-lite/build/src/compile/data/expressions.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/expressions.js
   function getName(node) {
     const name4 = [];
     if (node.type === "Identifier") {
@@ -48407,7 +48413,7 @@ ${currentIndent}`
     return dependents;
   }
 
-  // node_modules/vega-lite/build/src/compile/data/filter.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/filter.js
   var FilterNode = class _FilterNode extends DataFlowNode {
     clone() {
       return new _FilterNode(null, this.model, duplicate(this.filter));
@@ -48436,7 +48442,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/selection/parse.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/selection/parse.js
   function parseUnitSelection(model, selDefs) {
     const selCmpts = {};
     const selectionConfig = model.config.selection;
@@ -48545,7 +48551,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/compile/predicate.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/predicate.js
   function expression3(model, filterOp, node) {
     return logicalExpr(filterOp, (predicate) => {
       if (isString(predicate)) {
@@ -48558,7 +48564,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/vega-lite/build/src/compile/axis/assemble.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/axis/assemble.js
   function assembleTitle(title2, config) {
     if (!title2) {
       return void 0;
@@ -48722,7 +48728,7 @@ ${currentIndent}`
     ].filter((a4) => a4);
   }
 
-  // node_modules/vega-lite/build/src/compile/axis/config.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/axis/config.js
   function getAxisConfigFromConfigTypes(configTypes, config, channel, orient2) {
     return Object.assign.apply(null, [
       {},
@@ -48791,7 +48797,7 @@ ${currentIndent}`
     return {};
   }
 
-  // node_modules/vega-lite/build/src/compile/axis/properties.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/axis/properties.js
   var axisRules = {
     scale: ({ model, channel }) => model.scaleName(channel),
     format: ({ format: format5 }) => format5,
@@ -49010,7 +49016,7 @@ ${currentIndent}`
     return 0;
   }
 
-  // node_modules/vega-lite/build/src/compile/data/calculate.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/calculate.js
   var CalculateNode = class _CalculateNode extends DataFlowNode {
     clone() {
       return new _CalculateNode(null, duplicate(this.transform));
@@ -49060,7 +49066,7 @@ ${currentIndent}`
     return vgField(fieldDef, { prefix: channel, suffix: "sort_index", ...opt });
   }
 
-  // node_modules/vega-lite/build/src/compile/header/common.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/header/common.js
   function getHeaderChannel(channel, orient2) {
     if (contains2(["top", "bottom"], orient2)) {
       return "column";
@@ -49084,11 +49090,11 @@ ${currentIndent}`
     return props;
   }
 
-  // node_modules/vega-lite/build/src/compile/header/component.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/header/component.js
   var HEADER_CHANNELS = ["row", "column"];
   var HEADER_TYPES = ["header", "footer"];
 
-  // node_modules/vega-lite/build/src/compile/header/assemble.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/header/assemble.js
   function assembleTitleGroup(model, channel) {
     const title2 = model.component.layoutHeaders[channel].title;
     const config = model.config ? model.config : void 0;
@@ -49263,7 +49269,7 @@ ${currentIndent}`
     return props;
   }
 
-  // node_modules/vega-lite/build/src/compile/layoutsize/assemble.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/layoutsize/assemble.js
   function assembleLayoutSignals(model) {
     return [
       ...sizeSignals(model, "width"),
@@ -49341,12 +49347,12 @@ ${currentIndent}`
     return `bandspace(${cardinality}, ${signalOrStringValue(paddingInner2)}, ${signalOrStringValue(paddingOuter2)}) * ${scaleName}_step`;
   }
 
-  // node_modules/vega-lite/build/src/compile/layoutsize/component.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/layoutsize/component.js
   function getSizeTypeFromLayoutSizeType(layoutSizeType) {
     return layoutSizeType === "childWidth" ? "width" : layoutSizeType === "childHeight" ? "height" : layoutSizeType;
   }
 
-  // node_modules/vega-lite/build/src/compile/guide.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/guide.js
   function guideEncodeEntry(encoding, model) {
     return keys3(encoding).reduce((encode2, channel) => {
       return {
@@ -49363,7 +49369,7 @@ ${currentIndent}`
     }, {});
   }
 
-  // node_modules/vega-lite/build/src/compile/resolve.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/resolve.js
   function defaultScaleResolve(channel, model) {
     if (isFacetModel(model)) {
       return channel === "theta" ? "independent" : "shared";
@@ -49386,7 +49392,7 @@ ${currentIndent}`
     return resolve2[guide][channel] || "shared";
   }
 
-  // node_modules/vega-lite/build/src/compile/legend/component.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/legend/component.js
   var LEGEND_COMPONENT_PROPERTY_INDEX = {
     ...COMMON_LEGEND_PROPERTY_INDEX,
     disable: 1,
@@ -49407,7 +49413,7 @@ ${currentIndent}`
   var LegendComponent = class extends Split {
   };
 
-  // node_modules/vega-lite/build/src/compile/legend/encode.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/legend/encode.js
   var legendEncodeRules = {
     symbols: symbols3,
     gradient: gradient3,
@@ -49557,7 +49563,7 @@ ${currentIndent}`
     }).join(" || ");
   }
 
-  // node_modules/vega-lite/build/src/compile/legend/properties.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/legend/properties.js
   var legendRules = {
     direction: ({ direction }) => direction,
     format: ({ fieldOrDatumDef, legend, config }) => {
@@ -49683,7 +49689,7 @@ ${currentIndent}`
     return void 0;
   }
 
-  // node_modules/vega-lite/build/src/compile/legend/parse.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/legend/parse.js
   function parseLegend2(model) {
     const legendComponent = isUnitModel(model) ? parseUnitLegend(model) : parseNonUnitLegend(model);
     model.component.legends = legendComponent;
@@ -49872,7 +49878,7 @@ ${currentIndent}`
     return st1;
   }
 
-  // node_modules/vega-lite/build/src/compile/legend/assemble.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/legend/assemble.js
   function setLegendEncode(legend, part, vgProp, vgRef) {
     var _a2, _b;
     legend.encode ?? (legend.encode = {});
@@ -49932,7 +49938,7 @@ ${currentIndent}`
     return legend;
   }
 
-  // node_modules/vega-lite/build/src/compile/projection/assemble.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/projection/assemble.js
   function assembleProjections(model) {
     if (isLayerModel(model) || isConcatModel(model)) {
       return assembleProjectionsForModelAndChildren(model);
@@ -49989,7 +49995,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/projection.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/projection.js
   var PROJECTION_PROPERTIES = [
     "type",
     "clipAngle",
@@ -50010,7 +50016,7 @@ ${currentIndent}`
     "tilt"
   ];
 
-  // node_modules/vega-lite/build/src/compile/projection/component.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/projection/component.js
   var ProjectionComponent = class extends Split {
     constructor(name4, specifiedProjection, size, data3) {
       super(
@@ -50032,7 +50038,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/projection/parse.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/projection/parse.js
   function parseProjection2(model) {
     model.component.projection = isUnitModel(model) ? parseUnitProjection(model) : parseNonUnitProjections(model);
   }
@@ -50140,7 +50146,7 @@ ${currentIndent}`
     return void 0;
   }
 
-  // node_modules/vega-lite/build/src/compile/data/bin.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/bin.js
   function rangeFormula(model, fieldDef, channel, config) {
     if (binRequiresRange(fieldDef, channel)) {
       const guide = isUnitModel(model) ? model.axis(channel) ?? model.legend(channel) ?? {} : {};
@@ -50303,7 +50309,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/aggregate.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/aggregate.js
   function addDimension(dims, channel, fieldDef, model) {
     const channelDef2 = isUnitModel(model) ? model.encoding[getSecondaryRangeChannel(channel)] : void 0;
     if (isTypedFieldDef(fieldDef) && isUnitModel(model) && hasBandEnd(fieldDef, channelDef2, model.markDef, model.config)) {
@@ -50480,7 +50486,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/facet.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/facet.js
   var FacetNode = class extends DataFlowNode {
     /**
      * @param model The facet model.
@@ -50682,7 +50688,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/formatparse.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/formatparse.js
   function unquote(pattern) {
     if (pattern.startsWith("'") && pattern.endsWith("'") || pattern.startsWith('"') && pattern.endsWith('"')) {
       return pattern.slice(1, -1);
@@ -50910,7 +50916,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/identifier.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/identifier.js
   var IdentifierNode = class _IdentifierNode extends DataFlowNode {
     clone() {
       return new _IdentifierNode(null);
@@ -50932,7 +50938,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/graticule.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/graticule.js
   var GraticuleNode = class _GraticuleNode extends DataFlowNode {
     clone() {
       return new _GraticuleNode(null, this.params);
@@ -50958,7 +50964,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/sequence.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/sequence.js
   var SequenceNode = class _SequenceNode extends DataFlowNode {
     clone() {
       return new _SequenceNode(null, this.params);
@@ -50984,7 +50990,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/source.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/source.js
   var SourceNode = class extends DataFlowNode {
     constructor(data3) {
       super(null);
@@ -51056,7 +51062,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/optimizer.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/optimizer.js
   var __classPrivateFieldSet = function(receiver, state, value3, kind, f2) {
     if (kind === "m") throw new TypeError("Private method is not writable");
     if (kind === "a" && !f2) throw new TypeError("Private accessor was defined without a setter");
@@ -51122,7 +51128,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/optimizers.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/optimizers.js
   var MergeIdenticalNodes = class extends TopDownOptimizer {
     mergeNodes(parent, nodes) {
       const mergedNode = nodes.shift();
@@ -51391,7 +51397,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/joinaggregate.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/joinaggregate.js
   var JoinAggregateTransformNode = class _JoinAggregateTransformNode extends DataFlowNode {
     clone() {
       return new _JoinAggregateTransformNode(null, duplicate(this.transform));
@@ -51440,7 +51446,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/filterinvalid.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/filterinvalid.js
   var FilterInvalidNode = class _FilterInvalidNode extends DataFlowNode {
     clone() {
       return new _FilterInvalidNode(null, { ...this.filter });
@@ -51514,7 +51520,7 @@ ${currentIndent}`
     return `isValid(${ref2}) && isFinite(+${ref2})`;
   }
 
-  // node_modules/vega-lite/build/src/compile/data/stack.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/stack.js
   function getStackByFields(model) {
     return model.stack.stackBy.reduce((fields, by) => {
       const fieldDef = by.fieldDef;
@@ -51684,7 +51690,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/window.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/window.js
   var WindowTransformNode = class _WindowTransformNode extends DataFlowNode {
     clone() {
       return new _WindowTransformNode(null, duplicate(this.transform));
@@ -51761,7 +51767,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/subtree.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/subtree.js
   function cloneSubtree(facet) {
     function clone(node) {
       if (!(node instanceof FacetNode)) {
@@ -51816,7 +51822,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/compile/data/optimize.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/optimize.js
   var FACET_SCALE_PREFIX = "scale_";
   var MAX_OPTIMIZATION_RUNS = 5;
   function checkLinks(nodes) {
@@ -51883,7 +51889,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/compile/signal.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/signal.js
   var SignalRefWrapper = class _SignalRefWrapper {
     constructor(exprGenerator) {
       Object.defineProperty(this, "signal", {
@@ -51896,7 +51902,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/scale/domain.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/scale/domain.js
   function parseScaleDomain2(model) {
     if (isUnitModel(model)) {
       parseUnitScaleDomain(model);
@@ -52355,7 +52361,7 @@ ${currentIndent}`
     return mergeDomains(domains);
   }
 
-  // node_modules/vega-lite/build/src/compile/scale/assemble.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/scale/assemble.js
   function assembleScales(model) {
     if (isLayerModel(model) || isConcatModel(model)) {
       return model.children.reduce((scales2, child) => {
@@ -52404,7 +52410,7 @@ ${currentIndent}`
     return scaleRange;
   }
 
-  // node_modules/vega-lite/build/src/compile/scale/component.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/scale/component.js
   var ScaleComponent = class extends Split {
     constructor(name4, typeWithExplicit) {
       super(
@@ -52460,7 +52466,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/scale/range.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/scale/range.js
   var RANGE_PROPERTIES = ["range", "scheme"];
   function parseUnitScaleRange(model) {
     const localScaleComponents = model.component.scales;
@@ -52853,7 +52859,7 @@ ${currentIndent}`
     return Math.min(widthStep, heightStep);
   }
 
-  // node_modules/vega-lite/build/src/compile/scale/properties.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/scale/properties.js
   function parseScaleProperty(model, property2) {
     if (isUnitModel(model)) {
       parseUnitScaleProperty(model, property2);
@@ -53110,7 +53116,7 @@ ${currentIndent}`
     return false;
   }
 
-  // node_modules/vega-lite/build/src/compile/scale/type.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/scale/type.js
   function scaleType(specifiedScale, channel, fieldDef, mark, hasNestedOffsetScale = false) {
     const defaultScaleType = defaultType3(channel, fieldDef, mark, hasNestedOffsetScale);
     const { type: type3 } = specifiedScale;
@@ -53193,7 +53199,7 @@ ${currentIndent}`
     throw new Error(message_exports.invalidFieldType(fieldDef.type));
   }
 
-  // node_modules/vega-lite/build/src/compile/scale/parse.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/scale/parse.js
   function parseScales(model, { ignoreRange } = {}) {
     parseScaleCore(model);
     parseScaleDomain2(model);
@@ -53273,7 +53279,7 @@ ${currentIndent}`
     return scaleComponents;
   }
 
-  // node_modules/vega-lite/build/src/compile/model.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/model.js
   var NameMap = class {
     constructor() {
       this.nameMap = {};
@@ -53659,7 +53665,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/density.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/density.js
   var DensityTransformNode = class _DensityTransformNode extends DataFlowNode {
     clone() {
       return new _DensityTransformNode(null, duplicate(this.transform));
@@ -53694,7 +53700,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/extent.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/extent.js
   var ExtentTransformNode = class _ExtentTransformNode extends DataFlowNode {
     clone() {
       return new _ExtentTransformNode(null, duplicate(this.transform));
@@ -53724,7 +53730,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/flatten.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/flatten.js
   var FlattenTransformNode = class _FlattenTransformNode extends DataFlowNode {
     clone() {
       return new _FlattenTransformNode(this.parent, duplicate(this.transform));
@@ -53756,7 +53762,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/fold.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/fold.js
   var FoldTransformNode = class _FoldTransformNode extends DataFlowNode {
     clone() {
       return new _FoldTransformNode(null, duplicate(this.transform));
@@ -53788,7 +53794,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/geojson.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/geojson.js
   var GeoJSONNode = class _GeoJSONNode extends DataFlowNode {
     clone() {
       return new _GeoJSONNode(null, duplicate(this.fields), this.geojson, this.signal);
@@ -53852,7 +53858,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/geopoint.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/geopoint.js
   var GeoPointNode = class _GeoPointNode extends DataFlowNode {
     clone() {
       return new _GeoPointNode(null, this.projection, duplicate(this.fields), duplicate(this.as));
@@ -53904,7 +53910,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/impute.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/impute.js
   var ImputeNode = class _ImputeNode extends DataFlowNode {
     clone() {
       return new _ImputeNode(null, duplicate(this.transform));
@@ -53987,7 +53993,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/loess.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/loess.js
   var LoessTransformNode = class _LoessTransformNode extends DataFlowNode {
     clone() {
       return new _LoessTransformNode(null, duplicate(this.transform));
@@ -54020,7 +54026,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/lookup.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/lookup.js
   var LookupNode = class _LookupNode extends DataFlowNode {
     clone() {
       return new _LookupNode(null, duplicate(this.transform), this.secondary);
@@ -54096,7 +54102,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/quantile.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/quantile.js
   var QuantileTransformNode = class _QuantileTransformNode extends DataFlowNode {
     clone() {
       return new _QuantileTransformNode(null, duplicate(this.transform));
@@ -54128,7 +54134,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/regression.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/regression.js
   var RegressionTransformNode = class _RegressionTransformNode extends DataFlowNode {
     clone() {
       return new _RegressionTransformNode(null, duplicate(this.transform));
@@ -54161,7 +54167,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/pivot.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/pivot.js
   var PivotTransformNode = class _PivotTransformNode extends DataFlowNode {
     clone() {
       return new _PivotTransformNode(null, duplicate(this.transform));
@@ -54195,7 +54201,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/sample.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/sample.js
   var SampleTransformNode = class _SampleTransformNode extends DataFlowNode {
     clone() {
       return new _SampleTransformNode(null, duplicate(this.transform));
@@ -54221,7 +54227,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/assemble.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/assemble.js
   function makeWalkTree(data3) {
     let datasetIndex = 0;
     function walkTree(node, dataSource) {
@@ -54369,7 +54375,7 @@ ${currentIndent}`
     return data3;
   }
 
-  // node_modules/vega-lite/build/src/compile/header/parse.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/header/parse.js
   function getHeaderType(orient2) {
     if (orient2 === "top" || orient2 === "left" || isSignalRef(orient2)) {
       return "header";
@@ -54437,7 +54443,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/compile/layoutsize/parse.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/layoutsize/parse.js
   function parseLayerLayoutSize(model) {
     parseChildrenLayoutSize(model);
     parseNonUnitLayoutSizeForChannel(model, "width");
@@ -54529,7 +54535,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/vega-lite/build/src/compile/facet.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/facet.js
   function facetSortFieldName(fieldDef, sort3, opt) {
     return vgField(sort3, { suffix: `by_${vgField(fieldDef)}`, ...opt });
   }
@@ -54839,7 +54845,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/data/joinaggregatefacet.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/joinaggregatefacet.js
   function makeJoinAggregateFromFacet(parent, facet) {
     const { row, column } = facet;
     if (row && column) {
@@ -54864,7 +54870,7 @@ ${currentIndent}`
     return null;
   }
 
-  // node_modules/vega-lite/build/src/compile/data/parse.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/data/parse.js
   function findSource(data3, sources) {
     for (const other of sources) {
       const otherData = other.data;
@@ -55115,7 +55121,7 @@ ${currentIndent}`
     return node;
   }
 
-  // node_modules/vega-lite/build/src/compile/concat.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/concat.js
   var ConcatModel = class extends Model {
     constructor(spec, parent, parentGivenName, config) {
       super(spec, "concat", parent, parentGivenName, config, spec.resolve);
@@ -55214,7 +55220,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/axis/component.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/axis/component.js
   function isFalseOrNull(v3) {
     return v3 === false || v3 === null;
   }
@@ -55251,7 +55257,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/axis/encode.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/axis/encode.js
   function labels2(model, channel, specifiedLabelsSpec) {
     const { encoding, config } = model;
     const fieldOrDatumDef = getFieldOrDatumDef(encoding[channel]) ?? getFieldOrDatumDef(encoding[getSecondaryRangeChannel(channel)]);
@@ -55310,7 +55316,7 @@ ${currentIndent}`
     return specifiedLabelsSpec;
   }
 
-  // node_modules/vega-lite/build/src/compile/axis/parse.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/axis/parse.js
   function parseUnitAxes(model) {
     return POSITION_SCALE_CHANNELS.reduce((axis, channel) => {
       if (model.component.scales[channel]) {
@@ -55530,7 +55536,7 @@ ${currentIndent}`
     return axisComponent;
   }
 
-  // node_modules/vega-lite/build/src/compile/layoutsize/init.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/layoutsize/init.js
   function initLayoutSize({ encoding, size }) {
     for (const channel of POSITION_SCALE_CHANNELS) {
       const sizeType = getSizeChannel(channel);
@@ -55544,7 +55550,7 @@ ${currentIndent}`
     return size;
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/arc.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/arc.js
   var arc3 = {
     vgMark: "arc",
     encodeEntry: (model) => {
@@ -55566,7 +55572,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/mark/area.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/area.js
   var area3 = {
     vgMark: "area",
     encodeEntry: (model) => {
@@ -55594,7 +55600,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/mark/bar.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/bar.js
   var bar = {
     vgMark: "rect",
     encodeEntry: (model) => {
@@ -55613,7 +55619,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/mark/geoshape.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/geoshape.js
   var geoshape = {
     vgMark: "shape",
     encodeEntry: (model) => {
@@ -55641,7 +55647,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/mark/image.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/image.js
   var image2 = {
     vgMark: "image",
     encodeEntry: (model) => {
@@ -55661,7 +55667,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/mark/line.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/line.js
   var line3 = {
     vgMark: "line",
     encodeEntry: (model) => {
@@ -55704,7 +55710,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/mark/point.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/point.js
   function encodeEntry(model, fixedShape) {
     const { config } = model;
     return {
@@ -55748,7 +55754,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/mark/rect.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/rect.js
   var rect2 = {
     vgMark: "rect",
     encodeEntry: (model) => {
@@ -55767,7 +55773,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/mark/rule.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/rule.js
   var rule3 = {
     vgMark: "rule",
     encodeEntry: (model) => {
@@ -55805,7 +55811,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/mark/text.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/text.js
   var text3 = {
     vgMark: "text",
     encodeEntry: (model) => {
@@ -55849,7 +55855,7 @@ ${currentIndent}`
     return void 0;
   }
 
-  // node_modules/vega-lite/build/src/compile/mark/tick.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/tick.js
   var tick = {
     vgMark: "rect",
     encodeEntry: (model) => {
@@ -55877,7 +55883,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/mark/mark.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/mark/mark.js
   var markCompiler = {
     arc: arc3,
     area: area3,
@@ -56131,7 +56137,7 @@ ${currentIndent}`
     } : null;
   }
 
-  // node_modules/vega-lite/build/src/compile/unit.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/unit.js
   var UnitModel = class extends ModelWithField {
     constructor(spec, parent, parentGivenName, parentGivenSize = {}, config) {
       super(spec, "unit", parent, parentGivenName, config, void 0, isFrameMixins(spec) ? spec.view : void 0);
@@ -56316,7 +56322,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/layer.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/layer.js
   var LayerModel = class _LayerModel extends Model {
     constructor(spec, parent, parentGivenName, parentGivenSize, config) {
       super(spec, "layer", parent, parentGivenName, config, spec.resolve, spec.view);
@@ -56418,7 +56424,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/vega-lite/build/src/compile/buildmodel.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/buildmodel.js
   function buildModel(spec, parent, parentGivenName, unitSize, config) {
     if (isFacetSpec(spec)) {
       return new FacetModel(spec, parent, parentGivenName, config);
@@ -56432,7 +56438,7 @@ ${currentIndent}`
     throw new Error(message_exports.invalidSpec(spec));
   }
 
-  // node_modules/vega-lite/build/src/compile/compile.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/compile/compile.js
   function compile(inputSpec, opt = {}) {
     if (opt.logger) {
       set6(opt.logger);
@@ -56524,17 +56530,17 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/vega-lite/build/src/index.js
+  // scalene/scalene-gui/node_modules/vega-lite/build/src/index.js
   var version2 = package_default.version;
 
-  // node_modules/vega-schema-url-parser/dist/parser.module.js
+  // scalene/scalene-gui/node_modules/vega-schema-url-parser/dist/parser.module.js
   function e(e4) {
     const [n2, r2] = /schema\/([\w-]+)\/([\w\.\-]+)\.json$/g.exec(e4).slice(1, 3);
     return { library: n2, version: r2 };
   }
   var parser_module_default = e;
 
-  // node_modules/vega-themes/build/vega-themes.module.js
+  // scalene/scalene-gui/node_modules/vega-themes/build/vega-themes.module.js
   var vega_themes_module_exports = {};
   __export(vega_themes_module_exports, {
     carbong10: () => carbong10,
@@ -57513,7 +57519,7 @@ ${currentIndent}`
   });
   var version3 = pkg.version;
 
-  // node_modules/vega-tooltip/build/vega-tooltip.module.js
+  // scalene/scalene-gui/node_modules/vega-tooltip/build/vega-tooltip.module.js
   var name2 = "vega-tooltip";
   var version$12 = "0.35.2";
   var description3 = "A tooltip plugin for Vega-Lite and Vega visualizations.";
@@ -57889,8 +57895,8 @@ ${currentIndent}`
   };
   var version4 = pkg2.version;
 
-  // node_modules/vega-embed/build/vega-embed.module.js
-  var __extends = /* @__PURE__ */ (function() {
+  // scalene/scalene-gui/node_modules/vega-embed/build/vega-embed.module.js
+  var __extends = /* @__PURE__ */ function() {
     var extendStatics = function(d2, b3) {
       extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d3, b4) {
         d3.__proto__ = b4;
@@ -57906,7 +57912,7 @@ ${currentIndent}`
       }
       d2.prototype = b3 === null ? Object.create(b3) : (__.prototype = b3.prototype, new __());
     };
-  })();
+  }();
   var _hasOwnProperty = Object.prototype.hasOwnProperty;
   function hasOwnProperty(obj, key2) {
     return _hasOwnProperty.call(obj, key2);
@@ -57999,7 +58005,7 @@ ${currentIndent}`
   }
   var PatchError = (
     /** @class */
-    (function(_super) {
+    function(_super) {
       __extends(PatchError2, _super);
       function PatchError2(message, name4, index4, operation, tree) {
         var _newTarget = this.constructor;
@@ -58013,7 +58019,7 @@ ${currentIndent}`
         return _this;
       }
       return PatchError2;
-    })(Error)
+    }(Error)
   );
   var JsonPatchError = PatchError;
   var deepClone = _deepClone;
@@ -58348,23 +58354,23 @@ ${currentIndent}`
   var beforeDict = /* @__PURE__ */ new WeakMap();
   var Mirror = (
     /** @class */
-    /* @__PURE__ */ (function() {
+    /* @__PURE__ */ function() {
       function Mirror2(obj) {
         this.observers = /* @__PURE__ */ new Map();
         this.obj = obj;
       }
       return Mirror2;
-    })()
+    }()
   );
   var ObserverInfo = (
     /** @class */
-    /* @__PURE__ */ (function() {
+    /* @__PURE__ */ function() {
       function ObserverInfo2(callback, observer) {
         this.callback = callback;
         this.observer = observer;
       }
       return ObserverInfo2;
-    })()
+    }()
   );
   function getMirror(obj) {
     return beforeDict.get(obj);
@@ -59100,7 +59106,7 @@ ${currentIndent}`
   function requireComparator() {
     if (hasRequiredComparator) return comparator2;
     hasRequiredComparator = 1;
-    const ANY = /* @__PURE__ */ Symbol("SemVer ANY");
+    const ANY = Symbol("SemVer ANY");
     class Comparator {
       static get ANY() {
         return ANY;
@@ -60208,9 +60214,9 @@ ${currentIndent}`
     return { view, spec, vgSpec, finalize: finalize2, embedOptions: opts };
   }
 
-  // prism.js
+  // scalene/scalene-gui/prism.js
   var _self = typeof window !== "undefined" ? window : typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope ? self : {};
-  var Prism2 = (function(_self2) {
+  var Prism2 = function(_self2) {
     var lang = /(?:^|\s)lang(?:uage)?-([\w-]+)(?=\s|$)/i;
     var uniqueId2 = 0;
     var plainTextGrammar = {};
@@ -61116,7 +61122,7 @@ ${currentIndent}`
       }
     }
     return _;
-  })(_self);
+  }(_self);
   if (typeof module !== "undefined" && module.exports) {
     module.exports = Prism2;
   }
@@ -61759,7 +61765,7 @@ ${currentIndent}`
     });
   })();
 
-  // tablesort.js
+  // scalene/scalene-gui/tablesort.js
   var createEvent = (name4) => {
     let evt;
     if (!window.CustomEvent || typeof window.CustomEvent !== "function") {
@@ -61913,7 +61919,7 @@ ${currentIndent}`
   );
   var tablesort_default = Tablesort;
 
-  // openai.ts
+  // scalene/scalene-gui/openai.ts
   async function tryApi(apiKey) {
     const response = await fetch("https://api.openai.com/v1/completions", {
       method: "GET",
@@ -62069,7 +62075,7 @@ ${currentIndent}`
     }
   }
 
-  // anthropic.ts
+  // scalene/scalene-gui/anthropic.ts
   async function sendPromptToAnthropic(prompt, apiKey) {
     const customUrlElement = document.getElementById("anthropic-custom-url");
     const customUrl = customUrlElement?.value?.trim() || "";
@@ -62125,7 +62131,7 @@ ${currentIndent}`
     }
   }
 
-  // gemini.ts
+  // scalene/scalene-gui/gemini.ts
   async function sendPromptToGemini(prompt, apiKey) {
     const customUrlElement = document.getElementById("gemini-custom-url");
     const customUrl = customUrlElement?.value?.trim() || "";
@@ -62218,7 +62224,7 @@ ${currentIndent}`
     }
   }
 
-  // ollama.ts
+  // scalene/scalene-gui/ollama.ts
   async function fetchModelNames(local_ip, local_port, revealInstallMessage2) {
     try {
       const response = await fetch(`http://${local_ip}:${local_port}/api/tags`);
@@ -62302,7 +62308,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/@aws-sdk/middleware-eventstream/dist-es/eventStreamConfiguration.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-eventstream/dist-es/eventStreamConfiguration.js
   function resolveEventStreamConfig(input) {
     const eventSigner = input.signer;
     const messageSigner = input.signer;
@@ -62316,7 +62322,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/@smithy/protocol-http/dist-es/extensions/httpExtensionConfiguration.js
+  // scalene/scalene-gui/node_modules/@smithy/protocol-http/dist-es/extensions/httpExtensionConfiguration.js
   var getHttpHandlerExtensionConfiguration = (runtimeConfig) => {
     return {
       setHttpHandler(handler) {
@@ -62339,28 +62345,28 @@ ${currentIndent}`
     };
   };
 
-  // node_modules/@smithy/types/dist-es/auth/auth.js
+  // scalene/scalene-gui/node_modules/@smithy/types/dist-es/auth/auth.js
   var HttpAuthLocation;
   (function(HttpAuthLocation2) {
     HttpAuthLocation2["HEADER"] = "header";
     HttpAuthLocation2["QUERY"] = "query";
   })(HttpAuthLocation || (HttpAuthLocation = {}));
 
-  // node_modules/@smithy/types/dist-es/auth/HttpApiKeyAuth.js
+  // scalene/scalene-gui/node_modules/@smithy/types/dist-es/auth/HttpApiKeyAuth.js
   var HttpApiKeyAuthLocation;
   (function(HttpApiKeyAuthLocation2) {
     HttpApiKeyAuthLocation2["HEADER"] = "header";
     HttpApiKeyAuthLocation2["QUERY"] = "query";
   })(HttpApiKeyAuthLocation || (HttpApiKeyAuthLocation = {}));
 
-  // node_modules/@smithy/types/dist-es/endpoint.js
+  // scalene/scalene-gui/node_modules/@smithy/types/dist-es/endpoint.js
   var EndpointURLScheme;
   (function(EndpointURLScheme2) {
     EndpointURLScheme2["HTTP"] = "http";
     EndpointURLScheme2["HTTPS"] = "https";
   })(EndpointURLScheme || (EndpointURLScheme = {}));
 
-  // node_modules/@smithy/types/dist-es/extensions/checksum.js
+  // scalene/scalene-gui/node_modules/@smithy/types/dist-es/extensions/checksum.js
   var AlgorithmId;
   (function(AlgorithmId2) {
     AlgorithmId2["MD5"] = "md5";
@@ -62370,17 +62376,17 @@ ${currentIndent}`
     AlgorithmId2["SHA256"] = "sha256";
   })(AlgorithmId || (AlgorithmId = {}));
 
-  // node_modules/@smithy/types/dist-es/http.js
+  // scalene/scalene-gui/node_modules/@smithy/types/dist-es/http.js
   var FieldPosition;
   (function(FieldPosition2) {
     FieldPosition2[FieldPosition2["HEADER"] = 0] = "HEADER";
     FieldPosition2[FieldPosition2["TRAILER"] = 1] = "TRAILER";
   })(FieldPosition || (FieldPosition = {}));
 
-  // node_modules/@smithy/types/dist-es/middleware.js
+  // scalene/scalene-gui/node_modules/@smithy/types/dist-es/middleware.js
   var SMITHY_CONTEXT_KEY = "__smithy_context";
 
-  // node_modules/@smithy/types/dist-es/profile.js
+  // scalene/scalene-gui/node_modules/@smithy/types/dist-es/profile.js
   var IniSectionType;
   (function(IniSectionType2) {
     IniSectionType2["PROFILE"] = "profile";
@@ -62388,7 +62394,7 @@ ${currentIndent}`
     IniSectionType2["SERVICES"] = "services";
   })(IniSectionType || (IniSectionType = {}));
 
-  // node_modules/@smithy/types/dist-es/transfer.js
+  // scalene/scalene-gui/node_modules/@smithy/types/dist-es/transfer.js
   var RequestHandlerProtocol;
   (function(RequestHandlerProtocol2) {
     RequestHandlerProtocol2["HTTP_0_9"] = "http/0.9";
@@ -62396,7 +62402,7 @@ ${currentIndent}`
     RequestHandlerProtocol2["TDS_8_0"] = "tds/8.0";
   })(RequestHandlerProtocol || (RequestHandlerProtocol = {}));
 
-  // node_modules/@smithy/protocol-http/dist-es/httpRequest.js
+  // scalene/scalene-gui/node_modules/@smithy/protocol-http/dist-es/httpRequest.js
   var HttpRequest = class _HttpRequest {
     constructor(options) {
       this.method = options.method || "GET";
@@ -62442,7 +62448,7 @@ ${currentIndent}`
     }, {});
   }
 
-  // node_modules/@smithy/protocol-http/dist-es/httpResponse.js
+  // scalene/scalene-gui/node_modules/@smithy/protocol-http/dist-es/httpResponse.js
   var HttpResponse = class {
     constructor(options) {
       this.statusCode = options.statusCode;
@@ -62458,7 +62464,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/@aws-sdk/middleware-host-header/dist-es/index.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-host-header/dist-es/index.js
   function resolveHostHeaderConfig(input) {
     return input;
   }
@@ -62491,7 +62497,7 @@ ${currentIndent}`
     }
   });
 
-  // node_modules/@aws-sdk/middleware-logger/dist-es/loggerMiddleware.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-logger/dist-es/loggerMiddleware.js
   var loggerMiddleware = () => (next, context3) => async (args) => {
     try {
       const response = await next(args);
@@ -62534,7 +62540,7 @@ ${currentIndent}`
     }
   });
 
-  // node_modules/@aws-sdk/middleware-recursion-detection/dist-es/index.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-recursion-detection/dist-es/index.js
   var TRACE_ID_HEADER_NAME = "X-Amzn-Trace-Id";
   var ENV_LAMBDA_FUNCTION_NAME = "AWS_LAMBDA_FUNCTION_NAME";
   var ENV_TRACE_ID = "_X_AMZN_TRACE_ID";
@@ -62571,10 +62577,10 @@ ${currentIndent}`
     }
   });
 
-  // node_modules/@smithy/util-middleware/dist-es/getSmithyContext.js
+  // scalene/scalene-gui/node_modules/@smithy/util-middleware/dist-es/getSmithyContext.js
   var getSmithyContext = (context3) => context3[SMITHY_CONTEXT_KEY] || (context3[SMITHY_CONTEXT_KEY] = {});
 
-  // node_modules/@smithy/util-middleware/dist-es/normalizeProvider.js
+  // scalene/scalene-gui/node_modules/@smithy/util-middleware/dist-es/normalizeProvider.js
   var normalizeProvider = (input) => {
     if (typeof input === "function")
       return input;
@@ -62582,7 +62588,7 @@ ${currentIndent}`
     return () => promisified;
   };
 
-  // node_modules/@smithy/core/dist-es/middleware-http-auth-scheme/resolveAuthOptions.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/middleware-http-auth-scheme/resolveAuthOptions.js
   var resolveAuthOptions = (candidateAuthOptions, authSchemePreference) => {
     if (!authSchemePreference || authSchemePreference.length === 0) {
       return candidateAuthOptions;
@@ -62604,7 +62610,7 @@ ${currentIndent}`
     return preferredAuthOptions;
   };
 
-  // node_modules/@smithy/core/dist-es/middleware-http-auth-scheme/httpAuthSchemeMiddleware.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/middleware-http-auth-scheme/httpAuthSchemeMiddleware.js
   function convertHttpAuthSchemesToMap(httpAuthSchemes) {
     const map4 = /* @__PURE__ */ new Map();
     for (const scheme3 of httpAuthSchemes) {
@@ -62646,7 +62652,7 @@ ${currentIndent}`
     return next(args);
   };
 
-  // node_modules/@smithy/core/dist-es/middleware-http-auth-scheme/getHttpAuthSchemeEndpointRuleSetPlugin.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/middleware-http-auth-scheme/getHttpAuthSchemeEndpointRuleSetPlugin.js
   var httpAuthSchemeEndpointRuleSetMiddlewareOptions = {
     step: "serialize",
     tags: ["HTTP_AUTH_SCHEME"],
@@ -62664,7 +62670,7 @@ ${currentIndent}`
     }
   });
 
-  // node_modules/@smithy/middleware-serde/dist-es/deserializerMiddleware.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-serde/dist-es/deserializerMiddleware.js
   var deserializerMiddleware = (options, deserializer) => (next, context3) => async (args) => {
     const { response } = await next(args);
     try {
@@ -62716,7 +62722,7 @@ ${currentIndent}`
     }) || [void 0, void 0])[1];
   };
 
-  // node_modules/@smithy/middleware-serde/dist-es/serializerMiddleware.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-serde/dist-es/serializerMiddleware.js
   var serializerMiddleware = (options, serializer) => (next, context3) => async (args) => {
     const endpointConfig = options;
     const endpoint = context3.endpointV2?.url && endpointConfig.urlParser ? async () => endpointConfig.urlParser(context3.endpointV2.url) : endpointConfig.endpoint;
@@ -62730,7 +62736,7 @@ ${currentIndent}`
     });
   };
 
-  // node_modules/@smithy/middleware-serde/dist-es/serdePlugin.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-serde/dist-es/serdePlugin.js
   var deserializerMiddlewareOption = {
     name: "deserializerMiddleware",
     step: "deserialize",
@@ -62752,17 +62758,7 @@ ${currentIndent}`
     };
   }
 
-  // node_modules/@smithy/core/dist-es/middleware-http-auth-scheme/getHttpAuthSchemePlugin.js
-  var httpAuthSchemeMiddlewareOptions = {
-    step: "serialize",
-    tags: ["HTTP_AUTH_SCHEME"],
-    name: "httpAuthSchemeMiddleware",
-    override: true,
-    relation: "before",
-    toMiddleware: serializerMiddlewareOption.name
-  };
-
-  // node_modules/@smithy/core/dist-es/middleware-http-signing/httpSigningMiddleware.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/middleware-http-signing/httpSigningMiddleware.js
   var defaultErrorHandler = (signingProperties) => (error3) => {
     throw error3;
   };
@@ -62786,7 +62782,7 @@ ${currentIndent}`
     return output3;
   };
 
-  // node_modules/@smithy/core/dist-es/middleware-http-signing/getHttpSigningMiddleware.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/middleware-http-signing/getHttpSigningMiddleware.js
   var httpSigningMiddlewareOptions = {
     step: "finalizeRequest",
     tags: ["HTTP_SIGNING"],
@@ -62802,7 +62798,7 @@ ${currentIndent}`
     }
   });
 
-  // node_modules/@smithy/core/dist-es/normalizeProvider.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/normalizeProvider.js
   var normalizeProvider2 = (input) => {
     if (typeof input === "function")
       return input;
@@ -62810,7 +62806,7 @@ ${currentIndent}`
     return () => promisified;
   };
 
-  // node_modules/@smithy/util-base64/dist-es/constants.browser.js
+  // scalene/scalene-gui/node_modules/@smithy/util-base64/dist-es/constants.browser.js
   var alphabetByEncoding = {};
   var alphabetByValue = new Array(64);
   for (let i2 = 0, start = "A".charCodeAt(0), limit = "Z".charCodeAt(0); i2 + start <= limit; i2++) {
@@ -62839,7 +62835,7 @@ ${currentIndent}`
   var bitsPerByte = 8;
   var maxLetterValue = 63;
 
-  // node_modules/@smithy/util-base64/dist-es/fromBase64.browser.js
+  // scalene/scalene-gui/node_modules/@smithy/util-base64/dist-es/fromBase64.browser.js
   var fromBase64 = (input) => {
     let totalByteLength = input.length / 4 * 3;
     if (input.slice(-2) === "==") {
@@ -62874,10 +62870,10 @@ ${currentIndent}`
     return new Uint8Array(out);
   };
 
-  // node_modules/@smithy/util-utf8/dist-es/fromUtf8.browser.js
+  // scalene/scalene-gui/node_modules/@smithy/util-utf8/dist-es/fromUtf8.browser.js
   var fromUtf8 = (input) => new TextEncoder().encode(input);
 
-  // node_modules/@smithy/util-utf8/dist-es/toUint8Array.js
+  // scalene/scalene-gui/node_modules/@smithy/util-utf8/dist-es/toUint8Array.js
   var toUint8Array = (data3) => {
     if (typeof data3 === "string") {
       return fromUtf8(data3);
@@ -62888,7 +62884,7 @@ ${currentIndent}`
     return new Uint8Array(data3);
   };
 
-  // node_modules/@smithy/util-utf8/dist-es/toUtf8.browser.js
+  // scalene/scalene-gui/node_modules/@smithy/util-utf8/dist-es/toUtf8.browser.js
   var toUtf8 = (input) => {
     if (typeof input === "string") {
       return input;
@@ -62899,7 +62895,7 @@ ${currentIndent}`
     return new TextDecoder("utf-8").decode(input);
   };
 
-  // node_modules/@smithy/util-base64/dist-es/toBase64.browser.js
+  // scalene/scalene-gui/node_modules/@smithy/util-base64/dist-es/toBase64.browser.js
   function toBase64(_input) {
     let input;
     if (typeof _input === "string") {
@@ -62931,7 +62927,7 @@ ${currentIndent}`
     return str;
   }
 
-  // node_modules/@smithy/util-stream/dist-es/blob/transforms.js
+  // scalene/scalene-gui/node_modules/@smithy/util-stream/dist-es/blob/transforms.js
   function transformToString(payload, encoding = "utf-8") {
     if (encoding === "base64") {
       return toBase64(payload);
@@ -62945,7 +62941,7 @@ ${currentIndent}`
     return Uint8ArrayBlobAdapter.mutate(fromUtf8(str));
   }
 
-  // node_modules/@smithy/util-stream/dist-es/blob/Uint8ArrayBlobAdapter.js
+  // scalene/scalene-gui/node_modules/@smithy/util-stream/dist-es/blob/Uint8ArrayBlobAdapter.js
   var Uint8ArrayBlobAdapter = class _Uint8ArrayBlobAdapter extends Uint8Array {
     static fromString(source4, encoding = "utf-8") {
       switch (typeof source4) {
@@ -62964,11 +62960,11 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/@smithy/util-uri-escape/dist-es/escape-uri.js
+  // scalene/scalene-gui/node_modules/@smithy/util-uri-escape/dist-es/escape-uri.js
   var escapeUri = (uri) => encodeURIComponent(uri).replace(/[!'()*]/g, hexEncode);
   var hexEncode = (c4) => `%${c4.charCodeAt(0).toString(16).toUpperCase()}`;
 
-  // node_modules/@smithy/querystring-builder/dist-es/index.js
+  // scalene/scalene-gui/node_modules/@smithy/querystring-builder/dist-es/index.js
   function buildQueryString(query) {
     const parts = [];
     for (let key2 of Object.keys(query).sort()) {
@@ -62989,12 +62985,12 @@ ${currentIndent}`
     return parts.join("&");
   }
 
-  // node_modules/@smithy/fetch-http-handler/dist-es/create-request.js
+  // scalene/scalene-gui/node_modules/@smithy/fetch-http-handler/dist-es/create-request.js
   function createRequest(url, requestOptions) {
     return new Request(url, requestOptions);
   }
 
-  // node_modules/@smithy/fetch-http-handler/dist-es/request-timeout.js
+  // scalene/scalene-gui/node_modules/@smithy/fetch-http-handler/dist-es/request-timeout.js
   function requestTimeout(timeoutInMs = 0) {
     return new Promise((resolve2, reject) => {
       if (timeoutInMs) {
@@ -63007,7 +63003,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/@smithy/fetch-http-handler/dist-es/fetch-http-handler.js
+  // scalene/scalene-gui/node_modules/@smithy/fetch-http-handler/dist-es/fetch-http-handler.js
   var keepAliveSupport = {
     supported: void 0
   };
@@ -63143,7 +63139,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/@smithy/fetch-http-handler/dist-es/stream-collector.js
+  // scalene/scalene-gui/node_modules/@smithy/fetch-http-handler/dist-es/stream-collector.js
   var streamCollector = async (stream2) => {
     if (typeof Blob === "function" && stream2 instanceof Blob || stream2.constructor?.name === "Blob") {
       if (Blob.prototype.arrayBuffer !== void 0) {
@@ -63197,7 +63193,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/@smithy/util-hex-encoding/dist-es/index.js
+  // scalene/scalene-gui/node_modules/@smithy/util-hex-encoding/dist-es/index.js
   var SHORT_TO_HEX = {};
   var HEX_TO_SHORT = {};
   for (let i2 = 0; i2 < 256; i2++) {
@@ -63231,7 +63227,7 @@ ${currentIndent}`
     return out;
   }
 
-  // node_modules/@smithy/core/dist-es/submodules/protocols/collect-stream-body.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/submodules/protocols/collect-stream-body.js
   var collectBody = async (streamBody = new Uint8Array(), context3) => {
     if (streamBody instanceof Uint8Array) {
       return Uint8ArrayBlobAdapter.mutate(streamBody);
@@ -63243,502 +63239,14 @@ ${currentIndent}`
     return Uint8ArrayBlobAdapter.mutate(await fromContext);
   };
 
-  // node_modules/@smithy/core/dist-es/submodules/protocols/extended-encode-uri-component.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/submodules/protocols/extended-encode-uri-component.js
   function extendedEncodeURIComponent(str) {
     return encodeURIComponent(str).replace(/[!'()*]/g, function(c4) {
       return "%" + c4.charCodeAt(0).toString(16).toUpperCase();
     });
   }
 
-  // node_modules/@smithy/core/dist-es/submodules/schema/deref.js
-  var deref2 = (schemaRef) => {
-    if (typeof schemaRef === "function") {
-      return schemaRef();
-    }
-    return schemaRef;
-  };
-
-  // node_modules/@smithy/core/dist-es/submodules/schema/TypeRegistry.js
-  var TypeRegistry = class _TypeRegistry {
-    constructor(namespace, schemas = /* @__PURE__ */ new Map()) {
-      this.namespace = namespace;
-      this.schemas = schemas;
-    }
-    static for(namespace) {
-      if (!_TypeRegistry.registries.has(namespace)) {
-        _TypeRegistry.registries.set(namespace, new _TypeRegistry(namespace));
-      }
-      return _TypeRegistry.registries.get(namespace);
-    }
-    register(shapeId, schema) {
-      const qualifiedName = this.normalizeShapeId(shapeId);
-      const registry = _TypeRegistry.for(this.getNamespace(shapeId));
-      registry.schemas.set(qualifiedName, schema);
-    }
-    getSchema(shapeId) {
-      const id2 = this.normalizeShapeId(shapeId);
-      if (!this.schemas.has(id2)) {
-        throw new Error(`@smithy/core/schema - schema not found for ${id2}`);
-      }
-      return this.schemas.get(id2);
-    }
-    getBaseException() {
-      for (const [id2, schema] of this.schemas.entries()) {
-        if (id2.startsWith("smithy.ts.sdk.synthetic.") && id2.endsWith("ServiceException")) {
-          return schema;
-        }
-      }
-      return void 0;
-    }
-    find(predicate) {
-      return [...this.schemas.values()].find(predicate);
-    }
-    destroy() {
-      _TypeRegistry.registries.delete(this.namespace);
-      this.schemas.clear();
-    }
-    normalizeShapeId(shapeId) {
-      if (shapeId.includes("#")) {
-        return shapeId;
-      }
-      return this.namespace + "#" + shapeId;
-    }
-    getNamespace(shapeId) {
-      return this.normalizeShapeId(shapeId).split("#")[0];
-    }
-  };
-  TypeRegistry.registries = /* @__PURE__ */ new Map();
-
-  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/Schema.js
-  var Schema = class {
-    constructor(name4, traits) {
-      this.name = name4;
-      this.traits = traits;
-    }
-  };
-
-  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/ListSchema.js
-  var ListSchema = class _ListSchema extends Schema {
-    constructor(name4, traits, valueSchema) {
-      super(name4, traits);
-      this.name = name4;
-      this.traits = traits;
-      this.valueSchema = valueSchema;
-      this.symbol = _ListSchema.symbol;
-    }
-    static [Symbol.hasInstance](lhs) {
-      const isPrototype = _ListSchema.prototype.isPrototypeOf(lhs);
-      if (!isPrototype && typeof lhs === "object" && lhs !== null) {
-        const list = lhs;
-        return list.symbol === _ListSchema.symbol;
-      }
-      return isPrototype;
-    }
-  };
-  ListSchema.symbol = /* @__PURE__ */ Symbol.for("@smithy/core/schema::ListSchema");
-
-  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/MapSchema.js
-  var MapSchema = class _MapSchema extends Schema {
-    constructor(name4, traits, keySchema, valueSchema) {
-      super(name4, traits);
-      this.name = name4;
-      this.traits = traits;
-      this.keySchema = keySchema;
-      this.valueSchema = valueSchema;
-      this.symbol = _MapSchema.symbol;
-    }
-    static [Symbol.hasInstance](lhs) {
-      const isPrototype = _MapSchema.prototype.isPrototypeOf(lhs);
-      if (!isPrototype && typeof lhs === "object" && lhs !== null) {
-        const map4 = lhs;
-        return map4.symbol === _MapSchema.symbol;
-      }
-      return isPrototype;
-    }
-  };
-  MapSchema.symbol = /* @__PURE__ */ Symbol.for("@smithy/core/schema::MapSchema");
-
-  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/StructureSchema.js
-  var StructureSchema = class _StructureSchema extends Schema {
-    constructor(name4, traits, memberNames, memberList) {
-      super(name4, traits);
-      this.name = name4;
-      this.traits = traits;
-      this.memberNames = memberNames;
-      this.memberList = memberList;
-      this.symbol = _StructureSchema.symbol;
-      this.members = {};
-      for (let i2 = 0; i2 < memberNames.length; ++i2) {
-        this.members[memberNames[i2]] = Array.isArray(memberList[i2]) ? memberList[i2] : [memberList[i2], 0];
-      }
-    }
-    static [Symbol.hasInstance](lhs) {
-      const isPrototype = _StructureSchema.prototype.isPrototypeOf(lhs);
-      if (!isPrototype && typeof lhs === "object" && lhs !== null) {
-        const struct = lhs;
-        return struct.symbol === _StructureSchema.symbol;
-      }
-      return isPrototype;
-    }
-  };
-  StructureSchema.symbol = /* @__PURE__ */ Symbol.for("@smithy/core/schema::StructureSchema");
-
-  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/ErrorSchema.js
-  var ErrorSchema = class _ErrorSchema extends StructureSchema {
-    constructor(name4, traits, memberNames, memberList, ctor) {
-      super(name4, traits, memberNames, memberList);
-      this.name = name4;
-      this.traits = traits;
-      this.memberNames = memberNames;
-      this.memberList = memberList;
-      this.ctor = ctor;
-      this.symbol = _ErrorSchema.symbol;
-    }
-    static [Symbol.hasInstance](lhs) {
-      const isPrototype = _ErrorSchema.prototype.isPrototypeOf(lhs);
-      if (!isPrototype && typeof lhs === "object" && lhs !== null) {
-        const err = lhs;
-        return err.symbol === _ErrorSchema.symbol;
-      }
-      return isPrototype;
-    }
-  };
-  ErrorSchema.symbol = /* @__PURE__ */ Symbol.for("@smithy/core/schema::ErrorSchema");
-
-  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/sentinels.js
-  var SCHEMA = {
-    BLOB: 21,
-    STREAMING_BLOB: 42,
-    BOOLEAN: 2,
-    STRING: 0,
-    NUMERIC: 1,
-    BIG_INTEGER: 17,
-    BIG_DECIMAL: 19,
-    DOCUMENT: 15,
-    TIMESTAMP_DEFAULT: 4,
-    TIMESTAMP_DATE_TIME: 5,
-    TIMESTAMP_HTTP_DATE: 6,
-    TIMESTAMP_EPOCH_SECONDS: 7,
-    LIST_MODIFIER: 64,
-    MAP_MODIFIER: 128
-  };
-
-  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/SimpleSchema.js
-  var SimpleSchema = class _SimpleSchema extends Schema {
-    constructor(name4, schemaRef, traits) {
-      super(name4, traits);
-      this.name = name4;
-      this.schemaRef = schemaRef;
-      this.traits = traits;
-      this.symbol = _SimpleSchema.symbol;
-    }
-    static [Symbol.hasInstance](lhs) {
-      const isPrototype = _SimpleSchema.prototype.isPrototypeOf(lhs);
-      if (!isPrototype && typeof lhs === "object" && lhs !== null) {
-        const sim = lhs;
-        return sim.symbol === _SimpleSchema.symbol;
-      }
-      return isPrototype;
-    }
-  };
-  SimpleSchema.symbol = /* @__PURE__ */ Symbol.for("@smithy/core/schema::SimpleSchema");
-
-  // node_modules/@smithy/core/dist-es/submodules/schema/schemas/NormalizedSchema.js
-  var NormalizedSchema = class _NormalizedSchema {
-    constructor(ref2, memberName) {
-      this.ref = ref2;
-      this.memberName = memberName;
-      this.symbol = _NormalizedSchema.symbol;
-      const traitStack = [];
-      let _ref = ref2;
-      let schema = ref2;
-      this._isMemberSchema = false;
-      while (Array.isArray(_ref)) {
-        traitStack.push(_ref[1]);
-        _ref = _ref[0];
-        schema = deref2(_ref);
-        this._isMemberSchema = true;
-      }
-      if (traitStack.length > 0) {
-        this.memberTraits = {};
-        for (let i2 = traitStack.length - 1; i2 >= 0; --i2) {
-          const traitSet = traitStack[i2];
-          Object.assign(this.memberTraits, _NormalizedSchema.translateTraits(traitSet));
-        }
-      } else {
-        this.memberTraits = 0;
-      }
-      if (schema instanceof _NormalizedSchema) {
-        this.name = schema.name;
-        this.traits = schema.traits;
-        this._isMemberSchema = schema._isMemberSchema;
-        this.schema = schema.schema;
-        this.memberTraits = Object.assign({}, schema.getMemberTraits(), this.getMemberTraits());
-        this.normalizedTraits = void 0;
-        this.ref = schema.ref;
-        this.memberName = memberName ?? schema.memberName;
-        return;
-      }
-      this.schema = deref2(schema);
-      if (this.schema && typeof this.schema === "object") {
-        this.traits = this.schema?.traits ?? {};
-      } else {
-        this.traits = 0;
-      }
-      this.name = (typeof this.schema === "object" ? this.schema?.name : void 0) ?? this.memberName ?? this.getSchemaName();
-      if (this._isMemberSchema && !memberName) {
-        throw new Error(`@smithy/core/schema - NormalizedSchema member schema ${this.getName(true)} must initialize with memberName argument.`);
-      }
-    }
-    static [Symbol.hasInstance](lhs) {
-      const isPrototype = _NormalizedSchema.prototype.isPrototypeOf(lhs);
-      if (!isPrototype && typeof lhs === "object" && lhs !== null) {
-        const ns = lhs;
-        return ns.symbol === _NormalizedSchema.symbol;
-      }
-      return isPrototype;
-    }
-    static of(ref2, memberName) {
-      if (ref2 instanceof _NormalizedSchema) {
-        return ref2;
-      }
-      return new _NormalizedSchema(ref2, memberName);
-    }
-    static translateTraits(indicator) {
-      if (typeof indicator === "object") {
-        return indicator;
-      }
-      indicator = indicator | 0;
-      const traits = {};
-      if ((indicator & 1) === 1) {
-        traits.httpLabel = 1;
-      }
-      if ((indicator >> 1 & 1) === 1) {
-        traits.idempotent = 1;
-      }
-      if ((indicator >> 2 & 1) === 1) {
-        traits.idempotencyToken = 1;
-      }
-      if ((indicator >> 3 & 1) === 1) {
-        traits.sensitive = 1;
-      }
-      if ((indicator >> 4 & 1) === 1) {
-        traits.httpPayload = 1;
-      }
-      if ((indicator >> 5 & 1) === 1) {
-        traits.httpResponseCode = 1;
-      }
-      if ((indicator >> 6 & 1) === 1) {
-        traits.httpQueryParams = 1;
-      }
-      return traits;
-    }
-    static memberFrom(memberSchema, memberName) {
-      if (memberSchema instanceof _NormalizedSchema) {
-        memberSchema.memberName = memberName;
-        memberSchema._isMemberSchema = true;
-        return memberSchema;
-      }
-      return new _NormalizedSchema(memberSchema, memberName);
-    }
-    getSchema() {
-      if (this.schema instanceof _NormalizedSchema) {
-        return this.schema = this.schema.getSchema();
-      }
-      if (this.schema instanceof SimpleSchema) {
-        return deref2(this.schema.schemaRef);
-      }
-      return deref2(this.schema);
-    }
-    getName(withNamespace = false) {
-      if (!withNamespace) {
-        if (this.name && this.name.includes("#")) {
-          return this.name.split("#")[1];
-        }
-      }
-      return this.name || void 0;
-    }
-    getMemberName() {
-      if (!this.isMemberSchema()) {
-        throw new Error(`@smithy/core/schema - cannot get member name on non-member schema: ${this.getName(true)}`);
-      }
-      return this.memberName;
-    }
-    isMemberSchema() {
-      return this._isMemberSchema;
-    }
-    isUnitSchema() {
-      return this.getSchema() === "unit";
-    }
-    isListSchema() {
-      const inner = this.getSchema();
-      if (typeof inner === "number") {
-        return inner >= SCHEMA.LIST_MODIFIER && inner < SCHEMA.MAP_MODIFIER;
-      }
-      return inner instanceof ListSchema;
-    }
-    isMapSchema() {
-      const inner = this.getSchema();
-      if (typeof inner === "number") {
-        return inner >= SCHEMA.MAP_MODIFIER && inner <= 255;
-      }
-      return inner instanceof MapSchema;
-    }
-    isDocumentSchema() {
-      return this.getSchema() === SCHEMA.DOCUMENT;
-    }
-    isStructSchema() {
-      const inner = this.getSchema();
-      return inner !== null && typeof inner === "object" && "members" in inner || inner instanceof StructureSchema;
-    }
-    isBlobSchema() {
-      return this.getSchema() === SCHEMA.BLOB || this.getSchema() === SCHEMA.STREAMING_BLOB;
-    }
-    isTimestampSchema() {
-      const schema = this.getSchema();
-      return typeof schema === "number" && schema >= SCHEMA.TIMESTAMP_DEFAULT && schema <= SCHEMA.TIMESTAMP_EPOCH_SECONDS;
-    }
-    isStringSchema() {
-      return this.getSchema() === SCHEMA.STRING;
-    }
-    isBooleanSchema() {
-      return this.getSchema() === SCHEMA.BOOLEAN;
-    }
-    isNumericSchema() {
-      return this.getSchema() === SCHEMA.NUMERIC;
-    }
-    isBigIntegerSchema() {
-      return this.getSchema() === SCHEMA.BIG_INTEGER;
-    }
-    isBigDecimalSchema() {
-      return this.getSchema() === SCHEMA.BIG_DECIMAL;
-    }
-    isStreaming() {
-      const streaming = !!this.getMergedTraits().streaming;
-      if (streaming) {
-        return true;
-      }
-      return this.getSchema() === SCHEMA.STREAMING_BLOB;
-    }
-    getMergedTraits() {
-      if (this.normalizedTraits) {
-        return this.normalizedTraits;
-      }
-      this.normalizedTraits = {
-        ...this.getOwnTraits(),
-        ...this.getMemberTraits()
-      };
-      return this.normalizedTraits;
-    }
-    getMemberTraits() {
-      return _NormalizedSchema.translateTraits(this.memberTraits);
-    }
-    getOwnTraits() {
-      return _NormalizedSchema.translateTraits(this.traits);
-    }
-    getKeySchema() {
-      if (this.isDocumentSchema()) {
-        return _NormalizedSchema.memberFrom([SCHEMA.DOCUMENT, 0], "key");
-      }
-      if (!this.isMapSchema()) {
-        throw new Error(`@smithy/core/schema - cannot get key schema for non-map schema: ${this.getName(true)}`);
-      }
-      const schema = this.getSchema();
-      if (typeof schema === "number") {
-        return _NormalizedSchema.memberFrom([63 & schema, 0], "key");
-      }
-      return _NormalizedSchema.memberFrom([schema.keySchema, 0], "key");
-    }
-    getValueSchema() {
-      const schema = this.getSchema();
-      if (typeof schema === "number") {
-        if (this.isMapSchema()) {
-          return _NormalizedSchema.memberFrom([63 & schema, 0], "value");
-        } else if (this.isListSchema()) {
-          return _NormalizedSchema.memberFrom([63 & schema, 0], "member");
-        }
-      }
-      if (schema && typeof schema === "object") {
-        if (this.isStructSchema()) {
-          throw new Error(`cannot call getValueSchema() with StructureSchema ${this.getName(true)}`);
-        }
-        const collection = schema;
-        if ("valueSchema" in collection) {
-          if (this.isMapSchema()) {
-            return _NormalizedSchema.memberFrom([collection.valueSchema, 0], "value");
-          } else if (this.isListSchema()) {
-            return _NormalizedSchema.memberFrom([collection.valueSchema, 0], "member");
-          }
-        }
-      }
-      if (this.isDocumentSchema()) {
-        return _NormalizedSchema.memberFrom([SCHEMA.DOCUMENT, 0], "value");
-      }
-      throw new Error(`@smithy/core/schema - the schema ${this.getName(true)} does not have a value member.`);
-    }
-    getMemberSchema(member) {
-      if (this.isStructSchema()) {
-        const struct = this.getSchema();
-        if (!(member in struct.members)) {
-          throw new Error(`@smithy/core/schema - the schema ${this.getName(true)} does not have a member with name=${member}.`);
-        }
-        return _NormalizedSchema.memberFrom(struct.members[member], member);
-      }
-      if (this.isDocumentSchema()) {
-        return _NormalizedSchema.memberFrom([SCHEMA.DOCUMENT, 0], member);
-      }
-      throw new Error(`@smithy/core/schema - the schema ${this.getName(true)} does not have members.`);
-    }
-    getMemberSchemas() {
-      const { schema } = this;
-      const struct = schema;
-      if (!struct || typeof struct !== "object") {
-        return {};
-      }
-      if ("members" in struct) {
-        const buffer = {};
-        for (const member of struct.memberNames) {
-          buffer[member] = this.getMemberSchema(member);
-        }
-        return buffer;
-      }
-      return {};
-    }
-    *structIterator() {
-      if (this.isUnitSchema()) {
-        return;
-      }
-      if (!this.isStructSchema()) {
-        throw new Error("@smithy/core/schema - cannot acquire structIterator on non-struct schema.");
-      }
-      const struct = this.getSchema();
-      for (let i2 = 0; i2 < struct.memberNames.length; ++i2) {
-        yield [struct.memberNames[i2], _NormalizedSchema.memberFrom([struct.memberList[i2], 0], struct.memberNames[i2])];
-      }
-    }
-    getSchemaName() {
-      const schema = this.getSchema();
-      if (typeof schema === "number") {
-        const _schema = 63 & schema;
-        const container = 192 & schema;
-        const type3 = Object.entries(SCHEMA).find(([, value3]) => {
-          return value3 === _schema;
-        })?.[0] ?? "Unknown";
-        switch (container) {
-          case SCHEMA.MAP_MODIFIER:
-            return `${type3}Map`;
-          case SCHEMA.LIST_MODIFIER:
-            return `${type3}List`;
-          case 0:
-            return type3;
-        }
-      }
-      return "Unknown";
-    }
-  };
-  NormalizedSchema.symbol = /* @__PURE__ */ Symbol.for("@smithy/core/schema::NormalizedSchema");
-
-  // node_modules/@smithy/core/dist-es/submodules/serde/parse-utils.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/submodules/serde/parse-utils.js
   var MAX_FLOAT = Math.ceil(2 ** 127 * (2 - 2 ** -23));
   var expectLong = (value3) => {
     if (value3 === null || value3 === void 0) {
@@ -63787,40 +63295,55 @@ ${currentIndent}`
     warn: console.warn
   };
 
-  // node_modules/@smithy/core/dist-es/submodules/serde/date-utils.js
-  var RFC3339 = new RegExp(/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?[zZ]$/);
-  var RFC3339_WITH_OFFSET = new RegExp(/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(([-+]\d{2}\:\d{2})|[zZ])$/);
-  var IMF_FIXDATE = new RegExp(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d{2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? GMT$/);
-  var RFC_850_DATE = new RegExp(/^(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), (\d{2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? GMT$/);
-  var ASC_TIME = new RegExp(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ( [1-9]|\d{2}) (\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))? (\d{4})$/);
-  var FIFTY_YEARS_IN_MILLIS = 50 * 365 * 24 * 60 * 60 * 1e3;
-
-  // node_modules/@smithy/core/dist-es/submodules/serde/lazy-json.js
-  var LazyJsonString = function LazyJsonString2(val) {
-    const str = Object.assign(new String(val), {
-      deserializeJSON() {
-        return JSON.parse(String(val));
-      },
-      toString() {
-        return String(val);
-      },
-      toJSON() {
-        return String(val);
+  // scalene/scalene-gui/node_modules/uuid/dist/esm-browser/rng.js
+  var getRandomValues;
+  var rnds8 = new Uint8Array(16);
+  function rng() {
+    if (!getRandomValues) {
+      getRandomValues = typeof crypto !== "undefined" && crypto.getRandomValues && crypto.getRandomValues.bind(crypto);
+      if (!getRandomValues) {
+        throw new Error("crypto.getRandomValues() not supported. See https://github.com/uuidjs/uuid#getrandomvalues-not-supported");
       }
-    });
-    return str;
-  };
-  LazyJsonString.from = (object2) => {
-    if (object2 && typeof object2 === "object" && (object2 instanceof LazyJsonString || "deserializeJSON" in object2)) {
-      return object2;
-    } else if (typeof object2 === "string" || Object.getPrototypeOf(object2) === String.prototype) {
-      return LazyJsonString(String(object2));
     }
-    return LazyJsonString(JSON.stringify(object2));
-  };
-  LazyJsonString.fromObject = LazyJsonString.from;
+    return getRandomValues(rnds8);
+  }
 
-  // node_modules/@smithy/core/dist-es/submodules/protocols/resolve-path.js
+  // scalene/scalene-gui/node_modules/uuid/dist/esm-browser/stringify.js
+  var byteToHex = [];
+  for (let i2 = 0; i2 < 256; ++i2) {
+    byteToHex.push((i2 + 256).toString(16).slice(1));
+  }
+  function unsafeStringify(arr, offset4 = 0) {
+    return byteToHex[arr[offset4 + 0]] + byteToHex[arr[offset4 + 1]] + byteToHex[arr[offset4 + 2]] + byteToHex[arr[offset4 + 3]] + "-" + byteToHex[arr[offset4 + 4]] + byteToHex[arr[offset4 + 5]] + "-" + byteToHex[arr[offset4 + 6]] + byteToHex[arr[offset4 + 7]] + "-" + byteToHex[arr[offset4 + 8]] + byteToHex[arr[offset4 + 9]] + "-" + byteToHex[arr[offset4 + 10]] + byteToHex[arr[offset4 + 11]] + byteToHex[arr[offset4 + 12]] + byteToHex[arr[offset4 + 13]] + byteToHex[arr[offset4 + 14]] + byteToHex[arr[offset4 + 15]];
+  }
+
+  // scalene/scalene-gui/node_modules/uuid/dist/esm-browser/native.js
+  var randomUUID = typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID.bind(crypto);
+  var native_default = {
+    randomUUID
+  };
+
+  // scalene/scalene-gui/node_modules/uuid/dist/esm-browser/v4.js
+  function v4(options, buf, offset4) {
+    if (native_default.randomUUID && !buf && !options) {
+      return native_default.randomUUID();
+    }
+    options = options || {};
+    const rnds = options.random || (options.rng || rng)();
+    rnds[6] = rnds[6] & 15 | 64;
+    rnds[8] = rnds[8] & 63 | 128;
+    if (buf) {
+      offset4 = offset4 || 0;
+      for (let i2 = 0; i2 < 16; ++i2) {
+        buf[offset4 + i2] = rnds[i2];
+      }
+      return buf;
+    }
+    return unsafeStringify(rnds);
+  }
+  var v4_default = v4;
+
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/submodules/protocols/resolve-path.js
   var resolvedPath = (resolvedPath2, input, memberName, labelValueProvider, uriLabel, isGreedyLabel) => {
     if (input != null && input[memberName] !== void 0) {
       const labelValue = labelValueProvider();
@@ -63834,7 +63357,7 @@ ${currentIndent}`
     return resolvedPath2;
   };
 
-  // node_modules/@smithy/core/dist-es/submodules/protocols/requestBuilder.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/submodules/protocols/requestBuilder.js
   function requestBuilder(input, context3) {
     return new RequestBuilder(input, context3);
   }
@@ -63901,7 +63424,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/@smithy/core/dist-es/setFeature.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/setFeature.js
   function setFeature(context3, feature2, value3) {
     if (!context3.__smithy_context) {
       context3.__smithy_context = {
@@ -63913,7 +63436,7 @@ ${currentIndent}`
     context3.__smithy_context.features[feature2] = value3;
   }
 
-  // node_modules/@smithy/core/dist-es/util-identity-and-auth/DefaultIdentityProviderConfig.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/util-identity-and-auth/DefaultIdentityProviderConfig.js
   var DefaultIdentityProviderConfig = class {
     constructor(config) {
       this.authSchemes = /* @__PURE__ */ new Map();
@@ -63928,7 +63451,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/@smithy/core/dist-es/util-identity-and-auth/httpAuthSchemes/httpBearerAuth.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/util-identity-and-auth/httpAuthSchemes/httpBearerAuth.js
   var HttpBearerAuthSigner = class {
     async sign(httpRequest, identity5, signingProperties) {
       const clonedRequest = HttpRequest.clone(httpRequest);
@@ -63940,7 +63463,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/@smithy/core/dist-es/util-identity-and-auth/memoizeIdentityProvider.js
+  // scalene/scalene-gui/node_modules/@smithy/core/dist-es/util-identity-and-auth/memoizeIdentityProvider.js
   var createIsIdentityExpiredFunction = (expirationMs) => (identity5) => doesIdentityRequireRefresh(identity5) && identity5.expiration.getTime() - Date.now() < expirationMs;
   var EXPIRATION_MS = 3e5;
   var isIdentityExpired = createIsIdentityExpiredFunction(EXPIRATION_MS);
@@ -63994,7 +63517,7 @@ ${currentIndent}`
     };
   };
 
-  // node_modules/@aws-sdk/middleware-user-agent/dist-es/configurations.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-user-agent/dist-es/configurations.js
   var DEFAULT_UA_APP_ID = void 0;
   function isValidUserAgentAppId(appId) {
     if (appId === void 0) {
@@ -64022,7 +63545,7 @@ ${currentIndent}`
     });
   }
 
-  // node_modules/@smithy/util-endpoints/dist-es/cache/EndpointCache.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/cache/EndpointCache.js
   var EndpointCache = class {
     constructor({ size, params: params2 }) {
       this.data = /* @__PURE__ */ new Map();
@@ -64073,11 +63596,11 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/lib/isIpAddress.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/lib/isIpAddress.js
   var IP_V4_REGEX = new RegExp(`^(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)){3}$`);
   var isIpAddress = (value3) => IP_V4_REGEX.test(value3) || value3.startsWith("[") && value3.endsWith("]");
 
-  // node_modules/@smithy/util-endpoints/dist-es/lib/isValidHostLabel.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/lib/isValidHostLabel.js
   var VALID_HOST_LABEL_REGEX = new RegExp(`^(?!.*-$)(?!-)[a-zA-Z0-9-]{1,63}$`);
   var isValidHostLabel = (value3, allowSubDomains = false) => {
     if (!allowSubDomains) {
@@ -64092,13 +63615,13 @@ ${currentIndent}`
     return true;
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/customEndpointFunctions.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/customEndpointFunctions.js
   var customEndpointFunctions = {};
 
-  // node_modules/@smithy/util-endpoints/dist-es/debug/debugId.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/debug/debugId.js
   var debugId = "endpoints";
 
-  // node_modules/@smithy/util-endpoints/dist-es/debug/toDebugString.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/debug/toDebugString.js
   function toDebugString(input) {
     if (typeof input !== "object" || input == null) {
       return input;
@@ -64112,7 +63635,7 @@ ${currentIndent}`
     return JSON.stringify(input, null, 2);
   }
 
-  // node_modules/@smithy/util-endpoints/dist-es/types/EndpointError.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/types/EndpointError.js
   var EndpointError = class extends Error {
     constructor(message) {
       super(message);
@@ -64120,10 +63643,10 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/lib/booleanEquals.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/lib/booleanEquals.js
   var booleanEquals = (value1, value22) => value1 === value22;
 
-  // node_modules/@smithy/util-endpoints/dist-es/lib/getAttrPathList.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/lib/getAttrPathList.js
   var getAttrPathList = (path3) => {
     const parts = path3.split(".");
     const pathList = [];
@@ -64148,7 +63671,7 @@ ${currentIndent}`
     return pathList;
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/lib/getAttr.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/lib/getAttr.js
   var getAttr = (value3, path3) => getAttrPathList(path3).reduce((acc, index4) => {
     if (typeof acc !== "object") {
       throw new EndpointError(`Index '${index4}' in '${path3}' not found in '${JSON.stringify(value3)}'`);
@@ -64158,13 +63681,13 @@ ${currentIndent}`
     return acc[index4];
   }, value3);
 
-  // node_modules/@smithy/util-endpoints/dist-es/lib/isSet.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/lib/isSet.js
   var isSet = (value3) => value3 != null;
 
-  // node_modules/@smithy/util-endpoints/dist-es/lib/not.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/lib/not.js
   var not = (value3) => !value3;
 
-  // node_modules/@smithy/util-endpoints/dist-es/lib/parseURL.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/lib/parseURL.js
   var DEFAULT_PORTS = {
     [EndpointURLScheme.HTTP]: 80,
     [EndpointURLScheme.HTTPS]: 443
@@ -64211,10 +63734,10 @@ ${currentIndent}`
     };
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/lib/stringEquals.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/lib/stringEquals.js
   var stringEquals = (value1, value22) => value1 === value22;
 
-  // node_modules/@smithy/util-endpoints/dist-es/lib/substring.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/lib/substring.js
   var substring = (input, start, stop2, reverse3) => {
     if (start >= stop2 || input.length < stop2) {
       return null;
@@ -64225,10 +63748,10 @@ ${currentIndent}`
     return input.substring(input.length - stop2, input.length - start);
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/lib/uriEncode.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/lib/uriEncode.js
   var uriEncode = (value3) => encodeURIComponent(value3).replace(/[!*'()]/g, (c4) => `%${c4.charCodeAt(0).toString(16).toUpperCase()}`);
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/endpointFunctions.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/endpointFunctions.js
   var endpointFunctions = {
     booleanEquals,
     getAttr,
@@ -64241,7 +63764,7 @@ ${currentIndent}`
     uriEncode
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/evaluateTemplate.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/evaluateTemplate.js
   var evaluateTemplate = (template, options) => {
     const evaluatedTemplateArr = [];
     const templateContext = {
@@ -64277,7 +63800,7 @@ ${currentIndent}`
     return evaluatedTemplateArr.join("");
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/getReferenceValue.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/getReferenceValue.js
   var getReferenceValue = ({ ref: ref2 }, options) => {
     const referenceRecord = {
       ...options.endpointParams,
@@ -64286,7 +63809,7 @@ ${currentIndent}`
     return referenceRecord[ref2];
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/evaluateExpression.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/evaluateExpression.js
   var evaluateExpression = (obj, keyName, options) => {
     if (typeof obj === "string") {
       return evaluateTemplate(obj, options);
@@ -64298,7 +63821,7 @@ ${currentIndent}`
     throw new EndpointError(`'${keyName}': ${String(obj)} is not a string, function or reference.`);
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/callFunction.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/callFunction.js
   var callFunction = ({ fn, argv }, options) => {
     const evaluatedArgs = argv.map((arg) => ["boolean", "number"].includes(typeof arg) ? arg : evaluateExpression(arg, "arg", options));
     const fnSegments = fn.split(".");
@@ -64308,7 +63831,7 @@ ${currentIndent}`
     return endpointFunctions[fn](...evaluatedArgs);
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/evaluateCondition.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/evaluateCondition.js
   var evaluateCondition = ({ assign, ...fnArgs }, options) => {
     if (assign && assign in options.referenceRecord) {
       throw new EndpointError(`'${assign}' is already defined in Reference Record.`);
@@ -64321,7 +63844,7 @@ ${currentIndent}`
     };
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/evaluateConditions.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/evaluateConditions.js
   var evaluateConditions = (conditions = [], options) => {
     const conditionsReferenceRecord = {};
     for (const condition of conditions) {
@@ -64343,7 +63866,7 @@ ${currentIndent}`
     return { result: true, referenceRecord: conditionsReferenceRecord };
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/getEndpointHeaders.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/getEndpointHeaders.js
   var getEndpointHeaders = (headers, options) => Object.entries(headers).reduce((acc, [headerKey, headerVal]) => ({
     ...acc,
     [headerKey]: headerVal.map((headerValEntry) => {
@@ -64355,7 +63878,7 @@ ${currentIndent}`
     })
   }), {});
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/getEndpointProperty.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/getEndpointProperty.js
   var getEndpointProperty = (property2, options) => {
     if (Array.isArray(property2)) {
       return property2.map((propertyEntry) => getEndpointProperty(propertyEntry, options));
@@ -64375,13 +63898,13 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/getEndpointProperties.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/getEndpointProperties.js
   var getEndpointProperties = (properties, options) => Object.entries(properties).reduce((acc, [propertyKey, propertyVal]) => ({
     ...acc,
     [propertyKey]: getEndpointProperty(propertyVal, options)
   }), {});
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/getEndpointUrl.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/getEndpointUrl.js
   var getEndpointUrl = (endpointUrl, options) => {
     const expression4 = evaluateExpression(endpointUrl, "Endpoint URL", options);
     if (typeof expression4 === "string") {
@@ -64395,7 +63918,7 @@ ${currentIndent}`
     throw new EndpointError(`Endpoint URL must be a string, got ${typeof expression4}`);
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/evaluateEndpointRule.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/evaluateEndpointRule.js
   var evaluateEndpointRule = (endpointRule, options) => {
     const { conditions, endpoint } = endpointRule;
     const { result, referenceRecord } = evaluateConditions(conditions, options);
@@ -64419,7 +63942,7 @@ ${currentIndent}`
     };
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/evaluateErrorRule.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/evaluateErrorRule.js
   var evaluateErrorRule = (errorRule, options) => {
     const { conditions, error: error3 } = errorRule;
     const { result, referenceRecord } = evaluateConditions(conditions, options);
@@ -64432,7 +63955,7 @@ ${currentIndent}`
     }));
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/evaluateTreeRule.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/evaluateTreeRule.js
   var evaluateTreeRule = (treeRule, options) => {
     const { conditions, rules } = treeRule;
     const { result, referenceRecord } = evaluateConditions(conditions, options);
@@ -64445,7 +63968,7 @@ ${currentIndent}`
     });
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/utils/evaluateRules.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/utils/evaluateRules.js
   var evaluateRules = (rules, options) => {
     for (const rule4 of rules) {
       if (rule4.type === "endpoint") {
@@ -64467,7 +63990,7 @@ ${currentIndent}`
     throw new EndpointError(`Rules evaluation failed`);
   };
 
-  // node_modules/@smithy/util-endpoints/dist-es/resolveEndpoint.js
+  // scalene/scalene-gui/node_modules/@smithy/util-endpoints/dist-es/resolveEndpoint.js
   var resolveEndpoint = (ruleSetObject, options) => {
     const { endpointParams, logger: logger3 } = options;
     const { parameters, rules } = ruleSetObject;
@@ -64489,7 +64012,7 @@ ${currentIndent}`
     return endpoint;
   };
 
-  // node_modules/@aws-sdk/util-endpoints/dist-es/lib/aws/isVirtualHostableS3Bucket.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/util-endpoints/dist-es/lib/aws/isVirtualHostableS3Bucket.js
   var isVirtualHostableS3Bucket = (value3, allowSubDomains = false) => {
     if (allowSubDomains) {
       for (const label of value3.split(".")) {
@@ -64514,7 +64037,7 @@ ${currentIndent}`
     return true;
   };
 
-  // node_modules/@aws-sdk/util-endpoints/dist-es/lib/aws/parseArn.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/util-endpoints/dist-es/lib/aws/parseArn.js
   var ARN_DELIMITER = ":";
   var RESOURCE_DELIMITER = "/";
   var parseArn = (value3) => {
@@ -64534,7 +64057,7 @@ ${currentIndent}`
     };
   };
 
-  // node_modules/@aws-sdk/util-endpoints/dist-es/lib/aws/partitions.json
+  // scalene/scalene-gui/node_modules/@aws-sdk/util-endpoints/dist-es/lib/aws/partitions.json
   var partitions_default = {
     partitions: [{
       id: "aws",
@@ -64797,7 +64320,7 @@ ${currentIndent}`
     version: "1.1"
   };
 
-  // node_modules/@aws-sdk/util-endpoints/dist-es/lib/aws/partition.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/util-endpoints/dist-es/lib/aws/partition.js
   var selectedPartitionsInfo = partitions_default;
   var selectedUserAgentPrefix = "";
   var partition5 = (value3) => {
@@ -64831,7 +64354,7 @@ ${currentIndent}`
   };
   var getUserAgentPrefix = () => selectedUserAgentPrefix;
 
-  // node_modules/@aws-sdk/util-endpoints/dist-es/aws.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/util-endpoints/dist-es/aws.js
   var awsEndpointFunctions = {
     isVirtualHostableS3Bucket,
     parseArn,
@@ -64839,7 +64362,7 @@ ${currentIndent}`
   };
   customEndpointFunctions.aws = awsEndpointFunctions;
 
-  // node_modules/@smithy/querystring-parser/dist-es/index.js
+  // scalene/scalene-gui/node_modules/@smithy/querystring-parser/dist-es/index.js
   function parseQueryString(querystring) {
     const query = {};
     querystring = querystring.replace(/^\?/, "");
@@ -64862,7 +64385,7 @@ ${currentIndent}`
     return query;
   }
 
-  // node_modules/@smithy/url-parser/dist-es/index.js
+  // scalene/scalene-gui/node_modules/@smithy/url-parser/dist-es/index.js
   var parseUrl = (url) => {
     if (typeof url === "string") {
       return parseUrl(new URL(url));
@@ -64881,7 +64404,7 @@ ${currentIndent}`
     };
   };
 
-  // node_modules/@aws-sdk/core/dist-es/submodules/client/setCredentialFeature.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/core/dist-es/submodules/client/setCredentialFeature.js
   function setCredentialFeature(credentials, feature2, value3) {
     if (!credentials.$source) {
       credentials.$source = {};
@@ -64890,7 +64413,7 @@ ${currentIndent}`
     return credentials;
   }
 
-  // node_modules/@aws-sdk/core/dist-es/submodules/client/setFeature.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/core/dist-es/submodules/client/setFeature.js
   function setFeature2(context3, feature2, value3) {
     if (!context3.__aws_sdk_context) {
       context3.__aws_sdk_context = {
@@ -64902,16 +64425,16 @@ ${currentIndent}`
     context3.__aws_sdk_context.features[feature2] = value3;
   }
 
-  // node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/utils/getDateHeader.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/utils/getDateHeader.js
   var getDateHeader = (response) => HttpResponse.isInstance(response) ? response.headers?.date ?? response.headers?.Date : void 0;
 
-  // node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/utils/getSkewCorrectedDate.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/utils/getSkewCorrectedDate.js
   var getSkewCorrectedDate = (systemClockOffset) => new Date(Date.now() + systemClockOffset);
 
-  // node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/utils/isClockSkewed.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/utils/isClockSkewed.js
   var isClockSkewed = (clockTime, systemClockOffset) => Math.abs(getSkewCorrectedDate(systemClockOffset).getTime() - clockTime) >= 3e5;
 
-  // node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/utils/getUpdatedSystemClockOffset.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/utils/getUpdatedSystemClockOffset.js
   var getUpdatedSystemClockOffset = (clockTime, currentSystemClockOffset) => {
     const clockTimeInMs = Date.parse(clockTime);
     if (isClockSkewed(clockTimeInMs, currentSystemClockOffset)) {
@@ -64920,7 +64443,7 @@ ${currentIndent}`
     return currentSystemClockOffset;
   };
 
-  // node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/aws_sdk/AwsSdkSigV4Signer.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/aws_sdk/AwsSdkSigV4Signer.js
   var throwSigningPropertyError = (name4, property2) => {
     if (!property2) {
       throw new Error(`Property \`${name4}\` is not resolved for AWS SDK SigV4Auth`);
@@ -64991,7 +64514,7 @@ ${currentIndent}`
     }
   };
 
-  // node_modules/@smithy/property-provider/dist-es/memoize.js
+  // scalene/scalene-gui/node_modules/@smithy/property-provider/dist-es/memoize.js
   var memoize2 = (provider, isExpired, requiresRefresh) => {
     let resolved;
     let pending;
@@ -65037,7 +64560,7 @@ ${currentIndent}`
     };
   };
 
-  // node_modules/@smithy/signature-v4/dist-es/constants.js
+  // scalene/scalene-gui/node_modules/@smithy/signature-v4/dist-es/constants.js
   var ALGORITHM_QUERY_PARAM = "X-Amz-Algorithm";
   var CREDENTIAL_QUERY_PARAM = "X-Amz-Credential";
   var AMZ_DATE_QUERY_PARAM = "X-Amz-Date";
@@ -65078,7 +64601,7 @@ ${currentIndent}`
   var KEY_TYPE_IDENTIFIER = "aws4_request";
   var MAX_PRESIGNED_TTL = 60 * 60 * 24 * 7;
 
-  // node_modules/@smithy/signature-v4/dist-es/credentialDerivation.js
+  // scalene/scalene-gui/node_modules/@smithy/signature-v4/dist-es/credentialDerivation.js
   var signingKeyCache = {};
   var cacheQueue = [];
   var createScope = (shortDate, region, service) => `${shortDate}/${region}/${service}/${KEY_TYPE_IDENTIFIER}`;
@@ -65104,7 +64627,7 @@ ${currentIndent}`
     return hash2.digest();
   };
 
-  // node_modules/@smithy/signature-v4/dist-es/getCanonicalHeaders.js
+  // scalene/scalene-gui/node_modules/@smithy/signature-v4/dist-es/getCanonicalHeaders.js
   var getCanonicalHeaders = ({ headers }, unsignableHeaders, signableHeaders) => {
     const canonical = {};
     for (const headerName of Object.keys(headers).sort()) {
@@ -65122,10 +64645,10 @@ ${currentIndent}`
     return canonical;
   };
 
-  // node_modules/@smithy/is-array-buffer/dist-es/index.js
+  // scalene/scalene-gui/node_modules/@smithy/is-array-buffer/dist-es/index.js
   var isArrayBuffer = (arg) => typeof ArrayBuffer === "function" && arg instanceof ArrayBuffer || Object.prototype.toString.call(arg) === "[object ArrayBuffer]";
 
-  // node_modules/@smithy/signature-v4/dist-es/getPayloadHash.js
+  // scalene/scalene-gui/node_modules/@smithy/signature-v4/dist-es/getPayloadHash.js
   var getPayloadHash = async ({ headers, body }, hashConstructor) => {
     for (const headerName of Object.keys(headers)) {
       if (headerName.toLowerCase() === SHA256_HEADER) {
@@ -65142,7 +64665,7 @@ ${currentIndent}`
     return UNSIGNED_PAYLOAD;
   };
 
-  // node_modules/@smithy/signature-v4/dist-es/HeaderFormatter.js
+  // scalene/scalene-gui/node_modules/@smithy/signature-v4/dist-es/HeaderFormatter.js
   var HeaderFormatter = class {
     format(headers) {
       const chunks = [];
@@ -65267,7 +64790,7 @@ ${currentIndent}`
     }
   }
 
-  // node_modules/@smithy/signature-v4/dist-es/headerUtil.js
+  // scalene/scalene-gui/node_modules/@smithy/signature-v4/dist-es/headerUtil.js
   var hasHeader = (soughtHeader, headers) => {
     soughtHeader = soughtHeader.toLowerCase();
     for (const headerName of Object.keys(headers)) {
@@ -65278,7 +64801,7 @@ ${currentIndent}`
     return false;
   };
 
-  // node_modules/@smithy/signature-v4/dist-es/moveHeadersToQuery.js
+  // scalene/scalene-gui/node_modules/@smithy/signature-v4/dist-es/moveHeadersToQuery.js
   var moveHeadersToQuery = (request2, options = {}) => {
     const { headers, query = {} } = HttpRequest.clone(request2);
     for (const name4 of Object.keys(headers)) {
@@ -65295,7 +64818,7 @@ ${currentIndent}`
     };
   };
 
-  // node_modules/@smithy/signature-v4/dist-es/prepareRequest.js
+  // scalene/scalene-gui/node_modules/@smithy/signature-v4/dist-es/prepareRequest.js
   var prepareRequest = (request2) => {
     request2 = HttpRequest.clone(request2);
     for (const headerName of Object.keys(request2.headers)) {
@@ -65306,7 +64829,7 @@ ${currentIndent}`
     return request2;
   };
 
-  // node_modules/@smithy/signature-v4/dist-es/getCanonicalQuery.js
+  // scalene/scalene-gui/node_modules/@smithy/signature-v4/dist-es/getCanonicalQuery.js
   var getCanonicalQuery = ({ query = {} }) => {
     const keys4 = [];
     const serialized = {};
@@ -65326,7 +64849,7 @@ ${currentIndent}`
     return keys4.sort().map((key2) => serialized[key2]).filter((serialized2) => serialized2).join("&");
   };
 
-  // node_modules/@smithy/signature-v4/dist-es/utilDate.js
+  // scalene/scalene-gui/node_modules/@smithy/signature-v4/dist-es/utilDate.js
   var iso8601 = (time3) => toDate2(time3).toISOString().replace(/\.\d{3}Z$/, "Z");
   var toDate2 = (time3) => {
     if (typeof time3 === "number") {
@@ -65341,7 +64864,7 @@ ${currentIndent}`
     return time3;
   };
 
-  // node_modules/@smithy/signature-v4/dist-es/SignatureV4Base.js
+  // scalene/scalene-gui/node_modules/@smithy/signature-v4/dist-es/SignatureV4Base.js
   var SignatureV4Base = class {
     constructor({ applyChecksum, credentials, region, service, sha256, uriEscapePath = true }) {
       this.service = service;
@@ -65407,7 +64930,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@smithy/signature-v4/dist-es/SignatureV4.js
+  // scalene/scalene-gui/node_modules/@smithy/signature-v4/dist-es/SignatureV4.js
   var SignatureV4 = class extends SignatureV4Base {
     constructor({ applyChecksum, credentials, region, service, sha256, uriEscapePath = true }) {
       super({
@@ -65526,7 +65049,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/aws_sdk/resolveAwsSdkSigV4Config.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/aws_sdk/resolveAwsSdkSigV4Config.js
   var resolveAwsSdkSigV4Config = (config) => {
     let inputCredentials = config.credentials;
     let isUserSupplied = !!config.credentials;
@@ -65647,7 +65170,7 @@ ${toHex(hashedRequest)}`;
     return fn;
   }
 
-  // node_modules/@smithy/util-body-length-browser/dist-es/calculateBodyLength.js
+  // scalene/scalene-gui/node_modules/@smithy/util-body-length-browser/dist-es/calculateBodyLength.js
   var TEXT_ENCODER = typeof TextEncoder == "function" ? new TextEncoder() : null;
   var calculateBodyLength = (body) => {
     if (typeof body === "string") {
@@ -65673,7 +65196,7 @@ ${toHex(hashedRequest)}`;
     throw new Error(`Body Length computation failed for ${body}`);
   };
 
-  // node_modules/@smithy/middleware-stack/dist-es/MiddlewareStack.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-stack/dist-es/MiddlewareStack.js
   var getAllAliases = (name4, aliases) => {
     const _aliases = [];
     if (name4) {
@@ -65938,7 +65461,7 @@ ${toHex(hashedRequest)}`;
     low: 1
   };
 
-  // node_modules/@smithy/smithy-client/dist-es/client.js
+  // scalene/scalene-gui/node_modules/@smithy/smithy-client/dist-es/client.js
   var Client = class {
     constructor(config) {
       this.config = config;
@@ -65977,7 +65500,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@smithy/smithy-client/dist-es/command.js
+  // scalene/scalene-gui/node_modules/@smithy/smithy-client/dist-es/command.js
   var Command = class {
     constructor() {
       this.middlewareStack = constructStack();
@@ -66099,10 +65622,10 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@smithy/smithy-client/dist-es/constants.js
+  // scalene/scalene-gui/node_modules/@smithy/smithy-client/dist-es/constants.js
   var SENSITIVE_STRING = "***SensitiveInformation***";
 
-  // node_modules/@smithy/smithy-client/dist-es/exceptions.js
+  // scalene/scalene-gui/node_modules/@smithy/smithy-client/dist-es/exceptions.js
   var ServiceException = class _ServiceException extends Error {
     constructor(options) {
       super(options.message);
@@ -66145,7 +65668,7 @@ ${toHex(hashedRequest)}`;
     return exception;
   };
 
-  // node_modules/@smithy/smithy-client/dist-es/default-error-handler.js
+  // scalene/scalene-gui/node_modules/@smithy/smithy-client/dist-es/default-error-handler.js
   var throwDefaultError = ({ output: output3, parsedBody, exceptionCtor, errorCode }) => {
     const $metadata = deserializeMetadata(output3);
     const statusCode = $metadata.httpStatusCode ? $metadata.httpStatusCode + "" : void 0;
@@ -66168,7 +65691,7 @@ ${toHex(hashedRequest)}`;
     cfId: output3.headers["x-amz-cf-id"]
   });
 
-  // node_modules/@smithy/smithy-client/dist-es/defaults-mode.js
+  // scalene/scalene-gui/node_modules/@smithy/smithy-client/dist-es/defaults-mode.js
   var loadConfigsForDefaultMode = (mode) => {
     switch (mode) {
       case "standard":
@@ -66196,7 +65719,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@smithy/smithy-client/dist-es/extensions/checksum.js
+  // scalene/scalene-gui/node_modules/@smithy/smithy-client/dist-es/extensions/checksum.js
   var getChecksumConfiguration2 = (runtimeConfig) => {
     const checksumAlgorithms = [];
     for (const id2 in AlgorithmId) {
@@ -66226,7 +65749,7 @@ ${toHex(hashedRequest)}`;
     return runtimeConfig;
   };
 
-  // node_modules/@smithy/smithy-client/dist-es/extensions/retry.js
+  // scalene/scalene-gui/node_modules/@smithy/smithy-client/dist-es/extensions/retry.js
   var getRetryConfiguration = (runtimeConfig) => {
     return {
       setRetryStrategy(retryStrategy) {
@@ -66243,7 +65766,7 @@ ${toHex(hashedRequest)}`;
     return runtimeConfig;
   };
 
-  // node_modules/@smithy/smithy-client/dist-es/extensions/defaultExtensionConfiguration.js
+  // scalene/scalene-gui/node_modules/@smithy/smithy-client/dist-es/extensions/defaultExtensionConfiguration.js
   var getDefaultExtensionConfiguration = (runtimeConfig) => {
     return Object.assign(getChecksumConfiguration2(runtimeConfig), getRetryConfiguration(runtimeConfig));
   };
@@ -66251,12 +65774,12 @@ ${toHex(hashedRequest)}`;
     return Object.assign(resolveChecksumRuntimeConfig2(config), resolveRetryRuntimeConfig(config));
   };
 
-  // node_modules/@smithy/smithy-client/dist-es/is-serializable-header-value.js
+  // scalene/scalene-gui/node_modules/@smithy/smithy-client/dist-es/is-serializable-header-value.js
   var isSerializableHeaderValue = (value3) => {
     return value3 != null;
   };
 
-  // node_modules/@smithy/smithy-client/dist-es/NoOpLogger.js
+  // scalene/scalene-gui/node_modules/@smithy/smithy-client/dist-es/NoOpLogger.js
   var NoOpLogger = class {
     trace() {
     }
@@ -66270,7 +65793,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@smithy/smithy-client/dist-es/object-mapping.js
+  // scalene/scalene-gui/node_modules/@smithy/smithy-client/dist-es/object-mapping.js
   function map3(arg0, arg1, arg2) {
     let target2;
     let filter3;
@@ -66351,10 +65874,10 @@ ${toHex(hashedRequest)}`;
   var nonNullish = (_) => _ != null;
   var pass = (_) => _;
 
-  // node_modules/@aws-sdk/core/dist-es/submodules/protocols/common.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/core/dist-es/submodules/protocols/common.js
   var collectBodyString = (streamBody, context3) => collectBody(streamBody, context3).then((body) => context3.utf8Encoder(body));
 
-  // node_modules/@aws-sdk/core/dist-es/submodules/protocols/json/parseJsonBody.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/core/dist-es/submodules/protocols/json/parseJsonBody.js
   var parseJsonBody = (streamBody, context3) => collectBodyString(streamBody, context3).then((encoded) => {
     if (encoded.length) {
       try {
@@ -66408,7 +65931,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@aws-sdk/middleware-user-agent/dist-es/check-features.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-user-agent/dist-es/check-features.js
   var ACCOUNT_ID_ENDPOINT_REGEX = /\d{12}\.ddb/;
   async function checkFeatures(context3, config, args) {
     const request2 = args.request;
@@ -66456,7 +65979,7 @@ ${toHex(hashedRequest)}`;
     }
   }
 
-  // node_modules/@aws-sdk/middleware-user-agent/dist-es/constants.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-user-agent/dist-es/constants.js
   var USER_AGENT = "user-agent";
   var X_AMZ_USER_AGENT = "x-amz-user-agent";
   var SPACE = " ";
@@ -66465,7 +65988,7 @@ ${toHex(hashedRequest)}`;
   var UA_VALUE_ESCAPE_REGEX = /[^\!\$\%\&\'\*\+\-\.\^\_\`\|\~\d\w\#]/g;
   var UA_ESCAPE_CHAR = "-";
 
-  // node_modules/@aws-sdk/middleware-user-agent/dist-es/encode-features.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-user-agent/dist-es/encode-features.js
   var BYTE_LIMIT = 1024;
   function encodeFeatures(features) {
     let buffer = "";
@@ -66484,7 +66007,7 @@ ${toHex(hashedRequest)}`;
     return buffer;
   }
 
-  // node_modules/@aws-sdk/middleware-user-agent/dist-es/user-agent-middleware.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-user-agent/dist-es/user-agent-middleware.js
   var userAgentMiddleware = (options) => (next, context3) => async (args) => {
     const { request: request2 } = args;
     if (!HttpRequest.isInstance(request2)) {
@@ -66553,7 +66076,7 @@ ${toHex(hashedRequest)}`;
     }
   });
 
-  // node_modules/tslib/tslib.es6.mjs
+  // scalene/scalene-gui/node_modules/tslib/tslib.es6.mjs
   function __awaiter(thisArg, _arguments, P, generator) {
     function adopt(value3) {
       return value3 instanceof P ? value3 : new P(function(resolve2) {
@@ -66662,10 +66185,10 @@ ${toHex(hashedRequest)}`;
     throw new TypeError(s2 ? "Object is not iterable." : "Symbol.iterator is not defined.");
   }
 
-  // node_modules/@aws-crypto/util/node_modules/@smithy/util-utf8/dist-es/fromUtf8.browser.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/util/node_modules/@smithy/util-utf8/dist-es/fromUtf8.browser.js
   var fromUtf82 = (input) => new TextEncoder().encode(input);
 
-  // node_modules/@aws-crypto/util/build/module/convertToBuffer.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/util/build/module/convertToBuffer.js
   var fromUtf83 = typeof Buffer !== "undefined" && Buffer.from ? function(input) {
     return Buffer.from(input, "utf8");
   } : fromUtf82;
@@ -66681,7 +66204,7 @@ ${toHex(hashedRequest)}`;
     return new Uint8Array(data3);
   }
 
-  // node_modules/@aws-crypto/util/build/module/isEmptyData.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/util/build/module/isEmptyData.js
   function isEmptyData(data3) {
     if (typeof data3 === "string") {
       return data3.length === 0;
@@ -66689,7 +66212,7 @@ ${toHex(hashedRequest)}`;
     return data3.byteLength === 0;
   }
 
-  // node_modules/@aws-crypto/util/build/module/numToUint8.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/util/build/module/numToUint8.js
   function numToUint8(num) {
     return new Uint8Array([
       (num & 4278190080) >> 24,
@@ -66699,7 +66222,7 @@ ${toHex(hashedRequest)}`;
     ]);
   }
 
-  // node_modules/@aws-crypto/util/build/module/uint32ArrayFrom.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/util/build/module/uint32ArrayFrom.js
   function uint32ArrayFrom(a_lookUpTable2) {
     if (!Uint32Array.from) {
       var return_array = new Uint32Array(a_lookUpTable2.length);
@@ -66713,10 +66236,10 @@ ${toHex(hashedRequest)}`;
     return Uint32Array.from(a_lookUpTable2);
   }
 
-  // node_modules/@aws-crypto/crc32/build/module/aws_crc32.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/crc32/build/module/aws_crc32.js
   var AwsCrc32 = (
     /** @class */
-    (function() {
+    function() {
       function AwsCrc322() {
         this.crc32 = new Crc32();
       }
@@ -66736,13 +66259,13 @@ ${toHex(hashedRequest)}`;
         this.crc32 = new Crc32();
       };
       return AwsCrc322;
-    })()
+    }()
   );
 
-  // node_modules/@aws-crypto/crc32/build/module/index.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/crc32/build/module/index.js
   var Crc32 = (
     /** @class */
-    (function() {
+    function() {
       function Crc322() {
         this.checksum = 4294967295;
       }
@@ -66768,7 +66291,7 @@ ${toHex(hashedRequest)}`;
         return (this.checksum ^ 4294967295) >>> 0;
       };
       return Crc322;
-    })()
+    }()
   );
   var a_lookUpTable = [
     0,
@@ -67030,7 +66553,7 @@ ${toHex(hashedRequest)}`;
   ];
   var lookupTable = uint32ArrayFrom(a_lookUpTable);
 
-  // node_modules/@smithy/eventstream-codec/dist-es/Int64.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-codec/dist-es/Int64.js
   var Int642 = class _Int64 {
     constructor(bytes) {
       this.bytes = bytes;
@@ -67074,7 +66597,7 @@ ${toHex(hashedRequest)}`;
     }
   }
 
-  // node_modules/@smithy/eventstream-codec/dist-es/HeaderMarshaller.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-codec/dist-es/HeaderMarshaller.js
   var HeaderMarshaller = class {
     constructor(toUtf82, fromUtf84) {
       this.toUtf8 = toUtf82;
@@ -67256,7 +66779,7 @@ ${toHex(hashedRequest)}`;
   var UUID_TAG = "uuid";
   var UUID_PATTERN2 = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 
-  // node_modules/@smithy/eventstream-codec/dist-es/splitMessage.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-codec/dist-es/splitMessage.js
   var PRELUDE_MEMBER_LENGTH = 4;
   var PRELUDE_LENGTH = PRELUDE_MEMBER_LENGTH * 2;
   var CHECKSUM_LENGTH = 4;
@@ -67287,7 +66810,7 @@ ${toHex(hashedRequest)}`;
     };
   }
 
-  // node_modules/@smithy/eventstream-codec/dist-es/EventStreamCodec.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-codec/dist-es/EventStreamCodec.js
   var EventStreamCodec = class {
     constructor(toUtf82, fromUtf84) {
       this.headerMarshaller = new HeaderMarshaller(toUtf82, fromUtf84);
@@ -67348,7 +66871,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@smithy/eventstream-codec/dist-es/MessageDecoderStream.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-codec/dist-es/MessageDecoderStream.js
   var MessageDecoderStream = class {
     constructor(options) {
       this.options = options;
@@ -67364,7 +66887,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@smithy/eventstream-codec/dist-es/MessageEncoderStream.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-codec/dist-es/MessageEncoderStream.js
   var MessageEncoderStream = class {
     constructor(options) {
       this.options = options;
@@ -67383,7 +66906,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@smithy/eventstream-codec/dist-es/SmithyMessageDecoderStream.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-codec/dist-es/SmithyMessageDecoderStream.js
   var SmithyMessageDecoderStream = class {
     constructor(options) {
       this.options = options;
@@ -67401,7 +66924,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@smithy/eventstream-codec/dist-es/SmithyMessageEncoderStream.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-codec/dist-es/SmithyMessageEncoderStream.js
   var SmithyMessageEncoderStream = class {
     constructor(options) {
       this.options = options;
@@ -67417,7 +66940,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@aws-sdk/middleware-websocket/dist-es/get-event-signing-stream.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-websocket/dist-es/get-event-signing-stream.js
   var getEventSigningTransformStream = (initialSignature, messageSigner, eventStreamCodec, systemClockOffsetProvider) => {
     let priorSignature = initialSignature;
     const transformer5 = {
@@ -67458,7 +66981,7 @@ ${toHex(hashedRequest)}`;
     return new TransformStream({ ...transformer5 });
   };
 
-  // node_modules/@aws-sdk/middleware-websocket/dist-es/EventStreamPayloadHandler.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-websocket/dist-es/EventStreamPayloadHandler.js
   var EventStreamPayloadHandler = class {
     messageSigner;
     eventStreamCodec;
@@ -67492,13 +67015,13 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@aws-sdk/middleware-websocket/dist-es/eventstream-payload-handler-provider.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-websocket/dist-es/eventstream-payload-handler-provider.js
   var eventStreamPayloadHandlerProvider = (options) => new EventStreamPayloadHandler(options);
 
-  // node_modules/@aws-sdk/middleware-websocket/dist-es/utils.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-websocket/dist-es/utils.js
   var isWebSocketRequest = (request2) => request2.protocol === "ws:" || request2.protocol === "wss:";
 
-  // node_modules/@aws-sdk/middleware-websocket/dist-es/WebsocketSignatureV4.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-websocket/dist-es/WebsocketSignatureV4.js
   var WebsocketSignatureV4 = class {
     signer;
     constructor(options) {
@@ -67524,7 +67047,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@aws-sdk/middleware-websocket/dist-es/websocket-configuration.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-websocket/dist-es/websocket-configuration.js
   var resolveWebSocketConfig = (input) => {
     const { signer } = input;
     return Object.assign(input, {
@@ -67539,7 +67062,7 @@ ${toHex(hashedRequest)}`;
   };
   var validateSigner = (signer) => !!signer;
 
-  // node_modules/@aws-sdk/util-format-url/dist-es/index.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/util-format-url/dist-es/index.js
   function formatUrl(request2) {
     const { port, query } = request2;
     let { protocol, path: path3, hostname } = request2;
@@ -67569,7 +67092,7 @@ ${toHex(hashedRequest)}`;
     return `${protocol}//${auth}${hostname}${path3}${queryString}${fragment}`;
   }
 
-  // node_modules/@smithy/eventstream-serde-universal/dist-es/getChunkedStream.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-serde-universal/dist-es/getChunkedStream.js
   function getChunkedStream(source4) {
     let currentMessageTotalLength = 0;
     let currentMessagePendingLength = 0;
@@ -67635,7 +67158,7 @@ ${toHex(hashedRequest)}`;
     };
   }
 
-  // node_modules/@smithy/eventstream-serde-universal/dist-es/getUnmarshalledStream.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-serde-universal/dist-es/getUnmarshalledStream.js
   function getMessageUnmarshaller(deserializer, toUtf82) {
     return async function(message) {
       const { value: messageType } = message.headers[":message-type"];
@@ -67667,7 +67190,7 @@ ${toHex(hashedRequest)}`;
     };
   }
 
-  // node_modules/@smithy/eventstream-serde-universal/dist-es/EventStreamMarshaller.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-serde-universal/dist-es/EventStreamMarshaller.js
   var EventStreamMarshaller = class {
     constructor({ utf8Encoder, utf8Decoder }) {
       this.eventStreamCodec = new EventStreamCodec(utf8Encoder, utf8Decoder);
@@ -67689,7 +67212,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@smithy/eventstream-serde-browser/dist-es/utils.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-serde-browser/dist-es/utils.js
   var readableStreamtoIterable = (readableStream) => ({
     [Symbol.asyncIterator]: async function* () {
       const reader = readableStream.getReader();
@@ -67718,7 +67241,7 @@ ${toHex(hashedRequest)}`;
     });
   };
 
-  // node_modules/@smithy/eventstream-serde-browser/dist-es/EventStreamMarshaller.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-serde-browser/dist-es/EventStreamMarshaller.js
   var EventStreamMarshaller2 = class {
     constructor({ utf8Encoder, utf8Decoder }) {
       this.universalMarshaller = new EventStreamMarshaller({
@@ -67737,10 +67260,10 @@ ${toHex(hashedRequest)}`;
   };
   var isReadableStream2 = (body) => typeof ReadableStream === "function" && body instanceof ReadableStream;
 
-  // node_modules/@smithy/eventstream-serde-browser/dist-es/provider.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-serde-browser/dist-es/provider.js
   var eventStreamSerdeProvider = (options) => new EventStreamMarshaller2(options);
 
-  // node_modules/@aws-sdk/middleware-websocket/dist-es/websocket-fetch-handler.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/middleware-websocket/dist-es/websocket-fetch-handler.js
   var DEFAULT_WS_CONNECTION_TIMEOUT_MS = 2e3;
   var WebSocketFetchHandler = class _WebSocketFetchHandler {
     metadata = {
@@ -67899,26 +67422,26 @@ ${toHex(hashedRequest)}`;
   var toReadableStream = (asyncIterable) => typeof ReadableStream === "function" ? iterableToReadableStream(asyncIterable) : asyncIterable;
   var isReadableStream3 = (payload) => typeof ReadableStream === "function" && payload instanceof ReadableStream;
 
-  // node_modules/@smithy/util-config-provider/dist-es/types.js
+  // scalene/scalene-gui/node_modules/@smithy/util-config-provider/dist-es/types.js
   var SelectorType;
   (function(SelectorType2) {
     SelectorType2["ENV"] = "env";
     SelectorType2["CONFIG"] = "shared config entry";
   })(SelectorType || (SelectorType = {}));
 
-  // node_modules/@smithy/config-resolver/dist-es/endpointsConfig/NodeUseDualstackEndpointConfigOptions.js
+  // scalene/scalene-gui/node_modules/@smithy/config-resolver/dist-es/endpointsConfig/NodeUseDualstackEndpointConfigOptions.js
   var DEFAULT_USE_DUALSTACK_ENDPOINT = false;
 
-  // node_modules/@smithy/config-resolver/dist-es/endpointsConfig/NodeUseFipsEndpointConfigOptions.js
+  // scalene/scalene-gui/node_modules/@smithy/config-resolver/dist-es/endpointsConfig/NodeUseFipsEndpointConfigOptions.js
   var DEFAULT_USE_FIPS_ENDPOINT = false;
 
-  // node_modules/@smithy/config-resolver/dist-es/regionConfig/isFipsRegion.js
+  // scalene/scalene-gui/node_modules/@smithy/config-resolver/dist-es/regionConfig/isFipsRegion.js
   var isFipsRegion = (region) => typeof region === "string" && (region.startsWith("fips-") || region.endsWith("-fips"));
 
-  // node_modules/@smithy/config-resolver/dist-es/regionConfig/getRealRegion.js
+  // scalene/scalene-gui/node_modules/@smithy/config-resolver/dist-es/regionConfig/getRealRegion.js
   var getRealRegion = (region) => isFipsRegion(region) ? ["fips-aws-global", "aws-fips"].includes(region) ? "us-east-1" : region.replace(/fips-(dkr-|prod-)?|-fips/, "") : region;
 
-  // node_modules/@smithy/config-resolver/dist-es/regionConfig/resolveRegionConfig.js
+  // scalene/scalene-gui/node_modules/@smithy/config-resolver/dist-es/regionConfig/resolveRegionConfig.js
   var resolveRegionConfig = (input) => {
     const { region, useFipsEndpoint } = input;
     if (!region) {
@@ -67942,12 +67465,12 @@ ${toHex(hashedRequest)}`;
     });
   };
 
-  // node_modules/@smithy/eventstream-serde-config-resolver/dist-es/EventStreamSerdeConfig.js
+  // scalene/scalene-gui/node_modules/@smithy/eventstream-serde-config-resolver/dist-es/EventStreamSerdeConfig.js
   var resolveEventStreamSerdeConfig = (input) => Object.assign(input, {
     eventStreamMarshaller: input.eventStreamSerdeProvider(input)
   });
 
-  // node_modules/@smithy/middleware-content-length/dist-es/index.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-content-length/dist-es/index.js
   var CONTENT_LENGTH_HEADER = "content-length";
   function contentLengthMiddleware(bodyLengthChecker) {
     return (next) => async (args) => {
@@ -67983,7 +67506,7 @@ ${toHex(hashedRequest)}`;
     }
   });
 
-  // node_modules/@smithy/middleware-endpoint/dist-es/service-customizations/s3.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-endpoint/dist-es/service-customizations/s3.js
   var resolveParamsForS3 = async (endpointParams) => {
     const bucket = endpointParams?.Bucket || "";
     if (typeof endpointParams.Bucket === "string") {
@@ -68016,7 +67539,7 @@ ${toHex(hashedRequest)}`;
     return isValidArn;
   };
 
-  // node_modules/@smithy/middleware-endpoint/dist-es/adaptors/createConfigValueProvider.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-endpoint/dist-es/adaptors/createConfigValueProvider.js
   var createConfigValueProvider = (configKey, canonicalEndpointParamKey, config) => {
     const configProvider = async () => {
       const configValue = config[configKey] ?? config[canonicalEndpointParamKey];
@@ -68060,10 +67583,10 @@ ${toHex(hashedRequest)}`;
     return configProvider;
   };
 
-  // node_modules/@smithy/middleware-endpoint/dist-es/adaptors/getEndpointFromConfig.browser.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-endpoint/dist-es/adaptors/getEndpointFromConfig.browser.js
   var getEndpointFromConfig = async (serviceId) => void 0;
 
-  // node_modules/@smithy/middleware-endpoint/dist-es/adaptors/toEndpointV1.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-endpoint/dist-es/adaptors/toEndpointV1.js
   var toEndpointV1 = (endpoint) => {
     if (typeof endpoint === "object") {
       if ("url" in endpoint) {
@@ -68074,7 +67597,7 @@ ${toHex(hashedRequest)}`;
     return parseUrl(endpoint);
   };
 
-  // node_modules/@smithy/middleware-endpoint/dist-es/adaptors/getEndpointFromInstructions.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-endpoint/dist-es/adaptors/getEndpointFromInstructions.js
   var getEndpointFromInstructions = async (commandInput, instructionsSupplier, clientConfig, context3) => {
     if (!clientConfig.isCustomEndpoint) {
       let endpointFromConfig;
@@ -68085,6 +67608,7 @@ ${toHex(hashedRequest)}`;
       }
       if (endpointFromConfig) {
         clientConfig.endpoint = () => Promise.resolve(toEndpointV1(endpointFromConfig));
+        clientConfig.isCustomEndpoint = true;
       }
     }
     const endpointParams = await resolveParams(commandInput, instructionsSupplier, clientConfig);
@@ -68125,7 +67649,7 @@ ${toHex(hashedRequest)}`;
     return endpointParams;
   };
 
-  // node_modules/@smithy/middleware-endpoint/dist-es/endpointMiddleware.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-endpoint/dist-es/endpointMiddleware.js
   var endpointMiddleware = ({ config, instructions }) => {
     return (next, context3) => async (args) => {
       if (config.isCustomEndpoint) {
@@ -68160,7 +67684,7 @@ ${toHex(hashedRequest)}`;
     };
   };
 
-  // node_modules/@smithy/middleware-endpoint/dist-es/getEndpointPlugin.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-endpoint/dist-es/getEndpointPlugin.js
   var endpointMiddlewareOptions = {
     step: "serialize",
     tags: ["ENDPOINT_PARAMETERS", "ENDPOINT_V2", "ENDPOINT"],
@@ -68178,7 +67702,7 @@ ${toHex(hashedRequest)}`;
     }
   });
 
-  // node_modules/@smithy/middleware-endpoint/dist-es/resolveEndpointConfig.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-endpoint/dist-es/resolveEndpointConfig.js
   var resolveEndpointConfig = (input) => {
     const tls = input.tls ?? true;
     const { endpoint, useDualstackEndpoint, useFipsEndpoint } = input;
@@ -68201,7 +67725,7 @@ ${toHex(hashedRequest)}`;
     return resolvedConfig;
   };
 
-  // node_modules/@smithy/util-retry/dist-es/config.js
+  // scalene/scalene-gui/node_modules/@smithy/util-retry/dist-es/config.js
   var RETRY_MODES;
   (function(RETRY_MODES2) {
     RETRY_MODES2["STANDARD"] = "standard";
@@ -68210,7 +67734,7 @@ ${toHex(hashedRequest)}`;
   var DEFAULT_MAX_ATTEMPTS = 3;
   var DEFAULT_RETRY_MODE = RETRY_MODES.STANDARD;
 
-  // node_modules/@smithy/service-error-classification/dist-es/constants.js
+  // scalene/scalene-gui/node_modules/@smithy/service-error-classification/dist-es/constants.js
   var THROTTLING_ERROR_CODES = [
     "BandwidthLimitExceeded",
     "EC2ThrottledException",
@@ -68232,7 +67756,7 @@ ${toHex(hashedRequest)}`;
   var NODEJS_TIMEOUT_ERROR_CODES = ["ECONNRESET", "ECONNREFUSED", "EPIPE", "ETIMEDOUT"];
   var NODEJS_NETWORK_ERROR_CODES = ["EHOSTUNREACH", "ENETUNREACH", "ENOTFOUND"];
 
-  // node_modules/@smithy/service-error-classification/dist-es/index.js
+  // scalene/scalene-gui/node_modules/@smithy/service-error-classification/dist-es/index.js
   var isClockSkewCorrectedError = (error3) => error3.$metadata?.clockSkewCorrected;
   var isBrowserNetworkError = (error3) => {
     const errorMessages = /* @__PURE__ */ new Set([
@@ -68261,7 +67785,7 @@ ${toHex(hashedRequest)}`;
     return false;
   };
 
-  // node_modules/@smithy/util-retry/dist-es/DefaultRateLimiter.js
+  // scalene/scalene-gui/node_modules/@smithy/util-retry/dist-es/DefaultRateLimiter.js
   var DefaultRateLimiter = class _DefaultRateLimiter {
     constructor(options) {
       this.currentCapacity = 0;
@@ -68361,7 +67885,7 @@ ${toHex(hashedRequest)}`;
   };
   DefaultRateLimiter.setTimeoutFn = setTimeout;
 
-  // node_modules/@smithy/util-retry/dist-es/constants.js
+  // scalene/scalene-gui/node_modules/@smithy/util-retry/dist-es/constants.js
   var DEFAULT_RETRY_DELAY_BASE = 100;
   var MAXIMUM_RETRY_DELAY = 20 * 1e3;
   var THROTTLING_RETRY_DELAY_BASE = 500;
@@ -68372,7 +67896,7 @@ ${toHex(hashedRequest)}`;
   var INVOCATION_ID_HEADER = "amz-sdk-invocation-id";
   var REQUEST_HEADER = "amz-sdk-request";
 
-  // node_modules/@smithy/util-retry/dist-es/defaultRetryBackoffStrategy.js
+  // scalene/scalene-gui/node_modules/@smithy/util-retry/dist-es/defaultRetryBackoffStrategy.js
   var getDefaultRetryBackoffStrategy = () => {
     let delayBase = DEFAULT_RETRY_DELAY_BASE;
     const computeNextBackoffDelay = (attempts) => {
@@ -68387,7 +67911,7 @@ ${toHex(hashedRequest)}`;
     };
   };
 
-  // node_modules/@smithy/util-retry/dist-es/defaultRetryToken.js
+  // scalene/scalene-gui/node_modules/@smithy/util-retry/dist-es/defaultRetryToken.js
   var createDefaultRetryToken = ({ retryDelay, retryCount, retryCost }) => {
     const getRetryCount = () => retryCount;
     const getRetryDelay = () => Math.min(MAXIMUM_RETRY_DELAY, retryDelay);
@@ -68399,7 +67923,7 @@ ${toHex(hashedRequest)}`;
     };
   };
 
-  // node_modules/@smithy/util-retry/dist-es/StandardRetryStrategy.js
+  // scalene/scalene-gui/node_modules/@smithy/util-retry/dist-es/StandardRetryStrategy.js
   var StandardRetryStrategy = class {
     constructor(maxAttempts) {
       this.maxAttempts = maxAttempts;
@@ -68457,7 +67981,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@smithy/util-retry/dist-es/AdaptiveRetryStrategy.js
+  // scalene/scalene-gui/node_modules/@smithy/util-retry/dist-es/AdaptiveRetryStrategy.js
   var AdaptiveRetryStrategy = class {
     constructor(maxAttemptsProvider, options) {
       this.maxAttemptsProvider = maxAttemptsProvider;
@@ -68480,55 +68004,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/uuid/dist/esm-browser/rng.js
-  var getRandomValues;
-  var rnds8 = new Uint8Array(16);
-  function rng() {
-    if (!getRandomValues) {
-      getRandomValues = typeof crypto !== "undefined" && crypto.getRandomValues && crypto.getRandomValues.bind(crypto);
-      if (!getRandomValues) {
-        throw new Error("crypto.getRandomValues() not supported. See https://github.com/uuidjs/uuid#getrandomvalues-not-supported");
-      }
-    }
-    return getRandomValues(rnds8);
-  }
-
-  // node_modules/uuid/dist/esm-browser/stringify.js
-  var byteToHex = [];
-  for (let i2 = 0; i2 < 256; ++i2) {
-    byteToHex.push((i2 + 256).toString(16).slice(1));
-  }
-  function unsafeStringify(arr, offset4 = 0) {
-    return byteToHex[arr[offset4 + 0]] + byteToHex[arr[offset4 + 1]] + byteToHex[arr[offset4 + 2]] + byteToHex[arr[offset4 + 3]] + "-" + byteToHex[arr[offset4 + 4]] + byteToHex[arr[offset4 + 5]] + "-" + byteToHex[arr[offset4 + 6]] + byteToHex[arr[offset4 + 7]] + "-" + byteToHex[arr[offset4 + 8]] + byteToHex[arr[offset4 + 9]] + "-" + byteToHex[arr[offset4 + 10]] + byteToHex[arr[offset4 + 11]] + byteToHex[arr[offset4 + 12]] + byteToHex[arr[offset4 + 13]] + byteToHex[arr[offset4 + 14]] + byteToHex[arr[offset4 + 15]];
-  }
-
-  // node_modules/uuid/dist/esm-browser/native.js
-  var randomUUID = typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID.bind(crypto);
-  var native_default = {
-    randomUUID
-  };
-
-  // node_modules/uuid/dist/esm-browser/v4.js
-  function v4(options, buf, offset4) {
-    if (native_default.randomUUID && !buf && !options) {
-      return native_default.randomUUID();
-    }
-    options = options || {};
-    const rnds = options.random || (options.rng || rng)();
-    rnds[6] = rnds[6] & 15 | 64;
-    rnds[8] = rnds[8] & 63 | 128;
-    if (buf) {
-      offset4 = offset4 || 0;
-      for (let i2 = 0; i2 < 16; ++i2) {
-        buf[offset4 + i2] = rnds[i2];
-      }
-      return buf;
-    }
-    return unsafeStringify(rnds);
-  }
-  var v4_default = v4;
-
-  // node_modules/@smithy/middleware-retry/dist-es/util.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-retry/dist-es/util.js
   var asSdkError = (error3) => {
     if (error3 instanceof Error)
       return error3;
@@ -68539,7 +68015,7 @@ ${toHex(hashedRequest)}`;
     return new Error(`AWS SDK error wrapper for ${error3}`);
   };
 
-  // node_modules/@smithy/middleware-retry/dist-es/configurations.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-retry/dist-es/configurations.js
   var resolveRetryConfig = (input) => {
     const { retryStrategy, retryMode: _retryMode, maxAttempts: _maxAttempts } = input;
     const maxAttempts = normalizeProvider(_maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
@@ -68558,10 +68034,10 @@ ${toHex(hashedRequest)}`;
     });
   };
 
-  // node_modules/@smithy/middleware-retry/dist-es/isStreamingPayload/isStreamingPayload.browser.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-retry/dist-es/isStreamingPayload/isStreamingPayload.browser.js
   var isStreamingPayload = (request2) => request2?.body instanceof ReadableStream;
 
-  // node_modules/@smithy/middleware-retry/dist-es/retryMiddleware.js
+  // scalene/scalene-gui/node_modules/@smithy/middleware-retry/dist-es/retryMiddleware.js
   var retryMiddleware = (options) => (next, context3) => async (args) => {
     let retryStrategy = await options.retryStrategy();
     const maxAttempts = await options.maxAttempts();
@@ -68663,7 +68139,7 @@ ${toHex(hashedRequest)}`;
     return retryAfterDate;
   };
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/auth/httpAuthSchemeProvider.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/auth/httpAuthSchemeProvider.js
   var defaultBedrockRuntimeHttpAuthSchemeParametersProvider = async (config, context3, input) => {
     return {
       operation: getSmithyContext(context3).operation,
@@ -68719,7 +68195,7 @@ ${toHex(hashedRequest)}`;
     });
   };
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/endpoint/EndpointParameters.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/endpoint/EndpointParameters.js
   var resolveClientEndpointParameters = (options) => {
     return Object.assign(options, {
       useDualstackEndpoint: options.useDualstackEndpoint ?? false,
@@ -68734,11 +68210,11 @@ ${toHex(hashedRequest)}`;
     UseDualStack: { type: "builtInParams", name: "useDualstackEndpoint" }
   };
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/package.json
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/package.json
   var package_default2 = {
     name: "@aws-sdk/client-bedrock-runtime",
     description: "AWS SDK for JavaScript Bedrock Runtime Client for Node.js, Browser and React Native",
-    version: "3.844.0",
+    version: "3.864.0",
     scripts: {
       build: "concurrently 'yarn:build:cjs' 'yarn:build:es' 'yarn:build:types'",
       "build:cjs": "node ../../scripts/compilation/inline client-bedrock-runtime",
@@ -68757,49 +68233,49 @@ ${toHex(hashedRequest)}`;
     dependencies: {
       "@aws-crypto/sha256-browser": "5.2.0",
       "@aws-crypto/sha256-js": "5.2.0",
-      "@aws-sdk/core": "3.844.0",
-      "@aws-sdk/credential-provider-node": "3.844.0",
-      "@aws-sdk/eventstream-handler-node": "3.840.0",
-      "@aws-sdk/middleware-eventstream": "3.840.0",
-      "@aws-sdk/middleware-host-header": "3.840.0",
-      "@aws-sdk/middleware-logger": "3.840.0",
-      "@aws-sdk/middleware-recursion-detection": "3.840.0",
-      "@aws-sdk/middleware-user-agent": "3.844.0",
-      "@aws-sdk/middleware-websocket": "3.844.0",
-      "@aws-sdk/region-config-resolver": "3.840.0",
-      "@aws-sdk/token-providers": "3.844.0",
-      "@aws-sdk/types": "3.840.0",
-      "@aws-sdk/util-endpoints": "3.844.0",
-      "@aws-sdk/util-user-agent-browser": "3.840.0",
-      "@aws-sdk/util-user-agent-node": "3.844.0",
-      "@smithy/config-resolver": "^4.1.4",
-      "@smithy/core": "^3.7.0",
-      "@smithy/eventstream-serde-browser": "^4.0.4",
-      "@smithy/eventstream-serde-config-resolver": "^4.1.2",
-      "@smithy/eventstream-serde-node": "^4.0.4",
-      "@smithy/fetch-http-handler": "^5.1.0",
-      "@smithy/hash-node": "^4.0.4",
-      "@smithy/invalid-dependency": "^4.0.4",
-      "@smithy/middleware-content-length": "^4.0.4",
-      "@smithy/middleware-endpoint": "^4.1.14",
-      "@smithy/middleware-retry": "^4.1.15",
-      "@smithy/middleware-serde": "^4.0.8",
-      "@smithy/middleware-stack": "^4.0.4",
-      "@smithy/node-config-provider": "^4.1.3",
-      "@smithy/node-http-handler": "^4.1.0",
-      "@smithy/protocol-http": "^5.1.2",
-      "@smithy/smithy-client": "^4.4.6",
-      "@smithy/types": "^4.3.1",
-      "@smithy/url-parser": "^4.0.4",
+      "@aws-sdk/core": "3.864.0",
+      "@aws-sdk/credential-provider-node": "3.864.0",
+      "@aws-sdk/eventstream-handler-node": "3.862.0",
+      "@aws-sdk/middleware-eventstream": "3.862.0",
+      "@aws-sdk/middleware-host-header": "3.862.0",
+      "@aws-sdk/middleware-logger": "3.862.0",
+      "@aws-sdk/middleware-recursion-detection": "3.862.0",
+      "@aws-sdk/middleware-user-agent": "3.864.0",
+      "@aws-sdk/middleware-websocket": "3.862.0",
+      "@aws-sdk/region-config-resolver": "3.862.0",
+      "@aws-sdk/token-providers": "3.864.0",
+      "@aws-sdk/types": "3.862.0",
+      "@aws-sdk/util-endpoints": "3.862.0",
+      "@aws-sdk/util-user-agent-browser": "3.862.0",
+      "@aws-sdk/util-user-agent-node": "3.864.0",
+      "@smithy/config-resolver": "^4.1.5",
+      "@smithy/core": "^3.8.0",
+      "@smithy/eventstream-serde-browser": "^4.0.5",
+      "@smithy/eventstream-serde-config-resolver": "^4.1.3",
+      "@smithy/eventstream-serde-node": "^4.0.5",
+      "@smithy/fetch-http-handler": "^5.1.1",
+      "@smithy/hash-node": "^4.0.5",
+      "@smithy/invalid-dependency": "^4.0.5",
+      "@smithy/middleware-content-length": "^4.0.5",
+      "@smithy/middleware-endpoint": "^4.1.18",
+      "@smithy/middleware-retry": "^4.1.19",
+      "@smithy/middleware-serde": "^4.0.9",
+      "@smithy/middleware-stack": "^4.0.5",
+      "@smithy/node-config-provider": "^4.1.4",
+      "@smithy/node-http-handler": "^4.1.1",
+      "@smithy/protocol-http": "^5.1.3",
+      "@smithy/smithy-client": "^4.4.10",
+      "@smithy/types": "^4.3.2",
+      "@smithy/url-parser": "^4.0.5",
       "@smithy/util-base64": "^4.0.0",
       "@smithy/util-body-length-browser": "^4.0.0",
       "@smithy/util-body-length-node": "^4.0.0",
-      "@smithy/util-defaults-mode-browser": "^4.0.22",
-      "@smithy/util-defaults-mode-node": "^4.0.22",
-      "@smithy/util-endpoints": "^3.0.6",
-      "@smithy/util-middleware": "^4.0.4",
-      "@smithy/util-retry": "^4.0.6",
-      "@smithy/util-stream": "^4.2.3",
+      "@smithy/util-defaults-mode-browser": "^4.0.26",
+      "@smithy/util-defaults-mode-node": "^4.0.26",
+      "@smithy/util-endpoints": "^3.0.7",
+      "@smithy/util-middleware": "^4.0.5",
+      "@smithy/util-retry": "^4.0.7",
+      "@smithy/util-stream": "^4.2.4",
       "@smithy/util-utf8": "^4.0.0",
       "@types/uuid": "^9.0.1",
       tslib: "^2.6.2",
@@ -68845,7 +68321,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@aws-crypto/sha256-browser/build/module/constants.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/sha256-browser/build/module/constants.js
   var SHA_256_HASH = { name: "SHA-256" };
   var SHA_256_HMAC_ALGO = {
     name: "HMAC",
@@ -68886,7 +68362,7 @@ ${toHex(hashedRequest)}`;
     85
   ]);
 
-  // node_modules/@aws-sdk/util-locate-window/dist-es/index.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/util-locate-window/dist-es/index.js
   var fallbackWindow = {};
   function locateWindow() {
     if (typeof window !== "undefined") {
@@ -68897,10 +68373,10 @@ ${toHex(hashedRequest)}`;
     return fallbackWindow;
   }
 
-  // node_modules/@aws-crypto/sha256-browser/build/module/webCryptoSha256.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/sha256-browser/build/module/webCryptoSha256.js
   var Sha256 = (
     /** @class */
-    (function() {
+    function() {
       function Sha2564(secret) {
         this.toHash = new Uint8Array(0);
         this.secret = secret;
@@ -68946,10 +68422,10 @@ ${toHex(hashedRequest)}`;
         }
       };
       return Sha2564;
-    })()
+    }()
   );
 
-  // node_modules/@aws-crypto/sha256-js/build/module/constants.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/sha256-js/build/module/constants.js
   var BLOCK_SIZE = 64;
   var DIGEST_LENGTH = 32;
   var KEY2 = new Uint32Array([
@@ -69030,10 +68506,10 @@ ${toHex(hashedRequest)}`;
   ];
   var MAX_HASHABLE_LENGTH = Math.pow(2, 53) - 1;
 
-  // node_modules/@aws-crypto/sha256-js/build/module/RawSha256.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/sha256-js/build/module/RawSha256.js
   var RawSha256 = (
     /** @class */
-    (function() {
+    function() {
       function RawSha2562() {
         this.state = Int32Array.from(INIT2);
         this.temp = new Int32Array(64);
@@ -69125,13 +68601,13 @@ ${toHex(hashedRequest)}`;
         state[7] += state7;
       };
       return RawSha2562;
-    })()
+    }()
   );
 
-  // node_modules/@aws-crypto/sha256-js/build/module/jsSha256.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/sha256-js/build/module/jsSha256.js
   var Sha2562 = (
     /** @class */
-    (function() {
+    function() {
       function Sha2564(secret) {
         this.secret = secret;
         this.hash = new RawSha256();
@@ -69185,7 +68661,7 @@ ${toHex(hashedRequest)}`;
         }
       };
       return Sha2564;
-    })()
+    }()
   );
   function bufferFromSecret(secret) {
     var input = convertToBuffer(secret);
@@ -69199,7 +68675,7 @@ ${toHex(hashedRequest)}`;
     return buffer;
   }
 
-  // node_modules/@aws-crypto/supports-web-crypto/build/module/supportsWebCrypto.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/supports-web-crypto/build/module/supportsWebCrypto.js
   var subtleCryptoMethods = [
     "decrypt",
     "digest",
@@ -69230,10 +68706,10 @@ ${toHex(hashedRequest)}`;
     });
   }
 
-  // node_modules/@aws-crypto/sha256-browser/build/module/crossPlatformSha256.js
+  // scalene/scalene-gui/node_modules/@aws-crypto/sha256-browser/build/module/crossPlatformSha256.js
   var Sha2563 = (
     /** @class */
-    (function() {
+    function() {
       function Sha2564(secret) {
         if (supportsWebCrypto(locateWindow())) {
           this.hash = new Sha256(secret);
@@ -69251,10 +68727,10 @@ ${toHex(hashedRequest)}`;
         this.hash.reset();
       };
       return Sha2564;
-    })()
+    }()
   );
 
-  // node_modules/@aws-sdk/util-user-agent-browser/dist-es/index.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/util-user-agent-browser/dist-es/index.js
   var import_bowser = __toESM(require_es5());
   var createDefaultUserAgentProvider = ({ serviceId, clientVersion }) => async (config) => {
     const parsedUA = typeof window !== "undefined" && window?.navigator?.userAgent ? import_bowser.default.parse(window.navigator.userAgent) : void 0;
@@ -69275,10 +68751,10 @@ ${toHex(hashedRequest)}`;
     return sections;
   };
 
-  // node_modules/@smithy/invalid-dependency/dist-es/invalidProvider.js
+  // scalene/scalene-gui/node_modules/@smithy/invalid-dependency/dist-es/invalidProvider.js
   var invalidProvider = (message) => () => Promise.reject(message);
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/endpoint/ruleset.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/endpoint/ruleset.js
   var s = "required";
   var t = "fn";
   var u4 = "argv";
@@ -69304,7 +68780,7 @@ ${toHex(hashedRequest)}`;
   var _data = { version: "1.0", parameters: { Region: h2, UseDualStack: i, UseFIPS: i, Endpoint: h2 }, rules: [{ conditions: [{ [t]: b2, [u4]: [j] }], rules: [{ conditions: p, error: "Invalid Configuration: FIPS and custom endpoint are not supported", type: d }, { rules: [{ conditions: q, error: "Invalid Configuration: Dualstack and custom endpoint are not supported", type: d }, { endpoint: { url: j, properties: m3, headers: m3 }, type: e3 }], type: f }], type: f }, { rules: [{ conditions: [{ [t]: b2, [u4]: r }], rules: [{ conditions: [{ [t]: "aws.partition", [u4]: r, assign: g }], rules: [{ conditions: [k, l], rules: [{ conditions: [{ [t]: c3, [u4]: [a3, n] }, o], rules: [{ rules: [{ endpoint: { url: "https://bedrock-runtime-fips.{Region}.{PartitionResult#dualStackDnsSuffix}", properties: m3, headers: m3 }, type: e3 }], type: f }], type: f }, { error: "FIPS and DualStack are enabled, but this partition does not support one or both", type: d }], type: f }, { conditions: p, rules: [{ conditions: [{ [t]: c3, [u4]: [n, a3] }], rules: [{ rules: [{ endpoint: { url: "https://bedrock-runtime-fips.{Region}.{PartitionResult#dnsSuffix}", properties: m3, headers: m3 }, type: e3 }], type: f }], type: f }, { error: "FIPS is enabled but this partition does not support FIPS", type: d }], type: f }, { conditions: q, rules: [{ conditions: [o], rules: [{ rules: [{ endpoint: { url: "https://bedrock-runtime.{Region}.{PartitionResult#dualStackDnsSuffix}", properties: m3, headers: m3 }, type: e3 }], type: f }], type: f }, { error: "DualStack is enabled but this partition does not support DualStack", type: d }], type: f }, { rules: [{ endpoint: { url: "https://bedrock-runtime.{Region}.{PartitionResult#dnsSuffix}", properties: m3, headers: m3 }, type: e3 }], type: f }], type: f }], type: f }, { error: "Invalid Configuration: Missing Region", type: d }], type: f }] };
   var ruleSet = _data;
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/endpoint/endpointResolver.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/endpoint/endpointResolver.js
   var cache2 = new EndpointCache({
     size: 50,
     params: ["Endpoint", "Region", "UseDualStack", "UseFIPS"]
@@ -69317,7 +68793,7 @@ ${toHex(hashedRequest)}`;
   };
   customEndpointFunctions.aws = awsEndpointFunctions;
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/runtimeConfig.shared.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/runtimeConfig.shared.js
   var getRuntimeConfig = (config) => {
     return {
       apiVersion: "2023-09-30",
@@ -69347,13 +68823,13 @@ ${toHex(hashedRequest)}`;
     };
   };
 
-  // node_modules/@smithy/util-defaults-mode-browser/dist-es/resolveDefaultsModeConfig.js
+  // scalene/scalene-gui/node_modules/@smithy/util-defaults-mode-browser/dist-es/resolveDefaultsModeConfig.js
   var import_bowser2 = __toESM(require_es5());
 
-  // node_modules/@smithy/util-defaults-mode-browser/dist-es/constants.js
+  // scalene/scalene-gui/node_modules/@smithy/util-defaults-mode-browser/dist-es/constants.js
   var DEFAULTS_MODE_OPTIONS = ["in-region", "cross-region", "mobile", "standard", "legacy"];
 
-  // node_modules/@smithy/util-defaults-mode-browser/dist-es/resolveDefaultsModeConfig.js
+  // scalene/scalene-gui/node_modules/@smithy/util-defaults-mode-browser/dist-es/resolveDefaultsModeConfig.js
   var resolveDefaultsModeConfig = ({ defaultsMode } = {}) => memoize2(async () => {
     const mode = typeof defaultsMode === "function" ? await defaultsMode() : defaultsMode;
     switch (mode?.toLowerCase()) {
@@ -69377,7 +68853,7 @@ ${toHex(hashedRequest)}`;
     return platform === "tablet" || platform === "mobile";
   };
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/runtimeConfig.browser.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/runtimeConfig.browser.js
   var getRuntimeConfig2 = (config) => {
     const defaultsMode = resolveDefaultsModeConfig(config);
     const defaultConfigProvider = () => defaultsMode().then(loadConfigsForDefaultMode);
@@ -69403,7 +68879,7 @@ ${toHex(hashedRequest)}`;
     };
   };
 
-  // node_modules/@aws-sdk/region-config-resolver/dist-es/extensions/index.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/region-config-resolver/dist-es/extensions/index.js
   var getAwsRegionExtensionConfiguration = (runtimeConfig) => {
     return {
       setRegion(region) {
@@ -69420,7 +68896,7 @@ ${toHex(hashedRequest)}`;
     };
   };
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/auth/httpAuthExtensionConfiguration.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/auth/httpAuthExtensionConfiguration.js
   var getHttpAuthExtensionConfiguration = (runtimeConfig) => {
     const _httpAuthSchemes = runtimeConfig.httpAuthSchemes;
     let _httpAuthSchemeProvider = runtimeConfig.httpAuthSchemeProvider;
@@ -69467,14 +68943,14 @@ ${toHex(hashedRequest)}`;
     };
   };
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/runtimeExtensions.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/runtimeExtensions.js
   var resolveRuntimeExtensions = (runtimeConfig, extensions) => {
     const extensionConfiguration = Object.assign(getAwsRegionExtensionConfiguration(runtimeConfig), getDefaultExtensionConfiguration(runtimeConfig), getHttpHandlerExtensionConfiguration(runtimeConfig), getHttpAuthExtensionConfiguration(runtimeConfig));
     extensions.forEach((extension2) => extension2.configure(extensionConfiguration));
     return Object.assign(runtimeConfig, resolveAwsRegionExtensionConfiguration(extensionConfiguration), resolveDefaultRuntimeConfig(extensionConfiguration), resolveHttpHandlerRuntimeConfig(extensionConfiguration), resolveHttpAuthRuntimeConfig(extensionConfiguration));
   };
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/BedrockRuntimeClient.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/BedrockRuntimeClient.js
   var BedrockRuntimeClient = class extends Client {
     config;
     constructor(...[configuration]) {
@@ -69513,7 +68989,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/models/BedrockRuntimeServiceException.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/models/BedrockRuntimeServiceException.js
   var BedrockRuntimeServiceException = class _BedrockRuntimeServiceException extends ServiceException {
     constructor(options) {
       super(options);
@@ -69521,7 +68997,7 @@ ${toHex(hashedRequest)}`;
     }
   };
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/models/models_0.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/models/models_0.js
   var AccessDeniedException = class _AccessDeniedException extends BedrockRuntimeServiceException {
     name = "AccessDeniedException";
     $fault = "client";
@@ -69644,6 +69120,26 @@ ${toHex(hashedRequest)}`;
       return visitor._(value3.$unknown[0], value3.$unknown[1]);
     };
   })(GuardrailContentBlock || (GuardrailContentBlock = {}));
+  var GuardrailAutomatedReasoningFinding;
+  (function(GuardrailAutomatedReasoningFinding2) {
+    GuardrailAutomatedReasoningFinding2.visit = (value3, visitor) => {
+      if (value3.valid !== void 0)
+        return visitor.valid(value3.valid);
+      if (value3.invalid !== void 0)
+        return visitor.invalid(value3.invalid);
+      if (value3.satisfiable !== void 0)
+        return visitor.satisfiable(value3.satisfiable);
+      if (value3.impossible !== void 0)
+        return visitor.impossible(value3.impossible);
+      if (value3.translationAmbiguous !== void 0)
+        return visitor.translationAmbiguous(value3.translationAmbiguous);
+      if (value3.tooComplex !== void 0)
+        return visitor.tooComplex(value3.tooComplex);
+      if (value3.noTranslations !== void 0)
+        return visitor.noTranslations(value3.noTranslations);
+      return visitor._(value3.$unknown[0], value3.$unknown[1]);
+    };
+  })(GuardrailAutomatedReasoningFinding || (GuardrailAutomatedReasoningFinding = {}));
   var CitationLocation;
   (function(CitationLocation2) {
     CitationLocation2.visit = (value3, visitor) => {
@@ -70018,7 +69514,7 @@ ${toHex(hashedRequest)}`;
     ...obj.body && { body: SENSITIVE_STRING }
   });
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/protocols/Aws_restJson1.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/protocols/Aws_restJson1.js
   var se_InvokeModelCommand = async (input, context3) => {
     const b3 = requestBuilder(input, context3);
     const headers = map3({}, isSerializableHeaderValue, {
@@ -70282,7 +69778,7 @@ ${toHex(hashedRequest)}`;
   var _xabpl = "x-amzn-bedrock-performanceconfig-latency";
   var _xabt = "x-amzn-bedrock-trace";
 
-  // node_modules/@aws-sdk/client-bedrock-runtime/dist-es/commands/InvokeModelCommand.js
+  // scalene/scalene-gui/node_modules/@aws-sdk/client-bedrock-runtime/dist-es/commands/InvokeModelCommand.js
   var InvokeModelCommand = class extends Command.classBuilder().ep(commonParams).m(function(Command2, cs, config, o2) {
     return [
       getSerdePlugin(config, this.serialize, this.deserialize),
@@ -70291,7 +69787,7 @@ ${toHex(hashedRequest)}`;
   }).s("AmazonBedrockFrontendService", "InvokeModel", {}).n("BedrockRuntimeClient", "InvokeModelCommand").f(InvokeModelRequestFilterSensitiveLog, InvokeModelResponseFilterSensitiveLog).ser(se_InvokeModelCommand).de(de_InvokeModelCommand).build() {
   };
 
-  // amazon.ts
+  // scalene/scalene-gui/amazon.ts
   async function sendPromptToAmazon(prompt) {
     const accessKeyIdElement = document.getElementById("aws-access-key");
     const secretAccessKeyElement = document.getElementById("aws-secret-key");
@@ -70373,7 +69869,7 @@ ${toHex(hashedRequest)}`;
     }
   }
 
-  // azure.ts
+  // scalene/scalene-gui/azure.ts
   async function sendPromptToAzureOpenAI(prompt, apiKey, apiUrl, aiModel) {
     const apiVersionElement = document.getElementById("azure-api-version");
     const apiVersion = apiVersionElement?.value ?? "2024-02-15-preview";
@@ -70431,7 +69927,7 @@ ${toHex(hashedRequest)}`;
     }
   }
 
-  // utils.ts
+  // scalene/scalene-gui/utils.ts
   function unescapeUnicode(s2) {
     return s2.replace(/\\u([\dA-F]{4})/gi, function(_match, p1) {
       return String.fromCharCode(parseInt(p1, 16));
@@ -70472,7 +69968,7 @@ ${toHex(hashedRequest)}`;
     }
   }
 
-  // gui-elements.ts
+  // scalene/scalene-gui/gui-elements.ts
   var Lightning = "&#9889;";
   var Explosion = "&#128165;";
   var WhiteLightning = `<span style="opacity:0">${Lightning}</span>`;
@@ -71089,7 +70585,7 @@ ${toHex(hashedRequest)}`;
     };
   }
 
-  // optimizations.ts
+  // scalene/scalene-gui/optimizations.ts
   async function copyOnClick(event2, message) {
     event2.preventDefault();
     event2.stopPropagation();
@@ -71507,7 +71003,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
     })();
   }
 
-  // persistence.ts
+  // scalene/scalene-gui/persistence.ts
   var envKeyMap = {
     "api-key": "openai",
     "anthropic-api-key": "anthropic",
@@ -71582,7 +71078,7 @@ Your output should only consist of valid Python code. Output the resulting Pytho
     });
   };
 
-  // scalene-gui.ts
+  // scalene/scalene-gui/scalene-gui.ts
   window.Buffer = import_buffer3.Buffer;
   window.checkApiKey = checkApiKey;
   function vsNavigate(filename, lineno) {
@@ -72190,7 +71686,21 @@ Your output should only consist of valid Python code. Output the resulting Pytho
   }
   var FLAME_ROW_HEIGHT = 18;
   var FLAME_MIN_LABEL_WIDTH_PCT = 1.5;
-  function buildFlameTree(stacks) {
+  function makeFileSourceLookup(prof) {
+    return (filename, line4) => {
+      const fileData = prof.files?.[filename];
+      if (!fileData) return "";
+      const row = fileData.lines?.[line4 - 1];
+      if (!row || row.lineno !== line4) {
+        for (const candidate of fileData.lines ?? []) {
+          if (candidate.lineno === line4) return (candidate.line ?? "").trimEnd();
+        }
+        return "";
+      }
+      return (row.line ?? "").trimEnd();
+    };
+  }
+  function buildFlameTree(stacks, sourceLookup) {
     const root = {
       kind: "root",
       name: "(all stacks)",
@@ -72212,12 +71722,21 @@ Your output should only consist of valid Python code. Output the resulting Pytho
         if (!map4) continue;
         let child = map4.get(key2);
         if (!child) {
+          let resolvedCodeLine = void 0;
+          if (f2.kind === "py") {
+            if (f2.code_line !== void 0 && f2.code_line !== null) {
+              resolvedCodeLine = f2.code_line;
+            } else if (sourceLookup) {
+              const src = sourceLookup(f2.filename_or_module, f2.line);
+              resolvedCodeLine = src || void 0;
+            }
+          }
           child = {
             kind: f2.kind,
             name: f2.display_name,
             filename: f2.filename_or_module,
             line: f2.kind === "py" ? f2.line : null,
-            code_line: f2.kind === "py" ? f2.code_line : void 0,
+            code_line: resolvedCodeLine,
             selfHits: 0,
             totalHits: 0,
             children: []
@@ -72292,14 +71811,13 @@ ${qty} (${pct}%)`;
       const w3 = node.totalHits > 0 ? child.totalHits / node.totalHits * widthPct : 0;
       s2 += renderFlameRecursive(child, depth + 1, childLeft, w3, total, formatQuantity);
       childLeft += w3;
-      void childWidth;
     }
     return s2;
   }
   function renderCombinedStacks(prof) {
     const stacks = prof.combined_stacks ?? [];
     if (stacks.length === 0) return "";
-    const root = buildFlameTree(stacks);
+    const root = buildFlameTree(stacks, makeFileSourceLookup(prof));
     const totalHits = root.totalHits;
     const depth = flameMaxDepth(root);
     const containerHeight = depth * FLAME_ROW_HEIGHT;
@@ -72336,7 +71854,7 @@ ${qty} (${pct}%)`;
   function renderMemoryStacks(prof) {
     const stacks = prof.memory_stacks ?? [];
     if (stacks.length === 0) return "";
-    const root = buildFlameTree(stacks);
+    const root = buildFlameTree(stacks, makeFileSourceLookup(prof));
     const totalMb = root.totalHits;
     if (totalMb <= 0) return "";
     const depth = flameMaxDepth(root);

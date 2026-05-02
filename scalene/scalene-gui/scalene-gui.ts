@@ -83,6 +83,10 @@ type CombinedFrame =
       display_name: string;
       filename_or_module: string;
       line: number;
+      // ``code_line`` was emitted by older profiles for every py frame;
+      // newer profiles omit it and the GUI looks up the source text
+      // from ``profile.files[filename].lines`` at render time. Keep the
+      // field in the type so legacy profiles still deserialize.
       code_line?: string;
       ip: null;
       offset: null;
@@ -977,7 +981,34 @@ interface FlameNode {
   children: FlameNode[];
 }
 
-function buildFlameTree(stacks: CombinedStackEntry[]): FlameNode {
+// Return a function that maps (filename, 1-based lineno) to the source
+// line text, using the already-emitted ``profile.files`` section. Returns
+// the empty string when the file isn't in the profile or the line is out
+// of range. Used by the flame-tree builder so per-frame source text
+// doesn't need to be duplicated in the profile JSON.
+function makeFileSourceLookup(
+  prof: Profile,
+): (filename: string, line: number) => string {
+  return (filename: string, line: number): string => {
+    const fileData = prof.files?.[filename];
+    if (!fileData) return "";
+    const row = fileData.lines?.[line - 1];
+    if (!row || row.lineno !== line) {
+      // Fall back to a linear scan if the row at (line-1) isn't the
+      // requested lineno — some older profiles emit sparse line arrays.
+      for (const candidate of fileData.lines ?? []) {
+        if (candidate.lineno === line) return (candidate.line ?? "").trimEnd();
+      }
+      return "";
+    }
+    return (row.line ?? "").trimEnd();
+  };
+}
+
+function buildFlameTree(
+  stacks: CombinedStackEntry[],
+  sourceLookup?: (filename: string, line: number) => string,
+): FlameNode {
   const root: FlameNode = {
     kind: "root",
     name: "(all stacks)",
@@ -1001,12 +1032,24 @@ function buildFlameTree(stacks: CombinedStackEntry[]): FlameNode {
       if (!map) continue;
       let child = map.get(key);
       if (!child) {
+        // Prefer the frame's own code_line when present (legacy profiles);
+        // otherwise look it up from the profile's files section. Falls back
+        // to undefined if neither is available.
+        let resolvedCodeLine: string | undefined = undefined;
+        if (f.kind === "py") {
+          if (f.code_line !== undefined && f.code_line !== null) {
+            resolvedCodeLine = f.code_line;
+          } else if (sourceLookup) {
+            const src = sourceLookup(f.filename_or_module, f.line);
+            resolvedCodeLine = src || undefined;
+          }
+        }
         child = {
           kind: f.kind,
           name: f.display_name,
           filename: f.filename_or_module,
           line: f.kind === "py" ? f.line : null,
-          code_line: f.kind === "py" ? f.code_line : undefined,
+          code_line: resolvedCodeLine,
           selfHits: 0,
           totalHits: 0,
           children: [],
@@ -1118,7 +1161,7 @@ export function renderCombinedStacks(prof: Profile): string {
   const stacks = prof.combined_stacks ?? [];
   if (stacks.length === 0) return "";
 
-  const root = buildFlameTree(stacks);
+  const root = buildFlameTree(stacks, makeFileSourceLookup(prof));
   const totalHits = root.totalHits;
   const depth = flameMaxDepth(root);
   const containerHeight = depth * FLAME_ROW_HEIGHT;
@@ -1163,7 +1206,7 @@ export function renderMemoryStacks(prof: Profile): string {
   const stacks = prof.memory_stacks ?? [];
   if (stacks.length === 0) return "";
 
-  const root = buildFlameTree(stacks);
+  const root = buildFlameTree(stacks, makeFileSourceLookup(prof));
   const totalMb = root.totalHits;
   if (totalMb <= 0) return "";
   const depth = flameMaxDepth(root);
