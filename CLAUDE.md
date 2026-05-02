@@ -137,9 +137,12 @@ These assets are copied to a temp directory when serving via HTTP, enabling the 
 
 **Building the GUI:**
 ```bash
-cd scalene/scalene-gui
-npx esbuild scalene-gui.ts --bundle --outfile=scalene-gui-bundle.js --format=iife --global-name=ScaleneGUI
+npm --prefix scalene/scalene-gui run build
 ```
+The `build` script in `scalene/scalene-gui/package.json` invokes esbuild
+with `--minify --sourcemap --target=es2020`. The minified bundle is what
+gets checked in (≈1.1 MB vs ≈2.5 MB unminified). A `build:dev` variant
+(no minification) is available for debugging.
 
 ### Native Extensions (`src/`)
 
@@ -408,8 +411,7 @@ sock.bind(("", port))
 
 7. **Rebuild the bundle**:
    ```bash
-   cd scalene/scalene-gui
-   npx esbuild scalene-gui.ts --bundle --outfile=scalene-gui-bundle.js --format=iife --global-name=ScaleneGUI
+   npm --prefix scalene/scalene-gui run build
    ```
 
 ### Environment Variable API Keys
