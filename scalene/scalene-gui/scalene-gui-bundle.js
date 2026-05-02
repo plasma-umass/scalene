@@ -71851,6 +71851,58 @@ ${qty} (${pct}%)`;
     if (mb2 >= 1e-3) return `${(mb2 * 1024).toFixed(2)} KB`;
     return `${(mb2 * 1024 * 1024).toFixed(0)} B`;
   }
+  var MEMORY_AXIS_HEIGHT = 18;
+  var MEMORY_AXIS_GAP = 2;
+  function formatMemoryTickLabel(mb2, stepMb) {
+    if (mb2 === 0) return "0";
+    if (mb2 >= 1024) {
+      const gb = mb2 / 1024;
+      const digits2 = stepMb >= 1024 ? 0 : stepMb >= 102.4 ? 1 : 2;
+      return `${gb.toFixed(digits2)} GB`;
+    }
+    if (mb2 >= 1) {
+      const digits2 = stepMb >= 1 ? 0 : stepMb >= 0.1 ? 1 : 2;
+      return `${mb2.toFixed(digits2)} MB`;
+    }
+    const kb = mb2 * 1024;
+    const digits = stepMb * 1024 >= 1 ? 0 : 1;
+    return `${kb.toFixed(digits)} KB`;
+  }
+  function renderMemoryAxis(totalMb, topPx) {
+    if (totalMb <= 0) return { html: "", tickOffsetsMb: [], stepMb: 0 };
+    const stepMb = pickNiceTickInterval(totalMb, TIMELINE_BUCKETS);
+    if (stepMb <= 0) return { html: "", tickOffsetsMb: [], stepMb: 0 };
+    const tickOffsetsMb = [];
+    const nTicks = Math.floor(totalMb / stepMb) + 1;
+    for (let k2 = 0; k2 <= nTicks; k2++) {
+      const offset4 = k2 * stepMb;
+      if (offset4 > totalMb + stepMb * 0.5) break;
+      tickOffsetsMb.push(offset4);
+    }
+    let s2 = "";
+    s2 += `<div class="memory-axis" style="position:absolute;left:0;right:0;top:${topPx}px;height:${MEMORY_AXIS_HEIGHT}px;border-bottom:1px solid #bbb;box-sizing:border-box;">`;
+    for (const offset4 of tickOffsetsMb) {
+      const leftPct = offset4 / totalMb * 100;
+      s2 += `<div style="position:absolute;left:${leftPct.toFixed(4)}%;bottom:0;width:1px;height:4px;background:#888;"></div>`;
+      const isFirst = offset4 === 0;
+      const isLast = offset4 >= totalMb - stepMb * 0.5;
+      const transform4 = isFirst ? "translateX(0)" : isLast ? "translateX(-100%)" : "translateX(-50%)";
+      const label = formatMemoryTickLabel(offset4, stepMb);
+      s2 += `<div style="position:absolute;left:${leftPct.toFixed(4)}%;top:0;transform:${transform4};font-family:monospace;font-size:10px;color:#444;white-space:nowrap;line-height:${MEMORY_AXIS_HEIGHT - 4}px;padding:0 2px;">${label}</div>`;
+    }
+    s2 += `</div>`;
+    return { html: s2, tickOffsetsMb, stepMb };
+  }
+  function renderMemoryGridlines(tickOffsetsMb, totalMb, topPx, heightPx) {
+    if (totalMb <= 0 || tickOffsetsMb.length === 0 || heightPx <= 0) return "";
+    let s2 = `<div class="memory-gridlines" style="position:absolute;left:0;right:0;top:${topPx}px;height:${heightPx}px;pointer-events:none;">`;
+    for (const offset4 of tickOffsetsMb) {
+      const leftPct = offset4 / totalMb * 100;
+      s2 += `<div style="position:absolute;left:${leftPct.toFixed(4)}%;top:0;bottom:0;width:1px;background:rgba(0,0,0,0.08);"></div>`;
+    }
+    s2 += `</div>`;
+    return s2;
+  }
   function renderMemoryStacks(prof) {
     const stacks = prof.memory_stacks ?? [];
     if (stacks.length === 0) return "";
@@ -71858,7 +71910,11 @@ ${qty} (${pct}%)`;
     const totalMb = root.totalHits;
     if (totalMb <= 0) return "";
     const depth = flameMaxDepth(root);
-    const containerHeight = depth * FLAME_ROW_HEIGHT;
+    const axisTop = 0;
+    const flameTop = axisTop + MEMORY_AXIS_HEIGHT + MEMORY_AXIS_GAP;
+    const flameHeight = depth * FLAME_ROW_HEIGHT;
+    const containerHeight = flameTop + flameHeight;
+    const axis = renderMemoryAxis(totalMb, axisTop);
     let s2 = `<hr><div class="container-fluid memory-stacks-section">`;
     s2 += `<p style="margin-bottom: 4px;">`;
     s2 += `<span id="button-memory-stacks" class="disclosure-triangle" title="Click to show or hide memory-weighted call stacks." onClick="toggleMemoryStacks()">${RightTriangle}</span>`;
@@ -71867,7 +71923,16 @@ ${qty} (${pct}%)`;
     s2 += `</p>`;
     s2 += `<div id="memory-stacks-body" style="display: none;">`;
     s2 += `<div class="memory-stacks-flame" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;">`;
+    s2 += axis.html;
+    s2 += renderMemoryGridlines(
+      axis.tickOffsetsMb,
+      totalMb,
+      flameTop,
+      flameHeight
+    );
+    s2 += `<div style="position:absolute;left:0;right:0;top:${flameTop}px;height:${flameHeight}px;">`;
     s2 += renderFlameRecursive(root, 0, 0, 100, totalMb, formatMb);
+    s2 += `</div>`;
     s2 += `</div></div></div>`;
     return s2;
   }
@@ -71888,6 +71953,10 @@ ${qty} (${pct}%)`;
   var TIMELINE_TRACK_HEIGHT = 10;
   var TIMELINE_TRACK_GAP = 2;
   var TIMELINE_BUCKETS = 600;
+  var TIMELINE_AXIS_HEIGHT = 18;
+  var TIMELINE_AXIS_GAP = 2;
+  var TIMELINE_MIN_TICK_SPACING_PX = 60;
+  var TIMELINE_LEFT_GUTTER_PX = 60;
   var GC_NAME_PATTERNS = [
     /(?:\b|_)gc[._]collect(?:_|\b)/i,
     /(?:\b|_)PyGC(?:_|\b)/,
@@ -72009,7 +72078,7 @@ ${qty} (${pct}%)`;
     }
     return `native:${f2.filename_or_module}:${f2.display_name}`;
   }
-  function renderTimelineFrames(runs, stacks, totalSec, startSec) {
+  function renderTimelineFrames(runs, stacks, totalSec, startSec, sourceLookup) {
     const segmentsByDepth = /* @__PURE__ */ new Map();
     for (const run2 of runs) {
       const stackEntry = stacks[run2.stackIndex];
@@ -72050,11 +72119,21 @@ ${qty} (${pct}%)`;
         const showLabels = widthPct / 100 * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
         const color5 = timelineColor(f2.display_name, f2.kind);
         const top = depth * TIMELINE_ROW_HEIGHT;
-        const tooltip2 = f2.kind === "py" ? `[py] ${f2.display_name}
+        const range7 = `${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s`;
+        const samples = `(${seg.totalHits} samples)`;
+        let tooltip2;
+        if (f2.kind === "py") {
+          const codeLine = sourceLookup && f2.line !== null ? sourceLookup(f2.filename_or_module, f2.line).trim() : "";
+          const tail = codeLine ? `
+${codeLine}` : "";
+          tooltip2 = `[py] ${f2.display_name}
 ${f2.filename_or_module}:${f2.line}
-${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} samples)` : `[native] ${f2.display_name}
+${range7} ${samples}${tail}`;
+        } else {
+          tooltip2 = `[native] ${f2.display_name}
 ${f2.filename_or_module}
-${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} samples)`;
+${range7} ${samples}`;
+        }
         const label = showLabels ? escapeHtml(f2.display_name) : "";
         const cursor3 = f2.kind === "py" && f2.line !== null ? "pointer" : "default";
         const clickAttr = f2.kind === "py" && f2.line !== null ? ` onclick="vsNavigate('${escape(f2.filename_or_module)}',${f2.line})"` : "";
@@ -72063,10 +72142,74 @@ ${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} s
     }
     return s2;
   }
+  function pickNiceTickInterval(total, pixelWidth) {
+    if (total <= 0 || pixelWidth <= 0) return 0;
+    const maxTicks = Math.max(2, Math.floor(pixelWidth / TIMELINE_MIN_TICK_SPACING_PX));
+    const rawStep = total / maxTicks;
+    if (rawStep <= 0) return 0;
+    const decade = Math.pow(10, Math.floor(Math.log10(rawStep)));
+    const normalized = rawStep / decade;
+    let niceFactor;
+    if (normalized <= 1) niceFactor = 1;
+    else if (normalized <= 2) niceFactor = 2;
+    else if (normalized <= 5) niceFactor = 5;
+    else niceFactor = 10;
+    return niceFactor * decade;
+  }
+  function formatTimelineTickLabel(sec, stepSec) {
+    if (sec === 0) return "0";
+    if (sec >= 1) {
+      const digits2 = stepSec >= 1 ? 0 : stepSec >= 0.1 ? 1 : stepSec >= 0.01 ? 2 : 3;
+      return `${sec.toFixed(digits2)}s`;
+    }
+    const ms = sec * 1e3;
+    const digits = stepSec >= 1e-3 ? 0 : 2;
+    return `${ms.toFixed(digits)}ms`;
+  }
+  function renderTimelineAxis(totalSec, startSec, topPx) {
+    if (totalSec <= 0) {
+      return { html: "", tickOffsetsSec: [], stepSec: 0 };
+    }
+    const stepSec = pickNiceTickInterval(totalSec, TIMELINE_BUCKETS);
+    if (stepSec <= 0) {
+      return { html: "", tickOffsetsSec: [], stepSec: 0 };
+    }
+    const tickOffsetsSec = [];
+    const nTicks = Math.floor(totalSec / stepSec) + 1;
+    for (let k2 = 0; k2 <= nTicks; k2++) {
+      const offset4 = k2 * stepSec;
+      if (offset4 > totalSec + stepSec * 0.5) break;
+      tickOffsetsSec.push(offset4);
+    }
+    let s2 = "";
+    s2 += `<div style="position:absolute;left:0;top:${topPx}px;width:${TIMELINE_LEFT_GUTTER_PX}px;height:${TIMELINE_AXIS_HEIGHT}px;font-family:monospace;font-size:10px;color:#444;line-height:${TIMELINE_AXIS_HEIGHT}px;text-align:right;padding-right:4px;box-sizing:border-box;">time</div>`;
+    s2 += `<div class="timeline-axis" style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;top:${topPx}px;height:${TIMELINE_AXIS_HEIGHT}px;border-bottom:1px solid #bbb;box-sizing:border-box;">`;
+    for (const offset4 of tickOffsetsSec) {
+      const leftPct = offset4 / totalSec * 100;
+      s2 += `<div style="position:absolute;left:${leftPct.toFixed(4)}%;bottom:0;width:1px;height:4px;background:#888;"></div>`;
+      const isFirst = offset4 === 0;
+      const isLast = offset4 >= totalSec - stepSec * 0.5;
+      const transform4 = isFirst ? "translateX(0)" : isLast ? "translateX(-100%)" : "translateX(-50%)";
+      const label = formatTimelineTickLabel(startSec + offset4, stepSec);
+      s2 += `<div style="position:absolute;left:${leftPct.toFixed(4)}%;top:0;transform:${transform4};font-family:monospace;font-size:10px;color:#444;white-space:nowrap;line-height:${TIMELINE_AXIS_HEIGHT - 4}px;padding:0 2px;">${label}</div>`;
+    }
+    s2 += `</div>`;
+    return { html: s2, tickOffsetsSec, stepSec };
+  }
+  function renderTimelineGridlines(tickOffsetsSec, totalSec, topPx, heightPx) {
+    if (totalSec <= 0 || tickOffsetsSec.length === 0 || heightPx <= 0) return "";
+    let s2 = `<div class="timeline-gridlines" style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;top:${topPx}px;height:${heightPx}px;pointer-events:none;">`;
+    for (const offset4 of tickOffsetsSec) {
+      const leftPct = offset4 / totalSec * 100;
+      s2 += `<div style="position:absolute;left:${leftPct.toFixed(4)}%;top:0;bottom:0;width:1px;background:rgba(0,0,0,0.08);"></div>`;
+    }
+    s2 += `</div>`;
+    return s2;
+  }
   function renderTimelineTrack(label, color5, runs, classifiedRuns, totalSec, startSec, topPx) {
     let s2 = "";
-    s2 += `<div style="position:absolute;left:0;top:${topPx}px;width:60px;height:${TIMELINE_TRACK_HEIGHT}px;font-family:monospace;font-size:10px;line-height:${TIMELINE_TRACK_HEIGHT}px;color:#444;">${label}</div>`;
-    s2 += `<div style="position:absolute;left:60px;right:0;top:${topPx}px;height:${TIMELINE_TRACK_HEIGHT}px;background:#f7f7f7;border:1px solid #ddd;box-sizing:border-box;">`;
+    s2 += `<div style="position:absolute;left:0;top:${topPx}px;width:${TIMELINE_LEFT_GUTTER_PX}px;height:${TIMELINE_TRACK_HEIGHT}px;font-family:monospace;font-size:10px;line-height:${TIMELINE_TRACK_HEIGHT}px;color:#444;text-align:right;padding-right:4px;box-sizing:border-box;">${label}</div>`;
+    s2 += `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;top:${topPx}px;height:${TIMELINE_TRACK_HEIGHT}px;background:#f7f7f7;border:1px solid #ddd;box-sizing:border-box;">`;
     for (let i2 = 0; i2 < runs.length; i2++) {
       if (!classifiedRuns[i2]) continue;
       const run2 = runs[i2];
@@ -72098,20 +72241,30 @@ ${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} s
       isGcRun[i2] = c4.gc;
       isIoRun[i2] = c4.io;
     }
-    const trackGcTop = 0;
+    const axisTop = 0;
+    const trackGcTop = axisTop + TIMELINE_AXIS_HEIGHT + TIMELINE_AXIS_GAP;
     const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
     const mainTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
     const mainHeight = Math.max(maxDepth2, 1) * TIMELINE_ROW_HEIGHT;
     const containerHeight = mainTop + mainHeight + 4;
+    const gridlinesTop = trackGcTop;
+    const gridlinesHeight = mainTop + mainHeight - gridlinesTop;
+    const axis = renderTimelineAxis(totalSec, startSec, axisTop);
     let s2 = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
     s2 += `<p style="margin-bottom: 4px;">`;
-    s2 += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the experimental timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
+    s2 += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
     s2 += ` <strong>Timeline</strong> `;
-    s2 += `<span class="badge bg-warning text-dark" style="font-size: 70%; vertical-align: middle;">experimental</span> `;
     s2 += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s \u2014 x: time, y: stack depth (outermost on top); GC and I/O tracks shown above</span>`;
     s2 += `</p>`;
     s2 += `<div id="combined-timeline-body" style="display: none;">`;
     s2 += `<div class="combined-stacks-timeline" style="position:relative;width:100%;height:${containerHeight}px;border:1px solid #ccc;background:#f0f0f0;overflow-x:auto;padding:0;">`;
+    s2 += axis.html;
+    s2 += renderTimelineGridlines(
+      axis.tickOffsetsSec,
+      totalSec,
+      gridlinesTop,
+      gridlinesHeight
+    );
     s2 += renderTimelineTrack(
       "GC",
       "#d62728",
@@ -72130,8 +72283,14 @@ ${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} s
       startSec,
       trackIoTop
     );
-    s2 += `<div style="position:absolute;left:60px;right:0;top:${mainTop}px;height:${mainHeight}px;background:#fafafa;border:1px solid #ddd;box-sizing:border-box;">`;
-    s2 += renderTimelineFrames(runs, stacks, totalSec, startSec);
+    s2 += `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;top:${mainTop}px;height:${mainHeight}px;background:#fafafa;border:1px solid #ddd;box-sizing:border-box;">`;
+    s2 += renderTimelineFrames(
+      runs,
+      stacks,
+      totalSec,
+      startSec,
+      makeFileSourceLookup(prof)
+    );
     s2 += `</div>`;
     s2 += `</div></div></div>`;
     return s2;

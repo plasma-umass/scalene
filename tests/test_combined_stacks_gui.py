@@ -119,6 +119,183 @@ def test_bundle_contains_new_render_helpers() -> None:
     )
 
 
+def test_bundle_contains_timeline_axis_helpers() -> None:
+    """The timeline view ships a time-axis ruler with gridlines. The axis
+    helpers (pickNiceTickInterval / renderTimelineAxis /
+    renderTimelineGridlines) must be present in the bundle, and the two
+    DOM class names the axis + gridlines use must appear verbatim so
+    stylesheets / downstream tooling can target them."""
+    assert BUNDLE_PATH.exists(), f"missing bundle at {BUNDLE_PATH}"
+    src = BUNDLE_PATH.read_text(encoding="utf-8")
+    for sym in (
+        "pickNiceTickInterval",
+        "formatTimelineTickLabel",
+        "renderTimelineAxis",
+        "renderTimelineGridlines",
+        "timeline-axis",
+        "timeline-gridlines",
+    ):
+        assert sym in src, (
+            f"expected {sym!r} in bundle — re-run "
+            f"`npx esbuild scalene-gui.ts --bundle ...` and commit"
+        )
+
+
+def test_bundle_contains_memory_axis_helpers() -> None:
+    """The memory flame chart ships an MB-axis ruler with gridlines (a
+    parallel to the timeline's time axis, using the same 1/2/5 pretty-ticks
+    algorithm). The axis helpers and DOM class names must be present in
+    the bundle."""
+    assert BUNDLE_PATH.exists(), f"missing bundle at {BUNDLE_PATH}"
+    src = BUNDLE_PATH.read_text(encoding="utf-8")
+    for sym in (
+        "pickNiceTickInterval",  # shared with the timeline axis
+        "formatMemoryTickLabel",
+        "renderMemoryAxis",
+        "renderMemoryGridlines",
+        "memory-axis",
+        "memory-gridlines",
+    ):
+        assert sym in src, (
+            f"expected {sym!r} in bundle — re-run "
+            f"`npx esbuild scalene-gui.ts --bundle ...` and commit"
+        )
+
+
+def test_bundle_timeline_tooltips_use_source_lookup() -> None:
+    """Timeline tooltips (on individual frame rectangles in the stitched
+    stacks timeline) must pull their source-line text from
+    ``profile.files`` via the same ``makeFileSourceLookup`` helper the
+    flame-chart tooltips use. This guards against a regression where
+    ``renderCombinedStacksTimeline`` silently stops passing the lookup
+    to ``renderTimelineFrames`` and tooltips lose their source-line
+    tail."""
+    assert BUNDLE_PATH.exists(), f"missing bundle at {BUNDLE_PATH}"
+    src = BUNDLE_PATH.read_text(encoding="utf-8")
+    # The helper has to exist; the renderer has to call it; and the
+    # timeline renderer has to receive it.
+    assert "makeFileSourceLookup" in src
+    assert "renderTimelineFrames" in src
+    # Find the renderCombinedStacksTimeline function body and verify it
+    # threads makeFileSourceLookup into the renderTimelineFrames call.
+    # esbuild output preserves identifier names by default (no minify in
+    # our build command), so both identifiers appear verbatim.
+    marker = "renderCombinedStacksTimeline"
+    start = src.find(f"function {marker}")
+    assert start != -1, f"{marker!r} definition not found in bundle"
+    # Cap the span at the next top-level function/export definition after
+    # this one so we don't accidentally match an unrelated later call.
+    end = src.find("function ", start + len(marker) + 10)
+    body = src[start:end] if end > start else src[start:]
+    assert "makeFileSourceLookup" in body, (
+        "renderCombinedStacksTimeline no longer constructs the file "
+        "source lookup — timeline tooltips will stop showing source "
+        "lines. Re-thread makeFileSourceLookup into renderTimelineFrames."
+    )
+    assert "renderTimelineFrames" in body, (
+        "renderCombinedStacksTimeline no longer calls renderTimelineFrames"
+    )
+
+
+def test_timeline_tooltip_source_line_reaches_embedded_profile(
+    tmp_path: pathlib.Path,
+) -> None:
+    """End-to-end-ish: a profile that references a source line via
+    combined_stacks_timeline must carry the corresponding source text
+    through to the rendered standalone HTML so the timeline tooltip
+    can read it at runtime. We don't evaluate the JS tooltip code
+    here; we just verify the data the runtime needs is reachable.
+
+    This complements test_bundle_timeline_tooltips_use_source_lookup
+    (which asserts the code path) by asserting the data path."""
+    marker = "leaf_user_code_line_abc123"
+    profile = _build_profile(with_combined_stacks=True)
+    # Override the files section to include a known source line at
+    # lineno 10, matching the first frame's line in _build_profile.
+    profile["files"]["demo.py"]["lines"] = [
+        # pad to reach lineno 10 so lines[9] == our marker line
+        *(
+            {
+                "lineno": i,
+                "line": f"# filler {i}",
+                "n_cpu_percent_python": 0,
+                "n_cpu_percent_c": 0,
+                "n_sys_percent": 0,
+                "n_core_utilization": 0,
+                "n_peak_mb": 0,
+                "n_avg_mb": 0,
+                "n_python_fraction": 0,
+                "n_copy_mb_s": 0,
+                "n_malloc_mb": 0,
+                "n_mallocs": 0,
+                "n_growth_mb": 0,
+                "n_usage_fraction": 0,
+                "n_gpu_percent": 0,
+                "n_gpu_avg_memory_mb": 0,
+                "n_gpu_peak_memory_mb": 0,
+                "memory_samples": [],
+            }
+            for i in range(1, 10)
+        ),
+        {
+            "lineno": 10,
+            "line": marker,
+            "n_cpu_percent_python": 0,
+            "n_cpu_percent_c": 0,
+            "n_sys_percent": 0,
+            "n_core_utilization": 0,
+            "n_peak_mb": 0,
+            "n_avg_mb": 0,
+            "n_python_fraction": 0,
+            "n_copy_mb_s": 0,
+            "n_malloc_mb": 0,
+            "n_mallocs": 0,
+            "n_growth_mb": 0,
+            "n_usage_fraction": 0,
+            "n_gpu_percent": 0,
+            "n_gpu_avg_memory_mb": 0,
+            "n_gpu_peak_memory_mb": 0,
+            "memory_samples": [],
+        },
+    ]
+    # Point the combined_stacks frame at demo.py:10 so makeFileSourceLookup
+    # will return the marker line at render time.
+    profile["combined_stacks"][0][0][0]["filename_or_module"] = "demo.py"
+    profile["combined_stacks"][0][0][0]["line"] = 10
+    profile["combined_stacks_timeline"] = [
+        {"t_sec": 0.0, "stack_index": 0, "count": 1}
+    ]
+    profile["elapsed_time_sec"] = 1.0
+
+    html = _render(tmp_path, profile)
+    assert marker in html, (
+        "the source text at demo.py:10 must be embedded somewhere in the "
+        "standalone HTML (via the files.lines section) so the runtime "
+        "timeline tooltip can look it up via makeFileSourceLookup"
+    )
+
+
+def test_static_html_has_no_experimental_badge(tmp_path: pathlib.Path) -> None:
+    """The timeline view is no longer labeled as "experimental".
+    Regression guard — future styling changes must not re-introduce a
+    warning-colored badge around it."""
+    profile = _build_profile(with_combined_stacks=True)
+    profile["combined_stacks_timeline"] = [
+        {"t_sec": 0.0, "stack_index": 0, "count": 1},
+    ]
+    profile["elapsed_time_sec"] = 1.0
+    html = _render(tmp_path, profile)
+    # Case-insensitive substring match on both the text and the Bootstrap
+    # badge class that previously wrapped it.
+    lowered = html.lower()
+    assert "experimental" not in lowered, (
+        "'experimental' text leaked into rendered timeline HTML"
+    )
+    assert "bg-warning text-dark" not in html, (
+        "the experimental warning-colored badge must not be rendered"
+    )
+
+
 def test_section_present_when_combined_stacks_populated(tmp_path: pathlib.Path) -> None:
     profile = _build_profile(with_combined_stacks=True)
     html = _render(tmp_path, profile)
