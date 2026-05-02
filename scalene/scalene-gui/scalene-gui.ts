@@ -1446,6 +1446,7 @@ function renderTimelineFrames(
   stacks: CombinedStackEntry[],
   totalSec: number,
   startSec: number,
+  sourceLookup?: (filename: string, line: number) => string,
 ): string {
   // Build segments per depth, then merge consecutive ones with the same location
   const segmentsByDepth: Map<number, MergedSegment[]> = new Map();
@@ -1497,14 +1498,27 @@ function renderTimelineFrames(
         (widthPct / 100) * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
       const color = timelineColor(f.display_name, f.kind);
       const top = depth * TIMELINE_ROW_HEIGHT;
-      const tooltip =
-        f.kind === "py"
-          ? `[py] ${f.display_name}\n${f.filename_or_module}:${f.line}\n` +
-            `${seg.startSec.toFixed(3)}s — ${seg.endSec.toFixed(3)}s ` +
-            `(${seg.totalHits} samples)`
-          : `[native] ${f.display_name}\n${f.filename_or_module}\n` +
-            `${seg.startSec.toFixed(3)}s — ${seg.endSec.toFixed(3)}s ` +
-            `(${seg.totalHits} samples)`;
+      // Match the flame-chart tooltip convention: show the source line
+      // text under the filename:lineno for py frames (resolved on demand
+      // from profile.files via the same lookup buildFlameTree uses — see
+      // P5). Native frames carry no source location, so skip.
+      const range = `${seg.startSec.toFixed(3)}s — ${seg.endSec.toFixed(3)}s`;
+      const samples = `(${seg.totalHits} samples)`;
+      let tooltip: string;
+      if (f.kind === "py") {
+        const codeLine =
+          sourceLookup && f.line !== null
+            ? sourceLookup(f.filename_or_module, f.line).trim()
+            : "";
+        const tail = codeLine ? `\n${codeLine}` : "";
+        tooltip =
+          `[py] ${f.display_name}\n${f.filename_or_module}:${f.line}\n` +
+          `${range} ${samples}${tail}`;
+      } else {
+        tooltip =
+          `[native] ${f.display_name}\n${f.filename_or_module}\n` +
+          `${range} ${samples}`;
+      }
       const label = showLabels ? escapeHtml(f.display_name) : "";
       const cursor =
         f.kind === "py" && f.line !== null ? "pointer" : "default";
@@ -1797,7 +1811,13 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
     `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
     `top:${mainTop}px;height:${mainHeight}px;background:#fafafa;` +
     `border:1px solid #ddd;box-sizing:border-box;">`;
-  s += renderTimelineFrames(runs, stacks, totalSec, startSec);
+  s += renderTimelineFrames(
+    runs,
+    stacks,
+    totalSec,
+    startSec,
+    makeFileSourceLookup(prof),
+  );
   s += `</div>`;
   s += `</div></div></div>`;
   return s;

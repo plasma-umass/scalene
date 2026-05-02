@@ -72013,7 +72013,7 @@ ${qty} (${pct}%)`;
     }
     return `native:${f2.filename_or_module}:${f2.display_name}`;
   }
-  function renderTimelineFrames(runs, stacks, totalSec, startSec) {
+  function renderTimelineFrames(runs, stacks, totalSec, startSec, sourceLookup) {
     const segmentsByDepth = /* @__PURE__ */ new Map();
     for (const run2 of runs) {
       const stackEntry = stacks[run2.stackIndex];
@@ -72054,11 +72054,21 @@ ${qty} (${pct}%)`;
         const showLabels = widthPct / 100 * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
         const color5 = timelineColor(f2.display_name, f2.kind);
         const top = depth * TIMELINE_ROW_HEIGHT;
-        const tooltip2 = f2.kind === "py" ? `[py] ${f2.display_name}
+        const range7 = `${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s`;
+        const samples = `(${seg.totalHits} samples)`;
+        let tooltip2;
+        if (f2.kind === "py") {
+          const codeLine = sourceLookup && f2.line !== null ? sourceLookup(f2.filename_or_module, f2.line).trim() : "";
+          const tail = codeLine ? `
+${codeLine}` : "";
+          tooltip2 = `[py] ${f2.display_name}
 ${f2.filename_or_module}:${f2.line}
-${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} samples)` : `[native] ${f2.display_name}
+${range7} ${samples}${tail}`;
+        } else {
+          tooltip2 = `[native] ${f2.display_name}
 ${f2.filename_or_module}
-${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} samples)`;
+${range7} ${samples}`;
+        }
         const label = showLabels ? escapeHtml(f2.display_name) : "";
         const cursor3 = f2.kind === "py" && f2.line !== null ? "pointer" : "default";
         const clickAttr = f2.kind === "py" && f2.line !== null ? ` onclick="vsNavigate('${escape(f2.filename_or_module)}',${f2.line})"` : "";
@@ -72209,7 +72219,13 @@ ${seg.startSec.toFixed(3)}s \u2014 ${seg.endSec.toFixed(3)}s (${seg.totalHits} s
       trackIoTop
     );
     s2 += `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;top:${mainTop}px;height:${mainHeight}px;background:#fafafa;border:1px solid #ddd;box-sizing:border-box;">`;
-    s2 += renderTimelineFrames(runs, stacks, totalSec, startSec);
+    s2 += renderTimelineFrames(
+      runs,
+      stacks,
+      totalSec,
+      startSec,
+      makeFileSourceLookup(prof)
+    );
     s2 += `</div>`;
     s2 += `</div></div></div>`;
     return s2;
