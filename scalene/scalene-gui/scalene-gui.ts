@@ -1983,37 +1983,72 @@ function renderThreadTrack(
   return s;
 }
 
-export function renderCombinedStacksTimeline(prof: Profile): string {
-  const events = prof.combined_stacks_timeline ?? [];
-  const stacks = prof.combined_stacks ?? [];
-  if (events.length === 0 || stacks.length === 0) return "";
+// Timeline view modes for multi-threaded profiles
+type TimelineViewMode = "interleaved" | "swimlanes" | number | null; // number/null = specific thread ID
 
-  const elapsed = prof.elapsed_time_sec ?? 0;
-  const { runs, totalSec, threadIds } = buildTimelineRuns(events, elapsed);
-  if (runs.length === 0 || totalSec <= 0) return "";
+// Cached timeline data for re-rendering on view mode change
+let cachedTimelineData: {
+  runs: TimelineRun[];
+  stacks: CombinedStackEntry[];
+  totalSec: number;
+  startSec: number;
+  threadIds: Set<number | null>;
+  threadColorMap: Map<number | null, string>;
+  isGcRun: boolean[];
+  isIoRun: boolean[];
+  maxDepth: number;
+  sourceLookup: ((filename: string, line: number) => string) | undefined;
+} | null = null;
 
-  const startSec = runs[0].startSec;
-  const threadColorMap = buildThreadColorMap(threadIds);
+function renderTimelineContent(
+  viewMode: TimelineViewMode,
+  runs: TimelineRun[],
+  stacks: CombinedStackEntry[],
+  totalSec: number,
+  startSec: number,
+  threadIds: Set<number | null>,
+  threadColorMap: Map<number | null, string>,
+  isGcRun: boolean[],
+  isIoRun: boolean[],
+  maxDepth: number,
+  sourceLookup?: (filename: string, line: number) => string,
+): string {
   const hasMultipleThreads = threadIds.size > 1;
 
-  // Pre-classify each run so the GC / I/O tracks don't redo the work.
-  let maxDepth = 0;
-  const isGcRun: boolean[] = new Array(runs.length).fill(false);
-  const isIoRun: boolean[] = new Array(runs.length).fill(false);
-  for (let i = 0; i < runs.length; i++) {
-    const stackEntry = stacks[runs[i].stackIndex];
-    if (!stackEntry) continue;
-    const frames = stackEntry[0];
-    if (frames.length > maxDepth) maxDepth = frames.length;
-    const c = classifyStack(frames);
-    isGcRun[i] = c.gc;
-    isIoRun[i] = c.io;
+  if (viewMode === "swimlanes" && hasMultipleThreads) {
+    return renderSwimlanesView(
+      runs, stacks, totalSec, startSec, threadIds, threadColorMap,
+      isGcRun, isIoRun, maxDepth, sourceLookup
+    );
+  } else if (viewMode !== "interleaved" && viewMode !== "swimlanes") {
+    // Specific thread filter
+    return renderFilteredThreadView(
+      viewMode, runs, stacks, totalSec, startSec, threadColorMap,
+      isGcRun, isIoRun, maxDepth, sourceLookup
+    );
+  } else {
+    // Interleaved (default)
+    return renderInterleavedView(
+      runs, stacks, totalSec, startSec, threadIds, threadColorMap,
+      isGcRun, isIoRun, maxDepth, sourceLookup
+    );
   }
+}
 
-  // Layout from the top down: axis ruler, gap, GC track, I/O track,
-  // Thread track (if multiple threads), spacer, main depth-stacked panel.
-  // Gridlines are a single overlay that spans the tracks + main panel
-  // (but not the axis itself, since the axis already has its own tick marks).
+function renderInterleavedView(
+  runs: TimelineRun[],
+  stacks: CombinedStackEntry[],
+  totalSec: number,
+  startSec: number,
+  threadIds: Set<number | null>,
+  threadColorMap: Map<number | null, string>,
+  isGcRun: boolean[],
+  isIoRun: boolean[],
+  maxDepth: number,
+  sourceLookup?: (filename: string, line: number) => string,
+): string {
+  const hasMultipleThreads = threadIds.size > 1;
+
   const axisTop = 0;
   const trackGcTop = axisTop + TIMELINE_AXIS_HEIGHT + TIMELINE_AXIS_GAP;
   const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
@@ -2028,7 +2063,259 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
 
   const axis = renderTimelineAxis(totalSec, startSec, axisTop);
 
-  // Build thread legend if multiple threads
+  let s =
+    `<div class="combined-stacks-timeline resizable-chart" style="position:relative;width:100%;` +
+    `height:${containerHeight}px;min-height:50px;max-height:80vh;border:1px solid #ccc;background:#f0f0f0;` +
+    `overflow:auto;resize:vertical;padding:0;">`;
+  s += axis.html;
+  s += renderTimelineGridlines(axis.tickOffsetsSec, totalSec, gridlinesTop, gridlinesHeight);
+  s += renderTimelineTrack("GC", "#d62728", runs, isGcRun, totalSec, startSec, trackGcTop);
+  s += renderTimelineTrack("I/O", "#1f77b4", runs, isIoRun, totalSec, startSec, trackIoTop);
+  if (hasMultipleThreads) {
+    s += renderThreadTrack(runs, threadColorMap, totalSec, startSec, trackThreadTop);
+  }
+  s +=
+    `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
+    `top:${mainTop}px;height:${mainHeight}px;background:#fafafa;` +
+    `border:1px solid #ddd;box-sizing:border-box;">`;
+  s += renderTimelineFrames(runs, stacks, totalSec, startSec, sourceLookup, threadColorMap);
+  s += `</div></div>`;
+  return s;
+}
+
+function renderSwimlanesView(
+  runs: TimelineRun[],
+  stacks: CombinedStackEntry[],
+  totalSec: number,
+  startSec: number,
+  threadIds: Set<number | null>,
+  threadColorMap: Map<number | null, string>,
+  isGcRun: boolean[],
+  isIoRun: boolean[],
+  maxDepth: number,
+  sourceLookup?: (filename: string, line: number) => string,
+): string {
+  // Sort threads: main first, then by ID
+  const sortedThreads = Array.from(threadIds).sort((a, b) => {
+    if (a === null) return -1;
+    if (b === null) return 1;
+    return a - b;
+  });
+
+  // Calculate max depth per thread
+  const threadMaxDepth: Map<number | null, number> = new Map();
+  for (const tid of sortedThreads) {
+    threadMaxDepth.set(tid, 1);
+  }
+  for (let i = 0; i < runs.length; i++) {
+    const run = runs[i];
+    const stackEntry = stacks[run.stackIndex];
+    if (!stackEntry) continue;
+    const depth = stackEntry[0].length;
+    const current = threadMaxDepth.get(run.threadId) ?? 1;
+    if (depth > current) {
+      threadMaxDepth.set(run.threadId, depth);
+    }
+  }
+
+  // Layout: axis, GC track, I/O track, then one swimlane per thread
+  const axisTop = 0;
+  const trackGcTop = axisTop + TIMELINE_AXIS_HEIGHT + TIMELINE_AXIS_GAP;
+  const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+
+  // Calculate swimlane positions
+  const SWIMLANE_LABEL_HEIGHT = 16;
+  const SWIMLANE_GAP = 8;
+  let currentTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+  const swimlanePositions: Map<number | null, { top: number; height: number }> = new Map();
+
+  for (const tid of sortedThreads) {
+    const depth = threadMaxDepth.get(tid) ?? 1;
+    const height = Math.max(depth, 1) * TIMELINE_ROW_HEIGHT;
+    swimlanePositions.set(tid, { top: currentTop + SWIMLANE_LABEL_HEIGHT, height });
+    currentTop += SWIMLANE_LABEL_HEIGHT + height + SWIMLANE_GAP;
+  }
+
+  const containerHeight = currentTop + 4;
+  const gridlinesTop = trackGcTop;
+  const gridlinesHeight = currentTop - gridlinesTop;
+
+  const axis = renderTimelineAxis(totalSec, startSec, axisTop);
+
+  let s =
+    `<div class="combined-stacks-timeline resizable-chart" style="position:relative;width:100%;` +
+    `height:${containerHeight}px;min-height:50px;max-height:80vh;border:1px solid #ccc;background:#f0f0f0;` +
+    `overflow:auto;resize:vertical;padding:0;">`;
+  s += axis.html;
+  s += renderTimelineGridlines(axis.tickOffsetsSec, totalSec, gridlinesTop, gridlinesHeight);
+  s += renderTimelineTrack("GC", "#d62728", runs, isGcRun, totalSec, startSec, trackGcTop);
+  s += renderTimelineTrack("I/O", "#1f77b4", runs, isIoRun, totalSec, startSec, trackIoTop);
+
+  // Render each swimlane
+  for (const tid of sortedThreads) {
+    const pos = swimlanePositions.get(tid)!;
+    const color = threadColorMap.get(tid) ?? "#888";
+    const label = tid === null ? "main" : `T${tid}`;
+
+    // Filter runs for this thread
+    const threadRuns = runs.filter(r => r.threadId === tid);
+    const threadIsGc = runs.map((r, i) => r.threadId === tid && isGcRun[i]);
+    const threadIsIo = runs.map((r, i) => r.threadId === tid && isIoRun[i]);
+
+    // Swimlane label
+    s +=
+      `<div style="position:absolute;left:0;top:${pos.top - SWIMLANE_LABEL_HEIGHT}px;` +
+      `width:${TIMELINE_LEFT_GUTTER_PX}px;height:${SWIMLANE_LABEL_HEIGHT}px;` +
+      `font-family:monospace;font-size:10px;font-weight:bold;` +
+      `line-height:${SWIMLANE_LABEL_HEIGHT}px;color:#333;` +
+      `text-align:right;padding-right:4px;box-sizing:border-box;">` +
+      `<span style="display:inline-block;width:8px;height:8px;background:${color};` +
+      `margin-right:4px;border-radius:2px;vertical-align:middle;"></span>${label}</div>`;
+
+    // Swimlane background
+    s +=
+      `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
+      `top:${pos.top}px;height:${pos.height}px;background:#fafafa;` +
+      `border:1px solid #ddd;border-left:3px solid ${color};box-sizing:border-box;">`;
+
+    // Render frames for this thread only
+    s += renderTimelineFrames(threadRuns, stacks, totalSec, startSec, sourceLookup, threadColorMap);
+    s += `</div>`;
+  }
+
+  s += `</div>`;
+  return s;
+}
+
+function renderFilteredThreadView(
+  threadId: number | null,
+  runs: TimelineRun[],
+  stacks: CombinedStackEntry[],
+  totalSec: number,
+  startSec: number,
+  threadColorMap: Map<number | null, string>,
+  isGcRun: boolean[],
+  isIoRun: boolean[],
+  maxDepth: number,
+  sourceLookup?: (filename: string, line: number) => string,
+): string {
+  // Filter runs for this thread
+  const filteredRuns = runs.filter(r => r.threadId === threadId);
+  const filteredIsGc: boolean[] = [];
+  const filteredIsIo: boolean[] = [];
+
+  for (let i = 0; i < runs.length; i++) {
+    if (runs[i].threadId === threadId) {
+      filteredIsGc.push(isGcRun[i]);
+      filteredIsIo.push(isIoRun[i]);
+    }
+  }
+
+  if (filteredRuns.length === 0) {
+    return `<div style="padding:20px;text-align:center;color:#666;">No samples for this thread</div>`;
+  }
+
+  // Calculate max depth for filtered runs
+  let filteredMaxDepth = 1;
+  for (const run of filteredRuns) {
+    const stackEntry = stacks[run.stackIndex];
+    if (stackEntry && stackEntry[0].length > filteredMaxDepth) {
+      filteredMaxDepth = stackEntry[0].length;
+    }
+  }
+
+  const axisTop = 0;
+  const trackGcTop = axisTop + TIMELINE_AXIS_HEIGHT + TIMELINE_AXIS_GAP;
+  const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const mainTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+  const mainHeight = Math.max(filteredMaxDepth, 1) * TIMELINE_ROW_HEIGHT;
+  const containerHeight = mainTop + mainHeight + 4;
+  const gridlinesTop = trackGcTop;
+  const gridlinesHeight = mainTop + mainHeight - gridlinesTop;
+
+  const axis = renderTimelineAxis(totalSec, startSec, axisTop);
+  const color = threadColorMap.get(threadId) ?? "#888";
+
+  let s =
+    `<div class="combined-stacks-timeline resizable-chart" style="position:relative;width:100%;` +
+    `height:${containerHeight}px;min-height:50px;max-height:80vh;border:1px solid #ccc;background:#f0f0f0;` +
+    `overflow:auto;resize:vertical;padding:0;">`;
+  s += axis.html;
+  s += renderTimelineGridlines(axis.tickOffsetsSec, totalSec, gridlinesTop, gridlinesHeight);
+  s += renderTimelineTrack("GC", "#d62728", filteredRuns, filteredIsGc, totalSec, startSec, trackGcTop);
+  s += renderTimelineTrack("I/O", "#1f77b4", filteredRuns, filteredIsIo, totalSec, startSec, trackIoTop);
+  s +=
+    `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
+    `top:${mainTop}px;height:${mainHeight}px;background:#fafafa;` +
+    `border:1px solid #ddd;border-left:3px solid ${color};box-sizing:border-box;">`;
+  s += renderTimelineFrames(filteredRuns, stacks, totalSec, startSec, sourceLookup, threadColorMap);
+  s += `</div></div>`;
+  return s;
+}
+
+export function changeTimelineViewMode(selectEl: HTMLSelectElement): void {
+  if (!cachedTimelineData) return;
+
+  const value = selectEl.value;
+  let viewMode: TimelineViewMode;
+  if (value === "interleaved") {
+    viewMode = "interleaved";
+  } else if (value === "swimlanes") {
+    viewMode = "swimlanes";
+  } else if (value === "main") {
+    viewMode = null;
+  } else {
+    viewMode = parseInt(value, 10);
+  }
+
+  const container = document.getElementById("timeline-content-container");
+  if (!container) return;
+
+  const { runs, stacks, totalSec, startSec, threadIds, threadColorMap,
+          isGcRun, isIoRun, maxDepth, sourceLookup } = cachedTimelineData;
+
+  container.innerHTML = renderTimelineContent(
+    viewMode, runs, stacks, totalSec, startSec, threadIds, threadColorMap,
+    isGcRun, isIoRun, maxDepth, sourceLookup
+  );
+}
+
+export function renderCombinedStacksTimeline(prof: Profile): string {
+  const events = prof.combined_stacks_timeline ?? [];
+  const stacks = prof.combined_stacks ?? [];
+  if (events.length === 0 || stacks.length === 0) return "";
+
+  const elapsed = prof.elapsed_time_sec ?? 0;
+  const { runs, totalSec, threadIds } = buildTimelineRuns(events, elapsed);
+  if (runs.length === 0 || totalSec <= 0) return "";
+
+  const startSec = runs[0].startSec;
+  const threadColorMap = buildThreadColorMap(threadIds);
+  const hasMultipleThreads = threadIds.size > 1;
+
+  // Pre-classify each run
+  let maxDepth = 0;
+  const isGcRun: boolean[] = new Array(runs.length).fill(false);
+  const isIoRun: boolean[] = new Array(runs.length).fill(false);
+  for (let i = 0; i < runs.length; i++) {
+    const stackEntry = stacks[runs[i].stackIndex];
+    if (!stackEntry) continue;
+    const frames = stackEntry[0];
+    if (frames.length > maxDepth) maxDepth = frames.length;
+    const c = classifyStack(frames);
+    isGcRun[i] = c.gc;
+    isIoRun[i] = c.io;
+  }
+
+  const sourceLookup = makeFileSourceLookup(prof);
+
+  // Cache data for view mode switching
+  cachedTimelineData = {
+    runs, stacks, totalSec, startSec, threadIds, threadColorMap,
+    isGcRun, isIoRun, maxDepth, sourceLookup
+  };
+
+  // Build thread legend
   let threadLegend = "";
   if (hasMultipleThreads) {
     threadLegend = " Threads: ";
@@ -2047,75 +2334,46 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
     }
   }
 
+  // Build view mode dropdown if multiple threads
+  let viewModeDropdown = "";
+  if (hasMultipleThreads) {
+    const sortedThreads = Array.from(threadIds).sort((a, b) => {
+      if (a === null) return -1;
+      if (b === null) return 1;
+      return a - b;
+    });
+    viewModeDropdown = `
+      <select id="timeline-view-mode" onchange="changeTimelineViewMode(this)"
+              style="margin-left:10px;font-size:12px;padding:2px 4px;">
+        <option value="interleaved">All threads (interleaved)</option>
+        <option value="swimlanes">Swimlanes (per-thread rows)</option>
+        <optgroup label="Single thread">`;
+    for (const tid of sortedThreads) {
+      const label = tid === null ? "main thread" : `Thread ${tid}`;
+      const value = tid === null ? "main" : tid.toString();
+      viewModeDropdown += `<option value="${value}">${label}</option>`;
+    }
+    viewModeDropdown += `</optgroup></select>`;
+  }
+
   let s = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
   s += `<p style="margin-bottom: 4px;">`;
   s += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
   s += ` <strong>Timeline</strong> `;
-  const threadInfo = hasMultipleThreads ? `; ${threadIds.size} threads (Thread track below I/O)` : "";
-  s += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s — x: time, y: stack depth (outermost on top); GC and I/O tracks shown above${threadInfo}</span>`;
+  const threadInfo = hasMultipleThreads ? `; ${threadIds.size} threads` : "";
+  s += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s — x: time, y: stack depth${threadInfo}</span>`;
+  s += viewModeDropdown;
   if (hasMultipleThreads) {
     s += `<br><span class="text-muted" style="font-size: 80%;">${threadLegend}</span>`;
   }
   s += `</p>`;
   s += `<div id="combined-timeline-body" style="display: none;">`;
-  s +=
-    `<div class="combined-stacks-timeline resizable-chart" style="position:relative;width:100%;` +
-    `height:${containerHeight}px;min-height:50px;max-height:80vh;border:1px solid #ccc;background:#f0f0f0;` +
-    `overflow:auto;resize:vertical;padding:0;">`;
-  // Axis first so gridlines (next) lay on top where the track row begins.
-  s += axis.html;
-  // Gridlines span the full tracks + main panel. pointer-events:none on the
-  // overlay keeps hover/click on the frames below it.
-  s += renderTimelineGridlines(
-    axis.tickOffsetsSec,
-    totalSec,
-    gridlinesTop,
-    gridlinesHeight,
+  s += `<div id="timeline-content-container">`;
+  // Default to interleaved view
+  s += renderTimelineContent(
+    "interleaved", runs, stacks, totalSec, startSec, threadIds, threadColorMap,
+    isGcRun, isIoRun, maxDepth, sourceLookup
   );
-  // Tracks live in their own absolute slots above the main panel.
-  // Bumping the track left by 60px so the labels don't overlap.
-  s += renderTimelineTrack(
-    "GC",
-    "#d62728",
-    runs,
-    isGcRun,
-    totalSec,
-    startSec,
-    trackGcTop,
-  );
-  s += renderTimelineTrack(
-    "I/O",
-    "#1f77b4",
-    runs,
-    isIoRun,
-    totalSec,
-    startSec,
-    trackIoTop,
-  );
-  // Thread track: color-coded by thread ID
-  if (hasMultipleThreads) {
-    s += renderThreadTrack(
-      runs,
-      threadColorMap,
-      totalSec,
-      startSec,
-      trackThreadTop,
-    );
-  }
-  // Main panel: shift right by 60px so it visually aligns with track bars.
-  s +=
-    `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
-    `top:${mainTop}px;height:${mainHeight}px;background:#fafafa;` +
-    `border:1px solid #ddd;box-sizing:border-box;">`;
-  s += renderTimelineFrames(
-    runs,
-    stacks,
-    totalSec,
-    startSec,
-    makeFileSourceLookup(prof),
-    threadColorMap,
-  );
-  s += `</div>`;
   s += `</div></div></div>`;
   return s;
 }
@@ -3014,6 +3272,7 @@ setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
 (window as unknown as Record<string, unknown>).toggleDisplay = toggleDisplay;
 (window as unknown as Record<string, unknown>).toggleCombinedStacks = toggleCombinedStacks;
 (window as unknown as Record<string, unknown>).toggleCombinedStacksTimeline = toggleCombinedStacksTimeline;
+(window as unknown as Record<string, unknown>).changeTimelineViewMode = changeTimelineViewMode;
 (window as unknown as Record<string, unknown>).toggleMemoryStacks = toggleMemoryStacks;
 (window as unknown as Record<string, unknown>).toggleReduced = toggleReduced;
 (window as unknown as Record<string, unknown>).onFileDisplayModeChange = onFileDisplayModeChange;
