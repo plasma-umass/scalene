@@ -107,7 +107,7 @@ class CombinedStackRun:
     timestamp: float
     stack_key: CombinedStackKey
     count: int
-    thread_id: int | None = None
+    thread_id: int | None  # Python thread ID, None for main/unknown
 
 
 @dataclass(frozen=True)
