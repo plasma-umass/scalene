@@ -203,7 +203,6 @@ _CPYTHON_RUNTIME_SYMBOL_PREFIXES = (
 )
 
 
-
 def _is_scalene_handler_frame(frame: _ResolvedNativeFrame) -> bool:
     if frame.symbol and "scalene_signal_unwinder" in frame.symbol:
         return True
@@ -247,8 +246,8 @@ _BACKGROUND_THREAD_ROOT_SYMBOLS = frozenset(
 
 _BACKGROUND_THREAD_ROOT_PREFIXES = (
     "__kmp_",  # OpenMP/Intel runtime
-    "gomp_",   # GNU OpenMP
-    "tbb_",    # Intel TBB
+    "gomp_",  # GNU OpenMP
+    "tbb_",  # Intel TBB
 )
 
 
