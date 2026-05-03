@@ -11,6 +11,7 @@ from scalene.scalene_statistics import (
     ByteCodeIndex,
     Filename,
     LineNumber,
+    PerThreadNativeStack,
     ScaleneStatistics,
 )
 from scalene.scalene_utility import (
@@ -19,6 +20,7 @@ from scalene.scalene_utility import (
     add_combined_stack,
     add_stack,
     enter_function_meta,
+    get_python_thread_id_for_native,
 )
 from scalene.time_info import TimeInfo
 
@@ -57,6 +59,7 @@ class ScaleneCPUProfiler:
         stacks_enabled: bool,
         native_drains: list[tuple[int, ...]] | None = None,
         suspended_async_tasks: list[Any] | None = None,
+        perthread_drains: list[PerThreadNativeStack] | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
@@ -73,6 +76,8 @@ class ScaleneCPUProfiler:
             native_drains: Native (C/C++) stacks captured by the C-level
                 signal-handler unwinder during this sampling pass; used to
                 build stitched Python+native stacks (combined_stacks).
+            perthread_drains: Per-thread native stacks from worker threads.
+                List of (thread_id, (ip, ip, ...)) tuples.
         """
         if not new_frames:
             return
@@ -311,6 +316,16 @@ class ScaleneCPUProfiler:
                         elapsed,
                     )
 
+        # Build a mapping from Python thread ID to native stacks for this sample
+        perthread_native_by_python_tid: dict[int, list[tuple[int, ...]]] = {}
+        if perthread_drains:
+            for entry in perthread_drains:
+                python_tid = get_python_thread_id_for_native(entry.thread_id)
+                if python_tid is not None:
+                    perthread_native_by_python_tid.setdefault(python_tid, []).append(
+                        entry.stack
+                    )
+
         # Process other threads
         for frame, tident, orig_frame in new_frames:
             if frame == main_thread_frame:
@@ -324,6 +339,19 @@ class ScaleneCPUProfiler:
                 average_c_time,
                 average_cpu_time,
             )
+
+            # If we have per-thread native stacks for this thread, build combined stacks
+            if stacks_enabled and tident in perthread_native_by_python_tid:
+                thread_native_drains = perthread_native_by_python_tid[tident]
+                add_combined_stack(
+                    frame,
+                    should_trace,
+                    thread_native_drains,
+                    self._stats.combined_stacks,
+                    timeline=self._stats.combined_stacks_timeline,
+                    timeline_cap=self._stats.combined_stacks_timeline_max_runs,
+                    timestamp=now.wallclock,
+                )
 
             fname = Filename(frame.f_code.co_filename)
             lineno = (

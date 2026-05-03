@@ -884,7 +884,10 @@ class ScaleneJSON:
                 # (e.g., OpenMP workers, pthread pools). These have thread-pool
                 # entry points at their root and shouldn't be stitched to the
                 # main Python thread's frame chain.
-                if _is_background_thread_stack(trimmed_leaf_first):
+                # BUT: keep stacks that have Python frames - these are Python
+                # worker threads captured via per-thread sampling and we want
+                # to show them.
+                if not py_segment and _is_background_thread_stack(trimmed_leaf_first):
                     continue
 
                 trimmed = list(reversed(trimmed_leaf_first))

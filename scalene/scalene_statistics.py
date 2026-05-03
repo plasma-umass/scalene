@@ -105,6 +105,25 @@ class CombinedStackRun:
     count: int
 
 
+@dataclass(frozen=True)
+class PerThreadNativeStack:
+    """A native stack captured from a worker thread via per-thread sampling.
+
+    The per-thread sampler sends SIGPROF to registered worker threads and
+    captures their native stacks into a ring buffer. This dataclass wraps
+    each captured sample with its thread ID for correlation with Python
+    frames.
+
+    Attributes:
+        thread_id: Native thread ID (e.g., from gettid on Linux, pthread_mach_thread_np on macOS).
+        stack: Tuple of instruction pointers, leaf-first (innermost frame first).
+    """
+
+    __slots__ = ("thread_id", "stack")
+    thread_id: int
+    stack: tuple[int, ...]
+
+
 class ProfilingSample:
     def __init__(
         self,
