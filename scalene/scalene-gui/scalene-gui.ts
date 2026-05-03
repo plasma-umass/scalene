@@ -109,6 +109,7 @@ interface Profile {
   memory: boolean;
   async_profile?: boolean;
   max_footprint_mb: number;
+  max_footprint_python_fraction?: number;
   native_allocations_mb?: number;
   elapsed_time_sec: number;
   samples: [number, number][];
@@ -118,6 +119,8 @@ interface Profile {
   combined_stacks?: CombinedStackEntry[];
   combined_stacks_timeline?: CombinedStackTimelineEvent[];
   memory_stacks?: CombinedStackEntry[];
+  /** Main thread ID for identifying main vs worker threads in timeline */
+  main_thread_id?: number | null;
 }
 
 interface CombinedStackTimelineEvent {
@@ -1545,9 +1548,9 @@ function timelineColor(name: string, kind: "py" | "native"): string {
 }
 
 // Color palette for threads. Uses high-saturation, perceptually distinct hues.
-// Main thread (null) gets a neutral gray, worker threads cycle through the palette.
+// Main thread gets a distinct blue, worker threads cycle through the rest.
 const THREAD_COLORS = [
-  "#4e79a7", // blue
+  "#4e79a7", // blue (main thread)
   "#f28e2b", // orange
   "#e15759", // red
   "#76b7b2", // teal
@@ -1559,29 +1562,35 @@ const THREAD_COLORS = [
   "#bab0ac", // gray
 ];
 
-function getThreadColor(threadId: number | null, threadIndex: number): string {
-  if (threadId === null) return "#888"; // main thread gets neutral gray
-  return THREAD_COLORS[threadIndex % THREAD_COLORS.length];
-}
-
-function buildThreadColorMap(threadIds: Set<number | null>): Map<number | null, string> {
+function buildThreadColorMap(
+  threadIds: Set<number | null>,
+  mainThreadId: number | null | undefined,
+): Map<number | null, string> {
   const colorMap = new Map<number | null, string>();
+  // Sort threads: main thread first, then by thread ID
   const sortedIds = Array.from(threadIds).sort((a, b) => {
-    // Main thread (null) first, then by thread ID
+    if (a === mainThreadId) return -1;
+    if (b === mainThreadId) return 1;
     if (a === null) return -1;
     if (b === null) return 1;
     return a - b;
   });
-  let workerIndex = 0;
+  let workerIndex = 1; // Start at 1 so main gets color[0]
   for (const tid of sortedIds) {
-    if (tid === null) {
-      colorMap.set(tid, "#888"); // main thread
+    if (tid === mainThreadId) {
+      colorMap.set(tid, THREAD_COLORS[0]); // main thread gets first color
     } else {
       colorMap.set(tid, THREAD_COLORS[workerIndex % THREAD_COLORS.length]);
       workerIndex++;
     }
   }
   return colorMap;
+}
+
+function getThreadLabel(threadId: number | null, mainThreadId: number | null | undefined): string {
+  if (threadId === mainThreadId) return "main";
+  if (threadId === null) return "unknown";
+  return `T${threadId}`;
 }
 
 interface TimelineRun {
@@ -1654,6 +1663,7 @@ function renderTimelineFrames(
   startSec: number,
   sourceLookup?: (filename: string, line: number) => string,
   threadColorMap?: Map<number | null, string>,
+  mainThreadId?: number | null,
 ): string {
   // Build segments per depth, then merge consecutive ones with the same location and thread
   const segmentsByDepth: Map<number, MergedSegment[]> = new Map();
@@ -1713,8 +1723,7 @@ function renderTimelineFrames(
       const top = depth * TIMELINE_ROW_HEIGHT;
       // Thread color for left border accent (if multiple threads)
       const threadColor = threadColorMap?.get(seg.threadId) ?? null;
-      const threadLabel =
-        seg.threadId === null ? "main thread" : `thread ${seg.threadId}`;
+      const threadLabel = getThreadLabel(seg.threadId, mainThreadId);
       // Match the flame-chart tooltip convention: show the source line
       // text under the filename:lineno for py frames (resolved on demand
       // from profile.files via the same lookup buildFlameTree uses — see
@@ -1951,6 +1960,7 @@ function renderTimelineTrack(
 function renderThreadTrack(
   runs: TimelineRun[],
   threadColorMap: Map<number | null, string>,
+  mainThreadId: number | null | undefined,
   totalSec: number,
   startSec: number,
   topPx: number,
@@ -1971,7 +1981,7 @@ function renderThreadTrack(
     const widthPct = ((run.endSec - run.startSec) / totalSec) * 100;
     if (widthPct <= 0) continue;
     const color = threadColorMap.get(run.threadId) ?? "#888";
-    const label = run.threadId === null ? "main" : `T${run.threadId}`;
+    const label = getThreadLabel(run.threadId, mainThreadId);
     s +=
       `<div class="flame-segment" style="position:absolute;` +
       `left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
@@ -1994,6 +2004,7 @@ let cachedTimelineData: {
   startSec: number;
   threadIds: Set<number | null>;
   threadColorMap: Map<number | null, string>;
+  mainThreadId: number | null | undefined;
   isGcRun: boolean[];
   isIoRun: boolean[];
   maxDepth: number;
@@ -2008,6 +2019,7 @@ function renderTimelineContent(
   startSec: number,
   threadIds: Set<number | null>,
   threadColorMap: Map<number | null, string>,
+  mainThreadId: number | null | undefined,
   isGcRun: boolean[],
   isIoRun: boolean[],
   maxDepth: number,
@@ -2017,19 +2029,19 @@ function renderTimelineContent(
 
   if (viewMode === "swimlanes" && hasMultipleThreads) {
     return renderSwimlanesView(
-      runs, stacks, totalSec, startSec, threadIds, threadColorMap,
+      runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
       isGcRun, isIoRun, maxDepth, sourceLookup
     );
   } else if (viewMode !== "interleaved" && viewMode !== "swimlanes") {
     // Specific thread filter
     return renderFilteredThreadView(
-      viewMode, runs, stacks, totalSec, startSec, threadColorMap,
+      viewMode, runs, stacks, totalSec, startSec, threadColorMap, mainThreadId,
       isGcRun, isIoRun, maxDepth, sourceLookup
     );
   } else {
     // Interleaved (default)
     return renderInterleavedView(
-      runs, stacks, totalSec, startSec, threadIds, threadColorMap,
+      runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
       isGcRun, isIoRun, maxDepth, sourceLookup
     );
   }
@@ -2042,6 +2054,7 @@ function renderInterleavedView(
   startSec: number,
   threadIds: Set<number | null>,
   threadColorMap: Map<number | null, string>,
+  mainThreadId: number | null | undefined,
   isGcRun: boolean[],
   isIoRun: boolean[],
   maxDepth: number,
@@ -2072,13 +2085,13 @@ function renderInterleavedView(
   s += renderTimelineTrack("GC", "#d62728", runs, isGcRun, totalSec, startSec, trackGcTop);
   s += renderTimelineTrack("I/O", "#1f77b4", runs, isIoRun, totalSec, startSec, trackIoTop);
   if (hasMultipleThreads) {
-    s += renderThreadTrack(runs, threadColorMap, totalSec, startSec, trackThreadTop);
+    s += renderThreadTrack(runs, threadColorMap, mainThreadId, totalSec, startSec, trackThreadTop);
   }
   s +=
     `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
     `top:${mainTop}px;height:${mainHeight}px;background:#fafafa;` +
     `border:1px solid #ddd;box-sizing:border-box;">`;
-  s += renderTimelineFrames(runs, stacks, totalSec, startSec, sourceLookup, threadColorMap);
+  s += renderTimelineFrames(runs, stacks, totalSec, startSec, sourceLookup, threadColorMap, mainThreadId);
   s += `</div></div>`;
   return s;
 }
@@ -2090,6 +2103,7 @@ function renderSwimlanesView(
   startSec: number,
   threadIds: Set<number | null>,
   threadColorMap: Map<number | null, string>,
+  mainThreadId: number | null | undefined,
   isGcRun: boolean[],
   isIoRun: boolean[],
   maxDepth: number,
@@ -2097,6 +2111,8 @@ function renderSwimlanesView(
 ): string {
   // Sort threads: main first, then by ID
   const sortedThreads = Array.from(threadIds).sort((a, b) => {
+    if (a === mainThreadId) return -1;
+    if (b === mainThreadId) return 1;
     if (a === null) return -1;
     if (b === null) return 1;
     return a - b;
@@ -2155,7 +2171,7 @@ function renderSwimlanesView(
   for (const tid of sortedThreads) {
     const pos = swimlanePositions.get(tid)!;
     const color = threadColorMap.get(tid) ?? "#888";
-    const label = tid === null ? "main" : `T${tid}`;
+    const label = getThreadLabel(tid, mainThreadId);
 
     // Filter runs for this thread
     const threadRuns = runs.filter(r => r.threadId === tid);
@@ -2179,7 +2195,7 @@ function renderSwimlanesView(
       `border:1px solid #ddd;border-left:3px solid ${color};box-sizing:border-box;">`;
 
     // Render frames for this thread only
-    s += renderTimelineFrames(threadRuns, stacks, totalSec, startSec, sourceLookup, threadColorMap);
+    s += renderTimelineFrames(threadRuns, stacks, totalSec, startSec, sourceLookup, threadColorMap, mainThreadId);
     s += `</div>`;
   }
 
@@ -2194,6 +2210,7 @@ function renderFilteredThreadView(
   totalSec: number,
   startSec: number,
   threadColorMap: Map<number | null, string>,
+  mainThreadId: number | null | undefined,
   isGcRun: boolean[],
   isIoRun: boolean[],
   maxDepth: number,
@@ -2248,7 +2265,7 @@ function renderFilteredThreadView(
     `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
     `top:${mainTop}px;height:${mainHeight}px;background:#fafafa;` +
     `border:1px solid #ddd;border-left:3px solid ${color};box-sizing:border-box;">`;
-  s += renderTimelineFrames(filteredRuns, stacks, totalSec, startSec, sourceLookup, threadColorMap);
+  s += renderTimelineFrames(filteredRuns, stacks, totalSec, startSec, sourceLookup, threadColorMap, mainThreadId);
   s += `</div></div>`;
   return s;
 }
@@ -2263,7 +2280,7 @@ export function changeTimelineViewMode(selectEl: HTMLSelectElement): void {
   } else if (value === "swimlanes") {
     viewMode = "swimlanes";
   } else if (value === "main") {
-    viewMode = null;
+    viewMode = cachedTimelineData.mainThreadId ?? null;
   } else {
     viewMode = parseInt(value, 10);
   }
@@ -2271,11 +2288,11 @@ export function changeTimelineViewMode(selectEl: HTMLSelectElement): void {
   const container = document.getElementById("timeline-content-container");
   if (!container) return;
 
-  const { runs, stacks, totalSec, startSec, threadIds, threadColorMap,
+  const { runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
           isGcRun, isIoRun, maxDepth, sourceLookup } = cachedTimelineData;
 
   container.innerHTML = renderTimelineContent(
-    viewMode, runs, stacks, totalSec, startSec, threadIds, threadColorMap,
+    viewMode, runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
     isGcRun, isIoRun, maxDepth, sourceLookup
   );
 }
@@ -2290,7 +2307,8 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
   if (runs.length === 0 || totalSec <= 0) return "";
 
   const startSec = runs[0].startSec;
-  const threadColorMap = buildThreadColorMap(threadIds);
+  const mainThreadId = prof.main_thread_id;
+  const threadColorMap = buildThreadColorMap(threadIds, mainThreadId);
   const hasMultipleThreads = threadIds.size > 1;
 
   // Pre-classify each run
@@ -2311,7 +2329,7 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
 
   // Cache data for view mode switching
   cachedTimelineData = {
-    runs, stacks, totalSec, startSec, threadIds, threadColorMap,
+    runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
     isGcRun, isIoRun, maxDepth, sourceLookup
   };
 
@@ -2320,13 +2338,15 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
   if (hasMultipleThreads) {
     threadLegend = " Threads: ";
     const sortedThreads = Array.from(threadIds).sort((a, b) => {
+      if (a === mainThreadId) return -1;
+      if (b === mainThreadId) return 1;
       if (a === null) return -1;
       if (b === null) return 1;
       return a - b;
     });
     for (const tid of sortedThreads) {
       const color = threadColorMap.get(tid) ?? "#888";
-      const label = tid === null ? "main" : `T${tid}`;
+      const label = getThreadLabel(tid, mainThreadId);
       threadLegend +=
         `<span style="display:inline-block;width:10px;height:10px;` +
         `background:${color};margin-right:2px;border-radius:2px;"></span>` +
@@ -2338,6 +2358,8 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
   let viewModeDropdown = "";
   if (hasMultipleThreads) {
     const sortedThreads = Array.from(threadIds).sort((a, b) => {
+      if (a === mainThreadId) return -1;
+      if (b === mainThreadId) return 1;
       if (a === null) return -1;
       if (b === null) return 1;
       return a - b;
@@ -2349,8 +2371,8 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
         <option value="swimlanes">Swimlanes (per-thread rows)</option>
         <optgroup label="Single thread">`;
     for (const tid of sortedThreads) {
-      const label = tid === null ? "main thread" : `Thread ${tid}`;
-      const value = tid === null ? "main" : tid.toString();
+      const label = tid === mainThreadId ? "main thread" : getThreadLabel(tid, mainThreadId);
+      const value = tid === mainThreadId ? "main" : (tid === null ? "unknown" : tid.toString());
       viewModeDropdown += `<option value="${value}">${label}</option>`;
     }
     viewModeDropdown += `</optgroup></select>`;
@@ -2371,7 +2393,7 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
   s += `<div id="timeline-content-container">`;
   // Default to interleaved view
   s += renderTimelineContent(
-    "interleaved", runs, stacks, totalSec, startSec, threadIds, threadColorMap,
+    "interleaved", runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
     isGcRun, isIoRun, maxDepth, sourceLookup
   );
   s += `</div></div></div>`;
@@ -2581,7 +2603,7 @@ async function display(prof: Profile): Promise<void> {
       makeMemoryBar(
         prof.max_footprint_mb.toFixed(2),
         "memory",
-        prof.max_footprint_python_fraction,
+        prof.max_footprint_python_fraction ?? 0,
         prof.max_footprint_mb.toFixed(2),
         "darkgreen",
         { height: 20, width: 150 }

@@ -32,6 +32,7 @@ from scalene.scalene_statistics import (
     ScaleneStatistics,
     StackStats,
 )
+from scalene.scalene_utility import _main_thread_id
 
 # Python `def` header regex shared between CPU- and memory-stack name
 # resolution. Captures the leading indent and the function name.
@@ -408,6 +409,9 @@ class ScaleneJSONSchema(BaseModel):
     combined_stacks_timeline: List[CombinedStackTimelineEvent] = Field(
         default_factory=list
     )
+    # Main thread ID for identifying the main thread in timeline views.
+    # Used by the GUI to distinguish main thread from worker threads.
+    main_thread_id: Optional[int] = None
     # Top-level aggregates emitted by the JSON writer but previously not
     # declared in the schema. Making them explicit lets pydantic enforce the
     # types (and catches regressions if future emitters drop or rename them).
@@ -1135,6 +1139,8 @@ class ScaleneJSON:
                 for frames, hits in combined_stks
             ],
             "combined_stacks_timeline": combined_stks_timeline,
+            # Main thread ID for GUI thread identification
+            "main_thread_id": _main_thread_id,
             # Memory-weighted Python stacks for the memory flame chart.
             # Each entry is (frames, mb). Only populated when --stacks and
             # --memory are both enabled.
