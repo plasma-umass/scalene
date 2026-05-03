@@ -38,6 +38,71 @@ from scalene.scalene_statistics import (
 _DEF_RE = re.compile(r"^(\s*)(?:async\s+)?def\s+([A-Za-z_][A-Za-z_0-9]*)\s*\(")
 
 
+# C++ symbol demangling. Uses ctypes to call __cxa_demangle from libc++abi
+# (macOS) or libstdc++ (Linux). Falls back to returning the mangled name if
+# demangling fails or is unavailable.
+_demangle_fn: Optional[Callable[[bytes], Optional[str]]] = None
+
+
+def _init_demangler() -> Optional[Callable[[bytes], Optional[str]]]:
+    """Initialize the C++ demangler by locating __cxa_demangle."""
+    import ctypes
+    import ctypes.util
+    import sys
+
+    # Try common library names for __cxa_demangle
+    lib_names: List[str] = []
+    if sys.platform == "darwin":
+        lib_names = ["libc++abi.dylib", "libc++abi.1.dylib"]
+    else:
+        # Linux: try libstdc++ first, then libc++abi
+        lib_names = ["libstdc++.so.6", "libc++abi.so.1", "libc++abi.so"]
+
+    for lib_name in lib_names:
+        try:
+            lib = ctypes.CDLL(lib_name)
+            demangle = lib.__cxa_demangle
+            demangle.argtypes = [
+                ctypes.c_char_p,  # mangled_name
+                ctypes.c_char_p,  # output_buffer (NULL for malloc)
+                ctypes.POINTER(ctypes.c_size_t),  # length (NULL)
+                ctypes.POINTER(ctypes.c_int),  # status
+            ]
+            demangle.restype = ctypes.c_char_p
+
+            def _demangle(mangled: bytes, _fn: Any = demangle) -> Optional[str]:
+                status = ctypes.c_int()
+                result: Optional[bytes] = _fn(mangled, None, None, ctypes.byref(status))
+                if status.value == 0 and result:
+                    return result.decode("utf-8", errors="replace")
+                return None
+
+            return _demangle
+        except (OSError, AttributeError):
+            continue
+    return None
+
+
+def demangle_symbol(symbol: str) -> str:
+    """Demangle a C++ symbol name. Returns the original if demangling fails."""
+    global _demangle_fn
+    if not symbol:
+        return symbol
+    # Only attempt demangling for mangled C++ symbols (start with _Z)
+    if not symbol.startswith("_Z"):
+        return symbol
+    if _demangle_fn is None:
+        _demangle_fn = _init_demangler()
+        if _demangle_fn is None:
+            # Demangling not available, return original
+            return symbol
+    try:
+        result = _demangle_fn(symbol.encode("utf-8"))
+        return result if result else symbol
+    except Exception:
+        return symbol
+
+
 class CombinedStackTimelineEvent(BaseModel):
     """One run-length-encoded entry in the JSON-serialized stitched-stacks
     timeline. ``t_sec`` is the start time of the run, normalized to seconds
@@ -153,6 +218,59 @@ def _is_cpython_runtime_frame(frame: _ResolvedNativeFrame) -> bool:
     if symbol in _CPYTHON_RUNTIME_SYMBOLS:
         return True
     return bool(symbol.startswith(_CPYTHON_RUNTIME_SYMBOL_PREFIXES))
+
+
+# Symbols that indicate a stack is from a background/worker thread rather than
+# the main Python thread. These appear at the root (outermost) of stacks from
+# threads spawned by libraries like OpenMP, pthread pools, etc.
+_BACKGROUND_THREAD_ROOT_SYMBOLS = frozenset(
+    {
+        # pthread thread entry points
+        "start_thread",
+        "_pthread_start",
+        "pthread_create",
+        "__pthread_create_2_1",
+        # macOS thread entry
+        "thread_start",
+        "_pthread_body",
+        # common worker pool patterns
+        "worker_thread",
+        "threadpool_thread",
+        # OpenMP runtime
+        "__kmp_launch_worker",
+        "__kmp_fork_barrier",
+        # Intel TBB
+        "tbb_thread_routine",
+    }
+)
+
+_BACKGROUND_THREAD_ROOT_PREFIXES = (
+    "__kmp_",  # OpenMP/Intel runtime
+    "gomp_",  # GNU OpenMP
+    "tbb_",  # Intel TBB
+)
+
+
+def _is_background_thread_stack(frames: List[_ResolvedNativeFrame]) -> bool:
+    """Check if this stack appears to be from a background/worker thread.
+
+    Background thread stacks have thread-pool or pthread entry points at
+    their root (outermost frame). These stacks shouldn't be stitched to
+    the main Python thread's frame chain.
+    """
+    if not frames:
+        return False
+    # Check the outermost frames (last in the list after trimming, since
+    # frames are leaf-first and we reversed them)
+    for frame in frames[-3:]:  # Check last 3 frames (outermost)
+        symbol = frame.symbol
+        if not symbol:
+            continue
+        if symbol in _BACKGROUND_THREAD_ROOT_SYMBOLS:
+            return True
+        if symbol.startswith(_BACKGROUND_THREAD_ROOT_PREFIXES):
+            return True
+    return False
 
 
 def _trim_native_stack(
@@ -706,6 +824,8 @@ class ScaleneJSON:
                     rep = _ResolvedNativeFrame(module="", symbol="", ip=ip, offset=0)
                 else:
                     module, symbol, offset = info
+                    # Demangle C++ symbols for better readability
+                    symbol = demangle_symbol(symbol)
                     rep = _ResolvedNativeFrame(
                         module=module, symbol=symbol, ip=ip, offset=offset
                     )
@@ -759,6 +879,14 @@ class ScaleneJSON:
                     resolved_leaf_first.append(_resolve(native_frame.ip))
                 resolved_leaf_first.reverse()
                 trimmed_leaf_first = _trim_native_stack(resolved_leaf_first)
+
+                # Skip stacks that appear to be from background/worker threads
+                # (e.g., OpenMP workers, pthread pools). These have thread-pool
+                # entry points at their root and shouldn't be stitched to the
+                # main Python thread's frame chain.
+                if _is_background_thread_stack(trimmed_leaf_first):
+                    continue
+
                 trimmed = list(reversed(trimmed_leaf_first))
 
                 out_frames: List[CombinedStackFrame] = []

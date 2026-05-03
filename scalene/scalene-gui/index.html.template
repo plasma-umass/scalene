@@ -256,6 +256,16 @@
         outline: 2px solid #333;
         z-index: 10;
     }
+    /* Resizable chart containers */
+    .resizable-chart {
+        resize: vertical;
+        overflow: auto;
+    }
+    .resizable-chart::-webkit-resizer {
+        background: linear-gradient(135deg, transparent 60%, #999 60%, #999 70%, transparent 70%),
+                    linear-gradient(135deg, transparent 75%, #999 75%, #999 85%, transparent 85%);
+        cursor: ns-resize;
+    }
     </style>
     <!-- Google Analytics - disabled in standalone mode for offline support (issue #982) -->
     {% if not standalone %}

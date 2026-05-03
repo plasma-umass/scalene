@@ -409,8 +409,8 @@ def add_combined_stack(
                     CombinedStackRun(timestamp=timestamp, stack_key=key, count=1)
                 )
             # If we hit the cap and the trailing run has a different key,
-            # we silently drop the new run; the aggregate combined_stacks
-            # still records the hit so totals remain correct.
+        # we silently drop the new run; the aggregate combined_stacks
+        # still records the hit so totals remain correct.
 
 
 def add_async_await_run(
