@@ -480,6 +480,7 @@ def add_combined_stack(
     timeline: Optional[List[CombinedStackRun]] = None,
     timeline_cap: int = 100000,
     timestamp: float = 0.0,
+    thread_id: Optional[int] = None,
 ) -> None:
     """Build stitched Python+native stacks for the current CPU sample.
 
@@ -496,8 +497,9 @@ def add_combined_stack(
 
     If ``timeline`` is provided, each stitched stack is also recorded as a
     run-length-encoded timeline entry: consecutive samples with the same
-    stack key extend the trailing run's count instead of appending new
-    entries. ``timestamp`` is the wallclock time of this sample.
+    stack key (and same thread_id) extend the trailing run's count instead
+    of appending new entries. ``timestamp`` is the wallclock time of this
+    sample. ``thread_id`` is the Python thread ID for per-thread views.
     """
     if not native_drains:
         return
@@ -533,11 +535,18 @@ def add_combined_stack(
         key: CombinedStackKey = py_chain_tuple + native_segment
         combined_stacks[key] += 1
         if timeline is not None:
-            if timeline and timeline[-1].stack_key == key:
+            # Merge with trailing run only if same stack AND same thread
+            if (
+                timeline
+                and timeline[-1].stack_key == key
+                and timeline[-1].thread_id == thread_id
+            ):
                 timeline[-1].count += 1
             elif len(timeline) < timeline_cap:
                 timeline.append(
-                    CombinedStackRun(timestamp=timestamp, stack_key=key, count=1)
+                    CombinedStackRun(
+                        timestamp=timestamp, stack_key=key, count=1, thread_id=thread_id
+                    )
                 )
             # If we hit the cap and the trailing run has a different key,
         # we silently drop the new run; the aggregate combined_stacks
@@ -551,6 +560,7 @@ def add_async_await_run(
     timeline: Optional[List[CombinedStackRun]] = None,
     timeline_cap: int = 100000,
     timestamp: float = 0.0,
+    thread_id: Optional[int] = None,
 ) -> bool:
     """Record one synthetic stitched-stack run per suspended async task.
 
@@ -566,6 +576,7 @@ def add_async_await_run(
     Each task's frame is added to ``combined_stacks`` (with hit count
     coalesced across calls) and to the RLE ``timeline`` (extending the
     trailing run when the same task stays suspended at the same line).
+    ``thread_id`` is included in timeline entries for per-thread views.
 
     Returns True iff at least one run was recorded — the caller uses
     this to decide whether to skip the regular ``add_combined_stack``
@@ -640,11 +651,18 @@ def add_async_await_run(
         key: CombinedStackKey = tuple(py_frames)
         combined_stacks[key] += 1
         if timeline is not None:
-            if timeline and timeline[-1].stack_key == key:
+            # Merge with trailing run only if same stack AND same thread
+            if (
+                timeline
+                and timeline[-1].stack_key == key
+                and timeline[-1].thread_id == thread_id
+            ):
                 timeline[-1].count += 1
             elif len(timeline) < timeline_cap:
                 timeline.append(
-                    CombinedStackRun(timestamp=timestamp, stack_key=key, count=1)
+                    CombinedStackRun(
+                        timestamp=timestamp, stack_key=key, count=1, thread_id=thread_id
+                    )
                 )
         recorded = True
     return recorded

@@ -108,12 +108,14 @@ class CombinedStackTimelineEvent(BaseModel):
     timeline. ``t_sec`` is the start time of the run, normalized to seconds
     since the first sample. ``stack_index`` is an index into
     ``ScaleneJSONSchema.combined_stacks``. ``count`` is the number of CPU
-    samples that fired this same stack consecutively.
+    samples that fired this same stack consecutively. ``thread_id`` identifies
+    which thread generated this sample (for per-thread views).
     """
 
     t_sec: NonNegativeFloat
     stack_index: NonNegativeInt
     count: PositiveInt
+    thread_id: Optional[int] = None  # Python thread ID, None for main/unknown
 
 
 @dataclass(frozen=True)
@@ -959,10 +961,12 @@ class ScaleneJSON:
                         continue
                     # Two adjacent runs may have collapsed to the same
                     # dedup_key (different raw IPs in the same function).
-                    # Merge them so the wire format stays compact.
+                    # Merge them so the wire format stays compact — but only
+                    # if they're from the same thread.
                     if (
                         combined_stks_timeline
                         and combined_stks_timeline[-1]["stack_index"] == idx
+                        and combined_stks_timeline[-1].get("thread_id") == run.thread_id
                     ):
                         combined_stks_timeline[-1]["count"] += run.count
                     else:
@@ -970,6 +974,7 @@ class ScaleneJSON:
                             t_sec=round(run.timestamp - t0, 6),
                             stack_index=idx,
                             count=run.count,
+                            thread_id=run.thread_id,
                         )
                         combined_stks_timeline.append(event.model_dump())
 

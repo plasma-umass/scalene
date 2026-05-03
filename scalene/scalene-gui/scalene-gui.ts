@@ -127,6 +127,8 @@ interface CombinedStackTimelineEvent {
   stack_index: number;
   /** Number of CPU samples that fired this same stack consecutively. */
   count: number;
+  /** Python thread ID (from threading.get_ident()), null for main/unknown. */
+  thread_id?: number | null;
 }
 
 interface Column {
@@ -1542,19 +1544,61 @@ function timelineColor(name: string, kind: "py" | "native"): string {
   return `hsl(${(hue + 30) % 360}, 70%, 65%)`;
 }
 
+// Color palette for threads. Uses high-saturation, perceptually distinct hues.
+// Main thread (null) gets a neutral gray, worker threads cycle through the palette.
+const THREAD_COLORS = [
+  "#4e79a7", // blue
+  "#f28e2b", // orange
+  "#e15759", // red
+  "#76b7b2", // teal
+  "#59a14f", // green
+  "#edc948", // yellow
+  "#b07aa1", // purple
+  "#ff9da7", // pink
+  "#9c755f", // brown
+  "#bab0ac", // gray
+];
+
+function getThreadColor(threadId: number | null, threadIndex: number): string {
+  if (threadId === null) return "#888"; // main thread gets neutral gray
+  return THREAD_COLORS[threadIndex % THREAD_COLORS.length];
+}
+
+function buildThreadColorMap(threadIds: Set<number | null>): Map<number | null, string> {
+  const colorMap = new Map<number | null, string>();
+  const sortedIds = Array.from(threadIds).sort((a, b) => {
+    // Main thread (null) first, then by thread ID
+    if (a === null) return -1;
+    if (b === null) return 1;
+    return a - b;
+  });
+  let workerIndex = 0;
+  for (const tid of sortedIds) {
+    if (tid === null) {
+      colorMap.set(tid, "#888"); // main thread
+    } else {
+      colorMap.set(tid, THREAD_COLORS[workerIndex % THREAD_COLORS.length]);
+      workerIndex++;
+    }
+  }
+  return colorMap;
+}
+
 interface TimelineRun {
   startSec: number;
   endSec: number;
   stackIndex: number;
   hits: number;
+  threadId: number | null;
 }
 
 function buildTimelineRuns(
   events: CombinedStackTimelineEvent[],
   totalElapsedSec: number,
-): { runs: TimelineRun[]; totalSec: number } {
-  if (events.length === 0) return { runs: [], totalSec: 0 };
+): { runs: TimelineRun[]; totalSec: number; threadIds: Set<number | null> } {
+  if (events.length === 0) return { runs: [], totalSec: 0, threadIds: new Set() };
   const runs: TimelineRun[] = [];
+  const threadIds = new Set<number | null>();
   // Each run's end is the next run's start; the last run's end is
   // either the explicit elapsed time (if larger) or its start plus a
   // small synthetic duration (so a single-sample run still has a
@@ -1572,16 +1616,19 @@ function buildTimelineRuns(
       end = Math.max(ev.t_sec, totalElapsedSec || synthetic, synthetic);
     }
     if (end <= ev.t_sec) end = ev.t_sec; // guard
+    const threadId = ev.thread_id ?? null;
+    threadIds.add(threadId);
     runs.push({
       startSec: ev.t_sec,
       endSec: end,
       stackIndex: ev.stack_index,
       hits: ev.count,
+      threadId,
     });
   }
   const totalSec =
     Math.max(totalElapsedSec, runs[runs.length - 1].endSec) - runs[0].startSec;
-  return { runs, totalSec };
+  return { runs, totalSec, threadIds };
 }
 
 interface MergedSegment {
@@ -1590,6 +1637,7 @@ interface MergedSegment {
   endSec: number;
   totalHits: number;
   depth: number;
+  threadId: number | null;
 }
 
 function frameKey(f: CombinedFrame): string {
@@ -1605,8 +1653,9 @@ function renderTimelineFrames(
   totalSec: number,
   startSec: number,
   sourceLookup?: (filename: string, line: number) => string,
+  threadColorMap?: Map<number | null, string>,
 ): string {
-  // Build segments per depth, then merge consecutive ones with the same location
+  // Build segments per depth, then merge consecutive ones with the same location and thread
   const segmentsByDepth: Map<number, MergedSegment[]> = new Map();
 
   for (const run of runs) {
@@ -1626,9 +1675,14 @@ function renderTimelineFrames(
       }
       const segments = segmentsByDepth.get(depth)!;
 
-      // Try to merge with the last segment if it has the same key and is adjacent
+      // Try to merge with the last segment if it has the same key, thread, and is adjacent
       const last = segments.length > 0 ? segments[segments.length - 1] : null;
-      if (last && frameKey(last.frame) === key && last.endSec === runStart) {
+      if (
+        last &&
+        frameKey(last.frame) === key &&
+        last.endSec === runStart &&
+        last.threadId === run.threadId
+      ) {
         last.endSec = runEnd;
         last.totalHits += run.hits;
       } else {
@@ -1638,6 +1692,7 @@ function renderTimelineFrames(
           endSec: runEnd,
           totalHits: run.hits,
           depth: depth,
+          threadId: run.threadId,
         });
       }
     }
@@ -1656,12 +1711,17 @@ function renderTimelineFrames(
         (widthPct / 100) * TIMELINE_BUCKETS >= TIMELINE_MIN_LABEL_WIDTH_PX / 2;
       const color = timelineColor(f.display_name, f.kind);
       const top = depth * TIMELINE_ROW_HEIGHT;
+      // Thread color for left border accent (if multiple threads)
+      const threadColor = threadColorMap?.get(seg.threadId) ?? null;
+      const threadLabel =
+        seg.threadId === null ? "main thread" : `thread ${seg.threadId}`;
       // Match the flame-chart tooltip convention: show the source line
       // text under the filename:lineno for py frames (resolved on demand
       // from profile.files via the same lookup buildFlameTree uses — see
       // P5). Native frames carry no source location, so skip.
       const range = `${seg.startSec.toFixed(3)}s — ${seg.endSec.toFixed(3)}s`;
       const samples = `(${seg.totalHits} samples)`;
+      const threadInfo = threadColorMap ? `\n[${threadLabel}]` : "";
       let tooltip: string;
       if (f.kind === "py") {
         const codeLine =
@@ -1671,11 +1731,11 @@ function renderTimelineFrames(
         const tail = codeLine ? `\n${codeLine}` : "";
         tooltip =
           `[py] ${f.display_name}\n${f.filename_or_module}:${f.line}\n` +
-          `${range} ${samples}${tail}`;
+          `${range} ${samples}${threadInfo}${tail}`;
       } else {
         tooltip =
           `[native] ${f.display_name}\n${f.filename_or_module}\n` +
-          `${range} ${samples}`;
+          `${range} ${samples}${threadInfo}`;
       }
       const label = showLabels ? escapeHtml(f.display_name) : "";
       const cursor =
@@ -1684,11 +1744,15 @@ function renderTimelineFrames(
         f.kind === "py" && f.line !== null
           ? ` onclick="vsNavigate('${escape(f.filename_or_module)}',${f.line})"`
           : "";
+      // Add colored left border accent when showing multiple threads
+      const borderStyle = threadColor
+        ? `border-left:3px solid ${threadColor};border-top:1px solid rgba(0,0,0,0.10);border-right:1px solid rgba(0,0,0,0.10);border-bottom:1px solid rgba(0,0,0,0.10);`
+        : `border:1px solid rgba(0,0,0,0.10);`;
       s +=
         `<div class="flame-segment" style="position:absolute;` +
         `top:${top}px;left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
         `height:${TIMELINE_ROW_HEIGHT - 1}px;background:${color};` +
-        `border:1px solid rgba(0,0,0,0.10);overflow:hidden;` +
+        `${borderStyle}overflow:hidden;` +
         `font-family:monospace;font-size:10px;` +
         `line-height:${TIMELINE_ROW_HEIGHT - 1}px;padding:0 2px;` +
         `white-space:nowrap;text-overflow:ellipsis;cursor:${cursor};` +
@@ -1884,16 +1948,53 @@ function renderTimelineTrack(
   return s;
 }
 
+function renderThreadTrack(
+  runs: TimelineRun[],
+  threadColorMap: Map<number | null, string>,
+  totalSec: number,
+  startSec: number,
+  topPx: number,
+): string {
+  let s = "";
+  s +=
+    `<div style="position:absolute;left:0;top:${topPx}px;` +
+    `width:${TIMELINE_LEFT_GUTTER_PX}px;height:${TIMELINE_TRACK_HEIGHT}px;` +
+    `font-family:monospace;font-size:10px;` +
+    `line-height:${TIMELINE_TRACK_HEIGHT}px;color:#444;` +
+    `text-align:right;padding-right:4px;box-sizing:border-box;">Thread</div>`;
+  s +=
+    `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
+    `top:${topPx}px;height:${TIMELINE_TRACK_HEIGHT}px;background:#f7f7f7;` +
+    `border:1px solid #ddd;box-sizing:border-box;">`;
+  for (const run of runs) {
+    const leftPct = ((run.startSec - startSec) / totalSec) * 100;
+    const widthPct = ((run.endSec - run.startSec) / totalSec) * 100;
+    if (widthPct <= 0) continue;
+    const color = threadColorMap.get(run.threadId) ?? "#888";
+    const label = run.threadId === null ? "main" : `T${run.threadId}`;
+    s +=
+      `<div class="flame-segment" style="position:absolute;` +
+      `left:${leftPct.toFixed(4)}%;width:${widthPct.toFixed(4)}%;` +
+      `top:0;height:100%;background:${color};` +
+      `box-sizing:border-box;" title="${escapeHtml(label)} during ` +
+      `${run.startSec.toFixed(3)}s — ${run.endSec.toFixed(3)}s"></div>`;
+  }
+  s += `</div>`;
+  return s;
+}
+
 export function renderCombinedStacksTimeline(prof: Profile): string {
   const events = prof.combined_stacks_timeline ?? [];
   const stacks = prof.combined_stacks ?? [];
   if (events.length === 0 || stacks.length === 0) return "";
 
   const elapsed = prof.elapsed_time_sec ?? 0;
-  const { runs, totalSec } = buildTimelineRuns(events, elapsed);
+  const { runs, totalSec, threadIds } = buildTimelineRuns(events, elapsed);
   if (runs.length === 0 || totalSec <= 0) return "";
 
   const startSec = runs[0].startSec;
+  const threadColorMap = buildThreadColorMap(threadIds);
+  const hasMultipleThreads = threadIds.size > 1;
 
   // Pre-classify each run so the GC / I/O tracks don't redo the work.
   let maxDepth = 0;
@@ -1910,14 +2011,16 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
   }
 
   // Layout from the top down: axis ruler, gap, GC track, I/O track,
-  // spacer, main depth-stacked panel. Gridlines are a single overlay that
-  // spans the tracks + main panel (but not the axis itself, since the
-  // axis already has its own tick marks).
+  // Thread track (if multiple threads), spacer, main depth-stacked panel.
+  // Gridlines are a single overlay that spans the tracks + main panel
+  // (but not the axis itself, since the axis already has its own tick marks).
   const axisTop = 0;
   const trackGcTop = axisTop + TIMELINE_AXIS_HEIGHT + TIMELINE_AXIS_GAP;
   const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
-  const mainTop =
-    trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+  const trackThreadTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const mainTop = hasMultipleThreads
+    ? trackThreadTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2
+    : trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
   const mainHeight = Math.max(maxDepth, 1) * TIMELINE_ROW_HEIGHT;
   const containerHeight = mainTop + mainHeight + 4;
   const gridlinesTop = trackGcTop;
@@ -1925,11 +2028,34 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
 
   const axis = renderTimelineAxis(totalSec, startSec, axisTop);
 
+  // Build thread legend if multiple threads
+  let threadLegend = "";
+  if (hasMultipleThreads) {
+    threadLegend = " Threads: ";
+    const sortedThreads = Array.from(threadIds).sort((a, b) => {
+      if (a === null) return -1;
+      if (b === null) return 1;
+      return a - b;
+    });
+    for (const tid of sortedThreads) {
+      const color = threadColorMap.get(tid) ?? "#888";
+      const label = tid === null ? "main" : `T${tid}`;
+      threadLegend +=
+        `<span style="display:inline-block;width:10px;height:10px;` +
+        `background:${color};margin-right:2px;border-radius:2px;"></span>` +
+        `<span style="margin-right:8px;">${label}</span>`;
+    }
+  }
+
   let s = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
   s += `<p style="margin-bottom: 4px;">`;
   s += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
   s += ` <strong>Timeline</strong> `;
-  s += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s — x: time, y: stack depth (outermost on top); GC and I/O tracks shown above</span>`;
+  const threadInfo = hasMultipleThreads ? `; ${threadIds.size} threads (Thread track below I/O)` : "";
+  s += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s — x: time, y: stack depth (outermost on top); GC and I/O tracks shown above${threadInfo}</span>`;
+  if (hasMultipleThreads) {
+    s += `<br><span class="text-muted" style="font-size: 80%;">${threadLegend}</span>`;
+  }
   s += `</p>`;
   s += `<div id="combined-timeline-body" style="display: none;">`;
   s +=
@@ -1966,6 +2092,16 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
     startSec,
     trackIoTop,
   );
+  // Thread track: color-coded by thread ID
+  if (hasMultipleThreads) {
+    s += renderThreadTrack(
+      runs,
+      threadColorMap,
+      totalSec,
+      startSec,
+      trackThreadTop,
+    );
+  }
   // Main panel: shift right by 60px so it visually aligns with track bars.
   s +=
     `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
@@ -1977,6 +2113,7 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
     totalSec,
     startSec,
     makeFileSourceLookup(prof),
+    threadColorMap,
   );
   s += `</div>`;
   s += `</div></div></div>`;

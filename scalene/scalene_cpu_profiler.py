@@ -165,6 +165,7 @@ class ScaleneCPUProfiler:
                         timeline=self._stats.combined_stacks_timeline,
                         timeline_cap=self._stats.combined_stacks_timeline_max_runs,
                         timestamp=now.wallclock,
+                        thread_id=_main_thread_id,
                     )
                 if not wrote_async_runs:
                     add_combined_stack(
@@ -175,6 +176,7 @@ class ScaleneCPUProfiler:
                         timeline=self._stats.combined_stacks_timeline,
                         timeline_cap=self._stats.combined_stacks_timeline_max_runs,
                         timestamp=now.wallclock,
+                        thread_id=_main_thread_id,
                     )
 
         enter_function_meta(main_thread_frame, should_trace, self._stats)
@@ -351,6 +353,7 @@ class ScaleneCPUProfiler:
                     timeline=self._stats.combined_stacks_timeline,
                     timeline_cap=self._stats.combined_stacks_timeline_max_runs,
                     timestamp=now.wallclock,
+                    thread_id=tident,
                 )
 
             fname = Filename(frame.f_code.co_filename)
