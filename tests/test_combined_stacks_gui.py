@@ -179,29 +179,45 @@ def test_timeline_tooltips_use_source_lookup() -> None:
     assignment with ``__name(..., "foo")`` runtime tagging). The code-
     flow wiring we want to assert lives at the source level; the bundle
     merely reflects it.
+
+    Note: With view-mode support (interleaved, swimlanes, single-thread),
+    renderCombinedStacksTimeline now calls renderTimelineContent which
+    dispatches to the appropriate view renderer. The source lookup is
+    passed through this chain, so we check for renderTimelineContent
+    in the main entry point and verify renderTimelineFrames receives
+    sourceLookup in the view renderers.
     """
     assert TS_SOURCE_PATH.exists(), f"missing TS source at {TS_SOURCE_PATH}"
     src = TS_SOURCE_PATH.read_text(encoding="utf-8")
     # The helper has to exist; the renderer has to call it; and the
-    # timeline renderer has to receive it.
+    # timeline renderer has to receive it through the dispatch chain.
     assert "makeFileSourceLookup" in src
     assert "renderTimelineFrames" in src
+    assert "renderTimelineContent" in src
     marker = "renderCombinedStacksTimeline"
-    start = src.find(f"function {marker}")
+    start = src.find(f"export function {marker}")
     assert start != -1, f"{marker!r} definition not found in TS source"
     # Cap the span at the next top-level function definition after
     # this one so we don't accidentally match an unrelated later call.
-    end = src.find("\nfunction ", start + len(marker) + 10)
+    end = src.find("\nexport function ", start + len(marker) + 10)
     if end == -1:
-        end = src.find("\nexport function ", start + len(marker) + 10)
+        end = src.find("\nfunction ", start + len(marker) + 10)
     body = src[start:end] if end > start else src[start:]
     assert "makeFileSourceLookup" in body, (
         "renderCombinedStacksTimeline no longer constructs the file "
         "source lookup — timeline tooltips will stop showing source "
         "lines. Re-thread makeFileSourceLookup into renderTimelineFrames."
     )
-    assert "renderTimelineFrames" in body, (
-        "renderCombinedStacksTimeline no longer calls renderTimelineFrames"
+    assert "renderTimelineContent" in body, (
+        "renderCombinedStacksTimeline no longer calls renderTimelineContent"
+    )
+    # Also verify the dispatch function passes sourceLookup to the view renderers
+    content_start = src.find("function renderTimelineContent")
+    assert content_start != -1, "renderTimelineContent not found in TS source"
+    content_end = src.find("\nfunction ", content_start + 30)
+    content_body = src[content_start:content_end] if content_end > content_start else src[content_start:]
+    assert "sourceLookup" in content_body, (
+        "renderTimelineContent must accept and pass sourceLookup to view renderers"
     )
 
 
