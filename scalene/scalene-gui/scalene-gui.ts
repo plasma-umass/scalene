@@ -1608,23 +1608,32 @@ function buildTimelineRuns(
   if (events.length === 0) return { runs: [], totalSec: 0, threadIds: new Set() };
   const runs: TimelineRun[] = [];
   const threadIds = new Set<number | null>();
-  // Each run's end is the next run's start; the last run's end is
-  // either the explicit elapsed time (if larger) or its start plus a
-  // small synthetic duration (so a single-sample run still has a
-  // visible width).
+
+  // Build a sorted list of unique timestamps to determine run durations.
+  // Multiple threads can be sampled at the same timestamp (concurrent execution),
+  // so each run's end should be the NEXT DISTINCT timestamp, not the next event.
+  const uniqueTimestamps = Array.from(new Set(events.map((e) => e.t_sec))).sort(
+    (a, b) => a - b
+  );
+  const timestampToNextTimestamp = new Map<number, number>();
+  for (let i = 0; i < uniqueTimestamps.length; i++) {
+    const nextTs = uniqueTimestamps[i + 1];
+    if (nextTs !== undefined) {
+      timestampToNextTimestamp.set(uniqueTimestamps[i], nextTs);
+    }
+  }
+
   for (let i = 0; i < events.length; i++) {
     const ev = events[i];
-    const next = events[i + 1];
     let end: number;
-    if (next) {
-      end = next.t_sec;
+    const nextTs = timestampToNextTimestamp.get(ev.t_sec);
+    if (nextTs !== undefined) {
+      end = nextTs;
     } else {
-      // Last run extends to elapsed_time, or — if elapsed_time isn't
-      // populated — uses a synthetic 1ms-per-sample tail.
+      // Last timestamp group: extend to elapsed_time or use synthetic duration
       const synthetic = ev.t_sec + ev.count * 0.001;
-      end = Math.max(ev.t_sec, totalElapsedSec || synthetic, synthetic);
+      end = Math.max(ev.t_sec + 0.001, totalElapsedSec || synthetic, synthetic);
     }
-    if (end <= ev.t_sec) end = ev.t_sec; // guard
     const threadId = ev.thread_id ?? null;
     threadIds.add(threadId);
     runs.push({
