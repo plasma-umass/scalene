@@ -92,6 +92,10 @@ class CombinedStackRun:
         stack_key: The stitched stack — same shape as the keys of
             ``ScaleneStatistics.combined_stacks``.
         count: Number of consecutive CPU samples in this run.
+        thread_id: Python thread ID (from threading.get_ident()) for the
+            thread that generated this sample. None for legacy data or
+            when thread info is unavailable. Used by the GUI to color-code
+            timeline entries and support per-thread views.
 
     Non-frozen so ``count`` can be incremented in place when the next
     sample hits the same stack. __slots__ drops the per-run overhead
@@ -99,10 +103,30 @@ class CombinedStackRun:
     can hold up to ``combined_stacks_timeline_max_runs`` (100K) entries.
     """
 
-    __slots__ = ("timestamp", "stack_key", "count")
+    __slots__ = ("timestamp", "stack_key", "count", "thread_id")
     timestamp: float
     stack_key: CombinedStackKey
     count: int
+    thread_id: int | None  # Python thread ID, None for main/unknown
+
+
+@dataclass(frozen=True)
+class PerThreadNativeStack:
+    """A native stack captured from a worker thread via per-thread sampling.
+
+    The per-thread sampler sends SIGPROF to registered worker threads and
+    captures their native stacks into a ring buffer. This dataclass wraps
+    each captured sample with its thread ID for correlation with Python
+    frames.
+
+    Attributes:
+        thread_id: Native thread ID (e.g., from gettid on Linux, pthread_mach_thread_np on macOS).
+        stack: Tuple of instruction pointers, leaf-first (innermost frame first).
+    """
+
+    __slots__ = ("thread_id", "stack")
+    thread_id: int
+    stack: tuple[int, ...]
 
 
 class ProfilingSample:

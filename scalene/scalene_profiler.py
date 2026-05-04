@@ -100,6 +100,7 @@ from scalene.scalene_statistics import (
     Filename,
     LineNumber,
     MemcpyProfilingSample,
+    PerThreadNativeStack,
     ProfilingSample,
     ScaleneStatistics,
 )
@@ -121,12 +122,18 @@ from scalene.scalene_utility import (
     clear_intern_caches,
     compute_frames_to_record,
     drain_native_stacks,
+    drain_perthread_stacks,
     enter_function_meta,
     generate_html,
     get_fully_qualified_name,
+    get_native_thread_id,
     install_native_stack_unwinder,
+    install_perthread_sampler,
     on_stack,
     patch_module_functions_with_signal_blocking,
+    register_thread_for_sampling,
+    signal_all_threads,
+    unregister_thread_from_sampling,
 )
 from scalene.time_info import TimeInfo, get_times
 
@@ -320,6 +327,7 @@ class Scalene:
         import scalene.replacement_pjoin
         import scalene.replacement_signal_fns
         import scalene.replacement_thread_join
+        import scalene.replacement_thread_start
 
         if sys.platform != "win32":
             import scalene.replacement_fork
@@ -832,6 +840,13 @@ class Scalene:
             install_native_stack_unwinder(
                 Scalene.__signal_manager.get_signals().cpu_signal
             )
+            # Install per-thread sampler on SIGPROF for worker thread stacks.
+            # This allows capturing native stacks from threads other than main.
+            # SIGPROF doesn't interfere with SIGVTALRM (CPU sampling) or
+            # SIGALRM (real-time mode).
+            install_perthread_sampler(signal.SIGPROF)
+            # Register the main thread so we track it in diagnostics
+            register_thread_for_sampling()
 
     @staticmethod
     def cpu_signal_handler(
@@ -877,8 +892,14 @@ class Scalene:
             # by the time this Python handler runs, the interrupted C call
             # has already returned to the bytecode interpreter.
             native_drains: list[tuple[int, ...]] = []
+            perthread_drains: list[PerThreadNativeStack] = []
             if Scalene.__args.stacks:
                 native_drains = drain_native_stacks(Scalene.__stats.native_stacks)
+                # Also trigger per-thread sampling for worker threads
+                # and drain their stacks. This captures native stacks
+                # from threads that aren't the main thread.
+                signal_all_threads()
+                perthread_drains = drain_perthread_stacks()
 
             # Async profiling snapshot: if the main thread is currently
             # blocked in the event loop, capture the list of suspended
@@ -914,6 +935,7 @@ class Scalene:
                 Scalene.__is_thread_sleeping,
                 native_drains,
                 suspended_async_tasks=suspended,
+                perthread_drains=perthread_drains,
             )
             # Advance library profiler schedules (e.g., torch profiler
             # periodic flush) to keep memory bounded.
@@ -1101,6 +1123,7 @@ class Scalene:
         is_thread_sleeping: dict[int, bool],
         native_drains: list[tuple[int, ...]] | None = None,
         suspended_async_tasks: list[Any] | None = None,
+        perthread_drains: list[PerThreadNativeStack] | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
@@ -1129,6 +1152,7 @@ class Scalene:
             Scalene.__args.stacks,
             native_drains or [],
             suspended_async_tasks=suspended_async_tasks,
+            perthread_drains=perthread_drains or [],
         )
 
     @staticmethod

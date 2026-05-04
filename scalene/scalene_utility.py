@@ -20,6 +20,7 @@ from scalene.scalene_statistics import (
     Filename,
     LineNumber,
     NativeFrameKey,
+    PerThreadNativeStack,
     PyFrameKey,
     ScaleneStatistics,
     StackFrame,
@@ -315,6 +316,136 @@ def install_native_stack_unwinder(sig: int) -> bool:
         return False
 
 
+# -------- Per-thread native stack sampling --------
+#
+# The main thread's native stack is captured via the chained signal handler
+# (install_native_stack_unwinder). Worker threads can be sampled by sending
+# them a separate signal (SIGPROF) via pthread_kill. Each thread's handler
+# captures its native stack with its thread ID into a separate ring buffer.
+
+_perthread_sampling_enabled = False
+
+# Mapping from native thread ID to Python thread ID
+# Updated by register_thread_for_sampling()
+_native_to_python_thread_id: Dict[int, int] = {}
+
+
+def install_perthread_sampler(sig: int) -> bool:
+    """Install a signal handler for per-thread native stack sampling.
+
+    Unlike install_native_stack_unwinder, this handler does NOT chain to
+    any previous handler. It should be used with SIGPROF (not the main CPU
+    sampling signal) to avoid interfering with the main sampling path.
+
+    Returns True on success, False if unsupported.
+    """
+    global _perthread_sampling_enabled
+    if not _native_unwind_available:
+        return False
+    try:
+        result = bool(_scalene_unwind.install_perthread_sampler(int(sig)))
+        _perthread_sampling_enabled = result
+        return result
+    except Exception:
+        return False
+
+
+def register_thread_for_sampling() -> int:
+    """Register the calling thread for per-thread native stack sampling.
+
+    Must be called from each worker thread that should be sampled.
+    Also records the mapping from native thread ID to Python thread ID.
+    Returns the slot index (>= 0) on success, -1 if unsupported or full.
+    """
+    global _native_to_python_thread_id
+    if not _native_unwind_available or not _perthread_sampling_enabled:
+        return -1
+    try:
+        slot = int(_scalene_unwind.register_thread())
+        if slot >= 0:
+            native_id = int(_scalene_unwind.get_thread_id())
+            python_id = threading.get_ident()
+            _native_to_python_thread_id[native_id] = python_id
+        return slot
+    except Exception:
+        return -1
+
+
+def unregister_thread_from_sampling() -> bool:
+    """Unregister the calling thread from per-thread sampling.
+
+    Should be called before thread exit to free the slot.
+    Also removes the thread ID mapping.
+    """
+    global _native_to_python_thread_id
+    if not _native_unwind_available:
+        return False
+    try:
+        # Remove from mapping
+        native_id = int(_scalene_unwind.get_thread_id())
+        _native_to_python_thread_id.pop(native_id, None)
+        return bool(_scalene_unwind.unregister_thread())
+    except Exception:
+        return False
+
+
+def signal_all_threads() -> Tuple[int, int]:
+    """Send the per-thread sampling signal to all registered threads.
+
+    Does not signal the calling thread (main thread samples via timer).
+    Returns (num_signaled, num_errors).
+    """
+    if not _native_unwind_available or not _perthread_sampling_enabled:
+        return (0, 0)
+    try:
+        result = _scalene_unwind.signal_all_threads()
+        return cast(Tuple[int, int], result)
+    except Exception:
+        return (0, 0)
+
+
+def drain_perthread_stacks() -> List[PerThreadNativeStack]:
+    """Drain per-thread native stacks captured since the last drain.
+
+    Returns a list of PerThreadNativeStack instances, one per sample.
+    Each contains the native thread ID and the stack (tuple of IPs).
+    """
+    if not _native_unwind_available:
+        return []
+    try:
+        raw_result = _scalene_unwind.drain_perthread_stacks()
+        # C extension returns list of (thread_id, (ip, ip, ...)) tuples;
+        # wrap each in a PerThreadNativeStack dataclass for type safety.
+        return [
+            PerThreadNativeStack(thread_id=tid, stack=tuple(stk))
+            for tid, stk in raw_result
+        ]
+    except Exception:
+        return []
+
+
+def get_native_thread_id() -> int:
+    """Get the native thread ID for the calling thread.
+
+    Useful for correlating per-thread samples with Python thread objects.
+    """
+    if not _native_unwind_available:
+        return 0
+    try:
+        return int(_scalene_unwind.get_thread_id())
+    except Exception:
+        return 0
+
+
+def get_python_thread_id_for_native(native_tid: int) -> Optional[int]:
+    """Get the Python thread ID corresponding to a native thread ID.
+
+    Returns None if the mapping is not found (thread not registered or
+    already unregistered).
+    """
+    return _native_to_python_thread_id.get(native_tid)
+
+
 def drain_native_stacks(
     native_stacks: Dict[Tuple[int, ...], int],
 ) -> List[Tuple[int, ...]]:
@@ -349,6 +480,7 @@ def add_combined_stack(
     timeline: Optional[List[CombinedStackRun]] = None,
     timeline_cap: int = 100000,
     timestamp: float = 0.0,
+    thread_id: Optional[int] = None,
 ) -> None:
     """Build stitched Python+native stacks for the current CPU sample.
 
@@ -365,8 +497,9 @@ def add_combined_stack(
 
     If ``timeline`` is provided, each stitched stack is also recorded as a
     run-length-encoded timeline entry: consecutive samples with the same
-    stack key extend the trailing run's count instead of appending new
-    entries. ``timestamp`` is the wallclock time of this sample.
+    stack key (and same thread_id) extend the trailing run's count instead
+    of appending new entries. ``timestamp`` is the wallclock time of this
+    sample. ``thread_id`` is the Python thread ID for per-thread views.
     """
     if not native_drains:
         return
@@ -402,11 +535,18 @@ def add_combined_stack(
         key: CombinedStackKey = py_chain_tuple + native_segment
         combined_stacks[key] += 1
         if timeline is not None:
-            if timeline and timeline[-1].stack_key == key:
+            # Merge with trailing run only if same stack AND same thread
+            if (
+                timeline
+                and timeline[-1].stack_key == key
+                and timeline[-1].thread_id == thread_id
+            ):
                 timeline[-1].count += 1
             elif len(timeline) < timeline_cap:
                 timeline.append(
-                    CombinedStackRun(timestamp=timestamp, stack_key=key, count=1)
+                    CombinedStackRun(
+                        timestamp=timestamp, stack_key=key, count=1, thread_id=thread_id
+                    )
                 )
             # If we hit the cap and the trailing run has a different key,
         # we silently drop the new run; the aggregate combined_stacks
@@ -420,6 +560,7 @@ def add_async_await_run(
     timeline: Optional[List[CombinedStackRun]] = None,
     timeline_cap: int = 100000,
     timestamp: float = 0.0,
+    thread_id: Optional[int] = None,
 ) -> bool:
     """Record one synthetic stitched-stack run per suspended async task.
 
@@ -435,6 +576,7 @@ def add_async_await_run(
     Each task's frame is added to ``combined_stacks`` (with hit count
     coalesced across calls) and to the RLE ``timeline`` (extending the
     trailing run when the same task stays suspended at the same line).
+    ``thread_id`` is included in timeline entries for per-thread views.
 
     Returns True iff at least one run was recorded — the caller uses
     this to decide whether to skip the regular ``add_combined_stack``
@@ -509,11 +651,18 @@ def add_async_await_run(
         key: CombinedStackKey = tuple(py_frames)
         combined_stacks[key] += 1
         if timeline is not None:
-            if timeline and timeline[-1].stack_key == key:
+            # Merge with trailing run only if same stack AND same thread
+            if (
+                timeline
+                and timeline[-1].stack_key == key
+                and timeline[-1].thread_id == thread_id
+            ):
                 timeline[-1].count += 1
             elif len(timeline) < timeline_cap:
                 timeline.append(
-                    CombinedStackRun(timestamp=timestamp, stack_key=key, count=1)
+                    CombinedStackRun(
+                        timestamp=timestamp, stack_key=key, count=1, thread_id=thread_id
+                    )
                 )
         recorded = True
     return recorded

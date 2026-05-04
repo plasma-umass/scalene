@@ -54,10 +54,21 @@
 #  define SCALENE_UNWIND_AVAILABLE 0
 #endif
 
+// For pthread_kill and gettid
+#if defined(__linux__)
+#  include <sys/syscall.h>
+#  include <unistd.h>
+#  include <pthread.h>
+#elif defined(__APPLE__)
+#  include <pthread.h>
+#endif
+
 namespace {
 
 constexpr int kMaxStackDepth = 64;
 constexpr int kRingSize = 4096;  // power of 2; must outpace one drain interval
+constexpr int kPerThreadRingSize = 1024;  // per-thread sampling ring
+constexpr int kMaxTrackedThreads = 256;   // max threads we track for sampling
 
 #if SCALENE_UNWIND_AVAILABLE
 
@@ -123,6 +134,75 @@ std::atomic<uint64_t> g_handler_invocations{0};  // diagnostic
 std::atomic<uint64_t> g_handler_unwound{0};      // diagnostic: nonzero unwinds
 
 struct sigaction g_prev_action[NSIG];
+
+// Forward declaration
+int unwind_signal_frame_into(void* ucontext, void** ips, int max_frames);
+
+// -------- Per-thread sampling infrastructure --------
+//
+// For sampling all threads, we use a separate signal (SIGPROF by default)
+// that doesn't chain to Python. Each thread's handler captures its stack
+// with its thread ID into a shared ring buffer.
+
+struct PerThreadStackEntry {
+  std::atomic<int> n;           // 0 = empty, >0 = valid stack
+  uint64_t thread_id;           // pthread_self() or similar
+  void* ips[kMaxStackDepth];
+};
+
+PerThreadStackEntry g_perthread_ring[kPerThreadRingSize];
+std::atomic<uint64_t> g_perthread_write_idx{0};
+uint64_t g_perthread_read_idx = 0;
+std::atomic<uint64_t> g_perthread_dropped{0};
+std::atomic<uint64_t> g_perthread_handler_count{0};
+
+// Signal used for per-thread sampling (set by install_perthread_sampler)
+std::atomic<int> g_perthread_signal{0};
+
+// Thread registry for pthread_kill broadcasting
+struct ThreadRegistry {
+  std::atomic<int> count{0};
+  pthread_t threads[kMaxTrackedThreads];
+  std::atomic<bool> valid[kMaxTrackedThreads];  // slot validity
+};
+ThreadRegistry g_thread_registry;
+
+// Get a unique thread ID (platform-specific)
+inline uint64_t get_thread_id() {
+#if defined(__linux__)
+  return static_cast<uint64_t>(syscall(SYS_gettid));
+#elif defined(__APPLE__)
+  uint64_t tid = 0;
+  pthread_threadid_np(nullptr, &tid);
+  return tid;
+#else
+  return reinterpret_cast<uint64_t>(pthread_self());
+#endif
+}
+
+// Per-thread signal handler - does NOT chain, just captures stack
+void perthread_signal_handler(int sig, siginfo_t* si, void* ucontext) {
+  (void)sig;
+  (void)si;
+
+  g_perthread_handler_count.fetch_add(1, std::memory_order_relaxed);
+
+  uint64_t idx = g_perthread_write_idx.fetch_add(1, std::memory_order_relaxed);
+  PerThreadStackEntry* e = &g_perthread_ring[idx % kPerThreadRingSize];
+
+  int prev_n = e->n.load(std::memory_order_relaxed);
+  if (prev_n != 0) {
+    g_perthread_dropped.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  void* tmp[kMaxStackDepth];
+  int n = unwind_signal_frame_into(ucontext, tmp, kMaxStackDepth);
+  if (n > 0) {
+    e->thread_id = get_thread_id();
+    std::memcpy(e->ips, tmp, n * sizeof(void*));
+  }
+  e->n.store(n, std::memory_order_release);
+}
 
 // Walk the interrupted stack starting from the kernel-supplied ucontext.
 // On Linux libunwind takes the ucontext directly via unw_init_local2 and
@@ -382,6 +462,196 @@ PyObject* py_diag_counts(PyObject* /*self*/, PyObject* /*args*/) {
 #endif
 }
 
+// -------- Per-thread sampling Python API --------
+
+PyObject* py_install_perthread_sampler(PyObject* /*self*/, PyObject* arg) {
+#if SCALENE_UNWIND_AVAILABLE
+  long sig_l = PyLong_AsLong(arg);
+  if (PyErr_Occurred()) return nullptr;
+  if (sig_l <= 0 || sig_l >= NSIG) {
+    PyErr_SetString(PyExc_ValueError, "signal number out of range");
+    return nullptr;
+  }
+  int sig = static_cast<int>(sig_l);
+
+  // Install our per-thread handler (no chaining needed)
+  struct sigaction sa;
+  std::memset(&sa, 0, sizeof(sa));
+  sa.sa_sigaction = perthread_signal_handler;
+  sa.sa_flags = SA_SIGINFO | SA_RESTART;
+  sigemptyset(&sa.sa_mask);
+
+  sigset_t blocked, prev_mask;
+  sigemptyset(&blocked);
+  sigaddset(&blocked, sig);
+  pthread_sigmask(SIG_BLOCK, &blocked, &prev_mask);
+
+  int rc = sigaction(sig, &sa, nullptr);
+  g_perthread_signal.store(sig, std::memory_order_release);
+
+  pthread_sigmask(SIG_SETMASK, &prev_mask, nullptr);
+
+  if (rc != 0) {
+    PyErr_SetFromErrno(PyExc_OSError);
+    return nullptr;
+  }
+  Py_RETURN_TRUE;
+#else
+  (void)arg;
+  Py_RETURN_FALSE;
+#endif
+}
+
+PyObject* py_register_thread(PyObject* /*self*/, PyObject* /*args*/) {
+#if SCALENE_UNWIND_AVAILABLE
+  pthread_t self = pthread_self();
+
+  // Find an empty slot or existing entry for this thread
+  for (int i = 0; i < kMaxTrackedThreads; i++) {
+    if (!g_thread_registry.valid[i].load(std::memory_order_acquire)) {
+      // Try to claim this slot
+      bool expected = false;
+      if (g_thread_registry.valid[i].compare_exchange_strong(
+              expected, true, std::memory_order_acq_rel)) {
+        g_thread_registry.threads[i] = self;
+        g_thread_registry.count.fetch_add(1, std::memory_order_relaxed);
+        return PyLong_FromLong(i);
+      }
+    } else if (pthread_equal(g_thread_registry.threads[i], self)) {
+      // Already registered
+      return PyLong_FromLong(i);
+    }
+  }
+  // Registry full
+  PyErr_SetString(PyExc_RuntimeError, "Thread registry full");
+  return nullptr;
+#else
+  return PyLong_FromLong(-1);
+#endif
+}
+
+PyObject* py_unregister_thread(PyObject* /*self*/, PyObject* /*args*/) {
+#if SCALENE_UNWIND_AVAILABLE
+  pthread_t self = pthread_self();
+
+  for (int i = 0; i < kMaxTrackedThreads; i++) {
+    if (g_thread_registry.valid[i].load(std::memory_order_acquire) &&
+        pthread_equal(g_thread_registry.threads[i], self)) {
+      g_thread_registry.valid[i].store(false, std::memory_order_release);
+      g_thread_registry.count.fetch_sub(1, std::memory_order_relaxed);
+      Py_RETURN_TRUE;
+    }
+  }
+  Py_RETURN_FALSE;
+#else
+  Py_RETURN_FALSE;
+#endif
+}
+
+PyObject* py_signal_all_threads(PyObject* /*self*/, PyObject* /*args*/) {
+#if SCALENE_UNWIND_AVAILABLE
+  int sig = g_perthread_signal.load(std::memory_order_acquire);
+  if (sig <= 0) {
+    PyErr_SetString(PyExc_RuntimeError,
+                    "Per-thread sampler not installed (call install_perthread_sampler first)");
+    return nullptr;
+  }
+
+  int signaled = 0;
+  int errors = 0;
+  pthread_t self = pthread_self();
+
+  for (int i = 0; i < kMaxTrackedThreads; i++) {
+    if (g_thread_registry.valid[i].load(std::memory_order_acquire)) {
+      pthread_t target = g_thread_registry.threads[i];
+      // Don't signal ourselves - the main thread gets sampled via the timer
+      if (!pthread_equal(target, self)) {
+        int rc = pthread_kill(target, sig);
+        if (rc == 0) {
+          signaled++;
+        } else if (rc == ESRCH) {
+          // Thread no longer exists, clean up
+          g_thread_registry.valid[i].store(false, std::memory_order_release);
+          g_thread_registry.count.fetch_sub(1, std::memory_order_relaxed);
+        } else {
+          errors++;
+        }
+      }
+    }
+  }
+
+  return Py_BuildValue("(ii)", signaled, errors);
+#else
+  return Py_BuildValue("(ii)", 0, 0);
+#endif
+}
+
+PyObject* py_drain_perthread_stacks(PyObject* /*self*/, PyObject* /*args*/) {
+#if SCALENE_UNWIND_AVAILABLE
+  uint64_t end = g_perthread_write_idx.load(std::memory_order_acquire);
+  uint64_t start = g_perthread_read_idx;
+  if (end - start > static_cast<uint64_t>(kPerThreadRingSize)) {
+    g_perthread_dropped.fetch_add((end - start) - kPerThreadRingSize,
+                                   std::memory_order_relaxed);
+    start = end - kPerThreadRingSize;
+  }
+
+  PyObject* result = PyList_New(0);
+  if (!result) return nullptr;
+
+  for (uint64_t i = start; i < end; i++) {
+    PerThreadStackEntry* e = &g_perthread_ring[i % kPerThreadRingSize];
+    int n = e->n.load(std::memory_order_acquire);
+    if (n <= 0) continue;
+
+    // Build (thread_id, (ip1, ip2, ...)) tuple
+    PyObject* ips = PyTuple_New(n);
+    if (!ips) { Py_DECREF(result); return nullptr; }
+    for (int j = 0; j < n; j++) {
+      PyObject* v = PyLong_FromVoidPtr(e->ips[j]);
+      if (!v) { Py_DECREF(ips); Py_DECREF(result); return nullptr; }
+      PyTuple_SET_ITEM(ips, j, v);
+    }
+
+    PyObject* entry = Py_BuildValue("(KN)",
+                                     (unsigned long long)e->thread_id,
+                                     ips);
+    if (!entry) { Py_DECREF(result); return nullptr; }
+    if (PyList_Append(result, entry) != 0) {
+      Py_DECREF(entry);
+      Py_DECREF(result);
+      return nullptr;
+    }
+    Py_DECREF(entry);
+    e->n.store(0, std::memory_order_release);
+  }
+  g_perthread_read_idx = end;
+  return result;
+#else
+  return PyList_New(0);
+#endif
+}
+
+PyObject* py_perthread_diag(PyObject* /*self*/, PyObject* /*args*/) {
+#if SCALENE_UNWIND_AVAILABLE
+  return Py_BuildValue("(iKKK)",
+      g_thread_registry.count.load(std::memory_order_relaxed),
+      (unsigned long long)g_perthread_handler_count.load(std::memory_order_relaxed),
+      (unsigned long long)g_perthread_write_idx.load(std::memory_order_relaxed),
+      (unsigned long long)g_perthread_dropped.load(std::memory_order_relaxed));
+#else
+  return Py_BuildValue("(iKKK)", 0, 0ULL, 0ULL, 0ULL);
+#endif
+}
+
+PyObject* py_get_thread_id(PyObject* /*self*/, PyObject* /*args*/) {
+#if SCALENE_UNWIND_AVAILABLE
+  return PyLong_FromUnsignedLongLong(get_thread_id());
+#else
+  return PyLong_FromLong(0);
+#endif
+}
+
 PyMethodDef methods[] = {
     {"unwind_native_stack", py_unwind_native_stack, METH_VARARGS,
      "Walk the calling thread's native stack now; return a tuple of IPs."},
@@ -403,6 +673,22 @@ PyMethodDef methods[] = {
      "for the given signal. If addrs don't match, our handler was replaced."},
     {"diag_counts", py_diag_counts, METH_NOARGS,
      "Diagnostic: (handler_invocations, successful_unwinds, write_idx)."},
+    // Per-thread sampling API
+    {"install_perthread_sampler", py_install_perthread_sampler, METH_O,
+     "Install a signal handler for per-thread sampling. Does not chain."},
+    {"register_thread", py_register_thread, METH_NOARGS,
+     "Register the calling thread for per-thread sampling. Returns slot index."},
+    {"unregister_thread", py_unregister_thread, METH_NOARGS,
+     "Unregister the calling thread from per-thread sampling."},
+    {"signal_all_threads", py_signal_all_threads, METH_NOARGS,
+     "Send the per-thread sampling signal to all registered threads (except self). "
+     "Returns (num_signaled, num_errors)."},
+    {"drain_perthread_stacks", py_drain_perthread_stacks, METH_NOARGS,
+     "Drain per-thread stacks. Returns list of (thread_id, (ip, ...)) tuples."},
+    {"perthread_diag", py_perthread_diag, METH_NOARGS,
+     "Diagnostic: (registered_threads, handler_count, write_idx, dropped)."},
+    {"get_thread_id", py_get_thread_id, METH_NOARGS,
+     "Get the native thread ID for the calling thread."},
     {nullptr, nullptr, 0, nullptr},
 };
 

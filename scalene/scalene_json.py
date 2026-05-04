@@ -32,6 +32,7 @@ from scalene.scalene_statistics import (
     ScaleneStatistics,
     StackStats,
 )
+from scalene.scalene_utility import _main_thread_id
 
 # Python `def` header regex shared between CPU- and memory-stack name
 # resolution. Captures the leading indent and the function name.
@@ -108,12 +109,14 @@ class CombinedStackTimelineEvent(BaseModel):
     timeline. ``t_sec`` is the start time of the run, normalized to seconds
     since the first sample. ``stack_index`` is an index into
     ``ScaleneJSONSchema.combined_stacks``. ``count`` is the number of CPU
-    samples that fired this same stack consecutively.
+    samples that fired this same stack consecutively. ``thread_id`` identifies
+    which thread generated this sample (for per-thread views).
     """
 
     t_sec: NonNegativeFloat
     stack_index: NonNegativeInt
     count: PositiveInt
+    thread_id: Optional[int] = None  # Python thread ID, None for main/unknown
 
 
 @dataclass(frozen=True)
@@ -406,6 +409,9 @@ class ScaleneJSONSchema(BaseModel):
     combined_stacks_timeline: List[CombinedStackTimelineEvent] = Field(
         default_factory=list
     )
+    # Main thread ID for identifying the main thread in timeline views.
+    # Used by the GUI to distinguish main thread from worker threads.
+    main_thread_id: Optional[int] = None
     # Top-level aggregates emitted by the JSON writer but previously not
     # declared in the schema. Making them explicit lets pydantic enforce the
     # types (and catches regressions if future emitters drop or rename them).
@@ -884,7 +890,10 @@ class ScaleneJSON:
                 # (e.g., OpenMP workers, pthread pools). These have thread-pool
                 # entry points at their root and shouldn't be stitched to the
                 # main Python thread's frame chain.
-                if _is_background_thread_stack(trimmed_leaf_first):
+                # BUT: keep stacks that have Python frames - these are Python
+                # worker threads captured via per-thread sampling and we want
+                # to show them.
+                if not py_segment and _is_background_thread_stack(trimmed_leaf_first):
                     continue
 
                 trimmed = list(reversed(trimmed_leaf_first))
@@ -956,10 +965,12 @@ class ScaleneJSON:
                         continue
                     # Two adjacent runs may have collapsed to the same
                     # dedup_key (different raw IPs in the same function).
-                    # Merge them so the wire format stays compact.
+                    # Merge them so the wire format stays compact — but only
+                    # if they're from the same thread.
                     if (
                         combined_stks_timeline
                         and combined_stks_timeline[-1]["stack_index"] == idx
+                        and combined_stks_timeline[-1].get("thread_id") == run.thread_id
                     ):
                         combined_stks_timeline[-1]["count"] += run.count
                     else:
@@ -967,6 +978,7 @@ class ScaleneJSON:
                             t_sec=round(run.timestamp - t0, 6),
                             stack_index=idx,
                             count=run.count,
+                            thread_id=run.thread_id,
                         )
                         combined_stks_timeline.append(event.model_dump())
 
@@ -1127,6 +1139,8 @@ class ScaleneJSON:
                 for frames, hits in combined_stks
             ],
             "combined_stacks_timeline": combined_stks_timeline,
+            # Main thread ID for GUI thread identification
+            "main_thread_id": _main_thread_id,
             # Memory-weighted Python stacks for the memory flame chart.
             # Each entry is (frames, mb). Only populated when --stacks and
             # --memory are both enabled.
