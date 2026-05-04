@@ -1413,7 +1413,7 @@ const TIMELINE_MIN_TICK_SPACING_PX = 60;
 // offset so ticks sit above their matching time slices.
 const TIMELINE_LEFT_GUTTER_PX = 60;
 
-type FrameClass = "gc" | "io" | "other";
+type FrameClass = "gc" | "io" | "gil" | "other";
 
 // Native symbols are typically `prefix_root_suffix` (e.g.
 // `select_kqueue_control_impl`, `_io_FileIO_read`, `os_read`,
@@ -1486,7 +1486,7 @@ const IO_NAME_PATTERNS = [
   // Underscore-prefixed variants (macOS/glibc internal names)
   /^__(?:read|write|pread|pwrite|recv|send|select|poll|open|close)$/,
   /^_(?:read|write|pread|pwrite|recv|send|select|poll|open|close)$/,
-  // pthread I/O-related blocking
+  // pthread blocking (when not GIL-related - GIL is detected separately)
   /^pthread_cond_wait$/,
   /^pthread_cond_timedwait$/,
   /^__psynch_cvwait$/,  // macOS condition variable
@@ -1495,6 +1495,12 @@ const IO_NAME_PATTERNS = [
   /^_io_FileIO_write$/,
   /^_io_BufferedReader_read/,
   /^_io_BufferedWriter_write/,
+];
+// GIL contention patterns - threads waiting to acquire the Global Interpreter Lock
+const GIL_NAME_PATTERNS = [
+  /^take_gil$/,
+  /^_PyEval_LockGIL$/,
+  /^PyGILState_Ensure$/,
 ];
 // File path patterns for Python I/O modules
 const IO_FILE_PATTERNS = [
@@ -1511,6 +1517,9 @@ function classifyFrame(f: CombinedFrame): FrameClass {
   for (const re of GC_NAME_PATTERNS) {
     if (re.test(name)) return "gc";
   }
+  for (const re of GIL_NAME_PATTERNS) {
+    if (re.test(name)) return "gil";
+  }
   for (const re of IO_NAME_PATTERNS) {
     if (re.test(name)) return "io";
   }
@@ -1525,16 +1534,22 @@ function classifyFrame(f: CombinedFrame): FrameClass {
 function classifyStack(stack: CombinedFrame[]): {
   gc: boolean;
   io: boolean;
+  gil: boolean;
 } {
   let gc = false;
   let io = false;
+  let gil = false;
   for (const f of stack) {
     const c = classifyFrame(f);
     if (c === "gc") gc = true;
+    else if (c === "gil") gil = true;
     else if (c === "io") io = true;
-    if (gc && io) break;
+    if (gc && io && gil) break;
   }
-  return { gc, io };
+  // GIL contention takes precedence over I/O classification when both are present
+  // (e.g., pthread_cond_wait inside take_gil is GIL, not I/O)
+  if (gil) io = false;
+  return { gc, io, gil };
 }
 
 function timelineColor(name: string, kind: "py" | "native"): string {
@@ -2016,6 +2031,7 @@ let cachedTimelineData: {
   mainThreadId: number | null | undefined;
   isGcRun: boolean[];
   isIoRun: boolean[];
+  isGilRun: boolean[];
   maxDepth: number;
   sourceLookup: ((filename: string, line: number) => string) | undefined;
 } | null = null;
@@ -2031,6 +2047,7 @@ function renderTimelineContent(
   mainThreadId: number | null | undefined,
   isGcRun: boolean[],
   isIoRun: boolean[],
+  isGilRun: boolean[],
   maxDepth: number,
   sourceLookup?: (filename: string, line: number) => string,
 ): string {
@@ -2039,19 +2056,19 @@ function renderTimelineContent(
   if (viewMode === "swimlanes" && hasMultipleThreads) {
     return renderSwimlanesView(
       runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
-      isGcRun, isIoRun, maxDepth, sourceLookup
+      isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup
     );
   } else if (viewMode !== "interleaved" && viewMode !== "swimlanes") {
     // Specific thread filter
     return renderFilteredThreadView(
       viewMode, runs, stacks, totalSec, startSec, threadColorMap, mainThreadId,
-      isGcRun, isIoRun, maxDepth, sourceLookup
+      isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup
     );
   } else {
     // Interleaved (default)
     return renderInterleavedView(
       runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
-      isGcRun, isIoRun, maxDepth, sourceLookup
+      isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup
     );
   }
 }
@@ -2066,6 +2083,7 @@ function renderInterleavedView(
   mainThreadId: number | null | undefined,
   isGcRun: boolean[],
   isIoRun: boolean[],
+  isGilRun: boolean[],
   maxDepth: number,
   sourceLookup?: (filename: string, line: number) => string,
 ): string {
@@ -2074,10 +2092,11 @@ function renderInterleavedView(
   const axisTop = 0;
   const trackGcTop = axisTop + TIMELINE_AXIS_HEIGHT + TIMELINE_AXIS_GAP;
   const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
-  const trackThreadTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const trackGilTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const trackThreadTop = trackGilTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
   const mainTop = hasMultipleThreads
     ? trackThreadTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2
-    : trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+    : trackGilTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
   const mainHeight = Math.max(maxDepth, 1) * TIMELINE_ROW_HEIGHT;
   const containerHeight = mainTop + mainHeight + 4;
   const gridlinesTop = trackGcTop;
@@ -2093,6 +2112,7 @@ function renderInterleavedView(
   s += renderTimelineGridlines(axis.tickOffsetsSec, totalSec, gridlinesTop, gridlinesHeight);
   s += renderTimelineTrack("GC", "#d62728", runs, isGcRun, totalSec, startSec, trackGcTop);
   s += renderTimelineTrack("I/O", "#1f77b4", runs, isIoRun, totalSec, startSec, trackIoTop);
+  s += renderTimelineTrack("GIL", "#9467bd", runs, isGilRun, totalSec, startSec, trackGilTop);
   if (hasMultipleThreads) {
     s += renderThreadTrack(runs, threadColorMap, mainThreadId, totalSec, startSec, trackThreadTop);
   }
@@ -2115,6 +2135,7 @@ function renderSwimlanesView(
   mainThreadId: number | null | undefined,
   isGcRun: boolean[],
   isIoRun: boolean[],
+  isGilRun: boolean[],
   maxDepth: number,
   sourceLookup?: (filename: string, line: number) => string,
 ): string {
@@ -2143,15 +2164,16 @@ function renderSwimlanesView(
     }
   }
 
-  // Layout: axis, GC track, I/O track, then one swimlane per thread
+  // Layout: axis, GC track, I/O track, GIL track, then one swimlane per thread
   const axisTop = 0;
   const trackGcTop = axisTop + TIMELINE_AXIS_HEIGHT + TIMELINE_AXIS_GAP;
   const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const trackGilTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
 
   // Calculate swimlane positions
   const SWIMLANE_LABEL_HEIGHT = 16;
   const SWIMLANE_GAP = 8;
-  let currentTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+  let currentTop = trackGilTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
   const swimlanePositions: Map<number | null, { top: number; height: number }> = new Map();
 
   for (const tid of sortedThreads) {
@@ -2175,6 +2197,7 @@ function renderSwimlanesView(
   s += renderTimelineGridlines(axis.tickOffsetsSec, totalSec, gridlinesTop, gridlinesHeight);
   s += renderTimelineTrack("GC", "#d62728", runs, isGcRun, totalSec, startSec, trackGcTop);
   s += renderTimelineTrack("I/O", "#1f77b4", runs, isIoRun, totalSec, startSec, trackIoTop);
+  s += renderTimelineTrack("GIL", "#9467bd", runs, isGilRun, totalSec, startSec, trackGilTop);
 
   // Render each swimlane
   for (const tid of sortedThreads) {
@@ -2222,6 +2245,7 @@ function renderFilteredThreadView(
   mainThreadId: number | null | undefined,
   isGcRun: boolean[],
   isIoRun: boolean[],
+  isGilRun: boolean[],
   maxDepth: number,
   sourceLookup?: (filename: string, line: number) => string,
 ): string {
@@ -2229,11 +2253,13 @@ function renderFilteredThreadView(
   const filteredRuns = runs.filter(r => r.threadId === threadId);
   const filteredIsGc: boolean[] = [];
   const filteredIsIo: boolean[] = [];
+  const filteredIsGil: boolean[] = [];
 
   for (let i = 0; i < runs.length; i++) {
     if (runs[i].threadId === threadId) {
       filteredIsGc.push(isGcRun[i]);
       filteredIsIo.push(isIoRun[i]);
+      filteredIsGil.push(isGilRun[i]);
     }
   }
 
@@ -2253,7 +2279,8 @@ function renderFilteredThreadView(
   const axisTop = 0;
   const trackGcTop = axisTop + TIMELINE_AXIS_HEIGHT + TIMELINE_AXIS_GAP;
   const trackIoTop = trackGcTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
-  const mainTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
+  const trackGilTop = trackIoTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP;
+  const mainTop = trackGilTop + TIMELINE_TRACK_HEIGHT + TIMELINE_TRACK_GAP * 2;
   const mainHeight = Math.max(filteredMaxDepth, 1) * TIMELINE_ROW_HEIGHT;
   const containerHeight = mainTop + mainHeight + 4;
   const gridlinesTop = trackGcTop;
@@ -2270,6 +2297,7 @@ function renderFilteredThreadView(
   s += renderTimelineGridlines(axis.tickOffsetsSec, totalSec, gridlinesTop, gridlinesHeight);
   s += renderTimelineTrack("GC", "#d62728", filteredRuns, filteredIsGc, totalSec, startSec, trackGcTop);
   s += renderTimelineTrack("I/O", "#1f77b4", filteredRuns, filteredIsIo, totalSec, startSec, trackIoTop);
+  s += renderTimelineTrack("GIL", "#9467bd", filteredRuns, filteredIsGil, totalSec, startSec, trackGilTop);
   s +=
     `<div style="position:absolute;left:${TIMELINE_LEFT_GUTTER_PX}px;right:0;` +
     `top:${mainTop}px;height:${mainHeight}px;background:#fafafa;` +
@@ -2298,11 +2326,11 @@ export function changeTimelineViewMode(selectEl: HTMLSelectElement): void {
   if (!container) return;
 
   const { runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
-          isGcRun, isIoRun, maxDepth, sourceLookup } = cachedTimelineData;
+          isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup } = cachedTimelineData;
 
   container.innerHTML = renderTimelineContent(
     viewMode, runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
-    isGcRun, isIoRun, maxDepth, sourceLookup
+    isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup
   );
 }
 
@@ -2324,6 +2352,7 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
   let maxDepth = 0;
   const isGcRun: boolean[] = new Array(runs.length).fill(false);
   const isIoRun: boolean[] = new Array(runs.length).fill(false);
+  const isGilRun: boolean[] = new Array(runs.length).fill(false);
   for (let i = 0; i < runs.length; i++) {
     const stackEntry = stacks[runs[i].stackIndex];
     if (!stackEntry) continue;
@@ -2332,6 +2361,7 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
     const c = classifyStack(frames);
     isGcRun[i] = c.gc;
     isIoRun[i] = c.io;
+    isGilRun[i] = c.gil;
   }
 
   const sourceLookup = makeFileSourceLookup(prof);
@@ -2339,7 +2369,7 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
   // Cache data for view mode switching
   cachedTimelineData = {
     runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
-    isGcRun, isIoRun, maxDepth, sourceLookup
+    isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup
   };
 
   // Build thread legend
@@ -2403,7 +2433,7 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
   // Default to interleaved view
   s += renderTimelineContent(
     "interleaved", runs, stacks, totalSec, startSec, threadIds, threadColorMap, mainThreadId,
-    isGcRun, isIoRun, maxDepth, sourceLookup
+    isGcRun, isIoRun, isGilRun, maxDepth, sourceLookup
   );
   s += `</div></div></div>`;
   return s;

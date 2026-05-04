@@ -137,8 +137,9 @@ class ScaleneCPUProfiler:
 
         # Process main thread
         main_thread_frame = new_frames[0][0]
+        main_thread_sleeping = is_thread_sleeping[_main_thread_id]
 
-        if stacks_enabled:
+        if stacks_enabled and not main_thread_sleeping:
             add_stack(
                 main_thread_frame,
                 should_trace,
@@ -333,28 +334,31 @@ class ScaleneCPUProfiler:
             if frame == main_thread_frame:
                 continue
 
-            add_stack(
-                frame,
-                should_trace,
-                self._stats.stacks,
-                average_python_time,
-                average_c_time,
-                average_cpu_time,
-            )
-
-            # If we have per-thread native stacks for this thread, build combined stacks
-            if stacks_enabled and tident in perthread_native_by_python_tid:
-                thread_native_drains = perthread_native_by_python_tid[tident]
-                add_combined_stack(
+            # Skip stacks for sleeping threads - they're not doing CPU work
+            thread_sleeping = is_thread_sleeping[tident]
+            if not thread_sleeping:
+                add_stack(
                     frame,
                     should_trace,
-                    thread_native_drains,
-                    self._stats.combined_stacks,
-                    timeline=self._stats.combined_stacks_timeline,
-                    timeline_cap=self._stats.combined_stacks_timeline_max_runs,
-                    timestamp=now.wallclock,
-                    thread_id=tident,
+                    self._stats.stacks,
+                    average_python_time,
+                    average_c_time,
+                    average_cpu_time,
                 )
+
+                # If we have per-thread native stacks for this thread, build combined stacks
+                if stacks_enabled and tident in perthread_native_by_python_tid:
+                    thread_native_drains = perthread_native_by_python_tid[tident]
+                    add_combined_stack(
+                        frame,
+                        should_trace,
+                        thread_native_drains,
+                        self._stats.combined_stacks,
+                        timeline=self._stats.combined_stacks_timeline,
+                        timeline_cap=self._stats.combined_stacks_timeline_max_runs,
+                        timestamp=now.wallclock,
+                        thread_id=tident,
+                    )
 
             fname = Filename(frame.f_code.co_filename)
             lineno = (
@@ -364,7 +368,7 @@ class ScaleneCPUProfiler:
             )
             enter_function_meta(frame, should_trace, self._stats)
 
-            if is_thread_sleeping[tident]:
+            if thread_sleeping:
                 continue
 
             self._update_thread_stats(
