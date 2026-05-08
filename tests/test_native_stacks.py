@@ -281,6 +281,24 @@ def test_handler_not_installed_by_default():
         except Exception as e:
             ld_so_preload = f"<err: {e}>"
         sys_path = sys.path[:5]
+        executable_info = "<n/a>"
+        try:
+            import subprocess as sp
+            r = sp.run(['file', sys.executable], capture_output=True, text=True, timeout=5)
+            executable_info = r.stdout.strip()
+        except Exception as e:
+            executable_info = f"<err: {e}>"
+        executable_link = "<n/a>"
+        try:
+            executable_link = os.readlink(sys.executable) if os.path.islink(sys.executable) else "<not symlink>"
+        except Exception as e:
+            executable_link = f"<err: {e}>"
+        sitecustomize_paths = []
+        for p in sys.path:
+            for name in ("sitecustomize.py", "usercustomize.py"):
+                fp = os.path.join(p, name)
+                if os.path.exists(fp):
+                    sitecustomize_paths.append(fp)
         from scalene import _scalene_unwind
         ld_preload_after_import = os.environ.get("LD_PRELOAD", "")
 
@@ -297,6 +315,9 @@ def test_handler_not_installed_by_default():
             "proc_environ_preload": proc_environ,
             "ld_so_preload": ld_so_preload,
             "sys_path": sys_path,
+            "executable_info": executable_info,
+            "executable_link": executable_link,
+            "sitecustomize_paths": sitecustomize_paths,
             "dyld": os.environ.get("DYLD_INSERT_LIBRARIES", ""),
             "executable": sys.executable,
         }))
