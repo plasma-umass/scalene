@@ -377,11 +377,11 @@ def test_scalene_subprocess_with_stacks_smoke(tmp_path):
 
 
 def test_scalene_subprocess_no_stacks_smoke(tmp_path):
-    """Default (no --stacks) must not produce combined_stacks, and must
-    not emit the (now-removed) ``native_stacks`` JSON key at all."""
-    profile = _run_scalene_or_skip(tmp_path)
+    """With --no-stacks, the profile must not produce combined_stacks,
+    and must not emit the (now-removed) ``native_stacks`` JSON key at all."""
+    profile = _run_scalene_or_skip(tmp_path, "--no-stacks")
     assert profile.get("combined_stacks", []) == [], (
-        "Expected empty combined_stacks without --stacks; got "
+        "Expected empty combined_stacks with --no-stacks; got "
         f"{len(profile.get('combined_stacks', []))} entries"
     )
     assert "native_stacks" not in profile, (
