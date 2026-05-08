@@ -91,6 +91,8 @@ def _run_helper_subprocess(code: str) -> dict:
         for k, v in os.environ.items()
         if k not in ("LD_PRELOAD", "DYLD_INSERT_LIBRARIES")
     }
+    print(f"DEBUG _run_helper_subprocess: parent ld_preload={os.environ.get('LD_PRELOAD','<unset>')!r} "
+          f"passed env keys with ld_preload={'LD_PRELOAD' in env}", file=sys.stderr)
     proc = subprocess.run(
         [sys.executable, "-c", textwrap.dedent(code)],
         capture_output=True,
