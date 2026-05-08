@@ -1174,7 +1174,7 @@ export function renderCombinedStacks(prof: Profile): string {
   let s = `<hr><div class="container-fluid combined-stacks-section">`;
   s += `<p style="margin-bottom: 4px;">`;
   s += `<span id="button-combined-stacks" class="disclosure-triangle" title="Click to show or hide stitched Python+native call stacks." onClick="toggleCombinedStacks()">${RightTriangle}</span>`;
-  s += ` <strong>Call stacks</strong> `;
+  s += ` <strong style="cursor: pointer;" title="Click to show or hide stitched Python+native call stacks." onClick="toggleCombinedStacks()">Call stacks</strong> `;
   s += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stitched stacks, ${totalHits} samples — hover for details, click a [py] frame to jump to its source line</span>`;
   s += `</p>`;
   s += `<div id="combined-stacks-body" style="display: none;">`;
@@ -1336,7 +1336,7 @@ export function renderMemoryStacks(prof: Profile): string {
   let s = `<hr><div class="container-fluid memory-stacks-section">`;
   s += `<p style="margin-bottom: 4px;">`;
   s += `<span id="button-memory-stacks" class="disclosure-triangle" title="Click to show or hide memory-weighted call stacks." onClick="toggleMemoryStacks()">${RightTriangle}</span>`;
-  s += ` <strong>Memory stacks</strong> `;
+  s += ` <strong style="cursor: pointer;" title="Click to show or hide memory-weighted call stacks." onClick="toggleMemoryStacks()">Memory stacks</strong> `;
   s += `<span class="text-muted" style="font-size: 80%;">${stacks.length} stacks, ${formatMb(totalMb)} attributed — frame widths are proportional to MB allocated; hover for details, click a frame to jump to its source line</span>`;
   s += `</p>`;
   s += `<div id="memory-stacks-body" style="display: none;">`;
@@ -2420,7 +2420,7 @@ export function renderCombinedStacksTimeline(prof: Profile): string {
   let s = `<hr><div class="container-fluid combined-stacks-timeline-section">`;
   s += `<p style="margin-bottom: 4px;">`;
   s += `<span id="button-combined-timeline" class="disclosure-triangle" title="Click to show or hide the timeline view." onClick="toggleCombinedStacksTimeline()">${RightTriangle}</span>`;
-  s += ` <strong>Timeline</strong> `;
+  s += ` <strong style="cursor: pointer;" title="Click to show or hide the timeline view." onClick="toggleCombinedStacksTimeline()">Timeline</strong> `;
   const threadInfo = hasMultipleThreads ? `; ${threadIds.size} threads` : "";
   s += `<span class="text-muted" style="font-size: 80%;">${runs.length} runs over ${totalSec.toFixed(2)}s — x: time, y: stack depth${threadInfo}</span>`;
   s += viewModeDropdown;
@@ -2779,7 +2779,7 @@ async function display(prof: Profile): Promise<void> {
     s += `<br /><span id="button-${id}" class="disclosure-triangle" title="Click to show or hide profile." onClick="toggleDisplay('${id}')">`;
     s += `${triangle}`;
     s += "</span>";
-    s += `<code> ${ff[0]}</code>`;
+    s += `<code style="cursor: pointer;" title="Click to show or hide profile." onClick="toggleDisplay('${id}')"> ${ff[0]}</code>`;
     s += ` <select id="display-mode-${id}" style="font-size: 80%; margin-left: 10px;" onchange="onFileDisplayModeChange('${id}')">`;
     s += `<option value="profiled-functions" selected>profiled functions</option>`;
     s += `<option value="profiled-lines">profiled lines only</option>`;
