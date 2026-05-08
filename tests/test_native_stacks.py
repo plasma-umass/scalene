@@ -258,8 +258,18 @@ def test_handler_not_installed_by_default():
     in the main pytest process.
     """
     result = _run_helper_subprocess("""
+        import os, sys
+        sys.stderr.write(f"DEBUG_CHILD start LD_PRELOAD={os.environ.get('LD_PRELOAD','<unset>')!r} argv={sys.argv}\\n")
+        sys.stderr.write(f"DEBUG_CHILD start cwd={os.getcwd()} executable={sys.executable}\\n")
+        # Read /proc/self/environ to see real env
+        try:
+            with open('/proc/self/environ', 'rb') as f:
+                raw = f.read().decode('utf-8', errors='replace').split('\\x00')
+            preload_lines = [x for x in raw if 'PRELOAD' in x or 'DYLD' in x]
+            sys.stderr.write(f"DEBUG_CHILD /proc/self/environ preload-related: {preload_lines}\\n")
+        except Exception as e:
+            sys.stderr.write(f"DEBUG_CHILD /proc/self/environ read failed: {e}\\n")
         import json
-        import os
         import signal
         ld_preload_before_import = os.environ.get("LD_PRELOAD", "")
         from scalene import _scalene_unwind
