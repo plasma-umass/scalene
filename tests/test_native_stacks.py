@@ -256,7 +256,9 @@ def test_handler_not_installed_by_default():
         import json
         import os
         import signal
+        ld_preload_before_import = os.environ.get("LD_PRELOAD", "")
         from scalene import _scalene_unwind
+        ld_preload_after_import = os.environ.get("LD_PRELOAD", "")
 
         sig = signal.SIGALRM
         cur0, ours0, _f0 = _scalene_unwind.handler_status(sig)
@@ -266,7 +268,8 @@ def test_handler_not_installed_by_default():
             "installed": cur == ours,
             "cur0": cur0, "ours0": ours0,
             "cur": cur, "ours": ours,
-            "ld_preload": os.environ.get("LD_PRELOAD", ""),
+            "ld_preload_before_import": ld_preload_before_import,
+            "ld_preload_after_import": ld_preload_after_import,
             "dyld": os.environ.get("DYLD_INSERT_LIBRARIES", ""),
         }))
     """)
