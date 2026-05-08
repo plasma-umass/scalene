@@ -258,20 +258,15 @@ def test_handler_not_installed_by_default():
     in the main pytest process.
     """
     result = _run_helper_subprocess("""
-        import os, sys
-        sys.stderr.write(f"DEBUG_CHILD start LD_PRELOAD={os.environ.get('LD_PRELOAD','<unset>')!r} argv={sys.argv}\\n")
-        sys.stderr.write(f"DEBUG_CHILD start cwd={os.getcwd()} executable={sys.executable}\\n")
-        # Read /proc/self/environ to see real env
+        import os, sys, json, signal
+        ld_preload_before_import = os.environ.get("LD_PRELOAD", "")
+        proc_environ = "<n/a>"
         try:
             with open('/proc/self/environ', 'rb') as f:
-                raw = f.read().decode('utf-8', errors='replace').split('\\x00')
-            preload_lines = [x for x in raw if 'PRELOAD' in x or 'DYLD' in x]
-            sys.stderr.write(f"DEBUG_CHILD /proc/self/environ preload-related: {preload_lines}\\n")
+                raw = f.read().decode('utf-8', errors='replace').split(chr(0))
+            proc_environ = [x for x in raw if 'PRELOAD' in x or 'DYLD' in x] or "<no preload>"
         except Exception as e:
-            sys.stderr.write(f"DEBUG_CHILD /proc/self/environ read failed: {e}\\n")
-        import json
-        import signal
-        ld_preload_before_import = os.environ.get("LD_PRELOAD", "")
+            proc_environ = f"<err: {e}>"
         from scalene import _scalene_unwind
         ld_preload_after_import = os.environ.get("LD_PRELOAD", "")
 
@@ -285,7 +280,9 @@ def test_handler_not_installed_by_default():
             "cur": cur, "ours": ours,
             "ld_preload_before_import": ld_preload_before_import,
             "ld_preload_after_import": ld_preload_after_import,
+            "proc_environ_preload": proc_environ,
             "dyld": os.environ.get("DYLD_INSERT_LIBRARIES", ""),
+            "executable": sys.executable,
         }))
     """)
     assert result["installed"] is False, (
