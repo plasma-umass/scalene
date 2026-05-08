@@ -118,7 +118,24 @@ def _run_helper_subprocess(code: str) -> dict:
             capture_output=True, text=True, timeout=10,
             env={"PATH": "/usr/bin:/bin"},
         )
-        print(f"DEBUG env_check stdout={env_check.stdout!r} stderr={env_check.stderr!r}", file=sys.stderr)
+        print(f"DEBUG env_check_sh stdout={env_check.stdout!r} stderr={env_check.stderr!r}", file=sys.stderr)
+        # Now do the same check via python directly, before any imports/setup.
+        env_check_py = subprocess.run(
+            [sys.executable, "-c",
+             "import sys; raw = open('/proc/self/environ','rb').read().decode(); "
+             "lines = [x for x in raw.split(chr(0)) if 'PRELOAD' in x.upper() or 'DYLD' in x.upper()]; "
+             "sys.stdout.write(repr(lines))"],
+            capture_output=True, text=True, timeout=10,
+            env={"PATH": "/usr/bin:/bin", "LD_PRELOAD": "", "DYLD_INSERT_LIBRARIES": ""},
+        )
+        print(f"DEBUG env_check_py stdout={env_check_py.stdout!r} stderr={env_check_py.stderr[-500:]!r} executable={sys.executable}", file=sys.stderr)
+        # Also stat the python executable to see if it is a normal ELF.
+        stat_check = subprocess.run(
+            ["/usr/bin/file", sys.executable],
+            capture_output=True, text=True, timeout=5,
+            env={"PATH": "/usr/bin:/bin"},
+        )
+        print(f"DEBUG file_check stdout={stat_check.stdout!r}", file=sys.stderr)
     proc = subprocess.run(
         [sys.executable, "-c", textwrap.dedent(code)],
         capture_output=True,
