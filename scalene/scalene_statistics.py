@@ -55,6 +55,13 @@ class PyFrameKey:
     function: str
     line: int
 
+    def __reduce__(self) -> Tuple[Any, Tuple[Any, ...]]:
+        # Default pickle round-trips frozen+__slots__ dataclasses through
+        # __setstate__, which uses __setattr__ — and that is exactly what
+        # frozen forbids. Reconstruct via __init__ instead so multiprocess
+        # merging (ScaleneStatistics.merge_stats) can unpickle these keys.
+        return (self.__class__, (self.filename, self.function, self.line))
+
 
 @dataclass(frozen=True)
 class NativeFrameKey:
@@ -65,6 +72,10 @@ class NativeFrameKey:
 
     __slots__ = ("ip",)
     ip: int
+
+    def __reduce__(self) -> Tuple[Any, Tuple[Any, ...]]:
+        # See PyFrameKey.__reduce__ — same reason.
+        return (self.__class__, (self.ip,))
 
 
 # A single frame in a stitched stack — either a Python frame or a native
@@ -127,6 +138,10 @@ class PerThreadNativeStack:
     __slots__ = ("thread_id", "stack")
     thread_id: int
     stack: tuple[int, ...]
+
+    def __reduce__(self) -> Tuple[Any, Tuple[Any, ...]]:
+        # See PyFrameKey.__reduce__ — same reason.
+        return (self.__class__, (self.thread_id, self.stack))
 
 
 class ProfilingSample:
