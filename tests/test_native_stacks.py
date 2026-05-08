@@ -34,6 +34,7 @@ Coverage map vs. PR #1034 test plan:
 """
 
 import json
+import os
 import re
 import signal
 import subprocess
@@ -79,11 +80,23 @@ def _load_last_json_line(stdout: str) -> dict:
 
 
 def _run_helper_subprocess(code: str) -> dict:
+    # Strip libscalene preload from the inherited environment. Other tests
+    # (e.g. ones that exercise scalene_preload.setup_preload) can leak
+    # LD_PRELOAD/DYLD_INSERT_LIBRARIES into os.environ, which would cause
+    # this subprocess to auto-load libscalene and install its signal
+    # handlers — defeating the point of tests that probe handler state
+    # from a "fresh" interpreter.
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k not in ("LD_PRELOAD", "DYLD_INSERT_LIBRARIES")
+    }
     proc = subprocess.run(
         [sys.executable, "-c", textwrap.dedent(code)],
         capture_output=True,
         text=True,
         timeout=15,
+        env=env,
     )
     assert proc.returncode == 0, proc.stderr or proc.stdout
     return _load_last_json_line(proc.stdout)
@@ -239,25 +252,17 @@ def test_handler_not_installed_by_default():
     """
     result = _run_helper_subprocess("""
         import json
-        import os
         import signal
         from scalene import _scalene_unwind
 
         sig = signal.SIGALRM
-        cur0, ours0, _f0 = _scalene_unwind.handler_status(sig)
         signal.signal(sig, signal.SIG_DFL)
         cur, ours, _flags = _scalene_unwind.handler_status(sig)
-        print(json.dumps({
-            "installed": cur == ours,
-            "cur0": cur0, "ours0": ours0,
-            "cur": cur, "ours": ours,
-            "ld_preload": os.environ.get("LD_PRELOAD", ""),
-            "dyld_insert": os.environ.get("DYLD_INSERT_LIBRARIES", ""),
-        }))
+        print(json.dumps({"installed": cur == ours}))
     """)
     assert result["installed"] is False, (
         "our C handler should not be installed without an explicit "
-        f"install_signal_unwinder() call: {result}"
+        "install_signal_unwinder() call"
     )
 
 
