@@ -102,9 +102,12 @@ def _run_helper_subprocess(code: str) -> dict:
     }
     env["LD_PRELOAD"] = ""
     env["DYLD_INSERT_LIBRARIES"] = ""
+    keys_with_preload = [k for k in env if "PRELOAD" in k.upper() or "DYLD" in k.upper()]
     print(f"DEBUG _run_helper_subprocess: parent_os_env_ld_preload={os.environ.get('LD_PRELOAD','<unset>')!r} "
           f"parent_proc_self_environ={proc_environ_parent!r} "
-          f"passed env LD_PRELOAD={env.get('LD_PRELOAD','<absent>')!r}", file=sys.stderr)
+          f"passed env LD_PRELOAD={env.get('LD_PRELOAD','<absent>')!r} "
+          f"keys_with_preload={[(k, env[k]) for k in keys_with_preload]} "
+          f"env_size={len(env)}", file=sys.stderr)
     proc = subprocess.run(
         [sys.executable, "-c", textwrap.dedent(code)],
         capture_output=True,
