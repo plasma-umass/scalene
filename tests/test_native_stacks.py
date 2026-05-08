@@ -267,6 +267,13 @@ def test_handler_not_installed_by_default():
             proc_environ = [x for x in raw if 'PRELOAD' in x or 'DYLD' in x] or "<no preload>"
         except Exception as e:
             proc_environ = f"<err: {e}>"
+        ld_so_preload = "<n/a>"
+        try:
+            with open('/etc/ld.so.preload', 'r') as f:
+                ld_so_preload = f.read()
+        except Exception as e:
+            ld_so_preload = f"<err: {e}>"
+        sys_path = sys.path[:5]
         from scalene import _scalene_unwind
         ld_preload_after_import = os.environ.get("LD_PRELOAD", "")
 
@@ -281,6 +288,8 @@ def test_handler_not_installed_by_default():
             "ld_preload_before_import": ld_preload_before_import,
             "ld_preload_after_import": ld_preload_after_import,
             "proc_environ_preload": proc_environ,
+            "ld_so_preload": ld_so_preload,
+            "sys_path": sys_path,
             "dyld": os.environ.get("DYLD_INSERT_LIBRARIES", ""),
             "executable": sys.executable,
         }))
