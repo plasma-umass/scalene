@@ -108,13 +108,29 @@ def _run_helper_subprocess(code: str) -> dict:
           f"passed env LD_PRELOAD={env.get('LD_PRELOAD','<absent>')!r} "
           f"keys_with_preload={[(k, env[k]) for k in keys_with_preload]} "
           f"env_size={len(env)}", file=sys.stderr)
-    proc = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(code)],
-        capture_output=True,
-        text=True,
-        timeout=15,
-        env=env,
-    )
+    # /usr/bin/env -i strips ALL env vars; we then re-add what we want.
+    # This bypasses any subprocess/Python-level env merging and produces a
+    # known-clean environment for the child interpreter.
+    if os.path.exists("/usr/bin/env"):
+        env_args = ["/usr/bin/env", "-i"]
+        for k, v in env.items():
+            if k.startswith("LD_PRELOAD") or k.startswith("DYLD_INSERT"):
+                continue  # explicitly drop
+            env_args.append(f"{k}={v}")
+        proc = subprocess.run(
+            env_args + [sys.executable, "-c", textwrap.dedent(code)],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    else:
+        proc = subprocess.run(
+            [sys.executable, "-c", textwrap.dedent(code)],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env=env,
+        )
     assert proc.returncode == 0, proc.stderr or proc.stdout
     return _load_last_json_line(proc.stdout)
 
