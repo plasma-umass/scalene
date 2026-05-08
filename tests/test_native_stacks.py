@@ -239,17 +239,25 @@ def test_handler_not_installed_by_default():
     """
     result = _run_helper_subprocess("""
         import json
+        import os
         import signal
         from scalene import _scalene_unwind
 
         sig = signal.SIGALRM
+        cur0, ours0, _f0 = _scalene_unwind.handler_status(sig)
         signal.signal(sig, signal.SIG_DFL)
         cur, ours, _flags = _scalene_unwind.handler_status(sig)
-        print(json.dumps({"installed": cur == ours}))
+        print(json.dumps({
+            "installed": cur == ours,
+            "cur0": cur0, "ours0": ours0,
+            "cur": cur, "ours": ours,
+            "ld_preload": os.environ.get("LD_PRELOAD", ""),
+            "dyld_insert": os.environ.get("DYLD_INSERT_LIBRARIES", ""),
+        }))
     """)
     assert result["installed"] is False, (
         "our C handler should not be installed without an explicit "
-        "install_signal_unwinder() call"
+        f"install_signal_unwinder() call: {result}"
     )
 
 
