@@ -108,29 +108,24 @@ def _run_helper_subprocess(code: str) -> dict:
           f"passed env LD_PRELOAD={env.get('LD_PRELOAD','<absent>')!r} "
           f"keys_with_preload={[(k, env[k]) for k in keys_with_preload]} "
           f"env_size={len(env)}", file=sys.stderr)
-    # /usr/bin/env -i strips ALL env vars; we then re-add what we want.
-    # This bypasses any subprocess/Python-level env merging and produces a
-    # known-clean environment for the child interpreter.
+    # First, use /usr/bin/env to print the environment that env itself sees.
+    # This isolates whether the LD_PRELOAD injection happens BEFORE or AFTER
+    # python's exec.
     if os.path.exists("/usr/bin/env"):
-        env_args = ["/usr/bin/env", "-i"]
-        for k, v in env.items():
-            if k.startswith("LD_PRELOAD") or k.startswith("DYLD_INSERT"):
-                continue  # explicitly drop
-            env_args.append(f"{k}={v}")
-        proc = subprocess.run(
-            env_args + [sys.executable, "-c", textwrap.dedent(code)],
-            capture_output=True,
-            text=True,
-            timeout=15,
+        env_check = subprocess.run(
+            ["/usr/bin/env", "-i", "LD_PRELOAD=", "DYLD_INSERT_LIBRARIES=",
+             "/bin/sh", "-c", "cat /proc/self/environ | tr '\\0' '\\n' | grep -E 'PRELOAD|DYLD' || echo NO_PRELOAD"],
+            capture_output=True, text=True, timeout=10,
+            env={"PATH": "/usr/bin:/bin"},
         )
-    else:
-        proc = subprocess.run(
-            [sys.executable, "-c", textwrap.dedent(code)],
-            capture_output=True,
-            text=True,
-            timeout=15,
-            env=env,
-        )
+        print(f"DEBUG env_check stdout={env_check.stdout!r} stderr={env_check.stderr!r}", file=sys.stderr)
+    proc = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(code)],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env=env,
+    )
     assert proc.returncode == 0, proc.stderr or proc.stdout
     return _load_last_json_line(proc.stdout)
 
