@@ -86,17 +86,24 @@ def _run_helper_subprocess(code: str) -> dict:
     # this subprocess to auto-load libscalene and install its signal
     # handlers — defeating the point of tests that probe handler state
     # from a "fresh" interpreter.
+    # Read /proc/self/environ to see what's REALLY in our env (libscalene.so
+    # may have been setenv'd by another test's preload run).
+    proc_environ_parent = "<n/a>"
+    try:
+        with open("/proc/self/environ", "rb") as f:
+            raw = f.read().decode("utf-8", errors="replace").split(chr(0))
+        proc_environ_parent = [x for x in raw if "PRELOAD" in x or "DYLD" in x] or "<no preload>"
+    except Exception as e:
+        proc_environ_parent = f"<err: {e}>"
     env = {
         k: v
         for k, v in os.environ.items()
         if k not in ("LD_PRELOAD", "DYLD_INSERT_LIBRARIES")
     }
-    # Override with empty values rather than relying on absence — some
-    # pytest/CI setups inject LD_PRELOAD via /etc/ld.so.preload or similar
-    # mechanisms that ignore execve(envp).
     env["LD_PRELOAD"] = ""
     env["DYLD_INSERT_LIBRARIES"] = ""
-    print(f"DEBUG _run_helper_subprocess: parent ld_preload={os.environ.get('LD_PRELOAD','<unset>')!r} "
+    print(f"DEBUG _run_helper_subprocess: parent_os_env_ld_preload={os.environ.get('LD_PRELOAD','<unset>')!r} "
+          f"parent_proc_self_environ={proc_environ_parent!r} "
           f"passed env LD_PRELOAD={env.get('LD_PRELOAD','<absent>')!r}", file=sys.stderr)
     proc = subprocess.run(
         [sys.executable, "-c", textwrap.dedent(code)],
