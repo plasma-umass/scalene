@@ -234,7 +234,6 @@ class ScaleneParseArgs:
                     setattr(args, dest, True)
             elif dest in (
                 "profile_all",
-                "stacks",
                 "use_virtual_time",
                 "memory_leak_detector",
                 "profile_system_libraries",
@@ -242,6 +241,10 @@ class ScaleneParseArgs:
                 # Regular boolean flags with defaults
                 if value is True:
                     setattr(args, dest, True)
+            elif dest == "stacks":
+                # stacks defaults to True; allow config to flip either way.
+                if isinstance(value, bool):
+                    setattr(args, dest, value)
             else:
                 # For non-boolean options, check if they have their default value
                 # If the current value looks like a default, apply config value
@@ -370,7 +373,19 @@ class ScaleneParseArgs:
             dest="stacks",
             action="store_true",
             default=defaults.stacks,
-            help="collect stack traces" if show_advanced else advanced_help,
+            help=(
+                "collect stack traces (default: on)"
+                if show_advanced
+                else advanced_help
+            ),
+        )
+        parser.add_argument(
+            "--no-stacks",
+            dest="stacks",
+            action="store_false",
+            help=(
+                "disable stack-trace collection" if show_advanced else advanced_help
+            ),
         )
         parser.add_argument(
             "--async",
