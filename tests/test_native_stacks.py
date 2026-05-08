@@ -91,8 +91,13 @@ def _run_helper_subprocess(code: str) -> dict:
         for k, v in os.environ.items()
         if k not in ("LD_PRELOAD", "DYLD_INSERT_LIBRARIES")
     }
+    # Override with empty values rather than relying on absence — some
+    # pytest/CI setups inject LD_PRELOAD via /etc/ld.so.preload or similar
+    # mechanisms that ignore execve(envp).
+    env["LD_PRELOAD"] = ""
+    env["DYLD_INSERT_LIBRARIES"] = ""
     print(f"DEBUG _run_helper_subprocess: parent ld_preload={os.environ.get('LD_PRELOAD','<unset>')!r} "
-          f"passed env keys with ld_preload={'LD_PRELOAD' in env}", file=sys.stderr)
+          f"passed env LD_PRELOAD={env.get('LD_PRELOAD','<absent>')!r}", file=sys.stderr)
     proc = subprocess.run(
         [sys.executable, "-c", textwrap.dedent(code)],
         capture_output=True,
