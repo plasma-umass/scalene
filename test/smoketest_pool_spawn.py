@@ -2,27 +2,51 @@
 """Smoketest for multiprocessing spawn-mode Pool.map under Scalene.
 
 Regression test for issue #998. Verifies that Scalene completes profiling
-without hanging or crashing. Uses a subprocess timeout because the
-multiprocessing resource tracker can hang during cleanup on some platforms.
+without hanging or crashing.
+
+Uses a process-group kill on timeout because subprocess.run(..., timeout=...)
+calls communicate() after killing the direct child, which then blocks until
+all *grandchildren* (the spawn-mode pool workers) close their stdout/stderr
+pipes — and worker cleanup races mean those FDs aren't always released
+promptly. Killing the whole group reaps everything at once.
 """
 
+import os
+import signal
 import subprocess
 import sys
 
 cmd = [sys.executable, "-m", "scalene", "run", "--cpu-only", "test/pool_spawn_test.py"]
 print("COMMAND", " ".join(cmd))
 
+# start_new_session puts the child in its own process group so grandchildren
+# (spawn workers) can be killed in one shot.
+if sys.platform != "win32":
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        start_new_session=True,
+    )
+else:
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )
 try:
-    proc = subprocess.run(cmd, timeout=120, capture_output=True, text=True)
+    out, err = proc.communicate(timeout=120)
     rc = proc.returncode
-    out, err = proc.stdout, proc.stderr
-except subprocess.TimeoutExpired as e:
-    # Timeout during cleanup is acceptable — the profiled program completed
-    # but Python's multiprocessing resource tracker can hang on shutdown.
+except subprocess.TimeoutExpired:
     print("Process timed out (likely cleanup hang), treating as success")
+    if sys.platform != "win32":
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    else:
+        proc.kill()
+    try:
+        out, err = proc.communicate(timeout=10)
+    except subprocess.TimeoutExpired:
+        out, err = "", ""
     rc = 0
-    out = (e.stdout or b"").decode(errors="replace") if e.stdout else ""
-    err = (e.stderr or b"").decode(errors="replace") if e.stderr else ""
 
 print(out, end="")
 print(err, end="", file=sys.stderr)
