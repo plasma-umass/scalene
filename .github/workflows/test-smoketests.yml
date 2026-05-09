@@ -51,8 +51,13 @@ jobs:
       timeout-minutes: 5
 
       # Note: test/smoketest.py only handles single JSON, rather than multiple in sequence.
+      # --no-stacks because this step exercises the periodic-output path,
+      # not the stack unwinder — and the unwinder's per-sample overhead
+      # makes testme.py slow enough on slow CI runners (notably
+      # ubuntu-latest 3.12) to blow past sane budgets.
     - name: profile-interval smoke test
-      run: python -m scalene run --profile-interval=2 test/testme.py && python -m scalene view --cli
+      run: python -m scalene run --no-stacks --profile-interval=2 test/testme.py && python -m scalene view --cli
+      timeout-minutes: 3
 
       # NOTE: this is a regression test for signals not being
       # restarted properly. It checks whether the program
