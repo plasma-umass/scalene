@@ -79,65 +79,43 @@ def _load_last_json_line(stdout: str) -> dict:
     raise AssertionError(f"no JSON object found in stdout:\n{stdout}")
 
 
-def _run_helper_subprocess(code: str) -> dict:
-    # Strip libscalene preload from the inherited environment. Other tests
-    # (e.g. ones that exercise scalene_preload.setup_preload) can leak
-    # LD_PRELOAD/DYLD_INSERT_LIBRARIES into os.environ, which would cause
-    # this subprocess to auto-load libscalene and install its signal
-    # handlers — defeating the point of tests that probe handler state
-    # from a "fresh" interpreter.
-    # Read /proc/self/environ to see what's REALLY in our env (libscalene.so
-    # may have been setenv'd by another test's preload run).
-    proc_environ_parent = "<n/a>"
+def _real_python_executable() -> str:
+    """Return a path to the real CPython interpreter, bypassing any wrapper.
+
+    Other tests (notably ones that drive scalene_profiler through main())
+    invoke scalene.redirect_python.redirect_python, which permanently
+    rewrites the pytest process's PATH and sys.executable to point at a
+    bash wrapper under /tmp/scalene*/python. That wrapper injects
+    LD_PRELOAD=libscalene.so and re-execs through ``python -m scalene
+    run`` — disastrous as a "fresh interpreter" for handler-probe tests.
+
+    Prefer sys._base_executable (set by CPython startup before any test
+    monkey-patching) or /proc/self/exe (kernel-recorded path of the
+    running interpreter). Fall back to sys.executable.
+    """
+    base = getattr(sys, "_base_executable", None)
+    if base and os.path.isfile(base) and not base.startswith("/tmp/scalene"):
+        return base
     try:
-        with open("/proc/self/environ", "rb") as f:
-            raw = f.read().decode("utf-8", errors="replace").split(chr(0))
-        proc_environ_parent = [x for x in raw if "PRELOAD" in x or "DYLD" in x] or "<no preload>"
-    except Exception as e:
-        proc_environ_parent = f"<err: {e}>"
+        real = os.readlink("/proc/self/exe")
+        if real and os.path.isfile(real):
+            return real
+    except OSError:
+        pass
+    return sys.executable
+
+
+def _run_helper_subprocess(code: str) -> dict:
+    # Other tests can leak LD_PRELOAD/DYLD_INSERT_LIBRARIES into os.environ
+    # AND replace sys.executable with a bash wrapper that re-injects them.
+    # Strip both to give the helper a clean interpreter.
     env = {
         k: v
         for k, v in os.environ.items()
         if k not in ("LD_PRELOAD", "DYLD_INSERT_LIBRARIES")
     }
-    env["LD_PRELOAD"] = ""
-    env["DYLD_INSERT_LIBRARIES"] = ""
-    keys_with_preload = [k for k in env if "PRELOAD" in k.upper() or "DYLD" in k.upper()]
-    print(f"DEBUG _run_helper_subprocess: parent_os_env_ld_preload={os.environ.get('LD_PRELOAD','<unset>')!r} "
-          f"parent_proc_self_environ={proc_environ_parent!r} "
-          f"passed env LD_PRELOAD={env.get('LD_PRELOAD','<absent>')!r} "
-          f"keys_with_preload={[(k, env[k]) for k in keys_with_preload]} "
-          f"env_size={len(env)}", file=sys.stderr)
-    # First, use /usr/bin/env to print the environment that env itself sees.
-    # This isolates whether the LD_PRELOAD injection happens BEFORE or AFTER
-    # python's exec.
-    if os.path.exists("/usr/bin/env"):
-        env_check = subprocess.run(
-            ["/usr/bin/env", "-i", "LD_PRELOAD=", "DYLD_INSERT_LIBRARIES=",
-             "/bin/sh", "-c", "cat /proc/self/environ | tr '\\0' '\\n' | grep -E 'PRELOAD|DYLD' || echo NO_PRELOAD"],
-            capture_output=True, text=True, timeout=10,
-            env={"PATH": "/usr/bin:/bin"},
-        )
-        print(f"DEBUG env_check_sh stdout={env_check.stdout!r} stderr={env_check.stderr!r}", file=sys.stderr)
-        # Now do the same check via python directly, before any imports/setup.
-        env_check_py = subprocess.run(
-            [sys.executable, "-c",
-             "import sys; raw = open('/proc/self/environ','rb').read().decode(); "
-             "lines = [x for x in raw.split(chr(0)) if 'PRELOAD' in x.upper() or 'DYLD' in x.upper()]; "
-             "sys.stdout.write(repr(lines))"],
-            capture_output=True, text=True, timeout=10,
-            env={"PATH": "/usr/bin:/bin", "LD_PRELOAD": "", "DYLD_INSERT_LIBRARIES": ""},
-        )
-        print(f"DEBUG env_check_py stdout={env_check_py.stdout!r} stderr={env_check_py.stderr[-500:]!r} executable={sys.executable}", file=sys.stderr)
-        # Also stat the python executable to see if it is a normal ELF.
-        stat_check = subprocess.run(
-            ["/usr/bin/file", sys.executable],
-            capture_output=True, text=True, timeout=5,
-            env={"PATH": "/usr/bin:/bin"},
-        )
-        print(f"DEBUG file_check stdout={stat_check.stdout!r}", file=sys.stderr)
     proc = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(code)],
+        [_real_python_executable(), "-c", textwrap.dedent(code)],
         capture_output=True,
         text=True,
         timeout=15,
@@ -296,66 +274,18 @@ def test_handler_not_installed_by_default():
     in the main pytest process.
     """
     result = _run_helper_subprocess("""
-        import os, sys, json, signal
-        ld_preload_before_import = os.environ.get("LD_PRELOAD", "")
-        proc_environ = "<n/a>"
-        try:
-            with open('/proc/self/environ', 'rb') as f:
-                raw = f.read().decode('utf-8', errors='replace').split(chr(0))
-            proc_environ = [x for x in raw if 'PRELOAD' in x or 'DYLD' in x] or "<no preload>"
-        except Exception as e:
-            proc_environ = f"<err: {e}>"
-        ld_so_preload = "<n/a>"
-        try:
-            with open('/etc/ld.so.preload', 'r') as f:
-                ld_so_preload = f.read()
-        except Exception as e:
-            ld_so_preload = f"<err: {e}>"
-        sys_path = sys.path[:5]
-        executable_info = "<n/a>"
-        try:
-            import subprocess as sp
-            r = sp.run(['file', sys.executable], capture_output=True, text=True, timeout=5)
-            executable_info = r.stdout.strip()
-        except Exception as e:
-            executable_info = f"<err: {e}>"
-        executable_link = "<n/a>"
-        try:
-            executable_link = os.readlink(sys.executable) if os.path.islink(sys.executable) else "<not symlink>"
-        except Exception as e:
-            executable_link = f"<err: {e}>"
-        sitecustomize_paths = []
-        for p in sys.path:
-            for name in ("sitecustomize.py", "usercustomize.py"):
-                fp = os.path.join(p, name)
-                if os.path.exists(fp):
-                    sitecustomize_paths.append(fp)
+        import json
+        import signal
         from scalene import _scalene_unwind
-        ld_preload_after_import = os.environ.get("LD_PRELOAD", "")
 
         sig = signal.SIGALRM
-        cur0, ours0, _f0 = _scalene_unwind.handler_status(sig)
         signal.signal(sig, signal.SIG_DFL)
         cur, ours, _flags = _scalene_unwind.handler_status(sig)
-        print(json.dumps({
-            "installed": cur == ours,
-            "cur0": cur0, "ours0": ours0,
-            "cur": cur, "ours": ours,
-            "ld_preload_before_import": ld_preload_before_import,
-            "ld_preload_after_import": ld_preload_after_import,
-            "proc_environ_preload": proc_environ,
-            "ld_so_preload": ld_so_preload,
-            "sys_path": sys_path,
-            "executable_info": executable_info,
-            "executable_link": executable_link,
-            "sitecustomize_paths": sitecustomize_paths,
-            "dyld": os.environ.get("DYLD_INSERT_LIBRARIES", ""),
-            "executable": sys.executable,
-        }))
+        print(json.dumps({"installed": cur == ours}))
     """)
     assert result["installed"] is False, (
         "our C handler should not be installed without an explicit "
-        f"install_signal_unwinder() call: {result}"
+        "install_signal_unwinder() call"
     )
 
 
