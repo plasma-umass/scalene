@@ -21,8 +21,8 @@ if TYPE_CHECKING:
 # Check if we're running Python 3.12+ where sys.monitoring is available
 _SYS_MONITORING_AVAILABLE = sys.version_info >= (3, 12)
 
-# Check if we're running Python 3.13+ where the C API for sys.monitoring is available
-_SYS_MONITORING_C_API_AVAILABLE = sys.version_info >= (3, 13)
+# Check if we're running Python 3.12+ where the C API for sys.monitoring is available
+_SYS_MONITORING_C_API_AVAILABLE = sys.version_info >= (3, 12)
 
 # Flag to force legacy tracer mode (can be set via command-line argument)
 _FORCE_LEGACY_TRACER = False

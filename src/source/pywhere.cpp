@@ -58,8 +58,8 @@ const int NEWLINE_TRIGGER_LENGTH = 98820;
 
 static std::atomic<bool> last_profiled_invalidated{false};
 
-// sys.monitoring support for Python 3.13+
-#if PY_VERSION_HEX >= 0x030D0000
+// sys.monitoring support for Python 3.12+
+#if PY_VERSION_HEX >= 0x030C0000
 // Tool ID for sys.monitoring (PROFILER_ID = 2)
 static const int SCALENE_TOOL_ID = 2;
 
@@ -478,8 +478,8 @@ static void allocate_newline() {
   PyPtr<> tmp(PyByteArray_FromObject(static_cast<PyObject*>(abc)));
 }
 
-// sys.monitoring implementation for Python 3.13+
-#if PY_VERSION_HEX >= 0x030D0000
+// sys.monitoring implementation for Python 3.12+
+#if PY_VERSION_HEX >= 0x030C0000
 
 // Get current call depth by walking the stack
 static int get_call_depth() {
@@ -880,7 +880,7 @@ static PyObject* sysmon_line_callback(PyObject* self, PyObject* args) {
   return nullptr;
 }
 
-#endif  // PY_VERSION_HEX >= 0x030D0000
+#endif  // PY_VERSION_HEX >= 0x030C0000
 
 static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
                       PyObject* arg) {

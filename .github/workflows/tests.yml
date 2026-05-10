@@ -13,12 +13,7 @@ on:
 jobs:
   run-tests:
     runs-on: ${{ matrix.os }}
-    # Bumped from 20 -> 30: with --stacks now on by default, a couple
-    # of subprocess-spawning tests (test_on_off_windows in particular)
-    # take longer on the free-threaded 3.13t/3.14t macOS runners, and
-    # the cumulative pytest + free-threaded-parity steps can exceed 20
-    # minutes per job. 30 minutes leaves headroom.
-    timeout-minutes: 30
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
