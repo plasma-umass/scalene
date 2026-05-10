@@ -87,6 +87,18 @@ except ImportError:
 _py_frame_intern: Dict[Tuple[str, str, int], PyFrameKey] = {}
 _native_frame_intern: Dict[int, NativeFrameKey] = {}
 
+# Maps every raw instruction pointer libunwind hands us to the start
+# address of its enclosing function. CPython internals — most notably
+# ``_PyEval_EvalFrameDefault``, the bytecode dispatch loop — span thousands
+# of bytes of native code, so a tight Python loop produces dozens of
+# distinct IPs that all live inside the same source-level function.
+# Canonicalising at sample time keeps ``combined_stacks`` keyed by
+# (function_start) tuples instead of (raw_ip) tuples, so the same
+# (Python frame chain, native function) coalesces regardless of which
+# bytecode happened to be executing when the signal arrived. dladdr
+# is paid at most once per raw IP because of this cache.
+_ip_to_func_start: Dict[int, int] = {}
+
 
 def _intern_py_frame(filename: str, function: str, line: int) -> PyFrameKey:
     """Return the shared PyFrameKey for (filename, function, line),
@@ -104,13 +116,53 @@ def _intern_py_frame(filename: str, function: str, line: int) -> PyFrameKey:
     return cached
 
 
+def _canonical_ip(ip: int) -> int:
+    """Map ``ip`` to the start address of its enclosing function.
+
+    A raw instruction pointer captured by libunwind points at whatever
+    instruction was executing when the signal fired — which, for CPython
+    internals, can be at any of thousands of distinct positions inside
+    the same source-level function (e.g. anywhere inside the bytecode
+    dispatch loop in ``_PyEval_EvalFrameDefault``). Aggregating by raw
+    IP would treat each position as its own stack, blowing up
+    combined_stacks indefinitely on any non-trivial CPU-bound program.
+    Canonicalising to the function-start address (via ``ip - offset``
+    where ``offset`` comes from ``dladdr``) gives one entry per Python
+    frame × per native function instead.
+
+    Falls back to the raw IP when ``_scalene_unwind`` is unavailable or
+    ``dladdr`` can't resolve a symbol — in those cases canonicalisation
+    is impossible but using the raw IP at least preserves correctness.
+    """
+    cached = _ip_to_func_start.get(ip)
+    if cached is not None:
+        return cached
+    if _scalene_unwind is not None:
+        try:
+            info = _scalene_unwind.resolve_ip(ip)
+        except Exception:
+            info = None
+    else:
+        info = None
+    if info is None:
+        result = ip
+    else:
+        # info is (module, symbol, offset); function_start = ip - offset.
+        _, _, offset = info
+        result = ip - int(offset)
+    _ip_to_func_start[ip] = result
+    return result
+
+
 def _intern_native_frame(ip: int) -> NativeFrameKey:
-    """Return the shared NativeFrameKey for ``ip``, constructing one on
-    first sight. Same thread-safety caveat as _intern_py_frame."""
-    cached = _native_frame_intern.get(ip)
+    """Return the shared NativeFrameKey for the canonical (function-start)
+    address corresponding to ``ip``. Same thread-safety caveat as
+    _intern_py_frame."""
+    canonical = _canonical_ip(ip)
+    cached = _native_frame_intern.get(canonical)
     if cached is None:
-        cached = NativeFrameKey(ip=ip)
-        _native_frame_intern[ip] = cached
+        cached = NativeFrameKey(ip=canonical)
+        _native_frame_intern[canonical] = cached
     return cached
 
 
@@ -120,6 +172,7 @@ def clear_intern_caches() -> None:
     repopulate the caches from scratch."""
     _py_frame_intern.clear()
     _native_frame_intern.clear()
+    _ip_to_func_start.clear()
     _stack_frame_intern.clear()
 
 
@@ -472,18 +525,6 @@ def drain_native_stacks(
     return nonempty
 
 
-# Soft cap on the number of distinct stitched stacks held in
-# ScaleneStatistics.combined_stacks. Native IPs returned by libunwind in
-# CPython internals can drift by a few bytes between samples even for the
-# same source-level function, so a long run with --stacks would otherwise
-# accumulate combined_stacks entries indefinitely — and with
-# --profile-interval, every flush iterates the whole dict. Capping here
-# keeps both per-flush cost and memory bounded; new stacks are dropped
-# from the aggregate once the cap is hit (the timeline already has its
-# own cap and continues to receive new stacks if it has room).
-_COMBINED_STACKS_MAX_KEYS = 10_000
-
-
 def add_combined_stack(
     frame: Optional[FrameType],
     should_trace: Callable[[Filename, str], bool],
@@ -545,8 +586,7 @@ def add_combined_stack(
             _intern_native_frame(ip) for ip in reversed(native_stk)
         )
         key: CombinedStackKey = py_chain_tuple + native_segment
-        if key in combined_stacks or len(combined_stacks) < _COMBINED_STACKS_MAX_KEYS:
-            combined_stacks[key] += 1
+        combined_stacks[key] += 1
         if timeline is not None:
             # Merge with trailing run only if same stack AND same thread
             if (
@@ -662,8 +702,7 @@ def add_async_await_run(
             )
 
         key: CombinedStackKey = tuple(py_frames)
-        if key in combined_stacks or len(combined_stacks) < _COMBINED_STACKS_MAX_KEYS:
-            combined_stacks[key] += 1
+        combined_stacks[key] += 1
         if timeline is not None:
             # Merge with trailing run only if same stack AND same thread
             if (
