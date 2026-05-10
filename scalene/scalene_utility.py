@@ -472,6 +472,18 @@ def drain_native_stacks(
     return nonempty
 
 
+# Soft cap on the number of distinct stitched stacks held in
+# ScaleneStatistics.combined_stacks. Native IPs returned by libunwind in
+# CPython internals can drift by a few bytes between samples even for the
+# same source-level function, so a long run with --stacks would otherwise
+# accumulate combined_stacks entries indefinitely — and with
+# --profile-interval, every flush iterates the whole dict. Capping here
+# keeps both per-flush cost and memory bounded; new stacks are dropped
+# from the aggregate once the cap is hit (the timeline already has its
+# own cap and continues to receive new stacks if it has room).
+_COMBINED_STACKS_MAX_KEYS = 10_000
+
+
 def add_combined_stack(
     frame: Optional[FrameType],
     should_trace: Callable[[Filename, str], bool],
@@ -533,7 +545,8 @@ def add_combined_stack(
             _intern_native_frame(ip) for ip in reversed(native_stk)
         )
         key: CombinedStackKey = py_chain_tuple + native_segment
-        combined_stacks[key] += 1
+        if key in combined_stacks or len(combined_stacks) < _COMBINED_STACKS_MAX_KEYS:
+            combined_stacks[key] += 1
         if timeline is not None:
             # Merge with trailing run only if same stack AND same thread
             if (
@@ -649,7 +662,8 @@ def add_async_await_run(
             )
 
         key: CombinedStackKey = tuple(py_frames)
-        combined_stacks[key] += 1
+        if key in combined_stacks or len(combined_stacks) < _COMBINED_STACKS_MAX_KEYS:
+            combined_stacks[key] += 1
         if timeline is not None:
             # Merge with trailing run only if same stack AND same thread
             if (
