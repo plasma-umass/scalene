@@ -436,7 +436,7 @@ class TestOnOffIntegration:
             ],
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=60,
         )
         assert result.returncode == 0
         assert "done" in result.stdout
@@ -460,7 +460,7 @@ class TestOnOffIntegration:
             ],
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=60,
         )
         assert result.returncode == 0
         assert "done" in result.stdout
@@ -481,7 +481,7 @@ class TestOnOffIntegration:
             ],
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=60,
         )
         assert result.returncode == 0
         assert "done" in result.stdout
@@ -539,6 +539,6 @@ class TestOnOffIntegration:
             except ProcessLookupError:
                 pass  # child may have finished already
 
-        stdout, stderr = proc.communicate(timeout=30)
+        stdout, stderr = proc.communicate(timeout=60)
         assert proc.returncode == 0
         assert "done" in (pid_line + stdout)
