@@ -1129,9 +1129,16 @@ class Scalene:
 
         Delegates to ScaleneCPUProfiler for the actual processing.
         """
-        # Check if it's time to print profiling info
+        # Check if it's time to print profiling info.
+        # Clamp __next_output_time to "now + interval" rather than letting
+        # it slip behind by adding to the previous deadline. If a single
+        # output ever takes longer than profile_interval, the unclamped
+        # version would re-trigger output on every subsequent CPU sample
+        # (signal storm) and starve the user thread completely.
         if now.wallclock >= Scalene.__next_output_time:
-            Scalene.__next_output_time += Scalene.__args.profile_interval
+            Scalene.__next_output_time = (
+                now.wallclock + Scalene.__args.profile_interval
+            )
             stats = Scalene.__stats
             with contextlib.ExitStack() as stack:
                 _ = [stack.enter_context(s.lock) for s in Scalene.__sigqueues]

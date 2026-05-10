@@ -469,6 +469,14 @@ class ScaleneJSON:
         self.gpu = False
         self.gpu_device = ""
 
+        # Persistent IP -> resolved-frame cache, shared across every
+        # output_profiles() call for the lifetime of this instance.
+        # dladdr is the per-output bottleneck on Linux (glibc takes a
+        # global loader lock); resolving the same IPs once instead of on
+        # every --profile-interval flush is the difference between
+        # O(unique-IPs) total work and O(unique-IPs * flushes).
+        self._ip_resolve_cache: Dict[int, _ResolvedNativeFrame] = {}
+
     def compress_samples(self, samples: List[Any], max_footprint: float) -> Any:
         if len(samples) <= self.max_sparkline_samples:
             return samples
@@ -812,7 +820,13 @@ class ScaleneJSON:
             except ImportError:
                 resolve = None
 
-            ip_cache_combined: Dict[int, _ResolvedNativeFrame] = {}
+            # Cache resolved IPs for the lifetime of this profiler instance,
+            # not per-output-cycle. Each `dladdr` takes the global loader
+            # lock under glibc and is the per-call bottleneck on Linux; with
+            # --profile-interval the same IPs would otherwise be re-resolved
+            # on every flush, with the cost growing monotonically as the
+            # combined_stacks dict accumulates unique IPs over time.
+            ip_cache_combined = self._ip_resolve_cache
 
             # Source lines used to be embedded in every py frame as a
             # ``code_line`` field. The GUI now resolves source text on the
