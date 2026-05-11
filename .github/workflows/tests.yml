@@ -26,7 +26,11 @@ jobs:
     # subprocesses), leaving no headroom for the parity step that follows.
     timeout-minutes: 30
     strategy:
-      fail-fast: false
+      # fail-fast: any matrix entry failure cancels the rest. Trades
+      # full-coverage-on-failure for faster feedback and lower CI burn —
+      # if Python 3.10 on Ubuntu breaks we want to know within seconds,
+      # not 30 minutes later after every other entry finishes.
+      fail-fast: true
       matrix:
         os: [ ubuntu-latest, macos-latest ]
         python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.13t', '3.14t' ]
