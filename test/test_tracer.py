@@ -188,9 +188,9 @@ class TestTracerAPI(unittest.TestCase):
         """Test that pywhere reports correct sysmon availability."""
         from scalene import pywhere
 
-        # sysmon_available returns True if C API is available (Python 3.13+)
+        # sysmon_available returns True if C API is available (Python 3.12+)
         available = pywhere.sysmon_available()
-        if sys.version_info >= (3, 13):
+        if sys.version_info >= (3, 12):
             self.assertTrue(available)
         else:
             self.assertFalse(available)

@@ -47,7 +47,7 @@ class ScaleneArgumentsDict(TypedDict, total=False):
     cli: bool
     # Use legacy PyEval_SetTrace for line tracing instead of sys.monitoring (Python 3.12+)
     use_legacy_tracer: bool
-    # Use Python callback for sys.monitoring instead of C callback (Python 3.13+)
+    # Use Python callback for sys.monitoring instead of C callback (Python 3.12+)
     use_python_callback: bool
     # Disable PyTorch and JAX JIT for Python-level profiling (may break torch.jit.load)
     disable_jit: bool

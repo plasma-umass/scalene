@@ -520,7 +520,7 @@ class ScaleneParseArgs:
             action="store_true",
             default=defaults.use_python_callback,
             help=(
-                "use Python callback for sys.monitoring instead of C callback (Python 3.13+)"
+                "use Python callback for sys.monitoring instead of C callback (Python 3.12+)"
                 if show_advanced
                 else advanced_help
             ),
