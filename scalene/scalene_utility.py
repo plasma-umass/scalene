@@ -1,6 +1,7 @@
 import functools
 import os
 import pathlib
+import random
 import shutil
 import signal
 import socketserver
@@ -482,11 +483,60 @@ def drain_native_stacks(
 _COMBINED_STACKS_MAX_KEYS = 10_000
 
 
+def _reservoir_increment(
+    combined_stacks: Dict[CombinedStackKey, int],
+    stats: Optional[ScaleneStatistics],
+    key: CombinedStackKey,
+) -> None:
+    """Increment ``combined_stacks[key]``, applying Algorithm R replacement
+    once the dict has hit ``_COMBINED_STACKS_MAX_KEYS`` unique entries.
+
+    Keys already in the reservoir are always incremented. The first time a
+    key is seen, ``combined_stacks_unique_seen`` is bumped; if there is
+    room, the key is inserted with count 1. If the dict is at capacity,
+    the new key replaces a uniformly-chosen existing key with probability
+    ``cap / combined_stacks_unique_seen``. As the run continues this
+    probability decreases, so the reservoir converges toward a uniform
+    sample of all unique stacks ever observed. Without this, every stack
+    seen after the cap is silently discarded — long profiles end up
+    biased toward whatever the program happened to be doing first.
+
+    When ``stats`` is None (unit tests or callers that don't track the
+    unique-seen counter), the cap is enforced by dropping rather than
+    replacing — same as the pre-reservoir behavior.
+    """
+    if key in combined_stacks:
+        combined_stacks[key] += 1
+        return
+    if len(combined_stacks) < _COMBINED_STACKS_MAX_KEYS:
+        combined_stacks[key] = 1
+        if stats is not None:
+            stats.combined_stacks_unique_seen += 1
+        return
+    if stats is None:
+        return  # cap enforced via drop
+    # At capacity. Replace with probability cap / unique_seen so the
+    # reservoir is a uniform random subset of all unique stacks observed.
+    stats.combined_stacks_unique_seen += 1
+    if (
+        random.random() * stats.combined_stacks_unique_seen
+        < _COMBINED_STACKS_MAX_KEYS
+    ):
+        # dict iteration order is insertion-order, not random, so pick a
+        # random victim explicitly. The list() copy is O(cap) but the
+        # branch is only taken on cap-exceeded inserts (rare once the
+        # reservoir warms up).
+        victim = random.choice(list(combined_stacks))
+        del combined_stacks[victim]
+        combined_stacks[key] = 1
+
+
 def add_combined_stack(
     frame: Optional[FrameType],
     should_trace: Callable[[Filename, str], bool],
     native_drains: List[Tuple[int, ...]],
     combined_stacks: Dict[CombinedStackKey, int],
+    stats: Optional[ScaleneStatistics] = None,
     timeline: Optional[List[CombinedStackRun]] = None,
     timeline_cap: int = 100000,
     timestamp: float = 0.0,
@@ -543,8 +593,7 @@ def add_combined_stack(
             _intern_native_frame(ip) for ip in reversed(native_stk)
         )
         key: CombinedStackKey = py_chain_tuple + native_segment
-        if key in combined_stacks or len(combined_stacks) < _COMBINED_STACKS_MAX_KEYS:
-            combined_stacks[key] += 1
+        _reservoir_increment(combined_stacks, stats, key)
         if timeline is not None:
             # Merge with trailing run only if same stack AND same thread
             if (
@@ -568,6 +617,7 @@ def add_async_await_run(
     suspended_tasks: List[Any],
     should_trace: Callable[[Filename, str], bool],
     combined_stacks: Dict[CombinedStackKey, int],
+    stats: Optional[ScaleneStatistics] = None,
     timeline: Optional[List[CombinedStackRun]] = None,
     timeline_cap: int = 100000,
     timestamp: float = 0.0,
@@ -660,8 +710,7 @@ def add_async_await_run(
             )
 
         key: CombinedStackKey = tuple(py_frames)
-        if key in combined_stacks or len(combined_stacks) < _COMBINED_STACKS_MAX_KEYS:
-            combined_stacks[key] += 1
+        _reservoir_increment(combined_stacks, stats, key)
         if timeline is not None:
             # Merge with trailing run only if same stack AND same thread
             if (

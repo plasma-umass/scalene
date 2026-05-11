@@ -1036,6 +1036,127 @@ class TestAddCombinedStack:
         assert py_frames[0].line == 42  # used co_firstlineno
 
 
+class TestCombinedStacksReservoir:
+    """Reservoir-style cap on combined_stacks: once we hit the size cap,
+    new keys should occasionally replace existing ones via Algorithm R,
+    so a long profile that crosses the cap retains *some* signal from
+    post-cap stacks rather than dropping everything new."""
+
+    def test_unique_seen_counter_tracks_distinct_keys(self):
+        from collections import defaultdict
+
+        from scalene.scalene_statistics import ScaleneStatistics
+        from scalene.scalene_utility import add_combined_stack
+
+        stats = ScaleneStatistics()
+        combined: dict = defaultdict(int)
+        for ip in range(50):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(
+                frame, lambda *_: True, [(ip,)], combined, stats=stats
+            )
+        # Seeing the same set again must not bump unique-seen further —
+        # those keys are already in the reservoir, not new.
+        for ip in range(50):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(
+                frame, lambda *_: True, [(ip,)], combined, stats=stats
+            )
+        assert len(combined) == 50
+        assert stats.combined_stacks_unique_seen == 50
+
+    def test_under_cap_inserts_directly(self):
+        import random
+        from collections import defaultdict
+
+        from scalene.scalene_statistics import ScaleneStatistics
+        from scalene.scalene_utility import add_combined_stack
+
+        random.seed(0)
+        stats = ScaleneStatistics()
+        combined: dict = defaultdict(int)
+        # Cap is 10_000 — insert well under.
+        for ip in range(100):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(
+                frame, lambda *_: True, [(ip,)], combined, stats=stats
+            )
+        # All 100 keys preserved with count 1; no replacement could have
+        # happened.
+        assert len(combined) == 100
+        assert stats.combined_stacks_unique_seen == 100
+        assert all(v == 1 for v in combined.values())
+
+    def test_over_cap_replaces_some_existing_keys(self):
+        import random
+        from collections import defaultdict
+
+        from scalene.scalene_statistics import ScaleneStatistics
+        from scalene.scalene_utility import _COMBINED_STACKS_MAX_KEYS, add_combined_stack
+
+        random.seed(42)
+        stats = ScaleneStatistics()
+        combined: dict = defaultdict(int)
+        cap = _COMBINED_STACKS_MAX_KEYS
+
+        # Fill exactly to the cap with the first ``cap`` distinct keys.
+        for ip in range(cap):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(
+                frame, lambda *_: True, [(ip,)], combined, stats=stats
+            )
+        assert len(combined) == cap
+        # Snapshot what's in the reservoir before pushing more.
+        baseline = set(combined.keys())
+
+        # Push 5x cap additional unique keys. Reservoir math says roughly
+        # cap * (1 - exp(-5)) ≈ cap of the original keys will be evicted
+        # by the end — i.e., a substantial fraction of the reservoir
+        # should be replaced by post-cap keys.
+        extra = cap * 5
+        for ip in range(cap, cap + extra):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(
+                frame, lambda *_: True, [(ip,)], combined, stats=stats
+            )
+
+        # Size invariant: never exceed the cap.
+        assert len(combined) == cap
+        # Unique-seen counts every distinct key the function ever saw,
+        # including ones that were evicted.
+        assert stats.combined_stacks_unique_seen == cap + extra
+
+        # Post-cap keys must be represented in the reservoir — that's the
+        # whole point of this change. At least 10% of the reservoir should
+        # be post-cap. (Expected fraction is ~63% for 5x oversample, so 10%
+        # is well above noise.)
+        new_keys_in_reservoir = sum(
+            1 for k in combined if k not in baseline
+        )
+        assert new_keys_in_reservoir > cap // 10, (
+            f"reservoir replaced only {new_keys_in_reservoir} of {cap} "
+            "entries; new stacks aren't getting a chance"
+        )
+
+    def test_stats_none_falls_back_to_drop(self):
+        """When the caller doesn't pass a stats object, the cap is
+        enforced by dropping new keys (legacy behavior). Verifies the
+        opt-in nature of the reservoir sampling."""
+        from collections import defaultdict
+
+        from scalene.scalene_utility import _COMBINED_STACKS_MAX_KEYS, add_combined_stack
+
+        combined: dict = defaultdict(int)
+        cap = _COMBINED_STACKS_MAX_KEYS
+        # Fill to cap, then push more without stats.
+        for ip in range(cap + 100):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(frame, lambda *_: True, [(ip,)], combined)
+        assert len(combined) == cap
+        # Only the first ``cap`` keys are present (drop-on-overflow).
+        assert all(ip in {k[-1].ip for k in combined} for ip in range(cap))
+
+
 # ---------------------------------------------------------------------------
 # combined_stacks JSON serialization (resolution + seam trim + frame schema)
 # ---------------------------------------------------------------------------

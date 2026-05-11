@@ -589,6 +589,7 @@ class ScaleneStatistics:
             "stacks",
             "native_stacks",
             "combined_stacks",
+            "combined_stacks_unique_seen",
             "combined_stacks_timeline",
             "memory_stacks",
             "cpu_stats.total_cpu_samples",
@@ -660,6 +661,15 @@ class ScaleneStatistics:
         # native_stacks is handled.
         self.combined_stacks: dict[CombinedStackKey, int] = defaultdict(int)
 
+        # Total unique stack keys ever observed, including any evicted by
+        # reservoir-style replacement once the dict hit its size cap. Tracked
+        # so that ``add_combined_stack`` / ``add_async_await_run`` can apply
+        # Algorithm R: once at capacity, each newly seen key has probability
+        # ``cap / combined_stacks_unique_seen`` of evicting a random existing
+        # key and taking its slot. Without this we'd discard every stack seen
+        # after the cap, biasing long-running profiles toward early behavior.
+        self.combined_stacks_unique_seen: int = 0
+
         # Run-length-encoded per-sample timeline of stitched stacks for the
         # experimental timeline view. Consecutive identical stacks collapse
         # into one CombinedStackRun, so a tight loop firing the same stack
@@ -700,6 +710,7 @@ class ScaleneStatistics:
         self.stacks.clear()
         self.native_stacks.clear()
         self.combined_stacks.clear()
+        self.combined_stacks_unique_seen = 0
         self.combined_stacks_timeline.clear()
         self.memory_stacks.clear()
         self.cpu_stats.clear()
@@ -918,6 +929,12 @@ class ScaleneStatistics:
                     self.native_stacks[stk] += hits
                 for cstk, chits in x.combined_stacks.items():
                     self.combined_stacks[cstk] += chits
+                # Merged unique-seen is an upper bound: keys observed in both
+                # subprocesses get counted twice, but that's fine — the
+                # counter is only used to derive a reservoir replacement
+                # probability, and overestimating just makes future
+                # replacements slightly less likely.
+                self.combined_stacks_unique_seen += x.combined_stacks_unique_seen
                 for mstk, mmb in x.memory_stacks.items():
                     self.memory_stacks[mstk] += mmb
                 # Timelines are interleaved by start time so the merged
