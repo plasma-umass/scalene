@@ -87,6 +87,7 @@ except ImportError:
 _py_frame_intern: Dict[Tuple[str, str, int], PyFrameKey] = {}
 _native_frame_intern: Dict[int, NativeFrameKey] = {}
 
+
 def _intern_py_frame(filename: str, function: str, line: int) -> PyFrameKey:
     """Return the shared PyFrameKey for (filename, function, line),
     constructing and caching a new one on first sight. Not thread-safe by

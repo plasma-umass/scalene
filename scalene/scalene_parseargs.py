@@ -374,18 +374,14 @@ class ScaleneParseArgs:
             action="store_true",
             default=defaults.stacks,
             help=(
-                "collect stack traces (default: on)"
-                if show_advanced
-                else advanced_help
+                "collect stack traces (default: on)" if show_advanced else advanced_help
             ),
         )
         parser.add_argument(
             "--no-stacks",
             dest="stacks",
             action="store_false",
-            help=(
-                "disable stack-trace collection" if show_advanced else advanced_help
-            ),
+            help=("disable stack-trace collection" if show_advanced else advanced_help),
         )
         parser.add_argument(
             "--async",

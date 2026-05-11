@@ -69,7 +69,7 @@ class HyperLogLog:
     def cardinality(self) -> int:
         """Return the estimated number of distinct items added."""
         # Raw harmonic-mean estimate.
-        z = sum(2.0 ** -r for r in self.registers)
+        z = sum(2.0**-r for r in self.registers)
         e = self.alpha * self.m * self.m / z
         # Small-range correction: linear counting when many registers
         # are still zero — much more accurate at low cardinality.
@@ -86,8 +86,7 @@ class HyperLogLog:
         in separate subprocesses (or threads) without losing accuracy."""
         if self.m != other.m:
             raise ValueError(
-                f"cannot merge HLLs with different precision: "
-                f"{self.p} vs {other.p}"
+                f"cannot merge HLLs with different precision: " f"{self.p} vs {other.p}"
             )
         for i in range(self.m):
             if other.registers[i] > self.registers[i]:

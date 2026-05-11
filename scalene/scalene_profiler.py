@@ -1136,9 +1136,7 @@ class Scalene:
         # version would re-trigger output on every subsequent CPU sample
         # (signal storm) and starve the user thread completely.
         if now.wallclock >= Scalene.__next_output_time:
-            Scalene.__next_output_time = (
-                now.wallclock + Scalene.__args.profile_interval
-            )
+            Scalene.__next_output_time = now.wallclock + Scalene.__args.profile_interval
             stats = Scalene.__stats
             with contextlib.ExitStack() as stack:
                 _ = [stack.enter_context(s.lock) for s in Scalene.__sigqueues]
