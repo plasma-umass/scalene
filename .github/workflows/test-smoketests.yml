@@ -7,6 +7,15 @@ on:
     branches: [ master ]
   workflow_dispatch: # manual execution
 
+
+# Cancel any in-flight runs for the same PR / branch when a new push arrives.
+# Master pushes still run to completion (the ``cancel-in-progress`` predicate
+# only fires on PR events).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
 jobs:
   smoketests:
     runs-on: ${{ matrix.os }}
@@ -27,6 +36,10 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python }}
+        cache: pip
+        cache-dependency-path: |
+          requirements.txt
+          pyproject.toml
 
     - name: Work around arm64 support on MacOS
       # https://github.com/actions/virtual-environments/issues/2557
