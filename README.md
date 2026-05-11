@@ -144,7 +144,7 @@ malloc-threshold: 100        # Min allocations to report
 
 # Other options
 use-virtual-time: false      # Measure CPU time only (not I/O)
-stacks: false                # Collect stack traces
+stacks: true                 # Collect stack traces (default: true)
 memory-leak-detector: true   # Detect likely memory leaks
 ```
 
@@ -368,7 +368,8 @@ options:
   --profile-system-libraries  profile Python stdlib and installed packages (default: skip)
   --gpu                 profile GPU time and memory
   --memory              profile memory usage
-  --stacks              collect stack traces
+  --stacks              collect stack traces (default: on)
+  --no-stacks           disable stack-trace collection
   --profile-interval N  output profiles every N seconds (default: inf)
   --use-virtual-time    measure only CPU time, not I/O or blocking
   --cpu-percent-threshold N  only report lines with at least N% CPU (default: 1%)

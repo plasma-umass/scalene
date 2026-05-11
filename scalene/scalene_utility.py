@@ -87,7 +87,6 @@ except ImportError:
 _py_frame_intern: Dict[Tuple[str, str, int], PyFrameKey] = {}
 _native_frame_intern: Dict[int, NativeFrameKey] = {}
 
-
 def _intern_py_frame(filename: str, function: str, line: int) -> PyFrameKey:
     """Return the shared PyFrameKey for (filename, function, line),
     constructing and caching a new one on first sight. Not thread-safe by
@@ -472,11 +471,80 @@ def drain_native_stacks(
     return nonempty
 
 
+# Soft cap on the number of distinct stitched stacks held in
+# ScaleneStatistics.combined_stacks. Native IPs returned by libunwind in
+# CPython internals can drift between samples even within the same
+# source-level function (e.g. different bytecode dispatch positions
+# inside _PyEval_EvalFrameDefault), so without a bound the dict would
+# grow without limit on a long-running --stacks profile and every
+# --profile-interval flush would iterate the full set. Cap mirrors the
+# existing ``combined_stacks_timeline_max_runs`` cap on the timeline.
+_COMBINED_STACKS_MAX_KEYS = 10_000
+
+
+def _space_saving_increment(
+    combined_stacks: Dict[CombinedStackKey, int],
+    stats: Optional[ScaleneStatistics],
+    key: CombinedStackKey,
+) -> None:
+    """Increment ``combined_stacks[key]`` under a Space-Saving (Metwally,
+    Agrawal, El Abbadi 2005) heavy-hitter table.
+
+    Keys already in the table are always incremented. The first time a
+    key is seen, ``combined_stacks_unique_seen`` is bumped and the key is
+    inserted with count 1 if there is room. If the table is at capacity,
+    the entry with the *minimum* current count is evicted and the new
+    key takes its slot with ``count = old_min + 1``. This deterministic
+    rule guarantees that any stack whose true frequency exceeds N/cap
+    survives in the table (Metwally et al., Thm. 3.1), and bounds the
+    per-key count over-estimate by the smallest count ever evicted.
+
+    Flame charts care about *which stacks the program spent most of its
+    time in* — i.e., heavy hitters — so Space-Saving is a strictly
+    better fit here than uniform reservoir sampling (which would evict
+    a hot stack with the same probability as a one-off). It's also
+    deterministic across runs, which matters for reproducibility.
+
+    The ``HyperLogLog`` register on ``stats`` is updated on every
+    first-seen key, giving an unbiased estimate of total distinct
+    stacks observed even when the table is heavily churned. The
+    Space-Saving table answers "which stacks matter"; HLL answers "how
+    many were there in total".
+
+    When ``stats`` is None (unit tests or callers that don't track the
+    unique-seen counter), the cap is enforced by dropping rather than
+    replacing — same as the pre-Space-Saving behavior.
+    """
+    if key in combined_stacks:
+        combined_stacks[key] += 1
+        return
+    if len(combined_stacks) < _COMBINED_STACKS_MAX_KEYS:
+        combined_stacks[key] = 1
+        if stats is not None:
+            stats.combined_stacks_unique_seen += 1
+            stats.combined_stacks_hll.add(key)
+        return
+    if stats is None:
+        return  # cap enforced via drop
+    stats.combined_stacks_unique_seen += 1
+    stats.combined_stacks_hll.add(key)
+    # Evict the entry with the smallest count, then seat the new key
+    # with count = old_min + 1. The min scan is O(cap) but only runs
+    # on cap-exceeded inserts; for workloads that never overflow it
+    # never fires, and once overflow starts the typical eviction
+    # promotes one of many tied-at-min entries to a slightly higher
+    # count, naturally settling the table.
+    victim = min(combined_stacks, key=combined_stacks.__getitem__)
+    old_min = combined_stacks.pop(victim)
+    combined_stacks[key] = old_min + 1
+
+
 def add_combined_stack(
     frame: Optional[FrameType],
     should_trace: Callable[[Filename, str], bool],
     native_drains: List[Tuple[int, ...]],
     combined_stacks: Dict[CombinedStackKey, int],
+    stats: Optional[ScaleneStatistics] = None,
     timeline: Optional[List[CombinedStackRun]] = None,
     timeline_cap: int = 100000,
     timestamp: float = 0.0,
@@ -533,7 +601,7 @@ def add_combined_stack(
             _intern_native_frame(ip) for ip in reversed(native_stk)
         )
         key: CombinedStackKey = py_chain_tuple + native_segment
-        combined_stacks[key] += 1
+        _space_saving_increment(combined_stacks, stats, key)
         if timeline is not None:
             # Merge with trailing run only if same stack AND same thread
             if (
@@ -557,6 +625,7 @@ def add_async_await_run(
     suspended_tasks: List[Any],
     should_trace: Callable[[Filename, str], bool],
     combined_stacks: Dict[CombinedStackKey, int],
+    stats: Optional[ScaleneStatistics] = None,
     timeline: Optional[List[CombinedStackRun]] = None,
     timeline_cap: int = 100000,
     timestamp: float = 0.0,
@@ -649,7 +718,7 @@ def add_async_await_run(
             )
 
         key: CombinedStackKey = tuple(py_frames)
-        combined_stacks[key] += 1
+        _space_saving_increment(combined_stacks, stats, key)
         if timeline is not None:
             # Merge with trailing run only if same stack AND same thread
             if (

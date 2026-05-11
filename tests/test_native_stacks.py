@@ -34,6 +34,7 @@ Coverage map vs. PR #1034 test plan:
 """
 
 import json
+import os
 import re
 import signal
 import subprocess
@@ -78,12 +79,47 @@ def _load_last_json_line(stdout: str) -> dict:
     raise AssertionError(f"no JSON object found in stdout:\n{stdout}")
 
 
+def _real_python_executable() -> str:
+    """Return a path to the real CPython interpreter, bypassing any wrapper.
+
+    Other tests (notably ones that drive scalene_profiler through main())
+    invoke scalene.redirect_python.redirect_python, which permanently
+    rewrites the pytest process's PATH and sys.executable to point at a
+    bash wrapper under /tmp/scalene*/python. That wrapper injects
+    LD_PRELOAD=libscalene.so and re-execs through ``python -m scalene
+    run`` — disastrous as a "fresh interpreter" for handler-probe tests.
+
+    Prefer sys._base_executable (set by CPython startup before any test
+    monkey-patching) or /proc/self/exe (kernel-recorded path of the
+    running interpreter). Fall back to sys.executable.
+    """
+    base = getattr(sys, "_base_executable", None)
+    if base and os.path.isfile(base) and not base.startswith("/tmp/scalene"):
+        return base
+    try:
+        real = os.readlink("/proc/self/exe")
+        if real and os.path.isfile(real):
+            return real
+    except OSError:
+        pass
+    return sys.executable
+
+
 def _run_helper_subprocess(code: str) -> dict:
+    # Other tests can leak LD_PRELOAD/DYLD_INSERT_LIBRARIES into os.environ
+    # AND replace sys.executable with a bash wrapper that re-injects them.
+    # Strip both to give the helper a clean interpreter.
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k not in ("LD_PRELOAD", "DYLD_INSERT_LIBRARIES")
+    }
     proc = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent(code)],
+        [_real_python_executable(), "-c", textwrap.dedent(code)],
         capture_output=True,
         text=True,
         timeout=15,
+        env=env,
     )
     assert proc.returncode == 0, proc.stderr or proc.stdout
     return _load_last_json_line(proc.stdout)
@@ -377,11 +413,11 @@ def test_scalene_subprocess_with_stacks_smoke(tmp_path):
 
 
 def test_scalene_subprocess_no_stacks_smoke(tmp_path):
-    """Default (no --stacks) must not produce combined_stacks, and must
-    not emit the (now-removed) ``native_stacks`` JSON key at all."""
-    profile = _run_scalene_or_skip(tmp_path)
+    """With --no-stacks, the profile must not produce combined_stacks,
+    and must not emit the (now-removed) ``native_stacks`` JSON key at all."""
+    profile = _run_scalene_or_skip(tmp_path, "--no-stacks")
     assert profile.get("combined_stacks", []) == [], (
-        "Expected empty combined_stacks without --stacks; got "
+        "Expected empty combined_stacks with --no-stacks; got "
         f"{len(profile.get('combined_stacks', []))} entries"
     )
     assert "native_stacks" not in profile, (
@@ -998,6 +1034,179 @@ class TestAddCombinedStack:
         stk = next(iter(combined.keys()))
         py_frames = [f for f in stk if isinstance(f, PyFrameKey)]
         assert py_frames[0].line == 42  # used co_firstlineno
+
+
+class TestCombinedStacksSpaceSaving:
+    """Space-Saving heavy-hitter table for combined_stacks: once we hit
+    the size cap, new keys evict the minimum-count entry (not a random
+    one) and seat with ``count = old_min + 1``. The flame chart wants
+    the stacks where time was actually spent, so deterministically
+    retaining heavy hitters beats uniform random retention."""
+
+    def test_unique_seen_counter_tracks_distinct_keys(self):
+        from collections import defaultdict
+
+        from scalene.scalene_statistics import ScaleneStatistics
+        from scalene.scalene_utility import add_combined_stack
+
+        stats = ScaleneStatistics()
+        combined: dict = defaultdict(int)
+        for ip in range(50):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(
+                frame, lambda *_: True, [(ip,)], combined, stats=stats
+            )
+        # Seeing the same set again must not bump unique-seen further —
+        # those keys are already in the table, not new.
+        for ip in range(50):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(
+                frame, lambda *_: True, [(ip,)], combined, stats=stats
+            )
+        assert len(combined) == 50
+        assert stats.combined_stacks_unique_seen == 50
+
+    def test_under_cap_inserts_directly(self):
+        from collections import defaultdict
+
+        from scalene.scalene_statistics import ScaleneStatistics
+        from scalene.scalene_utility import add_combined_stack
+
+        stats = ScaleneStatistics()
+        combined: dict = defaultdict(int)
+        # Cap is 10_000 — insert well under.
+        for ip in range(100):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(
+                frame, lambda *_: True, [(ip,)], combined, stats=stats
+            )
+        # All 100 keys preserved with count 1; nothing got evicted.
+        assert len(combined) == 100
+        assert stats.combined_stacks_unique_seen == 100
+        assert all(v == 1 for v in combined.values())
+
+    def test_heavy_hitter_is_never_evicted(self):
+        """The whole point of Space-Saving: if one key dominates, it
+        should stay in the table no matter how many one-off keys come
+        through afterward."""
+        from collections import defaultdict
+
+        from scalene.scalene_statistics import ScaleneStatistics
+        from scalene.scalene_utility import _COMBINED_STACKS_MAX_KEYS, add_combined_stack
+
+        stats = ScaleneStatistics()
+        combined: dict = defaultdict(int)
+        cap = _COMBINED_STACKS_MAX_KEYS
+
+        # Establish a hot key first.
+        hot_ip = 0xDEADBEEF
+        frame = _make_frame("/p.py", "f", 1)
+        for _ in range(500):
+            add_combined_stack(
+                frame, lambda *_: True, [(hot_ip,)], combined, stats=stats
+            )
+
+        # Now flood the table with cap * 3 one-off keys.
+        for ip in range(cap * 3):
+            f = _make_frame("/p.py", "f", 1)
+            add_combined_stack(
+                f, lambda *_: True, [(ip,)], combined, stats=stats
+            )
+
+        # Hot key must survive — count was 500 to start, evictions take
+        # min-count entries first, so the hot key is never the victim.
+        hot_keys = [k for k, v in combined.items() if v >= 500]
+        assert hot_keys, (
+            "heavy hitter got evicted; Space-Saving is not protecting "
+            f"high-count entries. Counts: {sorted(combined.values())[-5:]}"
+        )
+
+    def test_over_cap_admits_new_keys(self):
+        """When the table fills up with one-offs and more one-offs
+        arrive, eviction has to happen — drop-on-overflow would leave
+        the post-cap part of the workload completely invisible. Verify
+        that post-cap keys actually make it into the table."""
+        from collections import defaultdict
+
+        from scalene.scalene_statistics import ScaleneStatistics
+        from scalene.scalene_utility import _COMBINED_STACKS_MAX_KEYS, add_combined_stack
+
+        stats = ScaleneStatistics()
+        combined: dict = defaultdict(int)
+        cap = _COMBINED_STACKS_MAX_KEYS
+
+        # Fill to cap with single-hit keys.
+        for ip in range(cap):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(
+                frame, lambda *_: True, [(ip,)], combined, stats=stats
+            )
+        baseline = set(combined.keys())
+        assert len(combined) == cap
+
+        # Push cap more single-hit keys past the cap.
+        for ip in range(cap, cap * 2):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(
+                frame, lambda *_: True, [(ip,)], combined, stats=stats
+            )
+
+        assert len(combined) == cap  # size invariant
+        assert stats.combined_stacks_unique_seen == cap * 2
+
+        # Post-cap keys should dominate the table: every original was
+        # tied at count 1, so each post-cap key evicts one original.
+        new_keys = sum(1 for k in combined if k not in baseline)
+        assert new_keys >= cap // 2, (
+            f"only {new_keys} of {cap} entries are post-cap; eviction "
+            "isn't admitting new keys"
+        )
+
+    def test_stats_none_falls_back_to_drop(self):
+        """When the caller doesn't pass a stats object, the cap is
+        enforced by dropping new keys (legacy behavior). Verifies the
+        opt-in nature of Space-Saving."""
+        from collections import defaultdict
+
+        from scalene.scalene_utility import _COMBINED_STACKS_MAX_KEYS, add_combined_stack
+
+        combined: dict = defaultdict(int)
+        cap = _COMBINED_STACKS_MAX_KEYS
+        # Fill to cap, then push more without stats.
+        for ip in range(cap + 100):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(frame, lambda *_: True, [(ip,)], combined)
+        assert len(combined) == cap
+        # Only the first ``cap`` keys are present (drop-on-overflow).
+        assert all(ip in {k[-1].ip for k in combined} for ip in range(cap))
+
+    def test_hll_estimates_true_cardinality(self):
+        """The HLL counter on stats sees every first-seen key, including
+        ones that get evicted. After pushing cap * 5 distinct stacks, the
+        estimate should be within HLL's stated error bound of the true
+        count, even though the table itself only holds ``cap`` entries."""
+        from collections import defaultdict
+
+        from scalene.scalene_statistics import ScaleneStatistics
+        from scalene.scalene_utility import _COMBINED_STACKS_MAX_KEYS, add_combined_stack
+
+        stats = ScaleneStatistics()
+        combined: dict = defaultdict(int)
+        cap = _COMBINED_STACKS_MAX_KEYS
+        true_count = cap * 5
+        for ip in range(true_count):
+            frame = _make_frame("/p.py", "f", 1)
+            add_combined_stack(
+                frame, lambda *_: True, [(ip,)], combined, stats=stats
+            )
+
+        est = stats.combined_stacks_hll.cardinality()
+        # HLL at p=12 has ~1.6% standard error. Allow 6% (≈4 sigma) so
+        # CI doesn't flake on the worst-case run.
+        assert abs(est - true_count) < true_count * 0.06, (
+            f"HLL estimate {est} too far from true {true_count}; "
+            f"err = {abs(est - true_count) / true_count:.2%}"
+        )
 
 
 # ---------------------------------------------------------------------------

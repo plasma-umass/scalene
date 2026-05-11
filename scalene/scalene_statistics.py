@@ -21,6 +21,7 @@ from typing import (
 import cloudpickle
 from pydantic import PositiveInt
 
+from scalene.hyperloglog import HyperLogLog
 from scalene.runningstats import RunningStats
 from scalene.scalene_config import (
     CPU_SAMPLES_RESERVOIR_SIZE,
@@ -55,6 +56,13 @@ class PyFrameKey:
     function: str
     line: int
 
+    def __reduce__(self) -> tuple[Any, tuple[Any, ...]]:
+        # Default pickle round-trips frozen+__slots__ dataclasses through
+        # __setstate__, which uses __setattr__ — and that is exactly what
+        # frozen forbids. Reconstruct via __init__ instead so multiprocess
+        # merging (ScaleneStatistics.merge_stats) can unpickle these keys.
+        return (self.__class__, (self.filename, self.function, self.line))
+
 
 @dataclass(frozen=True)
 class NativeFrameKey:
@@ -65,6 +73,10 @@ class NativeFrameKey:
 
     __slots__ = ("ip",)
     ip: int
+
+    def __reduce__(self) -> tuple[Any, tuple[Any, ...]]:
+        # See PyFrameKey.__reduce__ — same reason.
+        return (self.__class__, (self.ip,))
 
 
 # A single frame in a stitched stack — either a Python frame or a native
@@ -127,6 +139,10 @@ class PerThreadNativeStack:
     __slots__ = ("thread_id", "stack")
     thread_id: int
     stack: tuple[int, ...]
+
+    def __reduce__(self) -> tuple[Any, tuple[Any, ...]]:
+        # See PyFrameKey.__reduce__ — same reason.
+        return (self.__class__, (self.thread_id, self.stack))
 
 
 class ProfilingSample:
@@ -574,6 +590,8 @@ class ScaleneStatistics:
             "stacks",
             "native_stacks",
             "combined_stacks",
+            "combined_stacks_unique_seen",
+            "combined_stacks_hll",
             "combined_stacks_timeline",
             "memory_stacks",
             "cpu_stats.total_cpu_samples",
@@ -643,7 +661,32 @@ class ScaleneStatistics:
         # frame tuples (outermost-first). Native IPs are resolved (and
         # CPython runtime tail trimmed) at report time, mirroring how
         # native_stacks is handled.
+        #
+        # Capped at ``_COMBINED_STACKS_MAX_KEYS`` entries via the Space-Saving
+        # heavy-hitter sketch (Metwally, Agrawal, El Abbadi 2005): when the
+        # table is full and a new key arrives, the minimum-count entry is
+        # evicted and the new key seats with ``count = old_min + 1``. This
+        # deterministically retains the stacks that actually dominate the
+        # profile (any stack with true frequency > N/cap is guaranteed to
+        # survive), which is what a flame chart cares about. Counts can
+        # over-estimate by at most ``old_min``, the smallest count ever
+        # evicted, which stays small unless the table is being firehosed
+        # with one-offs.
         self.combined_stacks: dict[CombinedStackKey, int] = defaultdict(int)
+
+        # Total unique stack keys ever observed in this process, including
+        # any evicted by Space-Saving. Used to drive merge accounting and
+        # to corroborate the HLL estimate below.
+        self.combined_stacks_unique_seen: int = 0
+
+        # HyperLogLog estimator (Flajolet et al. 2007) of the true number
+        # of distinct stitched stacks the program ever produced — including
+        # ones that were evicted from the Space-Saving table. Lets the GUI
+        # show "showing the top 10,000 of ~N unique stacks" honestly,
+        # rather than silently bounding the displayed set to the cap. ~4 KB
+        # at p=12, standard error ~1.6%; merges across subprocesses by
+        # register-wise max so the multiprocess estimate stays unbiased.
+        self.combined_stacks_hll: HyperLogLog = HyperLogLog()
 
         # Run-length-encoded per-sample timeline of stitched stacks for the
         # experimental timeline view. Consecutive identical stacks collapse
@@ -685,6 +728,8 @@ class ScaleneStatistics:
         self.stacks.clear()
         self.native_stacks.clear()
         self.combined_stacks.clear()
+        self.combined_stacks_unique_seen = 0
+        self.combined_stacks_hll.clear()
         self.combined_stacks_timeline.clear()
         self.memory_stacks.clear()
         self.cpu_stats.clear()
@@ -903,6 +948,15 @@ class ScaleneStatistics:
                     self.native_stacks[stk] += hits
                 for cstk, chits in x.combined_stacks.items():
                     self.combined_stacks[cstk] += chits
+                # Merged unique-seen is an upper bound: keys observed in
+                # both subprocesses get counted twice. That's fine — the
+                # counter is informational; the HLL register merge gives
+                # the actually-deduplicated cardinality estimate.
+                self.combined_stacks_unique_seen += x.combined_stacks_unique_seen
+                # HLL merges by register-wise max, so subprocesses that
+                # touched the same stacks don't double-count — this is
+                # exactly the property that makes HLL useful here.
+                self.combined_stacks_hll.merge(x.combined_stacks_hll)
                 for mstk, mmb in x.memory_stacks.items():
                     self.memory_stacks[mstk] += mmb
                 # Timelines are interleaved by start time so the merged

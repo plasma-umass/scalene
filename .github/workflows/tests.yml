@@ -13,7 +13,10 @@ on:
 jobs:
   run-tests:
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    # 30 min cap: free-threaded 3.13t/3.14t runners use most of the 20-min
+    # default on pytest alone (test_on_off_windows spawns slow scalene
+    # subprocesses), leaving no headroom for the parity step that follows.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

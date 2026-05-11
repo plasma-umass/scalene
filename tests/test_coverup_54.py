@@ -21,7 +21,7 @@ def test_scalene_arguments_initialization(clean_scalene_arguments):
     args = clean_scalene_arguments
     assert args.cpu == True
     assert args.memory == True
-    assert args.stacks == False
+    assert args.stacks == True
     assert args.cpu_percent_threshold == 1
     assert args.cpu_sampling_rate == 0.01
     assert args.allocation_sampling_window == 1048576

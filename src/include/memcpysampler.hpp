@@ -287,11 +287,22 @@ class MemcpySampler {
 #if defined(__APPLE__)
     return ::memmove(dst, src, n);
 #else
-    // TODO: optimize if these areas don't overlap.
-    void *buf = malloc(n);
-    local_memcpy(buf, src, n);
-    local_memcpy(dst, buf, n);
-    free(buf);
+    // Async-signal-safe: never allocate. memmove can be invoked from a
+    // signal handler (e.g. libunwind's DWARF parser calls memmove during
+    // dl_iterate_phdr while the rtld loader lock is held); calling
+    // malloc here can deadlock against libc's malloc arena lock or
+    // re-enter dl_iterate_phdr through the heap interposers.
+    unsigned char *d = reinterpret_cast<unsigned char *>(dst);
+    const unsigned char *s = reinterpret_cast<const unsigned char *>(src);
+    if (d == s || n == 0) return dst;
+    // Forward copy is safe when dst < src or the regions don't overlap.
+    if (d < s || d >= s + n) {
+      return local_memcpy(dst, src, n);
+    }
+    // dst > src with overlap: copy backward byte by byte.
+    for (size_t i = n; i-- > 0;) {
+      d[i] = s[i];
+    }
     return dst;
 #endif
   }
