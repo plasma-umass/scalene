@@ -1,7 +1,6 @@
 import functools
 import os
 import pathlib
-import random
 import shutil
 import signal
 import socketserver
@@ -483,27 +482,38 @@ def drain_native_stacks(
 _COMBINED_STACKS_MAX_KEYS = 10_000
 
 
-def _reservoir_increment(
+def _space_saving_increment(
     combined_stacks: Dict[CombinedStackKey, int],
     stats: Optional[ScaleneStatistics],
     key: CombinedStackKey,
 ) -> None:
-    """Increment ``combined_stacks[key]``, applying Algorithm R replacement
-    once the dict has hit ``_COMBINED_STACKS_MAX_KEYS`` unique entries.
+    """Increment ``combined_stacks[key]`` under a Space-Saving (Metwally,
+    Agrawal, El Abbadi 2005) heavy-hitter table.
 
-    Keys already in the reservoir are always incremented. The first time a
-    key is seen, ``combined_stacks_unique_seen`` is bumped; if there is
-    room, the key is inserted with count 1. If the dict is at capacity,
-    the new key replaces a uniformly-chosen existing key with probability
-    ``cap / combined_stacks_unique_seen``. As the run continues this
-    probability decreases, so the reservoir converges toward a uniform
-    sample of all unique stacks ever observed. Without this, every stack
-    seen after the cap is silently discarded — long profiles end up
-    biased toward whatever the program happened to be doing first.
+    Keys already in the table are always incremented. The first time a
+    key is seen, ``combined_stacks_unique_seen`` is bumped and the key is
+    inserted with count 1 if there is room. If the table is at capacity,
+    the entry with the *minimum* current count is evicted and the new
+    key takes its slot with ``count = old_min + 1``. This deterministic
+    rule guarantees that any stack whose true frequency exceeds N/cap
+    survives in the table (Metwally et al., Thm. 3.1), and bounds the
+    per-key count over-estimate by the smallest count ever evicted.
+
+    Flame charts care about *which stacks the program spent most of its
+    time in* — i.e., heavy hitters — so Space-Saving is a strictly
+    better fit here than uniform reservoir sampling (which would evict
+    a hot stack with the same probability as a one-off). It's also
+    deterministic across runs, which matters for reproducibility.
+
+    The ``HyperLogLog`` register on ``stats`` is updated on every
+    first-seen key, giving an unbiased estimate of total distinct
+    stacks observed even when the table is heavily churned. The
+    Space-Saving table answers "which stacks matter"; HLL answers "how
+    many were there in total".
 
     When ``stats`` is None (unit tests or callers that don't track the
     unique-seen counter), the cap is enforced by dropping rather than
-    replacing — same as the pre-reservoir behavior.
+    replacing — same as the pre-Space-Saving behavior.
     """
     if key in combined_stacks:
         combined_stacks[key] += 1
@@ -512,23 +522,21 @@ def _reservoir_increment(
         combined_stacks[key] = 1
         if stats is not None:
             stats.combined_stacks_unique_seen += 1
+            stats.combined_stacks_hll.add(key)
         return
     if stats is None:
         return  # cap enforced via drop
-    # At capacity. Replace with probability cap / unique_seen so the
-    # reservoir is a uniform random subset of all unique stacks observed.
     stats.combined_stacks_unique_seen += 1
-    if (
-        random.random() * stats.combined_stacks_unique_seen
-        < _COMBINED_STACKS_MAX_KEYS
-    ):
-        # dict iteration order is insertion-order, not random, so pick a
-        # random victim explicitly. The list() copy is O(cap) but the
-        # branch is only taken on cap-exceeded inserts (rare once the
-        # reservoir warms up).
-        victim = random.choice(list(combined_stacks))
-        del combined_stacks[victim]
-        combined_stacks[key] = 1
+    stats.combined_stacks_hll.add(key)
+    # Evict the entry with the smallest count, then seat the new key
+    # with count = old_min + 1. The min scan is O(cap) but only runs
+    # on cap-exceeded inserts; for workloads that never overflow it
+    # never fires, and once overflow starts the typical eviction
+    # promotes one of many tied-at-min entries to a slightly higher
+    # count, naturally settling the table.
+    victim = min(combined_stacks, key=combined_stacks.__getitem__)
+    old_min = combined_stacks.pop(victim)
+    combined_stacks[key] = old_min + 1
 
 
 def add_combined_stack(
@@ -593,7 +601,7 @@ def add_combined_stack(
             _intern_native_frame(ip) for ip in reversed(native_stk)
         )
         key: CombinedStackKey = py_chain_tuple + native_segment
-        _reservoir_increment(combined_stacks, stats, key)
+        _space_saving_increment(combined_stacks, stats, key)
         if timeline is not None:
             # Merge with trailing run only if same stack AND same thread
             if (
@@ -710,7 +718,7 @@ def add_async_await_run(
             )
 
         key: CombinedStackKey = tuple(py_frames)
-        _reservoir_increment(combined_stacks, stats, key)
+        _space_saving_increment(combined_stacks, stats, key)
         if timeline is not None:
             # Merge with trailing run only if same stack AND same thread
             if (
