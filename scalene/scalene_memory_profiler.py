@@ -24,7 +24,10 @@ from scalene.scalene_statistics import (
     ScaleneStatistics,
     StackFrame,
 )
-from scalene.scalene_utility import intern_stack_frame
+from scalene.scalene_utility import (
+    intern_stack_frame,
+    line_has_alloc_opcode,
+)
 
 
 class ScaleneMemoryProfiler:
@@ -267,9 +270,46 @@ class ScaleneMemoryProfiler:
             fname = item.filename
             lineno = item.lineno
 
+            # Smear suppression. The C++ interposer stamps every sample
+            # with the leaf user frame from ``whereInPython``, but
+            # CPython internals (arena resizes, GC, scalene's own
+            # bookkeeping under the GIL) emit raw mallocs whose bytes
+            # land on whichever leaf line the eval loop happens to be
+            # on. If that line's bytecode cannot have caused the alloc
+            # (no CALL / BUILD_ / LIST_ / … opcode — see
+            # ``line_has_alloc_opcode``), the sample is "smear".
+            #
+            # Earlier versions redirected smear up the captured stack
+            # to the nearest alloc-capable caller. That puts the bytes
+            # on whatever call site is currently active, which is
+            # misleading: e.g. ``x = doit2(x)`` is a CALL but doit2
+            # never allocates — the bytes really come from heap state
+            # set up by doit1 in a prior frame that's no longer on the
+            # stack. For the same reason, the captured stack itself
+            # isn't trustworthy here: it records which user frames
+            # were active at the moment of the malloc, none of which
+            # caused it. So we drop the sample from every per-line
+            # accumulator *and* from ``memory_stacks``. The bytes are
+            # still counted in the global running footprint (so the
+            # global peak / sparkline are accurate), but no line,
+            # function, or flame-chart path takes the blame.
+            leaf_can_alloc = line_has_alloc_opcode(fname, lineno)
+
+            count = item.count / self.BYTES_PER_MB
+            if not leaf_can_alloc:
+                # Keep the running per-item ``curr`` accurate so the
+                # next legitimate sparkline sample reflects the right
+                # footprint. Everything else (memory_stacks, per-line
+                # accumulators, allocs / last_malloc tracking) skips
+                # this sample.
+                if is_malloc:
+                    curr += count
+                else:
+                    curr -= count
+                continue
+
             # Add the byte index to the set for this line (if it's not there already).
             stats.bytei_map[fname][lineno].add(item.bytecode_index)
-            count = item.count / self.BYTES_PER_MB
             if is_malloc:
                 # Attribute the sampled bytes to the Python call stack
                 # captured *synchronously* in C++ inside process_malloc
