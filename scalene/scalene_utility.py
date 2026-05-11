@@ -10,7 +10,7 @@ import sysconfig
 import tempfile
 import threading
 import webbrowser
-from types import BuiltinFunctionType, FrameType, FunctionType, ModuleType
+from types import BuiltinFunctionType, CodeType, FrameType, FunctionType, ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 from scalene.scalene_config import scalene_date, scalene_version
@@ -996,3 +996,138 @@ def patch_module_functions_with_signal_blocking(
         if isinstance(attr, (BuiltinFunctionType, FunctionType)):
             wrapped_attr = signal_blocking_wrapper(attr)
             setattr(module, attr_name, wrapped_attr)
+
+
+# --------------------------------------------------------------------------- #
+#  Allocator-opcode detection (used by the smear-suppression path in
+#  scalene_memory_profiler.process_malloc_free_samples)
+# --------------------------------------------------------------------------- #
+#
+# The C++ heap interposer stamps every malloc / free sample with the leaf
+# Python frame from ``PyFrame_GetLineNumber``. When that leaf line's
+# bytecode cannot possibly have caused the allocation (e.g. ``z = z * z``
+# on two floats — only LOAD_FAST / BINARY_OP / STORE_FAST), but raw
+# ``malloc`` *does* fire under the GIL during that line (arena resizes,
+# GC, scalene's own bookkeeping, …), the bytes get smeared onto whichever
+# arithmetic line the eval loop happened to be on. ``line_has_alloc_opcode``
+# is the predicate the memory profiler uses to detect those samples; when
+# it returns False for the leaf the profiler drops the sample from every
+# per-line accumulator (the bytes still flow into the global footprint and
+# into ``memory_stacks``, so the flame view is unaffected).
+
+# Opcode-name prefixes that mark a line as potentially-allocating. CPython
+# guarantees these prefixes are stable across releases (the individual
+# opcodes inside them shift between versions — e.g. CALL_FUNCTION_EX,
+# CALL_KW, CALL_INTRINSIC_1 — but the CLAUDE.md guidance approves
+# ``.startswith("CALL")`` and the same shape applies to the others).
+_ALLOC_OPCODE_PREFIXES: Tuple[str, ...] = (
+    "CALL",        # CALL, CALL_KW, CALL_FUNCTION_EX, CALL_INTRINSIC_*, …
+    "BUILD_",      # BUILD_LIST / TUPLE / SET / MAP / STRING / SLICE / …
+    "LIST_",       # LIST_APPEND, LIST_EXTEND, LIST_TO_TUPLE
+    "SET_",        # SET_ADD, SET_UPDATE
+    "MAP_",        # MAP_ADD
+    "DICT_",       # DICT_UPDATE, DICT_MERGE
+    "IMPORT_",     # IMPORT_NAME / FROM / STAR
+    "MAKE_",       # MAKE_FUNCTION, MAKE_CELL
+    "FORMAT_",     # FORMAT_VALUE, FORMAT_SIMPLE, FORMAT_WITH_SPEC
+)
+
+# Exact opcode names that also count as allocation-capable. Includes
+# container iteration (which may call user ``__iter__`` / ``__next__``),
+# subscript / attr access (which may call ``__getitem__`` / ``__getattr__``
+# / etc.), and various async / exception / class-build entry points.
+# Keeping this list reasonably broad addresses the list-comprehension and
+# container-op case explicitly: a list comp without an inline range() call
+# still has BUILD_LIST, GET_ITER, FOR_ITER, and LIST_APPEND on its line.
+_ALLOC_OPCODE_EXACT: frozenset[str] = frozenset(
+    {
+        "GET_ITER",
+        "GET_YIELD_FROM_ITER",
+        "FOR_ITER",
+        "GET_AWAITABLE",
+        "GET_AITER",
+        "GET_ANEXT",
+        "SEND",
+        "YIELD_VALUE",
+        "YIELD_FROM",
+        "BINARY_SUBSCR",
+        "STORE_SUBSCR",
+        "DELETE_SUBSCR",
+        "LOAD_ATTR",
+        "STORE_ATTR",
+        "DELETE_ATTR",
+        "LOAD_BUILD_CLASS",
+        "RAISE_VARARGS",
+        "RERAISE",
+        "BEFORE_WITH",
+        "BEFORE_ASYNC_WITH",
+        "WITH_EXCEPT_START",
+        "CONVERT_VALUE",
+    }
+)
+
+# Per-file cache: filename → set of source lines containing at least one
+# allocation-capable opcode. ``None`` means the source could not be read or
+# compiled — in that case we trust the leaf attribution (don't redirect).
+_file_alloc_lines_cache: Dict[str, Optional[set[int]]] = {}
+
+
+def _is_alloc_opname(opname: str) -> bool:
+    if opname in _ALLOC_OPCODE_EXACT:
+        return True
+    return any(opname.startswith(prefix) for prefix in _ALLOC_OPCODE_PREFIXES)
+
+
+def _collect_alloc_lines(code: CodeType, out: set[int]) -> None:
+    """Walk a code object (and nested code consts) and record every
+    source line that carries at least one allocation-capable opcode."""
+    import dis  # local import: only used at serialization time
+
+    last_line: Optional[int] = None
+    for instr in dis.get_instructions(code):
+        # Python 3.13+ exposes ``Instruction.line_number`` (int|None on
+        # every instr). Older Pythons only set ``starts_line`` on the
+        # first instr per source line; propagate it forward manually.
+        ln = getattr(instr, "line_number", None)
+        if ln is None:
+            sl = getattr(instr, "starts_line", None)
+            if isinstance(sl, int):
+                last_line = sl
+        else:
+            last_line = ln
+        if last_line is not None and _is_alloc_opname(instr.opname):
+            out.add(last_line)
+    for const in getattr(code, "co_consts", ()):
+        if hasattr(const, "co_code"):
+            _collect_alloc_lines(const, out)
+
+
+def line_has_alloc_opcode(filename: str, lineno: int) -> bool:
+    """Return True if ``filename:lineno`` carries an allocation-capable
+    opcode. Sources that cannot be compiled are treated as "yes" so we
+    leave their attribution alone."""
+    if not filename or lineno <= 0:
+        return False
+    sentinel = _file_alloc_lines_cache
+    cached = _file_alloc_lines_cache.get(filename, sentinel)
+    if cached is sentinel:
+        import linecache  # local: only used at serialization time
+
+        alloc_lines: Optional[set[int]] = set()
+        try:
+            src = linecache.getlines(filename)
+            if src:
+                code = compile("".join(src), filename, "exec")
+                assert alloc_lines is not None
+                _collect_alloc_lines(code, alloc_lines)
+            else:
+                alloc_lines = None
+        except (SyntaxError, ValueError, TypeError, OSError):
+            alloc_lines = None
+        _file_alloc_lines_cache[filename] = alloc_lines
+        cached = alloc_lines
+    if cached is None:
+        return True
+    return lineno in cached
+
+
