@@ -21,10 +21,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
-      # One matrix entry failing should NOT cancel others — they cover
-      # different OS/Python combinations and we want full coverage even
-      # when one configuration regresses.
-      fail-fast: false
+      # fail-fast: any matrix entry failure cancels the rest. Trades
+      # full-coverage-on-failure for faster feedback and lower CI burn —
+      # if Windows 3.10 spawn-pool flakes we want to know within seconds,
+      # not 30 minutes later after every other combo finishes.
+      fail-fast: true
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
         python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']

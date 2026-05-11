@@ -18,7 +18,9 @@ jobs:
       security-events: write
 
     strategy:
-      fail-fast: false
+      # fail-fast: if cpp analysis fails, don't wait for python (and
+      # vice versa). Matches the policy applied to tests / smoketests.
+      fail-fast: true
       matrix:
         language: [ cpp, python ]
 
