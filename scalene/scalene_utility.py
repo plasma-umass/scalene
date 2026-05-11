@@ -1021,15 +1021,15 @@ def patch_module_functions_with_signal_blocking(
 # CALL_KW, CALL_INTRINSIC_1 — but the CLAUDE.md guidance approves
 # ``.startswith("CALL")`` and the same shape applies to the others).
 _ALLOC_OPCODE_PREFIXES: Tuple[str, ...] = (
-    "CALL",        # CALL, CALL_KW, CALL_FUNCTION_EX, CALL_INTRINSIC_*, …
-    "BUILD_",      # BUILD_LIST / TUPLE / SET / MAP / STRING / SLICE / …
-    "LIST_",       # LIST_APPEND, LIST_EXTEND, LIST_TO_TUPLE
-    "SET_",        # SET_ADD, SET_UPDATE
-    "MAP_",        # MAP_ADD
-    "DICT_",       # DICT_UPDATE, DICT_MERGE
-    "IMPORT_",     # IMPORT_NAME / FROM / STAR
-    "MAKE_",       # MAKE_FUNCTION, MAKE_CELL
-    "FORMAT_",     # FORMAT_VALUE, FORMAT_SIMPLE, FORMAT_WITH_SPEC
+    "CALL",  # CALL, CALL_KW, CALL_FUNCTION_EX, CALL_INTRINSIC_*, …
+    "BUILD_",  # BUILD_LIST / TUPLE / SET / MAP / STRING / SLICE / …
+    "LIST_",  # LIST_APPEND, LIST_EXTEND, LIST_TO_TUPLE
+    "SET_",  # SET_ADD, SET_UPDATE
+    "MAP_",  # MAP_ADD
+    "DICT_",  # DICT_UPDATE, DICT_MERGE
+    "IMPORT_",  # IMPORT_NAME / FROM / STAR
+    "MAKE_",  # MAKE_FUNCTION, MAKE_CELL
+    "FORMAT_",  # FORMAT_VALUE, FORMAT_SIMPLE, FORMAT_WITH_SPEC
 )
 
 # Exact opcode names that also count as allocation-capable. Includes
@@ -1129,5 +1129,3 @@ def line_has_alloc_opcode(filename: str, lineno: int) -> bool:
     if cached is None:
         return True
     return lineno in cached
-
-
