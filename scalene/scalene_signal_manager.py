@@ -238,6 +238,24 @@ class ScaleneSignalManager:
             self.__signals.cpu_timer_signal,
             cpu_sampling_rate,
         )
+        # Unmask Scalene's profiling signals in the calling (main) thread.
+        # pytest-xdist's execnet, and other libraries that fan out work via
+        # subprocess.Popen, can leave the worker process with Scalene's CPU
+        # sampling signal blocked in its inherited sigmask — most visibly
+        # when the parent's patched os module (issue #841) intersects with
+        # the subprocess fork window. Without this unblock the SIGALRM
+        # timer fires but the handler never runs, leaving the worker with
+        # zero CPU and zero allocation samples. See issue #1022.
+        unblock_set = {
+            self.__signals.cpu_signal,
+            self.__signals.malloc_signal,
+            self.__signals.free_signal,
+            self.__signals.memcpy_signal,
+        }
+        unblock_set.discard(None)
+        if unblock_set:
+            with contextlib.suppress(ValueError, OSError):
+                signal.pthread_sigmask(signal.SIG_UNBLOCK, unblock_set)
 
     def setup_lifecycle_signals(
         self,
