@@ -68,6 +68,17 @@ jobs:
       run: python test/smoketest_pool_spawn.py
       timeout-minutes: 5
 
+    # Regression test for pytest-xdist + --profile-all on Linux (issue
+    # #1022). The bug was Linux-specific: execnet worker subprocesses
+    # inherited a sigmask with Scalene's CPU sampling signal blocked,
+    # so the timer fired but the handler never ran and the user's code
+    # was absent from the merged profile. The smoketest itself self-
+    # skips on non-Linux platforms.
+    - name: pytest-xdist + --profile-all (issue #1022)
+      if: matrix.os == 'ubuntu-latest'
+      run: python test/smoketest_issue_1022.py
+      timeout-minutes: 5
+
       # Note: test/smoketest.py only handles single JSON, rather than multiple in sequence.
     - name: profile-interval smoke test
       run: python -m scalene run --profile-interval=2 test/testme.py && python -m scalene view --cli
