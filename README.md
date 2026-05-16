@@ -249,11 +249,65 @@ Use `scalene view --standalone` to generate a completely self-contained HTML fil
 - Scalene **identifies lines with likely memory leaks**.
 - Scalene **profiles _copying volume_**, making it easy to spot inadvertent copying, especially due to crossing Python/library boundaries (e.g., accidentally converting `numpy` arrays into Python arrays, and vice versa).
 
+### Async profiling
+
+Scalene attributes wall-clock **`await` time** to the exact line where the
+coroutine is suspended, alongside the **mean** and **peak** number of
+coroutines waiting concurrently on that line. This makes it easy to spot
+serialized I/O (long `await`, low concurrency) versus genuinely-parallel
+fan-out (long `await`, high concurrency). The await column in the GUI
+draws a clockwise pie wedge per line; bigger wedges mean more time spent
+suspended on that `await`.
+
+Async profiling is on by default; pass `--no-async` to disable it.
+Overhead on non-async code is negligible (one frozenset lookup per
+signal, and `sys.monitoring` callbacks never fire when no coroutines
+are running).
+
+![Per-line await time pies](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/images/scalene-async-pies.png)
+
+### Stack views (call stacks, memory flame chart, timeline)
+
+When Scalene is run with `--stacks` (the default — pass `--no-stacks`
+to disable), it captures **stitched Python + native (C/C++) stacks** at
+every CPU and allocation sample, and presents them three ways in the
+GUI:
+
+- **Call stacks** — a flame chart of the top stitched stacks across the
+  whole run. Python frames are clickable to jump to source. Native
+  frames are demangled and shown alongside Python frames in the same
+  picture, so you can see exactly which library call is on the hot path.
+
+  ![Call stacks flame chart](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/images/scalene-call-stacks.png)
+
+- **Memory stacks** — a memory-weighted flame chart where frame width is
+  proportional to **MB allocated** along that call path (not sample
+  count). Useful for finding which call paths are responsible for a
+  program's memory footprint, especially when allocations come from deep
+  inside a library.
+
+  ![Memory stacks flame chart](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/images/scalene-memory-stacks.png)
+
+- **Timeline** — an icicle/time-series view of the same stitched stacks
+  laid out left-to-right by wall-clock time, with tracks at the top
+  marking GC, I/O, and GIL activity. Coroutines appear as `[await]
+  task_name` frames so you can see when each task ran versus waited.
+
+  ![Timeline view](https://raw.githubusercontent.com/plasma-umass/scalene/master/docs/images/scalene-timeline.png)
+
+All three views are collapsible and resizable; expand them via the
+disclosure triangles at the bottom of the GUI.
+
 ### Other features
 
 - Scalene can produce **reduced profiles** (via `--reduced-profile`) that only report lines that consume more than 1% of CPU or perform at least 100 allocations.
 - Scalene supports `@profile` decorators to profile only specific functions.
 - When Scalene is profiling a program launched in the background (via `&`), you can **suspend and resume profiling**.
+- Scalene supports **free-threaded Python (3.13t / 3.14t)** with full
+  CPU + memory profiling.
+- Scalene's GUI is **fully offline / air-gapped** — assets are vendored
+  and `scalene view --standalone` produces a single self-contained HTML
+  file you can email or archive.
 
 # Comparison to Other Profilers
 
@@ -278,6 +332,8 @@ Scalene has all of the following features, many of which only Scalene supports:
 - **Memory trends**: reports memory use over time per line / function -- _Scalene only_
 - **Copy volume**: reports megabytes being copied per second -- _Scalene only_
 - **Detects leaks**: automatically pinpoints lines responsible for likely memory leaks -- _Scalene only_
+- **Async / `await` profiling**: per-line wall-clock attribution of suspended coroutine time, with mean and peak concurrency -- _Scalene only_
+- **Stitched Python + native stacks**: flame charts and a wall-clock timeline that combine Python and C/C++ frames in one picture -- _Scalene only_
 
 ## Output
 
