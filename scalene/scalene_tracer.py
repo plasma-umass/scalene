@@ -21,8 +21,8 @@ if TYPE_CHECKING:
 # Check if we're running Python 3.12+ where sys.monitoring is available
 _SYS_MONITORING_AVAILABLE = sys.version_info >= (3, 12)
 
-# Check if we're running Python 3.13+ where the C API for sys.monitoring is available
-_SYS_MONITORING_C_API_AVAILABLE = sys.version_info >= (3, 13)
+# Check if we're running Python 3.12+ where the C API for sys.monitoring is available
+_SYS_MONITORING_C_API_AVAILABLE = sys.version_info >= (3, 12)
 
 # Flag to force legacy tracer mode (can be set via command-line argument)
 _FORCE_LEGACY_TRACER = False
@@ -57,7 +57,7 @@ def set_use_legacy_tracer(use_legacy: bool) -> None:
 def set_use_python_callback(use_python: bool) -> None:
     """Set whether to use Python callback instead of C callback.
 
-    This can be used to force the Python callback even on Python 3.13+
+    This can be used to force the Python callback even on Python 3.12+
     for debugging or comparison purposes.
     """
     global _FORCE_PYTHON_CALLBACK
@@ -130,7 +130,7 @@ class ScaleneTracer:
     # Whether the tracer has been initialized
     _initialized: bool = False
 
-    # Whether we're using the C line callback (Python 3.13+)
+    # Whether we're using the C line callback (Python 3.12+)
     _use_c_line_callback: bool = False
 
     @classmethod
@@ -183,7 +183,7 @@ class ScaleneTracer:
             _FORCE_LEGACY_TRACER = True
             return
 
-        # Choose between C callback (3.13+) and Python callback (3.12)
+        # Use C callback on 3.12+
         if _use_c_callback() and cls._pywhere is not None:
             # Use the C callback from pywhere for better performance
             with contextlib.suppress(AttributeError, NotImplementedError):
@@ -294,7 +294,7 @@ class ScaleneTracer:
         """Enable tracing using sys.monitoring (Python 3.12+)."""
         cls._tracing_active = True
 
-        # Use C implementation if available (Python 3.13+)
+        # Use C implementation if available (Python 3.12+)
         if cls._use_c_line_callback and cls._pywhere is not None:
             try:
                 cls._pywhere.enable_sysmon()  # type: ignore
@@ -328,7 +328,7 @@ class ScaleneTracer:
         """Disable tracing using sys.monitoring (Python 3.12+)."""
         cls._tracing_active = False
 
-        # Use C implementation if available (Python 3.13+)
+        # Use C implementation if available (Python 3.12+)
         if cls._use_c_line_callback and cls._pywhere is not None:
             with contextlib.suppress(AttributeError, NotImplementedError):
                 cls._pywhere.disable_sysmon()  # type: ignore
@@ -409,11 +409,11 @@ def using_sys_monitoring() -> bool:
 
 
 def using_c_callback() -> bool:
-    """Return True if using the C callback for sys.monitoring (Python 3.13+).
+    """Return True if using the C callback for sys.monitoring (Python 3.12+).
 
     This returns True if:
     - sys.monitoring is being used
-    - The C API is available (Python 3.13+)
+    - The C API is available (Python 3.12+)
     - We're not forcing Python callback mode
     - The C callback was successfully registered
     """

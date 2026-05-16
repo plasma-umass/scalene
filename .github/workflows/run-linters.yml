@@ -10,57 +10,49 @@ on:
   workflow_dispatch:
 
 
+# Cancel any in-flight runs for the same PR / branch when a new push arrives.
+# Master pushes still run to completion (the ``cancel-in-progress`` predicate
+# only fires on PR events).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
 jobs:
   linters:
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    strategy:
-      matrix:
-        os: [ ubuntu-latest, macos-latest ]
-        python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
-
+    runs-on: ubuntu-latest
+    # mypy + ruff are pure static analysis: no native build needed and
+    # results are version-independent given a single mypy target version
+    # (set in mypy.ini) and ruff's --target-version. A single matrix entry
+    # is enough; the C++ extension isn't installed because nothing here
+    # imports it.
+    timeout-minutes: 5
     steps:
     - uses: actions/checkout@v4
-
-    - name: select Xcode version
-      # MacOS > 14.2 requires Xcode >= 15.3; otherwise loading native extension modules fails with e.g.:
-      # dlopen(/opt/homebrew/lib/python3.11/site-packages/slipcover/probe.abi3.so, 0x0002): bad bind opcode 0x00 
-      if: startsWith(matrix.os, 'macos-')
-      run: |
-        if [ -d /Applications/Xcode_15.3.app/Contents/Developer ]; then sudo xcode-select --switch /Applications/Xcode_15.3.app/Contents/Developer; fi
-        clang++ --version
-        g++ --version
-
-    - uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python }}
 
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python }}
+        python-version: '3.12'
+        cache: pip
+        cache-dependency-path: |
+          requirements.txt
 
-    - name: Work around arm64 support on MacOS
-      # https://github.com/actions/virtual-environments/issues/2557
-      if: matrix.os == 'macos-latest'
-      run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
-
-    - name: Install dependencies
+    - name: Install Python dependencies for linting
+      # No ``pip install -e .`` here — mypy resolves the package via
+      # ``mypy scalene`` (source directory) and missing C-extension
+      # imports are silenced by ``ignore_missing_imports = True`` in
+      # mypy.ini. ruff is purely syntactic.
+      #
+      # ``pydantic`` is required because mypy.ini configures
+      # ``plugins = pydantic.mypy`` and mypy fails to start if the
+      # plugin module isn't importable.
       run: |
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
-        python -m pip install numpy
-
-    - name: Build scalene
-      run: pip -v install -e .
-
-    - name: install test dependencies
-      run: |
-        python3 -m pip install mypy ruff types-PyYAML
-        python3 -m pip install .
+        python -m pip install mypy ruff types-PyYAML pydantic
 
     - name: Run linters
       run: |
         mypy scalene
         ruff check scalene
-        

@@ -40,7 +40,7 @@ def _ns(**kwargs):
         use_virtual_time=False,
         profile_all=False,
         profile_system_libraries=False,
-        stacks=False,
+        stacks=True,
         async_profile=True,
         profile_only="",
         profile_exclude="",
@@ -71,7 +71,6 @@ def test_profile_scope_filters_propagated():
             profile_only="mypkg,utils",
             profile_exclude="tests",
             profile_system_libraries=True,
-            stacks=True,
         ),
         "/tmp",
         42,
@@ -80,7 +79,16 @@ def test_profile_scope_filters_propagated():
     assert f"--profile-only={quote}mypkg,utils{quote}" in cmdline
     assert f"--profile-exclude={quote}tests{quote}" in cmdline
     assert "--profile-system-libraries" in cmdline
-    assert "--stacks" in cmdline
+
+
+def test_stacks_propagation_only_when_disabled():
+    # stacks defaults to True; the run subcommand has no --stacks default-
+    # preserving form to re-enable it, so we only emit --no-stacks.
+    enabled = Scalene._build_child_cmdline(_ns(stacks=True), "/tmp", 42)
+    disabled = Scalene._build_child_cmdline(_ns(stacks=False), "/tmp", 42)
+    assert "--no-stacks" not in enabled
+    assert "--stacks" not in enabled
+    assert "--no-stacks" in disabled
 
 
 def test_async_propagation_only_when_disabled():

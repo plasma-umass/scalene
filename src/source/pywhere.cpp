@@ -58,8 +58,8 @@ const int NEWLINE_TRIGGER_LENGTH = 98820;
 
 static std::atomic<bool> last_profiled_invalidated{false};
 
-// sys.monitoring support for Python 3.13+
-#if PY_VERSION_HEX >= 0x030D0000
+// sys.monitoring support for Python 3.12+
+#if PY_VERSION_HEX >= 0x030C0000
 // Tool ID for sys.monitoring (PROFILER_ID = 2)
 static const int SCALENE_TOOL_ID = 2;
 
@@ -478,8 +478,8 @@ static void allocate_newline() {
   PyPtr<> tmp(PyByteArray_FromObject(static_cast<PyObject*>(abc)));
 }
 
-// sys.monitoring implementation for Python 3.13+
-#if PY_VERSION_HEX >= 0x030D0000
+// sys.monitoring implementation for Python 3.12+
+#if PY_VERSION_HEX >= 0x030C0000
 
 // Get current call depth by walking the stack
 static int get_call_depth() {
@@ -827,7 +827,7 @@ static PyObject* setup_sysmon(PyObject* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
-// Check if sys.monitoring is available (Python 3.13+)
+// Check if sys.monitoring is available (Python 3.12+)
 static PyObject* sysmon_available(PyObject* self, PyObject* args) {
   Py_RETURN_TRUE;
 }
@@ -846,20 +846,20 @@ static PyObject* is_sysmon_active(PyObject* self, PyObject* args) {
 }
 
 #else
-// Stubs for Python < 3.13
+// Stubs for Python < 3.12
 
 static PyObject* enable_sysmon(PyObject* self, PyObject* args) {
-  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.13+");
+  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.12+");
   return nullptr;
 }
 
 static PyObject* disable_sysmon(PyObject* self, PyObject* args) {
-  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.13+");
+  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.12+");
   return nullptr;
 }
 
 static PyObject* setup_sysmon(PyObject* self, PyObject* args) {
-  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.13+");
+  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.12+");
   return nullptr;
 }
 
@@ -876,11 +876,11 @@ static PyObject* is_sysmon_active(PyObject* self, PyObject* args) {
 }
 
 static PyObject* sysmon_line_callback(PyObject* self, PyObject* args) {
-  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.13+");
+  PyErr_SetString(PyExc_NotImplementedError, "sys.monitoring C API requires Python 3.12+");
   return nullptr;
 }
 
-#endif  // PY_VERSION_HEX >= 0x030D0000
+#endif  // PY_VERSION_HEX >= 0x030C0000
 
 static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
                       PyObject* arg) {
@@ -1072,7 +1072,7 @@ static PyMethodDef EmbMethods[] = {
      METH_NOARGS, ""},
     {"set_scalene_done_true", set_scalene_done_true, METH_NOARGS, ""},
     {"set_scalene_done_false", set_scalene_done_false, METH_NOARGS, ""},
-    // sys.monitoring support (Python 3.13+)
+    // sys.monitoring support (Python 3.12+)
     {"enable_sysmon", enable_sysmon, METH_NOARGS,
      "Enable sys.monitoring line tracing"},
     {"disable_sysmon", disable_sysmon, METH_NOARGS,
@@ -1080,7 +1080,7 @@ static PyMethodDef EmbMethods[] = {
     {"setup_sysmon", setup_sysmon, METH_VARARGS,
      "Set up sys.monitoring with a line callback"},
     {"sysmon_available", sysmon_available, METH_NOARGS,
-     "Check if sys.monitoring C API is available (Python 3.13+)"},
+     "Check if sys.monitoring C API is available (Python 3.12+)"},
     {"get_sysmon_tool_id", get_sysmon_tool_id, METH_NOARGS,
      "Get the sys.monitoring tool ID used by scalene"},
     {"is_sysmon_active", is_sysmon_active, METH_NOARGS,

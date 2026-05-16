@@ -10,12 +10,27 @@ on:
   workflow_dispatch:
 
 
+# Cancel any in-flight runs for the same PR / branch when a new push arrives.
+# Master pushes still run to completion (the ``cancel-in-progress`` predicate
+# only fires on PR events).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
 jobs:
   run-tests:
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    # 30 min cap: free-threaded 3.13t/3.14t runners use most of the 20-min
+    # default on pytest alone (test_on_off_windows spawns slow scalene
+    # subprocesses), leaving no headroom for the parity step that follows.
+    timeout-minutes: 30
     strategy:
-      fail-fast: false
+      # fail-fast: any matrix entry failure cancels the rest. Trades
+      # full-coverage-on-failure for faster feedback and lower CI burn —
+      # if Python 3.10 on Ubuntu breaks we want to know within seconds,
+      # not 30 minutes later after every other entry finishes.
+      fail-fast: true
       matrix:
         os: [ ubuntu-latest, macos-latest ]
         python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.13t', '3.14t' ]
@@ -32,14 +47,14 @@ jobs:
         clang++ --version
         g++ --version
 
-    - uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python }}
-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python }}
+        cache: pip
+        cache-dependency-path: |
+          requirements.txt
+          pyproject.toml
 
     - name: Work around arm64 support on MacOS
       # https://github.com/actions/virtual-environments/issues/2557

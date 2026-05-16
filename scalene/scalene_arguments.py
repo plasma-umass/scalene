@@ -47,7 +47,7 @@ class ScaleneArgumentsDict(TypedDict, total=False):
     cli: bool
     # Use legacy PyEval_SetTrace for line tracing instead of sys.monitoring (Python 3.12+)
     use_legacy_tracer: bool
-    # Use Python callback for sys.monitoring instead of C callback (Python 3.13+)
+    # Use Python callback for sys.monitoring instead of C callback (Python 3.12+)
     use_python_callback: bool
     # Disable PyTorch and JAX JIT for Python-level profiling (may break torch.jit.load)
     disable_jit: bool
@@ -60,7 +60,7 @@ def _set_defaults() -> ScaleneArgumentsDict:
         "cpu": True,
         "gpu": True,
         "memory": True,
-        "stacks": False,
+        "stacks": True,
         "cpu_percent_threshold": 1,
         "cpu_sampling_rate": 0.01,
         "allocation_sampling_window": 1048576,
@@ -148,7 +148,7 @@ CHILD_PROPAGATED_ARGS: Tuple[ChildArgSpec, ...] = (
     ChildArgSpec("memory", "--memory"),
     ChildArgSpec("profile_all", "--profile-all"),
     ChildArgSpec("profile_system_libraries", "--profile-system-libraries"),
-    ChildArgSpec("stacks", "--stacks"),
+    ChildArgSpec("stacks", "--no-stacks", invert=True),
     ChildArgSpec("async_profile", "--no-async", invert=True),
     ChildArgSpec("profile_only", "--profile-only", takes_value=True),
     ChildArgSpec("profile_exclude", "--profile-exclude", takes_value=True),
