@@ -70,6 +70,16 @@ constexpr int kRingSize = 4096;  // power of 2; must outpace one drain interval
 constexpr int kPerThreadRingSize = 1024;  // per-thread sampling ring
 constexpr int kMaxTrackedThreads = 256;   // max threads we track for sampling
 
+// Per-tick cap on threads pthread_kill'd from signal_all_threads().
+// Each signaled thread runs the per-thread sampler (stack unwind + ring
+// write); measured on M1 at ~12 us per signaled thread. Without a cap,
+// a process with hundreds of registered threads sees signal_all_threads
+// dominate CPU at the 100 Hz cpu-sampling cadence. We rotate the cursor
+// across calls so every registered thread is still sampled, just at a
+// lower per-thread frequency (100 Hz * kSignalAllBatch / live_count).
+// See https://github.com/plasma-umass/scalene/issues/1056.
+constexpr int kSignalAllBatch = 32;
+
 #if SCALENE_UNWIND_AVAILABLE
 
 // -------- Direct (in-thread, current stack) unwind --------
@@ -166,6 +176,13 @@ struct ThreadRegistry {
   std::atomic<bool> valid[kMaxTrackedThreads];  // slot validity
 };
 ThreadRegistry g_thread_registry;
+
+// Round-robin cursor into the thread registry. signal_all_threads()
+// resumes scanning from here, signals up to kSignalAllBatch live
+// threads, then leaves the cursor pointing one past the last slot
+// it inspected. Only mutated from the (single) cpu_signal_handler
+// invoker, so relaxed ordering is enough.
+std::atomic<uint32_t> g_signal_all_cursor{0};
 
 // Get a unique thread ID (platform-specific)
 inline uint64_t get_thread_id() {
@@ -561,7 +578,16 @@ PyObject* py_signal_all_threads(PyObject* /*self*/, PyObject* /*args*/) {
   int errors = 0;
   pthread_t self = pthread_self();
 
-  for (int i = 0; i < kMaxTrackedThreads; i++) {
+  // Resume the round-robin scan where the previous call left off, so
+  // every registered thread eventually gets signaled across successive
+  // ticks. We walk at most kMaxTrackedThreads slots (one full pass) so
+  // a registry with fewer than kSignalAllBatch live threads still
+  // terminates promptly.
+  uint32_t start = g_signal_all_cursor.load(std::memory_order_relaxed)
+                   % kMaxTrackedThreads;
+  uint32_t i = start;
+  int scanned = 0;
+  while (scanned < kMaxTrackedThreads && signaled < kSignalAllBatch) {
     if (g_thread_registry.valid[i].load(std::memory_order_acquire)) {
       pthread_t target = g_thread_registry.threads[i];
       // Don't signal ourselves - the main thread gets sampled via the timer
@@ -578,7 +604,14 @@ PyObject* py_signal_all_threads(PyObject* /*self*/, PyObject* /*args*/) {
         }
       }
     }
+    i = (i + 1) % kMaxTrackedThreads;
+    scanned++;
   }
+  // Stash the resume position. If we hit the batch cap, resume at `i`
+  // so the next tick continues with fresh threads; if we made a full
+  // sweep without filling the batch, `i` is back to `start` which is
+  // fine — every live thread was already covered.
+  g_signal_all_cursor.store(i, std::memory_order_relaxed);
 
   return Py_BuildValue("(ii)", signaled, errors);
 #else
