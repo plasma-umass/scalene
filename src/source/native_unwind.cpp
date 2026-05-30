@@ -736,5 +736,8 @@ extern "C" PyObject* PyInit__scalene_unwind(void) {
   PyObject* m = PyModule_Create(&moduledef);
   if (!m) return nullptr;
   PyModule_AddIntConstant(m, "available", SCALENE_UNWIND_AVAILABLE);
+  // Expose the per-call cap so callers (and tests) read the single
+  // source of truth instead of hard-coding the value.
+  PyModule_AddIntConstant(m, "signal_all_batch", kSignalAllBatch);
   return m;
 }

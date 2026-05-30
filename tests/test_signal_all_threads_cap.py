@@ -2,9 +2,10 @@
 
 A process with many registered worker threads should not see the
 signal_all_threads cost grow without bound — the implementation
-caps the number of pthread_kills per call (currently 32) and
-rotates through the registry across successive calls, so every
-thread is still sampled, just at a lower per-thread rate.
+caps the number of pthread_kills per call (kSignalAllBatch, exposed
+as _scalene_unwind.signal_all_batch) and rotates through the
+registry across successive calls, so every thread is still sampled,
+just at a lower per-thread rate.
 
 See https://github.com/plasma-umass/scalene/issues/1056 (the
 --stacks-cost discussion in the issue).
@@ -15,9 +16,6 @@ import threading
 import time
 
 import pytest
-
-
-SCALENE_PERTHREAD_BATCH = 32  # must match kSignalAllBatch in native_unwind.cpp
 
 
 if sys.platform == "win32":
@@ -42,10 +40,16 @@ def unwind_module():
     # native module doesn't expose an uninstall hook.
 
 
-def test_cap_caps_signaled_per_call(unwind_module):
-    """signal_all_threads should signal at most kSignalAllBatch threads
-    per call regardless of how many are registered."""
-    n_workers = SCALENE_PERTHREAD_BATCH * 4  # 128
+@pytest.fixture
+def batch_size(unwind_module):
+    """The per-call cap exposed by the native module."""
+    return int(unwind_module.signal_all_batch)
+
+
+def test_cap_caps_signaled_per_call(unwind_module, batch_size):
+    """signal_all_threads should signal at most batch_size threads per call
+    regardless of how many are registered."""
+    n_workers = batch_size * 4
     stop = threading.Event()
     ready = threading.Barrier(n_workers + 1)
 
@@ -69,11 +73,9 @@ def test_cap_caps_signaled_per_call(unwind_module):
     try:
         signaled, errors = unwind_module.signal_all_threads()
         assert errors == 0, f"pthread_kill failed {errors} times"
-        assert signaled <= SCALENE_PERTHREAD_BATCH, (
-            f"cap violated: {signaled} > {SCALENE_PERTHREAD_BATCH}"
-        )
-        assert signaled == SCALENE_PERTHREAD_BATCH, (
-            f"expected exactly {SCALENE_PERTHREAD_BATCH} signaled with "
+        assert signaled <= batch_size, f"cap violated: {signaled} > {batch_size}"
+        assert signaled == batch_size, (
+            f"expected exactly {batch_size} signaled with "
             f"{n_workers} workers registered, got {signaled}"
         )
     finally:
@@ -82,20 +84,17 @@ def test_cap_caps_signaled_per_call(unwind_module):
             t.join(timeout=2.0)
 
 
-def test_cap_rotates_across_calls(unwind_module):
+def test_cap_rotates_across_calls(unwind_module, batch_size):
     """Across successive calls, signal_all_threads should cover every live
     worker thread, not just the same K slots over and over.
 
-    Confirmed by: after ceil(N/K) calls we must have at least
-    (N - K) unique signaled targets (allowing for the main thread
-    being skipped).
+    The cap is K per call; coverage of N threads requires at least
+    ceil(N/K) calls, after which the total signaled count must reach N.
     """
-    n_workers = SCALENE_PERTHREAD_BATCH * 3  # 96
+    n_workers = batch_size * 3
     stop = threading.Event()
     ready = threading.Barrier(n_workers + 1)
 
-    # Each thread records its own pthread tid when its handler fires,
-    # via the per-thread ring buffer the sampler already populates.
     def worker():
         unwind_module.register_thread()
         ready.wait()
@@ -110,22 +109,14 @@ def test_cap_rotates_across_calls(unwind_module):
     time.sleep(0.1)
 
     try:
-        # Three full sweeps' worth of calls should cover everyone with margin.
-        calls = (n_workers // SCALENE_PERTHREAD_BATCH) + 2
+        calls = (n_workers // batch_size) + 2
         total_signaled = 0
         for _ in range(calls):
             signaled, errors = unwind_module.signal_all_threads()
             assert errors == 0
-            assert signaled <= SCALENE_PERTHREAD_BATCH
+            assert signaled <= batch_size
             total_signaled += signaled
 
-        # After (ceil(N/K) + 2) calls we must have signaled at least every
-        # registered worker once. We can't easily prove uniqueness without
-        # a per-target counter exposed from C, but the *total* signaled
-        # count must reach at least n_workers for full coverage to be
-        # possible — and after the cursor wraps, additional calls keep
-        # adding. The cap is K per call; coverage of N threads requires
-        # at least ceil(N/K) calls.
         assert total_signaled >= n_workers, (
             f"after {calls} calls, only {total_signaled} signals sent; "
             f"cursor likely not rotating (n_workers={n_workers})"
@@ -136,10 +127,10 @@ def test_cap_rotates_across_calls(unwind_module):
             t.join(timeout=2.0)
 
 
-def test_cap_is_a_noop_when_under_cap(unwind_module):
+def test_cap_is_a_noop_when_under_cap(unwind_module, batch_size):
     """With fewer than K registered threads, all of them should be signaled
     in a single call (the cap shouldn't suppress legitimate samples)."""
-    n_workers = SCALENE_PERTHREAD_BATCH // 4  # 8
+    n_workers = max(1, batch_size // 4)
     stop = threading.Event()
     ready = threading.Barrier(n_workers + 1)
 
@@ -160,7 +151,7 @@ def test_cap_is_a_noop_when_under_cap(unwind_module):
         signaled, errors = unwind_module.signal_all_threads()
         assert errors == 0
         assert signaled == n_workers, (
-            f"under cap ({n_workers} < {SCALENE_PERTHREAD_BATCH}) but got "
+            f"under cap ({n_workers} < {batch_size}) but got "
             f"signaled={signaled}"
         )
     finally:
