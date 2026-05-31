@@ -28,6 +28,13 @@ jobs:
     # had jobs landing at 24-29 min; a slightly noisier runner pushes them
     # over the previous 30 min cap. Bumping to 45 absorbs that variance.
     timeout-minutes: 45
+    # Free-threaded Python (3.13t/3.14t) is experimental; even when the
+    # individual pytest / parity steps are flagged continue-on-error
+    # below, a job-level timeout still reports the matrix entry as
+    # failed and (with fail-fast) cancels the rest. Mark the whole
+    # *_t job non-blocking so a t-variant timing out doesn't take the
+    # rest of the matrix down with it.
+    continue-on-error: ${{ endsWith(matrix.python, 't') }}
     strategy:
       # fail-fast: any matrix entry failure cancels the rest. Trades
       # full-coverage-on-failure for faster feedback and lower CI burn —
