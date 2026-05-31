@@ -24,9 +24,12 @@ if sys.platform == "win32":
 
 @pytest.fixture
 def unwind_module():
+    _scalene_unwind = None
     try:
-        from scalene import _scalene_unwind  # type: ignore[attr-defined]
+        from scalene import _scalene_unwind  # type: ignore[attr-defined,no-redef]
     except ImportError:
+        pass
+    if _scalene_unwind is None:
         pytest.skip("scalene._scalene_unwind not available in this build")
     if not getattr(_scalene_unwind, "available", False):
         pytest.skip("native unwinder not available on this platform")
