@@ -197,23 +197,28 @@ static_assert(kMaxTrackedThreads <= 256,
 uint8_t g_signal_all_perm[kMaxTrackedThreads];
 bool g_signal_all_perm_initialized = false;
 
-// xorshift32 PRNG used to shuffle g_signal_all_perm. Seeded lazily from a
-// stack address (ASLR-derived). Quality is not security-critical, only
-// per-process uniqueness is.
-uint32_t g_signal_all_rng_state = 0;
+// wyrand PRNG used to shuffle g_signal_all_perm. Pure arithmetic on a
+// single uint64_t state — no allocation, no library calls (so this is
+// safe to invoke from any context that's allergic to malloc, even though
+// signal_all_threads itself is called from a regular Python handler).
+// Seeded lazily from a stack address (ASLR-derived). Quality isn't
+// security-critical here; using wyrand keeps us consistent with the RNG
+// family the rest of the project / DieHard uses.
+uint64_t g_signal_all_rng_state = 0;
 
-uint32_t signal_all_rng_next() {
-  uint32_t x = g_signal_all_rng_state;
-  if (x == 0) {
-    uintptr_t a = reinterpret_cast<uintptr_t>(&x);
-    x = static_cast<uint32_t>(a ^ (a >> 32));
-    if (x == 0) x = 0xDEADBEEFu;
+uint64_t signal_all_rng_next() {
+  uint64_t s = g_signal_all_rng_state;
+  if (s == 0) {
+    uintptr_t a = reinterpret_cast<uintptr_t>(&s);
+    s = static_cast<uint64_t>(a) ^ 0x9E3779B97F4A7C15ull;
+    if (s == 0) s = 0xDEADBEEFDEADBEEFull;
   }
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-  g_signal_all_rng_state = x;
-  return x;
+  s += 0xA0761D6478BD642Full;
+  __uint128_t t = static_cast<__uint128_t>(s) *
+                  static_cast<__uint128_t>(s ^ 0xE7037ED1A0B428DBull);
+  uint64_t r = static_cast<uint64_t>(t >> 64) ^ static_cast<uint64_t>(t);
+  g_signal_all_rng_state = s;
+  return r;
 }
 
 void signal_all_reshuffle() {
@@ -225,10 +230,10 @@ void signal_all_reshuffle() {
   }
   // Fisher-Yates over the full array.
   for (int i = kMaxTrackedThreads - 1; i > 0; i--) {
-    uint32_t j = signal_all_rng_next() % static_cast<uint32_t>(i + 1);
+    uint64_t j = signal_all_rng_next() % static_cast<uint64_t>(i + 1);
     uint8_t tmp = g_signal_all_perm[i];
-    g_signal_all_perm[i] = g_signal_all_perm[j];
-    g_signal_all_perm[j] = tmp;
+    g_signal_all_perm[i] = g_signal_all_perm[static_cast<size_t>(j)];
+    g_signal_all_perm[static_cast<size_t>(j)] = tmp;
   }
 }
 
