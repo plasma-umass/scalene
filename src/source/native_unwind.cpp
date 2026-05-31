@@ -74,9 +74,13 @@ constexpr int kMaxTrackedThreads = 256;   // max threads we track for sampling
 // Each signaled thread runs the per-thread sampler (stack unwind + ring
 // write); measured on M1 at ~12 us per signaled thread. Without a cap,
 // a process with hundreds of registered threads sees signal_all_threads
-// dominate CPU at the 100 Hz cpu-sampling cadence. We rotate the cursor
-// across calls so every registered thread is still sampled, just at a
-// lower per-thread frequency (100 Hz * kSignalAllBatch / live_count).
+// dominate CPU at the 100 Hz cpu-sampling cadence. We walk a shuffled
+// permutation of the registry across calls so every registered thread is
+// still sampled, just at a lower per-thread frequency
+// (100 Hz * kSignalAllBatch / live_count). The permutation is regenerated
+// when exhausted, which avoids the contiguous-scan bias where neighboring
+// slots (e.g. workers registered back-to-back) always sample together
+// within a single sweep.
 // See https://github.com/plasma-umass/scalene/issues/1056.
 constexpr int kSignalAllBatch = 32;
 
@@ -177,11 +181,59 @@ struct ThreadRegistry {
 };
 ThreadRegistry g_thread_registry;
 
-// Round-robin cursor into the thread registry. signal_all_threads()
-// resumes scanning from here, signals up to kSignalAllBatch live
-// threads, then leaves the cursor pointing one past the last slot
-// it inspected. Only mutated from the (single) cpu_signal_handler
-// invoker, so relaxed ordering is enough.
+// Permutation over registry slots [0..kMaxTrackedThreads). signal_all_threads()
+// walks this in order, signaling up to kSignalAllBatch live threads per call;
+// when the cursor wraps, the permutation is regenerated for the next sweep.
+// Compared to a fixed contiguous scan, this removes the artefact where
+// adjacent slots (e.g. workers registered back-to-back) consistently sample
+// together every tick during a single sweep.
+//
+// Both the permutation and the cursor are only touched from
+// py_signal_all_threads, which is invoked from the single Python-level
+// cpu_signal_handler, so no synchronization is needed beyond the existing
+// cursor atomic.
+static_assert(kMaxTrackedThreads <= 256,
+              "g_signal_all_perm entries are uint8_t");
+uint8_t g_signal_all_perm[kMaxTrackedThreads];
+bool g_signal_all_perm_initialized = false;
+
+// xorshift32 PRNG used to shuffle g_signal_all_perm. Seeded lazily from a
+// stack address (ASLR-derived). Quality is not security-critical, only
+// per-process uniqueness is.
+uint32_t g_signal_all_rng_state = 0;
+
+uint32_t signal_all_rng_next() {
+  uint32_t x = g_signal_all_rng_state;
+  if (x == 0) {
+    uintptr_t a = reinterpret_cast<uintptr_t>(&x);
+    x = static_cast<uint32_t>(a ^ (a >> 32));
+    if (x == 0) x = 0xDEADBEEFu;
+  }
+  x ^= x << 13;
+  x ^= x >> 17;
+  x ^= x << 5;
+  g_signal_all_rng_state = x;
+  return x;
+}
+
+void signal_all_reshuffle() {
+  if (!g_signal_all_perm_initialized) {
+    for (int i = 0; i < kMaxTrackedThreads; i++) {
+      g_signal_all_perm[i] = static_cast<uint8_t>(i);
+    }
+    g_signal_all_perm_initialized = true;
+  }
+  // Fisher-Yates over the full array.
+  for (int i = kMaxTrackedThreads - 1; i > 0; i--) {
+    uint32_t j = signal_all_rng_next() % static_cast<uint32_t>(i + 1);
+    uint8_t tmp = g_signal_all_perm[i];
+    g_signal_all_perm[i] = g_signal_all_perm[j];
+    g_signal_all_perm[j] = tmp;
+  }
+}
+
+// Cursor into g_signal_all_perm. Wraps back to 0 (with a fresh shuffle) at
+// the end of each sweep.
 std::atomic<uint32_t> g_signal_all_cursor{0};
 
 // Get a unique thread ID (platform-specific)
@@ -578,16 +630,24 @@ PyObject* py_signal_all_threads(PyObject* /*self*/, PyObject* /*args*/) {
   int errors = 0;
   pthread_t self = pthread_self();
 
-  // Resume the round-robin scan where the previous call left off, so
-  // every registered thread eventually gets signaled across successive
-  // ticks. We walk at most kMaxTrackedThreads slots (one full pass) so
-  // a registry with fewer than kSignalAllBatch live threads still
+  // Walk a shuffled permutation of registry slots, resuming where the
+  // previous call left off, so every registered thread eventually gets
+  // signaled across successive ticks. The permutation is regenerated each
+  // time the cursor wraps, removing the contiguous-scan bias where
+  // adjacent slots sample together every tick within a single sweep.
+  //
+  // We walk at most kMaxTrackedThreads positions (one full pass) so a
+  // registry with fewer than kSignalAllBatch live threads still
   // terminates promptly.
-  uint32_t start = g_signal_all_cursor.load(std::memory_order_relaxed)
-                   % kMaxTrackedThreads;
-  uint32_t i = start;
+  uint32_t cursor = g_signal_all_cursor.load(std::memory_order_relaxed);
+  if (cursor >= kMaxTrackedThreads) cursor = 0;  // defensive
+  if (cursor == 0) {
+    // Start of a new sweep (or first-ever call): generate fresh permutation.
+    signal_all_reshuffle();
+  }
   int scanned = 0;
   while (scanned < kMaxTrackedThreads && signaled < kSignalAllBatch) {
+    uint32_t i = g_signal_all_perm[cursor];
     if (g_thread_registry.valid[i].load(std::memory_order_acquire)) {
       pthread_t target = g_thread_registry.threads[i];
       // Don't signal ourselves - the main thread gets sampled via the timer
@@ -604,14 +664,20 @@ PyObject* py_signal_all_threads(PyObject* /*self*/, PyObject* /*args*/) {
         }
       }
     }
-    i = (i + 1) % kMaxTrackedThreads;
+    cursor++;
+    if (cursor >= kMaxTrackedThreads) {
+      // End of this sweep; reshuffle so the next iteration (or the next
+      // call) starts a fresh random pass.
+      signal_all_reshuffle();
+      cursor = 0;
+    }
     scanned++;
   }
-  // Stash the resume position. If we hit the batch cap, resume at `i`
-  // so the next tick continues with fresh threads; if we made a full
-  // sweep without filling the batch, `i` is back to `start` which is
-  // fine — every live thread was already covered.
-  g_signal_all_cursor.store(i, std::memory_order_relaxed);
+  // Stash the resume position. If we hit the batch cap, resume at `cursor`
+  // so the next tick continues with fresh threads; if we made a full sweep
+  // without filling the batch, every live thread was already covered and
+  // `cursor` is at a fresh permutation position.
+  g_signal_all_cursor.store(cursor, std::memory_order_relaxed);
 
   return Py_BuildValue("(ii)", signaled, errors);
 #else
