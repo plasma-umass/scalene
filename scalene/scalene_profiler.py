@@ -599,7 +599,14 @@ class Scalene:
             Scalene.__tracing.add_file_to_profile(filename)
             Scalene.__tracing.add_function_to_profile(filename, func)
 
-        if Scalene.__args.memory:
+        # Only push the file list into pywhere when we are actually profiling.
+        # `import scalene` installs this as `builtins.profile`, so any
+        # @profile-decorated module imported *without* a live `scalene run`
+        # (e.g. when the pytest plugin's entry point pulls scalene in on every
+        # pytest invocation) would otherwise call into pywhere before
+        # libscalene is preloaded and crash with "Unable to find
+        # p_whereInPython". Outside a profiling run, @profile is a pass-through.
+        if Scalene.__initialized and Scalene.__args.memory:
             Scalene._register_files_to_profile()
         return func
 
