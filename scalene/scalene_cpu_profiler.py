@@ -32,7 +32,11 @@ class ScaleneCPUProfiler:
     """Handles CPU profiling sample processing."""
 
     def __init__(
-        self, stats: ScaleneStatistics, available_cpus: int, use_virtual_time: bool
+        self,
+        stats: ScaleneStatistics,
+        available_cpus: int,
+        use_virtual_time: bool,
+        thread_sampled: bool = False,
     ) -> None:
         """Initialize the CPU profiler.
 
@@ -41,10 +45,18 @@ class ScaleneCPUProfiler:
             available_cpus: Number of available CPUs for utilization calculations.
             use_virtual_time: Whether we're using virtual time (SIGVTALRM) or
                 wall clock time (SIGALRM) for CPU sampling.
+            thread_sampled: True when CPU samples are produced by a background
+                helper thread on a wall-clock cadence rather than a timer
+                signal (Apple SME path, issue #1056). In that mode there is no
+                virtual-timer deferral to exploit, so Python-vs-C time is
+                attributed purely from the bytecode at f_lasti (a CALL* opcode
+                means we're in a native call) — exactly as wall-clock mode
+                already does, regardless of the --use-virtual-time flag.
         """
         self._stats = stats
         self._available_cpus = available_cpus
         self._use_virtual_time = use_virtual_time
+        self._thread_sampled = thread_sampled
 
     def process_cpu_sample(
         self,
@@ -230,15 +242,24 @@ class ScaleneCPUProfiler:
                 # call, and ALL time (including python_time) should go to native.
                 # This handles the case where elapsed.virtual ≈ last_cpu_interval
                 # (c_time ≈ 0) but we're still returning from C code.
+                #
+                # The thread-sampled (Apple SME) path always uses this
+                # bytecode-based test: it has no virtual-timer deferral to
+                # measure c_time from, so the CALL* opcode at f_lasti is the
+                # sole signal for "this sample landed in a native call". This
+                # is the same classifier already used for worker threads.
                 is_at_call = ScaleneFuncUtils.is_call_function(
                     main_thread_frame.f_code,
                     ByteCodeIndex(main_thread_frame.f_lasti),
                 )
 
-                if not self._use_virtual_time and is_at_call:
-                    # Wall clock mode at a CALL instruction: attribute all time
-                    # to native on this line. The signal was deferred during the
-                    # C call, so even python_time was spent in C, not Python.
+                use_call_attribution = (
+                    not self._use_virtual_time or self._thread_sampled
+                )
+                if use_call_attribution and is_at_call:
+                    # At a CALL instruction: attribute all time to native on
+                    # this line. The sample landed inside the C call, so even
+                    # python_time was spent in C, not Python.
                     self._update_main_thread_stats(
                         fname,
                         lineno,

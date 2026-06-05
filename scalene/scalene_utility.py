@@ -63,6 +63,35 @@ except ImportError:
     _native_unwind_available = False
 
 
+@functools.lru_cache(maxsize=1)
+def is_apple_silicon_sme() -> bool:
+    """True iff running on an Apple Silicon CPU that implements ARM SME.
+
+    SME (Scalable Matrix Extension) first appears in the Apple M4 family.
+    On these chips, Apple's Accelerate BLAS runs matrix kernels in SME
+    "streaming" mode, and the macOS kernel mis-saves/restores that state
+    when a signal handler is invoked while a thread is mid-kernel —
+    corrupting in-flight numerical results (scalene issue #1056). Even an
+    empty C signal handler triggers it, so the only correctness-preserving
+    mitigation is to avoid delivering profiling signals on these machines.
+
+    Detected via ``sysctl hw.optional.arm.FEAT_SME`` (== 1 when present).
+    Cached: the answer never changes during a run.
+    """
+    if sys.platform != "darwin":
+        return False
+    try:
+        out = subprocess.run(
+            ["sysctl", "-n", "hw.optional.arm.FEAT_SME"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return out.returncode == 0 and out.stdout.strip() == "1"
+
+
 # Per-process intern caches for stitched-stack frame keys.
 #
 # Every CPU sample that captures a stitched stack constructs a fresh tuple of

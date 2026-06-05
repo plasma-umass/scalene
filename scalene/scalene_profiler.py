@@ -129,6 +129,7 @@ from scalene.scalene_utility import (
     get_native_thread_id,
     install_native_stack_unwinder,
     install_perthread_sampler,
+    is_apple_silicon_sme,
     on_stack,
     patch_module_functions_with_signal_blocking,
     register_thread_for_sampling,
@@ -379,10 +380,17 @@ class Scalene:
         if not hasattr(Scalene, "_Scalene__availableCPUs"):
             cpu_count = os.cpu_count()
             Scalene.__availableCPUs = cpu_count if cpu_count is not None else 1
+        # On Apple Silicon with SME, CPU sampling is driven by a background
+        # thread (no timer signal — issue #1056), so Python-vs-C attribution
+        # must rely on the CALL*-bytecode test rather than virtual-timer
+        # deferral. Detection is cached, so calling it here and in
+        # enable_signals() is cheap and consistent.
+        thread_sampled = sys.platform == "darwin" and is_apple_silicon_sme()
         Scalene.__cpu_profiler = ScaleneCPUProfiler(
             Scalene.__stats,
             Scalene.__availableCPUs,
             Scalene.__args.use_virtual_time,
+            thread_sampled=thread_sampled,
         )
         Scalene.__tracing = ScaleneTracing(
             Scalene.__args,
@@ -806,9 +814,20 @@ class Scalene:
             now.wallclock = time.perf_counter()
             Scalene.__last_signal_time = now
         # On Windows, pass the signal queues for memory polling only if memory profiling is enabled
+        # Apple Silicon with SME (M4+): delivering ANY signal while a thread
+        # is in Accelerate's SME streaming mode corrupts numerical results
+        # (issue #1056 — a macOS kernel save/restore bug). On these machines
+        # drive CPU sampling from a background thread instead of a timer
+        # signal, so nothing is ever delivered to an SME thread.
+        use_thread_sampler = (
+            sys.platform == "darwin" and is_apple_silicon_sme()
+        )
+        # The sample queues are needed for memory poll-draining whenever a
+        # background thread (Windows timer thread, or the Apple-SME sampler)
+        # owns memory processing instead of the malloc/free/memcpy signals.
         alloc_sigq = None
         memcpy_sigq = None
-        if sys.platform == "win32" and Scalene.__args.memory:
+        if Scalene.__args.memory and (sys.platform == "win32" or use_thread_sampler):
             alloc_sigq = Scalene.__alloc_sigq
             memcpy_sigq = Scalene.__memcpy_sigq
         Scalene.__signal_manager.enable_signals(
@@ -820,6 +839,7 @@ class Scalene:
             next_interval,
             alloc_sigq,
             memcpy_sigq,
+            use_thread_sampler=use_thread_sampler,
         )
         # If --stacks was requested, install a C-level sigaction handler on
         # the CPU sampling signal that captures the interrupted thread's
@@ -836,17 +856,32 @@ class Scalene:
         # Use the signal manager's view of the CPU signal — Scalene.__signals
         # is a separate ScaleneSignals instance that may not reflect the
         # virtual-vs-real-time choice driven by --use-virtual-time.
+        # The --stacks machinery is signal-based: it chains a sigaction on
+        # the CPU signal and delivers SIGPROF to every thread to capture
+        # native stacks. On Apple SME that re-introduces exactly the signal
+        # delivery we are avoiding (issue #1056), so skip it there. CPU/line
+        # profiling still works via the thread sampler; only native-stack
+        # capture is unavailable.
         if Scalene.__args.stacks and sys.platform != "win32":
-            install_native_stack_unwinder(
-                Scalene.__signal_manager.get_signals().cpu_signal
-            )
-            # Install per-thread sampler on SIGPROF for worker thread stacks.
-            # This allows capturing native stacks from threads other than main.
-            # SIGPROF doesn't interfere with SIGVTALRM (CPU sampling) or
-            # SIGALRM (real-time mode).
-            install_perthread_sampler(signal.SIGPROF)
-            # Register the main thread so we track it in diagnostics
-            register_thread_for_sampling()
+            if use_thread_sampler:
+                print(
+                    "Scalene: --stacks (native stack capture) is disabled on "
+                    "Apple M4+ (SME) because it requires signal delivery that "
+                    "corrupts SME numerical state (issue #1056). CPU and line "
+                    "profiling are unaffected.",
+                    file=sys.stderr,
+                )
+            else:
+                install_native_stack_unwinder(
+                    Scalene.__signal_manager.get_signals().cpu_signal
+                )
+                # Install per-thread sampler on SIGPROF for worker thread stacks.
+                # This allows capturing native stacks from threads other than main.
+                # SIGPROF doesn't interfere with SIGVTALRM (CPU sampling) or
+                # SIGALRM (real-time mode).
+                install_perthread_sampler(signal.SIGPROF)
+                # Register the main thread so we track it in diagnostics
+                register_thread_for_sampling()
 
     @staticmethod
     def cpu_signal_handler(
@@ -1353,6 +1388,9 @@ class Scalene:
             Scalene.stop_signal_queues()
             return
         try:
+            # Stop the Apple-SME signal-free CPU sampler thread if it's
+            # running (issue #1056). No-op when the timer-signal path is used.
+            Scalene.__signal_manager.stop_mac_sampler()
             signals = Scalene.__signal_manager.get_signals()
             assert signals.cpu_timer_signal is not None
             Scalene.__orig_setitimer(signals.cpu_timer_signal, 0)
