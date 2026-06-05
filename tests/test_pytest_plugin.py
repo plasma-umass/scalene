@@ -15,6 +15,7 @@ they skip cleanly if those aren't importable.
 from __future__ import annotations
 
 import json
+import os
 import sys
 
 import pytest
@@ -23,6 +24,17 @@ from scalene import pytest_scalene
 
 # Enables the `pytester` fixture for the integration tests.
 pytest_plugins = ["pytester"]
+
+# Capture the interpreter and PATH at import time, before any test in the wider
+# suite constructs a ``Scalene`` instance. Constructing one runs
+# ``redirect_python``, which permanently rewrites ``sys.executable`` to a
+# wrapper that re-launches Python under ``scalene run`` and prepends that
+# wrapper's dir to ``PATH``. ``pytester.runpytest_subprocess`` reads
+# ``sys.executable`` at call time, so our subprocess pytest would otherwise run
+# as ``scalene run -m pytest`` (no pytest summary) or use the wrong interpreter.
+# These pristine values are restored around each subprocess launch in ``_run``.
+_PRISTINE_EXECUTABLE = sys.executable
+_PRISTINE_PATH = os.environ.get("PATH", "")
 
 
 # ---------------------------------------------------------------------------
@@ -110,8 +122,26 @@ def _run(pytester: pytest.Pytester, *args: str):
     The plugin is auto-loaded via its ``pytest11`` entry point (guaranteed by
     ``_integration_ready``); we must NOT pass ``-p scalene.pytest_scalene`` or
     pytest would try to register the already-loaded module a second time.
+
+    A subtlety when running inside the full Scalene test suite: if some
+    earlier test constructed a ``Scalene`` instance, ``redirect_python``
+    permanently rewrote ``sys.executable`` to a wrapper script (in a
+    ``mkdtemp(prefix="scalene")`` dir) that re-launches Python under
+    ``scalene run``, and prepended that dir to ``PATH``. ``runpytest_subprocess``
+    launches ``sys.executable``, so without cleanup our inner ``pytest`` would
+    run as ``scalene run -m pytest`` (no pytest summary) or pick the wrong
+    interpreter. Restore the import-time interpreter and PATH (captured before
+    any contamination) for the duration of the subprocess call.
     """
-    return pytester.runpytest_subprocess(*args)
+    saved_exe = sys.executable
+    saved_path = os.environ.get("PATH", "")
+    sys.executable = _PRISTINE_EXECUTABLE
+    os.environ["PATH"] = _PRISTINE_PATH
+    try:
+        return pytester.runpytest_subprocess(*args)
+    finally:
+        sys.executable = saved_exe
+        os.environ["PATH"] = saved_path
 
 
 @requires_native
