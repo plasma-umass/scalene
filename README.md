@@ -555,13 +555,41 @@ manually download the `PKGBUILD` and run `makepkg -cirs` to build. Note that thi
 Can I use Scalene with PyTest?
 </summary>
 
-**A:** Yes! You can run it as follows (for example):
+**A:** Yes! Scalene ships a pytest plugin, so the simplest way is to add the
+`--scalene` flag to your usual pytest command:
 
-`scalene run -m pytest your_test.py`
+```bash
+pytest --scalene your_test.py            # profile CPU; writes scalene-profile.json
+pytest --scalene -k test_hot             # profile only the selected tests
+pytest --scalene --scalene-memory        # profile CPU *and* memory
+```
 
-or
+This profiles the whole test session and writes `scalene-profile.json`, which
+you can open with `scalene view`. To profile only specific tests, mark them
+with `@pytest.mark.scalene` — only marked tests are then profiled:
 
-`python3 -m scalene run -m pytest your_test.py` 
+```python
+import pytest
+
+@pytest.mark.scalene
+def test_the_slow_one():
+    ...
+```
+
+Useful options: `--scalene-outfile PATH` (where to write the profile),
+`--scalene-gpu` (also profile the GPU), and `--scalene-args='...'` (forward
+extra arguments such as `--profile-all` to Scalene).
+
+Memory and GPU profiling (`--scalene-memory` / `--scalene-gpu`) re-run pytest
+under `scalene run` automatically, because allocation tracking requires
+Scalene's native library to be preloaded.
+
+You can also drive it the other way around, which is equivalent to
+`--scalene-memory`:
+
+```bash
+scalene run -m pytest your_test.py
+```
 
 </details>
 

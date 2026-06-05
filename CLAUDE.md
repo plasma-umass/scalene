@@ -83,6 +83,21 @@ python3 -m pytest tests/test_coverup_83.py -v
 - **`scalene_magics.py`** - Jupyter magic commands (`%scrun` for line mode, `%%scalene` for cell mode)
 - **`scalene_jupyter.py`** - Jupyter notebook support utilities
 
+### Pytest Integration
+
+- **`pytest_scalene.py`** - Pytest plugin (registered via the `pytest11` entry
+  point in `pyproject.toml`). Adds `pytest --scalene` (in-process CPU
+  profiling), `--scalene-memory`/`--scalene-gpu` (re-exec under `scalene run`
+  so libscalene is preloaded), `--scalene-outfile`, and `--scalene-args`. The
+  `@pytest.mark.scalene` marker narrows profiling to only the marked tests.
+  Resolves [issue #70](https://github.com/plasma-umass/scalene/issues/70).
+  Relies on two `Scalene` accessors added for programmatic entry points:
+  `get_initialized()` (detect we're already under `scalene run`) and
+  `set_program_path()` (point tracing at the test rootdir instead of pytest's
+  site-packages location). When running under `scalene run -m pytest`, the
+  plugin repoints the program path so the test files are profiled instead of
+  producing an empty profile.
+
 ### Replacement Modules (`replacement_*.py`)
 
 These modules monkey-patch standard library functions to capture profiling data during blocking operations:

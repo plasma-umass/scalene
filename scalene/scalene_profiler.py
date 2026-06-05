@@ -1703,6 +1703,30 @@ class Scalene:
         Scalene.__initialized = True
 
     @staticmethod
+    def get_initialized() -> bool:
+        """Return whether Scalene has been initialized.
+
+        Lets programmatic entry points (e.g. the pytest plugin) detect that
+        they are already running under `scalene run` and should drive the
+        existing profiler rather than constructing a second one.
+        """
+        return Scalene.__initialized
+
+    @staticmethod
+    def set_program_path(path: str) -> None:
+        """Set the root directory whose files should be profiled.
+
+        `scalene run <file>` infers this from the entrypoint's directory.
+        Programmatic entry points that start profiling in-process (e.g. the
+        pytest plugin, where the "entrypoint" is pytest itself, buried in
+        site-packages) call this so that the user's own code - not Scalene's
+        host process - is what `_should_trace` keeps.
+        """
+        Scalene.__program_path = Filename(os.path.abspath(os.path.expanduser(path)))
+        if hasattr(Scalene, "_Scalene__tracing"):
+            Scalene.__tracing.set_program_path(Scalene.__program_path)
+
+    @staticmethod
     def main() -> None:
         """Initialize and profile."""
         (
