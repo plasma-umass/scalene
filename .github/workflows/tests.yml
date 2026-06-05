@@ -116,6 +116,32 @@ jobs:
       run: |
         python3 -m pytest
 
+    - name: pytest plugin smoke test
+      # End-to-end check of the `pytest --scalene` plugin (issue #70) via its
+      # pytest11 entry point: a bare `pytest --scalene` (no -p) must auto-load
+      # the plugin, profile the run, and write a profile JSON. This complements
+      # tests/test_pytest_plugin.py by exercising the installed entry point
+      # from a clean working directory.
+      if: runner.os != 'Windows'
+      continue-on-error: ${{ endsWith(matrix.python, 't') }}
+      run: |
+        workdir="$(mktemp -d)"
+        cat > "$workdir/test_plugin_smoke.py" <<'EOF'
+        import time
+
+
+        def test_burn_cpu():
+            end = time.process_time() + 0.5
+            acc = 0
+            while time.process_time() < end:
+                acc = sum(i * i for i in range(2000))
+            assert acc >= 0
+        EOF
+        cd "$workdir"
+        python3 -m pytest --scalene --scalene-outfile "$workdir/smoke-profile.json" test_plugin_smoke.py
+        test -f "$workdir/smoke-profile.json"
+        python3 -c "import json,sys; d=json.load(open('$workdir/smoke-profile.json')); assert any('test_plugin_smoke.py' in f for f in d.get('files',{})), 'test file not profiled'; print('plugin smoke test OK')"
+
     - name: Free-threaded parity test
       # Runs on ALL matrix entries to verify CPU+memory profiling with
       # native code and threads produces comparable results everywhere.
