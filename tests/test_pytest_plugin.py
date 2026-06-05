@@ -62,13 +62,20 @@ def test_strip_scalene_args_preserves_plugin_loader_flag():
 
 
 def _integration_ready() -> bool:
-    """Whether a child interpreter can both profile and load the plugin.
+    """Whether a subprocess pytest auto-loads the plugin and can profile.
 
-    The integration tests shell out to a subprocess pytest, so they need:
+    The integration tests shell out to a subprocess pytest and rely on the
+    plugin being installed as a ``pytest11`` entry point (the real user path,
+    and what CI provides via ``pip install -e .``). They need:
       * the compiled get_line_atomic/pywhere extensions (CPU sampling), and
-      * the SAME scalene that the subprocess will import to expose
-        ``scalene.pytest_scalene`` (i.e. the package-under-test is installed,
-        not shadowed by a different editable checkout).
+      * a subprocess pytest that recognizes ``--scalene`` - i.e. the
+        package-under-test is installed and its entry point registered, not
+        shadowed by a different editable checkout that lacks the plugin.
+
+    We deliberately do NOT load the plugin with ``-p`` in the subprocess: when
+    the entry point is registered, pytest already auto-loads the module, and a
+    second explicit ``-p`` would re-register it under a different name and
+    raise ``ValueError: Plugin already registered``.
     """
     import subprocess
     import tempfile
@@ -77,30 +84,34 @@ def _integration_ready() -> bool:
         import scalene.get_line_atomic  # noqa: F401
     except Exception:
         return False
-    # Probe from a neutral cwd (not the repo): a `python -c` run from inside
-    # the repo would find the working-tree plugin via the implicit cwd entry
-    # on sys.path, but the pytester subprocess runs in a temp dir and only
-    # sees installed packages. Match that condition to avoid a false positive
-    # on dev machines whose editable install points at a different checkout.
+    # Probe from a neutral cwd (not the repo) so the implicit cwd entry on
+    # sys.path can't make a working-tree plugin look "installed" when the
+    # actual entry point lives in a different (shadowing) checkout.
     with tempfile.TemporaryDirectory() as neutral:
         proc = subprocess.run(
-            [sys.executable, "-c", "import scalene.pytest_scalene"],
+            [sys.executable, "-m", "pytest", "--help"],
             capture_output=True,
             cwd=neutral,
+            text=True,
         )
-    return proc.returncode == 0
+    return "--scalene" in proc.stdout
 
 
 requires_native = pytest.mark.skipif(
     not _integration_ready(),
-    reason="Scalene native extensions or plugin not importable from a "
-    "subprocess in this environment",
+    reason="Scalene plugin entry point not auto-loaded by a subprocess pytest "
+    "(or native extensions missing) in this environment",
 )
 
 
 def _run(pytester: pytest.Pytester, *args: str):
-    """Run a child pytest session with the Scalene plugin explicitly loaded."""
-    return pytester.runpytest_subprocess("-p", "scalene.pytest_scalene", *args)
+    """Run a child pytest session.
+
+    The plugin is auto-loaded via its ``pytest11`` entry point (guaranteed by
+    ``_integration_ready``); we must NOT pass ``-p scalene.pytest_scalene`` or
+    pytest would try to register the already-loaded module a second time.
+    """
+    return pytester.runpytest_subprocess(*args)
 
 
 @requires_native
