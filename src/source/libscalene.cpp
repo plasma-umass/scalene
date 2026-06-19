@@ -16,6 +16,7 @@
 #include <stdlib.h>
 
 #include "common.hpp"
+#include "eintr_retry.hpp"
 #include "heapredirect.h"
 #include "memcpysampler.hpp"
 #include "sampleheap.hpp"
@@ -290,10 +291,68 @@ void scalene_reinstall_local_allocators() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// EINTR-retry interposers (see eintr_retry.hpp). These transparently resume
+// poll/select-family waits that Scalene's own profiling timer signal would
+// otherwise interrupt with EINTR, which breaks native libraries (e.g. the ODBC
+// driver's connect path) that don't retry. Arming is driven by interposing
+// setitimer, so no Python-side changes are required.
+extern "C" ATTRIBUTE_EXPORT int LOCAL_PREFIX(setitimer)(
+    int which, const struct itimerval *new_value,
+    struct itimerval *old_value) {
+  return scalene::eintr::setitimer_impl(which, new_value, old_value);
+}
+
+extern "C" ATTRIBUTE_EXPORT int LOCAL_PREFIX(poll)(struct pollfd *fds,
+                                                   nfds_t nfds, int timeout) {
+  return scalene::eintr::poll_impl(fds, nfds, timeout);
+}
+
+extern "C" ATTRIBUTE_EXPORT int LOCAL_PREFIX(select)(int nfds, fd_set *readfds,
+                                                     fd_set *writefds,
+                                                     fd_set *exceptfds,
+                                                     struct timeval *timeout) {
+  return scalene::eintr::select_impl(nfds, readfds, writefds, exceptfds,
+                                     timeout);
+}
+
+extern "C" ATTRIBUTE_EXPORT int LOCAL_PREFIX(pselect)(
+    int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
+    const struct timespec *timeout, const sigset_t *sigmask) {
+  return scalene::eintr::pselect_impl(nfds, readfds, writefds, exceptfds,
+                                      timeout, sigmask);
+}
+
+#if defined(__linux__)
+extern "C" ATTRIBUTE_EXPORT int ppoll(struct pollfd *fds, nfds_t nfds,
+                                      const struct timespec *timeout,
+                                      const sigset_t *sigmask) {
+  return scalene::eintr::ppoll_impl(fds, nfds, timeout, sigmask);
+}
+
+extern "C" ATTRIBUTE_EXPORT int epoll_wait(int epfd,
+                                           struct epoll_event *events,
+                                           int maxevents, int timeout) {
+  return scalene::eintr::epoll_wait_impl(epfd, events, maxevents, timeout);
+}
+
+extern "C" ATTRIBUTE_EXPORT int epoll_pwait(int epfd,
+                                            struct epoll_event *events,
+                                            int maxevents, int timeout,
+                                            const sigset_t *sigmask) {
+  return scalene::eintr::epoll_pwait_impl(epfd, events, maxevents, timeout,
+                                          sigmask);
+}
+#endif  // __linux__
+
 #if defined(__APPLE__)
 MAC_INTERPOSE(xxmemcpy, memcpy);
 MAC_INTERPOSE(xxmemmove, memmove);
 MAC_INTERPOSE(xxstrcpy, strcpy);
+MAC_INTERPOSE(xxsetitimer, setitimer);
+MAC_INTERPOSE(xxpoll, poll);
+MAC_INTERPOSE(xxselect, select);
+MAC_INTERPOSE(xxpselect, pselect);
 #endif
 
 #endif
