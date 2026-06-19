@@ -36,6 +36,7 @@ import contextlib
 import ctypes  # noqa: F401
 import functools
 import gc
+import importlib.util
 import inspect
 import json
 import math
@@ -313,10 +314,23 @@ class Scalene:
 
         sys.unraisablehook = _suppress_buffer_error
 
-        # Wrap all os calls so that they disable SIGALRM (the signal used for CPU sampling).
-        # This fixes https://github.com/plasma-umass/scalene/issues/841.
+        # Wrap selected native-entrypoint calls so profiling signals do not
+        # interrupt blocking syscalls inside libc or C extension code.
         if sys.platform != "win32":
-            patch_module_functions_with_signal_blocking(os, signal.SIGALRM)
+            profiler_signals = ScaleneSignals()
+            profiler_signals.set_timer_signals(arguments.use_virtual_time)
+            signals_to_block = tuple(
+                sig for sig in profiler_signals.get_all_signals() if sig is not None
+            )
+            patch_module_functions_with_signal_blocking(os, signals_to_block)
+            if importlib.util.find_spec("pyodbc") is not None:
+                import pyodbc
+
+                patch_module_functions_with_signal_blocking(
+                    pyodbc,
+                    signals_to_block,
+                    function_names=("connect",),
+                )
 
         # Import all replacement functions.
         import scalene.replacement_exec

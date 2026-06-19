@@ -11,7 +11,17 @@ import tempfile
 import threading
 import webbrowser
 from types import BuiltinFunctionType, CodeType, FrameType, FunctionType, ModuleType
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 from scalene.scalene_config import scalene_date, scalene_version
 from scalene.scalene_statistics import (
@@ -956,9 +966,22 @@ def show_browser(file_path: str, port: int, orig_python: str = "python3") -> Non
 
 
 def patch_module_functions_with_signal_blocking(
-    module: ModuleType, signal_to_block: signal.Signals
+    module: ModuleType,
+    signal_to_block: Union[
+        signal.Signals,
+        Collection[signal.Signals],
+    ],
+    function_names: Optional[Collection[str]] = None,
 ) -> None:
-    """Patch all functions in the given module to block the specified signal during execution."""
+    """Patch module functions to block profiling signals during execution."""
+
+    signals_to_block = (
+        (signal_to_block,)
+        if isinstance(signal_to_block, int)
+        else tuple(signal_to_block)
+    )
+    if not signals_to_block:
+        return
 
     # Record the PID of the process that installs the patches.
     # Child processes (e.g., multiprocessing resource_tracker) inherit
@@ -980,7 +1003,7 @@ def patch_module_functions_with_signal_blocking(
                 return func(*args, **kwargs)
             # Block the specified signal temporarily
             original_sigmask = signal.pthread_sigmask(
-                signal.SIG_BLOCK, [signal_to_block]
+                signal.SIG_BLOCK, signals_to_block
             )
             try:
                 return func(*args, **kwargs)
@@ -992,6 +1015,8 @@ def patch_module_functions_with_signal_blocking(
 
     # Iterate through all attributes of the module
     for attr_name in dir(module):
+        if function_names is not None and attr_name not in function_names:
+            continue
         attr = getattr(module, attr_name)
         if isinstance(attr, (BuiltinFunctionType, FunctionType)):
             wrapped_attr = signal_blocking_wrapper(attr)
