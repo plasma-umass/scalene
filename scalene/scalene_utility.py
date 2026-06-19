@@ -977,7 +977,7 @@ def patch_module_functions_with_signal_blocking(
 
     signals_to_block = (
         (signal_to_block,)
-        if isinstance(signal_to_block, int)
+        if isinstance(signal_to_block, signal.Signals)
         else tuple(signal_to_block)
     )
     if not signals_to_block:
