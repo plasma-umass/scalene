@@ -132,3 +132,46 @@ jobs:
           echo "=== Backtrace from $core ==="
           gdb -batch -ex "thread apply all bt full" python3 "$core" 2>/dev/null || true
         done
+
+  # Windows is profiled via threads, not signals, so the signal-based
+  # interruption that breaks blocking syscalls on Linux (issue #1060) cannot
+  # happen here. This job runs the Windows side of tests/test_eintr_retry.py --
+  # a positive check that profiling a blocking TCP round-trip under
+  # ``scalene run`` completes cleanly -- guarding against any regression that
+  # would reintroduce signal-style interruption on Windows. It is a separate,
+  # scoped job rather than a matrix entry because the full pytest suite is not
+  # yet Windows-clean (Windows support is partial).
+  run-tests-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [ '3.11', '3.13' ]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python }}
+        cache: pip
+        cache-dependency-path: |
+          requirements.txt
+          pyproject.toml
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        python -m pip install numpy
+
+    - name: Build scalene
+      run: pip -v install -e .
+
+    - name: Install test dependencies
+      run: python -m pip install pytest pytest-asyncio hypothesis
+
+    - name: Run Windows profiling test
+      run: python -m pytest tests/test_eintr_retry.py -v

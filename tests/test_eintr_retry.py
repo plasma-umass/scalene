@@ -12,19 +12,24 @@ the non-restartable wait calls and retries them on EINTR -- but only when one of
 Scalene's own timer signals caused the interruption, so SIGINT/Ctrl-C and other
 signals still propagate. The logic lives in ``src/include/eintr_retry.hpp``.
 
-This test compiles a tiny interposer from that real header (mirroring how
-libscalene.cpp wires it up), preloads it into a C program that arms a 5ms
+On POSIX, this test compiles a tiny interposer from that real header (mirroring
+how libscalene.cpp wires it up), preloads it into a C program that arms a 5ms
 ITIMER_REAL like Scalene, and checks:
 
   * a 400ms poll()/select() runs to completion instead of dying with EINTR, and
   * SIGINT still interrupts a blocking poll() (the guard does not swallow it).
+
+On Windows there is no interposer -- Scalene samples via threads, not signals,
+so blocking syscalls are never interrupted and the bug cannot occur. The
+Windows test is the positive counterpart: it profiles a blocking TCP round-trip
+under ``scalene run`` and asserts it completes successfully, guarding against a
+regression that would reintroduce signal-style interruption on Windows.
 """
 
 import os
 import shutil
 import subprocess
 import sys
-import textwrap
 
 import pytest
 
@@ -35,9 +40,13 @@ MACINTERPOSE_DIR = os.path.join(
     REPO_ROOT, "vendor", "Heap-Layers", "wrappers"
 )
 
-pytestmark = pytest.mark.skipif(
+skip_on_windows = pytest.mark.skipif(
     sys.platform == "win32",
     reason="EINTR-retry interposers are POSIX-only",
+)
+windows_only = pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="Windows-specific behaviour (thread-based sampling)",
 )
 
 
@@ -165,6 +174,7 @@ def _dll_suffix():
     return ".dylib" if sys.platform == "darwin" else ".so"
 
 
+@skip_on_windows
 def test_eintr_retry_survives_timer_but_not_sigint(tmp_path):
     cxx = _cxx()
     cc = _cc()
@@ -238,3 +248,89 @@ def test_eintr_retry_survives_timer_but_not_sigint(tmp_path):
     assert "ok=1" in lines.get("poll", ""), result.stdout
     assert "ok=1" in lines.get("select", ""), result.stdout
     assert "ok=1" in lines.get("sigint", ""), result.stdout
+
+
+# Workload run under `scalene run` on Windows: a blocking TCP round-trip,
+# repeated while burning CPU so the (thread-based) sampler is active. On Windows
+# this must complete cleanly -- there is no signal that could interrupt the
+# blocking connect/recv the way SIGALRM does on Linux (issue #1060).
+WINDOWS_WORKLOAD = r"""
+import socket, threading, sys
+
+HOST = "127.0.0.1"
+srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+srv.bind((HOST, 0))
+srv.listen(8)
+port = srv.getsockname()[1]
+
+def serve():
+    while True:
+        try:
+            conn, _ = srv.accept()
+        except OSError:
+            return
+        with conn:
+            conn.settimeout(5.0)
+            data = conn.recv(64)
+            if data:
+                conn.sendall(data)
+
+t = threading.Thread(target=serve, daemon=True)
+t.start()
+
+ROUNDTRIPS = 200
+ok = 0
+for i in range(ROUNDTRIPS):
+    c = socket.create_connection((HOST, port), timeout=5.0)  # blocking connect
+    try:
+        msg = ("ping-%d" % i).encode()
+        c.sendall(msg)
+        if c.recv(64) == msg:                                # blocking recv
+            ok += 1
+    finally:
+        c.close()
+    # Burn CPU between round-trips so the sampler fires during the run.
+    s = 0
+    for j in range(20000):
+        s += j * j
+
+assert ok == ROUNDTRIPS, "only %d/%d round-trips succeeded" % (ok, ROUNDTRIPS)
+print("ROUNDTRIP_OK", ok)
+sys.stdout.flush()
+"""
+
+
+@windows_only
+def test_blocking_socket_roundtrip_under_scalene_windows(tmp_path):
+    """On Windows, profiling a blocking socket workload must not break it.
+
+    This is the positive counterpart to the POSIX EINTR test: it confirms that
+    Scalene's thread-based Windows sampler leaves blocking connect()/recv()
+    untouched, so the issue #1060 failure mode does not occur here.
+    """
+    workload = tmp_path / "workload.py"
+    workload.write_text(WINDOWS_WORKLOAD)
+    out = tmp_path / "profile.json"
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "scalene",
+        "run",
+        "--cpu-only",
+        "-o",
+        str(out),
+        str(workload),
+    ]
+    result = subprocess.run(
+        cmd, capture_output=True, text=True, timeout=180
+    )
+    assert result.returncode == 0, (
+        "scalene run failed on Windows:\n"
+        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    )
+    assert "ROUNDTRIP_OK" in result.stdout, (
+        "blocking socket round-trip did not complete under scalene:\n"
+        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    )
