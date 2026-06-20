@@ -97,9 +97,16 @@ MAC_INTERPOSE(xxselect, select);
 #endif
 """
 
-# C program: arm a 5ms wall-clock timer (like Scalene) with an SA_RESTART
-# handler, then block in poll()/select() for 400ms on a pipe that never becomes
-# readable. Phase 2 confirms SIGINT still interrupts poll().
+# C program that mimics Scalene's wall-clock sampler: a one-shot interval timer
+# re-armed from the SIGALRM handler via setitimer() on every tick (exactly what
+# ScaleneSignalManager.restart_timer does). The interposer's guard keys off that
+# setitimer re-arm, so the workload must reproduce it -- a plain periodic
+# it_interval timer (armed once) would not.
+#
+# Phase 1 blocks in poll()/select() for 400ms on a pipe that never becomes
+# readable: with the timer firing every 5ms, each EINTR must be retried so the
+# wait runs to completion. Phase 2 disarms the timer and confirms SIGINT (not a
+# Scalene timer signal) still interrupts poll().
 PROG_C = r"""
 #include <errno.h>
 #include <poll.h>
@@ -113,7 +120,13 @@ PROG_C = r"""
 #include <unistd.h>
 
 static volatile sig_atomic_t alarms = 0;
-static void on_alarm(int s){(void)s; alarms++;}
+static void rearm(void){  /* one-shot 5ms, like restart_timer() */
+  struct itimerval it;
+  it.it_interval.tv_sec=0; it.it_interval.tv_usec=0;
+  it.it_value.tv_sec=0;    it.it_value.tv_usec=5000;
+  setitimer(ITIMER_REAL,&it,NULL);
+}
+static void on_alarm(int s){(void)s; alarms++; rearm();}
 static volatile sig_atomic_t sigints = 0;
 static void on_sigint(int s){(void)s; sigints++;}
 static long now_ms(void){
@@ -126,10 +139,7 @@ int main(void){
   struct sigaction sa; memset(&sa,0,sizeof sa);
   sa.sa_handler=on_alarm; sa.sa_flags=SA_RESTART;
   sigaction(SIGALRM,&sa,NULL);
-  struct itimerval it;
-  it.it_interval.tv_sec=0; it.it_interval.tv_usec=5000;  /* 5ms */
-  it.it_value=it.it_interval;
-  setitimer(ITIMER_REAL,&it,NULL);
+  rearm();
 
   /* Phase 1a: poll must run the full timeout despite the timer. */
   struct pollfd pfd={p[0],POLLIN,0};
@@ -150,7 +160,10 @@ int main(void){
   printf("select ret=%d errno=%s elapsed=%ldms ok=%d\n",
          r, r<0?strerror(errno):"-", e, select_ok);
 
-  /* Phase 2: SIGINT must still interrupt poll (not be swallowed). */
+  /* Phase 2: with the timer disarmed, SIGINT must still interrupt poll
+     (the guard only absorbs EINTR attributable to a Scalene timer re-arm). */
+  struct itimerval off; memset(&off,0,sizeof off);
+  setitimer(ITIMER_REAL,&off,NULL);
   memset(&sa,0,sizeof sa); sa.sa_handler=on_sigint; sa.sa_flags=0;
   sigaction(SIGINT,&sa,NULL);
   pid_t pid=fork();

@@ -48,7 +48,6 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <poll.h>
-#include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/select.h>
@@ -90,15 +89,15 @@ namespace eintr {
 
 #endif
 
-// Bumped by our wrapper each time one of Scalene's profiling timer signals is
-// delivered. `volatile sig_atomic_t` is async-signal-safe to write from a
-// handler and read from the interposers; the exact value never matters, only
-// whether it changed across an interrupted call.
+// Bumped whenever Scalene arms one of its profiling timers (see
+// setitimer_impl). Scalene's CPU sampler re-arms the interval timer from inside
+// its signal handler on every tick (ScaleneSignalManager.restart_timer ->
+// setitimer), so a bump here is a reliable, side-effect-free proxy for "a
+// Scalene timer signal just fired" -- without touching any signal handler.
+// `volatile sig_atomic_t` is safe to write from the (signal-context) setitimer
+// call and read from the interposers; only whether it changed matters, not the
+// value.
 static volatile sig_atomic_t g_timer_generation = 0;
-
-// Original handlers for the signals we have wrapped, indexed by signal number.
-static struct sigaction g_orig[NSIG];
-static pthread_mutex_t g_arm_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // One-time check of the opt-out environment variable.
 static inline bool disabled() {
@@ -109,66 +108,11 @@ static inline bool disabled() {
   return d;
 }
 
-// Thin shim that runs in place of Scalene's timer-signal handler: record that
-// a Scalene signal fired, then chain to the real handler so sampling is
-// unaffected.
-static void generation_shim(int sig, siginfo_t* info, void* ctx) {
-  g_timer_generation++;
-  if (sig < 0 || sig >= NSIG) {
-    return;
-  }
-  const struct sigaction& o = g_orig[sig];
-  if (o.sa_flags & SA_SIGINFO) {
-    if (o.sa_sigaction) {
-      o.sa_sigaction(sig, info, ctx);
-    }
-  } else {
-    void (*h)(int) = o.sa_handler;
-    if (h != SIG_IGN && h != SIG_DFL && h != nullptr) {
-      h(sig);
-    }
-  }
-}
-
-// Ensure our generation shim is installed in front of whatever handler is
-// currently registered for `sig`. Idempotent and safe to call repeatedly
-// (e.g. after Scalene re-installs handlers on fork or restart).
-static void arm_for_signal(int sig) {
-  if (sig <= 0 || sig >= NSIG) {
-    return;
-  }
-  pthread_mutex_lock(&g_arm_mutex);
-  struct sigaction cur;
-  if (sigaction(sig, nullptr, &cur) == 0) {
-    const bool is_ours =
-        (cur.sa_flags & SA_SIGINFO) && cur.sa_sigaction == generation_shim;
-    const bool has_handler =
-        (cur.sa_flags & SA_SIGINFO)
-            ? (cur.sa_sigaction != nullptr)
-            : (cur.sa_handler != SIG_DFL && cur.sa_handler != SIG_IGN);
-    if (!is_ours && has_handler) {
-      g_orig[sig] = cur;
-      struct sigaction na = cur;
-      // Chain via sa_sigaction so we always forward siginfo/context.
-      na.sa_flags = (cur.sa_flags & ~SA_RESETHAND) | SA_SIGINFO;
-      na.sa_sigaction = generation_shim;
-      sigaction(sig, &na, nullptr);
-    }
-  }
-  pthread_mutex_unlock(&g_arm_mutex);
-}
-
-static inline int which_to_signo(int which) {
-  switch (which) {
-    case ITIMER_REAL:
-      return SIGALRM;
-    case ITIMER_VIRTUAL:
-      return SIGVTALRM;
-    case ITIMER_PROF:
-      return SIGPROF;
-    default:
-      return -1;
-  }
+// True when `which` is an interval timer Scalene uses for CPU sampling
+// (ITIMER_REAL for wall-clock, ITIMER_VIRTUAL for --use-virtual-time).
+static inline bool is_scalene_timer(int which) {
+  return which == ITIMER_REAL || which == ITIMER_VIRTUAL ||
+         which == ITIMER_PROF;
 }
 
 static inline long ts_diff_us(const struct timespec& a,
@@ -182,14 +126,12 @@ static int setitimer_impl(int which, const struct itimerval* nv,
                           struct itimerval* ov) {
   SCALENE_REAL_DECL(int, setitimer,
                     (int, const struct itimerval*, struct itimerval*));
-  // Arm our guard for the signal this timer delivers, but only when actually
-  // starting a timer (a zero it_value disarms it).
-  if (!disabled() && nv &&
+  // Record that a Scalene CPU-sampling timer was (re-)armed, but only when
+  // actually starting a timer (a zero it_value disarms it). This is what marks
+  // a profiling tick for the EINTR-retry guard; we never touch signal handlers.
+  if (nv && is_scalene_timer(which) &&
       (nv->it_value.tv_sec != 0 || nv->it_value.tv_usec != 0)) {
-    const int sig = which_to_signo(which);
-    if (sig > 0) {
-      arm_for_signal(sig);
-    }
+    g_timer_generation++;
   }
   if (!SCALENE_REAL_OK(setitimer)) {
     errno = ENOSYS;
