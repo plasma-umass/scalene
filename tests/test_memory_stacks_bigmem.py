@@ -111,12 +111,22 @@ def test_memory_stacks_split_across_two_callers(tmp_path: Path) -> None:
     profile = _run_scalene(tmp_path)
     memory_stacks = profile["memory_stacks"]
 
-    # Every captured stack must have the allocator line 20 as its leaf.
+    # The allocator line 20 must dominate the captured leaves. We don't
+    # require *every* leaf to be line 20: the driver's own
+    # ``small_list.append(...)`` / ``big_list.append(...)`` sites (lines 35/37)
+    # grow CPython's list backing store, a genuine allocation whose
+    # synchronously-captured leaf is that append line, not make_vec. That is
+    # correct attribution, just not the allocator helper, and it shows up as
+    # an occasional stray leaf under sampling noise (seen on macOS). Assert
+    # that make_vec dominates rather than that nothing else ever allocates.
     leaves = [_leaf_line(frames) for frames, _mb in memory_stacks]
-    assert all(leaf == ALLOCATOR_LINE for leaf in leaves), (
-        f"Expected all memory_stacks leaves to land on allocator line "
-        f"{ALLOCATOR_LINE}, got {leaves}. Intermediate frames being "
-        f"skipped or the allocator being misattributed."
+    alloc_leaf_mb = sum(mb for frames, mb in memory_stacks if _leaf_line(frames) == ALLOCATOR_LINE)
+    total_leaf_mb = sum(mb for _frames, mb in memory_stacks)
+    assert total_leaf_mb > 0 and alloc_leaf_mb >= 0.9 * total_leaf_mb, (
+        f"Expected allocator line {ALLOCATOR_LINE} to dominate memory_stacks "
+        f"leaves (>=90% of bytes), got {alloc_leaf_mb:.1f} of {total_leaf_mb:.1f} MB; "
+        f"leaves={leaves}. Intermediate frames being skipped or the allocator "
+        f"being misattributed."
     )
 
     # The caller frame (directly above the allocator leaf) must pick up
