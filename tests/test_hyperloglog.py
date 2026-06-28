@@ -15,8 +15,12 @@ def test_empty_cardinality_is_zero():
 
 def test_small_cardinality_is_exact_via_linear_counting():
     h = HyperLogLog()
+    # Use integer items: Python hashes ints to themselves, so the estimate is
+    # deterministic across runs. ("frame", i) tuples hash via the per-process
+    # randomized string hash of "frame" (PYTHONHASHSEED), which made the tight
+    # ±2 bound flake on CI (e.g. estimate 47). Integers keep the test exact.
     for i in range(50):
-        h.add(("frame", i))
+        h.add(i)
     est = h.cardinality()
     # The linear-counting correction is very accurate at low cardinality.
     assert abs(est - 50) <= 2, f"got {est}, expected ~50"
