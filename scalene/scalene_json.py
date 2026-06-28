@@ -769,7 +769,10 @@ class ScaleneJSON:
             program = Filename("[" + result.group(1) + "]")
 
         # Process the stacks to normalize by total number of CPU samples.
-        for stk in stats.stacks:
+        # Snapshot the keys first: stats.stacks is mutated from the CPU
+        # sampling signal handler, so iterating the live view risks a
+        # "dictionary changed size during iteration" RuntimeError.
+        for stk in list(stats.stacks):
             stack_stats = stats.stacks[stk]
             stats.stacks[stk] = StackStats(
                 stack_stats.count,
@@ -779,8 +782,9 @@ class ScaleneJSON:
             )
 
         # Convert stacks into a representation suitable for JSON dumping.
+        # Snapshot: stats.stacks is mutated from the CPU sampling signal handler.
         stks = []
-        for stk in stats.stacks:
+        for stk in list(stats.stacks):
             this_stk: List[str] = []
             this_stk.extend(str(frame) for frame in stk)
             stack_stats = stats.stacks[stk]
@@ -872,7 +876,12 @@ class ScaleneJSON:
             # timeline can later be emitted as indices into the final
             # combined_stks list.
             raw_to_dedup_key: Dict[CombinedStackKey, DedupKey] = {}
-            for stk, hits in stats.combined_stacks.items():
+            # Snapshot before iterating: combined_stacks is mutated from the
+            # CPU sampling signal handler (process_cpu_sample -> add_combined_stack),
+            # which can fire while we serialize here and would otherwise raise
+            # "dictionary changed size during iteration". A shallow copy of the
+            # items is enough -- keys/values are immutable tuples/ints.
+            for stk, hits in list(stats.combined_stacks.items()):
                 # Find the seam: index of first native frame.
                 seam = next(
                     (
@@ -970,7 +979,8 @@ class ScaleneJSON:
             # [0, elapsed_time] axis; stack_index references combined_stks.
             if stats.combined_stacks_timeline and combined_stks:
                 t0 = stats.combined_stacks_timeline[0].timestamp
-                for run in stats.combined_stacks_timeline:
+                # Snapshot: appended to from the CPU sampling signal handler.
+                for run in list(stats.combined_stacks_timeline):
                     run_dedup_key = raw_to_dedup_key.get(run.stack_key)
                     if run_dedup_key is None:
                         continue
