@@ -42,6 +42,12 @@ _ORACLE_PATH = (
 
 
 def _load_oracle():
+    # The LeanToPython-generated oracle uses PEP 604 `X | Y` type unions at
+    # module scope (e.g. `Decidable = isFalse | isTrue`), evaluated at import,
+    # which requires Python 3.10+. LeanToPython itself targets 3.10+ (see its
+    # README), so skip below that rather than post-process the generated file.
+    if sys.version_info < (3, 10):
+        pytest.skip("verified oracle requires Python 3.10+ (PEP 604 unions)")
     if not _ORACLE_PATH.exists():
         pytest.skip(f"verified oracle not found at {_ORACLE_PATH}")
     spec = importlib.util.spec_from_file_location("scalene_verified_core", _ORACLE_PATH)
