@@ -1,7 +1,8 @@
 # Formal models of Scalene's concurrency & correctness
 
-This directory contains machine-checked formal models of three properties of
-Scalene's runtime:
+This directory contains machine-checked formal models of Scalene's runtime,
+plus a **proof→production pipeline** that extracts the proven algorithms to
+Python and differentially tests the real profiler against them.
 
 1. **Signal / iteration safety** — the profile-output loop never faults from a
    concurrent signal-handler mutation of the shared stacks dictionaries.
@@ -10,6 +11,13 @@ Scalene's runtime:
 3. **Attribution correctness** — CPU time and memory bytes are conserved
    (attributed exactly once, totals preserved) and the Python/C split fractions
    stay in `[0, 1]`.
+4. **Bounded heavy-hitter accounting** — the Space-Saving `combined_stacks`
+   table never exceeds its capacity (`SpaceSaving.step_withinCap` /
+   `fold_withinCap`), and eviction always removes a minimum-count entry.
+5. **Proof → production** — the proven Lean defs are extracted to Python via
+   [LeanToPython](https://github.com/emeryberger/LeanToPython) and used as a
+   *verified oracle* that Scalene's real `_space_saving_increment` is checked
+   against (`tests/test_verified_space_saving.py`).
 
 Two complementary tools are used, each where it is strongest:
 
@@ -108,6 +116,63 @@ size during iteration" cannot arise), `snapshot_sound` / `fresh_key_deferred`
 (only entry-time keys are visited; fresh keys deferred), `insert_preserves_old`
 (no captured key is ever dropped). `snapshot_sound` depends on **no axioms**.
 
+## 4. Bounded heavy-hitter accounting — `lean/Scalene/SpaceSaving.lean`
+
+Models `scalene_utility.py:_space_saving_increment` (the bounded
+`combined_stacks` table) as a pure `step : Table → Key → Table` over an
+association list, matching the three Python branches (present→bump, room→insert,
+full→evict-min). Proves:
+
+- **`step_withinCap` / `fold_withinCap`** — the table never exceeds capacity,
+  for any sequence of inserts (the bound the whole design exists to guarantee,
+  `_COMBINED_STACKS_MAX_KEYS`).
+- **`minCount_le`** — eviction always targets a minimum-count entry (Metwally's
+  rule), so heavy hitters survive.
+- **`present_keeps_size` / `insert_grows_by_one` / `evict_keeps_size`** — the
+  per-branch size behavior.
+
+## 5. Proof → production: extracting verified Python
+
+The computational cores proven above are extracted to Python with
+[LeanToPython](https://github.com/emeryberger/LeanToPython) and wired back into
+Scalene as a **verified oracle**:
+
+```
+formal/lean/Scalene/{Attribution,SpaceSaving}.lean   ← proofs (Lean 4.31 + Mathlib)
+        │  (same algorithms, extraction-friendly fragment)
+formal/extract/ScaleneExtract.lean                   ← Nat/List defs, no Mathlib
+        │  lake env lean ScaleneExtract.lean  (LeanToPython, Lean 4.12)
+formal/extract/scalene_verified_core.py              ← generated Python (committed)
+        │  imported as a reference oracle
+tests/test_verified_space_saving.py                  ← differential test vs the
+                                                        real _space_saving_increment
+```
+
+- **`formal/lean/Scalene/ExtractMirror.lean`** is the machine-checked integrity
+  bridge: it re-states the extraction defs and proves them equal to / satisfying
+  the proven ones (`min2_eq_min`, `minCountX_eq`, `totalTimeNs_eq_elapsed`,
+  `pythonFractionPpm_le`). If `ScaleneExtract.lean` drifts from the proven
+  model, this file fails to compile — so the extracted Python can't silently
+  diverge from what was proven.
+- **`tests/test_verified_space_saving.py`** runs Scalene's production
+  `_space_saving_increment` and the extracted oracle on the same random key
+  streams and asserts the proven capacity bound holds on the real code, and the
+  count multiset matches the oracle (victim *identity* may differ — production
+  breaks min-count ties by dict order, the oracle by list order; tie-break is
+  not part of the proven spec).
+
+**LeanToPython fixes upstreamed for this.** Extracting Scalene's defs surfaced
+two transpiler bugs (fixed in a local LeanToPython checkout; see that repo):
+1. **Bool-typed-parameter branch inversion** — `if isMalloc then a else b`
+   lowered to a `Decidable` cases whose discriminant name the heuristic didn't
+   recognize, swapping the branches. Fixed by tracking each fvar's LCNF `Bool`
+   type and resolving through the alias map, instead of guessing from the name.
+   (Also fixed the previously-broken `mod_pow` corpus case.)
+2. **Binary-builtin operand drop** — `min`/`max` emitted only their last
+   argument. The extraction module sidesteps the remaining `Nat.min`
+   instance-path case with an explicit `min2 a b := if a ≤ b then a else b`,
+   proven equal to `Nat.min` in `ExtractMirror.lean`.
+
 ---
 
 ## What is *assumed* (model boundary)
@@ -185,4 +250,25 @@ formal/
     Scalene/
       Attribution.lean          # CPU/memory conservation + fraction bounds
       SignalSafety.lean          # snapshot-iteration algebra
+      SpaceSaving.lean           # bounded combined_stacks capacity proof
+      ExtractMirror.lean         # proven == extracted integrity bridge
+  extract/
+    ScaleneExtract.lean         # extraction-friendly defs (Lean 4.12, LeanToPython)
+    scalene_verified_core.py    # GENERATED Python oracle (committed)
 ```
+
+The differential test that ties the oracle to production lives at
+`tests/test_verified_space_saving.py`.
+
+### Regenerating the extracted Python
+
+Requires a [LeanToPython](https://github.com/emeryberger/LeanToPython) checkout
+(Lean 4.12). Copy `formal/extract/ScaleneExtract.lean` into it and:
+
+```bash
+lake env lean ScaleneExtract.lean > scalene_verified_core.py
+```
+
+Then re-run `tests/test_verified_space_saving.py`. (The two Bool/`min`
+transpiler fixes described above must be applied to LeanToPython for the
+Bool-branch cases to extract correctly.)

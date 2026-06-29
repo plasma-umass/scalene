@@ -1,0 +1,84 @@
+diff --git a/LeanToPython.lean b/LeanToPython.lean
+index ba07be4..f0bd878 100644
+--- a/LeanToPython.lean
++++ b/LeanToPython.lean
+@@ -40,6 +40,9 @@ structure State where
+   literalVars : Std.HashMap FVarId LitValue := {}
+   /-- Track variables that hold Bool values -/
+   boolVars : Std.HashMap FVarId Bool := {}
++  /-- Track fvars whose LCNF type is `Bool` (params / let-bindings). Used to
++      decide Decidable-cases branch order authoritatively rather than by name. -/
++  boolTypedVars : Std.HashSet FVarId := {}
+   /-- Track variables that are unit values (can be skipped in calls) -/
+   unitVars : Std.HashSet FVarId := {}
+   /-- Track local function arities (nonUnitParams, totalParams) for partial application detection -/
+@@ -222,6 +225,22 @@ def isInstanceRelated (fvarId : FVarId) : EmitM Bool := do
+   let st ← get
+   return st.instanceVars.contains fvarId || st.extractedOps.contains fvarId
+ 
++/-- Record that an fvar has LCNF type `Bool` (a `Bool`-typed param or let).
++    Populated as we walk a decl's params and let-bindings; consulted by
++    `emitDecidableCases` to pick branch order authoritatively rather than by
++    name. (LCNF `findParam?`/`findLetDecl?` don't see the decl's locals during
++    emission, so we track types ourselves.) -/
++def markBoolTyped (fvarId : FVarId) (ty : Expr) : EmitM Unit := do
++  match ty with
++  | .const ``Bool _ => modify fun s => { s with boolTypedVars := s.boolTypedVars.insert fvarId }
++  | _ => pure ()
++
++/-- True iff the fvar is known to have type `Bool` (after alias resolution). -/
++def fvarIsBool (fvarId : FVarId) : EmitM Bool := do
++  let r ← resolveAlias fvarId
++  let st ← get
++  return st.boolTypedVars.contains fvarId || st.boolTypedVars.contains r
++
+ /-! ## Type Emission -/
+ 
+ partial def getReturnType (e : Expr) : Expr :=
+@@ -655,6 +674,16 @@ partial def emitLetValue (decl : LetDecl) : EmitM Unit := do
+           -- Unary minus
+           emit "-"
+           emitArg args[args.size - 1]!
++        else if fn == "min" || fn == "max" then
++          -- Binary builtins take ALL value args, not just the last. (Note:
++          -- Nat.min/Nat.max usually reach the proj/instance path instead of
++          -- here; extraction code that needs a provably-correct min should use
++          -- the explicit `if a ≤ b then a else b` form, which lowers cleanly.)
++          let valArgs := args.filter (fun a => match a with
++            | .fvar _ => true | _ => false)
++          emit s!"{fn}("
++          emitArgs valArgs
++          emit ")"
+         else
+           emit s!"{fn}("
+           emitArg args[args.size - 1]!
+@@ -1306,7 +1335,20 @@ partial def emitDecidableCases (discr : String) (discrFvar : FVarId) (alts : Arr
+   -- Names starting with _y are join point parameters (often Bool from short-circuit eval)
+   -- Other names need more context - for now, assume single-letter names like
+   -- x, b, p are Bool, while e, n, k, i, j are Nat.
+-  let discrLooksLikeBool := discr.startsWith "_x" ||
++  -- Authoritative signal: if the discriminant's LCNF type is `Bool`, it is a
++  -- genuine boolean condition (normal branch order). This fixes Bool-typed
++  -- parameters whose names the heuristic below doesn't recognize (e.g.
++  -- `isMalloc`), which previously fell through to the Nat-against-0 path and
++  -- got their true/false branches SWAPPED. Fall back to the name heuristic
++  -- only when the type can't be resolved.
++  -- Resolve through the alias map first: `if isMalloc then …` lowers to a
++  -- `cases` on `instDecidableEqBool isMalloc true`, whose discriminant fvar is
++  -- aliased to `isMalloc`. We want isMalloc's type (Bool), not the Decidable
++  -- node's, so a Bool-typed condition takes the normal (non-swapped) branches.
++  let resolvedDiscr ← resolveAlias discrFvar
++  let discrIsBoolTyped := (← fvarIsBool discrFvar) || (← fvarIsBool resolvedDiscr)
++  let discrLooksLikeBool := discrIsBoolTyped ||
++                            discr.startsWith "_x" ||
+                             discr.startsWith "_y" ||  -- join point params often carry Bool
+                             discr == "x" || discr == "b" || discr == "p" ||
+                             discr == "cond" || discr == "condition" ||
+@@ -1515,6 +1557,7 @@ partial def emitFunParams (params : Array Param) : EmitM Unit := do
+     if !first then emit ", "
+     first := false
+     let name ← registerVar p.fvarId p.binderName
++    markBoolTyped p.fvarId p.type
+     let typeHint ← toPyTypeHint p.type
+     emit s!"{name}: {typeHint}"
+ 
