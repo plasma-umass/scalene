@@ -14,6 +14,24 @@ import pytest
 from scalene.scalene_mac_sampler import MacThreadSampler
 
 
+def _wait_until(predicate, timeout=5.0, interval=0.01):
+    """Poll ``predicate`` until true or ``timeout`` elapses.
+
+    The sampler is a background thread driven by wall-clock sleeps; on a loaded
+    CI runner a fixed `time.sleep` can elapse before the thread has fired the
+    expected number of times, producing flaky `assert count >= N` failures
+    (e.g. `assert 1 >= 2` on macOS CI). Polling until the threshold is reached,
+    with a generous timeout, keeps the assertion meaningful without being
+    timing-fragile.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return predicate()
+
+
 def test_sampler_invokes_handler_repeatedly():
     """The sampler thread should call the CPU handler more than once."""
     calls = []
@@ -26,13 +44,14 @@ def test_sampler_invokes_handler_repeatedly():
     sampler = MacThreadSampler()
     sampler.start(handler, cpu_signal=42, cpu_sampling_rate=0.005)
     assert sampler.is_running
-    time.sleep(0.2)
+    _wait_until(lambda: len(calls) >= 2)
     sampler.stop()
     assert not sampler.is_running
 
     with lock:
-        # At ~200Hz over 200ms we expect many; assert a conservative lower
-        # bound to avoid flakiness on a loaded CI machine.
+        # At ~200Hz we expect many; assert a conservative lower bound. We poll
+        # (above) rather than sleep a fixed time to avoid flakiness on a loaded
+        # CI machine.
         assert len(calls) >= 2
         # Handler is always called with frame=None (Windows-style) and the
         # signal number we passed.
@@ -49,7 +68,7 @@ def test_sampler_handler_exception_does_not_kill_thread():
 
     sampler = MacThreadSampler()
     sampler.start(bad_handler, cpu_signal=1, cpu_sampling_rate=0.005)
-    time.sleep(0.15)
+    _wait_until(lambda: count["n"] >= 2)
     still_running = sampler.is_running
     sampler.stop()
 
@@ -96,7 +115,15 @@ def test_sampler_polls_memory_queues_when_provided():
         alloc_sigq=alloc,
         memcpy_sigq=memcpy,
     )
-    time.sleep(0.15)
+
+    def _both_polled():
+        with alloc.lock:
+            a = len(alloc.items)
+        with memcpy.lock:
+            m = len(memcpy.items)
+        return a >= 2 and m >= 2
+
+    _wait_until(_both_polled)
     sampler.stop()
 
     with alloc.lock:
