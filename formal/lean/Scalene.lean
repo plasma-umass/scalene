@@ -5,3 +5,6 @@ import Scalene.SignalSafety
 import Scalene.SpaceSaving
 import Scalene.ExtractMirror
 import Scalene.ProfilerCorrectness
+import Scalene.ExponentialSampler
+import Scalene.MemorySampler
+import Scalene.MetricCorrectness

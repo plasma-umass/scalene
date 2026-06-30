@@ -22,6 +22,15 @@ Python and differentially tests the real profiler against them.
    time/memory profile is an **unbiased, consistent** estimator of the truth
    (`ProfilerCorrectness.estimator_unbiased`, `jointVariance_eq`). This is the
    spec a profiler's *user* relies on; §3 proves the bookkeeping it rests on.
+7. **Poisson sampling** — the sampler's exponential inter-sample intervals
+   (`scalene_profiler.py:1108`) make sampling a Poisson process, which is what
+   *discharges* §6's i.i.d. hypothesis (inverse-CDF correctness + memorylessness).
+8. **GPU / copy-volume / python-split / leak detection** — GPU util, memcpy
+   volume, and the Python/native split fit the §6 weighted-average frame; memory
+   leak detection is a Bayesian (Rule-of-Succession) hypothesis test with proven
+   bounds, monotonicity, and false-positive guards.
+9. **Memory sampler** — the default ThresholdSampler conserves true net
+   allocation exactly (bounded residual); the Poisson sampler is unbiased.
 
 Two complementary tools are used, each where it is strongest:
 
@@ -238,13 +247,96 @@ formal contract between them.
   sampling (that would require modeling signal delivery + the CPython
   interpreter loop). The hypothesis is discharged by engineering + the §3
   invariants, not by a Lean proof.
-- **i.i.d. sampling.** The model assumes independent, identically-distributed
-  samples (`jointExpect` = product distribution). Real timer ticks are
-  approximately-periodic, not i.i.d.; the i.i.d. model is the standard
-  idealization for which unbiasedness/consistency are stated.
-- **Wall-clock vs. on-CPU, GPU, copy volume, leak scoring** — §6 covers the
-  core CPU-time/memory-bytes attribution; Scalene's other columns are not yet
-  modeled.
+- **i.i.d. sampling — discharged by the code, see §7.** The model assumes
+  independent, identically-distributed samples (`jointExpect` = product
+  distribution). This is *not* an idealization gap: Scalene draws each
+  inter-sample interval from an Exponential distribution
+  (`_generate_exponential_sample`, `scalene_profiler.py:1108`), making the
+  sample instants a Poisson process — memoryless (hence independent) and, by
+  PASTA, landing on each line proportionally to its true time (the
+  `trueFraction` distribution). §7 (`ExponentialSampler.lean`) proves the
+  sampler transform is a correct inverse-CDF for the Exponential and is
+  memoryless. (PASTA itself is cited, not formalized — it needs a continuous-
+  time stochastic-process development.)
+- **GPU / copy-volume / python-split / leak / memory-sampling — now §8, §9.**
+  §8 (`MetricCorrectness.lean`) covers GPU utilization, memcpy copy-volume,
+  the Python-vs-native split, and memory-leak detection; §9
+  (`MemorySampler.lean`) covers the allocation sampler. What remains unmodeled:
+  the per-sample *accuracy* of the python/native classifier heuristic, and the
+  end-to-end wiring from C++ counters into the Python statistics objects.
+
+---
+
+## 7. The sampler is Poisson — `lean/Scalene/ExponentialSampler.lean`
+
+§6's unbiasedness/consistency rests on i.i.d. samples drawn proportionally to
+true time. That is exactly what Scalene's sampler delivers, and §7 proves the
+sampler transform correct rather than assuming it.
+
+`scalene_profiler.py:1108` draws each inter-sample interval as
+`-scale · log(1 − u)`, `u ~ Uniform[0,1)` — the inverse-CDF transform for the
+Exponential distribution.
+
+| Lean theorem | Statement |
+|---|---|
+| `sample_le_iff` | **Inverse-CDF correctness**: `sample ≤ t ↔ u ≤ 1 − exp(−t/scale)`. Since `u` is uniform, `P(sample ≤ t) = 1 − exp(−t/scale)` — the sampler output is Exponential(mean `scale`). |
+| `sample_nonneg` | a sampled delay is never negative. |
+| `survival_memoryless` | `S(s+t) = S(s)·S(t)` — the Exponential is memoryless, so the next sample instant is independent of the past. |
+| `expCDF_zero`, `expCDF_lt_one` | basic CDF sanity. |
+
+**Why this matters.** Exponential gaps ⇒ the sample times are a *Poisson
+process*. Memorylessness gives the **independence** §6 assumes; and by PASTA
+("Poisson Arrivals See Time Averages") a Poisson sample lands on a line with
+probability equal to its true time fraction — the `trueFraction` distribution.
+Fixed-rate sampling would not give this (it can alias with periodic program
+behaviour); the exponential draw is precisely the design choice that makes the
+§6 hypotheses hold. (PASTA is cited, not formalized.)
+
+## 8. Four more metrics — `lean/Scalene/MetricCorrectness.lean`
+
+Two proof shapes, because the metrics are not all averages:
+
+**Weighted-average attributions** (same frame as §6):
+- **GPU utilization** (`scalene_cpu_profiler.py:439`, `scalene_json.py:567`):
+  `gpuFraction_bounds` — the reported `gpu_samples/n_gpu_samples` is a ratio of
+  nonneg time-integrals with `util·w ≤ w`, hence a fraction in `[0,1]`; with
+  Poisson sampling it converges to true time-averaged utilization.
+- **memcpy copy-volume** (`memcpysampler.hpp:319`): bytes sampled on an
+  exponential byte-clock, so per-line counts are unbiased for true copy volume
+  — the §6 argument with byte-weight instead of time-weight.
+- **Python-vs-native split** (`scalene_cpu_profiler.py:251-343`):
+  `python_c_fraction_sums_one` — the reported python and C fractions partition
+  each sample and sum to 1. (This metric is a *deterministic classifier*, not a
+  random estimator; we prove the conservation property, not per-sample
+  classifier accuracy.)
+
+**Memory-leak detection — a Bayesian hypothesis test** (the different one,
+`scalene_leak_analysis.py:31`). The reported score is the Laplace Rule of
+Succession `leakScore = 1 − (frees+1)/(unfreed+2)`:
+
+| Lean theorem | Statement |
+|---|---|
+| `leakScore_eq` | matches the Rule of Succession `(unfreed−frees+1)/(unfreed+2)`. |
+| `leakScore_nonneg`, `leakScore_le_one` | the score is a probability in `[0,1]`. |
+| `leakScore_mono_unfreed` | more never-freed allocations ⇒ strictly higher score. |
+| `leakScore_anti_frees` | more reclamations ⇒ lower score. |
+| `reportsLeak_iff` | **exact decision rule**: reports a leak iff the reclamation mass `(frees+1)/(unfreed+2) ≤ threshold`. |
+| `no_leak_without_evidence`, `no_leak_when_all_freed` | **false-positive guards**: with no evidence the score is the prior ½ (below any threshold `< ½`); a line that frees everything it allocates is never flagged. |
+
+## 9. The memory sampler — `lean/Scalene/MemorySampler.lean`
+
+Scalene ships two allocation samplers (`sampleheap.hpp:345-349`); we model both:
+
+- **ThresholdSampler** (the default): deterministic; fires when net
+  alloc/free bytes cross `_sampleInterval`, reporting the exact excess and
+  resetting. `threshold_conserves` — reported net + sub-threshold residual =
+  *true* net allocation, exactly (no bytes invented/lost; sampling only coarsens
+  to interval multiples). `threshold_residual_bounded` — the residual is always
+  `< interval`, so the reported footprint is within one interval of the truth.
+- **PoissonSampler** (experimental, `#if 0`): each byte sampled w.p.
+  `1/window`, rescaled by `window`. `poisson_unbiased` /
+  `poisson_unbiased_sum` — the rescaled estimate is unbiased for true bytes,
+  per allocation and summed over a trace.
 
 ---
 
@@ -326,6 +418,9 @@ formal/
       SpaceSaving.lean           # bounded combined_stacks capacity proof
       ExtractMirror.lean         # proven == extracted integrity bridge
       ProfilerCorrectness.lean   # unbiased + consistent attribution (the user-facing spec)
+      ExponentialSampler.lean    # sampler is Poisson: inverse-CDF + memorylessness (§7)
+      MetricCorrectness.lean     # GPU / copy-volume / python-split / leak detection (§8)
+      MemorySampler.lean         # threshold (conservation) + Poisson (unbiased) sampler (§9)
   extract/
     ScaleneExtract.lean         # extraction-friendly defs (Lean 4.12, LeanToPython)
     scalene_verified_core.py    # GENERATED Python oracle (committed)
