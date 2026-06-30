@@ -47,165 +47,157 @@ List = List_nil | List_cons
 
 # Lean: ScaleneVerified.cTimeNs
 def c_time_ns(elapsed_ns: int, python_ns: int) -> int:
-    _x_181 = python_ns <= elapsed_ns
-    if _x_181:
-        _x_190 = elapsed_ns - python_ns
-        return _x_190
+    _x_176 = python_ns <= elapsed_ns
+    if _x_176:
+        _x_185 = elapsed_ns - python_ns
+        return _x_185
     else:
-        _x_183 = 0
+        _x_178 = 0
         return 0
 
 # Lean: ScaleneVerified.totalTimeNs
 def total_time_ns(elapsed_ns_0: int, python_ns_1: int) -> int:
-    _x_196 = c_time_ns(elapsed_ns_0, python_ns_1)
-    _x_197 = python_ns_1 + _x_196
-    return _x_197
+    _x_191 = c_time_ns(elapsed_ns_0, python_ns_1)
+    _x_192 = python_ns_1 + _x_191
+    return _x_192
 
 # Lean: ScaleneVerified.pythonFractionPpm
 def python_fraction_ppm(python_count: int, c_count: int) -> int:
-    _x_204 = python_count + c_count
-    _x_205 = 0
-    _x_208 = _x_204 == 0
-    _x_209 = True
-    if _x_208:
+    _x_199 = python_count + c_count
+    _x_200 = 0
+    _x_203 = _x_199 == 0
+    _x_204 = True
+    if _x_203:
         return 0
     else:
-        _x_218 = 1000000
-        _x_221 = python_count * 1000000
-        _x_222 = _x_221 // _x_204
-        return _x_222
+        _x_213 = 1000000
+        _x_216 = python_count * 1000000
+        _x_217 = _x_216 // _x_199
+        return _x_217
 
 # Lean: ScaleneVerified.pythonBytes
 def python_bytes(count: int, python_count_2: int, c_count_3: int) -> int:
-    _x_232 = python_fraction_ppm(python_count_2, c_count_3)
-    _x_233 = _x_232 * count
-    _x_234 = 1000000
-    _x_237 = _x_233 // 1000000
-    return _x_237
+    _x_227 = python_fraction_ppm(python_count_2, c_count_3)
+    _x_228 = _x_227 * count
+    _x_229 = 1000000
+    _x_232 = _x_228 // 1000000
+    return _x_232
 
 # Lean: ScaleneVerified.footprintDelta
 def footprint_delta(is_malloc: bool, count_4: int) -> int:
-    _x_239 = True
+    _x_234 = True
     if is_malloc:
         return count_4
     else:
-        _x_244 = -count_4
-        return _x_244
+        _x_239 = -count_4
+        return _x_239
 
 # Lean: ScaleneVerified.hasKey
 def has_key(t: list[tuple[int, int]], k: int) -> bool:
-    def _f_252(p: tuple[int, int]):
-        _x_250 = p[0]
-        _x_251 = _x_250 == k
-        return _x_251
-    _x_253 = any(_f_252(x) for x in t)
-    return _x_253
+    def _f_247(p: tuple[int, int]):
+        _x_245 = p[0]
+        _x_246 = _x_245 == k
+        return _x_246
+    _x_248 = any(_f_247(x) for x in t)
+    return _x_248
 
 # Lean: ScaleneVerified.bump
 def bump(t_5: list[tuple[int, int]], k_6: int) -> list[tuple[int, int]]:
-    def _f_273(p_7: tuple[int, int]):
-        _x_257 = p_7[0]
-        _x_258 = _x_257 == k_6
-        _x_259 = True
-        if _x_258:
-            _x_266 = p_7[1]
-            _x_267 = 1
-            _x_270 = _x_266 + 1
-            _x_271 = (_x_257, _x_270)
-            return _x_271
+    def _f_268(p_7: tuple[int, int]):
+        _x_252 = p_7[0]
+        _x_253 = _x_252 == k_6
+        _x_254 = True
+        if _x_253:
+            _x_261 = p_7[1]
+            _x_262 = 1
+            _x_265 = _x_261 + 1
+            _x_266 = (_x_252, _x_265)
+            return _x_266
         else:
             return p_7
-    _x_274 = [_f_273(x) for x in t_5]
-    return _x_274
-
-# Lean: ScaleneVerified.min2
-def min2(a: int, b: int) -> int:
-    _x_276 = a <= b
-    if _x_276:
-        return a
-    else:
-        return b
+    _x_269 = [_f_268(x) for x in t_5]
+    return _x_269
 
 # Lean: ScaleneVerified.minCount
-def min_count(x_281: list[tuple[int, int]]) -> int:
-    def _f_285():
-        _x_282 = 0
+def min_count(x_271: list[tuple[int, int]]) -> int:
+    def _f_275():
+        _x_272 = 0
         return 0
-    _alt_286 = _f_285
-    def _f_288(p_8: tuple[int, int]):
-        _x_287 = p_8[1]
+    _alt_276 = _f_275
+    def _f_278(p_8: tuple[int, int]):
+        _x_277 = p_8[1]
+        return _x_277
+    _alt_279 = _f_278
+    def _f_284(p_9: tuple[int, int], q: tuple[int, int], r: list[tuple[int, int]]):
+        _x_280 = p_9[1]
+        _x_281 = [q] + r
+        _x_282 = min_count(_x_281)
+        _x_283 = min(_x_280, _x_282)
+        return _x_283
+    _alt_285 = _f_284
+    if len(x_271) == 0:
+        _x_287 = _alt_276()
         return _x_287
-    _alt_289 = _f_288
-    def _f_294(p_9: tuple[int, int], q: tuple[int, int], r: list[tuple[int, int]]):
-        _x_290 = p_9[1]
-        _x_291 = [q] + r
-        _x_292 = min_count(_x_291)
-        _x_293 = min2(_x_290, _x_292)
-        return _x_293
-    _alt_295 = _f_294
-    if len(x_281) == 0:
-        _x_297 = _alt_286()
-        return _x_297
     else:
-        head_298 = x_281[0]
-        tail_299 = x_281[1:]
-        if len(tail_299) == 0:
-            _x_300 = _alt_289(head_298)
-            return _x_300
+        head_288 = x_271[0]
+        tail_289 = x_271[1:]
+        if len(tail_289) == 0:
+            _x_290 = _alt_279(head_288)
+            return _x_290
         else:
-            head_301 = tail_299[0]
-            tail_302 = tail_299[1:]
-            _x_303 = _alt_295(head_298, head_301, tail_302)
-            return _x_303
+            head_291 = tail_289[0]
+            tail_292 = tail_289[1:]
+            _x_293 = _alt_285(head_288, head_291, tail_292)
+            return _x_293
 
 # Lean: ScaleneVerified.dropFirstWithCount
-def drop_first_with_count(x_307: list[tuple[int, int]], x_308: int) -> list[tuple[int, int]]:
-    def _f_311(x_309: int):
-        _x_310 = []
-        return _x_310
-    _alt_312 = _f_311
-    def _f_324(p_10: tuple[int, int], rest: list[tuple[int, int]], m: int):
-        _x_315 = p_10[1]
-        _x_316 = _x_315 == m
-        _x_317 = True
-        if _x_316:
+def drop_first_with_count(x_297: list[tuple[int, int]], x_298: int) -> list[tuple[int, int]]:
+    def _f_301(x_299: int):
+        _x_300 = []
+        return _x_300
+    _alt_302 = _f_301
+    def _f_314(p_10: tuple[int, int], rest: list[tuple[int, int]], m: int):
+        _x_305 = p_10[1]
+        _x_306 = _x_305 == m
+        _x_307 = True
+        if _x_306:
             return rest
         else:
-            _x_320 = drop_first_with_count(rest, m)
-            _x_321 = [p_10] + _x_320
-            return _x_321
-    _alt_325 = _f_324
-    if len(x_307) == 0:
-        _x_326 = _alt_312(x_308)
-        return _x_326
+            _x_310 = drop_first_with_count(rest, m)
+            _x_311 = [p_10] + _x_310
+            return _x_311
+    _alt_315 = _f_314
+    if len(x_297) == 0:
+        _x_316 = _alt_302(x_298)
+        return _x_316
     else:
-        head_327 = x_307[0]
-        tail_328 = x_307[1:]
-        _x_329 = _alt_325(head_327, tail_328, x_308)
-        return _x_329
+        head_317 = x_297[0]
+        tail_318 = x_297[1:]
+        _x_319 = _alt_315(head_317, tail_318, x_298)
+        return _x_319
 
 # Lean: ScaleneVerified.spaceSavingStep
 def space_saving_step(cap: int, t_11: list[tuple[int, int]], k_12: int) -> list[tuple[int, int]]:
-    _x_332 = has_key(t_11, k_12)
-    _x_333 = True
-    if _x_332:
-        _x_358 = bump(t_11, k_12)
-        return _x_358
+    _x_322 = has_key(t_11, k_12)
+    _x_323 = True
+    if _x_322:
+        _x_348 = bump(t_11, k_12)
+        return _x_348
     else:
-        _x_336 = len(t_11)
-        _x_337 = _x_336 < cap
-        if _x_337:
-            _x_351 = 1
-            _x_354 = (k_12, 1)
-            _x_355 = [_x_354] + t_11
-            return _x_355
+        _x_326 = len(t_11)
+        _x_327 = _x_326 < cap
+        if _x_327:
+            _x_341 = 1
+            _x_344 = (k_12, 1)
+            _x_345 = [_x_344] + t_11
+            return _x_345
         else:
-            _x_339 = min_count(t_11)
-            _x_343 = 1
-            _x_346 = _x_339 + 1
-            _x_347 = (k_12, _x_346)
-            _x_348 = drop_first_with_count(t_11, _x_339)
-            _x_349 = [_x_347] + _x_348
-            return _x_349
+            _x_329 = min_count(t_11)
+            _x_333 = 1
+            _x_336 = _x_329 + 1
+            _x_337 = (k_12, _x_336)
+            _x_338 = drop_first_with_count(t_11, _x_329)
+            _x_339 = [_x_337] + _x_338
+            return _x_339
 
 

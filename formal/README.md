@@ -154,7 +154,7 @@ tests/test_verified_space_saving.py                  ← differential test vs th
 
 - **`formal/lean/Scalene/ExtractMirror.lean`** is the machine-checked integrity
   bridge: it re-states the extraction defs and proves them equal to / satisfying
-  the proven ones (`min2_eq_min`, `minCountX_eq`, `totalTimeNs_eq_elapsed`,
+  the proven ones (`minCountX_eq`, `totalTimeNs_eq_elapsed`,
   `pythonFractionPpm_le`). If `ScaleneExtract.lean` drifts from the proven
   model, this file fails to compile — so the extracted Python can't silently
   diverge from what was proven.
@@ -166,16 +166,18 @@ tests/test_verified_space_saving.py                  ← differential test vs th
   not part of the proven spec).
 
 **LeanToPython fixes upstreamed for this.** Extracting Scalene's defs surfaced
-two transpiler bugs (fixed in a local LeanToPython checkout; see that repo):
+two transpiler bugs, both **fixed upstream** in
+[emeryberger/LeanToPython#1](https://github.com/emeryberger/LeanToPython/pull/1):
 1. **Bool-typed-parameter branch inversion** — `if isMalloc then a else b`
    lowered to a `Decidable` cases whose discriminant name the heuristic didn't
    recognize, swapping the branches. Fixed by tracking each fvar's LCNF `Bool`
    type and resolving through the alias map, instead of guessing from the name.
    (Also fixed the previously-broken `mod_pow` corpus case.)
-2. **Binary-builtin operand drop** — `min`/`max` emitted only their last
-   argument. The extraction module sidesteps the remaining `Nat.min`
-   instance-path case with an explicit `min2 a b := if a ≤ b then a else b`,
-   proven equal to `Nat.min` in `ExtractMirror.lean`.
+2. **Binary `min`/`max` operand drop** — `Nat.min a b` extracted to `min(b)`,
+   dropping the first operand. Fixed in `stdlibFnToPython?`'s wrapper emitter.
+   `ScaleneExtract.minCount` now uses `Nat.min` directly, extracting cleanly to
+   `min(a, b)`; `ExtractMirror.minCountX_eq` confirms it equals the proven
+   `minCount`.
 
 ---
 
@@ -341,6 +343,6 @@ Requires a [LeanToPython](https://github.com/emeryberger/LeanToPython) checkout
 lake env lean ScaleneExtract.lean > scalene_verified_core.py
 ```
 
-Then re-run `tests/test_verified_space_saving.py`. (The two Bool/`min`
-transpiler fixes described above must be applied to LeanToPython for the
-Bool-branch cases to extract correctly.)
+Then re-run `tests/test_verified_space_saving.py`. (The two transpiler fixes
+described above are merged into LeanToPython `main`, so a current checkout
+extracts the Bool-branch and `min`/`max` cases correctly with no patching.)

@@ -18,33 +18,24 @@ namespace Scalene.ExtractMirror
 
 open Scalene.SpaceSaving
 
-/-! ## Mirror of the extraction `min2` and `minCount`
+/-! ## Mirror of the extraction `minCount`
 
-`ScaleneExtract.minCount` uses `min2 a b := if a ≤ b then a else b` instead of
-`Nat.min` (which LeanToPython mis-extracts). We prove `min2 = Nat.min`, so the
-extracted `min_count` computes the same thing the SpaceSaving proofs assume. -/
+`ScaleneExtract.minCount` uses `Nat.min` directly — the LeanToPython bug that
+dropped a `min` operand is fixed upstream
+([emeryberger/LeanToPython#1](https://github.com/emeryberger/LeanToPython/pull/1)),
+so it now extracts cleanly to `min(a, b)`. The mirror below re-states it and
+proves it equals the proven `SpaceSaving.minCount` (definitionally), guarding
+against drift between the extraction source and the proof model. -/
 
-/-- Extraction's explicit binary min (copy of ScaleneExtract.min2). -/
-def min2 (a b : Nat) : Nat := if a ≤ b then a else b
-
-/-- `min2` is exactly `Nat.min`: the extraction substitution is semantics-
-    preserving, so every `minCount`/`step` property carries over to the
-    extracted code. -/
-theorem min2_eq_min (a b : Nat) : min2 a b = Nat.min a b := by
-  unfold min2
-  by_cases h : a ≤ b
-  · simp [h, Nat.min_eq_left h]
-  · simp [h, Nat.min_eq_right (Nat.le_of_lt (Nat.lt_of_not_le h))]
-
-/-- Extraction's `minCount`, written with `min2`. Mirror of
-    ScaleneExtract.minCount. -/
+/-- Extraction's `minCount` (copy of ScaleneExtract.minCount). -/
 def minCountX : Table Nat → Nat
   | []          => 0
   | [p]         => p.2
-  | p :: q :: r => min2 p.2 (minCountX (q :: r))
+  | p :: q :: r => Nat.min p.2 (minCountX (q :: r))
 
-/-- The extraction `minCountX` equals the proven `minCount` — so the property
-    `minCount_le` (every count ≥ the minimum) holds of the extracted code too. -/
+/-- The extraction `minCountX` is exactly the proven `minCount`, so every
+    `minCount`/`step` property (e.g. `minCount_le`) carries over to the
+    extracted code unchanged. -/
 theorem minCountX_eq (t : Table Nat) : minCountX t = minCount t := by
   induction t with
   | nil => rfl
@@ -52,8 +43,8 @@ theorem minCountX_eq (t : Table Nat) : minCountX t = minCount t := by
       cases rest with
       | nil => rfl
       | cons q r =>
-          show min2 p.2 (minCountX (q :: r)) = Nat.min p.2 (minCount (q :: r))
-          rw [min2_eq_min, ih]
+          show Nat.min p.2 (minCountX (q :: r)) = Nat.min p.2 (minCount (q :: r))
+          rw [ih]
 
 /-! ## Mirror of the extraction CPU-time split
 

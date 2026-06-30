@@ -74,16 +74,10 @@ def hasKey (t : Tbl) (k : Nat) : Bool := t.any (fun p => p.1 == k)
 def bump (t : Tbl) (k : Nat) : Tbl :=
   t.map (fun p => if p.1 == k then (p.1, p.2 + 1) else p)
 
-/-- Binary min written as an explicit branch. `Nat.min` reaches a LCNF
-    instance-projection path that LeanToPython mis-applies (drops an operand);
-    the explicit `if` form lowers cleanly. Proven equal to `Nat.min` in
-    ExtractMirror.lean. -/
-def min2 (a b : Nat) : Nat := if a ≤ b then a else b
-
 def minCount : Tbl → Nat
   | []          => 0
   | [p]         => p.2
-  | p :: q :: r => min2 p.2 (minCount (q :: r))
+  | p :: q :: r => Nat.min p.2 (minCount (q :: r))
 
 def dropFirstWithCount : Tbl → Nat → Tbl
   | [],        _ => []
@@ -109,7 +103,6 @@ end ScaleneVerified
       ``ScaleneVerified.footprintDelta,
       ``ScaleneVerified.hasKey,
       ``ScaleneVerified.bump,
-      ``ScaleneVerified.min2,
       ``ScaleneVerified.minCount,
       ``ScaleneVerified.dropFirstWithCount,
       ``ScaleneVerified.spaceSavingStep ]
