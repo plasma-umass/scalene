@@ -8,7 +8,7 @@ Python and differentially tests the real profiler against them.
    concurrent signal-handler mutation of the shared stacks dictionaries.
 2. **Deadlock freedom & signal-safety** — Scalene's lock/queue topology cannot
    deadlock, and no signal handler ever blocks on a lock.
-3. **Attribution correctness** — CPU time and memory bytes are conserved
+3. **Attribution bookkeeping** — CPU time and memory bytes are conserved
    (attributed exactly once, totals preserved) and the Python/C split fractions
    stay in `[0, 1]`.
 4. **Bounded heavy-hitter accounting** — the Space-Saving `combined_stacks`
@@ -18,6 +18,10 @@ Python and differentially tests the real profiler against them.
    [LeanToPython](https://github.com/emeryberger/LeanToPython) and used as a
    *verified oracle* that Scalene's real `_space_saving_increment` is checked
    against (`tests/test_verified_space_saving.py`).
+6. **Profiler correctness** — the headline desideratum: the reported per-line
+   time/memory profile is an **unbiased, consistent** estimator of the truth
+   (`ProfilerCorrectness.estimator_unbiased`, `jointVariance_eq`). This is the
+   spec a profiler's *user* relies on; §3 proves the bookkeeping it rests on.
 
 Two complementary tools are used, each where it is strongest:
 
@@ -175,6 +179,73 @@ two transpiler bugs (fixed in a local LeanToPython checkout; see that repo):
 
 ---
 
+## 6. Profiler correctness — `lean/Scalene/ProfilerCorrectness.lean`
+
+Sections 3–5 prove the *bookkeeping* is sound (totals conserved, fractions in
+range, table bounded). This section proves the property a **user** cares about:
+*the numbers Scalene reports reflect where the program actually spends its time
+and memory.*
+
+A sampling profiler cannot be exactly right on any single run — it observes a
+random subset of execution — so "correct attribution" is necessarily a
+*statistical* statement. We prove both halves:
+
+| Lean theorem | Statement |
+|---|---|
+| `expect_indicator` | **Single-sample unbiasedness**: one faithfully-placed sample attributes time to line ℓ with probability exactly `trueFraction ℓ`. |
+| `estimator_unbiased` | **N-sample unbiasedness** (headline): for *every* sample budget `N ≥ 1`, the expected reported fraction for line ℓ equals its true fraction. The profiler is right on average at any N. |
+| `variance_indicator` | Single-sample variance is the Bernoulli `p(1−p)`. |
+| `variance_indicator_le` | …bounded by ¼ — a uniform per-sample noise bound. |
+| `jointExpect_pair` | **Independence factorization**: distinct samples are independent (`E[XᵢXⱼ] = E[Xᵢ]E[Xⱼ]`, i≠j). |
+| `jointVariance_eq` | **Consistency** (headline): the N-sample estimator's variance is exactly `p(1−p)/N` → 0. So the reported numbers *converge* to the truth as samples accumulate. |
+
+Together: the reported per-line profile is an **unbiased, consistent estimator**
+of the ground-truth time/memory distribution. All over ℚ (exact); no `sorry`;
+standard axioms only.
+
+### The desideratum → mechanism bridge
+
+Everything rests on one hypothesis, made explicit in the `Truth` structure's
+sampling distribution: **each timer tick is attributed to the line truly
+executing when it fires, with probability proportional to that line's true
+running time** (`trueFraction`). On a signal-based Python profiler this is *not*
+automatic — an asynchronous signal can be delivered a few bytecodes after the
+event that triggered it, smearing a sample onto the wrong line.
+
+This is exactly the gap Scalene's engineering closes, and it ties this
+spec-level proof back to the mechanism-level work:
+
+- **synchronous (C++) stamping** of the executing `(file, line)` at sample time
+  (`whereInPython` / `whereInPythonWithStack`, `src/source/pywhere.cpp`) — so
+  the sample is attributed to the line actually running, not wherever the
+  Python-level handler happens to resume;
+- the **smear correction** in `scalene_memory_profiler.py` that reattributes
+  arena/GC bytes off pure-arithmetic leaf lines;
+- and the conservation/bounds of §3 (`Attribution.lean`), which guarantee the
+  per-sample attribution that unbiasedness sums over is itself well-formed
+  (fractions in [0,1], totals preserved).
+
+So the chain is: *faithful per-sample attribution* (engineering + §3) **⇒**
+*unbiased, consistent reported profile* (§6). The `faithful` hypothesis is the
+formal contract between them.
+
+### What this does *not* yet prove
+
+- **That the hypothesis holds.** We prove "faithful sampling ⇒ correct profile";
+  we do not formally prove Scalene's C++ stamping *establishes* faithful
+  sampling (that would require modeling signal delivery + the CPython
+  interpreter loop). The hypothesis is discharged by engineering + the §3
+  invariants, not by a Lean proof.
+- **i.i.d. sampling.** The model assumes independent, identically-distributed
+  samples (`jointExpect` = product distribution). Real timer ticks are
+  approximately-periodic, not i.i.d.; the i.i.d. model is the standard
+  idealization for which unbiasedness/consistency are stated.
+- **Wall-clock vs. on-CPU, GPU, copy volume, leak scoring** — §6 covers the
+  core CPU-time/memory-bytes attribution; Scalene's other columns are not yet
+  modeled.
+
+---
+
 ## What is *assumed* (model boundary)
 
 These models abstract, and the abstractions are the assumptions:
@@ -252,6 +323,7 @@ formal/
       SignalSafety.lean          # snapshot-iteration algebra
       SpaceSaving.lean           # bounded combined_stacks capacity proof
       ExtractMirror.lean         # proven == extracted integrity bridge
+      ProfilerCorrectness.lean   # unbiased + consistent attribution (the user-facing spec)
   extract/
     ScaleneExtract.lean         # extraction-friendly defs (Lean 4.12, LeanToPython)
     scalene_verified_core.py    # GENERATED Python oracle (committed)

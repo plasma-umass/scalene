@@ -4,3 +4,4 @@ import Scalene.Attribution
 import Scalene.SignalSafety
 import Scalene.SpaceSaving
 import Scalene.ExtractMirror
+import Scalene.ProfilerCorrectness
