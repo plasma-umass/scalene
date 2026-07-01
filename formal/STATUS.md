@@ -1,7 +1,7 @@
 # Scalene formal-verification status
 
 Where the correctness effort stands, by subsystem. Two engines: **Lean 4**
-(16 modules, 133 theorems, no `sorry`, standard axioms only) for mathematical
+(17 modules, 142 theorems, no `sorry`, standard axioms only) for mathematical
 properties, and **TLA+** (2 specs, model-checked with TLC) for concurrency and
 interleavings.
 
@@ -54,12 +54,16 @@ the counterexample-search and liveness coverage with nothing to replace them.
 | Python/C time split conserved & non-negative | ✅ | `Attribution.totalTime_eq_split`, `cpu_distribution_conserved` |
 | **Python/native classifier conserves the sample's CPU budget in every branch** | ✅ | `PythonNativeClassifier.charge_total`, `classified_conserves` (+ `charge_nonneg`, per-branch `split_*`) — §15 |
 | C++ stamping *establishes* faithful placement (signal→bytecode) | ⚠️ | engineering (`pywhere.cpp`); not modeled |
-| Python-vs-native classifier per-sample *branch-choice* accuracy | ⚠️ | conditional correctness proven (`branchA_exact_if_in_call`); which branch is *right* is the CALL-opcode heuristic, not formalized |
+| **Python-vs-native classifier accuracy, both paths** (main + worker), relative to CPython signal-delivery semantics | ✅ (conditional) | `ClassifierAccuracy.worker_classifier_correct`, `main_branchA_correct`, `main_worker_agree` — exact under the explicit `SigDeliverySound` hypothesis (§17) |
+| `SigDeliverySound` itself (atCall ⇔ truly in a C call) | ⚠️ | the operational hypothesis the accuracy proofs rest on — a CPython-runtime property, stated not proved |
 
-**Verdict:** the statistical guarantee is proven, and the sampler→correctness
-link that used to be *cited* (PASTA) is now proven in discrete-time form. The
-classifier's *bookkeeping* is now proven conserving; the open items are the
-signal-delivery physics and which-branch-is-right (the CALL-opcode heuristic).
+**Verdict:** the statistical guarantee is proven, the sampler→correctness link
+(PASTA) is proven in discrete-time form, and the classifier is now proven both
+*conserving* (every branch) and *accurate* (both code paths, exact under an
+explicit signal-delivery hypothesis — with the two paths shown to agree in their
+shared regime). The one residual is `SigDeliverySound` itself: that CPython
+delivers the signal at a bytecode boundary so `atCall` reflects the true state —
+a runtime property, stated as the honest hypothesis rather than proved.
 
 ## 2. Memory profiling
 
@@ -173,7 +177,8 @@ conservation laws — including the Python/native classifier's budget and the
 per-line malloc attribution bookkeeping — **two metrics end-to-end across the
 C++/Python boundary** (copy volume and malloc footprint, the latter modeling the
 free-side clamp honestly), bounded-structure capacity, and the signal/deadlock
-safety topology. **Not proven:** the signal-delivery physics, *which* classifier
-branch is correct per sample (the CALL-opcode heuristic — only conservation and
-conditional correctness are proven), the remaining device plumbing (GPU
+safety topology — including the classifier's per-sample accuracy on both code
+paths, proven exact under an explicit CPython signal-delivery hypothesis.
+**Not proven:** `SigDeliverySound` itself (the CPython-runtime property that
+`atCall` reflects the true execution state), the remaining device plumbing (GPU
 acquisition), output rendering, and floating-point.

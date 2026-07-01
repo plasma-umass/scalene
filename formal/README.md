@@ -6,7 +6,7 @@ Python and differentially tests the real profiler against them.
 
 ## Proof roundup — where the correctness effort stands, by subsystem
 
-**Lean 4:** 16 modules, 133 theorems, no `sorry`, standard axioms only.
+**Lean 4:** 17 modules, 142 theorems, no `sorry`, standard axioms only.
 **TLA+/TLC:** 2 specs, exhaustively model-checked. Verdicts: **✅ Proven**,
 **⚠️ Partial**, **❌ Unproven**. This is the narrative view; [`STATUS.md`](STATUS.md)
 has the granular per-aspect table, and the numbered sections below (§1–§14) give
@@ -20,11 +20,13 @@ sampler is Poisson (`ExponentialSampler`, inverse-CDF + memorylessness) and ✅
 **PASTA** now links Poisson instants to time-fraction landing
 (`PoissonArrivals.uniform_realizes_trueFraction`, §12). ✅ the Python/native
 classifier *conserves* each sample's CPU budget in every branch
-(`PythonNativeClassifier.charge_total`, §15). ⚠️ that the C++ stamping
-*establishes* faithful placement is engineering, not Lean-proven; ⚠️ *which*
-classifier branch is right is the CALL-opcode heuristic (conditional
-correctness proven, `branchA_exact_if_in_call`; the detection itself not
-formalized).
+(`PythonNativeClassifier.charge_total`, §15) AND is *accurate* on both code
+paths — the main-thread hybrid and the worker-thread bytecode classifier are
+each exact under an explicit CPython signal-delivery hypothesis, and agree in
+their shared regime (`ClassifierAccuracy`, §17). ⚠️ residuals: that the C++
+stamping *establishes* faithful placement, and `SigDeliverySound` itself (that
+`atCall` reflects the true execution state) — both CPython-runtime/engineering
+properties, stated as hypotheses not proved.
 
 **2. Memory sampling.** ✅ the default ThresholdSampler conserves true net
 allocation exactly with bounded residual (`threshold_conserves`,
@@ -358,9 +360,11 @@ formal contract between them.
   the Python-vs-native split, and memory-leak detection; §9
   (`MemorySampler.lean`) covers the allocation sampler (now including a proved
   bisimulation to the literal two-counter C++); §10 (`PerLineAttribution.lean`)
-  ties byte sampling to the per-line fraction. What remains unmodeled: the
-  per-sample *accuracy* of the python/native classifier heuristic, and the
-  end-to-end wiring from the C++ counters into the Python statistics objects.
+  ties byte sampling to the per-line fraction. The python/native classifier's
+  per-sample accuracy is now covered too (§17, `ClassifierAccuracy.lean`) — exact
+  on both code paths under an explicit CPython signal-delivery hypothesis. What
+  remains a stated hypothesis rather than a theorem: `SigDeliverySound` itself
+  (that `atCall` reflects the true execution state).
 
 ---
 
@@ -404,8 +408,8 @@ Two proof shapes, because the metrics are not all averages:
 - **Python-vs-native split** (`scalene_cpu_profiler.py:251-343`):
   `python_c_fraction_sums_one` — the reported python and C fractions partition
   each sample and sum to 1. (This metric is a *deterministic classifier*, not a
-  random estimator; we prove the conservation property, not per-sample
-  classifier accuracy.)
+  random estimator; conservation is proven here, and per-sample accuracy in §17
+  — exact under the CPython signal-delivery hypothesis.)
 
 **Memory-leak detection — a Bayesian hypothesis test** (the different one,
 `scalene_leak_analysis.py:31`). The reported score is the Laplace Rule of
@@ -664,6 +668,55 @@ source line, and the invariants the JSON renderer's divides depend on.
 
 ---
 
+## 17. Classifier accuracy & the two paths — `lean/Scalene/ClassifierAccuracy.lean`
+
+§15 proved the classifier *conserves* the CPU budget; this proves it is
+*accurate* — the branch it picks is the right one — and compares Scalene's two
+classification code paths. Accuracy can't be a bare theorem: which branch is
+correct depends on where the program truly was when the timer fired, observable
+only through one operational fact about CPython. We state that fact as an
+explicit hypothesis and prove exact correctness relative to it.
+
+**The hypothesis (`SigDeliverySound`).** CPython runs a Python-level signal
+handler only at a bytecode boundary, so a timer that expires inside a C call is
+deferred until the call returns, leaving `f_lasti` at the CALL opcode. Hence
+`atCall = true ↔ the timer truly fired inside a C call`. Not proved here — a
+property of the CPython runtime plus synchronous C++ stamping — but stated as
+the precise contract the accuracy proofs rest on.
+
+**The two paths (source mapping).**
+
+| Path | Source | Strategy |
+|---|---|---|
+| worker-thread | `_update_thread_stats`, `scalene_cpu_profiler.py:458-466` | pure bytecode: native iff `is_call_function(orig_frame)` |
+| main-thread, branch A | `:256-275` (`use_call_attribution ∧ is_at_call`) | same bytecode decision, in wall-clock / Apple-SME mode |
+| main-thread, virtual mode | `:134-135` | interval-deferral formula `c_time = max(elapsed − interval, 0)` |
+
+**Theorems.**
+
+- `worker_classifier_correct` — under `SigDeliverySound`, the worker classifier
+  charges native *exactly* the samples that truly landed in a C call
+  (`workerNative = trueNative`, `workerPython = truePython`). Exact, not
+  approximate, given the hypothesis.
+- `main_branchA_correct` — the main path's branch A is exact under the same
+  hypothesis (it makes the identical decision).
+- `main_worker_agree` / `main_worker_both_exact` — **the comparison**: in the
+  shared regime (`use_call_attribution` true), the two paths make byte-for-byte
+  the same Python/native decision, so both are exact together. Scalene runs
+  *one* classifier from two call sites there.
+- `deferral_route_iff` — the paths diverge *exactly* in virtual-time,
+  non-thread-sampled mode, where only the main thread has a virtual timer to
+  measure deferral. `deferral_formula_exact` / `deferral_formula_zero_when_no_excess`
+  characterize that route's correctness (exact when native time appears as
+  timer-deferral; the code comments' known blind spot when it doesn't, which is
+  why wall-clock mode adds the bytecode test).
+- `misclassified_when_unsound` / `missed_when_unsound` — if `SigDeliverySound`
+  fails, the bytecode classifier errs, two-sided: a false positive charges
+  native what was Python, a false negative the reverse. This quantifies exactly
+  what the hypothesis buys.
+
+---
+
 ## What is *assumed* (model boundary)
 
 These models abstract, and the abstractions are the assumptions:
@@ -688,11 +741,15 @@ These models abstract, and the abstractions are the assumptions:
   (`CopyVolumeWiring.lean`): the emitter accumulator/flush state machine and the
   Python reader, with round-trip conservation. This is the first metric proven
   across the native boundary.
+- **Classifier accuracy is now modeled** (§17) *conditionally* on
+  `SigDeliverySound` — the CPython property that a deferred-until-bytecode-boundary
+  signal leaves `atCall` reflecting the true execution state. That hypothesis
+  itself (runtime + synchronous stamping) is stated, not proved.
 - **Out of scope (not yet modeled):** the C++ allocator's internal thread-local
   `_pythonCount`/`_cCount` accounting; the mapfile IPC *byte-format* parsing
   (the copy-volume model abstracts records, not their on-disk encoding); fork()
   lock-state hazards beyond the stop/join discipline; GPU/accelerator device
-  paths; the per-sample Python/native classifier heuristic accuracy.
+  paths.
 
 ---
 

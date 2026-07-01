@@ -87,6 +87,7 @@ at `/tmp/LeanToPython` locally (Lean 4.12).
 | `MallocFootprintWiring.lean` | **malloc footprint end-to-end (C++↔Python)**: reuses ThresholdSampler; models the free-side `max(0,·)` clamp honestly (conserves in safe regime; only over-reports otherwise) | `emit_records_sum`, `clamp_is_identity_of_safe`, `roundtrip_conservation_of_safe`, `clamp_only_raises` |
 | `PythonNativeClassifier.lean` | **Python/native classifier conserves the CPU budget in every branch** (total function); per-branch split characterized; branch-choice accuracy is the heuristic (conditional correctness only) | `charge_total`, `classified_conserves`, `split_atCall`/`split_together`, `charge_nonneg`, `branchA_exact_if_in_call` |
 | `PerLineMallocAttribution.lean` | **per-line malloc bookkeeping**: Σ per-line bytes = grand total; python-share ≤ bytes; high-water dominates & monotone | `perline_conserves`, `python_le_malloc`, `highwater_ge_current`, `highwater_monotone` |
+| `ClassifierAccuracy.lean` | **classifier accuracy, both paths**: worker + main-branch-A exact under CPython signal-delivery hypothesis; the two paths agree in the shared regime; deferral route characterized; error quantified when the hypothesis fails | `worker_classifier_correct`, `main_branchA_correct`, `main_worker_agree`, `deferral_route_iff`, `misclassified_when_unsound` |
 | `LeakTrackerAudit.lean` | proves the leak formula's *unguarded* denominator is safe (`frees ≤ allocs`) | `run_frees_le_allocs`, `denom_pos_reachable` |
 | `LeakTrackerConcurrency.lean` | `frees ≤ allocs` survives sig-queue/main-thread interleaving + fork; RLock atomicity & joint fork-reset shown *necessary* | `interleave_preserves_inv`, `torn_free_breaks_inv`, `fork_reset_inv`, `partial_fork_reset_breaks_inv` |
 | TLA+ `SignalSafety` | the combined_stacks race is reachable (bug cfg) / impossible (fix cfg) | 4-state counterexample; 99 states clean |
@@ -248,12 +249,17 @@ generated `X | Y` unions need 3.10+).
    assumes (`uniform_realizes_trueFraction`). Residual: continuous-time
    order-statistics proof still not formalized (discrete form is the operative
    content for a tick-sampled profiler).
-5. ~~Prove/characterize the python/native classifier~~ **PARTIALLY DONE** —
-   `PythonNativeClassifier.lean` proves the classifier *conserves* each sample's
-   CPU budget in every branch (`charge_total`), is a total function
-   (`classify_total`), and is conditionally correct (`branchA_exact_if_in_call`).
-   STILL OPEN: which branch is right per sample (the CALL-opcode/deferral
-   heuristic) — needs modeling signal delivery vs. bytecode, out of current scope.
+5. ~~Prove/characterize the python/native classifier~~ **DONE** —
+   `PythonNativeClassifier.lean` (conservation, totality) + `ClassifierAccuracy.lean`
+   (accuracy). The accuracy module makes CPython signal-delivery an *explicit
+   hypothesis* (`SigDeliverySound`: `atCall ⇔ truly in a C call`) and proves BOTH
+   code paths exact under it — the worker-thread bytecode classifier
+   (`_update_thread_stats`) and the main-thread branch A — plus that the two
+   paths agree in their shared regime and diverge only where the virtual timer
+   can measure deferral. STILL OPEN (the honest residual): `SigDeliverySound`
+   itself, a CPython-runtime + synchronous-stamping property. Discharging it
+   would need modeling the eval loop's signal-check + `f_lasti` semantics, or a
+   differential test harness that stress-checks `atCall` against ground truth.
 6. **Wire the verified oracle into production directly** (have
    `_space_saving_increment` call the extracted core) rather than only
    differential-testing it — closes the proof→production loop tighter.
