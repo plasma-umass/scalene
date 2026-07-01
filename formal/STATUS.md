@@ -13,6 +13,35 @@ Last updated: 2026-07-01.
 
 ---
 
+## Why two engines (and why we keep both)
+
+Lean and TLA+/TLC are **complementary, not redundant** — each proves a class of
+property the other can't reach ergonomically.
+
+- **Lean → unbounded, quantitative correctness.** Theorems hold for *all* inputs:
+  `estimator_unbiased` for every sample budget N, `frees ≤ allocs` for any event
+  sequence, conservation over any trace, variance = p(1−p)/N. This is where the
+  statistical guarantees and algebraic invariants live. TLC cannot state "for all
+  N".
+- **TLC → bounded interleaving-existence and liveness.** Push-button exploration
+  of the full state space of a concurrent design. It gave a **concrete 4-state
+  counterexample** for the `combined_stacks` race (`SignalSafety.tla`) — Lean
+  would make you hand-construct the bad schedule. And it checks **liveness under
+  fairness** (`Deadlock.tla`: no circular wait, output makes progress, handler
+  never blocks) — temporal properties Lean has no comfortable story for.
+
+The split: **use Lean for what must hold universally and quantitatively; use TLC
+for finding bad schedules and for liveness.** One overlap is deliberate and
+honest — `LeakTrackerConcurrency.lean` proves an interleaving-safety property in
+Lean but *assumes step-atomicity as an axiom* (justified by the RLock + thread
+join). Deriving that atomicity from the sig-queue's operational semantics is the
+natural next **TLA+** job, not a Lean one (see the open item in `HANDOFF.md`).
+
+So: **no, we should not fold TLC into Lean.** Retiring the TLC specs would drop
+the counterexample-search and liveness coverage with nothing to replace them.
+
+---
+
 ## 1. CPU profiling — the headline
 
 | Aspect | Status | Where |

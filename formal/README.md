@@ -40,9 +40,17 @@ Two complementary tools are used, each where it is strongest:
 | **Lean 4** | [`lean/`](lean/) | conservation/bounds arithmetic, snapshot algebra | machine-checked proof |
 
 > **Why both?** Race/deadlock properties are about *interleavings* — TLC
-> exhaustively explores them and produces concrete counterexample traces.
-> Conservation/bounds are about *arithmetic over all inputs* — Lean proves them
-> for unbounded quantities, which a model checker cannot.
+> exhaustively explores them and produces concrete counterexample traces, and it
+> checks *liveness* under fairness (progress, no starvation), which Lean has no
+> comfortable story for. Conservation/bounds are about *arithmetic over all
+> inputs* — Lean proves them for unbounded quantities, which a model checker
+> cannot. The engines are complementary, not redundant: retiring the TLC specs
+> would drop counterexample-search and liveness coverage with nothing to replace
+> them. One overlap is deliberate — `LeakTrackerConcurrency.lean` proves an
+> interleaving property in Lean but *assumes step-atomicity as an axiom*
+> (justified by the RLock + thread join); deriving that atomicity from the
+> sig-queue's operational semantics is a natural next TLA+ job. See
+> [`STATUS.md`](STATUS.md) § "Why two engines".
 
 All TLA+ runs and Lean proofs reproduce from a clean checkout (commands below).
 The Lean proofs contain **no `sorry`/`admit`** and depend only on Lean's three
