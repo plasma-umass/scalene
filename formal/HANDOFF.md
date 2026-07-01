@@ -82,6 +82,7 @@ at `/tmp/LeanToPython` locally (Lean 4.12).
 | `MemorySampler.lean` | threshold sampler conserves net exactly; Poisson unbiased; **two-counter bisimulation** | `threshold_conserves`, `threshold_residual_bounded`, `threshold2_conserves`, `step_bisim`, `poisson_unbiased` |
 | `PerLineAttribution.lean` | per-line byte fraction faithful under sampling | `fraction_of_expectations`, `recorded_fraction_exact` |
 | `LeakTrackerAudit.lean` | proves the leak formula's *unguarded* denominator is safe (`frees ≤ allocs`) | `run_frees_le_allocs`, `denom_pos_reachable` |
+| `LeakTrackerConcurrency.lean` | `frees ≤ allocs` survives sig-queue/main-thread interleaving + fork; RLock atomicity & joint fork-reset shown *necessary* | `interleave_preserves_inv`, `torn_free_breaks_inv`, `fork_reset_inv`, `partial_fork_reset_breaks_inv` |
 | TLA+ `SignalSafety` | the combined_stacks race is reachable (bug cfg) / impossible (fix cfg) | 4-state counterexample; 99 states clean |
 | TLA+ `Deadlock` | no deadlock; handler never blocks on a lock; output liveness | 72 states clean |
 
@@ -170,9 +171,15 @@ generated `X | Y` unions need 3.10+).
   dev). It's the step connecting Poisson sampling to the `trueFraction`
   distribution.
 - **`LeakTrackerAudit` models the increment *discipline*, not the literal
-  code.** It assumes single-shot arm/disarm; faithfulness under the sig-queue
-  thread vs. main-thread interleaving and across `fork` is NOT proven. Prime
-  next audit target — a race there could break `frees ≤ allocs`.
+  code.** It assumes single-shot arm/disarm. The sig-queue/main-thread
+  interleaving and `fork` gap that was flagged here is now **closed** by
+  `LeakTrackerConcurrency.lean` (§2, §11 in README): interleaving safety under
+  the RLock, plus proofs that RLock atomicity and joint fork-reset are
+  *necessary* (`torn_free_breaks_inv`, `partial_fork_reset_breaks_inv`). What
+  remains assumed: that each `process_malloc_free_samples` call really is atomic
+  w.r.t. the others (the RLock + join discipline the code implements) — the
+  model takes step-atomicity as given rather than deriving it from the queue's
+  operational semantics.
 - **Python/native split**: only the *conservation* (fractions sum to 1) is
   proven, NOT the per-sample *accuracy* of the CALL-opcode/signal-deferral
   classifier heuristic.
@@ -187,9 +194,13 @@ generated `X | Y` unions need 3.10+).
 ## 7. Concrete next steps (roughly ranked)
 
 1. **Merge #1077 then #1076** (drive CI; re-run flakes per §5).
-2. **Audit `LeakTrackerAudit`'s faithfulness under concurrency/fork** — the
-   biggest remaining "assumed not proven" gap that could hide a real race
-   (§6 bullet 3). Model the sig-queue thread interleaving explicitly.
+2. ~~Audit `LeakTrackerAudit`'s faithfulness under concurrency/fork~~ **DONE**
+   — `LeakTrackerConcurrency.lean` models the sig-queue/main-thread interleaving
+   and fork reset explicitly, proves the invariant survives every interleaving,
+   and proves the RLock atomicity + joint fork-reset are *necessary*. Residual:
+   step-atomicity is taken as a modeling axiom (justified by the RLock + thread
+   join in the code) rather than derived from the queue's operational semantics
+   — a TLA+ spec of `ScaleneSigQueue.run` could discharge that too.
 3. **Keep auditing hypotheses adversarially** (the §0 method): every `0 <`,
    every denominator, every counter that could underflow. The audit that found
    §4's bugs covered the main division sites; re-run it whenever a model gains

@@ -398,6 +398,49 @@ prove what actually holds and is what a user relies on:
 
 ---
 
+## 11. Leak tracker under concurrency & fork — `lean/Scalene/LeakTrackerConcurrency.lean`
+
+`LeakTrackerAudit.lean` (§ "Bugs the formalization found") proves `frees ≤ allocs`
+for a single *sequential* event stream. But in the code the two increment sites
+run on a background sig-queue thread while the shutdown drain runs on the main
+thread, and the whole tracker state is duplicated across `fork`. This section
+discharges that gap — and, per the audit method, proves the disciplines the code
+relies on are *necessary*, not merely present.
+
+**What the code actually does** (verified against the sources):
+
+| Model element | Scalene source | Meaning |
+|---|---|---|
+| both increments are one `step` | `scalene_memory_profiler.py:236` (free-credit) and `:401` (alloc-credit) are two spots in the *same* function `process_malloc_free_samples` | there is no state at which one applied without the other |
+| each invocation is atomic | `scalene_sigqueue.py:48` `with self.lock:` around `self.process(*item)` (an `RLock`) | invocations never interleave with each other |
+| the drain never overlaps the thread | `scalene_profiler.py:1591` drain runs after `stop()` → `_disable_signals()` → `stop_signal_queues()` joins the thread (`scalene_sigqueue.py:37`) | the shutdown step is one more atomic step in the sequence |
+| fork quiesces then resets both fields | `before_fork` (`:541`) joins the queue; `after_fork_in_child` (`:522`) → `stats.clear()` resets `leak_score` **and** `last_malloc_triggered` together (`scalene_statistics.py:456-457`) | the child restarts from the initial state |
+
+**What is proven:**
+
+- `interleave_preserves_inv` / `sigqueue_then_drain_safe` — **interleaving
+  safety.** With each invocation atomic (the RLock), *every* shuffle of the
+  sig-queue thread's steps with the main-thread drain preserves `frees ≤ allocs`.
+  The scheduler order is irrelevant — which is exactly what the lock buys.
+- `torn_free_breaks_inv` — **atomicity is necessary.** Model the lost-disarm race
+  that dropping the lock would permit (a free credited *without* its disarm): two
+  torn frees double-credit one armed trigger, giving `frees = allocs + 1`. So the
+  invariant genuinely depends on the RLock; it is load-bearing.
+- `fork_reset_inv` — the child process starts safe: whatever the parent's state,
+  the reset lands in the initial tracker.
+- `partial_fork_reset_breaks_inv` — **both fields must reset together.** A reset
+  that zeroed the counters but left the trigger armed (clearing `leak_score`
+  without `last_malloc_triggered`) breaks the invariant immediately — the armed
+  line owes a free it has no room for. This is why `scalene_statistics.py:457`
+  resets `last_malloc_triggered` alongside `leak_score`.
+
+Together with `LeakTrackerAudit.run_frees_le_allocs`, this closes the loop: the
+divide-by-zero-safety of `scalene_leak_analysis.py`'s leak formula holds for the
+real concurrent + forking execution, *provided* the RLock atomicity and joint
+fork reset are in place — both of which are shown here to be required.
+
+---
+
 ## What is *assumed* (model boundary)
 
 These models abstract, and the abstractions are the assumptions:
