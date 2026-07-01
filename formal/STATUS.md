@@ -1,7 +1,7 @@
 # Scalene formal-verification status
 
 Where the correctness effort stands, by subsystem. Two engines: **Lean 4**
-(14 modules, 114 theorems, no `sorry`, standard axioms only) for mathematical
+(16 modules, 133 theorems, no `sorry`, standard axioms only) for mathematical
 properties, and **TLA+** (2 specs, model-checked with TLC) for concurrency and
 interleavings.
 
@@ -52,12 +52,14 @@ the counterexample-search and liveness coverage with nothing to replace them.
 | Sampler inter-arrivals are **Exponential** (⇒ Poisson process) | ✅ | `ExponentialSampler.sample_le_iff`, `survival_memoryless` |
 | **PASTA**: Poisson sample lands on ℓ with prob = ℓ's time fraction — *discharges the faithful-sampling hypothesis* | ✅ (discrete form) | `PoissonArrivals.uniform_realizes_trueFraction` |
 | Python/C time split conserved & non-negative | ✅ | `Attribution.totalTime_eq_split`, `cpu_distribution_conserved` |
+| **Python/native classifier conserves the sample's CPU budget in every branch** | ✅ | `PythonNativeClassifier.charge_total`, `classified_conserves` (+ `charge_nonneg`, per-branch `split_*`) — §15 |
 | C++ stamping *establishes* faithful placement (signal→bytecode) | ⚠️ | engineering (`pywhere.cpp`); not modeled |
-| Python-vs-native per-sample **classifier heuristic** accuracy | ❌ | only conservation proven, not heuristic accuracy |
+| Python-vs-native classifier per-sample *branch-choice* accuracy | ⚠️ | conditional correctness proven (`branchA_exact_if_in_call`); which branch is *right* is the CALL-opcode heuristic, not formalized |
 
 **Verdict:** the statistical guarantee is proven, and the sampler→correctness
 link that used to be *cited* (PASTA) is now proven in discrete-time form. The
-open items are the signal-delivery physics and the CALL-opcode classifier.
+classifier's *bookkeeping* is now proven conserving; the open items are the
+signal-delivery physics and which-branch-is-right (the CALL-opcode heuristic).
 
 ## 2. Memory profiling
 
@@ -69,6 +71,7 @@ open items are the signal-delivery physics and the CALL-opcode classifier.
 | Per-line byte fraction faithful under sampling | ✅ | `PerLineAttribution.fraction_of_expectations`, `recorded_fraction_exact` |
 | Footprint conservation over a batch | ✅ | `Attribution.footprint_conserved` |
 | **Malloc footprint C++→Python wiring, end-to-end** | ✅ | `MallocFootprintWiring.roundtrip_conservation_of_safe` (+ `emit_records_sum`, `clamp_only_raises`) — see §4b |
+| **Per-line malloc attribution**: Σ per-line bytes = grand total; python-share ≤ bytes; high-water dominates & is monotone | ✅ | `PerLineMallocAttribution.perline_conserves`, `python_le_malloc`, `highwater_ge_current`, `highwater_monotone` — §16 |
 
 ## 3. Memory-leak detection
 
@@ -166,9 +169,11 @@ would have "proven" conserved by ignoring the clamp.
 
 **Proven:** the statistical heart (CPU unbiased+consistent *with the PASTA link
 now closed*, memory sampling, leak detection incl. concurrency), the
-conservation laws, **two metrics end-to-end across the C++/Python boundary**
-(copy volume and malloc footprint — the latter modeling the free-side clamp
-honestly), bounded-structure capacity, and the signal/deadlock safety topology.
-**Not proven:** the signal-delivery physics, the native/Python classifier
-heuristic, the remaining C++/IPC/device plumbing (GPU acquisition, per-line
-malloc *attribution* wiring), output rendering, and floating-point.
+conservation laws — including the Python/native classifier's budget and the
+per-line malloc attribution bookkeeping — **two metrics end-to-end across the
+C++/Python boundary** (copy volume and malloc footprint, the latter modeling the
+free-side clamp honestly), bounded-structure capacity, and the signal/deadlock
+safety topology. **Not proven:** the signal-delivery physics, *which* classifier
+branch is correct per sample (the CALL-opcode heuristic — only conservation and
+conditional correctness are proven), the remaining device plumbing (GPU
+acquisition), output rendering, and floating-point.

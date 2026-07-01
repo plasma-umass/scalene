@@ -6,7 +6,7 @@ Python and differentially tests the real profiler against them.
 
 ## Proof roundup — where the correctness effort stands, by subsystem
 
-**Lean 4:** 14 modules, 114 theorems, no `sorry`, standard axioms only.
+**Lean 4:** 16 modules, 133 theorems, no `sorry`, standard axioms only.
 **TLA+/TLC:** 2 specs, exhaustively model-checked. Verdicts: **✅ Proven**,
 **⚠️ Partial**, **❌ Unproven**. This is the narrative view; [`STATUS.md`](STATUS.md)
 has the granular per-aspect table, and the numbered sections below (§1–§14) give
@@ -18,15 +18,21 @@ on average at any sample budget N), ✅ `jointVariance_eq` (variance = p(1−p)/
 0). The i.i.d. hypothesis this rests on is discharged, not assumed: ✅ the
 sampler is Poisson (`ExponentialSampler`, inverse-CDF + memorylessness) and ✅
 **PASTA** now links Poisson instants to time-fraction landing
-(`PoissonArrivals.uniform_realizes_trueFraction`, §12). ⚠️ that the C++ stamping
-*establishes* faithful placement is engineering, not Lean-proven; ❌ the
-Python/native per-sample classifier heuristic's accuracy.
+(`PoissonArrivals.uniform_realizes_trueFraction`, §12). ✅ the Python/native
+classifier *conserves* each sample's CPU budget in every branch
+(`PythonNativeClassifier.charge_total`, §15). ⚠️ that the C++ stamping
+*establishes* faithful placement is engineering, not Lean-proven; ⚠️ *which*
+classifier branch is right is the CALL-opcode heuristic (conditional
+correctness proven, `branchA_exact_if_in_call`; the detection itself not
+formalized).
 
 **2. Memory sampling.** ✅ the default ThresholdSampler conserves true net
 allocation exactly with bounded residual (`threshold_conserves`,
 `threshold_residual_bounded`), ✅ proven bisimilar to the literal two-counter C++
 (`step_bisim`), ✅ the Poisson sampler is unbiased, ✅ per-line byte fractions
-are faithful (`PerLineAttribution`).
+are faithful (`PerLineAttribution`). ✅ the per-line reader bookkeeping conserves
+(Σ per-line bytes = grand total), keeps the python-share ≤ total bytes, and
+reports a monotone high-water peak (`PerLineMallocAttribution`, §16).
 
 **3. Memory-leak detection — fully closed, incl. concurrency.** ✅ the leak score
 is a Rule-of-Succession probability in [0,1] with monotonicity and an exact
@@ -604,6 +610,57 @@ conditional statements:
 
 Boundary: reuses the sampler model for the C++ half; models the footprint fold
 and clamp, not the mapfile byte-format parsing.
+
+---
+
+## 15. Python/native classifier — `lean/Scalene/PythonNativeClassifier.lean`
+
+The heuristic that splits each CPU sample's time between Python and native code
+(`scalene_cpu_profiler.py:251-341`). It picks one of four branches from the
+bytecode position: (A) at a CALL → all time native on this line; (B) c_time > 0
+with a preceding CALL on a different line → c_time native there, python_time
+Python here; (C) same line / not found → together; (D) else → as computed.
+
+We separate the **theorem** from the **heuristic**:
+
+- `charge_total` / `classified_conserves` — **conservation**: in *every* branch
+  the total time charged across all `(line, python|native)` buckets equals the
+  sample's `cpu = python_time + c_time`. The classification only *moves* a fixed
+  budget between buckets; it never invents or drops time.
+- `split_atCall`, `split_together`, `split_splitToCall` — the native/Python
+  split each branch decides (all-native for A; `c_time`/`python_time` for B/C/D),
+  characterizing the classifier's per-branch behaviour.
+- `charge_nonneg` — every bucket charge is ≥ 0 (from `python_time, c_time ≥ 0`,
+  which the code guarantees via `c_time = max(elapsed − python, 0)`).
+- `classify_total` — the branch selector is a total function of the observable
+  facts: exactly one branch fires for any input, so attribution is always
+  defined over the whole input space.
+
+The heuristic boundary, stated not hidden: *which* branch is correct depends on
+whether the async signal was deferred inside a C call — unobservable from the
+sample. `branchA_exact_if_in_call` proves the conditional (if the sample truly
+landed in native code, branch A is exactly right); the CALL-opcode detection
+that is supposed to establish that hypothesis is engineering, not formalized.
+
+## 16. Per-line malloc attribution — `lean/Scalene/PerLineMallocAttribution.lean`
+
+The Python reader's per-line bookkeeping (`scalene_memory_profiler.py:336-360`),
+distinct from §14's footprint *total*: the `memory_malloc_samples`,
+`memory_python_samples`, and per-line high-water dicts the profile reports per
+source line, and the invariants the JSON renderer's divides depend on.
+
+- `perline_conserves` — **per-line conservation**: Σ over lines of
+  `memory_malloc_samples[line]` = `total_memory_malloc_samples`. Every malloc's
+  bytes are credited to exactly one line and the grand total, so
+  `n_usage_fraction = malloc[line]/total` is a genuine fraction.
+- `python_le_malloc` — per line `0 ≤ memory_python_samples ≤
+  memory_malloc_samples`, because each step adds `python_fraction·count ≤ count`
+  (`python_fraction ∈ [0,1]`). This *derives* the bound `Attribution.lean`
+  assumed (`pythonBytes_le_count`) — exactly the precondition
+  `scalene_json.py`'s `n_python_fraction = python/malloc ∈ [0,1]` needs.
+- `highwater_ge_current`, `highwater_monotone` — the per-line high-water mark
+  dominates the running per-line footprint and never decreases: the reported
+  peak is a true, monotone upper bound.
 
 ---
 

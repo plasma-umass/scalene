@@ -85,6 +85,8 @@ at `/tmp/LeanToPython` locally (Lean 4.12).
 | `PoissonArrivals.lean` | **PASTA (discrete)**: uniform arrival lands on ℓ with prob = ℓ's time fraction; realizes the assumed `trueFraction` sampling law → discharges the ProfilerCorrectness hypothesis | `uniform_landing_eq_timeFraction`, `uniform_realizes_trueFraction`, `sum_timeFraction` |
 | `CopyVolumeWiring.lean` | **copy volume end-to-end (C++↔Python)**: emitter/reader state machines; reported volume = observed − residual | `flushed_add_residual`, `python_total_eq_flushed`, `roundtrip_conservation`, `foreign_pid_dropped` |
 | `MallocFootprintWiring.lean` | **malloc footprint end-to-end (C++↔Python)**: reuses ThresholdSampler; models the free-side `max(0,·)` clamp honestly (conserves in safe regime; only over-reports otherwise) | `emit_records_sum`, `clamp_is_identity_of_safe`, `roundtrip_conservation_of_safe`, `clamp_only_raises` |
+| `PythonNativeClassifier.lean` | **Python/native classifier conserves the CPU budget in every branch** (total function); per-branch split characterized; branch-choice accuracy is the heuristic (conditional correctness only) | `charge_total`, `classified_conserves`, `split_atCall`/`split_together`, `charge_nonneg`, `branchA_exact_if_in_call` |
+| `PerLineMallocAttribution.lean` | **per-line malloc bookkeeping**: Σ per-line bytes = grand total; python-share ≤ bytes; high-water dominates & monotone | `perline_conserves`, `python_le_malloc`, `highwater_ge_current`, `highwater_monotone` |
 | `LeakTrackerAudit.lean` | proves the leak formula's *unguarded* denominator is safe (`frees ≤ allocs`) | `run_frees_le_allocs`, `denom_pos_reachable` |
 | `LeakTrackerConcurrency.lean` | `frees ≤ allocs` survives sig-queue/main-thread interleaving + fork; RLock atomicity & joint fork-reset shown *necessary* | `interleave_preserves_inv`, `torn_free_breaks_inv`, `fork_reset_inv`, `partial_fork_reset_breaks_inv` |
 | TLA+ `SignalSafety` | the combined_stacks race is reachable (bug cfg) / impossible (fix cfg) | 4-state counterexample; 99 states clean |
@@ -246,17 +248,21 @@ generated `X | Y` unions need 3.10+).
    assumes (`uniform_realizes_trueFraction`). Residual: continuous-time
    order-statistics proof still not formalized (discrete form is the operative
    content for a tick-sampled profiler).
-5. **Prove per-sample classifier accuracy** for the python/native split, or
-   document precisely why it's a heuristic with bounded error.
+5. ~~Prove/characterize the python/native classifier~~ **PARTIALLY DONE** —
+   `PythonNativeClassifier.lean` proves the classifier *conserves* each sample's
+   CPU budget in every branch (`charge_total`), is a total function
+   (`classify_total`), and is conditionally correct (`branchA_exact_if_in_call`).
+   STILL OPEN: which branch is right per sample (the CALL-opcode/deferral
+   heuristic) — needs modeling signal delivery vs. bytecode, out of current scope.
 6. **Wire the verified oracle into production directly** (have
    `_space_saving_increment` call the extracted core) rather than only
    differential-testing it — closes the proof→production loop tighter.
-7. ~~Model columns end-to-end incl. the C++→Python wiring~~ **DONE (×2)** —
-   `CopyVolumeWiring.lean` (memcpy) and `MallocFootprintWiring.lean` (current
-   footprint / peak memory; models the free-side `max(0,·)` clamp honestly).
-   NEXT such target: per-line malloc *attribution* wiring (the
-   `memory_malloc_samples[file][line] += count` path, distinct from the footprint
-   total modeled here) or GPU acquisition.
+7. ~~Model columns end-to-end incl. the C++→Python wiring~~ **DONE (×2)** +
+   ~~per-line malloc attribution~~ **DONE** — `CopyVolumeWiring.lean` (memcpy),
+   `MallocFootprintWiring.lean` (footprint total), and
+   `PerLineMallocAttribution.lean` (the per-line `memory_malloc_samples`/
+   `memory_python_samples`/high-water bookkeeping). NEXT such target: GPU
+   acquisition, or the per-line *free*/leak-credit bookkeeping.
 8. **A committed status map** lives at `formal/STATUS.md` — keep it current when
    modules land.
 

@@ -14,3 +14,5 @@ import Scalene.LeakTrackerConcurrency
 import Scalene.PoissonArrivals
 import Scalene.CopyVolumeWiring
 import Scalene.MallocFootprintWiring
+import Scalene.PythonNativeClassifier
+import Scalene.PerLineMallocAttribution
