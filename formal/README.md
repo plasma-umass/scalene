@@ -4,33 +4,67 @@ This directory contains machine-checked formal models of Scalene's runtime,
 plus a **proof→production pipeline** that extracts the proven algorithms to
 Python and differentially tests the real profiler against them.
 
-1. **Signal / iteration safety** — the profile-output loop never faults from a
-   concurrent signal-handler mutation of the shared stacks dictionaries.
-2. **Deadlock freedom & signal-safety** — Scalene's lock/queue topology cannot
-   deadlock, and no signal handler ever blocks on a lock.
-3. **Attribution bookkeeping** — CPU time and memory bytes are conserved
-   (attributed exactly once, totals preserved) and the Python/C split fractions
-   stay in `[0, 1]`.
-4. **Bounded heavy-hitter accounting** — the Space-Saving `combined_stacks`
-   table never exceeds its capacity (`SpaceSaving.step_withinCap` /
-   `fold_withinCap`), and eviction always removes a minimum-count entry.
-5. **Proof → production** — the proven Lean defs are extracted to Python via
-   [LeanToPython](https://github.com/emeryberger/LeanToPython) and used as a
-   *verified oracle* that Scalene's real `_space_saving_increment` is checked
-   against (`tests/test_verified_space_saving.py`).
-6. **Profiler correctness** — the headline desideratum: the reported per-line
-   time/memory profile is an **unbiased, consistent** estimator of the truth
-   (`ProfilerCorrectness.estimator_unbiased`, `jointVariance_eq`). This is the
-   spec a profiler's *user* relies on; §3 proves the bookkeeping it rests on.
-7. **Poisson sampling** — the sampler's exponential inter-sample intervals
-   (`scalene_profiler.py:1108`) make sampling a Poisson process, which is what
-   *discharges* §6's i.i.d. hypothesis (inverse-CDF correctness + memorylessness).
-8. **GPU / copy-volume / python-split / leak detection** — GPU util, memcpy
-   volume, and the Python/native split fit the §6 weighted-average frame; memory
-   leak detection is a Bayesian (Rule-of-Succession) hypothesis test with proven
-   bounds, monotonicity, and false-positive guards.
-9. **Memory sampler** — the default ThresholdSampler conserves true net
-   allocation exactly (bounded residual); the Poisson sampler is unbiased.
+## Proof roundup — where the correctness effort stands, by subsystem
+
+**Lean 4:** 14 modules, 114 theorems, no `sorry`, standard axioms only.
+**TLA+/TLC:** 2 specs, exhaustively model-checked. Verdicts: **✅ Proven**,
+**⚠️ Partial**, **❌ Unproven**. This is the narrative view; [`STATUS.md`](STATUS.md)
+has the granular per-aspect table, and the numbered sections below (§1–§14) give
+the full statements with source mappings.
+
+**1. CPU profiling — the headline.** The reported per-line profile is an
+**unbiased, consistent** estimator of the truth: ✅ `estimator_unbiased` (right
+on average at any sample budget N), ✅ `jointVariance_eq` (variance = p(1−p)/N →
+0). The i.i.d. hypothesis this rests on is discharged, not assumed: ✅ the
+sampler is Poisson (`ExponentialSampler`, inverse-CDF + memorylessness) and ✅
+**PASTA** now links Poisson instants to time-fraction landing
+(`PoissonArrivals.uniform_realizes_trueFraction`, §12). ⚠️ that the C++ stamping
+*establishes* faithful placement is engineering, not Lean-proven; ❌ the
+Python/native per-sample classifier heuristic's accuracy.
+
+**2. Memory sampling.** ✅ the default ThresholdSampler conserves true net
+allocation exactly with bounded residual (`threshold_conserves`,
+`threshold_residual_bounded`), ✅ proven bisimilar to the literal two-counter C++
+(`step_bisim`), ✅ the Poisson sampler is unbiased, ✅ per-line byte fractions
+are faithful (`PerLineAttribution`).
+
+**3. Memory-leak detection — fully closed, incl. concurrency.** ✅ the leak score
+is a Rule-of-Succession probability in [0,1] with monotonicity and an exact
+decision rule (`MetricCorrectness`); ✅ its unguarded denominator is safe
+(`LeakTrackerAudit`, `frees ≤ allocs`); ✅ that safety survives the sig-queue /
+main-thread interleaving and `fork`, and the serialization is shown *necessary*
+(`LeakTrackerConcurrency`). The audit that built this found production bugs
+(below).
+
+**4. Metrics end-to-end across the C++/Python boundary.** ✅ **copy volume**
+(`CopyVolumeWiring`, §13) and ✅ **malloc footprint / peak memory**
+(`MallocFootprintWiring`, §14) — the reported number equals what the native
+interposer observed, up to a bounded sampler residual. The footprint model
+handles the free-side `max(0,·)` clamp *honestly*: exact in the non-negative
+regime, and outside it the clamp can only over-report (`clamp_only_raises`),
+never silently undercount. ✅ GPU/copy/python-split arithmetic bounds; ❌
+GPU/accelerator device-acquisition paths.
+
+**5. Concurrency & signal safety (TLA+).** ✅ the `combined_stacks` race is
+reachable in the bug config (concrete 4-state counterexample) and impossible in
+the fix (`SignalSafety.tla`); ✅ no deadlock, the handler never blocks on a lock,
+output makes progress under fairness (`Deadlock.tla`). ✅ the snapshot algebra
+that underlies the fix (`SignalSafety.lean`). ⚠️ TLC is exhaustive only within
+bounds (`N=3`, `MaxHandler=2`).
+
+**6. Bounded data structures.** ✅ the Space-Saving `combined_stacks` table never
+exceeds capacity and evicts a minimum (`SpaceSaving`), and ✅ this is wired to
+production: the proven Lean defs are extracted to Python via
+[LeanToPython](https://github.com/emeryberger/LeanToPython) and differentially
+tested against the real `_space_saving_increment`
+(`tests/test_verified_space_saving.py`).
+
+**Not modeled:** output rendering (the three renderers — guarded by tests, where
+the four divide-by-zero bugs below were found), CLI/arg parsing, the
+`replacement_*` modules, floating-point rounding (proofs use exact ℚ), and the
+Jupyter/AI-provider GUI.
+
+---
 
 Two complementary tools are used, each where it is strongest:
 
