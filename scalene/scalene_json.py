@@ -1252,7 +1252,18 @@ class ScaleneJSON:
             for leak_lineno, leak_likelihood, leak_velocity in leaks:
                 reported_leaks[str(leak_lineno)] = {
                     "likelihood": leak_likelihood,
-                    "velocity_mb_s": leak_velocity / stats.elapsed_time,
+                    # Guard against a zero elapsed_time: compute_leaks gates on
+                    # allocation growth rate, not wall-clock time, so a leak can
+                    # be reported on a run so short that elapsed_time is still
+                    # 0.0 — an unguarded divide here would raise
+                    # ZeroDivisionError. (The sibling elapsed_time divisions at
+                    # lines ~637 and ~1186 are already guarded; this one was
+                    # missed.)
+                    "velocity_mb_s": (
+                        leak_velocity / stats.elapsed_time
+                        if stats.elapsed_time > 0
+                        else 0.0
+                    ),
                 }
 
             # Print header.
