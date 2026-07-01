@@ -38,7 +38,7 @@ models adversarially, don't just prove them.
 
 ```
 formal/
-  README.md              # full writeup: §1–§13, source mappings, boundaries, repro
+  README.md              # full writeup: §1–§14, source mappings, boundaries, repro
   STATUS.md              # subsystem status map (proven / partial / unproven)
   HANDOFF.md             # this file
   tla/                   # TLA+ specs (model-checked with TLC)
@@ -84,6 +84,7 @@ at `/tmp/LeanToPython` locally (Lean 4.12).
 | `PerLineAttribution.lean` | per-line byte fraction faithful under sampling | `fraction_of_expectations`, `recorded_fraction_exact` |
 | `PoissonArrivals.lean` | **PASTA (discrete)**: uniform arrival lands on ℓ with prob = ℓ's time fraction; realizes the assumed `trueFraction` sampling law → discharges the ProfilerCorrectness hypothesis | `uniform_landing_eq_timeFraction`, `uniform_realizes_trueFraction`, `sum_timeFraction` |
 | `CopyVolumeWiring.lean` | **copy volume end-to-end (C++↔Python)**: emitter/reader state machines; reported volume = observed − residual | `flushed_add_residual`, `python_total_eq_flushed`, `roundtrip_conservation`, `foreign_pid_dropped` |
+| `MallocFootprintWiring.lean` | **malloc footprint end-to-end (C++↔Python)**: reuses ThresholdSampler; models the free-side `max(0,·)` clamp honestly (conserves in safe regime; only over-reports otherwise) | `emit_records_sum`, `clamp_is_identity_of_safe`, `roundtrip_conservation_of_safe`, `clamp_only_raises` |
 | `LeakTrackerAudit.lean` | proves the leak formula's *unguarded* denominator is safe (`frees ≤ allocs`) | `run_frees_le_allocs`, `denom_pos_reachable` |
 | `LeakTrackerConcurrency.lean` | `frees ≤ allocs` survives sig-queue/main-thread interleaving + fork; RLock atomicity & joint fork-reset shown *necessary* | `interleave_preserves_inv`, `torn_free_breaks_inv`, `fork_reset_inv`, `partial_fork_reset_breaks_inv` |
 | TLA+ `SignalSafety` | the combined_stacks race is reachable (bug cfg) / impossible (fix cfg) | 4-state counterexample; 99 states clean |
@@ -247,11 +248,12 @@ generated `X | Y` unions need 3.10+).
 6. **Wire the verified oracle into production directly** (have
    `_space_saving_increment` call the extracted core) rather than only
    differential-testing it — closes the proof→production loop tighter.
-7. ~~Model one more column end-to-end incl. the C++→Python wiring~~ **DONE** —
-   `CopyVolumeWiring.lean` models the memcpy emitter (C++) + reader (Python)
-   state machines and proves round-trip conservation. NEXT such target: malloc
-   footprint (the general malloc/free wiring, of which only the leak-tracker
-   slice is modeled) or GPU.
+7. ~~Model columns end-to-end incl. the C++→Python wiring~~ **DONE (×2)** —
+   `CopyVolumeWiring.lean` (memcpy) and `MallocFootprintWiring.lean` (current
+   footprint / peak memory; models the free-side `max(0,·)` clamp honestly).
+   NEXT such target: per-line malloc *attribution* wiring (the
+   `memory_malloc_samples[file][line] += count` path, distinct from the footprint
+   total modeled here) or GPU acquisition.
 8. **A committed status map** lives at `formal/STATUS.md` — keep it current when
    modules land.
 

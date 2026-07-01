@@ -524,6 +524,47 @@ the mapfile's low-level byte-format parsing or partial-read handling.
 
 ---
 
+## 14. Malloc footprint end-to-end (C++↔Python) — `lean/Scalene/MallocFootprintWiring.lean`
+
+The harder memory path: the *current footprint* / peak-memory number, spanning
+the C++ `SampleHeap` emitter (`sampleheap.hpp:183-316`) and the Python reader
+`process_malloc_free_samples` (`scalene_memory_profiler.py:102-228`). The C++
+half reuses the ThresholdSampler already proven in `MemorySampler.lean`.
+
+**The subtlety, modeled not assumed.** The Python free path clamps the running
+footprint to `max(0, current − count)` on every free (`:218`). That clamp
+*breaks* pure conservation: if frees drive the footprint below 0 (startup
+misses, per the code comment), it silently adds bytes back. A naive model that
+ignored the clamp would "prove" conservation falsely. So we prove the honest,
+conditional statements:
+
+| Model element | Scalene source | Meaning |
+|---|---|---|
+| `emitStep`/`emitRun` | `process_malloc`/`process_free` emit on sampler trigger | records carry the reported byte excess, action M/F, pid |
+| `stepFootprint` with `max 0 (·)` | `current_footprint = max(0, current − count)` (`:218`) | the free-side clamp, modeled literally |
+| `Safe` predicate | "Scalene can miss some initial allocations" (`:215`) | the regime where the clamp is inert |
+| `pidFilter` | `if int(curr_pid) != int(pid): continue` (`:145`) | per-process filter |
+
+**Theorems**
+
+- `emit_records_sum` — the records the C++ ThresholdSampler emits sum (signed)
+  to its `reported` net (bridge to `MemorySampler.threshold_conserves`).
+- `clamp_is_identity_of_safe` — while the footprint stays ≥ 0, the clamp is a
+  no-op and the Python fold is exactly additive.
+- `roundtrip_conservation_of_safe` — **headline**: in that regime the reported
+  footprint delta = (true net − sampler residual) / BYTES_PER_MB. End to end.
+- `clamp_only_raises` — *without* the non-negativity assumption, the clamp can
+  only push the footprint **up**: the reported footprint is always ≥ the
+  additive value, so the error is one-sided (over-reporting live memory), never
+  a silent undercount. The honest unconditional bound.
+- `foreign_pid_dropped`, `newline_marker_skipped` — the pid filter and NEWLINE
+  `continue` faithfully drop records that must not count.
+
+Boundary: reuses the sampler model for the C++ half; models the footprint fold
+and clamp, not the mapfile byte-format parsing.
+
+---
+
 ## What is *assumed* (model boundary)
 
 These models abstract, and the abstractions are the assumptions:

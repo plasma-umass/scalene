@@ -1,7 +1,7 @@
 # Scalene formal-verification status
 
 Where the correctness effort stands, by subsystem. Two engines: **Lean 4**
-(13 modules, 105 theorems, no `sorry`, standard axioms only) for mathematical
+(14 modules, 114 theorems, no `sorry`, standard axioms only) for mathematical
 properties, and **TLA+** (2 specs, model-checked with TLC) for concurrency and
 interleavings.
 
@@ -39,7 +39,7 @@ open items are the signal-delivery physics and the CALL-opcode classifier.
 | Literal two-counter sampler ≡ abstract model (bisimulation) | ✅ | `MemorySampler.step_bisim`, `threshold2_conserves` |
 | Per-line byte fraction faithful under sampling | ✅ | `PerLineAttribution.fraction_of_expectations`, `recorded_fraction_exact` |
 | Footprint conservation over a batch | ✅ | `Attribution.footprint_conserved` |
-| Malloc/free C++→Python counter wiring | ⚠️ | leak-tracker slice modeled (§3); general malloc/free wiring not |
+| **Malloc footprint C++→Python wiring, end-to-end** | ✅ | `MallocFootprintWiring.roundtrip_conservation_of_safe` (+ `emit_records_sum`, `clamp_only_raises`) — see §4b |
 
 ## 3. Memory-leak detection
 
@@ -66,6 +66,24 @@ model. The audit that built it found production bugs (see `README.md`).
 **Verdict:** the first metric proven **across the native/Python boundary** — the
 number `scalene view` shows for copy volume faithfully reflects the bytes the
 C++ interposer observed, up to a bounded in-flight residual.
+
+## 4b. Malloc footprint — **end to end (C++↔Python), the harder path**
+
+| Aspect | Status | Where |
+|---|---|---|
+| C++ ThresholdSampler emitted records sum (signed) to `reported` net | ✅ | `MallocFootprintWiring.emit_records_sum` |
+| Python fold is exactly additive while footprint stays ≥ 0 (clamp inert) | ✅ | `MallocFootprintWiring.clamp_is_identity_of_safe` |
+| **Round-trip (safe regime)**: reported footprint delta = (true-net − residual)/MB | ✅ | `MallocFootprintWiring.roundtrip_conservation_of_safe` |
+| The `max(0,·)` clamp can *only* over-report (one-sided error, never undercount) | ✅ | `MallocFootprintWiring.clamp_only_raises` |
+| Foreign-pid records dropped; NEWLINE markers skipped | ✅ | `foreign_pid_dropped`, `newline_marker_skipped` |
+
+**Verdict:** the current-footprint / peak-memory number proven end-to-end,
+reusing `MemorySampler.threshold_conserves` for the C++ half. The honest
+subtlety — the free-side `max(0,·)` clamp breaks pure conservation — is *modeled,
+not assumed away*: exact conservation holds in the non-negative regime, and
+outside it the clamp only raises the reported footprint (never a silent
+undercount). This is the audit method applied to a metric that a naive model
+would have "proven" conserved by ignoring the clamp.
 
 ## 5. Other metrics (GPU / python-split)
 
@@ -119,8 +137,9 @@ C++ interposer observed, up to a bounded in-flight residual.
 
 **Proven:** the statistical heart (CPU unbiased+consistent *with the PASTA link
 now closed*, memory sampling, leak detection incl. concurrency), the
-conservation laws, one metric (**copy volume**) end-to-end across the C++/Python
-boundary, bounded-structure capacity, and the signal/deadlock safety topology.
+conservation laws, **two metrics end-to-end across the C++/Python boundary**
+(copy volume and malloc footprint — the latter modeling the free-side clamp
+honestly), bounded-structure capacity, and the signal/deadlock safety topology.
 **Not proven:** the signal-delivery physics, the native/Python classifier
-heuristic, the remaining C++/IPC/device plumbing, output rendering, and
-floating-point.
+heuristic, the remaining C++/IPC/device plumbing (GPU acquisition, per-line
+malloc *attribution* wiring), output rendering, and floating-point.

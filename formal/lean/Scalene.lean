@@ -13,3 +13,4 @@ import Scalene.LeakTrackerAudit
 import Scalene.LeakTrackerConcurrency
 import Scalene.PoissonArrivals
 import Scalene.CopyVolumeWiring
+import Scalene.MallocFootprintWiring
