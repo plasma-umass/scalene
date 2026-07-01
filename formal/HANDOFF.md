@@ -115,13 +115,12 @@ Also merged 2026-07-01:
 - **#1076** two-counter bisimulation + per-line attribution +
   `LeakTrackerAudit.lean` + `LeakTrackerConcurrency.lean` (leak-tracker
   concurrency/fork gap) + README "bugs found".
+- **#1078** §4 bugs #3 (unguarded per-stack CPU normalization divide) and #4
+  (CLI-renderer twin of the leak-velocity divide) + two regression tests.
 
 ## 3b. OPEN PRs (need driving to merge)
 
-- **#1078** `fix-stacks-total-cpu-zerodiv` — §4 bugs #3 (unguarded per-stack
-  CPU normalization divide) and #4 (CLI-renderer twin of the leak-velocity
-  divide). Two code fixes + two regression tests + README notes. Independent,
-  mergeable.
+None — all formal PRs merged as of 2026-07-01.
 
 ---
 
@@ -214,8 +213,8 @@ generated `X | Y` unions need 3.10+).
 
 ## 7. Concrete next steps (roughly ranked)
 
-1. ~~Merge #1077 then #1076~~ **DONE** (2026-07-01). Now: drive **#1078**
-   (bug #3 fix) to merge — independent, small; re-run any flakes per §5.
+1. ~~Merge #1077, #1076, #1078~~ **DONE** (2026-07-01). All four bug fixes and
+   the concurrency proof are on master. No formal PRs open.
 2. ~~Audit `LeakTrackerAudit`'s faithfulness under concurrency/fork~~ **DONE**
    — `LeakTrackerConcurrency.lean` models the sig-queue/main-thread interleaving
    and fork reset explicitly, proves the invariant survives every interleaving,
