@@ -48,6 +48,35 @@ All TLA+ runs and Lean proofs reproduce from a clean checkout (commands below).
 The Lean proofs contain **no `sorry`/`admit`** and depend only on Lean's three
 standard axioms (`propext`, `Classical.choice`, `Quot.sound`).
 
+## Bugs the formalization found
+
+Formalizing forces every implicit assumption to be named, which surfaces places
+where the code doesn't enforce what a proof needs. Auditing the models'
+hypotheses against the code (see `lean/Scalene/LeakTrackerAudit.lean` and the
+audit notes below) turned up two real defects, both since fixed:
+
+1. **Unguarded divide-by-zero in leak-velocity reporting**
+   (`scalene_json.py`, the `velocity_mb_s: leak_velocity / stats.elapsed_time`
+   site). `compute_leaks` gates on allocation *growth rate*, not wall-clock
+   time, so a leak can be reported on a run short enough that `elapsed_time` is
+   still `0.0` → `ZeroDivisionError`. Sibling `elapsed_time` divisions were
+   already guarded; this one was missed. Fixed + regression test
+   (`tests/test_leak_velocity_zero_elapsed.py`).
+2. **Zero/negative memory-sampling window from an unvalidated env var**
+   (`sampleheap.hpp`: `atol(getenv("SCALENE_ALLOCATION_SAMPLING_WINDOW"))`).
+   `atol` returns 0 for `"0"` or any unparseable string; a 0 interval makes the
+   sampler trigger on *every* allocation — and violates the `interval > 0`
+   precondition `MemorySampler.lean` proves necessary. Fixed by clamping to the
+   default when ≤ 0.
+
+Additionally, `LeakTrackerAudit.lean` discharges an *implicit* safety contract:
+the leak formula `1 − (frees+1)/(allocs−frees+2)` has **no** guard on its
+denominator, relying entirely on the invariant `frees ≤ allocs`. That invariant
+is not obvious — `allocs`/`frees` are incremented at separate code sites — so we
+model the raw two-counter increment discipline and *prove* `frees ≤ allocs`
+holds, hence `allocs−frees+2 ≥ 2 > 0`. (No bug, but the safety was previously
+implicit and unverified.)
+
 ---
 
 ## 1. Signal / iteration safety — `tla/SignalSafety.tla`
