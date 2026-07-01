@@ -148,6 +148,117 @@ theorem threshold_residual_bounded (I : ℤ) (hI : 0 < I) (es : List Event) :
             have hn : (0:ℤ) ≤ (n:ℤ) := Int.natCast_nonneg n
             refine ⟨by linarith [not_le.mp hne], by linarith [h.2]⟩
 
+/-! ## 1b. The one-counter model faithfully reduces the literal two-counter C++
+
+The `St`/`stepThreshold` model above collapses the C++'s two `uint64_t`
+counters `_increments` / `_decrements` into their difference `bal`. That
+collapse was previously argued in prose. Here we close the gap: we model the
+*literal* two-counter machine (thresholdsampler.hpp:60-73, 38-51: separate ℕ
+counters, trigger `incr ≥ decr + I` / `decr ≥ incr + I`, reset BOTH to 0) and
+prove it is bisimilar to the one-counter model under the abstraction
+`abs (incr, decr) = incr − decr`. Conservation then transfers to the real
+machine for free. -/
+
+/-- Literal two-counter sampler state: the C++ `_increments`, `_decrements`
+    (both `uint64_t`, so `ℕ`) plus the reported total. -/
+structure St2 where
+  incr     : ℕ
+  decr     : ℕ
+  reported : ℤ
+
+/-- One step of the LITERAL two-counter machine, matching thresholdsampler.hpp:
+    alloc adds to `incr`; if `incr ≥ decr + I` it reports `incr − decr` and
+    resets both counters to 0. Free is symmetric on `decr`. `I : ℕ` (the C++
+    `_sampleInterval`). -/
+def stepThreshold2 (I : ℕ) (s : St2) : Event → St2
+  | .alloc n =>
+      let incr' := s.incr + n
+      if incr' ≥ s.decr + I then
+        ⟨0, 0, s.reported + ((incr' : ℤ) - s.decr)⟩
+      else ⟨incr', s.decr, s.reported⟩
+  | .free n =>
+      let decr' := s.decr + n
+      if decr' ≥ s.incr + I then
+        ⟨0, 0, s.reported + (s.incr - (decr' : ℤ))⟩
+      else ⟨s.incr, decr', s.reported⟩
+
+def runThreshold2 (I : ℕ) (s : St2) : List Event → St2
+  | []      => s
+  | e :: es => runThreshold2 I (stepThreshold2 I s e) es
+
+/-- Abstraction from the two-counter machine to the one-counter model:
+    `bal := incr − decr`, `reported` carried through. -/
+def abs2 (s : St2) : St := ⟨(s.incr : ℤ) - s.decr, s.reported⟩
+
+/-- **Bisimulation (one step).** The two-counter step commutes with the
+    abstraction: abstracting after a literal step = one-counter-stepping the
+    abstraction. The subtlety the ℕ→ℤ collapse must respect: the C++ trigger
+    `incr' ≥ decr + I` is *exactly* `abs.bal + n ≥ I` (over ℤ), and resetting
+    both ℕ counters to 0 gives `bal = 0` — matching `stepThreshold`. -/
+theorem step_bisim (I : ℕ) (s : St2) (e : Event) :
+    abs2 (stepThreshold2 I s e) = stepThreshold (I : ℤ) (abs2 s) e := by
+  cases e with
+  | alloc n =>
+      -- trigger conditions coincide: (incr+n ≥ decr+I) ↔ ((incr-decr)+n ≥ I)
+      have hcond : (s.incr + n ≥ s.decr + I)
+                 ↔ ((s.incr : ℤ) - s.decr + (n : ℤ) ≥ (I : ℤ)) := by
+        constructor
+        · intro h; have : (s.incr : ℤ) + n ≥ (s.decr : ℤ) + I := by exact_mod_cast h
+          linarith
+        · intro h; have : (s.incr : ℤ) + n ≥ (s.decr : ℤ) + I := by linarith
+          exact_mod_cast this
+      simp only [stepThreshold2, stepThreshold, abs2]
+      by_cases h : s.incr + n ≥ s.decr + I
+      · rw [if_pos h, if_pos (hcond.mp h)]; simp only [St.mk.injEq]; refine ⟨?_, ?_⟩ <;> push_cast <;> ring_nf
+      · rw [if_neg h, if_neg (fun hc => h (hcond.mpr hc))]; simp only [St.mk.injEq]; refine ⟨?_, ?_⟩ <;> push_cast <;> ring_nf
+  | free n =>
+      have hcond : (s.decr + n ≥ s.incr + I)
+                 ↔ ((s.incr : ℤ) - (s.decr : ℤ) - (n : ℤ) ≤ -(I : ℤ)) := by
+        constructor
+        · intro h; have : (s.decr : ℤ) + n ≥ (s.incr : ℤ) + I := by exact_mod_cast h
+          linarith
+        · intro h; have : (s.decr : ℤ) + n ≥ (s.incr : ℤ) + I := by linarith
+          exact_mod_cast this
+      simp only [stepThreshold2, stepThreshold, abs2]
+      by_cases h : s.decr + n ≥ s.incr + I
+      · rw [if_pos h, if_pos (hcond.mp h)]; simp only [St.mk.injEq]; refine ⟨?_, ?_⟩ <;> push_cast <;> ring_nf
+      · rw [if_neg h, if_neg (fun hc => h (hcond.mpr hc))]; simp only [St.mk.injEq]; refine ⟨?_, ?_⟩ <;> push_cast <;> ring_nf
+
+/-- **Bisimulation (whole run).** Abstraction commutes with the full run. -/
+theorem run_bisim (I : ℕ) (s : St2) (es : List Event) :
+    abs2 (runThreshold2 I s es) = runThreshold (I : ℤ) (abs2 s) es := by
+  induction es generalizing s with
+  | nil => rfl
+  | cons e es ih =>
+      simp only [runThreshold2, runThreshold]
+      rw [ih (stepThreshold2 I s e), step_bisim]
+
+/-- **Conservation for the LITERAL two-counter machine.** Transferring
+    `threshold_conserves` across the bisimulation: starting from zeroed
+    counters, the two-counter C++ sampler's reported net plus its residual
+    `incr − decr` equals the true net allocation, exactly. This is the
+    conservation guarantee stated directly about the algorithm as written in
+    thresholdsampler.hpp, with the one-counter collapse now *proved* rather
+    than assumed. -/
+theorem threshold2_conserves (I : ℕ) (es : List Event) :
+    let s := runThreshold2 I ⟨0, 0, 0⟩ es
+    s.reported + ((s.incr : ℤ) - s.decr) = trueNet es := by
+  intro s
+  -- The abstraction of the two-counter run equals the one-counter run.
+  have hrun : abs2 s = runThreshold (I : ℤ) ⟨0, 0⟩ es := by
+    show abs2 (runThreshold2 I ⟨0, 0, 0⟩ es) = _
+    rw [run_bisim]; rfl
+  -- One-counter conservation on that run.
+  have hcons : (runThreshold (I:ℤ) ⟨0,0⟩ es).reported
+             + (runThreshold (I:ℤ) ⟨0,0⟩ es).bal = trueNet es := threshold_conserves (I:ℤ) es
+  -- abs2 s = ⟨incr - decr, reported⟩ by definition; read off the fields.
+  have hbal : (runThreshold (I:ℤ) ⟨0,0⟩ es).bal = (s.incr : ℤ) - s.decr := by
+    rw [← hrun]; rfl
+  have hrep : (runThreshold (I:ℤ) ⟨0,0⟩ es).reported = s.reported := by
+    rw [← hrun]; rfl
+  rw [hbal, hrep] at hcons
+  linarith [hcons]
+
 /-! ## 2. PoissonSampler — unbiased byte estimator
 
 Each byte is independently recorded with probability `p = 1/window`; a recorded

@@ -258,12 +258,14 @@ formal contract between them.
   sampler transform is a correct inverse-CDF for the Exponential and is
   memoryless. (PASTA itself is cited, not formalized — it needs a continuous-
   time stochastic-process development.)
-- **GPU / copy-volume / python-split / leak / memory-sampling — now §8, §9.**
+- **GPU / copy-volume / python-split / leak / memory-sampling — §8–§10.**
   §8 (`MetricCorrectness.lean`) covers GPU utilization, memcpy copy-volume,
   the Python-vs-native split, and memory-leak detection; §9
-  (`MemorySampler.lean`) covers the allocation sampler. What remains unmodeled:
-  the per-sample *accuracy* of the python/native classifier heuristic, and the
-  end-to-end wiring from C++ counters into the Python statistics objects.
+  (`MemorySampler.lean`) covers the allocation sampler (now including a proved
+  bisimulation to the literal two-counter C++); §10 (`PerLineAttribution.lean`)
+  ties byte sampling to the per-line fraction. What remains unmodeled: the
+  per-sample *accuracy* of the python/native classifier heuristic, and the
+  end-to-end wiring from the C++ counters into the Python statistics objects.
 
 ---
 
@@ -337,6 +339,33 @@ Scalene ships two allocation samplers (`sampleheap.hpp:345-349`); we model both:
   `1/window`, rescaled by `window`. `poisson_unbiased` /
   `poisson_unbiased_sum` — the rescaled estimate is unbiased for true bytes,
   per allocation and summed over a trace.
+
+**Faithful to the *literal* two-counter C++ (`§1b` in the file).** The model
+above collapses the C++'s two `uint64_t` counters (`_increments`,
+`_decrements`) into their difference `bal`; that reduction was previously only
+argued in prose. `step_bisim` / `run_bisim` now *prove* the literal two-counter
+machine (separate ℕ counters, trigger `incr ≥ decr + I`, reset both to 0) is
+bisimilar to the one-counter model under `abs (incr, decr) = incr − decr`, and
+`threshold2_conserves` transfers exact conservation to the two-counter machine
+as written. So "faithful to the C++" is a theorem, not an assumption.
+
+## 10. Per-line attribution under sampling — `lean/Scalene/PerLineAttribution.lean`
+
+§9 proves the sampler unbiased for *total* bytes per line; this ties that back
+to §6's per-line *fraction* story, so memory sampling inherits the attribution
+guarantee. A profiler reports `recorded[ℓ] / Σ recorded` — a ratio of two
+unbiased estimators, which is not *exactly* unbiased (`E[X/Y] ≠ E[X]/E[Y]`). We
+prove what actually holds and is what a user relies on:
+
+- `fraction_of_expectations` — the fraction formed from the *expected* recorded
+  counts equals the true per-line byte fraction: the sampling window cancels top
+  and bottom, so there is **no systematic scale bias** in the breakdown.
+- `recorded_fraction_exact` — whenever per-line counts are proportional to true
+  bytes (the deterministic threshold limit / large-sample Poisson limit), the
+  reported fraction equals the true fraction *exactly*, independent of the
+  sampling rate.
+- `trueFraction_nonneg` / `trueFraction_sum_one` — the per-line memory breakdown
+  is a probability distribution over lines, exactly like the CPU one (§6).
 
 ---
 
@@ -420,7 +449,8 @@ formal/
       ProfilerCorrectness.lean   # unbiased + consistent attribution (the user-facing spec)
       ExponentialSampler.lean    # sampler is Poisson: inverse-CDF + memorylessness (§7)
       MetricCorrectness.lean     # GPU / copy-volume / python-split / leak detection (§8)
-      MemorySampler.lean         # threshold (conservation) + Poisson (unbiased) sampler (§9)
+      MemorySampler.lean         # threshold + Poisson sampler; two-counter bisimulation (§9)
+      PerLineAttribution.lean    # per-line byte fraction under sampling (§10)
   extract/
     ScaleneExtract.lean         # extraction-friendly defs (Lean 4.12, LeanToPython)
     scalene_verified_core.py    # GENERATED Python oracle (committed)
