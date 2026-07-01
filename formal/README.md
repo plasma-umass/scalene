@@ -53,7 +53,7 @@ standard axioms (`propext`, `Classical.choice`, `Quot.sound`).
 Formalizing forces every implicit assumption to be named, which surfaces places
 where the code doesn't enforce what a proof needs. Auditing the models'
 hypotheses against the code (see `lean/Scalene/LeakTrackerAudit.lean` and the
-audit notes below) turned up three real defects, all since fixed:
+audit notes below) turned up four real defects, all since fixed:
 
 1. **Unguarded divide-by-zero in leak-velocity reporting**
    (`scalene_json.py`, the `velocity_mb_s: leak_velocity / stats.elapsed_time`
@@ -78,6 +78,14 @@ audit notes below) turned up three real defects, all since fixed:
    "nothing to output" gate. The sibling per-file/per-line CPU normalizations
    (`~556`, `~1259`, `~1337`) were already guarded; this one was missed → crash.
    Fixed + regression test (`tests/test_stacks_zero_cpu_samples.py`).
+4. **The CLI-renderer twin of #1.** Scalene has *three separate output
+   renderers* (see `Scalene-Debugging.md`). The #1 fix touched only the JSON
+   renderer; `scalene_output.py` (the `scalene view --cli` path) carried the
+   identical unguarded `leak[2] / stats.elapsed_time` in its leak report — same
+   reachability (`compute_leaks` gates on growth rate, not time). Found by
+   re-running the audit across the CLI path. Fixed + regression test
+   (`tests/test_cli_leak_velocity_zero_elapsed.py`). A reminder that a fix in
+   one renderer does not cover its siblings.
 
 Additionally, `LeakTrackerAudit.lean` discharges an *implicit* safety contract:
 the leak formula `1 − (frees+1)/(allocs−frees+2)` has **no** guard on its

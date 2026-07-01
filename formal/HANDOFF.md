@@ -4,7 +4,7 @@ Working doc so this can be picked up after a context reset. Captures what the
 formal-verification effort has produced, the *method* (including a hard-won
 lesson), what's merged vs. open, and concrete next steps.
 
-Last updated: 2026-06-30.
+Last updated: 2026-07-01.
 
 ---
 
@@ -16,7 +16,7 @@ reasons, in priority order:
 1. **Find and fix real bugs.** Formalizing forces every implicit assumption to
    be named. Where the code doesn't enforce what a proof needs, that's a
    finding — a real defect or an undocumented invariant. This has already paid
-   off (two production bugs, see §4).
+   off (four production bugs, see §4).
 2. **Establish correctness** of the properties a profiler's *user* relies on.
 
 **THE METHODOLOGICAL LESSON (most important thing in this doc):** a proof whose
@@ -109,19 +109,23 @@ Formal + the CI/bug work that unblocked it:
   (Bool-param branch inversion; binary `min`/`max` operand drop) found while
   extracting Scalene's defs. Local checkout: `/tmp/LeanToPython`.
 
+Also merged 2026-07-01:
+- **#1077** the two production bug fixes from §4 (leak-velocity div-by-zero +
+  sampling-window clamp).
+- **#1076** two-counter bisimulation + per-line attribution +
+  `LeakTrackerAudit.lean` + `LeakTrackerConcurrency.lean` (leak-tracker
+  concurrency/fork gap) + README "bugs found".
+
 ## 3b. OPEN PRs (need driving to merge)
 
-- **#1077** `fix-leak-velocity-and-sampling-window` — the two production bug
-  fixes from §4. Independent, mergeable now. (1 commit.)
-- **#1076** `formal-sampler-refinements` — two-counter bisimulation +
-  per-line attribution + `LeakTrackerAudit.lean` + README "bugs found". (2
-  commits.) Formal-only; CI failures on it are transient/flake (see §5).
-
-Merge order suggestion: #1077 first (it's the real fix), then #1076.
+- **#1078** `fix-stacks-total-cpu-zerodiv` — §4 bugs #3 (unguarded per-stack
+  CPU normalization divide) and #4 (CLI-renderer twin of the leak-velocity
+  divide). Two code fixes + two regression tests + README notes. Independent,
+  mergeable.
 
 ---
 
-## 4. Bugs the formalization found (BOTH FIXED in #1077)
+## 4. Bugs the formalization found (#1, #2 FIXED in #1077; #3, #4 in #1078)
 
 1. **ZeroDivisionError, leak velocity.** `scalene_json.py` ~line 1255:
    `"velocity_mb_s": leak_velocity / stats.elapsed_time` was unguarded.
@@ -136,7 +140,24 @@ Merge order suggestion: #1077 first (it's the real fix), then #1076.
    `MemorySampler.lean`). Fixed by clamping ≤0 to the default. Verified on
    cloudnew: `WINDOW=0` run now completes.
 
-Third finding (no bug, but was implicit): the leak formula
+3. **ZeroDivisionError, per-stack CPU normalization.** `scalene_json.py`, the
+   `stats.stacks` normalization loop dividing by `cpu_stats.total_cpu_samples`
+   was unguarded. `total_cpu_samples` can be `0.0` while `stats.stacks` is
+   non-empty — a **memory-only run with `--stacks`** records stack entries but
+   never a CPU sample, and it is *memory* activity (not CPU) that passes the
+   "nothing to output" gate. Sibling CPU normalizations (~556, ~1259, ~1337)
+   were already guarded; this one was missed → crash. Same class as #1. Found
+   by re-running the §0 "every denominator is a claim" audit across the output
+   path. Fixed + regression test (`tests/test_stacks_zero_cpu_samples.py`,
+   drives the full `output_profiles` path). PR **#1078**.
+4. **CLI-renderer twin of #1.** `scalene_output.py:699` (the `scalene view
+   --cli` leak report) had the identical unguarded `leak[2] /
+   stats.elapsed_time` that #1077 fixed only in `scalene_json.py`. Scalene has
+   three separate renderers (Scalene-Debugging.md) — fixing one doesn't cover
+   the others. Found by auditing the CLI path's divides. Fixed + regression
+   test (`tests/test_cli_leak_velocity_zero_elapsed.py`). Also PR **#1078**.
+
+Additional finding (no bug, but was implicit): the leak formula
 `1 − (frees+1)/(allocs−frees+2)` has NO denominator guard; safety rests on
 `frees ≤ allocs`, which is non-obvious (two separate increment sites,
 `scalene_memory_profiler.py:236` and `:401`). `LeakTrackerAudit.lean` now
@@ -193,7 +214,8 @@ generated `X | Y` unions need 3.10+).
 
 ## 7. Concrete next steps (roughly ranked)
 
-1. **Merge #1077 then #1076** (drive CI; re-run flakes per §5).
+1. ~~Merge #1077 then #1076~~ **DONE** (2026-07-01). Now: drive **#1078**
+   (bug #3 fix) to merge — independent, small; re-run any flakes per §5.
 2. ~~Audit `LeakTrackerAudit`'s faithfulness under concurrency/fork~~ **DONE**
    — `LeakTrackerConcurrency.lean` models the sig-queue/main-thread interleaving
    and fork reset explicitly, proves the invariant survives every interleaving,
@@ -202,9 +224,15 @@ generated `X | Y` unions need 3.10+).
    join in the code) rather than derived from the queue's operational semantics
    — a TLA+ spec of `ScaleneSigQueue.run` could discharge that too.
 3. **Keep auditing hypotheses adversarially** (the §0 method): every `0 <`,
-   every denominator, every counter that could underflow. The audit that found
-   §4's bugs covered the main division sites; re-run it whenever a model gains
-   a new hypothesis.
+   every denominator, every counter that could underflow. This is paying off —
+   re-running the sweep across the output path found bug #3 (§4) after #1077.
+   Divide sites in `scalene_json.py` are now all guarded/try-excepted (audited
+   2026-07-01: ~556, ~583, ~585, ~592, ~621/632/637, ~659, ~759, ~779 (fixed
+   #3), ~1186, ~1259, ~1337 — all guarded). `scalene_output.py` (the CLI
+   renderer) also audited 2026-07-01 — found bug #4 at :699 (now fixed); its
+   other divides (~339, ~379, ~416, ~657) are guarded. NEXT untouched surfaces:
+   the third renderer's path + `sparkline.py` / `runningstats.py` variance/stddev
+   denominators. Lesson reinforced by #4: audit ALL THREE renderers, not one.
 4. **Formalize PASTA** (or at least a discrete-time analogue) to fully discharge
    the i.i.d.→trueFraction step instead of citing it.
 5. **Prove per-sample classifier accuracy** for the python/native split, or

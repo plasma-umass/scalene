@@ -696,7 +696,19 @@ class ScaleneOutput:
             if len(leaks) > 0:
                 # Report in descending order by least likelihood
                 for leak in sorted(leaks, key=itemgetter(1), reverse=True):
-                    output_str = f"Possible memory leak identified at line {str(leak[0])} (estimated likelihood: {(leak[1] * 100):3.0f}%, velocity: {(leak[2] / stats.elapsed_time):3.0f} MB/s)"
+                    # Guard the velocity denominator: compute_leaks gates on
+                    # allocation growth rate, NOT wall-clock time, so a leak can
+                    # be reported when elapsed_time is still 0.0 (sub-ms run) →
+                    # ZeroDivisionError. This is the CLI-renderer twin of the
+                    # leak-velocity divide fixed in scalene_json.py (#1077); the
+                    # two output paths are separate (see Scalene-Debugging.md
+                    # "three renderers"), so the json.py fix did not cover it.
+                    velocity = (
+                        leak[2] / stats.elapsed_time
+                        if stats.elapsed_time > 0
+                        else 0.0
+                    )
+                    output_str = f"Possible memory leak identified at line {str(leak[0])} (estimated likelihood: {(leak[1] * 100):3.0f}%, velocity: {velocity:3.0f} MB/s)"
                     console.print(output_str)
 
         if self.html:
