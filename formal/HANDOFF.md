@@ -102,6 +102,11 @@ Formal + the CI/bug work that unblocked it:
 - **#1072** profiler-correctness desideratum (unbiased + consistent)
 - **#1073** regenerate oracle w/ upstream-fixed LeanToPython (dropped `min2`)
 - **#1075** Poisson sampler + GPU/copy/python-split/leak + memory-sampler
+- **#1077** the two production bug fixes from §4 (leak-velocity div-by-zero +
+  sampling-window clamp).
+- **#1076** two-counter bisimulation + per-line attribution +
+  `LeakTrackerAudit.lean` + `LeakTrackerConcurrency.lean` (leak-tracker
+  concurrency/fork gap, §7 step 2) + README "bugs found".
 - Enabling fixes: **#1066** (test `sys.executable` leak — the original
   root-cause), **#1067** (combined_stacks race), **#1069/#1071/#1074** (CI
   timing flakes), **#1065** (`_scalene_unwind` GIL declaration).
@@ -111,13 +116,9 @@ Formal + the CI/bug work that unblocked it:
 
 ## 3b. OPEN PRs (need driving to merge)
 
-- **#1077** `fix-leak-velocity-and-sampling-window` — the two production bug
-  fixes from §4. Independent, mergeable now. (1 commit.)
-- **#1076** `formal-sampler-refinements` — two-counter bisimulation +
-  per-line attribution + `LeakTrackerAudit.lean` + README "bugs found". (2
-  commits.) Formal-only; CI failures on it are transient/flake (see §5).
-
-Merge order suggestion: #1077 first (it's the real fix), then #1076.
+None — #1077 and #1076 both merged (2026-07-01). The one CI failure on #1076
+before merge was a transient 15-min smoketest timeout (ubuntu 3.12), green on
+re-run — exactly the flake class §5 describes.
 
 ---
 
@@ -193,7 +194,8 @@ generated `X | Y` unions need 3.10+).
 
 ## 7. Concrete next steps (roughly ranked)
 
-1. **Merge #1077 then #1076** (drive CI; re-run flakes per §5).
+1. ~~Merge #1077 then #1076~~ **DONE** (2026-07-01, both squash-merged; one
+   transient smoketest timeout re-run green per §5).
 2. ~~Audit `LeakTrackerAudit`'s faithfulness under concurrency/fork~~ **DONE**
    — `LeakTrackerConcurrency.lean` models the sig-queue/main-thread interleaving
    and fork reset explicitly, proves the invariant survives every interleaving,
