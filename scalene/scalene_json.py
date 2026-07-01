@@ -772,14 +772,23 @@ class ScaleneJSON:
         # Snapshot the keys first: stats.stacks is mutated from the CPU
         # sampling signal handler, so iterating the live view risks a
         # "dictionary changed size during iteration" RuntimeError.
-        for stk in list(stats.stacks):
-            stack_stats = stats.stacks[stk]
-            stats.stacks[stk] = StackStats(
-                stack_stats.count,
-                stack_stats.python_time / stats.cpu_stats.total_cpu_samples,
-                stack_stats.c_time / stats.cpu_stats.total_cpu_samples,
-                stack_stats.cpu_samples / stats.cpu_stats.total_cpu_samples,
-            )
+        #
+        # Guard the denominator: total_cpu_samples can be 0 while stats.stacks
+        # is non-empty — e.g. a memory-only run with --stacks (memory activity
+        # passes the "nothing to output" gate above, but no CPU sample was ever
+        # recorded), or a run whose only CPU sample had total_time == 0. The
+        # sibling per-file/per-line normalizations (lines ~556, ~1259) already
+        # guard this; this site was missed. Same bug class as the leak-velocity
+        # divide (see formal/README.md "Bugs the formalization found").
+        if stats.cpu_stats.total_cpu_samples:
+            for stk in list(stats.stacks):
+                stack_stats = stats.stacks[stk]
+                stats.stacks[stk] = StackStats(
+                    stack_stats.count,
+                    stack_stats.python_time / stats.cpu_stats.total_cpu_samples,
+                    stack_stats.c_time / stats.cpu_stats.total_cpu_samples,
+                    stack_stats.cpu_samples / stats.cpu_stats.total_cpu_samples,
+                )
 
         # Convert stacks into a representation suitable for JSON dumping.
         # Snapshot: stats.stacks is mutated from the CPU sampling signal handler.

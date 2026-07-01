@@ -53,7 +53,7 @@ standard axioms (`propext`, `Classical.choice`, `Quot.sound`).
 Formalizing forces every implicit assumption to be named, which surfaces places
 where the code doesn't enforce what a proof needs. Auditing the models'
 hypotheses against the code (see `lean/Scalene/LeakTrackerAudit.lean` and the
-audit notes below) turned up two real defects, both since fixed:
+audit notes below) turned up three real defects, all since fixed:
 
 1. **Unguarded divide-by-zero in leak-velocity reporting**
    (`scalene_json.py`, the `velocity_mb_s: leak_velocity / stats.elapsed_time`
@@ -68,6 +68,16 @@ audit notes below) turned up two real defects, both since fixed:
    sampler trigger on *every* allocation — and violates the `interval > 0`
    precondition `MemorySampler.lean` proves necessary. Fixed by clamping to the
    default when ≤ 0.
+3. **Unguarded divide-by-zero in per-stack CPU normalization**
+   (`scalene_json.py`, the `stats.stacks` normalization loop dividing by
+   `stats.cpu_stats.total_cpu_samples`). Same class as #1, found by re-running
+   the "every denominator is a claim to verify" audit across the output path:
+   `total_cpu_samples` can be `0.0` while `stats.stacks` is non-empty — a
+   **memory-only run with `--stacks`** records stack entries but never a CPU
+   sample, and it is *memory* activity (not CPU) that passes the
+   "nothing to output" gate. The sibling per-file/per-line CPU normalizations
+   (`~556`, `~1259`, `~1337`) were already guarded; this one was missed → crash.
+   Fixed + regression test (`tests/test_stacks_zero_cpu_samples.py`).
 
 Additionally, `LeakTrackerAudit.lean` discharges an *implicit* safety contract:
 the leak formula `1 − (frees+1)/(allocs−frees+2)` has **no** guard on its
