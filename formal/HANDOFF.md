@@ -53,6 +53,7 @@ formal/
 tests/
   test_verified_space_saving.py       # differential test: prod vs verified oracle
   test_leak_velocity_zero_elapsed.py  # regression for bug #1 (§4)
+  test_classifier_soundness.py        # differential harness for SigDeliverySound (§7.5)
 ```
 
 **Build:** `cd formal/lean && lake exe cache get && lake build` (needs
@@ -256,10 +257,33 @@ generated `X | Y` unions need 3.10+).
    code paths exact under it — the worker-thread bytecode classifier
    (`_update_thread_stats`) and the main-thread branch A — plus that the two
    paths agree in their shared regime and diverge only where the virtual timer
-   can measure deferral. STILL OPEN (the honest residual): `SigDeliverySound`
-   itself, a CPython-runtime + synchronous-stamping property. Discharging it
-   would need modeling the eval loop's signal-check + `f_lasti` semantics, or a
-   differential test harness that stress-checks `atCall` against ground truth.
+   can measure deferral. `SigDeliverySound` itself (the CPython-runtime +
+   synchronous-stamping property) is now discharged EMPIRICALLY, in part, by
+   `tests/test_classifier_soundness.py` (a differential harness):
+   - FORWARD direction is tested deterministically (no tolerance): via
+     `sys.monitoring`, every genuine C-call is issued from a frame whose
+     `f_lasti` is at a CALL opcode — 100% across 5 workload shapes. This is the
+     non-circular core and catches the exact regression CLAUDE.md warns about
+     (a new CPython renaming CALL opcodes silently breaking attribution).
+   - AGGREGATE end-to-end: a native-dominated workload reports ≥60% native —
+     but this is NON-GATING (opt-in via `SCALENE_RUN_AGGREGATE_CLASSIFIER_TEST=1`).
+     CI surfaced a real cross-version finding: the interval-deferral split is
+     wildly version-sensitive — the *same* sorted()-dominated workload reports
+     ~95–100% native on CPython 3.12 but only ~29% on 3.11 under CI's virtual
+     timer. So it's a diagnostic, not a gate. (Worth investigating separately:
+     is 3.11's virtual-time attribution genuinely worse, or an artifact of the
+     CI timer? The forward check passing on all versions says the *classifier*
+     is fine; the *deferral formula* is the variable.)
+   - The per-sample REVERSE direction is NOT testable from Python — a hard-won
+     lesson from probing: a C call is atomic w.r.t. Python-level observation
+     (`sys.monitoring` depth counter reads 0 at samples inside the workload),
+     and native unwinding from a Python signal handler captures the handler's
+     stack, not the interruption point (RecursionError crashes). The only sound
+     witness is Scalene's own C-level unwinder — circular as its own oracle. So
+     the reverse half stays the Lean model's explicit hypothesis. (Rationale is
+     documented at the bottom of the test file.)
+   STILL FULLY OPEN: a Lean/TLA+ model of the eval loop's signal-check +
+   `f_lasti` semantics that would prove `SigDeliverySound` rather than test it.
 6. **Wire the verified oracle into production directly** (have
    `_space_saving_increment` call the extracted core) rather than only
    differential-testing it — closes the proof→production loop tighter.
