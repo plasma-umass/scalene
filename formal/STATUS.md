@@ -55,7 +55,7 @@ the counterexample-search and liveness coverage with nothing to replace them.
 | **Python/native classifier conserves the sample's CPU budget in every branch** | ✅ | `PythonNativeClassifier.charge_total`, `classified_conserves` (+ `charge_nonneg`, per-branch `split_*`) — §15 |
 | C++ stamping *establishes* faithful placement (signal→bytecode) | ⚠️ | engineering (`pywhere.cpp`); not modeled |
 | **Python-vs-native classifier accuracy, both paths** (main + worker), relative to CPython signal-delivery semantics | ✅ (conditional) | `ClassifierAccuracy.worker_classifier_correct`, `main_branchA_correct`, `main_worker_agree` — exact under the explicit `SigDeliverySound` hypothesis (§17) |
-| `SigDeliverySound` itself (atCall ⇔ truly in a C call) | ⚠️ | the operational hypothesis the accuracy proofs rest on — a CPython-runtime property, stated not proved |
+| `SigDeliverySound` itself (atCall ⇔ truly in a C call) | ⚠️ (forward half tested) | operational hypothesis the accuracy proofs rest on. Forward direction (`atCall` true at every genuine C-call) discharged empirically & deterministically by `tests/test_classifier_soundness.py`; reverse half not soundly testable from Python (see test-file note), stays a Lean hypothesis |
 
 **Verdict:** the statistical guarantee is proven, the sampler→correctness link
 (PASTA) is proven in discrete-time form, and the classifier is now proven both
