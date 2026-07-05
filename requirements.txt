@@ -4,8 +4,12 @@ Cython>=0.29.28
 ipython>=8.10
 Jinja2>=3.0.3
 lxml>=5.1.0
+numpy>=1.24.0,!=1.27; python_version < '3.14'
+numpy>=2.3.4; python_version >= '3.14'
 packaging>=24
 psutil>=5.9.2
+pydantic>=2.6
+pyyaml>=6.0
 pyperf>=2.0.0
 rich>=10.7.0
 setuptools>=65.5.1
