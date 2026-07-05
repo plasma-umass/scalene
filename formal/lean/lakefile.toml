@@ -1,0 +1,13 @@
+name = "scalene"
+defaultTargets = ["Scalene"]
+
+# Mathlib provides the ordered-field tactics (ring, linarith, field_simp) and
+# lemmas (div_le_one, mul_le_mul_of_nonneg_right, ...) the conservation/bounds
+# proofs over ℚ rely on.
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.31.0"
+
+[[lean_lib]]
+name = "Scalene"

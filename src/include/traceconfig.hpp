@@ -30,7 +30,8 @@ class TraceConfig {
  public:
   TraceConfig(PyObject* list_wrapper, PyObject* base_path, bool profile_all_b,
               PyObject* scalene_pkg_path_obj = nullptr) {
-    // Assumes that each item is a bytes object
+    // Each item is expected to be a str; non-str / non-UTF-8 items are
+    // skipped during decoding below.
     owner = list_wrapper;
     path_owner = base_path;
     Py_IncRef(owner);
@@ -38,13 +39,32 @@ class TraceConfig {
     profile_all = profile_all_b;
     auto size = PyList_Size(owner);
     items.reserve(size);
-    for (int i = 0; i < size; i++) {
-      auto item = PyList_GetItem(owner, i);
-      auto unic = PyUnicode_AsASCIIString(item);
-      auto s = PyBytes_AsString(unic);
-      items.push_back(s);
+    for (Py_ssize_t i = 0; i < size; i++) {
+      auto item = PyList_GetItem(owner, i);  // borrowed reference
+      // Decode each pattern as UTF-8 so non-ASCII values (e.g. "é") are
+      // accepted instead of crashing. PyUnicode_AsUTF8AndSize returns a
+      // pointer into the str's internal buffer (valid while ``owner`` is
+      // alive, which we hold a reference to) and NULL on failure, e.g. for a
+      // non-str list item. On failure we clear the exception and skip the
+      // item rather than dereferencing NULL (the SIGSEGV in #1063). We store
+      // owned std::string copies so the data outlives any transient object.
+      Py_ssize_t len = 0;
+      const char* s = PyUnicode_AsUTF8AndSize(item, &len);
+      if (s == nullptr) {
+        PyErr_Clear();
+        continue;
+      }
+      items.emplace_back(s, len);
     }
-    scalene_base_path = PyBytes_AsString(PyUnicode_AsEncodedString(base_path, "utf-8", "strict"));
+    {
+      Py_ssize_t len = 0;
+      const char* bp = PyUnicode_AsUTF8AndSize(base_path, &len);
+      if (bp != nullptr) {
+        scalene_base_path = std::string(bp, len);
+      } else {
+        PyErr_Clear();
+      }
+    }
     // Canonical path of the ``scalene`` package directory, used by
     // should_trace() to recognize Scalene-internal frames even when the
     // package lives in a directory not literally named "scalene" (vendoring,
@@ -173,8 +193,8 @@ class TraceConfig {
     }
 
     if (owner != nullptr) {
-      for (char* traceable : items) {
-        if (strstr(filename, traceable)) {
+      for (const auto& traceable : items) {
+        if (strstr(filename, traceable.c_str())) {
           std::lock_guard<std::mutex> lock(_memoizeMutex);
           _memoize.insert(
               std::pair<std::string, bool>(std::string(filename), true));
@@ -194,14 +214,14 @@ class TraceConfig {
       did_resolve_path = realpath(filename, resolved_path);
     } else {
       // Relative path — prepend scalene_base_path
-      std::string full_path = std::string(scalene_base_path) + "/" + filename;
+      std::string full_path = scalene_base_path + "/" + filename;
       did_resolve_path = realpath(full_path.c_str(), resolved_path);
     }
 
     bool result = false;
     if (did_resolve_path) {
       // True if we found this file in the original path.
-      result = (strstr(resolved_path, scalene_base_path) != nullptr);
+      result = (strstr(resolved_path, scalene_base_path.c_str()) != nullptr);
     }
 
     std::lock_guard<std::mutex> lock(_memoizeMutex);
@@ -212,8 +232,8 @@ class TraceConfig {
 
   void print() {
     printf("Profile all? %d\nitems {", profile_all);
-    for (auto c : items) {
-      printf("\t%s\n", c);
+    for (const auto& c : items) {
+      printf("\t%s\n", c.c_str());
     }
     printf("}\n");
   }
@@ -230,8 +250,8 @@ class TraceConfig {
   }
 
  private:
-  std::vector<char*> items;
-  char* scalene_base_path;
+  std::vector<std::string> items;
+  std::string scalene_base_path;
   // Canonical path to the Scalene package directory. Empty when the
   // caller did not supply one (legacy path). See should_trace().
   std::string scalene_pkg_path;
