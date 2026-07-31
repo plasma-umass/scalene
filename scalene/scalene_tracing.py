@@ -154,9 +154,16 @@ class ScaleneTracing:
             import IPython
 
             if result := re.match(r"_ipython-input-([0-9]+)-.*", filename):
-                cell_contents = IPython.get_ipython().history_manager.input_hist_raw[  # type: ignore[no-untyped-call,unused-ignore]
-                    int(result[1])
-                ]
+                shell = IPython.get_ipython()  # type: ignore[no-untyped-call,unused-ignore]
+                # IPython >= 9.16 annotates get_ipython() as returning
+                # Optional[InteractiveShell], and history_manager is itself
+                # optional (absent when history is disabled). Without a live
+                # shell there is no cell to recover, so fall through to the
+                # ordinary filename rules rather than crashing.
+                history = shell.history_manager if shell is not None else None
+                if history is None:
+                    return False
+                cell_contents = history.input_hist_raw[int(result[1])]
                 with open(filename, "w+") as f:
                     f.write(cell_contents)
                 return True
