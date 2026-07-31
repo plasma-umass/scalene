@@ -1,9 +1,15 @@
 from scalene import scalene_json
 
-from hypothesis import given
-from hypothesis.strategies import floats, lists
+import pytest
 
 from typing import Any, List
+
+# See tests/test_runningstats.py: hypothesis is installed best-effort in CI
+# because it can't be built for free-threaded CPython 3.13.
+pytest.importorskip("hypothesis")
+
+from hypothesis import given  # noqa: E402
+from hypothesis.strategies import floats, lists  # noqa: E402
 
 
 class TestScaleneJSON:

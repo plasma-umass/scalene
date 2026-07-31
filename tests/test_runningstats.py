@@ -1,10 +1,18 @@
 from scalene import runningstats
 
-import hypothesis.strategies as st
 import math
+import pytest
 
-from hypothesis import given
 from typing import List
+
+# hypothesis has no wheel for free-threaded CPython 3.13 and its source
+# build fails there (PyO3 doesn't support free-threaded < 3.14), so CI
+# installs it best-effort. Skip rather than error out collection.
+pytest.importorskip("hypothesis")
+
+import hypothesis.strategies as st  # noqa: E402
+
+from hypothesis import given  # noqa: E402
 
 TOLERANCE = 0.5
 

@@ -87,7 +87,15 @@ jobs:
 
     - name: install test dependencies
       run: |
-        python3 -m pip install pytest pytest-asyncio hypothesis
+        python3 -m pip install pytest pytest-asyncio
+        # hypothesis ships no wheel for free-threaded CPython 3.13, and
+        # building it from source fails there: its dependency chain pulls
+        # pyo3-ffi, and "PyO3 does not support the free-threaded build of
+        # CPython versions below 3.14". That aborted this step under
+        # ``bash -e``, so the 3.13t jobs never reached ``run tests`` at all.
+        # Install it best-effort; the two modules that need it call
+        # pytest.importorskip("hypothesis") and skip when it's absent.
+        python3 -m pip install hypothesis || echo "hypothesis unavailable; property-based tests will skip"
         # torch/JAX/TensorFlow may not be available on free-threaded Python builds
         python3 -m pip install torch --index-url https://download.pytorch.org/whl/cpu || true
         python3 -m pip install -e ".[test]" || python3 -m pip install -e .
@@ -97,7 +105,14 @@ jobs:
       run: |
         ulimit -c unlimited
         echo '/tmp/core.%e.%p' | sudo tee /proc/sys/kernel/core_pattern
-        sudo apt-get install -y gdb
+        # ``apt-get update`` first: the runner image ships a package index
+        # that can be older than the mirror's contents, and installing gdb
+        # then 404s on a superseded libc6-dbg. That failed the whole step
+        # (exit 100), skipping ``run tests`` on 3.14t. gdb is only used by
+        # the optional "Collect crash backtraces" step, so never let its
+        # absence stop the job.
+        sudo apt-get update || true
+        sudo apt-get install -y gdb || echo "gdb unavailable; crash backtraces will be skipped"
 
     - name: Quick memory profiling smoke test
       if: runner.os == 'Linux' && endsWith(matrix.python, 't')
