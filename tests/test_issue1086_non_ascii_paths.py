@@ -7,7 +7,11 @@ Issue: https://github.com/plasma-umass/scalene/issues/1086
 the allocator interposer, ``on_stack``, and the settrace line callback).
 For a perfectly ordinary path like ``.../überschüsse.py`` that conversion
 fails, returning NULL *and leaving a ``UnicodeEncodeError`` set on the
-thread*. Because those paths run from the native allocator hook and from
+thread*. The whole path is encoded, so a single non-ASCII character
+anywhere in it is enough — the reporter's own case was a module in the
+import tree *at a path* with non-ASCII characters, i.e. an ordinary
+``.py`` file under a directory like ``optionale_verlängerung/``.
+Because those paths run from the native allocator hook and from
 trace callbacks, the stray exception surfaced later at an arbitrary,
 unrelated Python line — which is why the reporter saw it land in
 ``sysconfig.get_path`` one run and inside pydantic the next. The Python
@@ -48,13 +52,31 @@ def f():
     return total
 """
 
-MAIN = f"""\
-import {NON_ASCII_MODULE}
-print({NON_ASCII_MODULE}.f())
-"""
-
 # What WORKLOAD's f() returns: sum(range(2000)) * 300.
 EXPECTED_OUTPUT = str(sum(range(2000)) * 300)
+
+
+def _main_source(module: str) -> str:
+    return f"import {module}\nprint({module}.f())\n"
+
+
+# Where the non-ASCII character sits in the imported module's path. The
+# native code encoded the *whole* path, so any component poisons it --
+# the reporter hit both spellings (``überschüsse.py`` directly, and
+# ``optionale_verlängerung.py`` living under a non-ASCII project tree).
+#
+# Each entry is (id, directory components, module basename).
+PATH_LAYOUTS = [
+    # Non-ASCII in the leaf filename only; every directory is ASCII.
+    ("leaf-only", ("program",), NON_ASCII_MODULE),
+    # Non-ASCII in a *directory* only -- the module and its immediate
+    # parent are plain ASCII, so nothing but an interior path component
+    # carries the umlaut. This is the reporter's "a module in its import
+    # tree which is at a path with non-ascii characters" case.
+    ("directory-only", ("optionale_verlängerung", "pakete"), "workload"),
+    # Both, matching the original repro most closely.
+    ("both", ("prögramm",), NON_ASCII_MODULE),
+]
 
 
 def test_decode_sample_round_trips_non_ascii_filenames() -> None:
@@ -64,9 +86,14 @@ def test_decode_sample_round_trips_non_ascii_filenames() -> None:
     ``bytes.decode("ascii")`` raised ``UnicodeDecodeError`` here and killed
     the loop that drains malloc/free samples.
     """
-    path = f"/tmp/pröfile/{NON_ASCII_MODULE}.py"
-    record = f"M,1234,4096,0.5,999,0x7f00,{path},7,0"
-    assert decode_sample(record.encode("utf-8")) == record
+    for path in (
+        # Non-ASCII in the leaf.
+        f"/tmp/project/{NON_ASCII_MODULE}.py",
+        # Non-ASCII only in an interior directory, ASCII leaf.
+        "/tmp/optionale_verlängerung/pakete/workload.py",
+    ):
+        record = f"M,1234,4096,0.5,999,0x7f00,{path},7,0"
+        assert decode_sample(record.encode("utf-8")) == record
     # Undecodable filesystem bytes reach Python as lone surrogates; those
     # must survive the round trip too rather than raising.
     surrogate_path = "/tmp/\udcff/x.py"
@@ -77,26 +104,31 @@ def test_decode_sample_round_trips_non_ascii_filenames() -> None:
     )
 
 
-@pytest.mark.parametrize("in_subdir", [False, True])
-def test_memory_profile_of_non_ascii_path(tmp_path: Path, in_subdir: bool) -> None:
+@pytest.mark.parametrize(
+    ("dirs", "module"),
+    [pytest.param(dirs, module, id=name) for name, dirs, module in PATH_LAYOUTS],
+)
+def test_memory_profile_of_non_ascii_path(
+    tmp_path: Path, dirs: tuple, module: str
+) -> None:
     """Profiling a program that imports a module at a non-ASCII path works.
 
-    Two placements are covered: the non-ASCII component in the filename
-    itself, and in a parent directory (the issue reported both a
-    ``überschüsse.py`` module and an ``optionale_verlängerung.py`` under a
-    non-ASCII tree).
+    See ``PATH_LAYOUTS`` for the placements covered — notably the
+    ``directory-only`` case, where the non-ASCII character appears solely
+    in an interior directory and both the module file and its immediate
+    parent are ASCII.
 
     The crash assertions run on every attempt — a regression fails them
     immediately and deterministically, since the profiled program dies
     outright. Only the "file shows up in the profile" check is retried,
     against the usual sampling flake (see ``_scalene_subprocess.py``).
     """
-    workdir = tmp_path / ("prögramm" if in_subdir else "program")
-    workdir.mkdir()
-    module_path = workdir / f"{NON_ASCII_MODULE}.py"
+    workdir = tmp_path.joinpath(*dirs)
+    workdir.mkdir(parents=True)
+    module_path = workdir / f"{module}.py"
     module_path.write_text(WORKLOAD, encoding="utf-8")
     main_path = workdir / "main.py"
-    main_path.write_text(MAIN, encoding="utf-8")
+    main_path.write_text(_main_source(module), encoding="utf-8")
 
     attempts = 3
     last_files: list = []
