@@ -74,11 +74,17 @@ class TraceConfig {
     if (scalene_pkg_path_obj && scalene_pkg_path_obj != Py_None) {
       scalene_pkg_path_owner = scalene_pkg_path_obj;
       Py_IncRef(scalene_pkg_path_owner);
-      auto enc =
-          PyUnicode_AsEncodedString(scalene_pkg_path_obj, "utf-8", "strict");
+      // surrogateescape (not strict): a path holding undecodable bytes shows
+      // up in Python as lone surrogates, which a strict encoder rejects —
+      // leaving an exception pending that would later surface at an
+      // unrelated line (issue #1086).
+      auto enc = PyUnicode_AsEncodedString(scalene_pkg_path_obj, "utf-8",
+                                           "surrogateescape");
       if (enc) {
         scalene_pkg_path = std::string(PyBytes_AsString(enc));
         Py_DecRef(enc);
+      } else {
+        PyErr_Clear();
       }
     } else {
       scalene_pkg_path_owner = nullptr;
