@@ -11,8 +11,9 @@ import os
 import signal
 import sys
 import threading
-from typing import Any, List, Optional, Set
+from typing import Any, List, Optional, Set, Tuple, Union
 
+from scalene.scalene_mac_sampler import MacThreadSampler
 from scalene.scalene_signals import ScaleneSignals, SignalHandlerFunction
 from scalene.scalene_sigqueue import ScaleneSigQueue
 
@@ -67,6 +68,11 @@ class ScaleneSignalManager:
         self.__lifecycle_watcher_thread: Optional[threading.Thread] = None
         self.__lifecycle_watcher_active = False
 
+        # Signal-free CPU sampler for Apple Silicon with SME (issue #1056).
+        # When active, the CPU timer signal is NOT armed; a background thread
+        # drives the CPU handler directly. Lazily created in enable_signals().
+        self.__mac_sampler: Optional[MacThreadSampler] = None
+
     def get_signals(self) -> ScaleneSignals:
         """Return the ScaleneSignals instance."""
         return self.__signals
@@ -88,6 +94,12 @@ class ScaleneSignalManager:
         """Stop the signal processing queues (i.e., their threads)."""
         for sigq in self.__sigqueues:
             sigq.stop()
+
+    def stop_mac_sampler(self) -> None:
+        """Stop the Apple-SME signal-free CPU sampler thread, if running."""
+        if self.__mac_sampler is not None:
+            self.__mac_sampler.stop()
+            self.__mac_sampler = None
 
     def stop_timer_thread(self) -> None:
         """Stop the Windows timer thread and wait for it to finish."""
@@ -212,9 +224,15 @@ class ScaleneSignalManager:
         cpu_sampling_rate: float,
         alloc_sigq: Optional[ScaleneSigQueue] = None,
         memcpy_sigq: Optional[ScaleneSigQueue] = None,
+        use_thread_sampler: bool = False,
     ) -> None:
         """Set up the signal handlers to handle interrupts for profiling and start the
-        timer interrupts."""
+        timer interrupts.
+
+        use_thread_sampler: when True (Apple Silicon with SME, issue #1056),
+            do NOT arm the CPU timer signal. A background thread drives the
+            CPU handler directly so no signal is delivered to SME threads.
+        """
         if sys.platform == "win32":
             self.enable_signals_win32(
                 cpu_signal_handler, cpu_sampling_rate, alloc_sigq, memcpy_sigq
@@ -223,21 +241,62 @@ class ScaleneSignalManager:
 
         self.start_signal_queues()
         # Set signal handlers for various events.
-        for sig, handler in [
-            (self.__signals.malloc_signal, malloc_signal_handler),
-            (self.__signals.free_signal, free_signal_handler),
-            (self.__signals.memcpy_signal, memcpy_signal_handler),
+        #
+        # On the Apple-SME thread-sampler path, the memory signals
+        # (malloc/free/memcpy) are set to SIG_IGN instead of their real
+        # handlers: delivering them would corrupt SME state exactly like the
+        # CPU signal (issue #1056). The native allocator writes each sample
+        # to its sample file *before* raising the signal, so a SIG_IGN'd
+        # signal loses no data — the helper thread poll-drains the queues
+        # instead (see MacThreadSampler). The CPU handler is still registered
+        # so any externally-delivered cpu_signal is handled gracefully, but
+        # we never arm the timer ourselves.
+        # Element type matches signal.signal's handler arg (a handler
+        # callable, or signal.Handlers like SIG_IGN). Annotated so the two
+        # branches below (real handlers vs SIG_IGN) unify cleanly.
+        HandlerArg = Union[SignalHandlerFunction, signal.Handlers]
+        mem_handlers: List[Tuple[Any, HandlerArg]]
+        if use_thread_sampler:
+            mem_handlers = [
+                (self.__signals.malloc_signal, signal.SIG_IGN),
+                (self.__signals.free_signal, signal.SIG_IGN),
+                (self.__signals.memcpy_signal, signal.SIG_IGN),
+            ]
+        else:
+            mem_handlers = [
+                (self.__signals.malloc_signal, malloc_signal_handler),
+                (self.__signals.free_signal, free_signal_handler),
+                (self.__signals.memcpy_signal, memcpy_signal_handler),
+            ]
+        all_handlers: List[Tuple[Any, HandlerArg]] = [
+            *mem_handlers,
             (signal.SIGTERM, term_signal_handler),
             (self.__signals.cpu_signal, cpu_signal_handler),
-        ]:
+        ]
+        for sig, handler in all_handlers:
             self.__orig_signal(sig, handler)
         # Set every signal to restart interrupted system calls.
         for s in self.__signals.get_all_signals():
             self.__orig_siginterrupt(s, False)
-        self.__orig_setitimer(
-            self.__signals.cpu_timer_signal,
-            cpu_sampling_rate,
-        )
+        if use_thread_sampler:
+            # Apple SME: drive CPU sampling (and memory poll-draining) from a
+            # helper thread instead of arming SIGVTALRM/SIGALRM. No profiling
+            # signal is ever delivered, so the macOS kernel never corrupts
+            # in-flight SME state (#1056). alloc_sigq/memcpy_sigq are non-None
+            # only when memory profiling is enabled.
+            self.__mac_sampler = MacThreadSampler()
+            self.__mac_sampler.start(
+                cpu_signal_handler,
+                int(self.__signals.cpu_signal),
+                cpu_sampling_rate,
+                alloc_sigq,
+                memcpy_sigq,
+            )
+        else:
+            self.__orig_setitimer(
+                self.__signals.cpu_timer_signal,
+                cpu_sampling_rate,
+            )
         # Unmask Scalene's profiling signals in the calling (main) thread.
         # pytest-xdist's execnet, and other libraries that fan out work via
         # subprocess.Popen, can leave the worker process with Scalene's CPU
@@ -405,9 +464,13 @@ class ScaleneSignalManager:
     def restart_timer(self, interval: float) -> None:
         """Restart the CPU profiling timer with the specified interval.
 
-        On Windows, this is a no-op because the timer thread runs at a fixed
-        sampling rate and doesn't need to be restarted after each sample.
+        On Windows, and on the Apple-SME thread-sampler path, this is a
+        no-op because a background thread runs at a fixed sampling rate and
+        doesn't need the timer restarted after each sample. (Calling
+        setitimer from the sampler thread would also raise.)
         """
+        if self.__mac_sampler is not None:
+            return
         if sys.platform != "win32":
             self.__orig_setitimer(
                 self.__signals.cpu_timer_signal,

@@ -806,6 +806,13 @@ PyModuleDef moduledef = {
 extern "C" PyObject* PyInit__scalene_unwind(void) {
   PyObject* m = PyModule_Create(&moduledef);
   if (!m) return nullptr;
+#ifdef Py_GIL_DISABLED
+  // Declare free-threaded safety so importing this module does not silently
+  // re-enable the GIL on free-threaded (3.13t/3.14t) builds. Without this,
+  // CPython restores the GIL with a RuntimeWarning, so Scalene never actually
+  // runs free-threaded -- matches pywhere.cpp and get_line_atomic.cpp.
+  PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
   PyModule_AddIntConstant(m, "available", SCALENE_UNWIND_AVAILABLE);
   // Expose the per-call cap so callers (and tests) read the single
   // source of truth instead of hard-coding the value.

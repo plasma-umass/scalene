@@ -1,0 +1,3 @@
+# Lean/Lake build artifacts and fetched dependencies (Mathlib cache is ~7GB).
+# lake-manifest.json IS committed (pins the exact Mathlib revision).
+.lake/

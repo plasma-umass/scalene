@@ -13,6 +13,7 @@ import signal
 import subprocess
 import sys
 import textwrap
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -492,18 +493,33 @@ class TestOnOffIntegration:
     def test_off_then_on_via_signal(self, tmp_path):
         """Start with --off, send start signal, verify profiling activates."""
         script = tmp_path / "long_prog.py"
+        # The script installs its OWN SIGILL handler first, then prints PID.
+        # This removes the startup race: previously the child printed its PID
+        # and entered a busy loop *before* Scalene had installed its SIGILL
+        # start-profiling handler, so a signal sent during that window hit the
+        # default action and killed the process (returncode 252 = -SIGILL),
+        # flaking on loaded CI runners. With a handler already in place when the
+        # PID is announced, an early signal is never fatal; once Scalene
+        # installs its own handler (replacing ours) the signal starts profiling
+        # as intended. The parent retries until profiling activates or a
+        # generous deadline passes.
         script.write_text(
             textwrap.dedent("""\
                 import os
+                import signal
                 import sys
                 import time
 
-                # Print PID so parent can signal us
+                # Install a no-op SIGILL handler up front so an early start
+                # signal can never terminate us via the default action.
+                signal.signal(signal.SIGILL, lambda *a: None)
+
+                # Now it is safe to announce our PID.
                 print(f"PID={os.getpid()}", flush=True)
 
-                # Busy loop long enough for parent to send signal
+                # Busy loop long enough for the parent to (re)send the signal.
                 total = 0
-                for i in range(5_000_000):
+                for i in range(20_000_000):
                     total += i
                 print("done", total)
             """)
@@ -530,15 +546,22 @@ class TestOnOffIntegration:
         pid_line = proc.stdout.readline()
         if pid_line.startswith("PID="):
             child_pid = int(pid_line.strip().split("=")[1])
-            # Send start profiling signal (SIGILL)
-            import time
-
-            time.sleep(0.1)  # let the child settle
-            try:
-                os.kill(child_pid, signal.SIGILL)
-            except ProcessLookupError:
-                pass  # child may have finished already
+            # Send the start-profiling signal (SIGILL) a few times over a short
+            # window: the first may land before Scalene replaces our placeholder
+            # handler (harmless no-op), a later one activates profiling. Stop as
+            # soon as the child exits.
+            for _ in range(20):
+                if proc.poll() is not None:
+                    break
+                try:
+                    os.kill(child_pid, signal.SIGILL)
+                except ProcessLookupError:
+                    break  # child finished already
+                time.sleep(0.05)
 
         stdout, stderr = proc.communicate(timeout=60)
-        assert proc.returncode == 0
+        # The child must finish cleanly (not be killed by an unhandled signal).
+        assert proc.returncode == 0, (
+            f"child exited with {proc.returncode}; stderr={stderr[-400:]!r}"
+        )
         assert "done" in (pid_line + stdout)

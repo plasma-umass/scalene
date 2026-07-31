@@ -769,18 +769,31 @@ class ScaleneJSON:
             program = Filename("[" + result.group(1) + "]")
 
         # Process the stacks to normalize by total number of CPU samples.
-        for stk in stats.stacks:
-            stack_stats = stats.stacks[stk]
-            stats.stacks[stk] = StackStats(
-                stack_stats.count,
-                stack_stats.python_time / stats.cpu_stats.total_cpu_samples,
-                stack_stats.c_time / stats.cpu_stats.total_cpu_samples,
-                stack_stats.cpu_samples / stats.cpu_stats.total_cpu_samples,
-            )
+        # Snapshot the keys first: stats.stacks is mutated from the CPU
+        # sampling signal handler, so iterating the live view risks a
+        # "dictionary changed size during iteration" RuntimeError.
+        #
+        # Guard the denominator: total_cpu_samples can be 0 while stats.stacks
+        # is non-empty — e.g. a memory-only run with --stacks (memory activity
+        # passes the "nothing to output" gate above, but no CPU sample was ever
+        # recorded), or a run whose only CPU sample had total_time == 0. The
+        # sibling per-file/per-line normalizations (lines ~556, ~1259) already
+        # guard this; this site was missed. Same bug class as the leak-velocity
+        # divide (see formal/README.md "Bugs the formalization found").
+        if stats.cpu_stats.total_cpu_samples:
+            for stk in list(stats.stacks):
+                stack_stats = stats.stacks[stk]
+                stats.stacks[stk] = StackStats(
+                    stack_stats.count,
+                    stack_stats.python_time / stats.cpu_stats.total_cpu_samples,
+                    stack_stats.c_time / stats.cpu_stats.total_cpu_samples,
+                    stack_stats.cpu_samples / stats.cpu_stats.total_cpu_samples,
+                )
 
         # Convert stacks into a representation suitable for JSON dumping.
+        # Snapshot: stats.stacks is mutated from the CPU sampling signal handler.
         stks = []
-        for stk in stats.stacks:
+        for stk in list(stats.stacks):
             this_stk: List[str] = []
             this_stk.extend(str(frame) for frame in stk)
             stack_stats = stats.stacks[stk]
@@ -872,7 +885,12 @@ class ScaleneJSON:
             # timeline can later be emitted as indices into the final
             # combined_stks list.
             raw_to_dedup_key: Dict[CombinedStackKey, DedupKey] = {}
-            for stk, hits in stats.combined_stacks.items():
+            # Snapshot before iterating: combined_stacks is mutated from the
+            # CPU sampling signal handler (process_cpu_sample -> add_combined_stack),
+            # which can fire while we serialize here and would otherwise raise
+            # "dictionary changed size during iteration". A shallow copy of the
+            # items is enough -- keys/values are immutable tuples/ints.
+            for stk, hits in list(stats.combined_stacks.items()):
                 # Find the seam: index of first native frame.
                 seam = next(
                     (
@@ -970,7 +988,8 @@ class ScaleneJSON:
             # [0, elapsed_time] axis; stack_index references combined_stks.
             if stats.combined_stacks_timeline and combined_stks:
                 t0 = stats.combined_stacks_timeline[0].timestamp
-                for run in stats.combined_stacks_timeline:
+                # Snapshot: appended to from the CPU sampling signal handler.
+                for run in list(stats.combined_stacks_timeline):
                     run_dedup_key = raw_to_dedup_key.get(run.stack_key)
                     if run_dedup_key is None:
                         continue
@@ -1242,7 +1261,18 @@ class ScaleneJSON:
             for leak_lineno, leak_likelihood, leak_velocity in leaks:
                 reported_leaks[str(leak_lineno)] = {
                     "likelihood": leak_likelihood,
-                    "velocity_mb_s": leak_velocity / stats.elapsed_time,
+                    # Guard against a zero elapsed_time: compute_leaks gates on
+                    # allocation growth rate, not wall-clock time, so a leak can
+                    # be reported on a run so short that elapsed_time is still
+                    # 0.0 — an unguarded divide here would raise
+                    # ZeroDivisionError. (The sibling elapsed_time divisions at
+                    # lines ~637 and ~1186 are already guarded; this one was
+                    # missed.)
+                    "velocity_mb_s": (
+                        leak_velocity / stats.elapsed_time
+                        if stats.elapsed_time > 0
+                        else 0.0
+                    ),
                 }
 
             # Print header.

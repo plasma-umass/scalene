@@ -172,6 +172,37 @@ PyObject* set_scalene_done_false(PyObject* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+// Encode a Python filename (a ``str``, e.g. ``code->co_filename``) as
+// bytes we can hand to C string functions.
+//
+// This used to be ``PyUnicode_AsASCIIString``, which fails for any path
+// containing a non-ASCII character — a very ordinary situation (issue
+// #1086: a module at ``.../überschüsse.py``). Two things went wrong there:
+// the caller lost the filename, and — worse — the failed conversion left a
+// ``UnicodeEncodeError`` set on the thread. Since this code runs from the
+// allocator interposer and from trace callbacks, that stray exception
+// surfaced later at an arbitrary, unrelated Python line (or as a
+// ``SystemError``/crash), which is why the bug looked flaky.
+//
+// UTF-8 with ``surrogateescape`` is the right encoding here: it is the
+// inverse of how CPython decodes filesystem paths, so every path that
+// Python can represent — including undecodable bytes, which appear as lone
+// surrogates — round-trips. The Python side decodes these records the same
+// way (see ``decode_sample`` in scalene/scalene_mapfile.py). On failure we
+// return nullptr with no exception left pending; callers must NULL-check.
+static PyObject* encodeFilename(PyObject* unicode) {
+  if (unicode == nullptr) {
+    return nullptr;
+  }
+  PyObject* bytes =
+      PyUnicode_AsEncodedString(unicode, "utf-8", "surrogateescape");
+  if (bytes == nullptr) {
+    // Non-str object, or an encoder failure we can't do anything about.
+    PyErr_Clear();
+  }
+  return bytes;
+}
+
 // Core stack-walk used by both whereInPython and whereInPythonWithStack.
 // If ``stack_buf`` is non-null and ``stack_buf_size`` > 0, every traced
 // frame encountered (leaf-first) is appended to the buffer as the
@@ -224,7 +255,7 @@ static int whereInPythonImpl(std::string& filename, int& lineno, int& bytei,
     PyPtr<PyCodeObject> code =
         PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
     PyPtr<> co_filename =
-        PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename);
+        encodeFilename(static_cast<PyCodeObject*>(code)->co_filename);
 
     if (!(static_cast<PyObject*>(co_filename))) {
       if (stack_bytes_written != nullptr) *stack_bytes_written = written;
@@ -454,6 +485,12 @@ static unchanging_modules module_pointers;
 static std::atomic<bool> module_pointers_ready{false};
 
 static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
+  if (outer_filename == nullptr) {
+    // Nothing to compare against. Release the reference the caller handed
+    // us, matching what the loop below does on every exit path.
+    Py_XDECREF(frame);
+    return false;
+  }
   while (frame != NULL) {
     int iter_lineno = PyFrame_GetLineNumber(frame);
 
@@ -461,9 +498,14 @@ static bool on_stack(char* outer_filename, int lineno, PyFrameObject* frame) {
         PyFrame_GetCode(static_cast<PyFrameObject*>(frame));
 
     PyPtr<> co_filename(
-        PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename));
-    auto fname = PyBytes_AsString(static_cast<PyObject*>(co_filename));
-    if (iter_lineno == lineno && strstr(fname, outer_filename)) {
+        encodeFilename(static_cast<PyCodeObject*>(code)->co_filename));
+    // NULL-check before strstr: encoding can fail, and dereferencing the
+    // result unconditionally is how #1086 turned into a segfault.
+    auto fname = static_cast<PyObject*>(co_filename)
+                     ? PyBytes_AsString(static_cast<PyObject*>(co_filename))
+                     : nullptr;
+    if (fname != nullptr && iter_lineno == lineno &&
+        strstr(fname, outer_filename)) {
       Py_XDECREF(frame);
       return true;
     }
@@ -939,11 +981,11 @@ static int trace_func(PyObject* obj, PyFrameObject* frame, int what,
                         static_cast<PyCodeObject*>(code)->co_filename) == 0) {
     return 0;
   }
-  PyPtr<> last_fname_unicode(PyUnicode_AsASCIIString(last_fname));
+  PyPtr<> last_fname_unicode(encodeFilename(last_fname));
   auto last_fname_s =
-      PyBytes_AsString(static_cast<PyObject*>(last_fname_unicode));
-  PyPtr<> co_filename(
-      PyUnicode_AsASCIIString(static_cast<PyCodeObject*>(code)->co_filename));
+      static_cast<PyObject*>(last_fname_unicode)
+          ? PyBytes_AsString(static_cast<PyObject*>(last_fname_unicode))
+          : nullptr;
 
   // Needed because decref will be called in on_stack
   Py_INCREF(frame);

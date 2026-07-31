@@ -9,6 +9,22 @@ if sys.platform != "win32":
 Filename = NewType("Filename", str)
 
 
+def decode_sample(raw: bytes) -> str:
+    """Decode one sample record written by the native side.
+
+    Records embed source filenames, which the native side encodes as UTF-8
+    with surrogate escapes (see ``encodeFilename`` in
+    ``src/source/pywhere.cpp``). Decoding the same way is the exact inverse,
+    so paths with non-ASCII characters -- and even paths with undecodable
+    bytes, which CPython represents as lone surrogates -- round-trip.
+
+    This used to decode as ASCII, which raised ``UnicodeDecodeError`` and
+    took down the sample-processing loop for any allocation attributed to a
+    file whose path contained e.g. an umlaut (issue #1086).
+    """
+    return raw.decode("utf-8", errors="surrogateescape")
+
+
 class ScaleneMapFile:
 
     # Things that need to be in sync with the C++ side
@@ -249,7 +265,7 @@ class ScaleneMapFile:
             self._buf[length:] = b"\x00" * (self.MAX_BUFSIZE - length)
 
             # Validate the sample has expected format before accepting
-            sample_preview = self._buf[:100].decode("ascii", errors="replace")
+            sample_preview = self._buf[:100].decode("utf-8", errors="replace")
             if "," not in sample_preview:
                 # Malformed sample - skip it but advance position
                 self._lastpos = struct.pack("<Q", end_pos)  # type: ignore[assignment]
@@ -264,4 +280,4 @@ class ScaleneMapFile:
 
     def get_str(self) -> str:
         """Get the string from the buffer."""
-        return self._buf.rstrip(b"\x00").split(b"\n")[0].decode("ascii")
+        return decode_sample(bytes(self._buf.rstrip(b"\x00").split(b"\n")[0]))

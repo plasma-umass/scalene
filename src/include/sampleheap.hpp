@@ -63,12 +63,27 @@ class SampleHeap : public SuperHeap {
   static constexpr uint64_t NEWLINE =
       98821;  // Sentinel value denoting a new line has executed
 
+  // Parse the sampling-window env var, clamping to a positive value. A zero
+  // (or unparseable, since atol returns 0) window would make the sampler
+  // trigger on *every* allocation (`incr >= decr + 0` is always true),
+  // destroying performance -- and is exactly the `interval > 0` precondition
+  // the formal model (formal/lean/Scalene/MemorySampler.lean) requires. Fall
+  // back to the default if the env var is missing or <= 0.
+  static uint64_t samplingWindow() {
+    const char* w = getenv(sampling_window_envname);
+    if (w) {
+      long v = atol(w);
+      if (v > 0) {
+        return static_cast<uint64_t>(v);
+      }
+    }
+    return DefaultAllocationSamplingRateBytes;
+  }
+
   SampleHeap()
       : _lastMallocTrigger(nullptr),
         _freedLastMallocTrigger(false),
-        _allocationSampler(getenv(sampling_window_envname)
-                               ? atol(getenv(sampling_window_envname))
-                               : DefaultAllocationSamplingRateBytes) {
+        _allocationSampler(samplingWindow()) {
     getSampleFile();  // invoked here so the file gets initialized before python
                       // attempts to read from it
 
