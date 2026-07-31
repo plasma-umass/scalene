@@ -40,7 +40,20 @@ with contextlib.suppress(Exception):
             # Create a file to hold the supplied code.
             # We encode the cell number in the string for later recovery.
             # The length of the history buffer lets us find the most recent string (this one).
-            filename = f"_ipython-input-{len(IPython.get_ipython().history_manager.input_hist_raw)-1}-profile"  # type: ignore[no-untyped-call,unused-ignore]
+            #
+            # IPython >= 9.16 annotates get_ipython() as returning
+            # Optional[InteractiveShell], and history_manager is itself
+            # optional. Neither can be None in practice here — a magic only
+            # runs inside a live shell — but we can't index the history
+            # without it, so say so plainly instead of raising AttributeError.
+            shell = IPython.get_ipython()  # type: ignore[no-untyped-call,unused-ignore]
+            history = shell.history_manager if shell is not None else None
+            if history is None:
+                print(
+                    "Scalene: no IPython history is available, so this cell cannot be profiled."
+                )
+                return
+            filename = f"_ipython-input-{len(history.input_hist_raw)-1}-profile"
             with open(filename, "w+") as tmpfile:
                 tmpfile.write(code)
             args.memory = (
