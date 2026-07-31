@@ -300,5 +300,46 @@ def test_marker_registered(pytester: pytest.Pytester) -> None:
     result.stdout.fnmatch_lines(["*@pytest.mark.scalene*"])
 
 
+@requires_native
+def test_distributed_xdist_is_rejected(pytester: pytest.Pytester) -> None:
+    """`--scalene -n 2` must fail loudly rather than write an empty profile.
+
+    Tests run in xdist worker subprocesses, which the controller's in-process
+    sampler never observes: before this guard the run passed and produced a
+    profile with ~1% on a single line, where the same workload attributes ~95%
+    when run serially. Silently-wrong output is the failure mode worth
+    guarding.
+    """
+    pytest.importorskip("xdist")
+    pytester.makepyfile(
+        test_dist="""
+        def test_trivial():
+            assert 1 + 1 == 2
+        """
+    )
+    result = _run(pytester, "--scalene", "-n", "2", "test_dist.py")
+    assert result.ret != 0, "distributed run should not succeed under --scalene"
+    result.stderr.fnmatch_lines(["*cannot profile a distributed pytest-xdist run*"])
+    assert not (pytester.path / "scalene-profile.json").exists()
+
+
+@requires_native
+def test_xdist_zero_workers_still_profiles(pytester: pytest.Pytester) -> None:
+    """`-n 0` keeps everything in-process, so profiling stays allowed."""
+    pytest.importorskip("xdist")
+    pytester.makepyfile(
+        test_inproc="""
+        def test_work():
+            total = 0
+            for i in range(2_000_000):
+                total += i
+            assert total > 0
+        """
+    )
+    result = _run(pytester, "--scalene", "-n", "0", "test_inproc.py")
+    result.assert_outcomes(passed=1)
+    assert (pytester.path / "scalene-profile.json").exists()
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

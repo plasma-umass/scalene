@@ -105,6 +105,8 @@ def pytest_configure(config: pytest.Config) -> None:
     if not _scalene_requested(config):
         return
 
+    _reject_distributed(config)
+
     # Memory/GPU profiling needs libscalene preloaded, which can only happen
     # by launching the interpreter under `scalene run`. If the user asked for
     # it and we're not already there, re-exec (unless we already tried once).
@@ -117,6 +119,32 @@ def pytest_configure(config: pytest.Config) -> None:
         # _reexec_under_scalene does not return.
 
     config.pluginmanager.register(ScalenePlugin(config), "scalene-plugin")
+
+
+def _reject_distributed(config: pytest.Config) -> None:
+    """Refuse to profile a pytest-xdist run distributed across workers.
+
+    Under ``-n 2`` (or any ``--dist`` mode) the tests execute in worker
+    subprocesses. The sampler installed here lives in the controller, which
+    does almost nothing, so the run *succeeds* and writes a profile that is
+    essentially empty -- observed as ~1% on a single line for a workload that
+    attributes ~95% correctly when run serially. A silently near-empty profile
+    is worse than no profile, so fail fast with something actionable.
+
+    ``-n 0`` is fine and stays allowed: xdist runs everything in this process
+    and leaves ``dist`` at ``"no"``.
+    """
+    import pytest
+
+    dist = getattr(config.option, "dist", "no")
+    if dist == "no":
+        return
+    raise pytest.UsageError(
+        f"--scalene cannot profile a distributed pytest-xdist run (--dist={dist}): "
+        "the tests execute in worker subprocesses that the profiler does not "
+        "observe, so the profile would come out nearly empty. Re-run without "
+        "-n/--dist (or with -n 0, which keeps tests in this process)."
+    )
 
 
 def _scalene_requested(config: pytest.Config) -> bool:
