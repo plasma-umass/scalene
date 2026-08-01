@@ -105,10 +105,18 @@ python3 -m pytest tests/test_coverup_83.py -v
   samples summed, `elapsed_time` maxed, which is correct for parallel workers.
   `-n 0` is *not* distributed (xdist leaves `dist == "no"`) and stays
   in-process. `--cpu-only` is passed on this re-exec unless the user asked for
-  memory/GPU, so `--scalene` keeps meaning CPU. Memory profiling does **not**
-  reach xdist workers (verified: `max_footprint_mb == 0` and 0 MB per line for
-  a workload reporting 43 MB serially), so `--scalene-memory` plus `-n` is
-  rejected with a `UsageError` rather than emitting an all-zero profile.
+  memory/GPU, so `--scalene` keeps meaning CPU.
+- **Memory profiling in `-c`-launched processes:** `Scalene.set_program_path()`
+  re-registers pywhere's native `TraceConfig` (via `_register_files_to_profile`)
+  when memory profiling is on. This matters far more than it looks:
+  `whereInPython` returns 0 outright when that config is missing, and
+  `sampleheap.hpp` only writes an allocation record when `where(...)` returns
+  non-zero — so a missing TraceConfig means libscalene records **nothing**, not
+  merely mis-attributed lines. Scalene's normal startup registers it while
+  preparing to run a program file; an interpreter started as `python -c ...`
+  (how xdist's execnet launches workers) never takes that path. Symptom when
+  broken: `max_footprint_mb == 0`, empty memory timeline, and 0 MB on every
+  line, for a workload that reports tens of MB serially.
 
 ### Replacement Modules (`replacement_*.py`)
 

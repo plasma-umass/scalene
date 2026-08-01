@@ -367,14 +367,18 @@ def test_distributed_xdist_profiles_workers(pytester: pytest.Pytester) -> None:
 
 
 @requires_native
-def test_memory_with_xdist_is_rejected(pytester: pytest.Pytester) -> None:
-    """`--scalene-memory -n 2` must refuse rather than report zero bytes.
+def test_memory_profiling_under_xdist(pytester: pytest.Pytester) -> None:
+    """`--scalene-memory -n 2` attributes allocations made inside workers.
 
-    CPU aggregates across workers, but allocation tracking does not: the run
-    comes back with max_footprint_mb == 0 and 0 MB on every line for a
-    workload that reports tens of MB serially. A memory profile that is
-    uniformly zero looks like "your tests allocate nothing," so this
-    combination is rejected outright.
+    This needs pywhere's native TraceConfig to exist in the worker: without
+    it `whereInPython` returns 0 and libscalene records *no* allocations at
+    all -- the whole run came back with max_footprint_mb == 0 and 0 MB on
+    every line. Scalene's usual startup registers that config while preparing
+    to run a program file, which an xdist worker (`python -c ...`) never does;
+    Scalene.set_program_path() now re-registers it.
+
+    The workload allocates ~40 MB in one test, so a threshold well above
+    incidental interpreter traffic still isn't sampling-sensitive.
     """
     pytest.importorskip("xdist")
     pytester.makepyfile(
@@ -382,12 +386,27 @@ def test_memory_with_xdist_is_rejected(pytester: pytest.Pytester) -> None:
         def test_alloc():
             data = [[j for j in range(3000)] for _ in range(400)]
             assert len(data) == 400
+
+        def test_quiet():
+            assert 1 + 1 == 2
         """
     )
-    result = _run(pytester, "--scalene-memory", "-n", "2", "test_alloc.py")
-    assert result.ret != 0, "--scalene-memory with -n should not succeed"
-    result.stderr.fnmatch_lines(["*cannot be combined with a distributed*"])
-    assert not (pytester.path / "scalene-profile.json").exists()
+    result = _run(pytester, "--scalene-memory", "-n", "2", "-q")
+    result.assert_outcomes(passed=2)
+
+    profile = pytester.path / "scalene-profile.json"
+    assert profile.exists(), "distributed memory run wrote no profile"
+    data = json.loads(profile.read_text())
+    total_mb = sum(
+        line.get("n_malloc_mb", 0)
+        for fdata in data["files"].values()
+        for line in fdata["lines"]
+    )
+    assert total_mb > 5.0, (
+        f"only {total_mb:.1f} MB attributed across xdist workers; the "
+        "worker's allocations were probably not tracked at all "
+        f"(max_footprint_mb={data.get('max_footprint_mb')})"
+    )
 
 
 @requires_native

@@ -105,24 +105,6 @@ def pytest_configure(config: pytest.Config) -> None:
     if not _scalene_requested(config):
         return
 
-    # CPU sampling aggregates across xdist workers, but memory tracking does
-    # not: a distributed `--scalene-memory` run comes back with
-    # max_footprint_mb == 0, an empty memory timeline and 0 MB on every line,
-    # even for a workload that reports 43 MB when run serially. Rather than
-    # hand back a memory profile that is uniformly zero, say what's wrong and
-    # what to do about it. Checked before the re-exec so we fail immediately
-    # instead of relaunching the whole session first.
-    if config.getoption("--scalene-memory") and _is_distributed(config):
-        import pytest
-
-        raise pytest.UsageError(
-            "--scalene-memory cannot be combined with a distributed "
-            "pytest-xdist run: allocations in the workers are not tracked, so "
-            "the memory profile would be all zeros. Use --scalene (CPU "
-            "profiling does aggregate across workers), or drop -n/--dist "
-            "(or use -n 0) to profile memory."
-        )
-
     # Memory/GPU profiling needs libscalene preloaded, and a distributed
     # xdist run needs Scalene's python alias in place so the workers are
     # profiled (see _needs_preload). Both are only possible by launching the
