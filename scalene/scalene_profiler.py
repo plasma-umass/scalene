@@ -1768,6 +1768,16 @@ class Scalene:
         Scalene.__program_path = Filename(os.path.abspath(os.path.expanduser(path)))
         if hasattr(Scalene, "_Scalene__tracing"):
             Scalene.__tracing.set_program_path(Scalene.__program_path)
+        # Refresh the native side too. pywhere keeps its own TraceConfig, and
+        # `whereInPython` returns 0 outright when that config is missing --
+        # which makes libscalene record *no* allocations at all, not merely
+        # mis-attributed ones. Scalene's usual startup registers it while
+        # setting up to run a program file; an interpreter launched as
+        # `python -c ...` (how pytest-xdist's execnet starts its workers)
+        # never goes through that path, so without this the workers report
+        # zero bytes. Same guard as the @profile decorator path above.
+        if Scalene.__initialized and getattr(Scalene.__args, "memory", False):
+            Scalene._register_files_to_profile()
 
     @staticmethod
     def main() -> None:

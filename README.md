@@ -543,20 +543,21 @@ interpreter starts. Equivalently, you can drive it the other way around:
 scalene run -m pytest your_test.py
 ```
 
-**Using `pytest-xdist`:** CPU profiling works with distributed runs
-(`-n 4`, `--dist`). Because the tests execute in worker subprocesses, Scalene
+**Using `pytest-xdist`:** distributed runs (`-n 4`, `--dist`) are supported for
+both CPU and memory. Because the tests execute in worker subprocesses, Scalene
 re-runs the session under `scalene run` so that each worker is profiled as a
 child process; their statistics are then merged into the single
 `scalene-profile.json`:
 
 ```console
-pytest --scalene -n 4                # profiles every worker, merged
+pytest --scalene -n 4                # CPU, every worker, merged
+pytest --scalene-memory -n 4         # CPU + memory, every worker, merged
 ```
 
-Memory profiling is the exception: allocations in xdist workers are not
-tracked, so `--scalene-memory` combined with `-n` reports an error rather than
-handing back a memory profile that reads as all zeros. Profile memory without
-`-n` (or with `-n 0`, which keeps the tests in the current process).
+Note that reported CPU percentages are relative to wall-clock time, which for
+a parallel run is the elapsed time of the whole session — so per-line
+percentages are lower than in a serial run even though the ranking is the
+same.
 
 </details>
 
@@ -664,10 +665,9 @@ You can also drive it the other way around, which is equivalent to
 scalene run -m pytest your_test.py
 ```
 
-CPU profiling works with distributed `pytest-xdist` runs (`pytest --scalene -n
-4`): Scalene profiles each worker and merges the results. Memory profiling
-does not — `--scalene-memory` together with `-n` reports an error instead of
-producing an all-zero memory profile.
+Distributed `pytest-xdist` runs work too (`pytest --scalene -n 4`, with or
+without `--scalene-memory`): Scalene profiles each worker and merges the
+results into one profile.
 
 See [Scalene with pytest](#scalene-with-pytest) for the full set of options.
 
