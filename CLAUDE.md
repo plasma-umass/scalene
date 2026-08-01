@@ -97,6 +97,18 @@ python3 -m pytest tests/test_coverup_83.py -v
   site-packages location). When running under `scalene run -m pytest`, the
   plugin repoints the program path so the test files are profiled instead of
   producing an empty profile.
+- **pytest-xdist:** a distributed run (`-n N`, `--dist`) also takes the re-exec
+  path, even for plain `--scalene`. Under `scalene run`, xdist's execnet
+  launches its workers through Scalene's python alias, so each worker runs as a
+  child (`scalene run --pid=<controller>`), dumps its stats, and
+  `ScaleneStatistics.merge_stats` folds them into one profile — per-line
+  samples summed, `elapsed_time` maxed, which is correct for parallel workers.
+  `-n 0` is *not* distributed (xdist leaves `dist == "no"`) and stays
+  in-process. `--cpu-only` is passed on this re-exec unless the user asked for
+  memory/GPU, so `--scalene` keeps meaning CPU. Memory profiling does **not**
+  reach xdist workers (verified: `max_footprint_mb == 0` and 0 MB per line for
+  a workload reporting 43 MB serially), so `--scalene-memory` plus `-n` is
+  rejected with a `UsageError` rather than emitting an all-zero profile.
 
 ### Replacement Modules (`replacement_*.py`)
 

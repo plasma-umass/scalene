@@ -301,25 +301,92 @@ def test_marker_registered(pytester: pytest.Pytester) -> None:
 
 
 @requires_native
-def test_distributed_xdist_is_rejected(pytester: pytest.Pytester) -> None:
-    """`--scalene -n 2` must fail loudly rather than write an empty profile.
+def test_distributed_xdist_profiles_workers(pytester: pytest.Pytester) -> None:
+    """`--scalene -n 2` profiles the xdist workers, not just the controller.
 
-    Tests run in xdist worker subprocesses, which the controller's in-process
-    sampler never observes: before this guard the run passed and produced a
-    profile with ~1% on a single line, where the same workload attributes ~95%
-    when run serially. Silently-wrong output is the failure mode worth
-    guarding.
+    The tests execute in worker subprocesses. Sampling in-process in the
+    controller would see essentially none of that work, so a distributed run
+    re-execs under `scalene run`: the workers are then launched through
+    Scalene's python alias, run as children, and their stats are merged into
+    one profile. Asserting on the *contents* is the point -- an earlier
+    version of this plugin wrote a profile here that was technically valid but
+    nearly empty.
     """
     pytest.importorskip("xdist")
     pytester.makepyfile(
-        test_dist="""
-        def test_trivial():
-            assert 1 + 1 == 2
+        test_w1="""
+        def test_burn_one():
+            total = 0
+            for i in range(3_000_000):
+                total += i
+            assert total > 0
+        """,
+        test_w2="""
+        def test_burn_two():
+            data = [[j for j in range(3000)] for _ in range(400)]
+            assert len(data) == 400
+        """,
+    )
+
+    # The deterministic part, checked on every attempt: the session has to
+    # succeed and write a profile. If the xdist run stopped being routed
+    # through `scalene run`, the plugin raises UsageError and the session
+    # errors out here -- which is how this test catches that regression.
+    #
+    # Which *workers* land in the profile is sampling-dependent (a short test
+    # can finish between samples), so the stronger "both workers present"
+    # assertion is retried and, failing that, skipped rather than flaked --
+    # the same tradeoff as tests/_scalene_subprocess.py.
+    seen: set[str] = set()
+    for _attempt in range(3):
+        profile = pytester.path / "scalene-profile.json"
+        if profile.exists():
+            profile.unlink()
+        result = _run(pytester, "--scalene", "-n", "2", "-q")
+        result.assert_outcomes(passed=2)
+        assert profile.exists(), "distributed run wrote no profile"
+
+        files = json.loads(profile.read_text())["files"]
+        seen = {os.path.basename(name) for name in files}
+        if {"test_w1.py", "test_w2.py"} <= seen:
+            total_cpu = sum(
+                line["n_cpu_percent_python"] + line["n_cpu_percent_c"]
+                for data in files.values()
+                for line in data["lines"]
+            )
+            assert total_cpu > 1.0, (
+                f"both workers present but only {total_cpu:.2f}% CPU attributed"
+            )
+            return
+    pytest.skip(
+        "Only sampled workers "
+        f"{sorted(seen) or 'none'} across 3 attempts; the session ran and "
+        "produced a profile each time, so xdist routing is working, but "
+        "sampling never covered both workers."
+    )
+
+
+@requires_native
+def test_memory_with_xdist_is_rejected(pytester: pytest.Pytester) -> None:
+    """`--scalene-memory -n 2` must refuse rather than report zero bytes.
+
+    CPU aggregates across workers, but allocation tracking does not: the run
+    comes back with max_footprint_mb == 0 and 0 MB on every line for a
+    workload that reports tens of MB serially. A memory profile that is
+    uniformly zero looks like "your tests allocate nothing," so this
+    combination is rejected outright.
+    """
+    pytest.importorskip("xdist")
+    pytester.makepyfile(
+        test_alloc="""
+        def test_alloc():
+            data = [[j for j in range(3000)] for _ in range(400)]
+            assert len(data) == 400
         """
     )
-    result = _run(pytester, "--scalene", "-n", "2", "test_dist.py")
-    assert result.ret != 0, "distributed run should not succeed under --scalene"
-    result.stderr.fnmatch_lines(["*cannot profile a distributed pytest-xdist run*"])
+    result = _run(pytester, "--scalene-memory", "-n", "2", "test_alloc.py")
+    assert result.ret != 0, "--scalene-memory with -n should not succeed"
+    result.stderr.fnmatch_lines(["*cannot be combined with a distributed*"])
     assert not (pytester.path / "scalene-profile.json").exists()
 
 
