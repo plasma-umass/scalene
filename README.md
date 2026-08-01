@@ -302,6 +302,8 @@ disclosure triangles at the bottom of the GUI.
 
 - Scalene can produce **reduced profiles** (via `--reduced-profile`) that only report lines that consume more than 1% of CPU or perform at least 100 allocations.
 - Scalene supports `@profile` decorators to profile only specific functions.
+- Scalene profiles **pytest test suites** directly, via `pytest --scalene`
+  (and `@pytest.mark.scalene` to narrow it to specific tests).
 - When Scalene is profiling a program launched in the background (via `&`), you can **suspend and resume profiling**.
 - Scalene supports **free-threaded Python (3.13t / 3.14t)** with full
   CPU + memory profiling.
@@ -487,6 +489,68 @@ code...
 ```
 </details>
 
+### Scalene with pytest
+
+<details>
+<summary>
+Instructions for profiling a test suite with <code>pytest --scalene</code>
+</summary>
+
+Scalene ships a pytest plugin, so profiling a test run is just a flag on your
+usual pytest command — no throwaway driver script. The plugin is registered
+automatically when you install Scalene; it does nothing unless you pass
+`--scalene`.
+
+```console
+pytest --scalene                     # profile the whole session (CPU)
+pytest --scalene -k test_hot         # profile only the selected tests
+pytest --scalene --scalene-memory    # profile CPU *and* memory
+```
+
+The profile is written to `scalene-profile.json`, which you view the usual way:
+
+```console
+scalene view                         # open in browser
+scalene view --cli                   # view in terminal
+```
+
+To profile only certain tests, mark them with `@pytest.mark.scalene`. Unmarked
+tests still run, but with profiling suspended:
+
+```python
+import pytest
+
+@pytest.mark.scalene
+def test_the_slow_one():
+    ...
+```
+
+Options:
+
+| Option | Effect |
+| --- | --- |
+| `--scalene` | Profile CPU, in-process (no re-launch) |
+| `--scalene-memory` | Also profile memory (re-runs pytest under `scalene run`) |
+| `--scalene-gpu` | Also profile GPU time and memory (also re-runs) |
+| `--scalene-outfile PATH` | Where to write the profile |
+| `--scalene-args='...'` | Extra arguments to forward to `scalene run` |
+
+Memory and GPU profiling re-run pytest under `scalene run` automatically,
+because allocation tracking needs Scalene's native library loaded before the
+interpreter starts. Equivalently, you can drive it the other way around:
+
+```console
+scalene run -m pytest your_test.py
+```
+
+**Note on `pytest-xdist`:** profiling is not compatible with distributed runs
+(`-n 2`, `--dist`). Tests execute in worker subprocesses that the profiler
+does not observe, so the profile would come out nearly empty; Scalene reports
+an error instead of writing a misleading profile. Run without `-n` — or with
+`-n 0`, which keeps tests in the current process and profiles normally.
+
+</details>
+
 ## Installation
 
 <details open>
@@ -590,6 +654,13 @@ You can also drive it the other way around, which is equivalent to
 ```bash
 scalene run -m pytest your_test.py
 ```
+
+Profiling is not compatible with distributed `pytest-xdist` runs (`-n 2`,
+`--dist`): the tests run in worker subprocesses the profiler cannot see, so
+Scalene reports an error rather than writing a near-empty profile. Use `-n 0`
+or drop the flag.
+
+See [Scalene with pytest](#scalene-with-pytest) for the full set of options.
 
 </details>
 
