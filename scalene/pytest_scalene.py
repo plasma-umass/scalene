@@ -105,11 +105,28 @@ def pytest_configure(config: pytest.Config) -> None:
     if not _scalene_requested(config):
         return
 
-    _reject_distributed(config)
+    # CPU sampling aggregates across xdist workers, but memory tracking does
+    # not: a distributed `--scalene-memory` run comes back with
+    # max_footprint_mb == 0, an empty memory timeline and 0 MB on every line,
+    # even for a workload that reports 43 MB when run serially. Rather than
+    # hand back a memory profile that is uniformly zero, say what's wrong and
+    # what to do about it. Checked before the re-exec so we fail immediately
+    # instead of relaunching the whole session first.
+    if config.getoption("--scalene-memory") and _is_distributed(config):
+        import pytest
 
-    # Memory/GPU profiling needs libscalene preloaded, which can only happen
-    # by launching the interpreter under `scalene run`. If the user asked for
-    # it and we're not already there, re-exec (unless we already tried once).
+        raise pytest.UsageError(
+            "--scalene-memory cannot be combined with a distributed "
+            "pytest-xdist run: allocations in the workers are not tracked, so "
+            "the memory profile would be all zeros. Use --scalene (CPU "
+            "profiling does aggregate across workers), or drop -n/--dist "
+            "(or use -n 0) to profile memory."
+        )
+
+    # Memory/GPU profiling needs libscalene preloaded, and a distributed
+    # xdist run needs Scalene's python alias in place so the workers are
+    # profiled (see _needs_preload). Both are only possible by launching the
+    # interpreter under `scalene run`, so re-exec if we aren't already there.
     if (
         _needs_preload(config)
         and not _already_under_scalene()
@@ -118,33 +135,31 @@ def pytest_configure(config: pytest.Config) -> None:
         _reexec_under_scalene(config)
         # _reexec_under_scalene does not return.
 
+    # If we get here still distributed but *not* under `scalene run`, the
+    # re-exec didn't happen or didn't take. Sampling in the controller would
+    # see essentially nothing (the tests run in the workers) and we'd write a
+    # near-empty profile that looks valid. Say so instead.
+    if _is_distributed(config) and not _already_under_scalene():
+        import pytest
+
+        raise pytest.UsageError(
+            "--scalene could not profile this distributed pytest-xdist run: "
+            "profiling workers requires re-running under `scalene run`, which "
+            "did not happen. Re-run without -n/--dist (or with -n 0, which "
+            "keeps the tests in this process)."
+        )
+
     config.pluginmanager.register(ScalenePlugin(config), "scalene-plugin")
 
 
-def _reject_distributed(config: pytest.Config) -> None:
-    """Refuse to profile a pytest-xdist run distributed across workers.
+def _is_distributed(config: pytest.Config) -> bool:
+    """True when pytest-xdist will farm tests out to worker subprocesses.
 
-    Under ``-n 2`` (or any ``--dist`` mode) the tests execute in worker
-    subprocesses. The sampler installed here lives in the controller, which
-    does almost nothing, so the run *succeeds* and writes a profile that is
-    essentially empty -- observed as ~1% on a single line for a workload that
-    attributes ~95% correctly when run serially. A silently near-empty profile
-    is worse than no profile, so fail fast with something actionable.
-
-    ``-n 0`` is fine and stays allowed: xdist runs everything in this process
-    and leaves ``dist`` at ``"no"``.
+    ``-n 0`` is *not* distributed: xdist runs everything in the current
+    process and leaves ``dist`` at ``"no"``, so in-process sampling is
+    accurate there.
     """
-    import pytest
-
-    dist = getattr(config.option, "dist", "no")
-    if dist == "no":
-        return
-    raise pytest.UsageError(
-        f"--scalene cannot profile a distributed pytest-xdist run (--dist={dist}): "
-        "the tests execute in worker subprocesses that the profiler does not "
-        "observe, so the profile would come out nearly empty. Re-run without "
-        "-n/--dist (or with -n 0, which keeps tests in this process)."
-    )
+    return getattr(config.option, "dist", "no") != "no"
 
 
 def _scalene_requested(config: pytest.Config) -> bool:
@@ -156,7 +171,32 @@ def _scalene_requested(config: pytest.Config) -> bool:
 
 
 def _needs_preload(config: pytest.Config) -> bool:
-    """Memory and GPU profiling both require the re-exec/preload path."""
+    """Whether this run has to be relaunched under ``scalene run``.
+
+    Three cases need it:
+
+    * ``--scalene-memory`` -- allocation tracking needs libscalene preloaded
+      before the interpreter starts.
+    * ``--scalene-gpu`` -- same preload path.
+    * a distributed pytest-xdist run -- the tests execute in worker
+      subprocesses, and an in-process sampler in the controller sees
+      essentially none of that work. ``scalene run`` installs a python alias
+      on PATH and as ``sys.executable``; xdist's execnet launches its workers
+      through it, so each worker runs under ``scalene run --pid=<controller>``,
+      dumps its stats, and ``ScaleneStatistics.merge_stats`` folds them into
+      the single profile the controller writes. That merge is already
+      concurrency-correct -- per-line samples are summed while ``elapsed_time``
+      is a max, which is what you want for workers running in parallel.
+    """
+    return bool(
+        config.getoption("--scalene-memory")
+        or config.getoption("--scalene-gpu")
+        or _is_distributed(config)
+    )
+
+
+def _wants_preload(config: pytest.Config) -> bool:
+    """True when the user explicitly asked for memory or GPU profiling."""
     return bool(
         config.getoption("--scalene-memory") or config.getoption("--scalene-gpu")
     )
@@ -188,6 +228,12 @@ def _reexec_under_scalene(config: pytest.Config) -> None:
         scalene_run_args.append("--memory")
     if config.getoption("--scalene-gpu"):
         scalene_run_args.append("--gpu")
+    if not _wants_preload(config):
+        # We're only here to get xdist workers profiled, not because the user
+        # asked for memory/GPU. `scalene run` profiles memory by default, so
+        # without this a plain `pytest --scalene -n 2` would quietly turn into
+        # a memory profile -- slower, and not what --scalene means.
+        scalene_run_args.append("--cpu-only")
     extra = config.getoption("--scalene-args")
     if extra:
         import shlex
@@ -219,10 +265,13 @@ def _reexec_under_scalene(config: pytest.Config) -> None:
     env = dict(os.environ)
     env[_REEXEC_GUARD] = "1"
 
-    sys.stderr.write(
-        "Scalene: re-running pytest under `scalene run` for "
-        "memory/GPU profiling...\n"
-    )
+    if not _wants_preload(config):
+        why = "so pytest-xdist workers are profiled"
+    elif _is_distributed(config):
+        why = "for memory/GPU profiling and to profile pytest-xdist workers"
+    else:
+        why = "for memory/GPU profiling"
+    sys.stderr.write(f"Scalene: re-running pytest under `scalene run` {why}...\n")
     sys.stderr.flush()
 
     # execve replaces this process, so the child IS the test run and its exit

@@ -543,11 +543,20 @@ interpreter starts. Equivalently, you can drive it the other way around:
 scalene run -m pytest your_test.py
 ```
 
-**Note on `pytest-xdist`:** profiling is not compatible with distributed runs
-(`-n 2`, `--dist`). Tests execute in worker subprocesses that the profiler
-does not observe, so the profile would come out nearly empty; Scalene reports
-an error instead of writing a misleading profile. Run without `-n` — or with
-`-n 0`, which keeps tests in the current process and profiles normally.
+**Using `pytest-xdist`:** CPU profiling works with distributed runs
+(`-n 4`, `--dist`). Because the tests execute in worker subprocesses, Scalene
+re-runs the session under `scalene run` so that each worker is profiled as a
+child process; their statistics are then merged into the single
+`scalene-profile.json`:
+
+```console
+pytest --scalene -n 4                # profiles every worker, merged
+```
+
+Memory profiling is the exception: allocations in xdist workers are not
+tracked, so `--scalene-memory` combined with `-n` reports an error rather than
+handing back a memory profile that reads as all zeros. Profile memory without
+`-n` (or with `-n 0`, which keeps the tests in the current process).
 
 </details>
 
@@ -655,10 +664,10 @@ You can also drive it the other way around, which is equivalent to
 scalene run -m pytest your_test.py
 ```
 
-Profiling is not compatible with distributed `pytest-xdist` runs (`-n 2`,
-`--dist`): the tests run in worker subprocesses the profiler cannot see, so
-Scalene reports an error rather than writing a near-empty profile. Use `-n 0`
-or drop the flag.
+CPU profiling works with distributed `pytest-xdist` runs (`pytest --scalene -n
+4`): Scalene profiles each worker and merges the results. Memory profiling
+does not — `--scalene-memory` together with `-n` reports an error instead of
+producing an all-zero memory profile.
 
 See [Scalene with pytest](#scalene-with-pytest) for the full set of options.
 
