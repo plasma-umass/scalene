@@ -2027,7 +2027,7 @@ class Scalene:
                     raise FileNotFoundError
                 # Use the full absolute path of the program being profiled, expanding ~ if need be.
                 prog_name = os.path.abspath(os.path.expanduser(progs[0]))
-                with open(prog_name, encoding="utf-8") as prog_being_profiled:
+                with open(prog_name, encoding="utf-8-sig") as prog_being_profiled:
                     # Read in the code and compile it.
                     code: Any = ""
                     try:
