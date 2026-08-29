@@ -607,7 +607,14 @@ class Scalene:
             Scalene.__tracing.add_file_to_profile(filename)
             Scalene.__tracing.add_function_to_profile(filename, func)
 
-        if Scalene.__args.memory:
+        # Only push the file list into pywhere when we are actually profiling.
+        # `import scalene` installs this as `builtins.profile`, so any
+        # @profile-decorated module imported *without* a live `scalene run`
+        # (e.g. when the pytest plugin's entry point pulls scalene in on every
+        # pytest invocation) would otherwise call into pywhere before
+        # libscalene is preloaded and crash with "Unable to find
+        # p_whereInPython". Outside a profiling run, @profile is a pass-through.
+        if Scalene.__initialized and Scalene.__args.memory:
             Scalene._register_files_to_profile()
         return func
 
@@ -1737,6 +1744,40 @@ class Scalene:
     def set_initialized() -> None:
         """Indicate that Scalene has been initialized and is ready to begin profiling."""
         Scalene.__initialized = True
+
+    @staticmethod
+    def get_initialized() -> bool:
+        """Return whether Scalene has been initialized.
+
+        Lets programmatic entry points (e.g. the pytest plugin) detect that
+        they are already running under `scalene run` and should drive the
+        existing profiler rather than constructing a second one.
+        """
+        return Scalene.__initialized
+
+    @staticmethod
+    def set_program_path(path: str) -> None:
+        """Set the root directory whose files should be profiled.
+
+        `scalene run <file>` infers this from the entrypoint's directory.
+        Programmatic entry points that start profiling in-process (e.g. the
+        pytest plugin, where the "entrypoint" is pytest itself, buried in
+        site-packages) call this so that the user's own code - not Scalene's
+        host process - is what `_should_trace` keeps.
+        """
+        Scalene.__program_path = Filename(os.path.abspath(os.path.expanduser(path)))
+        if hasattr(Scalene, "_Scalene__tracing"):
+            Scalene.__tracing.set_program_path(Scalene.__program_path)
+        # Refresh the native side too. pywhere keeps its own TraceConfig, and
+        # `whereInPython` returns 0 outright when that config is missing --
+        # which makes libscalene record *no* allocations at all, not merely
+        # mis-attributed ones. Scalene's usual startup registers it while
+        # setting up to run a program file; an interpreter launched as
+        # `python -c ...` (how pytest-xdist's execnet starts its workers)
+        # never goes through that path, so without this the workers report
+        # zero bytes. Same guard as the @profile decorator path above.
+        if Scalene.__initialized and getattr(Scalene.__args, "memory", False):
+            Scalene._register_files_to_profile()
 
     @staticmethod
     def main() -> None:

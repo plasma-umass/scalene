@@ -83,6 +83,41 @@ python3 -m pytest tests/test_coverup_83.py -v
 - **`scalene_magics.py`** - Jupyter magic commands (`%scrun` for line mode, `%%scalene` for cell mode)
 - **`scalene_jupyter.py`** - Jupyter notebook support utilities
 
+### Pytest Integration
+
+- **`pytest_scalene.py`** - Pytest plugin (registered via the `pytest11` entry
+  point in `pyproject.toml`). Adds `pytest --scalene` (in-process CPU
+  profiling), `--scalene-memory`/`--scalene-gpu` (re-exec under `scalene run`
+  so libscalene is preloaded), `--scalene-outfile`, and `--scalene-args`. The
+  `@pytest.mark.scalene` marker narrows profiling to only the marked tests.
+  Resolves [issue #70](https://github.com/plasma-umass/scalene/issues/70).
+  Relies on two `Scalene` accessors added for programmatic entry points:
+  `get_initialized()` (detect we're already under `scalene run`) and
+  `set_program_path()` (point tracing at the test rootdir instead of pytest's
+  site-packages location). When running under `scalene run -m pytest`, the
+  plugin repoints the program path so the test files are profiled instead of
+  producing an empty profile.
+- **pytest-xdist:** a distributed run (`-n N`, `--dist`) also takes the re-exec
+  path, even for plain `--scalene`. Under `scalene run`, xdist's execnet
+  launches its workers through Scalene's python alias, so each worker runs as a
+  child (`scalene run --pid=<controller>`), dumps its stats, and
+  `ScaleneStatistics.merge_stats` folds them into one profile — per-line
+  samples summed, `elapsed_time` maxed, which is correct for parallel workers.
+  `-n 0` is *not* distributed (xdist leaves `dist == "no"`) and stays
+  in-process. `--cpu-only` is passed on this re-exec unless the user asked for
+  memory/GPU, so `--scalene` keeps meaning CPU.
+- **Memory profiling in `-c`-launched processes:** `Scalene.set_program_path()`
+  re-registers pywhere's native `TraceConfig` (via `_register_files_to_profile`)
+  when memory profiling is on. This matters far more than it looks:
+  `whereInPython` returns 0 outright when that config is missing, and
+  `sampleheap.hpp` only writes an allocation record when `where(...)` returns
+  non-zero — so a missing TraceConfig means libscalene records **nothing**, not
+  merely mis-attributed lines. Scalene's normal startup registers it while
+  preparing to run a program file; an interpreter started as `python -c ...`
+  (how xdist's execnet launches workers) never takes that path. Symptom when
+  broken: `max_footprint_mb == 0`, empty memory timeline, and 0 MB on every
+  line, for a workload that reports tens of MB serially.
+
 ### Replacement Modules (`replacement_*.py`)
 
 These modules monkey-patch standard library functions to capture profiling data during blocking operations:
