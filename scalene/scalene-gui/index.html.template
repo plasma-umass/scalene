@@ -285,17 +285,9 @@
 
     <script>
       const profile = {{ profile }}
-      // API keys from environment variables (if set)
-      const envApiKeys = {
-        openai: "{{ api_keys.openai_api_key | default('', true) }}",
-        anthropic: "{{ api_keys.anthropic_api_key | default('', true) }}",
-        gemini: "{{ api_keys.gemini_api_key | default('', true) }}",
-        azure: "{{ api_keys.azure_api_key | default('', true) }}",
-        azureUrl: "{{ api_keys.azure_api_url | default('', true) }}",
-        awsAccessKey: "{{ api_keys.aws_access_key | default('', true) }}",
-        awsSecretKey: "{{ api_keys.aws_secret_key | default('', true) }}",
-        awsRegion: "{{ api_keys.aws_region | default('', true) }}"
-      };
+      // Kept for compatibility with the GUI bundle. Credentials must be
+      // entered in the browser and are never copied from the environment.
+      const envApiKeys = {};
     </script>
     <script>
         function clickToLoadFile() {
