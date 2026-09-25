@@ -138,9 +138,19 @@ def test_mallocs_credited_to_allocator_not_caller(tmp_path: Path) -> None:
 
 
 def test_memory_samples_timeline_only_on_allocator(tmp_path: Path) -> None:
-    """The per-line memory sparkline (memory_samples) must only be
-    populated on the allocator line. An empty sparkline on a caller
-    line is fine; a populated one is the regression.
+    """The per-line memory sparkline (memory_samples) must be dominated
+    by the allocator line, not the caller.
+
+    We can't require the caller's sparkline to be empty. CPython
+    internals (GC, allocator growth) and Scalene's own signal-handler
+    bookkeeping on the main thread make stray allocations that get
+    stamped with whatever user line is active. Smear suppression in
+    scalene_memory_profiler only drops those on lines whose bytecode
+    can't allocate, and the caller line contains a CALL, so an
+    occasional stray sample lands there (seen once on ubuntu/3.14 CI).
+    The regression this guards against — stale async-signal
+    attribution — would put most samples on the caller, so require
+    the caller to have far fewer samples than the allocator.
     """
     profile = _run_scalene(tmp_path)
     lines = _fixture_lines(profile)
@@ -157,11 +167,11 @@ def test_memory_samples_timeline_only_on_allocator(tmp_path: Path) -> None:
         f"Allocator line {ALLOCATOR_LINE} should have memory_samples, got "
         f"{len(alloc_samples)}. Full line: {allocator!r}"
     )
-    assert len(caller_samples) == 0, (
-        f"Caller line {CALLER_LINE} must not have a memory timeline, but "
-        f"got {len(caller_samples)} samples. That means footprint samples "
-        f"are leaking into caller lines — stale async-signal attribution "
-        f"regressed."
+    assert len(caller_samples) * 4 <= len(alloc_samples), (
+        f"Caller line {CALLER_LINE} got {len(caller_samples)} memory "
+        f"samples vs. {len(alloc_samples)} on allocator line "
+        f"{ALLOCATOR_LINE}. That means footprint samples are leaking into "
+        f"caller lines — stale async-signal attribution regressed."
     )
 
 
