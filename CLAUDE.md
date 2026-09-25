@@ -405,9 +405,9 @@ sock.bind(("", port))
 5. **Update `persistence.ts`** (for env var support):
    - Add mapping in `envKeyMap` for new fields
 
-6. **Update `scalene_utility.py`**:
-   - Read environment variable in `api_keys` dict
-   - Pass to template rendering
+6. **Update `launchbrowser.py`** (for env var support):
+   - Add the field and its environment variable(s) to `ENV_API_KEY_VARIABLES`
+   - Add the field to `EnvApiKeys` / `envApiKeyFields` in `persistence.ts`
 
 7. **Rebuild the bundle**:
    ```bash
@@ -416,7 +416,8 @@ sock.bind(("", port))
 
 ### Environment Variable API Keys
 
-The GUI supports prepopulating API keys from environment variables:
+With `scalene view --api-keys-from-env` (opt-in), the GUI prepopulates API
+keys from environment variables:
 
 | Element ID | Environment Variable | Provider |
 |------------|---------------------|----------|
@@ -430,9 +431,21 @@ The GUI supports prepopulating API keys from environment variables:
 | `aws-region` | `AWS_DEFAULT_REGION` or `AWS_REGION` | Amazon Bedrock |
 
 **Flow:**
-1. `scalene_utility.py` reads env vars and passes to Jinja2 template
-2. Template injects `envApiKeys` JavaScript object into page
-3. `persistence.ts` uses env vars as fallbacks when localStorage is empty
+1. `scalene view --api-keys-from-env` passes the flag to `launchbrowser.py`,
+   whose local server reads the env vars and serves them from memory at
+   `/env-api-keys.json` (an empty object without the flag)
+2. `loadEnvApiKeys()` in `persistence.ts` fetches that on page load (only when
+   the page is served over HTTP), before persistent fields are restored
+3. `persistence.ts` uses env vars as fallbacks when localStorage is empty;
+   `prefillNonPersistentEnvFields()` fills the non-persistent OpenAI key
+
+**Never embed credentials in the generated HTML.** `scalene-profile.html` is
+written to the working directory, copied to the system temp dir, and
+`--standalone` files exist to be shared (#1095;
+`tests/test_html_credential_security.py` enforces this). The endpoint answers
+only requests whose `Host` is `localhost:<port>`/`127.0.0.1:<port>` (blocks DNS
+rebinding) and whose `Sec-Fetch-Site`, if sent, is same-origin; it sends no
+CORS headers. The flag is rejected with `--cli`, `--html`, and `--standalone`.
 
 ### Updating Version
 

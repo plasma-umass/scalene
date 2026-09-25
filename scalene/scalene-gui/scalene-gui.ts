@@ -26,7 +26,13 @@ import {
 import { checkApiKey, fetchOpenAIModels } from "./openai";
 import { fetchGeminiModels } from "./gemini";
 import { fetchModelNames } from "./ollama";
-import { observeDOM, processPersistentElements } from "./persistence";
+import {
+  getEnvApiKeys,
+  loadEnvApiKeys,
+  observeDOM,
+  prefillNonPersistentEnvFields,
+  processPersistentElements,
+} from "./persistence";
 
 // Expose checkApiKey globally
 (window as unknown as { checkApiKey: typeof checkApiKey }).checkApiKey = checkApiKey;
@@ -3258,18 +3264,6 @@ function replaceDivWithSelect(): void {
 // Call the function to replace the div with the select element
 replaceDivWithSelect();
 
-// Declare envApiKeys as a global variable that may be injected by the template
-declare const envApiKeys: {
-  openai?: string;
-  anthropic?: string;
-  gemini?: string;
-  azure?: string;
-  azureUrl?: string;
-  awsAccessKey?: string;
-  awsSecretKey?: string;
-  awsRegion?: string;
-} | undefined;
-
 // Get the first provider option from the select element
 function getFirstProvider(): string {
   const serviceSelect = document.getElementById("service-select") as HTMLSelectElement | null;
@@ -3279,9 +3273,7 @@ function getFirstProvider(): string {
 // Determine default provider based on environment variables (alphabetical order)
 function getDefaultProvider(): string {
   const firstProvider = getFirstProvider();
-  if (typeof envApiKeys === "undefined") {
-    return firstProvider;
-  }
+  const envApiKeys = getEnvApiKeys();
   // Check providers in alphabetical order
   if (envApiKeys.awsAccessKey && envApiKeys.awsSecretKey) return "amazon";
   if (envApiKeys.anthropic) return "anthropic";
@@ -3304,9 +3296,13 @@ function initializeDefaultProvider(): void {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  // Keys must be in hand before persistent fields are restored, since
+  // restoreState falls back to them when localStorage is empty.
+  await loadEnvApiKeys();
   initializeDefaultProvider();
   processPersistentElements();
+  prefillNonPersistentEnvFields();
 });
 
 observeDOM();

@@ -1,4 +1,5 @@
 import http.server
+import json
 import os
 import pathlib
 import platform
@@ -10,7 +11,7 @@ import tempfile
 import threading
 import time
 import webbrowser
-from typing import Any, NewType
+from typing import Any, Dict, NewType, Tuple
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -48,7 +49,38 @@ last_heartbeat = time.time()
 server_running = True
 
 
+# GUI field -> environment variable(s), first non-empty wins. Served only
+# with `scalene view --api-keys-from-env`; see CustomHandler.
+ENV_API_KEY_VARIABLES: Dict[str, Tuple[str, ...]] = {
+    "openai": ("OPENAI_API_KEY",),
+    "anthropic": ("ANTHROPIC_API_KEY",),
+    "gemini": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+    "azure": ("AZURE_OPENAI_API_KEY",),
+    "azureUrl": ("AZURE_OPENAI_ENDPOINT",),
+    "awsAccessKey": ("AWS_ACCESS_KEY_ID",),
+    "awsSecretKey": ("AWS_SECRET_ACCESS_KEY",),
+    "awsRegion": ("AWS_DEFAULT_REGION", "AWS_REGION"),
+}
+
+ENV_API_KEYS_PATH = "/env-api-keys.json"
+
+
+def read_env_api_keys() -> Dict[str, str]:
+    """Return the AI provider credentials set in the environment."""
+    keys: Dict[str, str] = {}
+    for field, variables in ENV_API_KEY_VARIABLES.items():
+        for variable in variables:
+            value = os.environ.get(variable, "")
+            if value:
+                keys[field] = value
+                break
+    return keys
+
+
 class CustomHandler(http.server.SimpleHTTPRequestHandler):
+    # Set by start() when the user passed --api-keys-from-env.
+    serve_env_api_keys = False
+
     def do_GET(self) -> Any:
         global last_heartbeat
         if self.path == "/heartbeat":
@@ -56,8 +88,46 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
             return
+        elif self.path.split("?", 1)[0] == ENV_API_KEYS_PATH:
+            self.send_env_api_keys()
+            return
         else:
             return http.server.SimpleHTTPRequestHandler.do_GET(self)
+
+    def is_same_origin_request(self) -> bool:
+        """Reject requests that other websites could make on the user's behalf.
+
+        Keys are served as JSON with no CORS headers, so a page from another
+        origin can't read the response. Two checks cover the remaining
+        routes: the Host header must name this server, which defeats DNS
+        rebinding (another domain resolving to 127.0.0.1), and browsers that
+        send Sec-Fetch-Site must report a same-origin request.
+        """
+        address = self.server.server_address
+        if not isinstance(address, tuple):
+            return False
+        port = address[1]
+        allowed_hosts = {f"localhost:{port}", f"127.0.0.1:{port}"}
+        if self.headers.get("Host", "") not in allowed_hosts:
+            return False
+        fetch_site = self.headers.get("Sec-Fetch-Site")
+        return fetch_site is None or fetch_site in ("same-origin", "none")
+
+    def send_env_api_keys(self) -> None:
+        """Serve environment credentials from memory; they never touch disk."""
+        if not self.is_same_origin_request():
+            self.send_response(403)
+            self.end_headers()
+            return
+        keys = read_env_api_keys() if self.serve_env_api_keys else {}
+        body = json.dumps(keys).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body)
 
 
 def monitor_heartbeat() -> None:
@@ -127,7 +197,6 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         profile=profile,
         scalene_version=scalene_config.scalene_version,
         scalene_date=scalene_config.scalene_date,
-        api_keys={},
     )
 
     # Write the rendered content to the specified output file.
@@ -138,7 +207,8 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         pass
 
 
-def start(filename: str, port: int) -> None:
+def start(filename: str, port: int, api_keys_from_env: bool = False) -> None:
+    CustomHandler.serve_env_api_keys = api_keys_from_env
     while not is_port_available(port):
         port += 1
 
@@ -185,6 +255,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 2:
         filename = sys.argv[1]
         port = int(sys.argv[2])
-        start(filename, port)
+        start(filename, port, api_keys_from_env="--api-keys-from-env" in sys.argv[3:])
     else:
         print("Need to supply filename and port arguments.")

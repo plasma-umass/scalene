@@ -285,9 +285,6 @@
 
     <script>
       const profile = {{ profile }}
-      // Kept for compatibility with the GUI bundle. Credentials must be
-      // entered in the browser and are never copied from the environment.
-      const envApiKeys = {};
     </script>
     <script>
         function clickToLoadFile() {
