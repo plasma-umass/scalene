@@ -34,7 +34,7 @@ optimizations.
 
 > **Note**
 >
-> For optimization suggestions, Scalene supports a variety of AI providers, including [Amazon Bedrock](https://aws.amazon.com/bedrock), [Microsoft Azure](https://azure.microsoft.com/en-us/), [OpenAI](https://openai.com), and local models via [Ollama](https://ollama.com/). To enable AI-powered optimization suggestions from AI providers, you need to select a provider and, if needed, enter your credentials, in the box under "AI Optimization Options".
+> For optimization suggestions, Scalene supports a variety of AI providers, including [Amazon Bedrock](https://aws.amazon.com/bedrock), [Microsoft Azure](https://azure.microsoft.com/en-us/), [OpenAI](https://openai.com), and local models via [Ollama](https://ollama.com/). To enable AI-powered optimization suggestions from AI providers, you need to select a provider and, if needed, enter your credentials, in the box under "AI Optimization Options". To prefill them from environment variables (such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `AWS_ACCESS_KEY_ID`), view the profile with `scalene view --api-keys-from-env`; the keys are passed only to your local browser session and are never written into the HTML file.
 >
 > <img width="607" height="316" alt="AI Optimization Options" src="https://github.com/user-attachments/assets/3c803237-063f-481a-8624-5c1d7f205c8a" />
 
@@ -446,6 +446,7 @@ examples:
   % scalene view --html             # save to scalene-profile.html
   % scalene view --standalone       # save as self-contained HTML
   % scalene view myprofile.json     # open specific profile in browser
+  % scalene view --api-keys-from-env  # prefill AI API keys from env vars
 
 options:
   -h, --help     show this help message and exit
@@ -453,6 +454,9 @@ options:
   --html         save to scalene-profile.html (no browser)
   --standalone   save as self-contained HTML with all assets embedded
   -r, --reduced  only show lines with activity (--cli mode)
+  --api-keys-from-env
+                 prefill AI provider API keys from environment variables;
+                 served only to the local browser, never written to HTML
 ```
 </details>
 

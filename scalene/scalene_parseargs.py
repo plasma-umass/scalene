@@ -956,6 +956,17 @@ class ScaleneParseArgs:
             print(f"Scalene: profile file '{profile_file}' not found.", file=sys.stderr)
             sys.exit(1)
 
+        # Keys are handed to the browser by the local server, so they only
+        # make sense for the live browser view. Refuse the modes that write
+        # a file to keep or share, rather than silently ignoring the flag.
+        if args.api_keys_from_env and (args.cli or args.html_only or args.standalone):
+            print(
+                "Scalene: --api-keys-from-env only works when viewing in the "
+                "browser; it can't be combined with --cli, --html, or --standalone.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
         # If --cli mode, display in terminal
         if args.cli:
             try:
@@ -993,6 +1004,7 @@ class ScaleneParseArgs:
                         f"{dir}{os.sep}launchbrowser.py",
                         os.path.abspath(output_file),
                         str(scalene.scalene_config.SCALENE_PORT),
+                        *(["--api-keys-from-env"] if args.api_keys_from_env else []),
                     ],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -1112,6 +1124,7 @@ examples:
   % scalene view --html             # save to scalene-profile.html
   % scalene view --standalone       # save as single self-contained HTML file
   % scalene view myprofile.json     # open specific profile in browser
+  % scalene view --api-keys-from-env  # prefill AI API keys from env vars
 """)
         view_parser = subparsers.add_parser(
             "view",
@@ -1154,6 +1167,18 @@ examples:
             action="store_true",
             default=False,
             help="Save as a single self-contained HTML file with all assets embedded (implies --html)",
+        )
+        view_parser.add_argument(
+            "--api-keys-from-env",
+            dest="api_keys_from_env",
+            action="store_true",
+            default=False,
+            help=(
+                "Prefill AI provider API keys from environment variables "
+                "(OPENAI_API_KEY, ANTHROPIC_API_KEY, ...). Keys are served "
+                "only to the local browser session and never written to the "
+                "HTML file"
+            ),
         )
 
         # Check if user provided a .py file without a subcommand
