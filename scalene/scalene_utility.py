@@ -1,13 +1,10 @@
 import functools
 import os
 import pathlib
-import shutil
 import signal
-import socketserver
 import subprocess
 import sys
 import sysconfig
-import tempfile
 import threading
 import webbrowser
 from types import BuiltinFunctionType, CodeType, FrameType, FunctionType, ModuleType
@@ -913,44 +910,10 @@ def generate_html(
         pass
 
 
-def start_server(port: int, directory: str) -> None:
-    import http.server
-
-    try:
-        handler = http.server.SimpleHTTPRequestHandler
-        with socketserver.TCPServer(("", port), handler) as httpd:
-            os.chdir(directory)
-            httpd.serve_forever()
-    except OSError:
-        # print(f"Port {port} is already in use. Please try a different port.")
-        pass
-
-
 def show_browser(file_path: str, port: int, orig_python: str = "python3") -> None:
-    temp_dir = tempfile.gettempdir()
-
-    # Copy file to the temporary directory
-    shutil.copy(file_path, os.path.join(temp_dir, "index.html"))
-
-    # Copy vendored assets for offline support (issue #982)
-    scalene_gui_dir = os.path.join(os.path.dirname(__file__), "scalene-gui")
-    for asset in [
-        "favicon.ico",
-        "scalene-image.png",
-        "jquery-3.6.0.slim.min.js",
-        "bootstrap.min.css",
-        "bootstrap.bundle.min.js",
-        "prism.css",
-        "scalene-gui-bundle.js",
-    ]:
-        src = os.path.join(scalene_gui_dir, asset)
-        if os.path.exists(src):
-            shutil.copy(src, os.path.join(temp_dir, asset))
-
-    # Open web browser in a new subprocess
-    curr_dir = os.getcwd()
+    # launchbrowser.py copies the page and its assets into its own private
+    # directory to serve; nothing needs to be staged here.
     try:
-        os.chdir(temp_dir)
         subprocess.Popen(
             [
                 orig_python,
@@ -965,8 +928,6 @@ def show_browser(file_path: str, port: int, orig_python: str = "python3") -> Non
         pass
     except webbrowser.Error:
         pass
-    finally:
-        os.chdir(curr_dir)
 
 
 def patch_module_functions_with_signal_blocking(
