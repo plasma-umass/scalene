@@ -1,74 +1,51 @@
-# file scalene/scalene_utility.py:186-211
-# lines [186, 187, 190, 193, 194, 195, 196, 198, 207, 208, 209, 211]
-# branches []
+# file scalene/scalene_utility.py (show_browser)
 
 import os
-import pytest
-import shutil
-import tempfile
-import threading
+import sys
 import webbrowser
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+
+import pytest
+
 from scalene.scalene_utility import show_browser
 
 
-# Define a simple HTTP server for testing purposes
-class TestHTTPServer(threading.Thread):
-    # Prevent pytest from considering this class as a test
-    __test__ = False
+def test_show_browser_delegates_to_launchbrowser(tmp_path, monkeypatch):
+    """show_browser only spawns launchbrowser.py, which stages the page and
+    opens the browser itself on the port it actually binds. show_browser
+    must not open a tab of its own (that duplicated the tab, and pointed at
+    the wrong port whenever launchbrowser moved past a busy one)."""
+    page = tmp_path / "index.html"
+    page.write_text("<html><body><h1>Test Page</h1></body></html>")
 
-    def __init__(self, port):
-        super().__init__()
-        self.port = port
-        self.httpd = HTTPServer(("localhost", self.port), SimpleHTTPRequestHandler)
-        self.daemon = True
+    def fail_open(*args, **kwargs):
+        pytest.fail("show_browser must not open a browser itself")
 
-    def run(self):
-        self.httpd.serve_forever()
+    monkeypatch.setattr(webbrowser, "open", fail_open)
+    monkeypatch.setattr(webbrowser, "open_new", fail_open)
 
-    def stop(self):
-        self.httpd.shutdown()
+    launched = []
 
-
-@pytest.fixture(scope="module")
-def server():
-    port = 8000  # Use a common port for testing
-    server = TestHTTPServer(port)
-    server.start()
-    yield server
-    server.stop()
-
-
-@pytest.fixture(scope="module")
-def temp_html_file():
-    # Create a temporary HTML file
-    temp_dir = tempfile.mkdtemp()  # Create a new temporary directory
-    file_path = os.path.join(temp_dir, "index.html")
-    with open(file_path, "w") as f:
-        f.write("<html><body><h1>Test Page</h1></body></html>")
-    yield file_path
-    shutil.rmtree(temp_dir)  # Remove the temporary directory
-
-
-def test_show_browser(temp_html_file, server, monkeypatch):
-    # Mock webbrowser.open to prevent actually opening the browser
-    def mock_open(url):
-        assert url == f"http://localhost:{server.port}/"
-
-    monkeypatch.setattr(webbrowser, "open", mock_open)
-
-    # Mock subprocess.Popen to prevent actually launching a server
     class MockPopen:
-        def __init__(self, *args, **kwargs):
-            pass
+        def __init__(self, args, **kwargs):
+            launched.append(args)
 
     monkeypatch.setattr("subprocess.Popen", MockPopen)
 
-    # Save the current working directory to restore later
     curr_dir = os.getcwd()
+    show_browser(str(page), 12345, orig_python=sys.executable)
 
-    # Run the function to test
-    show_browser(temp_html_file, server.port)
-
-    # Check if the current directory was restored
     assert os.getcwd() == curr_dir
+    assert len(launched) == 1
+    python, script, filename, port = launched[0]
+    assert python == sys.executable
+    assert os.path.basename(script) == "launchbrowser.py"
+    assert filename == str(page)
+    assert port == "12345"
+
+
+def test_show_browser_ignores_launch_failure(tmp_path, monkeypatch):
+    def raise_oserror(*args, **kwargs):
+        raise FileNotFoundError("no python")
+
+    monkeypatch.setattr("subprocess.Popen", raise_oserror)
+    show_browser(str(tmp_path / "index.html"), 12345, orig_python="/nonexistent")

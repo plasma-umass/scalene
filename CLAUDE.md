@@ -133,7 +133,7 @@ Web-based GUI built with TypeScript, bundled with esbuild.
 - **`favicon.ico`** - Scalene favicon
 - **`scalene-image.png`** - Scalene logo
 
-These assets are copied to a temp directory when serving via HTTP, enabling the GUI to work in air-gapped/offline environments.
+These assets are copied, with the page, into a fresh private (0700) temp directory that `launchbrowser.py` serves and deletes on exit, enabling the GUI to work in air-gapped/offline environments. Never serve the shared system temp dir itself.
 
 **Building the GUI:**
 ```bash

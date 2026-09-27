@@ -1,3 +1,4 @@
+import functools
 import http.server
 import json
 import os
@@ -11,7 +12,7 @@ import tempfile
 import threading
 import time
 import webbrowser
-from typing import Any, Dict, NewType, Tuple
+from typing import Any, Dict, NewType, Optional, Tuple
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -129,6 +130,11 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def list_directory(self, path: Any) -> None:
+        """Never list directories; serve only the files start() copied in."""
+        self.send_error(404)
+        return None
+
 
 def monitor_heartbeat() -> None:
     global server_running
@@ -136,6 +142,7 @@ def monitor_heartbeat() -> None:
         if time.time() - last_heartbeat > 60:  # 60 seconds timeout
             print("No heartbeat received, shutting down server...")
             server_running = False
+            remove_serve_dir()
             os._exit(0)
         time.sleep(1)
 
@@ -145,8 +152,9 @@ def serve_forever(httpd: Any) -> None:
         httpd.handle_request()
 
 
-def run_server(host: str, port: int) -> None:
-    with socketserver.TCPServer((host, port), CustomHandler) as httpd:
+def run_server(host: str, port: int, directory: Optional[str] = None) -> None:
+    handler = functools.partial(CustomHandler, directory=directory)
+    with socketserver.TCPServer((host, port), handler) as httpd:
         print(f"Serving at http://{host}:{port}")
         serve_forever(httpd)
 
@@ -207,42 +215,64 @@ def generate_html(profile_fname: Filename, output_fname: Filename) -> None:
         pass
 
 
+# Vendored assets the page loads, served alongside it for offline use (#982).
+GUI_ASSETS = (
+    "favicon.ico",
+    "scalene-image.png",
+    "jquery-3.6.0.slim.min.js",
+    "bootstrap.min.css",
+    "bootstrap.bundle.min.js",
+    "prism.css",
+    "scalene-gui-bundle.js",
+)
+
+# The directory the server exposes; see prepare_serve_dir().
+serve_dir: Optional[str] = None
+
+
+def prepare_serve_dir(filename: str) -> str:
+    """Copy the page and its assets into a fresh private directory to serve.
+
+    Serving the shared system temp directory would expose every file in it
+    to anything that can reach localhost, and on a multi-user machine
+    another user could pre-plant a symlink at its fixed index.html path.
+    mkdtemp creates a new owner-only (0700) directory instead.
+    """
+    global serve_dir
+    serve_dir = tempfile.mkdtemp(prefix="scalene-gui-")
+    shutil.copy(filename, os.path.join(serve_dir, "index.html"))
+    scalene_gui_dir = os.path.join(os.path.dirname(__file__), "scalene-gui")
+    for asset in GUI_ASSETS:
+        src = os.path.join(scalene_gui_dir, asset)
+        if os.path.exists(src):
+            shutil.copy(src, os.path.join(serve_dir, asset))
+    return serve_dir
+
+
+def remove_serve_dir() -> None:
+    """Delete the served copy. Called explicitly: os._exit skips atexit."""
+    if serve_dir is not None:
+        shutil.rmtree(serve_dir, ignore_errors=True)
+
+
 def start(filename: str, port: int, api_keys_from_env: bool = False) -> None:
     CustomHandler.serve_env_api_keys = api_keys_from_env
     while not is_port_available(port):
         port += 1
 
-    cwd = os.getcwd()
     if filename == "demo":
         generate_html(Filename("demo"), Filename("demo.html"))
         filename = "demo.html"
-    temp_dir = tempfile.gettempdir()
-    shutil.copy(filename, os.path.join(temp_dir, "index.html"))
+    directory = prepare_serve_dir(filename)
 
-    # Copy vendored assets for offline support (issue #982)
-    scalene_gui_dir = os.path.join(os.path.dirname(__file__), "scalene-gui")
-    for asset in [
-        "favicon.ico",
-        "scalene-image.png",
-        "jquery-3.6.0.slim.min.js",
-        "bootstrap.min.css",
-        "bootstrap.bundle.min.js",
-        "prism.css",
-        "scalene-gui-bundle.js",
-    ]:
-        src = os.path.join(scalene_gui_dir, asset)
-        if os.path.exists(src):
-            shutil.copy(src, os.path.join(temp_dir, asset))
-
-    os.chdir(temp_dir)
-    server_thread = threading.Thread(target=run_server, args=[HOST, port])
+    server_thread = threading.Thread(target=run_server, args=[HOST, port, directory])
     server_thread.start()
     threading.Thread(target=monitor_heartbeat).start()
 
     webbrowser.open_new(f"http://{HOST}:{port}/")
     server_thread.join()
 
-    os.chdir(cwd)
+    remove_serve_dir()
 
     # Optional: a delay to ensure all resources are released
     time.sleep(1)
