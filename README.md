@@ -444,7 +444,7 @@ examples:
   % scalene view                    # open in browser
   % scalene view --cli              # view in terminal
   % scalene view --html             # save to scalene-profile.html
-  % scalene view --standalone       # save as self-contained HTML
+  % scalene view --standalone       # save as single self-contained HTML file
   % scalene view myprofile.json     # open specific profile in browser
   % scalene view --api-keys-from-env  # prefill AI API keys from env vars
 
@@ -452,7 +452,8 @@ options:
   -h, --help     show this help message and exit
   --cli          display profile in the terminal
   --html         save to scalene-profile.html (no browser)
-  --standalone   save as self-contained HTML with all assets embedded
+  --standalone   save as a single self-contained HTML file with all
+                 assets embedded (implies --html)
   -r, --reduced  only show lines with activity (--cli mode)
   --api-keys-from-env
                  prefill AI provider API keys from environment variables;

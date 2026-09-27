@@ -1137,21 +1137,21 @@ examples:
             type=str,
             nargs="?",
             default="scalene-profile.json",
-            help="The JSON profile file to view (default: scalene-profile.json)",
+            help="the JSON profile file to view (default: scalene-profile.json)",
         )
         view_parser.add_argument(
             "--cli",
             dest="cli",
             action="store_true",
             default=False,
-            help="Display profile in the terminal",
+            help="display profile in the terminal",
         )
         view_parser.add_argument(
             "--html",
             dest="html_only",
             action="store_true",
             default=False,
-            help="Save to scalene-profile.html (no browser)",
+            help="save to scalene-profile.html (no browser)",
         )
         view_parser.add_argument(
             "-r",
@@ -1166,7 +1166,7 @@ examples:
             dest="standalone",
             action="store_true",
             default=False,
-            help="Save as a single self-contained HTML file with all assets embedded (implies --html)",
+            help="save as a single self-contained HTML file with all assets embedded (implies --html)",
         )
         view_parser.add_argument(
             "--api-keys-from-env",
@@ -1174,8 +1174,8 @@ examples:
             action="store_true",
             default=False,
             help=(
-                "Prefill AI provider API keys from environment variables "
-                "(OPENAI_API_KEY, ANTHROPIC_API_KEY, ...). Keys are served "
+                "prefill AI provider API keys from environment variables "
+                "(OPENAI_API_KEY, ANTHROPIC_API_KEY, ...); keys are served "
                 "only to the local browser session and never written to the "
                 "HTML file"
             ),
