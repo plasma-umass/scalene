@@ -1,3 +1,4 @@
+import contextlib
 import functools
 import os
 import pathlib
@@ -6,7 +7,6 @@ import subprocess
 import sys
 import sysconfig
 import threading
-import webbrowser
 from types import BuiltinFunctionType, CodeType, FrameType, FunctionType, ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
@@ -911,9 +911,11 @@ def generate_html(
 
 
 def show_browser(file_path: str, port: int, orig_python: str = "python3") -> None:
-    # launchbrowser.py copies the page and its assets into its own private
-    # directory to serve; nothing needs to be staged here.
-    try:
+    # launchbrowser.py stages the page in its own private directory and opens
+    # the browser itself, on whichever port it actually binds (it moves past
+    # `port` if that's taken). Opening a tab here too would duplicate it, and
+    # point at the wrong port whenever launchbrowser had to move.
+    with contextlib.suppress(OSError):
         subprocess.Popen(
             [
                 orig_python,
@@ -922,12 +924,6 @@ def show_browser(file_path: str, port: int, orig_python: str = "python3") -> Non
                 f"{port}",
             ]
         )
-        # Open web browser to local server
-        webbrowser.open(f"http://localhost:{port}/")
-    except (FileNotFoundError, PermissionError, OSError):
-        pass
-    except webbrowser.Error:
-        pass
 
 
 def patch_module_functions_with_signal_blocking(
