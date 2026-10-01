@@ -56,18 +56,7 @@ def test_replacement_sem_lock_enter_exit(replacement_sem_lock):
     sys.platform == "win32", reason="Test only applicable to win32 platform"
 )
 def test_replacement_sem_lock_reduce(replacement_sem_lock):
-    # Test the __reduce__ method
-    reduced = replacement_sem_lock.__reduce__()
-    assert callable(
-        reduced[0]
-    ), "__reduce__ should return a callable as the first element"
-    # Second element is a tuple containing the context method (e.g., 'spawn', 'fork', or None)
-    assert (
-        len(reduced[1]) == 1
-    ), "__reduce__ should return a tuple with the context method"
-    assert reduced[1][0] in (
-        None,
-        "fork",
-        "spawn",
-        "forkserver",
-    ), "__reduce__ should return a valid context method"
+    # Like multiprocessing.Lock, ReplacementSemLock should only be serialized
+    # by multiprocessing while a child process is being spawned.
+    with pytest.raises(RuntimeError, match="shared between processes"):
+        replacement_sem_lock.__reduce__()
