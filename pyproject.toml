@@ -70,6 +70,11 @@ test = [
 [project.scripts]
 scalene = "scalene.__main__:main"
 
+# Expose the pytest plugin so `pytest --scalene` works after install.
+# See scalene/pytest_scalene.py and https://github.com/plasma-umass/scalene/issues/70
+[project.entry-points.pytest11]
+scalene = "scalene.pytest_scalene"
+
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
