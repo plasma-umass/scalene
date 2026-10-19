@@ -66,6 +66,9 @@ def get_extra_link_args():
     # On Windows, we need to explicitly link against pythonXX.lib
     # Pass the full path to ensure the linker finds it
     version = f"{sys.version_info.major}{sys.version_info.minor}"
+    # Free-threaded builds ship pythonXYt.lib (pyconfig.h links it when Py_GIL_DISABLED)
+    if sysconfig.get_config_var("Py_GIL_DISABLED"):
+        version += "t"
     python_lib = path.join(sys.prefix, 'libs', f'python{version}.lib')
     print(f"DEBUG: Looking for Python lib at: {python_lib}")
     print(f"DEBUG: Exists: {path.exists(python_lib)}")
@@ -382,6 +385,10 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
                 '-DCMAKE_BUILD_TYPE=Release',
                 f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={scalene_temp}',
                 f'-DCMAKE_RUNTIME_OUTPUT_DIRECTORY={scalene_temp}',
+                # Build against this interpreter; FindPython only accepts a
+                # free-threaded build when its fourth ABI component allows it
+                f'-DPython3_EXECUTABLE={sys.executable}',
+                '-DPython3_FIND_ABI=ANY;ANY;ANY;ANY',
             ]
 
             # Add architecture-specific options for Visual Studio generator
