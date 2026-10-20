@@ -25,11 +25,14 @@ jobs:
           name: devN
           path: devN.txt
 
-  build-and-upload:
+  build:
     needs: pick-devN
     strategy:
+      # Free-threaded (3.13t/3.14t) builds are newer and more likely to break;
+      # don't let one failure cancel the rest of the matrix.
+      fail-fast: false
       matrix:
-        python_version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python_version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.13t', '3.14t']
         plat: ['manylinux_2_28', 'macos-latest', 'windows-latest']
         include:
           - plat: manylinux_2_28
@@ -105,12 +108,18 @@ jobs:
       - name: Set up python (container version)
         if: matrix.container != ''
         run: |
-          PYV=`echo "${{ matrix.python_version }}" | tr -d "."`; ls -d -1 /opt/python/cp$PYV*/bin | head -n 1 >> $GITHUB_PATH
+          # e.g. 3.13 -> /opt/python/cp313-cp313, 3.13t -> /opt/python/cp313-cp313t
+          V="${{ matrix.python_version }}"; T=""
+          case "$V" in *t) T=t; V="${V%t}";; esac
+          PYV=`echo "$V" | tr -d "."`
+          ls -d /opt/python/cp$PYV-cp$PYV$T/bin >> $GITHUB_PATH
           cat $GITHUB_PATH
   
       - name: Install dependencies
         run: |
-          pip3 install --upgrade setuptools wheel twine build virtualenv
+          # twine is installed by the publish job: its dependencies (nh3,
+          # cryptography) have no free-threaded 3.13 wheels.
+          pip3 install --upgrade setuptools wheel build virtualenv
   
       - name: Work around arm64 support on MacOS
         # https://github.com/actions/virtual-environments/issues/2557
@@ -172,6 +181,49 @@ jobs:
 
           print("All Windows wheels contain libscalene.dll")
   
+      - name: Check wheel ABI tag matches the interpreter
+        shell: python
+        run: |
+          import glob
+          import sys
+          import sysconfig
+
+          # e.g. "cp313-cp313" or, on a free-threaded build, "cp313-cp313t"
+          py = f"cp{sys.version_info.major}{sys.version_info.minor}"
+          abi = py + ("t" if sysconfig.get_config_var("Py_GIL_DISABLED") else "")
+          tag = f"-{py}-{abi}-"
+          wheels = glob.glob("dist/*.whl")
+          if not wheels or any(tag not in w for w in wheels):
+              print(f"ERROR: expected wheel(s) tagged {tag}, found {wheels}")
+              sys.exit(1)
+          print(f"Wheels tagged {tag}: {wheels}")
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.plat }}-${{ matrix.python_version }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    # Publish whatever built, as when each job uploaded on its own; a failed
+    # matrix entry only drops its own wheel.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install twine
+        run: pip install twine
+
       - name: Non-release (dev) upload
         if: github.event_name != 'release'
         env:
