@@ -57,6 +57,10 @@ jobs:
           - plat: windows-latest
             python_version: 3.11
 
+          # The manylinux_2_28 image ships no cp313-cp313t interpreter.
+          - plat: manylinux_2_28
+            python_version: 3.13t
+
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
 
