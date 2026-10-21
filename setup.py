@@ -456,7 +456,11 @@ get_line_atomic = Extension(
     sources=["src/source/get_line_atomic.cpp"],
     extra_compile_args=extra_compile_args(),
     extra_link_args=get_extra_link_args(),
-    py_limited_api=sys.platform != "win32",  # Limited API has issues on Windows
+    # Limited API has issues on Windows, and free-threaded builds don't support
+    # it before 3.15 (setuptools would name the module .abi3t, which 3.13t/3.14t
+    # can't import).
+    py_limited_api=sys.platform != "win32"
+    and not sysconfig.get_config_var("Py_GIL_DISABLED"),
     language="c++",
 )
 

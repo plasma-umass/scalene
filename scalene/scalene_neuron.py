@@ -76,7 +76,7 @@ class NeuronMonitor:
 class ScaleneNeuron(ScaleneAccelerator):
     def __init__(self) -> None:
         self._gpu_device = ""
-        self._neuron_monitor = None
+        self._neuron_monitor: NeuronMonitor | None = None
         self._monitor_started = False
         if self.has_gpu():
             # Neuron device; set GPU device name but don't start monitor yet
