@@ -202,6 +202,43 @@ jobs:
               sys.exit(1)
           print(f"Wheels tagged {tag}: {wheels}")
 
+      - name: Check the wheel's native modules import
+        # A correctly tagged wheel can still ship an extension the interpreter
+        # won't load (setuptools 84.2.0 named one .abi3t.so on free-threaded
+        # builds). Install each wheel into a fresh venv, with no dependencies
+        # (importing the extensions needs none), and import them from outside
+        # the source tree. On free-threaded builds, also check the imports
+        # don't re-enable the GIL.
+        shell: python
+        run: |
+          import glob
+          import os
+          import subprocess
+          import sys
+          import tempfile
+          import venv
+
+          check = (
+              "import importlib, sys, sysconfig\n"
+              "for m in ('get_line_atomic', 'pywhere', '_scalene_unwind'):\n"
+              "    importlib.import_module('scalene.' + m)\n"
+              "if sysconfig.get_config_var('Py_GIL_DISABLED') and sys._is_gil_enabled():\n"
+              "    sys.exit('importing scalene native modules re-enabled the GIL')\n"
+              "print('native modules import OK')\n"
+          )
+          for whl in glob.glob(os.path.abspath("dist/*.whl")):
+              print(f"Checking {whl}...", flush=True)
+              with tempfile.TemporaryDirectory() as env_dir:
+                  venv.create(env_dir, with_pip=True)
+                  if os.name == "nt":
+                      py = os.path.join(env_dir, "Scripts", "python.exe")
+                  else:
+                      py = os.path.join(env_dir, "bin", "python")
+                  subprocess.check_call([py, "-m", "pip", "install", "-q", "--no-deps", whl])
+                  subprocess.check_call(
+                      [py, "-I", "-W", "error::RuntimeWarning", "-c", check], cwd=env_dir
+                  )
+
       - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.plat }}-${{ matrix.python_version }}
