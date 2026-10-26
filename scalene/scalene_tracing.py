@@ -164,7 +164,7 @@ class ScaleneTracing:
                 if history is None:
                     return False
                 cell_contents = history.input_hist_raw[int(result[1])]
-                with open(filename, "w+") as f:
+                with open(filename, "w+", encoding="utf-8") as f:
                     f.write(cell_contents)
                 return True
         return False
