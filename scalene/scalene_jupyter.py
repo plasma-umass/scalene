@@ -57,7 +57,7 @@ class ScaleneJupyter:
             def do_GET(self) -> None:
                 if self.path == "/":
                     try:
-                        with open(profile_fname) as f:
+                        with open(profile_fname, encoding="utf-8") as f:
                             content = f.read()
                         self._send_response(content)
                     except FileNotFoundError:

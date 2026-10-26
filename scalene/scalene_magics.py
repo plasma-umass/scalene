@@ -54,7 +54,7 @@ with contextlib.suppress(Exception):
                 )
                 return
             filename = f"_ipython-input-{len(history.input_hist_raw)-1}-profile"
-            with open(filename, "w+") as tmpfile:
+            with open(filename, "w+", encoding="utf-8") as tmpfile:
                 tmpfile.write(code)
             args.memory = (
                 False  # full Scalene is not yet working, force to not profile memory
