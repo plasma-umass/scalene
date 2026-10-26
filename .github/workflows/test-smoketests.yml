@@ -29,6 +29,14 @@ jobs:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
         python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        # ubuntu-latest is now Ubuntu 26.04, for which setup-python has no
+        # 3.9 build; keep testing 3.9 on Ubuntu 24.04.
+        exclude:
+          - os: ubuntu-latest
+            python: '3.9'
+        include:
+          - os: ubuntu-24.04
+            python: '3.9'
 
     steps:
     - uses: actions/checkout@v4
@@ -75,7 +83,7 @@ jobs:
     # was absent from the merged profile. The smoketest itself self-
     # skips on non-Linux platforms.
     - name: pytest-xdist + --profile-all (issue #1022)
-      if: matrix.os == 'ubuntu-latest'
+      if: startsWith(matrix.os, 'ubuntu-')
       run: python test/smoketest_issue_1022.py
       timeout-minutes: 5
 
