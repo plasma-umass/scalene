@@ -20,7 +20,7 @@ jobs:
     steps:
       - run: TZ='America/New_York' date '+%Y%m%d%H%M' > devN.txt
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: devN
           path: devN.txt
@@ -66,7 +66,7 @@ jobs:
 
     steps:
       - name: get coordinated .devN
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: devN
 
@@ -78,12 +78,7 @@ jobs:
         if: github.event_name != 'release' && matrix.os == 'windows-latest'
         run: ("DEV_BUILD=" + (get-content devN.txt)) >> $env:GITHUB_ENV  # for setup.py
 
-      # downgraded to @v3 if using container: https://github.com/actions/checkout/issues/1487
-      - uses: actions/checkout@v3
-        if: matrix.container != ''
-
-      - uses: actions/checkout@v4
-        if: matrix.container == ''
+      - uses: actions/checkout@v7
 
       - name: Mark workspace safe for git
         # needed for container and self-hosted runners; see https://github.com/actions/checkout/issues/766
@@ -105,7 +100,7 @@ jobs:
 
       - name: Set up python (script version)
         if: matrix.container == ''
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python_version }}
   
@@ -239,7 +234,7 @@ jobs:
                       [py, "-I", "-W", "error::RuntimeWarning", "-c", check], cwd=env_dir
                   )
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-${{ matrix.plat }}-${{ matrix.python_version }}
           path: dist/*
@@ -252,13 +247,13 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: dist-*
           path: dist
           merge-multiple: true
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
