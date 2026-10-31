@@ -306,12 +306,15 @@ class ScaleneSignalManager:
         # timer fires but the handler never runs, leaving the worker with
         # zero CPU and zero allocation samples. See issue #1022.
         unblock_set = {
-            self.__signals.cpu_signal,
-            self.__signals.malloc_signal,
-            self.__signals.free_signal,
-            self.__signals.memcpy_signal,
+            sig
+            for sig in (
+                self.__signals.cpu_signal,
+                self.__signals.malloc_signal,
+                self.__signals.free_signal,
+                self.__signals.memcpy_signal,
+            )
+            if sig is not None
         }
-        unblock_set.discard(None)
         if unblock_set:
             with contextlib.suppress(ValueError, OSError):
                 signal.pthread_sigmask(signal.SIG_UNBLOCK, unblock_set)

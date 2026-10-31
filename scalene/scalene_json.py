@@ -1304,10 +1304,17 @@ class ScaleneJSON:
 
             code_str = "".join(code_lines)
 
-            enclosing_regions = ScaleneAnalysis.find_regions(code_str)
-            outer_loop = ScaleneAnalysis.find_outermost_loop(code_str)
-            function_boundaries = ScaleneAnalysis.find_functions(code_str)
-            imports = ScaleneAnalysis.get_native_imported_modules(code_str)
+            # Code generators such as Jinja2 compile with the template's
+            # path as the filename, so a "profiled file" may not be Python
+            # at all (#1109). Skip it rather than lose the whole profile;
+            # its line numbers refer to generated code anyway.
+            try:
+                enclosing_regions = ScaleneAnalysis.find_regions(code_str)
+                outer_loop = ScaleneAnalysis.find_outermost_loop(code_str)
+                function_boundaries = ScaleneAnalysis.find_functions(code_str)
+                imports = ScaleneAnalysis.get_native_imported_modules(code_str)
+            except (SyntaxError, ValueError):
+                continue
 
             output["files"][fname_print] = {
                 "percent_cpu_time": percent_cpu_time,
