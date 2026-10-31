@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import functools
 import os
 import pathlib
@@ -117,8 +118,34 @@ class ScaleneTracing:
         ):
             return False
 
+        # Skip code whose filename names a non-Python file (e.g., Jinja2
+        # templates, which are compiled with the template's path) (#1109).
+        if not self._is_python_source(filename):
+            return False
+
         # Final decision: profile-all or program directory check
         return self._should_trace_by_location(filename)
+
+    @staticmethod
+    @functools.lru_cache(maxsize=None)
+    def _is_python_source(filename: str) -> bool:
+        """Return False if filename is a file that is not Python source.
+
+        Files with a Python suffix (or none, as for extensionless scripts
+        and exec/eval pseudo-filenames) are trusted without reading them.
+        Anything else (e.g. a .cgi script) is accepted only if it parses.
+        """
+        suffix = os.path.splitext(filename)[1].lower()
+        if suffix in ("", ".py", ".pyw") or filename.startswith("<"):
+            return True
+        try:
+            with open(filename, encoding="utf-8") as f:
+                source = f.read()
+            ast.parse(source)
+        except (OSError, SyntaxError, ValueError):
+            # ValueError covers UnicodeDecodeError and null bytes.
+            return False
+        return True
 
     def _should_trace_decorated_function(self, filename: Filename, func: str) -> bool:
         """Check if this function is decorated with @profile."""
