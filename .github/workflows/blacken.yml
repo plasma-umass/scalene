@@ -4,20 +4,27 @@ on:
   push:
     branches: [ master ]
 
+permissions:
+  contents: write
+
 jobs:
   format:
     runs-on: ubuntu-latest
     steps:
+      # The token stays out of .git/config while black (from PyPI) runs.
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Format code with black
         run: |
           pip install black
           black scalene
       - name: Commit changes
-        uses: EndBug/add-and-commit@v4
-        with:
-          author_name: ${{ github.actor }}
-          author_email: ${{ github.actor }}@users.noreply.github.com
-          message: "Format code with black"
-          add: "."
-          branch: ${{ github.ref }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          git add .
+          git diff --cached --quiet && exit 0
+          git -c user.name="$ACTOR" -c user.email="$ACTOR@users.noreply.github.com" commit -m "Format code with black"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF}"

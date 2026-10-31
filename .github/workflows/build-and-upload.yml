@@ -13,6 +13,9 @@ on:
     types: [ published ]
   workflow_dispatch: # manual execution
 
+permissions:
+  contents: read
+
 jobs:
   pick-devN:
     name: create .devN build date coordinated across all matrix jobs

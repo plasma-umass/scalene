@@ -18,6 +18,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 
+permissions:
+  contents: read
+
 jobs:
   run-tests:
     runs-on: ${{ matrix.os }}

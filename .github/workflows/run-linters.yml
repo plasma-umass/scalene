@@ -18,6 +18,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 
+permissions:
+  contents: read
+
 jobs:
   linters:
     runs-on: ubuntu-latest
