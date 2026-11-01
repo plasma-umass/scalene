@@ -3,7 +3,7 @@ import sysconfig
 from os import environ, path
 from pathlib import Path
 
-from setuptools import find_packages, setup
+from setuptools import setup
 from setuptools.extension import Extension
 
 # needed for isolated environment
@@ -251,20 +251,13 @@ class EggInfoCommand(setuptools.command.egg_info.egg_info):
 # Force building platform-specific wheel to avoid the Windows wheel
 # (which doesn't include libscalene, and thus would be considered "pure")
 # being used for other platforms.
-try:
-    from wheel.bdist_wheel import bdist_wheel
+from setuptools.command.bdist_wheel import bdist_wheel
 
-    class BdistWheelCommand(bdist_wheel):
-        def finalize_options(self):
-            super().finalize_options()
-            self.root_is_pure = False
 
-except (ImportError, ModuleNotFoundError):
-    # Disable wheel if `wheel` not installed.
-    print(
-        "If this installation does not work, run `pip install setuptools wheel` and try again."
-    )
-    BdistWheelCommand = None
+class BdistWheelCommand(bdist_wheel):
+    def finalize_options(self):
+        super().finalize_options()
+        self.root_is_pure = False
 
 import setuptools.command.build_ext
 
@@ -563,13 +556,11 @@ def bdist_wheel_options():
 
 setup(
     version=scalene_version + dev_build,
-    packages=find_packages(),
     cmdclass={
         "bdist_wheel": BdistWheelCommand,
         "egg_info": EggInfoCommand,
         "build_ext": BuildExtCommand,
     },
     ext_modules=[get_line_atomic, pywhere, native_unwind],  # Now supported on all platforms
-    include_package_data=True,
     options={"bdist_wheel": bdist_wheel_options()},
 )
