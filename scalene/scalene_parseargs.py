@@ -81,6 +81,13 @@ def _colorize_help_for_rich(text: str) -> str:
     return text
 
 
+# `scalene run` output options from before the run/view split (#963). `run`
+# now always saves JSON, so these are rejected with a pointer to `view`.
+LEGACY_VIEW_OPTIONS = frozenset(
+    {"--cli", "--html", "--web", "--viewer", "--column-width"}
+)
+
+
 class RichArgParser(argparse.ArgumentParser):
     """ArgumentParser that uses Rich for colored output on Python < 3.14."""
 
@@ -547,6 +554,34 @@ class ScaleneParseArgs:
         )
 
         # Internal/hidden options (always hidden)
+        # Options from before the run/view split (#963) that older scripts
+        # and integrations still pass. Each describes what `run` already
+        # does, so accept them rather than reject them: `run` never opens a
+        # browser, always writes JSON, and --cpu meant what --cpu-only means
+        # now. (Output options such as --cli are rejected with a pointer to
+        # `scalene view`; see LEGACY_VIEW_OPTIONS.)
+        parser.add_argument(
+            "--no-browser",
+            dest="no_browser",
+            action="store_true",
+            default=defaults.no_browser,
+            help=argparse.SUPPRESS,
+        )
+        parser.add_argument(
+            "--json",
+            dest="json",
+            action="store_true",
+            default=defaults.json,
+            help=argparse.SUPPRESS,
+        )
+        parser.add_argument(
+            "--cpu",
+            dest="cpu",
+            action="store_const",
+            const=True,
+            default=None,
+            help=argparse.SUPPRESS,
+        )
         parser.add_argument(
             "--ipython",
             dest="ipython",
@@ -1214,6 +1249,23 @@ examples:
             if hasattr(args, "help_advanced") and args.help_advanced:
                 run_parser.print_help()
                 sys.exit(0)
+            # parse_known_args() leaves unrecognized options in `left`, which
+            # becomes the profiled program's sys.argv. Before the program (or
+            # -m), anything starting with "--" can only be a mistyped or
+            # removed Scalene option, so reject it rather than silently
+            # handing it to the program. Single-dash interpreter flags (-u,
+            # -B, ...) are stripped later by run_profiler.
+            for arg in left:
+                if arg == "-m" or not arg.startswith("-"):
+                    break
+                if arg.startswith("--"):
+                    if arg.split("=", 1)[0] in LEGACY_VIEW_OPTIONS:
+                        run_parser.error(
+                            f"{arg} is no longer a `scalene run` option; "
+                            "profile with `scalene run`, then display the "
+                            "profile with `scalene view` (see `scalene view --help`)"
+                        )
+                    run_parser.error(f"unrecognized arguments: {arg}")
             # Remove the 'command' attribute as it's not needed downstream
             delattr(args, "command")
             return ScaleneParseArgs._finalize_args(args, left, defaults)
