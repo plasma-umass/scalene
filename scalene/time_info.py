@@ -3,6 +3,15 @@ import sys
 from dataclasses import dataclass
 from typing import Tuple
 
+# Import at module load, not lazily in get_times(): get_times() runs inside
+# the CPU signal handler, and a first-time import there re-enters the import
+# system. On Python < 3.12, if the signal lands while the main thread is
+# inside importlib's _ModuleLock.acquire(), the nested acquire deletes the
+# thread's _blocking_on entry and the outer one fails with KeyError,
+# crashing the profiled program's import.
+if sys.platform != "win32":
+    import resource
+
 
 @dataclass
 class TimeInfo:
@@ -37,8 +46,6 @@ def get_times() -> Tuple[float, float]:
     if sys.platform != "win32":
         # On Linux/Mac, use getrusage, which provides higher
         # resolution values than os.times() for some reason.
-        import resource
-
         ru = resource.getrusage(resource.RUSAGE_SELF)
         now_sys = ru.ru_stime
         now_user = ru.ru_utime
