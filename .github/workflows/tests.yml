@@ -18,6 +18,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 
+permissions:
+  contents: read
+
 jobs:
   run-tests:
     runs-on: ${{ matrix.os }}
@@ -54,7 +57,7 @@ jobs:
             python: '3.9'
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: select Xcode version
       # MacOS > 14.2 requires Xcode >= 15.3; otherwise loading native extension modules fails with e.g.:
@@ -66,7 +69,7 @@ jobs:
         g++ --version
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python }}
         cache: pip
@@ -216,10 +219,10 @@ jobs:
         python: [ '3.11', '3.13' ]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python }}
         cache: pip
