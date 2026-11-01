@@ -54,8 +54,12 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
         python -m pip install mypy ruff types-PyYAML pydantic
+        # Pinned so a new black release can't fail CI on unchanged code;
+        # bump deliberately (and reformat) when upgrading.
+        python -m pip install black==26.10.1
 
     - name: Run linters
       run: |
         mypy scalene
         ruff check scalene
+        black --check --diff scalene
