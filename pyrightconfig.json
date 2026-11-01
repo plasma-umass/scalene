@@ -1,6 +1,0 @@
-{
-    "include": ["scalene"],
-    "useLibraryCodeForTypes": true,
-    "reportInvalidStringEscapeSequence": false,
-    "typeCheckingMode" : "basic"
-}
