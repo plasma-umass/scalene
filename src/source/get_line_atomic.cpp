@@ -17,48 +17,90 @@
 // FIXME: Encapsulate under scalene namespace
 // TODO: Wrap in Python library with ContextManager
 
-static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
-  // Casts the pointer at the expected location to a SpinLock and then locks it
-  Py_buffer lock_mmap;
-  Py_buffer signal_mmap;
-  Py_buffer result_bytearray;
-  Py_buffer lastpos_buf;
-  if (!PyArg_ParseTuple(
-          args, "s*s*s*s*", &lock_mmap, &signal_mmap, &result_bytearray,
-          &lastpos_buf))  // "s*" means readable/writeable buffer as per
-                          // https://docs.python.org/3/c-api/arg.html Buffer
-                          // protocol is found here
-                          // https://docs.python.org/3/c-api/buffer.html
-    return NULL;
+namespace {
+// Releases a Py_buffer obtained via PyArg_ParseTuple("s*") on scope exit.
+// Without this, every call leaked a buffer export on each argument (which,
+// among other things, keeps the mmap objects from ever being closed).
+struct BufferGuard {
+  Py_buffer view;
+  bool held = false;
+  ~BufferGuard() {
+    if (held) PyBuffer_Release(&view);
+  }
+};
+}  // namespace
 
-  auto buf = reinterpret_cast<char*>(lock_mmap.buf) + sizeof(uint64_t);
+static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
+  BufferGuard lock_mmap, signal_mmap, result_bytearray, lastpos_buf;
+  if (!PyArg_ParseTuple(
+          args, "s*s*s*s*", &lock_mmap.view, &signal_mmap.view,
+          &result_bytearray.view,
+          &lastpos_buf.view))  // "s*" means readable/writeable buffer as per
+                               // https://docs.python.org/3/c-api/arg.html
+                               // Buffer protocol is found here
+                               // https://docs.python.org/3/c-api/buffer.html
+    return NULL;
+  lock_mmap.held = signal_mmap.held = result_bytearray.held =
+      lastpos_buf.held = true;
+
   using LockType = HL::SpinLock;
+  if (lock_mmap.view.len <
+          static_cast<Py_ssize_t>(sizeof(uint64_t) + sizeof(LockType)) ||
+      lastpos_buf.view.len < static_cast<Py_ssize_t>(sizeof(uint64_t))) {
+    PyErr_SetString(PyExc_ValueError,
+                    "get_line_atomic: lock or lastpos buffer too small");
+    return NULL;
+  }
+  if (result_bytearray.view.readonly) {
+    PyErr_SetString(PyExc_ValueError,
+                    "get_line_atomic: result buffer must be writable");
+    return NULL;
+  }
+
+  auto buf = reinterpret_cast<char*>(lock_mmap.view.buf) + sizeof(uint64_t);
   auto lock = reinterpret_cast<LockType*>(buf);
 
   std::lock_guard<LockType> theLock(*lock);
 
-  auto lastpos = reinterpret_cast<uint64_t*>(lastpos_buf.buf);
-  auto current_iter = reinterpret_cast<char*>(signal_mmap.buf) + *lastpos;
-  auto start = current_iter;
-  auto result_iter = reinterpret_cast<char*>(result_bytearray.buf);
+  auto lastpos = reinterpret_cast<uint64_t*>(lastpos_buf.view.buf);
+  const auto signal_len = static_cast<uint64_t>(signal_mmap.view.len);
+  if (*lastpos >= signal_len) {
+    // Nothing left to read (or a corrupt position): never index past the
+    // end of the signal buffer (issue #1117).
+    Py_RETURN_FALSE;
+  }
 
-  char* nl =
-      reinterpret_cast<char*>(memchr(current_iter, '\n', result_bytearray.len));
-  int len = (nl == nullptr) ? 0 : nl - start;
+  auto current_iter = reinterpret_cast<char*>(signal_mmap.view.buf) + *lastpos;
+  auto start = current_iter;
+  auto result_iter = reinterpret_cast<char*>(result_bytearray.view.buf);
+
+  // Bound the newline search by BOTH the bytes remaining in the signal buffer
+  // and the capacity of the result buffer. The search used to be bounded only
+  // by the result buffer's size, so with lastpos near the end of the mapping
+  // memchr read past it (SIGBUS/SIGSEGV, or garbage from adjacent memory;
+  // issue #1117). Limiting it to the result capacity also guarantees that the
+  // line plus its newline (len + 1 bytes) fits in the result buffer.
+  const uint64_t remaining = signal_len - *lastpos;
+  const auto capacity = static_cast<uint64_t>(result_bytearray.view.len);
+  const size_t search_len =
+      static_cast<size_t>(remaining < capacity ? remaining : capacity);
+
+  char* nl = reinterpret_cast<char*>(memchr(current_iter, '\n', search_len));
+  size_t len = (nl == nullptr) ? 0 : static_cast<size_t>(nl - start);
 
   if (len == 0) {
     Py_RETURN_FALSE;
   }
 
 #if 0
-  char tmp[result_bytearray.len+1];
+  char tmp[result_bytearray.view.len+1];
   memcpy(tmp, current_iter, len);
   tmp[len] = '\0';
   tprintf::tprintf("read @ from @\n", tmp, *lastpos);
 #endif
 
   // avoid 'memcpy', as Scalene interposes on it to measure memory copying
-  for (int i = 0; i <= len; i++) {
+  for (size_t i = 0; i <= len; i++) {
     *(result_iter++) = *(current_iter++);
   }
 
