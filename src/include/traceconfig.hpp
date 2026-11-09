@@ -32,19 +32,20 @@ class TraceConfig {
               PyObject* scalene_pkg_path_obj = nullptr) {
     // Each item is expected to be a str; non-str / non-UTF-8 items are
     // skipped during decoding below.
-    owner = list_wrapper;
-    path_owner = base_path;
-    Py_IncRef(owner);
-    Py_IncRef(path_owner);
+    //
+    // Everything we need is copied into owned std::strings, so we hold no
+    // references to the Python objects passed in. (We used to Py_IncRef the
+    // list and base path "to keep the data pointers valid" and never release
+    // them, leaking references on every replacement -- issue #1116.)
     profile_all = profile_all_b;
-    auto size = PyList_Size(owner);
+    auto size = PyList_Size(list_wrapper);
     items.reserve(size);
     for (Py_ssize_t i = 0; i < size; i++) {
-      auto item = PyList_GetItem(owner, i);  // borrowed reference
+      auto item = PyList_GetItem(list_wrapper, i);  // borrowed reference
       // Decode each pattern as UTF-8 so non-ASCII values (e.g. "é") are
       // accepted instead of crashing. PyUnicode_AsUTF8AndSize returns a
-      // pointer into the str's internal buffer (valid while ``owner`` is
-      // alive, which we hold a reference to) and NULL on failure, e.g. for a
+      // pointer into the str's internal buffer (valid for the duration of this
+      // call, since the caller holds the list) and NULL on failure, e.g. for a
       // non-str list item. On failure we clear the exception and skip the
       // item rather than dereferencing NULL (the SIGSEGV in #1063). We store
       // owned std::string copies so the data outlives any transient object.
@@ -72,8 +73,6 @@ class TraceConfig {
     // callers that predate this field pass nullptr and we fall back to the
     // legacy parent-directory-name check alone.
     if (scalene_pkg_path_obj && scalene_pkg_path_obj != Py_None) {
-      scalene_pkg_path_owner = scalene_pkg_path_obj;
-      Py_IncRef(scalene_pkg_path_owner);
       // surrogateescape (not strict): a path holding undecodable bytes shows
       // up in Python as lone surrogates, which a strict encoder rejects —
       // leaving an exception pending that would later surface at an
@@ -86,8 +85,6 @@ class TraceConfig {
       } else {
         PyErr_Clear();
       }
-    } else {
-      scalene_pkg_path_owner = nullptr;
     }
   }
 
@@ -198,14 +195,12 @@ class TraceConfig {
       }
     }
 
-    if (owner != nullptr) {
-      for (const auto& traceable : items) {
-        if (strstr(filename, traceable.c_str())) {
-          std::lock_guard<std::mutex> lock(_memoizeMutex);
-          _memoize.insert(
-              std::pair<std::string, bool>(std::string(filename), true));
-          return true;
-        }
+    for (const auto& traceable : items) {
+      if (strstr(filename, traceable.c_str())) {
+        std::lock_guard<std::mutex> lock(_memoizeMutex);
+        _memoize.insert(
+            std::pair<std::string, bool>(std::string(filename), true));
+        return true;
       }
     }
 
@@ -248,6 +243,11 @@ class TraceConfig {
     std::lock_guard<decltype(_instanceMutex)> g(_instanceMutex);
     delete _instance;
     _instance = instance;
+    // Memoized should_trace() decisions were made under the old
+    // configuration (profile list, base path, profile_all); drop them so the
+    // new configuration takes effect.
+    std::lock_guard<std::mutex> m(_memoizeMutex);
+    _memoize.clear();
   }
 
   static TraceConfig* getInstance() {
@@ -261,11 +261,6 @@ class TraceConfig {
   // Canonical path to the Scalene package directory. Empty when the
   // caller did not supply one (legacy path). See should_trace().
   std::string scalene_pkg_path;
-  // This is to keep the object in scope so that
-  // the data pointers are always valid
-  PyObject* owner;
-  PyObject* path_owner;
-  PyObject* scalene_pkg_path_owner;
   bool profile_all;
 
   static std::mutex _instanceMutex;
