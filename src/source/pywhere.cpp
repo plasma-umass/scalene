@@ -464,7 +464,7 @@ static PyObject* register_files_to_profile(PyObject* self, PyObject* args) {
 }
 
 static PyObject* print_files_to_profile(PyObject* self, PyObject* args) {
-  if (TraceConfig* pl = TraceConfig::getInstance()) {
+  if (auto pl = TraceConfig::getInstance()) {
     pl->print();
   }
   Py_RETURN_NONE;

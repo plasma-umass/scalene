@@ -21,6 +21,7 @@
 #include <limits.h>
 #endif
 
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -239,20 +240,28 @@ class TraceConfig {
     printf("}\n");
   }
 
+  // Replace the current configuration.
+  //
+  // The instance is reference-counted: getInstance() hands out a
+  // shared_ptr, so a thread that is in the middle of using the old
+  // configuration (e.g. whereInPython walking a stack from an allocation in
+  // another thread, while @profile re-registers files) keeps it alive until
+  // it is done. The old instance is destroyed by whichever holder releases it
+  // last -- never out from under a reader. (This used to `delete` the old
+  // instance immediately, a use-after-free for any concurrent reader.)
   static void setInstance(TraceConfig* instance) {
-    std::lock_guard<decltype(_instanceMutex)> g(_instanceMutex);
-    delete _instance;
-    _instance = instance;
-    // Memoized should_trace() decisions were made under the old
-    // configuration (profile list, base path, profile_all); drop them so the
-    // new configuration takes effect.
-    std::lock_guard<std::mutex> m(_memoizeMutex);
-    _memoize.clear();
+    std::shared_ptr<TraceConfig> next(instance);
+    {
+      std::lock_guard<decltype(_instanceMutex)> g(_instanceMutex);
+      instanceSlot().swap(next);
+    }
+    // `next` now holds the previous instance; if we were its last holder it
+    // is destroyed here, outside the lock.
   }
 
-  static TraceConfig* getInstance() {
+  static std::shared_ptr<TraceConfig> getInstance() {
     std::lock_guard<decltype(_instanceMutex)> g(_instanceMutex);
-    return _instance;
+    return instanceSlot();
   }
 
  private:
@@ -263,10 +272,22 @@ class TraceConfig {
   std::string scalene_pkg_path;
   bool profile_all;
 
+  // should_trace() results. Per instance, so decisions made under one
+  // configuration never leak into the next, and the cache is freed with the
+  // configuration it belongs to.
+  std::mutex _memoizeMutex;
+  std::unordered_map<std::string, bool> _memoize;
+
   static std::mutex _instanceMutex;
-  static std::mutex _memoizeMutex;
-  static TraceConfig* _instance;
-  static std::unordered_map<std::string, bool> _memoize;
+
+  // The current instance. Deliberately heap-allocated and never destroyed:
+  // a plain static shared_ptr would be torn down by static destructors at
+  // exit, while native threads may still be allocating (and so calling
+  // whereInPython). The raw pointer this replaces was likewise never freed.
+  static std::shared_ptr<TraceConfig>& instanceSlot() {
+    static auto* slot = new std::shared_ptr<TraceConfig>();
+    return *slot;
+  }
 };
 
 #endif
