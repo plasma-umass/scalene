@@ -11,7 +11,9 @@
 #include <errno.h>
 #include <heaplayers.h>
 
+#include <atomic>
 #include <pthread.h>
+#include <string.h>
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -27,7 +29,13 @@ class SampleFile {
       4096;  // actual (and maximum) length of a line passed to writeToFile
  private:
   static constexpr int LOCK_FD_SIZE = 4096;
+#ifdef SCALENE_SAMPLEFILE_MAX_FILE_SIZE
+  // Test hook: lets tests exercise the full-buffer path without writing
+  // hundreds of megabytes. Must stay a multiple of MAX_BUFSIZE.
+  static constexpr int MAX_FILE_SIZE = SCALENE_SAMPLEFILE_MAX_FILE_SIZE;
+#else
   static constexpr int MAX_FILE_SIZE = 4096 * 65536;
+#endif
 
   static char *initializer;
 
@@ -130,15 +138,44 @@ class SampleFile {
   }
   void writeToFile(char *line) {  // , int is_malloc) {
     _spin_lock->lock();
+    // The log is append-only and never wraps, and strncpy always writes
+    // exactly MAX_BUFSIZE bytes (it NUL-pads), so a write needs that much
+    // room. Without this check a long enough run wrote past the end of the
+    // mapping (SIGSEGV/SIGBUS, or silent corruption of whatever follows it).
+    // Once the log is full we drop further samples rather than crash.
+    if (*_lastpos > static_cast<uint64_t>(MAX_FILE_SIZE - MAX_BUFSIZE)) {
+      _spin_lock->unlock();
+      warnFullOnce();
+      return;
+    }
     strncpy(_mmap + *_lastpos, (const char *)line, MAX_BUFSIZE);
 
-    *_lastpos += strlen(_mmap + *_lastpos) - 1;
+    // Records end in "\n\n"; advance to the second newline, which the next
+    // record overwrites and which marks the end of the data for the reader.
+    // Guard against a (malformed) record shorter than that, which would
+    // move the position backwards.
+    const size_t written = strnlen(_mmap + *_lastpos, MAX_BUFSIZE);
+    if (written >= 2) {
+      *_lastpos += written - 1;
+    }
     // tprintf::tprintf("@ wrote @, lastpos=@\n", (void*)_mmap, line,
     // *_lastpos);
     _spin_lock->unlock();
   }
 
  private:
+  static void warnFullOnce() {
+    static std::atomic<bool> warned{false};
+    if (!warned.exchange(true)) {
+      // write(2) rather than fprintf: we may be inside malloc.
+      static const char msg[] =
+          "Scalene warning: sample log is full; further memory samples "
+          "for this process will be dropped.\n";
+      ssize_t r = write(STDERR_FILENO, msg, sizeof(msg) - 1);
+      (void)r;
+    }
+  }
+
   // Prevent copying and assignment.
   SampleFile(const SampleFile &) = delete;
   SampleFile &operator=(const SampleFile &) = delete;

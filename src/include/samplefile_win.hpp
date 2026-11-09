@@ -152,7 +152,23 @@ class SampleFile {
       return;
     }
 
-    size_t len = strlen(line);
+    size_t len = strnlen(line, MAX_BUFSIZE);
+    // The log is append-only and never wraps; once it is full, drop further
+    // samples rather than write past the end of the view.
+    if (*_lastpos > static_cast<uint64_t>(MAX_FILE_SIZE) ||
+        len > static_cast<uint64_t>(MAX_FILE_SIZE) - *_lastpos) {
+      ReleaseMutex(_hMutex);
+      static volatile LONG warned = 0;
+      if (InterlockedExchange(&warned, 1) == 0) {
+        static const char msg[] =
+            "Scalene warning: sample log is full; further memory samples "
+            "for this process will be dropped.\n";
+        DWORD n;
+        WriteFile(GetStdHandle(STD_ERROR_HANDLE), msg, sizeof(msg) - 1, &n,
+                  nullptr);
+      }
+      return;
+    }
     // Use memcpy instead of strncpy to avoid null-padding which would overwrite subsequent samples
     memcpy(_mmap + *_lastpos, line, len);
 
