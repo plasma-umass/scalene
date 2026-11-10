@@ -92,23 +92,26 @@ class RichArgParser(argparse.ArgumentParser):
     """ArgumentParser that uses Rich for colored output on Python < 3.14."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        if sys.version_info < (3, 14):
-            from rich.console import Console
-
-            self._console: Optional[Any] = Console()
-        else:
-            self._console = None
+        self._use_rich = sys.version_info < (3, 14)
         super().__init__(*args, **kwargs)
 
     def _print_message(self, message: Optional[str], file: Any = None) -> None:
-        if message:
-            if self._console is not None:
-                # Python < 3.14: Use Rich to emulate 3.14+ colors
-                colored = _colorize_help_for_rich(message)
-                self._console.print(colored, highlight=False)
-            else:
-                # Python 3.14+: Use native argparse colors
-                print(message, end="", file=file)
+        if not message:
+            return
+        # Honor the stream argparse asks for: help goes to stdout, but usage
+        # errors (error(), exit()) go to stderr -- argparse passes None for
+        # stderr. The Rich path used to print everything to stdout.
+        if file is None:
+            file = sys.stderr
+        if self._use_rich:
+            # Python < 3.14: Use Rich to emulate 3.14+ colors
+            from rich.console import Console
+
+            colored = _colorize_help_for_rich(message)
+            Console(file=file).print(colored, highlight=False)
+        else:
+            # Python 3.14+: Use native argparse colors
+            print(message, end="", file=file)
 
 
 class StopJupyterExecution(Exception):

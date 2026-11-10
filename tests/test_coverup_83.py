@@ -4,57 +4,51 @@
 
 import argparse
 import sys
-from unittest.mock import patch, MagicMock
+
 import pytest
 
 # Assuming the RichArgParser class is in a file named scalene_parseargs.py
 from scalene.scalene_parseargs import RichArgParser, _colorize_help_for_rich
 
 
-def test_rich_arg_parser_print_message(capsys):
-    if sys.version_info >= (3, 14):
-        # Python 3.14+: Uses native print, not Rich
-        parser = RichArgParser()
-        parser._print_message("Test message")
-        captured = capsys.readouterr()
-        assert "Test message" in captured.out
+@pytest.mark.parametrize("use_rich", [True, False])
+def test_rich_arg_parser_print_message(capsys, use_rich):
+    # Both paths (Rich on Python < 3.14, native argparse colors on 3.14+)
+    # write to the stream argparse asks for, defaulting to stderr like
+    # argparse does: help goes to stdout, usage errors to stderr.
+    parser = RichArgParser()
+    parser._use_rich = use_rich
 
-        # Test with message being None (should not print)
-        parser._print_message(None)
-        captured = capsys.readouterr()
-        assert captured.out == ""
-    else:
-        # Python < 3.14: Uses Rich console
-        with patch("rich.console.Console") as mock_console_class:
-            mock_console = MagicMock()
-            mock_console_class.return_value = mock_console
+    parser._print_message("Test message", sys.stdout)
+    captured = capsys.readouterr()
+    assert "Test message" in captured.out
+    assert captured.err == ""
 
-            parser = RichArgParser()
-            parser._print_message("Test message")
+    parser._print_message("Error message")
+    captured = capsys.readouterr()
+    assert "Error message" in captured.err
+    assert captured.out == ""
 
-            # Should call print with colorized message and highlight=False
-            mock_console.print.assert_called_once()
-            call_args = mock_console.print.call_args
-            assert call_args[1].get("highlight") is False
-
-            # Test with message being None (should not call print again)
-            mock_console.reset_mock()
-            parser._print_message(None)
-            mock_console.print.assert_not_called()
+    # Test with message being None (should not print)
+    parser._print_message(None)
+    captured = capsys.readouterr()
+    assert captured.out == "" and captured.err == ""
 
 
-def test_rich_arg_parser_init():
-    if sys.version_info >= (3, 14):
-        # Python 3.14+: No Rich console
-        parser = RichArgParser()
-        assert parser._console is None
-        assert isinstance(parser, argparse.ArgumentParser)
-    else:
-        # Python < 3.14: Uses Rich console
-        with patch("rich.console.Console") as mock_console:
-            parser = RichArgParser()
-            mock_console.assert_called_once()
-            assert isinstance(parser, argparse.ArgumentParser)
+def test_rich_arg_parser_uses_rich_before_3_14():
+    parser = RichArgParser()
+    assert parser._use_rich == (sys.version_info < (3, 14))
+    assert isinstance(parser, argparse.ArgumentParser)
+
+
+def test_rich_arg_parser_error_goes_to_stderr(capsys):
+    parser = RichArgParser(prog="scalene run")
+    with pytest.raises(SystemExit) as exc:
+        parser.error("unrecognized arguments: --typo")
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    assert "unrecognized arguments: --typo" in captured.err
+    assert captured.out == ""
 
 
 def test_colorize_help_for_rich():
