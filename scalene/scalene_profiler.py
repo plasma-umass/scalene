@@ -53,6 +53,7 @@ import tempfile
 import threading
 import time
 import traceback
+import types
 import warnings
 from collections import defaultdict
 from types import (
@@ -214,6 +215,8 @@ class Scalene:
     __files_to_profile: set[Filename] = set()
     # decorated functions
     __functions_to_profile: dict[Filename, set[Any]] = defaultdict(set)
+    # Code objects already registered via @profile; see _profile().
+    __profiled_code_objects: set[types.CodeType] = set()
 
     # Cache the original thread join function, which we replace with our own version.
     __original_thread_join = threading.Thread.join
@@ -598,16 +601,36 @@ class Scalene:
         it and only reports stats for those.
 
         """
-        filename = Filename(func.__code__.co_filename)
+        code = getattr(func, "__code__", None)
+        if code is None:
+            return func
+        filename = Filename(code.co_filename)
+        # Decorating a nested function (or calling profile() in a loop)
+        # creates a new function object every time, but they all share one
+        # code object, and nothing Scalene decides depends on which instance
+        # it saw. Skip repeats: re-registering cleared every should_trace
+        # cache and rebuilt the native trace config on each call, and kept
+        # every function object alive, which slowed sample processing until
+        # the memory sample log overflowed (issue #1122).
+        if code in Scalene.__profiled_code_objects:
+            return func
+        Scalene.__profiled_code_objects.add(code)
+
+        new_file = filename not in Scalene.__files_to_profile
         Scalene.__files_to_profile.add(filename)
         Scalene.__functions_to_profile[filename].add(func)
+        # The cached line ranges for this file no longer include every
+        # decorated function.
+        Scalene._get_line_info.cache_clear()
 
         # Also update the tracing module
         if hasattr(Scalene, "_Scalene__tracing"):
             Scalene.__tracing.add_file_to_profile(filename)
             Scalene.__tracing.add_function_to_profile(filename, func)
 
-        if Scalene.__args.memory:
+        # The native side only tracks files, so it only needs to hear about
+        # new ones.
+        if new_file and Scalene.__args.memory:
             Scalene._register_files_to_profile()
         return func
 

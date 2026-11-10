@@ -138,11 +138,13 @@ class SampleFile {
   }
   void writeToFile(char *line) {  // , int is_malloc) {
     _spin_lock->lock();
-    // The log is append-only and never wraps, and strncpy always writes
-    // exactly MAX_BUFSIZE bytes (it NUL-pads), so a write needs that much
-    // room. Without this check a long enough run wrote past the end of the
-    // mapping (SIGSEGV/SIGBUS, or silent corruption of whatever follows it).
-    // Once the log is full we drop further samples rather than crash.
+    // strncpy always writes exactly MAX_BUFSIZE bytes (it NUL-pads), so a
+    // write needs that much room. Without this check a long enough run wrote
+    // past the end of the mapping (SIGSEGV/SIGBUS, or silent corruption of
+    // whatever follows it; issue #1122). The Python reader rewinds the log
+    // whenever it has consumed everything (see get_line_atomic.cpp), so the
+    // log only fills if the reader falls a whole log behind; until it catches
+    // up we drop samples rather than crash.
     if (*_lastpos > static_cast<uint64_t>(MAX_FILE_SIZE - MAX_BUFSIZE)) {
       _spin_lock->unlock();
       warnFullOnce();
@@ -169,8 +171,8 @@ class SampleFile {
     if (!warned.exchange(true)) {
       // write(2) rather than fprintf: we may be inside malloc.
       static const char msg[] =
-          "Scalene warning: sample log is full; further memory samples "
-          "for this process will be dropped.\n";
+          "Scalene warning: sample log is full; dropping memory samples "
+          "until the profiler catches up.\n";
       ssize_t r = write(STDERR_FILENO, msg, sizeof(msg) - 1);
       (void)r;
     }

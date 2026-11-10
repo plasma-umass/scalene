@@ -30,43 +30,92 @@ struct BufferGuard {
 };
 }  // namespace
 
+// Layout of the shared lock page (see SampleFile in samplefile.hpp):
+//
+//   [0, 8)                     uint64_t write position (end of valid data)
+//   [8, 8 + sizeof(SpinLock))  HL::SpinLock guarding the log
+//   [kGenerationOffset, +8)    uint64_t generation, bumped on every reset
+//
+// The page is created zero-filled by ftruncate, so the generation starts at
+// 0. Only this reader touches the generation; the native writer never does.
+//
+// Reader state (the ``lastpos`` argument) is [uint64 pos, uint64 generation].
+// An 8-byte buffer is still accepted (position only, no reset support).
+static constexpr size_t kGenerationOffset = 64;
+
 static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
   BufferGuard lock_mmap, signal_mmap, result_bytearray, lastpos_buf;
+  int may_reset = 0;
   if (!PyArg_ParseTuple(
-          args, "s*s*s*s*", &lock_mmap.view, &signal_mmap.view,
-          &result_bytearray.view,
-          &lastpos_buf.view))  // "s*" means readable/writeable buffer as per
-                               // https://docs.python.org/3/c-api/arg.html
-                               // Buffer protocol is found here
-                               // https://docs.python.org/3/c-api/buffer.html
+          args, "s*s*s*s*|p", &lock_mmap.view, &signal_mmap.view,
+          &result_bytearray.view, &lastpos_buf.view,
+          &may_reset))  // "s*" means readable/writeable buffer as per
+                        // https://docs.python.org/3/c-api/arg.html
+                        // Buffer protocol is found here
+                        // https://docs.python.org/3/c-api/buffer.html
     return NULL;
   lock_mmap.held = signal_mmap.held = result_bytearray.held =
       lastpos_buf.held = true;
 
   using LockType = HL::SpinLock;
+  static_assert(sizeof(uint64_t) + sizeof(LockType) <= kGenerationOffset,
+                "generation counter would overlap the spin lock");
   if (lock_mmap.view.len <
-          static_cast<Py_ssize_t>(sizeof(uint64_t) + sizeof(LockType)) ||
+          static_cast<Py_ssize_t>(kGenerationOffset + sizeof(uint64_t)) ||
       lastpos_buf.view.len < static_cast<Py_ssize_t>(sizeof(uint64_t))) {
     PyErr_SetString(PyExc_ValueError,
                     "get_line_atomic: lock or lastpos buffer too small");
     return NULL;
   }
-  if (result_bytearray.view.readonly) {
+  if (result_bytearray.view.readonly || lastpos_buf.view.readonly ||
+      lock_mmap.view.readonly) {
     PyErr_SetString(PyExc_ValueError,
-                    "get_line_atomic: result buffer must be writable");
+                    "get_line_atomic: lock, result and lastpos buffers must "
+                    "be writable");
     return NULL;
   }
+  const bool has_generation =
+      lastpos_buf.view.len >= static_cast<Py_ssize_t>(2 * sizeof(uint64_t));
 
-  auto buf = reinterpret_cast<char*>(lock_mmap.view.buf) + sizeof(uint64_t);
-  auto lock = reinterpret_cast<LockType*>(buf);
+  auto lock_page = reinterpret_cast<char*>(lock_mmap.view.buf);
+  auto writer_pos = reinterpret_cast<uint64_t*>(lock_page);
+  auto lock = reinterpret_cast<LockType*>(lock_page + sizeof(uint64_t));
+  auto generation =
+      reinterpret_cast<uint64_t*>(lock_page + kGenerationOffset);
 
   std::lock_guard<LockType> theLock(*lock);
 
   auto lastpos = reinterpret_cast<uint64_t*>(lastpos_buf.view.buf);
+  auto reader_generation = has_generation ? lastpos + 1 : nullptr;
+
+  if (reader_generation && *reader_generation != *generation) {
+    // The log was reset (by the owning process) since this reader last
+    // looked; its position refers to old data. Start over at the beginning
+    // of the current generation.
+    *lastpos = 0;
+    *reader_generation = *generation;
+  }
+
+  // Valid data ends at the writer's position (clamped to the buffer, in case
+  // it is corrupt). Bounding reads by it, not just by the buffer, matters
+  // once the log is reused: bytes past it are stale records from before the
+  // last reset.
   const auto signal_len = static_cast<uint64_t>(signal_mmap.view.len);
-  if (*lastpos >= signal_len) {
-    // Nothing left to read (or a corrupt position): never index past the
-    // end of the signal buffer (issue #1117).
+  const uint64_t data_end = *writer_pos < signal_len ? *writer_pos : signal_len;
+
+  if (*lastpos >= data_end) {
+    // Fully drained. The log is append-only, so without a reset the writer
+    // eventually runs out of room and has to drop samples (issue #1122).
+    // Now that every record has been consumed, the owner rewinds the log.
+    // Both positions change under the lock the writer also takes, so the
+    // writer simply continues at offset 0.
+    if (may_reset && reader_generation && *writer_pos != 0 &&
+        *lastpos == *writer_pos) {
+      *writer_pos = 0;
+      *lastpos = 0;
+      *generation += 1;
+      *reader_generation = *generation;
+    }
     Py_RETURN_FALSE;
   }
 
@@ -74,13 +123,13 @@ static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
   auto start = current_iter;
   auto result_iter = reinterpret_cast<char*>(result_bytearray.view.buf);
 
-  // Bound the newline search by BOTH the bytes remaining in the signal buffer
-  // and the capacity of the result buffer. The search used to be bounded only
-  // by the result buffer's size, so with lastpos near the end of the mapping
-  // memchr read past it (SIGBUS/SIGSEGV, or garbage from adjacent memory;
-  // issue #1117). Limiting it to the result capacity also guarantees that the
-  // line plus its newline (len + 1 bytes) fits in the result buffer.
-  const uint64_t remaining = signal_len - *lastpos;
+  // Bound the newline search by BOTH the valid bytes remaining in the signal
+  // buffer and the capacity of the result buffer. The search used to be
+  // bounded only by the result buffer's size, so with lastpos near the end of
+  // the mapping memchr read past it (SIGBUS/SIGSEGV, or garbage from adjacent
+  // memory; issue #1117). Limiting it to the result capacity also guarantees
+  // that the line plus its newline (len + 1 bytes) fits in the result buffer.
+  const uint64_t remaining = data_end - *lastpos;
   const auto capacity = static_cast<uint64_t>(result_bytearray.view.len);
   const size_t search_len =
       static_cast<size_t>(remaining < capacity ? remaining : capacity);
@@ -91,13 +140,6 @@ static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
   if (len == 0) {
     Py_RETURN_FALSE;
   }
-
-#if 0
-  char tmp[result_bytearray.view.len+1];
-  memcpy(tmp, current_iter, len);
-  tmp[len] = '\0';
-  tprintf::tprintf("read @ from @\n", tmp, *lastpos);
-#endif
 
   // avoid 'memcpy', as Scalene interposes on it to measure memory copying
   for (size_t i = 0; i <= len; i++) {
