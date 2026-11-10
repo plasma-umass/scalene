@@ -1,4 +1,4 @@
-"""Regression tests for get_line_atomic's bounds handling (issue #1117).
+"""Tests for get_line_atomic: bounds handling (#1117) and log reuse (#1122).
 
 get_line_atomic used to bound its newline search by the size of the *result*
 buffer rather than by the bytes left in the *signal* buffer, so with
@@ -6,6 +6,10 @@ buffer rather than by the bytes left in the *signal* buffer, so with
 PROT_NONE guard page directly after the signal buffer; the old code died with
 SIGBUS/SIGSEGV there. The guard-page probe runs in a subprocess so a crash is
 reported as a test failure instead of killing pytest.
+
+The log is append-only on the writer side; once the owning reader has drained
+it, the reader rewinds it (write position back to 0, generation bumped), so a
+long run doesn't fill it and start dropping samples (#1122).
 """
 
 import struct
@@ -21,12 +25,27 @@ pytestmark = pytest.mark.skipif(
 
 LOCK_SIZE = 4096
 RESULT_SIZE = 4096  # ScaleneMapFile.MAX_BUFSIZE
+GENERATION_OFFSET = 64  # kGenerationOffset in get_line_atomic.cpp
 
 
-def _call(signal: bytes, lastpos: int, result_size: int = RESULT_SIZE):
+def _lock(writer_pos: int, generation: int = 0) -> bytearray:
+    lock = bytearray(LOCK_SIZE)
+    struct.pack_into("<Q", lock, 0, writer_pos)
+    struct.pack_into("<Q", lock, GENERATION_OFFSET, generation)
+    return lock
+
+
+def _writer(lock: bytearray):
+    return (
+        struct.unpack_from("<Q", lock, 0)[0],
+        struct.unpack_from("<Q", lock, GENERATION_OFFSET)[0],
+    )
+
+
+def _call(signal: bytes, lastpos: int, result_size: int = RESULT_SIZE, writer_pos=None):
     from scalene import get_line_atomic  # type: ignore
 
-    lock = bytearray(LOCK_SIZE)
+    lock = _lock(len(signal) if writer_pos is None else writer_pos)
     result = bytearray(result_size)
     pos = bytearray(struct.pack("<Q", lastpos))
     ok = get_line_atomic.get_line_atomic(lock, signal, result, pos)
@@ -87,6 +106,7 @@ def test_buffers_are_released():
     signal = mmap.mmap(-1, mmap.PAGESIZE)
     signal.write(b"hello\n")
     lock = mmap.mmap(-1, LOCK_SIZE)
+    lock.write(struct.pack("<Q", 6))
     result = bytearray(RESULT_SIZE)
     pos = bytearray(8)
     assert get_line_atomic.get_line_atomic(lock, signal, result, pos) is True
@@ -121,9 +141,10 @@ GUARD_PAGE_PROBE = textwrap.dedent("""
         sys.exit(2)
     signal = memoryview(mm)[:page]
     pos = bytearray(struct.pack("<Q", page - 4))
-    ok = get_line_atomic.get_line_atomic(
-        bytearray(4096), signal, bytearray(4096), pos
-    )
+    # A (corrupt) writer position past the end of the buffer must be clamped.
+    lock = bytearray(4096)
+    lock[:8] = struct.pack("<Q", 2 * page)
+    ok = get_line_atomic.get_line_atomic(lock, signal, bytearray(4096), pos)
     assert ok is False, ok
     assert struct.unpack("<Q", pos)[0] == page - 4
     print("OK")
@@ -144,3 +165,76 @@ def test_does_not_read_past_signal_buffer():
         f"{proc.stdout}\n{proc.stderr}"
     )
     assert "OK" in proc.stdout
+
+
+def test_reads_stop_at_writer_position():
+    # Bytes past the writer's position are stale records from before the last
+    # reset and must not be read.
+    signal = b"new\nold-stale\n"
+    ok, result, pos = _call(signal, 0, writer_pos=4)
+    assert ok is True and result.startswith(b"new\n") and pos == 4
+    ok, _, pos = _call(signal, 4, writer_pos=4)
+    assert ok is False and pos == 4
+
+
+def _read_all(lock, signal, state, may_reset):
+    from scalene import get_line_atomic  # type: ignore
+
+    lines = []
+    result = bytearray(RESULT_SIZE)
+    while get_line_atomic.get_line_atomic(lock, signal, result, state, may_reset):
+        lines.append(bytes(result[: result.index(b"\n")]))
+    return lines
+
+
+def test_owner_rewinds_log_once_drained():
+    signal = bytearray(b"a\nb\n" + bytes(64))
+    lock = _lock(4)
+    state = bytearray(16)
+    assert _read_all(lock, signal, state, True) == [b"a", b"b"]
+    # Drained: the writer is rewound and the generation bumped.
+    assert _writer(lock) == (0, 1)
+    assert struct.unpack("<QQ", state) == (0, 1)
+
+    # The writer continues at offset 0; the old records beyond it are stale.
+    signal[0:2] = b"c\n"
+    struct.pack_into("<Q", lock, 0, 2)
+    assert _read_all(lock, signal, state, True) == [b"c"]
+    assert _writer(lock) == (0, 2)
+
+
+def test_non_owner_never_rewinds():
+    signal = b"a\nb\n"
+    lock = _lock(4)
+    state = bytearray(16)
+    assert _read_all(lock, signal, state, False) == [b"a", b"b"]
+    assert _writer(lock) == (4, 0)
+    assert struct.unpack("<QQ", state) == (4, 0)
+
+
+def test_legacy_eight_byte_state_never_rewinds():
+    lock = _lock(4)
+    state = bytearray(8)
+    assert _read_all(lock, b"a\nb\n", state, True) == [b"a", b"b"]
+    assert _writer(lock) == (4, 0)
+
+
+def test_no_rewind_while_unread_records_remain():
+    from scalene import get_line_atomic  # type: ignore
+
+    lock = _lock(4)
+    state = bytearray(16)
+    result = bytearray(RESULT_SIZE)
+    assert get_line_atomic.get_line_atomic(lock, b"a\nb\n", result, state, True)
+    assert _writer(lock) == (4, 0)  # "b" is still unread
+
+
+def test_stale_reader_restarts_after_rewind():
+    # A forked child inherits the parent's reader state. Once the parent has
+    # rewound the log, the child's position refers to old data; it must start
+    # over at the beginning of the current generation instead.
+    signal = b"x\ny\n" + b"stale-record\n"
+    lock = _lock(4, generation=3)
+    state = bytearray(struct.pack("<QQ", 10, 2))  # old generation, old offset
+    assert _read_all(lock, signal, state, False) == [b"x", b"y"]
+    assert struct.unpack("<QQ", state) == (4, 3)

@@ -55,13 +55,22 @@ class ScaleneTracing:
 
     def add_file_to_profile(self, filename: Filename) -> None:
         """Add a file to the set of files to profile (for @profile decorator)."""
+        if filename in self._files_to_profile:
+            return
         self._files_to_profile.add(filename)
         self.should_trace.cache_clear()
 
     def add_function_to_profile(self, filename: Filename, func: Any) -> None:
         """Add a function to profile (for @profile decorator)."""
+        # Decisions depend only on the function's name (see
+        # _should_trace_decorated_function), so another function with a name
+        # we already have changes nothing; don't throw the cache away.
+        known = self._functions_to_profile.get(filename, ())
+        name = func.__code__.co_name
+        already_known = any(fn.__code__.co_name == name for fn in known)
         self._functions_to_profile[filename].add(func)
-        self.should_trace.cache_clear()
+        if not already_known:
+            self.should_trace.cache_clear()
 
     @property
     def files_to_profile(self) -> set[Filename]:

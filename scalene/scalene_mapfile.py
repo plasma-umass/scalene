@@ -8,6 +8,11 @@ if sys.platform != "win32":
 
 Filename = NewType("Filename", str)
 
+# The unwrapped getpid. Scalene later wraps every function in ``os`` to block
+# SIGALRM (two pthread_sigmask calls per call), which is too costly to pay on
+# every sample read.
+_getpid = os.getpid
+
 
 def decode_sample(raw: bytes) -> str:
     """Decode one sample record written by the native side.
@@ -36,7 +41,14 @@ class ScaleneMapFile:
         self._name = name
         self._buf = bytearray(ScaleneMapFile.MAX_BUFSIZE)
         self._signal_position = 0
-        self._lastpos = bytearray(8)
+        # Reader state. On POSIX this is [uint64 position, uint64 generation]
+        # (see get_line_atomic.cpp); Windows only tracks the position.
+        self._lastpos = bytearray(8 if sys.platform == "win32" else 16)
+        # Only the process that created this map file may rewind the shared
+        # log once it has drained it. Forked children inherit this object
+        # (and keep reading the parent's log with their own position), but
+        # must never reset it out from under the parent.
+        self._owner_pid = _getpid()
         self._signal_mmap: Optional[mmap.mmap] = None
         self._lock_mmap: Optional[mmap.mmap] = None
         self._signal_fd: Optional[TextIO] = None
@@ -200,7 +212,11 @@ class ScaleneMapFile:
         if not self._signal_mmap:
             return False
         return get_line_atomic.get_line_atomic(
-            self._lock_mmap, self._signal_mmap, self._buf, self._lastpos
+            self._lock_mmap,
+            self._signal_mmap,
+            self._buf,
+            self._lastpos,
+            _getpid() == self._owner_pid,
         )
 
     def _read_windows(self) -> bool:
@@ -280,4 +296,10 @@ class ScaleneMapFile:
 
     def get_str(self) -> str:
         """Get the string from the buffer."""
-        return decode_sample(bytes(self._buf.rstrip(b"\x00").split(b"\n")[0]))
+        # The reader copies one record plus its newline to the start of the
+        # buffer; stop there rather than strip and split all MAX_BUFSIZE bytes
+        # (this runs once per sample). The Windows reader can also hand back a
+        # NUL-padded record without a newline.
+        end = self._buf.find(b"\n")
+        raw = self._buf[:end] if end >= 0 else self._buf.rstrip(b"\x00")
+        return decode_sample(bytes(raw))
