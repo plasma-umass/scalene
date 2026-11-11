@@ -14,7 +14,7 @@ pthread spawned by a C extension (e.g., a threaded BLAS backend). That is
 harder to stage portably in a smoketest — see issue #857 for context.
 
 Run with:
-    python -m scalene run --memory --cli test/test-native-thread-alloc.py
+    python -m scalene run --memory test/test-native-thread-alloc.py && python -m scalene view --cli
 """
 
 import threading

@@ -14,7 +14,7 @@ Build the companion library first (see native_thread_alloc.c):
 
 Then:
 
-    python -m scalene run --memory --cli --- test/test-native-thread-alloc-ctypes.py
+    python -m scalene run --memory test/test-native-thread-alloc-ctypes.py && python -m scalene view --cli
 """
 
 import ctypes
