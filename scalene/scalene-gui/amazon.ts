@@ -2,9 +2,10 @@ import {
   BedrockRuntimeClient,
   InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
+import { ModelNotFoundError } from "./models";
 
 interface AnthropicResponse {
-  content: Array<{ text: string }>;
+  content: Array<{ type: string; text?: string }>;
 }
 
 interface OpenAIStyleResponse {
@@ -15,7 +16,7 @@ interface OpenAIStyleResponse {
   }>;
 }
 
-export async function sendPromptToAmazon(prompt: string): Promise<string> {
+export async function sendPromptToAmazon(prompt: string, modelId: string): Promise<string> {
   const accessKeyIdElement = document.getElementById("aws-access-key") as HTMLInputElement | null;
   const secretAccessKeyElement = document.getElementById("aws-secret-key") as HTMLInputElement | null;
   const regionElement = document.getElementById("aws-region") as HTMLInputElement | null;
@@ -48,10 +49,11 @@ export async function sendPromptToAmazon(prompt: string): Promise<string> {
   let body: Record<string, unknown> = {};
   const max_tokens = 65536; // arbitrary large number
 
-  const modelElement = document.getElementById("language-model-amazon") as HTMLSelectElement | null;
-  const modelId = modelElement?.value ?? "";
+  // Claude model IDs look like anthropic.claude-..., optionally with an
+  // inference-profile prefix (us., global., ...).
+  const isClaude = /(^|\.)anthropic\./.test(modelId);
 
-  if (modelId.startsWith("us.anthropic")) {
+  if (isClaude) {
     body = {
       anthropic_version: "bedrock-2023-05-31",
       max_tokens: max_tokens,
@@ -99,9 +101,13 @@ export async function sendPromptToAmazon(prompt: string): Promise<string> {
     const parsedResponse = JSON.parse(responseText);
     console.log("parsedResponse = " + responseText);
 
-    if (modelId.startsWith("us.anthropic")) {
+    if (isClaude) {
+      // Skip any thinking blocks that precede the answer.
       const anthropicResponse = parsedResponse as AnthropicResponse;
-      const responseContents = anthropicResponse.content[0].text;
+      const responseContents = anthropicResponse.content
+        .filter((block) => block.type === "text" && typeof block.text === "string")
+        .map((block) => block.text)
+        .join("");
       return responseContents.trim();
     } else {
       const openaiResponse = parsedResponse as OpenAIStyleResponse;
@@ -114,6 +120,13 @@ export async function sendPromptToAmazon(prompt: string): Promise<string> {
   } catch (err) {
     const error = err as Error;
     console.error(err);
+    // Bedrock reports an unknown or retired model ID as one of these.
+    if (
+      error.name === "ResourceNotFoundException" ||
+      (error.name === "ValidationException" && /model identifier is invalid/i.test(error.message))
+    ) {
+      throw new ModelNotFoundError("amazon", modelId, error.message);
+    }
     return `# Error: ${error.message}`;
   }
 }

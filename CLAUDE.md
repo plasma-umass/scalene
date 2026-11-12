@@ -374,13 +374,19 @@ sock.bind(("", port))
 
 ### Adding a New AI Provider
 
-1. **Create provider module** (`scalene/scalene-gui/newprovider.ts`):
+1. **Register its models in `models.ts`**: add an entry to `MODEL_REGISTRY`
+   (select ID, custom-model field ID, default, curated list). Model IDs must
+   not appear anywhere else (see [Model IDs](#model-ids)).
+
+2. **Create provider module** (`scalene/scalene-gui/newprovider.ts`):
    ```typescript
    export async function sendPromptToNewProvider(
      prompt: string,
-     apiKey: string
+     apiKey: string,
+     model: string  // resolved by the caller; don't read the DOM for it
    ): Promise<string> {
-     // API call implementation
+     // API call implementation. If the provider says the model doesn't
+     // exist, throw new ModelNotFoundError("newprovider", model, message).
    }
 
    export async function fetchNewProviderModels(apiKey: string): Promise<string[]> {
@@ -388,31 +394,57 @@ sock.bind(("", port))
    }
    ```
 
-2. **Update `optimizations.ts`**:
+3. **Update `optimizations.ts`**:
    - Import the new module
-   - Add case in `sendPromptToService()` switch statement
+   - Add a case in the dispatch switch that calls
+     `sendWithModelRecovery("newprovider", apiKey, (model) => sendPromptToNewProvider(prompt, apiKey, model))`
+   - If it can list models, add it to `listAvailableModels()` in `model-recovery.ts`
 
-3. **Update `index.html.template`**:
+4. **Update `index.html.template`**:
    - Add option to `#service` select dropdown
-   - Add provider section with API key input, model selector, etc.
+   - Add provider section with API key input, an empty model `<select>`
+     (filled from `models.ts`), etc.
    - Add CSS for `.newprovider-fields` visibility
 
-4. **Update `scalene-gui.ts`**:
+5. **Update `scalene-gui.ts`**:
    - Add provider to `toggleServiceFields()` function
-   - Add refresh handler if dynamic model fetching is supported
+   - Add a `refreshModels(...)` wrapper if dynamic model fetching is supported
    - Update `getDefaultProvider()` if env var support is needed
 
-5. **Update `persistence.ts`** (for env var support):
+6. **Update `persistence.ts`** (for env var support):
    - Add mapping in `envKeyMap` for new fields
 
-6. **Update `launchbrowser.py`** (for env var support):
+7. **Update `launchbrowser.py`** (for env var support):
    - Add the field and its environment variable(s) to `ENV_API_KEY_VARIABLES`
    - Add the field to `EnvApiKeys` / `envApiKeyFields` in `persistence.ts`
 
-7. **Rebuild the bundle**:
+8. **Rebuild the bundle**:
    ```bash
    npm --prefix scalene/scalene-gui run build
    ```
+
+### Model IDs
+
+Providers retire model IDs regularly (#1123), so the GUI treats them as data
+that goes stale:
+
+- **One file.** Every model ID lives in `scalene-gui/models.ts`
+  (`MODEL_REGISTRY`). Dropdowns are filled from it at load time, and
+  `tests/test_model_registry.py` fails if a model ID literal appears in any
+  other GUI source or the template.
+- **Aliases over snapshots.** Prefer IDs that providers move forward
+  themselves (`claude-sonnet-5-5`, `gemini-flash-latest`) over dated snapshots.
+- **Saved selections are migrated.** `RETIRED_MODELS` maps known-dead IDs to
+  replacements; `persistence.ts` applies it when restoring a model `<select>`.
+  Saved models not in the curated list (e.g. picked after a refresh) are kept.
+- **Recovery at request time.** Providers throw `ModelNotFoundError` when a
+  model is unknown; `sendWithModelRecovery()` (`model-recovery.ts`) fetches the
+  provider's live list, picks the newest model in the same family
+  (`pickReplacement()`), retries once, and saves the new choice. Models typed
+  into a "Custom model" field are never switched automatically.
+
+When a provider announces a retirement: update `MODEL_REGISTRY`, add the old
+ID to `RETIRED_MODELS`, and rebuild the bundle.
 
 ### Environment Variable API Keys
 

@@ -1,3 +1,5 @@
+import { ModelNotFoundError } from "./models";
+
 interface OpenAIErrorResponse {
   error?: {
     code?: string;
@@ -136,18 +138,13 @@ export function checkApiKey(apiKey: string): void {
 
 export async function sendPromptToOpenAI(
   prompt: string,
-  apiKey: string
+  apiKey: string,
+  model: string
 ): Promise<string> {
   // Check for custom URL override (for OpenAI-compatible servers like vLLM, Cohere)
   const customUrlElement = document.getElementById("openai-custom-url") as HTMLInputElement | null;
   const customUrl = customUrlElement?.value?.trim() || "";
   const endpoint = customUrl || "https://api.openai.com/v1/chat/completions";
-
-  // Check for custom model override
-  const customModelElement = document.getElementById("openai-custom-model") as HTMLInputElement | null;
-  const customModel = customModelElement?.value?.trim() || "";
-  const modelElement = document.getElementById("language-model-openai") as HTMLSelectElement | null;
-  const model = customModel || modelElement?.value || "gpt-4";
 
   const body = JSON.stringify({
     model: model,
@@ -178,27 +175,16 @@ export async function sendPromptToOpenAI(
 
   const data: OpenAIResponse = await response.json();
   if (data.error) {
-    if (
-      data.error.code &&
-      data.error.code in {
-        invalid_request_error: true,
-        model_not_found: true,
-        insufficient_quota: true,
-      }
-    ) {
-      if (data.error.code === "model_not_found" && model === "gpt-4") {
-        // Technically, model_not_found applies only for GPT-4.0
-        // if an account has not been funded with at least $1.
-        alert(
-          "You either need to add funds to your OpenAI account to use this feature, or you need to switch to GPT-3.5 if you are using free credits."
-        );
-      } else {
-        alert(
-          "You need to add funds to your OpenAI account to use this feature."
-        );
-      }
-      return "";
+    console.error("OpenAI API error:", data.error);
+    if (data.error.code === "model_not_found") {
+      throw new ModelNotFoundError("openai", model, data.error.message || "not found");
     }
+    if (data.error.code === "insufficient_quota") {
+      alert("You need to add funds to your OpenAI account to use this feature.");
+    } else {
+      alert(`OpenAI API error: ${data.error.message || data.error.code || "Unknown error"}`);
+    }
+    return "";
   }
   try {
     if (data.choices && data.choices[0]) {

@@ -1,3 +1,5 @@
+import { ModelNotFoundError } from "./models";
+
 interface GeminiErrorResponse {
   error?: {
     code?: number;
@@ -35,17 +37,12 @@ interface GeminiModelsResponse extends GeminiErrorResponse {
 
 export async function sendPromptToGemini(
   prompt: string,
-  apiKey: string
+  apiKey: string,
+  model: string
 ): Promise<string> {
   // Check for custom URL override (for Gemini-compatible servers)
   const customUrlElement = document.getElementById("gemini-custom-url") as HTMLInputElement | null;
   const customUrl = customUrlElement?.value?.trim() || "";
-
-  // Check for custom model override
-  const customModelElement = document.getElementById("gemini-custom-model") as HTMLInputElement | null;
-  const customModel = customModelElement?.value?.trim() || "";
-  const modelElement = document.getElementById("language-model-gemini") as HTMLSelectElement | null;
-  const model = customModel || modelElement?.value || "gemini-2.0-flash";
 
   // Construct endpoint URL
   const baseUrl = customUrl || "https://generativelanguage.googleapis.com/v1beta";
@@ -87,6 +84,9 @@ export async function sendPromptToGemini(
   const data: GeminiResponse = await response.json();
   if (data.error) {
     console.error("Gemini API error:", data.error);
+    if (data.error.status === "NOT_FOUND" || data.error.code === 404) {
+      throw new ModelNotFoundError("gemini", model, data.error.message || "not found");
+    }
     if (data.error.status === "INVALID_ARGUMENT" || data.error.code === 400) {
       alert(`Gemini API error: ${data.error.message || "Invalid request"}`);
     } else if (data.error.status === "UNAUTHENTICATED" || data.error.code === 401) {

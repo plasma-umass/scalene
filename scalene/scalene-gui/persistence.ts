@@ -1,3 +1,5 @@
+import { isModelSelect, restoreModelSelection } from "./models";
+
 // AI provider credentials taken from environment variables. These are
 // never embedded in the HTML: with `scalene view --api-keys-from-env`, the
 // local server hands them to the page over a same-origin request.
@@ -72,6 +74,15 @@ const envKeyMap: Record<string, keyof EnvApiKeys> = {
 
 function restoreState(el: HTMLInputElement): void {
   const savedValue = localStorage.getItem(el.id);
+
+  if (savedValue !== null && el instanceof HTMLSelectElement && isModelSelect(el)) {
+    // Model choices can go stale as providers retire models.
+    const restored = restoreModelSelection(el, savedValue);
+    if (restored !== savedValue) {
+      localStorage.setItem(el.id, restored);
+    }
+    return;
+  }
 
   if (savedValue !== null) {
     switch (el.type) {

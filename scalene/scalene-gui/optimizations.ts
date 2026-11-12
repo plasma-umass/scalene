@@ -4,6 +4,8 @@ import { sendPromptToGemini } from "./gemini";
 import { sendPromptToOllama } from "./ollama";
 import { sendPromptToAmazon } from "./amazon";
 import { sendPromptToAzureOpenAI } from "./azure";
+import { resolveModel } from "./models";
+import { sendWithModelRecovery } from "./model-recovery";
 import { countSpaces } from "./utils";
 import { WhiteLightning, WhiteExplosion } from "./gui-elements";
 
@@ -303,19 +305,25 @@ export async function optimizeCode(
   switch (aiService) {
     case "openai": {
       console.log(prompt);
-      const result = await sendPromptToOpenAI(prompt, apiKey);
+      const result = await sendWithModelRecovery("openai", apiKey, (model) =>
+        sendPromptToOpenAI(prompt, apiKey, model)
+      );
       return extractCode(result);
     }
     case "anthropic": {
       console.log("Running " + aiService);
       console.log(prompt);
-      const result = await sendPromptToAnthropic(prompt, apiKey);
+      const result = await sendWithModelRecovery("anthropic", apiKey, (model) =>
+        sendPromptToAnthropic(prompt, apiKey, model)
+      );
       return extractCode(result);
     }
     case "gemini": {
       console.log("Running " + aiService);
       console.log(prompt);
-      const result = await sendPromptToGemini(prompt, apiKey);
+      const result = await sendWithModelRecovery("gemini", apiKey, (model) =>
+        sendPromptToGemini(prompt, apiKey, model)
+      );
       return extractCode(result);
     }
     case "local": {
@@ -340,19 +348,17 @@ export async function optimizeCode(
     case "amazon": {
       console.log("Running " + aiService);
       console.log(prompt);
-      const result = await sendPromptToAmazon(prompt);
+      const result = await sendWithModelRecovery("amazon", apiKey, (model) =>
+        sendPromptToAmazon(prompt, model)
+      );
       return extractCode(result);
     }
     case "azure-openai": {
       console.log("Running " + aiService);
       console.log(prompt);
       const azureUrlElement = document.getElementById("azure-api-url") as HTMLInputElement | null;
-      const azureCustomModelElement = document.getElementById("azure-custom-model") as HTMLInputElement | null;
-      const azureModelSelectElement = document.getElementById("language-model-azure") as HTMLSelectElement | null;
-
       const azureOpenAiEndpoint = azureUrlElement?.value ?? "";
-      const azureCustomModel = azureCustomModelElement?.value?.trim() || "";
-      const azureOpenAiModel = azureCustomModel || azureModelSelectElement?.value || "gpt-5.2";
+      const azureOpenAiModel = resolveModel("azure").model;
       const result = await sendPromptToAzureOpenAI(
         prompt,
         apiKey,

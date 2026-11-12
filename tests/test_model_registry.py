@@ -1,0 +1,190 @@
+"""Tests for the GUI's AI model registry (scalene/scalene-gui/models.ts).
+
+Providers retire model IDs regularly (#1123). The GUI keeps every model ID in
+models.ts so there is one place to update, and recovers at request time from
+models that have since been retired. These tests keep it that way.
+"""
+
+import json
+import re
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Any, Dict, List
+
+import pytest
+
+GUI_DIR = Path(__file__).resolve().parent.parent / "scalene" / "scalene-gui"
+REGISTRY = GUI_DIR / "models.ts"
+
+# Strings that look like a model ID: claude-*/gemini-* containing a digit or
+# "latest", and gpt-<digit>*. Element IDs like "gemini-api-key" don't match.
+MODEL_ID_LITERAL = re.compile(
+    r"""["'`>](?:[a-z]+\.)*(?:(?:claude|gemini)-[\w.:-]*(?:\d|latest)|gpt-\d)[\w.:-]*["'`<]"""
+)
+
+
+def _gui_sources() -> List[Path]:
+    sources = [p for p in GUI_DIR.glob("*.ts") if not p.name.endswith(".d.ts")]
+    sources.append(GUI_DIR / "index.html.template")
+    return [p for p in sources if p != REGISTRY]
+
+
+def test_model_ids_only_in_registry() -> None:
+    offenders = []
+    for path in _gui_sources():
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            for match in MODEL_ID_LITERAL.finditer(line):
+                offenders.append(f"{path.name}:{lineno}: {match.group(0)}")
+    assert not offenders, (
+        "Model IDs belong in scalene-gui/models.ts so that retiring a model "
+        "means editing one file:\n" + "\n".join(offenders)
+    )
+
+
+def test_pattern_catches_model_ids() -> None:
+    # Guard against the check above passing because the pattern rotted.
+    for literal in [
+        '"claude-sonnet-4-5-20250929"',
+        "'claude-sonnet-5-5'",
+        '"us.anthropic.claude-opus-4-5-20251101-v1:0"',
+        '"gemini-2.0-flash"',
+        '"gemini-flash-latest"',
+        '"gpt-4"',
+        '<option value="x">gpt-5.2<',
+    ]:
+        assert MODEL_ID_LITERAL.search(literal), literal
+    for literal in ['"gemini-api-key"', '"claude-fields"', 'includes("gpt")']:
+        assert not MODEL_ID_LITERAL.search(literal), literal
+
+
+# --- Behavior of models.ts, run under Node ------------------------------------
+
+_NODE_SCRIPT = r"""
+const m = await import(process.argv[1]);
+const pick = (args) => m.pickReplacement(...args);
+const out = {
+  registry: m.MODEL_REGISTRY,
+  retired: m.RETIRED_MODELS,
+  families: Object.fromEntries(JSON.parse(process.argv[2]).map((id) => [id, m.modelFamily(id)])),
+  picks: JSON.parse(process.argv[3]).map(pick),
+};
+console.log(JSON.stringify(out));
+"""
+
+_FAMILY_CASES = {
+    "claude-sonnet-4-5-20250929": "claude-sonnet",
+    "claude-sonnet-5-5": "claude-sonnet",
+    "claude-opus-4-5-20251124": "claude-opus",
+    "us.anthropic.claude-sonnet-4-5-20250929-v1:0": "claude-sonnet",
+    "anthropic.claude-haiku-5-5": "claude-haiku",
+    "global.anthropic.claude-opus-4-6-v1": "claude-opus",
+    "gemini-2.0-flash": "gemini-flash",
+    "gemini-flash-latest": "gemini-flash",
+    "gemini-2.5-flash-lite": "gemini-flash-lite",
+    "gpt-4": "gpt",
+    "gpt-5.2-pro": "gpt-pro",
+}
+
+# (failed model, models the provider lists, registry default) -> replacement
+_PICK_CASES = [
+    # Retired Sonnet: newest Sonnet wins, regardless of list order.
+    (
+        [
+            "claude-sonnet-4-5-20250929",
+            [
+                "claude-haiku-5-5",
+                "claude-sonnet-4-6",
+                "claude-sonnet-5-5",
+                "claude-opus-5-5",
+            ],
+            "claude-sonnet-5-5",
+        ],
+        "claude-sonnet-5-5",
+    ),
+    # Gemini: a -latest alias beats numbered versions.
+    (
+        [
+            "gemini-2.0-flash",
+            ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-pro"],
+            "gemini-pro-latest",
+        ],
+        "gemini-flash-latest",
+    ),
+    # No same-family model listed: fall back to the default if it is listed...
+    (
+        ["claude-instant-1", ["claude-sonnet-5-5"], "claude-sonnet-5-5"],
+        "claude-sonnet-5-5",
+    ),
+    # ...but not if the provider says it doesn't exist.
+    (["claude-instant-1", ["claude-opus-5-5"], "claude-sonnet-5-5"], None),
+    # No list available (e.g. Bedrock): use the default.
+    (
+        [
+            "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+            [],
+            "anthropic.claude-sonnet-5-5",
+        ],
+        "anthropic.claude-sonnet-5-5",
+    ),
+    # Never "replace" a model with itself.
+    (["claude-sonnet-5-5", [], "claude-sonnet-5-5"], None),
+    (["claude-sonnet-5-5", ["claude-sonnet-5-5"], "claude-sonnet-5-5"], None),
+]
+
+
+def _node_supports_type_stripping(node: str) -> bool:
+    try:
+        out = subprocess.run(
+            [node, "--version"], capture_output=True, text=True, check=True
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    major, minor = (int(x) for x in out.strip().lstrip("v").split(".")[:2])
+    return (major, minor) >= (22, 6)
+
+
+@pytest.fixture(scope="module")
+def registry_eval() -> Dict[str, Any]:
+    node = shutil.which("node")
+    if node is None or not _node_supports_type_stripping(node):
+        pytest.skip("needs Node.js 22.6+ to run models.ts")
+    result = subprocess.run(
+        [
+            node,
+            "--experimental-strip-types",
+            "--no-warnings",
+            "--input-type=module",
+            "-e",
+            _NODE_SCRIPT,
+            REGISTRY.as_uri(),
+            json.dumps(list(_FAMILY_CASES)),
+            json.dumps([args for args, _ in _PICK_CASES]),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+def test_model_family(registry_eval: Dict[str, Any]) -> None:
+    assert registry_eval["families"] == _FAMILY_CASES
+
+
+def test_pick_replacement(registry_eval: Dict[str, Any]) -> None:
+    assert registry_eval["picks"] == [expected for _, expected in _PICK_CASES]
+
+
+def test_registry_is_consistent(registry_eval: Dict[str, Any]) -> None:
+    registry = registry_eval["registry"]
+    retired = registry_eval["retired"]
+    curated = {m["id"] for p in registry.values() for m in p["models"]}
+    for name, provider in registry.items():
+        ids = [m["id"] for m in provider["models"]]
+        assert provider["defaultModel"] in ids, name
+        assert len(ids) == len(set(ids)), name
+    # Retired IDs must not be offered, and must map to something we offer.
+    assert not curated & set(retired)
+    for old, new in retired.items():
+        assert new in curated, f"{old} -> {new}"

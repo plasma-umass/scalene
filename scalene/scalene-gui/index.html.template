@@ -339,20 +339,7 @@
           <div class="form-row">
             <label for="language-model-openai">Model:</label>
             <select id="language-model-openai" class="persistent">
-              <option value="gpt-5.2" selected>GPT-5.2</option>
-              <option value="gpt-5.2-pro">GPT-5.2 Pro</option>
-              <option value="gpt-5.1">GPT-5.1</option>
-              <option value="gpt-5">GPT-5</option>
-              <option value="gpt-5-mini">GPT-5 mini</option>
-              <option value="gpt-5-nano">GPT-5 nano</option>
-              <option value="gpt-4.1">GPT-4.1</option>
-              <option value="gpt-4.1-mini">GPT-4.1 mini</option>
-              <option value="gpt-4.1-nano">GPT-4.1 nano</option>
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="o3-pro">o3-pro</option>
-              <option value="o3">o3</option>
-              <option value="o3-mini">o3-mini</option>
-              <option value="o4-mini">o4-mini</option>
+              <!-- Filled from models.ts -->
             </select>
             <button type="button" class="btn-refresh" onclick="refreshOpenAIModels()" title="Refresh model list">&#8635;</button>
           </div>
@@ -381,10 +368,9 @@
           <div class="form-row">
             <label for="language-model-anthropic">Model:</label>
             <select id="language-model-anthropic" class="persistent">
-              <option value="claude-sonnet-4-5-20250929" selected>Claude Sonnet 4.5</option>
-              <option value="claude-opus-4-5-20251124">Claude Opus 4.5</option>
-              <option value="claude-haiku-4-5-20251015">Claude Haiku 4.5</option>
+              <!-- Filled from models.ts -->
             </select>
+            <button type="button" class="btn-refresh" onclick="refreshAnthropicModels()" title="Refresh model list">&#8635;</button>
           </div>
           <div class="advanced-toggle" onclick="toggleAdvanced(this)">&#9654; Advanced options</div>
           <div class="advanced-options">
@@ -411,13 +397,7 @@
           <div class="form-row">
             <label for="language-model-gemini">Model:</label>
             <select id="language-model-gemini" class="persistent">
-              <option value="gemini-3-pro-preview" selected>Gemini 3 Pro</option>
-              <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
-              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-              <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
-              <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-              <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
+              <!-- Filled from models.ts -->
             </select>
             <button type="button" class="btn-refresh" onclick="refreshGeminiModels()" title="Refresh model list">&#8635;</button>
           </div>
@@ -454,9 +434,7 @@
           <div class="form-row">
             <label for="language-model-amazon">Model:</label>
             <select id="language-model-amazon" class="persistent">
-              <option value="us.anthropic.claude-sonnet-4-5-20250929-v1:0" selected>Claude Sonnet 4.5</option>
-              <option value="us.anthropic.claude-opus-4-5-20251124-v1:0">Claude Opus 4.5</option>
-              <option value="us.anthropic.claude-haiku-4-5-20251015-v1:0">Claude Haiku 4.5</option>
+              <!-- Filled from models.ts -->
             </select>
           </div>
         </div>
@@ -477,10 +455,7 @@
           <div class="form-row">
             <label for="language-model-azure">Model:</label>
             <select id="language-model-azure" class="persistent">
-              <option value="gpt-4.1" selected>GPT-4.1</option>
-              <option value="gpt-4.1-mini">GPT-4.1 mini</option>
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="o3-mini">o3-mini</option>
+              <!-- Filled from models.ts -->
             </select>
           </div>
           <div class="advanced-toggle" onclick="toggleAdvanced(this)">&#9654; Advanced options</div>
