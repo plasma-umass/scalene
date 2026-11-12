@@ -63,23 +63,36 @@ export const MODEL_REGISTRY: Record<ModelProvider, ProviderModels> = {
   gemini: {
     selectId: "language-model-gemini",
     customModelId: "gemini-custom-model",
-    // The *-latest aliases track Google's newest stable model of each tier.
-    defaultModel: "gemini-pro-latest",
+    // gemini-flash-latest is Google's documented alias for the newest Flash
+    // release (Google gives two weeks' notice before moving it). There is no
+    // Pro alias. Newer models (e.g. Gemini 4) appear after a refresh, which
+    // lists only models that support generateContent.
+    defaultModel: "gemini-flash-latest",
     models: [
-      { id: "gemini-pro-latest", label: "Gemini Pro (latest)" },
       { id: "gemini-flash-latest", label: "Gemini Flash (latest)" },
-      { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite (latest)" },
-      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+      { id: "gemini-3.8-flash", label: "Gemini 3.8 Flash" },
+      { id: "gemini-3.6-flash", label: "Gemini 3.6 Flash" },
+      { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite" },
+      { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite" },
+      { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (preview)" },
     ],
   },
   amazon: {
+    // Bedrock serves current Claude models only through inference profiles;
+    // a bare anthropic.* ID fails with "on-demand throughput isn't
+    // supported". The global. profiles route to any region at no premium.
+    // Older models are listed because accounts don't always have access to
+    // the newest ones; recovery walks down to them (same family, newest
+    // first) when the default is refused.
     selectId: "language-model-amazon",
-    defaultModel: "anthropic.claude-sonnet-5-5",
+    defaultModel: "global.anthropic.claude-sonnet-5-5",
     models: [
-      { id: "anthropic.claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
-      { id: "anthropic.claude-opus-5-5", label: "Claude Opus 5.5" },
-      { id: "anthropic.claude-haiku-5-5", label: "Claude Haiku 5.5" },
+      { id: "global.anthropic.claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
+      { id: "global.anthropic.claude-opus-5-5", label: "Claude Opus 5.5" },
+      { id: "global.anthropic.claude-haiku-5-5", label: "Claude Haiku 5.5" },
+      { id: "global.anthropic.claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+      { id: "global.anthropic.claude-opus-4-6-v1", label: "Claude Opus 4.6" },
+      { id: "global.anthropic.claude-haiku-4-5-20251001-v1:0", label: "Claude Haiku 4.5" },
     ],
   },
   azure: {
@@ -107,14 +120,18 @@ export const RETIRED_MODELS: Record<string, string> = {
   // and 20251001).
   "claude-opus-4-5-20251124": "claude-opus-5-5",
   "claude-haiku-4-5-20251015": "claude-haiku-5-5",
-  "us.anthropic.claude-sonnet-4-5-20250929-v1:0": "anthropic.claude-sonnet-5-5",
-  "us.anthropic.claude-opus-4-5-20251124-v1:0": "anthropic.claude-opus-5-5",
-  "us.anthropic.claude-haiku-4-5-20251015-v1:0": "anthropic.claude-haiku-5-5",
-  // Preview and 2.0 models Google has retired or is retiring.
-  "gemini-3-pro-preview": "gemini-pro-latest",
-  "gemini-3-flash-preview": "gemini-flash-latest",
+  // Bedrock: Sonnet 4.5 is "Legacy" there and refused to accounts that
+  // haven't used it recently; the Opus/Haiku IDs were never valid.
+  "us.anthropic.claude-sonnet-4-5-20250929-v1:0": "global.anthropic.claude-sonnet-5-5",
+  "us.anthropic.claude-opus-4-5-20251124-v1:0": "global.anthropic.claude-opus-5-5",
+  "us.anthropic.claude-haiku-4-5-20251015-v1:0": "global.anthropic.claude-haiku-5-5",
+  // Gemini models Google has shut down, and the 2.5 models it has
+  // deprecated (mapped where Google itself reroutes them on 2026-12-01).
+  "gemini-3-pro-preview": "gemini-3.1-pro-preview",
   "gemini-2.0-flash": "gemini-flash-latest",
-  "gemini-2.0-flash-lite": "gemini-flash-lite-latest",
+  "gemini-2.0-flash-lite": "gemini-3.5-flash-lite",
+  "gemini-2.5-pro": "gemini-3.8-flash",
+  "gemini-2.5-flash": "gemini-3.5-flash-lite",
 };
 
 // (Plain fields rather than constructor parameter properties, so this file
@@ -167,24 +184,31 @@ export function compareModelRecency(a: string, b: string): number {
   return 0;
 }
 
-// Choose what to use in place of a model the provider rejected: the newest
-// available model in the same family, else the registry default. Returns
-// null if there is nothing different to try.
+// What to try in place of a model the provider rejected, best first: models
+// in the same family, newest first, then the registry default (unless the
+// provider's list shows it doesn't exist). Never includes `failed`.
+export function rankReplacements(
+  failed: string,
+  available: string[],
+  defaultModel: string
+): string[] {
+  const family = modelFamily(failed);
+  const ranked = available
+    .filter((id) => id !== failed && modelFamily(id) === family)
+    .sort((a, b) => compareModelRecency(b, a));
+  const defaultExists = available.length === 0 || available.includes(defaultModel);
+  if (defaultModel !== failed && defaultExists && !ranked.includes(defaultModel)) {
+    ranked.push(defaultModel);
+  }
+  return ranked;
+}
+
 export function pickReplacement(
   failed: string,
   available: string[],
   defaultModel: string
 ): string | null {
-  const family = modelFamily(failed);
-  const candidates = available
-    .filter((id) => id !== failed && modelFamily(id) === family)
-    .sort((a, b) => compareModelRecency(b, a));
-  if (candidates.length > 0) return candidates[0];
-  if (available.length > 0 && !available.includes(defaultModel)) {
-    // The provider told us what exists, and our default isn't in it.
-    return null;
-  }
-  return defaultModel !== failed ? defaultModel : null;
+  return rankReplacements(failed, available, defaultModel)[0] ?? null;
 }
 
 // --- DOM helpers -------------------------------------------------------------

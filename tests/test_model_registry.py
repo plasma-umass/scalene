@@ -68,6 +68,7 @@ const out = {
   retired: m.RETIRED_MODELS,
   families: Object.fromEntries(JSON.parse(process.argv[2]).map((id) => [id, m.modelFamily(id)])),
   picks: JSON.parse(process.argv[3]).map(pick),
+  ranks: JSON.parse(process.argv[4]).map((args) => m.rankReplacements(...args)),
 };
 console.log(JSON.stringify(out));
 """
@@ -78,6 +79,7 @@ _FAMILY_CASES = {
     "claude-opus-4-5-20251124": "claude-opus",
     "us.anthropic.claude-sonnet-4-5-20250929-v1:0": "claude-sonnet",
     "anthropic.claude-haiku-5-5": "claude-haiku",
+    "global.anthropic.claude-haiku-4-5-20251001-v1:0": "claude-haiku",
     "global.anthropic.claude-opus-4-6-v1": "claude-opus",
     "gemini-2.0-flash": "gemini-flash",
     "gemini-flash-latest": "gemini-flash",
@@ -133,6 +135,48 @@ _PICK_CASES = [
 ]
 
 
+_BEDROCK = [
+    "global.anthropic.claude-sonnet-5-5",
+    "global.anthropic.claude-opus-5-5",
+    "global.anthropic.claude-haiku-5-5",
+    "global.anthropic.claude-sonnet-4-6",
+    "global.anthropic.claude-opus-4-6-v1",
+    "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+]
+
+# (failed model, available, default) -> replacements to try, best first
+_RANK_CASES = [
+    # An account without access to the 5.5 default falls back within the
+    # family (seen on a real AWS account, which can call 4.6 but not 5.5).
+    (
+        [
+            "global.anthropic.claude-sonnet-5-5",
+            _BEDROCK,
+            "global.anthropic.claude-sonnet-5-5",
+        ],
+        ["global.anthropic.claude-sonnet-4-6"],
+    ),
+    # A retired Sonnet tries the newest Sonnet first, then older ones.
+    (
+        [
+            "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+            _BEDROCK,
+            "global.anthropic.claude-sonnet-5-5",
+        ],
+        ["global.anthropic.claude-sonnet-5-5", "global.anthropic.claude-sonnet-4-6"],
+    ),
+    # Different family: the default comes after same-family candidates.
+    (
+        [
+            "global.anthropic.claude-opus-5-5",
+            _BEDROCK,
+            "global.anthropic.claude-sonnet-5-5",
+        ],
+        ["global.anthropic.claude-opus-4-6-v1", "global.anthropic.claude-sonnet-5-5"],
+    ),
+]
+
+
 def _node_supports_type_stripping(node: str) -> bool:
     try:
         out = subprocess.run(
@@ -160,6 +204,7 @@ def registry_eval() -> Dict[str, Any]:
             REGISTRY.as_uri(),
             json.dumps(list(_FAMILY_CASES)),
             json.dumps([args for args, _ in _PICK_CASES]),
+            json.dumps([args for args, _ in _RANK_CASES]),
         ],
         capture_output=True,
         text=True,
@@ -174,6 +219,10 @@ def test_model_family(registry_eval: Dict[str, Any]) -> None:
 
 def test_pick_replacement(registry_eval: Dict[str, Any]) -> None:
     assert registry_eval["picks"] == [expected for _, expected in _PICK_CASES]
+
+
+def test_rank_replacements(registry_eval: Dict[str, Any]) -> None:
+    assert registry_eval["ranks"] == [expected for _, expected in _RANK_CASES]
 
 
 def test_registry_is_consistent(registry_eval: Dict[str, Any]) -> None:

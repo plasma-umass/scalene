@@ -47,7 +47,9 @@ export async function sendPromptToAmazon(prompt: string, modelId: string): Promi
   });
 
   let body: Record<string, unknown> = {};
-  const max_tokens = 65536; // arbitrary large number
+  // Enough for a code suggestion, and within every model's output limit
+  // (Haiku 4.5 and Opus 4.5 reject more than 64000).
+  const max_tokens = 16000;
 
   // Claude model IDs look like anthropic.claude-..., optionally with an
   // inference-profile prefix (us., global., ...).
@@ -120,10 +122,12 @@ export async function sendPromptToAmazon(prompt: string, modelId: string): Promi
   } catch (err) {
     const error = err as Error;
     console.error(err);
-    // Bedrock reports an unknown or retired model ID as one of these.
+    // How Bedrock refuses a model: unknown ID, retired ("Legacy") model, or
+    // one this account isn't allowed to use.
     if (
       error.name === "ResourceNotFoundException" ||
-      (error.name === "ValidationException" && /model identifier is invalid/i.test(error.message))
+      (error.name === "ValidationException" && /model identifier is invalid/i.test(error.message)) ||
+      (error.name === "AccessDeniedException" && /not available for this account/i.test(error.message))
     ) {
       throw new ModelNotFoundError("amazon", modelId, error.message);
     }

@@ -9,14 +9,14 @@ import {
   MODEL_REGISTRY,
   ModelNotFoundError,
   ModelProvider,
-  pickReplacement,
+  rankReplacements,
   resolveModel,
   setSelectedModel,
 } from "./models";
 
-// Models the provider currently offers, or [] if we can't ask (Bedrock's
-// listing API needs a separate client, and Azure lists deployments, not
-// models).
+// Models to choose a replacement from. For Bedrock this is our curated list:
+// Bedrock's listing API reports models as ACTIVE even when the account isn't
+// allowed to call them, so it can't tell us what will work.
 async function listAvailableModels(provider: ModelProvider, apiKey: string): Promise<string[]> {
   switch (provider) {
     case "anthropic":
@@ -25,10 +25,15 @@ async function listAvailableModels(provider: ModelProvider, apiKey: string): Pro
       return fetchOpenAIModels(apiKey);
     case "gemini":
       return fetchGeminiModels(apiKey);
+    case "amazon":
+      return MODEL_REGISTRY.amazon.models.map((m) => m.id);
     default:
       return [];
   }
 }
+
+// How many replacements to try before giving up.
+const MAX_REPLACEMENTS = 2;
 
 export async function sendWithModelRecovery(
   provider: ModelProvider,
@@ -47,23 +52,27 @@ export async function sendWithModelRecovery(
       return "";
     }
     const available = await listAvailableModels(provider, apiKey);
-    const replacement = pickReplacement(model, available, MODEL_REGISTRY[provider].defaultModel);
-    if (!replacement) {
+    const candidates = rankReplacements(model, available, MODEL_REGISTRY[provider].defaultModel).slice(
+      0,
+      MAX_REPLACEMENTS
+    );
+    if (candidates.length === 0) {
       alert(`${err.message}\n\nPlease choose a different model.`);
       return "";
     }
-    console.warn(`Retrying with ${replacement} in place of ${model}.`);
-    try {
-      const result = await send(replacement);
-      setSelectedModel(provider, replacement);
-      alert(`The model "${model}" is no longer available, so Scalene switched to "${replacement}".`);
-      return result;
-    } catch (retryErr) {
-      if (retryErr instanceof ModelNotFoundError) {
-        alert(`${err.message}\n\nThe replacement "${replacement}" was not available either. Please choose a different model.`);
-        return "";
+    for (const replacement of candidates) {
+      console.warn(`Retrying with ${replacement} in place of ${model}.`);
+      try {
+        const result = await send(replacement);
+        setSelectedModel(provider, replacement);
+        alert(`The model "${model}" is not available, so Scalene switched to "${replacement}".`);
+        return result;
+      } catch (retryErr) {
+        if (!(retryErr instanceof ModelNotFoundError)) throw retryErr;
+        console.warn(retryErr.message);
       }
-      throw retryErr;
     }
+    alert(`${err.message}\n\nScalene also tried ${candidates.join(", ")}. Please choose a different model.`);
+    return "";
   }
 }

@@ -439,9 +439,14 @@ that goes stale:
   Saved models not in the curated list (e.g. picked after a refresh) are kept.
 - **Recovery at request time.** Providers throw `ModelNotFoundError` when a
   model is unknown; `sendWithModelRecovery()` (`model-recovery.ts`) fetches the
-  provider's live list, picks the newest model in the same family
-  (`pickReplacement()`), retries once, and saves the new choice. Models typed
-  into a "Custom model" field are never switched automatically.
+  provider's live list, ranks the models in the same family newest first,
+  then the default (`rankReplacements()`), tries up to two, and saves the one
+  that works. Models typed into a "Custom model" field are never switched.
+- **Bedrock** needs inference-profile IDs (`global.anthropic.claude-...`); bare
+  `anthropic.claude-...` IDs fail with "on-demand throughput isn't
+  supported". Accounts may be refused newer models (`AccessDeniedException`,
+  "not available for this account"), which recovery treats like a retired
+  model, falling back through the older models in the curated list.
 
 When a provider announces a retirement: update `MODEL_REGISTRY`, add the old
 ID to `RETIRED_MODELS`, and rebuild the bundle.
