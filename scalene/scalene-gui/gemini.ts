@@ -67,7 +67,9 @@ export async function sendPromptToGemini(
     },
     generationConfig: {
       temperature: 0.3,
-      maxOutputTokens: 4096,
+      // Current models think before answering, and thinking can count toward
+      // this limit, so leave room for both.
+      maxOutputTokens: 16000,
     },
   });
 

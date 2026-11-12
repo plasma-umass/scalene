@@ -64,6 +64,12 @@ export async function sendWithModelRecovery(
       console.warn(`Retrying with ${replacement} in place of ${model}.`);
       try {
         const result = await send(replacement);
+        if (!result) {
+          // The replacement exists but the request failed for another reason
+          // (rate limit, overload, ...), which the provider has already
+          // reported. Don't adopt a model we haven't seen work.
+          return result;
+        }
         setSelectedModel(provider, replacement);
         alert(`The model "${model}" is not available, so Scalene switched to "${replacement}".`);
         return result;

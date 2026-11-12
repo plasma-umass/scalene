@@ -63,18 +63,17 @@ export const MODEL_REGISTRY: Record<ModelProvider, ProviderModels> = {
   gemini: {
     selectId: "language-model-gemini",
     customModelId: "gemini-custom-model",
-    // gemini-flash-latest is Google's documented alias for the newest Flash
-    // release (Google gives two weeks' notice before moving it). There is no
-    // Pro alias. Newer models (e.g. Gemini 4) appear after a refresh, which
-    // lists only models that support generateContent.
-    defaultModel: "gemini-flash-latest",
+    // The *-latest aliases track Google's newest release of each tier
+    // (Google gives notice before moving them). All of these were verified
+    // with generateContent on 2026-11-11.
+    defaultModel: "gemini-pro-latest",
     models: [
+      { id: "gemini-pro-latest", label: "Gemini Pro (latest)" },
       { id: "gemini-flash-latest", label: "Gemini Flash (latest)" },
+      { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite (latest)" },
+      { id: "gemini-4-carbon", label: "Gemini 4 Carbon" },
+      { id: "gemini-4-argon", label: "Gemini 4 Argon" },
       { id: "gemini-3.8-flash", label: "Gemini 3.8 Flash" },
-      { id: "gemini-3.6-flash", label: "Gemini 3.6 Flash" },
-      { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite" },
-      { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite" },
-      { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (preview)" },
     ],
   },
   amazon: {
@@ -125,13 +124,13 @@ export const RETIRED_MODELS: Record<string, string> = {
   "us.anthropic.claude-sonnet-4-5-20250929-v1:0": "global.anthropic.claude-sonnet-5-5",
   "us.anthropic.claude-opus-4-5-20251124-v1:0": "global.anthropic.claude-opus-5-5",
   "us.anthropic.claude-haiku-4-5-20251015-v1:0": "global.anthropic.claude-haiku-5-5",
-  // Gemini models Google has shut down, and the 2.5 models it has
-  // deprecated (mapped where Google itself reroutes them on 2026-12-01).
-  "gemini-3-pro-preview": "gemini-3.1-pro-preview",
+  // Gemini models Google has shut down or deprecated (2.5 Pro already
+  // returns 404).
+  "gemini-3-pro-preview": "gemini-pro-latest",
+  "gemini-2.5-pro": "gemini-pro-latest",
+  "gemini-2.5-flash": "gemini-flash-latest",
   "gemini-2.0-flash": "gemini-flash-latest",
-  "gemini-2.0-flash-lite": "gemini-3.5-flash-lite",
-  "gemini-2.5-pro": "gemini-3.8-flash",
-  "gemini-2.5-flash": "gemini-3.5-flash-lite",
+  "gemini-2.0-flash-lite": "gemini-flash-lite-latest",
 };
 
 // (Plain fields rather than constructor parameter properties, so this file
