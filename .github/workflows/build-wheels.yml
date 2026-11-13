@@ -1,0 +1,217 @@
+# Build scalene's sdist and wheels on every PR, on Linux, macOS, and Windows,
+# and smoke-test the wheels.
+#
+# tests.yml installs the checkout with "pip install -e .", which never
+# exercises the packaging path users get from PyPI; build-and-upload.yml does,
+# but runs only on releases and manual dispatch. This workflow closes that gap:
+# it does an isolated PEP 517 build ("python -m build": sdist first, then the
+# wheel built from the unpacked sdist, each in a fresh build environment with
+# only the pyproject.toml build requirements), so a file missing from the
+# sdist, an undeclared build dependency, or a wheel missing its native
+# libraries fails the PR. Each wheel is then installed with its dependencies
+# into a fresh venv outside the source tree and used to profile a program.
+#
+# The matrix covers the oldest and newest supported CPython; the release
+# workflow builds the full set.
+
+name: build wheels
+
+on:
+  push:
+    branches: [ master ]
+
+  pull_request:
+    branches: [ master ]
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build-wheel:
+    name: build wheel (${{ matrix.os }}, ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      # Report every platform's result: a Windows-only packaging break
+      # shouldn't hide whether macOS and Linux build.
+      fail-fast: false
+      matrix:
+        # ubuntu-latest (26.04) has no setup-python 3.9; 24.04 does.
+        os: [ ubuntu-24.04, macos-latest, windows-latest ]
+        python: [ '3.9', '3.14' ]
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: select Xcode version
+      # MacOS > 14.2 requires Xcode >= 15.3; otherwise loading native extension modules fails with e.g.:
+      # dlopen(/opt/homebrew/lib/python3.11/site-packages/slipcover/probe.abi3.so, 0x0002): bad bind opcode 0x00
+      if: runner.os == 'macOS'
+      run: |
+        if [ -d /Applications/Xcode_15.3.app/Contents/Developer ]; then sudo xcode-select --switch /Applications/Xcode_15.3.app/Contents/Developer; fi
+        clang++ --version
+
+    - name: Work around arm64 support on MacOS
+      # https://github.com/actions/virtual-environments/issues/2557
+      # Same as build-and-upload.yml, so these wheels match the released ones.
+      if: runner.os == 'macOS'
+      run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
+
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: ${{ matrix.python }}
+
+    - name: Check CMake is available (Windows)
+      # setup.py builds libscalene.dll with CMake and only warns if it is
+      # missing; fail early instead of producing a wheel without it.
+      if: runner.os == 'Windows'
+      run: cmake --version
+
+    - name: Build sdist and wheel (isolated PEP 517 build)
+      # No --sdist/--wheel: build the sdist, then the wheel from it.
+      # Build isolation is python -m build's default.
+      run: |
+        python -m pip install --upgrade pip build
+        python -m build --outdir dist .
+
+    - name: Inspect the built distributions
+      shell: python
+      run: |
+        import glob
+        import os
+        import subprocess
+        import sys
+        import sysconfig
+        import tarfile
+        import tempfile
+        import zipfile
+
+        sdists = glob.glob("dist/*.tar.gz")
+        wheels = glob.glob("dist/*.whl")
+        print("sdists:", sdists)
+        print("wheels:", wheels)
+        if len(sdists) != 1 or len(wheels) != 1:
+            sys.exit("ERROR: expected exactly one sdist and one wheel")
+
+        # The sdist must carry the vendored native sources, or a build from
+        # it on a machine without network access (or from PyPI) breaks.
+        with tarfile.open(sdists[0]) as t:
+            names = t.getnames()
+        for needed in ("vendor/Heap-Layers/", "vendor/printf/", "src/source/libscalene.cpp"):
+            if not any(needed in n for n in names):
+                sys.exit(f"ERROR: sdist is missing {needed}")
+
+        # Wheel tag must match the interpreter, e.g. -cp314-cp314-.
+        py = f"cp{sys.version_info.major}{sys.version_info.minor}"
+        abi = py + ("t" if sysconfig.get_config_var("Py_GIL_DISABLED") else "")
+        tag = f"-{py}-{abi}-"
+        if tag not in wheels[0]:
+            sys.exit(f"ERROR: expected wheel tagged {tag}, got {wheels[0]}")
+
+        with zipfile.ZipFile(wheels[0]) as z:
+            files = z.namelist()
+        native = [f for f in files if f.endswith((".so", ".pyd", ".dll", ".dylib"))]
+        print("native files:", native)
+
+        # The extension modules every platform needs.
+        for mod in ("get_line_atomic", "pywhere", "_scalene_unwind"):
+            if not any(os.path.basename(f).startswith(mod + ".") for f in native):
+                sys.exit(f"ERROR: wheel is missing native module {mod}")
+
+        # The allocator shim that memory profiling preloads.
+        lib = {
+            "linux": "libscalene.so",
+            "darwin": "libscalene.dylib",
+            "win32": "libscalene.dll",
+        }[sys.platform]
+        if not any(f.endswith("/" + lib) for f in files):
+            sys.exit(f"ERROR: wheel is missing {lib}")
+
+        # macOS wheels are universal2; check every native file has both
+        # architectures (as build-and-upload.yml does).
+        if sys.platform == "darwin":
+            with tempfile.TemporaryDirectory() as d:
+                with zipfile.ZipFile(wheels[0]) as z:
+                    z.extractall(d, native)
+                for f in native:
+                    out = subprocess.check_output(["file", os.path.join(d, f)], text=True)
+                    for arch in ("x86_64", "arm64"):
+                        if arch not in out:
+                            sys.exit(f"ERROR: {f} lacks {arch}: {out}")
+        print("distributions look complete")
+
+    - name: Smoke-test the installed wheel
+      # Install the wheel (with its dependencies) into a fresh venv outside
+      # the checkout, so nothing can be imported from the source tree, then
+      # profile a short program and view the result.
+      shell: python
+      run: |
+        import glob
+        import json
+        import os
+        import subprocess
+        import sys
+        import tempfile
+        import venv
+
+        whl = os.path.abspath(glob.glob("dist/*.whl")[0])
+        with tempfile.TemporaryDirectory() as work:
+            env_dir = os.path.join(work, "venv")
+            venv.create(env_dir, with_pip=True)
+            bindir = "Scripts" if os.name == "nt" else "bin"
+            py = os.path.join(env_dir, bindir, "python")
+            subprocess.check_call([py, "-m", "pip", "install", "-q", whl])
+
+            def run(*args):
+                print("+", " ".join(args), flush=True)
+                subprocess.check_call([py, "-I", *args], cwd=work)
+
+            run("-W", "error::RuntimeWarning", "-c",
+                "import importlib\n"
+                "for m in ('get_line_atomic', 'pywhere', '_scalene_unwind'):\n"
+                "    importlib.import_module('scalene.' + m)\n"
+                "import scalene, os\n"
+                "assert 'site-packages' in scalene.__file__, scalene.__file__\n"
+                "print('imported', scalene.__file__)\n")
+
+            prog = os.path.join(work, "prog.py")
+            with open(prog, "w") as f:
+                f.write(
+                    "import time\n"
+                    "end = time.perf_counter() + 2\n"
+                    "x = 0\n"
+                    "while time.perf_counter() < end:\n"
+                    "    x += sum(i * i for i in range(10_000))\n"
+                    "data = [bytearray(1_000_000) for _ in range(50)]\n"
+                )
+            run("-m", "scalene", "--version")
+            run("-m", "scalene", "run", "-o", "profile.json", "prog.py")
+            run("-m", "scalene", "view", "--cli", "profile.json")
+
+            with open(os.path.join(work, "profile.json")) as f:
+                profile = json.load(f)
+            files = [k for k in profile.get("files", {}) if k.endswith("prog.py")]
+            if not files:
+                sys.exit(f"ERROR: prog.py not in profile: {list(profile.get('files', {}))}")
+            lines = profile["files"][files[0]]["lines"]
+            busy = [
+                l for l in lines
+                if l["n_cpu_percent_python"] + l["n_cpu_percent_c"] > 0
+            ]
+            if not busy:
+                sys.exit("ERROR: no CPU samples attributed to prog.py")
+            print(f"profile OK: {len(busy)} line(s) with CPU samples")
+
+    - uses: actions/upload-artifact@v7
+      with:
+        name: dist-${{ matrix.os }}-${{ matrix.python }}
+        path: dist/*
+        if-no-files-found: error
+        retention-days: 7
