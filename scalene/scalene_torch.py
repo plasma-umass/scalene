@@ -7,6 +7,7 @@ JIT-compiled PyTorch code on both CPU and GPU.
 See https://github.com/plasma-umass/scalene/issues/908
 """
 
+import contextlib
 import re
 import time
 from typing import Any, List
@@ -127,6 +128,14 @@ class TorchProfiler(ScaleneLibraryProfiler):
         """
         if not _torch_available or _torch is None:
             return
+        # step() restarts the profiler from the CPU signal handler, and
+        # stopping a with_stack profiler makes torch import
+        # torch.profiler.python_tracer on first use. A first-time import
+        # inside a signal handler can crash the program's own imports on
+        # Python < 3.12 (see tests/test_no_imports_in_signal_handlers.py),
+        # so import it now, outside any handler.
+        with contextlib.suppress(Exception):
+            import torch.profiler.python_tracer  # noqa: F401
         try:
             # Build list of activities to profile
             self._activities = [_torch.profiler.ProfilerActivity.CPU]

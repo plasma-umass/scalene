@@ -238,3 +238,102 @@ def test_stale_reader_restarts_after_rewind():
     state = bytearray(struct.pack("<QQ", 10, 2))  # old generation, old offset
     assert _read_all(lock, signal, state, False) == [b"x", b"y"]
     assert struct.unpack("<QQ", state) == (4, 3)
+
+
+# get_lines_atomic: the batch reader. Same protocol, all records per call.
+
+
+def _read_batch(lock, signal, state, may_reset, capacity=RESULT_SIZE):
+    from scalene import get_line_atomic  # type: ignore
+
+    out = bytearray(capacity)
+    n = get_line_atomic.get_lines_atomic(lock, signal, out, state, may_reset)
+    return bytes(out[:n])
+
+
+def test_batch_reads_all_complete_records():
+    signal = b"a\nbb\nccc\n" + bytes(16)
+    lock = _lock(9)
+    state = bytearray(16)
+    assert _read_batch(lock, signal, state, False) == b"a\nbb\nccc\n"
+    assert struct.unpack("<QQ", state) == (9, 0)
+    assert _read_batch(lock, signal, state, False) == b""
+
+
+def test_batch_stops_at_writer_position():
+    signal = b"new\nold-stale\n"
+    state = bytearray(16)
+    assert _read_batch(_lock(4), signal, state, False) == b"new\n"
+    assert struct.unpack("<QQ", state) == (4, 0)
+
+
+def test_batch_returns_only_whole_records_that_fit():
+    signal = b"aaaa\nbbbb\ncccc\n"
+    lock = _lock(len(signal))
+    state = bytearray(16)
+    # 12 bytes hold "aaaa\nbbbb\n" plus part of "cccc\n"; the partial record
+    # stays for the next call.
+    assert _read_batch(lock, signal, state, False, capacity=12) == b"aaaa\nbbbb\n"
+    assert _read_batch(lock, signal, state, False, capacity=12) == b"cccc\n"
+    # A record longer than the buffer is never split.
+    state = bytearray(16)
+    assert _read_batch(lock, signal, state, False, capacity=4) == b""
+    assert struct.unpack("<QQ", state) == (0, 0)
+
+
+def test_batch_owner_rewinds_in_the_draining_call():
+    signal = bytearray(b"a\nb\n" + bytes(64))
+    lock = _lock(4)
+    state = bytearray(16)
+    assert _read_batch(lock, signal, state, True) == b"a\nb\n"
+    assert _writer(lock) == (0, 1)
+    assert struct.unpack("<QQ", state) == (0, 1)
+
+    signal[0:2] = b"c\n"
+    struct.pack_into("<Q", lock, 0, 2)
+    assert _read_batch(lock, signal, state, True) == b"c\n"
+    assert _writer(lock) == (0, 2)
+
+
+def test_batch_non_owner_never_rewinds():
+    lock = _lock(4)
+    state = bytearray(16)
+    assert _read_batch(lock, b"a\nb\n", state, False) == b"a\nb\n"
+    assert _writer(lock) == (4, 0)
+
+
+def test_batch_no_rewind_while_records_remain():
+    signal = b"aaaa\nbbbb\n"
+    lock = _lock(len(signal))
+    state = bytearray(16)
+    assert _read_batch(lock, signal, state, True, capacity=6) == b"aaaa\n"
+    assert _writer(lock) == (len(signal), 0)
+
+
+def test_batch_stale_reader_restarts_after_rewind():
+    signal = b"x\ny\n" + b"stale-record\n"
+    lock = _lock(4, generation=3)
+    state = bytearray(struct.pack("<QQ", 10, 2))
+    assert _read_batch(lock, signal, state, False) == b"x\ny\n"
+    assert struct.unpack("<QQ", state) == (4, 3)
+
+
+def test_batch_rejects_bad_buffers():
+    from scalene import get_line_atomic  # type: ignore
+
+    with pytest.raises(ValueError):  # position-only reader state
+        get_line_atomic.get_lines_atomic(
+            _lock(2), b"a\n", bytearray(16), bytearray(8), False
+        )
+    with pytest.raises(ValueError):  # read-only output buffer
+        get_line_atomic.get_lines_atomic(
+            _lock(2), b"a\n", bytes(16), bytearray(16), False
+        )
+
+
+def test_batch_clamps_corrupt_writer_position():
+    # Writer position past the end of the buffer: read to the end, no further.
+    signal = b"a\nb\n"
+    state = bytearray(16)
+    assert _read_batch(_lock(1 << 40), signal, state, False) == b"a\nb\n"
+    assert struct.unpack("<QQ", state)[0] == 4

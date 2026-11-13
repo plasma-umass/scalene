@@ -9,7 +9,7 @@ import contextlib
 import os
 import threading
 import time
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import scalene.scalene_config
 from scalene.scalene_arguments import ScaleneArguments
@@ -20,7 +20,6 @@ from scalene.scalene_statistics import (
     Filename,
     LineNumber,
     MemcpyProfilingSample,
-    ProfilingSample,
     ScaleneStatistics,
     StackFrame,
 )
@@ -28,6 +27,74 @@ from scalene.scalene_utility import (
     intern_stack_frame,
     line_has_alloc_opcode,
 )
+
+# One parsed malloc/free record: (action, count, python_fraction, pointer,
+# filename, lineno, bytecode_index, stack). Plain tuples: building an object
+# per sample was a measurable share of the per-record cost.
+_Sample = Tuple[
+    str,
+    int,
+    float,
+    Address,
+    Filename,
+    LineNumber,
+    ByteCodeIndex,
+    Optional[Tuple[StackFrame, ...]],
+]
+
+_MALLOC = "M"
+_FREE = "F"
+_FREE_SAMPLED = "f"
+_ACTIONS = frozenset((_MALLOC, _FREE, _FREE_SAMPLED))
+
+# Byte count of the sentinel allocation the native side makes to mark a
+# line boundary (see NEWLINE in sampleheap.hpp).
+_NEWLINE_TRIGGER_COUNT = scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1
+
+# Parsed stack fields, keyed by their raw text. A program allocates from a
+# limited set of call paths, so most records hit this cache instead of being
+# re-split and re-interned. Bounded: cleared once it reaches the limit.
+_STACK_CACHE_LIMIT = 10_000
+_stack_cache: Dict[str, Optional[Tuple[StackFrame, ...]]] = {}
+
+
+def _parse_stack(stack_field: str) -> Optional[Tuple[StackFrame, ...]]:
+    """Parse a record's stack field into an outermost-first frame tuple.
+
+    The field looks like ``|file1;lineno1|file2;lineno2|...`` (leaf
+    first). Returns None when it has no well-formed frames.
+    """
+    try:
+        return _stack_cache[stack_field]
+    except KeyError:
+        pass
+    frames: List[StackFrame] = []
+    if stack_field.startswith("|"):
+        for segment in stack_field.split("|"):
+            if not segment:
+                continue
+            sep = segment.rfind(";")
+            if sep <= 0:
+                continue
+            try:
+                ln = int(segment[sep + 1 :])
+            except ValueError:
+                continue
+            frames.append(
+                intern_stack_frame(
+                    filename=segment[:sep],
+                    function_name="",
+                    line_number=ln,
+                )
+            )
+        # Reverse so the tuple is outermost-first, matching the add_stack
+        # convention used elsewhere.
+        frames.reverse()
+    stack = tuple(frames) if frames else None
+    if len(_stack_cache) >= _STACK_CACHE_LIMIT:
+        _stack_cache.clear()
+    _stack_cache[stack_field] = stack
+    return stack
 
 
 class ScaleneMemoryProfiler:
@@ -58,36 +125,31 @@ class ScaleneMemoryProfiler:
         if not self.__memcpy_mapfile:
             return
 
-        curr_pid = os.getpid()
+        mapfile = self.__memcpy_mapfile
+        curr_pid = str(os.getpid())
         arr: List[MemcpyProfilingSample] = []
 
         # Process the input array
-        with contextlib.suppress(ValueError):
-            while self.__memcpy_mapfile.read():
-                count_str = self.__memcpy_mapfile.get_str()
+        while True:
+            records = mapfile.read_records()
+            if not records:
+                break
+            for record in records:
+                parts = record.split(",")
+                # Skip malformed records and records from other processes
+                # (forked children share this log).
+                if len(parts) != 6 or parts[2] != curr_pid:
+                    continue
                 try:
-                    (
-                        memcpy_time_str,
-                        count_str2,
-                        pid,
-                        filename,
-                        lineno,
-                        bytei,
-                    ) = count_str.split(",")
+                    memcpy_profiling_sample = MemcpyProfilingSample(
+                        memcpy_time=int(parts[0]),
+                        count=int(parts[1]),
+                        filename=Filename(parts[3]),
+                        lineno=LineNumber(int(parts[4])),
+                        bytecode_index=ByteCodeIndex(int(parts[5])),
+                    )
                 except ValueError:
-                    # Skip malformed entries
                     continue
-
-                if int(curr_pid) != int(pid):
-                    continue
-
-                memcpy_profiling_sample = MemcpyProfilingSample(
-                    memcpy_time=int(memcpy_time_str),
-                    count=int(count_str2),
-                    filename=Filename(filename),
-                    lineno=LineNumber(int(lineno)),
-                    bytecode_index=ByteCodeIndex(int(bytei)),
-                )
                 arr.append(memcpy_profiling_sample)
 
         arr.sort()
@@ -106,86 +168,63 @@ class ScaleneMemoryProfiler:
         invalidate_mutex: threading.Lock,
         invalidate_queue: List[Tuple[Filename, LineNumber]],
     ) -> None:
-        """Handle interrupts for memory profiling (mallocs and frees)."""
+        """Handle interrupts for memory profiling (mallocs and frees).
+
+        This runs once per sample, on a thread that holds the GIL while
+        it works, so time spent here is time the profiled program can't
+        run. Keep the per-record work lean: records are parsed into plain
+        tuples, attribute and global lookups are hoisted out of the loops,
+        and parsed stacks are cached (allocation sites repeat).
+        """
         stats = self.__stats
-        curr_pid = os.getpid()
+        mem_stats = stats.memory_stats
+        curr_pid = str(os.getpid())
+        newline_trigger = _NEWLINE_TRIGGER_COUNT
         # Process the input array from where we left off reading last time.
-        arr: List[ProfilingSample] = []
-        with contextlib.suppress(FileNotFoundError):
-            while self.__malloc_mapfile and self.__malloc_mapfile.read():
-                count_str = self.__malloc_mapfile.get_str()
-                if count_str.strip() == "":
-                    # Skip empty/malformed samples but continue processing
-                    # (don't break - there may be more valid samples)
-                    continue
-                # Split into the 9 required fields plus an optional trailing
-                # stack field. The stack field (when present) starts with
-                # '|' and contains no unescaped commas, so maxsplit=9 keeps
-                # it intact even if filenames or the stack itself contained
-                # extra punctuation.
-                parts = count_str.split(",", 9)
-                if len(parts) < 9:
-                    # Malformed sample - skip and continue.
-                    continue
-                try:
-                    (
-                        action,
-                        alloc_time_str,
-                        count_str,
-                        python_fraction_str,
-                        pid,
-                        pointer,
-                        reported_fname,
-                        reported_lineno,
-                        bytei_str,
-                    ) = parts[:9]
-                except ValueError:
-                    continue
-                stack_field = parts[9] if len(parts) == 10 else ""
-                if int(curr_pid) != int(pid):
-                    continue
-                stack_tuple: Optional[Tuple[StackFrame, ...]] = None
-                if stack_field and stack_field.startswith("|"):
-                    # Format: "|file1;lineno1|file2;lineno2|..." (leaf-first).
-                    # Reverse so the resulting tuple is outermost-first to
-                    # match the add_stack convention used elsewhere.
-                    frames: List[StackFrame] = []
-                    for segment in stack_field.split("|"):
-                        if not segment:
+        arr: List[_Sample] = []
+        mapfile = self.__malloc_mapfile
+        if mapfile:
+            append = arr.append
+            read_records = mapfile.read_records
+            with contextlib.suppress(FileNotFoundError):
+                while records := read_records():
+                    for record in records:
+                        # Split into the 9 required fields plus an optional
+                        # trailing stack field. The stack field (when present)
+                        # starts with '|' and contains no unescaped commas, so
+                        # maxsplit=9 keeps it intact even if filenames or the
+                        # stack itself contained extra punctuation.
+                        parts = record.split(",", 9)
+                        # Skip blank and malformed records, and records from
+                        # other processes (forked children share this log).
+                        # The native side writes the pid with %d, so comparing
+                        # the text is exact.
+                        if (
+                            len(parts) < 9
+                            or parts[4] != curr_pid
+                            or parts[0] not in _ACTIONS
+                        ):
                             continue
-                        sep = segment.rfind(";")
-                        if sep <= 0:
-                            continue
-                        fn = segment[:sep]
                         try:
-                            ln = int(segment[sep + 1 :])
+                            append(
+                                (
+                                    parts[0],  # action
+                                    int(parts[2]),  # count
+                                    float(parts[3]),  # python fraction
+                                    Address(parts[5]),  # pointer
+                                    Filename(parts[6]),
+                                    LineNumber(int(parts[7])),
+                                    ByteCodeIndex(int(parts[8])),
+                                    (
+                                        _parse_stack(parts[9])
+                                        if len(parts) == 10
+                                        else None
+                                    ),
+                                )
+                            )
                         except ValueError:
                             continue
-                        frames.append(
-                            intern_stack_frame(
-                                filename=fn,
-                                function_name="",
-                                line_number=ln,
-                            )
-                        )
-                    frames.reverse()
-                    if frames:
-                        stack_tuple = tuple(frames)
-                profiling_sample = ProfilingSample(
-                    action=action,
-                    alloc_time=int(alloc_time_str),
-                    count=int(count_str),
-                    python_fraction=float(python_fraction_str),
-                    pointer=Address(pointer),
-                    filename=Filename(reported_fname),
-                    lineno=LineNumber(int(reported_lineno)),
-                    bytecode_index=ByteCodeIndex(int(bytei_str)),
-                    stack=stack_tuple,
-                )
-                arr.append(profiling_sample)
 
-        # Cache memory_stats reference to avoid repeated attribute lookups
-        mem_stats = stats.memory_stats
         mem_stats.alloc_samples += len(arr)
 
         # Iterate through the array to compute the new current footprint
@@ -193,39 +232,37 @@ class ScaleneMemoryProfiler:
         # we get free events before mallocs, force `before` to always be at least 0.
         before = max(mem_stats.current_footprint, 0)
         prevmax = mem_stats.max_footprint
+        bytes_per_mb = self.BYTES_PER_MB
+        monotonic_ns = time.monotonic_ns
+        footprint_samples_append = mem_stats.memory_footprint_samples.append
+        last_trigger_pointer = mem_stats.last_malloc_triggered[2]
+        current = mem_stats.current_footprint
+        max_footprint = mem_stats.max_footprint
         freed_last_trigger = 0
-        for item in arr:
-            is_malloc = item.action == self.MALLOC_ACTION
-            if item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1:
+        for action, count, python_fraction, pointer, fname, lineno, _, _ in arr:
+            if count == newline_trigger:
                 continue  # in previous implementations, we were adding NEWLINE to the footprint.
                 # We should not account for this in the user-facing profile.
-            count = item.count / self.BYTES_PER_MB
-            if is_malloc:
-                mem_stats.current_footprint += count
-                if mem_stats.current_footprint > mem_stats.max_footprint:
-                    mem_stats.max_footprint = mem_stats.current_footprint
-                    mem_stats.max_footprint_python_fraction = item.python_fraction
-                    mem_stats.max_footprint_loc = (item.filename, item.lineno)
+            mb = count / bytes_per_mb
+            if action == _MALLOC:
+                current += mb
+                if current > max_footprint:
+                    max_footprint = current
+                    mem_stats.max_footprint_python_fraction = python_fraction
+                    mem_stats.max_footprint_loc = (fname, lineno)
             else:
-                assert item.action in [
-                    self.FREE_ACTION,
-                    self.FREE_ACTION_SAMPLED,
-                ]
-                mem_stats.current_footprint -= count
+                current -= mb
                 # Force current footprint to be non-negative; this
                 # code is needed because Scalene can miss some initial
                 # allocations at startup.
-                mem_stats.current_footprint = max(0, mem_stats.current_footprint)
-                if (
-                    item.action == self.FREE_ACTION_SAMPLED
-                    and mem_stats.last_malloc_triggered[2] == item.pointer
-                ):
+                if current <= 0:
+                    current = 0
+                if action == _FREE_SAMPLED and last_trigger_pointer == pointer:
                     freed_last_trigger += 1
-            timestamp = time.monotonic_ns() - start_time
-            mem_stats.memory_footprint_samples.append(
-                (timestamp, mem_stats.current_footprint)
-            )
-        after = mem_stats.current_footprint
+            footprint_samples_append((monotonic_ns() - start_time, current))
+        mem_stats.current_footprint = current
+        mem_stats.max_footprint = max_footprint
+        after = current
 
         if freed_last_trigger:
             if freed_last_trigger <= 1:
@@ -245,13 +282,25 @@ class ScaleneMemoryProfiler:
         malloc_pointer = Address("0x0")
         curr = before
 
+        # Hoist the per-line tables out of the loop below.
+        bytei_map = stats.bytei_map
+        memory_stacks = stats.memory_stacks
+        malloc_samples = mem_stats.memory_malloc_samples
+        python_samples = mem_stats.memory_python_samples
+        malloc_count_by_file = mem_stats.malloc_samples
+        free_samples = mem_stats.memory_free_samples
+        free_count = mem_stats.memory_free_count
+        current_footprint = mem_stats.memory_current_footprint
+        highwater = mem_stats.memory_current_highwater_mark
+        max_footprint_by_line = mem_stats.memory_max_footprint
+        per_line_footprint_samples = mem_stats.per_line_footprint_samples
+        total_malloc = mem_stats.total_memory_malloc_samples
+        total_free = mem_stats.total_memory_free_samples
+
         # Go through the array again and add each updated current footprint.
-        for item in arr:
-            is_malloc = item.action == self.MALLOC_ACTION
-            if (
-                is_malloc
-                and item.count == scalene.scalene_config.NEWLINE_TRIGGER_LENGTH + 1
-            ):
+        for action, count, python_fraction, pointer, fname, lineno, bytei, stack in arr:
+            is_malloc = action == _MALLOC
+            if is_malloc and count == newline_trigger:
                 with invalidate_mutex:
                     if invalidate_queue:
                         last_file, last_line = invalidate_queue.pop(0)
@@ -259,16 +308,14 @@ class ScaleneMemoryProfiler:
                         continue
 
                 mem_stats.memory_malloc_count[last_file][last_line] += 1
-                mem_stats.memory_aggregate_footprint[last_file][
-                    last_line
-                ] += mem_stats.memory_current_highwater_mark[last_file][last_line]
-                mem_stats.memory_current_footprint[last_file][last_line] = 0
-                mem_stats.memory_current_highwater_mark[last_file][last_line] = 0
+                mem_stats.memory_aggregate_footprint[last_file][last_line] += highwater[
+                    last_file
+                ][last_line]
+                current_footprint[last_file][last_line] = 0
+                highwater[last_file][last_line] = 0
                 continue
 
-            # Cache per-item filename and lineno for repeated use
-            fname = item.filename
-            lineno = item.lineno
+            mb = count / bytes_per_mb
 
             # Smear suppression. The C++ interposer stamps every sample
             # with the leaf user frame from ``whereInPython``, but
@@ -293,29 +340,26 @@ class ScaleneMemoryProfiler:
             # still counted in the global running footprint (so the
             # global peak / sparkline are accurate), but no line,
             # function, or flame-chart path takes the blame.
-            leaf_can_alloc = line_has_alloc_opcode(fname, lineno)
-
-            count = item.count / self.BYTES_PER_MB
-            if not leaf_can_alloc:
+            if not line_has_alloc_opcode(fname, lineno):
                 # Keep the running per-item ``curr`` accurate so the
                 # next legitimate sparkline sample reflects the right
                 # footprint. Everything else (memory_stacks, per-line
                 # accumulators, allocs / last_malloc tracking) skips
                 # this sample.
                 if is_malloc:
-                    curr += count
+                    curr += mb
                 else:
-                    curr -= count
+                    curr -= mb
                 continue
 
             # Add the byte index to the set for this line (if it's not there already).
-            stats.bytei_map[fname][lineno].add(item.bytecode_index)
+            bytei_map[fname][lineno].add(bytei)
             if is_malloc:
                 # Attribute the sampled bytes to the Python call stack
                 # captured *synchronously* in C++ inside process_malloc
-                # (item.stack). Unlike the old async signal-time capture,
-                # this stack reflects exactly where the allocation occurred,
-                # so short-lived allocator frames don't disappear.
+                # (the record's stack). Unlike the old async signal-time
+                # capture, this stack reflects exactly where the allocation
+                # occurred, so short-lived allocator frames don't disappear.
                 #
                 # We deliberately do NOT populate function_name here:
                 # looking up enclosing-def names requires reading source
@@ -325,67 +369,48 @@ class ScaleneMemoryProfiler:
                 # interposer and show up as an artifact in the user's
                 # profile. Name resolution happens at JSON serialization
                 # time instead (see scalene_json.py), off the hot path.
-                if item.stack:
-                    stats.memory_stacks[item.stack] += count
-                allocs += count
-                curr += count
-                assert curr <= mem_stats.max_footprint
-                malloc_pointer = item.pointer
+                if stack:
+                    memory_stacks[stack] += mb
+                allocs += mb
+                curr += mb
+                assert curr <= max_footprint
+                malloc_pointer = pointer
 
-                # Cache inner dictionaries for this filename to reduce lookups
-                malloc_samples_file = mem_stats.memory_malloc_samples[fname]
-                python_samples_file = mem_stats.memory_python_samples[fname]
-                current_footprint_file = mem_stats.memory_current_footprint[fname]
-                highwater_file = mem_stats.memory_current_highwater_mark[fname]
-                max_footprint_file = mem_stats.memory_max_footprint[fname]
-
-                malloc_samples_file[lineno] += count
-                python_samples_file[lineno] += item.python_fraction * count
-                mem_stats.malloc_samples[fname] += 1
-                mem_stats.total_memory_malloc_samples += count
+                malloc_samples[fname][lineno] += mb
+                python_samples[fname][lineno] += python_fraction * mb
+                malloc_count_by_file[fname] += 1
+                total_malloc += mb
 
                 # Update current and max footprints for this file & line.
-                current_footprint_file[lineno] += count
-                new_current = current_footprint_file[lineno]
+                current_footprint_file = current_footprint[fname]
+                new_current = current_footprint_file[lineno] + mb
+                current_footprint_file[lineno] = new_current
+                highwater_file = highwater[fname]
                 highwater_file[lineno] = max(highwater_file[lineno], new_current)
-
-                assert mem_stats.current_footprint <= mem_stats.max_footprint
-
-                max_footprint_file[lineno] = max(
-                    new_current, max_footprint_file[lineno]
-                )
+                max_footprint_file = max_footprint_by_line[fname]
                 # Ensure that the max footprint never goes above the true max footprint.
                 max_footprint_file[lineno] = min(
-                    mem_stats.max_footprint, max_footprint_file[lineno]
+                    max_footprint, max(new_current, max_footprint_file[lineno])
+                )
+            else:
+                curr -= mb
+                free_samples[fname][lineno] += mb
+                free_count[fname][lineno] += 1
+                total_free += mb
+                current_footprint_file = current_footprint[fname]
+                # Ensure that we never drop the current footprint below 0.
+                current_footprint_file[lineno] = max(
+                    0, current_footprint_file[lineno] - mb
                 )
 
-                assert mem_stats.current_footprint <= mem_stats.max_footprint
-                assert max_footprint_file[lineno] <= mem_stats.max_footprint
-            else:
-                assert item.action in [
-                    self.FREE_ACTION,
-                    self.FREE_ACTION_SAMPLED,
-                ]
-                curr -= count
-
-                # Cache inner dictionaries for this filename
-                free_samples_file = mem_stats.memory_free_samples[fname]
-                free_count_file = mem_stats.memory_free_count[fname]
-                current_footprint_file = mem_stats.memory_current_footprint[fname]
-
-                free_samples_file[lineno] += count
-                free_count_file[lineno] += 1
-                mem_stats.total_memory_free_samples += count
-                current_footprint_file[lineno] -= count
-                # Ensure that we never drop the current footprint below 0.
-                current_footprint_file[lineno] = max(0, current_footprint_file[lineno])
-
-            mem_stats.per_line_footprint_samples[fname][lineno].append(
-                [time.monotonic_ns() - start_time, max(0, curr)]
+            per_line_footprint_samples[fname][lineno].append(
+                [monotonic_ns() - start_time, max(0, curr)]
             )
             # If we allocated anything, then mark this as the last triggering malloc
             if allocs > 0:
                 last_malloc = (fname, lineno, malloc_pointer)
+        mem_stats.total_memory_malloc_samples = total_malloc
+        mem_stats.total_memory_free_samples = total_free
         mem_stats.allocation_velocity = (
             mem_stats.allocation_velocity[0] + (after - before),
             mem_stats.allocation_velocity[1] + allocs,

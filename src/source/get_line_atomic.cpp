@@ -151,9 +151,104 @@ static PyObject* get_line_atomic(PyObject* self, PyObject* args) {
   Py_RETURN_TRUE;
 }
 
+// get_lines_atomic(lock, signal, out, lastpos, may_reset) -> int
+//
+// Batch form of get_line_atomic: under one acquisition of the lock, copies
+// every complete record that fits into the writable buffer ``out``
+// ("rec\nrec\n..."), advances the reader's position past them, and returns
+// the number of bytes copied (0 when nothing is unread). The caller reuses
+// ``out`` across calls, so reading allocates nothing.
+//
+// Reading one record per call cost a Python-level call, a lock round trip and
+// a buffer export per argument for every sample, which dominated the reader
+// once the per-record parsing got cheaper. The reset protocol (generation
+// check, owner rewind once drained) is the same as get_line_atomic's, and
+// requires the 16-byte reader state; the rewind happens in the same call
+// that drains the log.
+static PyObject* get_lines_atomic(PyObject* self, PyObject* args) {
+  BufferGuard lock_mmap, signal_mmap, out_buf, lastpos_buf;
+  int may_reset = 0;
+  if (!PyArg_ParseTuple(args, "s*s*s*s*p", &lock_mmap.view, &signal_mmap.view,
+                        &out_buf.view, &lastpos_buf.view, &may_reset))
+    return NULL;
+  lock_mmap.held = signal_mmap.held = out_buf.held = lastpos_buf.held = true;
+
+  using LockType = HL::SpinLock;
+  if (lock_mmap.view.len <
+          static_cast<Py_ssize_t>(kGenerationOffset + sizeof(uint64_t)) ||
+      lastpos_buf.view.len < static_cast<Py_ssize_t>(2 * sizeof(uint64_t))) {
+    PyErr_SetString(PyExc_ValueError,
+                    "get_lines_atomic: lock or lastpos buffer too small");
+    return NULL;
+  }
+  if (out_buf.view.readonly || lastpos_buf.view.readonly ||
+      lock_mmap.view.readonly) {
+    PyErr_SetString(PyExc_ValueError,
+                    "get_lines_atomic: lock, out and lastpos buffers must be "
+                    "writable");
+    return NULL;
+  }
+
+  auto lock_page = reinterpret_cast<char*>(lock_mmap.view.buf);
+  auto writer_pos = reinterpret_cast<uint64_t*>(lock_page);
+  auto lock = reinterpret_cast<LockType*>(lock_page + sizeof(uint64_t));
+  auto generation =
+      reinterpret_cast<uint64_t*>(lock_page + kGenerationOffset);
+  auto lastpos = reinterpret_cast<uint64_t*>(lastpos_buf.view.buf);
+  auto reader_generation = lastpos + 1;
+  const auto signal_len = static_cast<uint64_t>(signal_mmap.view.len);
+  const char* signal = reinterpret_cast<const char*>(signal_mmap.view.buf);
+  char* out = reinterpret_cast<char*>(out_buf.view.buf);
+  const auto capacity = static_cast<uint64_t>(out_buf.view.len);
+
+  size_t n = 0;
+  {
+    std::lock_guard<LockType> theLock(*lock);
+
+    if (*reader_generation != *generation) {
+      // The log was reset since this reader last looked (see
+      // get_line_atomic).
+      *lastpos = 0;
+      *reader_generation = *generation;
+    }
+
+    const uint64_t data_end =
+        *writer_pos < signal_len ? *writer_pos : signal_len;
+    if (*lastpos < data_end) {
+      uint64_t avail = data_end - *lastpos;
+      if (avail > capacity) {
+        avail = capacity;
+      }
+      // Take only complete records: stop after the last newline.
+      const char* start = signal + *lastpos;
+      size_t len = static_cast<size_t>(avail);
+      while (len > 0 && start[len - 1] != '\n') {
+        --len;
+      }
+      // avoid 'memcpy', as Scalene interposes on it to measure memory copying
+      for (size_t i = 0; i < len; i++) {
+        out[i] = start[i];
+      }
+      n = len;
+      *lastpos += len;
+    }
+
+    // Fully drained: the owner rewinds the log (see get_line_atomic).
+    if (may_reset && *writer_pos != 0 && *lastpos == *writer_pos) {
+      *writer_pos = 0;
+      *lastpos = 0;
+      *generation += 1;
+      *reader_generation = *generation;
+    }
+  }
+  return PyLong_FromSize_t(n);
+}
+
 static PyMethodDef MmapHlSpinlockMethods[] = {
     {"get_line_atomic", get_line_atomic, METH_VARARGS,
      "locks a mutex located in buffer"},
+    {"get_lines_atomic", get_lines_atomic, METH_VARARGS,
+     "reads all complete records available in the buffer"},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef mmaphlspinlockmodule = {
