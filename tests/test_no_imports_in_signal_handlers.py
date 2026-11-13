@@ -87,3 +87,39 @@ def test_signal_handlers_do_not_import(tmp_path: Path) -> None:
         pytest.skip("profiled program did not finish (suspected startup flake)")
     hits = json.loads(hits_file.read_text())
     assert hits == [], f"modules first imported inside Scalene signal handlers: {hits}"
+
+
+TORCH_PREIMPORT = textwrap.dedent("""
+    import sys
+    from scalene.scalene_torch import TorchProfiler, is_torch_available
+
+    if not is_torch_available():
+        print("NO_TORCH")
+        sys.exit(0)
+    assert "torch.profiler.python_tracer" not in sys.modules
+    prof = TorchProfiler()
+    prof.start()
+    try:
+        assert "torch.profiler.python_tracer" in sys.modules
+    finally:
+        prof.stop()
+    print("OK")
+    """)
+
+
+def test_torch_profiler_imports_python_tracer_up_front() -> None:
+    # TorchProfiler.step() restarts torch's profiler from the CPU signal
+    # handler (every _STEP_INTERVAL samples), and stopping a with_stack
+    # profiler imports torch.profiler.python_tracer on first use. The test
+    # above only catches that if a restart happens within its short run, so
+    # check directly that start() has already imported it.
+    proc = subprocess.run(
+        [sys.executable, "-c", TORCH_PREIMPORT],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if "NO_TORCH" in proc.stdout:
+        pytest.skip("torch not installed")
+    assert proc.returncode == 0, proc.stdout + proc.stderr[-3000:]
+    assert "OK" in proc.stdout
