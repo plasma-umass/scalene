@@ -115,7 +115,7 @@ Web-based GUI built with TypeScript, bundled with esbuild.
 - **`scalene-gui-bundle.js`** - Bundled JavaScript output (generated, do not edit directly)
 
 **AI Provider Modules:**
-- **`openai.ts`** - OpenAI API integration (`sendPromptToOpenAI`, `fetchOpenAIModels`)
+- **`openai.ts`** - OpenAI API integration (`sendPromptToOpenAI`, `fetchOpenAIModels`). Uses the Responses API for api.openai.com (the only API serving the `-pro` models) and Chat Completions for a custom OpenAI-compatible URL
 - **`anthropic.ts`** - Anthropic Claude API integration
 - **`gemini.ts`** - Google Gemini API integration (`sendPromptToGemini`, `fetchGeminiModels`)
 - **`optimizations.ts`** - Provider dispatch logic, prompt generation
