@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import contextlib
 import functools
 import os
 import pathlib
@@ -37,9 +38,36 @@ class ScaleneTracing:
         # Use resolved Path for proper cross-platform path comparison
         self._profiler_base_path = pathlib.Path(profiler_base).resolve()
         self._program_path = program_path
+        self._resolved_program_path = self._resolve_or_none(program_path)
         self._system_lib_paths: tuple[str, ...] = ()
         self._files_to_profile: set[Filename] = set()
         self._functions_to_profile: dict[Filename, set[Any]] = defaultdict(set)
+        # Resolve the library directories once, here, rather than on every
+        # should_trace() miss. Resolving each takes several system calls,
+        # and on Windows should_trace() runs on the sampling thread, which
+        # must win the GIL back from the busy main thread after each one:
+        # resolving ~80 directories per newly seen file took longer than a
+        # short program's whole run, so it recorded no CPU samples.
+        self._excluded_lib_dirs = self._resolved_lib_dirs()
+
+    @staticmethod
+    def _resolve_or_none(path: str) -> pathlib.Path | None:
+        try:
+            return pathlib.Path(path).resolve()
+        except (OSError, ValueError):
+            return None
+
+    @staticmethod
+    def _resolved_lib_dirs() -> tuple[str, ...]:
+        """Resolved install paths of every sysconfig scheme."""
+        dirs = set()
+        for n in sysconfig.get_scheme_names():
+            for p in sysconfig.get_path_names():
+                the_path = sysconfig.get_path(p, n)
+                if the_path:
+                    with contextlib.suppress(OSError, ValueError):
+                        dirs.add(str(pathlib.Path(the_path).resolve()))
+        return tuple(dirs)
 
     def set_args(self, args: ScaleneArguments) -> None:
         """Update the arguments."""
@@ -50,6 +78,7 @@ class ScaleneTracing:
     def set_program_path(self, program_path: Filename) -> None:
         """Update the program path."""
         self._program_path = program_path
+        self._resolved_program_path = self._resolve_or_none(program_path)
         # Clear the cache when program path changes
         self.should_trace.cache_clear()
 
@@ -172,13 +201,9 @@ class ScaleneTracing:
             return False
 
         if not self._args.profile_all:
-            for n in sysconfig.get_scheme_names():
-                for p in sysconfig.get_path_names():
-                    the_path = sysconfig.get_path(p, n)
-                    if the_path:
-                        libdir = str(pathlib.Path(the_path).resolve())
-                        if libdir in resolved_filename:
-                            return False
+            for libdir in self._excluded_lib_dirs:
+                if libdir in resolved_filename:
+                    return False
 
         # Check explicit exclude patterns
         profile_exclude_list = self._args.profile_exclude.split(",")
@@ -275,7 +300,9 @@ class ScaleneTracing:
         # Check if the file is in the same directory tree as the program being profiled.
         try:
             file_path = pathlib.Path(filename).resolve()
-            program_path = pathlib.Path(self._program_path).resolve()
+            program_path = self._resolved_program_path
+            if program_path is None:
+                raise ValueError("unresolvable program path")
             # Check if file is in program's directory or a subdirectory
             return (
                 file_path.is_relative_to(program_path)
