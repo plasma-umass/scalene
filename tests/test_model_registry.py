@@ -226,14 +226,68 @@ def test_rank_replacements(registry_eval: Dict[str, Any]) -> None:
 
 
 def test_registry_is_consistent(registry_eval: Dict[str, Any]) -> None:
-    registry = registry_eval["registry"]
-    retired = registry_eval["retired"]
-    curated = {m["id"] for p in registry.values() for m in p["models"]}
+    assert_registry_consistent(registry_eval["registry"], registry_eval["retired"])
+
+
+def assert_registry_consistent(
+    registry: Dict[str, Any], retired: Dict[str, Dict[str, str]]
+) -> None:
+    assert set(retired) == set(registry)
     for name, provider in registry.items():
         ids = [m["id"] for m in provider["models"]]
         assert provider["defaultModel"] in ids, name
         assert len(ids) == len(set(ids)), name
-    # Retired IDs must not be offered, and must map to something we offer.
-    assert not curated & set(retired)
-    for old, new in retired.items():
-        assert new in curated, f"{old} -> {new}"
+        # A provider's retired IDs must not be offered by that provider, and
+        # must map to something it offers.
+        assert not set(ids) & set(retired[name]), name
+        for old, new in retired[name].items():
+            assert new in ids, f"{name}: {old} -> {new}"
+
+
+_RESTORE_SCRIPT = r"""
+// Minimal DOM: just what restoreModelSelection touches.
+globalThis.document = { createElement: () => ({ value: "", textContent: "" }) };
+const m = await import(process.argv[1]);
+const select = (id, values) => {
+  const options = values.map((value) => ({ value }));
+  return { id, options, value: "", appendChild: (o) => options.push(o) };
+};
+const restore = (provider, saved) => {
+  const { selectId, models } = m.MODEL_REGISTRY[provider];
+  return m.restoreModelSelection(select(selectId, models.map((x) => x.id)), saved);
+};
+console.log(JSON.stringify([
+  restore("openai", "o4-mini"),
+  restore("azure", "o4-mini"),
+  restore("anthropic", "claude-sonnet-4-5-20250929"),
+  restore("anthropic", "my-custom-model"),
+]));
+"""
+
+
+def test_retirements_are_per_provider() -> None:
+    # Providers share model names, so a retirement on one must not rewrite
+    # another's saved choice (an Azure deployment can still be named o4-mini).
+    node = shutil.which("node")
+    if node is None or not _node_supports_type_stripping(node):
+        pytest.skip("needs Node.js 22.6+ to run models.ts")
+    result = subprocess.run(
+        [
+            node,
+            "--experimental-strip-types",
+            "--no-warnings",
+            "--input-type=module",
+            "-e",
+            _RESTORE_SCRIPT,
+            REGISTRY.as_uri(),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [
+        "gpt-5.2",
+        "o4-mini",
+        "claude-sonnet-5-5",
+        "my-custom-model",
+    ]

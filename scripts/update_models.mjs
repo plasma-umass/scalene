@@ -185,12 +185,23 @@ export function planProvider(provider, entry, live, helpers) {
 
 // --- Rewriting models.ts (pure) --------------------------------------------------
 
-function providerBlock(source, provider) {
-  const start = source.indexOf(`\n  ${provider}: {\n`);
-  if (start < 0) throw new Error(`can't find the ${provider} block in models.ts`);
-  const end = source.indexOf("\n  },\n", start);
-  if (end < 0) throw new Error(`can't find the end of the ${provider} block in models.ts`);
+// [start, end) of `export const <name> ... = {` through its closing `};`.
+function section(source, name) {
+  const start = source.indexOf(`export const ${name}`);
+  const end = start < 0 ? -1 : source.indexOf("\n};\n", start);
+  if (end < 0) throw new Error(`can't find ${name} in models.ts`);
   return [start, end];
+}
+
+// [start, end) of a provider's `  name: {` ... `  },` entry within a section.
+// Returns null for an empty entry written as `  name: {},`.
+function providerBlock(source, [sectionStart, sectionEnd], provider) {
+  const body = source.slice(sectionStart, sectionEnd);
+  if (body.includes(`\n  ${provider}: {},`)) return null;
+  const start = body.indexOf(`\n  ${provider}: {\n`);
+  const end = start < 0 ? -1 : body.indexOf("\n  },", start);
+  if (end < 0) throw new Error(`can't find the ${provider} entry in models.ts`);
+  return [sectionStart + start, sectionStart + end];
 }
 
 const quote = (s) => JSON.stringify(s);
@@ -198,7 +209,8 @@ const quote = (s) => JSON.stringify(s);
 // Applies changes ({ provider, from, to, label }) to the text of models.ts.
 export function applyChanges(source, changes, date) {
   for (const { provider, from, to, label } of changes) {
-    const [start, end] = providerBlock(source, provider);
+    // The curated list.
+    const [start, end] = providerBlock(source, section(source, "MODEL_REGISTRY"), provider);
     let block = source.slice(start, end);
     const entryLine = new RegExp(`\\n[ \\t]*\\{ id: ${escapeRegExp(quote(from))}, label: [^\\n]*\\},`);
     if (!entryLine.test(block)) throw new Error(`can't find the ${from} entry in models.ts`);
@@ -212,25 +224,27 @@ export function applyChanges(source, changes, date) {
     }
     block = block.replace(`defaultModel: ${quote(from)},`, `defaultModel: ${quote(to)},`);
     source = source.slice(0, start) + block + source.slice(end);
-  }
-  if (changes.length === 0) return source;
 
-  // Point existing retirements at the new targets, then add the new ones.
-  const retiredStart = source.indexOf("export const RETIRED_MODELS");
-  const retiredEnd = source.indexOf("\n};\n", retiredStart);
-  if (retiredStart < 0 || retiredEnd < 0) throw new Error("can't find RETIRED_MODELS in models.ts");
-  let retired = source.slice(retiredStart, retiredEnd);
-  for (const { from, to } of changes) {
-    retired = retired.split(`: ${quote(from)},`).join(`: ${quote(to)},`);
+    // The provider's retirements: point existing ones at the new target, then
+    // add this one.
+    const retiredSection = section(source, "RETIRED_MODELS");
+    const retired = providerBlock(source, retiredSection, provider);
+    const entry = `    ${quote(from)}: ${quote(to)},`;
+    const comment = `    // No longer listed by the provider (found by the model check, ${date}).`;
+    if (retired === null) {
+      const empty = source.indexOf(`\n  ${provider}: {},`, retiredSection[0]);
+      const replacement = `\n  ${provider}: {\n${comment}\n${entry}\n  },`;
+      source = source.slice(0, empty) + replacement + source.slice(empty + `\n  ${provider}: {},`.length);
+      continue;
+    }
+    let body = source.slice(retired[0], retired[1]).split(`: ${quote(from)},`).join(`: ${quote(to)},`);
+    if (!body.includes(`\n    ${quote(from)}:`)) {
+      if (!body.includes(comment)) body += `\n${comment}`;
+      body += `\n${entry}`;
+    }
+    source = source.slice(0, retired[0]) + body + source.slice(retired[1]);
   }
-  const added = changes
-    .filter(({ from }) => !retired.includes(`  ${quote(from)}:`))
-    .map(({ from, to }) => `\n  ${quote(from)}: ${quote(to)},`)
-    .join("");
-  if (added) {
-    retired += `\n  // No longer listed by the provider (found by the model check, ${date}).${added}`;
-  }
-  return source.slice(0, retiredStart) + retired + source.slice(retiredEnd);
+  return source;
 }
 
 function escapeRegExp(s) {

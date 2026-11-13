@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple
 
 import pytest
+from test_model_registry import assert_registry_consistent
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "update_models.mjs"
@@ -100,15 +101,7 @@ def run_cases(tmp_path_factory: pytest.TempPathFactory) -> Any:
 
 
 def _assert_consistent(result: Dict[str, Any]) -> None:
-    registry, retired = result["registry"], result["retired"]
-    curated = {m["id"] for p in registry.values() for m in p["models"]}
-    for name, provider in registry.items():
-        ids = [m["id"] for m in provider["models"]]
-        assert provider["defaultModel"] in ids, name
-        assert len(ids) == len(set(ids)), name
-    assert not curated & set(retired)
-    for old, new in retired.items():
-        assert new in curated, f"{old} -> {new}"
+    assert_registry_consistent(result["registry"], result["retired"])
 
 
 def test_nothing_missing_changes_nothing(run_cases: Any) -> None:
@@ -138,9 +131,12 @@ def test_retired_default_moves_to_successor(run_cases: Any) -> None:
         "id": "claude-sonnet-6",
         "label": "Claude Sonnet 6",
     }
-    assert result["retired"]["claude-sonnet-5-5"] == "claude-sonnet-6"
+    assert result["retired"]["anthropic"]["claude-sonnet-5-5"] == "claude-sonnet-6"
     # Older retirements that pointed at 5.5 now skip straight to 6.
-    assert result["retired"]["claude-sonnet-4-5-20250929"] == "claude-sonnet-6"
+    assert (
+        result["retired"]["anthropic"]["claude-sonnet-4-5-20250929"]
+        == "claude-sonnet-6"
+    )
     _assert_consistent(result)
 
 
@@ -171,3 +167,13 @@ def test_mass_disappearance_is_not_trusted(run_cases: Any) -> None:
     assert result["plan"]["changes"] == []
     assert result["plan"]["skipped"]
     assert result["unchanged"]
+
+
+def test_shared_name_retires_only_for_its_provider(run_cases: Any) -> None:
+    # OpenAI drops gpt-4.1; Azure, which also offers a gpt-4.1, is untouched.
+    live = _ids("openai", drop=["gpt-4.1"])
+    [result] = run_cases([{"provider": "openai", "live": live}])
+    assert "gpt-4.1" in result["retired"]["openai"]
+    assert "gpt-4.1" not in result["retired"]["azure"]
+    assert "gpt-4.1" in [m["id"] for m in result["registry"]["azure"]["models"]]
+    _assert_consistent(result)

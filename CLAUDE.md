@@ -435,8 +435,10 @@ that goes stale:
 - **Aliases over snapshots.** Prefer IDs that providers move forward
   themselves (`claude-sonnet-5-5`, `gemini-flash-latest`) over dated snapshots.
 - **Saved selections are migrated.** `RETIRED_MODELS` maps known-dead IDs to
-  replacements; `persistence.ts` applies it when restoring a model `<select>`.
-  Saved models not in the curated list (e.g. picked after a refresh) are kept.
+  replacements, per provider (providers share names: an Azure deployment can
+  be called `gpt-4.1` after OpenAI retires it); `persistence.ts` applies the
+  select's provider's map when restoring a model `<select>`. Saved models not
+  in the curated list (e.g. picked after a refresh) are kept.
 - **Recovery at request time.** Providers throw `ModelNotFoundError` when a
   model is unknown; `sendWithModelRecovery()` (`model-recovery.ts`) fetches the
   provider's live list, ranks the models in the same family newest first,
@@ -449,7 +451,7 @@ that goes stale:
   model, falling back through the older models in the curated list.
 
 When a provider announces a retirement: update `MODEL_REGISTRY`, add the old
-ID to `RETIRED_MODELS`, and rebuild the bundle.
+ID to that provider's `RETIRED_MODELS` entry, and rebuild the bundle.
 
 **Weekly check.** `.github/workflows/update-models.yml` runs
 `scripts/update_models.mjs`, which lists each provider's models (OpenAI,

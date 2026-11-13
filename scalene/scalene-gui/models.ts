@@ -107,32 +107,44 @@ export const MODEL_REGISTRY: Record<ModelProvider, ProviderModels> = {
   },
 };
 
-// Model IDs known to be retired (or never valid), mapped to their
-// replacements. Saved selections are migrated on page load, before the
+// Model IDs known to be retired (or never valid), per provider, mapped to
+// their replacements. Saved selections are migrated on page load, before the
 // provider ever sees them. This is a convenience: anything missing here is
-// still caught at request time by model-recovery.ts.
-export const RETIRED_MODELS: Record<string, string> = {
-  // Retires 2026-11-30 (#1123).
-  "claude-sonnet-4-5-20250929": "claude-sonnet-5-5",
-  // These two IDs were never valid (the real snapshots are dated 20251101
-  // and 20251001).
-  "claude-opus-4-5-20251124": "claude-opus-5-5",
-  "claude-haiku-4-5-20251015": "claude-haiku-5-5",
-  // Bedrock: Sonnet 4.5 is "Legacy" there and refused to accounts that
-  // haven't used it recently; the Opus/Haiku IDs were never valid.
-  "us.anthropic.claude-sonnet-4-5-20250929-v1:0": "global.anthropic.claude-sonnet-5-5",
-  "us.anthropic.claude-opus-4-5-20251124-v1:0": "global.anthropic.claude-opus-5-5",
-  "us.anthropic.claude-haiku-4-5-20251015-v1:0": "global.anthropic.claude-haiku-5-5",
-  // Gemini models Google has shut down or deprecated (2.5 Pro already
-  // returns 404).
-  "gemini-3-pro-preview": "gemini-pro-latest",
-  "gemini-2.5-pro": "gemini-pro-latest",
-  "gemini-2.5-flash": "gemini-flash-latest",
-  "gemini-2.0-flash": "gemini-flash-latest",
-  "gemini-2.0-flash-lite": "gemini-flash-lite-latest",
-  // No longer listed by the provider (found by the model check, 2026-11-13).
-  "gpt-4.1-nano": "gpt-5.4-nano",
-  "o4-mini": "gpt-5.2",
+// still caught at request time by model-recovery.ts. Retirements are per
+// provider because providers share names (an Azure deployment can be called
+// gpt-4.1 long after OpenAI retires gpt-4.1).
+export const RETIRED_MODELS: Record<ModelProvider, Record<string, string>> = {
+  openai: {
+    // OpenAI no longer lists these, and requests fail with model_not_found
+    // (found by the model check, 2026-11-13).
+    "gpt-4.1-nano": "gpt-5.4-nano",
+    "o4-mini": "gpt-5.2",
+  },
+  anthropic: {
+    // Retires 2026-11-30 (#1123).
+    "claude-sonnet-4-5-20250929": "claude-sonnet-5-5",
+    // These two IDs were never valid (the real snapshots are dated 20251101
+    // and 20251001).
+    "claude-opus-4-5-20251124": "claude-opus-5-5",
+    "claude-haiku-4-5-20251015": "claude-haiku-5-5",
+  },
+  gemini: {
+    // Models Google has shut down or deprecated (2.5 Pro already returns 404).
+    "gemini-3-pro-preview": "gemini-pro-latest",
+    "gemini-2.5-pro": "gemini-pro-latest",
+    "gemini-2.5-flash": "gemini-flash-latest",
+    "gemini-2.0-flash": "gemini-flash-latest",
+    "gemini-2.0-flash-lite": "gemini-flash-lite-latest",
+  },
+  amazon: {
+    // Sonnet 4.5 is "Legacy" on Bedrock and refused to accounts that haven't
+    // used it recently; the Opus/Haiku IDs were never valid.
+    "us.anthropic.claude-sonnet-4-5-20250929-v1:0": "global.anthropic.claude-sonnet-5-5",
+    "us.anthropic.claude-opus-4-5-20251124-v1:0": "global.anthropic.claude-opus-5-5",
+    "us.anthropic.claude-haiku-4-5-20251015-v1:0": "global.anthropic.claude-haiku-5-5",
+  },
+  // Deployment names are chosen per Azure resource; nothing to migrate.
+  azure: {},
 };
 
 // (Plain fields rather than constructor parameter properties, so this file
@@ -244,7 +256,8 @@ export function populateModelSelects(): void {
 // forward, and keeps a saved model that isn't in the curated list (e.g. one
 // picked after refreshing from the provider) rather than silently dropping it.
 export function restoreModelSelection(select: HTMLSelectElement, saved: string): string {
-  const value = RETIRED_MODELS[saved] ?? saved;
+  const provider = providerForSelect(select);
+  const value = (provider && RETIRED_MODELS[provider][saved]) || saved;
   if (value && !Array.from(select.options).some((o) => o.value === value)) {
     addOption(select, value, value);
   }
@@ -252,8 +265,12 @@ export function restoreModelSelection(select: HTMLSelectElement, saved: string):
   return value;
 }
 
+function providerForSelect(el: Element): ModelProvider | undefined {
+  return (Object.keys(MODEL_REGISTRY) as ModelProvider[]).find((p) => MODEL_REGISTRY[p].selectId === el.id);
+}
+
 export function isModelSelect(el: Element): boolean {
-  return Object.values(MODEL_REGISTRY).some((p) => p.selectId === el.id);
+  return providerForSelect(el) !== undefined;
 }
 
 export interface ResolvedModel {
