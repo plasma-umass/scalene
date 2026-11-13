@@ -25,6 +25,8 @@ import {
 } from "./gui-elements";
 import { checkApiKey, fetchOpenAIModels } from "./openai";
 import { fetchGeminiModels } from "./gemini";
+import { fetchAnthropicModels } from "./anthropic";
+import { populateModelSelect, populateModelSelects } from "./models";
 import { fetchModelNames } from "./ollama";
 import {
   getEnvApiKeys,
@@ -3110,47 +3112,24 @@ export function toggleAdvanced(toggle: HTMLElement): void {
   }
 }
 
-// Helper to populate a select element with model options
-function populateModelSelect(
+// Replace a provider's model list with the models its API currently offers.
+async function refreshModels(
+  fieldsId: string,
+  apiKeyId: string,
+  providerName: string,
   selectId: string,
-  models: string[],
-  currentValue?: string
-): void {
-  const select = document.getElementById(selectId) as HTMLSelectElement | null;
-  if (!select || models.length === 0) return;
-
-  // Save current selection
-  const savedValue = currentValue || select.value;
-
-  // Clear existing options
-  select.innerHTML = "";
-
-  // Add new options
-  models.forEach((model) => {
-    const option = document.createElement("option");
-    option.value = model;
-    option.textContent = model;
-    select.appendChild(option);
-  });
-
-  // Restore selection if it exists in the new list
-  if (models.includes(savedValue)) {
-    select.value = savedValue;
-  }
-}
-
-// Refresh OpenAI models from API
-export async function refreshOpenAIModels(): Promise<void> {
-  const apiKeyElement = document.getElementById("api-key") as HTMLInputElement | null;
+  fetchModels: (apiKey: string) => Promise<string[]>
+): Promise<void> {
+  const apiKeyElement = document.getElementById(apiKeyId) as HTMLInputElement | null;
   const apiKey = apiKeyElement?.value ?? "";
 
   if (!apiKey) {
-    alert("Please enter an OpenAI API key first.");
+    alert(`Please enter ${providerName} API key first.`);
     return;
   }
 
   // Find the refresh button and show loading state
-  const buttons = document.querySelectorAll("#openai-fields .btn-refresh");
+  const buttons = document.querySelectorAll(`#${fieldsId} .btn-refresh`);
   buttons.forEach((btn) => {
     btn.classList.add("loading");
     (btn as HTMLButtonElement).disabled = true;
@@ -3158,14 +3137,14 @@ export async function refreshOpenAIModels(): Promise<void> {
   });
 
   try {
-    const models = await fetchOpenAIModels(apiKey);
+    const models = await fetchModels(apiKey);
     if (models.length > 0) {
-      populateModelSelect("language-model-openai", models);
+      populateModelSelect(selectId, models);
     } else {
       console.log("No models returned, keeping defaults");
     }
   } catch (error) {
-    console.error("Failed to fetch OpenAI models:", error);
+    console.error(`Failed to fetch ${providerName} models:`, error);
   } finally {
     buttons.forEach((btn) => {
       btn.classList.remove("loading");
@@ -3175,40 +3154,22 @@ export async function refreshOpenAIModels(): Promise<void> {
   }
 }
 
-// Refresh Gemini models from API
-export async function refreshGeminiModels(): Promise<void> {
-  const apiKeyElement = document.getElementById("gemini-api-key") as HTMLInputElement | null;
-  const apiKey = apiKeyElement?.value ?? "";
+export function refreshOpenAIModels(): Promise<void> {
+  return refreshModels("openai-fields", "api-key", "an OpenAI", "language-model-openai", fetchOpenAIModels);
+}
 
-  if (!apiKey) {
-    alert("Please enter a Gemini API key first.");
-    return;
-  }
+export function refreshAnthropicModels(): Promise<void> {
+  return refreshModels(
+    "anthropic-fields",
+    "anthropic-api-key",
+    "an Anthropic",
+    "language-model-anthropic",
+    fetchAnthropicModels
+  );
+}
 
-  // Find the refresh button and show loading state
-  const buttons = document.querySelectorAll("#gemini-fields .btn-refresh");
-  buttons.forEach((btn) => {
-    btn.classList.add("loading");
-    (btn as HTMLButtonElement).disabled = true;
-    btn.textContent = "...";
-  });
-
-  try {
-    const models = await fetchGeminiModels(apiKey);
-    if (models.length > 0) {
-      populateModelSelect("language-model-gemini", models);
-    } else {
-      console.log("No models returned, keeping defaults");
-    }
-  } catch (error) {
-    console.error("Failed to fetch Gemini models:", error);
-  } finally {
-    buttons.forEach((btn) => {
-      btn.classList.remove("loading");
-      (btn as HTMLButtonElement).disabled = false;
-      btn.innerHTML = "&#8635;";
-    });
-  }
+export function refreshGeminiModels(): Promise<void> {
+  return refreshModels("gemini-fields", "gemini-api-key", "a Gemini", "language-model-gemini", fetchGeminiModels);
 }
 
 function revealInstallMessage(): void {
@@ -3301,6 +3262,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // restoreState falls back to them when localStorage is empty.
   await loadEnvApiKeys();
   initializeDefaultProvider();
+  // Fill model lists before restoring saved selections into them.
+  populateModelSelects();
   processPersistentElements();
   prefillNonPersistentEnvFields();
 });
@@ -3342,3 +3305,4 @@ setInterval(sendHeartbeat, 10000); // Send heartbeat every 10 seconds
 (window as unknown as Record<string, unknown>).toggleAdvanced = toggleAdvanced;
 (window as unknown as Record<string, unknown>).refreshOpenAIModels = refreshOpenAIModels;
 (window as unknown as Record<string, unknown>).refreshGeminiModels = refreshGeminiModels;
+(window as unknown as Record<string, unknown>).refreshAnthropicModels = refreshAnthropicModels;
