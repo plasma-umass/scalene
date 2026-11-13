@@ -296,7 +296,7 @@ async function main(argv, env) {
     writeFileSync(MODELS_TS, applyChanges(readFileSync(MODELS_TS, "utf8"), changes, date));
   }
   if (checked === 0) {
-    console.error("No provider credentials were set; nothing was checked.");
+    console.error("No provider could be checked (no credentials, or listing failed).");
   }
 }
 
