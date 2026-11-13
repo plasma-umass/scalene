@@ -74,6 +74,64 @@ scalene = "scalene.__main__:main"
 build-backend = "setuptools.build_meta"
 requires = [
     "setuptools>=70.1",
+    # its git file finder decides what goes into the sdist
     "setuptools_scm>=8",
-    "cython",
 ]
+
+[tool.setuptools.packages.find]
+include = ["scalene*"]
+namespaces = false
+
+[tool.pytest.ini_options]
+
+[tool.mypy]
+scripts_are_modules = true
+show_traceback = true
+plugins = ["pydantic.mypy"]
+
+# Options to make the checking stricter.
+check_untyped_defs = true
+disallow_any_unimported = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+warn_no_return = true
+no_implicit_optional = true
+warn_return_any = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+warn_redundant_casts = true
+
+# Display the codes needed for # type: ignore[code] annotations.
+show_error_codes = true
+
+# It's useful to try this occasionally, and keep it clean; but when
+# someone fixes a type error we don't want to add a burden for them.
+warn_unused_ignores = true
+
+# We use a lot of third-party libraries we don't have stubs for, as
+# well as a handful of our own modules that we haven't told mypy how
+# to find.  Ignore them.  (For some details, see:
+# `git log -p -S ignore_missing_imports mypy.ini`.)
+#
+# This doesn't get in the way of using the stubs we *do* have.
+ignore_missing_imports = true
+
+# Warn of unreachable or redundant code.
+warn_unreachable = false
+
+strict_optional = true
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+exclude = ["test", "tests", "node_modules", "benchmarks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I", "SIM", "UP"]
+ignore = ["E101", "E402", "E501", "E701", "E741", "F401", "F403", "F405", "B028"]
+
+[tool.pyright]
+include = ["scalene"]
+useLibraryCodeForTypes = true
+reportInvalidStringEscapeSequence = false
+typeCheckingMode = "basic"

@@ -26,7 +26,9 @@ jobs:
     runs-on: ubuntu-latest
     # mypy + ruff are pure static analysis: no native build needed and
     # results are version-independent given a single mypy target version
-    # (set in mypy.ini) and ruff's --target-version. A single matrix entry
+    # (the Python 3.12 interpreter below, as [tool.mypy] sets no
+    # python_version) and ruff's target version (requires-python in
+    # pyproject.toml). A single matrix entry
     # is enough; the C++ extension isn't installed because nothing here
     # imports it.
     timeout-minutes: 5
@@ -44,11 +46,11 @@ jobs:
     - name: Install Python dependencies for linting
       # No ``pip install -e .`` here — mypy resolves the package via
       # ``mypy scalene`` (source directory) and missing C-extension
-      # imports are silenced by ``ignore_missing_imports = True`` in
-      # mypy.ini. ruff is purely syntactic.
+      # imports are silenced by ``ignore_missing_imports = true`` in
+      # pyproject.toml. ruff is purely syntactic.
       #
-      # ``pydantic`` is required because mypy.ini configures
-      # ``plugins = pydantic.mypy`` and mypy fails to start if the
+      # ``pydantic`` is required because pyproject.toml configures
+      # ``plugins = ["pydantic.mypy"]`` and mypy fails to start if the
       # plugin module isn't importable.
       run: |
         python -m pip install --upgrade pip
