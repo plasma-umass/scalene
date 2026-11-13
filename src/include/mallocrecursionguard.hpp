@@ -48,10 +48,15 @@ class MallocRecursionGuard {
   // and a pthread key (whose storage never allocates once created) points
   // each thread at its slot. Only the first access per thread takes the
   // slow path.
-  struct Slot {
+  // One cache line per slot (128 bytes on Apple Silicon). Every allocation
+  // writes its thread's flag twice, so slots of threads running in parallel
+  // (free-threaded Python, native threads) must not share a line, or the
+  // line ping-pongs between cores on every malloc and free.
+  struct alignas(128) Slot {
     bool inMalloc;
     Slot* next;  // free-list link while the slot is unused
   };
+  static_assert(sizeof(Slot) == 128, "one slot per cache line");
 
   // Seen by a thread while its own slot is being set up, and while the key
   // itself is being created (pthread_key_create may call malloc): reports
