@@ -38,9 +38,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
-      # Report every platform's result: a Windows-only packaging break
-      # shouldn't hide whether macOS and Linux build.
-      fail-fast: false
+      # Any failed build cancels the rest of the matrix, for fast feedback
+      # and less CI burn (as in tests.yml).
+      fail-fast: true
       matrix:
         # ubuntu-latest (26.04) has no setup-python 3.9; 24.04 does.
         os: [ ubuntu-24.04, macos-latest, windows-latest ]
