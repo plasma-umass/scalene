@@ -46,7 +46,17 @@ async function getJSON(url, headers) {
       continue;
     }
     if (!response.ok) {
-      throw new Error(`${new URL(url).host} returned ${response.status}: ${(await response.text()).slice(0, 300)}`);
+      // Report only the error code: messages can echo part of the key, and
+      // workflow logs on a public repo are public.
+      let code = "";
+      try {
+        const body = await response.json();
+        const error = body.error ?? body;
+        code = error.code ?? error.type ?? error.status ?? "";
+      } catch {
+        // Not JSON; the status says enough.
+      }
+      throw new Error(`${new URL(url).host} returned ${response.status}${code ? ` (${code})` : ""}`);
     }
     return response.json();
   }
