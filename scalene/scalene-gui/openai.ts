@@ -136,74 +136,108 @@ export function checkApiKey(apiKey: string): void {
   })();
 }
 
+const SYSTEM_PROMPT =
+  "You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, starting with ``` and ending with ```.";
+
+const QUERY_FAILED =
+  "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
+
+// The Responses API's reply: a list of output items, of which "message" items
+// hold the text (reasoning models also emit "reasoning" items).
+interface OpenAIResponsesReply extends OpenAIErrorResponse {
+  status?: string;
+  output?: {
+    type: string;
+    content?: { type: string; text?: string; refusal?: string }[];
+  }[];
+}
+
+// Returns true if the error was reported (and the caller should give up);
+// throws ModelNotFoundError so the caller can recover.
+function reportError(data: OpenAIErrorResponse, model: string): boolean {
+  if (!data.error) return false;
+  console.error("OpenAI API error:", data.error);
+  if (data.error.code === "model_not_found") {
+    throw new ModelNotFoundError("openai", model, data.error.message || "not found");
+  }
+  if (data.error.code === "insufficient_quota") {
+    alert("You need to add funds to your OpenAI account to use this feature.");
+  } else {
+    alert(`OpenAI API error: ${data.error.message || data.error.code || "Unknown error"}`);
+  }
+  return true;
+}
+
 export async function sendPromptToOpenAI(
   prompt: string,
   apiKey: string,
   model: string
 ): Promise<string> {
-  // Check for custom URL override (for OpenAI-compatible servers like vLLM, Cohere)
+  // A custom URL means an OpenAI-compatible server (vLLM, Cohere, ...), which
+  // speaks Chat Completions. OpenAI itself gets the Responses API, the only
+  // one that serves every current model (the -pro models reject Chat
+  // Completions).
   const customUrlElement = document.getElementById("openai-custom-url") as HTMLInputElement | null;
   const customUrl = customUrlElement?.value?.trim() || "";
-  const endpoint = customUrl || "https://api.openai.com/v1/chat/completions";
+  const text = customUrl
+    ? await sendChatCompletion(customUrl, prompt, apiKey, model)
+    : await sendResponse(prompt, apiKey, model);
+  return text === null ? "" : text.replace(/^\s*[\r\n]/gm, "");
+}
 
-  const body = JSON.stringify({
-    model: model,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a Python programming assistant who ONLY responds with blocks of commented, optimized code. You never respond with text. Just code, starting with ``` and ending with ```.",
-      },
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-    user: "scalene-user",
-  });
-
-  console.log(body);
-
+async function post(endpoint: string, apiKey: string, body: object): Promise<unknown> {
+  const json = JSON.stringify(body);
+  console.log(json);
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: body,
+    body: json,
   });
+  return response.json();
+}
 
-  const data: OpenAIResponse = await response.json();
-  if (data.error) {
-    console.error("OpenAI API error:", data.error);
-    if (data.error.code === "model_not_found") {
-      throw new ModelNotFoundError("openai", model, data.error.message || "not found");
-    }
-    if (data.error.code === "insufficient_quota") {
-      alert("You need to add funds to your OpenAI account to use this feature.");
-    } else {
-      alert(`OpenAI API error: ${data.error.message || data.error.code || "Unknown error"}`);
-    }
-    return "";
-  }
-  try {
-    if (data.choices && data.choices[0]) {
-      console.log(
-        `Debugging info: Retrieved ${JSON.stringify(data.choices[0], null, 4)}`
-      );
-    }
-  } catch {
-    console.log(
-      `Debugging info: Failed to retrieve data.choices from the server. data = ${JSON.stringify(data)}`
-    );
-  }
+// Returns the reply text, or null if an error was already reported.
+async function sendResponse(prompt: string, apiKey: string, model: string): Promise<string | null> {
+  const data = (await post("https://api.openai.com/v1/responses", apiKey, {
+    model: model,
+    instructions: SYSTEM_PROMPT,
+    input: prompt,
+    safety_identifier: "scalene-user",
+    store: false,
+  })) as OpenAIResponsesReply;
+  if (reportError(data, model)) return null;
+  console.log(`Debugging info: Retrieved ${JSON.stringify(data.output, null, 4)}`);
+  const parts = (data.output ?? [])
+    .filter((item) => item.type === "message")
+    .flatMap((item) => item.content ?? []);
+  const text = parts
+    .filter((part) => part.type === "output_text")
+    .map((part) => part.text ?? "")
+    .join("");
+  if (text) return text;
+  const refusal = parts.find((part) => part.type === "refusal")?.refusal;
+  if (refusal) return `# ${refusal}\n`;
+  return QUERY_FAILED;
+}
 
-  try {
-    if (data.choices && data.choices[0]) {
-      return data.choices[0].message.content.replace(/^\s*[\r\n]/gm, "");
-    }
-    return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
-  } catch {
-    return "# Query failed. See JavaScript console (in Chrome: View > Developer > JavaScript Console) for more info.\n";
-  }
+async function sendChatCompletion(
+  endpoint: string,
+  prompt: string,
+  apiKey: string,
+  model: string
+): Promise<string | null> {
+  const data = (await post(endpoint, apiKey, {
+    model: model,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: prompt },
+    ],
+    user: "scalene-user",
+  })) as OpenAIResponse;
+  if (reportError(data, model)) return null;
+  console.log(`Debugging info: Retrieved ${JSON.stringify(data.choices?.[0], null, 4)}`);
+  return data.choices?.[0]?.message?.content ?? QUERY_FAILED;
 }

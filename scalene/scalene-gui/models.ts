@@ -33,8 +33,16 @@ export const MODEL_REGISTRY: Record<ModelProvider, ProviderModels> = {
   openai: {
     selectId: "language-model-openai",
     customModelId: "openai-custom-model",
-    defaultModel: "gpt-5.2",
+    // Sent through the Responses API, which (unlike Chat Completions) also
+    // serves the -pro models. Pro models are slow: minutes per answer.
+    defaultModel: "gpt-5.5",
     models: [
+      { id: "gpt-5.5", label: "GPT-5.5" },
+      { id: "gpt-5.5-pro", label: "GPT-5.5 Pro" },
+      { id: "gpt-5.4", label: "GPT-5.4" },
+      { id: "gpt-5.4-pro", label: "GPT-5.4 Pro" },
+      { id: "gpt-5.4-mini", label: "GPT-5.4 mini" },
+      { id: "gpt-5.4-nano", label: "GPT-5.4 nano" },
       { id: "gpt-5.2", label: "GPT-5.2" },
       { id: "gpt-5.2-pro", label: "GPT-5.2 Pro" },
       { id: "gpt-5.1", label: "GPT-5.1" },
@@ -43,7 +51,6 @@ export const MODEL_REGISTRY: Record<ModelProvider, ProviderModels> = {
       { id: "gpt-5-nano", label: "GPT-5 nano" },
       { id: "gpt-4.1", label: "GPT-4.1" },
       { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
-      { id: "gpt-5.4-nano", label: "GPT-5.4 nano" },
       { id: "o3-pro", label: "o3-pro" },
       { id: "o3", label: "o3" },
     ],
