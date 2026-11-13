@@ -43,10 +43,9 @@ export const MODEL_REGISTRY: Record<ModelProvider, ProviderModels> = {
       { id: "gpt-5-nano", label: "GPT-5 nano" },
       { id: "gpt-4.1", label: "GPT-4.1" },
       { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
-      { id: "gpt-4.1-nano", label: "GPT-4.1 nano" },
+      { id: "gpt-5.4-nano", label: "GPT-5.4 nano" },
       { id: "o3-pro", label: "o3-pro" },
       { id: "o3", label: "o3" },
-      { id: "o4-mini", label: "o4-mini" },
     ],
   },
   anthropic: {
@@ -131,6 +130,9 @@ export const RETIRED_MODELS: Record<string, string> = {
   "gemini-2.5-flash": "gemini-flash-latest",
   "gemini-2.0-flash": "gemini-flash-latest",
   "gemini-2.0-flash-lite": "gemini-flash-lite-latest",
+  // No longer listed by the provider (found by the model check, 2026-11-13).
+  "gpt-4.1-nano": "gpt-5.4-nano",
+  "o4-mini": "gpt-5.2",
 };
 
 // (Plain fields rather than constructor parameter properties, so this file
