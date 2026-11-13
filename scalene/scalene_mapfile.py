@@ -1,7 +1,7 @@
 import mmap
 import os
 import sys
-from typing import Any, NewType, Optional, TextIO
+from typing import Any, List, NewType, Optional, TextIO
 
 if sys.platform != "win32":
     from scalene import get_line_atomic  # type: ignore
@@ -37,9 +37,17 @@ class ScaleneMapFile:
 
     MAX_BUFSIZE = 4096  # Must match SampleFile::MAX_BUFSIZE
 
+    # Bytes of records read_records() copies out per call (a few thousand
+    # records). The buffer is allocated on first use and reused.
+    READ_CHUNK_SIZE = 256 * 1024
+
+    # Records read_records() returns per call on the per-record fallback path.
+    FALLBACK_BATCH = 1024
+
     def __init__(self, name: str) -> None:
         self._name = name
         self._buf = bytearray(ScaleneMapFile.MAX_BUFSIZE)
+        self._chunk: Optional[bytearray] = None
         self._signal_position = 0
         # Reader state. On POSIX this is [uint64 position, uint64 generation]
         # (see get_line_atomic.cpp); Windows only tracks the position.
@@ -218,6 +226,42 @@ class ScaleneMapFile:
             self._lastpos,
             _getpid() == self._owner_pid,
         )
+
+    def read_records(self) -> List[str]:
+        """Read the next batch of complete records, oldest first.
+
+        Returns an empty list once nothing is unread. Records are decoded
+        with ``decode_sample`` semantics and have no trailing newline.
+
+        This copies out every available record (up to READ_CHUNK_SIZE bytes)
+        under one acquisition of the log's lock, instead of one call, lock
+        round trip and decode per record as with ``read``/``get_str``.
+        """
+        if sys.platform == "win32" or len(self._lastpos) < 16:
+            records: List[str] = []
+            while len(records) < self.FALLBACK_BATCH and self.read():
+                records.append(self.get_str())
+            return records
+        if not self._signal_mmap:
+            return []
+        if self._chunk is None:
+            self._chunk = bytearray(self.READ_CHUNK_SIZE)
+        n = get_line_atomic.get_lines_atomic(
+            self._lock_mmap,
+            self._signal_mmap,
+            self._chunk,
+            self._lastpos,
+            _getpid() == self._owner_pid,
+        )
+        if not n:
+            return []
+        # Decode straight from the buffer (no intermediate bytes copy). Every
+        # record ends in a newline, so the split leaves a trailing "".
+        records = str(memoryview(self._chunk)[:n], "utf-8", "surrogateescape").split(
+            "\n"
+        )
+        records.pop()
+        return records
 
     def _read_windows(self) -> bool:
         """Read a line from Windows shared memory."""
