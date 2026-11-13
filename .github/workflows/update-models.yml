@@ -1,0 +1,87 @@
+name: update AI models
+
+# Providers retire model IDs regularly (#1123). Once a week, check the GUI's
+# curated models (scalene/scalene-gui/models.ts) against each provider's live
+# model list and, if any have disappeared, open a PR that replaces them and
+# migrates saved selections (see scripts/update_models.mjs).
+#
+# Providers are checked only when their secrets are set: OPENAI_API_KEY,
+# ANTHROPIC_API_KEY, GEMINI_API_KEY, and AWS_ACCESS_KEY_ID +
+# AWS_SECRET_ACCESS_KEY (needs bedrock:ListInferenceProfiles only). Listing
+# models is free; no prompts are sent.
+#
+# Opening the PR needs "Allow GitHub Actions to create and approve pull
+# requests" (Settings > Actions > General). PRs opened with GITHUB_TOKEN don't
+# trigger other workflows, so close and reopen the PR to run the tests on it.
+
+on:
+  schedule:
+    - cron: "23 7 * * 1"  # Mondays, 07:23 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  update-models:
+    if: github.repository == 'plasma-umass/scalene'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install GUI dependencies
+        run: npm ci --prefix scalene/scalene-gui
+
+      - name: Check models against the providers
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+        run: |
+          node --experimental-strip-types --no-warnings scripts/update_models.mjs \
+            --report "$RUNNER_TEMP/models-report.md"
+          cat "$RUNNER_TEMP/models-report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Rebuild the GUI bundle and test the registry
+        id: changed
+        run: |
+          if git diff --quiet -- scalene/scalene-gui/models.ts; then
+            echo "models=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "models=true" >> "$GITHUB_OUTPUT"
+          npm --prefix scalene/scalene-gui run build
+          python -m pip install --quiet pytest
+          python -m pytest tests/test_model_registry.py tests/test_update_models.py -q
+
+      - name: Open a pull request
+        if: steps.changed.outputs.models == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: automation/update-models
+          delete-branch: true
+          add-paths: |
+            scalene/scalene-gui/models.ts
+            scalene/scalene-gui/scalene-gui-bundle.js
+          commit-message: Replace AI models that providers no longer list
+          title: Replace AI models that providers no longer list
+          body-path: ${{ runner.temp }}/models-report.md

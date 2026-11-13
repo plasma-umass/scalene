@@ -451,6 +451,17 @@ that goes stale:
 When a provider announces a retirement: update `MODEL_REGISTRY`, add the old
 ID to `RETIRED_MODELS`, and rebuild the bundle.
 
+**Weekly check.** `.github/workflows/update-models.yml` runs
+`scripts/update_models.mjs`, which lists each provider's models (OpenAI,
+Anthropic, Gemini, and Bedrock inference profiles; whichever have secrets set)
+and, for curated models no longer listed, rewrites `models.ts` (newest
+same-family successor, preferring undated aliases; default moved; old ID added
+to `RETIRED_MODELS`), rebuilds the bundle, and opens a PR. It never adds models
+on its own (newer ones are listed in the report), and it changes nothing for a
+provider if over half its curated models vanish at once. Dry run locally:
+`node --experimental-strip-types scripts/update_models.mjs --dry-run`
+(`tests/test_update_models.py` covers the rewrite logic).
+
 ### Environment Variable API Keys
 
 With `scalene view --api-keys-from-env` (opt-in), the GUI prepopulates API
