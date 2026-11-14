@@ -349,7 +349,7 @@ sock.bind(("", port))
 
 - **`run-linters.yml`** - Runs mypy and ruff on Python 3.9-3.14
 - **`tests.yml`** - Runs pytest on Python 3.9-3.14
-- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program that spends half its time in pure Python and half in C, requiring a roughly even split, the first half mostly Python (warning-only on macOS, whose signal-based sampler labels much pure-Python time as native) and the second mostly native
+- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program that spends half its time in pure Python and half in C, requiring a roughly even split, the first half mostly Python and the second mostly native
 - **`build-and-upload.yml`** - Build and publish to PyPI
 
 ## Common Tasks
