@@ -958,6 +958,19 @@ def show_browser(file_path: str, port: int, orig_python: str = "python3") -> Non
         )
 
 
+def _starts_a_program(name: str) -> bool:
+    """True for os functions that start a new program (system, exec*,
+    spawn*, posix_spawn*, popen). A new program inherits the caller's signal
+    mask, so these must not run with the signal blocked: under Scalene,
+    their children would start with SIGALRM blocked and never receive it
+    (issue #1134). (fork is fine: the wrapper restores the mask in the
+    child too.)"""
+    name = name.lstrip("_")  # also os._spawnvef, which spawn* call
+    return name in ("system", "popen", "posix_spawn", "posix_spawnp") or (
+        name.startswith(("exec", "spawn"))
+    )
+
+
 def patch_module_functions_with_signal_blocking(
     module: ModuleType, signal_to_block: signal.Signals
 ) -> None:
@@ -995,6 +1008,8 @@ def patch_module_functions_with_signal_blocking(
 
     # Iterate through all attributes of the module
     for attr_name in dir(module):
+        if _starts_a_program(attr_name):
+            continue
         attr = getattr(module, attr_name)
         if isinstance(attr, (BuiltinFunctionType, FunctionType)):
             wrapped_attr = signal_blocking_wrapper(attr)
