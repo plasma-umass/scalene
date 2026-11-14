@@ -8,6 +8,7 @@ instruction-based detection (checking if we're at a CALL opcode) instead of
 the interval-based formula which doesn't work in wall clock mode.
 """
 
+import os
 import sys
 import threading
 from unittest.mock import MagicMock
@@ -426,6 +427,10 @@ def test_native_arrival_timestamper_records_signal_arrival():
             consume_cpu_signal_arrival,
             install_cpu_signal_timestamper,
         )
+        # The signal mask is inherited across fork/exec, and an earlier
+        # test may have left SIGALRM blocked in the pytest process.
+        blocked = signal.SIGALRM in signal.pthread_sigmask(signal.SIG_BLOCK, [])
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, [signal.SIGALRM])
         signal.signal(signal.SIGALRM, lambda *_: None)
         if not install_cpu_signal_timestamper(int(signal.SIGALRM)):
             print("SKIP")
@@ -436,16 +441,33 @@ def test_native_arrival_timestamper_records_signal_arrival():
         while time.perf_counter() < end:
             pass
         arrival = consume_cpu_signal_arrival()
-        assert arrival is not None, "no arrival recorded"
+        if arrival is None:
+            from scalene import _scalene_unwind as u
+            cur, ours, flags = u.handler_status(int(signal.SIGALRM))
+            raise AssertionError(
+                f"no arrival recorded; handler is ours: {cur == ours}, "
+                f"flags={flags:#x}, diag_counts={u.diag_counts()}, "
+                f"SIGALRM was blocked on entry: {blocked}"
+            )
         wall, cpu = arrival
         assert 0.0 <= wall < 1.0 and cpu >= 0.0, arrival
         assert consume_cpu_signal_arrival() is None
-        print("OK")
+        print("OK", "(SIGALRM was blocked on entry)" if blocked else "")
     """)
+    # Clean environment: other tests may leave LD_PRELOAD etc. set.
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(("LD_PRELOAD", "DYLD_", "PYTHON", "SCALENE"))
+    }
     out = subprocess.run(
-        [sys.executable, "-c", script], capture_output=True, text=True, timeout=60
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
     )
     assert out.returncode == 0, out.stdout + out.stderr
     if out.stdout.strip() == "SKIP":
         pytest.skip("native unwind extension unavailable")
-    assert out.stdout.strip() == "OK", out.stdout + out.stderr
+    assert out.stdout.startswith("OK"), out.stdout + out.stderr
