@@ -146,10 +146,20 @@ void note_main_thread() {
 // Appends an arrival, with where tstate's innermost frame is (if tstate is
 // given and readable). Returns its index, or -1 if the buffer is full.
 // Async-signal-safe.
-int record_arrival(int64_t wall_ns, int64_t cpu_ns, PyThreadState* tstate) {
+int record_arrival_at(int64_t wall_ns, int64_t cpu_ns, uintptr_t code,
+                      int offset) {
   int k = g_arrival_count.fetch_add(1, std::memory_order_acq_rel);
   if (k >= kMaxArrivals) return -1;
   ArrivalRecord& r = g_arrivals[k];
+  r.wall_ns = wall_ns;
+  r.cpu_ns = cpu_ns;
+  r.code = code;
+  r.offset = offset;
+  r.ready.store(1, std::memory_order_release);
+  return k;
+}
+
+int record_arrival(int64_t wall_ns, int64_t cpu_ns, PyThreadState* tstate) {
   uintptr_t code = 0;
   int offset = -1;
   scalene_peek_frame_fn peek = g_peek.load(std::memory_order_acquire);
@@ -157,12 +167,7 @@ int record_arrival(int64_t wall_ns, int64_t cpu_ns, PyThreadState* tstate) {
     code = 0;
     offset = -1;
   }
-  r.wall_ns = wall_ns;
-  r.cpu_ns = cpu_ns;
-  r.code = code;
-  r.offset = offset;
-  r.ready.store(1, std::memory_order_release);
-  return k;
+  return record_arrival_at(wall_ns, cpu_ns, code, offset);
 }
 
 // ((wall age s, CPU age s, code id, offset), ...) for the arrivals recorded
@@ -675,8 +680,6 @@ void win_trip_signal(int signum) {
 // innermost frame, resumes it. Nothing is allocated or locked while it is
 // suspended.
 void win_record_arrival() {
-  int64_t wall = win_wall_ns();
-  int64_t cpu = win_cpu_ns();
   HANDLE h = g_win_main_thread;
   PyThreadState* tstate = nullptr;
   bool suspended = h != nullptr && SuspendThread(h) != static_cast<DWORD>(-1);
@@ -689,8 +692,21 @@ void win_record_arrival() {
       tstate = g_main_tstate.load(std::memory_order_acquire);
     }
   }
-  record_arrival(wall, cpu, tstate);
+  // Read the frame now, while the thread is stopped; but time the arrival
+  // after resuming it, or the suspension (tens of microseconds or more,
+  // against a 0.05 ms threshold) would count as deferral and make pure
+  // Python look native.
+  uintptr_t code = 0;
+  int offset = -1;
+  scalene_peek_frame_fn peek = g_peek.load(std::memory_order_acquire);
+  if (tstate == nullptr || peek == nullptr || !peek(tstate, &code, &offset)) {
+    code = 0;
+    offset = -1;
+  }
   if (suspended) ResumeThread(h);
+  int64_t wall = win_wall_ns();
+  int64_t cpu = win_cpu_ns();
+  record_arrival_at(wall, cpu, code, offset);
   // Keep the earliest unconsumed arrival.
   if (g_arrival_pending.load(std::memory_order_acquire) == 0) {
     g_arrival_wall_ns.store(wall, std::memory_order_relaxed);
