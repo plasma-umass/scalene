@@ -203,6 +203,22 @@ class MallocRecursionGuard {
   }
 
   inline bool wasInMalloc() const { return _wasInMalloc; }
+
+  // Mark this thread as inside Scalene's own code, so the interposed
+  // malloc/free/memcpy don't sample what it does; returns the previous
+  // state for resume(). Async-signal-safe once the thread has allocated
+  // (Linux: initial-exec TLS; macOS: its slot already exists).
+  static inline bool suspend() {
+    bool& f = flag();
+    bool was = f;
+    f = true;
+    return was;
+  }
+  static inline void resume(bool was) {
+    if (!was) {
+      flag() = false;
+    }
+  }
 };
 
 #endif  // !_WIN32
