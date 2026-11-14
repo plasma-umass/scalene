@@ -663,29 +663,33 @@ Don't use `Py_AddPendingCall()` for this: before 3.12, a call added from a
 non-Python thread doesn't wake the main thread (the eval breaker is
 computed for the calling thread), so it waits until something else does.
 
-**Fallback** (extension without the timer thread): `windows_timer_loop()`
-in `scalene_signal_manager.py` calls `cpu_signal_handler()` from a Python
-background thread, with `thread_sampled=True`. Two lessons from it:
+If the timer thread can't start (an extension that is missing or out of
+date), Scalene raises instead of sampling some other way: the extension is
+built on every platform and Scalene can't run without its other extensions
+anyway. (A Python sampler-thread fallback was removed: it could never see C
+code holding the GIL.)
+
+### Sampling from a Python Thread (Apple SME)
+
+On Apple Silicon with SME (#1056), `MacThreadSampler`
+(`scalene_mac_sampler.py`) calls `cpu_signal_handler()` from a Python
+background thread, with `thread_sampled=True`. Two lessons (learned when
+Windows sampled this way):
 
 - **No GIL-releasing calls on the sampling path.** Any system call there
   (e.g. `Path.resolve()`/`realpath()`) releases the GIL, and winning it back
-  from a busy main thread takes ~20 ms on Windows (`realpath()` measured
+  from a busy main thread can take ~20 ms (Windows: `realpath()` measured
   53 ms per call). `should_trace()` and everything it calls must stay pure
   computation; `scalene_tracing.py` canonicalizes paths with
   `abspath()`+`normcase()` on Windows and precomputes the library
   directories. Violating this made short programs record no CPU time at all.
 - **Lateness is not native time** for a sampler thread: it is late whenever
-  it waits for the GIL. `thread_sampled` (also used on Apple SME, #1056)
-  decides Python vs native from the bytecode at `f_lasti`: at a CALL*
-  means native; on Python 3.11+, stopped anywhere other than a GIL handoff
-  point (RESUME, loop back-edge, CALL*;
+  it waits for the GIL. `thread_sampled` decides Python vs native from the
+  bytecode at `f_lasti`: at a CALL* means native; on Python 3.11+, stopped
+  anywhere other than a GIL handoff point (RESUME, loop back-edge, CALL*;
   `ScaleneFuncUtils.is_gil_handoff_point()`) means the main thread released
   the GIL inside native code, so also native. It can't see C code that
   *holds* the GIL inside an operator (`big_list + big_list`).
-
-The fallback loop wraps the handler in `contextlib.suppress(Exception)`, so
-failures there are silent: count handler calls first when Windows profiles
-look empty.
 
 ### Python vs Native Time on the Signal Path (Linux/macOS)
 

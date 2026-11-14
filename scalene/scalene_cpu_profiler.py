@@ -171,7 +171,7 @@ class ScaleneCPUProfiler:
             else:
                 python_time, c_time = total_time, 0.0
         if self._thread_sampled:
-            # A sampler thread (Windows, Apple SME) is late whenever it waits
+            # A sampler thread (Apple SME) is late whenever it waits
             # for the GIL, even while the main thread runs pure Python, so
             # lateness says nothing about native code here. Treat the whole
             # sample as Python; the CALL*-bytecode test below moves it to

@@ -133,7 +133,6 @@ from scalene.scalene_utility import (
     install_native_stack_unwinder,
     install_perthread_sampler,
     is_apple_silicon_sme,
-    native_cpu_timer_available,
     on_stack,
     patch_module_functions_with_signal_blocking,
     register_thread_for_sampling,
@@ -386,15 +385,12 @@ class Scalene:
         if not hasattr(Scalene, "_Scalene__availableCPUs"):
             cpu_count = os.cpu_count()
             Scalene.__availableCPUs = cpu_count if cpu_count is not None else 1
-        # On Apple Silicon with SME (issue #1056), and on Windows when the
-        # native CPU timer thread is unavailable, CPU sampling is driven
-        # by a Python background thread, so Python-vs-C attribution must rely
+        # On Apple Silicon with SME (issue #1056), CPU sampling is driven by
+        # a Python background thread, so Python-vs-C attribution must rely
         # on the CALL*-bytecode test rather than handler deferral. Detection
         # is cached, so calling it here and in enable_signals() is cheap and
         # consistent.
-        thread_sampled = (
-            sys.platform == "win32" and not native_cpu_timer_available()
-        ) or (sys.platform == "darwin" and is_apple_silicon_sme())
+        thread_sampled = sys.platform == "darwin" and is_apple_silicon_sme()
         Scalene.__cpu_profiler = ScaleneCPUProfiler(
             Scalene.__stats,
             Scalene.__availableCPUs,
@@ -682,13 +678,6 @@ class Scalene:
         Scalene.__is_thread_sleeping[tid] = False
 
     @staticmethod
-    def windows_timer_loop() -> None:
-        """For Windows, send periodic timer signals; launch as a background thread."""
-        Scalene.__signal_manager.windows_timer_loop(
-            Scalene.__args.cpu_sampling_rate
-        )  # TODO: integrate support for use of sample_cpu_interval()
-
-    @staticmethod
     def start_signal_queues() -> None:
         """Start the signal processing queues (i.e., their threads)."""
         Scalene.__signal_manager.start_signal_queues()
@@ -851,8 +840,9 @@ class Scalene:
         # signal, so nothing is ever delivered to an SME thread.
         use_thread_sampler = sys.platform == "darwin" and is_apple_silicon_sme()
         # The sample queues are needed for memory poll-draining whenever a
-        # background thread (Windows timer thread, or the Apple-SME sampler)
-        # owns memory processing instead of the malloc/free/memcpy signals.
+        # background thread (Windows memory polling, or the Apple-SME
+        # sampler) owns memory processing instead of the malloc/free/memcpy
+        # signals.
         alloc_sigq = None
         memcpy_sigq = None
         if Scalene.__args.memory and (sys.platform == "win32" or use_thread_sampler):
@@ -929,8 +919,8 @@ class Scalene:
 
         Note: On Windows there are no timer signals. A native thread trips
         the CPU signal, so CPython runs this handler on the main thread at its
-        next safe point, as on Unix; if that isn't available, it is called
-        directly from a Python background thread. The handler uses
+        next safe point, as on Unix. On Apple Silicon with SME it is called
+        directly from a Python background thread; it uses
         sys._current_frames(), which is safe from any thread.
         """
         # Initialize next_interval with a default value in case an exception occurs

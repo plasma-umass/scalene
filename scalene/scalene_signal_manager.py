@@ -57,18 +57,7 @@ class ScaleneSignalManager:
         self.timer_signals = True
 
         # Events for interruptible sleep in Windows timer/memory threads
-        self.__stop_event = threading.Event()
         self.__mem_stop_event = threading.Event()
-
-        # Store CPU signal handler for direct calling on Windows
-        # (signal.raise_signal cannot be called from background threads)
-        self.__cpu_signal_handler: Optional[SignalHandlerFunction] = None
-
-        # Timer thread reference for Windows (for proper cleanup)
-        self.__timer_thread: Optional[threading.Thread] = None
-        # True while the native CPU timer thread drives Windows CPU
-        # sampling (instead of __timer_thread).
-        self.__native_timer = False
 
         # Windows lifecycle event handles and watcher thread
         self.__lifecycle_start_event: Optional[int] = None
@@ -110,17 +99,11 @@ class ScaleneSignalManager:
             self.__mac_sampler = None
 
     def stop_timer_thread(self) -> None:
-        """Stop the Windows timer thread and wait for it to finish."""
+        """Stop the Windows native CPU timer thread."""
         if sys.platform != "win32":
             return
         self.timer_signals = False
-        if self.__native_timer:
-            stop_native_cpu_timer()
-            self.__native_timer = False
-        self.__stop_event.set()
-        if hasattr(self, "_ScaleneSignalManager__timer_thread") and self.__timer_thread:
-            self.__timer_thread.join(timeout=2.0)
-            self.__timer_thread = None
+        stop_native_cpu_timer()
 
     def enable_signals_win32(
         self,
@@ -133,36 +116,22 @@ class ScaleneSignalManager:
         assert sys.platform == "win32"
 
         self.timer_signals = True
-        # Store the CPU signal handler for direct calling from the timer thread.
-        # On Windows, signal.raise_signal() cannot be called from background threads
-        # (it raises ValueError), so we call the handler directly instead.
-        self.__cpu_signal_handler = cpu_signal_handler
-        # Also register as actual signal handler for any external signal delivery
         self.__orig_signal(
             self.__signals.cpu_signal,
             cpu_signal_handler,
         )
-        # Preferred: a native thread that never takes the GIL trips the CPU
-        # signal (registered above), so CPython runs the handler on the main
-        # thread at its next safe point, as for a Unix timer signal. See
+        # A native thread that never takes the GIL trips the CPU signal
+        # (registered above), so CPython runs the handler on the main thread
+        # at its next safe point, as for a Unix timer signal. See
         # start_cpu_timer_thread() in src/source/native_unwind.cpp.
-        if start_native_cpu_timer(int(self.__signals.cpu_signal), cpu_sampling_rate):
-            self.__native_timer = True
-            self.start_signal_queues()
-            self._start_windows_memory_polling(alloc_sigq, memcpy_sigq)
-            return
-        # Fallback (extension without the native sampler): a non-daemon
-        # thread that directly calls the CPU signal handler at the configured
-        # sampling rate. It must win the GIL to sample, so Python-vs-native
-        # attribution falls back to bytecode tests (thread_sampled).
-        # The thread must be non-daemon so it can continue sampling while the main
-        # thread is still running, even if main finishes early (short-running programs).
-        # Cleanup is handled by stop_timer_thread() called from _disable_signals().
-        self.__stop_event.clear()
-        self.__timer_thread = threading.Thread(
-            target=lambda: self.windows_timer_loop(cpu_sampling_rate), daemon=False
-        )
-        self.__timer_thread.start()
+        if not start_native_cpu_timer(
+            int(self.__signals.cpu_signal), cpu_sampling_rate
+        ):
+            raise RuntimeError(
+                "Scalene: could not start the Windows CPU timer thread "
+                "(scalene._scalene_unwind is missing or out of date; "
+                "reinstall Scalene)"
+            )
         self.start_signal_queues()
         self._start_windows_memory_polling(alloc_sigq, memcpy_sigq)
 
@@ -182,36 +151,6 @@ class ScaleneSignalManager:
                 target=self._windows_memory_poll_loop, daemon=True
             )
             mem_thread.start()
-
-    def windows_timer_loop(self, cpu_sampling_rate: float) -> None:
-        """For Windows, periodically call the CPU signal handler from a background thread.
-
-        Note: We cannot use signal.raise_signal() from background threads on Windows
-        (it raises ValueError). Instead, we call the CPU signal handler directly.
-        The handler uses sys._current_frames() which is thread-safe and works from
-        any thread, giving us access to all thread stacks including the main thread.
-
-        Unlike Unix where setitimer controls timing, on Windows we use a simple
-        sleep-based loop at the user-configured sampling rate.
-        """
-        assert sys.platform == "win32"
-
-        # Initial delay to let user code start executing before we begin sampling.
-        # Without this, the first samples would be taken during Scalene's
-        # initialization rather than during the user's actual code.
-        if self.__stop_event.wait(0.01):
-            return
-
-        while self.timer_signals:
-            # Call the CPU signal handler first, then wait.
-            # This ensures we record samples even if the program exits quickly.
-            if self.__cpu_signal_handler is not None:
-                with contextlib.suppress(Exception):
-                    self.__cpu_signal_handler(self.__signals.cpu_signal, None)
-            # Use Event.wait() instead of time.sleep() so stop_timer_thread()
-            # can interrupt the wait immediately by setting the event.
-            if self.__stop_event.wait(cpu_sampling_rate):
-                break
 
     def _windows_memory_poll_loop(self) -> None:
         """For Windows, periodically poll for memory profiling data."""
@@ -507,9 +446,7 @@ class ScaleneSignalManager:
                 self.__signals.cpu_timer_signal,
                 interval,
             )
-        elif self.__native_timer:
+        else:
             # The native timer waits for the handler to consume the arrival
             # before starting the next interval, like a one-shot timer.
             set_native_cpu_timer_interval(interval)
-        # The Python timer-thread fallback runs at a fixed rate, so there's
-        # nothing to restart.
