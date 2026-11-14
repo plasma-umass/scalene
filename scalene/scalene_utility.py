@@ -361,8 +361,9 @@ def install_cpu_signal_timestamper(sig: int) -> bool:
 
 def consume_cpu_signal_arrival() -> Optional[Tuple[float, float]]:
     """(wall, CPU) seconds elapsed since the earliest unconsumed CPU-signal
-    arrival, clearing it; None if no arrival was recorded."""
-    if not _native_unwind_available:
+    arrival (on Windows, native CPU timer tick), clearing it; None if no
+    arrival was recorded."""
+    if _scalene_unwind is None:
         return None
     consume = getattr(_scalene_unwind, "consume_arrival", None)
     if consume is None:
@@ -372,6 +373,45 @@ def consume_cpu_signal_arrival() -> Optional[Tuple[float, float]]:
     except Exception:
         return None
     return None if result is None else (float(result[0]), float(result[1]))
+
+
+def native_cpu_timer_available() -> bool:
+    """True on Windows when the native CPU timer thread exists."""
+    return (
+        sys.platform == "win32"
+        and _scalene_unwind is not None
+        and hasattr(_scalene_unwind, "start_cpu_timer_thread")
+    )
+
+
+def start_native_cpu_timer(signum: int, interval: float) -> bool:
+    """Windows: start a native thread that, every interval seconds, records
+    an arrival time (see consume_cpu_signal_arrival) and trips signal signum,
+    whose Python handler CPython then runs on the main thread, as for a Unix
+    timer signal. The handler must already be installed. Returns False if
+    unavailable."""
+    if not native_cpu_timer_available():
+        return False
+    try:
+        return bool(
+            _scalene_unwind.start_cpu_timer_thread(int(signum), float(interval))
+        )
+    except Exception:
+        return False
+
+
+def set_native_cpu_timer_interval(interval: float) -> None:
+    """Windows: the interval to wait before the next timer tick."""
+    if native_cpu_timer_available():
+        with contextlib.suppress(Exception):
+            _scalene_unwind.set_cpu_timer_interval(float(interval))
+
+
+def stop_native_cpu_timer() -> None:
+    """Windows: stop the native CPU timer thread, if running."""
+    if native_cpu_timer_available():
+        with contextlib.suppress(Exception):
+            _scalene_unwind.stop_cpu_timer_thread()
 
 
 # -------- Per-thread native stack sampling --------

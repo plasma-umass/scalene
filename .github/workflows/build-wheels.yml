@@ -251,9 +251,10 @@ jobs:
                 "assert 'site-packages' in scalene.__file__, scalene.__file__\n"
                 "print('imported', scalene.__file__)\n")
 
-            # Three phases of ~1.5 s each: a pure-Python loop, C code that
-            # holds the GIL (a call), and numpy operators that release it
-            # (no calls in the loop), then an allocation for the memory
+            # Four phases of ~1.5 s each: a pure-Python loop, C code that
+            # holds the GIL (a call), numpy operators that release it, and
+            # list concatenation, an operator whose C code holds the GIL (no
+            # calls in the last two loops), then an allocation for the memory
             # profiler. The profile must call the first mostly Python and the
             # others mostly native. (Only checking that *some* line got CPU
             # missed Windows profiles that put everything on one line.)
@@ -286,9 +287,18 @@ jobs:
                 "            a *= 0.001\n"
                 "    return a\n"
                 "\n"
+                "def operator_work(seconds):\n"
+                "    big = list(range(1_000_000))\n"
+                "    end = time.perf_counter() + seconds\n"
+                "    while time.perf_counter() < end:\n"
+                "        for _ in range(5):\n"
+                "            c = big + big\n"
+                "    return c\n"
+                "\n"
                 "python_work(1.5)\n"
                 "native_work(1.5)\n"
                 "numpy_work(1.5)\n"
+                "operator_work(1.5)\n"
                 "data = [bytearray(1_000_000) for _ in range(50)]\n"
             )
             prog = os.path.join(work, "prog.py")
@@ -334,15 +344,13 @@ jobs:
                     errors.append("python_work (pure Python) is reported as mostly native")
                 if python_share("native_work") > 0.3:
                     errors.append("native_work (a C call) is not reported as mostly native")
-                # Native time inside operators (no call) is detected by the
-                # signal path's arrival timestamps and, on Windows, by the
-                # sampler thread only on Python 3.11+.
+                # Native time inside operators (no call) is detected by how
+                # long CPython deferred the CPU handler (timer signal on
+                # Unix, pending call on Windows).
                 if python_share("numpy_work") > 0.5:
-                    msg = "numpy_work (numpy operators) is reported as mostly Python"
-                    if sys.platform == "win32" and sys.version_info < (3, 11):
-                        print("WARNING (expected on Windows before 3.11): " + msg)
-                    else:
-                        errors.append(msg)
+                    errors.append("numpy_work (numpy operators) is reported as mostly Python")
+                if python_share("operator_work") > 0.5:
+                    errors.append("operator_work (list +, holds the GIL) is reported as mostly Python")
             alloc_line = len(prog_src.splitlines())
             peak = max((l["n_peak_mb"] for l in lines if l["lineno"] == alloc_line), default=0)
             # Printed, not checked: the peak recorded for this line differs

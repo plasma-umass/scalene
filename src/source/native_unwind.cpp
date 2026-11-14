@@ -29,7 +29,8 @@
 //            unw_init_local2 + UNW_INIT_SIGNAL_FRAME for the signal path).
 //   macOS:   _Unwind_Backtrace from <unwind.h> (signal-safe; from a real
 //            sigaction handler it walks the interrupted stack).
-//   Windows: stub; both paths return empty.
+//   Windows: stub; both paths return empty. Windows instead gets the
+//            native CPU timer thread below (start_cpu_timer_thread).
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
@@ -53,6 +54,14 @@
 #  define SCALENE_UNWIND_AVAILABLE 1
 #else
 #  define SCALENE_UNWIND_AVAILABLE 0
+#endif
+
+#if defined(_WIN32)
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  include <windows.h>
+#  include <signal.h>
 #endif
 
 // For pthread_kill and gettid
@@ -374,6 +383,123 @@ void scalene_signal_unwinder(int sig, siginfo_t* si, void* ucontext) {
 
 #endif  // SCALENE_UNWIND_AVAILABLE
 
+#if defined(_WIN32)
+// -------- Windows CPU timer: a native thread that trips the CPU signal ----
+//
+// Windows has no timer signals. A Python sampler thread can't stand in for
+// one: it needs the GIL to run, so it is always late (a GIL handoff takes
+// 10-20 ms there), and it can't see C code that holds the GIL, such as
+// `big_list + big_list`, because it only runs once that code is done.
+//
+// Instead, a native thread that never takes the GIL sleeps one interval,
+// records the arrival time, and trips Scalene's CPU signal the way a
+// Ctrl-Break would (PyErr_SetInterruptEx, or raise() before 3.10). CPython
+// runs the Python-level handler on the main thread at its next safe point,
+// exactly as for a Unix timer signal: within microseconds while Python code
+// runs, deferred while C code runs. consume_arrival() reports that
+// deferral. (Py_AddPendingCall would also work on 3.12+, but before 3.12 a
+// call added from a non-Python thread doesn't wake the main thread.)
+//
+// Like a one-shot timer, the next interval starts after the handler has
+// consumed the arrival (or after a second, if it never does).
+
+std::atomic<int> g_arrival_pending{0};
+std::atomic<int64_t> g_arrival_wall_ns{0};
+std::atomic<int64_t> g_arrival_cpu_ns{0};
+
+int64_t win_wall_ns() {
+  static LARGE_INTEGER freq = [] {
+    LARGE_INTEGER f;
+    QueryPerformanceFrequency(&f);
+    return f;
+  }();
+  LARGE_INTEGER now;
+  if (!QueryPerformanceCounter(&now) || freq.QuadPart == 0) return 0;
+  return static_cast<int64_t>(static_cast<double>(now.QuadPart) * 1e9 /
+                              static_cast<double>(freq.QuadPart));
+}
+
+int64_t win_cpu_ns() {
+  FILETIME creation, exit_time, kernel, user;
+  if (!GetProcessTimes(GetCurrentProcess(), &creation, &exit_time, &kernel,
+                       &user)) {
+    return 0;
+  }
+  auto to_100ns = [](const FILETIME& ft) {
+    return (static_cast<int64_t>(ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
+  };
+  return (to_100ns(kernel) + to_100ns(user)) * 100;
+}
+
+HANDLE g_win_thread = nullptr;
+HANDLE g_win_stop = nullptr;      // manual reset: stop the timer thread
+HANDLE g_win_consumed = nullptr;  // auto reset: the handler took the arrival
+std::atomic<int> g_win_signum{0};
+std::atomic<int64_t> g_win_interval_100ns{100000};  // 10 ms
+
+void win_trip_signal(int signum) {
+#if PY_VERSION_HEX >= 0x030A0000
+  PyErr_SetInterruptEx(signum);  // no-op unless Python handles signum
+#else
+  raise(signum);  // runs CPython's C handler, which trips the signal
+#endif
+}
+
+DWORD WINAPI win_timer_main(LPVOID /*arg*/) {
+#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+#  define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
+#endif
+  // High-resolution timers (Windows 10 1803+) fire within ~0.5 ms; the
+  // fallback is rounded up to the system tick (~1-16 ms).
+  HANDLE timer = CreateWaitableTimerExW(
+      nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
+      TIMER_ALL_ACCESS);
+  if (timer == nullptr) {
+    timer = CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
+  }
+  if (timer == nullptr) return 1;
+  for (;;) {
+    LARGE_INTEGER due;
+    due.QuadPart = -g_win_interval_100ns.load(std::memory_order_relaxed);
+    if (!SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE)) break;
+    HANDLE wait_timer[2] = {g_win_stop, timer};
+    if (WaitForMultipleObjects(2, wait_timer, FALSE, INFINITE) !=
+        WAIT_OBJECT_0 + 1) {
+      break;
+    }
+    // Keep the earliest unconsumed arrival.
+    if (g_arrival_pending.load(std::memory_order_acquire) == 0) {
+      g_arrival_wall_ns.store(win_wall_ns(), std::memory_order_relaxed);
+      g_arrival_cpu_ns.store(win_cpu_ns(), std::memory_order_relaxed);
+      g_arrival_pending.store(1, std::memory_order_release);
+    }
+    win_trip_signal(g_win_signum.load(std::memory_order_relaxed));
+    HANDLE wait_consumed[2] = {g_win_stop, g_win_consumed};
+    DWORD w = WaitForMultipleObjects(2, wait_consumed, FALSE, 1000);
+    if (w == WAIT_OBJECT_0 || w == WAIT_FAILED) break;
+  }
+  CloseHandle(timer);
+  return 0;
+}
+
+void win_set_interval(double seconds) {
+  int64_t ticks = static_cast<int64_t>(seconds * 1e7);
+  if (ticks < 1000) ticks = 1000;  // 0.1 ms floor
+  g_win_interval_100ns.store(ticks, std::memory_order_relaxed);
+}
+
+void win_stop_timer() {
+  if (g_win_thread == nullptr) return;
+  SetEvent(g_win_stop);
+  HANDLE thread = g_win_thread;
+  Py_BEGIN_ALLOW_THREADS
+  WaitForSingleObject(thread, 5000);
+  Py_END_ALLOW_THREADS
+  CloseHandle(thread);
+  g_win_thread = nullptr;
+}
+#endif  // _WIN32
+
 PyObject* py_unwind_native_stack(PyObject* /*self*/, PyObject* args) {
   int max_frames = 64;
   if (!PyArg_ParseTuple(args, "|i", &max_frames)) return nullptr;
@@ -458,9 +584,70 @@ PyObject* py_consume_arrival(PyObject* /*self*/, PyObject* /*args*/) {
   g_arrival_pending.store(0, std::memory_order_release);
   if (wall == 0 || cpu == 0 || now_wall == 0 || now_cpu == 0) Py_RETURN_NONE;
   return Py_BuildValue("(dd)", (now_wall - wall) / 1e9, (now_cpu - cpu) / 1e9);
+#elif defined(_WIN32)
+  if (g_arrival_pending.load(std::memory_order_acquire) == 0) Py_RETURN_NONE;
+  int64_t wall = g_arrival_wall_ns.load(std::memory_order_relaxed);
+  int64_t cpu = g_arrival_cpu_ns.load(std::memory_order_relaxed);
+  int64_t now_wall = win_wall_ns();
+  int64_t now_cpu = win_cpu_ns();
+  g_arrival_pending.store(0, std::memory_order_release);
+  if (g_win_consumed) SetEvent(g_win_consumed);  // start the next interval
+  if (wall == 0 || cpu == 0 || now_wall == 0 || now_cpu == 0) Py_RETURN_NONE;
+  return Py_BuildValue("(dd)", (now_wall - wall) / 1e9, (now_cpu - cpu) / 1e9);
 #else
   Py_RETURN_NONE;
 #endif
+}
+
+PyObject* py_start_cpu_timer_thread(PyObject* /*self*/, PyObject* args) {
+#if defined(_WIN32)
+  int signum;
+  double interval;
+  if (!PyArg_ParseTuple(args, "id", &signum, &interval)) return nullptr;
+  win_stop_timer();
+  if (g_win_stop == nullptr) {
+    g_win_stop = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+  }
+  if (g_win_consumed == nullptr) {
+    g_win_consumed = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+  }
+  if (g_win_stop == nullptr || g_win_consumed == nullptr) {
+    PyErr_SetFromWindowsErr(0);
+    return nullptr;
+  }
+  ResetEvent(g_win_stop);
+  ResetEvent(g_win_consumed);
+  g_arrival_pending.store(0, std::memory_order_release);
+  g_win_signum.store(signum, std::memory_order_relaxed);
+  win_set_interval(interval);
+  g_win_thread = CreateThread(nullptr, 0, win_timer_main, nullptr, 0, nullptr);
+  if (g_win_thread == nullptr) {
+    PyErr_SetFromWindowsErr(0);
+    return nullptr;
+  }
+  Py_RETURN_TRUE;
+#else
+  (void)args;
+  Py_RETURN_FALSE;
+#endif
+}
+
+PyObject* py_set_cpu_timer_interval(PyObject* /*self*/, PyObject* arg) {
+#if defined(_WIN32)
+  double seconds = PyFloat_AsDouble(arg);
+  if (PyErr_Occurred()) return nullptr;
+  win_set_interval(seconds);
+#else
+  (void)arg;
+#endif
+  Py_RETURN_NONE;
+}
+
+PyObject* py_stop_cpu_timer_thread(PyObject* /*self*/, PyObject* /*args*/) {
+#if defined(_WIN32)
+  win_stop_timer();
+#endif
+  Py_RETURN_NONE;
 }
 
 PyObject* install_cpu_signal_hook(PyObject* arg, bool force_restart) {
@@ -842,6 +1029,15 @@ PyMethodDef methods[] = {
     {"consume_arrival", py_consume_arrival, METH_NOARGS,
      "Return (wall_seconds, cpu_seconds) elapsed since the earliest CPU "
      "signal arrival not yet consumed, and clear it; None if none pending."},
+    {"start_cpu_timer_thread", py_start_cpu_timer_thread, METH_VARARGS,
+     "Windows: start a native thread that, every interval seconds, records "
+     "an arrival time and trips signal signum (handled by CPython on the "
+     "main thread), waiting for consume_arrival() before the next interval. "
+     "Returns False elsewhere."},
+    {"set_cpu_timer_interval", py_set_cpu_timer_interval, METH_O,
+     "Windows: set the interval before the next timer tick."},
+    {"stop_cpu_timer_thread", py_stop_cpu_timer_thread, METH_NOARGS,
+     "Windows: stop the CPU timer thread."},
     {"drain_native_stack_buffer", py_drain_native_stack_buffer, METH_NOARGS,
      "Return a list of stack tuples captured by the signal handler since the "
      "last drain. Each tuple is innermost-first IPs."},

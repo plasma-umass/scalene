@@ -16,6 +16,11 @@ from typing import Any, List, Optional, Set, Tuple, Union
 from scalene.scalene_mac_sampler import MacThreadSampler
 from scalene.scalene_signals import ScaleneSignals, SignalHandlerFunction
 from scalene.scalene_sigqueue import ScaleneSigQueue
+from scalene.scalene_utility import (
+    set_native_cpu_timer_interval,
+    start_native_cpu_timer,
+    stop_native_cpu_timer,
+)
 
 # Windows Named Event constants for lifecycle control.
 # The string templates and integer constants are always defined;
@@ -61,6 +66,9 @@ class ScaleneSignalManager:
 
         # Timer thread reference for Windows (for proper cleanup)
         self.__timer_thread: Optional[threading.Thread] = None
+        # True while the native CPU timer thread drives Windows CPU
+        # sampling (instead of __timer_thread).
+        self.__native_timer = False
 
         # Windows lifecycle event handles and watcher thread
         self.__lifecycle_start_event: Optional[int] = None
@@ -106,6 +114,9 @@ class ScaleneSignalManager:
         if sys.platform != "win32":
             return
         self.timer_signals = False
+        if self.__native_timer:
+            stop_native_cpu_timer()
+            self.__native_timer = False
         self.__stop_event.set()
         if hasattr(self, "_ScaleneSignalManager__timer_thread") and self.__timer_thread:
             self.__timer_thread.join(timeout=2.0)
@@ -131,8 +142,19 @@ class ScaleneSignalManager:
             self.__signals.cpu_signal,
             cpu_signal_handler,
         )
-        # On Windows, we simulate timer signals by running a non-daemon thread
-        # that directly calls the CPU signal handler at the configured sampling rate.
+        # Preferred: a native thread that never takes the GIL trips the CPU
+        # signal (registered above), so CPython runs the handler on the main
+        # thread at its next safe point, as for a Unix timer signal. See
+        # start_cpu_timer_thread() in src/source/native_unwind.cpp.
+        if start_native_cpu_timer(int(self.__signals.cpu_signal), cpu_sampling_rate):
+            self.__native_timer = True
+            self.start_signal_queues()
+            self._start_windows_memory_polling(alloc_sigq, memcpy_sigq)
+            return
+        # Fallback (extension without the native sampler): a non-daemon
+        # thread that directly calls the CPU signal handler at the configured
+        # sampling rate. It must win the GIL to sample, so Python-vs-native
+        # attribution falls back to bytecode tests (thread_sampled).
         # The thread must be non-daemon so it can continue sampling while the main
         # thread is still running, even if main finishes early (short-running programs).
         # Cleanup is handled by stop_timer_thread() called from _disable_signals().
@@ -142,7 +164,13 @@ class ScaleneSignalManager:
         )
         self.__timer_thread.start()
         self.start_signal_queues()
+        self._start_windows_memory_polling(alloc_sigq, memcpy_sigq)
 
+    def _start_windows_memory_polling(
+        self,
+        alloc_sigq: Optional[ScaleneSigQueue],
+        memcpy_sigq: Optional[ScaleneSigQueue],
+    ) -> None:
         # On Windows, start a memory polling thread to periodically process
         # malloc/free samples since we don't have Unix signals
         if alloc_sigq is not None:
@@ -479,5 +507,9 @@ class ScaleneSignalManager:
                 self.__signals.cpu_timer_signal,
                 interval,
             )
-        # On Windows, the timer thread runs continuously at a fixed rate,
-        # so there's nothing to restart.
+        elif self.__native_timer:
+            # The native timer waits for the handler to consume the arrival
+            # before starting the next interval, like a one-shot timer.
+            set_native_cpu_timer_interval(interval)
+        # The Python timer-thread fallback runs at a fixed rate, so there's
+        # nothing to restart.

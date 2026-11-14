@@ -32,7 +32,14 @@ if TYPE_CHECKING:
 # Arrival-to-handler delay above which a signal-path sample counts as native.
 # Measured (macOS): pure Python 10 us median, 1% above 0.05 ms; C calls and
 # operators running C 2-40 ms, 97-100% above 0.2 ms.
-NATIVE_DEFERRAL_THRESHOLD = 0.0002
+#
+# Windows (native timer thread, see start_cpu_timer_thread()) uses 0.05 ms:
+# pure Python there is deferred 3-11 us (p99, also with every core busy),
+# and before Python 3.11, which checks for signals after almost every
+# bytecode, samples in the last 0.2 ms of a short operator (numpy `a *= x`)
+# made 3.9 report numpy loops as half Python. Above 0.05 ms: 98% of numpy
+# operator samples vs 18% of them below 0.2 ms.
+NATIVE_DEFERRAL_THRESHOLD = 0.00005 if sys.platform == "win32" else 0.0002
 
 
 class ScaleneCPUProfiler:
