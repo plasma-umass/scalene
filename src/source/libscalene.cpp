@@ -273,6 +273,19 @@ decltype(p_whereInPythonWithStack)
 
 std::atomic_bool __attribute((visibility("default"))) p_scalene_done{true};
 
+// Called by _scalene_unwind around native stack unwinding in its signal
+// handlers. libunwind holds an internal lock while it copies and allocates;
+// sampling one of those calls makes whereInPython wait for the GIL with
+// the lock held, while the GIL holder's own handler waits for the lock
+// (issue #1133). These bytes are Scalene's, not the program's, anyway.
+extern "C" __attribute__((visibility("default"))) int scalene_suspend_sampling() {
+  return MallocRecursionGuard::suspend() ? 1 : 0;
+}
+extern "C" __attribute__((visibility("default"))) void scalene_resume_sampling(
+    int was_suspended) {
+  MallocRecursionGuard::resume(was_suspended != 0);
+}
+
 static MakeLocalAllocator<PYMEM_DOMAIN_MEM> l_mem;
 static MakeLocalAllocator<PYMEM_DOMAIN_OBJ> l_obj;
 
