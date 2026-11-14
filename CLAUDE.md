@@ -349,7 +349,7 @@ sock.bind(("", port))
 
 - **`run-linters.yml`** - Runs mypy and ruff on Python 3.9-3.14
 - **`tests.yml`** - Runs pytest on Python 3.9-3.14
-- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program with a pure-Python phase, a C-call phase and a numpy-operator phase, requiring the first to be mostly Python and the others mostly native (the numpy check is enforced only on Windows with Python 3.11+, the one sampler that detects native time inside operators)
+- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program with a pure-Python phase, a C-call phase and a numpy-operator phase, requiring the first to be mostly Python (warning-only on macOS: runner VMs' timers fire late, which the signal path counts as native) and the others mostly native (the numpy check is enforced only on Windows with Python 3.11+, the one sampler that detects native time inside operators); a diagnostic step prints the runner's timer lateness
 - **`build-and-upload.yml`** - Build and publish to PyPI
 
 ## Common Tasks
