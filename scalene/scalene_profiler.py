@@ -133,6 +133,7 @@ from scalene.scalene_utility import (
     install_native_stack_unwinder,
     install_perthread_sampler,
     is_apple_silicon_sme,
+    native_cpu_timer_available,
     on_stack,
     patch_module_functions_with_signal_blocking,
     register_thread_for_sampling,
@@ -385,14 +386,15 @@ class Scalene:
         if not hasattr(Scalene, "_Scalene__availableCPUs"):
             cpu_count = os.cpu_count()
             Scalene.__availableCPUs = cpu_count if cpu_count is not None else 1
-        # On Windows (no timer signals) and on Apple Silicon with SME (issue
-        # #1056), CPU sampling is driven by a background thread, so
-        # Python-vs-C attribution must rely on the CALL*-bytecode test rather
-        # than virtual-timer deferral. Detection is cached, so calling it
-        # here and in enable_signals() is cheap and consistent.
-        thread_sampled = sys.platform == "win32" or (
-            sys.platform == "darwin" and is_apple_silicon_sme()
-        )
+        # On Apple Silicon with SME (issue #1056), and on Windows when the
+        # native CPU timer thread is unavailable, CPU sampling is driven
+        # by a Python background thread, so Python-vs-C attribution must rely
+        # on the CALL*-bytecode test rather than handler deferral. Detection
+        # is cached, so calling it here and in enable_signals() is cheap and
+        # consistent.
+        thread_sampled = (
+            sys.platform == "win32" and not native_cpu_timer_available()
+        ) or (sys.platform == "darwin" and is_apple_silicon_sme())
         Scalene.__cpu_profiler = ScaleneCPUProfiler(
             Scalene.__stats,
             Scalene.__availableCPUs,
@@ -924,10 +926,11 @@ class Scalene:
     ) -> None:
         """Handle CPU signals.
 
-        Note: On Windows, this handler is called directly from a background thread
-        (not via signals) because signal.raise_signal() cannot be called from
-        background threads. The handler uses sys._current_frames() which is
-        thread-safe, so this is safe to call from any thread.
+        Note: On Windows there are no timer signals. A native thread trips
+        the CPU signal, so CPython runs this handler on the main thread at its
+        next safe point, as on Unix; if that isn't available, it is called
+        directly from a Python background thread. The handler uses
+        sys._current_frames(), which is safe from any thread.
         """
         # Initialize next_interval with a default value in case an exception occurs
         # before it's assigned. This prevents NameError in the finally block.
@@ -943,9 +946,10 @@ class Scalene:
             now.sys, now.user = get_times()
             now.virtual = time.process_time()
             now.wallclock = time.perf_counter()
-            # Wall seconds since the signal arrived (None on Windows or if
-            # the native timestamper isn't available).
-            arrival = consume_cpu_signal_arrival() if sys.platform != "win32" else None
+            # Wall seconds since the signal arrived (on Windows, since the
+            # native timer's tick); None if the native extension isn't
+            # available.
+            arrival = consume_cpu_signal_arrival()
             signal_deferral = arrival[0] if arrival is not None else None
             if (
                 Scalene.__last_signal_time.virtual == 0

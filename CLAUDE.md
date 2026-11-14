@@ -349,7 +349,7 @@ sock.bind(("", port))
 
 - **`run-linters.yml`** - Runs mypy and ruff on Python 3.9-3.14
 - **`tests.yml`** - Runs pytest on Python 3.9-3.14
-- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program with a pure-Python phase, a C-call phase and a numpy-operator phase, requiring the first to be mostly Python and the others mostly native (numpy only warns on Windows before 3.11); a diagnostic step prints the runner's timer lateness and clock resolution
+- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program with a pure-Python phase, a C-call phase, a numpy-operator phase and a `list +` phase (C code holding the GIL), requiring the first to be mostly Python and the others mostly native; a diagnostic step prints the runner's timer lateness and clock resolution
 - **`build-and-upload.yml`** - Build and publish to PyPI
 
 ## Common Tasks
@@ -641,11 +641,31 @@ else:
         user_handler(sig, frame)
 ```
 
-### Windows CPU Sampling Runs on a Thread
+### Windows CPU Sampling: a Native Timer Thread
 
-Windows has no timer signals, so `windows_timer_loop()` in
-`scalene_signal_manager.py` calls `cpu_signal_handler()` from a background
-thread every sampling interval. Two consequences:
+Windows has no timer signals. `start_cpu_timer_thread()` in
+`src/source/native_unwind.cpp` starts a native thread that never takes the
+GIL: every interval it records the tick time and trips Scalene's CPU signal
+(`SIGBREAK`) with `PyErr_SetInterruptEx()` (`raise()` before 3.10), the way
+Ctrl-Break would. CPython runs `cpu_signal_handler` on the main thread at
+its next safe point, exactly as for a Unix timer signal, and the delay from
+tick to handler classifies the sample (see the next section). Like a
+one-shot timer, the next interval starts once the handler has called
+`consume_cpu_signal_arrival()`. Measured on Windows (3.9, 3.11, 3.14):
+pure Python is handled within 3-11 us (p99, also with every core busy);
+C calls, numpy operators, and `big_list + big_list` are deferred 0.5-80 ms.
+The threshold there is 0.05 ms (`NATIVE_DEFERRAL_THRESHOLD`): before 3.11,
+CPython checks for signals after almost every bytecode, so with 0.2 ms the
+last 0.2 ms of each short numpy operator counted as Python (3.9 reported
+numpy loops as half Python).
+
+Don't use `Py_AddPendingCall()` for this: before 3.12, a call added from a
+non-Python thread doesn't wake the main thread (the eval breaker is
+computed for the calling thread), so it waits until something else does.
+
+**Fallback** (extension without the timer thread): `windows_timer_loop()`
+in `scalene_signal_manager.py` calls `cpu_signal_handler()` from a Python
+background thread, with `thread_sampled=True`. Two lessons from it:
 
 - **No GIL-releasing calls on the sampling path.** Any system call there
   (e.g. `Path.resolve()`/`realpath()`) releases the GIL, and winning it back
@@ -654,17 +674,16 @@ thread every sampling interval. Two consequences:
   computation; `scalene_tracing.py` canonicalizes paths with
   `abspath()`+`normcase()` on Windows and precomputes the library
   directories. Violating this made short programs record no CPU time at all.
-- **Lateness is not native time.** The sampler is late whenever it waits for
-  the GIL, so `ScaleneCPUProfiler` runs with `thread_sampled=True` (as on
-  Apple SME, #1056) and decides Python vs native from the bytecode at
-  `f_lasti`: at a CALL* means native; on Python 3.11+, stopped anywhere
-  other than a GIL handoff point (RESUME, loop back-edge, CALL*;
+- **Lateness is not native time** for a sampler thread: it is late whenever
+  it waits for the GIL. `thread_sampled` (also used on Apple SME, #1056)
+  decides Python vs native from the bytecode at `f_lasti`: at a CALL*
+  means native; on Python 3.11+, stopped anywhere other than a GIL handoff
+  point (RESUME, loop back-edge, CALL*;
   `ScaleneFuncUtils.is_gil_handoff_point()`) means the main thread released
-  the GIL inside native code (e.g. a numpy operator), so also native.
-  Remaining gap: C code that *holds* the GIL inside an operator (e.g.
-  `big_list + big_list`) is still reported as Python.
+  the GIL inside native code, so also native. It can't see C code that
+  *holds* the GIL inside an operator (`big_list + big_list`).
 
-The timer loop wraps the handler in `contextlib.suppress(Exception)`, so
+The fallback loop wraps the handler in `contextlib.suppress(Exception)`, so
 failures there are silent: count handler calls first when Windows profiles
 look empty.
 
@@ -684,8 +703,8 @@ as native above `NATIVE_DEFERRAL_THRESHOLD` (0.2 ms), else Python.
 Don't infer native time from how late the sample is relative to the armed
 interval: macOS delays one-shot timers by "leeway" (median 3.7 ms late for
 10 ms on an M1 Max, 23-31 ms on the `macos-latest` runner), which made pure
-Python look 60-70% native. Without the extension (or on Windows), the old
-interval-excess rule is the fallback.
+Python look 60-70% native. Without the extension, the old interval-excess
+rule is the fallback.
 
 ### Frame Line Number Can Be None (Python 3.11+)
 
