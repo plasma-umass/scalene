@@ -349,7 +349,7 @@ sock.bind(("", port))
 
 - **`run-linters.yml`** - Runs mypy and ruff on Python 3.9-3.14
 - **`tests.yml`** - Runs pytest on Python 3.9-3.14
-- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program with a pure-Python phase, a C-call phase and a numpy-operator phase, requiring the first to be mostly Python (warning-only on macOS: runner VMs' timers fire late, which the signal path counts as native) and the others mostly native (the numpy check is enforced only on Windows with Python 3.11+, the one sampler that detects native time inside operators); a diagnostic step prints the runner's timer lateness
+- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program with a pure-Python phase, a C-call phase and a numpy-operator phase, requiring the first to be mostly Python and the others mostly native (numpy only warns on Windows before 3.11); a diagnostic step prints the runner's timer lateness and clock resolution
 - **`build-and-upload.yml`** - Build and publish to PyPI
 
 ## Common Tasks
@@ -667,6 +667,25 @@ thread every sampling interval. Two consequences:
 The timer loop wraps the handler in `contextlib.suppress(Exception)`, so
 failures there are silent: count handler calls first when Windows profiles
 look empty.
+
+### Python vs Native Time on the Signal Path (Linux/macOS)
+
+`install_cpu_signal_timestamper()` puts a C-level handler
+(`scalene_signal_unwinder` in `src/source/native_unwind.cpp`, which also
+does `--stacks` unwinding when enabled) on the CPU timer signal. It records
+when the signal *arrives*, then chains to CPython's trampoline. CPython runs
+the Python-level `cpu_signal_handler` only at the next safe point, so the
+delay from arrival to handler (`consume_cpu_signal_arrival()`) says what was
+running at the sample instant: ~10 us for pure Python, milliseconds when C
+code was running (calls *and* operators like numpy `a @ b` or
+`big_list + big_list`). `process_cpu_sample()` classifies the whole sample
+as native above `NATIVE_DEFERRAL_THRESHOLD` (0.2 ms), else Python.
+
+Don't infer native time from how late the sample is relative to the armed
+interval: macOS delays one-shot timers by "leeway" (median 3.7 ms late for
+10 ms on an M1 Max, 23-31 ms on the `macos-latest` runner), which made pure
+Python look 60-70% native. Without the extension (or on Windows), the old
+interval-excess rule is the fallback.
 
 ### Frame Line Number Can Be None (Python 3.11+)
 

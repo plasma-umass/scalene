@@ -331,26 +331,18 @@ jobs:
                 errors.append("a phase got no CPU samples")
             else:
                 if python_share("python_work") < 0.5:
-                    msg = "python_work (pure Python) is reported as mostly native"
-                    if sys.platform == "darwin":
-                        # macOS runners are VMs whose interval timers fire
-                        # late (see the timer-lateness step), and the signal
-                        # path counts all lateness as native. On real Macs
-                        # this phase is 85-88% Python.
-                        print("WARNING (not failing on macOS CI): " + msg)
-                    else:
-                        errors.append(msg)
+                    errors.append("python_work (pure Python) is reported as mostly native")
                 if python_share("native_work") > 0.3:
                     errors.append("native_work (a C call) is not reported as mostly native")
-                # Native time inside operators (no call) is only detected
-                # reliably by the Windows sampler thread on Python 3.11+;
-                # the Unix signal path labels about half of it Python.
+                # Native time inside operators (no call) is detected by the
+                # signal path's arrival timestamps and, on Windows, by the
+                # sampler thread only on Python 3.11+.
                 if python_share("numpy_work") > 0.5:
                     msg = "numpy_work (numpy operators) is reported as mostly Python"
-                    if sys.platform == "win32" and sys.version_info >= (3, 11):
-                        errors.append(msg)
+                    if sys.platform == "win32" and sys.version_info < (3, 11):
+                        print("WARNING (expected on Windows before 3.11): " + msg)
                     else:
-                        print("WARNING (known limitation here): " + msg)
+                        errors.append(msg)
             alloc_line = len(prog_src.splitlines())
             peak = max((l["n_peak_mb"] for l in lines if l["lineno"] == alloc_line), default=0)
             # Printed, not checked: the peak recorded for this line differs

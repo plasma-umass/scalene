@@ -8,6 +8,7 @@ instruction-based detection (checking if we're at a CALL opcode) instead of
 the interval-based formula which doesn't work in wall clock mode.
 """
 
+import os
 import sys
 import threading
 from unittest.mock import MagicMock
@@ -346,3 +347,127 @@ class TestThreadSampledAttribution:
             0.10, abs=1e-6
         )
         assert cpu.cpu_samples_python[fname].get(LineNumber(line), 0.0) == 0.0
+
+
+class TestSignalArrivalDeferral:
+    """On the signal path, a C-level handler timestamps the timer signal's
+    arrival; the delay until the Python handler runs says what was running
+    at the sample instant (CPython defers the handler only while C code
+    runs). The whole sample is classified by it; OS timer leeway before
+    arrival (2-3x the interval on macOS CI runners) no longer counts as
+    native.
+    """
+
+    @pytest.fixture()
+    def stats(self) -> ScaleneStatistics:
+        return ScaleneStatistics()
+
+    @pytest.fixture()
+    def profiler(self, stats: ScaleneStatistics) -> ScaleneCPUProfiler:
+        return ScaleneCPUProfiler(stats, available_cpus=1, use_virtual_time=False)
+
+    def _sample(self, profiler, frame, deferral):
+        main_tid = threading.main_thread().ident
+        prev = TimeInfo(virtual=0.0, wallclock=0.0, sys=0.0, user=0.0)
+        # 0.04 s of CPU against a 0.01 s interval: 0.03 s of timer leeway.
+        now = TimeInfo(virtual=0.04, wallclock=0.04, sys=0.0, user=0.04)
+        profiler.process_cpu_sample(
+            new_frames=[(frame, main_tid, frame)],
+            now=now,
+            gpu_load=0.0,
+            gpu_mem_used=0.0,
+            prev=prev,
+            is_thread_sleeping={main_tid: False},
+            should_trace=lambda _fn, _func: True,
+            last_cpu_interval=0.01,
+            stacks_enabled=False,
+            signal_deferral=deferral,
+        )
+
+    def _python_line_frame(self):
+        python_line = _WORKLOAD_CODE.co_firstlineno + 2  # "x = 1 + 2"
+        instr = _first_instr_on_line(_WORKLOAD_CODE, python_line)
+        assert instr is not None
+        return python_line, _make_frame(_WORKLOAD_CODE, python_line, instr.offset)
+
+    def test_prompt_handler_means_python_despite_timer_leeway(
+        self, profiler: ScaleneCPUProfiler, stats: ScaleneStatistics
+    ) -> None:
+        line, frame = self._python_line_frame()
+        self._sample(profiler, frame, deferral=0.00001)  # 10 us
+        cpu = stats.cpu_stats
+        call_line = LineNumber(_WORKLOAD_CODE.co_firstlineno + 1)
+        assert cpu.cpu_samples_python[_FNAME].get(LineNumber(line), 0.0) == pytest.approx(0.04)
+        assert cpu.cpu_samples_c[_FNAME].get(LineNumber(line), 0.0) == 0.0
+        assert cpu.cpu_samples_c[_FNAME].get(call_line, 0.0) == 0.0
+
+    def test_deferred_handler_means_native(
+        self, profiler: ScaleneCPUProfiler, stats: ScaleneStatistics
+    ) -> None:
+        # e.g. `big_list + big_list`: no CALL, but the handler waited 8 ms.
+        line, frame = self._python_line_frame()
+        self._sample(profiler, frame, deferral=0.008)
+        cpu = stats.cpu_stats
+        native = sum(cpu.cpu_samples_c[_FNAME].values())
+        python = sum(cpu.cpu_samples_python[_FNAME].values())
+        assert native == pytest.approx(0.04)
+        assert python == 0.0
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="signal path is Unix-only")
+def test_native_arrival_timestamper_records_signal_arrival():
+    # In a fresh interpreter: once scalene_profiler is imported (as other
+    # tests do), signal.signal() is rerouted by its replacement shims.
+    import subprocess
+    import textwrap
+
+    script = textwrap.dedent("""
+        import signal, sys, time
+        from scalene.scalene_utility import (
+            consume_cpu_signal_arrival,
+            install_cpu_signal_timestamper,
+        )
+        # The signal mask is inherited across fork/exec, and an earlier
+        # test may have left SIGALRM blocked in the pytest process.
+        blocked = signal.SIGALRM in signal.pthread_sigmask(signal.SIG_BLOCK, [])
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, [signal.SIGALRM])
+        signal.signal(signal.SIGALRM, lambda *_: None)
+        if not install_cpu_signal_timestamper(int(signal.SIGALRM)):
+            print("SKIP")
+            sys.exit(0)
+        consume_cpu_signal_arrival()
+        signal.setitimer(signal.ITIMER_REAL, 0.005)
+        end = time.perf_counter() + 0.05
+        while time.perf_counter() < end:
+            pass
+        arrival = consume_cpu_signal_arrival()
+        if arrival is None:
+            from scalene import _scalene_unwind as u
+            cur, ours, flags = u.handler_status(int(signal.SIGALRM))
+            raise AssertionError(
+                f"no arrival recorded; handler is ours: {cur == ours}, "
+                f"flags={flags:#x}, diag_counts={u.diag_counts()}, "
+                f"SIGALRM was blocked on entry: {blocked}"
+            )
+        wall, cpu = arrival
+        assert 0.0 <= wall < 1.0 and cpu >= 0.0, arrival
+        assert consume_cpu_signal_arrival() is None
+        print("OK", "(SIGALRM was blocked on entry)" if blocked else "")
+    """)
+    # Clean environment: other tests may leave LD_PRELOAD etc. set.
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(("LD_PRELOAD", "DYLD_", "PYTHON", "SCALENE"))
+    }
+    out = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+    )
+    assert out.returncode == 0, out.stdout + out.stderr
+    if out.stdout.strip() == "SKIP":
+        pytest.skip("native unwind extension unavailable")
+    assert out.stdout.startswith("OK"), out.stdout + out.stderr

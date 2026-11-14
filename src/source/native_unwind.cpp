@@ -38,6 +38,7 @@
 #include <cstdint>
 #include <cstring>
 #include <stddef.h>
+#include <time.h>
 
 #if defined(__linux__)
 #  define UNW_LOCAL_ONLY
@@ -148,6 +149,28 @@ std::atomic<uint64_t> g_handler_invocations{0};  // diagnostic
 std::atomic<uint64_t> g_handler_unwound{0};      // diagnostic: nonzero unwinds
 
 struct sigaction g_prev_action[NSIG];
+
+// -------- CPU-signal arrival timestamps --------
+//
+// The CPU timer's C-level handler records when the signal actually arrived
+// (wall and process-CPU clocks), before CPython defers the Python-level
+// handler to the next safe point. Scalene's Python handler reads how much
+// CPU time passed since arrival: that deferral happens only while C code
+// runs, so it is native time. Time before arrival (including OS timer
+// leeway, which on macOS can be several times the interval) is not.
+//
+// Only the earliest arrival since the last consume is kept.
+std::atomic<int> g_arrival_pending{0};
+std::atomic<int64_t> g_arrival_wall_ns{0};
+std::atomic<int64_t> g_arrival_cpu_ns{0};
+// Stack capture into g_ring is opt-in (--stacks); timestamps are not.
+std::atomic<bool> g_unwind_enabled{false};
+
+inline int64_t clock_ns(clockid_t clock) {
+  struct timespec ts;
+  if (clock_gettime(clock, &ts) != 0) return 0;  // async-signal-safe
+  return static_cast<int64_t>(ts.tv_sec) * 1000000000LL + ts.tv_nsec;
+}
 
 // Forward declaration
 int unwind_signal_frame_into(void* ucontext, void** ips, int max_frames);
@@ -308,26 +331,35 @@ int unwind_signal_frame_into(void* ucontext, void** ips, int max_frames) {
 void scalene_signal_unwinder(int sig, siginfo_t* si, void* ucontext) {
   g_handler_invocations.fetch_add(1, std::memory_order_relaxed);
 
-  // Reserve a ring slot. relaxed is fine: drain side uses an absolute index
-  // that monotonically increases, and the per-entry .n release/acquire pair
-  // synchronizes the IP payload.
-  uint64_t idx = g_write_idx.fetch_add(1, std::memory_order_relaxed);
-  StackEntry* e = &g_ring[idx % kRingSize];
-
-  // If a previous write to this slot hasn't yet been read, count it as a
-  // drop. We still overwrite — losing old samples is preferable to losing
-  // new ones in the steady state.
-  int prev_n = e->n.load(std::memory_order_relaxed);
-  if (prev_n != 0) g_dropped.fetch_add(1, std::memory_order_relaxed);
-
-  void* tmp[kMaxStackDepth];
-  int n = unwind_signal_frame_into(ucontext, tmp, kMaxStackDepth);
-  if (n > 0) {
-    g_handler_unwound.fetch_add(1, std::memory_order_relaxed);
-    std::memcpy(e->ips, tmp, n * sizeof(void*));
+  if (g_arrival_pending.load(std::memory_order_acquire) == 0) {
+    g_arrival_wall_ns.store(clock_ns(CLOCK_MONOTONIC), std::memory_order_relaxed);
+    g_arrival_cpu_ns.store(clock_ns(CLOCK_PROCESS_CPUTIME_ID),
+                           std::memory_order_relaxed);
+    g_arrival_pending.store(1, std::memory_order_release);
   }
-  // Publish: the IPs are visible iff the reader sees n > 0.
-  e->n.store(n, std::memory_order_release);
+
+  if (g_unwind_enabled.load(std::memory_order_relaxed)) {
+    // Reserve a ring slot. relaxed is fine: drain side uses an absolute index
+    // that monotonically increases, and the per-entry .n release/acquire pair
+    // synchronizes the IP payload.
+    uint64_t idx = g_write_idx.fetch_add(1, std::memory_order_relaxed);
+    StackEntry* e = &g_ring[idx % kRingSize];
+
+    // If a previous write to this slot hasn't yet been read, count it as a
+    // drop. We still overwrite — losing old samples is preferable to losing
+    // new ones in the steady state.
+    int prev_n = e->n.load(std::memory_order_relaxed);
+    if (prev_n != 0) g_dropped.fetch_add(1, std::memory_order_relaxed);
+
+    void* tmp[kMaxStackDepth];
+    int n = unwind_signal_frame_into(ucontext, tmp, kMaxStackDepth);
+    if (n > 0) {
+      g_handler_unwound.fetch_add(1, std::memory_order_relaxed);
+      std::memcpy(e->ips, tmp, n * sizeof(void*));
+    }
+    // Publish: the IPs are visible iff the reader sees n > 0.
+    e->n.store(n, std::memory_order_release);
+  }
 
   // Chain to the previously installed handler so CPython's pending-signal
   // dispatch (which eventually invokes the Python-level cpu_signal_handler)
@@ -400,7 +432,38 @@ PyObject* py_warmup(PyObject* /*self*/, PyObject* /*args*/) {
   Py_RETURN_NONE;
 }
 
+PyObject* install_cpu_signal_hook(PyObject* arg, bool force_restart);
+
 PyObject* py_install_signal_unwinder(PyObject* /*self*/, PyObject* arg) {
+#if SCALENE_UNWIND_AVAILABLE
+  g_unwind_enabled.store(true, std::memory_order_relaxed);
+#endif
+  return install_cpu_signal_hook(arg, /*force_restart=*/true);
+}
+
+PyObject* py_install_arrival_timestamper(PyObject* /*self*/, PyObject* arg) {
+  // Same C handler, without enabling stack capture. Keeps the current
+  // handler's SA_RESTART/SA_ONSTACK choice, so installing it (on every Unix
+  // run) doesn't change how blocking system calls react to the timer.
+  return install_cpu_signal_hook(arg, /*force_restart=*/false);
+}
+
+PyObject* py_consume_arrival(PyObject* /*self*/, PyObject* /*args*/) {
+#if SCALENE_UNWIND_AVAILABLE
+  if (g_arrival_pending.load(std::memory_order_acquire) == 0) Py_RETURN_NONE;
+  int64_t wall = g_arrival_wall_ns.load(std::memory_order_relaxed);
+  int64_t cpu = g_arrival_cpu_ns.load(std::memory_order_relaxed);
+  int64_t now_wall = clock_ns(CLOCK_MONOTONIC);
+  int64_t now_cpu = clock_ns(CLOCK_PROCESS_CPUTIME_ID);
+  g_arrival_pending.store(0, std::memory_order_release);
+  if (wall == 0 || cpu == 0 || now_wall == 0 || now_cpu == 0) Py_RETURN_NONE;
+  return Py_BuildValue("(dd)", (now_wall - wall) / 1e9, (now_cpu - cpu) / 1e9);
+#else
+  Py_RETURN_NONE;
+#endif
+}
+
+PyObject* install_cpu_signal_hook(PyObject* arg, bool force_restart) {
 #if SCALENE_UNWIND_AVAILABLE
   long sig_l = PyLong_AsLong(arg);
   if (PyErr_Occurred()) return nullptr;
@@ -417,7 +480,12 @@ PyObject* py_install_signal_unwinder(PyObject* /*self*/, PyObject* arg) {
   struct sigaction sa;
   std::memset(&sa, 0, sizeof(sa));
   sa.sa_sigaction = scalene_signal_unwinder;
-  sa.sa_flags = SA_SIGINFO | SA_RESTART;
+  struct sigaction cur;
+  int cur_flags = 0;
+  if (sigaction(sig, nullptr, &cur) == 0) {
+    cur_flags = cur.sa_flags & (SA_ONSTACK | SA_RESTART);
+  }
+  sa.sa_flags = SA_SIGINFO | cur_flags | (force_restart ? SA_RESTART : 0);
   sigemptyset(&sa.sa_mask);
 
   // Block the signal while we swap, so our handler can't fire mid-update of
@@ -446,6 +514,7 @@ PyObject* py_install_signal_unwinder(PyObject* /*self*/, PyObject* arg) {
   Py_RETURN_TRUE;
 #else
   (void)arg;
+  (void)force_restart;
   Py_RETURN_FALSE;
 #endif
 }
@@ -767,6 +836,12 @@ PyMethodDef methods[] = {
      "Install a sigaction handler on the given signal that captures the "
      "interrupted stack into the ring buffer and chains to the previous "
      "handler. Idempotent. Returns True on first install, False thereafter."},
+    {"install_arrival_timestamper", py_install_arrival_timestamper, METH_O,
+     "Install the CPU-signal C handler (chaining to the previous handler) "
+     "to timestamp signal arrival, without capturing stacks."},
+    {"consume_arrival", py_consume_arrival, METH_NOARGS,
+     "Return (wall_seconds, cpu_seconds) elapsed since the earliest CPU "
+     "signal arrival not yet consumed, and clear it; None if none pending."},
     {"drain_native_stack_buffer", py_drain_native_stack_buffer, METH_NOARGS,
      "Return a list of stack tuples captured by the signal handler since the "
      "last drain. Each tuple is innermost-first IPs."},
