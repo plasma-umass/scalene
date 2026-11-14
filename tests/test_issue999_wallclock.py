@@ -239,3 +239,72 @@ class TestIssue999WallClockAttribution:
         assert python_on_next_line == pytest.approx(last_cpu_interval, abs=1e-6), (
             "Virtual time mode: Python time stays on current line"
         )
+
+
+class TestThreadSampledAttribution:
+    """A sampler thread (Windows, Apple SME) is late whenever it waits for the
+    GIL, even while the main thread runs pure Python. Its lateness must not be
+    counted as native time: only the CALL*-bytecode test decides. Before this,
+    pure-Python loops on Windows were reported as mostly native.
+    """
+
+    @pytest.fixture()
+    def stats(self) -> ScaleneStatistics:
+        return ScaleneStatistics()
+
+    @pytest.fixture()
+    def profiler(self, stats: ScaleneStatistics) -> ScaleneCPUProfiler:
+        # Virtual time is the default; thread_sampled must override it.
+        return ScaleneCPUProfiler(
+            stats, available_cpus=1, use_virtual_time=True, thread_sampled=True
+        )
+
+    def _late_sample(self, profiler: ScaleneCPUProfiler, frame) -> None:
+        main_tid = threading.main_thread().ident
+        prev = TimeInfo(virtual=0.0, wallclock=0.0, sys=0.0, user=0.0)
+        # 0.10 s of CPU since the last sample against a 0.01 s interval.
+        now = TimeInfo(virtual=0.10, wallclock=0.10, sys=0.0, user=0.10)
+        profiler.process_cpu_sample(
+            new_frames=[(frame, main_tid, frame)],
+            now=now,
+            gpu_load=0.0,
+            gpu_mem_used=0.0,
+            prev=prev,
+            is_thread_sleeping={main_tid: False},
+            should_trace=lambda _fn, _func: True,
+            last_cpu_interval=0.01,
+            stacks_enabled=False,
+        )
+
+    def test_late_sample_not_at_call_is_all_python(
+        self, profiler: ScaleneCPUProfiler, stats: ScaleneStatistics
+    ) -> None:
+        call_line = _WORKLOAD_CODE.co_firstlineno + 1  # "result = sorted(data)"
+        python_line = call_line + 1  # "x = 1 + 2"
+        instr = _first_instr_on_line(_WORKLOAD_CODE, python_line)
+        assert instr is not None
+        self._late_sample(profiler, _make_frame(_WORKLOAD_CODE, python_line, instr.offset))
+
+        cpu = stats.cpu_stats
+        assert cpu.cpu_samples_python[_FNAME].get(
+            LineNumber(python_line), 0.0
+        ) == pytest.approx(0.10, abs=1e-6)
+        assert cpu.cpu_samples_c[_FNAME].get(LineNumber(python_line), 0.0) == 0.0
+        # Nothing moved to the preceding CALL line as "deferred" C time.
+        assert cpu.cpu_samples_c[_FNAME].get(LineNumber(call_line), 0.0) == 0.0
+
+    def test_late_sample_at_call_is_all_native(
+        self, profiler: ScaleneCPUProfiler, stats: ScaleneStatistics
+    ) -> None:
+        call_line = _WORKLOAD_CODE.co_firstlineno + 1
+        call_instr = _find_call_instruction(_WORKLOAD_CODE, call_line)
+        assert call_instr is not None
+        self._late_sample(
+            profiler, _make_frame(_WORKLOAD_CODE, call_line, call_instr.offset)
+        )
+
+        cpu = stats.cpu_stats
+        assert cpu.cpu_samples_c[_FNAME].get(
+            LineNumber(call_line), 0.0
+        ) == pytest.approx(0.10, abs=1e-6)
+        assert cpu.cpu_samples_python[_FNAME].get(LineNumber(call_line), 0.0) == 0.0

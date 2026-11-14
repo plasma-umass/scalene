@@ -134,6 +134,15 @@ class ScaleneCPUProfiler:
         python_time = last_cpu_interval
         c_time = max(elapsed.virtual - python_time, 0)
         total_time = python_time + c_time
+        if self._thread_sampled:
+            # A sampler thread (Windows, Apple SME) is late whenever it waits
+            # for the GIL, even while the main thread runs pure Python, so
+            # lateness says nothing about native code here. Treat the whole
+            # sample as Python; the CALL*-bytecode test below moves it to
+            # native when the main thread is in (or just returned from) a
+            # native call.
+            python_time = total_time
+            c_time = 0.0
 
         # Count non-sleeping frames
         total_frames = sum(

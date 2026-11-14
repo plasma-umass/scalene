@@ -18,6 +18,22 @@ from scalene.scalene_arguments import ScaleneArguments
 from scalene.scalene_statistics import Filename
 
 
+def _canonical_path(path: str) -> pathlib.Path:
+    """Canonical form of a path for should_trace() comparisons.
+
+    On Windows, should_trace() runs on the CPU sampling thread, and any
+    system call that releases the GIL costs that thread ~20 ms to win the
+    GIL back from a busy main thread (realpath() measured 53 ms per call).
+    So there we use abspath() + normcase(), which are string operations,
+    and canonicalize every path we compare against the same way. Elsewhere
+    the handler runs on the main thread, so resolve symlinks (e.g. macOS
+    /var -> /private/var).
+    """
+    if sys.platform == "win32":
+        return pathlib.Path(os.path.normcase(os.path.abspath(path)))
+    return pathlib.Path(path).resolve()
+
+
 class ScaleneTracing:
     """Handles tracing decisions and file filtering for the profiler."""
 
@@ -36,24 +52,32 @@ class ScaleneTracing:
         """
         self._args = args
         # Use resolved Path for proper cross-platform path comparison
-        self._profiler_base_path = pathlib.Path(profiler_base).resolve()
+        self._profiler_base_path = _canonical_path(profiler_base)
         self._program_path = program_path
         self._resolved_program_path = self._resolve_or_none(program_path)
         self._system_lib_paths: tuple[str, ...] = ()
         self._files_to_profile: set[Filename] = set()
         self._functions_to_profile: dict[Filename, set[Any]] = defaultdict(set)
-        # Resolve the library directories once, here, rather than on every
-        # should_trace() miss. Resolving each takes several system calls,
-        # and on Windows should_trace() runs on the sampling thread, which
-        # must win the GIL back from the busy main thread after each one:
-        # resolving ~80 directories per newly seen file took longer than a
-        # short program's whole run, so it recorded no CPU samples.
+        # Canonicalize the library directories once, here, rather than on
+        # every should_trace() miss: resolving ~80 directories per newly
+        # seen file on the Windows sampling thread took longer than a short
+        # program's whole run, so it recorded no CPU samples.
         self._excluded_lib_dirs = self._resolved_lib_dirs()
 
     @staticmethod
     def _resolve_or_none(path: str) -> pathlib.Path | None:
         try:
-            return pathlib.Path(path).resolve()
+            return _canonical_path(path)
+        except (OSError, ValueError):
+            return None
+
+    @staticmethod
+    @functools.lru_cache(maxsize=None)
+    def _resolve_file(filename: str) -> pathlib.Path | None:
+        """Canonicalize a source filename once; should_trace() needs it up
+        to three times per file (see _canonical_path for the cost)."""
+        try:
+            return _canonical_path(filename)
         except (OSError, ValueError):
             return None
 
@@ -66,7 +90,7 @@ class ScaleneTracing:
                 the_path = sysconfig.get_path(p, n)
                 if the_path:
                     with contextlib.suppress(OSError, ValueError):
-                        dirs.add(str(pathlib.Path(the_path).resolve()))
+                        dirs.add(str(_canonical_path(the_path)))
         return tuple(dirs)
 
     def set_args(self, args: ScaleneArguments) -> None:
@@ -120,14 +144,13 @@ class ScaleneTracing:
             return False
         # Use proper path comparison to exclude Scalene's own modules.
         # This handles cross-platform path separators and case sensitivity correctly.
-        try:
-            resolved_path = pathlib.Path(filename).resolve()
+        resolved_path = self._resolve_file(filename)
+        if resolved_path is not None:
             if resolved_path.is_relative_to(self._profiler_base_path):
                 return False
-        except (OSError, ValueError):
+        elif str(self._profiler_base_path) in filename:
             # If we can't resolve the path, fall back to string comparison
-            if str(self._profiler_base_path) in filename:
-                return False
+            return False
 
         # Check if this function is specifically decorated for profiling
         if self._should_trace_decorated_function(filename, func):
@@ -195,10 +218,10 @@ class ScaleneTracing:
 
     def _passes_exclusion_rules(self, filename: Filename) -> bool:
         """Check if filename passes exclusion rules (libraries, exclude patterns)."""
-        try:
-            resolved_filename = str(pathlib.Path(filename).resolve())
-        except OSError:
+        resolved = self._resolve_file(filename)
+        if resolved is None:
             return False
+        resolved_filename = str(resolved)
 
         if not self._args.profile_all:
             for libdir in self._excluded_lib_dirs:
@@ -298,22 +321,19 @@ class ScaleneTracing:
 
         # Use proper path comparison for cross-platform compatibility.
         # Check if the file is in the same directory tree as the program being profiled.
-        try:
-            file_path = pathlib.Path(filename).resolve()
-            program_path = self._resolved_program_path
-            if program_path is None:
-                raise ValueError("unresolvable program path")
+        file_path = self._resolve_file(filename)
+        program_path = self._resolved_program_path
+        if file_path is not None and program_path is not None:
             # Check if file is in program's directory or a subdirectory
             return (
                 file_path.is_relative_to(program_path)
                 or file_path.parent == program_path.parent
             )
-        except (OSError, ValueError):
-            # Fall back to string comparison if path resolution fails
-            normalized_filename = Filename(
-                os.path.normpath(os.path.join(self._program_path, filename))
-            )
-            return self._program_path in normalized_filename
+        # Fall back to string comparison if path resolution fails
+        normalized_filename = Filename(
+            os.path.normpath(os.path.join(self._program_path, filename))
+        )
+        return self._program_path in normalized_filename
 
 
 def create_should_trace_func(
