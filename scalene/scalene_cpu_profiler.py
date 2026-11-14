@@ -29,6 +29,12 @@ if TYPE_CHECKING:
     from types import FrameType
 
 
+# Arrival-to-handler delay above which a signal-path sample counts as native.
+# Measured (macOS): pure Python 10 us median, 1% above 0.05 ms; C calls and
+# operators running C 2-40 ms, 97-100% above 0.2 ms.
+NATIVE_DEFERRAL_THRESHOLD = 0.0002
+
+
 class ScaleneCPUProfiler:
     """Handles CPU profiling sample processing."""
 
@@ -73,6 +79,7 @@ class ScaleneCPUProfiler:
         native_drains: list[tuple[int, ...]] | None = None,
         suspended_async_tasks: list[Any] | None = None,
         perthread_drains: list[PerThreadNativeStack] | None = None,
+        signal_deferral: float | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
@@ -91,6 +98,11 @@ class ScaleneCPUProfiler:
                 build stitched Python+native stacks (combined_stacks).
             perthread_drains: Per-thread native stacks from worker threads.
                 List of (thread_id, (ip, ip, ...)) tuples.
+            signal_deferral: wall seconds between the timer signal's arrival
+                (recorded by a C-level handler) and this sample, or None.
+                CPython defers the Python-level handler only while C code
+                runs: ~10 us for pure Python, milliseconds for C calls and
+                for operators running C (numpy, list concatenation).
         """
         if not new_frames:
             return
@@ -135,6 +147,19 @@ class ScaleneCPUProfiler:
         python_time = last_cpu_interval
         c_time = max(elapsed.virtual - python_time, 0)
         total_time = python_time + c_time
+        if signal_deferral is not None and not self._thread_sampled:
+            # Signal path with an arrival timestamp. Classify the whole
+            # sample by what was running when the signal arrived: native if
+            # CPython had to defer the handler (C code was running), else
+            # Python. Unlike "time beyond the interval is native", this
+            # ignores OS timer leeway (2-3x the interval on macOS CI
+            # runners), and it catches operators running C (numpy `a @ b`,
+            # `big_list + big_list`), which the CALL test can't see. The
+            # total is unchanged.
+            if signal_deferral > NATIVE_DEFERRAL_THRESHOLD:
+                python_time, c_time = 0.0, total_time
+            else:
+                python_time, c_time = total_time, 0.0
         if self._thread_sampled:
             # A sampler thread (Windows, Apple SME) is late whenever it waits
             # for the GIL, even while the main thread runs pure Python, so

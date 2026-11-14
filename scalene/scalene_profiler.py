@@ -122,12 +122,14 @@ from scalene.scalene_utility import (
     add_stack,
     clear_intern_caches,
     compute_frames_to_record,
+    consume_cpu_signal_arrival,
     drain_native_stacks,
     drain_perthread_stacks,
     enter_function_meta,
     generate_html,
     get_fully_qualified_name,
     get_native_thread_id,
+    install_cpu_signal_timestamper,
     install_native_stack_unwinder,
     install_perthread_sampler,
     is_apple_silicon_sme,
@@ -905,6 +907,15 @@ class Scalene:
                 install_perthread_sampler(signal.SIGPROF)
                 # Register the main thread so we track it in diagnostics
                 register_thread_for_sampling()
+        # Timestamp when each CPU timer signal arrives (C-level handler, Unix
+        # signal path only). CPython defers the Python handler only while C
+        # code runs, so the delay from arrival to the handler says what was
+        # running at the sample instant; lateness before arrival (OS timer
+        # leeway, 2-3x the interval on macOS CI runners) says nothing.
+        if sys.platform != "win32" and not use_thread_sampler:
+            install_cpu_signal_timestamper(
+                Scalene.__signal_manager.get_signals().cpu_signal
+            )
 
     @staticmethod
     def cpu_signal_handler(
@@ -932,6 +943,12 @@ class Scalene:
             now.sys, now.user = get_times()
             now.virtual = time.process_time()
             now.wallclock = time.perf_counter()
+            # Wall seconds since the signal arrived (None on Windows or if
+            # the native timestamper isn't available).
+            arrival = (
+                consume_cpu_signal_arrival() if sys.platform != "win32" else None
+            )
+            signal_deferral = arrival[0] if arrival is not None else None
             if (
                 Scalene.__last_signal_time.virtual == 0
                 or Scalene.__last_signal_time.wallclock == 0
@@ -999,6 +1016,7 @@ class Scalene:
                 native_drains,
                 suspended_async_tasks=suspended,
                 perthread_drains=perthread_drains,
+                signal_deferral=signal_deferral,
             )
             # Advance library profiler schedules (e.g., torch profiler
             # periodic flush) to keep memory bounded.
@@ -1187,6 +1205,7 @@ class Scalene:
         native_drains: list[tuple[int, ...]] | None = None,
         suspended_async_tasks: list[Any] | None = None,
         perthread_drains: list[PerThreadNativeStack] | None = None,
+        signal_deferral: float | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
@@ -1221,6 +1240,7 @@ class Scalene:
             native_drains or [],
             suspended_async_tasks=suspended_async_tasks,
             perthread_drains=perthread_drains or [],
+            signal_deferral=signal_deferral,
         )
 
     @staticmethod

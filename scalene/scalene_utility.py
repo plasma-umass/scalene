@@ -342,6 +342,38 @@ def install_native_stack_unwinder(sig: int) -> bool:
         return False
 
 
+def install_cpu_signal_timestamper(sig: int) -> bool:
+    """Install the C-level handler on the CPU timer signal that records when
+    each signal arrives (chaining to CPython's trampoline, so call it after
+    signal.signal()). Returns False if unsupported (e.g. Windows) or if the
+    extension predates it.
+    """
+    if not _native_unwind_available:
+        return False
+    install = getattr(_scalene_unwind, "install_arrival_timestamper", None)
+    if install is None:
+        return False
+    try:
+        return bool(install(int(sig)))
+    except Exception:
+        return False
+
+
+def consume_cpu_signal_arrival() -> tuple[float, float] | None:
+    """(wall, CPU) seconds elapsed since the earliest unconsumed CPU-signal
+    arrival, clearing it; None if no arrival was recorded."""
+    if not _native_unwind_available:
+        return None
+    consume = getattr(_scalene_unwind, "consume_arrival", None)
+    if consume is None:
+        return None
+    try:
+        result = consume()
+    except Exception:
+        return None
+    return None if result is None else (float(result[0]), float(result[1]))
+
+
 # -------- Per-thread native stack sampling --------
 #
 # The main thread's native stack is captured via the chained signal handler
