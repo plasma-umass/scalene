@@ -484,7 +484,7 @@ def native_unwind_extension():
     Windows: builds as a stub (returns empty stacks); a StackWalk64-based
              backend is a future Phase 2.
     """
-    sources = ["src/source/native_unwind.cpp"]
+    sources = ["src/source/native_unwind.cpp", "src/source/frame_peek.cpp"]
     include_dirs = ["."]
     extra_objects = []
     libraries = []

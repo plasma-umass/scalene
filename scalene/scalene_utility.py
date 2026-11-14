@@ -359,10 +359,18 @@ def install_cpu_signal_timestamper(sig: int) -> bool:
         return False
 
 
-def consume_cpu_signal_arrival() -> Optional[Tuple[float, float]]:
-    """(wall, CPU) seconds elapsed since the earliest unconsumed CPU-signal
-    arrival (on Windows, native CPU timer tick), clearing it; None if no
-    arrival was recorded."""
+# One CPU-signal arrival: (wall seconds since it, CPU seconds since it,
+# location), where location is (id of the code object, byte offset of the
+# instruction) the main thread was executing then, or None if unknown.
+SignalArrival = Tuple[float, float, Optional[Tuple[int, int]]]
+
+
+def consume_cpu_signal_arrival() -> Optional[Tuple[float, float, List[SignalArrival]]]:
+    """(wall, CPU, arrivals) for the CPU-signal arrivals (on Windows, native
+    CPU timer ticks) since the last call, clearing them; None if none was
+    recorded. wall and CPU are the seconds elapsed since the earliest one;
+    arrivals lists each, oldest first. More than one arrives when C code
+    keeps CPython from running the handler for several intervals (#466)."""
     if _scalene_unwind is None:
         return None
     consume = getattr(_scalene_unwind, "consume_arrival", None)
@@ -372,7 +380,25 @@ def consume_cpu_signal_arrival() -> Optional[Tuple[float, float]]:
         result = consume()
     except Exception:
         return None
-    return None if result is None else (float(result[0]), float(result[1]))
+    if result is None:
+        return None
+    arrivals: List[SignalArrival] = []
+    if len(result) >= 3:
+        for wall_age, cpu_age, code_id, offset in result[2]:
+            location = (int(code_id), int(offset)) if code_id and offset >= 0 else None
+            arrivals.append((float(wall_age), float(cpu_age), location))
+    return (float(result[0]), float(result[1]), arrivals)
+
+
+def set_cpu_signal_rearm_interval(seconds: float) -> None:
+    """While the Python handler for a CPU-time (SIGVTALRM) arrival is
+    pending, have the C handler re-arm the timer every *seconds*, so C code
+    that runs for many intervals is sampled throughout (#466)."""
+    rearm = getattr(_scalene_unwind, "set_arrival_rearm_interval", None)
+    if rearm is None:
+        return
+    with contextlib.suppress(Exception):
+        rearm(float(seconds))
 
 
 def native_cpu_timer_available() -> bool:

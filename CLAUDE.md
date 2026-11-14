@@ -651,7 +651,8 @@ Ctrl-Break would. CPython runs `cpu_signal_handler` on the main thread at
 its next safe point, exactly as for a Unix timer signal, and the delay from
 tick to handler classifies the sample (see the next section). Like a
 one-shot timer, the next interval starts once the handler has called
-`consume_cpu_signal_arrival()`. Measured on Windows (3.9, 3.11, 3.14):
+`consume_cpu_signal_arrival()`; until then it records another tick (and the
+main thread's location, by suspending it) every interval (#466). Measured on Windows (3.9, 3.11, 3.14):
 pure Python is handled within 3-11 us (p99, also with every core busy);
 C calls, numpy operators, and `big_list + big_list` are deferred 0.5-80 ms.
 The threshold there is 0.05 ms (`NATIVE_DEFERRAL_THRESHOLD`): before 3.11,
@@ -709,6 +710,32 @@ interval: macOS delays one-shot timers by "leeway" (median 3.7 ms late for
 10 ms on an M1 Max, 23-31 ms on the `macos-latest` runner), which made pure
 Python look 60-70% native. Without the extension, the old interval-excess
 rule is the fallback.
+
+### Which Line a Sample Belongs To (#466)
+
+Since 3.10, CPython's safe points are a call's return, a loop back-edge and
+a function's entry, so the handler's own frame can be lines past where the
+signal arrived (`x @ y` alone on a line was charged to the next line that
+calls something). So the C handler also records *where* the main thread
+was: `scalene_peek_frame()` (`src/source/frame_peek.cpp`, the only file that
+includes CPython's internal headers) reads the current code object and
+instruction offset, signal-safely, only when the signal landed on the main
+thread (on Windows the timer thread suspends the main thread to read it).
+While the Python handler is pending, the C handler keeps a CPU-time timer
+(`ITIMER_VIRTUAL`) running, so long C code is sampled on every line it
+spans; in wall-clock mode a record-only C handler takes `SIGVTALRM` for
+this (the CPU-time timer can't fire inside a blocking system call, so it
+adds no EINTRs). `consume_cpu_signal_arrival()` returns every arrival, and
+`ScaleneCPUProfiler._arrival_shares()` gives each arrival an equal share of
+the sample (the intervals are exponential, so arrivals are spread evenly
+whatever the program's safe points), dropping arrivals whose code object is
+no longer on the stack (returned functions, Scalene's own handler, other
+threads). When a line is known, the bytecode guesses (loop-body spreading,
+preceding CALL) are skipped; in tight pure-Python loops they had put nearly
+everything on one line.
+
+Big-integer arithmetic calls `PyErr_CheckSignals()` mid-operation, so its
+handler runs at once and it counts as Python, as it always has.
 
 ### Frame Line Number Can Be None (Python 3.11+)
 
