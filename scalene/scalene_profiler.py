@@ -920,7 +920,12 @@ class Scalene:
         """
         # Initialize next_interval with a default value in case an exception occurs
         # before it's assigned. This prevents NameError in the finally block.
-        next_interval = Scalene._sample_cpu_interval()
+        # Don't draw it with _sample_cpu_interval(): that overwrites
+        # __last_cpu_interval, the interval the timer was armed with for
+        # *this* sample, which _process_cpu_sample() needs to split Python
+        # from native time. With a fresh random draw in its place, about a
+        # third of pure-Python time was reported as native.
+        next_interval = Scalene.__last_cpu_interval or Scalene.__args.cpu_sampling_rate
         try:
             # Get current time stats.
             now = TimeInfo()
