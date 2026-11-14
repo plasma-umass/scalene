@@ -945,9 +945,7 @@ class Scalene:
             now.wallclock = time.perf_counter()
             # Wall seconds since the signal arrived (None on Windows or if
             # the native timestamper isn't available).
-            arrival = (
-                consume_cpu_signal_arrival() if sys.platform != "win32" else None
-            )
+            arrival = consume_cpu_signal_arrival() if sys.platform != "win32" else None
             signal_deferral = arrival[0] if arrival is not None else None
             if (
                 Scalene.__last_signal_time.virtual == 0

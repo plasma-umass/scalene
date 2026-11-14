@@ -359,7 +359,7 @@ def install_cpu_signal_timestamper(sig: int) -> bool:
         return False
 
 
-def consume_cpu_signal_arrival() -> tuple[float, float] | None:
+def consume_cpu_signal_arrival() -> Optional[Tuple[float, float]]:
     """(wall, CPU) seconds elapsed since the earliest unconsumed CPU-signal
     arrival, clearing it; None if no arrival was recorded."""
     if not _native_unwind_available:
