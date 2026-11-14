@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import sys
 from typing import TYPE_CHECKING, Any, Callable
 
 from scalene.runningstats import RunningStats
@@ -134,6 +135,15 @@ class ScaleneCPUProfiler:
         python_time = last_cpu_interval
         c_time = max(elapsed.virtual - python_time, 0)
         total_time = python_time + c_time
+        if self._thread_sampled:
+            # A sampler thread (Windows, Apple SME) is late whenever it waits
+            # for the GIL, even while the main thread runs pure Python, so
+            # lateness says nothing about native code here. Treat the whole
+            # sample as Python; the CALL*-bytecode test below moves it to
+            # native when the main thread is in (or just returned from) a
+            # native call.
+            python_time = total_time
+            c_time = 0.0
 
         # Count non-sleeping frames
         total_frames = sum(
@@ -202,6 +212,21 @@ class ScaleneCPUProfiler:
             else LineNumber(main_thread_frame.f_code.co_firstlineno)
         )
 
+        # A sampler thread (thread_sampled) only gets the GIL from Python code
+        # at a GIL handoff point (RESUME, a loop back-edge, or after a call;
+        # Python 3.11+). If it finds the main thread stopped anywhere else,
+        # the main thread released the GIL inside that instruction: it is
+        # running native code (e.g. a numpy operator doing BLAS work), so
+        # the whole sample is native, on this line.
+        released_gil_mid_instruction = (
+            self._thread_sampled
+            and sys.version_info >= (3, 11)
+            and not ScaleneFuncUtils.is_gil_handoff_point(
+                main_thread_frame.f_code,
+                ByteCodeIndex(main_thread_frame.f_lasti),
+            )
+        )
+
         if not is_thread_sleeping[_main_thread_id]:
             # Check for loop-top sampling bias.  CPython checks eval_breaker
             # at JUMP_BACKWARD, so signals are preferentially delivered at the
@@ -210,7 +235,21 @@ class ScaleneCPUProfiler:
             loop_lines = ScaleneFuncUtils.get_loop_body_lines(
                 main_thread_frame.f_code, lineno
             )
-            if loop_lines is not None and len(loop_lines) > 1:
+            if released_gil_mid_instruction:
+                self._update_main_thread_stats(
+                    fname,
+                    lineno,
+                    now,
+                    0.0,
+                    average_cpu_time,
+                    average_cpu_time,
+                    cpu_utilization,
+                    core_utilization,
+                    gpu_load,
+                    gpu_mem_used,
+                    elapsed,
+                )
+            elif loop_lines is not None and len(loop_lines) > 1:
                 n = len(loop_lines)
                 for ll in loop_lines:
                     self._update_main_thread_stats(

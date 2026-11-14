@@ -8,6 +8,7 @@ instruction-based detection (checking if we're at a CALL opcode) instead of
 the interval-based formula which doesn't work in wall clock mode.
 """
 
+import sys
 import threading
 from unittest.mock import MagicMock
 
@@ -239,3 +240,109 @@ class TestIssue999WallClockAttribution:
         assert python_on_next_line == pytest.approx(last_cpu_interval, abs=1e-6), (
             "Virtual time mode: Python time stays on current line"
         )
+
+
+class TestThreadSampledAttribution:
+    """A sampler thread (Windows, Apple SME) is late whenever it waits for the
+    GIL, even while the main thread runs pure Python. Its lateness must not be
+    counted as native time: only the CALL*-bytecode test decides. Before this,
+    pure-Python loops on Windows were reported as mostly native.
+    """
+
+    @pytest.fixture()
+    def stats(self) -> ScaleneStatistics:
+        return ScaleneStatistics()
+
+    @pytest.fixture()
+    def profiler(self, stats: ScaleneStatistics) -> ScaleneCPUProfiler:
+        # Virtual time is the default; thread_sampled must override it.
+        return ScaleneCPUProfiler(
+            stats, available_cpus=1, use_virtual_time=True, thread_sampled=True
+        )
+
+    def _late_sample(self, profiler: ScaleneCPUProfiler, frame) -> None:
+        main_tid = threading.main_thread().ident
+        prev = TimeInfo(virtual=0.0, wallclock=0.0, sys=0.0, user=0.0)
+        # 0.10 s of CPU since the last sample against a 0.01 s interval.
+        now = TimeInfo(virtual=0.10, wallclock=0.10, sys=0.0, user=0.10)
+        profiler.process_cpu_sample(
+            new_frames=[(frame, main_tid, frame)],
+            now=now,
+            gpu_load=0.0,
+            gpu_mem_used=0.0,
+            prev=prev,
+            is_thread_sleeping={main_tid: False},
+            should_trace=lambda _fn, _func: True,
+            last_cpu_interval=0.01,
+            stacks_enabled=False,
+        )
+
+    def test_late_sample_not_at_call_is_all_python(
+        self, profiler: ScaleneCPUProfiler, stats: ScaleneStatistics
+    ) -> None:
+        call_line = _WORKLOAD_CODE.co_firstlineno + 1  # "result = sorted(data)"
+        python_line = call_line + 1  # "x = 1 + 2"
+        # A sampler thread finds pure-Python code at a GIL handoff point;
+        # on 3.11+ use RESUME (offset 0), otherwise any instruction.
+        if sys.version_info >= (3, 11):
+            offset = 0
+            assert ScaleneFuncUtils.is_gil_handoff_point(_WORKLOAD_CODE, offset)
+        else:
+            instr = _first_instr_on_line(_WORKLOAD_CODE, python_line)
+            assert instr is not None
+            offset = instr.offset
+        self._late_sample(profiler, _make_frame(_WORKLOAD_CODE, python_line, offset))
+
+        cpu = stats.cpu_stats
+        assert cpu.cpu_samples_python[_FNAME].get(
+            LineNumber(python_line), 0.0
+        ) == pytest.approx(0.10, abs=1e-6)
+        assert cpu.cpu_samples_c[_FNAME].get(LineNumber(python_line), 0.0) == 0.0
+        # Nothing moved to the preceding CALL line as "deferred" C time.
+        assert cpu.cpu_samples_c[_FNAME].get(LineNumber(call_line), 0.0) == 0.0
+
+    def test_late_sample_at_call_is_all_native(
+        self, profiler: ScaleneCPUProfiler, stats: ScaleneStatistics
+    ) -> None:
+        call_line = _WORKLOAD_CODE.co_firstlineno + 1
+        call_instr = _find_call_instruction(_WORKLOAD_CODE, call_line)
+        assert call_instr is not None
+        self._late_sample(
+            profiler, _make_frame(_WORKLOAD_CODE, call_line, call_instr.offset)
+        )
+
+        cpu = stats.cpu_stats
+        assert cpu.cpu_samples_c[_FNAME].get(
+            LineNumber(call_line), 0.0
+        ) == pytest.approx(0.10, abs=1e-6)
+        assert cpu.cpu_samples_python[_FNAME].get(LineNumber(call_line), 0.0) == 0.0
+
+    @pytest.mark.skipif(
+        sys.version_info < (3, 11), reason="handoff points are only distinct on 3.11+"
+    )
+    def test_sample_mid_operator_is_all_native(
+        self, profiler: ScaleneCPUProfiler, stats: ScaleneStatistics
+    ) -> None:
+        """Found stopped inside a BINARY_OP (not a GIL handoff point), the main
+        thread released the GIL in native code, e.g. numpy's ``a @ b``."""
+        src = "def ops(a, b):\n    c = a @ b\n    return c\n"
+        code = next(
+            c
+            for c in compile(src, "/fake/ops.py", "exec").co_consts
+            if hasattr(c, "co_code")
+        )
+        line = code.co_firstlineno + 1
+        binop = next(
+            ins
+            for ins, ln in ScaleneFuncUtils._instructions_with_lines(code)
+            if ln == line and not ScaleneFuncUtils.is_gil_handoff_point(code, ins.offset)
+            and ins.opname.startswith("BINARY")
+        )
+        self._late_sample(profiler, _make_frame(code, line, binop.offset))
+
+        fname = Filename("/fake/ops.py")
+        cpu = stats.cpu_stats
+        assert cpu.cpu_samples_c[fname].get(LineNumber(line), 0.0) == pytest.approx(
+            0.10, abs=1e-6
+        )
+        assert cpu.cpu_samples_python[fname].get(LineNumber(line), 0.0) == 0.0

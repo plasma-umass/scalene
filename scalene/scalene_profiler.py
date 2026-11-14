@@ -383,12 +383,14 @@ class Scalene:
         if not hasattr(Scalene, "_Scalene__availableCPUs"):
             cpu_count = os.cpu_count()
             Scalene.__availableCPUs = cpu_count if cpu_count is not None else 1
-        # On Apple Silicon with SME, CPU sampling is driven by a background
-        # thread (no timer signal — issue #1056), so Python-vs-C attribution
-        # must rely on the CALL*-bytecode test rather than virtual-timer
-        # deferral. Detection is cached, so calling it here and in
-        # enable_signals() is cheap and consistent.
-        thread_sampled = sys.platform == "darwin" and is_apple_silicon_sme()
+        # On Windows (no timer signals) and on Apple Silicon with SME (issue
+        # #1056), CPU sampling is driven by a background thread, so
+        # Python-vs-C attribution must rely on the CALL*-bytecode test rather
+        # than virtual-timer deferral. Detection is cached, so calling it
+        # here and in enable_signals() is cheap and consistent.
+        thread_sampled = sys.platform == "win32" or (
+            sys.platform == "darwin" and is_apple_silicon_sme()
+        )
         Scalene.__cpu_profiler = ScaleneCPUProfiler(
             Scalene.__stats,
             Scalene.__availableCPUs,
@@ -918,7 +920,12 @@ class Scalene:
         """
         # Initialize next_interval with a default value in case an exception occurs
         # before it's assigned. This prevents NameError in the finally block.
-        next_interval = Scalene._sample_cpu_interval()
+        # Don't draw it with _sample_cpu_interval(): that overwrites
+        # __last_cpu_interval, the interval the timer was armed with for
+        # *this* sample, which _process_cpu_sample() needs to split Python
+        # from native time. With a fresh random draw in its place, about a
+        # third of pure-Python time was reported as native.
+        next_interval = Scalene.__last_cpu_interval or Scalene.__args.cpu_sampling_rate
         try:
             # Get current time stats.
             now = TimeInfo()

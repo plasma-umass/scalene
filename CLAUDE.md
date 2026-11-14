@@ -349,6 +349,7 @@ sock.bind(("", port))
 
 - **`run-linters.yml`** - Runs mypy and ruff on Python 3.9-3.14
 - **`tests.yml`** - Runs pytest on Python 3.9-3.14
+- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program with a pure-Python phase, a C-call phase and a numpy-operator phase, requiring the first to be mostly Python (warning-only on macOS: runner VMs' timers fire late, which the signal path counts as native) and the others mostly native (the numpy check is enforced only on Windows with Python 3.11+, the one sampler that detects native time inside operators); a diagnostic step prints the runner's timer lateness
 - **`build-and-upload.yml`** - Build and publish to PyPI
 
 ## Common Tasks
@@ -639,6 +640,33 @@ else:
         scalene_handler(sig, frame)
         user_handler(sig, frame)
 ```
+
+### Windows CPU Sampling Runs on a Thread
+
+Windows has no timer signals, so `windows_timer_loop()` in
+`scalene_signal_manager.py` calls `cpu_signal_handler()` from a background
+thread every sampling interval. Two consequences:
+
+- **No GIL-releasing calls on the sampling path.** Any system call there
+  (e.g. `Path.resolve()`/`realpath()`) releases the GIL, and winning it back
+  from a busy main thread takes ~20 ms on Windows (`realpath()` measured
+  53 ms per call). `should_trace()` and everything it calls must stay pure
+  computation; `scalene_tracing.py` canonicalizes paths with
+  `abspath()`+`normcase()` on Windows and precomputes the library
+  directories. Violating this made short programs record no CPU time at all.
+- **Lateness is not native time.** The sampler is late whenever it waits for
+  the GIL, so `ScaleneCPUProfiler` runs with `thread_sampled=True` (as on
+  Apple SME, #1056) and decides Python vs native from the bytecode at
+  `f_lasti`: at a CALL* means native; on Python 3.11+, stopped anywhere
+  other than a GIL handoff point (RESUME, loop back-edge, CALL*;
+  `ScaleneFuncUtils.is_gil_handoff_point()`) means the main thread released
+  the GIL inside native code (e.g. a numpy operator), so also native.
+  Remaining gap: C code that *holds* the GIL inside an operator (e.g.
+  `big_list + big_list`) is still reported as Python.
+
+The timer loop wraps the handler in `contextlib.suppress(Exception)`, so
+failures there are silent: count handler calls first when Windows profiles
+look empty.
 
 ### Frame Line Number Can Be None (Python 3.11+)
 

@@ -1,0 +1,368 @@
+# Build scalene's sdist and wheels on every PR, on Linux, macOS, and Windows,
+# and smoke-test the wheels.
+#
+# tests.yml installs the checkout with "pip install -e .", which never
+# exercises the packaging path users get from PyPI; build-and-upload.yml does,
+# but runs only on releases and manual dispatch. This workflow closes that gap:
+# it does an isolated PEP 517 build ("python -m build": sdist first, then the
+# wheel built from the unpacked sdist, each in a fresh build environment with
+# only the pyproject.toml build requirements), so a file missing from the
+# sdist, an undeclared build dependency, or a wheel missing its native
+# libraries fails the PR. Each wheel is then installed with its dependencies
+# into a fresh venv outside the source tree and used to profile a program.
+#
+# The matrix covers the oldest and newest supported CPython; the release
+# workflow builds the full set.
+
+name: build wheels
+
+on:
+  push:
+    branches: [ master ]
+
+  pull_request:
+    branches: [ master ]
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build-wheel:
+    name: build wheel (${{ matrix.os }}, ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      # Any failed build cancels the rest of the matrix, for fast feedback
+      # and less CI burn (as in tests.yml).
+      fail-fast: true
+      matrix:
+        # ubuntu-latest (26.04) has no setup-python 3.9; 24.04 does.
+        os: [ ubuntu-24.04, macos-latest, windows-latest ]
+        python: [ '3.9', '3.14' ]
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: select Xcode version
+      # MacOS > 14.2 requires Xcode >= 15.3; otherwise loading native extension modules fails with e.g.:
+      # dlopen(/opt/homebrew/lib/python3.11/site-packages/slipcover/probe.abi3.so, 0x0002): bad bind opcode 0x00
+      if: runner.os == 'macOS'
+      run: |
+        if [ -d /Applications/Xcode_15.3.app/Contents/Developer ]; then sudo xcode-select --switch /Applications/Xcode_15.3.app/Contents/Developer; fi
+        clang++ --version
+
+    - name: Work around arm64 support on MacOS
+      # https://github.com/actions/virtual-environments/issues/2557
+      # Same as build-and-upload.yml, so these wheels match the released ones.
+      if: runner.os == 'macOS'
+      run: sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
+
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: ${{ matrix.python }}
+
+    - name: Check CMake is available (Windows)
+      # setup.py builds libscalene.dll with CMake and only warns if it is
+      # missing; fail early instead of producing a wheel without it.
+      if: runner.os == 'Windows'
+      run: cmake --version
+
+    - name: Build sdist and wheel (isolated PEP 517 build)
+      # No --sdist/--wheel: build the sdist, then the wheel from it.
+      # Build isolation is python -m build's default.
+      run: |
+        python -m pip install --upgrade pip build
+        python -m build --outdir dist .
+
+    - name: Inspect the built distributions
+      shell: python
+      run: |
+        import glob
+        import os
+        import subprocess
+        import sys
+        import sysconfig
+        import tarfile
+        import tempfile
+        import zipfile
+
+        sdists = glob.glob("dist/*.tar.gz")
+        wheels = glob.glob("dist/*.whl")
+        print("sdists:", sdists)
+        print("wheels:", wheels)
+        if len(sdists) != 1 or len(wheels) != 1:
+            sys.exit("ERROR: expected exactly one sdist and one wheel")
+
+        # The sdist must carry the vendored native sources, or a build from
+        # it on a machine without network access (or from PyPI) breaks.
+        with tarfile.open(sdists[0]) as t:
+            names = t.getnames()
+        for needed in ("vendor/Heap-Layers/", "vendor/printf/", "src/source/libscalene.cpp"):
+            if not any(needed in n for n in names):
+                sys.exit(f"ERROR: sdist is missing {needed}")
+
+        # Wheel tag must match the interpreter, e.g. -cp314-cp314-.
+        py = f"cp{sys.version_info.major}{sys.version_info.minor}"
+        abi = py + ("t" if sysconfig.get_config_var("Py_GIL_DISABLED") else "")
+        tag = f"-{py}-{abi}-"
+        if tag not in wheels[0]:
+            sys.exit(f"ERROR: expected wheel tagged {tag}, got {wheels[0]}")
+
+        with zipfile.ZipFile(wheels[0]) as z:
+            files = z.namelist()
+        native = [f for f in files if f.endswith((".so", ".pyd", ".dll", ".dylib"))]
+        print("native files:", native)
+
+        # The extension modules every platform needs.
+        for mod in ("get_line_atomic", "pywhere", "_scalene_unwind"):
+            if not any(os.path.basename(f).startswith(mod + ".") for f in native):
+                sys.exit(f"ERROR: wheel is missing native module {mod}")
+
+        # The allocator shim that memory profiling preloads.
+        lib = {
+            "linux": "libscalene.so",
+            "darwin": "libscalene.dylib",
+            "win32": "libscalene.dll",
+        }[sys.platform]
+        if not any(f.endswith("/" + lib) for f in files):
+            sys.exit(f"ERROR: wheel is missing {lib}")
+
+        # macOS wheels are universal2; check every native file has both
+        # architectures (as build-and-upload.yml does).
+        if sys.platform == "darwin":
+            with tempfile.TemporaryDirectory() as d:
+                with zipfile.ZipFile(wheels[0]) as z:
+                    z.extractall(d, native)
+                for f in native:
+                    out = subprocess.check_output(["file", os.path.join(d, f)], text=True)
+                    for arch in ("x86_64", "arm64"):
+                        if arch not in out:
+                            sys.exit(f"ERROR: {f} lacks {arch}: {out}")
+        print("distributions look complete")
+
+    - name: Measure CPU timer lateness and clock resolution
+      # Diagnostic only. Scalene's signal path counts CPU time beyond the
+      # armed interval as native, so late timers or a coarse CPU clock make
+      # pure Python look native. During a pure-Python loop, print: how late
+      # ITIMER_REAL fires for a fixed 10 ms interval and for Scalene's random
+      # (exponential, mean 10 ms) intervals; the "excess" Scalene would
+      # compute (process_time delta minus the armed interval); and the step
+      # size of process_time() and perf_counter().
+      if: runner.os != 'Windows'
+      shell: python
+      run: |
+        import math
+        import random
+        import signal
+        import time
+
+        def q(v, p):
+            return v[min(len(v) - 1, int(p * len(v)))]
+
+        def fmt(v):
+            v = sorted(v)
+            return f"p10={q(v, .1):6.2f} p50={q(v, .5):6.2f} p90={q(v, .9):6.2f} max={v[-1]:6.2f}"
+
+        def run(random_intervals):
+            rows = []
+            state = {}
+
+            def arm():
+                iv = -0.010 * math.log(1 - random.random()) if random_intervals else 0.010
+                state.update(iv=iv, t=time.perf_counter(), cpu=time.process_time())
+                signal.setitimer(signal.ITIMER_REAL, iv)
+
+            def handler(*_):
+                now, cpu = time.perf_counter(), time.process_time()
+                rows.append((state["iv"], now - state["t"] - state["iv"], cpu - state["cpu"] - state["iv"]))
+                arm()
+
+            signal.signal(signal.SIGALRM, handler)
+            arm()
+            end = time.perf_counter() + 1.5
+            x = 0
+            while time.perf_counter() < end:
+                for i in range(1000):
+                    x += i * i
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            return rows
+
+        for label, rnd in (("fixed 10 ms", False), ("exponential, mean 10 ms", True)):
+            rows = run(rnd)
+            late = [r[1] * 1000 for r in rows]
+            excess = [r[2] * 1000 for r in rows]
+            native_share = sum(max(e, 0) for e in excess) / (sum(r[0] * 1000 for r in rows) + sum(max(e, 0) for e in excess))
+            print(f"{label}: {len(rows)} ticks")
+            print(f"  wall lateness ms:   {fmt(late)}")
+            print(f"  CPU excess ms:      {fmt(excess)}  -> would be labeled native: {native_share:.0%}")
+            short = [r for r in rows if r[0] < 0.002]
+            if short:
+                print(f"  intervals < 2 ms ({len(short)}): wall lateness {fmt([r[1] * 1000 for r in short])}")
+
+        for name, clock in (("process_time", time.process_time), ("perf_counter", time.perf_counter)):
+            steps = []
+            last = clock()
+            end = time.perf_counter() + 0.3
+            while time.perf_counter() < end and len(steps) < 200:
+                t = clock()
+                if t != last:
+                    steps.append((t - last) * 1e6)
+                    last = t
+            print(f"{name} step us: {fmt(steps) if steps else 'no change'}")
+
+    - name: Smoke-test the installed wheel
+      # Install the wheel (with its dependencies) into a fresh venv outside
+      # the checkout, so nothing can be imported from the source tree, then
+      # profile a short program and view the result.
+      shell: python
+      run: |
+        import glob
+        import json
+        import os
+        import subprocess
+        import sys
+        import tempfile
+        import venv
+
+        whl = os.path.abspath(glob.glob("dist/*.whl")[0])
+        with tempfile.TemporaryDirectory() as work:
+            env_dir = os.path.join(work, "venv")
+            venv.create(env_dir, with_pip=True)
+            bindir = "Scripts" if os.name == "nt" else "bin"
+            py = os.path.join(env_dir, bindir, "python")
+            subprocess.check_call([py, "-m", "pip", "install", "-q", whl])
+
+            def run(*args):
+                print("+", " ".join(args), flush=True)
+                subprocess.check_call([py, "-I", *args], cwd=work)
+
+            run("-W", "error::RuntimeWarning", "-c",
+                "import importlib\n"
+                "for m in ('get_line_atomic', 'pywhere', '_scalene_unwind'):\n"
+                "    importlib.import_module('scalene.' + m)\n"
+                "import scalene, os\n"
+                "assert 'site-packages' in scalene.__file__, scalene.__file__\n"
+                "print('imported', scalene.__file__)\n")
+
+            # Three phases of ~1.5 s each: a pure-Python loop, C code that
+            # holds the GIL (a call), and numpy operators that release it
+            # (no calls in the loop), then an allocation for the memory
+            # profiler. The profile must call the first mostly Python and the
+            # others mostly native. (Only checking that *some* line got CPU
+            # missed Windows profiles that put everything on one line.)
+            prog_src = (
+                "import time\n"
+                "import numpy as np\n"
+                "\n"
+                "def python_work(seconds):\n"
+                "    end = time.perf_counter() + seconds\n"
+                "    x = 0\n"
+                "    while time.perf_counter() < end:\n"
+                "        for i in range(1000):\n"
+                "            x += i * i\n"
+                "    return x\n"
+                "\n"
+                "def native_work(seconds):\n"
+                "    end = time.perf_counter() + seconds\n"
+                "    x = 0\n"
+                "    while time.perf_counter() < end:\n"
+                "        x += sum(range(5_000_000))\n"
+                "    return x\n"
+                "\n"
+                "def numpy_work(seconds):\n"
+                "    a = np.random.rand(800, 800)\n"
+                "    b = a.copy()\n"
+                "    end = time.perf_counter() + seconds\n"
+                "    while time.perf_counter() < end:\n"
+                "        for _ in range(5):\n"
+                "            a = a @ b\n"
+                "            a *= 0.001\n"
+                "    return a\n"
+                "\n"
+                "python_work(1.5)\n"
+                "native_work(1.5)\n"
+                "numpy_work(1.5)\n"
+                "data = [bytearray(1_000_000) for _ in range(50)]\n"
+            )
+            prog = os.path.join(work, "prog.py")
+            with open(prog, "w") as f:
+                f.write(prog_src)
+            run("-m", "scalene", "--version")
+            run("-m", "scalene", "run", "-o", "profile.json", "prog.py")
+            run("-m", "scalene", "view", "--cli", "profile.json")
+
+            with open(os.path.join(work, "profile.json")) as f:
+                profile = json.load(f)
+            files = [k for k in profile.get("files", {}) if k.endswith("prog.py")]
+            if not files:
+                sys.exit(f"ERROR: prog.py not in profile: {list(profile.get('files', {}))}")
+            lines = profile["files"][files[0]]["lines"]
+
+            # Sum line percentages per function. (The per-function totals in
+            # the JSON undercount loop bodies.)
+            import ast
+            tree = ast.parse(prog_src)
+            spans = {
+                n.name: (n.lineno, n.end_lineno)
+                for n in tree.body
+                if isinstance(n, ast.FunctionDef)
+            }
+            phase = {}
+            for name, (first, last) in spans.items():
+                py = sum(l["n_cpu_percent_python"] for l in lines if first <= l["lineno"] <= last)
+                c = sum(l["n_cpu_percent_c"] for l in lines if first <= l["lineno"] <= last)
+                phase[name] = (py, c)
+                share = py / (py + c) if py + c else 0.0
+                print(f"{name}: python={py:.1f}% native={c:.1f}% ({share:.0%} Python)")
+
+            def python_share(name):
+                py, c = phase[name]
+                return py / (py + c) if py + c else None
+
+            errors = []
+            if any(python_share(n) is None for n in phase):
+                errors.append("a phase got no CPU samples")
+            else:
+                if python_share("python_work") < 0.5:
+                    msg = "python_work (pure Python) is reported as mostly native"
+                    if sys.platform == "darwin":
+                        # macOS runners are VMs whose interval timers fire
+                        # late (see the timer-lateness step), and the signal
+                        # path counts all lateness as native. On real Macs
+                        # this phase is 85-88% Python.
+                        print("WARNING (not failing on macOS CI): " + msg)
+                    else:
+                        errors.append(msg)
+                if python_share("native_work") > 0.3:
+                    errors.append("native_work (a C call) is not reported as mostly native")
+                # Native time inside operators (no call) is only detected
+                # reliably by the Windows sampler thread on Python 3.11+;
+                # the Unix signal path labels about half of it Python.
+                if python_share("numpy_work") > 0.5:
+                    msg = "numpy_work (numpy operators) is reported as mostly Python"
+                    if sys.platform == "win32" and sys.version_info >= (3, 11):
+                        errors.append(msg)
+                    else:
+                        print("WARNING (known limitation here): " + msg)
+            alloc_line = len(prog_src.splitlines())
+            peak = max((l["n_peak_mb"] for l in lines if l["lineno"] == alloc_line), default=0)
+            # Printed, not checked: the peak recorded for this line differs
+            # by platform (about 42 MB on Windows, 2 MB on macOS).
+            print(f"allocation line peak: {peak:.1f} MB")
+            if errors:
+                sys.exit("ERROR: " + "; ".join(errors))
+            print("profile OK")
+
+    - uses: actions/upload-artifact@v7
+      with:
+        name: dist-${{ matrix.os }}-${{ matrix.python }}
+        path: dist/*
+        if-no-files-found: error
+        retention-days: 7
