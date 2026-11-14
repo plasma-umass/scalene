@@ -147,35 +147,75 @@ jobs:
                             sys.exit(f"ERROR: {f} lacks {arch}: {out}")
         print("distributions look complete")
 
-    - name: Measure CPU timer lateness
-      # Diagnostic only. Scalene's signal path counts any delay between when
-      # the CPU timer should fire and when its handler runs as native time,
-      # so a runner whose timers fire late inflates "native" for pure
-      # Python. Print how late a 10 ms ITIMER_REAL (the default timer) is
-      # during a pure-Python loop.
+    - name: Measure CPU timer lateness and clock resolution
+      # Diagnostic only. Scalene's signal path counts CPU time beyond the
+      # armed interval as native, so late timers or a coarse CPU clock make
+      # pure Python look native. During a pure-Python loop, print: how late
+      # ITIMER_REAL fires for a fixed 10 ms interval and for Scalene's random
+      # (exponential, mean 10 ms) intervals; the "excess" Scalene would
+      # compute (process_time delta minus the armed interval); and the step
+      # size of process_time() and perf_counter().
       if: runner.os != 'Windows'
       shell: python
       run: |
+        import math
+        import random
         import signal
         import time
 
-        interval = 0.010
-        arrivals = []
-        signal.signal(signal.SIGALRM, lambda *_: arrivals.append(time.perf_counter()))
-        signal.setitimer(signal.ITIMER_REAL, interval, interval)
-        end = time.perf_counter() + 1.0
-        x = 0
-        while time.perf_counter() < end:
-            for i in range(1000):
-                x += i * i
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        late = sorted((b - a - interval) * 1000 for a, b in zip(arrivals, arrivals[1:]))
-        if late:
-            q = lambda p: late[min(len(late) - 1, int(p * len(late)))]
-            print(
-                f"{len(arrivals)} ticks (expected ~100); lateness per tick, ms: "
-                f"p10={q(0.1):.2f} p50={q(0.5):.2f} p90={q(0.9):.2f} max={late[-1]:.2f}"
-            )
+        def q(v, p):
+            return v[min(len(v) - 1, int(p * len(v)))]
+
+        def fmt(v):
+            v = sorted(v)
+            return f"p10={q(v, .1):6.2f} p50={q(v, .5):6.2f} p90={q(v, .9):6.2f} max={v[-1]:6.2f}"
+
+        def run(random_intervals):
+            rows = []
+            state = {}
+
+            def arm():
+                iv = -0.010 * math.log(1 - random.random()) if random_intervals else 0.010
+                state.update(iv=iv, t=time.perf_counter(), cpu=time.process_time())
+                signal.setitimer(signal.ITIMER_REAL, iv)
+
+            def handler(*_):
+                now, cpu = time.perf_counter(), time.process_time()
+                rows.append((state["iv"], now - state["t"] - state["iv"], cpu - state["cpu"] - state["iv"]))
+                arm()
+
+            signal.signal(signal.SIGALRM, handler)
+            arm()
+            end = time.perf_counter() + 1.5
+            x = 0
+            while time.perf_counter() < end:
+                for i in range(1000):
+                    x += i * i
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            return rows
+
+        for label, rnd in (("fixed 10 ms", False), ("exponential, mean 10 ms", True)):
+            rows = run(rnd)
+            late = [r[1] * 1000 for r in rows]
+            excess = [r[2] * 1000 for r in rows]
+            native_share = sum(max(e, 0) for e in excess) / (sum(r[0] * 1000 for r in rows) + sum(max(e, 0) for e in excess))
+            print(f"{label}: {len(rows)} ticks")
+            print(f"  wall lateness ms:   {fmt(late)}")
+            print(f"  CPU excess ms:      {fmt(excess)}  -> would be labeled native: {native_share:.0%}")
+            short = [r for r in rows if r[0] < 0.002]
+            if short:
+                print(f"  intervals < 2 ms ({len(short)}): wall lateness {fmt([r[1] * 1000 for r in short])}")
+
+        for name, clock in (("process_time", time.process_time), ("perf_counter", time.perf_counter)):
+            steps = []
+            last = clock()
+            end = time.perf_counter() + 0.3
+            while time.perf_counter() < end and len(steps) < 200:
+                t = clock()
+                if t != last:
+                    steps.append((t - last) * 1e6)
+                    last = t
+            print(f"{name} step us: {fmt(steps) if steps else 'no change'}")
 
     - name: Smoke-test the installed wheel
       # Install the wheel (with its dependencies) into a fresh venv outside
