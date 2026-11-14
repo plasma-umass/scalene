@@ -71,6 +71,9 @@ class ScaleneCPUProfiler:
         self._available_cpus = available_cpus
         self._use_virtual_time = use_virtual_time
         self._thread_sampled = thread_sampled
+        # Function of the main thread's sampled line, for lines that get
+        # time without being sampled themselves (see _update_main_thread_stats).
+        self._main_function: Filename | None = None
 
     def process_cpu_sample(
         self,
@@ -243,6 +246,7 @@ class ScaleneCPUProfiler:
             if main_thread_frame.f_lineno is not None
             else LineNumber(main_thread_frame.f_code.co_firstlineno)
         )
+        self._main_function = self._stats.function_map[fname].get(lineno)
 
         # A sampler thread (thread_sampled) only gets the GIL from Python code
         # at a GIL handoff point (RESUME, a loop back-edge, or after a call;
@@ -497,6 +501,15 @@ class ScaleneCPUProfiler:
         gpu_weight: float = 1.0,
     ) -> None:
         """Update statistics for the main thread."""
+        # Time can land on lines other than the sampled one, all in the
+        # sampled frame's code: spread across a loop body, or moved to the
+        # preceding call. function_map only knows lines that were sampled,
+        # and function totals sum only those, so register these lines too.
+        # Otherwise a loop's unsampled body lines (in a tight loop, every
+        # line but the loop header) drop out of its function's total (#1131).
+        fn_lines = self._stats.function_map[fname]
+        if self._main_function is not None and lineno not in fn_lines:
+            fn_lines[lineno] = self._main_function
         cpu_stats = self._stats.cpu_stats
         gpu_stats = self._stats.gpu_stats
 
