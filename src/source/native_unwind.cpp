@@ -87,6 +87,56 @@ constexpr int kSignalAllBatch = 32;
 
 #if SCALENE_UNWIND_AVAILABLE
 
+// -------- Keeping libscalene out of the unwinder --------
+//
+// libunwind copies and allocates while holding an internal lock. Under
+// --memory, libscalene interposes those calls, and when it samples one it
+// asks for the GIL (whereInPython) -- with libunwind's lock still held. If
+// the thread holding the GIL is then interrupted by Scalene's CPU signal,
+// its handler waits for libunwind's lock: deadlock (issue #1133; threads in
+// the per-thread SIGPROF sampler hit it within ~100 thread-churn runs). So
+// unwinding runs with libscalene's sampling suspended on that thread.
+// libscalene is preloaded only when profiling memory; the hooks are looked
+// up once, outside any signal handler.
+using SuspendSamplingFn = int (*)();
+using ResumeSamplingFn = void (*)(int);
+std::atomic<SuspendSamplingFn> g_suspend_sampling{nullptr};
+std::atomic<ResumeSamplingFn> g_resume_sampling{nullptr};
+
+void resolve_sampling_hooks() {
+  if (g_suspend_sampling.load(std::memory_order_acquire) != nullptr) return;
+  auto suspend = reinterpret_cast<SuspendSamplingFn>(
+      dlsym(RTLD_DEFAULT, "scalene_suspend_sampling"));
+  auto resume = reinterpret_cast<ResumeSamplingFn>(
+      dlsym(RTLD_DEFAULT, "scalene_resume_sampling"));
+  if (suspend == nullptr || resume == nullptr) return;
+  g_resume_sampling.store(resume, std::memory_order_release);
+  g_suspend_sampling.store(suspend, std::memory_order_release);
+}
+
+class SamplingSuspended {
+ public:
+  SamplingSuspended()
+      : _resume(g_resume_sampling.load(std::memory_order_acquire)),
+        _was(0) {
+    auto suspend = g_suspend_sampling.load(std::memory_order_acquire);
+    if (suspend == nullptr || _resume == nullptr) {
+      _resume = nullptr;
+    } else {
+      _was = suspend();
+    }
+  }
+  ~SamplingSuspended() {
+    if (_resume != nullptr) _resume(_was);
+  }
+  SamplingSuspended(const SamplingSuspended&) = delete;
+  SamplingSuspended& operator=(const SamplingSuspended&) = delete;
+
+ private:
+  ResumeSamplingFn _resume;
+  int _was;
+};
+
 // -------- Direct (in-thread, current stack) unwind --------
 //
 // MUST be async-signal-safe: no malloc, no Python C API.
@@ -110,6 +160,7 @@ extern "C" _Unwind_Reason_Code unwind_cb(struct _Unwind_Context* ctx,
 #endif
 
 int unwind_into(void** ips, int max_frames) {
+  SamplingSuspended no_sampling;
 #if defined(__linux__)
   unw_context_t ctx;
   unw_cursor_t cursor;
@@ -308,6 +359,7 @@ void perthread_signal_handler(int sig, siginfo_t* si, void* ucontext) {
 // correctly.
 int unwind_signal_frame_into(void* ucontext, void** ips, int max_frames) {
   (void)ucontext;
+  SamplingSuspended no_sampling;
 #if defined(__linux__)
   unw_cursor_t cursor;
   unw_context_t* uc = static_cast<unw_context_t*>(ucontext);
@@ -426,6 +478,7 @@ PyObject* py_resolve_ip(PyObject* /*self*/, PyObject* arg) {
 
 PyObject* py_warmup(PyObject* /*self*/, PyObject* /*args*/) {
 #if SCALENE_UNWIND_AVAILABLE
+  resolve_sampling_hooks();
   void* ips[8];
   unwind_into(ips, 8);
 #endif
@@ -465,6 +518,7 @@ PyObject* py_consume_arrival(PyObject* /*self*/, PyObject* /*args*/) {
 
 PyObject* install_cpu_signal_hook(PyObject* arg, bool force_restart) {
 #if SCALENE_UNWIND_AVAILABLE
+  resolve_sampling_hooks();
   long sig_l = PyLong_AsLong(arg);
   if (PyErr_Occurred()) return nullptr;
   if (sig_l <= 0 || sig_l >= NSIG) {
@@ -609,6 +663,7 @@ PyObject* py_diag_counts(PyObject* /*self*/, PyObject* /*args*/) {
 
 PyObject* py_install_perthread_sampler(PyObject* /*self*/, PyObject* arg) {
 #if SCALENE_UNWIND_AVAILABLE
+  resolve_sampling_hooks();
   long sig_l = PyLong_AsLong(arg);
   if (PyErr_Occurred()) return nullptr;
   if (sig_l <= 0 || sig_l >= NSIG) {
