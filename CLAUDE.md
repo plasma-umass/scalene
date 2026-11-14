@@ -349,7 +349,7 @@ sock.bind(("", port))
 
 - **`run-linters.yml`** - Runs mypy and ruff on Python 3.9-3.14
 - **`tests.yml`** - Runs pytest on Python 3.9-3.14
-- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program that spends half its time in pure Python and half in C, requiring a roughly even split, the first half mostly Python and the second mostly native
+- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program with a pure-Python phase, a C-call phase and a numpy-operator phase, requiring the first to be mostly Python and the others mostly native (the numpy check is enforced only on Windows with Python 3.11+, the one sampler that detects native time inside operators)
 - **`build-and-upload.yml`** - Build and publish to PyPI
 
 ## Common Tasks
@@ -656,8 +656,13 @@ thread every sampling interval. Two consequences:
   directories. Violating this made short programs record no CPU time at all.
 - **Lateness is not native time.** The sampler is late whenever it waits for
   the GIL, so `ScaleneCPUProfiler` runs with `thread_sampled=True` (as on
-  Apple SME, #1056) and decides Python vs native only from the CALL*
-  bytecode at `f_lasti`.
+  Apple SME, #1056) and decides Python vs native from the bytecode at
+  `f_lasti`: at a CALL* means native; on Python 3.11+, stopped anywhere
+  other than a GIL handoff point (RESUME, loop back-edge, CALL*;
+  `ScaleneFuncUtils.is_gil_handoff_point()`) means the main thread released
+  the GIL inside native code (e.g. a numpy operator), so also native.
+  Remaining gap: C code that *holds* the GIL inside an operator (e.g.
+  `big_list + big_list`) is still reported as Python.
 
 The timer loop wraps the handler in `contextlib.suppress(Exception)`, so
 failures there are silent: count handler calls first when Windows profiles

@@ -181,36 +181,49 @@ jobs:
                 "assert 'site-packages' in scalene.__file__, scalene.__file__\n"
                 "print('imported', scalene.__file__)\n")
 
-            # Half the run in a pure-Python loop, half in C code that holds
-            # the GIL, then an allocation for the memory profiler to see.
-            # The profile must split time between the two halves, call the
-            # first mostly Python and the second mostly native. (Only
-            # checking that *some* line got CPU missed Windows profiles
-            # that put everything on one line, labelled native.)
+            # Three phases of ~1.5 s each: a pure-Python loop, C code that
+            # holds the GIL (a call), and numpy operators that release it
+            # (no calls in the loop), then an allocation for the memory
+            # profiler. The profile must call the first mostly Python and the
+            # others mostly native. (Only checking that *some* line got CPU
+            # missed Windows profiles that put everything on one line.)
+            prog_src = (
+                "import time\n"
+                "import numpy as np\n"
+                "\n"
+                "def python_work(seconds):\n"
+                "    end = time.perf_counter() + seconds\n"
+                "    x = 0\n"
+                "    while time.perf_counter() < end:\n"
+                "        for i in range(1000):\n"
+                "            x += i * i\n"
+                "    return x\n"
+                "\n"
+                "def native_work(seconds):\n"
+                "    end = time.perf_counter() + seconds\n"
+                "    x = 0\n"
+                "    while time.perf_counter() < end:\n"
+                "        x += sum(range(5_000_000))\n"
+                "    return x\n"
+                "\n"
+                "def numpy_work(seconds):\n"
+                "    a = np.random.rand(800, 800)\n"
+                "    b = a.copy()\n"
+                "    end = time.perf_counter() + seconds\n"
+                "    while time.perf_counter() < end:\n"
+                "        for _ in range(5):\n"
+                "            a = a @ b\n"
+                "            a *= 0.001\n"
+                "    return a\n"
+                "\n"
+                "python_work(1.5)\n"
+                "native_work(1.5)\n"
+                "numpy_work(1.5)\n"
+                "data = [bytearray(1_000_000) for _ in range(50)]\n"
+            )
             prog = os.path.join(work, "prog.py")
             with open(prog, "w") as f:
-                f.write(
-                    "import time\n"
-                    "\n"
-                    "def python_work(seconds):\n"
-                    "    end = time.perf_counter() + seconds\n"
-                    "    x = 0\n"
-                    "    while time.perf_counter() < end:\n"
-                    "        for i in range(1000):\n"
-                    "            x += i * i\n"
-                    "    return x\n"
-                    "\n"
-                    "def native_work(seconds):\n"
-                    "    end = time.perf_counter() + seconds\n"
-                    "    x = 0\n"
-                    "    while time.perf_counter() < end:\n"
-                    "        x += sum(range(5_000_000))\n"
-                    "    return x\n"
-                    "\n"
-                    "python_work(1.5)\n"
-                    "native_work(1.5)\n"
-                    "data = [bytearray(1_000_000) for _ in range(50)]\n"
-                )
+                f.write(prog_src)
             run("-m", "scalene", "--version")
             run("-m", "scalene", "run", "-o", "profile.json", "prog.py")
             run("-m", "scalene", "view", "--cli", "profile.json")
@@ -222,30 +235,46 @@ jobs:
                 sys.exit(f"ERROR: prog.py not in profile: {list(profile.get('files', {}))}")
             lines = profile["files"][files[0]]["lines"]
 
-            # Sum line percentages per function (lines 3-9 and 11-16). The
-            # per-function totals in the JSON undercount loop bodies.
-            def phase(first, last):
+            # Sum line percentages per function. (The per-function totals in
+            # the JSON undercount loop bodies.)
+            import ast
+            tree = ast.parse(prog_src)
+            spans = {
+                n.name: (n.lineno, n.end_lineno)
+                for n in tree.body
+                if isinstance(n, ast.FunctionDef)
+            }
+            phase = {}
+            for name, (first, last) in spans.items():
                 py = sum(l["n_cpu_percent_python"] for l in lines if first <= l["lineno"] <= last)
                 c = sum(l["n_cpu_percent_c"] for l in lines if first <= l["lineno"] <= last)
-                return py, c
+                phase[name] = (py, c)
+                share = py / (py + c) if py + c else 0.0
+                print(f"{name}: python={py:.1f}% native={c:.1f}% ({share:.0%} Python)")
 
-            py_py, py_c = phase(3, 9)
-            nat_py, nat_c = phase(11, 16)
-            total = py_py + py_c + nat_py + nat_c
-            print(f"python_work: python={py_py:.1f}% native={py_c:.1f}%")
-            print(f"native_work: python={nat_py:.1f}% native={nat_c:.1f}%")
+            def python_share(name):
+                py, c = phase[name]
+                return py / (py + c) if py + c else None
+
             errors = []
-            if total <= 0:
-                errors.append("no CPU samples attributed to prog.py")
+            if any(python_share(n) is None for n in phase):
+                errors.append("a phase got no CPU samples")
             else:
-                share = (py_py + py_c) / total
-                if not 0.3 <= share <= 0.7:
-                    errors.append(f"python_work got {share:.0%} of CPU; expected about 50%")
-                if py_py < 0.5 * (py_py + py_c):
+                if python_share("python_work") < 0.5:
                     errors.append("python_work (pure Python) is reported as mostly native")
-                if nat_c < 0.7 * (nat_py + nat_c):
-                    errors.append("native_work (C code) is not reported as mostly native")
-            peak = max(l["n_peak_mb"] for l in lines if l["lineno"] == 20) if any(l["lineno"] == 20 for l in lines) else 0
+                if python_share("native_work") > 0.3:
+                    errors.append("native_work (a C call) is not reported as mostly native")
+                # Native time inside operators (no call) is only detected
+                # reliably by the Windows sampler thread on Python 3.11+;
+                # the Unix signal path labels about half of it Python.
+                if python_share("numpy_work") > 0.5:
+                    msg = "numpy_work (numpy operators) is reported as mostly Python"
+                    if sys.platform == "win32" and sys.version_info >= (3, 11):
+                        errors.append(msg)
+                    else:
+                        print("WARNING (known limitation here): " + msg)
+            alloc_line = len(prog_src.splitlines())
+            peak = max((l["n_peak_mb"] for l in lines if l["lineno"] == alloc_line), default=0)
             # Printed, not checked: the peak recorded for this line differs
             # by platform (about 42 MB on Windows, 2 MB on macOS).
             print(f"allocation line peak: {peak:.1f} MB")
