@@ -218,7 +218,7 @@ jobs:
 
           check = (
               "import importlib, sys, sysconfig\n"
-              "for m in ('get_line_atomic', 'pywhere', '_scalene_unwind'):\n"
+              "for m in ('get_line_atomic', 'pywhere', '_scalene_unwind', '_frame_peek'):\n"
               "    importlib.import_module('scalene.' + m)\n"
               "if sysconfig.get_config_var('Py_GIL_DISABLED') and sys._is_gil_enabled():\n"
               "    sys.exit('importing scalene native modules re-enabled the GIL')\n"

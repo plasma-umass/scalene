@@ -9,9 +9,11 @@
 // object and the bytecode offset the thread was executing at that instant;
 // the Python handler maps them back to a line.
 //
-// Kept in its own file so that only this code sees CPython's internal
-// headers (Py_BUILD_CORE). Async-signal-safe: only loads, no allocation, no
-// locks.
+// Its own C extension module (scalene._frame_peek), so that only this code
+// sees CPython's internal headers (Py_BUILD_CORE), compiled as C: MSVC
+// can't compile them as C++. _scalene_unwind gets scalene_peek_frame from
+// the capsule "scalene._frame_peek.peek". Async-signal-safe: only loads, no
+// allocation, no locks.
 // The result is unvalidated (a frame may be half pushed); the Python side
 // only uses it if the code object is still on the thread's stack and the
 // offset falls inside it.
@@ -19,7 +21,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#include <cstdint>
+#include <stdint.h>
 
 #include "frame_peek.h"
 
@@ -39,35 +41,35 @@
 #include <frameobject.h>
 #endif
 
-extern "C" int scalene_peek_frame(PyThreadState* tstate, uintptr_t* code_out,
-                                  int* offset_out) {
-  if (tstate == nullptr) return 0;
+static int scalene_peek_frame(PyThreadState* tstate, uintptr_t* code_out,
+                              int* offset_out) {
+  if (tstate == NULL) return 0;
 #if PY_VERSION_HEX >= 0x030E0000
   struct _PyInterpreterFrame* f = tstate->current_frame;
-  if (f == nullptr) return 0;
+  if (f == NULL) return 0;
   PyObject* executable = PyStackRef_AsPyObjectBorrow(f->f_executable);
-  if (executable == nullptr || Py_TYPE(executable) != &PyCode_Type) return 0;
-  PyCodeObject* code = reinterpret_cast<PyCodeObject*>(executable);
+  if (executable == NULL || Py_TYPE(executable) != &PyCode_Type) return 0;
+  PyCodeObject* code = (PyCodeObject*)executable;
   const _Py_CODEUNIT* ip = f->instr_ptr;
 #elif PY_VERSION_HEX >= 0x030D0000
   struct _PyInterpreterFrame* f = tstate->current_frame;
-  if (f == nullptr) return 0;
+  if (f == NULL) return 0;
   PyObject* executable = f->f_executable;
-  if (executable == nullptr || Py_TYPE(executable) != &PyCode_Type) return 0;
-  PyCodeObject* code = reinterpret_cast<PyCodeObject*>(executable);
+  if (executable == NULL || Py_TYPE(executable) != &PyCode_Type) return 0;
+  PyCodeObject* code = (PyCodeObject*)executable;
   const _Py_CODEUNIT* ip = f->instr_ptr;
 #elif PY_VERSION_HEX >= 0x030B0000
-  if (tstate->cframe == nullptr) return 0;
+  if (tstate->cframe == NULL) return 0;
   struct _PyInterpreterFrame* f = tstate->cframe->current_frame;
-  if (f == nullptr) return 0;
+  if (f == NULL) return 0;
   PyCodeObject* code = f->f_code;
-  if (code == nullptr || Py_TYPE(reinterpret_cast<PyObject*>(code)) != &PyCode_Type) return 0;
+  if (code == NULL || Py_TYPE((PyObject*)code) != &PyCode_Type) return 0;
   const _Py_CODEUNIT* ip = f->prev_instr;  // the instruction started last
 #elif PY_VERSION_HEX >= 0x030A0000
   PyFrameObject* f = tstate->frame;
-  if (f == nullptr || f->f_code == nullptr) return 0;
-  *code_out = reinterpret_cast<uintptr_t>(f->f_code);
-  *offset_out = f->f_lasti * static_cast<int>(sizeof(_Py_CODEUNIT));  // in instructions
+  if (f == NULL || f->f_code == NULL) return 0;
+  *code_out = (uintptr_t)f->f_code;
+  *offset_out = f->f_lasti * (int)sizeof(_Py_CODEUNIT);  // in instructions
   return f->f_lasti >= 0;
 #else
   // Before 3.10, CPython checks for signals after almost every bytecode, so
@@ -77,11 +79,33 @@ extern "C" int scalene_peek_frame(PyThreadState* tstate, uintptr_t* code_out,
   return 0;
 #endif
 #if PY_VERSION_HEX >= 0x030B0000
-  if (ip == nullptr) return 0;
+  if (ip == NULL) return 0;
   const _Py_CODEUNIT* start = _PyCode_CODE(code);
   if (ip < start) return 0;
-  *code_out = reinterpret_cast<uintptr_t>(code);
-  *offset_out = static_cast<int>((ip - start) * static_cast<Py_ssize_t>(sizeof(_Py_CODEUNIT)));
+  *code_out = (uintptr_t)code;
+  *offset_out = (int)((ip - start) * (Py_ssize_t)sizeof(_Py_CODEUNIT));
   return 1;
 #endif
+}
+
+static struct PyModuleDef frame_peek_module = {
+    PyModuleDef_HEAD_INIT, "_frame_peek",
+    "Signal-safe peek at a thread's current Python frame (issue #466).", -1,
+    NULL,
+};
+
+PyMODINIT_FUNC PyInit__frame_peek(void) {
+  PyObject* m = PyModule_Create(&frame_peek_module);
+  if (m == NULL) return NULL;
+  PyObject* capsule = PyCapsule_New((void*)scalene_peek_frame,
+                                    SCALENE_FRAME_PEEK_CAPSULE, NULL);
+  if (capsule == NULL || PyModule_AddObject(m, "peek", capsule) < 0) {
+    Py_XDECREF(capsule);
+    Py_DECREF(m);
+    return NULL;
+  }
+#ifdef Py_GIL_DISABLED
+  PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
+  return m;
 }

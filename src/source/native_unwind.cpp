@@ -111,7 +111,27 @@ pthread_t g_main_pthread;
 std::atomic<bool> g_main_pthread_set{false};
 #endif
 
+// scalene_peek_frame, from scalene._frame_peek (null: no locations).
+std::atomic<scalene_peek_frame_fn> g_peek{nullptr};
+bool g_peek_tried = false;  // only touched with the GIL held
+
+// Called with the GIL held, never from a signal handler.
 void note_main_thread() {
+  if (!g_peek_tried) {
+    g_peek_tried = true;
+    // PyCapsule_Import only follows attributes from the top-level package,
+    // so import the submodule first.
+    PyObject* mod = PyImport_ImportModule("scalene._frame_peek");
+    Py_XDECREF(mod);
+    void* fn =
+        mod == nullptr ? nullptr : PyCapsule_Import(SCALENE_FRAME_PEEK_CAPSULE, 0);
+    if (fn == nullptr) {
+      PyErr_Clear();  // timing still works without locations
+    } else {
+      g_peek.store(reinterpret_cast<scalene_peek_frame_fn>(fn),
+                   std::memory_order_release);
+    }
+  }
   g_main_tstate.store(PyThreadState_Get(), std::memory_order_release);
 #if SCALENE_UNWIND_AVAILABLE
   if (!g_main_pthread_set.load(std::memory_order_acquire) ||
@@ -132,7 +152,8 @@ int record_arrival(int64_t wall_ns, int64_t cpu_ns, PyThreadState* tstate) {
   ArrivalRecord& r = g_arrivals[k];
   uintptr_t code = 0;
   int offset = -1;
-  if (tstate == nullptr || !scalene_peek_frame(tstate, &code, &offset)) {
+  scalene_peek_frame_fn peek = g_peek.load(std::memory_order_acquire);
+  if (tstate == nullptr || peek == nullptr || !peek(tstate, &code, &offset)) {
     code = 0;
     offset = -1;
   }

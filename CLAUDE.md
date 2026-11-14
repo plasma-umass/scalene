@@ -717,10 +717,13 @@ Since 3.10, CPython's safe points are a call's return, a loop back-edge and
 a function's entry, so the handler's own frame can be lines past where the
 signal arrived (`x @ y` alone on a line was charged to the next line that
 calls something). So the C handler also records *where* the main thread
-was: `scalene_peek_frame()` (`src/source/frame_peek.cpp`, the only file that
-includes CPython's internal headers) reads the current code object and
-instruction offset, signal-safely, only when the signal landed on the main
-thread (on Windows the timer thread suspends the main thread to read it).
+was: `scalene_peek_frame()` reads the current code object and instruction
+offset, signal-safely. It lives in its own C extension,
+`scalene._frame_peek` (`src/source/frame_peek.c`), the only code that
+includes CPython's internal headers (MSVC can't compile them as C++), and
+`_scalene_unwind` gets it through a capsule. It reads only when the signal
+landed on the main thread (on Windows the timer thread suspends the main
+thread to read it).
 While the Python handler is pending, the C handler keeps a CPU-time timer
 (`ITIMER_VIRTUAL`) running, so long C code is sampled on every line it
 spans; in wall-clock mode a record-only C handler takes `SIGVTALRM` for
