@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import sys
 from typing import TYPE_CHECKING, Any, Callable
 
 from scalene.runningstats import RunningStats
@@ -211,6 +212,21 @@ class ScaleneCPUProfiler:
             else LineNumber(main_thread_frame.f_code.co_firstlineno)
         )
 
+        # A sampler thread (thread_sampled) only gets the GIL from Python code
+        # at a GIL handoff point (RESUME, a loop back-edge, or after a call;
+        # Python 3.11+). If it finds the main thread stopped anywhere else,
+        # the main thread released the GIL inside that instruction: it is
+        # running native code (e.g. a numpy operator doing BLAS work), so
+        # the whole sample is native, on this line.
+        released_gil_mid_instruction = (
+            self._thread_sampled
+            and sys.version_info >= (3, 11)
+            and not ScaleneFuncUtils.is_gil_handoff_point(
+                main_thread_frame.f_code,
+                ByteCodeIndex(main_thread_frame.f_lasti),
+            )
+        )
+
         if not is_thread_sleeping[_main_thread_id]:
             # Check for loop-top sampling bias.  CPython checks eval_breaker
             # at JUMP_BACKWARD, so signals are preferentially delivered at the
@@ -219,7 +235,21 @@ class ScaleneCPUProfiler:
             loop_lines = ScaleneFuncUtils.get_loop_body_lines(
                 main_thread_frame.f_code, lineno
             )
-            if loop_lines is not None and len(loop_lines) > 1:
+            if released_gil_mid_instruction:
+                self._update_main_thread_stats(
+                    fname,
+                    lineno,
+                    now,
+                    0.0,
+                    average_cpu_time,
+                    average_cpu_time,
+                    cpu_utilization,
+                    core_utilization,
+                    gpu_load,
+                    gpu_mem_used,
+                    elapsed,
+                )
+            elif loop_lines is not None and len(loop_lines) > 1:
                 n = len(loop_lines)
                 for ll in loop_lines:
                     self._update_main_thread_stats(

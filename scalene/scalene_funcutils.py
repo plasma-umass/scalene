@@ -35,6 +35,35 @@ class ScaleneFuncUtils:
     # dis.hasjrel are lists of opcode *integers* on all Python versions.
     __jump_opcodes: FrozenSet[int] = frozenset(dis.hasjabs) | frozenset(dis.hasjrel)
 
+    __resume_opcode: Optional[int] = dis.opmap.get("RESUME")
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def is_gil_handoff_point(code: CodeType, bytei: ByteCodeIndex) -> bool:
+        """True iff pure-Python code can hand over the GIL at this instruction.
+
+        On Python 3.11+, the interpreter only checks for a pending GIL
+        drop request at function entry (RESUME), loop back-edges, and
+        after calls. So a thread found stopped at any other instruction
+        released the GIL *inside* it: it is running native code (e.g. a
+        numpy operator doing BLAS work). Not meaningful on Python < 3.11,
+        which checks at nearly every instruction.
+        """
+        for ins in dis.get_instructions(code):
+            if ins.offset != bytei:
+                continue
+            if ins.opcode in ScaleneFuncUtils.__call_opcodes:
+                return True
+            if ins.opcode == ScaleneFuncUtils.__resume_opcode:
+                return True
+            return (
+                ins.opcode in ScaleneFuncUtils.__jump_opcodes
+                and isinstance(ins.argval, int)
+                and ins.argval < ins.offset
+            )
+        # Unknown offset: don't claim native.
+        return True
+
     @staticmethod
     @lru_cache(maxsize=None)
     def get_loop_body_lines(code: CodeType, lineno: int) -> Optional[Tuple[int, ...]]:

@@ -8,6 +8,7 @@ instruction-based detection (checking if we're at a CALL opcode) instead of
 the interval-based formula which doesn't work in wall clock mode.
 """
 
+import sys
 import threading
 from unittest.mock import MagicMock
 
@@ -281,9 +282,16 @@ class TestThreadSampledAttribution:
     ) -> None:
         call_line = _WORKLOAD_CODE.co_firstlineno + 1  # "result = sorted(data)"
         python_line = call_line + 1  # "x = 1 + 2"
-        instr = _first_instr_on_line(_WORKLOAD_CODE, python_line)
-        assert instr is not None
-        self._late_sample(profiler, _make_frame(_WORKLOAD_CODE, python_line, instr.offset))
+        # A sampler thread finds pure-Python code at a GIL handoff point;
+        # on 3.11+ use RESUME (offset 0), otherwise any instruction.
+        if sys.version_info >= (3, 11):
+            offset = 0
+            assert ScaleneFuncUtils.is_gil_handoff_point(_WORKLOAD_CODE, offset)
+        else:
+            instr = _first_instr_on_line(_WORKLOAD_CODE, python_line)
+            assert instr is not None
+            offset = instr.offset
+        self._late_sample(profiler, _make_frame(_WORKLOAD_CODE, python_line, offset))
 
         cpu = stats.cpu_stats
         assert cpu.cpu_samples_python[_FNAME].get(
@@ -308,3 +316,33 @@ class TestThreadSampledAttribution:
             LineNumber(call_line), 0.0
         ) == pytest.approx(0.10, abs=1e-6)
         assert cpu.cpu_samples_python[_FNAME].get(LineNumber(call_line), 0.0) == 0.0
+
+    @pytest.mark.skipif(
+        sys.version_info < (3, 11), reason="handoff points are only distinct on 3.11+"
+    )
+    def test_sample_mid_operator_is_all_native(
+        self, profiler: ScaleneCPUProfiler, stats: ScaleneStatistics
+    ) -> None:
+        """Found stopped inside a BINARY_OP (not a GIL handoff point), the main
+        thread released the GIL in native code, e.g. numpy's ``a @ b``."""
+        src = "def ops(a, b):\n    c = a @ b\n    return c\n"
+        code = next(
+            c
+            for c in compile(src, "/fake/ops.py", "exec").co_consts
+            if hasattr(c, "co_code")
+        )
+        line = code.co_firstlineno + 1
+        binop = next(
+            ins
+            for ins, ln in ScaleneFuncUtils._instructions_with_lines(code)
+            if ln == line and not ScaleneFuncUtils.is_gil_handoff_point(code, ins.offset)
+            and ins.opname.startswith("BINARY")
+        )
+        self._late_sample(profiler, _make_frame(code, line, binop.offset))
+
+        fname = Filename("/fake/ops.py")
+        cpu = stats.cpu_stats
+        assert cpu.cpu_samples_c[fname].get(LineNumber(line), 0.0) == pytest.approx(
+            0.10, abs=1e-6
+        )
+        assert cpu.cpu_samples_python[fname].get(LineNumber(line), 0.0) == 0.0
