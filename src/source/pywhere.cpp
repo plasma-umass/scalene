@@ -706,10 +706,36 @@ static PyObject* sysmon_return_callback(PyObject* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
-// Enable sys.monitoring tracing
+// Number of frames from frame to the bottom of its stack.
+static int get_frame_depth(PyFrameObject* frame) {
+  int depth = 0;
+  Py_XINCREF(frame);
+  PyPtr<PyFrameObject> f(frame);
+  while (static_cast<PyFrameObject*>(f) != nullptr) {
+    depth++;
+    f = PyFrame_GetBack(static_cast<PyFrameObject*>(f));
+  }
+  return depth;
+}
+
+// Enable sys.monitoring tracing. The optional argument is the frame whose
+// line is being profiled; LINE events deeper than it belong to calls made
+// from that line and don't end it. Without it, the depth is taken from the
+// caller -- Scalene's malloc signal handler, which runs on top of the user's
+// frame -- so the *next* handler's own lines, at that same depth, looked
+// like a move to a new line and reset the line's running footprint every
+// sample or two (issue #1132: a comprehension keeping 50 MB showed a 2 MB
+// peak).
 static PyObject* enable_sysmon(PyObject* self, PyObject* args) {
+  PyObject* frame = nullptr;
+  if (!PyArg_ParseTuple(args, "|O", &frame)) {
+    return nullptr;
+  }
   sysmon_tracing_active = true;
-  sysmon_initial_call_depth = get_call_depth();
+  sysmon_initial_call_depth =
+      (frame != nullptr && PyFrame_Check(frame))
+          ? get_frame_depth(reinterpret_cast<PyFrameObject*>(frame))
+          : get_call_depth();
   sysmon_current_call_depth = sysmon_initial_call_depth;
 
   // Enable LINE events via sys.monitoring.set_events
@@ -1115,8 +1141,8 @@ static PyMethodDef EmbMethods[] = {
     {"set_scalene_done_true", set_scalene_done_true, METH_NOARGS, ""},
     {"set_scalene_done_false", set_scalene_done_false, METH_NOARGS, ""},
     // sys.monitoring support (Python 3.12+)
-    {"enable_sysmon", enable_sysmon, METH_NOARGS,
-     "Enable sys.monitoring line tracing"},
+    {"enable_sysmon", enable_sysmon, METH_VARARGS,
+     "Enable sys.monitoring line tracing for the given (profiled) frame"},
     {"disable_sysmon", disable_sysmon, METH_NOARGS,
      "Disable sys.monitoring line tracing"},
     {"setup_sysmon", setup_sysmon, METH_VARARGS,

@@ -297,7 +297,10 @@ class ScaleneTracer:
         # Use C implementation if available (Python 3.12+)
         if cls._use_c_line_callback and cls._pywhere is not None:
             try:
-                cls._pywhere.enable_sysmon()  # type: ignore
+                try:
+                    cls._pywhere.enable_sysmon(frame)  # type: ignore
+                except TypeError:  # extension predating the frame argument
+                    cls._pywhere.enable_sysmon()  # type: ignore
                 return
             except (AttributeError, NotImplementedError):
                 pass
