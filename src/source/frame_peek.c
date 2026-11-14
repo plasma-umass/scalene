@@ -1,8 +1,8 @@
 // Where was the main thread when the CPU timer signal arrived? (issue #466)
 //
-// CPython runs a Python signal handler only at its next safe point: on 3.10+
-// that is a call's return, a loop back-edge, or a function's entry, not
-// after every bytecode. A sample that arrives during a bare operator
+// CPython runs a Python signal handler only at its next safe point (a
+// call's return, a loop back-edge, a function's entry; not after every
+// bytecode). A sample that arrives during a bare operator
 // (`x @ y` on a line of its own) is therefore handled on the *next* line
 // that calls something, and was charged there. The C-level handler that
 // timestamps the arrival calls scalene_peek_frame() to record the code
@@ -37,7 +37,7 @@
 #if PY_VERSION_HEX >= 0x030D0000
 #include "internal/pycore_code.h"
 #endif
-#elif PY_VERSION_HEX >= 0x030A0000
+#else
 #include <frameobject.h>
 #endif
 
@@ -65,18 +65,16 @@ static int scalene_peek_frame(PyThreadState* tstate, uintptr_t* code_out,
   PyCodeObject* code = f->f_code;
   if (code == NULL || Py_TYPE((PyObject*)code) != &PyCode_Type) return 0;
   const _Py_CODEUNIT* ip = f->prev_instr;  // the instruction started last
-#elif PY_VERSION_HEX >= 0x030A0000
-  PyFrameObject* f = tstate->frame;
-  if (f == NULL || f->f_code == NULL) return 0;
-  *code_out = (uintptr_t)f->f_code;
-  *offset_out = f->f_lasti * (int)sizeof(_Py_CODEUNIT);  // in instructions
-  return f->f_lasti >= 0;
 #else
-  // Before 3.10, CPython checks for signals after almost every bytecode, so
-  // the handler's own frame already shows the right line.
-  (void)code_out;
-  (void)offset_out;
-  return 0;
+  PyFrameObject* f = tstate->frame;
+  if (f == NULL || f->f_code == NULL || f->f_lasti < 0) return 0;
+  *code_out = (uintptr_t)f->f_code;
+#if PY_VERSION_HEX >= 0x030A0000
+  *offset_out = f->f_lasti * (int)sizeof(_Py_CODEUNIT);  // in instructions
+#else
+  *offset_out = f->f_lasti;  // in bytes
+#endif
+  return 1;
 #endif
 #if PY_VERSION_HEX >= 0x030B0000
   if (ip == NULL) return 0;

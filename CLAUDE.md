@@ -713,9 +713,9 @@ rule is the fallback.
 
 ### Which Line a Sample Belongs To (#466)
 
-Since 3.10, CPython's safe points are a call's return, a loop back-edge and
-a function's entry, so the handler's own frame can be lines past where the
-signal arrived (`x @ y` alone on a line was charged to the next line that
+CPython's safe points are a call's return, a loop back-edge and a
+function's entry (not every bytecode, on any version Scalene supports), so
+the handler's own frame can be lines past where the signal arrived (`x @ y` alone on a line was charged to the next line that
 calls something). So the C handler also records *where* the main thread
 was: `scalene_peek_frame()` reads the current code object and instruction
 offset, signal-safely. It lives in its own C extension,

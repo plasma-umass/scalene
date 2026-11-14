@@ -1,8 +1,7 @@
 """Issue #466: time in an operator was charged to the next line.
 
-CPython runs a Python signal handler only at its next safe point: since 3.10,
-a call's return, a loop back-edge, or a function's entry, not after every
-bytecode. A sample that arrived during an operator running C code (numpy's
+CPython runs a Python signal handler only at its next safe point (a call's
+return, a loop back-edge, a function's entry), not after every bytecode. A sample that arrived during an operator running C code (numpy's
 `x @ y`, or `big + big` on lists) was handled at the end of the next line's
 call and charged there, so the operator's line showed no time at all. The
 C-level handler now records where the main thread was at each timer arrival,
