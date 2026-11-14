@@ -796,8 +796,9 @@ class Scalene:
         # Enable line tracing to detect when execution moves to a different line.
         # On Python 3.12+, this uses sys.monitoring; on earlier versions,
         # it falls back to PyEval_SetTrace.
-        assert this_frame
-        enable_tracing(this_frame)
+        # Pass the profiled frame (f), not the innermost one: line tracking
+        # treats deeper frames as calls made from the profiled line.
+        enable_tracing(f)
         del this_frame
 
     @staticmethod
