@@ -349,7 +349,7 @@ sock.bind(("", port))
 
 - **`run-linters.yml`** - Runs mypy and ruff on Python 3.9-3.14
 - **`tests.yml`** - Runs pytest on Python 3.9-3.14
-- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program with it
+- **`build-wheels.yml`** - On every PR: isolated PEP 517 build (`python -m build`: sdist, then wheel from the sdist) on Linux, macOS, and Windows (Python 3.9 and 3.14); checks the sdist and wheel contents, then installs the wheel into a fresh venv and profiles a program that spends half its time in pure Python and half in C, requiring a roughly even split, the first half mostly Python and the second mostly native
 - **`build-and-upload.yml`** - Build and publish to PyPI
 
 ## Common Tasks
@@ -640,6 +640,28 @@ else:
         scalene_handler(sig, frame)
         user_handler(sig, frame)
 ```
+
+### Windows CPU Sampling Runs on a Thread
+
+Windows has no timer signals, so `windows_timer_loop()` in
+`scalene_signal_manager.py` calls `cpu_signal_handler()` from a background
+thread every sampling interval. Two consequences:
+
+- **No GIL-releasing calls on the sampling path.** Any system call there
+  (e.g. `Path.resolve()`/`realpath()`) releases the GIL, and winning it back
+  from a busy main thread takes ~20 ms on Windows (`realpath()` measured
+  53 ms per call). `should_trace()` and everything it calls must stay pure
+  computation; `scalene_tracing.py` canonicalizes paths with
+  `abspath()`+`normcase()` on Windows and precomputes the library
+  directories. Violating this made short programs record no CPU time at all.
+- **Lateness is not native time.** The sampler is late whenever it waits for
+  the GIL, so `ScaleneCPUProfiler` runs with `thread_sampled=True` (as on
+  Apple SME, #1056) and decides Python vs native only from the CALL*
+  bytecode at `f_lasti`.
+
+The timer loop wraps the handler in `contextlib.suppress(Exception)`, so
+failures there are silent: count handler calls first when Windows profiles
+look empty.
 
 ### Frame Line Number Can Be None (Python 3.11+)
 

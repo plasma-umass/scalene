@@ -181,14 +181,34 @@ jobs:
                 "assert 'site-packages' in scalene.__file__, scalene.__file__\n"
                 "print('imported', scalene.__file__)\n")
 
+            # Half the run in a pure-Python loop, half in C code that holds
+            # the GIL, then an allocation for the memory profiler to see.
+            # The profile must split time between the two halves, call the
+            # first mostly Python and the second mostly native. (Only
+            # checking that *some* line got CPU missed Windows profiles
+            # that put everything on one line, labelled native.)
             prog = os.path.join(work, "prog.py")
             with open(prog, "w") as f:
                 f.write(
                     "import time\n"
-                    "end = time.perf_counter() + 2\n"
-                    "x = 0\n"
-                    "while time.perf_counter() < end:\n"
-                    "    x += sum(i * i for i in range(10_000))\n"
+                    "\n"
+                    "def python_work(seconds):\n"
+                    "    end = time.perf_counter() + seconds\n"
+                    "    x = 0\n"
+                    "    while time.perf_counter() < end:\n"
+                    "        for i in range(1000):\n"
+                    "            x += i * i\n"
+                    "    return x\n"
+                    "\n"
+                    "def native_work(seconds):\n"
+                    "    end = time.perf_counter() + seconds\n"
+                    "    x = 0\n"
+                    "    while time.perf_counter() < end:\n"
+                    "        x += sum(range(5_000_000))\n"
+                    "    return x\n"
+                    "\n"
+                    "python_work(1.5)\n"
+                    "native_work(1.5)\n"
                     "data = [bytearray(1_000_000) for _ in range(50)]\n"
                 )
             run("-m", "scalene", "--version")
@@ -201,13 +221,37 @@ jobs:
             if not files:
                 sys.exit(f"ERROR: prog.py not in profile: {list(profile.get('files', {}))}")
             lines = profile["files"][files[0]]["lines"]
-            busy = [
-                l for l in lines
-                if l["n_cpu_percent_python"] + l["n_cpu_percent_c"] > 0
-            ]
-            if not busy:
-                sys.exit("ERROR: no CPU samples attributed to prog.py")
-            print(f"profile OK: {len(busy)} line(s) with CPU samples")
+
+            # Sum line percentages per function (lines 3-9 and 11-16). The
+            # per-function totals in the JSON undercount loop bodies.
+            def phase(first, last):
+                py = sum(l["n_cpu_percent_python"] for l in lines if first <= l["lineno"] <= last)
+                c = sum(l["n_cpu_percent_c"] for l in lines if first <= l["lineno"] <= last)
+                return py, c
+
+            py_py, py_c = phase(3, 9)
+            nat_py, nat_c = phase(11, 16)
+            total = py_py + py_c + nat_py + nat_c
+            print(f"python_work: python={py_py:.1f}% native={py_c:.1f}%")
+            print(f"native_work: python={nat_py:.1f}% native={nat_c:.1f}%")
+            errors = []
+            if total <= 0:
+                errors.append("no CPU samples attributed to prog.py")
+            else:
+                share = (py_py + py_c) / total
+                if not 0.3 <= share <= 0.7:
+                    errors.append(f"python_work got {share:.0%} of CPU; expected about 50%")
+                if py_py < 0.5 * (py_py + py_c):
+                    errors.append("python_work (pure Python) is reported as mostly native")
+                if nat_c < 0.7 * (nat_py + nat_c):
+                    errors.append("native_work (C code) is not reported as mostly native")
+            peak = max(l["n_peak_mb"] for l in lines if l["lineno"] == 20) if any(l["lineno"] == 20 for l in lines) else 0
+            # Printed, not checked: the peak recorded for this line differs
+            # by platform (about 42 MB on Windows, 2 MB on macOS).
+            print(f"allocation line peak: {peak:.1f} MB")
+            if errors:
+                sys.exit("ERROR: " + "; ".join(errors))
+            print("profile OK")
 
     - uses: actions/upload-artifact@v7
       with:
