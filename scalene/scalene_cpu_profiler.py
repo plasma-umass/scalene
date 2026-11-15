@@ -76,6 +76,12 @@ class ScaleneCPUProfiler:
         # Function of the main thread's sampled line, for lines that get
         # time without being sampled themselves (see _update_main_thread_stats).
         self._main_function: Filename | None = None
+        # CPU time and located arrivals over the samples split by arrival,
+        # for the time each arrival stands for, and the time not yet given
+        # to any arrival (see process_cpu_sample).
+        self._arrival_cpu_time = 0.0
+        self._arrival_count = 0
+        self._arrival_unallocated = 0.0
 
     def process_cpu_sample(
         self,
@@ -284,8 +290,8 @@ class ScaleneCPUProfiler:
             # calls anything, along with that call. Knowing the lines makes
             # the bytecode guesses below (loop-body spreading, preceding
             # CALL) unnecessary.
-            arrival_shares = (
-                self._arrival_shares(
+            arrival_counts = (
+                self._arrival_counts(
                     main_thread_frame,
                     signal_arrivals,
                     should_trace,
@@ -296,8 +302,35 @@ class ScaleneCPUProfiler:
                 and not self._thread_sampled
                 else None
             )
-            if arrival_shares is not None:
-                for frame, line, share, native in arrival_shares:
+            if arrival_counts is not None:
+                # Every arrival stands for the same time: the average over
+                # the run so far, not this sample's time over its arrivals.
+                # The handler runs at the same safe point each time, so the
+                # stretch from the last arrival to the handler (and from the
+                # handler to the first arrival) falls on the same lines in
+                # every sample; splitting each sample's time among its own
+                # arrivals gave an arrival in a one-arrival sample (usually
+                # the line just before the safe point) more time than one
+                # in a sample with several, and undercounted an operator just
+                # after a call's return by a third (#466).
+                #
+                # Never hand out more time than was measured: an early
+                # sample with much time and few located arrivals inflates
+                # the average for a while, which overcounted lines by 15% in
+                # a one-second run. So arrivals draw on the time not yet
+                # given out, and a tenth of what is left over is paid out
+                # each sample, so that it doesn't build up.
+                located = sum(count for _, _, count, _ in arrival_counts)
+                self._arrival_cpu_time += average_cpu_time
+                self._arrival_count += located
+                self._arrival_unallocated += average_cpu_time
+                average = self._arrival_cpu_time / self._arrival_count
+                allocated = min(located * average, self._arrival_unallocated)
+                allocated += 0.1 * (self._arrival_unallocated - allocated)
+                self._arrival_unallocated -= allocated
+                per_arrival = allocated / located
+                for frame, line, count, native in arrival_counts:
+                    share = count / located
                     line_fname = Filename(frame.f_code.co_filename)
                     if frame is not main_thread_frame:
                         enter_function_meta(frame, should_trace, self._stats)
@@ -310,7 +343,7 @@ class ScaleneCPUProfiler:
                         self._main_function = self._stats.function_map[fname].get(
                             lineno
                         )
-                    cpu = average_cpu_time * share
+                    cpu = per_arrival * count
                     self._update_main_thread_stats(
                         line_fname,
                         line,
@@ -571,21 +604,21 @@ class ScaleneCPUProfiler:
         return None
 
     @staticmethod
-    def _arrival_shares(
+    def _arrival_counts(
         frame: FrameType,
         arrivals: list[SignalArrival],
         should_trace: Callable[[Filename, str], bool],
         deferral: float,
-    ) -> list[tuple[FrameType, LineNumber, float, bool]] | None:
-        """Split a sample among the timer arrivals it covers.
+    ) -> list[tuple[FrameType, LineNumber, int, bool]] | None:
+        """Count the located timer arrivals a sample covers, per line.
 
-        Returns (frame, line, share of the sample, native?) per line, or None
-        if no arrival's line is known. Each arrival is one sample of equal
-        weight: the timer is re-armed from the last arrival, not from the
-        handler (see Scalene.cpu_signal_handler), so arrivals are spread
-        evenly through the program whatever its safe points are. Arrivals
-        the handler didn't run right after are native, and the last is
-        classified by its own deferral, as a single arrival always was.
+        Returns (frame, line, arrivals, native?) per line, or None if no
+        arrival's line is known. Each arrival is one sample of equal weight
+        (see process_cpu_sample): the timer keeps firing while the handler
+        is pending, so arrivals are spread through the program whatever its
+        safe points are. Arrivals the handler didn't run right after are
+        native, and the last is classified by its own deferral, as a single
+        arrival always was.
         """
         # Arrivals older than the earliest pending one are leftovers from a
         # race with the previous consume.
@@ -611,19 +644,19 @@ class ScaleneCPUProfiler:
         ]
         if not known:
             return None
-        shares: dict[
-            tuple[int, int, bool], tuple[FrameType, LineNumber, float, bool]
-        ] = {}
+        counts: dict[tuple[int, int, bool], tuple[FrameType, LineNumber, int, bool]] = (
+            {}
+        )
         for (f, line), native in known:
             key = (id(f), line, native)
-            prev = shares.get(key)
-            shares[key] = (
+            prev = counts.get(key)
+            counts[key] = (
                 f,
                 line,
-                1 / len(known) + (prev[2] if prev else 0.0),
+                1 + (prev[2] if prev else 0),
                 native,
             )
-        return list(shares.values())
+        return list(counts.values())
 
     def _update_main_thread_stats(
         self,
