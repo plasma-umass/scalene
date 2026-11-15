@@ -22,9 +22,12 @@ def redirect_python(preface: str, cmdline: str, python_alias_dir: pathlib.Path) 
 
     shebang = "@echo off" if sys.platform == "win32" else "#!/usr/bin/env bash"
     all_args = "%*" if sys.platform == "win32" else '"$@"'
+    python_launcher = (
+        sys.executable if sys.platform == "win32" else f"exec {sys.executable}"
+    )
 
     payload = (
-        f"{shebang}\n{preface} {sys.executable} -m scalene run {cmdline} {all_args}\n"
+        f"{shebang}\n{preface} {python_launcher} -m scalene run {cmdline} {all_args}\n"
     )
 
     for name in all_python_names:
