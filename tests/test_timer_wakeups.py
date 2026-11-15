@@ -15,6 +15,10 @@ setitimer() signals (replacement_signal_fns.py). Two ways that broke:
   handler re-arms it.
 """
 
+# Earlier tests may start Scalene in this process, which replaces
+# signal.signal/setitimer with versions that emulate the program's timers;
+# the in-process tests below use the real ones, from _signal.
+import _signal
 import shutil
 import signal
 import subprocess
@@ -23,11 +27,6 @@ import textwrap
 from pathlib import Path
 
 import pytest
-
-# Earlier tests may start Scalene in this process, which replaces
-# signal.signal/setitimer with versions that emulate the program's timers;
-# the in-process tests below need the real ones.
-import _signal  # noqa: E402
 
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32", reason="Unix timer signals (Windows uses a thread)"
