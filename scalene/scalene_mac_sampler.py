@@ -15,10 +15,9 @@ that periodically calls Scalene's CPU sample handler directly. Because no
 signal is ever delivered, the kernel never runs its buggy SME save/
 restore path, and the worker thread's matrix state stays intact.
 
-This mirrors the existing Windows approach (``windows_timer_loop`` in
-``scalene_signal_manager``), which already drives the CPU handler from a
-background thread for a different reason (``signal.raise_signal`` is
-unavailable off the main thread on Windows). The handler reads thread
+Windows once drove the CPU handler from a background thread the same way;
+it now uses a native timer thread that trips the CPU signal instead (see
+``start_cpu_timer_thread`` in ``native_unwind.cpp``). The handler reads thread
 state via ``sys._current_frames()``, which is thread-safe and works from
 any thread, so calling it from this helper is sound.
 
@@ -98,7 +97,7 @@ class MacThreadSampler:
     def _loop(self) -> None:
         """Periodically invoke the CPU handler (and poll memory) until stopped."""
         # Initial delay so the first samples land in user code, not in
-        # Scalene's own startup (matches windows_timer_loop).
+        # Scalene's own startup.
         if self._stop_event.wait(0.01):
             return
         polling_memory = self._alloc_sigq is not None
