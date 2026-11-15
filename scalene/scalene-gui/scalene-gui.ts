@@ -3235,6 +3235,12 @@ function getFirstProvider(): string {
 function getDefaultProvider(): string {
   const firstProvider = getFirstProvider();
   const envApiKeys = getEnvApiKeys();
+  // `scalene config set default_provider ...`, if it names a provider here
+  const serviceSelect = document.getElementById("service-select") as HTMLSelectElement | null;
+  const configured = envApiKeys.defaultProvider;
+  if (configured && serviceSelect && Array.from(serviceSelect.options).some((o) => o.value === configured)) {
+    return configured;
+  }
   // Check providers in alphabetical order
   if (envApiKeys.awsAccessKey && envApiKeys.awsSecretKey) return "amazon";
   if (envApiKeys.anthropic) return "anthropic";

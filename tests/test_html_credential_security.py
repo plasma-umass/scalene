@@ -51,10 +51,12 @@ def test_generate_html_does_not_embed_environment_credentials(
 
 @pytest.fixture
 def key_server(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> Iterator[Tuple[int, pytest.MonkeyPatch]]:
     for variable in SENSITIVE_ENVIRONMENT_VARIABLES:
         monkeypatch.delenv(variable, raising=False)
+    # Never read the real ~/.scalene/config.json.
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
     httpd = socketserver.TCPServer(("127.0.0.1", 0), launchbrowser.CustomHandler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -161,3 +163,47 @@ def test_view_rejects_api_keys_from_env_for_file_modes(
     assert result.returncode == 1
     assert "--api-keys-from-env" in result.stderr
     assert not (tmp_path / "scalene-profile.html").exists()
+
+
+def test_key_endpoint_serves_saved_settings_without_opt_in(key_server) -> None:
+    # `scalene config set` is the opt-in for saved settings (#911).
+    port, monkeypatch = key_server
+    monkeypatch.setattr(launchbrowser.CustomHandler, "serve_env_api_keys", False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-env-not-served")
+    from scalene import scalene_ai_config
+
+    scalene_ai_config.set_value("openai_api_key", "sk-saved")
+    scalene_ai_config.set_value("default_provider", "anthropic")
+
+    status, _, body = _get_keys(port)
+
+    assert status == 200
+    assert json.loads(body) == {"openai": "sk-saved", "defaultProvider": "anthropic"}
+
+
+def test_environment_overrides_saved_settings_with_opt_in(key_server) -> None:
+    port, monkeypatch = key_server
+    monkeypatch.setattr(launchbrowser.CustomHandler, "serve_env_api_keys", True)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-env")
+    from scalene import scalene_ai_config
+
+    scalene_ai_config.set_value("openai_api_key", "sk-saved")
+    scalene_ai_config.set_value("anthropic_api_key", "sk-ant-saved")
+
+    _, _, body = _get_keys(port)
+
+    assert json.loads(body) == {"openai": "sk-env", "anthropic": "sk-ant-saved"}
+
+
+def test_saved_settings_never_reach_generated_html(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    from scalene import scalene_ai_config
+
+    scalene_ai_config.set_value("anthropic_api_key", "sk-ant-saved-secret")
+    profile = tmp_path / "profile.json"
+    profile.write_text("{}")
+    out = tmp_path / "out.html"
+    generate_html(Filename(str(profile)), Filename(str(out)))
+    assert "sk-ant-saved-secret" not in out.read_text()

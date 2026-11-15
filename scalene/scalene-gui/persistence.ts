@@ -1,29 +1,30 @@
 import { isModelSelect, restoreModelSelection } from "./models";
 
-// AI provider credentials taken from environment variables. These are
-// never embedded in the HTML: with `scalene view --api-keys-from-env`, the
-// local server hands them to the page over a same-origin request.
+// AI provider settings from `scalene config` (~/.scalene/config.json) and,
+// with `scalene view --api-keys-from-env`, environment variables. These are
+// never embedded in the HTML: the local server hands them to the page over
+// a same-origin request.
 export interface EnvApiKeys {
   openai?: string;
+  openaiModel?: string;
+  openaiUrl?: string;
   anthropic?: string;
+  anthropicModel?: string;
+  anthropicUrl?: string;
   gemini?: string;
+  geminiModel?: string;
+  geminiUrl?: string;
   azure?: string;
   azureUrl?: string;
+  azureApiVersion?: string;
+  azureModel?: string;
   awsAccessKey?: string;
   awsSecretKey?: string;
   awsRegion?: string;
+  ollamaHost?: string;
+  ollamaPort?: string;
+  defaultProvider?: string;
 }
-
-const envApiKeyFields: (keyof EnvApiKeys)[] = [
-  "openai",
-  "anthropic",
-  "gemini",
-  "azure",
-  "azureUrl",
-  "awsAccessKey",
-  "awsSecretKey",
-  "awsRegion",
-];
 
 let envApiKeys: EnvApiKeys = {};
 
@@ -31,9 +32,8 @@ export function getEnvApiKeys(): EnvApiKeys {
   return envApiKeys;
 }
 
-// Fetch environment credentials from the local server. The server returns
-// an empty object unless --api-keys-from-env was given; pages opened from a
-// file (--html, --standalone) have no server, so skip the request entirely.
+// Fetch saved and environment settings from the local server. Pages opened
+// from a file (--html, --standalone) have no server, so skip the request.
 export async function loadEnvApiKeys(): Promise<void> {
   if (!window.location.protocol.startsWith("http")) {
     return;
@@ -48,7 +48,10 @@ export async function loadEnvApiKeys(): Promise<void> {
       return;
     }
     const keys: EnvApiKeys = {};
-    for (const field of envApiKeyFields) {
+    // defaultProvider picks the provider (see getDefaultProvider in
+    // scalene-gui.ts) rather than filling a field.
+    const fields = new Set<keyof EnvApiKeys>([...Object.values(envKeyMap), "defaultProvider"]);
+    for (const field of fields) {
       const value = (data as Record<string, unknown>)[field];
       if (typeof value === "string" && value) {
         keys[field] = value;
@@ -60,16 +63,26 @@ export async function loadEnvApiKeys(): Promise<void> {
   }
 }
 
-// Map element IDs to their corresponding environment variable keys
+// Map element IDs to the settings that fill them when they're empty.
 const envKeyMap: Record<string, keyof EnvApiKeys> = {
   "api-key": "openai",
+  "openai-custom-model": "openaiModel",
+  "openai-custom-url": "openaiUrl",
   "anthropic-api-key": "anthropic",
+  "anthropic-custom-model": "anthropicModel",
+  "anthropic-custom-url": "anthropicUrl",
   "gemini-api-key": "gemini",
+  "gemini-custom-model": "geminiModel",
+  "gemini-custom-url": "geminiUrl",
   "azure-api-key": "azure",
   "azure-api-url": "azureUrl",
+  "azure-api-version": "azureApiVersion",
+  "azure-custom-model": "azureModel",
   "aws-access-key": "awsAccessKey",
   "aws-secret-key": "awsSecretKey",
   "aws-region": "awsRegion",
+  "local-ip": "ollamaHost",
+  "local-port": "ollamaPort",
 };
 
 function restoreState(el: HTMLInputElement): void {
