@@ -30,6 +30,17 @@ _LIFECYCLE_STOP_EVENT = "Local\\scalene-lifecycle-stop-{pid}"
 _EVENT_MODIFY_STATE = 0x0002
 _WAIT_OBJECT_0 = 0
 
+# Wall-clock mode: Scalene's SIGALRM timer is one-shot, re-armed by its
+# Python handler, and that handler also delivers the program's own
+# setitimer() signals (see replacement_signal_fns.py). If the signal lands
+# just before a blocking wait begins (signal.pause(), select.poll(), ...),
+# CPython runs the handler only once the wait ends; with nothing re-armed,
+# the program sleeps forever. So the timer reloads after this many seconds
+# until the handler re-arms it; the C handler ignores a reload that arrives
+# while the sample is still pending (native_unwind.cpp). Windows' native
+# timer thread has the same one-second backstop.
+CPU_TIMER_BACKUP_INTERVAL = 1.0
+
 if sys.platform == "win32":
     _kernel32: Any = ctypes.windll.kernel32  # type: ignore[attr-defined]
 else:
@@ -260,10 +271,7 @@ class ScaleneSignalManager:
                 memcpy_sigq,
             )
         else:
-            self.__orig_setitimer(
-                self.__signals.cpu_timer_signal,
-                cpu_sampling_rate,
-            )
+            self.__arm_cpu_timer(cpu_sampling_rate)
         # Unmask Scalene's profiling signals in the calling (main) thread.
         # pytest-xdist's execnet, and other libraries that fan out work via
         # subprocess.Popen, can leave the worker process with Scalene's CPU
@@ -431,6 +439,19 @@ class ScaleneSignalManager:
         """Send a signal to a specific child process."""
         self.__orig_kill(pid, signal_type)
 
+    def __arm_cpu_timer(self, interval: float) -> None:
+        """Arm the CPU timer to fire once after *interval* seconds (Unix).
+
+        In wall-clock mode it then reloads every CPU_TIMER_BACKUP_INTERVAL
+        until re-armed, so a signal that lands just before a blocking wait
+        can't leave the program asleep forever.
+        """
+        timer = self.__signals.cpu_timer_signal
+        if timer == signal.ITIMER_REAL:
+            self.__orig_setitimer(timer, interval, CPU_TIMER_BACKUP_INTERVAL)
+        else:
+            self.__orig_setitimer(timer, interval)
+
     def restart_timer(self, interval: float) -> None:
         """Restart the CPU profiling timer with the specified interval.
 
@@ -442,10 +463,7 @@ class ScaleneSignalManager:
         if self.__mac_sampler is not None:
             return
         if sys.platform != "win32":
-            self.__orig_setitimer(
-                self.__signals.cpu_timer_signal,
-                interval,
-            )
+            self.__arm_cpu_timer(interval)
         else:
             # The native timer waits for the handler to consume the arrival
             # before starting the next interval, like a one-shot timer.

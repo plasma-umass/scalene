@@ -316,6 +316,14 @@ extern "C" ATTRIBUTE_EXPORT int LOCAL_PREFIX(setitimer)(
   return scalene::eintr::setitimer_impl(which, new_value, old_value);
 }
 
+// For _scalene_unwind's C signal handler (looked up with dlsym): re-arms a
+// timer without marking a handled Scalene tick (see eintr_retry.hpp).
+extern "C" ATTRIBUTE_EXPORT int scalene_setitimer_untracked(
+    int which, const struct itimerval *new_value,
+    struct itimerval *old_value) {
+  return scalene::eintr::untracked_setitimer_impl(which, new_value, old_value);
+}
+
 extern "C" ATTRIBUTE_EXPORT int LOCAL_PREFIX(poll)(struct pollfd *fds,
                                                    nfds_t nfds, int timeout) {
   return scalene::eintr::poll_impl(fds, nfds, timeout);

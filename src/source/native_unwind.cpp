@@ -233,7 +233,29 @@ using ResumeSamplingFn = void (*)(int);
 std::atomic<SuspendSamplingFn> g_suspend_sampling{nullptr};
 std::atomic<ResumeSamplingFn> g_resume_sampling{nullptr};
 
+// libscalene's EINTR-retry interposer (eintr_retry.hpp) retries a wait that
+// Scalene's timer interrupted only if setitimer was called since the wait
+// began, meaning Scalene's Python handler ran and re-armed the timer. The
+// re-arms in this file happen while that handler is still pending, so they
+// go through libscalene's untracked setitimer, or the interposer would retry
+// Python-level waits (select.poll() and friends) without ever letting
+// CPython run the handler -- and a program waiting there for its own timer
+// signal, which that handler delivers, would hang.
+using SetitimerFn = int (*)(int, const struct itimerval*, struct itimerval*);
+std::atomic<SetitimerFn> g_untracked_setitimer{nullptr};
+
+int untracked_setitimer(int which, const struct itimerval* nv) {
+  SetitimerFn fn = g_untracked_setitimer.load(std::memory_order_acquire);
+  // Without libscalene (CPU-only profiling) nothing interposes setitimer.
+  return fn != nullptr ? fn(which, nv, nullptr) : setitimer(which, nv, nullptr);
+}
+
 void resolve_sampling_hooks() {
+  if (g_untracked_setitimer.load(std::memory_order_acquire) == nullptr) {
+    g_untracked_setitimer.store(reinterpret_cast<SetitimerFn>(dlsym(
+                                    RTLD_DEFAULT, "scalene_setitimer_untracked")),
+                                std::memory_order_release);
+  }
   if (g_suspend_sampling.load(std::memory_order_acquire) != nullptr) return;
   auto suspend = reinterpret_cast<SuspendSamplingFn>(
       dlsym(RTLD_DEFAULT, "scalene_suspend_sampling"));
@@ -534,7 +556,7 @@ void rearm_cpu_timer() {
       std::memset(&timer, 0, sizeof(timer));
       timer.it_value.tv_sec = us / 1000000;
       timer.it_value.tv_usec = us % 1000000;
-      setitimer(ITIMER_VIRTUAL, &timer, nullptr);
+      untracked_setitimer(ITIMER_VIRTUAL, &timer);
     }
   }
   errno = saved_errno;
@@ -556,8 +578,31 @@ void scalene_extra_arrival(int /*sig*/, siginfo_t* /*si*/, void* /*uc*/) {
   if (k >= 0 && k + 1 < kMaxArrivals) rearm_cpu_timer();
 }
 
+// Chain to the previously installed handler so CPython's pending-signal
+// dispatch (which eventually invokes the Python-level cpu_signal_handler)
+// still runs. Without this, our Python handler would never fire.
+void chain_to_previous(int sig, siginfo_t* si, void* ucontext) {
+  struct sigaction* prev = &g_prev_action[sig];
+  if (prev->sa_flags & SA_SIGINFO) {
+    if (prev->sa_sigaction) prev->sa_sigaction(sig, si, ucontext);
+  } else if (prev->sa_handler != SIG_IGN && prev->sa_handler != SIG_DFL) {
+    prev->sa_handler(sig);
+  }
+}
+
 void scalene_signal_unwinder(int sig, siginfo_t* si, void* ucontext) {
   g_handler_invocations.fetch_add(1, std::memory_order_relaxed);
+
+  // Wall-clock mode: Scalene's one-shot SIGALRM timer reloads every second
+  // until its Python handler re-arms it (CPU_TIMER_BACKUP_INTERVAL in
+  // scalene_signal_manager.py). A reload while the sample is still pending
+  // isn't another sample -- the CPU-time timer records those -- but it
+  // interrupts a wait that the first signal missed (it landed just before
+  // the wait began), so CPython runs the handler instead of sleeping forever.
+  if (sig == SIGALRM && g_arrival_pending.load(std::memory_order_acquire)) {
+    chain_to_previous(sig, si, ucontext);
+    return;
+  }
 
   {
     int64_t wall = clock_ns(CLOCK_MONOTONIC);
@@ -600,15 +645,7 @@ void scalene_signal_unwinder(int sig, siginfo_t* si, void* ucontext) {
     e->n.store(n, std::memory_order_release);
   }
 
-  // Chain to the previously installed handler so CPython's pending-signal
-  // dispatch (which eventually invokes the Python-level cpu_signal_handler)
-  // still runs. Without this, our Python handler would never fire.
-  struct sigaction* prev = &g_prev_action[sig];
-  if (prev->sa_flags & SA_SIGINFO) {
-    if (prev->sa_sigaction) prev->sa_sigaction(sig, si, ucontext);
-  } else if (prev->sa_handler != SIG_IGN && prev->sa_handler != SIG_DFL) {
-    prev->sa_handler(sig);
-  }
+  chain_to_previous(sig, si, ucontext);
 }
 
 #endif  // SCALENE_UNWIND_AVAILABLE
