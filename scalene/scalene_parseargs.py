@@ -1124,6 +1124,7 @@ https://github.com/plasma-umass/scalene
 commands:
   run     Profile a Python program (saves to scalene-profile.json)
   view    View an existing profile in browser or terminal
+  config  Save AI provider settings (API keys, models) for the GUI
 
 examples:
   % scalene run your_program.py              # profile, save to scalene-profile.json
@@ -1260,9 +1261,9 @@ examples:
             default=False,
             help=(
                 "prefill AI provider API keys from environment variables "
-                "(OPENAI_API_KEY, ANTHROPIC_API_KEY, ...); keys are served "
-                "only to the local browser session and never written to the "
-                "HTML file"
+                "(OPENAI_API_KEY, ANTHROPIC_API_KEY, ...), overriding settings "
+                "saved with `scalene config`; keys are served only to the local "
+                "browser session and never written to the HTML file"
             ),
         )
 
@@ -1273,7 +1274,9 @@ examples:
             description=dedent(
                 """Save AI provider settings for Scalene's GUI in ~/.scalene/config.json
 (readable only by you). `scalene view` fills them into the GUI's empty
-fields; they are never written into an HTML file.
+fields; they are never written into an HTML file. Environment variables
+are not used, unless you run `scalene view --api-keys-from-env`: then
+they override saved settings. Values typed into the GUI override both.
 
 examples:
   % scalene config                                # list saved settings
