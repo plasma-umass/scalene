@@ -394,9 +394,7 @@ class ScalenePlugin:
             return
         self._resume()
 
-    def pytest_collection_modifyitems(
-        self, items: list[pytest.Item]
-    ) -> None:
+    def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> None:
         """Switch to per-test profiling when any test carries @pytest.mark.scalene."""
         if self._scalene is None:
             return
@@ -418,9 +416,7 @@ class ScalenePlugin:
         else:
             yield
 
-    def pytest_sessionfinish(
-        self, session: pytest.Session, exitstatus: int
-    ) -> None:
+    def pytest_sessionfinish(self, session: pytest.Session, exitstatus: int) -> None:
         if self._scalene is None:
             return
         self._suspend()
