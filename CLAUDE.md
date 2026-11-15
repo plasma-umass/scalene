@@ -728,14 +728,25 @@ While the Python handler is pending, the C handler keeps a CPU-time timer
 (`ITIMER_VIRTUAL`) running, so long C code is sampled on every line it
 spans; in wall-clock mode a record-only C handler takes `SIGVTALRM` for
 this (the CPU-time timer can't fire inside a blocking system call, so it
-adds no EINTRs). `consume_cpu_signal_arrival()` returns every arrival, and
-`ScaleneCPUProfiler._arrival_shares()` gives each arrival an equal share of
-the sample (the intervals are exponential, so arrivals are spread evenly
-whatever the program's safe points), dropping arrivals whose code object is
-no longer on the stack (returned functions, Scalene's own handler, other
-threads). When a line is known, the bytecode guesses (loop-body spreading,
-preceding CALL) are skipped; in tight pure-Python loops they had put nearly
-everything on one line.
+adds no EINTRs). `consume_cpu_signal_arrival()` returns every arrival;
+`ScaleneCPUProfiler._arrival_counts()` counts them per line, dropping
+arrivals whose code object is no longer on the stack (returned functions,
+Scalene's own handler, other threads). When a line is known, the bytecode
+guesses (loop-body spreading, preceding CALL) are skipped; in tight
+pure-Python loops they had put nearly everything on one line.
+
+**Every arrival stands for the same CPU time**: the run's average so far
+(total CPU of the samples split this way over their located arrivals), not
+the sample's own time over its arrivals. In a loop the handler runs at the
+same safe point every time, so the stretch after the last arrival always
+falls on the line before it; a one-arrival sample (on that line) got the
+whole stretch, while the operator's arrivals always share a sample with the
+call's. Splitting per sample gave `p = big + big` 11-13% instead of 18% on
+3.12/3.13. Measured on macOS after the change: 3.11-3.14 within 1 point of
+the in-process truth (`time.process_time()` around each line, run *under*
+Scalene: on 3.10 profiling itself makes the concatenation 40% faster, so
+compare against that, not an unprofiled run). Making the re-arm intervals
+exponential as well made no measurable difference.
 
 Big-integer arithmetic calls `PyErr_CheckSignals()` mid-operation, so its
 handler runs at once and it counts as Python, as it always has.
