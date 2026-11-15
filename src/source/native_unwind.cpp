@@ -36,6 +36,7 @@
 #include <Python.h>
 
 #include <atomic>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <stddef.h>
@@ -46,11 +47,13 @@
 #  include <libunwind.h>
 #  include <dlfcn.h>
 #  include <signal.h>
+#  include <sys/time.h>
 #  define SCALENE_UNWIND_AVAILABLE 1
 #elif defined(__APPLE__)
 #  include <unwind.h>
 #  include <dlfcn.h>
 #  include <signal.h>
+#  include <sys/time.h>
 #  define SCALENE_UNWIND_AVAILABLE 1
 #else
 #  define SCALENE_UNWIND_AVAILABLE 0
@@ -72,6 +75,124 @@
 #elif defined(__APPLE__)
 #  include <pthread.h>
 #endif
+
+#include "frame_peek.h"
+
+// -------- Where the main thread was at each arrival (#466) --------
+//
+// CPython runs the Python handler at its next safe point (a call's return,
+// a loop back-edge), which can be lines later than where the signal
+// arrived: `x @ y` alone on a line was charged to the next line that calls
+// something, together with that call's time. So every arrival is recorded
+// (up to kMaxArrivals) with the main thread's code object and bytecode
+// offset (scalene_peek_frame), read on the main thread itself (Unix: only
+// when the signal landed there; Windows: the timer thread suspends it), and
+// while the Python handler is pending, the CPU timer keeps firing (re-armed
+// here) so that a long stretch of C code spanning several lines is sampled
+// on each of them. consume_arrival() hands them all over; it always runs on
+// the main thread, so it also refreshes the main thread's identity.
+constexpr int kMaxArrivals = 64;
+struct ArrivalRecord {
+  std::atomic<int> ready{0};
+  int64_t wall_ns = 0;
+  int64_t cpu_ns = 0;
+  uintptr_t code = 0;  // 0: location unknown
+  int offset = -1;
+};
+ArrivalRecord g_arrivals[kMaxArrivals];
+std::atomic<int> g_arrival_count{0};
+// Microseconds to re-arm ITIMER_VIRTUAL with after an arrival the Python
+// handler hasn't consumed yet; 0: don't re-arm.
+std::atomic<long> g_rearm_us{0};
+
+std::atomic<PyThreadState*> g_main_tstate{nullptr};
+#if SCALENE_UNWIND_AVAILABLE
+pthread_t g_main_pthread;
+std::atomic<bool> g_main_pthread_set{false};
+#endif
+
+// scalene_peek_frame, from scalene._frame_peek (null: no locations).
+std::atomic<scalene_peek_frame_fn> g_peek{nullptr};
+bool g_peek_tried = false;  // only touched with the GIL held
+
+// Called with the GIL held, never from a signal handler.
+void note_main_thread() {
+  if (!g_peek_tried) {
+    g_peek_tried = true;
+    // PyCapsule_Import only follows attributes from the top-level package,
+    // so import the submodule first.
+    PyObject* mod = PyImport_ImportModule("scalene._frame_peek");
+    Py_XDECREF(mod);
+    void* fn =
+        mod == nullptr ? nullptr : PyCapsule_Import(SCALENE_FRAME_PEEK_CAPSULE, 0);
+    if (fn == nullptr) {
+      PyErr_Clear();  // timing still works without locations
+    } else {
+      g_peek.store(reinterpret_cast<scalene_peek_frame_fn>(fn),
+                   std::memory_order_release);
+    }
+  }
+  g_main_tstate.store(PyThreadState_Get(), std::memory_order_release);
+#if SCALENE_UNWIND_AVAILABLE
+  if (!g_main_pthread_set.load(std::memory_order_acquire) ||
+      !pthread_equal(g_main_pthread, pthread_self())) {
+    g_main_pthread_set.store(false, std::memory_order_release);
+    g_main_pthread = pthread_self();
+    g_main_pthread_set.store(true, std::memory_order_release);
+  }
+#endif
+}
+
+// Appends an arrival, with where tstate's innermost frame is (if tstate is
+// given and readable). Returns its index, or -1 if the buffer is full.
+// Async-signal-safe.
+int record_arrival_at(int64_t wall_ns, int64_t cpu_ns, uintptr_t code,
+                      int offset) {
+  int k = g_arrival_count.fetch_add(1, std::memory_order_acq_rel);
+  if (k >= kMaxArrivals) return -1;
+  ArrivalRecord& r = g_arrivals[k];
+  r.wall_ns = wall_ns;
+  r.cpu_ns = cpu_ns;
+  r.code = code;
+  r.offset = offset;
+  r.ready.store(1, std::memory_order_release);
+  return k;
+}
+
+int record_arrival(int64_t wall_ns, int64_t cpu_ns, PyThreadState* tstate) {
+  uintptr_t code = 0;
+  int offset = -1;
+  scalene_peek_frame_fn peek = g_peek.load(std::memory_order_acquire);
+  if (tstate == nullptr || peek == nullptr || !peek(tstate, &code, &offset)) {
+    code = 0;
+    offset = -1;
+  }
+  return record_arrival_at(wall_ns, cpu_ns, code, offset);
+}
+
+// ((wall age s, CPU age s, code id, offset), ...) for the arrivals recorded
+// since the last call, oldest first, clearing them. The code id is the
+// address of the code object (id() in Python), 0 if unknown.
+PyObject* take_arrivals(int64_t now_wall, int64_t now_cpu) {
+  int n = g_arrival_count.exchange(0, std::memory_order_acq_rel);
+  if (n > kMaxArrivals) n = kMaxArrivals;
+  PyObject* list = PyList_New(0);
+  if (list == nullptr) return nullptr;
+  for (int i = 0; i < n; i++) {
+    ArrivalRecord& r = g_arrivals[i];
+    if (r.ready.exchange(0, std::memory_order_acquire) == 0) continue;
+    PyObject* item = Py_BuildValue(
+        "(ddKi)", (now_wall - r.wall_ns) / 1e9, (now_cpu - r.cpu_ns) / 1e9,
+        static_cast<unsigned long long>(r.code), r.offset);
+    if (item == nullptr || PyList_Append(list, item) != 0) {
+      Py_XDECREF(item);
+      Py_DECREF(list);
+      return nullptr;
+    }
+    Py_DECREF(item);
+  }
+  return list;
+}
 
 namespace {
 
@@ -389,14 +510,71 @@ int unwind_signal_frame_into(void* ucontext, void** ips, int max_frames) {
 #endif
 }
 
+void scalene_signal_unwinder(int sig, siginfo_t* si, void* ucontext);
+void scalene_extra_arrival(int sig, siginfo_t* si, void* ucontext);
+
+// While the Python handler is pending, keep a CPU-time timer (ITIMER_VIRTUAL,
+// SIGVTALRM) running so that C code spanning several lines before CPython
+// reaches a safe point is sampled on each line (#466). Only the CPU-time
+// timer: it can't fire during a blocking system call, so this adds no
+// EINTRs. In virtual-time mode SIGVTALRM is Scalene's CPU signal; in
+// wall-clock mode (SIGALRM) scalene_extra_arrival handles it, only
+// recording. Never arms a timer whose signal isn't one of these handlers.
+void rearm_cpu_timer() {
+  long us = g_rearm_us.load(std::memory_order_relaxed);
+  if (us <= 0) return;
+  int saved_errno = errno;
+  struct sigaction cur;
+  if (sigaction(SIGVTALRM, nullptr, &cur) == 0 && (cur.sa_flags & SA_SIGINFO) &&
+      (cur.sa_sigaction == scalene_signal_unwinder ||
+       cur.sa_sigaction == scalene_extra_arrival)) {
+    struct itimerval timer;
+    if (getitimer(ITIMER_VIRTUAL, &timer) == 0 && timer.it_value.tv_sec == 0 &&
+        timer.it_value.tv_usec == 0) {
+      std::memset(&timer, 0, sizeof(timer));
+      timer.it_value.tv_sec = us / 1000000;
+      timer.it_value.tv_usec = us % 1000000;
+      setitimer(ITIMER_VIRTUAL, &timer, nullptr);
+    }
+  }
+  errno = saved_errno;
+}
+
+bool on_main_thread() {
+  return g_main_pthread_set.load(std::memory_order_acquire) &&
+         pthread_equal(pthread_self(), g_main_pthread);
+}
+
+// SIGVTALRM in wall-clock mode: an extra arrival for the pending sample, if
+// there is one; otherwise the timer lapses.
+void scalene_extra_arrival(int /*sig*/, siginfo_t* /*si*/, void* /*uc*/) {
+  if (g_arrival_pending.load(std::memory_order_acquire) == 0) return;
+  int k = record_arrival(
+      clock_ns(CLOCK_MONOTONIC), clock_ns(CLOCK_PROCESS_CPUTIME_ID),
+      on_main_thread() ? g_main_tstate.load(std::memory_order_acquire)
+                       : nullptr);
+  if (k >= 0 && k + 1 < kMaxArrivals) rearm_cpu_timer();
+}
+
 void scalene_signal_unwinder(int sig, siginfo_t* si, void* ucontext) {
   g_handler_invocations.fetch_add(1, std::memory_order_relaxed);
 
-  if (g_arrival_pending.load(std::memory_order_acquire) == 0) {
-    g_arrival_wall_ns.store(clock_ns(CLOCK_MONOTONIC), std::memory_order_relaxed);
-    g_arrival_cpu_ns.store(clock_ns(CLOCK_PROCESS_CPUTIME_ID),
-                           std::memory_order_relaxed);
-    g_arrival_pending.store(1, std::memory_order_release);
+  {
+    int64_t wall = clock_ns(CLOCK_MONOTONIC);
+    int64_t cpu = clock_ns(CLOCK_PROCESS_CPUTIME_ID);
+    // Another thread's frames can be popped and freed under us, so only
+    // look when the signal landed on the main thread.
+    int k = record_arrival(
+        wall, cpu,
+        on_main_thread() ? g_main_tstate.load(std::memory_order_acquire)
+                         : nullptr);
+    if (g_arrival_pending.load(std::memory_order_acquire) == 0) {
+      g_arrival_wall_ns.store(wall, std::memory_order_relaxed);
+      g_arrival_cpu_ns.store(cpu, std::memory_order_relaxed);
+      g_arrival_pending.store(1, std::memory_order_release);
+    }
+    // Keep sampling until the Python handler runs (see rearm_cpu_timer).
+    if (k >= 0 && k + 1 < kMaxArrivals) rearm_cpu_timer();
   }
 
   if (g_unwind_enabled.load(std::memory_order_relaxed)) {
@@ -485,7 +663,9 @@ int64_t win_cpu_ns() {
 
 HANDLE g_win_thread = nullptr;
 HANDLE g_win_stop = nullptr;      // manual reset: stop the timer thread
+HANDLE g_win_main_thread = nullptr;  // for suspending it (#466)
 HANDLE g_win_consumed = nullptr;  // auto reset: the handler took the arrival
+HANDLE g_win_rearm = nullptr;     // auto reset: the handler set the interval
 std::atomic<int> g_win_signum{0};
 std::atomic<int64_t> g_win_interval_100ns{100000};  // 10 ms
 
@@ -495,6 +675,45 @@ void win_trip_signal(int signum) {
 #else
   raise(signum);  // runs CPython's C handler, which trips the signal
 #endif
+}
+
+// Records an arrival with where the main thread is: suspends it, reads its
+// innermost frame, resumes it. Nothing is allocated or locked while it is
+// suspended.
+void win_record_arrival() {
+  HANDLE h = g_win_main_thread;
+  PyThreadState* tstate = nullptr;
+  bool suspended = h != nullptr && SuspendThread(h) != static_cast<DWORD>(-1);
+  if (suspended) {
+    // SuspendThread is asynchronous; GetThreadContext waits until the
+    // thread has actually stopped.
+    CONTEXT ctx;
+    ctx.ContextFlags = CONTEXT_CONTROL;
+    if (GetThreadContext(h, &ctx)) {
+      tstate = g_main_tstate.load(std::memory_order_acquire);
+    }
+  }
+  // Read the frame now, while the thread is stopped; but time the arrival
+  // after resuming it, or the suspension (tens of microseconds or more,
+  // against a 0.05 ms threshold) would count as deferral and make pure
+  // Python look native.
+  uintptr_t code = 0;
+  int offset = -1;
+  scalene_peek_frame_fn peek = g_peek.load(std::memory_order_acquire);
+  if (tstate == nullptr || peek == nullptr || !peek(tstate, &code, &offset)) {
+    code = 0;
+    offset = -1;
+  }
+  if (suspended) ResumeThread(h);
+  int64_t wall = win_wall_ns();
+  int64_t cpu = win_cpu_ns();
+  record_arrival_at(wall, cpu, code, offset);
+  // Keep the earliest unconsumed arrival.
+  if (g_arrival_pending.load(std::memory_order_acquire) == 0) {
+    g_arrival_wall_ns.store(wall, std::memory_order_relaxed);
+    g_arrival_cpu_ns.store(cpu, std::memory_order_relaxed);
+    g_arrival_pending.store(1, std::memory_order_release);
+  }
 }
 
 DWORD WINAPI win_timer_main(LPVOID /*arg*/) {
@@ -519,15 +738,38 @@ DWORD WINAPI win_timer_main(LPVOID /*arg*/) {
         WAIT_OBJECT_0 + 1) {
       break;
     }
-    // Keep the earliest unconsumed arrival.
-    if (g_arrival_pending.load(std::memory_order_acquire) == 0) {
-      g_arrival_wall_ns.store(win_wall_ns(), std::memory_order_relaxed);
-      g_arrival_cpu_ns.store(win_cpu_ns(), std::memory_order_relaxed);
-      g_arrival_pending.store(1, std::memory_order_release);
-    }
+    win_record_arrival();
     win_trip_signal(g_win_signum.load(std::memory_order_relaxed));
+    // Until the handler consumes the arrival (or for a second, if it never
+    // does), keep recording one per interval, so C code that spans several
+    // lines before CPython reaches a safe point is sampled on each (#466).
     HANDLE wait_consumed[2] = {g_win_stop, g_win_consumed};
-    DWORD w = WaitForMultipleObjects(2, wait_consumed, FALSE, 1000);
+    bool stop = false;
+    DWORD waited_ms = 0;
+    for (;;) {
+      DWORD step = static_cast<DWORD>(
+          g_win_interval_100ns.load(std::memory_order_relaxed) / 10000);
+      if (step < 1) step = 1;
+      DWORD w = WaitForMultipleObjects(2, wait_consumed, FALSE, step);
+      if (w == WAIT_OBJECT_0 || w == WAIT_FAILED) {
+        stop = true;
+        break;
+      }
+      if (w == WAIT_OBJECT_0 + 1) break;  // consumed
+      waited_ms += step;
+      if (waited_ms >= 1000) break;
+      if (g_arrival_count.load(std::memory_order_relaxed) < kMaxArrivals) {
+        win_record_arrival();
+      }
+    }
+    if (stop) break;
+    // Like a one-shot timer re-armed at the end of the handler (as on
+    // Unix): start the next interval once the handler has set it, not when
+    // it consumed the arrival near its start. Otherwise a handler that runs
+    // longer than an interval is interrupted by the next tick and nests
+    // (RecursionError). A second at most, in case it never does.
+    HANDLE wait_rearm[2] = {g_win_stop, g_win_rearm};
+    DWORD w = WaitForMultipleObjects(2, wait_rearm, FALSE, 1000);
     if (w == WAIT_OBJECT_0 || w == WAIT_FAILED) break;
   }
   CloseHandle(timer);
@@ -627,6 +869,55 @@ PyObject* py_install_arrival_timestamper(PyObject* /*self*/, PyObject* arg) {
   return install_cpu_signal_hook(arg, /*force_restart=*/false);
 }
 
+// (wall s, CPU s, arrivals): seconds since the earliest unconsumed arrival,
+// and every arrival since the last consume (see take_arrivals).
+#if SCALENE_UNWIND_AVAILABLE || defined(_WIN32)
+PyObject* arrival_tuple(int64_t wall, int64_t cpu, int64_t now_wall,
+                        int64_t now_cpu) {
+  PyObject* arrivals = take_arrivals(now_wall, now_cpu);
+  if (arrivals == nullptr) return nullptr;
+  if (wall == 0 || cpu == 0 || now_wall == 0 || now_cpu == 0) {
+    Py_DECREF(arrivals);
+    Py_RETURN_NONE;
+  }
+  return Py_BuildValue("(ddN)", (now_wall - wall) / 1e9,
+                       (now_cpu - cpu) / 1e9, arrivals);
+}
+#endif
+
+// Stop reading the main thread's frames: called at exit (atexit), before
+// CPython frees the thread state.
+PyObject* py_forget_main_thread(PyObject* /*self*/, PyObject* /*args*/) {
+  g_main_tstate.store(nullptr, std::memory_order_release);
+  g_peek.store(nullptr, std::memory_order_release);
+  Py_RETURN_NONE;
+}
+
+PyObject* py_set_arrival_rearm_interval(PyObject* /*self*/, PyObject* arg) {
+#if SCALENE_UNWIND_AVAILABLE
+  double seconds = PyFloat_AsDouble(arg);
+  if (PyErr_Occurred()) return nullptr;
+  long us = seconds > 0 ? static_cast<long>(seconds * 1e6) : 0;
+  if (seconds > 0 && us < 100) us = 100;
+  g_rearm_us.store(us, std::memory_order_relaxed);
+  // Wall-clock mode: nothing handles SIGVTALRM yet, so take it for the
+  // extra arrivals. Leave it alone if anything else does.
+  struct sigaction cur;
+  if (us > 0 && sigaction(SIGVTALRM, nullptr, &cur) == 0 &&
+      !(cur.sa_flags & SA_SIGINFO) && cur.sa_handler == SIG_DFL) {
+    struct sigaction sa;
+    std::memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = scalene_extra_arrival;
+    sa.sa_flags = SA_SIGINFO | SA_RESTART;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGVTALRM, &sa, nullptr);
+  }
+#else
+  (void)arg;
+#endif
+  Py_RETURN_NONE;
+}
+
 PyObject* py_consume_arrival(PyObject* /*self*/, PyObject* /*args*/) {
 #if SCALENE_UNWIND_AVAILABLE
   if (g_arrival_pending.load(std::memory_order_acquire) == 0) Py_RETURN_NONE;
@@ -635,18 +926,18 @@ PyObject* py_consume_arrival(PyObject* /*self*/, PyObject* /*args*/) {
   int64_t now_wall = clock_ns(CLOCK_MONOTONIC);
   int64_t now_cpu = clock_ns(CLOCK_PROCESS_CPUTIME_ID);
   g_arrival_pending.store(0, std::memory_order_release);
-  if (wall == 0 || cpu == 0 || now_wall == 0 || now_cpu == 0) Py_RETURN_NONE;
-  return Py_BuildValue("(dd)", (now_wall - wall) / 1e9, (now_cpu - cpu) / 1e9);
+  note_main_thread();
+  return arrival_tuple(wall, cpu, now_wall, now_cpu);
 #elif defined(_WIN32)
   if (g_arrival_pending.load(std::memory_order_acquire) == 0) Py_RETURN_NONE;
   int64_t wall = g_arrival_wall_ns.load(std::memory_order_relaxed);
   int64_t cpu = g_arrival_cpu_ns.load(std::memory_order_relaxed);
   int64_t now_wall = win_wall_ns();
   int64_t now_cpu = win_cpu_ns();
+  PyObject* result = arrival_tuple(wall, cpu, now_wall, now_cpu);
   g_arrival_pending.store(0, std::memory_order_release);
-  if (g_win_consumed) SetEvent(g_win_consumed);  // start the next interval
-  if (wall == 0 || cpu == 0 || now_wall == 0 || now_cpu == 0) Py_RETURN_NONE;
-  return Py_BuildValue("(dd)", (now_wall - wall) / 1e9, (now_cpu - cpu) / 1e9);
+  if (g_win_consumed) SetEvent(g_win_consumed);  // stop recording arrivals
+  return result;
 #else
   Py_RETURN_NONE;
 #endif
@@ -664,12 +955,24 @@ PyObject* py_start_cpu_timer_thread(PyObject* /*self*/, PyObject* args) {
   if (g_win_consumed == nullptr) {
     g_win_consumed = CreateEventW(nullptr, FALSE, FALSE, nullptr);
   }
-  if (g_win_stop == nullptr || g_win_consumed == nullptr) {
+  if (g_win_rearm == nullptr) {
+    g_win_rearm = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+  }
+  if (g_win_stop == nullptr || g_win_consumed == nullptr ||
+      g_win_rearm == nullptr) {
     PyErr_SetFromWindowsErr(0);
     return nullptr;
   }
+  note_main_thread();
+  if (g_win_main_thread == nullptr &&
+      !DuplicateHandle(GetCurrentProcess(), GetCurrentThread(),
+                       GetCurrentProcess(), &g_win_main_thread,
+                       THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE, 0)) {
+    g_win_main_thread = nullptr;  // no locations; timing still works
+  }
   ResetEvent(g_win_stop);
   ResetEvent(g_win_consumed);
+  ResetEvent(g_win_rearm);
   g_arrival_pending.store(0, std::memory_order_release);
   g_win_signum.store(signum, std::memory_order_relaxed);
   win_set_interval(interval);
@@ -690,6 +993,7 @@ PyObject* py_set_cpu_timer_interval(PyObject* /*self*/, PyObject* arg) {
   double seconds = PyFloat_AsDouble(arg);
   if (PyErr_Occurred()) return nullptr;
   win_set_interval(seconds);
+  if (g_win_rearm) SetEvent(g_win_rearm);  // start the next interval
 #else
   (void)arg;
 #endif
@@ -706,6 +1010,7 @@ PyObject* py_stop_cpu_timer_thread(PyObject* /*self*/, PyObject* /*args*/) {
 PyObject* install_cpu_signal_hook(PyObject* arg, bool force_restart) {
 #if SCALENE_UNWIND_AVAILABLE
   resolve_sampling_hooks();
+  note_main_thread();  // Scalene installs it from the main thread
   long sig_l = PyLong_AsLong(arg);
   if (PyErr_Occurred()) return nullptr;
   if (sig_l <= 0 || sig_l >= NSIG) {
@@ -1081,9 +1386,17 @@ PyMethodDef methods[] = {
     {"install_arrival_timestamper", py_install_arrival_timestamper, METH_O,
      "Install the CPU-signal C handler (chaining to the previous handler) "
      "to timestamp signal arrival, without capturing stacks."},
+    {"forget_main_thread", py_forget_main_thread, METH_NOARGS,
+     "Stop recording where the main thread is (call at exit)."},
+    {"set_arrival_rearm_interval", py_set_arrival_rearm_interval, METH_O,
+     "set_arrival_rearm_interval(seconds): while the Python handler for a "
+     "SIGVTALRM arrival is pending, re-arm ITIMER_VIRTUAL with this interval "
+     "so long C code keeps being sampled; 0 disables."},
     {"consume_arrival", py_consume_arrival, METH_NOARGS,
-     "Return (wall_seconds, cpu_seconds) elapsed since the earliest CPU "
-     "signal arrival not yet consumed, and clear it; None if none pending."},
+     "Return (wall_seconds, cpu_seconds, arrivals): seconds elapsed since "
+     "the earliest CPU signal arrival not yet consumed, and each arrival "
+     "since the last call as (wall age, CPU age, code id, byte offset), "
+     "oldest first; clears them. None if none pending."},
     {"start_cpu_timer_thread", py_start_cpu_timer_thread, METH_VARARGS,
      "Windows: start a native thread that, every interval seconds, records "
      "an arrival time and trips signal signum (handled by CPython on the "

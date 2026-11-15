@@ -121,7 +121,7 @@ jobs:
         print("native files:", native)
 
         # The extension modules every platform needs.
-        for mod in ("get_line_atomic", "pywhere", "_scalene_unwind"):
+        for mod in ("get_line_atomic", "pywhere", "_scalene_unwind", "_frame_peek"):
             if not any(os.path.basename(f).startswith(mod + ".") for f in native):
                 sys.exit(f"ERROR: wheel is missing native module {mod}")
 
@@ -245,7 +245,7 @@ jobs:
 
             run("-W", "error::RuntimeWarning", "-c",
                 "import importlib\n"
-                "for m in ('get_line_atomic', 'pywhere', '_scalene_unwind'):\n"
+                "for m in ('get_line_atomic', 'pywhere', '_scalene_unwind', '_frame_peek'):\n"
                 "    importlib.import_module('scalene.' + m)\n"
                 "import scalene, os\n"
                 "assert 'site-packages' in scalene.__file__, scalene.__file__\n"

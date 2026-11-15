@@ -532,6 +532,20 @@ def native_unwind_extension():
 
 native_unwind = native_unwind_extension()
 
+# scalene._frame_peek: reads the current Python frame from a signal handler
+# (issue #466). Plain C in its own module: it includes CPython's internal
+# headers, which MSVC can't compile as C++. _scalene_unwind gets its one
+# function through a capsule.
+frame_peek = Extension(
+    "scalene._frame_peek",
+    sources=["src/source/frame_peek.c"],
+    include_dirs=["src/source"],
+    depends=["src/source/frame_peek.h"],
+    extra_compile_args=["/std:c11"] if sys.platform == "win32" else [],
+    extra_link_args=get_extra_link_args(),
+    py_limited_api=False,
+)
+
 # If we're testing packaging, build using a ".devN" suffix in the version number,
 # so that we can upload new files (as testpypi/pypi don't allow re-uploading files with
 # the same name as previously uploaded).
@@ -569,7 +583,7 @@ setup(
         "egg_info": EggInfoCommand,
         "build_ext": BuildExtCommand,
     },
-    ext_modules=[get_line_atomic, pywhere, native_unwind],  # Now supported on all platforms
+    ext_modules=[get_line_atomic, pywhere, native_unwind, frame_peek],  # Now supported on all platforms
     include_package_data=True,
     options={"bdist_wheel": bdist_wheel_options()},
 )

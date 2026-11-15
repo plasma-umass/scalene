@@ -449,7 +449,7 @@ def test_native_arrival_timestamper_records_signal_arrival():
                 f"flags={flags:#x}, diag_counts={u.diag_counts()}, "
                 f"SIGALRM was blocked on entry: {blocked}"
             )
-        wall, cpu = arrival
+        wall, cpu, _arrivals = arrival
         assert 0.0 <= wall < 1.0 and cpu >= 0.0, arrival
         assert consume_cpu_signal_arrival() is None
         print("OK", "(SIGALRM was blocked on entry)" if blocked else "")

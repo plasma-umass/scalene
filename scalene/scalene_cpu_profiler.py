@@ -28,6 +28,8 @@ from scalene.time_info import TimeInfo
 if TYPE_CHECKING:
     from types import FrameType
 
+    from scalene.scalene_utility import SignalArrival
+
 
 # Arrival-to-handler delay above which a signal-path sample counts as native.
 # Measured (macOS): pure Python 10 us median, 1% above 0.05 ms; C calls and
@@ -90,6 +92,7 @@ class ScaleneCPUProfiler:
         suspended_async_tasks: list[Any] | None = None,
         perthread_drains: list[PerThreadNativeStack] | None = None,
         signal_deferral: float | None = None,
+        signal_arrivals: list[SignalArrival] | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
@@ -113,6 +116,9 @@ class ScaleneCPUProfiler:
                 CPython defers the Python-level handler only while C code
                 runs: ~10 us for pure Python, milliseconds for C calls and
                 for operators running C (numpy, list concatenation).
+            signal_arrivals: each timer arrival since the last sample
+                (several when C code kept CPython from running the handler
+                for more than an interval), with where the main thread was.
         """
         if not new_frames:
             return
@@ -271,7 +277,55 @@ class ScaleneCPUProfiler:
             loop_lines = ScaleneFuncUtils.get_loop_body_lines(
                 main_thread_frame.f_code, lineno
             )
-            if released_gil_mid_instruction:
+            # Where the main thread was at each timer arrival, if known
+            # (#466). CPython runs this handler only at its next safe point
+            # (a call's return, a loop back-edge), which can be lines later:
+            # `x @ y` on a line of its own was charged to the next line that
+            # calls anything, along with that call. Knowing the lines makes
+            # the bytecode guesses below (loop-body spreading, preceding
+            # CALL) unnecessary.
+            arrival_shares = (
+                self._arrival_shares(
+                    main_thread_frame,
+                    signal_arrivals,
+                    should_trace,
+                    signal_deferral,
+                )
+                if signal_arrivals
+                and signal_deferral is not None
+                and not self._thread_sampled
+                else None
+            )
+            if arrival_shares is not None:
+                for frame, line, share, native in arrival_shares:
+                    line_fname = Filename(frame.f_code.co_filename)
+                    if frame is not main_thread_frame:
+                        enter_function_meta(frame, should_trace, self._stats)
+                        self._main_function = self._stats.function_map[line_fname].get(
+                            LineNumber(frame.f_lineno)
+                            if frame.f_lineno is not None
+                            else LineNumber(frame.f_code.co_firstlineno)
+                        )
+                    else:
+                        self._main_function = self._stats.function_map[fname].get(
+                            lineno
+                        )
+                    cpu = average_cpu_time * share
+                    self._update_main_thread_stats(
+                        line_fname,
+                        line,
+                        now,
+                        0.0 if native else cpu,
+                        cpu if native else 0.0,
+                        cpu,
+                        cpu_utilization,
+                        core_utilization,
+                        gpu_load,
+                        gpu_mem_used,
+                        elapsed,
+                        gpu_weight=share,
+                    )
+            elif released_gil_mid_instruction:
                 self._update_main_thread_stats(
                     fname,
                     lineno,
@@ -484,6 +538,92 @@ class ScaleneCPUProfiler:
         del new_frames
         del is_thread_sleeping
         self._stats.cpu_stats.total_cpu_samples += total_time
+
+    @staticmethod
+    def _arrival_frame_line(
+        frame: FrameType,
+        location: tuple[int, int],
+        should_trace: Callable[[Filename, str], bool],
+    ) -> tuple[FrameType, LineNumber] | None:
+        """The frame and line the main thread was executing when the signal
+        arrived, given its (id of code object, byte offset); None if unknown.
+
+        That frame is *frame* (the profiled frame the handler sees) or one of
+        its callers: CPython may have returned to a caller, or called on
+        into another function, before reaching a safe point. If the code is
+        no longer on the stack (that function has since returned), or the
+        caller isn't profiled, the location is unusable. The C handler reads
+        the location without any synchronization, so the offset is checked
+        against the code.
+        """
+        code_id, offset = location
+        f: FrameType | None = frame
+        while f is not None:
+            code = f.f_code
+            if id(code) == code_id:
+                if not should_trace(Filename(code.co_filename), code.co_name):
+                    return None
+                line = ScaleneFuncUtils.line_at_offset(code, offset)
+                if line is None:
+                    return None
+                return f, LineNumber(line)
+            f = f.f_back
+        return None
+
+    @staticmethod
+    def _arrival_shares(
+        frame: FrameType,
+        arrivals: list[SignalArrival],
+        should_trace: Callable[[Filename, str], bool],
+        deferral: float,
+    ) -> list[tuple[FrameType, LineNumber, float, bool]] | None:
+        """Split a sample among the timer arrivals it covers.
+
+        Returns (frame, line, share of the sample, native?) per line, or None
+        if no arrival's line is known. Each arrival is one sample of equal
+        weight: the timer is re-armed from the last arrival, not from the
+        handler (see Scalene.cpu_signal_handler), so arrivals are spread
+        evenly through the program whatever its safe points are. Arrivals
+        the handler didn't run right after are native, and the last is
+        classified by its own deferral, as a single arrival always was.
+        """
+        # Arrivals older than the earliest pending one are leftovers from a
+        # race with the previous consume.
+        arrivals = [a for a in arrivals if a[0] <= deferral + 0.001]
+        if not arrivals:
+            return None
+        located = [
+            (
+                ScaleneCPUProfiler._arrival_frame_line(frame, a[2], should_trace)
+                if a[2] is not None
+                else None
+            )
+            for a in arrivals
+        ]
+        n = len(arrivals)
+        # Arrivals whose line is unknown are dropped: they came while the
+        # main thread was in a function that has since returned, in
+        # Scalene's own handler, or on another thread.
+        known = [
+            (loc, k + 1 < n or arrival[0] > NATIVE_DEFERRAL_THRESHOLD)
+            for k, (arrival, loc) in enumerate(zip(arrivals, located))
+            if loc is not None
+        ]
+        if not known:
+            return None
+        shares: dict[
+            tuple[int, int, bool], tuple[FrameType, LineNumber, float, bool]
+        ] = {}
+        for (f, line), native in known:
+            key = (id(f), line, native)
+            prev = shares.get(key)
+            shares[key] = (
+                f,
+                line,
+                1 / len(known) + (prev[2] if prev else 0.0),
+                native,
+            )
+        return list(shares.values())
 
     def _update_main_thread_stats(
         self,

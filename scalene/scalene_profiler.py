@@ -119,6 +119,7 @@ from scalene.scalene_tracer import (
 )
 from scalene.scalene_tracing import ScaleneTracing
 from scalene.scalene_utility import (
+    SignalArrival,
     add_stack,
     clear_intern_caches,
     compute_frames_to_record,
@@ -136,6 +137,7 @@ from scalene.scalene_utility import (
     on_stack,
     patch_module_functions_with_signal_blocking,
     register_thread_for_sampling,
+    set_cpu_signal_rearm_interval,
     signal_all_threads,
     unregister_thread_from_sampling,
 )
@@ -909,6 +911,7 @@ class Scalene:
             install_cpu_signal_timestamper(
                 Scalene.__signal_manager.get_signals().cpu_signal
             )
+            set_cpu_signal_rearm_interval(Scalene.__args.cpu_sampling_rate)
 
     @staticmethod
     def cpu_signal_handler(
@@ -942,6 +945,9 @@ class Scalene:
             # available.
             arrival = consume_cpu_signal_arrival()
             signal_deferral = arrival[0] if arrival is not None else None
+            # Each timer arrival since the last sample, with where the main
+            # thread was (#466).
+            signal_arrivals = arrival[2] if arrival is not None else None
             if (
                 Scalene.__last_signal_time.virtual == 0
                 or Scalene.__last_signal_time.wallclock == 0
@@ -1010,6 +1016,7 @@ class Scalene:
                 suspended_async_tasks=suspended,
                 perthread_drains=perthread_drains,
                 signal_deferral=signal_deferral,
+                signal_arrivals=signal_arrivals,
             )
             # Advance library profiler schedules (e.g., torch profiler
             # periodic flush) to keep memory bounded.
@@ -1199,6 +1206,7 @@ class Scalene:
         suspended_async_tasks: list[Any] | None = None,
         perthread_drains: list[PerThreadNativeStack] | None = None,
         signal_deferral: float | None = None,
+        signal_arrivals: list[SignalArrival] | None = None,
     ) -> None:
         """Handle interrupts for CPU profiling.
 
@@ -1234,6 +1242,7 @@ class Scalene:
             suspended_async_tasks=suspended_async_tasks,
             perthread_drains=perthread_drains or [],
             signal_deferral=signal_deferral,
+            signal_arrivals=signal_arrivals,
         )
 
     @staticmethod

@@ -162,6 +162,25 @@ class ScaleneFuncUtils:
         return result
 
     @staticmethod
+    @lru_cache(maxsize=4096)
+    def line_at_offset(code: CodeType, offset: int) -> Optional[int]:
+        """The source line of the instruction at byte *offset* in *code*, or
+        None if the offset is outside the code or has no line."""
+        if offset < 0 or offset >= len(code.co_code):
+            return None
+        if hasattr(code, "co_lines"):  # Python 3.10+
+            for start, end, line in code.co_lines():
+                if start <= offset < end:
+                    return line
+            return None
+        found: Optional[int] = None
+        for start, line in dis.findlinestarts(code):
+            if start > offset:
+                break
+            found = line
+        return found
+
+    @staticmethod
     @lru_cache(maxsize=None)
     def find_preceding_call_line(code: CodeType, bytei: ByteCodeIndex) -> Optional[int]:
         """Find the line of the nearest CALL instruction preceding *bytei*.
