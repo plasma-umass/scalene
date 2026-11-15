@@ -34,6 +34,8 @@ def fresh_profile_state(monkeypatch):
         Scalene, "_Scalene__args", types.SimpleNamespace(memory=True), raising=False
     )
     monkeypatch.delattr(Scalene, "_Scalene__tracing", raising=False)
+    # A live profiling run: outside one, @profile is a pass-through.
+    monkeypatch.setattr(Scalene, "_Scalene__initialized", True)
     monkeypatch.setattr(
         Scalene,
         "_register_files_to_profile",
