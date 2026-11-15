@@ -115,12 +115,21 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         return fetch_site is None or fetch_site in ("same-origin", "none")
 
     def send_env_api_keys(self) -> None:
-        """Serve environment credentials from memory; they never touch disk."""
+        """Serve AI provider settings to the GUI; never written into HTML.
+
+        Settings saved with `scalene config` (read from the owner-only
+        config file on each request), overridden by environment variables
+        when the user passed --api-keys-from-env.
+        """
         if not self.is_same_origin_request():
             self.send_response(403)
             self.end_headers()
             return
-        keys = read_env_api_keys() if self.serve_env_api_keys else {}
+        from scalene.scalene_ai_config import gui_settings
+
+        keys = gui_settings()
+        if self.serve_env_api_keys:
+            keys.update(read_env_api_keys())
         body = json.dumps(keys).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")

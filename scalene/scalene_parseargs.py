@@ -979,6 +979,53 @@ class ScaleneParseArgs:
             console.print()
 
     @staticmethod
+    def _handle_config_command(args: argparse.Namespace) -> NoReturn:
+        """Handle `scalene config`: AI provider settings for the GUI (#911)."""
+        from scalene import scalene_ai_config as ai_config
+
+        command = args.config_command or "list"
+        try:
+            if command == "path":
+                print(ai_config.config_file())
+            elif command == "list":
+                config = ai_config.load_config()
+                print(f"Config file: {ai_config.config_file()}")
+                if not config:
+                    print("No AI settings saved. Set one with: scalene config set KEY")
+                for key in sorted(config):
+                    print(f"  {key} = {ai_config.display_value(key, config[key])}")
+            elif command == "set":
+                ai_config.check_key(args.key)
+                value = args.value
+                if value is None:
+                    # Read it rather than take it as an argument, so an API
+                    # key stays out of the shell's history.
+                    if sys.stdin.isatty():
+                        import getpass
+
+                        value = getpass.getpass(f"{args.key}: ")
+                    else:
+                        value = sys.stdin.readline()
+                    value = value.strip()
+                if not value:
+                    print("Scalene: no value given; nothing saved.", file=sys.stderr)
+                    sys.exit(1)
+                ai_config.set_value(args.key, value)
+                print(f"Saved {args.key} in {ai_config.config_file()}")
+            elif command == "unset":
+                if ai_config.unset_value(args.key):
+                    print(f"Removed {args.key}")
+                else:
+                    print(f"{args.key} was not set")
+        except ai_config.ConfigError as e:
+            print(f"Scalene: {e}", file=sys.stderr)
+            sys.exit(1)
+        except OSError as e:
+            print(f"Scalene: can't save the config file: {e}", file=sys.stderr)
+            sys.exit(1)
+        sys.exit(0)
+
+    @staticmethod
     def _handle_view_command(args: argparse.Namespace) -> None:
         """Handle the 'view' subcommand to view an existing profile."""
         import json
@@ -1219,11 +1266,52 @@ examples:
             ),
         )
 
+        # 'config' subcommand - AI provider settings for the GUI (#911)
+        config_parser = subparsers.add_parser(
+            "config",
+            help="Save AI provider settings (API keys, models) for the GUI",
+            description=dedent(
+                """Save AI provider settings for Scalene's GUI in ~/.scalene/config.json
+(readable only by you). `scalene view` fills them into the GUI's empty
+fields; they are never written into an HTML file.
+
+examples:
+  % scalene config                                # list saved settings
+  % scalene config set anthropic_api_key          # prompts (hidden input)
+  % echo "$KEY" | scalene config set openai_api_key
+  % scalene config set default_provider anthropic
+  % scalene config unset openai_api_key
+  % scalene config path                           # where the file is
+
+keys:
+  openai_api_key, openai_model, openai_url
+  anthropic_api_key, anthropic_model, anthropic_url
+  gemini_api_key, gemini_model, gemini_url
+  azure_api_key, azure_api_url, azure_api_version, azure_model
+  aws_access_key, aws_secret_key, aws_region
+  ollama_host, ollama_port
+  default_provider (openai, anthropic, gemini, azure-openai, amazon, local)
+"""
+            ),
+            formatter_class=argparse.RawTextHelpFormatter,
+        )
+        config_commands = config_parser.add_subparsers(dest="config_command")
+        config_commands.add_parser("list", help="list saved settings (secrets masked)")
+        config_set = config_commands.add_parser(
+            "set", help="save a setting (omit VALUE to type it hidden)"
+        )
+        config_set.add_argument("key", metavar="KEY")
+        config_set.add_argument("value", metavar="VALUE", nargs="?", default=None)
+        config_unset = config_commands.add_parser("unset", help="remove a setting")
+        config_unset.add_argument("key", metavar="KEY")
+        config_commands.add_parser("path", help="print the config file's path")
+
         # Check if user provided a .py file without a subcommand
         # This catches the common mistake of `scalene foo.py` instead of `scalene run foo.py`
         if len(sys.argv) > 1 and sys.argv[1] not in (
             "run",
             "view",
+            "config",
             "-h",
             "--help",
             "--version",
@@ -1240,6 +1328,9 @@ examples:
                     sys.exit(1)
 
         args, left = main_parser.parse_known_args()
+
+        if args.command == "config":
+            ScaleneParseArgs._handle_config_command(args)
 
         # Handle the 'view' command immediately
         if args.command == "view":

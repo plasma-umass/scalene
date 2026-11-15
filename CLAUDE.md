@@ -417,7 +417,9 @@ sock.bind(("", port))
 
 7. **Update `launchbrowser.py`** (for env var support):
    - Add the field and its environment variable(s) to `ENV_API_KEY_VARIABLES`
-   - Add the field to `EnvApiKeys` / `envApiKeyFields` in `persistence.ts`
+   - Add the field to `EnvApiKeys` and `envKeyMap` in `persistence.ts`
+   - Add its `scalene config` keys to `CONFIG_KEYS` (and `SECRET_KEYS`) in
+     `scalene_ai_config.py`, and `default_provider`'s `PROVIDERS`
 
 8. **Rebuild the bundle**:
    ```bash
@@ -481,10 +483,28 @@ keys from environment variables:
 | `aws-secret-key` | `AWS_SECRET_ACCESS_KEY` | Amazon Bedrock |
 | `aws-region` | `AWS_DEFAULT_REGION` or `AWS_REGION` | Amazon Bedrock |
 
+**Saved settings (`scalene config`, #911).** `scalene config set KEY [VALUE]`
+saves AI provider settings (keys, custom models and URLs, Azure API version,
+Ollama host/port, `default_provider`) in `~/.scalene/config.json`
+(`scalene_ai_config.py`): created 0600 in a 0700 directory, replaced
+atomically, unknown keys ignored. With no VALUE it reads one hidden (or from
+a pipe), keeping keys out of shell history; `scalene config` lists them
+with secrets masked (CodeQL flags printing any part of one). The local
+server serves them at the same endpoint *without* the flag (saving them was
+the opt-in); with the flag, environment variables override them.
+`CONFIG_KEYS` maps each key to its `EnvApiKeys` field in `persistence.ts`
+(`tests/test_ai_config.py` checks that every one exists). `defaultProvider`
+is applied by `getDefaultProvider()`, not as a field, since the provider
+section is chosen before fields are restored. localStorage (what the user
+last typed in the GUI) still wins over both. Tests that start the server or
+call `scalene config` must point `Path.home()` (or `HOME`, plus
+`PYTHONUSERBASE` to keep the user site-packages) at a temp directory.
+
 **Flow:**
 1. `scalene view --api-keys-from-env` passes the flag to `launchbrowser.py`,
    whose local server reads the env vars and serves them from memory at
-   `/env-api-keys.json` (an empty object without the flag)
+   `/env-api-keys.json`, over any saved settings (only the saved settings
+   without the flag)
 2. `loadEnvApiKeys()` in `persistence.ts` fetches that on page load (only when
    the page is served over HTTP), before persistent fields are restored
 3. `persistence.ts` uses env vars as fallbacks when localStorage is empty;
