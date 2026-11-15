@@ -77,9 +77,11 @@ class ScaleneCPUProfiler:
         # time without being sampled themselves (see _update_main_thread_stats).
         self._main_function: Filename | None = None
         # CPU time and located arrivals over the samples split by arrival,
-        # for the time each arrival stands for (see process_cpu_sample).
+        # for the time each arrival stands for, and the time not yet given
+        # to any arrival (see process_cpu_sample).
         self._arrival_cpu_time = 0.0
         self._arrival_count = 0
+        self._arrival_unallocated = 0.0
 
     def process_cpu_sample(
         self,
@@ -311,10 +313,22 @@ class ScaleneCPUProfiler:
                 # the line just before the safe point) more time than one
                 # in a sample with several, and undercounted an operator just
                 # after a call's return by a third (#466).
+                #
+                # Never hand out more time than was measured: an early
+                # sample with much time and few located arrivals inflates
+                # the average for a while, which overcounted lines by 15% in
+                # a one-second run. So arrivals draw on the time not yet
+                # given out, and a tenth of what is left over is paid out
+                # each sample, so that it doesn't build up.
                 located = sum(count for _, _, count, _ in arrival_counts)
                 self._arrival_cpu_time += average_cpu_time
                 self._arrival_count += located
-                per_arrival = self._arrival_cpu_time / self._arrival_count
+                self._arrival_unallocated += average_cpu_time
+                average = self._arrival_cpu_time / self._arrival_count
+                allocated = min(located * average, self._arrival_unallocated)
+                allocated += 0.1 * (self._arrival_unallocated - allocated)
+                self._arrival_unallocated -= allocated
+                per_arrival = allocated / located
                 for frame, line, count, native in arrival_counts:
                     share = count / located
                     line_fname = Filename(frame.f_code.co_filename)
@@ -630,9 +644,9 @@ class ScaleneCPUProfiler:
         ]
         if not known:
             return None
-        counts: dict[
-            tuple[int, int, bool], tuple[FrameType, LineNumber, int, bool]
-        ] = {}
+        counts: dict[tuple[int, int, bool], tuple[FrameType, LineNumber, int, bool]] = (
+            {}
+        )
         for (f, line), native in known:
             key = (id(f), line, native)
             prev = counts.get(key)

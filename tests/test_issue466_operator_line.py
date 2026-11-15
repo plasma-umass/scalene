@@ -157,9 +157,9 @@ def test_every_arrival_stands_for_the_same_time() -> None:
     fname = Filename("/fake/issue466.py")
 
     def time_on(line: int) -> float:
-        return cpu.cpu_samples_python[fname].get(LineNumber(line), 0.0) + cpu.cpu_samples_c[
-            fname
-        ].get(LineNumber(line), 0.0)
+        return cpu.cpu_samples_python[fname].get(
+            LineNumber(line), 0.0
+        ) + cpu.cpu_samples_c[fname].get(LineNumber(line), 0.0)
 
     op, rest = time_on(operator_line), time_on(call_line)
     assert op / (op + rest) == pytest.approx(1 / 3, abs=0.01)
