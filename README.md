@@ -34,7 +34,7 @@ optimizations.
 
 > **Note**
 >
-> For optimization suggestions, Scalene supports a variety of AI providers, including [Amazon Bedrock](https://aws.amazon.com/bedrock), [Microsoft Azure](https://azure.microsoft.com/en-us/), [OpenAI](https://openai.com), and local models via [Ollama](https://ollama.com/). To enable AI-powered optimization suggestions from AI providers, you need to select a provider and, if needed, enter your credentials, in the box under "AI Optimization Options". To prefill them from environment variables (such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `AWS_ACCESS_KEY_ID`), view the profile with `scalene view --api-keys-from-env`. To save them instead, use `scalene config set anthropic_api_key` (it prompts for the key; `scalene config --help` lists the settings), which stores them in `~/.scalene/config.json`, readable only by you. Either way, the keys are passed only to your local browser session and are never written into the HTML file.
+> For optimization suggestions, Scalene supports a variety of AI providers, including [Amazon Bedrock](https://aws.amazon.com/bedrock), [Microsoft Azure](https://azure.microsoft.com/en-us/), [OpenAI](https://openai.com), and local models via [Ollama](https://ollama.com/). To enable AI-powered optimization suggestions from AI providers, you need to select a provider and, if needed, enter your credentials, in the box under "AI Optimization Options". To prefill them from environment variables (such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `AWS_ACCESS_KEY_ID`), view the profile with `scalene view --api-keys-from-env`. To save them instead, use `scalene config set anthropic_api_key` (it prompts for the key; `scalene config --help` lists the settings), which stores them in `~/.scalene/config.json`, readable only by you. Saved settings are used without any flag; with `--api-keys-from-env`, environment variables override them, and whatever you type into the GUI overrides both. Either way, the keys are passed only to your local browser session and are never written into the HTML file.
 >
 > <img width="607" height="316" alt="AI Optimization Options" src="https://github.com/user-attachments/assets/3c803237-063f-481a-8624-5c1d7f205c8a" />
 
@@ -80,7 +80,7 @@ First, install <a href="https://marketplace.visualstudio.com/items?itemName=Emer
 Commonly used command-line options:
 </summary>
 
-Scalene uses a verb-based command structure with two main commands: `run` (to profile) and `view` (to display results).
+Scalene uses a verb-based command structure with two main commands: `run` (to profile) and `view` (to display results), plus `config` (to save AI provider settings for the GUI).
 
 ```console
 # Profile a program (saves to scalene-profile.json)
@@ -379,6 +379,7 @@ https://github.com/plasma-umass/scalene
 commands:
   run     Profile a Python program (saves to scalene-profile.json)
   view    View an existing profile in browser or terminal
+  config  Save AI provider settings (API keys, models) for the GUI
 
 examples:
   % scalene run your_program.py              # profile, save to scalene-profile.json
@@ -458,8 +459,9 @@ options:
                  assets embedded (implies --html)
   -r, --reduced  only show lines with activity (--cli mode)
   --api-keys-from-env
-                 prefill AI provider API keys from environment variables;
-                 served only to the local browser, never written to HTML
+                 prefill AI provider API keys from environment variables,
+                 overriding settings saved with `scalene config`; served
+                 only to the local browser, never written to HTML
 ```
 </details>
 
