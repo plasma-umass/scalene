@@ -101,7 +101,8 @@ jobs:
     - name: signal smoketest
       if: matrix.os != 'windows-latest'
       run: python test/smoketest.py test/signal_test.py
-      timeout-minutes: 0.5
+      # Whole minutes: a fractional value (0.5) was not enforced.
+      timeout-minutes: 2
 
     - name: multiprocessing smoke test
       if: matrix.os != 'windows-latest'
