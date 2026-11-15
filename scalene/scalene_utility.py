@@ -51,6 +51,12 @@ try:
     from scalene import _scalene_unwind  # type: ignore
 
     _native_unwind_available = bool(getattr(_scalene_unwind, "available", 0))
+    # Stop reading the main thread's frames before CPython frees its state.
+    _forget_main_thread = getattr(_scalene_unwind, "forget_main_thread", None)
+    if _forget_main_thread is not None:
+        import atexit
+
+        atexit.register(_forget_main_thread)
     if _native_unwind_available:
         # Pre-fault the unwinder so the first call from a signal handler
         # doesn't trigger a lazy dlopen of libgcc_s (signal-unsafe).

@@ -665,6 +665,7 @@ HANDLE g_win_thread = nullptr;
 HANDLE g_win_stop = nullptr;      // manual reset: stop the timer thread
 HANDLE g_win_main_thread = nullptr;  // for suspending it (#466)
 HANDLE g_win_consumed = nullptr;  // auto reset: the handler took the arrival
+HANDLE g_win_rearm = nullptr;     // auto reset: the handler set the interval
 std::atomic<int> g_win_signum{0};
 std::atomic<int64_t> g_win_interval_100ns{100000};  // 10 ms
 
@@ -762,6 +763,14 @@ DWORD WINAPI win_timer_main(LPVOID /*arg*/) {
       }
     }
     if (stop) break;
+    // Like a one-shot timer re-armed at the end of the handler (as on
+    // Unix): start the next interval once the handler has set it, not when
+    // it consumed the arrival near its start. Otherwise a handler that runs
+    // longer than an interval is interrupted by the next tick and nests
+    // (RecursionError). A second at most, in case it never does.
+    HANDLE wait_rearm[2] = {g_win_stop, g_win_rearm};
+    DWORD w = WaitForMultipleObjects(2, wait_rearm, FALSE, 1000);
+    if (w == WAIT_OBJECT_0 || w == WAIT_FAILED) break;
   }
   CloseHandle(timer);
   return 0;
@@ -876,6 +885,14 @@ PyObject* arrival_tuple(int64_t wall, int64_t cpu, int64_t now_wall,
 }
 #endif
 
+// Stop reading the main thread's frames: called at exit (atexit), before
+// CPython frees the thread state.
+PyObject* py_forget_main_thread(PyObject* /*self*/, PyObject* /*args*/) {
+  g_main_tstate.store(nullptr, std::memory_order_release);
+  g_peek.store(nullptr, std::memory_order_release);
+  Py_RETURN_NONE;
+}
+
 PyObject* py_set_arrival_rearm_interval(PyObject* /*self*/, PyObject* arg) {
 #if SCALENE_UNWIND_AVAILABLE
   double seconds = PyFloat_AsDouble(arg);
@@ -919,7 +936,7 @@ PyObject* py_consume_arrival(PyObject* /*self*/, PyObject* /*args*/) {
   int64_t now_cpu = win_cpu_ns();
   PyObject* result = arrival_tuple(wall, cpu, now_wall, now_cpu);
   g_arrival_pending.store(0, std::memory_order_release);
-  if (g_win_consumed) SetEvent(g_win_consumed);  // start the next interval
+  if (g_win_consumed) SetEvent(g_win_consumed);  // stop recording arrivals
   return result;
 #else
   Py_RETURN_NONE;
@@ -938,7 +955,11 @@ PyObject* py_start_cpu_timer_thread(PyObject* /*self*/, PyObject* args) {
   if (g_win_consumed == nullptr) {
     g_win_consumed = CreateEventW(nullptr, FALSE, FALSE, nullptr);
   }
-  if (g_win_stop == nullptr || g_win_consumed == nullptr) {
+  if (g_win_rearm == nullptr) {
+    g_win_rearm = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+  }
+  if (g_win_stop == nullptr || g_win_consumed == nullptr ||
+      g_win_rearm == nullptr) {
     PyErr_SetFromWindowsErr(0);
     return nullptr;
   }
@@ -951,6 +972,7 @@ PyObject* py_start_cpu_timer_thread(PyObject* /*self*/, PyObject* args) {
   }
   ResetEvent(g_win_stop);
   ResetEvent(g_win_consumed);
+  ResetEvent(g_win_rearm);
   g_arrival_pending.store(0, std::memory_order_release);
   g_win_signum.store(signum, std::memory_order_relaxed);
   win_set_interval(interval);
@@ -971,6 +993,7 @@ PyObject* py_set_cpu_timer_interval(PyObject* /*self*/, PyObject* arg) {
   double seconds = PyFloat_AsDouble(arg);
   if (PyErr_Occurred()) return nullptr;
   win_set_interval(seconds);
+  if (g_win_rearm) SetEvent(g_win_rearm);  // start the next interval
 #else
   (void)arg;
 #endif
@@ -1363,6 +1386,8 @@ PyMethodDef methods[] = {
     {"install_arrival_timestamper", py_install_arrival_timestamper, METH_O,
      "Install the CPU-signal C handler (chaining to the previous handler) "
      "to timestamp signal arrival, without capturing stacks."},
+    {"forget_main_thread", py_forget_main_thread, METH_NOARGS,
+     "Stop recording where the main thread is (call at exit)."},
     {"set_arrival_rearm_interval", py_set_arrival_rearm_interval, METH_O,
      "set_arrival_rearm_interval(seconds): while the Python handler for a "
      "SIGVTALRM arrival is pending, re-arm ITIMER_VIRTUAL with this interval "

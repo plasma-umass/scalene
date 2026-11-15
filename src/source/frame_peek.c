@@ -25,6 +25,10 @@
 
 #include "frame_peek.h"
 
+#if defined(_MSC_VER)
+#include <excpt.h>
+#endif
+
 #if PY_VERSION_HEX >= 0x030B0000
 #ifndef Py_BUILD_CORE
 #define Py_BUILD_CORE 1
@@ -41,8 +45,8 @@
 #include <frameobject.h>
 #endif
 
-static int scalene_peek_frame(PyThreadState* tstate, uintptr_t* code_out,
-                              int* offset_out) {
+static int peek_frame(PyThreadState* tstate, uintptr_t* code_out,
+                      int* offset_out) {
   if (tstate == NULL) return 0;
 #if PY_VERSION_HEX >= 0x030E0000
   struct _PyInterpreterFrame* f = tstate->current_frame;
@@ -83,6 +87,21 @@ static int scalene_peek_frame(PyThreadState* tstate, uintptr_t* code_out,
   *code_out = (uintptr_t)code;
   *offset_out = (int)((ip - start) * (Py_ssize_t)sizeof(_Py_CODEUNIT));
   return 1;
+#endif
+}
+
+// On Windows another thread reads the (suspended) main thread's frame, so
+// a fault reading it means only that the location is unknown.
+static int scalene_peek_frame(PyThreadState* tstate, uintptr_t* code_out,
+                              int* offset_out) {
+#if defined(_MSC_VER)
+  __try {
+    return peek_frame(tstate, code_out, offset_out);
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return 0;
+  }
+#else
+  return peek_frame(tstate, code_out, offset_out);
 #endif
 }
 
