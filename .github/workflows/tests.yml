@@ -216,8 +216,22 @@ jobs:
       # results for inspection; it just no longer fails the job.
       if: runner.os != 'Windows'
       continue-on-error: true
+      # Every Scalene run inside has a 180 s timeout, so the whole step takes
+      # at most ~10 minutes; past that, show what is stuck and in what state
+      # (a cancelled job keeps no log).
+      timeout-minutes: 15
       run: |
-        python3 test/test_freethreaded_parity.py
+        python3 - <<'EOF'
+        import subprocess, sys
+        p = subprocess.Popen([sys.executable, "-u", "test/test_freethreaded_parity.py"])
+        try:
+            sys.exit(p.wait(timeout=720))
+        except subprocess.TimeoutExpired:
+            print("Parity test still running after 12 minutes; processes:", flush=True)
+            subprocess.run("ps ax -o pid,ppid,stat,etime,wchan,command | grep -E 'python|scalene' | grep -v grep", shell=True)
+            p.kill()
+            sys.exit(124)
+        EOF
 
     - name: Collect crash backtraces
       if: failure() && runner.os == 'Linux' && endsWith(matrix.python, 't')
