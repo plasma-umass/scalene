@@ -140,6 +140,24 @@ static int setitimer_impl(int which, const struct itimerval* nv,
   return SCALENE_REAL_CALL(setitimer, which, nv, ov);
 }
 
+// The real setitimer, without advancing g_timer_generation. Scalene's C
+// signal handler (_scalene_unwind) re-arms timers while its Python handler
+// is still pending; that must not count as a tick the Python handler has
+// handled. If it did, an EINTR in a Python-level wait (select.poll(),
+// select.select(), ...) would be retried here instead of returning to
+// CPython, so Scalene's Python handler -- which delivers the program's own
+// timer signals -- would never run, and a wait for that signal would hang.
+static int untracked_setitimer_impl(int which, const struct itimerval* nv,
+                                    struct itimerval* ov) {
+  SCALENE_REAL_DECL(int, setitimer,
+                    (int, const struct itimerval*, struct itimerval*));
+  if (!SCALENE_REAL_OK(setitimer)) {
+    errno = ENOSYS;
+    return -1;
+  }
+  return SCALENE_REAL_CALL(setitimer, which, nv, ov);
+}
+
 // --- interposed poll --------------------------------------------------------
 
 static int poll_impl(struct pollfd* fds, nfds_t nfds, int timeout) {

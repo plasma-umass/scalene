@@ -789,7 +789,8 @@ pointer goes through `safe_copy()` (`process_vm_readv` on Linux,
 `mach_vm_read_overwrite` on macOS, SEH on Windows), which fails instead of
 faulting; if it is unavailable (seccomp), there is simply no location.
 While the Python handler is pending, the C handler keeps a CPU-time timer
-(`ITIMER_VIRTUAL`) running, so long C code is sampled on every line it
+(`ITIMER_VIRTUAL`) running (armed without marking a handled tick; see "Waits
+Must Still Wake Up"), so long C code is sampled on every line it
 spans; in wall-clock mode a record-only C handler takes `SIGVTALRM` for
 this (the CPU-time timer can't fire inside a blocking system call, so it
 adds no EINTRs). `consume_cpu_signal_arrival()` returns every arrival;
@@ -814,6 +815,37 @@ exponential as well made no measurable difference.
 
 Big-integer arithmetic calls `PyErr_CheckSignals()` mid-operation, so its
 handler runs at once and it counts as Python, as it always has.
+
+### Waits Must Still Wake Up (wall-clock mode)
+
+Scalene's `SIGALRM` timer is one-shot, re-armed by its Python handler, and
+that handler also delivers the program's own `setitimer()` signals
+(`replacement_signal_fns.py`). So anything that keeps the handler from
+running during a blocking wait can hang a program waiting for its own alarm
+(`tests/test_timer_wakeups.py`):
+
+- **The timer reloads every second** (`CPU_TIMER_BACKUP_INTERVAL`, the
+  `it_interval` of every arm in `scalene_signal_manager.py`) until the handler
+  re-arms it. A signal landing just before a wait begins (`signal.pause()`,
+  `select.poll()`) is spent at the C level, and CPython runs the handler
+  only when the wait ends; without the reload nothing ends it (this hung
+  `test/signal_test.py` on CI). The C handler ignores a `SIGALRM` while the
+  sample is pending: it only wakes the wait, it isn't another sample.
+  Windows' timer thread has the same one-second backstop.
+  The reload also fires *during* a handler call that takes over a second,
+  and CPython runs Python signal handlers inside one another, so
+  `cpu_signal_handler` returns at once if it is already running. Without
+  that guard, a torch profiler window that took seconds to stop and parse
+  (`TorchProfiler.step()`) was interrupted by nested calls every 10 ms
+  (each re-armed the timer), and CI's parity test ran out of memory.
+- **C-handler re-arms must not look like handled ticks.** libscalene's
+  EINTR-retry interposer (#1060, `eintr_retry.hpp`) retries a wait only if
+  `setitimer` was called since it began, i.e. the Python handler ran. Timers
+  armed from `native_unwind.cpp` go through libscalene's
+  `scalene_setitimer_untracked` (found with `dlsym`); calling `setitimer`
+  there (as #1140 first did) made every Python-level `poll()`/`select()`
+  that a Scalene tick interrupted retry in C, so with memory profiling on, a
+  wait for the program's own alarm hung every time.
 
 ### Frame Line Number Can Be None (Python 3.11+)
 
