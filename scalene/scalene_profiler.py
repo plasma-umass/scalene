@@ -302,6 +302,7 @@ class Scalene:
     __orig_kill = os.kill
 
     __last_cpu_interval = 0.0
+    __in_cpu_signal_handler = False
 
     def __init__(
         self,
@@ -921,6 +922,32 @@ class Scalene:
 
     @staticmethod
     def cpu_signal_handler(
+        signum: SignumType,
+        this_frame: FrameType | None,
+    ) -> None:
+        """Handle CPU signals, never inside another call of this handler.
+
+        CPython runs a Python signal handler at any safe point, including
+        inside another Python signal handler. In wall-clock mode the timer
+        reloads every second until this handler re-arms it
+        (CPU_TIMER_BACKUP_INTERVAL), so a call that takes longer than that
+        -- stopping and parsing a torch profiler window can take seconds --
+        was entered again, and every nested call re-armed the 10 ms timer:
+        nested calls every 10 ms restarted the torch profiler while the
+        outer call was still parsing it, until memory ran out. A nested call
+        returns at once; the outer call re-arms the timer when it finishes,
+        and the arrival stays pending for the next sample.
+        """
+        if Scalene.__in_cpu_signal_handler:
+            return
+        Scalene.__in_cpu_signal_handler = True
+        try:
+            Scalene._cpu_signal_handler(signum, this_frame)
+        finally:
+            Scalene.__in_cpu_signal_handler = False
+
+    @staticmethod
+    def _cpu_signal_handler(
         signum: SignumType,
         this_frame: FrameType | None,
     ) -> None:

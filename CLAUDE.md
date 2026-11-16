@@ -823,6 +823,12 @@ running during a blocking wait can hang a program waiting for its own alarm
   `test/signal_test.py` on CI). The C handler ignores a `SIGALRM` while the
   sample is pending: it only wakes the wait, it isn't another sample.
   Windows' timer thread has the same one-second backstop.
+  The reload also fires *during* a handler call that takes over a second,
+  and CPython runs Python signal handlers inside one another, so
+  `cpu_signal_handler` returns at once if it is already running. Without
+  that guard, a torch profiler window that took seconds to stop and parse
+  (`TorchProfiler.step()`) was interrupted by nested calls every 10 ms
+  (each re-armed the timer), and CI's parity test ran out of memory.
 - **C-handler re-arms must not look like handled ticks.** libscalene's
   EINTR-retry interposer (#1060, `eintr_retry.hpp`) retries a wait only if
   `setitimer` was called since it began, i.e. the Python handler ran. Timers
