@@ -779,6 +779,15 @@ includes CPython's internal headers (MSVC can't compile them as C++), and
 `_scalene_unwind` gets it through a capsule. It reads only when the signal
 landed on the main thread (on Windows the timer thread suspends the main
 thread to read it).
+**Never dereference what it reads directly**: the signal can land while
+the frame chain is mid-update. On 3.11/3.12, `_PyEval_EvalFrameDefault`
+publishes its new `_PyCFrame` before setting `current_frame`, so for a few
+instructions that field is leftover stack data; under the pytest plugin
+(sys.monitoring callbacks enter the eval loop constantly) it pointed at
+`None`, and following it segfaulted. Every read through a frame-chain
+pointer goes through `safe_copy()` (`process_vm_readv` on Linux,
+`mach_vm_read_overwrite` on macOS, SEH on Windows), which fails instead of
+faulting; if it is unavailable (seccomp), there is simply no location.
 While the Python handler is pending, the C handler keeps a CPU-time timer
 (`ITIMER_VIRTUAL`) running, so long C code is sampled on every line it
 spans; in wall-clock mode a record-only C handler takes `SIGVTALRM` for
