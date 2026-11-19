@@ -47,7 +47,7 @@ clear-vendor-dirs:
 
 pkg: vendor/Heap-Layers vendor/printf/printf.cpp
 	-rm -rf dist build *egg-info
-	$(PYTHON) setup.py sdist bdist_wheel
+	$(PYTHON) -m build
 
 upload: pkg # to pypi
 	$(PYTHON) -m twine upload dist/*
