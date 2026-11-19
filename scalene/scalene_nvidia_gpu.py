@@ -1,11 +1,13 @@
 import contextlib
 import os
 import sys
-from typing import Tuple
+from typing import List, Tuple
 
 import pynvml
 
 from scalene.scalene_accelerator import ScaleneAccelerator
+
+MAX_UTILIZATION = 100.0
 
 
 class ScaleneNVIDIAGPU(ScaleneAccelerator):
@@ -17,6 +19,8 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
         self.__gpu_device = ""
         self.__pid = os.getpid()
         self.__has_per_pid_accounting = False
+        self.__last_ts: List[int] = []
+        self.__last_util: List[float] = []
         with contextlib.suppress(Exception):
             pynvml.nvmlInit()
             # Try to actually get utilization and memory usage.
@@ -25,6 +29,7 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
             self.__handle = [
                 pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(self.__ngpus)
             ]
+            self._reset_utilization_samples()
             self.__has_per_pid_accounting = self._set_accounting_mode()
             self.gpu_utilization(self.__pid)
             self.gpu_memory_usage(self.__pid)
@@ -76,19 +81,26 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
             return 0
         ngpus = self.__ngpus
         accounting_on = self.__has_per_pid_accounting
-        utilization = 0
+        utilization = 0.0
         for i in range(ngpus):
             h = self.__handle[i]
             if accounting_on:
                 with contextlib.suppress(Exception):
-                    utilization += pynvml.nvmlDeviceGetAccountingStats(
-                        h, pid
-                    ).gpuUtilization
+                    samples = pynvml.nvmlDeviceGetProcessUtilization(
+                        h, self.__last_ts[i]
+                    )
+                    if samples:
+                        self.__last_ts[i] = max(s.timeStamp for s in samples)
+                        mine = [s.smUtil for s in samples if s.pid == pid]
+                        self.__last_util[i] = (
+                            min(sum(mine) / len(mine), MAX_UTILIZATION) if mine else 0.0
+                        )
+                utilization += self.__last_util[i]
             else:
                 with contextlib.suppress(pynvml.NVMLError):
                     # Silently ignore NVML errors. "Fixes" https://github.com/plasma-umass/scalene/issues/471.
                     utilization += pynvml.nvmlDeviceGetUtilizationRates(h).gpu
-        return (utilization / ngpus) / 100.0
+        return (utilization / ngpus) / MAX_UTILIZATION
 
     def has_gpu(self) -> bool:
         """True iff the system has a detected GPU."""
@@ -108,6 +120,12 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
             self.__handle.extend(
                 pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(self.__ngpus)
             )
+            self._reset_utilization_samples()
+
+    def _reset_utilization_samples(self) -> None:
+        """Start reading per-process utilization samples afresh on every GPU."""
+        self.__last_ts = [0] * self.__ngpus
+        self.__last_util = [0.0] * self.__ngpus
 
     def gpu_memory_usage(self, pid: int) -> float:
         """Returns GPU memory used by the process pid, in MB."""
