@@ -1,11 +1,23 @@
 import contextlib
 import os
 import sys
-from typing import Tuple
+import time
+from typing import List, Tuple
 
 import pynvml
 
 from scalene.scalene_accelerator import ScaleneAccelerator
+
+MAX_UTILIZATION = 100.0
+
+# NVML takes a per-process utilization sample every 1/6 s to 1 s, but Scalene
+# asks on every CPU sample (~10 ms). Query at most this often (seconds).
+UTILIZATION_QUERY_INTERVAL = 0.1
+
+# NVIDIA documents that idle processes get no samples, so a missing sample can
+# mean "idle". Once no new sample has arrived for this long (seconds), report 0
+# rather than holding the last value forever.
+UTILIZATION_STALE_AFTER = 2.0
 
 
 class ScaleneNVIDIAGPU(ScaleneAccelerator):
@@ -17,6 +29,11 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
         self.__gpu_device = ""
         self.__pid = os.getpid()
         self.__has_per_pid_accounting = False
+        self.__last_ts: List[int] = []
+        self.__last_util: List[float] = []
+        self.__last_sample_time: List[float] = []
+        self.__proc_util_supported: List[bool] = []
+        self.__last_query_time = 0.0
         with contextlib.suppress(Exception):
             pynvml.nvmlInit()
             # Try to actually get utilization and memory usage.
@@ -25,6 +42,7 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
             self.__handle = [
                 pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(self.__ngpus)
             ]
+            self._reset_utilization_samples()
             self.__has_per_pid_accounting = self._set_accounting_mode()
             self.gpu_utilization(self.__pid)
             self.gpu_memory_usage(self.__pid)
@@ -76,10 +94,22 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
             return 0
         ngpus = self.__ngpus
         accounting_on = self.__has_per_pid_accounting
-        utilization = 0
+        utilization = 0.0
+        now = time.monotonic()
+        query = now - self.__last_query_time >= UTILIZATION_QUERY_INTERVAL
+        if accounting_on and query:
+            self.__last_query_time = now
         for i in range(ngpus):
             h = self.__handle[i]
-            if accounting_on:
+            if accounting_on and self.__proc_util_supported[i]:
+                if query:
+                    self._read_process_utilization(i, h, pid, now)
+                if now - self.__last_sample_time[i] > UTILIZATION_STALE_AFTER:
+                    self.__last_util[i] = 0.0
+                utilization += self.__last_util[i]
+            elif accounting_on:
+                # Per-process sampling is unsupported (e.g., MIG): fall back to
+                # the lifetime average, which is better than nothing.
                 with contextlib.suppress(Exception):
                     utilization += pynvml.nvmlDeviceGetAccountingStats(
                         h, pid
@@ -88,7 +118,7 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
                 with contextlib.suppress(pynvml.NVMLError):
                     # Silently ignore NVML errors. "Fixes" https://github.com/plasma-umass/scalene/issues/471.
                     utilization += pynvml.nvmlDeviceGetUtilizationRates(h).gpu
-        return (utilization / ngpus) / 100.0
+        return (utilization / ngpus) / MAX_UTILIZATION
 
     def has_gpu(self) -> bool:
         """True iff the system has a detected GPU."""
@@ -108,6 +138,43 @@ class ScaleneNVIDIAGPU(ScaleneAccelerator):
             self.__handle.extend(
                 pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(self.__ngpus)
             )
+            self._reset_utilization_samples()
+
+    def _reset_utilization_samples(self) -> None:
+        """Start reading per-process utilization samples afresh on every GPU."""
+        self.__last_ts = [0] * self.__ngpus
+        self.__last_util = [0.0] * self.__ngpus
+        self.__last_sample_time = [0.0] * self.__ngpus
+        self.__proc_util_supported = [True] * self.__ngpus
+        self.__last_query_time = 0.0
+
+    def _read_process_utilization(
+        self, i: int, h: object, pid: int, now: float
+    ) -> None:
+        """Update GPU i's load for pid from any new NVML samples.
+
+        Keeps the previous load when there is no new sample (NOT_FOUND).
+        """
+        try:
+            samples = pynvml.nvmlDeviceGetProcessUtilization(h, self.__last_ts[i])
+        except pynvml.NVMLError_NotSupported:
+            self.__proc_util_supported[i] = False
+            return
+        except Exception:
+            return
+        if not samples:
+            return
+        self.__last_ts[i] = max(s.timeStamp for s in samples)
+        self.__last_sample_time[i] = now
+        # Use only the newest sample: the first read after startup returns
+        # NVML's whole buffer, and averaging it would report stale history.
+        mine = [s for s in samples if s.pid == pid]
+        if mine:
+            latest = max(mine, key=lambda s: s.timeStamp)
+            self.__last_util[i] = min(float(latest.smUtil), MAX_UTILIZATION)
+        else:
+            # NVML sampled the GPU and this process wasn't on it.
+            self.__last_util[i] = 0.0
 
     def gpu_memory_usage(self, pid: int) -> float:
         """Returns GPU memory used by the process pid, in MB."""
