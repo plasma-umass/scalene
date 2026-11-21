@@ -172,6 +172,55 @@ def test_reload_is_not_another_sample(helper: Path) -> None:
     assert len(arrival[2]) == 1
 
 
+
+def test_reload_on_another_thread_is_not_another_sample(helper: Path) -> None:
+    """A SIGALRM can land on any thread that doesn't block it, so with other
+    threads alive, an expiry can arrive while the handler for the previous one
+    is still running on the main thread (or is preempted mid-handler). Both
+    used to see "no arrival pending" and record one each."""
+    import ctypes
+    import hashlib
+    import threading
+
+    from scalene.scalene_utility import (
+        consume_cpu_signal_arrival,
+        install_cpu_signal_timestamper,
+        set_cpu_signal_rearm_interval,
+    )
+
+    lib = ctypes.CDLL(str(helper))
+    lib.spin.argtypes = [ctypes.c_double]
+    stop = threading.Event()
+
+    def worker() -> None:
+        data = b"x" * (1 << 20)
+        while not stop.is_set():
+            hashlib.sha256(data).digest()  # releases the GIL
+
+    threads = [threading.Thread(target=worker, daemon=True) for _ in range(4)]
+    old = _signal.signal(signal.SIGALRM, lambda *_: None)
+    counts = []
+    try:
+        if not install_cpu_signal_timestamper(signal.SIGALRM):
+            pytest.skip("C signal handler unavailable")
+        set_cpu_signal_rearm_interval(0)
+        for t in threads:
+            t.start()
+        for _ in range(40):
+            consume_cpu_signal_arrival()
+            _signal.setitimer(signal.ITIMER_REAL, 0.005, 0.005)
+            lib.spin(0.05)
+            _signal.setitimer(signal.ITIMER_REAL, 0)
+            arrival = consume_cpu_signal_arrival()
+            counts.append(len(arrival[2]) if arrival else 0)
+    finally:
+        stop.set()
+        _signal.setitimer(signal.ITIMER_REAL, 0)
+        _signal.signal(signal.SIGALRM, old if old is not None else _signal.SIG_DFL)
+        for t in threads:
+            t.join()
+    assert set(counts) == {1}, counts
+
 def test_wall_clock_timer_reloads_until_rearmed() -> None:
     from scalene.scalene_signal_manager import (
         CPU_TIMER_BACKUP_INTERVAL,

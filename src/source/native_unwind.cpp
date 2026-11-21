@@ -364,6 +364,17 @@ struct sigaction g_prev_action[NSIG];
 //
 // Only the earliest arrival since the last consume is kept.
 std::atomic<int> g_arrival_pending{0};
+#if SCALENE_UNWIND_AVAILABLE
+// Set by the one handler invocation that owns the pending arrival, with a
+// single exchange, cleared by consume_arrival(). A process-directed signal
+// can be delivered to any thread, so two handler invocations can overlap
+// (the second timer expiry lands on another thread while the first runs on
+// the main thread, or the first is preempted mid-handler). Checking
+// g_arrival_pending and then setting it let both see "none pending": a
+// SIGALRM reload was recorded as a second arrival, and the earliest-arrival
+// times could be overwritten by a later one.
+std::atomic<int> g_arrival_claimed{0};
+#endif
 std::atomic<int64_t> g_arrival_wall_ns{0};
 std::atomic<int64_t> g_arrival_cpu_ns{0};
 // Stack capture into g_ring is opt-in (--stacks); timestamps are not.
@@ -599,21 +610,22 @@ void scalene_signal_unwinder(int sig, siginfo_t* si, void* ucontext) {
   // isn't another sample -- the CPU-time timer records those -- but it
   // interrupts a wait that the first signal missed (it landed just before
   // the wait began), so CPython runs the handler instead of sleeping forever.
-  if (sig == SIGALRM && g_arrival_pending.load(std::memory_order_acquire)) {
+  int64_t wall = clock_ns(CLOCK_MONOTONIC);
+  int64_t cpu = clock_ns(CLOCK_PROCESS_CPUTIME_ID);
+  bool first = g_arrival_claimed.exchange(1, std::memory_order_acq_rel) == 0;
+  if (sig == SIGALRM && !first) {
     chain_to_previous(sig, si, ucontext);
     return;
   }
 
   {
-    int64_t wall = clock_ns(CLOCK_MONOTONIC);
-    int64_t cpu = clock_ns(CLOCK_PROCESS_CPUTIME_ID);
     // Another thread's frames can be popped and freed under us, so only
     // look when the signal landed on the main thread.
     int k = record_arrival(
         wall, cpu,
         on_main_thread() ? g_main_tstate.load(std::memory_order_acquire)
                          : nullptr);
-    if (g_arrival_pending.load(std::memory_order_acquire) == 0) {
+    if (first) {
       g_arrival_wall_ns.store(wall, std::memory_order_relaxed);
       g_arrival_cpu_ns.store(cpu, std::memory_order_relaxed);
       g_arrival_pending.store(1, std::memory_order_release);
@@ -963,6 +975,9 @@ PyObject* py_consume_arrival(PyObject* /*self*/, PyObject* /*args*/) {
   int64_t now_wall = clock_ns(CLOCK_MONOTONIC);
   int64_t now_cpu = clock_ns(CLOCK_PROCESS_CPUTIME_ID);
   g_arrival_pending.store(0, std::memory_order_release);
+  // After pending: a handler that claims the next arrival publishes it only
+  // once this one is consumed.
+  g_arrival_claimed.store(0, std::memory_order_release);
   note_main_thread();
   return arrival_tuple(wall, cpu, now_wall, now_cpu);
 #elif defined(_WIN32)
