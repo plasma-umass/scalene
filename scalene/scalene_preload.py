@@ -139,7 +139,12 @@ class ScalenePreload:
                 "-m",
                 "scalene",
             ] + sys.argv[1:]
-            result = subprocess.Popen(new_args, close_fds=True, shell=False)
+            # Keep inherited file descriptors open: the relaunched process
+            # gets the same argv, which may reference inherited fds (e.g.,
+            # multiprocessing spawn workers receive
+            # `spawn_main(tracker_fd=N, pipe_handle=M)`). Closing them makes
+            # the worker fail with EBADF in os.dup(pipe_handle). See #1153.
+            result = subprocess.Popen(new_args, close_fds=False, shell=False)
             with contextlib.suppress(Exception):
                 # If running in the background, print the PID.
                 if os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
