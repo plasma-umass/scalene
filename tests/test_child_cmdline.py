@@ -209,3 +209,65 @@ def test_alias_forwards_profile_all():
 def test_alias_omits_profile_all_when_parent_omits_it():
     alias = _run_scalene_and_capture_alias()
     assert "--profile-all" not in alias, f"alias body was: {alias!r}"
+
+
+def test_allocation_sampling_window_propagated():
+    """Regression for #1153: the child must see the same allocation
+    sampling window as the parent. Otherwise its setup_preload sees
+    SCALENE_ALLOCATION_SAMPLING_WINDOW (inherited from the parent) differ
+    from its own default and re-execs itself, which broke multiprocessing
+    spawn workers."""
+    cmdline = Scalene._build_child_cmdline(
+        _ns(allocation_sampling_window=10485773), "", 1
+    )
+    quote = '"' if sys.platform == "win32" else "'"
+    assert f"--allocation-sampling-window={quote}10485773{quote}" in cmdline
+
+
+def test_alias_forwards_allocation_sampling_window():
+    alias = _run_scalene_and_capture_alias("--allocation-sampling-window=10485773")
+    assert "--allocation-sampling-window=" in alias, f"alias body was: {alias!r}"
+    assert "10485773" in alias, f"alias body was: {alias!r}"
+
+
+_SPAWN_POOL = textwrap.dedent("""\
+    import multiprocessing as mp
+    from concurrent.futures import ProcessPoolExecutor
+
+    def square(value):
+        return value * value
+
+    if __name__ == "__main__":
+        ctx = mp.get_context("spawn")
+        with ProcessPoolExecutor(max_workers=2, mp_context=ctx) as pool:
+            print("RESULT", list(pool.map(square, range(4))), flush=True)
+""")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="memory profiling via preload")
+def test_spawn_pool_with_custom_allocation_sampling_window():
+    """Regression for #1153: a spawn-based ProcessPoolExecutor must not
+    break (BrokenProcessPool / EBADF in spawn_main) when a non-default
+    --allocation-sampling-window is used."""
+    with tempfile.TemporaryDirectory(prefix="scalene_1153_") as tmp:
+        tmp = pathlib.Path(tmp)
+        script = tmp / "spawn_pool.py"
+        script.write_text(_SPAWN_POOL)
+        cmd = [
+            sys.executable,
+            "-m",
+            "scalene",
+            "run",
+            "--memory",
+            "--allocation-sampling-window=10485773",
+            "-o",
+            str(tmp / "profile.json"),
+            str(script),
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        assert "Bad file descriptor" not in proc.stderr, proc.stderr[-2000:]
+        assert "BrokenProcessPool" not in proc.stderr, proc.stderr[-2000:]
+        assert "RESULT [0, 1, 4, 9]" in proc.stdout, (
+            f"rc={proc.returncode}\nstdout={proc.stdout[-1000:]}\n"
+            f"stderr={proc.stderr[-2000:]}"
+        )
