@@ -152,6 +152,15 @@ CHILD_PROPAGATED_ARGS: Tuple[ChildArgSpec, ...] = (
     ChildArgSpec("async_profile", "--no-async", invert=True),
     ChildArgSpec("profile_only", "--profile-only", takes_value=True),
     ChildArgSpec("profile_exclude", "--profile-exclude", takes_value=True),
+    # Not scope-affecting, but must match the parent: the child's
+    # setup_preload compares SCALENE_ALLOCATION_SAMPLING_WINDOW (inherited
+    # from the parent) against its own args, and on mismatch re-execs
+    # itself, which used to break multiprocessing spawn workers (#1153).
+    ChildArgSpec(
+        "allocation_sampling_window",
+        "--allocation-sampling-window",
+        takes_value=True,
+    ),
 )
 
 
