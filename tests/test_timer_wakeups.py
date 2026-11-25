@@ -219,7 +219,14 @@ def test_reload_on_another_thread_is_not_another_sample(helper: Path) -> None:
         _signal.signal(signal.SIGALRM, old if old is not None else _signal.SIG_DFL)
         for t in threads:
             t.join()
-    assert set(counts) == {1}, counts
+    # The bug (#1151) was a second record per expiry burst. Zero is benign:
+    # a process-directed SIGALRM can be assigned to a worker thread that
+    # isn't running (e.g. on a loaded macOS CI runner); later expiries
+    # coalesce into that pending signal, so its handler may run only after
+    # the spin and the consume above. The profiler tolerates a missing
+    # arrival, so only require that most iterations saw one.
+    assert max(counts) <= 1, counts
+    assert counts.count(1) >= len(counts) // 2, counts
 
 def test_wall_clock_timer_reloads_until_rearmed() -> None:
     from scalene.scalene_signal_manager import (
