@@ -142,17 +142,24 @@ class ScaleneAsync:
     def _poll_suspended_tasks(cls) -> list[SuspendedTaskInfo]:
         """Strategy A: Poll asyncio.all_tasks() to find suspended coroutines.
 
-        This is called from the signal queue processor (daemon thread),
-        not from the signal handler itself. By the time this runs, some
-        tasks may have changed state, but over many samples this gives
-        correct proportional attribution.
+        This runs inside the CPU signal handler, on the main thread, so it
+        must not take locks the interrupted code may hold. In particular it
+        must not call asyncio.get_event_loop(): when no loop is running that
+        goes through get_event_loop_policy(), which on first use takes
+        asyncio.events._lock (a non-reentrant threading.Lock). If the signal
+        lands while the main thread is inside _init_event_loop_policy() --
+        and is_in_event_loop() reports True for exactly such asyncio.events
+        frames -- the handler deadlocks on that lock forever. This hung
+        ``pytest --scalene`` with pytest-asyncio installed on CI.
+        asyncio._get_running_loop() just reads a thread-local and takes no
+        lock; with no running loop there is nothing to poll anyway.
+
+        By the time this runs, some tasks may have changed state, but over
+        many samples this gives correct proportional attribution.
         """
         result: list[SuspendedTaskInfo] = []
-        try:
-            loop = asyncio.get_event_loop()
-            if not loop.is_running():
-                return result
-        except RuntimeError:
+        loop = asyncio._get_running_loop()
+        if loop is None:
             return result
 
         try:

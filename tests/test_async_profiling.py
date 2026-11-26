@@ -342,3 +342,59 @@ class TestSysMonitoring:
         code.co_flags = 0
         ScaleneAsync._on_resume(code, 0)
         assert ScaleneAsync._active_task_id is None
+
+
+def test_poll_does_not_take_event_loop_policy_lock(monkeypatch):
+    """Regression: _poll_suspended_tasks runs in the CPU signal handler on
+    the main thread. It used to call asyncio.get_event_loop(), which, before
+    the event loop policy exists, takes asyncio.events._lock -- a
+    non-reentrant lock. A signal landing while the main thread was inside
+    _init_event_loop_policy() (holding that lock; is_in_event_loop() reports
+    True for asyncio.events frames) then deadlocked the handler forever,
+    hanging `pytest --scalene` on CI.
+
+    Recreate that state -- no policy yet, lock held -- and check the poll
+    returns instead of blocking. It runs on a helper thread so a regression
+    fails the test rather than hanging the suite.
+    """
+    import asyncio.events
+    import threading
+
+    from scalene.scalene_async import ScaleneAsync
+
+    monkeypatch.setattr(asyncio.events, "_event_loop_policy", None)
+    done = threading.Event()
+    result = []
+
+    def poll():
+        result.append(ScaleneAsync._poll_suspended_tasks())
+        done.set()
+
+    with asyncio.events._lock:
+        t = threading.Thread(target=poll, daemon=True)
+        t.start()
+        finished = done.wait(timeout=5)
+    t.join(timeout=5)
+    assert finished, "_poll_suspended_tasks blocked on asyncio.events._lock"
+    assert result == [[]]
+
+
+def test_poll_finds_suspended_task_in_running_loop():
+    """The lock-free lookup still sees the running loop's tasks."""
+    import asyncio
+
+    from scalene.scalene_async import ScaleneAsync
+
+    async def sleeper():
+        await asyncio.sleep(10)
+
+    async def main():
+        task = asyncio.ensure_future(sleeper())
+        await asyncio.sleep(0)  # let it start and suspend
+        try:
+            return ScaleneAsync._poll_suspended_tasks()
+        finally:
+            task.cancel()
+
+    found = asyncio.run(main())
+    assert any(info.lineno for info in found), found
