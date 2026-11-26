@@ -48,6 +48,11 @@ IORegistryEntryCreateCFProperty.argtypes = [
 IORegistryEntryCreateCFProperty.restype = CFTypeRef
 
 # --- CF APIs
+# CF objects should be released with CFRelease.
+CFRelease = corefoundation.CFRelease
+CFRelease.argtypes = [CFTypeRef]
+CFRelease.restype = None
+
 CFGetTypeID = corefoundation.CFGetTypeID
 CFGetTypeID.argtypes = [CFTypeRef]
 CFGetTypeID.restype = ctypes.c_long
@@ -108,14 +113,14 @@ def _read_gpu_core_count(service_obj: io_registry_entry_t) -> int:
     )
     if not cf_core_count or (CFGetTypeID(cf_core_count) != CFNumberGetTypeID()):
         if cf_core_count:
-            IOObjectRelease(cf_core_count)
+            CFRelease(cf_core_count)
         return 0
 
     val_container_64 = ctypes.c_longlong(0)
     success = CFNumberGetValue(
         cf_core_count, kCFNumberSInt64Type, ctypes.byref(val_container_64)
     )
-    IOObjectRelease(cf_core_count)
+    CFRelease(cf_core_count)
     return val_container_64.value if success else 0
 
 
@@ -133,7 +138,7 @@ def _read_perf_stats(service_obj: io_registry_entry_t) -> Tuple[float, float]:
     )
     if not perf_dict_ref or (CFGetTypeID(perf_dict_ref) != CFDictionaryGetTypeID()):
         if perf_dict_ref:
-            IOObjectRelease(perf_dict_ref)
+            CFRelease(perf_dict_ref)
         return (0.0, 0.0)
 
     # Device Utilization
@@ -152,7 +157,7 @@ def _read_perf_stats(service_obj: io_registry_entry_t) -> Tuple[float, float]:
         if CFNumberGetValue(mem_val_ref, kCFNumberSInt64Type, ctypes.byref(val64)):
             in_use_mem = float(val64.value) / 1048576.0  # convert bytes -> MB
 
-    IOObjectRelease(perf_dict_ref)
+    CFRelease(perf_dict_ref)
     return (device_util, in_use_mem)
 
 
@@ -243,7 +248,7 @@ if __name__ == "__main__":
         print(f"Elapsed time: {stop - start:.6f} seconds.")
         cores = gpu.get_num_cores()
         print(
-            f"GPU Utilization: {util*100:.1f}%, "
+            f"GPU Utilization: {util * 100:.1f}%, "
             f"In-Use GPU Memory: {mem:.2f} MB, "
             f"GPU Core Count: {cores}"
         )
