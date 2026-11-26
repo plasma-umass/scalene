@@ -36,11 +36,17 @@ jobs:
       fail-fast: false
       matrix:
         python_version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.13t', '3.14t']
-        plat: ['manylinux_2_28', 'macos-latest', 'windows-latest']
+        plat: ['manylinux_2_28', 'manylinux_2_28_aarch64', 'macos-latest', 'windows-latest']
         include:
           - plat: manylinux_2_28
             os: ubuntu-latest
             container: quay.io/pypa/manylinux_2_28_x86_64  # https://github.com/pypa/manylinux
+
+          # Linux aarch64 (e.g., AWS Graviton), built natively on GitHub's
+          # arm64 runners rather than under QEMU emulation.
+          - plat: manylinux_2_28_aarch64
+            os: ubuntu-24.04-arm
+            container: quay.io/pypa/manylinux_2_28_aarch64
 
           - plat: macos-latest
             os: macos-latest
@@ -62,6 +68,8 @@ jobs:
 
           # The manylinux_2_28 image ships no cp313-cp313t interpreter.
           - plat: manylinux_2_28
+            python_version: 3.13t
+          - plat: manylinux_2_28_aarch64
             python_version: 3.13t
 
     runs-on: ${{ matrix.os }}
