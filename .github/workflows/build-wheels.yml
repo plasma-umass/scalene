@@ -43,7 +43,9 @@ jobs:
       fail-fast: true
       matrix:
         # ubuntu-latest (26.04) has no setup-python 3.9; 24.04 does.
-        os: [ ubuntu-24.04, macos-latest, windows-latest ]
+        # ubuntu-24.04-arm builds and smoke-tests Linux aarch64 (Graviton)
+        # wheels natively.
+        os: [ ubuntu-24.04, ubuntu-24.04-arm, macos-latest, windows-latest ]
         python: [ '3.9', '3.14' ]
 
     steps:
